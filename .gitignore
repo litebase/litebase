@@ -1,0 +1,10 @@
+/build
+/cache
+/data
+/node_modules
+/output
+/vendor
+error.log
+.DS_STORE
+.env
+.phpunit.result.cache

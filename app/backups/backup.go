@@ -1,0 +1,182 @@
+package backups
+
+import (
+	"crypto/sha1"
+	"fmt"
+	"litebasedb/runtime/app/database"
+	"log"
+	"os"
+	"strings"
+	"time"
+)
+
+//	type Backup interface {
+//		createSnapShot() Snapshot
+//		Exists() bool
+//		FileDirectory() string
+//		getLastLineofHeadFile() string
+//		GetSnapShot() Snapshot
+//		lockFilePath() string
+//		objectPath(hash string) string
+//		ObtainLock() Lock
+//		Run() Backup
+//		ToMap() map[string]interface{}
+//		writePage(page []byte) error
+//	}
+type Backup struct {
+	branchUuid        string
+	databaseUuid      string
+	fileDirCache      map[string]bool
+	fileDirectory     string
+	pageHashes        []string
+	snapshot          *Snapshot
+	snapshotTimestamp int64
+
+	AccessHeadFile
+}
+
+func (b *Backup) createSnapShot() *Snapshot {
+	snapshot := &Snapshot{
+		branchUuid:   b.branchUuid,
+		databaseUuid: b.databaseUuid,
+		timestamp:    b.snapshotTimestamp,
+		pageHashes:   b.pageHashes,
+	}
+
+	lashHash := b.getLastLineofHeadFile()
+
+	if snapshot.Hash == lashHash {
+		return snapshot
+	}
+
+	// Append the last hash to the head file
+
+	return snapshot
+}
+
+func (b *Backup) Exists() bool
+
+func (b *Backup) FileDirectory() string {
+	if b.fileDirectory != "" {
+		b.fileDirectory = database.GetFileDir(b.databaseUuid, b.branchUuid)
+	}
+
+	return b.fileDirectory
+}
+func (b *Backup) getLastLineofHeadFile() string {
+	path := b.headFilePath(b.databaseUuid, b.branchUuid, b.snapshotTimestamp)
+	file, err := os.Open(path)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ""
+		}
+
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	cursor := int64(-1)
+	char := make([]byte, 1)
+	var line string
+
+	file.Seek(cursor, os.SEEK_END)
+
+	_, err = file.ReadAt(char, cursor)
+
+	if err != nil {
+		return ""
+	}
+
+	for {
+		cursor--
+
+		file.Seek(cursor, os.SEEK_END)
+
+		_, err := file.ReadAt(char, cursor)
+
+		if err != nil || string(char) != "\n" && string(char) != "\r" {
+			break
+		}
+	}
+
+	for {
+		line = string(char) + line
+		cursor--
+
+		file.Seek(cursor, os.SEEK_END)
+		_, err := file.ReadAt(char, cursor)
+
+		if err != nil || string(char) == "\n" || string(char) == "\r" {
+			break
+		}
+	}
+
+	return string(line)
+}
+
+func (b *Backup) GetSnapShot() *Snapshot {
+	return NewSnapshot(b.databaseUuid, b.branchUuid, b.snapshotTimestamp, "")
+}
+
+func (b *Backup) lockFilePath() string {
+	return strings.Join([]string{
+		b.FileDirectory(),
+		BACKUP_DIR,
+		"backup.lock",
+	}, "/")
+}
+func (b *Backup) objectPath(hash string) string {
+	return strings.Join([]string{
+		b.FileDirectory(),
+		BACKUP_DIR,
+		fmt.Sprintf("%x", b.snapshotTimestamp),
+		BACKUP_OBJECT_DIR,
+		hash,
+	}, "/")
+}
+
+func (b *Backup) ObtainLock() *Lock {
+	stat, err := os.Stat(b.lockFilePath())
+
+	if err != nil && os.IsNotExist(err) {
+		return NewLock(b.lockFilePath())
+	}
+
+	fileUpdatedAt := stat.ModTime().Unix()
+
+	if (time.Now().Unix() - fileUpdatedAt) > 180 {
+
+		os.Remove(b.lockFilePath())
+	} else {
+		return nil
+	}
+
+	return NewLock(b.lockFilePath())
+}
+
+func (b *Backup) writePage(page []byte) string {
+	hash := sha1.New()
+	hash.Write(page)
+	hashString := fmt.Sprintf("%x", hash.Sum(nil))
+	fileDir := b.objectPath(hashString[0:2])
+	fileName := hashString[2:]
+	fileDest := strings.Join([]string{fileDir, fileName}, "/")
+	_, hasDirectoryInCache := b.fileDirCache[fileDir]
+
+	if !hasDirectoryInCache {
+		if _, err := os.Stat(fileDest); os.IsNotExist(err) {
+			os.MkdirAll(fileDir, 0755)
+			b.fileDirCache[fileDir] = true
+		}
+	}
+
+	err := os.WriteFile(fileDest, page, 0644)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return hashString
+}
