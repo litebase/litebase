@@ -1,16 +1,25 @@
 package database
 
-import "litebasedb/runtime/app/sqlite3"
+import (
+	"litebasedb/runtime/app/auth"
+	"litebasedb/runtime/app/config"
+	"litebasedb/runtime/app/sqlite3"
+	"log"
+)
 
 type DatabaseOperator struct {
 	inTransaction  bool
 	isWriting      bool
 	isTransmitting bool
+	wal            *DatabaseWAL
 }
 
-var Operator = DatabaseOperator{
-	inTransaction: false,
-	isWriting:     false,
+func NewOperator(wal *DatabaseWAL) *DatabaseOperator {
+	return &DatabaseOperator{
+		inTransaction: false,
+		isWriting:     false,
+		wal:           wal,
+	}
 }
 
 func (o *DatabaseOperator) Monitor(isRead bool, callback func() (sqlite3.Result, error)) (sqlite3.Result, error) {
@@ -30,12 +39,42 @@ func (o *DatabaseOperator) IsWriting() bool {
 }
 
 func (o *DatabaseOperator) Record() {
+	branchUuid := config.Get("branch_uuid")
+	databaseUuid := config.Get("database_uuid")
+	settings, err := auth.SecretsManager().GetDatabaseSettings(databaseUuid, branchUuid)
+
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	branchSettings, hasBranchSettings := settings["branch_settings"].(map[string]interface{})
+
+	if !hasBranchSettings {
+		return
+	}
+
+	backupSettings, hasBackupSettings := branchSettings["backups"]
+
+	if !hasBackupSettings || !backupSettings.(map[string]interface{})["enabled"].(bool) {
+		return
+	}
+
+	incrementalBackupSettings, hasIncrementalBackupSettings := backupSettings.(map[string]interface{})["inremental_backups"]
+
+	if !hasIncrementalBackupSettings || !incrementalBackupSettings.(map[string]interface{})["enabled"].(bool) {
+		return
+	}
+
+	// ||
+	// !(settings["branch_settings"].(map[string]interface{})["backups"].(map[string]interface{})["enabled"])
+	// {}
 
 }
 
 func (o *DatabaseOperator) Transmit() {
 	o.isTransmitting = true
-	WAL.CheckPoint()
+	o.wal.CheckPoint()
 	o.isTransmitting = false
 }
 

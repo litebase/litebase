@@ -27,6 +27,10 @@ func NewConfig() *Config {
 }
 
 func Get(key string) string {
+	if StaticConfig == nil {
+		NewConfig()
+	}
+
 	if value, ok := StaticConfig.data[key]; ok {
 		return value
 	}
@@ -35,5 +39,9 @@ func Get(key string) string {
 }
 
 func Set(key string, value string) {
+	if StaticConfig == nil {
+		NewConfig()
+	}
+
 	StaticConfig.data[key] = value
 }

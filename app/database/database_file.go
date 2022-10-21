@@ -42,6 +42,10 @@ func CreateDatabaseFile(path string) (*DatabaseFile, error) {
 	return databaseFile, nil
 }
 
+func (d *DatabaseFile) File() *os.File {
+	return d.file
+}
+
 func NewDatabaseFile(path string) (*DatabaseFile, error) {
 	databaseFile := &DatabaseFile{
 		Path: path,

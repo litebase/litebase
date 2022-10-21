@@ -45,6 +45,7 @@ func Unlock() {
 }
 
 func lockPath() string {
+	// TODO: Update to actual database path
 	return fmt.Sprintf("%s/%s.lock",
 		os.Getenv("DATABASE_DIRECTORY"), os.Getenv("DATABASE_NAME"),
 	)

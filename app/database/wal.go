@@ -5,16 +5,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"os"
 	"sort"
 
 	"github.com/psanford/sqlite3vfs"
 )
 
 type DatabaseWAL struct {
+	databasePath    string
+	dirtyPages      map[int64]*Page
 	headerHash      string
 	isCheckPointing bool
-	dirtyPages      map[int64]Page
 	pageSize        int
 }
 
@@ -23,10 +23,13 @@ type Page struct {
 	data   []byte
 }
 
-var WAL = DatabaseWAL{
-	isCheckPointing: false,
-	dirtyPages:      make(map[int64]Page),
-	pageSize:        4096,
+func NewWAL(path string) *DatabaseWAL {
+	return &DatabaseWAL{
+		databasePath:    path,
+		isCheckPointing: false,
+		dirtyPages:      make(map[int64]*Page),
+		pageSize:        4096,
+	}
 }
 
 func (w *DatabaseWAL) CheckPoint() {
@@ -36,7 +39,7 @@ func (w *DatabaseWAL) CheckPoint() {
 
 	w.isCheckPointing = true
 
-	file, _, err := LitebaseDBVFS.Open(os.Getenv("DATABASE_NAME"), 0)
+	file, _, err := LitebaseDBVFS.Open(w.databasePath, 0)
 
 	if err != nil {
 		log.Fatal(err)
@@ -78,7 +81,7 @@ func (w *DatabaseWAL) CheckPoint() {
 	// file.Sync(3)
 
 	// w.RefresHeaderHash(file)
-	w.dirtyPages = make(map[int64]Page)
+	w.dirtyPages = make(map[int64]*Page)
 	w.isCheckPointing = false
 	// concurrency.Unlock()
 }
@@ -149,7 +152,7 @@ func (w *DatabaseWAL) SetHeaderHash(hash []byte) {
 func (w *DatabaseWAL) WriteAt(data []byte, offset int64) (int, error) {
 	pageNumber := offset / int64(w.pageSize)
 
-	w.dirtyPages[pageNumber] = Page{
+	w.dirtyPages[pageNumber] = &Page{
 		data:   data,
 		offset: offset,
 	}

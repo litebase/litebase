@@ -8,11 +8,13 @@ require (
 	github.com/gofiber/fiber/v2 v2.38.1
 	github.com/google/uuid v1.3.0
 	github.com/psanford/sqlite3vfs v0.0.0-20220823065410-bd28ac7ee3c2
+	golang.org/x/net v0.0.0-20221004154528-8021a29435af
 )
 
 require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.15 // indirect
+	golang.org/x/text v0.3.7 // indirect
 )
 
 require (
@@ -23,5 +25,5 @@ require (
 	github.com/valyala/fasthttp v1.40.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20221004215720-b9f4876ce741
-	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 )

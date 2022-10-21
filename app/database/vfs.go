@@ -10,26 +10,22 @@ import (
 )
 
 type VFS struct {
+	connection *Connection
 }
 
 var VFSFiles = map[string]*File{}
 
-func New() sqlite3vfs.VFS {
-	return VFS{}
+func NewVFS(connection *Connection) sqlite3vfs.VFS {
+	return &VFS{
+		connection: connection,
+	}
 }
 
-func (vfs VFS) Open(name string, flags sqlite3vfs.OpenFlag) (sqlite3vfs.File, sqlite3vfs.OpenFlag, error) {
-	if strings.HasSuffix(name, "journal") {
-		name = os.Getenv("TMP_DIRECTORY") + "/" + name
-	} else {
-		name = os.Getenv("DATABASE_DIRECTORY") + "/" + name
-	}
-
+func (vfs *VFS) Open(name string, flags sqlite3vfs.OpenFlag) (sqlite3vfs.File, sqlite3vfs.OpenFlag, error) {
 	if VFSFiles[name] != nil {
 		return VFSFiles[name], flags, nil
 	}
 
-	// fmt.Println("Opening: ", name, flags)
 	var fileFlags int
 
 	if flags&sqlite3vfs.OpenExclusive != 0 {
@@ -48,15 +44,17 @@ func (vfs VFS) Open(name string, flags sqlite3vfs.OpenFlag) (sqlite3vfs.File, sq
 		fileFlags |= os.O_RDWR
 	}
 
-	f, err := os.OpenFile(name, fileFlags, 0644)
+	f, err := os.OpenFile(vfs.connection.Path, fileFlags, 0644)
 
 	if err != nil && !os.IsExist(err) {
 		return nil, 0, sqlite3vfs.CantOpenError
 	}
 
 	VFSFiles[name] = &File{
-		name:    name,
-		pointer: f,
+		connection: vfs.connection,
+		name:       name,
+		path:       vfs.connection.Path,
+		pointer:    f,
 	}
 
 	return VFSFiles[name], flags, nil
@@ -74,7 +72,7 @@ func CloseVFSFiles() error {
 	return nil
 }
 
-func (vfs VFS) Delete(name string, dirSync bool) error {
+func (vfs *VFS) Delete(name string, dirSync bool) error {
 	// start := time.Now()
 	fileName := name //strings.ReplaceAll(name, ".db", "")
 	err := os.Remove(fileName)
@@ -82,7 +80,7 @@ func (vfs VFS) Delete(name string, dirSync bool) error {
 	return err
 }
 
-func (vfs VFS) Access(name string, flags sqlite3vfs.AccessFlag) (bool, error) {
+func (vfs *VFS) Access(name string, flags sqlite3vfs.AccessFlag) (bool, error) {
 	if strings.HasSuffix(name, "-journal") || strings.HasSuffix(name, "-wal") {
 		return false, nil
 	}
@@ -108,6 +106,6 @@ func (vfs VFS) Access(name string, flags sqlite3vfs.AccessFlag) (bool, error) {
 	return true, nil
 }
 
-func (vfs VFS) FullPathname(name string) string {
+func (vfs *VFS) FullPathname(name string) string {
 	return name
 }

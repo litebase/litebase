@@ -15,18 +15,22 @@ import (
 func init() {
 	os.Setenv("LITEBASEDB_RUNTIME_ID", uuid.NewString())
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	godotenv.Load()
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func main() {
 	server := fiber.New()
 
-	var handler = app.NewApp().Handler
+	var handler = app.Handler
 
 	server.Post(
 		"/2015-03-31/functions/:function/invocations",
 		func(c *fiber.Ctx) error {
-			request := event.Event{}
+			request := &event.Event{}
 			json.Unmarshal([]byte(c.Body()), &request)
 			response := handler(request)
 			json, _ := json.Marshal(response)

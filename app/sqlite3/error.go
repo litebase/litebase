@@ -9,7 +9,7 @@ import (
 )
 
 func (c *Connection) Error(code C.int) error {
-	message := C.GoString(C.sqlite3_errmsg((*C.sqlite3)(c)))
+	message := C.GoString(C.sqlite3_errmsg((*C.sqlite3)(c.SQLite3Connection)))
 
 	if message == "" {
 		message = C.GoString(C.sqlite3_errstr(C.int(code)))

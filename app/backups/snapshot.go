@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"fmt"
-	"litebasedb/runtime/app/database"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,7 +15,6 @@ type Snapshot struct {
 	branchUuid   string
 	commits      []*Commit
 	databaseUuid string
-	database     database.Database
 	Hash         string
 	timestamp    int64
 	pageHashes   []string
@@ -25,7 +23,6 @@ type Snapshot struct {
 }
 
 func NewSnapshot(databaseUuid string, branchUuid string, timestamp int64, hash string) *Snapshot {
-	// datbase := database.GetDatabase(databaseUuid, branchUuid)
 	if hash == "" {
 		h := sha1.New()
 		h.Write([]byte(fmt.Sprintf("%x", timestamp)))
@@ -96,12 +93,12 @@ func (s *Snapshot) GetCommits() []*Commit {
 func (s *Snapshot) GetObjectsForCommit(commit *Commit) []string {
 	objects := map[string]int{}
 
-	for _, commit := range s.GetCommits() {
-		for _, object := range commit.GetObjects() {
+	for _, c := range s.GetCommits() {
+		for _, object := range c.GetObjects() {
 			objects[object] = 0
 		}
 
-		if commit.hash == commit.hash {
+		if c.hash == commit.hash {
 			break
 		}
 	}

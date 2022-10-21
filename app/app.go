@@ -4,37 +4,20 @@ import (
 	"litebasedb/runtime/app/config"
 	"litebasedb/runtime/app/event"
 	"litebasedb/runtime/app/http"
-	"strings"
 )
 
-type App struct {
-	Config *config.Config
-	Router *http.Router
+func Handler(event *event.Event) *http.Response {
+	configure(event)
+
+	return http.Router().Dispatch(event)
 }
 
-var Container *App
-
-func NewApp() *App {
-	Container = &App{
-		Config: config.NewConfig(),
-		Router: &http.Router{},
+func configure(event *event.Event) {
+	if event.DatabaseUuid != "" {
+		config.Set("database_uuid", event.DatabaseUuid)
 	}
 
-	return Container
-}
-
-func (app *App) Handler(event event.Event) *http.Response {
-	return app.Router.Dispatch(PrepareRequest(event))
-}
-
-func PrepareRequest(event event.Event) *http.Request {
-	headers := map[string]string{}
-
-	for key, value := range event.Server {
-		if strings.HasPrefix(key, "HTTP_") {
-			headers[strings.ReplaceAll(key, "HTTP_", "")] = value
-		}
+	if event.BranchUuid != "" {
+		config.Set("branch_uuid", event.BranchUuid)
 	}
-
-	return http.NewRequest(headers, event.Method, event.Path)
 }

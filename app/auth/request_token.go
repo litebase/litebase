@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
-	"litebasedb/runtime/app/secrets"
 	"strings"
 )
 
@@ -58,16 +57,15 @@ func (requestToken *RequestToken) AccessKey() *AccessKey {
 		return requestToken.accessKey
 	}
 
-	data := secrets.Manager().GetAccessKey(requestToken.AccessKeyId)
+	data, err := SecretsManager().GetAccessKey(requestToken.AccessKeyId)
 
-	requestToken.accessKey = &AccessKey{
-		DatabaseUuid:          data.(map[string]string)["database_uuid"],
-		BranchUuid:            data.(map[string]string)["branch_uuid"],
-		AccessKeyId:           data.(map[string]string)["access_key_id"],
-		AccessKeySecret:       data.(map[string]string)["access_key_secret"],
-		ServerAccessKeySecret: data.(map[string]string)["server_access_key_secret"],
-		Privileges:            map[string][]string{},
+	// json.Unmarshal([]byte(data), &requestToken.accessKey)
+
+	if err != nil {
+		return nil
 	}
+
+	requestToken.accessKey = data
 
 	return requestToken.accessKey
 }
@@ -80,8 +78,8 @@ func RequestTokenFromMap(input map[string]string) *RequestToken {
 	}
 }
 
-func (requestToken *RequestToken) GetDatabaseKey() string {
-	return secrets.Manager().GetDatabaseKey(requestToken.AccessKeyId)
+func (requestToken *RequestToken) GetDatabaseKey() (string, error) {
+	return SecretsManager().GetDatabaseKey(requestToken.AccessKeyId)
 }
 
 func (requestToken *RequestToken) ToMap() map[string]interface{} {

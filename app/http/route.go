@@ -37,7 +37,7 @@ func (route *Route) Middleware(middleware []Middleware) *Route {
 	return route
 }
 
-func (route *Route) setParams(request Request) {
+func (route *Route) setParams(request *Request) {
 	var params = make(map[string]string)
 	var segments = strings.Split(route.Path, "/")
 

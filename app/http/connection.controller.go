@@ -12,5 +12,5 @@ func (controller *ConnectionController) Store(request *Request) *Response {
 }
 
 func (controller *ConnectionController) createConnection(request *Request) {
-
+	SecretsManager().Listen()
 }

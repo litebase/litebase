@@ -2,6 +2,7 @@ package http
 
 import (
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -14,12 +15,18 @@ func (middleware *AuthMiddleware) Handle(request *Request) (*Request, *Response)
 		!middleware.ensureRequestIsProperlySignedByServer(request) {
 		return nil, &Response{
 			StatusCode: 401,
+			Body: map[string]interface{}{
+				"message": "Unauthorized 1",
+			},
 		}
 	}
 
 	if !middleware.ensureRequestIsNotExpired(request) {
 		return nil, &Response{
 			StatusCode: 401,
+			Body: map[string]interface{}{
+				"message": "Unauthorized",
+			},
 		}
 	}
 
@@ -37,7 +44,7 @@ func (middleware *AuthMiddleware) ensureRequestIsNotExpired(request *Request) bo
 		return false
 	}
 
-	parsedTime, err := time.Parse("20060102", dateHeader)
+	date, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
 		log.Println(err)
@@ -45,7 +52,7 @@ func (middleware *AuthMiddleware) ensureRequestIsNotExpired(request *Request) bo
 		return false
 	}
 
-	return time.Since(parsedTime) < 10*time.Second
+	return time.Since(time.Unix(date, 0)) < 10*time.Second
 }
 
 func (middleware *AuthMiddleware) ensureRequestIsProperlySigned(request *Request) bool {

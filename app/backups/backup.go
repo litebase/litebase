@@ -10,19 +10,6 @@ import (
 	"time"
 )
 
-//	type Backup interface {
-//		createSnapShot() Snapshot
-//		Exists() bool
-//		FileDirectory() string
-//		getLastLineofHeadFile() string
-//		GetSnapShot() Snapshot
-//		lockFilePath() string
-//		objectPath(hash string) string
-//		ObtainLock() Lock
-//		Run() Backup
-//		ToMap() map[string]interface{}
-//		writePage(page []byte) error
-//	}
 type Backup struct {
 	branchUuid        string
 	databaseUuid      string
@@ -54,7 +41,9 @@ func (b *Backup) createSnapShot() *Snapshot {
 	return snapshot
 }
 
-func (b *Backup) Exists() bool
+func (b *Backup) Exists() bool {
+	return b.GetSnapShot() != nil
+}
 
 func (b *Backup) FileDirectory() string {
 	if b.fileDirectory != "" {

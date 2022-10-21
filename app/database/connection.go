@@ -8,39 +8,34 @@ import (
 	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/sqlite3"
 	"log"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/psanford/sqlite3vfs"
 )
 
 type Connection struct {
-	accessKey             *auth.AccessKey
-	connectionTransaction *ConnectionTransaction
-	id                    string
-	inTransaction         bool
-	opened                bool
-	sqlite3               *sqlite3.Connection
-	statements            map[string]*sqlite3.Statement
+	accessKey *auth.AccessKey
+	// connectionTransaction *ConnectionTransaction
+	id            string
+	inTransaction bool
+	opened        bool
+	Operator      *DatabaseOperator
+	Path          string
+	sqlite3       *sqlite3.Connection
+	statements    map[string]*sqlite3.Statement
+	WAL           *DatabaseWAL
 }
 
 func NewConnection(path string, accessKey *auth.AccessKey) *Connection {
+	wal := NewWAL(path)
 	connection := &Connection{
-		accessKey: accessKey,
+		accessKey:  accessKey,
+		Operator:   NewOperator(wal),
+		Path:       path,
+		statements: map[string]*sqlite3.Statement{},
+		WAL:        wal,
 	}
 
-	connection.SetId()
-
-	sqlite3Connection, err := sqlite3.Open(fmt.Sprintf("file:%s?mode=rwc&vfs=litebasedb", path), sqlite3.OpenFlags(sqlite3vfs.OpenReadWrite|sqlite3vfs.OpenURI), "")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	connection.sqlite3 = sqlite3Connection
-	connection.sqlite3.BusyTimeout(3 * time.Second)
-	connection.sqlite3.Exec("PRAGMA synchronous = OFF")
-	connection.sqlite3.Exec("PRAGMA journal_mode = OFF")
+	connection.setId()
 
 	return connection
 }
@@ -95,6 +90,34 @@ func (c *Connection) LastInsertRowID() int64 {
 	return c.sqlite3.LastInsertId()
 }
 
+func (c *Connection) Open() error {
+	sqlite3Connection, err := sqlite3.Open(fmt.Sprintf("file:%s?mode=rwc&vfs=litebasedb", c.Path), 0, "")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.sqlite3 = sqlite3Connection
+	// c.sqlite3.BusyTimeout(3 * time.Second)
+	_, err = c.sqlite3.Exec("PRAGMA synchronous = OFF", []interface{}{}...)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = c.sqlite3.Exec("PRAGMA journal_mode = OFF;", []interface{}{}...)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.setAuthorizer()
+
+	c.opened = true
+
+	return nil
+}
+
 func (c *Connection) Prepare(statement string) (*sqlite3.Statement, error) {
 	var err error
 	var exists bool
@@ -117,17 +140,11 @@ func (c *Connection) Prepare(statement string) (*sqlite3.Statement, error) {
 	return sqlite3Statement, err
 }
 
-func (c *Connection) Query(statement string, parameters ...interface{}) (sqlite3.Result, error) {
-	sqlite3Statement, err := c.Prepare(statement)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return Operator.Monitor(
-		sqlite3Statement.IsReadonly(),
+func (c *Connection) Query(statement *sqlite3.Statement, parameters ...interface{}) (sqlite3.Result, error) {
+	return c.Operator.Monitor(
+		statement.IsReadonly(),
 		func() (sqlite3.Result, error) {
-			result, err := sqlite3Statement.Exec(parameters...)
+			result, err := statement.Exec(parameters...)
 
 			if err != nil {
 				return nil, err
@@ -151,21 +168,95 @@ func (c *Connection) setAuthorizer() {
 		return
 	}
 
-	c.sqlite3.Authorizer(func(actionCode int, arg1 string, arg2 string, dbName string, triggerOrViewName string) int {
+	c.sqlite3.SetAuthorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int {
 		allowed := true
+		var err error
+
+		args := []string{arg1, arg2, arg3, arg4}
 
 		switch actionCode {
 		case sqlite3.SQLITE_COPY:
+			allowed = false
+		case sqlite3.SQLITE_CREATE_INDEX:
+			allowed, err = c.accessKey.CanIndex(args)
+		case sqlite3.SQLITE_CREATE_TABLE:
+			allowed, err = c.accessKey.CanCreate(args)
+		case sqlite3.SQLITE_CREATE_TEMP_INDEX:
+			allowed, err = c.accessKey.CanIndex(args)
+		case sqlite3.SQLITE_CREATE_TEMP_TABLE:
+			allowed, err = c.accessKey.CanCreate(args)
+		case sqlite3.SQLITE_CREATE_TEMP_TRIGGER:
+			allowed, err = c.accessKey.CanTrigger(args)
+		case sqlite3.SQLITE_CREATE_TEMP_VIEW:
+			allowed, err = c.accessKey.CanCreate(args)
+		case sqlite3.SQLITE_CREATE_TRIGGER:
+			allowed, err = c.accessKey.CanTrigger(args)
+		case sqlite3.SQLITE_CREATE_VIEW:
+			allowed, err = c.accessKey.CanCreate(args)
+		case sqlite3.SQLITE_DELETE:
+			allowed, err = c.accessKey.CanDelete(args)
+		case sqlite3.SQLITE_DROP_INDEX:
+			allowed, err = c.accessKey.CanIndex(args)
+		case sqlite3.SQLITE_DROP_TABLE:
+			allowed, err = c.accessKey.CanDrop(args)
+		case sqlite3.SQLITE_DROP_TEMP_INDEX:
+			allowed, err = c.accessKey.CanIndex(args)
+		case sqlite3.SQLITE_DROP_TEMP_TABLE:
+			allowed, err = c.accessKey.CanDrop(args)
+		case sqlite3.SQLITE_DROP_TEMP_TRIGGER:
+			allowed, err = c.accessKey.CanTrigger(args)
+		case sqlite3.SQLITE_DROP_TEMP_VIEW:
+			allowed, err = c.accessKey.CanCreate(args)
+		case sqlite3.SQLITE_DROP_TRIGGER:
+			allowed, err = c.accessKey.CanTrigger(args)
+		case sqlite3.SQLITE_DROP_VIEW:
+			allowed, err = c.accessKey.CanCreate(args)
+		case sqlite3.SQLITE_INSERT:
+			allowed, err = c.accessKey.CanInsert(args)
+		case sqlite3.SQLITE_PRAGMA:
+			allowed, err = c.accessKey.CanPragma(args)
+		case sqlite3.SQLITE_READ:
+			allowed, err = c.accessKey.CanRead(args)
+		case sqlite3.SQLITE_SELECT:
+			allowed, err = c.accessKey.CanSelect(args)
+		case sqlite3.SQLITE_TRANSACTION:
+			allowed, err = true, nil
+		case sqlite3.SQLITE_UPDATE:
+			allowed, err = c.accessKey.CanUpdate(args)
+		case sqlite3.SQLITE_ATTACH:
+			allowed, err = false, nil
+		case sqlite3.SQLITE_DETACH:
+			allowed, err = false, nil
+		case sqlite3.SQLITE_REINDEX:
+			allowed, err = c.accessKey.CanIndex(args)
+		case sqlite3.SQLITE_ANALYZE:
+			allowed, err = true, nil
+		case sqlite3.SQLITE_CREATE_VTABLE:
+			allowed, err = c.accessKey.CanCreate(args)
+		case sqlite3.SQLITE_DROP_VTABLE:
+			allowed, err = c.accessKey.CanDrop(args)
+		case sqlite3.SQLITE_FUNCTION:
+			allowed, err = true, nil
+		default:
+			allowed, err = false, nil
+		}
+
+		if err != nil {
+			return sqlite3.SQLITE_DENY
 		}
 
 		if actionCode == sqlite3.SQLITE_SELECT && !allowed {
 			return sqlite3.SQLITE_IGNORE
 		}
 
-		return 0
+		if allowed {
+			return sqlite3.SQLITE_OK
+		}
+
+		return sqlite3.SQLITE_DENY
 	})
 }
 
-func (c *Connection) SetId() {
+func (c *Connection) setId() {
 	c.id = uuid.New().String()
 }

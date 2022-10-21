@@ -2,6 +2,7 @@ package http
 
 import (
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -35,7 +36,7 @@ func (middleware *AdminMiddleware) ensureRequestIsNotExpired(request *Request) b
 		return false
 	}
 
-	parsedTime, err := time.Parse("20060102", dateHeader)
+	date, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
 		log.Println(err)
@@ -43,7 +44,7 @@ func (middleware *AdminMiddleware) ensureRequestIsNotExpired(request *Request) b
 		return false
 	}
 
-	return time.Since(parsedTime) < 10*time.Second
+	return time.Since(time.Unix(date, 0)) < 10*time.Second
 }
 
 func (middleware *AdminMiddleware) ensureRequestIsProperlySigned(request *Request) bool {

@@ -1,23 +1,25 @@
 package http
 
-import "litebasedb/runtime/app/secrets"
+import (
+	"litebasedb/runtime/app/auth"
+)
 
 type AccessKeyController struct {
 }
 
 func (controller *AccessKeyController) Store(request *Request) *Response {
-	secrets.Manager().Init()
+	auth.SecretsManager().Init()
 
-	secrets.Manager().StoreAccessKey(
+	auth.SecretsManager().StoreAccessKey(
 		request.Get("database_uuid").(string),
 		request.Get("branch_uuid").(string),
 		request.Get("access_key_id").(string),
 		request.Get("access_key_secret").(string),
 		request.Get("server_access_key_secret").(string),
-		request.Get("privileges").(map[string][]string),
+		request.Get("privileges").(map[string]interface{}),
 	)
 
-	secrets.Manager().PurgeAccessKey(request.Get("access_key_id").(string))
+	auth.SecretsManager().PurgeAccessKey(request.Get("access_key_id").(string))
 
 	return JsonResponse(map[string]interface{}{
 		"status":  "success",
@@ -26,16 +28,23 @@ func (controller *AccessKeyController) Store(request *Request) *Response {
 }
 
 func (controller *AccessKeyController) Update(request *Request) *Response {
-	secrets.Manager().Init()
+	auth.SecretsManager().Init()
 
-	secrets.Manager().UpdateAccessKey(
+	updated := auth.SecretsManager().UpdateAccessKey(
 		request.Get("database_uuid").(string),
 		request.Get("branch_uuid").(string),
 		request.Get("access_key_id").(string),
-		request.Get("privileges").(map[string][]string),
+		request.Get("privileges"),
 	)
 
-	secrets.Manager().PurgeAccessKey(request.Get("access_key_id").(string))
+	if !updated {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": "Access could not be updated",
+		}, 500, nil)
+	}
+
+	auth.SecretsManager().PurgeAccessKey(request.Get("access_key_id").(string))
 	// TODO: Close connections using the access key. This needs to affect all functions.
 
 	return JsonResponse(map[string]interface{}{
@@ -45,9 +54,9 @@ func (controller *AccessKeyController) Update(request *Request) *Response {
 }
 
 func (controller *AccessKeyController) Destroy(request *Request) *Response {
-	secrets.Manager().Init()
-	secrets.Manager().DeleteAccessKey(request.Get("access_key_id").(string))
-	secrets.Manager().PurgeAccessKey(request.Get("access_key_id").(string))
+	auth.SecretsManager().Init()
+	auth.SecretsManager().DeleteAccessKey(request.Param("accessKeyId"))
+	auth.SecretsManager().PurgeAccessKey(request.Param("accessKeyId"))
 
 	return JsonResponse(map[string]interface{}{}, 200, nil)
 }

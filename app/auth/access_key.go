@@ -5,17 +5,20 @@ import (
 )
 
 type AccessKey struct {
-	DatabaseUuid          string              `json:"database_uuid"`
-	BranchUuid            string              `json:"branch_uuid"`
-	AccessKeyId           string              `json:"access_key_id"`
-	AccessKeySecret       string              `json:"access_key_secret"`
-	ServerAccessKeySecret string              `json:"server_access_key_secret"`
-	Privileges            map[string][]string `json:"privileges"`
+	DatabaseUuid          string                   `json:"database_uuid"`
+	BranchUuid            string                   `json:"branch_uuid"`
+	AccessKeyId           string                   `json:"access_key_id"`
+	AccessKeySecret       string                   `json:"access_key_secret"`
+	ServerAccessKeySecret string                   `json:"server_access_key_secret"`
+	Privileges            AccessKeyPrivilegeGroups `json:"privileges"`
 }
 
-// func (accessKey *AccessKey) toArray() array{}
+type AccessKeyPrivilegeGroups map[string][]string
+type AccessKeyPrivileges []string
 
-func (accessKey *AccessKey) CanAlter(table string) (bool, error) {
+func (accessKey *AccessKey) CanAlter(args ...interface{}) (bool, error) {
+	table := args[0].(string)
+
 	if table == "sqlite_master" {
 		passes, _ := accessKey.CanIndex(table, "")
 
@@ -67,7 +70,9 @@ func (accessKey *AccessKey) CanCreate(args ...interface{}) (bool, error) {
 	return false, NewDatabasePrivilegeError("CREATE")
 }
 
-func (accessKey *AccessKey) CanDelete(table string, arg2 string, databaseName string) (bool, error) {
+func (accessKey *AccessKey) CanDelete(args ...interface{}) (bool, error) {
+	table, _, databaseName := args[0].(string), args[1], args[2].(string)
+
 	if databaseName == "main" || databaseName == "temp" {
 		passes, _ := accessKey.CanDrop(table)
 
@@ -95,7 +100,9 @@ func (accessKey *AccessKey) CanDelete(table string, arg2 string, databaseName st
 	return false, NewDatabasePrivilegeError("DELETE")
 }
 
-func (accessKey *AccessKey) CanDrop(table string) (bool, error) {
+func (accessKey *AccessKey) CanDrop(args ...interface{}) (bool, error) {
+	table := args[0].(string)
+
 	if _, ok := accessKey.Privileges[table]; ok && (slices.Contains(accessKey.Privileges[table], "ALL") || slices.Contains(accessKey.Privileges[table], "DROP")) {
 		return true, nil
 	}
@@ -107,11 +114,7 @@ func (accessKey *AccessKey) CanDrop(table string) (bool, error) {
 	return false, NewDatabasePrivilegeError("DROP")
 }
 
-func (accessKey *AccessKey) CanIndex(index string, table string) (bool, error) {
-	if _, ok := accessKey.Privileges[table]; ok && (slices.Contains(accessKey.Privileges[table], "ALL") || slices.Contains(accessKey.Privileges[table], "INDEX")) {
-		return true, nil
-	}
-
+func (accessKey *AccessKey) CanIndex(args ...interface{}) (bool, error) {
 	if _, ok := accessKey.Privileges["*"]; ok && (slices.Contains(accessKey.Privileges["*"], "ALL") || slices.Contains(accessKey.Privileges["*"], "INDEX")) {
 		return true, nil
 	}
@@ -123,16 +126,12 @@ func (accessKey *AccessKey) CanInsert(args ...interface{}) (bool, error) {
 	table := args[0]
 
 	if table == "sqlite_master" {
-		canCreate, _ := accessKey.CanCreate(table)
-		canIndex, _ := accessKey.CanIndex(args[0].(string), args[1].(string))
+		canCreate, _ := accessKey.CanCreate(args)
+		canIndex, _ := accessKey.CanIndex(args)
 
 		if canCreate || canIndex {
 			return true, nil
 		}
-	}
-
-	if _, ok := accessKey.Privileges[table.(string)]; ok && (slices.Contains(accessKey.Privileges[table.(string)], "ALL") || slices.Contains(accessKey.Privileges[table.(string)], "INSERT")) {
-		return true, nil
 	}
 
 	if _, ok := accessKey.Privileges["*"]; ok && (slices.Contains(accessKey.Privileges["*"], "ALL") || slices.Contains(accessKey.Privileges["*"], "INSERT")) {
@@ -142,7 +141,9 @@ func (accessKey *AccessKey) CanInsert(args ...interface{}) (bool, error) {
 	return false, NewDatabasePrivilegeError("INSERT")
 }
 
-func (accessKey *AccessKey) CanPragma(pragma string, value string) (bool, error) {
+func (accessKey *AccessKey) CanPragma(args ...interface{}) (bool, error) {
+	// pragma, value := args[0].(string), args[1].(string)
+
 	if _, ok := accessKey.Privileges["*"]; ok && (slices.Contains(accessKey.Privileges["*"], "ALL") || slices.Contains(accessKey.Privileges["*"], "PRAGMA")) {
 		return true, nil
 	}
@@ -150,11 +151,11 @@ func (accessKey *AccessKey) CanPragma(pragma string, value string) (bool, error)
 	return false, NewDatabasePrivilegeError("PRAGMA")
 }
 
-func (accessKey *AccessKey) CanRead(table string, column string) (bool, error) {
+func (accessKey *AccessKey) CanRead(args ...interface{}) (bool, error) {
 	return true, nil
 }
 
-func (accessKey *AccessKey) CanSelect() (bool, error) {
+func (accessKey *AccessKey) CanSelect(args ...interface{}) (bool, error) {
 	if _, ok := accessKey.Privileges["*"]; ok && (slices.Contains(accessKey.Privileges["*"], "ALL") || slices.Contains(accessKey.Privileges["*"], "SELECT")) {
 		return true, nil
 	}
@@ -162,7 +163,9 @@ func (accessKey *AccessKey) CanSelect() (bool, error) {
 	return false, NewDatabasePrivilegeError("SELECT")
 }
 
-func (accessKey *AccessKey) CanTrigger(trigger string, table string) (bool, error) {
+func (accessKey *AccessKey) CanTrigger(args ...interface{}) (bool, error) {
+	_, table := args[0].(string), args[1].(string)
+
 	if _, ok := accessKey.Privileges[table]; ok && (slices.Contains(accessKey.Privileges[table], "ALL") || slices.Contains(accessKey.Privileges[table], "INSERT")) {
 		return true, nil
 	}

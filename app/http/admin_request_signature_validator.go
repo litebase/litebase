@@ -5,17 +5,20 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"litebasedb/runtime/app/config"
+	"litebasedb/runtime/internal/utils"
 	"strings"
 	"time"
 
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
 type AdminRequestSignatureValidator struct{}
 
 func HandleAdminRequestSignatureValidation(request *Request) bool {
-	if request.RequestToken() == nil {
+	if request.RequestToken("Authorization") == nil {
 		return false
 	}
 
@@ -35,17 +38,18 @@ func HandleAdminRequestSignatureValidation(request *Request) bool {
 		queryParams[strings.ToLower(key)] = value
 	}
 
-	headers := request.Headers().All()
+	headers := make(map[string]string)
+	maps.Copy(headers, request.Headers().All())
 
 	// Change all the keys to lower case
 	for key, value := range headers {
 		delete(headers, key)
-		headers[strings.ToLower(key)] = value
+		headers[utils.TransformHeaderKey(key)] = value
 	}
 
 	// Remove headers that are not signed
 	for key := range headers {
-		if !slices.Contains(request.RequestToken().SignedHeaders, key) {
+		if !slices.Contains(request.RequestToken("Authorization").SignedHeaders, key) {
 			delete(headers, key)
 		}
 	}
@@ -65,7 +69,7 @@ func HandleAdminRequestSignatureValidation(request *Request) bool {
 	}
 
 	if len(body) > 0 {
-		jsonBody, err = json.Marshal(queryParams)
+		jsonBody, err = json.Marshal(body)
 
 		if err != nil {
 			panic(err)
@@ -95,23 +99,23 @@ func HandleAdminRequestSignatureValidation(request *Request) bool {
 
 	requestHash := sha256.New()
 	requestHash.Write([]byte(hashString))
-	secret := string(requestHash.Sum(nil))
+	secret := fmt.Sprintf("%x", requestHash.Sum(nil))
 
 	signedRequestHash := sha256.New()
 	signedRequestHash.Write([]byte(requestString))
-	signedRequest := string(signedRequestHash.Sum(nil))
+	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
-	dateHash := hmac.New(sha256.New, []byte(time.Now().Format("20060102")))
-	dateHash.Write([]byte(secret))
-	date := string(dateHash.Sum(nil))
+	dateHash := hmac.New(sha256.New, []byte(secret))
+	dateHash.Write([]byte(time.Now().UTC().Format("20060102")))
+	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
-	serviceHash := hmac.New(sha256.New, []byte("litebasedb_request"))
-	serviceHash.Write([]byte(date))
-	service := string(serviceHash.Sum(nil))
+	serviceHash := hmac.New(sha256.New, []byte(date))
+	serviceHash.Write([]byte("litebasedb_request"))
+	service := fmt.Sprintf("%x", serviceHash.Sum(nil))
 
-	signatureHash := hmac.New(sha256.New, []byte(signedRequest))
-	signatureHash.Write([]byte(service))
-	signature := string(signatureHash.Sum(nil))
+	signatureHash := hmac.New(sha256.New, []byte(service))
+	signatureHash.Write([]byte(signedRequest))
+	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
-	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken().Signature)) == 1
+	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken("Authorization").Signature)) == 1
 }

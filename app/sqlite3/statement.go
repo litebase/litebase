@@ -15,20 +15,19 @@ type Statement struct {
 	extra        string
 }
 
-// Prepare query
-func (c *Connection) Prepare(query string) (*Statement, error) {
-	var cQuery, cExtra *C.char
-	var s *C.sqlite3_stmt
+func (s *Statement) ParameterCount() int {
+	return int(C.sqlite3_bind_parameter_count(s.sqlite3_stmt))
+}
 
-	cQuery = C.CString(query)
-	defer C.free(unsafe.Pointer(cQuery))
+func (s *Statement) ParameterIndex(parameter string) int {
+	cString := C.CString(parameter)
+	defer C.free(unsafe.Pointer(cString))
 
-	if err := C.sqlite3_prepare_v2((*C.sqlite3)(c), cQuery, -1, &s, &cExtra); err != C.SQLITE_OK {
-		return nil, c.Error(err)
-	}
+	return int(C.sqlite3_bind_parameter_index(s.sqlite3_stmt, cString))
+}
 
-	// Return prepared statement and extra string
-	return &Statement{c, s, C.GoString(cExtra)}, nil
+func (s *Statement) ParameterName(index int) string {
+	return C.GoString(C.sqlite3_bind_parameter_name(s.sqlite3_stmt, C.int(index)))
 }
 
 func (s *Statement) Reset() error {
@@ -243,4 +242,8 @@ func (s *Statement) ClearBindings() error {
 
 func (s *Statement) IsReadonly() bool {
 	return int(C.sqlite3_stmt_readonly((*C.sqlite3_stmt)(s.sqlite3_stmt))) != 0
+}
+
+func (s *Statement) SQL() string {
+	return C.GoString(C.sqlite3_sql(s.sqlite3_stmt))
 }

@@ -12,24 +12,26 @@ import (
 )
 
 type File struct {
-	closed  bool
-	locked  bool
-	name    string
-	pointer *os.File
-	size    int64
+	closed     bool
+	connection *Connection
+	locked     bool
+	name       string
+	path       string
+	pointer    *os.File
+	size       int64
 }
 
 func (file *File) Close() error {
-	start := time.Now()
+	// start := time.Now()
 
 	// if strings.HasSuffix(file.name, "journal") {
 	// 	return file.Sync(sqlite3vfs.SyncNormal)
 	// }
 
 	file.closed = true
-	VFSFiles[file.name] = nil
+	delete(VFSFiles, file.name)
 	err := file.pointer.Close()
-	fmt.Println("Close()", file.name, time.Since(start))
+	// fmt.Println("Close()", file.name, time.Since(start))
 
 	return err
 }
@@ -50,8 +52,8 @@ func (file *File) ReadAt(data []byte, offset int64) (n int, err error) {
 	n, e := file.pointer.ReadAt(data, offset)
 
 	// Capture the database header as it is read
-	if e == nil && offset == 0 && size == 100 && !WAL.CheckPointing() {
-		WAL.SetHeaderHash(data[:100])
+	if e == nil && offset == 0 && size == 100 && !file.connection.WAL.CheckPointing() {
+		file.connection.WAL.SetHeaderHash(data[:100])
 	}
 
 	// fmt.Println("ReadAt", file.name, offset, len(data), time.Since(start))
@@ -63,17 +65,18 @@ func (file *File) ReadAt(data []byte, offset int64) (n int, err error) {
 // It returns the number of bytes written from p (0 <= n <= len(p)) and any error encountered that caused the write to stop early.
 // WriteAt must return a non-nil error if it returns n < len(p).
 func (file *File) WriteAt(data []byte, offset int64) (int, error) {
-	start := time.Now()
+	// start := time.Now()
 	var bytesWritten int
 	var err error
 
-	if Operator.Transmitting() {
+	if file.connection.Operator.Transmitting() {
 		bytesWritten, err = file.pointer.WriteAt(data, offset)
 	} else {
-		bytesWritten, err = WAL.WriteAt(data, offset)
+		bytesWritten, err = file.connection.WAL.WriteAt(data, offset)
 	}
 
-	fmt.Println("WriteAt", file.name, len(data), time.Since(start))
+	// fmt.Println("WriteAt", file.name, len(data), time.Since(start))
+
 	return bytesWritten, err
 }
 
@@ -97,7 +100,7 @@ func (file *File) FileSize() (int64, error) {
 
 	// We need to return 0 here when creating a new database file. Otherwise
 	// sqlite will try to read the file size and fail.
-	if WAL.HeaderEmpty() {
+	if file.connection.WAL.HeaderEmpty() {
 		return 0 * 4096, nil
 	}
 

@@ -1,0 +1,37 @@
+package test
+
+import (
+	"litebasedb/runtime/app/config"
+	"litebasedb/runtime/app/database"
+	"log"
+	"os"
+
+	"github.com/joho/godotenv"
+)
+
+func Setup() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	err := godotenv.Load("../../.env")
+	config.Set("data_path", "../../data/_test")
+	config.Set("tmp_path", "../../data/_test/tmp")
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func Teardown() {
+	database.ClearDatabases()
+	err := os.RemoveAll("./../../data/_test")
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func Run(callback func()) {
+	Setup()
+	callback()
+	Teardown()
+}

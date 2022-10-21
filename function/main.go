@@ -13,9 +13,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var handler = app.NewApp().Handler
+var handler = app.Handler
 
-func HandleRequest(ctx context.Context, data event.Event) (*http.Response, error) {
+func HandleRequest(ctx context.Context, data *event.Event) (*http.Response, error) {
 	return handler(data), nil
 }
 

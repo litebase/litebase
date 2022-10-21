@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/config"
 	"litebasedb/runtime/app/database"
-	"litebasedb/runtime/app/secrets"
+
 	"log"
 	"os"
 	"path/filepath"
@@ -29,6 +30,14 @@ type FullBackup struct {
 	snapshotTimestamp int64
 
 	Backup
+}
+
+func GetFullBackup(databaseUuid string, branchUuid string, snapshotTimestamp int64) *FullBackup {
+	return &FullBackup{
+		databaseUuid:      databaseUuid,
+		branchUuid:        branchUuid,
+		snapshotTimestamp: snapshotTimestamp,
+	}
 }
 
 func (backup *FullBackup) BackupKey() string {
@@ -52,7 +61,7 @@ func (backup *FullBackup) deleteArchiveFile() {
 		return
 	}
 
-	awsCredentials, err := secrets.Manager().GetAwsCredentials(backup.databaseUuid, backup.branchUuid)
+	awsCredentials, err := auth.SecretsManager().GetAwsCredentials(backup.databaseUuid, backup.branchUuid)
 
 	if err != nil {
 		log.Fatal(err)
@@ -70,7 +79,11 @@ func (backup *FullBackup) deleteArchiveFile() {
 
 	client := s3.New(session)
 
-	bucket := secrets.Manager().GetBackupBucketName(backup.databaseUuid, backup.branchUuid)
+	bucket, err := auth.SecretsManager().GetBackupBucketName(backup.databaseUuid, backup.branchUuid)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	_, err = client.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(bucket),
@@ -100,7 +113,7 @@ func (backup *FullBackup) Directory() string {
 
 func (backup *FullBackup) packageBackup() string {
 	if _, err := os.Stat(backup.Directory()); os.IsNotExist(err) {
-		log.Fatal(fmt.Sprintf("Backup directory not found: %s", backup.Directory()))
+		log.Fatalf("Backup directory not found: %s", backup.Directory())
 	}
 
 	input := filepath.Dir(backup.Directory())
@@ -153,7 +166,7 @@ func (backup *FullBackup) packageBackup() string {
 	return output
 }
 
-func Run(databaseUuid string, branchUuid string) *FullBackup {
+func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) {
 	backup := &FullBackup{
 		databaseUuid:      databaseUuid,
 		branchUuid:        branchUuid,
@@ -163,13 +176,19 @@ func Run(databaseUuid string, branchUuid string) *FullBackup {
 	lock := backup.ObtainLock()
 
 	if lock == nil {
-		log.Fatal("Cannot run a full backup while another is running.")
+		return nil, fmt.Errorf("cannot run a full backup while another is running")
 	}
 
-	databaseFile, err := database.NewDatabaseFile(database.GetFilePath(databaseUuid, branchUuid))
+	dir, err := database.GetFilePath(databaseUuid, branchUuid)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
+	}
+
+	databaseFile, err := database.NewDatabaseFile(dir)
+
+	if err != nil {
+		return nil, err
 	}
 
 	defer databaseFile.Close()
@@ -190,7 +209,7 @@ func Run(databaseUuid string, branchUuid string) *FullBackup {
 
 	lock.Release()
 
-	return backup
+	return backup, nil
 }
 
 func (backup *FullBackup) Size() int64 {
@@ -207,6 +226,15 @@ func (backup *FullBackup) Size() int64 {
 	})
 
 	return size
+}
+
+func (backup *FullBackup) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"databaseUuid": backup.databaseUuid,
+		"branchUuid":   backup.branchUuid,
+		"size":         backup.Size(),
+		"timestamp":    backup.snapshotTimestamp,
+	}
 }
 
 func (backup *FullBackup) Upload() map[string]interface{} {
@@ -239,7 +267,7 @@ func (backup *FullBackup) Upload() map[string]interface{} {
 
 		os.WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0644)
 	} else {
-		awsCredentials, err := secrets.Manager().GetAwsCredentials(backup.databaseUuid, backup.branchUuid)
+		awsCredentials, err := auth.SecretsManager().GetAwsCredentials(backup.databaseUuid, backup.branchUuid)
 
 		if err != nil {
 			log.Fatal(err)
@@ -255,7 +283,12 @@ func (backup *FullBackup) Upload() map[string]interface{} {
 			log.Fatal(err)
 		}
 
-		bucket := secrets.Manager().GetBackupBucketName(backup.databaseUuid, backup.branchUuid)
+		bucket, err := auth.SecretsManager().GetBackupBucketName(backup.databaseUuid, backup.branchUuid)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		uploader := s3manager.NewUploader(session)
 		source, err := os.Open(path)
 

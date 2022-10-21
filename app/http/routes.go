@@ -1,6 +1,6 @@
 package http
 
-func LoadRoutes(router *Router) {
+func LoadRoutes(router *RouterInstance) {
 	router.Post("connection", (&ConnectionController{}).Store).Middleware([]Middleware{
 		&ConnectionAuthMiddleware{},
 	})
@@ -54,7 +54,7 @@ func LoadRoutes(router *Router) {
 		&AdminMiddleware{},
 	})
 
-	router.Delete("databases/:database/:branch/backup/:timestamp/archive", (&DatabaseController{}).Destroy).Middleware([]Middleware{
+	router.Delete("databases/:database/:branch/backup/:timestamp/archive", (&DatabaseBackupArchiveController{}).Destroy).Middleware([]Middleware{
 		&AdminMiddleware{},
 	})
 

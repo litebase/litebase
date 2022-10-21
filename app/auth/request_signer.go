@@ -6,13 +6,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"litebasedb/runtime/internal/utils"
 	"strings"
 	"time"
 
 	"golang.org/x/exp/slices"
 )
 
-func SignRequest(accessKeyID string,
+func SignRequest(
+	accessKeyID string,
 	accessKeySecret string,
 	method string,
 	path string,
@@ -23,7 +25,7 @@ func SignRequest(accessKeyID string,
 	for key, value := range headers {
 		delete(headers, key)
 
-		headers[strings.ToLower(key)] = value
+		headers[utils.TransformHeaderKey(key)] = value
 	}
 
 	for key := range headers {

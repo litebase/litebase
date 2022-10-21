@@ -3,10 +3,9 @@ package query
 import (
 	"encoding/json"
 	"fmt"
+	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/concurrency"
 	db "litebasedb/runtime/app/database"
-	"os"
-	"strings"
 	"time"
 )
 
@@ -17,38 +16,68 @@ func NewResolver() *Resolver {
 	return &Resolver{}
 }
 
-func (r *Resolver) Handle(database *db.Database, query Query) []byte {
+func (r *Resolver) Handle(db *db.Database, query *Query, ephemeral bool) map[string]interface{} {
 	var handlerError error
-	var response []byte
-	shouldLock := r.ShouldLock(query)
-	handlerStart := time.Now()
+	var response map[string]interface{}
+	shouldLock := r.shouldLock(query)
 
 	if shouldLock {
 		concurrency.Lock()
 	}
 
-	response, handlerError = r.resolve(database, handlerStart, query)
-
-	// Block until changes are replicated
-	// database.Operator.Transmit()
+	response, handlerError = r.resolve(db, query)
 
 	if handlerError != nil {
 		fmt.Println("Error:", handlerError)
 	}
 
-	database.Close()
+	// Block until changes are replicated
+	db.GetConnection().Operator.Transmit()
+
+	if !ephemeral {
+		db.GetConnection().Operator.Record()
+	}
+
+	db.Close()
 	concurrency.Unlock()
-	fmt.Printf("Handler took: %s \n", time.Since(handlerStart))
 
 	return response
 }
 
-func (r *Resolver) resolveQuery(database *db.Database, handlerStart time.Time, query Query) ([]byte, error) {
-	var response []byte
+func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string]interface{}, error) {
 	var err error
 	var data map[string]any
 
-	sqlite3Result, err := database.GetConnection().Query(query.Statement, query.Parameters...)
+	if query.Invalid {
+		return map[string]any{
+			"status":  "error",
+			"message": fmt.Errorf("invalid or malformed query"),
+		}, nil
+	}
+
+	err = query.Validate()
+
+	if err != nil {
+		return map[string]any{
+			"status":  "error",
+			"message": err.Error(),
+		}, nil
+	}
+
+	start := time.Now().UTC()
+
+	statement, err := query.Statement()
+
+	if err != nil {
+		return map[string]any{
+			"status":  "error",
+			"message": err.Error(),
+		}, nil
+	}
+
+	sqlite3Result, err := database.GetConnection().Query(statement, query.Parameters()...)
+
+	end := time.Since(start).Milliseconds()
 
 	if err != nil {
 		data = map[string]any{
@@ -56,25 +85,38 @@ func (r *Resolver) resolveQuery(database *db.Database, handlerStart time.Time, q
 			"message": err.Error(),
 		}
 	} else {
+		result := map[string]any{
+			"changes":         database.GetConnection().Changes(),
+			"lastInsertRowID": database.GetConnection().LastInsertRowID(),
+			"rows":            sqlite3Result,
+			"rowCount":        len(sqlite3Result),
+		}
+
+		queryData, err := json.Marshal(result)
+
+		if err != nil {
+			return nil, err
+		}
+
+		encryptedQueryData, err := auth.SecretsManager().EncryptFor(query.AccessKeyId, string(queryData))
+
+		if err != nil {
+			return nil, err
+		}
+
 		data = map[string]any{
-			"id":   os.Getenv("LITEBASEDB_RUNTIME_ID"),
-			"time": time.Since(handlerStart).String(),
-			"data": map[string]any{
-				"changes":         database.GetConnection().Changes(),
-				"lastInsertRowID": database.GetConnection().LastInsertRowID(),
-				"rows":            sqlite3Result,
-			},
+			"_execution_time": end,
+			"status":          "success",
+			"data":            encryptedQueryData,
 		}
 	}
 
-	response, err = json.Marshal(data)
-
-	return response, err
+	return data, err
 }
 
-func (r *Resolver) resolve(database *db.Database, handlerStart time.Time, query Query) ([]byte, error) {
+func (r *Resolver) resolve(database *db.Database, query *Query) (map[string]interface{}, error) {
 	var handlerError error
-	var response []byte
+	var response map[string]interface{}
 
 	database.GetConnection().Begin()
 
@@ -82,17 +124,22 @@ func (r *Resolver) resolve(database *db.Database, handlerStart time.Time, query 
 		results := make([]any, 0)
 
 		for _, query := range query.Batch {
-			response, _ = r.resolveQuery(database, handlerStart, query)
-			results = append(results, json.RawMessage(string(response)))
+			response, _ = r.resolveQuery(database, query)
+			jsonResponse, err := json.Marshal(response)
+
+			if err != nil {
+				handlerError = err
+			}
+
+			results = append(results, json.RawMessage(string(jsonResponse)))
 		}
 
-		response, handlerError = json.Marshal(map[string]any{
-			"id":   os.Getenv("LITEBASEDB_RUNTIME_ID"),
-			"time": time.Since(handlerStart).String(),
-			"data": results,
-		})
+		response = map[string]any{
+			"status": "success",
+			"data":   results,
+		}
 	} else {
-		response, handlerError = r.resolveQuery(database, handlerStart, query)
+		response, handlerError = r.resolveQuery(database, query)
 	}
 
 	database.GetConnection().Commit()
@@ -100,10 +147,16 @@ func (r *Resolver) resolve(database *db.Database, handlerStart time.Time, query 
 	return response, handlerError
 }
 
-func (r *Resolver) ShouldLock(query Query) bool {
+func (r *Resolver) shouldLock(query *Query) bool {
 	if len(query.Batch) > 0 {
 		for _, query := range query.Batch {
-			if !strings.HasPrefix(query.Statement, "SELECT") {
+			statement, err := query.Statement()
+
+			if err != nil {
+				return false
+			}
+
+			if !statement.IsReadonly() {
 				return true
 			}
 		}
@@ -111,5 +164,11 @@ func (r *Resolver) ShouldLock(query Query) bool {
 		return false
 	}
 
-	return !strings.HasPrefix(query.Statement, "SELECT")
+	statement, err := query.Statement()
+
+	if err != nil {
+		return false
+	}
+
+	return !statement.IsReadonly()
 }

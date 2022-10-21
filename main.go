@@ -20,9 +20,9 @@ func init() {
 }
 
 func main() {
-	var handler = app.NewApp().Handler
+	var handler = app.Handler
 
-	lambda.Start(func(context context.Context, event event.Event) (*http.Response, error) {
+	lambda.Start(func(context context.Context, event *event.Event) (*http.Response, error) {
 		return handler(event), nil
 	})
 }

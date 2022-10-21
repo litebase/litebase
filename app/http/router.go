@@ -1,12 +1,13 @@
 package http
 
 import (
+	"litebasedb/runtime/app/event"
 	"regexp"
 	"sort"
 	"strings"
 )
 
-type Router struct {
+type RouterInstance struct {
 	DefaultRoute *Route
 	Initialized  bool
 	Keys         map[string][]RouteKey
@@ -18,7 +19,17 @@ type RouteKey struct {
 	Regex string
 }
 
-func (router *Router) compileKeys(method string) []RouteKey {
+var StaticRouter *RouterInstance
+
+func Router() *RouterInstance {
+	if StaticRouter == nil {
+		StaticRouter = &RouterInstance{}
+	}
+
+	return StaticRouter
+}
+
+func (router *RouterInstance) compileKeys(method string) []RouteKey {
 	if router.Keys[method] != nil {
 		return router.Keys[method]
 	}
@@ -56,17 +67,19 @@ func (router *Router) compileKeys(method string) []RouteKey {
 	return router.Keys[method]
 }
 
-func (router *Router) Delete(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Delete(path string, handler func(request *Request) *Response) *Route {
 	return router.request("DELETE", path, handler)
 }
 
-func (router *Router) Fallback(callback func(request *Request) *Response) {
+func (router *RouterInstance) Fallback(callback func(request *Request) *Response) {
 	router.DefaultRoute = &Route{
 		Handler: callback,
 	}
 }
 
-func (router *Router) Dispatch(request *Request) *Response {
+func (router *RouterInstance) Dispatch(event *event.Event) *Response {
+	request := PrepareRequest(event)
+
 	if !router.Initialized {
 		router.Init()
 		LoadRoutes(router)
@@ -76,7 +89,7 @@ func (router *Router) Dispatch(request *Request) *Response {
 	return router.findRoute(request.Method, request.Path).Handle(request)
 }
 
-func (router *Router) findRoute(method, path string) *Route {
+func (router *RouterInstance) findRoute(method, path string) *Route {
 	if router.Routes[method] == nil {
 		return router.DefaultRoute
 	}
@@ -96,11 +109,11 @@ func (router *Router) findRoute(method, path string) *Route {
 	return router.DefaultRoute
 }
 
-func (router *Router) Get(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Get(path string, handler func(request *Request) *Response) *Route {
 	return router.request("GET", path, handler)
 }
 
-func (router *Router) Init() {
+func (router *RouterInstance) Init() {
 	router.Keys = make(map[string][]RouteKey)
 
 	router.Routes = map[string]map[string]*Route{
@@ -112,23 +125,35 @@ func (router *Router) Init() {
 	}
 }
 
-func (router *Router) Path(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Path(path string, handler func(request *Request) *Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *Router) Post(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Post(path string, handler func(request *Request) *Response) *Route {
 	return router.request("POST", path, handler)
 }
 
-func (router *Router) Patch(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Patch(path string, handler func(request *Request) *Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *Router) Put(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Put(path string, handler func(request *Request) *Response) *Route {
 	return router.request("PUT", path, handler)
 }
 
-func (router *Router) request(method string, path string, handler func(request *Request) *Response) *Route {
+func PrepareRequest(event *event.Event) *Request {
+	headers := map[string]string{}
+
+	for key, value := range event.Server {
+		if strings.HasPrefix(key, "HTTP_") {
+			headers[strings.ReplaceAll(key, "HTTP_", "")] = value
+		}
+	}
+
+	return NewRequest(headers, event.Method, event.Path, event.Body)
+}
+
+func (router *RouterInstance) request(method string, path string, handler func(request *Request) *Response) *Route {
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
 	}

@@ -8,8 +8,8 @@ import (
 
 var LitebaseDBVFS VFS
 
-func Register() {
-	vfs := New()
+func Register(connection *Connection) {
+	vfs := NewVFS(connection)
 
 	err := sqlite3vfs.RegisterVFS("litebasedb", vfs)
 

@@ -1,8 +1,9 @@
-package secrets
+package auth
 
 import (
 	"crypto/sha1"
 	"encoding/json"
+	"log"
 	"os"
 	"time"
 )
@@ -77,11 +78,11 @@ func (store *FileSecretsStore) Put(key string, value any, seconds time.Duration)
 
 	jsonValue, err = json.Marshal(secret)
 
-	err = os.WriteFile(store.path+"/"+store.Key(key), jsonValue, 0644)
-
 	if err != nil {
-		return false
+		log.Fatal(err)
 	}
 
-	return true
+	err = os.WriteFile(store.path+"/"+store.Key(key), jsonValue, 0644)
+
+	return err == nil
 }

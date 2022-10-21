@@ -1,9 +1,9 @@
 package database
 
 import (
+	"fmt"
 	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/config"
-	"litebasedb/runtime/app/secrets"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,9 +11,10 @@ import (
 )
 
 type Database struct {
+	branchUuid   string
 	connection   *Connection
 	databaseUuid string
-	branchUuid   string
+	initialized  bool
 	path         string
 }
 
@@ -27,29 +28,27 @@ func (d *Database) Close() {
 	d.connection.Close()
 }
 
-func EnsureDatabaseExists(databaseUuid string, branchUuid string) {
-	path := GetFilePath(databaseUuid, branchUuid)
+func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
+	path, err := GetFilePath(databaseUuid, branchUuid)
 
-	if path == "" {
-		log.Fatalf("Database %s has not been configured.", databaseUuid)
+	if err != nil {
+		return fmt.Errorf("Database %s has not been configured", databaseUuid)
 	}
 
 	if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
-		os.Mkdir(filepath.Dir(path), 0755)
-	}
-
-	if _, err := os.Stat(filepath.Dir(path) + "/commits"); os.IsNotExist(err) {
-		os.Mkdir(filepath.Dir(path)+"/commits", 0755)
+		os.MkdirAll(filepath.Dir(path), 0755)
 	}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.WriteFile(path, []byte(""), 0644)
 	}
+
+	return nil
 }
 
-func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new bool) *Database {
+func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new bool) (*Database, error) {
 	if accessKey != nil && accessKey.DatabaseUuid != databaseUuid {
-		log.Fatal("Invalid access key.")
+		return nil, fmt.Errorf("Access key is not valid for database %s", databaseUuid)
 	}
 
 	var key string
@@ -64,16 +63,24 @@ func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new 
 
 	if !new && hasDatabase {
 		if database.GetConnection().IsOpen() {
-			return database
+			return database, nil
 		} else {
 			delete(databases[databaseUuid][branchUuid], key)
 		}
 	}
 
-	path := GetFilePath(databaseUuid, branchUuid)
+	path, err := GetFilePath(databaseUuid, branchUuid)
 
-	if path == "" {
-		return nil
+	if err != nil {
+		return nil, fmt.Errorf("Database %s has not been configured", databaseUuid)
+	}
+
+	if databases[databaseUuid] == nil {
+		databases[databaseUuid] = map[string]map[string]*Database{}
+	}
+
+	if databases[databaseUuid][branchUuid] == nil {
+		databases[databaseUuid][branchUuid] = map[string]*Database{}
 	}
 
 	databases[databaseUuid][branchUuid][key] = &Database{
@@ -83,7 +90,10 @@ func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new 
 		path:         path,
 	}
 
-	return databases[databaseUuid][branchUuid][key]
+	databases[databaseUuid][branchUuid][key].Init()
+	databases[databaseUuid][branchUuid][key].connection.Open()
+
+	return databases[databaseUuid][branchUuid][key], nil
 }
 
 func (d *Database) GetConnection() *Connection {
@@ -91,14 +101,21 @@ func (d *Database) GetConnection() *Connection {
 }
 
 func GetFileDir(databaseUuid string, branchUuid string) string {
-	return filepath.Dir(GetFilePath(databaseUuid, branchUuid))
+	dir, err := GetFilePath(databaseUuid, branchUuid)
+
+	if err != nil {
+		return ""
+
+	}
+	return filepath.Dir(dir)
 }
 
-func GetFilePath(databaseUuid string, branchUuid string) string {
-	path := secrets.Manager().GetPath(databaseUuid, branchUuid)
+func GetFilePath(databaseUuid string, branchUuid string) (string, error) {
+	path, err := auth.SecretsManager().GetPath(databaseUuid, branchUuid)
 
-	if path == "" {
-		return ""
+	if err != nil {
+		log.Println("ERROr", err)
+		return "", err
 	}
 
 	pathParts := strings.Split(path, "/")
@@ -108,12 +125,15 @@ func GetFilePath(databaseUuid string, branchUuid string) string {
 
 	path = strings.Join(pathParts, "/")
 
-	return strings.TrimRight(config.Get("data_path"), "/") + "/" + strings.TrimLeft(path, "/")
-
+	return strings.TrimRight(config.Get("data_path"), "/") + "/" + strings.TrimLeft(path, "/"), nil
 }
 
-func Init() {
-	Register()
+func (d *Database) Init() {
+	if d.initialized {
+		return
+	}
+
+	Register(d.connection)
 }
 
 func (d *Database) Path() string {
