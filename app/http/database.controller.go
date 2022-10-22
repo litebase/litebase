@@ -2,6 +2,7 @@ package http
 
 import (
 	"litebasedb/runtime/app/database"
+	"litebasedb/runtime/app/file"
 	"os"
 )
 
@@ -9,7 +10,7 @@ type DatabaseController struct {
 }
 
 func (controller *DatabaseController) Destroy(request *Request) *Response {
-	directory := database.GetFileDir(request.Param("database"), request.Param("branch"))
+	directory := file.GetFileDir(request.Param("database"), request.Param("branch"))
 	os.RemoveAll(directory)
 	database.EnsureDatabaseExists(request.Param("database"), request.Param("branch"))
 

@@ -1,7 +1,6 @@
-package database
+package file
 
 import (
-	"bytes"
 	"encoding/binary"
 	"log"
 	"os"
@@ -84,10 +83,27 @@ func (d *DatabaseFile) ReadHeader() {
 
 func (d *DatabaseFile) readHeader(file *os.File) {
 	d.BinaryHeader = make([]byte, 100)
-	binary.Read(file, binary.BigEndian, &d.BinaryHeader)
+	err := binary.Read(file, binary.BigEndian, &d.BinaryHeader)
 
-	if err := binary.Read(bytes.NewBuffer(d.BinaryHeader), binary.BigEndian, &d.header); err != nil {
-		log.Fatal(err)
+	if err != nil {
+		panic(err)
+	}
+
+	d.header = &DatabaseHeader{
+		HeaderString:         d.BinaryHeader[0:16],
+		PageSize:             binary.BigEndian.Uint16(d.BinaryHeader[16:18]),
+		WriteVersion:         d.BinaryHeader[18],
+		ReadVersion:          d.BinaryHeader[19],
+		ReservedSpace:        d.BinaryHeader[20],
+		MaxFraction:          d.BinaryHeader[21],
+		MinFraction:          d.BinaryHeader[22],
+		LeafFraction:         d.BinaryHeader[23],
+		ChangeCounter:        binary.BigEndian.Uint32(d.BinaryHeader[24:28]),
+		TotalPages:           binary.BigEndian.Uint32(d.BinaryHeader[28:32]),
+		SchemaCookie:         binary.BigEndian.Uint32(d.BinaryHeader[40:44]),
+		SchemaFormat:         binary.BigEndian.Uint32(d.BinaryHeader[44:48]),
+		TextEncoding:         binary.BigEndian.Uint32(d.BinaryHeader[56:60]),
+		ReservedForExpansion: d.BinaryHeader[60:80],
 	}
 }
 

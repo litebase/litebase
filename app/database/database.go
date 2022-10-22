@@ -3,11 +3,9 @@ package database
 import (
 	"fmt"
 	"litebasedb/runtime/app/auth"
-	"litebasedb/runtime/app/config"
-	"log"
+	"litebasedb/runtime/app/file"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type Database struct {
@@ -29,7 +27,7 @@ func (d *Database) Close() {
 }
 
 func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
-	path, err := GetFilePath(databaseUuid, branchUuid)
+	path, err := file.GetFilePath(databaseUuid, branchUuid)
 
 	if err != nil {
 		return fmt.Errorf("Database %s has not been configured", databaseUuid)
@@ -69,7 +67,7 @@ func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new 
 		}
 	}
 
-	path, err := GetFilePath(databaseUuid, branchUuid)
+	path, err := file.GetFilePath(databaseUuid, branchUuid)
 
 	if err != nil {
 		return nil, fmt.Errorf("Database %s has not been configured", databaseUuid)
@@ -98,34 +96,6 @@ func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new 
 
 func (d *Database) GetConnection() *Connection {
 	return d.connection
-}
-
-func GetFileDir(databaseUuid string, branchUuid string) string {
-	dir, err := GetFilePath(databaseUuid, branchUuid)
-
-	if err != nil {
-		return ""
-
-	}
-	return filepath.Dir(dir)
-}
-
-func GetFilePath(databaseUuid string, branchUuid string) (string, error) {
-	path, err := auth.SecretsManager().GetPath(databaseUuid, branchUuid)
-
-	if err != nil {
-		log.Println("ERROr", err)
-		return "", err
-	}
-
-	pathParts := strings.Split(path, "/")
-
-	// Insert without replacing the branchuuid to the path before the last segement.
-	pathParts = append(pathParts[:len(pathParts)-1], append([]string{branchUuid}, pathParts[len(pathParts)-1:]...)...)
-
-	path = strings.Join(pathParts, "/")
-
-	return strings.TrimRight(config.Get("data_path"), "/") + "/" + strings.TrimLeft(path, "/"), nil
 }
 
 func (d *Database) Init() {

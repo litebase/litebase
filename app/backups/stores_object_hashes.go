@@ -2,7 +2,7 @@ package backups
 
 import (
 	"fmt"
-	"litebasedb/runtime/app/database"
+	"litebasedb/runtime/app/file"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +13,7 @@ type StoresObjectHashes struct{}
 func (s *StoresObjectHashes) GetPath(databaseUuid string, branchUuid string, timestamp int64, hash string) string {
 
 	return strings.Join([]string{
-		database.GetFileDir(databaseUuid, branchUuid),
+		file.GetFileDir(databaseUuid, branchUuid),
 		BACKUP_DIR,
 		fmt.Sprintf("%x", timestamp),
 		BACKUP_OBJECT_DIR,

@@ -2,13 +2,13 @@ package database
 
 import (
 	"litebasedb/runtime/app/auth"
+	"litebasedb/runtime/app/backups"
 	"litebasedb/runtime/app/config"
 	"litebasedb/runtime/app/sqlite3"
 	"log"
 )
 
 type DatabaseOperator struct {
-	inTransaction  bool
 	isWriting      bool
 	isTransmitting bool
 	wal            *DatabaseWAL
@@ -16,9 +16,8 @@ type DatabaseOperator struct {
 
 func NewOperator(wal *DatabaseWAL) *DatabaseOperator {
 	return &DatabaseOperator{
-		inTransaction: false,
-		isWriting:     false,
-		wal:           wal,
+		isWriting: false,
+		wal:       wal,
 	}
 }
 
@@ -30,46 +29,43 @@ func (o *DatabaseOperator) Monitor(isRead bool, callback func() (sqlite3.Result,
 	return result, err
 }
 
-func (o *DatabaseOperator) InTransaction() bool {
-	return o.inTransaction
-}
-
 func (o *DatabaseOperator) IsWriting() bool {
 	return o.isWriting
 }
 
-func (o *DatabaseOperator) Record() {
+func (o *DatabaseOperator) Record() int {
 	branchUuid := config.Get("branch_uuid")
 	databaseUuid := config.Get("database_uuid")
 	settings, err := auth.SecretsManager().GetDatabaseSettings(databaseUuid, branchUuid)
 
 	if err != nil {
 		log.Fatal(err)
-		return
+		return 0
 	}
 
 	branchSettings, hasBranchSettings := settings["branch_settings"].(map[string]interface{})
 
 	if !hasBranchSettings {
-		return
+		return 0
 	}
 
 	backupSettings, hasBackupSettings := branchSettings["backups"]
 
 	if !hasBackupSettings || !backupSettings.(map[string]interface{})["enabled"].(bool) {
-		return
+		return 0
 	}
 
 	incrementalBackupSettings, hasIncrementalBackupSettings := backupSettings.(map[string]interface{})["inremental_backups"]
 
 	if !hasIncrementalBackupSettings || !incrementalBackupSettings.(map[string]interface{})["enabled"].(bool) {
-		return
+		return 0
 	}
 
-	// ||
-	// !(settings["branch_settings"].(map[string]interface{})["backups"].(map[string]interface{})["enabled"])
-	// {}
+	if len(o.wal.ChangedPages) > 0 {
+		backups.RunIncrementalBackup(databaseUuid, branchUuid, o.wal.ChangedPages)
+	}
 
+	return len(o.wal.ChangedPages)
 }
 
 func (o *DatabaseOperator) Transmit() {

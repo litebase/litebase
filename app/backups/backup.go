@@ -3,7 +3,7 @@ package backups
 import (
 	"crypto/sha1"
 	"fmt"
-	"litebasedb/runtime/app/database"
+	"litebasedb/runtime/app/file"
 	"log"
 	"os"
 	"strings"
@@ -46,8 +46,8 @@ func (b *Backup) Exists() bool {
 }
 
 func (b *Backup) FileDirectory() string {
-	if b.fileDirectory != "" {
-		b.fileDirectory = database.GetFileDir(b.databaseUuid, b.branchUuid)
+	if b.fileDirectory == "" {
+		b.fileDirectory = file.GetFileDir(b.databaseUuid, b.branchUuid)
 	}
 
 	return b.fileDirectory
@@ -152,11 +152,15 @@ func (b *Backup) writePage(page []byte) string {
 	fileDir := b.objectPath(hashString[0:2])
 	fileName := hashString[2:]
 	fileDest := strings.Join([]string{fileDir, fileName}, "/")
-	_, hasDirectoryInCache := b.fileDirCache[fileDir]
 
-	if !hasDirectoryInCache {
+	if _, hasDirectoryInCache := b.fileDirCache[fileDir]; !hasDirectoryInCache {
 		if _, err := os.Stat(fileDest); os.IsNotExist(err) {
-			os.MkdirAll(fileDir, 0755)
+			err := os.MkdirAll(fileDir, 0755)
+
+			if err != nil {
+				panic(err)
+			}
+
 			b.fileDirCache[fileDir] = true
 		}
 	}

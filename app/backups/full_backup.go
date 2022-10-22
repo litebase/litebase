@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/config"
-	"litebasedb/runtime/app/database"
+	"litebasedb/runtime/app/file"
 
 	"log"
 	"os"
@@ -105,7 +105,7 @@ func (backup *FullBackup) deleteDirectory() {
 
 func (backup *FullBackup) Directory() string {
 	return strings.Join([]string{
-		database.GetFileDir(backup.databaseUuid, backup.branchUuid),
+		file.GetFileDir(backup.databaseUuid, backup.branchUuid),
 		BACKUP_DIR,
 		fmt.Sprintf("%x", backup.snapshotTimestamp),
 	}, "/")
@@ -168,9 +168,16 @@ func (backup *FullBackup) packageBackup() string {
 
 func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) {
 	backup := &FullBackup{
-		databaseUuid:      databaseUuid,
 		branchUuid:        branchUuid,
+		databaseUuid:      databaseUuid,
 		snapshotTimestamp: time.Now().Unix(),
+
+		Backup: Backup{
+			branchUuid:   branchUuid,
+			databaseUuid: databaseUuid,
+			fileDirCache: make(map[string]bool),
+			pageHashes:   make([]string, 0),
+		},
 	}
 
 	lock := backup.ObtainLock()
@@ -179,13 +186,13 @@ func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) 
 		return nil, fmt.Errorf("cannot run a full backup while another is running")
 	}
 
-	dir, err := database.GetFilePath(databaseUuid, branchUuid)
+	path, err := file.GetFilePath(databaseUuid, branchUuid)
 
 	if err != nil {
 		return nil, err
 	}
 
-	databaseFile, err := database.NewDatabaseFile(dir)
+	databaseFile, err := file.NewDatabaseFile(path)
 
 	if err != nil {
 		return nil, err

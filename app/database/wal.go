@@ -11,6 +11,7 @@ import (
 )
 
 type DatabaseWAL struct {
+	ChangedPages    []int
 	databasePath    string
 	dirtyPages      map[int64]*Page
 	headerHash      string
@@ -36,6 +37,8 @@ func (w *DatabaseWAL) CheckPoint() {
 	if len(w.dirtyPages) == 0 {
 		return
 	}
+
+	w.ChangedPages = make([]int, 0)
 
 	w.isCheckPointing = true
 
@@ -70,6 +73,7 @@ func (w *DatabaseWAL) CheckPoint() {
 	sort.Ints(keys)
 
 	for _, key := range keys {
+		w.ChangedPages = append(w.ChangedPages, int(key))
 		page := w.dirtyPages[int64(key)]
 		_, err := file.WriteAt(page.data, page.offset)
 
@@ -78,12 +82,8 @@ func (w *DatabaseWAL) CheckPoint() {
 		}
 	}
 
-	// file.Sync(3)
-
-	// w.RefresHeaderHash(file)
 	w.dirtyPages = make(map[int64]*Page)
 	w.isCheckPointing = false
-	// concurrency.Unlock()
 }
 
 func (w *DatabaseWAL) CheckPointing() bool {

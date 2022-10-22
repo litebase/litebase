@@ -2,7 +2,7 @@ package query
 
 import (
 	"litebasedb/runtime/app/database"
-	"litebasedb/runtime/test"
+	"litebasedb/runtime/internal/test"
 	"log"
 	"testing"
 )

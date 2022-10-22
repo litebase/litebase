@@ -41,6 +41,14 @@ func MockDatabase() map[string]string {
 
 	settings := map[string]interface{}{
 		"path": fmt.Sprintf("%s/%s/%s.db", prefix1, prefix2, databaseKey),
+		"branch_settings": map[string]interface{}{
+			"backups": map[string]interface{}{
+				"enabled": true,
+				"inremental_backups": map[string]interface{}{
+					"enabled": true,
+				},
+			},
+		},
 	}
 	jsonSettings, _ := json.Marshal(settings)
 	encryptedSettings, _ := auth.SecretsManager().Encrypt(string(jsonSettings))
@@ -58,7 +66,7 @@ func MockDatabase() map[string]string {
 		databaseUuid,
 		branchUuid,
 		databaseKey,
-		map[string]interface{}{},
+		settings["branch_settings"].(map[string]interface{}),
 		data["data"].(string),
 	)
 

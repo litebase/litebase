@@ -1,14 +1,15 @@
-package query
+package query_test
 
 import (
 	"litebasedb/runtime/app/database"
-	"litebasedb/runtime/test"
+	"litebasedb/runtime/app/query"
+	"litebasedb/runtime/internal/test"
 	"log"
 	"testing"
 )
 
 func TestNewResolver(t *testing.T) {
-	resolver := NewResolver()
+	resolver := query.NewResolver()
 
 	if resolver == nil {
 		t.Fatal("Resolver was not created")
@@ -19,7 +20,7 @@ func TestHandle(t *testing.T) {
 	test.Run(func() {
 		mock := test.MockDatabase()
 
-		resolver := NewResolver()
+		resolver := query.NewResolver()
 
 		db, err := database.Get(mock["databaseUuid"], mock["branchUuid"], nil, false)
 
@@ -65,7 +66,7 @@ func TestHandle(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			query, err := NewQuery(db, mock["accessKeyId"], map[string]interface{}{
+			query, err := query.NewQuery(db, mock["accessKeyId"], map[string]interface{}{
 				"statement":  encrytpedQuery["statement"],
 				"parameters": encrytpedQuery["parameters"],
 			}, "")
@@ -144,7 +145,7 @@ func TestHandle(t *testing.T) {
 				})
 			}
 
-			query, err := NewQuery(db, mock["accessKeyId"], map[string]interface{}{
+			query, err := query.NewQuery(db, mock["accessKeyId"], map[string]interface{}{
 				"batch": batchQueries,
 			}, "")
 

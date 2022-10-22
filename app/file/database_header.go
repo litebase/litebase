@@ -1,7 +1,7 @@
-package database
+package file
 
 type DatabaseHeader struct {
-	HeaderString         [16]byte
+	HeaderString         []byte
 	PageSize             uint16
 	WriteVersion         uint8
 	ReadVersion          uint8
@@ -21,7 +21,7 @@ type DatabaseHeader struct {
 	_                    uint32
 	_                    uint32
 	_                    uint32
-	ReservedForExpansion [20]byte
+	ReservedForExpansion []byte
 	_                    uint32
 	_                    uint32
 }

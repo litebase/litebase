@@ -1,7 +1,7 @@
 package backups
 
 import (
-	"litebasedb/runtime/app/database"
+	"litebasedb/runtime/app/file"
 	"log"
 	"sort"
 	"time"
@@ -12,7 +12,14 @@ type IncrementalBackup struct {
 }
 
 func RunIncrementalBackup(databaseUuid string, branchUuid string, changePages []int) (interface{}, error) {
-	backup := &IncrementalBackup{}
+	backup := &IncrementalBackup{
+		Backup: Backup{
+			branchUuid:   branchUuid,
+			databaseUuid: databaseUuid,
+			fileDirCache: make(map[string]bool),
+			pageHashes:   make([]string, 0),
+		},
+	}
 
 	backup.snapshot = backup.GetSnapShot()
 
@@ -30,13 +37,13 @@ func RunIncrementalBackup(databaseUuid string, branchUuid string, changePages []
 		return nil, nil
 	}
 
-	dir, err := database.GetFilePath(databaseUuid, branchUuid)
+	dir, err := file.GetFilePath(databaseUuid, branchUuid)
 
 	if err != nil {
 		return nil, err
 	}
 
-	databaseFile, err := database.NewDatabaseFile(dir)
+	databaseFile, err := file.NewDatabaseFile(dir)
 
 	if err != nil {
 		return nil, err
