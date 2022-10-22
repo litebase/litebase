@@ -44,7 +44,7 @@ func MockDatabase() map[string]string {
 		"branch_settings": map[string]interface{}{
 			"backups": map[string]interface{}{
 				"enabled": true,
-				"inremental_backups": map[string]interface{}{
+				"incremental_backups": map[string]interface{}{
 					"enabled": true,
 				},
 			},

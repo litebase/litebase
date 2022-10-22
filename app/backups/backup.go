@@ -17,26 +17,44 @@ type Backup struct {
 	fileDirectory     string
 	pageHashes        []string
 	snapshot          *Snapshot
-	snapshotTimestamp int64
+	snapshotTimestamp int
 
 	AccessHeadFile
 }
 
 func (b *Backup) createSnapShot() *Snapshot {
+	snapshotHash := sha1.New()
+	snapshotHash.Write([]byte(fmt.Sprintf("%d", b.snapshotTimestamp)))
+	snapshotHashString := fmt.Sprintf("%x", snapshotHash.Sum(nil))
+
 	snapshot := &Snapshot{
 		branchUuid:   b.branchUuid,
 		databaseUuid: b.databaseUuid,
+		Hash:         snapshotHashString,
 		timestamp:    b.snapshotTimestamp,
 		pageHashes:   b.pageHashes,
 	}
 
 	lashHash := b.getLastLineofHeadFile()
+	log.Println("Writing backup manifest", snapshot.Hash, lashHash)
 
 	if snapshot.Hash == lashHash {
 		return snapshot
 	}
 
 	// Append the last hash to the head file
+	headFile := b.headFilePath(b.databaseUuid, b.branchUuid, b.snapshotTimestamp)
+	file, err := os.OpenFile(headFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	if _, err := file.WriteString(fmt.Sprintf("%s\n", snapshot.Hash)); err != nil {
+		log.Fatal(err)
+	}
 
 	return snapshot
 }
@@ -52,6 +70,7 @@ func (b *Backup) FileDirectory() string {
 
 	return b.fileDirectory
 }
+
 func (b *Backup) getLastLineofHeadFile() string {
 	path := b.headFilePath(b.databaseUuid, b.branchUuid, b.snapshotTimestamp)
 	file, err := os.Open(path)
@@ -116,11 +135,12 @@ func (b *Backup) lockFilePath() string {
 		"backup.lock",
 	}, "/")
 }
+
 func (b *Backup) objectPath(hash string) string {
 	return strings.Join([]string{
 		b.FileDirectory(),
 		BACKUP_DIR,
-		fmt.Sprintf("%x", b.snapshotTimestamp),
+		fmt.Sprintf("%d", b.snapshotTimestamp),
 		BACKUP_OBJECT_DIR,
 		hash,
 	}, "/")
@@ -172,4 +192,8 @@ func (b *Backup) writePage(page []byte) string {
 	}
 
 	return hashString
+}
+
+func (b *Backup) Timestamp(t time.Time) int {
+	return int(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC).UnixMilli())
 }

@@ -27,17 +27,20 @@ import (
 type FullBackup struct {
 	databaseUuid      string
 	branchUuid        string
-	snapshotTimestamp int64
+	snapshotTimestamp int
 
 	Backup
 }
 
-func GetFullBackup(databaseUuid string, branchUuid string, snapshotTimestamp int64) *FullBackup {
-	return &FullBackup{
-		databaseUuid:      databaseUuid,
-		branchUuid:        branchUuid,
-		snapshotTimestamp: snapshotTimestamp,
+func GetFullBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Time) *FullBackup {
+	backup := &FullBackup{
+		databaseUuid: databaseUuid,
+		branchUuid:   branchUuid,
 	}
+
+	backup.snapshotTimestamp = backup.Timestamp(time.Now())
+
+	return backup
 }
 
 func (backup *FullBackup) BackupKey() string {
@@ -107,7 +110,7 @@ func (backup *FullBackup) Directory() string {
 	return strings.Join([]string{
 		file.GetFileDir(backup.databaseUuid, backup.branchUuid),
 		BACKUP_DIR,
-		fmt.Sprintf("%x", backup.snapshotTimestamp),
+		fmt.Sprintf("%d", backup.snapshotTimestamp),
 	}, "/")
 }
 
@@ -168,9 +171,8 @@ func (backup *FullBackup) packageBackup() string {
 
 func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) {
 	backup := &FullBackup{
-		branchUuid:        branchUuid,
-		databaseUuid:      databaseUuid,
-		snapshotTimestamp: time.Now().Unix(),
+		branchUuid:   branchUuid,
+		databaseUuid: databaseUuid,
 
 		Backup: Backup{
 			branchUuid:   branchUuid,
@@ -179,6 +181,9 @@ func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) 
 			pageHashes:   make([]string, 0),
 		},
 	}
+
+	backup.snapshotTimestamp = backup.Timestamp(time.Now())
+	backup.Backup.snapshotTimestamp = backup.Backup.Timestamp(time.Now())
 
 	lock := backup.ObtainLock()
 

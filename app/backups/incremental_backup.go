@@ -21,6 +21,7 @@ func RunIncrementalBackup(databaseUuid string, branchUuid string, changePages []
 		},
 	}
 
+	backup.snapshotTimestamp = backup.Timestamp(time.Now())
 	backup.snapshot = backup.GetSnapShot()
 
 	if backup.snapshot == nil {
@@ -64,7 +65,7 @@ func RunIncrementalBackup(databaseUuid string, branchUuid string, changePages []
 				databaseUuid,
 				branchUuid,
 				backup.snapshotTimestamp,
-				time.Now().Unix(),
+				backup.Timestamp(time.Now()),
 				"",
 				backup.pageHashes,
 			),

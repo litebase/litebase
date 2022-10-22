@@ -55,7 +55,7 @@ func (o *DatabaseOperator) Record() int {
 		return 0
 	}
 
-	incrementalBackupSettings, hasIncrementalBackupSettings := backupSettings.(map[string]interface{})["inremental_backups"]
+	incrementalBackupSettings, hasIncrementalBackupSettings := backupSettings.(map[string]interface{})["incremental_backups"]
 
 	if !hasIncrementalBackupSettings || !incrementalBackupSettings.(map[string]interface{})["enabled"].(bool) {
 		return 0

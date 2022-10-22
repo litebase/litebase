@@ -10,12 +10,12 @@ import (
 
 type StoresObjectHashes struct{}
 
-func (s *StoresObjectHashes) GetPath(databaseUuid string, branchUuid string, timestamp int64, hash string) string {
+func (s *StoresObjectHashes) GetPath(databaseUuid string, branchUuid string, timestamp int, hash string) string {
 
 	return strings.Join([]string{
 		file.GetFileDir(databaseUuid, branchUuid),
 		BACKUP_DIR,
-		fmt.Sprintf("%x", timestamp),
+		fmt.Sprintf("%d", timestamp),
 		BACKUP_OBJECT_DIR,
 		hash[0:2],
 		hash[2:],

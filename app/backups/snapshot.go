@@ -16,16 +16,16 @@ type Snapshot struct {
 	commits      []*Commit
 	databaseUuid string
 	Hash         string
-	timestamp    int64
+	timestamp    int
 	pageHashes   []string
 
 	StoresObjectHashes
 }
 
-func NewSnapshot(databaseUuid string, branchUuid string, timestamp int64, hash string) *Snapshot {
+func NewSnapshot(databaseUuid string, branchUuid string, timestamp int, hash string) *Snapshot {
 	if hash == "" {
 		h := sha1.New()
-		h.Write([]byte(fmt.Sprintf("%x", timestamp)))
+		h.Write([]byte(fmt.Sprintf("%d", timestamp)))
 		hash = fmt.Sprintf("%x", h.Sum(nil))
 	}
 
@@ -136,8 +136,9 @@ func (s *Snapshot) loadCommits() {
 
 		key := strings.Split(text, ":")
 
-		timestamp, _ := strconv.ParseInt(key[1], 10, 64)
-		commitTimestamp, _ := strconv.ParseInt(key[2], 10, 64)
+		// Parse to int
+		timestamp, _ := strconv.Atoi(key[1])
+		commitTimestamp, _ := strconv.Atoi(key[2])
 
 		s.commits = append(s.commits, NewCommit(
 			s.databaseUuid,

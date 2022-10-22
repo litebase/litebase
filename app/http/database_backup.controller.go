@@ -2,7 +2,7 @@ package http
 
 import (
 	"litebasedb/runtime/app/backups"
-	"strconv"
+	"time"
 )
 
 type DatabaseBackupController struct {
@@ -29,7 +29,7 @@ func (controller *DatabaseBackupController) Store(request *Request) *Response {
 }
 
 func (controller *DatabaseBackupController) Show(request *Request) *Response {
-	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
+	timeInstance, err := time.Parse(time.UnixDate, request.Param("timestamp"))
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
@@ -41,7 +41,7 @@ func (controller *DatabaseBackupController) Show(request *Request) *Response {
 	backup := backups.GetFullBackup(
 		request.Param("database"),
 		request.Param("branch"),
-		int64(timestamp),
+		timeInstance,
 	)
 
 	return JsonResponse(map[string]interface{}{

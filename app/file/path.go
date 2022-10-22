@@ -3,14 +3,12 @@ package file
 import (
 	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/config"
-	"log"
 	"path/filepath"
 	"strings"
 )
 
 func GetFileDir(databaseUuid string, branchUuid string) string {
 	dir, err := GetFilePath(databaseUuid, branchUuid)
-	log.Println("GetFilePath: ", dir, err)
 
 	if err != nil {
 		return ""

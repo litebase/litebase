@@ -11,15 +11,15 @@ import (
 type Commit struct {
 	databaseUuid    string
 	branchUuid      string
-	timestamp       int64
-	commitTimestamp int64
+	timestamp       int
+	commitTimestamp int
 	hash            string
 	objectHashes    []string
 
 	StoresObjectHashes
 }
 
-func NewCommit(databaseUuid string, branchUuid string, timestamp int64, commitTimestamp int64, hash string, objectHashes []string) *Commit {
+func NewCommit(databaseUuid string, branchUuid string, timestamp int, commitTimestamp int, hash string, objectHashes []string) *Commit {
 	return &Commit{
 		databaseUuid:    databaseUuid,
 		branchUuid:      branchUuid,
@@ -39,7 +39,7 @@ func (c *Commit) GetObjects() []string {
 }
 
 func (c *Commit) Key() string {
-	return fmt.Sprintf("%s:%x:%x", c.hash, c.timestamp, c.commitTimestamp)
+	return fmt.Sprintf("%s:%d:%d", c.hash, c.timestamp, c.commitTimestamp)
 }
 
 func (c *Commit) loadObjects() {
