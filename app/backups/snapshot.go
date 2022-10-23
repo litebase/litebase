@@ -22,6 +22,15 @@ type Snapshot struct {
 	StoresObjectHashes
 }
 
+func CreateSnapshot(databaseUuid string, branchUuid string, timestamp int, objectHashes []string) *Snapshot {
+	commit := NewCommit(databaseUuid, branchUuid, timestamp, timestamp, "", objectHashes)
+	snapshot := NewSnapshot(databaseUuid, branchUuid, timestamp, "")
+
+	snapshot.AddCommits([]*Commit{commit})
+
+	return snapshot
+}
+
 func NewSnapshot(databaseUuid string, branchUuid string, timestamp int, hash string) *Snapshot {
 	if hash == "" {
 		h := sha1.New()
@@ -34,10 +43,6 @@ func NewSnapshot(databaseUuid string, branchUuid string, timestamp int, hash str
 		databaseUuid: databaseUuid,
 		Hash:         hash,
 		timestamp:    timestamp,
-	}
-
-	if _, err := os.Stat(snapshot.GetPath(databaseUuid, branchUuid, timestamp, hash)); os.IsNotExist(err) {
-		return nil
 	}
 
 	return snapshot
@@ -59,7 +64,7 @@ func (s *Snapshot) AddCommits(commits []*Commit) *Snapshot {
 		os.MkdirAll(filepath.Dir(path), 0755)
 	}
 
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND, 0644)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 
 	if err != nil {
 		log.Fatal(err)
@@ -110,6 +115,20 @@ func (s *Snapshot) GetObjectsForCommit(commit *Commit) []string {
 	}
 
 	return keys
+}
+
+func GetSnapShot(databaseUuid string, branchUuid string, timestamp int) *Snapshot {
+	h := sha1.New()
+	h.Write([]byte(fmt.Sprintf("%d", timestamp)))
+	hash := fmt.Sprintf("%x", h.Sum(nil))
+
+	snapshot := NewSnapshot(databaseUuid, branchUuid, timestamp, hash)
+
+	if _, err := os.Stat(snapshot.GetPath(databaseUuid, branchUuid, timestamp, hash)); os.IsNotExist(err) {
+		return nil
+	}
+
+	return snapshot
 }
 
 func (s *Snapshot) loadCommits() {

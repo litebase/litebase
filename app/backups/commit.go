@@ -73,9 +73,9 @@ func (c *Commit) Save() *Commit {
 	hash.Write([]byte(data))
 	hashString := fmt.Sprintf("%x", hash.Sum(nil))
 
+	c.hash = hashString
 	path := c.GetPath(c.databaseUuid, c.branchUuid, c.timestamp, c.hash)
 	c.storeObjectHash(path, []byte(data))
-	c.hash = hashString
 
 	return c
 }

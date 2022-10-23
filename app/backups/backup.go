@@ -23,17 +23,7 @@ type Backup struct {
 }
 
 func (b *Backup) createSnapShot() *Snapshot {
-	snapshotHash := sha1.New()
-	snapshotHash.Write([]byte(fmt.Sprintf("%d", b.snapshotTimestamp)))
-	snapshotHashString := fmt.Sprintf("%x", snapshotHash.Sum(nil))
-
-	snapshot := &Snapshot{
-		branchUuid:   b.branchUuid,
-		databaseUuid: b.databaseUuid,
-		Hash:         snapshotHashString,
-		timestamp:    b.snapshotTimestamp,
-		pageHashes:   b.pageHashes,
-	}
+	snapshot := CreateSnapshot(b.databaseUuid, b.branchUuid, b.snapshotTimestamp, b.pageHashes)
 
 	lashHash := b.getLastLineofHeadFile()
 	log.Println("Writing backup manifest", snapshot.Hash, lashHash)
@@ -125,7 +115,7 @@ func (b *Backup) getLastLineofHeadFile() string {
 }
 
 func (b *Backup) GetSnapShot() *Snapshot {
-	return NewSnapshot(b.databaseUuid, b.branchUuid, b.snapshotTimestamp, "")
+	return GetSnapShot(b.databaseUuid, b.branchUuid, b.snapshotTimestamp)
 }
 
 func (b *Backup) lockFilePath() string {
