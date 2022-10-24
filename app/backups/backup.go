@@ -22,33 +22,6 @@ type Backup struct {
 	AccessHeadFile
 }
 
-func (b *Backup) createSnapShot() *Snapshot {
-	snapshot := CreateSnapshot(b.databaseUuid, b.branchUuid, b.snapshotTimestamp, b.pageHashes)
-
-	lashHash := b.getLastLineofHeadFile()
-	log.Println("Writing backup manifest", snapshot.Hash, lashHash)
-
-	if snapshot.Hash == lashHash {
-		return snapshot
-	}
-
-	// Append the last hash to the head file
-	headFile := b.headFilePath(b.databaseUuid, b.branchUuid, b.snapshotTimestamp)
-	file, err := os.OpenFile(headFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer file.Close()
-
-	if _, err := file.WriteString(fmt.Sprintf("%s\n", snapshot.Hash)); err != nil {
-		log.Fatal(err)
-	}
-
-	return snapshot
-}
-
 func (b *Backup) Exists() bool {
 	return b.GetSnapShot() != nil
 }

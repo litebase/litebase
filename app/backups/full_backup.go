@@ -191,33 +191,13 @@ func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) 
 		return nil, fmt.Errorf("cannot run a full backup while another is running")
 	}
 
-	path, err := file.GetFilePath(databaseUuid, branchUuid)
+	// path, err := file.GetFilePath(databaseUuid, branchUuid)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	databaseFile, err := file.NewDatabaseFile(path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer databaseFile.Close()
-
-	backup.pageHashes = append(backup.pageHashes, backup.writePage(databaseFile.BinaryHeader))
-
-	i := uint32(1)
-
-	for i < databaseFile.Header().TotalPages {
-		page := databaseFile.ReadPage(int(i))
-		backup.pageHashes = append(backup.pageHashes, backup.writePage(page.Data))
-		i++
-	}
-
-	if len(backup.pageHashes) > 0 {
-		backup.snapshot = backup.createSnapShot()
-	}
+	// Zip the file and upload it to S3
 
 	lock.Release()
 

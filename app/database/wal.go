@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"log"
 	"sort"
-
-	"github.com/psanford/sqlite3vfs"
 )
 
 type DatabaseWAL struct {
-	ChangedPages    []int
+	ChangedPages    map[int][]byte
 	databasePath    string
 	dirtyPages      map[int64]*Page
 	headerHash      string
@@ -38,7 +36,7 @@ func (w *DatabaseWAL) CheckPoint() {
 		return
 	}
 
-	w.ChangedPages = make([]int, 0)
+	w.ChangedPages = make(map[int][]byte)
 
 	w.isCheckPointing = true
 
@@ -47,22 +45,6 @@ func (w *DatabaseWAL) CheckPoint() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// header := make([]byte, 100)
-	// _, err = file.ReadAt(header, 0)
-
-	// if err != nil && err.Error() != "EOF" {
-	// 	log.Fatal(err)
-	// }
-
-	// if !w.HeaderEmpty() && !w.HashIsEqual(header) {
-	// 	w.RefresHeaderHash(file)
-	// 	// TODO: If the database header hash has changed since the change set
-	// 	// was created, the checkpoint should be aborted and changes retried
-	// 	// on the updated database pages
-
-	// 	log.Fatal("Database has changed since the checkpoint frame")
-	// }
 
 	keys := make([]int, 0, len(w.dirtyPages))
 
@@ -73,8 +55,8 @@ func (w *DatabaseWAL) CheckPoint() {
 	sort.Ints(keys)
 
 	for _, key := range keys {
-		w.ChangedPages = append(w.ChangedPages, int(key))
 		page := w.dirtyPages[int64(key)]
+		w.ChangedPages[key] = page.data
 		_, err := file.WriteAt(page.data, page.offset)
 
 		if err != nil {
@@ -94,10 +76,6 @@ func (w *DatabaseWAL) createHeaderHash(header []byte) string {
 	hash := sha1.New()
 	hash.Write(header)
 	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func (w *DatabaseWAL) HashIsEqual(hash []byte) bool {
-	return w.headerHash == w.createHeaderHash(hash)
 }
 
 func (w *DatabaseWAL) HasPage(offset int64) bool {
@@ -121,17 +99,6 @@ func (w *DatabaseWAL) ReadAt(data []byte, offset int64) (int, error) {
 	copy(data, w.dirtyPages[pageNumber].data)
 
 	return len(data), nil
-}
-
-func (w *DatabaseWAL) RefresHeaderHash(file sqlite3vfs.File) {
-	header := make([]byte, 100)
-	_, err := file.ReadAt(header, 0)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	w.SetHeaderHash(header)
 }
 
 func (w *DatabaseWAL) SetHeaderHash(hash []byte) {

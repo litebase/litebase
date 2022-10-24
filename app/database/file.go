@@ -22,16 +22,9 @@ type File struct {
 }
 
 func (file *File) Close() error {
-	// start := time.Now()
-
-	// if strings.HasSuffix(file.name, "journal") {
-	// 	return file.Sync(sqlite3vfs.SyncNormal)
-	// }
-
 	file.closed = true
 	delete(VFSFiles, file.name)
 	err := file.pointer.Close()
-	// fmt.Println("Close()", file.name, time.Since(start))
 
 	return err
 }

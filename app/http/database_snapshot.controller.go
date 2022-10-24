@@ -33,6 +33,6 @@ func (controller *DatabaseSnapshotController) Show(request *Request) *Response {
 
 	return JsonResponse(map[string]interface{}{
 		"status": "success",
-		"data":   snapshot.WithCommits().ToMap(),
+		"data":   snapshot.ToMap(),
 	}, 200, nil)
 }
