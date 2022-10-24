@@ -2,7 +2,6 @@ package http
 
 import (
 	"litebasedb/runtime/app/backups"
-	"log"
 	"strconv"
 )
 
@@ -11,8 +10,6 @@ type DatabaseSnapshotController struct {
 
 func (controller *DatabaseSnapshotController) Show(request *Request) *Response {
 	timestamp, err := strconv.Atoi(request.Param("timestamp"))
-
-	log.Println("timestamp", timestamp)
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{

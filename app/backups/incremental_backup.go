@@ -11,7 +11,7 @@ type IncrementalBackup struct {
 	Backup
 }
 
-func RunIncrementalBackup(databaseUuid string, branchUuid string, changePages []int) (interface{}, error) {
+func RunIncrementalBackup(databaseUuid string, branchUuid string, changedPages []int) (interface{}, error) {
 	backup := &IncrementalBackup{
 		Backup: Backup{
 			branchUuid:   branchUuid,
@@ -34,7 +34,7 @@ func RunIncrementalBackup(databaseUuid string, branchUuid string, changePages []
 		log.Fatal("Cannot run an incremental backup while another backup is running.")
 	}
 
-	if len(changePages) == 0 {
+	if len(changedPages) == 0 {
 		return nil, nil
 	}
 
@@ -52,9 +52,9 @@ func RunIncrementalBackup(databaseUuid string, branchUuid string, changePages []
 
 	defer databaseFile.Close()
 
-	sort.Ints(changePages)
+	sort.Ints(changedPages)
 
-	for _, page := range changePages {
+	for _, page := range changedPages {
 		pageData := databaseFile.ReadPage(page).Data
 		backup.pageHashes = append(backup.pageHashes, backup.writePage(pageData))
 	}
