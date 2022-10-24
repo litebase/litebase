@@ -185,5 +185,6 @@ func (b *Backup) writePage(page []byte) string {
 }
 
 func (b *Backup) Timestamp(t time.Time) int {
-	return int(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC).UnixMilli())
+	t = t.In(time.UTC)
+	return int(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC).Unix())
 }

@@ -9,11 +9,11 @@ import (
 )
 
 type Commit struct {
-	databaseUuid    string
-	branchUuid      string
-	timestamp       int
-	commitTimestamp int
-	hash            string
+	DatabaseUuid    string `json:"databaseUuid"`
+	BranchUuid      string `json:"branchUuid"`
+	Timestamp       int    `json:"timestamp"`
+	CommitTimestamp int    `json:"commitTimestamp"`
+	Hash            string `json:"hash"`
 	objectHashes    []string
 
 	StoresObjectHashes
@@ -21,11 +21,11 @@ type Commit struct {
 
 func NewCommit(databaseUuid string, branchUuid string, timestamp int, commitTimestamp int, hash string, objectHashes []string) *Commit {
 	return &Commit{
-		databaseUuid:    databaseUuid,
-		branchUuid:      branchUuid,
-		timestamp:       timestamp,
-		commitTimestamp: commitTimestamp,
-		hash:            hash,
+		DatabaseUuid:    databaseUuid,
+		BranchUuid:      branchUuid,
+		Timestamp:       timestamp,
+		CommitTimestamp: commitTimestamp,
+		Hash:            hash,
 		objectHashes:    objectHashes,
 	}
 }
@@ -39,11 +39,11 @@ func (c *Commit) GetObjects() []string {
 }
 
 func (c *Commit) Key() string {
-	return fmt.Sprintf("%s:%d:%d", c.hash, c.timestamp, c.commitTimestamp)
+	return fmt.Sprintf("%s:%d:%d", c.Hash, c.Timestamp, c.CommitTimestamp)
 }
 
 func (c *Commit) loadObjects() {
-	file, err := os.Open(c.GetPath(c.databaseUuid, c.branchUuid, c.timestamp, c.hash))
+	file, err := os.Open(c.GetPath(c.DatabaseUuid, c.BranchUuid, c.Timestamp, c.Hash))
 
 	if err != nil {
 		return
@@ -73,8 +73,8 @@ func (c *Commit) Save() *Commit {
 	hash.Write([]byte(data))
 	hashString := fmt.Sprintf("%x", hash.Sum(nil))
 
-	c.hash = hashString
-	path := c.GetPath(c.databaseUuid, c.branchUuid, c.timestamp, c.hash)
+	c.Hash = hashString
+	path := c.GetPath(c.DatabaseUuid, c.BranchUuid, c.Timestamp, c.Hash)
 	c.storeObjectHash(path, []byte(data))
 
 	return c

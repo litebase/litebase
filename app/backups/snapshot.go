@@ -24,7 +24,10 @@ type Snapshot struct {
 
 func CreateSnapshot(databaseUuid string, branchUuid string, timestamp int, objectHashes []string) *Snapshot {
 	commit := NewCommit(databaseUuid, branchUuid, timestamp, timestamp, "", objectHashes)
-	snapshot := NewSnapshot(databaseUuid, branchUuid, timestamp, "")
+	h := sha1.New()
+	h.Write([]byte(fmt.Sprintf("%d", timestamp)))
+	hash := fmt.Sprintf("%x", h.Sum(nil))
+	snapshot := NewSnapshot(databaseUuid, branchUuid, timestamp, hash)
 
 	snapshot.AddCommits([]*Commit{commit})
 
@@ -32,12 +35,6 @@ func CreateSnapshot(databaseUuid string, branchUuid string, timestamp int, objec
 }
 
 func NewSnapshot(databaseUuid string, branchUuid string, timestamp int, hash string) *Snapshot {
-	if hash == "" {
-		h := sha1.New()
-		h.Write([]byte(fmt.Sprintf("%d", timestamp)))
-		hash = fmt.Sprintf("%x", h.Sum(nil))
-	}
-
 	snapshot := &Snapshot{
 		branchUuid:   branchUuid,
 		databaseUuid: databaseUuid,
@@ -52,7 +49,7 @@ func (s *Snapshot) AddCommits(commits []*Commit) *Snapshot {
 	commitHashses := make([]string, len(commits))
 
 	for i, commit := range commits {
-		commitHashses[i] = commit.Save().Key()
+		commitHashses[i] = commit.Save().Key() + "\n"
 	}
 
 	data := strings.Join(commitHashses, "\n")
@@ -103,7 +100,7 @@ func (s *Snapshot) GetObjectsForCommit(commit *Commit) []string {
 			objects[object] = 0
 		}
 
-		if c.hash == commit.hash {
+		if c.Hash == commit.Hash {
 			break
 		}
 	}
@@ -155,7 +152,6 @@ func (s *Snapshot) loadCommits() {
 
 		key := strings.Split(text, ":")
 
-		// Parse to int
 		timestamp, _ := strconv.Atoi(key[1])
 		commitTimestamp, _ := strconv.Atoi(key[2])
 
@@ -167,6 +163,16 @@ func (s *Snapshot) loadCommits() {
 			key[0],
 			[]string{},
 		))
+	}
+}
+
+func (s *Snapshot) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"branchUuid":   s.branchUuid,
+		"commits":      s.commits,
+		"databaseUuid": s.databaseUuid,
+		"hash":         s.Hash,
+		"timestamp":    s.timestamp,
 	}
 }
 

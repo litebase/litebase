@@ -11,7 +11,6 @@ import (
 type StoresObjectHashes struct{}
 
 func (s *StoresObjectHashes) GetPath(databaseUuid string, branchUuid string, timestamp int, hash string) string {
-
 	return strings.Join([]string{
 		file.GetFileDir(databaseUuid, branchUuid),
 		BACKUP_DIR,

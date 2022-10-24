@@ -16,8 +16,8 @@ func (controller *DatabaseBackupController) Store(request *Request) *Response {
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
-			"status": "error",
-			"error":  err.Error(),
+			"status":  "error",
+			"message": err.Error(),
 		}, 500, nil)
 	}
 
@@ -33,8 +33,8 @@ func (controller *DatabaseBackupController) Show(request *Request) *Response {
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
-			"status": "error",
-			"error":  err.Error(),
+			"status":  "error",
+			"message": err.Error(),
 		}, 500, nil)
 	}
 
