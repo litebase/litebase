@@ -1,12 +1,11 @@
 package backups
 
 import (
-	"archive/zip"
-	"bytes"
+	"bufio"
+	"compress/gzip"
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"io/fs"
 	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/config"
 	"litebasedb/runtime/app/file"
@@ -14,7 +13,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,17 +26,14 @@ type FullBackup struct {
 	databaseUuid      string
 	branchUuid        string
 	snapshotTimestamp int
-
-	Backup
 }
 
 func GetFullBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Time) *FullBackup {
 	backup := &FullBackup{
-		databaseUuid: databaseUuid,
-		branchUuid:   branchUuid,
+		databaseUuid:      databaseUuid,
+		branchUuid:        branchUuid,
+		snapshotTimestamp: int(snapshotTimestamp.UTC().Unix()),
 	}
-
-	backup.snapshotTimestamp = backup.Timestamp(time.Now())
 
 	return backup
 }
@@ -47,18 +42,16 @@ func (backup *FullBackup) BackupKey() string {
 	hash := sha1.New()
 	hash.Write([]byte(fmt.Sprintf("%s-%s-%d", backup.databaseUuid, backup.branchUuid, backup.snapshotTimestamp)))
 
-	return fmt.Sprintf("%x.zip", hash.Sum(nil))
-
+	return fmt.Sprintf("%x.db.gz", hash.Sum(nil))
 }
 
 func (backup *FullBackup) Delete() {
 	backup.deleteArchiveFile()
-	backup.deleteDirectory()
 }
 
 func (backup *FullBackup) deleteArchiveFile() {
 	if config.Get("env") == "local" {
-		storageDir := fmt.Sprintf("%s/archives", filepath.Dir(backup.Directory()))
+		storageDir := file.GetFileDir(backup.databaseUuid, backup.branchUuid)
 		os.Remove(fmt.Sprintf("%s/%s", storageDir, backup.BackupKey()))
 
 		return
@@ -98,126 +91,80 @@ func (backup *FullBackup) deleteArchiveFile() {
 	}
 }
 
-func (backup *FullBackup) deleteDirectory() {
-	if _, err := os.Stat(backup.Directory()); os.IsNotExist(err) {
-		return
-	}
+// func (backup *FullBackup) deleteDirectory() {
+// 	if _, err := os.Stat(backup.Directory()); os.IsNotExist(err) {
+// 		return
+// 	}
 
-	os.RemoveAll(backup.Directory())
-}
-
-func (backup *FullBackup) Directory() string {
-	return strings.Join([]string{
-		file.GetFileDir(backup.databaseUuid, backup.branchUuid),
-		BACKUP_DIR,
-		fmt.Sprintf("%d", backup.snapshotTimestamp),
-	}, "/")
-}
+// 	os.RemoveAll(backup.Directory())
+// }
 
 func (backup *FullBackup) packageBackup() string {
-	if _, err := os.Stat(backup.Directory()); os.IsNotExist(err) {
-		log.Fatalf("Backup directory not found: %s", backup.Directory())
-	}
-
-	input := filepath.Dir(backup.Directory())
-	output := fmt.Sprintf("%s/%s", input, backup.BackupKey())
-
-	buf := new(bytes.Buffer)
-	w := zip.NewWriter(buf)
-	zipFile, err := w.Create(output)
+	input, err := file.GetFilePath(backup.databaseUuid, backup.branchUuid)
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	err = filepath.Walk(input, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	output := fmt.Sprintf("%s/%s", file.GetFileDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
 
-		if info.IsDir() {
-			return nil
-		}
-
-		file, err := os.Open(path)
-
-		if err != nil {
-			return err
-		}
-
-		defer file.Close()
-
-		_, err = io.Copy(zipFile, file)
-
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	file, err := os.Open(input)
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	err = w.Close()
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+
+	// io.ReadAll(reader)
+
+	gzipFile, err := os.Create(output)
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
+	}
+
+	defer gzipFile.Close()
+	writer := gzip.NewWriter(gzipFile)
+
+	defer writer.Close()
+
+	_, err = io.Copy(writer, reader)
+
+	if err != nil {
+		panic(err)
 	}
 
 	return output
+
 }
 
 func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) {
 	backup := &FullBackup{
 		branchUuid:   branchUuid,
 		databaseUuid: databaseUuid,
-
-		Backup: Backup{
-			branchUuid:   branchUuid,
-			databaseUuid: databaseUuid,
-			fileDirCache: make(map[string]bool),
-			pageHashes:   make([]string, 0),
-		},
 	}
 
-	backup.snapshotTimestamp = backup.Timestamp(time.Now())
-	backup.Backup.snapshotTimestamp = backup.Backup.Timestamp(time.Now())
+	backup.snapshotTimestamp = int(time.Now().UTC().Unix())
 
-	lock := backup.ObtainLock()
-
-	if lock == nil {
-		return nil, fmt.Errorf("cannot run a full backup while another is running")
-	}
-
-	// path, err := file.GetFilePath(databaseUuid, branchUuid)
-
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// Zip the file and upload it to S3
-
-	lock.Release()
+	backup.packageBackup()
 
 	return backup, nil
 }
 
 func (backup *FullBackup) Size() int64 {
-	size := int64(0)
+	storageDir := file.GetFileDir(backup.databaseUuid, backup.branchUuid)
+	path := fmt.Sprintf("%s/%s", storageDir, backup.BackupKey())
 
-	filepath.Walk(backup.Directory(), func(path string, info fs.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
+	stat, err := os.Stat(path)
 
-		size += info.Size()
+	if err != nil {
+		return 0
+	}
 
-		return nil
-	})
-
-	return size
+	return stat.Size()
 }
 
 func (backup *FullBackup) ToMap() map[string]interface{} {
@@ -245,7 +192,7 @@ func (backup *FullBackup) Upload() map[string]interface{} {
 	}
 
 	if config.Get("env") == "local" {
-		storageDir := fmt.Sprintf("%s/archives", filepath.Dir(backup.Directory()))
+		storageDir := file.GetFileDir(backup.databaseUuid, backup.branchUuid)
 
 		if _, err := os.Stat(storageDir); os.IsNotExist(err) {
 			os.Mkdir(storageDir, 0755)
