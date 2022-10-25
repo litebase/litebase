@@ -41,7 +41,7 @@ func (s *Snapshot) AddPage(pageNumber int, data []byte) *Snapshot {
 func (s *Snapshot) GetPath(databaseUuid string, branchUuid string, timestamp int) string {
 	return strings.Join([]string{
 		file.GetFileDir(databaseUuid, branchUuid),
-		BACKUP_DIR,
+		RESTORE_POINTS_DIR,
 		fmt.Sprintf("%d", timestamp),
 	}, "/")
 }
@@ -63,7 +63,7 @@ func (s *Snapshot) WithRestorePoints() *Snapshot {
 	// of the snapshot
 	backupDirectory := strings.Join([]string{
 		file.GetFileDir(s.DatabaseUuid, s.BranchUuid),
-		BACKUP_DIR,
+		RESTORE_POINTS_DIR,
 	}, "/")
 
 	directories, err := os.ReadDir(backupDirectory)
@@ -81,7 +81,6 @@ func (s *Snapshot) WithRestorePoints() *Snapshot {
 			if err != nil {
 				continue
 			}
-			fmt.Println(timestamp, s.Timestamp, futureDate)
 
 			if timestamp >= s.Timestamp && timestamp < futureDate {
 				s.RestorePoints = append(s.RestorePoints, timestamp)

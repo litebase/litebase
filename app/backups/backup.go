@@ -42,7 +42,7 @@ func (backup *Backup) BackupKey() string {
 	hash := sha1.New()
 	hash.Write([]byte(fmt.Sprintf("%s-%s-%d", backup.databaseUuid, backup.branchUuid, backup.snapshotTimestamp)))
 
-	return fmt.Sprintf("%x.db.gz", hash.Sum(nil))
+	return fmt.Sprintf("%s/%d/%x.db.gz", BACKUP_DIR, backup.snapshotTimestamp, hash.Sum(nil))
 }
 
 func (backup *Backup) Delete() {
@@ -118,6 +118,12 @@ func (backup *Backup) packageBackup() string {
 	defer file.Close()
 
 	reader := bufio.NewReader(file)
+
+	err = os.MkdirAll(filepath.Dir(output), 0755)
+
+	if err != nil {
+		panic(err)
+	}
 
 	gzipFile, err := os.Create(output)
 

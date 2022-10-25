@@ -41,6 +41,10 @@ func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
 		os.MkdirAll(filepath.Dir(path)+"/backups", 0755)
 	}
 
+	if _, err := os.Stat(filepath.Dir(path) + "/restore_points"); os.IsNotExist(err) {
+		os.MkdirAll(filepath.Dir(path)+"/restore_points", 0755)
+	}
+
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.WriteFile(path, []byte(""), 0644)
 	}

@@ -62,8 +62,7 @@ func (o *DatabaseOperator) Record() int {
 	}
 
 	if len(o.wal.ChangedPages) > 0 {
-		// Rename to Write Wal Logs
-		backups.RunIncrementalBackup(databaseUuid, branchUuid, o.wal.ChangedPages)
+		backups.SaveRestorePoint(databaseUuid, branchUuid, o.wal.ChangedPages)
 	}
 
 	return len(o.wal.ChangedPages)
