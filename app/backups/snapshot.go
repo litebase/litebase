@@ -4,27 +4,30 @@ import (
 	"fmt"
 	"litebasedb/runtime/app/file"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Snapshot struct {
-	branchUuid   string
-	databaseUuid string
-	timestamp    int
+	BranchUuid    string `json:"branchUuid"`
+	DatabaseUuid  string `json:"databaseUuid"`
+	RestorePoints []int  `json:"restorePoints"`
+	Timestamp     int    `json:"timestamp"`
 }
 
 func NewSnapshot(databaseUuid string, branchUuid string, timestamp int) *Snapshot {
 	snapshot := &Snapshot{
-		branchUuid:   branchUuid,
-		databaseUuid: databaseUuid,
-		timestamp:    timestamp,
+		BranchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
+		Timestamp:    timestamp,
 	}
 
 	return snapshot
 }
 
 func (s *Snapshot) AddPage(pageNumber int, data []byte) *Snapshot {
-	path := fmt.Sprintf("%s/%d", s.GetPath(s.databaseUuid, s.branchUuid, s.timestamp), pageNumber)
+	path := fmt.Sprintf("%s/%d", s.GetPath(s.DatabaseUuid, s.BranchUuid, s.Timestamp), pageNumber)
 
 	err := os.WriteFile(path, data, 0644)
 
@@ -54,10 +57,37 @@ func GetSnapShot(databaseUuid string, branchUuid string, timestamp int) *Snapsho
 	return snapshot
 }
 
-func (s *Snapshot) ToMap() map[string]interface{} {
-	return map[string]interface{}{
-		"branchUuid":   s.branchUuid,
-		"databaseUuid": s.databaseUuid,
-		"timestamp":    s.timestamp,
+func (s *Snapshot) WithRestorePoints() *Snapshot {
+	// Get all the directories in the backup directory
+	// and return the ones that are greater than the timestamp
+	// of the snapshot
+	backupDirectory := strings.Join([]string{
+		file.GetFileDir(s.DatabaseUuid, s.BranchUuid),
+		BACKUP_DIR,
+	}, "/")
+
+	directories, err := os.ReadDir(backupDirectory)
+
+	if err != nil {
+		panic(err)
 	}
+
+	futureDate := int(time.Now().UTC().Add(time.Hour * 24 * 3).Unix())
+
+	for _, directory := range directories {
+		if directory.IsDir() {
+			timestamp, err := strconv.Atoi(directory.Name())
+
+			if err != nil {
+				continue
+			}
+			fmt.Println(timestamp, s.Timestamp, futureDate)
+
+			if timestamp >= s.Timestamp && timestamp < futureDate {
+				s.RestorePoints = append(s.RestorePoints, timestamp)
+			}
+		}
+	}
+
+	return s
 }

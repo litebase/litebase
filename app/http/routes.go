@@ -50,6 +50,10 @@ func LoadRoutes(router *RouterInstance) {
 		&AdminMiddleware{},
 	})
 
+	router.Delete("databases/:database/:branch/backup/:timestamp", (&DatabaseBackupController{}).Destroy).Middleware([]Middleware{
+		&AdminMiddleware{},
+	})
+
 	router.Post("databases/:database/:branch/backup/:timestamp/archive", (&DatabaseBackupArchiveController{}).Store).Middleware([]Middleware{
 		&AdminMiddleware{},
 	})

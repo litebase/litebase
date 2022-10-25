@@ -22,14 +22,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-type FullBackup struct {
+type Backup struct {
 	databaseUuid      string
 	branchUuid        string
 	snapshotTimestamp int
 }
 
-func GetFullBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Time) *FullBackup {
-	backup := &FullBackup{
+func GetBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Time) *Backup {
+	backup := &Backup{
 		databaseUuid:      databaseUuid,
 		branchUuid:        branchUuid,
 		snapshotTimestamp: int(snapshotTimestamp.UTC().Unix()),
@@ -38,21 +38,22 @@ func GetFullBackup(databaseUuid string, branchUuid string, snapshotTimestamp tim
 	return backup
 }
 
-func (backup *FullBackup) BackupKey() string {
+func (backup *Backup) BackupKey() string {
 	hash := sha1.New()
 	hash.Write([]byte(fmt.Sprintf("%s-%s-%d", backup.databaseUuid, backup.branchUuid, backup.snapshotTimestamp)))
 
 	return fmt.Sprintf("%x.db.gz", hash.Sum(nil))
 }
 
-func (backup *FullBackup) Delete() {
+func (backup *Backup) Delete() {
+	backup.deleteFile()
 	backup.deleteArchiveFile()
 }
 
-func (backup *FullBackup) deleteArchiveFile() {
+func (backup *Backup) deleteArchiveFile() {
 	if config.Get("env") == "local" {
 		storageDir := file.GetFileDir(backup.databaseUuid, backup.branchUuid)
-		os.Remove(fmt.Sprintf("%s/%s", storageDir, backup.BackupKey()))
+		os.Remove(fmt.Sprintf("%s/archives/%s", storageDir, backup.BackupKey()))
 
 		return
 	}
@@ -91,22 +92,22 @@ func (backup *FullBackup) deleteArchiveFile() {
 	}
 }
 
-// func (backup *FullBackup) deleteDirectory() {
-// 	if _, err := os.Stat(backup.Directory()); os.IsNotExist(err) {
-// 		return
-// 	}
+func (backup *Backup) deleteFile() {
+	if _, err := os.Stat(backup.Path()); os.IsNotExist(err) {
+		return
+	}
 
-// 	os.RemoveAll(backup.Directory())
-// }
+	os.Remove(backup.Path())
+}
 
-func (backup *FullBackup) packageBackup() string {
+func (backup *Backup) packageBackup() string {
 	input, err := file.GetFilePath(backup.databaseUuid, backup.branchUuid)
 
 	if err != nil {
 		panic(err)
 	}
 
-	output := fmt.Sprintf("%s/%s", file.GetFileDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
+	output := backup.Path()
 
 	file, err := os.Open(input)
 
@@ -117,8 +118,6 @@ func (backup *FullBackup) packageBackup() string {
 	defer file.Close()
 
 	reader := bufio.NewReader(file)
-
-	// io.ReadAll(reader)
 
 	gzipFile, err := os.Create(output)
 
@@ -138,11 +137,14 @@ func (backup *FullBackup) packageBackup() string {
 	}
 
 	return output
-
 }
 
-func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) {
-	backup := &FullBackup{
+func (backup *Backup) Path() string {
+	return fmt.Sprintf("%s/%s", file.GetFileDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
+}
+
+func RunBackup(databaseUuid string, branchUuid string) (*Backup, error) {
+	backup := &Backup{
 		branchUuid:   branchUuid,
 		databaseUuid: databaseUuid,
 	}
@@ -154,11 +156,8 @@ func RunFullBackup(databaseUuid string, branchUuid string) (*FullBackup, error) 
 	return backup, nil
 }
 
-func (backup *FullBackup) Size() int64 {
-	storageDir := file.GetFileDir(backup.databaseUuid, backup.branchUuid)
-	path := fmt.Sprintf("%s/%s", storageDir, backup.BackupKey())
-
-	stat, err := os.Stat(path)
+func (backup *Backup) Size() int64 {
+	stat, err := os.Stat(backup.Path())
 
 	if err != nil {
 		return 0
@@ -167,7 +166,7 @@ func (backup *FullBackup) Size() int64 {
 	return stat.Size()
 }
 
-func (backup *FullBackup) ToMap() map[string]interface{} {
+func (backup *Backup) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		"databaseUuid": backup.databaseUuid,
 		"branchUuid":   backup.branchUuid,
@@ -176,7 +175,7 @@ func (backup *FullBackup) ToMap() map[string]interface{} {
 	}
 }
 
-func (backup *FullBackup) Upload() map[string]interface{} {
+func (backup *Backup) Upload() map[string]interface{} {
 	if config.Get("env") == "testing" {
 		return map[string]interface{}{
 			"key":  "test",

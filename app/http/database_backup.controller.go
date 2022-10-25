@@ -2,6 +2,7 @@ package http
 
 import (
 	"litebasedb/runtime/app/backups"
+	"strconv"
 	"time"
 )
 
@@ -9,7 +10,7 @@ type DatabaseBackupController struct {
 }
 
 func (controller *DatabaseBackupController) Store(request *Request) *Response {
-	backup, err := backups.RunFullBackup(
+	backup, err := backups.RunBackup(
 		request.Param("database"),
 		request.Param("branch"),
 	)
@@ -38,7 +39,7 @@ func (controller *DatabaseBackupController) Show(request *Request) *Response {
 		}, 500, nil)
 	}
 
-	backup := backups.GetFullBackup(
+	backup := backups.GetBackup(
 		request.Param("database"),
 		request.Param("branch"),
 		timeInstance,
@@ -47,5 +48,45 @@ func (controller *DatabaseBackupController) Show(request *Request) *Response {
 	return JsonResponse(map[string]interface{}{
 		"status": "success",
 		"data":   backup.ToMap(),
+	}, 200, nil)
+}
+
+func (controller *DatabaseBackupController) Destroy(request *Request) *Response {
+	i, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
+
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": err.Error(),
+		}, 500, nil)
+	}
+
+	timeInstance := time.Unix(i, 0)
+
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": err.Error(),
+		}, 500, nil)
+	}
+
+	backup := backups.GetBackup(
+		request.Param("database"),
+		request.Param("branch"),
+		timeInstance,
+	)
+
+	if backup == nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": "Backup not found",
+		}, 404, nil)
+	}
+
+	backup.Delete()
+
+	return JsonResponse(map[string]interface{}{
+		"status":  "success",
+		"message": "Backup deleted successfully",
 	}, 200, nil)
 }
