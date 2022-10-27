@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"litebasedb/runtime/app"
-	"litebasedb/runtime/app/event"
-	"litebasedb/runtime/app/http"
+	"litebasedb/runtime"
+	"litebasedb/runtime/event"
+	"litebasedb/runtime/http"
 	"log"
 	"os"
 
@@ -20,7 +20,7 @@ func init() {
 }
 
 func main() {
-	var handler = app.Handler
+	var handler = runtime.Handler
 
 	lambda.Start(func(context context.Context, event *event.Event) (*http.Response, error) {
 		return handler(event), nil

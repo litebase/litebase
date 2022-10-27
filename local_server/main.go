@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"litebasedb/runtime/app"
-	"litebasedb/runtime/app/event"
+	"litebasedb/runtime"
+	"litebasedb/runtime/event"
 	"log"
 	"os"
 
@@ -25,7 +25,7 @@ func init() {
 func main() {
 	server := fiber.New()
 
-	var handler = app.Handler
+	var handler = runtime.Handler
 
 	server.Post(
 		"/2015-03-31/functions/:function/invocations",

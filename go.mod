@@ -1,4 +1,4 @@
-module litebasedb/runtime
+module litebasedb
 
 go 1.19
 

@@ -1,8 +1,8 @@
 package test
 
 import (
-	"litebasedb/runtime/app/config"
-	"litebasedb/runtime/app/database"
+	"litebasedb/runtime/config"
+	"litebasedb/runtime/database"
 	"log"
 	"os"
 

@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"litebasedb/runtime/app"
-	"litebasedb/runtime/app/event"
-	"litebasedb/runtime/app/http"
+	"litebasedb/runtime"
+	"litebasedb/runtime/event"
+	"litebasedb/runtime/http"
 	"log"
 	"os"
 
@@ -13,7 +13,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var handler = app.Handler
+var handler = runtime.Handler
 
 func HandleRequest(ctx context.Context, data *event.Event) (*http.Response, error) {
 	return handler(data), nil
