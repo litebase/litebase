@@ -149,7 +149,7 @@ func (d *DatabaseFile) WriteHeader(header []byte) {
 	}
 }
 
-func (d *DatabaseFile) WritePage(pageNumber int, page DatabasePage) {
+func (d *DatabaseFile) WritePage(pageNumber int, page *DatabasePage) {
 	_, err := d.file.WriteAt(page.Data, int64(int(d.header.PageSize)*pageNumber))
 
 	if err != nil {

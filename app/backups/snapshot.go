@@ -61,12 +61,14 @@ func (s *Snapshot) WithRestorePoints() *Snapshot {
 	// Get all the directories in the backup directory
 	// and return the ones that are greater than the timestamp
 	// of the snapshot
-	backupDirectory := strings.Join([]string{
+	restorePointsDirectory := strings.Join([]string{
 		file.GetFileDir(s.DatabaseUuid, s.BranchUuid),
 		RESTORE_POINTS_DIR,
 	}, "/")
 
-	directories, err := os.ReadDir(backupDirectory)
+	nextBackup := GetNextBackup(s.DatabaseUuid, s.BranchUuid, s.Timestamp)
+
+	directories, err := os.ReadDir(restorePointsDirectory)
 
 	if err != nil {
 		panic(err)
@@ -79,6 +81,10 @@ func (s *Snapshot) WithRestorePoints() *Snapshot {
 			timestamp, err := strconv.Atoi(directory.Name())
 
 			if err != nil {
+				continue
+			}
+
+			if nextBackup != nil && timestamp > nextBackup.SnapshotTimestamp {
 				continue
 			}
 

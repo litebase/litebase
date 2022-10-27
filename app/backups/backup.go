@@ -9,6 +9,8 @@ import (
 	"litebasedb/runtime/app/auth"
 	"litebasedb/runtime/app/config"
 	"litebasedb/runtime/app/file"
+	"sort"
+	"strconv"
 
 	"log"
 	"os"
@@ -25,24 +27,66 @@ import (
 type Backup struct {
 	databaseUuid      string
 	branchUuid        string
-	snapshotTimestamp int
+	SnapshotTimestamp int
 }
 
 func GetBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Time) *Backup {
 	backup := &Backup{
 		databaseUuid:      databaseUuid,
 		branchUuid:        branchUuid,
-		snapshotTimestamp: int(snapshotTimestamp.UTC().Unix()),
+		SnapshotTimestamp: int(snapshotTimestamp.UTC().Unix()),
 	}
 
 	return backup
 }
 
+func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int) *Backup {
+	backups := make([]int, 0)
+	backupsDirectory := fmt.Sprintf("%s/%s", file.GetFileDir(databaseUuid, branchUuid), BACKUP_DIR)
+
+	// Get a list of all directories in the directory
+	dirs, err := os.ReadDir(backupsDirectory)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Loop through the directories
+	for _, dir := range dirs {
+		// Get the timestamp of the directory
+
+		if !dir.IsDir() {
+			continue
+		}
+
+		timestamp, err := strconv.Atoi(dir.Name())
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// If the timestamp is greater than the current timestamp, then return the backup
+		backups = append(backups, timestamp)
+	}
+
+	// Sort the backups
+	sort.Ints(backups)
+
+	// Loop through the backups
+	for _, b := range backups {
+		if b > snapshotTimestamp {
+			return GetBackup(databaseUuid, branchUuid, time.Unix(int64(b), 0))
+		}
+	}
+
+	return nil
+}
+
 func (backup *Backup) BackupKey() string {
 	hash := sha1.New()
-	hash.Write([]byte(fmt.Sprintf("%s-%s-%d", backup.databaseUuid, backup.branchUuid, backup.snapshotTimestamp)))
+	hash.Write([]byte(fmt.Sprintf("%s-%s-%d", backup.databaseUuid, backup.branchUuid, backup.SnapshotTimestamp)))
 
-	return fmt.Sprintf("%s/%d/%x.db.gz", BACKUP_DIR, backup.snapshotTimestamp, hash.Sum(nil))
+	return fmt.Sprintf("%s/%d/%x.db.gz", BACKUP_DIR, backup.SnapshotTimestamp, hash.Sum(nil))
 }
 
 func (backup *Backup) Delete() {
@@ -155,7 +199,7 @@ func RunBackup(databaseUuid string, branchUuid string) (*Backup, error) {
 		databaseUuid: databaseUuid,
 	}
 
-	backup.snapshotTimestamp = int(time.Now().UTC().Unix())
+	backup.SnapshotTimestamp = int(time.Now().UTC().Unix())
 
 	backup.packageBackup()
 
@@ -177,7 +221,7 @@ func (backup *Backup) ToMap() map[string]interface{} {
 		"databaseUuid": backup.databaseUuid,
 		"branchUuid":   backup.branchUuid,
 		"size":         backup.Size(),
-		"timestamp":    backup.snapshotTimestamp,
+		"timestamp":    backup.SnapshotTimestamp,
 	}
 }
 
