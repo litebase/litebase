@@ -2,7 +2,7 @@ package sqlite3
 
 // #include <stdlib.h>
 // #include <stdio.h>
-// #include <../../dist/sqlite3.h>
+// #include <../../sqlite3/sqlite3.h>
 import "C"
 import (
 	"errors"
