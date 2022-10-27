@@ -1,7 +1,7 @@
 package sqlite3
 
 /*
-#include <sqlite3.h>
+#include <../../dist/sqlite3.h>
 */
 import "C"
 

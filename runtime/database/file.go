@@ -1,6 +1,6 @@
 package database
 
-// #include <../sqlite3/sqlite3.h>
+// #include <../../dist/sqlite3.h>
 import "C"
 
 import (
