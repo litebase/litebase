@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - '!.github/workflows/publish.yml'
+      - '!.github/workflows/cd.yml'
     tags-ignore:
       - '**'
   pull_request:
@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
           cache: true
+
+      - uses: actions/checkout@v3
 
       - name: Run tests
         run: go test runtime
