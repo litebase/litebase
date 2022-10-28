@@ -45,8 +45,10 @@ jobs:
           # mask-aws-account-id: false
 
       - name: Build the code
-        run: |
-          GOARCH=arm64 go build -o bootstrap ./function
+        env:
+          GOOS: linux
+          GOARCH: arm64
+        run: go build -o bootstrap ./function
 
       - name: Zip the code
         id: package
