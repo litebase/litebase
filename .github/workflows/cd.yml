@@ -13,11 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Run tests
+      - name: Setup Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
           cache: true
+
+      - name: Run tests
         run: go test runtime
 
   build:
@@ -35,11 +37,13 @@ jobs:
           aws-region: us-east-1
           # mask-aws-account-id: false
 
-      - name: Build the code
+      - name: Setup Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
           cache: true
+
+      - name: Build the code
         run: GOOS=linux GOARCH=arm64 go build ./function -o ./bootstrap
 
       - name: Zip the code

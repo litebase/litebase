@@ -17,9 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Run tests
+      - name: Setup Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
           cache: true
+
+      - name: Run tests
         run: go test runtime
