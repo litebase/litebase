@@ -44,7 +44,7 @@ jobs:
           cache: true
 
       - name: Build the code
-        run: GOOS=linux GOARCH=arm64 go build ./function -o ./bootstrap
+        run: GOOS=linux GOARCH=arm64 go build ./function -o bootstrap
 
       - name: Zip the code
         id: package
