@@ -3,8 +3,8 @@ name: Continuous Integration
 on:
   push:
     branches: [main, develop]
-    paths:
-      - '!.github/workflows/cd.yml'
+    paths-ignore:
+      - '.github/workflows/cd.yml'
     tags-ignore:
       - '**'
   pull_request:
