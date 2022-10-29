@@ -48,20 +48,21 @@ jobs:
         env:
           GOOS: linux
           GOARCH: arm64
+          CC: aarch64-linux-gnu-gcc
         run: go build -o bootstrap ./function
 
       - name: Zip the code
         id: package
         run: |
           zip -r ${{ github.sha }}.zip bootstrap
-          echo ::set-output name=zip::${{ github.sha }}.zip
+          echo "zip=${{ github.sha }}.zip" >> $GITHUB_OUTPUT
 
       - name: Upload the code
         id: upload
         run: |
           aws s3 cp ./${{ steps.package.outputs.zip }} s3://${{ secrets.AWS_S3_BUCKET_NAME }}/${{ github.sha }}.zip
 
-      - name: Output layer version
+      - name: Output Code Version
         run: |
           echo "### Published Lambda Code:" >> $GITHUB_STEP_SUMMARY
           echo "Lambda Code:" >> $GITHUB_STEP_SUMMARY
