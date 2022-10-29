@@ -36,6 +36,7 @@ jobs:
         with:
           architecture: arm64
           cache: false
+          go-version: 1.19.2
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
