@@ -34,23 +34,20 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
+          architecture: arm64
+          os: linux
           go-version: 1.19
           cache: true
+
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v1-node16
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
           # mask-aws-account-id: false
-      - name: install cross compiler
-        run: sudo apt-get -y install gcc-aarch64-linux-gnu
 
       - name: Build the code
-        env:
-          GOOS: linux
-          GOARCH: arm64
-          CC: aarch64-linux-gnu-gcc
         run: go build -o bootstrap ./function
 
       - name: Zip the code
