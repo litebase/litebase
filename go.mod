@@ -7,13 +7,11 @@ require (
 	github.com/aws/aws-sdk-go v1.44.113
 	github.com/gofiber/fiber/v2 v2.38.1
 	github.com/google/uuid v1.3.0
-	github.com/psanford/sqlite3vfs v0.0.0-20220823065410-bd28ac7ee3c2
 	golang.org/x/net v0.0.0-20221004154528-8021a29435af
 )
 
 require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.15 // indirect
 	golang.org/x/text v0.3.7 // indirect
 )
 

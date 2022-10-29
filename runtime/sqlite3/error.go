@@ -4,6 +4,7 @@ package sqlite3
 #include <../../sqlite3/sqlite3.h>
 */
 import "C"
+
 import (
 	"fmt"
 )

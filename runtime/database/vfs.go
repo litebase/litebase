@@ -2,11 +2,10 @@ package database
 
 import (
 	"fmt"
+	"litebasedb/runtime/sqlite3_vfs"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/psanford/sqlite3vfs"
 )
 
 type VFS struct {
@@ -15,45 +14,45 @@ type VFS struct {
 
 var VFSFiles = map[string]*File{}
 
-func NewVFS(connection *Connection) sqlite3vfs.VFS {
+func NewVFS(connection *Connection) sqlite3_vfs.VFS {
 	return &VFS{
 		connection: connection,
 	}
 }
 
-func (vfs *VFS) Open(name string, flags sqlite3vfs.OpenFlag) (sqlite3vfs.File, sqlite3vfs.OpenFlag, error) {
+func (v *VFS) Open(name string, flags sqlite3_vfs.OpenFlag) (sqlite3_vfs.File, sqlite3_vfs.OpenFlag, error) {
 	if VFSFiles[name] != nil {
 		return VFSFiles[name], flags, nil
 	}
 
 	var fileFlags int
 
-	if flags&sqlite3vfs.OpenExclusive != 0 {
+	if flags&sqlite3_vfs.OpenExclusive != 0 {
 		fileFlags |= os.O_EXCL
 	}
 
-	if flags&sqlite3vfs.OpenCreate != 0 {
+	if flags&sqlite3_vfs.OpenCreate != 0 {
 		fileFlags |= os.O_CREATE
 	}
 
-	if flags&sqlite3vfs.OpenReadOnly != 0 {
+	if flags&sqlite3_vfs.OpenReadOnly != 0 {
 		fileFlags |= os.O_RDONLY
 	}
 
-	if flags&sqlite3vfs.OpenReadWrite != 0 {
+	if flags&sqlite3_vfs.OpenReadWrite != 0 {
 		fileFlags |= os.O_RDWR
 	}
 
-	f, err := os.OpenFile(vfs.connection.Path, fileFlags, 0644)
+	f, err := os.OpenFile(v.connection.Path, fileFlags, 0644)
 
 	if err != nil && !os.IsExist(err) {
-		return nil, 0, sqlite3vfs.CantOpenError
+		return nil, 0, sqlite3_vfs.CantOpenError
 	}
 
 	VFSFiles[name] = &File{
-		connection: vfs.connection,
+		connection: v.connection,
 		name:       name,
-		path:       vfs.connection.Path,
+		path:       v.connection.Path,
 		pointer:    f,
 	}
 
@@ -72,15 +71,14 @@ func CloseVFSFiles() error {
 	return nil
 }
 
-func (vfs *VFS) Delete(name string, dirSync bool) error {
-	// start := time.Now()
-	fileName := name //strings.ReplaceAll(name, ".db", "")
+func (v *VFS) Delete(name string, dirSync bool) error {
+	fileName := name
 	err := os.Remove(fileName)
-	// fmt.Println("Deleting: ", fileName, time.Since(start))
+
 	return err
 }
 
-func (vfs *VFS) Access(name string, flags sqlite3vfs.AccessFlag) (bool, error) {
+func (v *VFS) Access(name string, flags sqlite3_vfs.AccessFlag) (bool, error) {
 	if strings.HasSuffix(name, "-journal") || strings.HasSuffix(name, "-wal") {
 		return false, nil
 	}
@@ -99,13 +97,13 @@ func (vfs *VFS) Access(name string, flags sqlite3vfs.AccessFlag) (bool, error) {
 
 	fmt.Println("Accessed: ", name, time.Since(start))
 
-	if flags == sqlite3vfs.AccessExists {
+	if flags == sqlite3_vfs.AccessExists {
 		return exists, nil
 	}
 
 	return true, nil
 }
 
-func (vfs *VFS) FullPathname(name string) string {
+func (v *VFS) FullPathname(name string) string {
 	return name
 }

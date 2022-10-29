@@ -1,13 +1,5 @@
 package sqlite3
 
-import (
-	"errors"
-	"time"
-	"unsafe"
-
-	"github.com/google/uuid"
-)
-
 /*
 #include <../../sqlite3/sqlite3.h>
 #include <stdlib.h>
@@ -16,6 +8,14 @@ extern int go_authorizer(void* pArg, int actionCode, char* arg1, char* arg2, cha
 extern void go_commit_hook();
 */
 import "C"
+
+import (
+	"errors"
+	"time"
+	"unsafe"
+
+	"github.com/google/uuid"
+)
 
 type OpenFlags C.int
 type Connection struct {
