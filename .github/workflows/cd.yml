@@ -43,6 +43,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
           # mask-aws-account-id: false
+      - name: install cross compiler
+        run: sudo apt-get -y install gcc-aarch64-linux-gnu
 
       - name: Build the code
         env:
