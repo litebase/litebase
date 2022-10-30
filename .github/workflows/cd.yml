@@ -43,7 +43,7 @@ jobs:
         with:
           context: .
           push: false
-          outputs: type=local,dest=/tmp/output
+          outputs: type=local,dest=/
           platforms: linux/arm64
           tags: litebasedb/runtime:latest
           cache-from: type=registry,ref=litebasedb/runtime:latest
@@ -59,7 +59,7 @@ jobs:
       - name: Zip the code
         id: package
         run: |
-          zip -r ${{ github.sha }}.zip /tmp/output/bootstrap
+          zip -r ${{ github.sha }}.zip ./bootstrap
           echo "zip=${{ github.sha }}.zip" >> $GITHUB_OUTPUT
 
       - name: Upload the code
