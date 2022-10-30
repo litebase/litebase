@@ -37,8 +37,8 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
-      - name: Build docker image
-        run: docker build -f Dockerfile.test -t litebasedb/data-runtime .
+      # - name: Build docker image
+      #   run: docker build -f Dockerfile.test -t litebasedb/data-runtime .
 
       - name: Run build
         id: build
