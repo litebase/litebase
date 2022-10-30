@@ -6,6 +6,7 @@ import (
 	"litebasedb/runtime/auth"
 	"litebasedb/runtime/concurrency"
 	db "litebasedb/runtime/database"
+	"litebasedb/runtime/logging"
 	"time"
 )
 
@@ -64,7 +65,7 @@ func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string
 		}, nil
 	}
 
-	start := time.Now().UTC()
+	start := time.Now()
 
 	statement, err := query.Statement()
 
@@ -76,8 +77,7 @@ func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string
 	}
 
 	sqlite3Result, err := database.GetConnection().Query(statement, query.Parameters()...)
-
-	end := time.Since(start).Milliseconds()
+	end := time.Since(start).Microseconds()
 
 	if err != nil {
 		data = map[string]any{
@@ -109,6 +109,14 @@ func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string
 			"status":          "success",
 			"data":            encryptedQueryData,
 		}
+
+		logging.Query(
+			database.GetDatabaseUuid(),
+			database.GetBranchUuid(),
+			query.AccessKeyId,
+			query.JsonStatement,
+			float64(end)/float64(1000),
+		)
 	}
 
 	return data, err

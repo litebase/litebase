@@ -1,10 +1,8 @@
 package database
 
 import (
-	"fmt"
 	"litebasedb/runtime/sqlite3_vfs"
 	"os"
-	"time"
 )
 
 type File struct {
@@ -62,9 +60,6 @@ func (file *File) Truncate(size int64) error {
 }
 
 func (file *File) Sync(flag sqlite3_vfs.SyncType) error {
-	start := time.Now()
-	file.pointer.Sync()
-	fmt.Println("Sync", file.name, time.Since(start))
 
 	return nil
 }

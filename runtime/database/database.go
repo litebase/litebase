@@ -102,8 +102,16 @@ func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new 
 	return databases[databaseUuid][branchUuid][key], nil
 }
 
+func (d *Database) GetBranchUuid() string {
+	return d.branchUuid
+}
+
 func (d *Database) GetConnection() *Connection {
 	return d.connection
+}
+
+func (d *Database) GetDatabaseUuid() string {
+	return d.databaseUuid
 }
 
 func (d *Database) Init() {
