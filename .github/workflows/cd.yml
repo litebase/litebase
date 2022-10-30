@@ -37,9 +37,6 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
-      # - name: Build docker image
-      #   run: docker build -f Dockerfile.test -t litebasedb/data-runtime .
-
       - name: Run build
         id: build
         uses: docker/build-push-action@v3
@@ -48,6 +45,9 @@ jobs:
           push: false
           outputs: type=local,dest=/tmp/output
           platforms: linux/arm64
+          tags: litebasedb/runtime:latest
+          cache-from: type=registry,ref=litebasedb/runtime:latest
+          cache-to: type=inline
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
@@ -55,7 +55,7 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-          # mask-aws-account-id: false
+          mask-aws-account-id: false
 
       - name: Zip the code
         id: package
@@ -66,7 +66,7 @@ jobs:
       - name: Upload the code
         id: upload
         run: |
-          aws s3 cp ./${{ steps.package.outputs.zip }} s3://${{ secrets.AWS_S3_BUCKET_NAME }}/${{ github.sha }}.zip
+          aws s3 cp ./${{ steps.package.outputs.zip }} s3://${{ secrets.AWS_S3_BUCKET_NAME }}/${{ steps.package.outputs.zip }}
 
       - name: Output Code Version
         run: |
