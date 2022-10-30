@@ -1,3 +1,6 @@
-FROM public.ecr.aws/lambda/go:1
-COPY ./lambda.go ${LAMBDA_TASK_ROOT}
-CMD [ "lambda" ]
+FROM golang:1.19 as builder
+WORKDIR /usr/src/app
+COPY . .
+RUN GOOS=linux GOARCH=arm64 go build -o ./build/bootstrap ./runtime 
+FROM scratch
+COPY --from=builder /usr/src/app/build/bootstrap /bootstrap 

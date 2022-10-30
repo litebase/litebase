@@ -31,12 +31,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Setup Go
-        uses: actions/setup-go@v3
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Build docker image
+        run: docker build -f Dockerfile.test -t litebasedb/data-runtime .
+
+      - name: Run build
+        id: build
+        uses: docker/build-push-action@v3
         with:
-          architecture: arm64
-          cache: false
-          go-version: 1.19.2
+          context: .
+          push: false
+          outputs: type=local,dest=/tmp/output
+          platforms: linux/arm64
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
@@ -46,13 +57,10 @@ jobs:
           aws-region: us-east-1
           # mask-aws-account-id: false
 
-      - name: Build the code
-        run: go build -o bootstrap ./function
-
       - name: Zip the code
         id: package
         run: |
-          zip -r ${{ github.sha }}.zip bootstrap
+          zip -r ${{ github.sha }}.zip /tmp/output/bootstrap
           echo "zip=${{ github.sha }}.zip" >> $GITHUB_OUTPUT
 
       - name: Upload the code
