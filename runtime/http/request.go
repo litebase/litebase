@@ -14,16 +14,17 @@ type Request struct {
 	Route       *Route
 }
 
-func NewRequest(Headers map[string]string, Method string, Path string, Body string) *Request {
+func NewRequest(Headers map[string]string, Method string, Path string, Body string, QueryParams map[string]string) *Request {
 	body := map[string]interface{}{}
 
 	json.Unmarshal([]byte(Body), &body)
 
 	return &Request{
-		Body:    body,
-		Method:  Method,
-		Path:    Path,
-		headers: NewHeaders(Headers),
+		Body:        body,
+		Method:      Method,
+		Path:        Path,
+		headers:     NewHeaders(Headers),
+		QueryParams: QueryParams,
 	}
 }
 
@@ -41,6 +42,10 @@ func (request *Request) Headers() *Headers {
 
 func (request *Request) Param(key string) string {
 	return request.Route.Get(key)
+}
+
+func (request *Request) QueryParam(key string) string {
+	return request.QueryParams[key]
 }
 
 func (request *Request) RequestToken(header string) *auth.RequestToken {

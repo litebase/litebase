@@ -150,7 +150,21 @@ func PrepareRequest(event *event.Event) *Request {
 		}
 	}
 
-	return NewRequest(headers, event.Method, event.Path, event.Body)
+	queryParams := map[string]string{}
+
+	if event.Server["QUERY_STRING"] != "" {
+		queryParamsString := strings.Split(event.Server["QUERY_STRING"], "&")
+
+		for _, param := range queryParamsString {
+			parts := strings.Split(param, "=")
+
+			if len(parts) == 2 {
+				queryParams[parts[0]] = parts[1]
+			}
+		}
+	}
+
+	return NewRequest(headers, event.Method, event.Path, event.Body, queryParams)
 }
 
 func (router *RouterInstance) request(method string, path string, handler func(request *Request) *Response) *Route {

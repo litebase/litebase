@@ -103,6 +103,7 @@ func HandleRequestSignatureValidation(
 	)
 
 	if err != nil {
+		// TODO: Handle error
 		panic(err)
 	}
 

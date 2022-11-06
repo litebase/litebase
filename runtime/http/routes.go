@@ -66,6 +66,10 @@ func LoadRoutes(router *RouterInstance) {
 		&AdminMiddleware{},
 	})
 
+	router.Get("databases/:database/:branch/query-logs", (&QueryLogController{}).Index).Middleware([]Middleware{
+		&AdminMiddleware{},
+	})
+
 	router.Post("databases/:database/:branch/restore", (&DatabaseRestoreController{}).Store).Middleware([]Middleware{
 		&AdminMiddleware{},
 	})

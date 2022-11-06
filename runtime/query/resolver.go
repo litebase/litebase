@@ -115,6 +115,7 @@ func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string
 			database.GetBranchUuid(),
 			query.AccessKeyId,
 			query.JsonStatement,
+			!query.statement.IsReadonly(),
 			float64(end)/float64(1000),
 		)
 	}
