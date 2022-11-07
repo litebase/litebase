@@ -45,8 +45,12 @@ func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
 		os.MkdirAll(filepath.Dir(path)+"/restore_points", 0755)
 	}
 
+	if _, err := os.Stat(filepath.Dir(path) + "/logs"); os.IsNotExist(err) {
+		os.MkdirAll(filepath.Dir(path)+"/restore_points", 0755)
+	}
+
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		os.WriteFile(path, []byte(""), 0644)
+		os.WriteFile(path, []byte(""), 0666)
 	}
 
 	return nil
@@ -97,7 +101,12 @@ func Get(databaseUuid string, branchUuid string, accessKey *auth.AccessKey, new 
 	}
 
 	databases[databaseUuid][branchUuid][key].Init()
-	databases[databaseUuid][branchUuid][key].connection.Open()
+
+	err = databases[databaseUuid][branchUuid][key].connection.Open()
+
+	if err != nil {
+		return nil, err
+	}
 
 	return databases[databaseUuid][branchUuid][key], nil
 }

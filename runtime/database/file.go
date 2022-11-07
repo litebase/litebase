@@ -8,11 +8,9 @@ import (
 type File struct {
 	closed     bool
 	connection *Connection
-	locked     bool
 	name       string
 	path       string
 	pointer    *os.File
-	size       int64
 }
 
 func (file *File) Close() error {

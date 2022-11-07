@@ -85,8 +85,13 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 	dirs, err := os.ReadDir(path)
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			return queryLogs
+		}
+
 		panic(err)
 	}
+
 	for directory := range dirs {
 		if !dirs[directory].IsDir() {
 			continue

@@ -11,7 +11,7 @@ var ActiveLock *os.File
 
 func Lock() bool {
 	// openLockStart := time.Now()
-	file, err := os.OpenFile(lockPath(), os.O_RDWR|os.O_CREATE, 0644)
+	file, err := os.OpenFile(lockPath(), os.O_RDWR|os.O_CREATE, 0666)
 	// fmt.Println("Open lock after: ", time.Since(openLockStart))
 
 	if err != nil {

@@ -29,7 +29,7 @@ func NewSnapshot(databaseUuid string, branchUuid string, timestamp int) *Snapsho
 func (s *Snapshot) AddPage(pageNumber int, data []byte) *Snapshot {
 	path := fmt.Sprintf("%s/%d", s.GetPath(s.DatabaseUuid, s.BranchUuid, s.Timestamp), pageNumber)
 
-	err := os.WriteFile(path, data, 0644)
+	err := os.WriteFile(path, data, 0666)
 
 	if err != nil {
 		panic(err)

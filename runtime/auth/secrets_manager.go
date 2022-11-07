@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebasedb/runtime/config"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -488,7 +487,7 @@ func (s *SecretsManagerData) StoreAccessKey(
 	os.WriteFile(
 		s.SecretsPath(fmt.Sprintf("access_keys/%s.json", accessKeyId)),
 		jsonValue,
-		0644,
+		0666,
 	)
 }
 
@@ -518,7 +517,7 @@ func (s *SecretsManagerData) StoreDatabaseSettings(
 	os.WriteFile(
 		s.SecretsPath(fmt.Sprintf("settings/%s/%s.json", databaseUuid, branchUuid)),
 		jsonValue,
-		0644,
+		0666,
 	)
 }
 
@@ -557,8 +556,6 @@ func (s *SecretsManagerData) UpdateAccessKey(
 		return false
 	}
 
-	log.Println(accessKeyPrivileges)
-
 	accessKey.Privileges = accessKeyPrivileges
 
 	jsonValue, err := json.Marshal(accessKey)
@@ -570,7 +567,7 @@ func (s *SecretsManagerData) UpdateAccessKey(
 	os.WriteFile(
 		s.SecretsPath(fmt.Sprintf("access_keys/%s.json", accessKeyId)),
 		jsonValue,
-		0644,
+		0666,
 	)
 
 	return true

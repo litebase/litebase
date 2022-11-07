@@ -18,7 +18,7 @@ func NewLock(path string) *Lock {
 		os.MkdirAll(filepath.Dir(path), 0755)
 	}
 
-	os.WriteFile(path, []byte{}, 0644)
+	os.WriteFile(path, []byte{}, 0666)
 
 	return lock
 }

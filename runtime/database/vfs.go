@@ -43,7 +43,7 @@ func (v *VFS) Open(name string, flags sqlite3_vfs.OpenFlag) (sqlite3_vfs.File, s
 		fileFlags |= os.O_RDWR
 	}
 
-	f, err := os.OpenFile(v.connection.Path, fileFlags, 0644)
+	f, err := os.OpenFile(v.connection.Path, fileFlags, 0666)
 
 	if err != nil && !os.IsExist(err) {
 		return nil, 0, sqlite3_vfs.CantOpenError

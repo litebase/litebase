@@ -37,7 +37,7 @@ func RestoreFromDatabaseBackup(databaseUuid string, branchUuid string, backupTim
 
 	defer archive.Close()
 
-	destinationFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	destinationFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 
 	if err != nil {
 		return err

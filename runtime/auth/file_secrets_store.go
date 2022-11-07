@@ -82,7 +82,7 @@ func (store *FileSecretsStore) Put(key string, value any, seconds time.Duration)
 		log.Fatal(err)
 	}
 
-	err = os.WriteFile(store.path+"/"+store.Key(key), jsonValue, 0644)
+	err = os.WriteFile(store.path+"/"+store.Key(key), jsonValue, 0666)
 
 	return err == nil
 }

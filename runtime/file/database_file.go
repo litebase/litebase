@@ -74,7 +74,7 @@ func (d *DatabaseFile) Header() *DatabaseHeader {
 }
 
 func (d *DatabaseFile) Open() (*os.File, error) {
-	return os.OpenFile(d.Path, os.O_RDWR, 0644)
+	return os.OpenFile(d.Path, os.O_RDWR, 0666)
 }
 
 func (d *DatabaseFile) ReadHeader() {

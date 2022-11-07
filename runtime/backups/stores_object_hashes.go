@@ -23,7 +23,7 @@ func (s *StoresObjectHashes) GetPath(databaseUuid string, branchUuid string, tim
 
 func (s *StoresObjectHashes) storeObjectHash(path string, data []byte) error {
 	write := func() error {
-		return os.WriteFile(path, data, 0644)
+		return os.WriteFile(path, data, 0666)
 	}
 
 	err := write()

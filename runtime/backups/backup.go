@@ -253,7 +253,7 @@ func (backup *Backup) Upload() map[string]interface{} {
 			log.Fatal(err)
 		}
 
-		os.WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0644)
+		os.WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0666)
 	} else {
 		awsCredentials, err := auth.SecretsManager().GetAwsCredentials(backup.databaseUuid, backup.branchUuid)
 
