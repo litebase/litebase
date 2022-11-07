@@ -5,7 +5,7 @@
 // #include "sqlite3ext.h"
 
 // #else
-#include "../../sqlite3/sqlite3.h"
+#include "../sqlite3/sqlite3.h"
 // #endif
 
 typedef struct s3vfsFile
