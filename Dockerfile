@@ -1,7 +1,18 @@
-FROM golang:1.19 as builder
-WORKDIR /usr/src/app
-COPY . .
+FROM amazonlinux AS builder
+
+RUN yum install golang -y
+
+WORKDIR /build
+
+ENV GOOS=linux
+ENV GOARCH=arm64
+ENV CGO_ENABLED=1
+
+COPY go.mod /build/go.mod
+COPY go.sum /build/go.sum
+
+COPY . /build
 RUN --mount=type=cache,target=/root/.cache/go-build \ 
-	GOOS=linux GOARCH=arm64 go build -o bootstrap ./function 
+	go build -o bootstrap ./function
 FROM scratch
-COPY --from=builder /usr/src/app/bootstrap /bootstrap 
+COPY --from=builder /build/bootstrap /bootstrap 

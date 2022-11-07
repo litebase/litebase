@@ -1,7 +1,7 @@
 package sqlite3
 
 /*
-#include <../../sqlite3/sqlite3.h>
+#include <sqlite3.h>
 #include <stdlib.h>
 
 extern int go_authorizer(void* pArg, int actionCode, char* arg1, char* arg2, char* arg3, char* arg4);

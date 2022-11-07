@@ -5,6 +5,8 @@ import (
 	"litebasedb/runtime"
 	"litebasedb/runtime/event"
 	"litebasedb/runtime/http"
+
+	// _ "litebasedb/sqlite3"
 	"log"
 	"os"
 

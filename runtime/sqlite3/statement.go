@@ -1,8 +1,10 @@
 package sqlite3
 
-// #include <stdlib.h>
-// #include <stdio.h>
-// #include <../../sqlite3/sqlite3.h>
+/*
+#include <stdlib.h>
+#include <stdio.h>
+#include <sqlite3.h>
+*/
 import "C"
 
 import (

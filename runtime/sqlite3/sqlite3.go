@@ -25,5 +25,8 @@ package sqlite3
 #cgo CFLAGS: -DSQLITE_ENABLE_JSON1
 #cgo CFLAGS: -DSQLITE_ENABLE_GEOPOLY
 #cgo CFLAGS: -DHAVE_USLEEP=1
+
+#cgo linux LDFLAGS: -ldl -lm
+#cgo linux CFLAGS: -std=c99
 */
 import "C"
