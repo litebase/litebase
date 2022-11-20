@@ -16,7 +16,6 @@ func (controller *DatabaseSettingsController) Store(request *Request) *Response 
 		request.Get("database_uuid").(string),
 		request.Get("branch_uuid").(string),
 		request.Get("database_key").(string),
-		request.Get("branch_settings").(map[string]interface{}),
 		request.Get("data").(string),
 	)
 

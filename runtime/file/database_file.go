@@ -86,7 +86,7 @@ func (d *DatabaseFile) readHeader(file *os.File) {
 	err := binary.Read(file, binary.BigEndian, &d.BinaryHeader)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	d.header = &DatabaseHeader{

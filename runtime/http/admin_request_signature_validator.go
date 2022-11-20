@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"litebasedb/internal/utils"
 	"litebasedb/runtime/config"
+	"log"
 	"strings"
 	"time"
 
@@ -62,7 +63,7 @@ func HandleAdminRequestSignatureValidation(request *Request) bool {
 		jsonQueryParams, err = json.Marshal(queryParams)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	} else {
 		jsonQueryParams = []byte("{}")
@@ -72,14 +73,14 @@ func HandleAdminRequestSignatureValidation(request *Request) bool {
 		jsonBody, err = json.Marshal(body)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	} else {
 		jsonBody = []byte("{}")
 	}
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	requestString := strings.Join([]string{
@@ -90,15 +91,8 @@ func HandleAdminRequestSignatureValidation(request *Request) bool {
 		string(jsonBody),
 	}, "")
 
-	hashString := strings.Join([]string{
-		config.Get("encryption_key"),
-		config.Get("region"),
-		config.Get("app_host"),
-		config.Get("env"),
-	}, ":")
-
 	requestHash := sha256.New()
-	requestHash.Write([]byte(hashString))
+	requestHash.Write([]byte(config.Get("signature")))
 	secret := fmt.Sprintf("%x", requestHash.Sum(nil))
 
 	signedRequestHash := sha256.New()
@@ -110,7 +104,7 @@ func HandleAdminRequestSignatureValidation(request *Request) bool {
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))
-	serviceHash.Write([]byte("litebasedb_request"))
+	serviceHash.Write([]byte("litebasedb_service"))
 	service := fmt.Sprintf("%x", serviceHash.Sum(nil))
 
 	signatureHash := hmac.New(sha256.New, []byte(service))

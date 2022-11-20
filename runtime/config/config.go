@@ -15,9 +15,9 @@ func NewConfig() *Config {
 			"branch_uuid":                       os.Getenv("LITEBASEDB_BRANCH_UUID"),
 			"data_path":                         os.Getenv("LITEBASEDB_DATA_PATH"),
 			"database_uuid":                     os.Getenv("LITEBASEDB_DB_UUID"),
-			"encryption_key":                    os.Getenv("LITEBASEDB_ENCRYPTION_KEY"),
 			"env":                               os.Getenv("APP_ENV"),
 			"region":                            os.Getenv("LITEBASEDB_REGION"),
+			"signature":                         os.Getenv("LITEBASEDB_SIGNATURE"),
 			"target_connection_time_in_seconds": os.Getenv("LITEBASEDB_TARGET_CONNECTION_TIME_IN_SECONDS"),
 			"tmp_path":                          os.Getenv("LITEBASEDB_TMP_PATH"),
 		},
@@ -44,4 +44,15 @@ func Set(key string, value string) {
 	}
 
 	StaticConfig.data[key] = value
+}
+
+func Swap(key string, value string, callback func() interface{}) interface{} {
+	originalValue := Get(key)
+
+	Set(key, value)
+
+	result := callback()
+	Set(key, originalValue)
+
+	return result
 }

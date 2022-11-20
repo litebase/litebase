@@ -3,6 +3,7 @@ package backups
 import (
 	"fmt"
 	"litebasedb/runtime/file"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -25,7 +26,7 @@ type RestorePoint struct {
 // 	directories, err := os.ReadDir(restorePointsDirectory)
 
 // 	if err != nil {
-// 		panic(err)
+// 		log.Fatal(err)
 // 	}
 
 // 	for _, directory := range directories {
@@ -64,19 +65,19 @@ func (r *RestorePoint) Apply() {
 	path, err := file.GetFilePath(r.DatabaseUuid, r.BranchUuid)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	databaseFile, err := file.NewDatabaseFile(path)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	files, err := os.ReadDir(r.GetPath(r.DatabaseUuid, r.BranchUuid, r.Timestamp))
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	for _, f := range files {

@@ -2,6 +2,7 @@ package sqlite3_vfs
 
 import (
 	"crypto/rand"
+	"log"
 	"time"
 )
 
@@ -12,7 +13,7 @@ type defaultVFSv1 struct {
 func (v *defaultVFSv1) Randomness(n []byte) int {
 	i, err := rand.Read(n)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	return i
 }

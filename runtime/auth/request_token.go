@@ -59,8 +59,6 @@ func (requestToken *RequestToken) AccessKey() *AccessKey {
 
 	data, err := SecretsManager().GetAccessKey(requestToken.AccessKeyId)
 
-	// json.Unmarshal([]byte(data), &requestToken.accessKey)
-
 	if err != nil {
 		return nil
 	}

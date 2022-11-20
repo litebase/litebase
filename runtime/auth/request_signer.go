@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebasedb/internal/utils"
+	"log"
 	"strings"
 	"time"
 
@@ -54,7 +55,7 @@ func SignRequest(
 		jsonQueryParams, err = json.Marshal(queryParams)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	} else {
 		jsonQueryParams = []byte("{}")
@@ -64,14 +65,14 @@ func SignRequest(
 		jsonBody, err = json.Marshal(queryParams)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	} else {
 		jsonBody = []byte("{}")
 	}
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	requestString := strings.Join([]string{

@@ -11,12 +11,10 @@ func (controller *AccessKeyController) Store(request *Request) *Response {
 	auth.SecretsManager().Init()
 
 	auth.SecretsManager().StoreAccessKey(
-		request.Get("database_uuid").(string),
-		request.Get("branch_uuid").(string),
+		request.Param("database"),
+		request.Param("branch"),
 		request.Get("access_key_id").(string),
-		request.Get("access_key_secret").(string),
-		request.Get("server_access_key_secret").(string),
-		request.Get("privileges").(map[string]interface{}),
+		request.Get("data").(string),
 	)
 
 	auth.SecretsManager().PurgeAccessKey(request.Get("access_key_id").(string))

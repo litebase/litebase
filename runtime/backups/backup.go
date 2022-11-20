@@ -148,7 +148,7 @@ func (backup *Backup) packageBackup() string {
 	input, err := file.GetFilePath(backup.databaseUuid, backup.branchUuid)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	output := backup.Path()
@@ -156,7 +156,7 @@ func (backup *Backup) packageBackup() string {
 	file, err := os.Open(input)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	defer file.Close()
@@ -166,13 +166,13 @@ func (backup *Backup) packageBackup() string {
 	err = os.MkdirAll(filepath.Dir(output), 0755)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	gzipFile, err := os.Create(output)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	defer gzipFile.Close()
@@ -183,7 +183,7 @@ func (backup *Backup) packageBackup() string {
 	_, err = io.Copy(writer, reader)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	return output

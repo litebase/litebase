@@ -10,6 +10,7 @@ import (
 	"litebasedb/runtime/config"
 	"litebasedb/runtime/database"
 	"litebasedb/runtime/sqlite3"
+	"log"
 	"os"
 )
 
@@ -51,7 +52,7 @@ func MockDatabase() map[string]string {
 		},
 	}
 	jsonSettings, _ := json.Marshal(settings)
-	encryptedSettings, _ := auth.SecretsManager().Encrypt(string(jsonSettings))
+	encryptedSettings, _ := auth.SecretsManager().Encrypt(config.Get("signature"), string(jsonSettings))
 
 	data := map[string]interface{}{
 		"database_uuid": databaseUuid,
@@ -66,28 +67,28 @@ func MockDatabase() map[string]string {
 		databaseUuid,
 		branchUuid,
 		databaseKey,
-		settings["branch_settings"].(map[string]interface{}),
 		data["data"].(string),
 	)
 
-	accessKeySecret, _ := auth.SecretsManager().Encrypt("accessKeySecret")
-	serverAccessKeySecret, _ := auth.SecretsManager().Encrypt("serverAccessKeySecret")
+	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get("signature"), "accessKeySecret")
+	// serverAccessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get("signature"), "serverAccessKeySecret")
 
 	auth.SecretsManager().StoreAccessKey(
 		databaseUuid,
 		branchUuid,
 		accessKeyId,
-		accessKeySecret,
-		serverAccessKeySecret,
-		map[string]interface{}{
-			"*": []string{"ALL"},
-		},
+		"",
+		// accessKeySecret,
+		// serverAccessKeySecret,
+		// map[string]interface{}{
+		// 	"*": []string{"ALL"},
+		// },
 	)
 
 	err := database.EnsureDatabaseExists(databaseUuid, branchUuid)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	return map[string]string{
@@ -105,14 +106,14 @@ func EncryptQuery(statement string, parameters string, accessKeyId string, acces
 	encryptedStatement, err := encrypter.Encrypt(statement)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	encrypter = auth.NewEncrypter([]byte(accessKeySecret))
 	encryptedParameters, err := encrypter.Encrypt(parameters)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	return map[string]string{
@@ -125,7 +126,7 @@ func RunQuery(db *database.Database, statement string, parameters []interface{})
 	sqliteStatement, err := db.GetConnection().Prepare(statement)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	result, err := db.GetConnection().Query(
@@ -134,7 +135,7 @@ func RunQuery(db *database.Database, statement string, parameters []interface{})
 	)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	db.GetConnection().Operator.Transmit()

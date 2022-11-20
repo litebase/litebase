@@ -17,7 +17,7 @@ func Setup() {
 	config.Set("tmp_path", "../../data/_test/tmp")
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
@@ -26,7 +26,7 @@ func Teardown() {
 	err := os.RemoveAll("./../../data/_test")
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 

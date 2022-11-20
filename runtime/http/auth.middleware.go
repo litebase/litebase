@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"strconv"
 	"time"
 )
@@ -16,7 +15,7 @@ func (middleware *AuthMiddleware) Handle(request *Request) (*Request, *Response)
 		return nil, &Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
-				"message": "Unauthorized 1",
+				"message": "Unauthorized",
 			},
 		}
 	}
@@ -47,8 +46,6 @@ func (middleware *AuthMiddleware) ensureRequestIsNotExpired(request *Request) bo
 	date, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
-		log.Println(err)
-
 		return false
 	}
 

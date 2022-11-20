@@ -43,7 +43,7 @@ func (o *DatabaseOperator) Record() int {
 		return 0
 	}
 
-	branchSettings, hasBranchSettings := settings["branch_settings"].(map[string]interface{})
+	branchSettings, hasBranchSettings := settings["branchSettings"].(map[string]interface{})
 
 	if !hasBranchSettings {
 		return 0

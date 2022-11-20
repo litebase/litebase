@@ -3,6 +3,7 @@ package backups
 import (
 	"fmt"
 	"litebasedb/runtime/file"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -32,7 +33,7 @@ func (s *Snapshot) AddPage(pageNumber int, data []byte) *Snapshot {
 	err := os.WriteFile(path, data, 0666)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	return s
@@ -71,7 +72,7 @@ func (s *Snapshot) WithRestorePoints() *Snapshot {
 	directories, err := os.ReadDir(restorePointsDirectory)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	futureDate := int(time.Now().UTC().Add(time.Hour * 24 * 3).Unix())

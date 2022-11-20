@@ -9,6 +9,7 @@ import (
 	"litebasedb/internal/utils"
 	"litebasedb/runtime/auth"
 	"litebasedb/runtime/config"
+	"log"
 	"strings"
 	"time"
 
@@ -68,7 +69,7 @@ func HandleRequestSignatureValidation(
 		jsonQueryParams, err = json.Marshal(queryParams)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	} else {
 		jsonQueryParams = []byte("{}")
@@ -78,14 +79,14 @@ func HandleRequestSignatureValidation(
 		jsonBody, err = json.Marshal(body)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	} else {
 		jsonBody = []byte("{}")
 	}
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	requestString := strings.Join([]string{
@@ -104,7 +105,7 @@ func HandleRequestSignatureValidation(
 
 	if err != nil {
 		// TODO: Handle error
-		panic(err)
+		return false
 	}
 
 	signedRequestHash := sha256.New()

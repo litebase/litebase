@@ -1,44 +1,38 @@
 package auth
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"litebasedb/runtime/config"
+	"log"
 	"os"
 	"strings"
 	"time"
 )
 
-type SecretsManagerData struct {
-	secretStore map[string]SecretsStore
-	encrypter   *Encrypter
+type SecretsManagerInstance struct {
+	secretStore        map[string]SecretsStore
+	encrypterInstances map[string]*KeyEncrypter
 }
 
-var staticSecretsManager *SecretsManagerData
+var staticSecretsManager *SecretsManagerInstance
 
-func SecretsManager() *SecretsManagerData {
+func SecretsManager() *SecretsManagerInstance {
 	if staticSecretsManager == nil {
-		key, err := base64.StdEncoding.DecodeString(strings.ReplaceAll(config.Get("encryption_key"), "base64:", ""))
-
-		if err != nil {
-			panic(err)
-		}
-
-		staticSecretsManager = &SecretsManagerData{
-			encrypter:   NewEncrypter(key),
-			secretStore: make(map[string]SecretsStore),
+		staticSecretsManager = &SecretsManagerInstance{
+			encrypterInstances: make(map[string]*KeyEncrypter),
+			secretStore:        make(map[string]SecretsStore),
 		}
 	}
 
 	return staticSecretsManager
 }
 
-func (s *SecretsManagerData) accessKeyCacheKey(accessKeyId string) string {
+func (s *SecretsManagerInstance) accessKeyCacheKey(accessKeyId string) string {
 	return "access_key:" + accessKeyId
 }
 
-func (s *SecretsManagerData) cache(key string) SecretsStore {
+func (s *SecretsManagerInstance) cache(key string) SecretsStore {
 	_, hasFileStore := s.secretStore["file"]
 	_, hasMapStore := s.secretStore["map"]
 	_, hasTransientStore := s.secretStore["transient"]
@@ -60,15 +54,15 @@ func (s *SecretsManagerData) cache(key string) SecretsStore {
 	return s.secretStore[key]
 }
 
-func (s *SecretsManagerData) databaseSettingCacheKey(databaseUuid string, branchUuid string) string {
+func (s *SecretsManagerInstance) databaseSettingCacheKey(databaseUuid string, branchUuid string) string {
 	return fmt.Sprintf("database_secret:%s:%s", databaseUuid, branchUuid)
 }
 
-func (s *SecretsManagerData) Decrypt(text string) (string, error) {
-	return s.encrypter.Decrypt(text)
+func (s *SecretsManagerInstance) Decrypt(signature string, text string) (map[string]string, error) {
+	return s.Encrypter(signature).Decrypt(text)
 }
 
-func (s *SecretsManagerData) DecryptFor(accessKeyId string, text string, secret string) (string, error) {
+func (s *SecretsManagerInstance) DecryptFor(accessKeyId string, text string, secret string) (string, error) {
 	var err error
 
 	if secret == "" {
@@ -84,24 +78,32 @@ func (s *SecretsManagerData) DecryptFor(accessKeyId string, text string, secret 
 	return encrypter.Decrypt(text)
 }
 
-func (s *SecretsManagerData) DeleteAccessKey(accessKeyId string) {
+func (s *SecretsManagerInstance) DeleteAccessKey(accessKeyId string) {
 	s.PurgeAccessKey(accessKeyId)
 
-	path := s.SecretsPath(fmt.Sprintf("access_keys/%s.json", accessKeyId))
+	path := s.SecretsPath(fmt.Sprintf("access_keys/%s", accessKeyId))
 
 	os.Remove(path)
 }
 
-func (s *SecretsManagerData) DeleteSettings(databaseUuid string, branchUuid string) {
+func (s *SecretsManagerInstance) DeleteSettings(databaseUuid string, branchUuid string) {
 	path := s.SecretsPath(fmt.Sprintf("settings/%s", databaseUuid))
 	os.RemoveAll(path)
 }
 
-func (s *SecretsManagerData) Encrypt(text string) (string, error) {
-	return s.encrypter.Encrypt(text)
+func (s *SecretsManagerInstance) Encrypt(signature string, text string) (string, error) {
+	return s.Encrypter(signature).Encrypt(text)
 }
 
-func (s *SecretsManagerData) EncryptFor(accessKeyId, text string) (string, error) {
+func (s *SecretsManagerInstance) Encrypter(signature string) *KeyEncrypter {
+	if _, ok := s.encrypterInstances[signature]; !ok {
+		s.encrypterInstances[signature] = NewKeyEncrypter(signature)
+	}
+
+	return s.encrypterInstances[signature]
+}
+
+func (s *SecretsManagerInstance) EncryptFor(accessKeyId, text string) (string, error) {
 	secret, err := s.GetSecret(accessKeyId)
 
 	if err != nil {
@@ -113,11 +115,11 @@ func (s *SecretsManagerData) EncryptFor(accessKeyId, text string) (string, error
 	return encrypter.Encrypt(text)
 }
 
-func (s *SecretsManagerData) FlushTransients() {
+func (s *SecretsManagerInstance) FlushTransients() {
 	s.cache("transient").Flush()
 }
 
-func (s *SecretsManagerData) GetAccessKey(accessKeyId string) (*AccessKey, error) {
+func (s *SecretsManagerInstance) GetAccessKey(accessKeyId string) (*AccessKey, error) {
 	var accessKey *AccessKey
 	value := s.cache("map").Get(s.accessKeyCacheKey(accessKeyId))
 
@@ -139,7 +141,7 @@ func (s *SecretsManagerData) GetAccessKey(accessKeyId string) (*AccessKey, error
 		return accessKey, nil
 	}
 
-	path := s.SecretsPath(fmt.Sprintf("access_keys/%s.json", accessKeyId))
+	path := s.SecretsPath(fmt.Sprintf("access_keys/%s", accessKeyId))
 
 	fileContents, err := os.ReadFile(path)
 
@@ -147,7 +149,13 @@ func (s *SecretsManagerData) GetAccessKey(accessKeyId string) (*AccessKey, error
 		return nil, err
 	}
 
-	err = json.Unmarshal(fileContents, &accessKey)
+	decrypted, err := s.Decrypt(config.Get("signature"), string(fileContents))
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal([]byte(decrypted["value"]), &accessKey)
 
 	if err != nil {
 		return nil, err
@@ -159,7 +167,7 @@ func (s *SecretsManagerData) GetAccessKey(accessKeyId string) (*AccessKey, error
 	return accessKey, nil
 }
 
-func (s *SecretsManagerData) GetAwsCredentials(databaseUuid string, branchUuid string) (map[string]string, error) {
+func (s *SecretsManagerInstance) GetAwsCredentials(databaseUuid string, branchUuid string) (map[string]string, error) {
 	value, err := s.GetDatabaseSettings(databaseUuid, branchUuid)
 
 	if err != nil {
@@ -170,38 +178,22 @@ func (s *SecretsManagerData) GetAwsCredentials(databaseUuid string, branchUuid s
 		return nil, nil
 	}
 
-	data, hasData := value["data"]
+	awsAccessToken, hasAwsAccessToken := value["aws_access_token"]
 
-	if hasData {
-		decrypted, err := s.Decrypt(data.(string))
+	if hasAwsAccessToken {
+		credentials := strings.Split(awsAccessToken.(string), ":")
 
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal([]byte(decrypted), &value)
-
-		if err != nil {
-			return nil, err
-		}
-
-		awsAccessToken, hasAwsAccessToken := value["aws_access_token"]
-
-		if hasAwsAccessToken {
-			credentials := strings.Split(awsAccessToken.(string), ":")
-
-			return map[string]string{
-				"key":    credentials[0],
-				"secret": credentials[1],
-				"token":  credentials[1],
-			}, nil
-		}
+		return map[string]string{
+			"key":    credentials[0],
+			"secret": credentials[1],
+			"token":  credentials[1],
+		}, nil
 	}
 
 	return nil, nil
 }
 
-func (s *SecretsManagerData) GetBackupBucketName(databaseUuid string, branchUuid string) (string, error) {
+func (s *SecretsManagerInstance) GetBackupBucketName(databaseUuid string, branchUuid string) (string, error) {
 	value, err := s.GetDatabaseSettings(databaseUuid, branchUuid)
 
 	if err != nil {
@@ -212,32 +204,16 @@ func (s *SecretsManagerData) GetBackupBucketName(databaseUuid string, branchUuid
 		return "", nil
 	}
 
-	data, hasData := value["data"]
+	backupBucketName, hasBackupBucketName := value["backupBucketName"]
 
-	if hasData {
-		decrypted, err := s.Decrypt(data.(string))
-
-		if err != nil {
-			return "", err
-		}
-
-		err = json.Unmarshal([]byte(decrypted), &value)
-
-		if err != nil {
-			return "", err
-		}
-
-		backupBucketName, hasBackupBucketName := value["backupBucketName"]
-
-		if hasBackupBucketName {
-			return backupBucketName.(string), nil
-		}
+	if hasBackupBucketName {
+		return backupBucketName.(string), nil
 	}
 
 	return "", nil
 }
 
-func (s *SecretsManagerData) GetConnectionKey(databaseUuid string, branchUuid string) (string, error) {
+func (s *SecretsManagerInstance) GetConnectionKey(databaseUuid string, branchUuid string) (string, error) {
 	value, err := s.GetDatabaseSettings(databaseUuid, branchUuid)
 
 	if err != nil {
@@ -248,32 +224,16 @@ func (s *SecretsManagerData) GetConnectionKey(databaseUuid string, branchUuid st
 		return "", nil
 	}
 
-	data, hasData := value["data"]
+	connectionKey, hasConnectionKey := value["connectionKey"]
 
-	if hasData {
-		decrypted, err := s.Decrypt(data.(string))
-
-		if err != nil {
-			return "", err
-		}
-
-		err = json.Unmarshal([]byte(decrypted), &value)
-
-		if err != nil {
-			return "", err
-		}
-
-		connectionKey, hasConnectionKey := value["connectionKey"]
-
-		if hasConnectionKey {
-			return connectionKey.(string), nil
-		}
+	if hasConnectionKey {
+		return connectionKey.(string), nil
 	}
 
 	return "", nil
 }
 
-func (s *SecretsManagerData) GetDatabaseKey(accessKeyId string) (string, error) {
+func (s *SecretsManagerInstance) GetDatabaseKey(accessKeyId string) (string, error) {
 	accessKey, err := s.GetAccessKey(accessKeyId)
 
 	if err != nil {
@@ -284,7 +244,7 @@ func (s *SecretsManagerData) GetDatabaseKey(accessKeyId string) (string, error) 
 
 }
 
-func (s *SecretsManagerData) GetDatabaseSettings(databaseUuid string, branchUuid string) (map[string]interface{}, error) {
+func (s *SecretsManagerInstance) GetDatabaseSettings(databaseUuid string, branchUuid string) (map[string]interface{}, error) {
 	value := s.cache("map").Get(s.databaseSettingCacheKey(databaseUuid, branchUuid))
 
 	if value != nil {
@@ -297,14 +257,21 @@ func (s *SecretsManagerData) GetDatabaseSettings(databaseUuid string, branchUuid
 		return value.(map[string]interface{}), nil
 	}
 
-	path := s.SecretsPath(fmt.Sprintf("settings/%s/%s.json", databaseUuid, branchUuid))
+	path := s.SecretsPath(fmt.Sprintf("settings/%s/%s", databaseUuid, branchUuid))
+
 	fileContents, err := os.ReadFile(path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal(fileContents, &value)
+	decrypted, err := s.Decrypt(config.Get("signature"), string(fileContents))
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal([]byte(decrypted["value"]), &value)
 
 	if err != nil {
 		return nil, err
@@ -316,7 +283,7 @@ func (s *SecretsManagerData) GetDatabaseSettings(databaseUuid string, branchUuid
 	return value.(map[string]interface{}), nil
 }
 
-func (s *SecretsManagerData) GetPath(databaseUuid string, branchUuid string) (string, error) {
+func (s *SecretsManagerInstance) GetPath(databaseUuid string, branchUuid string) (string, error) {
 	value := s.cache("transient").Get(fmt.Sprintf("%s:%s:path", databaseUuid, branchUuid))
 
 	if value != nil {
@@ -329,34 +296,18 @@ func (s *SecretsManagerData) GetPath(databaseUuid string, branchUuid string) (st
 		return "", err
 	}
 
-	data, hasData := value.(map[string]interface{})["data"]
+	path, hasPath := value.(map[string]interface{})["path"]
 
-	if hasData {
-		decrypted, err := s.Decrypt(data.(string))
+	if hasPath {
+		s.cache("transient").Put(fmt.Sprintf("%s:%s:path", databaseUuid, branchUuid), path, time.Second*1)
 
-		if err != nil {
-			return "", err
-		}
-
-		err = json.Unmarshal([]byte(decrypted), &value)
-
-		if err != nil {
-			return "", err
-		}
-
-		path, hasPath := value.(map[string]interface{})["path"]
-
-		if hasPath {
-			s.cache("transient").Put(fmt.Sprintf("%s:%s:path", databaseUuid, branchUuid), path, time.Second*1)
-
-			return path.(string), nil
-		}
+		return path.(string), nil
 	}
 
 	return "", nil
 }
 
-func (s *SecretsManagerData) GetSecret(accessKeyId string) (string, error) {
+func (s *SecretsManagerInstance) GetSecret(accessKeyId string) (string, error) {
 	value := s.cache("transient").Get(fmt.Sprintf("%s:secret", accessKeyId))
 
 	if value != nil {
@@ -369,18 +320,12 @@ func (s *SecretsManagerData) GetSecret(accessKeyId string) (string, error) {
 		return "", err
 	}
 
-	decrypted, err := s.Decrypt(accessKey.AccessKeySecret)
+	s.cache("transient").Put(fmt.Sprintf("%s:secret", accessKeyId), accessKey.AccessKeySecret, time.Second*1)
 
-	if err != nil {
-		return "", err
-	}
-
-	s.cache("transient").Put(fmt.Sprintf("%s:secret", accessKeyId), decrypted, time.Second*1)
-
-	return decrypted, nil
+	return accessKey.AccessKeySecret, nil
 }
 
-func (s *SecretsManagerData) GetServerSecret(accessKeyId string) (string, error) {
+func (s *SecretsManagerInstance) GetServerSecret(accessKeyId string) (string, error) {
 	value := s.cache("transient").Get(fmt.Sprintf("%s:server_secret", accessKeyId))
 
 	if value != nil {
@@ -393,24 +338,18 @@ func (s *SecretsManagerData) GetServerSecret(accessKeyId string) (string, error)
 		return "", err
 	}
 
-	decrypted, err := s.Decrypt(accessKey.ServerAccessKeySecret)
+	s.cache("transient").Put(fmt.Sprintf("%s:server_secret", accessKeyId), accessKey.ServerAccessKeySecret, time.Second*1)
 
-	if err != nil {
-		return "", err
-	}
-
-	s.cache("transient").Put(fmt.Sprintf("%s:server_secret", accessKeyId), decrypted, time.Second*1)
-
-	return decrypted, nil
+	return accessKey.ServerAccessKeySecret, nil
 }
 
-func (s *SecretsManagerData) Init() {
+func (s *SecretsManagerInstance) Init() {
 	// Check if the secrets path exists
 	if _, err := os.Stat(s.SecretsPath("")); os.IsNotExist(err) {
 		err := os.MkdirAll(s.SecretsPath(""), 0755)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}
 
@@ -418,7 +357,7 @@ func (s *SecretsManagerData) Init() {
 		err := os.MkdirAll(s.SecretsPath("access_keys"), 0755)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}
 
@@ -426,17 +365,17 @@ func (s *SecretsManagerData) Init() {
 		err := os.MkdirAll(s.SecretsPath("settings"), 0755)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}
 }
 
-func (s *SecretsManagerData) PurgeAccessKey(accessKeyId string) {
+func (s *SecretsManagerInstance) PurgeAccessKey(accessKeyId string) {
 	s.cache("map").Forget(s.accessKeyCacheKey(accessKeyId))
 	s.cache("transient").Forget(s.accessKeyCacheKey(accessKeyId))
 }
 
-func (s *SecretsManagerData) PurgeAccessKeys() {
+func (s *SecretsManagerInstance) PurgeAccessKeys() {
 	// Get all the file names in the access keys directory
 	files, err := os.ReadDir(s.SecretsPath("access_keys"))
 
@@ -445,83 +384,114 @@ func (s *SecretsManagerData) PurgeAccessKeys() {
 	}
 
 	for _, file := range files {
-		s.PurgeAccessKey(strings.ReplaceAll(file.Name(), ".json", ""))
+		s.PurgeAccessKey(file.Name())
 	}
 }
 
-func (s *SecretsManagerData) PurgeDatabaseSettings(databaseUuid string, branchUuid string) {
+func (s *SecretsManagerInstance) PurgeDatabaseSettings(databaseUuid string, branchUuid string) {
 	s.cache("map").Forget(s.databaseSettingCacheKey(databaseUuid, branchUuid))
 	s.cache("transient").Forget(s.databaseSettingCacheKey(databaseUuid, branchUuid))
 	s.cache("file").Forget(s.databaseSettingCacheKey(databaseUuid, branchUuid))
 }
 
-func (s *SecretsManagerData) SecretsPath(key string) string {
+func (s *SecretsManagerInstance) SecretsPath(key string) string {
 	return fmt.Sprintf(
-		"%s/.litebasedb/%s",
-		strings.TrimRight(config.Get("data_path"), "/"),
-		strings.TrimRight(key, "/"),
+		"%s/.litebasedb/%s/%s",
+		config.Get("data_path"),
+		config.Get("signature"),
+		key,
 	)
 }
 
-func (s *SecretsManagerData) StoreAccessKey(
+func (s *SecretsManagerInstance) StoreAccessKey(
 	databaseUuid string,
 	branchUuid string,
 	accessKeyId string,
-	accessKeySecret string,
-	serverAccessKeySecret string,
-	privileges map[string]interface{},
+	data string,
 ) {
-	jsonValue, err := json.Marshal(map[string]interface{}{
-		"database_uuid":            databaseUuid,
-		"branch_uuid":              branchUuid,
-		"access_key_id":            accessKeyId,
-		"access_key_secret":        accessKeySecret,
-		"server_access_key_secret": serverAccessKeySecret,
-		"privileges":               privileges,
-	})
+	decryptedAccessKeyData, err := SecretsManager().Decrypt(config.Get("signature"), data)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
+	}
+
+	var jsonAccessKey map[string]interface{}
+
+	err = json.Unmarshal([]byte(decryptedAccessKeyData["value"]), &jsonAccessKey)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	jsonValue, err := json.Marshal(jsonAccessKey)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	encryptedAccessKey, err := SecretsManager().Encrypt(
+		config.Get("signature"),
+		string(jsonValue),
+	)
+
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	os.WriteFile(
-		s.SecretsPath(fmt.Sprintf("access_keys/%s.json", accessKeyId)),
-		jsonValue,
+		s.SecretsPath(fmt.Sprintf("access_keys/%s", accessKeyId)),
+		[]byte(encryptedAccessKey),
 		0666,
 	)
 }
 
-func (s *SecretsManagerData) StoreDatabaseSettings(
+func (s *SecretsManagerInstance) StoreDatabaseSettings(
 	databaseUuid string,
 	branchUuid string,
 	databaseKey string,
-	branchSettings map[string]interface{},
 	data string,
 ) {
 	if _, err := os.Stat(s.SecretsPath(fmt.Sprintf("settings/%s", databaseUuid))); os.IsNotExist(err) {
 		os.MkdirAll(s.SecretsPath(fmt.Sprintf("settings/%s", databaseUuid)), 0755)
 	}
 
-	jsonValue, err := json.Marshal(map[string]interface{}{
-		"database_uuid":   databaseUuid,
-		"branch_uuid":     branchUuid,
-		"database_key":    databaseKey,
-		"branch_settings": branchSettings,
-		"data":            data,
-	})
+	decryptedSettingsData, err := SecretsManager().Decrypt(config.Get("signature"), data)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
+	}
+
+	var jsonSettings map[string]interface{}
+
+	err = json.Unmarshal([]byte(decryptedSettingsData["value"]), &jsonSettings)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	jsonValue, err := json.Marshal(jsonSettings)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	encryptedSettings, err := SecretsManager().Encrypt(
+		config.Get("signature"),
+		string(jsonValue),
+	)
+
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	os.WriteFile(
-		s.SecretsPath(fmt.Sprintf("settings/%s/%s.json", databaseUuid, branchUuid)),
-		jsonValue,
+		s.SecretsPath(fmt.Sprintf("settings/%s/%s", databaseUuid, branchUuid)),
+		[]byte(encryptedSettings),
 		0666,
 	)
 }
 
-func (s *SecretsManagerData) UpdateAccessKey(
+func (s *SecretsManagerInstance) UpdateAccessKey(
 	databaseUuid string,
 	branchUuid string,
 	accessKeyId string,
@@ -561,11 +531,11 @@ func (s *SecretsManagerData) UpdateAccessKey(
 	jsonValue, err := json.Marshal(accessKey)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	os.WriteFile(
-		s.SecretsPath(fmt.Sprintf("access_keys/%s.json", accessKeyId)),
+		s.SecretsPath(fmt.Sprintf("access_keys/%s", accessKeyId)),
 		jsonValue,
 		0666,
 	)

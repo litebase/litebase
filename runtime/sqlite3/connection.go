@@ -11,6 +11,7 @@ import "C"
 
 import (
 	"errors"
+	"log"
 	"time"
 	"unsafe"
 
@@ -33,7 +34,7 @@ var commitHook func() (abort bool)
 
 func init() {
 	if err := C.sqlite3_initialize(); err != C.SQLITE_OK {
-		panic(errors.New(C.GoString(C.sqlite3_errstr(err))))
+		log.Fatal(errors.New(C.GoString(C.sqlite3_errstr(err))))
 	}
 }
 

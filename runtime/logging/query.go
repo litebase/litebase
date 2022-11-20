@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebasedb/runtime/file"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -56,13 +57,13 @@ func (q *QueryLog) GetFile() *os.File {
 		err := os.MkdirAll(filepath.Dir(path), 0755)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		q.file = file
@@ -89,7 +90,7 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 			return queryLogs
 		}
 
-		panic(err)
+		log.Fatal(err)
 	}
 
 	for directory := range dirs {
@@ -101,7 +102,7 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 		directoryTimestamp, err := strconv.Atoi(dirs[directory].Name())
 
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		// If the timestamp is not in the range, skip it
@@ -114,7 +115,7 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 		if err != nil && os.IsNotExist(err) {
 			continue
 		} else if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		defer file.Close()
@@ -136,7 +137,7 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 			timestamp, err := strconv.Atoi(matches[1])
 
 			if err != nil {
-				panic(err)
+				log.Fatal(err)
 			}
 
 			// if the timstamp is not in the range continue
@@ -151,7 +152,7 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 			err = json.Unmarshal([]byte(jsonString), &data)
 
 			if err != nil {
-				panic(err)
+				log.Fatal(err)
 			}
 
 			// Add the data to the array
@@ -165,7 +166,7 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 func (q *QueryLog) Write(accessKeyId, statement string, isWrite bool, executionTime float64) {
 	timestamp := time.Now().UTC().Unix()
 
-	log := map[string]interface{}{
+	logData := map[string]interface{}{
 		"accessKeyId":   accessKeyId,
 		"executionTime": executionTime,
 		"hash":          fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%s:%s", accessKeyId, statement)))),
@@ -174,10 +175,10 @@ func (q *QueryLog) Write(accessKeyId, statement string, isWrite bool, executionT
 		"statement":     statement,
 	}
 
-	jsonLog, err := json.Marshal(log)
+	jsonLog, err := json.Marshal(logData)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	q.GetFile().WriteString(

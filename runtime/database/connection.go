@@ -204,9 +204,9 @@ func (c *Connection) setAuthorizer() {
 		case sqlite3.SQLITE_DROP_TEMP_TABLE:
 			allowed, err = c.accessKey.CanDrop(args)
 		case sqlite3.SQLITE_DROP_TEMP_TRIGGER:
-			allowed, err = c.accessKey.CanTrigger(args)
+			allowed, err = c.accessKey.CanDrop(args)
 		case sqlite3.SQLITE_DROP_TEMP_VIEW:
-			allowed, err = c.accessKey.CanCreate(args)
+			allowed, err = c.accessKey.CanDrop(args)
 		case sqlite3.SQLITE_DROP_TRIGGER:
 			allowed, err = c.accessKey.CanTrigger(args)
 		case sqlite3.SQLITE_DROP_VIEW:

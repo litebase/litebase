@@ -64,7 +64,7 @@ func (encrypter *Encrypter) Encrypt(plaintext string) (string, error) {
 	block, err := aes.NewCipher(encrypter.key)
 
 	if err != nil {
-		panic(err.Error())
+		log.Fatal(err)
 	}
 
 	aead, err := cipher.NewGCM(block)
@@ -76,7 +76,7 @@ func (encrypter *Encrypter) Encrypt(plaintext string) (string, error) {
 	iv := make([]byte, aead.NonceSize())
 
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		panic(err.Error())
+		log.Fatal(err)
 	}
 
 	ciphertext := aead.Seal(nil, iv, plaintextBytes, nil)
