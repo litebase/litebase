@@ -90,10 +90,6 @@ func LoadRoutes(router *RouterInstance) {
 		// &AdminMiddleware{},
 	})
 
-	router.Post("signature/next", (&SignatureController{}).Store).Middleware([]Middleware{
-		// &AdminMiddleware{},
-	})
-
 	router.Fallback(func(request *Request) *Response {
 		return &Response{StatusCode: 404}
 	})

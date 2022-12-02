@@ -49,9 +49,10 @@ func (controller *SignatureController) Store(request *Request) *Response {
 		}, 500, nil)
 	}
 
+	auth.Rotate()
+
 	return JsonResponse(map[string]interface{}{
-		"status":  "success",
-		"message": "Database settings stored successfully",
+		"status": "success",
 		"data": map[string]string{
 			"public_key": encrypted,
 		},

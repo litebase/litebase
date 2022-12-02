@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
+	"time"
 )
 
 func EncryptKey(key string) (string, error) {
@@ -136,8 +139,6 @@ func GetRawPublicKey(signature string) ([]byte, error) {
 	return file, nil
 }
 
-func Init() {}
-
 func KeyPath(keyType string, signature string) string {
 	return strings.Join([]string{
 		Path(signature),
@@ -165,6 +166,12 @@ func NextSignature(signature string) string {
 
 	publicKeyString := publicKey.(*rsa.PublicKey).N.String()
 
+	err := Rotate()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return publicKeyString
 }
 
@@ -176,11 +183,192 @@ func Path(signature string) string {
 	}, "/")
 }
 
-func Rotate() {
+func Rotate() error {
+	if config.Get("signature_next") == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(KeyPath("private", config.Get("signature_next"))); err == nil {
+		return nil
+	}
+
+	if _, err := os.Stat(Path(config.Get("signature_next") + "/.rotate-lock")); err == nil {
+		return nil
+	}
+
+	if _, err := os.Stat(Path(config.Get("signature_next") + "/manifest.json")); err == nil {
+		return nil
+	}
+
+	// create rotate lock
+	if err := os.MkdirAll(Path(config.Get("signature_next")), 0755); err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(Path(config.Get("signature_next")+"/.rotate-lock"), []byte{}, 0666); err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	var errorChan = make(chan error)
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		err := rotateAccessKeys()
+
+		if err != nil {
+			errorChan <- err
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		err := rotateSettings()
+
+		if err != nil {
+			errorChan <- err
+		}
+	}()
+
+	wg.Wait()
+
+	close(errorChan)
+
+	for err := range errorChan {
+		if err != nil {
+			return err
+		}
+	}
+
+	manifest := map[string]interface{}{
+		"signature":  config.Get("signature"),
+		"rotated_at": time.Now().Unix(),
+	}
+
+	manifestBytes, err := json.Marshal(manifest)
+
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(Path(config.Get("signature_next")+"/manifest.json"), manifestBytes, 0666); err != nil {
+		return err
+	}
+
+	if err := os.Remove(Path(config.Get("signature_next") + "/.rotate-lock")); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func rotateAccessKeys() {
+func rotateAccessKeys() error {
+	accessKeyDir := strings.Join([]string{
+		Path(config.Get("signature")),
+		"access-keys",
+	}, "/")
+
+	newAccessKeyDir := strings.Join([]string{
+		Path(config.Get("signature_next")),
+		"access-keys",
+	}, "/")
+
+	accessKeys, err := os.ReadDir(accessKeyDir)
+
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(newAccessKeyDir, 0755); err != nil {
+		return err
+	}
+
+	for _, accessKey := range accessKeys {
+		accessKeyBytes, err := os.ReadFile(strings.Join([]string{
+			accessKeyDir,
+			accessKey.Name(),
+		}, "/"))
+
+		if err != nil {
+			return err
+		}
+
+		decryptedAccessKey, err := SecretsManager().Decrypt(config.Get("signature"), string(accessKeyBytes))
+
+		if err != nil {
+			return err
+		}
+
+		encryptedAccessKey, err := SecretsManager().Encrypt(config.Get("signature_next"), decryptedAccessKey["value"])
+
+		if err != nil {
+			return err
+		}
+
+		if err := os.WriteFile(strings.Join([]string{
+			newAccessKeyDir,
+			accessKey.Name(),
+		}, "/"), []byte(encryptedAccessKey), 0666); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func rotateSettings() {
+func rotateSettings() error {
+	settingsDir := strings.Join([]string{
+		Path(config.Get("signature")),
+		"settings",
+	}, "/")
+
+	newSettingsDir := strings.Join([]string{
+		Path(config.Get("signature_next")),
+		"settings",
+	}, "/")
+
+	settings, err := os.ReadDir(settingsDir)
+
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(newSettingsDir, 0755); err != nil {
+		return err
+	}
+
+	for _, setting := range settings {
+		settingBytes, err := os.ReadFile(strings.Join([]string{
+			settingsDir,
+			setting.Name(),
+		}, "/"))
+
+		if err != nil {
+			return err
+		}
+
+		decryptedSetting, err := SecretsManager().Decrypt(config.Get("signature"), string(settingBytes))
+
+		if err != nil {
+			return err
+		}
+
+		encryptedSetting, err := SecretsManager().Encrypt(config.Get("signature_next"), decryptedSetting["value"])
+
+		if err != nil {
+			return err
+		}
+
+		if err := os.WriteFile(strings.Join([]string{
+			newSettingsDir,
+			setting.Name(),
+		}, "/"), []byte(encryptedSetting), 0666); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
