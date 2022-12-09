@@ -3,11 +3,9 @@ package http
 import (
 	"fmt"
 	"litebasedb/router/config"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-func Routes(router *fiber.App) {
+func LoadRoutes(router *RouterInstance) {
 	host := fmt.Sprintf(
 		`%s.%s`,
 		config.Get("region"),
@@ -19,89 +17,97 @@ func Routes(router *fiber.App) {
 	 */
 	router.Post(
 		"/databases/:databaseUuid/:branchUuid/access-keys",
+		AccessKeyControllerStore,
+	).Middleware([]Middleware{
 		RequireHost(host),
 		AdminAuth,
-		AccessKeyControllerStore,
-	)
+	})
 
 	router.Delete(
 		"/databases/:uuid/:branchUuid/access-keys/:accessKeyId",
+		AccessKeyControllerDestroy,
+	).Middleware([]Middleware{
 		RequireHost(host),
 		AdminAuth,
-		AccessKeyControllerDestroy,
-	)
+	})
 
 	router.Post(
 		"/databases/:uuid/:branchUuid/settings",
+		DatabaseSettingsStoreController,
+	).Middleware([]Middleware{
 		RequireHost(host),
 		AdminAuth,
-		DatabaseSettingsStoreController,
-	)
+	})
 
 	router.Delete(
 		"/databases/:uuid/:branchUuid/settings",
+		DatabaseSettingsDestroyController,
+	).Middleware([]Middleware{
 		RequireHost(host),
 		AdminAuth,
-		DatabaseSettingsDestroyController,
-	)
+	})
 
 	router.Post(
 		"/signature",
+		SingatureStoreController,
+	).Middleware([]Middleware{
 		RequireHost(host),
 		AdminAuth,
-		SingatureStoreController,
-	)
+	})
 
 	/**
 	 * Internal routes for cluster operations.
 	 */
 	router.Post(
 		"/databases/:uuid/:branchUuid/settings/purge",
-		Internal,
 		DatabaseSettingsPurgeController,
-	)
+	).Middleware([]Middleware{Internal})
 
 	router.Post(
 		"/databases/:uuid/:branchUuid/access-keys/purge",
-		Internal,
 		AccessKeyPurgeController,
-	)
+	).Middleware([]Middleware{Internal})
 
 	/**
 	 * Runtime routes.
 	 */
 	router.Get(
 		"/databases/:uuid/:branchUuid/connection",
-		RuntimeAuth,
 		ConnectionController,
-	)
+	).Middleware([]Middleware{RuntimeAuth})
 
 	/**
 	 * Database routes.
 	 */
 	router.Post("/query",
+		QueryController,
+	).Middleware([]Middleware{RequireSubdomain, Auth})
+
+	router.Post("/transactions",
+		TrasactionControllerStore,
+	).Middleware([]Middleware{RequireSubdomain, Auth})
+
+	router.Delete("/transactions/:id/",
+		TrasactionControllerDestroy,
+	).Middleware([]Middleware{
 		RequireSubdomain,
 		Auth,
-		QueryController,
-	)
+	})
 
-	router.Post("/transactions", RequireSubdomain,
-		Auth,
-		TrasactionControllerStore,
-	)
-
-	router.Delete("/transactions/:id/", RequireSubdomain,
-		Auth,
-		TrasactionControllerDestroy,
-	)
-
-	router.Post("/transactions/:id/", RequireSubdomain,
-		Auth,
+	router.Post("/transactions/:id/",
 		TrasactionControllerUpdate,
-	)
+	).Middleware([]Middleware{RequireSubdomain, Auth})
 
-	router.Post("/transactions/:id/commit", RequireSubdomain,
-		Auth,
+	router.Post("/transactions/:id/commit",
 		TransactionCommitController,
-	)
+	).Middleware([]Middleware{RequireSubdomain, Auth})
+
+	router.Fallback(func(request *Request) *Response {
+		return &Response{
+			StatusCode: 404,
+			Body:       nil,
+		}
+	})
+
+	// TODO: Implement router.Error() for 500 errors.
 }

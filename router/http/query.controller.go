@@ -2,58 +2,71 @@ package http
 
 import (
 	"litebasedb/router/auth"
-	"litebasedb/router/runtime"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-func QueryController(c *fiber.Ctx) error {
-	databaseKey := c.Subdomains()[0]
+func QueryController(request *Request) *Response {
+	// start := time.Now()
 
-	if databaseKey == "" || len(c.Subdomains()) != 2 {
-		return c.JSON(map[string]string{
-			"status":  "error",
-			"message": "Bad request",
-		})
+	databaseKey := request.Subdomains()[0]
+
+	if databaseKey == "" || len(request.Subdomains()) != 2 {
+		return &Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Bad request",
+			},
+		}
 	}
 
 	databaseUuid := auth.SecretsManager().GetDatabaseUuid(databaseKey)
 
 	if databaseUuid == "" {
-		return c.JSON(map[string]string{
-			"status":  "error",
-			"message": "Bad request",
-		})
+		return &Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Bad request",
+			},
+		}
 	}
 
-	accessKey := auth.CaptureRequestToken(c.GetReqHeaders()["Authorization"]).AccessKey(databaseUuid)
+	accessKey := request.RequestToken("Authorization").AccessKey(databaseUuid)
 
 	if accessKey == nil {
-		return c.JSON(map[string]string{
-			"status":  "error",
-			"message": "Bad request",
-		})
+		return &Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Bad request",
+			},
+		}
 	}
 
 	branchUuid := accessKey.GetBranchUuid()
 
 	if branchUuid == "" {
-		return c.JSON(map[string]string{
-			"status":  "error",
-			"message": "Bad request",
-		})
+		return &Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Bad request",
+			},
+		}
 	}
 
-	query := make(map[string]string)
-	c.QueryParser(query)
-
-	response := runtime.ForwardRequest(
-		c,
+	response := ForwardRequest(
+		request,
 		databaseUuid,
 		branchUuid,
 		accessKey.AccessKeyId,
 		"",
 	)
 
-	return c.Status(response.StatusCode).JSON(response.Body)
+	// log.Println(time.Since(start))
+
+	return &Response{
+		StatusCode: response.StatusCode,
+		Body:       response.Body,
+	}
 }

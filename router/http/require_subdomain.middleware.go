@@ -1,13 +1,15 @@
 package http
 
-import (
-	"github.com/gofiber/fiber/v2"
-)
-
-func RequireSubdomain(c *fiber.Ctx) error {
-	if len(c.Subdomains()) <= 1 {
-		return c.SendStatus(fiber.StatusNotFound)
+func RequireSubdomain(request *Request) (*Request, *Response) {
+	if len(request.Subdomains()) <= 1 {
+		return nil, &Response{
+			StatusCode: 403,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Forbidden",
+			},
+		}
 	}
 
-	return c.Next()
+	return request, nil
 }

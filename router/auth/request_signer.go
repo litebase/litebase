@@ -20,7 +20,7 @@ func SignRequest(
 	method string,
 	path string,
 	headers map[string]string,
-	data map[string]string,
+	data map[string]interface{},
 	queryParams map[string]string,
 ) string {
 	for key, value := range headers {

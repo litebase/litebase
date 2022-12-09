@@ -5,9 +5,9 @@ import (
 	"litebasedb/runtime"
 	"litebasedb/runtime/event"
 	"log"
+	"net/http"
 	"os"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
@@ -23,20 +23,29 @@ func init() {
 }
 
 func main() {
-	server := fiber.New()
+	server := &http.Server{
+		Addr: ":8001",
+	}
 
-	var handler = runtime.Handler
-
-	server.Post(
-		"/2015-03-31/functions/:function/invocations",
-		func(c *fiber.Ctx) error {
+	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
 			request := &event.Event{}
-			json.Unmarshal([]byte(c.Body()), &request)
-			response := handler(request)
-			json, _ := json.Marshal(response)
+			decoder := json.NewDecoder(r.Body)
+			decoder.Decode(&request)
+			response := runtime.Handler(request)
+			json, err := json.Marshal(response)
 
-			return c.Send(json)
-		})
+			if err != nil {
+				panic(err)
+			}
 
-	log.Fatal(server.Listen(":8001"))
+			w.Write(json)
+
+			return
+		}
+
+		w.Write([]byte(nil))
+	})
+
+	log.Fatal(server.ListenAndServe())
 }

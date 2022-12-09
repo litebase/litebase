@@ -1,7 +1,5 @@
 package http
 
-import "github.com/gofiber/fiber/v2"
-
-func RuntimeAuth(c *fiber.Ctx) error {
-	return c.Next()
+func RuntimeAuth(request *Request) (*Request, *Response) {
+	return request, nil
 }

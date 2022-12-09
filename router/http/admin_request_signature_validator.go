@@ -7,33 +7,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebasedb/internal/utils"
-	"litebasedb/router/auth"
 	"litebasedb/router/config"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
-func AdminRequestSignatureValidator(c *fiber.Ctx) bool {
-	token := auth.CaptureRequestToken(c.GetReqHeaders()["Authorization"])
+func AdminRequestSignatureValidator(request *Request) bool {
+	token := request.RequestToken("Authorization")
 
 	if token == nil {
 		return false
 	}
 
-	body := make(map[string]interface{})
-	err := c.BodyParser(body)
-
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-
-	log.Println("BODY", body)
+	body := request.All()
 
 	// Change all the keys to lower case
 	for key, value := range body {
@@ -41,14 +31,7 @@ func AdminRequestSignatureValidator(c *fiber.Ctx) bool {
 		body[strings.ToLower(key)] = value
 	}
 
-	queryParams := make(map[string]interface{})
-
-	err = c.QueryParser(queryParams)
-
-	if err != nil {
-		log.Println(err)
-		return false
-	}
+	queryParams := request.QueryParams
 
 	// Change all the keys to lower case
 	for key, value := range queryParams {
@@ -57,7 +40,7 @@ func AdminRequestSignatureValidator(c *fiber.Ctx) bool {
 	}
 
 	headers := make(map[string]string)
-	maps.Copy(headers, c.GetReqHeaders())
+	maps.Copy(headers, request.Headers().All())
 
 	// Change all the keys to lower case
 	for key, value := range headers {
@@ -101,8 +84,8 @@ func AdminRequestSignatureValidator(c *fiber.Ctx) bool {
 	}
 
 	requestString := strings.Join([]string{
-		c.Method(),
-		"/" + strings.TrimLeft(c.Path(), "/"),
+		request.Method,
+		"/" + strings.TrimLeft(request.Path, "/"),
 		string(jsonHeaders),
 		string(jsonQueryParams),
 		string(jsonBody),

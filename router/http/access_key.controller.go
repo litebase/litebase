@@ -2,40 +2,39 @@ package http
 
 import (
 	"litebasedb/router/auth"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type AccessKeyController struct{}
 
-func AccessKeyControllerStore(c *fiber.Ctx) error {
-	var body map[string]interface{}
+func AccessKeyControllerStore(request *Request) *Response {
 
-	if err := c.BodyParser(&body); err != nil {
-		return c.Status(400).JSON(map[string]string{
-			"error": "Invalid JSON body.",
-		})
-	}
-
-	if body["access_key_id"] == nil || body["data"] == nil {
-		return c.Status(400).JSON(map[string]string{
-			"status":  "error",
-			"message": "Missing required parameters",
-		})
+	if request.Get("access_key_id") == nil || request.Get("data") == nil {
+		return &Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Missing required parameters",
+			},
+		}
 	}
 	auth.SecretsManager().StoreAccessKey(
-		c.Params("databaseUuid"),
-		c.Params("branchUuid"),
-		body["access_key_id"].(string),
-		body["data"].(string),
+		request.Param("databaseUuid"),
+		request.Param("branchUuid"),
+		request.Get("access_key_id").(string),
+		request.Get("data").(string),
 	)
 
-	return c.JSON(map[string]string{
-		"status":  "success",
-		"message": "Access key stored successfully",
-	})
+	return &Response{
+		StatusCode: 200,
+		Body: map[string]interface{}{
+			"status":  "success",
+			"message": "Access key stored successfully",
+		},
+	}
 }
 
-func AccessKeyControllerDestroy(c *fiber.Ctx) error {
-	return c.SendString("Hello, World!")
+func AccessKeyControllerDestroy(request *Request) *Response {
+	return &Response{
+		StatusCode: 200,
+	}
 }

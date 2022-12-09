@@ -4,44 +4,50 @@ import (
 	"litebasedb/router/auth"
 	"strconv"
 	"time"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-func Auth(c *fiber.Ctx) error {
-	if !ensureReuestHasAnAuthorizationHeader(c) || !ensureRequestCanAccessDatabase(c) {
-		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
-			"message": "Unauthorized",
-		})
+func Auth(request *Request) (*Request, *Response) {
+	if !ensureReuestHasAnAuthorizationHeader(request) || !ensureRequestCanAccessDatabase(request) {
+		return nil, &Response{
+			StatusCode: 401,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Unauthorized",
+			},
+		}
 	}
 
-	if !ensureAuthRequestIsNotExpired(c) {
-		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
-			"message": "Unauthorized",
-		})
+	if !ensureAuthRequestIsNotExpired(request) {
+		return nil, &Response{
+			StatusCode: 401,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Unauthorized",
+			},
+		}
 	}
 
-	return c.Next()
+	return request, nil
 }
 
-func ensureRequestCanAccessDatabase(c *fiber.Ctx) bool {
-	token := auth.CaptureRequestToken(c.GetReqHeaders()["Authorization"])
+func ensureRequestCanAccessDatabase(request *Request) bool {
+	token := auth.CaptureRequestToken(request.Headers().Get("Authorization"))
 
 	if token == nil {
 		return false
 	}
 
-	databaseKey := c.Subdomains()[0]
+	databaseKey := request.Subdomains()[0]
 
 	return auth.SecretsManager().HasAccessKey(databaseKey, token.AccessKeyId)
 }
 
-func ensureReuestHasAnAuthorizationHeader(c *fiber.Ctx) bool {
-	return c.GetReqHeaders()["Authorization"] != ""
+func ensureReuestHasAnAuthorizationHeader(request *Request) bool {
+	return request.Headers().Get("Authorization") != ""
 }
 
-func ensureAuthRequestIsNotExpired(c *fiber.Ctx) bool {
-	dateHeader := c.GetReqHeaders()["X-Lbdb-Date"]
+func ensureAuthRequestIsNotExpired(request *Request) bool {
+	dateHeader := request.Headers().Get("X-Lbdb-Date")
 
 	if dateHeader == "" {
 		return false

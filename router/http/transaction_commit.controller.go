@@ -1,7 +1,11 @@
 package http
 
-import "github.com/gofiber/fiber/v2"
-
-func TransactionCommitController(c *fiber.Ctx) error {
-	return c.SendString("Hello, World!")
+func TransactionCommitController(request *Request) *Response {
+	return &Response{
+		StatusCode: 200,
+		Body: map[string]interface{}{
+			"status":  "success",
+			"message": "Transaction committed successfully",
+		},
+	}
 }

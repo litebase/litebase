@@ -1,19 +1,17 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"litebasedb/router/auth"
 	"litebasedb/router/http"
+	netHttp "net/http"
 	"os"
 	"time"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type App struct {
 	// intervals map[string]time.Timer
-	server *fiber.App
+	server *netHttp.Server
 }
 
 func NewApp() *App {
@@ -25,31 +23,12 @@ func NewApp() *App {
 }
 
 func (app *App) Serve() {
-	app.server = fiber.New(fiber.Config{
-		IdleTimeout:  60 * time.Second,
-		ErrorHandler: app.ErrorHandler,
-	})
-
-	// app.server.Use(recover.New())
-
-	http.Routes(app.server)
-
-	app.server.Listen(fmt.Sprintf(`:%s`, os.Getenv("LITEBASEDB_PORT")))
-}
-
-func (app *App) ErrorHandler(ctx *fiber.Ctx, err error) error {
-	var e *fiber.Error
-	code := fiber.StatusInternalServerError
-
-	if errors.As(err, &e) {
-		code = e.Code
+	app.server = &netHttp.Server{
+		Addr:        fmt.Sprintf(`:%s`, os.Getenv("LITEBASEDB_PORT")),
+		IdleTimeout: 60 * time.Second,
 	}
 
-	err = ctx.Status(code).SendString("")
+	app.server.Handler = http.Router()
 
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).SendString("Internal Server Error")
-	}
-
-	return nil
+	app.server.ListenAndServe()
 }

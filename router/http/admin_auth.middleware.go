@@ -1,48 +1,52 @@
 package http
 
 import (
-	"litebasedb/router/auth"
 	"strconv"
 	"time"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-func AdminAuth(c *fiber.Ctx) error {
-	if !ensureRequestHasAnAuthorizationHeader(c) ||
-		!ensureRequestIsProperlySigned(c) ||
-		ensureRequestHasAValidToken(c) {
-		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
-			"message": "Unauthorized",
-		})
+func AdminAuth(request *Request) (*Request, *Response) {
+	if !ensureRequestHasAnAuthorizationHeader(request) ||
+		!ensureRequestIsProperlySigned(request) ||
+		ensureRequestHasAValidToken(request) {
+		return nil, &Response{
+			StatusCode: 401,
+			Body: map[string]interface{}{
+				"message": "Unauthorized",
+			},
+		}
 	}
 
-	if !ensureRequestIsNotExpired(c) {
-		return c.Status(fiber.StatusUnauthorized).JSON(map[string]string{
-			"message": "Unauthorized",
-		})
+	if !ensureRequestIsNotExpired(request) {
+		return nil, &Response{
+			StatusCode: 401,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Unauthorized",
+			},
+		}
 	}
 
-	return c.Next()
+	return request, nil
 }
 
 /**
  *  Ensure that there is an authorization header
  */
-func ensureRequestHasAnAuthorizationHeader(c *fiber.Ctx) bool {
-	return c.GetReqHeaders()["Authorization"] != ""
+func ensureRequestHasAnAuthorizationHeader(request *Request) bool {
+	return request.Headers().Get("Authorization") != ""
 }
 
-func ensureRequestIsProperlySigned(c *fiber.Ctx) bool {
-	return true
+func ensureRequestIsProperlySigned(request *Request) bool {
+	return AdminRequestSignatureValidator(request)
 }
 
-func ensureRequestHasAValidToken(c *fiber.Ctx) bool {
-	return auth.AdminRequestTokenValidator(c)
+func ensureRequestHasAValidToken(request *Request) bool {
+	return AdminRequestTokenValidator(request)
 }
 
-func ensureRequestIsNotExpired(c *fiber.Ctx) bool {
-	dateHeader := c.GetReqHeaders()["X-Lbdb-Date"]
+func ensureRequestIsNotExpired(request *Request) bool {
+	dateHeader := request.Headers().Get("X-Lbdb-Date")
 
 	if dateHeader == "" {
 		return false

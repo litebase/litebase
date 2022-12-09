@@ -1,15 +1,31 @@
 package http
 
-import "github.com/gofiber/fiber/v2"
-
-func TrasactionControllerStore(c *fiber.Ctx) error {
-	return c.SendString("Hello, World!")
+func TrasactionControllerStore(request *Request) *Response {
+	return &Response{
+		StatusCode: 200,
+		Body: map[string]interface{}{
+			"status":  "success",
+			"message": "Transaction stored successfully",
+		},
+	}
 }
 
-func TrasactionControllerUpdate(c *fiber.Ctx) error {
-	return c.SendString("Hello, World!")
+func TrasactionControllerUpdate(request *Request) *Response {
+	return &Response{
+		StatusCode: 200,
+		Body: map[string]interface{}{
+			"status":  "success",
+			"message": "Transaction updated successfully",
+		},
+	}
 }
 
-func TrasactionControllerDestroy(c *fiber.Ctx) error {
-	return c.SendString("Hello, World!")
+func TrasactionControllerDestroy(request *Request) *Response {
+	return &Response{
+		StatusCode: 200,
+		Body: map[string]interface{}{
+			"status":  "success",
+			"message": "Transaction deleted successfully",
+		},
+	}
 }
