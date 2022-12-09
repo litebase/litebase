@@ -4,5 +4,6 @@ use (
 	.
 	./function
 	./local_server
+	./router
 	./runtime
 )

@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"strconv"
 	"time"
 )
@@ -39,8 +38,6 @@ func (middleware *AdminMiddleware) ensureRequestIsNotExpired(request *Request) b
 	date, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
-		log.Println(err)
-
 		return false
 	}
 

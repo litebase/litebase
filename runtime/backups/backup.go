@@ -108,7 +108,7 @@ func (backup *Backup) deleteArchiveFile() {
 		log.Fatal(err)
 	}
 
-	session, err := session.NewSession(aws.NewConfig().WithRegion(config.Get("region")).WithCredentials(credentials.NewStaticCredentials(
+	awsSession, err := session.NewSession(aws.NewConfig().WithRegion(config.Get("region")).WithCredentials(credentials.NewStaticCredentials(
 		awsCredentials["key"],
 		awsCredentials["secret"],
 		awsCredentials["token"],
@@ -118,7 +118,7 @@ func (backup *Backup) deleteArchiveFile() {
 		log.Fatal(err)
 	}
 
-	client := s3.New(session)
+	client := s3.New(awsSession)
 
 	bucket, err := auth.SecretsManager().GetBackupBucketName(backup.databaseUuid, backup.branchUuid)
 

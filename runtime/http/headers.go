@@ -7,20 +7,6 @@ type Headers struct {
 }
 
 func NewHeaders(headers map[string]string) *Headers {
-	// values := map[string]string{}
-
-	// // Split the header string into an array of header strings
-	// headerStrings := strings.Split(headerString, "\r, \n")
-
-	// // Iterate over the header strings
-	// for _, headerString := range headerStrings {
-	// 	// Split the header string into an array of key and value strings
-	// 	keyValueStrings := strings.Split(headerString, ": ")
-
-	// 	// Set the value of the header
-	// 	values[keyValueStrings[0]] = keyValueStrings[1]
-	// }
-
 	for key, value := range headers {
 		delete(headers, key)
 		headers[utils.TransformHeaderKey(key)] = value

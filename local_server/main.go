@@ -15,7 +15,7 @@ import (
 func init() {
 	os.Setenv("LITEBASEDB_RUNTIME_ID", uuid.NewString())
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	err := godotenv.Load()
+	err := godotenv.Load(".env.runtime")
 
 	if err != nil {
 		log.Fatal(err)

@@ -107,7 +107,6 @@ func HandleRequestSignatureValidation(
 		// TODO: Handle error
 		return false
 	}
-
 	signedRequestHash := sha256.New()
 	signedRequestHash.Write([]byte(requestString))
 	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))

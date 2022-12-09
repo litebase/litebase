@@ -77,7 +77,7 @@ func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string
 	}
 
 	sqlite3Result, err := database.GetConnection().Query(statement, query.Parameters()...)
-	end := time.Since(start).Microseconds()
+	end := float64(time.Since(start)) / float64(time.Millisecond)
 
 	if err != nil {
 		data = map[string]any{

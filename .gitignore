@@ -7,4 +7,5 @@
 error.log
 .DS_STORE
 .env
+.env.*
 .phpunit.result.cache

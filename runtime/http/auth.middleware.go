@@ -37,7 +37,7 @@ func (middleware *AuthMiddleware) ensureReuestHasAnAuthorizationHeader(request *
 }
 
 func (middleware *AuthMiddleware) ensureRequestIsNotExpired(request *Request) bool {
-	dateHeader := request.Headers().Get("X-LBDB-Date")
+	dateHeader := request.Headers().Get("X-Lbdb-Date")
 
 	if dateHeader == "" {
 		return false

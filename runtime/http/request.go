@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"litebasedb/runtime/auth"
 )
 
@@ -14,13 +13,13 @@ type Request struct {
 	Route       *Route
 }
 
-func NewRequest(Headers map[string]string, Method string, Path string, Body string, QueryParams map[string]string) *Request {
-	body := map[string]interface{}{}
+func NewRequest(Headers map[string]string, Method string, Path string, Body map[string]interface{}, QueryParams map[string]string) *Request {
+	// body := map[string]interface{}{}
 
-	json.Unmarshal([]byte(Body), &body)
+	// json.Unmarshal([]byte(Body), &body)
 
 	return &Request{
-		Body:        body,
+		Body:        Body,
 		Method:      Method,
 		Path:        Path,
 		headers:     NewHeaders(Headers),

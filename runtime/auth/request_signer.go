@@ -31,7 +31,7 @@ func SignRequest(
 
 	for key := range headers {
 		if !slices.Contains([]string{"content-type", "host", "x-lbdb-date"}, key) {
-			delete(data, key)
+			delete(headers, key)
 		}
 	}
 
@@ -62,7 +62,7 @@ func SignRequest(
 	}
 
 	if len(data) > 0 {
-		jsonBody, err = json.Marshal(queryParams)
+		jsonBody, err = json.Marshal(data)
 
 		if err != nil {
 			log.Fatal(err)
