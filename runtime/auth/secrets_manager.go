@@ -7,12 +7,14 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 type SecretsManagerInstance struct {
 	secretStore        map[string]SecretsStore
 	encrypterInstances map[string]*KeyEncrypter
+	mutex              *sync.Mutex
 }
 
 var staticSecretsManager *SecretsManagerInstance
@@ -21,6 +23,7 @@ func SecretsManager() *SecretsManagerInstance {
 	if staticSecretsManager == nil {
 		staticSecretsManager = &SecretsManagerInstance{
 			encrypterInstances: make(map[string]*KeyEncrypter),
+			mutex:              &sync.Mutex{},
 			secretStore:        make(map[string]SecretsStore),
 		}
 	}
@@ -97,7 +100,9 @@ func (s *SecretsManagerInstance) Encrypt(signature string, text string) (string,
 
 func (s *SecretsManagerInstance) Encrypter(signature string) *KeyEncrypter {
 	if _, ok := s.encrypterInstances[signature]; !ok {
+		s.mutex.Lock()
 		s.encrypterInstances[signature] = NewKeyEncrypter(signature)
+		s.mutex.Unlock()
 	}
 
 	return s.encrypterInstances[signature]

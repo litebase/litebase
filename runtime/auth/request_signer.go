@@ -87,7 +87,7 @@ func SignRequest(
 	signedRequestHash.Write([]byte(requestString))
 	signedRequest := string(signedRequestHash.Sum(nil))
 
-	dateHash := hmac.New(sha256.New, []byte(time.Now().Format("20060102")))
+	dateHash := hmac.New(sha256.New, []byte(fmt.Sprintf("%d", time.Now().UTC().Unix())))
 	dateHash.Write([]byte(accessKeySecret))
 	date := string(dateHash.Sum(nil))
 

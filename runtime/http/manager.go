@@ -7,24 +7,21 @@ import (
 	"log"
 	"strconv"
 	"time"
-
-	"golang.org/x/exp/slices"
 )
 
-type ConnectionManager struct {
-	connections       []*Connection
-	connectionClient  *Client
-	connectionTimer   *time.Ticker
-	healthCheckFailed bool
-	healthCheckNonces []string
-	messageCount      int
+type ConnectionManagerInstance struct {
+	connections      []*Connection
+	connectionClient *Client
+	connectionTimer  *time.Ticker
+	host             string
+	messageCount     int
 }
 
-var staticConnectionManager *ConnectionManager
+var staticConnectionManager *ConnectionManagerInstance
 
-func SecretsManager() *ConnectionManager {
+func ConnectionManager() *ConnectionManagerInstance {
 	if staticConnectionManager == nil {
-		staticConnectionManager = &ConnectionManager{
+		staticConnectionManager = &ConnectionManagerInstance{
 			connections: []*Connection{},
 		}
 	}
@@ -32,29 +29,29 @@ func SecretsManager() *ConnectionManager {
 	return staticConnectionManager
 }
 
-func (c *ConnectionManager) Close() {
-	c.client().Close()
+func (c *ConnectionManagerInstance) Close() {
+	if c.connectionTimer != nil {
+		c.connectionClient.Close()
+	}
 }
 
-func (c *ConnectionManager) client() *Client {
-	if c.connectionClient == nil {
-		c.connectionClient = &Client{}
-		c.connectionClient.Dial()
+func (c *ConnectionManagerInstance) client() *Client {
+	if c.connectionClient == nil || c.connectionClient.Closed {
+		c.connectionClient = NewClient(c.host)
 	}
 
 	return c.connectionClient
 }
 
-func (c *ConnectionManager) connect() bool {
-	host := c.getHost()
-	port := c.getPort()
-
+func (c *ConnectionManagerInstance) connect(host string) bool {
+	c.host = host
 	databaseUuid := config.Get("database_uuid")
 	branchUuid := config.Get("branch_uuid")
 	path := fmt.Sprintf("databases/%s/%s/connection", databaseUuid, branchUuid)
+
 	headers := map[string][]string{
 		"Content-Type": {"application/json"},
-		"Host":         {fmt.Sprintf("%s:%s", host, port)},
+		"Host":         {host},
 		"X-LBDB-Date":  {fmt.Sprintf("%x", time.Now().Unix())},
 	}
 
@@ -77,7 +74,7 @@ func (c *ConnectionManager) connect() bool {
 		auth.SignRequest(
 			databaseUuid,
 			connectionKey,
-			"GET",
+			"POST",
 			path,
 			headersToSign,
 			map[string]string{},
@@ -90,7 +87,7 @@ func (c *ConnectionManager) connect() bool {
 	return err == nil
 }
 
-func (c *ConnectionManager) createConnection() *Connection {
+func (c *ConnectionManagerInstance) createConnection() *Connection {
 	connection := NewConnection(
 		c.client(),
 		config.Get("database_uuid"),
@@ -102,22 +99,16 @@ func (c *ConnectionManager) createConnection() *Connection {
 	return connection
 }
 
-func (c *ConnectionManager) getHost() string {
-	return config.Get("LITEBASEDB_ROUTER_HOST")
-}
-
-func (c *ConnectionManager) getPort() string {
-	return config.Get("LITEBASEDB_ROUTER_PORT")
-}
-
-func (c *ConnectionManager) IncrementMessageCount() int {
+func (c *ConnectionManagerInstance) IncrementMessageCount() int {
 	c.messageCount++
 
 	return c.messageCount
 }
 
-func (c *ConnectionManager) Listen() {
-	connected := c.connect()
+func (c *ConnectionManagerInstance) Listen(host string) {
+	connection := c.createConnection()
+	go connection.Listen()
+	connected := c.connect(host)
 
 	if !connected {
 		return
@@ -126,19 +117,11 @@ func (c *ConnectionManager) Listen() {
 	c.createConnection().Listen()
 }
 
-func (c *ConnectionManager) ResetMessageCount() {
+func (c *ConnectionManagerInstance) ResetMessageCount() {
 	c.messageCount = 0
 }
 
-func (c *ConnectionManager) SetHealthCheckResponse(nonce string) {
-	if !slices.Contains(c.healthCheckNonces, nonce) {
-		c.healthCheckFailed = true
-	}
-
-	c.healthCheckNonces = c.healthCheckNonces[len(c.healthCheckNonces)-4:]
-}
-
-func (c *ConnectionManager) Tick() {
+func (c *ConnectionManagerInstance) Tick() {
 	if c.connectionTimer != nil {
 		c.connectionTimer.Stop()
 		c.ResetMessageCount()
@@ -162,7 +145,6 @@ func (c *ConnectionManager) Tick() {
 			case <-c.connectionTimer.C:
 				if count == c.messageCount {
 					c.Close()
-					c.connectionTimer.Stop()
 					quit <- true
 				}
 

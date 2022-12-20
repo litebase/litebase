@@ -29,19 +29,21 @@ func (middleware *AdminMiddleware) ensureReuestHasAnAuthorizationHeader(request 
 }
 
 func (middleware *AdminMiddleware) ensureRequestIsNotExpired(request *Request) bool {
-	dateHeader := request.Headers().Get("X-LBDB-Date")
+	dateHeader := request.Headers().Get("X-Lbdb-Date")
 
 	if dateHeader == "" {
 		return false
 	}
 
-	date, err := strconv.ParseInt(dateHeader, 10, 64)
+	parseInt, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
 		return false
 	}
 
-	return time.Since(time.Unix(date, 0)) < 10*time.Second
+	parsedTime := time.Unix(parseInt, 0)
+
+	return time.Since(parsedTime) < 10*time.Second
 }
 
 func (middleware *AdminMiddleware) ensureRequestIsProperlySigned(request *Request) bool {

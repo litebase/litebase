@@ -3,6 +3,7 @@ package http
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"litebasedb/runtime/auth"
@@ -46,10 +47,21 @@ func (c *Connection) authenticate() bool {
 	return true
 }
 
-func (c *Connection) handleQuery(data string) {
+func (c *Connection) handleQuery(data map[string]interface{}) {
 	config.Set("database_uuid", c.databaseUuid)
+	eventData, err := base64.StdEncoding.DecodeString(data["data"].(string))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	e := &event.Event{}
-	json.Unmarshal([]byte(data), e)
+	err = json.Unmarshal([]byte(eventData), e)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	result := Router().Dispatch(e)
 
 	response := map[string]interface{}{
@@ -57,7 +69,7 @@ func (c *Connection) handleQuery(data string) {
 		"connectionHash": c.connectionHash,
 		"event":          "QUERY_RESPONSE",
 		"response":       result,
-		// "responseHash":   e.Body["responseHash"],
+		"responseHash":   data["responseHash"],
 	}
 
 	jsonResponse, err := json.Marshal(response)
@@ -67,13 +79,6 @@ func (c *Connection) handleQuery(data string) {
 	}
 
 	c.client.Send(string(jsonResponse))
-}
-
-func (c *Connection) handleHealthCheckResponse(data interface{}) bool {
-	if data.(map[string]interface{})["nonce"] != nil {
-		SecretsManager().SetHealthCheckResponse(data.(map[string]string)["nonce"])
-	}
-	return true
 }
 
 func (c *Connection) handleReady(messageHash string) bool {
@@ -110,44 +115,42 @@ func (c *Connection) handleReady(messageHash string) bool {
 func (c *Connection) Listen() {
 	for {
 		select {
-		case message := <-c.client.Messages:
-			// c.writer.Write([]byte(message))
-			data := map[string]string{}
-			json.Unmarshal([]byte(message), &data)
+		case message := <-c.client.read:
+			data := map[string]interface{}{}
+			err := json.Unmarshal([]byte(message), &data)
+
+			if message == "" {
+				return
+			}
+
+			if err != nil {
+				c.client.Close()
+				return
+			}
+
 			if c.connectionId == "" && c.connectionHash == "" && data["connectionId"] != "" && data["connectionHash"] != "" {
-				c.connectionId = data["connectionId"]
-				c.connectionHash = data["connectionHash"]
-				// c.setQueryHandler()
+				c.connectionId = data["connectionId"].(string)
+				c.connectionHash = data["connectionHash"].(string)
 			}
 
 			switch data["event"] {
 			case "CONNECTION_OPEN":
 				c.authenticate()
 			case "CONNECTION_READY":
-				response := c.handleReady(data["messageHash"])
-
-				if !response {
-					c.client.Close()
-				}
-			case "HEALTH_CHECK_RESPONSE":
-				response := c.handleHealthCheckResponse(data)
+				response := c.handleReady(data["messageHash"].(string))
 
 				if !response {
 					c.client.Close()
 				}
 			case "QUERY":
-				// c.handleQuery(data)
+				c.handleQuery(data)
 			default:
 				fmt.Println("Unknown event", data["event"])
 			}
 
 			if data["event"] == "QUERY" {
-				SecretsManager().Tick()
+				ConnectionManager().Tick()
 			}
-
-		case <-c.client.End:
-			fmt.Println("Connection closed")
-			return
 		}
 	}
 }

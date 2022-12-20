@@ -14,6 +14,7 @@ func NewConfig() *Config {
 			"app_host":  os.Getenv("APP_HOST"),
 			"data_path": os.Getenv("LITEBASEDB_DATA_PATH"),
 			"env":       os.Getenv("APP_ENV"),
+			"port":      os.Getenv("LITEBASEDB_PORT"),
 			"region":    os.Getenv("LITEBASEDB_REGION"),
 			"signature": os.Getenv("LITEBASEDB_SIGNATURE"),
 			"url":       os.Getenv("APP_URL"),

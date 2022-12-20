@@ -1,7 +1,7 @@
 package http
 
 import (
-	"log"
+	"strconv"
 	"time"
 )
 
@@ -29,19 +29,19 @@ func (middleware *ConnectionAuthMiddleware) ensureReuestHasAnAuthorizationHeader
 }
 
 func (middleware *ConnectionAuthMiddleware) ensureRequestIsNotExpired(request *Request) bool {
-	dateHeader := request.Headers().Get("X-LBDB-Date")
+	dateHeader := request.Headers().Get("X-Lbdb-Date")
 
 	if dateHeader == "" {
 		return false
 	}
 
-	parsedTime, err := time.Parse("20060102", dateHeader)
+	parseInt, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
-		log.Println(err)
-
 		return false
 	}
+
+	parsedTime := time.Unix(parseInt, 0)
 
 	return time.Since(parsedTime) < 10*time.Second
 }

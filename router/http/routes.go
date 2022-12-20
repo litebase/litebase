@@ -12,9 +12,9 @@ func LoadRoutes(router *RouterInstance) {
 		config.Get("url"),
 	)
 
-	/**
-	 * Adminstrative routes.
-	 */
+	/*
+		Adminstrative routes.
+	*/
 	router.Post(
 		"/databases/:databaseUuid/:branchUuid/access-keys",
 		AccessKeyControllerStore,
@@ -55,9 +55,9 @@ func LoadRoutes(router *RouterInstance) {
 		AdminAuth,
 	})
 
-	/**
-	 * Internal routes for cluster operations.
-	 */
+	/*
+		Internal routes for cluster operations.
+	*/
 	router.Post(
 		"/databases/:uuid/:branchUuid/settings/purge",
 		DatabaseSettingsPurgeController,
@@ -68,17 +68,17 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyPurgeController,
 	).Middleware([]Middleware{Internal})
 
-	/**
-	 * Runtime routes.
-	 */
-	router.Get(
-		"/databases/:uuid/:branchUuid/connection",
+	/*
+		Runtime routes.
+	*/
+	router.Post(
+		"/databases/:databaseUuid/:branchUuid/connection",
 		ConnectionController,
 	).Middleware([]Middleware{RuntimeAuth})
 
-	/**
-	 * Database routes.
-	 */
+	/*
+		Database routes.
+	*/
 	router.Post("/query",
 		QueryController,
 	).Middleware([]Middleware{RequireSubdomain, Auth})

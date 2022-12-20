@@ -30,9 +30,9 @@ func AdminAuth(request *Request) (*Request, *Response) {
 	return request, nil
 }
 
-/**
- *  Ensure that there is an authorization header
- */
+/*
+Ensure that there is an authorization header
+*/
 func ensureRequestHasAnAuthorizationHeader(request *Request) bool {
 	return request.Headers().Get("Authorization") != ""
 }
@@ -52,11 +52,13 @@ func ensureRequestIsNotExpired(request *Request) bool {
 		return false
 	}
 
-	date, err := strconv.ParseInt(dateHeader, 10, 64)
+	parseInt, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
 		return false
 	}
 
-	return time.Since(time.Unix(date, 0)) < 10*time.Second
+	parsedTime := time.Unix(parseInt, 0)
+
+	return time.Since(parsedTime) < 10*time.Second
 }

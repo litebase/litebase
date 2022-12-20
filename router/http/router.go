@@ -1,13 +1,11 @@
 package http
 
 import (
-	// "litebasedb/router/event"
 	"encoding/json"
 	"net/http"
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 )
 
 type RouterInstance struct {
@@ -145,22 +143,8 @@ func (router *RouterInstance) Put(path string, handler func(request *Request) *R
 }
 
 func PrepareRequest(request *http.Request) *Request {
-	headers := map[string]string{}
 
-	for key, value := range request.Header {
-		headers[key] = value[0]
-	}
-
-	query := request.URL.Query()
-	queryParams := map[string]string{}
-
-	for key, value := range query {
-		queryParams[key] = value[0]
-	}
-
-	headers["host"] = request.Host
-
-	return NewRequest(headers, request.Method, request.URL.Path, request.Body, queryParams)
+	return NewRequest(request)
 }
 
 func (router *RouterInstance) request(method string, path string, handler func(request *Request) *Response) *Route {
@@ -179,17 +163,12 @@ func (router *RouterInstance) request(method string, path string, handler func(r
 }
 
 func (router *RouterInstance) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var response *Response
-	var wg = sync.WaitGroup{}
+	response := Router().Dispatch(r)
 
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		response = Router().Dispatch(r)
-	}()
-
-	wg.Wait()
+	if response.Stream != nil {
+		response.Stream(w)
+		return
+	}
 
 	for key, value := range response.Headers {
 		w.Header().Set(key, value)

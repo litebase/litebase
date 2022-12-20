@@ -1,121 +1,129 @@
 package http
 
 import (
-	"bufio"
-	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"net/url"
-
-	"golang.org/x/net/http2"
 )
 
 type Client struct {
-	client   *http.Client
-	End      chan bool
-	Messages chan string
+	Closed  bool
+	read    chan string
+	reader  *io.PipeReader
+	Request *http.Request
+	write   chan string
+	writer  *io.PipeWriter
 }
 
-func NewClient() *Client {
+func NewClient(host string) *Client {
 	return &Client{
-		End:      make(chan bool),
-		Messages: make(chan string),
-	}
-}
-
-func (c *Client) Dial() {
-	// Adds TLS cert-key pair
-	certs, err := tls.LoadX509KeyPair("./key.crt", "./key.key")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	t := &http2.Transport{
-		// DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
-		// 	cfg.Certificates = []tls.Certificate{certs}
-		// 	return tls.Dial(network, addr, cfg)
-		// },
-		TLSClientConfig: &tls.Config{
-			Certificates:       []tls.Certificate{certs},
-			InsecureSkipVerify: true,
-		},
-	}
-	c.client = &http.Client{
-		Transport: t,
-		Timeout:   0,
+		Closed: false,
+		read:   make(chan string),
+		write:  make(chan string),
 	}
 }
 
 func (c *Client) Close() {
-	c.client.CloseIdleConnections()
+	if c.Closed {
+		return
+	}
+
+	c.Closed = true
+	c.reader.Close()
+	c.writer.Close()
+	close(c.read)
+	close(c.write)
 }
 
-func (c *Client) ListenForMessages(writer *io.PipeWriter) {
-	for {
-		select {
-		case message := <-c.Messages:
-			writer.Write([]byte(message))
-		case <-c.End:
-			writer.Close()
-			return
+func (c *Client) ListenForMessages(response *http.Response, writer *io.PipeWriter) {
+	go func() {
+		for message := range c.write {
+			writer.Write([]byte(fmt.Sprintf("%s\n", message)))
 		}
-	}
-}
-
-func (c *Client) Open(host string, path string, headers map[string][]string) error {
-	reader, writer := io.Pipe()
-
-	request := &http.Request{
-		// ContentLength: -1,
-		Method: "POST",
-		URL: &url.URL{
-			Scheme: "https",
-			Host:   host,
-			Path:   path,
-		},
-		Header: headers,
-		Body:   io.NopCloser(reader),
-	}
-
-	go c.ListenForMessages(writer)
-
-	response, err := c.client.Do(request)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	// if response.StatusCode == 500 {
-	// 	return
-	// }
+	}()
 
 	defer response.Body.Close()
 
-	bufferedReader := bufio.NewReader(response.Body)
+	buf := make([]byte, 128)
 
-	buffer := make([]byte, 4*1024)
+	jsonBlock := ""
 
 	for {
-		len, err := bufferedReader.Read(buffer)
-
-		if len > 0 {
-			log.Println(len, "bytes received")
-			log.Println(string(buffer[:len]))
-		}
-
-		if err != nil {
-			if err == io.EOF {
-				log.Println(err)
-			}
+		if c.Closed {
 			break
 		}
+
+		n, err := response.Body.Read(buf)
+
+		if err != nil {
+			c.Close()
+			break
+		}
+
+		jsonBlock += string(buf[:n])
+
+		// If the json block is not complete, continue reading
+		// the json ends in a } with a newline
+		if len(jsonBlock) < 2 || jsonBlock[len(jsonBlock)-2:] != "}\n" {
+			continue
+		}
+
+		c.read <- jsonBlock
+
+		jsonBlock = ""
 	}
+}
+
+/*
+Send a request to the router. The request body will be streamed to the router,
+and the response body will be streamed back to the client.
+*/
+func (c *Client) Open(host string, path string, headers map[string][]string) error {
+	reader, writer := io.Pipe()
+	c.reader = reader
+	c.writer = writer
+
+	body := io.NopCloser(reader)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+			// IdleConnTimeout:   time.Second * 3,
+		},
+	}
+
+	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", host, path), body)
+
+	if err != nil {
+		return err
+	}
+
+	request.Header = headers
+
+	go func() {
+		_, err = writer.Write([]byte("{}\n"))
+
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	response, err := client.Do(request)
+
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 200 {
+		return fmt.Errorf("Connection failed with status code %d", response.StatusCode)
+	}
+
+	go c.ListenForMessages(response, writer)
 
 	return nil
 }
 
 func (c *Client) Send(message string) {
-	c.Messages <- message
+	c.write <- message
 }

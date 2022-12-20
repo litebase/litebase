@@ -2,6 +2,7 @@ package http
 
 import (
 	"litebasedb/router/auth"
+	"litebasedb/router/counter"
 )
 
 func QueryController(request *Request) *Response {
@@ -63,7 +64,7 @@ func QueryController(request *Request) *Response {
 		"",
 	)
 
-	// log.Println(time.Since(start))
+	defer counter.Increment(databaseUuid, branchUuid)
 
 	return &Response{
 		StatusCode: response.StatusCode,

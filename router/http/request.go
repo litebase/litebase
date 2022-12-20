@@ -2,12 +2,13 @@ package http
 
 import (
 	"encoding/json"
-	"io"
 	"litebasedb/router/auth"
+	"net/http"
 	"strings"
 )
 
 type Request struct {
+	BaseRequest *http.Request
 	Body        map[string]interface{}
 	headers     *Headers
 	Method      string
@@ -16,20 +17,36 @@ type Request struct {
 	Route       *Route
 }
 
-func NewRequest(Headers map[string]string, Method string, Path string, Body io.ReadCloser, QueryParams map[string]string) *Request {
+func NewRequest(request *http.Request) *Request {
+	headers := map[string]string{}
+
+	for key, value := range request.Header {
+		headers[key] = value[0]
+	}
+
+	query := request.URL.Query()
+	queryParams := map[string]string{}
+
+	for key, value := range query {
+		queryParams[key] = value[0]
+	}
+
+	headers["host"] = request.Host
+
 	body := make(map[string]interface{})
 
-	if Body != nil {
-		decoder := json.NewDecoder(Body)
+	if request.Body != nil {
+		decoder := json.NewDecoder(request.Body)
 		decoder.Decode(&body)
 	}
 
 	return &Request{
+		BaseRequest: request,
 		Body:        body,
-		Method:      Method,
-		Path:        Path,
-		headers:     NewHeaders(Headers),
-		QueryParams: QueryParams,
+		Method:      request.Method,
+		Path:        request.URL.Path,
+		headers:     NewHeaders(headers),
+		QueryParams: queryParams,
 	}
 }
 

@@ -74,7 +74,8 @@ func GetIPv6Address() string {
 	}
 
 	if config.Get("env") == "local" || config.Get("env") == "testing" {
-		return "::1"
+		return "localhost" + ":" + config.Get("port")
+		// return "::1"
 	}
 
 	url := "http://169.254.170.2/v2/metadata"

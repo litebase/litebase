@@ -43,13 +43,15 @@ func (middleware *AuthMiddleware) ensureRequestIsNotExpired(request *Request) bo
 		return false
 	}
 
-	date, err := strconv.ParseInt(dateHeader, 10, 64)
+	parseInt, err := strconv.ParseInt(dateHeader, 10, 64)
 
 	if err != nil {
 		return false
 	}
 
-	return time.Since(time.Unix(date, 0)) < 10*time.Second
+	parsedTime := time.Unix(parseInt, 0)
+
+	return time.Since(parsedTime) < 10*time.Second
 }
 
 func (middleware *AuthMiddleware) ensureRequestIsProperlySigned(request *Request) bool {

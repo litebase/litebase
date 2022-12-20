@@ -32,7 +32,15 @@ func main() {
 			request := &event.Event{}
 			decoder := json.NewDecoder(r.Body)
 			decoder.Decode(&request)
-			response := runtime.Handler(request)
+
+			var response interface{}
+
+			if r.Header.Get("X-Amz-Invocation-Type") == "RequestResponse" {
+				response = runtime.Handler(request)
+			} else {
+				go runtime.Handler(request)
+			}
+
 			json, err := json.Marshal(response)
 
 			if err != nil {

@@ -107,12 +107,13 @@ func HandleRequestSignatureValidation(
 		// TODO: Handle error
 		return false
 	}
+
 	signedRequestHash := sha256.New()
 	signedRequestHash.Write([]byte(requestString))
 	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
 	dateHash := hmac.New(sha256.New, []byte(secret))
-	dateHash.Write([]byte(time.Now().UTC().Format("20060102")))
+	dateHash.Write([]byte(fmt.Sprintf("%d", time.Now().UTC().Unix())))
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))
@@ -134,7 +135,7 @@ func getSecret(requestToken *auth.RequestToken, serverToken bool, connectionToke
 	if connectionToken {
 		connectionKey, err := auth.SecretsManager().GetConnectionKey(
 			config.Get("database_uuid"),
-			config.Get("branc_uuid"),
+			config.Get("branch_uuid"),
 		)
 
 		if err != nil {
@@ -142,10 +143,7 @@ func getSecret(requestToken *auth.RequestToken, serverToken bool, connectionToke
 		}
 
 		hash := sha256.New()
-		hash.Write([]byte(
-			strings.Join([]string{
-				connectionKey,
-			}, ":")))
+		hash.Write([]byte(strings.Join([]string{connectionKey, config.Get("region"), config.Get("host"), config.Get("env")}, ":")))
 
 		return string(hash.Sum(nil)), nil
 	}

@@ -1,9 +1,13 @@
 package http
 
+import "net/http"
+
 type Response struct {
-	StatusCode int                    `json:"statusCode"`
-	Headers    map[string]string      `json:"headers"`
-	Body       map[string]interface{} `json:"body"`
+	StatusCode       int `json:"statusCode"`
+	Stream           func(http.ResponseWriter)
+	Headers          map[string]string      `json:"headers"`
+	Body             map[string]interface{} `json:"body"`
+	WebSocketHandler func(http.ResponseWriter, *http.Request)
 }
 
 func JsonResponse(body map[string]interface{}, statusCode int, headers map[string]string) *Response {

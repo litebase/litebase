@@ -39,13 +39,14 @@ func (route *Route) Middleware(middleware []Middleware) *Route {
 
 func (route *Route) setParams(request *Request) {
 	var params = make(map[string]string)
-	var segments = strings.Split(route.Path, "/")
+	pathSegments := strings.Split(strings.TrimPrefix(route.Path, "/"), "/")
+	segments := strings.Split(strings.TrimPrefix(request.Path, "/"), "/")
 
-	for index, segment := range segments {
+	for index, segment := range pathSegments {
 		// Check if the segment starts with :
 		if strings.HasPrefix(segment, ":") {
 			var key = strings.TrimPrefix(segment, ":")
-			var value = strings.Split(strings.TrimPrefix(request.Path, "/"), "/")[index]
+			var value = segments[index]
 
 			params[key] = value
 		}

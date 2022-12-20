@@ -81,12 +81,13 @@ func SignRequest(
 		string(jsonQueryParams),
 		string(jsonBody),
 	}, "")
+
 	signedRequestHash := sha256.New()
 	signedRequestHash.Write([]byte(requestString))
 	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
 	dateHash := hmac.New(sha256.New, []byte(accessKeySecret))
-	dateHash.Write([]byte(time.Now().UTC().Format("20060102")))
+	dateHash.Write([]byte(fmt.Sprintf("%d", time.Now().UTC().Unix())))
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))
