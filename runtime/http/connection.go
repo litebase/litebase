@@ -39,6 +39,7 @@ func (c *Connection) authenticate() bool {
 	})
 
 	if err != nil {
+		log.Println(err)
 		return false
 	}
 
@@ -87,6 +88,7 @@ func (c *Connection) handleReady(messageHash string) bool {
 	connectionKey, err := auth.SecretsManager().GetConnectionKey(c.databaseUuid, c.branchUuid)
 
 	if err != nil {
+		log.Println(err)
 		return false
 	}
 	nonceHash.Write([]byte(connectionKey))
@@ -104,6 +106,7 @@ func (c *Connection) handleReady(messageHash string) bool {
 	jsonMessage, err := json.Marshal(message)
 
 	if err != nil {
+		log.Println(err)
 		return false
 	}
 
@@ -113,44 +116,44 @@ func (c *Connection) handleReady(messageHash string) bool {
 }
 
 func (c *Connection) Listen() {
-	for {
-		select {
-		case message := <-c.client.read:
-			data := map[string]interface{}{}
-			err := json.Unmarshal([]byte(message), &data)
+	for message := range c.client.read {
+		data := map[string]interface{}{}
+		err := json.Unmarshal([]byte(message), &data)
 
-			if message == "" {
-				return
-			}
+		if message == "" {
+			return
+		}
 
-			if err != nil {
+		if err != nil {
+			log.Println(err)
+			c.client.Close()
+			return
+		}
+
+		if c.connectionId == "" && c.connectionHash == "" && data["connectionId"] != "" && data["connectionHash"] != "" {
+			c.connectionId = data["connectionId"].(string)
+			c.connectionHash = data["connectionHash"].(string)
+		}
+
+		switch data["event"] {
+		case "CONNECTION_CLOSED":
+			c.client.Close()
+		case "CONNECTION_OPEN":
+			c.authenticate()
+		case "CONNECTION_READY":
+			response := c.handleReady(data["messageHash"].(string))
+
+			if !response {
 				c.client.Close()
-				return
 			}
+		case "QUERY":
+			c.handleQuery(data)
+		default:
+			fmt.Println("Unknown event", data["event"])
+		}
 
-			if c.connectionId == "" && c.connectionHash == "" && data["connectionId"] != "" && data["connectionHash"] != "" {
-				c.connectionId = data["connectionId"].(string)
-				c.connectionHash = data["connectionHash"].(string)
-			}
-
-			switch data["event"] {
-			case "CONNECTION_OPEN":
-				c.authenticate()
-			case "CONNECTION_READY":
-				response := c.handleReady(data["messageHash"].(string))
-
-				if !response {
-					c.client.Close()
-				}
-			case "QUERY":
-				c.handleQuery(data)
-			default:
-				fmt.Println("Unknown event", data["event"])
-			}
-
-			if data["event"] == "QUERY" {
-				ConnectionManager().Tick()
-			}
+		if data["event"] == "QUERY" {
+			ConnectionManager().Tick()
 		}
 	}
 }

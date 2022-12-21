@@ -22,6 +22,9 @@ func ConnectionController(request *Request) *Response {
 	return &Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("Connection", "keep-alive")
+
 			connections.CreateConnection(
 				request.Param("databaseUuid"),
 				request.Param("branchUuid"),

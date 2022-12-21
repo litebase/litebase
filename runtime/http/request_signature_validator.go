@@ -11,7 +11,6 @@ import (
 	"litebasedb/runtime/config"
 	"log"
 	"strings"
-	"time"
 
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -105,6 +104,7 @@ func HandleRequestSignatureValidation(
 
 	if err != nil {
 		// TODO: Handle error
+		log.Println(err)
 		return false
 	}
 
@@ -113,7 +113,7 @@ func HandleRequestSignatureValidation(
 	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
 	dateHash := hmac.New(sha256.New, []byte(secret))
-	dateHash.Write([]byte(fmt.Sprintf("%d", time.Now().UTC().Unix())))
+	dateHash.Write([]byte(headers["x-lbdb-date"]))
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))
@@ -123,6 +123,10 @@ func HandleRequestSignatureValidation(
 	signatureHash := hmac.New(sha256.New, []byte(service))
 	signatureHash.Write([]byte(signedRequest))
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
+
+	if subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken(header).Signature)) == 0 {
+		// log.Println("Signature mismatch", (signature), requestString)
+	}
 
 	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken(header).Signature)) == 1
 }

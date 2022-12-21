@@ -15,7 +15,7 @@ func (middleware *AuthMiddleware) Handle(request *Request) (*Request, *Response)
 		return nil, &Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
-				"message": "Unauthorized",
+				"message": "Unauthorized 1",
 			},
 		}
 	}
@@ -24,7 +24,7 @@ func (middleware *AuthMiddleware) Handle(request *Request) (*Request, *Response)
 		return nil, &Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
-				"message": "Unauthorized",
+				"message": "Unauthorized 2",
 			},
 		}
 	}

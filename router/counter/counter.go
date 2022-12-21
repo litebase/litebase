@@ -46,7 +46,7 @@ func Get(timestamp int64) map[string]map[int64]*QueryCount {
 }
 
 func Increment(databaseUuid string, branchUuid string) {
-	counter := Add(time.Now().Unix(), databaseUuid, branchUuid)
+	counter := Add(time.Now().Round(time.Minute).Unix(), databaseUuid, branchUuid)
 
 	if counter == nil {
 		return

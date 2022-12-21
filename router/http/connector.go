@@ -52,11 +52,11 @@ func ForwardRequest(request *Request, databaseUuid string, branchUuid string, ac
 	startTime := time.Now()
 	var result []byte
 	executionContext := 1
-	socketResult := connections.SendThroughConnection(databaseUuid, branchUuid, fn, payload)
+	connectionResult := connections.SendThroughConnection(databaseUuid, branchUuid, fn, payload)
 
-	if len(socketResult) > 0 {
+	if len(connectionResult) > 0 {
 		executionContext = 2
-		result = socketResult
+		result = connectionResult
 	} else {
 		result = connections.Send(databaseUuid, branchUuid, fn, payload)
 	}

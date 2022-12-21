@@ -39,13 +39,19 @@ func (c *Client) Close() {
 func (c *Client) ListenForMessages(response *http.Response, writer *io.PipeWriter) {
 	go func() {
 		for message := range c.write {
-			writer.Write([]byte(fmt.Sprintf("%s\n", message)))
+			_, err := writer.Write([]byte(fmt.Sprintf("%s\n", message)))
+
+			if err != nil {
+				log.Println(err)
+				c.Close()
+				break
+			}
 		}
 	}()
 
 	defer response.Body.Close()
 
-	buf := make([]byte, 128)
+	buf := make([]byte, 1024)
 
 	jsonBlock := ""
 
@@ -87,15 +93,17 @@ func (c *Client) Open(host string, path string, headers map[string][]string) err
 	body := io.NopCloser(reader)
 
 	client := &http.Client{
+		Timeout: 0,
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
-			// IdleConnTimeout:   time.Second * 3,
 		},
 	}
 
 	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", host, path), body)
+	request.Header.Set("Connection", "keep-alive")
 
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -112,6 +120,7 @@ func (c *Client) Open(host string, path string, headers map[string][]string) err
 	response, err := client.Do(request)
 
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 

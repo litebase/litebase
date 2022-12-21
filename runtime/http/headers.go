@@ -9,12 +9,13 @@ type Headers struct {
 }
 
 func NewHeaders(headers map[string]string) *Headers {
+	h := make(map[string]string)
+
 	for key, value := range headers {
-		delete(headers, key)
-		headers[utils.TransformHeaderKey(key)] = value
+		h[utils.TransformHeaderKey(key)] = value
 	}
 
-	return &Headers{values: headers}
+	return &Headers{values: h}
 }
 
 func (headers *Headers) All() map[string]string {

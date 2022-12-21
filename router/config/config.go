@@ -11,13 +11,14 @@ var StaticConfig *Config
 func NewConfig() *Config {
 	StaticConfig = &Config{
 		data: map[string]string{
-			"app_host":  os.Getenv("APP_HOST"),
-			"data_path": os.Getenv("LITEBASEDB_DATA_PATH"),
-			"env":       os.Getenv("APP_ENV"),
-			"port":      os.Getenv("LITEBASEDB_PORT"),
-			"region":    os.Getenv("LITEBASEDB_REGION"),
-			"signature": os.Getenv("LITEBASEDB_SIGNATURE"),
-			"url":       os.Getenv("APP_URL"),
+			"app_host":                      os.Getenv("APP_HOST"),
+			"data_path":                     os.Getenv("LITEBASEDB_DATA_PATH"),
+			"env":                           os.Getenv("APP_ENV"),
+			"port":                          os.Getenv("LITEBASEDB_PORT"),
+			"region":                        os.Getenv("LITEBASEDB_REGION"),
+			"signature":                     os.Getenv("LITEBASEDB_SIGNATURE"),
+			"targetConnectionTimeInSeconds": "3",
+			"url":                           os.Getenv("APP_URL"),
 		},
 	}
 

@@ -39,7 +39,7 @@ func (c *ConnectionBalance) Consume() {
 }
 
 /*
-- Check if the balance is below the threshold.
+Check if the balance is below the threshold.
 */
 func (c *ConnectionBalance) IsNegative() bool {
 	return c.Balance <= 0

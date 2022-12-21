@@ -78,13 +78,13 @@ func (router *RouterInstance) Fallback(callback func(request *Request) *Response
 }
 
 func (router *RouterInstance) Dispatch(event *event.Event) *Response {
-	request := PrepareRequest(event)
-
 	if !router.Initialized {
 		router.Init()
 		LoadRoutes(router)
 		router.Initialized = true
 	}
+
+	request := PrepareRequest(event)
 
 	return router.findRoute(request.Method, request.Path).Handle(request)
 }

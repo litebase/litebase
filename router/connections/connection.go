@@ -10,57 +10,67 @@ import (
 	"litebasedb/router/auth"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 )
 
+var i = 0
+
 type Connection struct {
-	branchUuid  string
-	close       chan bool
-	closedAt    time.Time
-	connected   bool
-	ConnectedAt time.Time
-	// connectionChannel chan struct{}
-	connectionHash    string
-	connectionId      string
-	databaseUuid      string
-	handlers          map[string][]func(map[string]interface{})
-	messageHash       []byte
-	open              bool
-	reader            chan string
-	Request           *http.Request
-	RequestCount      int
-	Response          http.ResponseWriter
-	ResponseCallbacks map[string]func([]byte)
-	writer            chan []byte
+	branchUuid           string
+	close                chan bool
+	closing              bool
+	closedAt             time.Time
+	connected            bool
+	ConnectedAt          time.Time
+	connectionHash       string
+	connectionId         string
+	databaseUuid         string
+	drained              chan bool
+	draining             bool
+	handlers             map[string][]func(map[string]interface{})
+	messageHash          []byte
+	mutex                *sync.Mutex
+	open                 bool
+	reader               chan string
+	Request              *http.Request
+	RequestCount         int
+	ResponseCount        int
+	requestInFlightCount int
+	Response             http.ResponseWriter
+	responses            map[string]chan []byte
+	writer               chan []byte
 }
 
 func NewConnection(connectionId string, connectionHash string, request *http.Request, w http.ResponseWriter) *Connection {
 	return &Connection{
-		close:             make(chan bool),
-		connected:         false,
-		connectionHash:    connectionHash,
-		connectionId:      connectionId,
-		handlers:          make(map[string][]func(map[string]interface{})),
-		messageHash:       nil,
-		open:              false,
-		reader:            make(chan string),
-		Request:           request,
-		RequestCount:      0,
-		Response:          w,
-		ResponseCallbacks: make(map[string]func([]byte)),
-		writer:            make(chan []byte),
+		close:          make(chan bool),
+		connected:      false,
+		connectionHash: connectionHash,
+		connectionId:   connectionId,
+		drained:        make(chan bool),
+		handlers:       make(map[string][]func(map[string]interface{})),
+		messageHash:    nil,
+		mutex:          &sync.Mutex{},
+		open:           false,
+		reader:         make(chan string),
+		Request:        request,
+		RequestCount:   0,
+		ResponseCount:  0,
+		Response:       w,
+		responses:      make(map[string]chan []byte),
+		writer:         make(chan []byte),
 	}
 }
 
 func CreateConnection(databaseUuid, branchUuid, connectionKey string, request *http.Request, w http.ResponseWriter) *Connection {
-	connectionId := sha1.New().Sum([]byte(uuid.New().String()))
-	connectionHash := hmac.New(sha256.New, []byte(connectionKey)).Sum([]byte(connectionId))
+	connectionId := fmt.Sprintf("%s", sha1.New().Sum([]byte(uuid.New().String())))
+	connectionHash := fmt.Sprintf("%s", hmac.New(sha256.New, []byte(connectionKey)).Sum([]byte(connectionId)))
 	connection := NewConnection(string(connectionId), string(connectionHash), request, w)
 	PutConnection("unassigned", "", connection)
 	go connection.Run()
-	// connection.onCreated()
 
 	return connection
 }
@@ -73,34 +83,76 @@ func (c *Connection) Authenticate(databaseuuid, branchUuid string) {
 	DeleteConnection("unassigned", "", c.connectionId)
 	PutConnection(databaseuuid, branchUuid, c)
 
-	c.Send("CONNECTION_READY", nil)
+	c.Send("CONNECTION_READY", nil, false)
 }
 
 /*
 Close the connection.
 */
 func (c *Connection) Close() bool {
-	c.open = false
-	c.closedAt = time.Now()
-
-	if c.databaseUuid == "unassigned" {
-		DeleteConnection("unassigned", "", c.connectionId)
-	} else {
-		DeleteConnection(c.databaseUuid, c.branchUuid, c.connectionId)
+	if c.closing || c.RequestCount != c.ResponseCount {
+		return false
 	}
 
-	// if c.connectionChannel != nil {
-	// 	close(c.connectionChannel)
-	// }
+	c.Send("CONNECTION_CLOSED", nil, false)
+
+	c.closing = true
+	c.close <- true
+	c.open = false
+
+	c.closedAt = time.Now()
+
+	close(c.close)
+	close(c.reader)
+	close(c.writer)
 
 	c.updateRequestBalance()
+
+	if c.databaseUuid != "" && c.branchUuid != "" {
+		DeleteConnection(c.databaseUuid, c.branchUuid, c.connectionId)
+	} else {
+		DeleteConnection("unassigned", "", c.connectionId)
+	}
 
 	return true
 }
 
+/*
+Return if the connection is in an active state, and able to process requests. This meaning it is open and not draining.
+*/
+func (c *Connection) IsActive() bool {
+	c.mutex.Lock()
+	isActive := !c.ConnectedAt.IsZero() && c.IsOpen() && !c.IsDraining()
+	c.mutex.Unlock()
+
+	return isActive
+
+}
+
+/*
+Check if the connection is closed. A connection is considered closed if it has been closed and there are no requests in flight.
+*/
+func (c *Connection) IsClosed() bool {
+	return !c.IsDraining() && !c.closedAt.IsZero()
+}
+
+/*
+*
+A connection is considered draining if it has been closed but there are still
+requests in flight.
+*/
+func (c *Connection) IsDraining() bool {
+	return c.draining
+}
+
+/*
+Check if the connection is open. A connection is truly open once it has been
+authenticated. However, it is possible to close a connection before it has
+been authenticated so we need to check if the connection has been
+explicitly closed.
+*/
 func (c *Connection) IsOpen() bool {
-	// TODO: check if the websocket connection is open
-	return c.open
+	return c.open || (!c.open && c.closedAt.IsZero())
 }
 
 /*
@@ -127,24 +179,20 @@ func (c *Connection) Listen() {
 			}(data)
 		case "QUERY_RESPONSE":
 			go func(data map[string]interface{}) {
-				callback, ok := c.ResponseCallbacks[data["responseHash"].(string)]
 				jsonString, err := json.Marshal(data["response"])
 
 				if err != nil {
-					log.Println(err)
+					c.responses[data["responseHash"].(string)] <- nil
 					return
 				}
 
-				if ok {
-					callback(jsonString)
-					// delete(c.ResponseCallbacks, data["responseHash"].(string))
-				}
+				c.responses[data["responseHash"].(string)] <- jsonString
 			}(data)
 		}
 	})
 
 	c.On("close", func(data map[string]interface{}) {
-		close <- true
+
 	})
 
 	<-close
@@ -160,7 +208,7 @@ The on connection created handler.
 func (c *Connection) onCreated() {
 	c.connected = true
 	c.ConnectedAt = time.Now()
-	c.Send("CONNECTION_OPEN", nil)
+	c.Send("CONNECTION_OPEN", nil, false)
 }
 
 func (c *Connection) Run() {
@@ -172,20 +220,20 @@ func (c *Connection) Run() {
 	go c.onCreated()
 
 	go func() {
-		buf := make([]byte, 128)
+		buf := make([]byte, 1024)
 		jsonBlock := ""
 
 		for {
 			// if the http request is closed, close the connection
 			if c.Request.Body == nil {
-				c.close <- true
+				c.Close()
 				break
 			}
 
 			n, err := c.Request.Body.Read(buf)
 
 			if err != nil {
-				c.close <- true
+				c.Close()
 				break
 			}
 
@@ -206,9 +254,18 @@ func (c *Connection) Run() {
 	for {
 		select {
 		case <-c.close:
-			c.Close()
+			for _, handler := range c.handlers["close"] {
+				handler(map[string]interface{}{})
+			}
 			return
 		case message := <-c.reader:
+			c.requestInFlightCount--
+
+			if c.requestInFlightCount <= 0 {
+				// c.requestInFlightCount = 0
+				// c.drained <- true
+			}
+
 			data := map[string]interface{}{}
 			err := json.Unmarshal([]byte(message), &data)
 
@@ -224,7 +281,7 @@ func (c *Connection) Run() {
 			_, err := c.Response.Write(data)
 
 			if err != nil {
-				panic(err)
+				c.Close()
 			}
 
 			flusher.Flush()
@@ -235,19 +292,24 @@ func (c *Connection) Run() {
 /*
 Send a message on the connection.
 */
-func (c *Connection) Send(event string, data []byte) []byte {
+func (c *Connection) Send(event string, data []byte, hasResponse bool) []byte {
 	responseHash := fmt.Sprintf("%x", sha1.New().Sum([]byte(fmt.Sprintf("%s%s", uuid.New().String(), c.messageHash))))
-	responseChan := make(chan []byte)
 
-	c.ResponseCallbacks[responseHash] = func(response []byte) {
-		defer delete(c.ResponseCallbacks, responseHash)
+	if hasResponse {
+		c.responses[responseHash] = make(chan []byte)
 		c.RequestCount++
-		responseChan <- response
 	}
 
 	c.writer <- []byte(c.toJson(responseHash, event, data))
 
-	return <-responseChan
+	if hasResponse {
+		response := <-c.responses[responseHash]
+		c.ResponseCount++
+
+		return response
+	}
+
+	return nil
 }
 
 /*
@@ -307,6 +369,7 @@ func (c *Connection) Verify(verificationNonce string) {
 	connectionKey, err := auth.SecretsManager().GetConnectionKey(c.databaseUuid, c.branchUuid)
 
 	if err != nil {
+		c.Close()
 		return
 	}
 
@@ -315,7 +378,7 @@ func (c *Connection) Verify(verificationNonce string) {
 	serverNonce := fmt.Sprintf("%x", serverNonceHash.Sum(nil))
 
 	if subtle.ConstantTimeCompare([]byte(serverNonce), []byte(verificationNonce)) != 1 {
-		c.close <- true
+		c.Close()
 		return
 	}
 

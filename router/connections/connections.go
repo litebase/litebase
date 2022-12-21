@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -54,10 +55,23 @@ func Balance(databaseUuid, branchUuid string) bool {
 	targetConnections := math.Min(float64(requestsPerSecond/60), 100)
 	connections := All(databaseUuid, branchUuid)
 	connectionsCount := float64(len(connections))
+	targetConnectionTimeSeconds, err := strconv.ParseInt(config.Get("targetConnectionTimeInSeconds"), 10, 64)
 
-	if targetConnections == 0 || connectionsCount >= 1 {
+	if err != nil {
+		targetConnectionTimeSeconds = 60
+	}
+
+	if targetConnections == 0 && connectionsCount >= 1 {
 		for _, connection := range connections {
-			connection.Close()
+			connectionCreationDifference := time.Now().Unix() - connection.ConnectedAt.Unix()
+
+			if !connection.connected || connectionCreationDifference < targetConnectionTimeSeconds {
+				continue
+			}
+
+			if connection.IsActive() {
+				connection.Close()
+			}
 		}
 
 		return false
@@ -89,7 +103,7 @@ func Balance(databaseUuid, branchUuid string) bool {
 		log.Printf("%s:%s: Closing %d connections: ", databaseUuid, branchUuid, int(targetCount))
 
 		for i := 0; i < int(targetCount); i++ {
-			connections[i].Close()
+			go connections[i].Close()
 		}
 
 		return true
@@ -160,12 +174,29 @@ func For(databaseUuid, branchUuid string) *Connection {
 	c := rand.Float64()
 
 	i := 0
-	index := int(math.Ceil(c*float64(len(Connections[Key(databaseUuid, branchUuid)])))) - 1
 
-	for _, connection := range Connections[Key(databaseUuid, branchUuid)] {
+	activeConnections := []*Connection{}
+
+	for connection := range Connections[Key(databaseUuid, branchUuid)] {
+		if !Connections[Key(databaseUuid, branchUuid)][connection].IsActive() {
+			continue
+		}
+
+		activeConnections = append(activeConnections, Connections[Key(databaseUuid, branchUuid)][connection])
+	}
+
+	index := int(math.Ceil(c*float64(len(activeConnections)))) - 1
+
+	for _, connection := range activeConnections {
+		if !connection.IsActive() {
+			continue
+		}
+
 		if i == index {
 			return connection
 		}
+
+		i++
 	}
 
 	return nil
@@ -225,9 +256,11 @@ func Purge(
 	var open []*Connection
 
 	for _, connection := range connections {
-		if connection.IsOpen() {
+		if connection.IsDraining() {
+			continue
+		} else if connection.IsOpen() {
 			open = append(open, connection)
-		} else {
+		} else if connection.IsClosed() {
 			delete(connections, connection.connectionId)
 		}
 	}
@@ -341,5 +374,9 @@ func SendThroughConnection(databaseUuid, branchUuid, fn string, payload []byte) 
 		return nil
 	}
 
-	return connection.Send("QUERY", payload)
+	if !connection.IsActive() {
+		return nil
+	}
+
+	return connection.Send("QUERY", payload, true)
 }

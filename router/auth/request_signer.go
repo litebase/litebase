@@ -9,7 +9,6 @@ import (
 	"litebasedb/internal/utils"
 	"log"
 	"strings"
-	"time"
 
 	"golang.org/x/exp/slices"
 )
@@ -87,7 +86,7 @@ func SignRequest(
 	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
 	dateHash := hmac.New(sha256.New, []byte(accessKeySecret))
-	dateHash.Write([]byte(fmt.Sprintf("%d", time.Now().UTC().Unix())))
+	dateHash.Write([]byte(headers["x-lbdb-date"]))
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))

@@ -27,12 +27,12 @@ func NewRequest(Headers map[string]string, Method string, Path string, Body map[
 	}
 }
 
-func (r *Request) All() map[string]interface{} {
-	return r.Body
+func (request *Request) All() map[string]interface{} {
+	return request.Body
 }
 
-func (r *Request) Get(key string) interface{} {
-	return r.Body[key]
+func (request *Request) Get(key string) interface{} {
+	return request.Body[key]
 }
 
 func (request *Request) Headers() *Headers {
