@@ -52,7 +52,7 @@ func (c *ConnectionManagerInstance) connect(host string) bool {
 	headers := map[string][]string{
 		"Content-Type": {"application/json"},
 		"Host":         {host},
-		"X-LBDB-Date":  {fmt.Sprintf("%x", time.Now().Unix())},
+		"X-LBDB-Date":  {fmt.Sprintf("%d", time.Now().UTC().Unix())},
 	}
 
 	headersToSign := map[string]string{}
@@ -77,7 +77,7 @@ func (c *ConnectionManagerInstance) connect(host string) bool {
 			"POST",
 			path,
 			headersToSign,
-			map[string]string{},
+			map[string]interface{}{},
 			map[string]string{},
 		),
 	}

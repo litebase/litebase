@@ -100,7 +100,6 @@ func Balance(databaseUuid, branchUuid string) bool {
 
 	if targetConnections < connectionsCount {
 		targetCount := connectionsCount - targetConnections
-		log.Printf("%s:%s: Closing %d connections: ", databaseUuid, branchUuid, int(targetCount))
 
 		for i := 0; i < int(targetCount); i++ {
 			go connections[i].Close()

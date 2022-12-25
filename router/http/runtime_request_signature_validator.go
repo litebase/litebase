@@ -1,49 +1,57 @@
-package auth
+package http
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"litebasedb/internal/utils"
+	"litebasedb/router/auth"
 	"log"
 	"strings"
 
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
-func SignRequest(
-	accessKeyID string,
-	accessKeySecret string,
-	method string,
-	path string,
-	headers map[string]string,
-	data map[string]interface{},
-	queryParams map[string]string,
-) string {
-	for key, value := range headers {
-		delete(headers, key)
+func RuntimeRequestSignatureValidator(request *Request, databaseUuid, branchUuid string) bool {
+	token := request.RequestToken("Authorization")
 
-		headers[utils.TransformHeaderKey(key)] = value
+	if token == nil {
+		return false
 	}
 
-	for key := range headers {
-		if !slices.Contains([]string{"content-type", "host", "x-lbdb-date"}, key) {
-			delete(headers, key)
-		}
+	body := request.All()
+
+	// Change all the keys to lower case
+	for key, value := range body {
+		delete(body, key)
+		body[strings.ToLower(key)] = value
 	}
 
+	queryParams := request.QueryParams
+
+	// Change all the keys to lower case
 	for key, value := range queryParams {
 		delete(queryParams, key)
-
 		queryParams[strings.ToLower(key)] = value
 	}
 
-	for key, value := range data {
-		delete(data, key)
+	headers := make(map[string]string)
+	maps.Copy(headers, request.Headers().All())
 
-		data[strings.ToLower(key)] = value
+	// Change all the keys to lower case
+	for key, value := range headers {
+		delete(headers, key)
+		headers[utils.TransformHeaderKey(key)] = value
+	}
+
+	// Remove headers that are not signed
+	for key := range headers {
+		if !slices.Contains(token.SignedHeaders, key) {
+			delete(headers, key)
+		}
 	}
 
 	jsonHeaders, err := json.Marshal(headers)
@@ -60,8 +68,8 @@ func SignRequest(
 		jsonQueryParams = []byte("{}")
 	}
 
-	if len(data) > 0 {
-		jsonBody, err = json.Marshal(data)
+	if len(body) > 0 {
+		jsonBody, err = json.Marshal(body)
 
 		if err != nil {
 			log.Fatal(err)
@@ -75,12 +83,21 @@ func SignRequest(
 	}
 
 	requestString := strings.Join([]string{
-		method,
-		"/" + strings.TrimLeft(path, "/"),
+		request.Method,
+		"/" + strings.TrimLeft(request.Path, "/"),
 		string(jsonHeaders),
 		string(jsonQueryParams),
 		string(jsonBody),
 	}, "")
+
+	accessKeySecret, error := auth.SecretsManager().GetConnectionKey(
+		databaseUuid,
+		branchUuid,
+	)
+
+	if error != nil {
+		return false
+	}
 
 	signedRequestHash := sha256.New()
 	signedRequestHash.Write([]byte(requestString))
@@ -98,9 +115,5 @@ func SignRequest(
 	signatureHash.Write([]byte(signedRequest))
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
-	token := base64.StdEncoding.EncodeToString(
-		[]byte(fmt.Sprintf("credential=%s;signed_headers=content-type,host,x-lbdb-date;signature=%s", accessKeyID, signature)),
-	)
-
-	return token
+	return subtle.ConstantTimeCompare([]byte(signature), []byte(token.Signature)) == 1
 }

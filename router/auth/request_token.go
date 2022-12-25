@@ -30,6 +30,11 @@ func CaptureRequestToken(authorizationHeader string) *RequestToken {
 
 	for _, headerPart := range headerParts {
 		headerPartParts := strings.Split(headerPart, "=")
+
+		if len(headerPartParts) != 2 {
+			return nil
+		}
+
 		token[headerPartParts[0]] = headerPartParts[1]
 	}
 

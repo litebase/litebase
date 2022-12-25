@@ -8,7 +8,6 @@ import (
 )
 
 func ConnectionController(request *Request) *Response {
-	log.Println("-----Creating connection-----")
 	connectionKey, err := auth.SecretsManager().GetConnectionKey(
 		request.Param("databaseUuid"),
 		request.Param("branchUuid"),

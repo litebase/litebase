@@ -1,7 +1,7 @@
 package connections
 
 const (
-	BalanceThreshold = 1
+	BalanceThreshold = 25
 )
 
 /*

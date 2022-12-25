@@ -9,7 +9,6 @@ import (
 	"litebasedb/internal/utils"
 	"log"
 	"strings"
-	"time"
 
 	"golang.org/x/exp/slices"
 )
@@ -20,7 +19,7 @@ func SignRequest(
 	method string,
 	path string,
 	headers map[string]string,
-	data map[string]string,
+	data map[string]interface{},
 	queryParams map[string]string,
 ) string {
 	for key, value := range headers {
@@ -85,19 +84,19 @@ func SignRequest(
 
 	signedRequestHash := sha256.New()
 	signedRequestHash.Write([]byte(requestString))
-	signedRequest := string(signedRequestHash.Sum(nil))
+	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
-	dateHash := hmac.New(sha256.New, []byte(fmt.Sprintf("%d", time.Now().UTC().Unix())))
-	dateHash.Write([]byte(accessKeySecret))
-	date := string(dateHash.Sum(nil))
+	dateHash := hmac.New(sha256.New, []byte(accessKeySecret))
+	dateHash.Write([]byte(headers["x-lbdb-date"]))
+	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
-	serviceHash := hmac.New(sha256.New, []byte("litebasedb_request"))
-	serviceHash.Write([]byte(date))
-	service := string(serviceHash.Sum(nil))
+	serviceHash := hmac.New(sha256.New, []byte(date))
+	serviceHash.Write([]byte("litebasedb_request"))
+	service := fmt.Sprintf("%x", serviceHash.Sum(nil))
 
-	signatureHash := hmac.New(sha256.New, []byte(signedRequest))
-	signatureHash.Write([]byte(service))
-	signature := string(signatureHash.Sum(nil))
+	signatureHash := hmac.New(sha256.New, []byte(service))
+	signatureHash.Write([]byte(signedRequest))
+	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
 	token := base64.StdEncoding.EncodeToString(
 		[]byte(fmt.Sprintf("credential=%s;signed_headers=content-type,host,x-lbdb-date;signature=%s", accessKeyID, signature)),

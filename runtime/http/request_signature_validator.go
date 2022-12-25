@@ -124,10 +124,6 @@ func HandleRequestSignatureValidation(
 	signatureHash.Write([]byte(signedRequest))
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
-	if subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken(header).Signature)) == 0 {
-		// log.Println("Signature mismatch", (signature), requestString)
-	}
-
 	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken(header).Signature)) == 1
 }
 

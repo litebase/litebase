@@ -100,12 +100,6 @@ func (c *Client) Open(host string, path string, headers map[string][]string) err
 	}
 
 	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", host, path), body)
-	request.Header.Set("Connection", "keep-alive")
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
 
 	request.Header = headers
 
