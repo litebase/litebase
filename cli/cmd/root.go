@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -10,19 +11,10 @@ func addCommands(cmd *cobra.Command) {
 	cmd.AddCommand(NewDatabaseCmd())
 	cmd.AddCommand(LoginCmd)
 	cmd.AddCommand(LogoutCmd)
-	cmd.AddCommand(SQLCmd)
 	cmd.AddCommand(NewSQLCmd())
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
-}
-
-func initConfig() {
-	// Load config file here
-}
-
-func NewRoot() *cobra.Command {
+func NewRoot() error {
 	cmd := &cobra.Command{
 		Use:   "litebasedb <command> <subcommand> [flags]",
 		Short: "LitebaseDB CLI",
@@ -34,5 +26,5 @@ func NewRoot() *cobra.Command {
 
 	addCommands(cmd)
 
-	return cmd
+	return cmd.ExecuteContext(context.Background())
 }

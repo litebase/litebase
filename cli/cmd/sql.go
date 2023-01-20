@@ -1,236 +1,224 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
+	"litebasedb/cli/models/sql"
 	"strings"
-	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+
 	"github.com/spf13/cobra"
 )
 
-var SQLCmd = &cobra.Command{
-	Use:   "sql",
-	Short: "Run SQL queries",
-	Run: func(cmd *cobra.Command, args []string) {
-		tea.NewProgram(initialModel()).Run()
-	},
-}
-
-type model struct {
+type Model struct {
+	activeFrame  int
+	content      string
 	currentValue string
-	height       int
+	// err          error
+	frames       []sql.Frame
 	history      []string
 	historyIndex int
-	loading      bool
-	results      []string
-	textarea     textarea.Model
 	width        int
-	err          error
+	viewport     viewport.Model
 }
 
-func initialModel() model {
-	ti := textarea.New()
+type AddedFrame struct {
+	Offset int
+}
+type Init struct{}
 
-	ti.ShowLineNumbers = false
-	ti.SetHeight(1)
-	ti.Focus()
-	ti.FocusedStyle.CursorLine = lipgloss.NewStyle()
-	ti.KeyMap.InsertNewline.SetEnabled(false)
+func createFrame(m Model) sql.Frame {
+	return sql.NewFrame(m.width)
+}
 
-	ti.SetPromptFunc(0, func(lineIdx int) string {
-		if lineIdx > 0 {
-			return fmt.Sprintf("%s → ", lipgloss.NewStyle().Bold(true).Render("       ..."))
-		}
-
-		return fmt.Sprintf("%s → ", lipgloss.NewStyle().Bold(true).Render("litebasedb"))
-	})
-
-	m := model{
-		textarea: ti,
-		err:      nil,
+func initialModel() tea.Model {
+	return Model{
+		activeFrame:  -1,
+		historyIndex: 0,
+		viewport:     viewport.New(300, 300),
 	}
-
-	return m
 }
 
-func (m model) Init() tea.Cmd {
-	return textarea.Blink
+func (m Model) Init() tea.Cmd {
+	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	var historyIndex int
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd, _ tea.Cmd
+	var frame sql.Frame
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-		m.textarea.SetWidth(msg.Width)
-		m.height = msg.Height
-		return m, nil
+		m.viewport.Width = msg.Width
+		// m.viewport.Height = msg.Height
+		// m.viewport.YPosition = 0
+
+		if len(m.frames) <= 0 {
+			m.frames = append(m.frames, createFrame(m))
+			m.activeFrame = 0
+		}
+		if len(m.frames) > 0 {
+			for i, frame := range m.frames {
+				frame, cmd = frame.Update(msg)
+				m.frames[i] = frame
+				cmds = append(cmds, cmd)
+			}
+		}
+	case AddedFrame:
+		// m.viewport.ViewDown()
+	case sql.SetFrameQuery:
+		if m.activeFrame >= 0 {
+			frame, cmd = m.frames[m.activeFrame].Update(msg)
+			m.frames[m.activeFrame] = frame
+			cmds = append(cmds, cmd)
+		}
+	case sql.FrameCompleted:
+		newFrame := createFrame(m)
+		m.frames = append(m.frames, newFrame)
+		m.activeFrame = len(m.frames) - 1
+		m.history = append(m.history, msg.Query)
+		m.historyIndex = len(m.history)
+
+		cmd = tea.Println(msg.Results)
+		cmds = append(cmds, cmd)
+
+		cmds = append(cmds, func() tea.Msg {
+			return AddedFrame{
+				Offset: msg.Offset,
+			}
+		})
 	case tea.KeyMsg:
-		// On ctrl+c, exit the program
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
-		}
-
-		if msg.Type == tea.KeyEsc {
-			if len(m.results) > 0 {
-				m.textarea.Reset()
-				m.currentValue = m.textarea.Value()
-				m.results = []string{}
+		} else if msg.Type == tea.KeyEsc {
+			if len(m.frames) > 0 && m.activeFrame < 0 {
+				frame, cmd = m.frames[m.activeFrame].Update(msg)
+				cmds = append(cmds, cmd)
+				m.frames[m.activeFrame] = frame
+				m.activeFrame = -1
 			} else {
 				return m, tea.Quit
 			}
-		}
-
-		if msg.Type == tea.KeyUp {
-			// If the history index is at the end, save the current value
-			if m.historyIndex == len(m.history) {
-				m.currentValue = m.textarea.Value()
-			}
-
-			// Set the value to the previous item in the history
-			if len(m.history) > 0 {
-				if historyIndex >= 0 && m.history[historyIndex] != "" {
-					historyIndex = m.historyIndex - 1
-				}
-
-				if historyIndex >= 0 {
-					m.textarea.SetValue(m.history[historyIndex])
-					m.historyIndex = historyIndex
-				}
-			}
-		}
-
-		if msg.Type == tea.KeyDown {
-			// Set the value to the next item in the history
-			if len(m.history) > 0 {
-				historyIndex = m.historyIndex + 1
-				if historyIndex < len(m.history) {
-					m.textarea.SetValue(m.history[historyIndex])
-					m.historyIndex = historyIndex
-				} else {
-					// If the history index is at the end, resume the text input state with the current value
-					m.historyIndex = len(m.history)
-					m.textarea.SetValue(m.currentValue)
-					m.textarea.CursorEnd()
-				}
-			}
-		}
-		// TODO: Need to execute on ctrl+enter or cmd+enter (mac). Enter should add a new line.
-		if msg.Type == tea.KeyEnter {
-			if msg.Alt {
-				// m.textarea.InsertNewline()
-				return m, nil
-			}
-			// Parse the string and execute the query, split by semi-colon
-			queries := strings.Split(m.textarea.Value(), ";")
-			m.results = []string{}
-			loading := make(chan bool)
-			m.loading = true
-
-			go func() {
-				time.Sleep(1 * time.Second)
-				m.loading = false
-				loading <- true
-			}()
-
-			<-loading
-
-			for range queries {
-				jsonString := `[{"column1": "value1","column2": "value2"}]`
-				x := make([]map[string]interface{}, 0)
-				err := json.Unmarshal([]byte(jsonString), &x)
-
-				if err != nil {
-					fmt.Println("error:", err)
-				}
-
-				y, err := json.MarshalIndent(x, "", "  ")
-
-				if err != nil {
-					fmt.Println("error:", err)
-				}
-
-				m.results = append(m.results, string(y))
-			}
-
-			if m.textarea.Value() != "" {
-				m.history = append(m.history, m.textarea.Value())
-				m.historyIndex = len(m.history)
-				m.textarea.Reset()
-				m.currentValue = m.textarea.Value()
+		} else if msg.Type == tea.KeyUp {
+			m, cmd = handleKeyUp(m)
+			cmds = append(cmds, cmd)
+			// return m, tea.Batch(cmds...)
+		} else if msg.Type == tea.KeyDown {
+			m, cmd = handleKeyDown(m)
+			cmds = append(cmds, cmd)
+			// return m, tea.Batch(cmds...)
+		} else {
+			if len(m.frames) > 0 && m.activeFrame >= 0 {
+				frame, cmd = m.frames[m.activeFrame].Update(msg)
+				cmds = append(cmds, cmd)
+				m.frames[m.activeFrame] = frame
 			}
 		}
 	}
 
-	m.textarea, cmd = m.textarea.Update(msg)
-	// update height based on line count
-	m.textarea.SetHeight(m.textarea.LineCount())
+	if len(m.frames) > 0 {
+		frameStrings := []string{}
 
-	return m, cmd
+		for _, frame := range m.frames {
+			if frame.Completed {
+				continue
+			}
+			frameStrings = append(frameStrings, frame.View())
+		}
+
+		m.content = strings.Join(frameStrings, "\n")
+
+		// m.viewport.SetContent(strings.Join(frameStrings, "\n"))
+	} else {
+		m.content = ""
+		m.viewport.SetContent("")
+	}
+
+	// m.viewport, vpCmd = m.viewport.Update(msg)
+	// cmds = append(cmds, vpCmd)
+
+	return m, tea.Batch(cmds...)
 }
 
-func (m model) View() string {
-	input := ""
-	loading := ""
-	results := ""
-	query := ""
+func (m Model) View() string {
+	return m.content
+	// return m.viewport.View()
+}
 
-	if m.loading {
-		loading = "loading..."
-	}
+func handleKeyDown(m Model) (Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd func() tea.Msg
+	var historyIndex int
 
-	if len(m.results) > 0 && m.history[len(m.history)-1] != "" {
-		query = m.history[len(m.history)-1]
+	// Set the value to the next item in the history
+	if len(m.history) > 0 {
+		historyIndex = m.historyIndex + 1
+		if historyIndex < len(m.history) {
+			cmd = func() tea.Msg {
+				return sql.SetFrameQuery{
+					Query: m.history[historyIndex],
+				}
+			}
 
-		query = lipgloss.NewStyle().
-			Width(m.width).
-			Padding(1, 0, 0, 0).
-			Render(query)
-
-		var style = lipgloss.NewStyle().
-			Bold(true).
-			Padding(0, 1, 0, 1).
-			MarginTop(1).
-			Width(m.width).
-			Background(lipgloss.AdaptiveColor{Light: "#2563eb", Dark: "#9333EA"})
-
-		header := style.Render(fmt.Sprintf("Results: (%s)", "24ms"))
-		content := ""
-
-		for _, result := range m.results {
-			content += result
+			if historyIndex <= len(m.history) {
+				m.historyIndex = historyIndex
+			}
+		} else {
+			m.historyIndex = len(m.history)
+			cmd = func() tea.Msg {
+				return sql.SetFrameQuery{
+					Query: m.currentValue,
+				}
+			}
 		}
 
-		content = lipgloss.NewStyle().
-			Width(m.width).
-			Padding(1, 0, 1, 0).
-			Render(content)
-
-		footer := fmt.Sprintf("Results: %d", len(m.results))
-		results = fmt.Sprintf("%s\n%s\n%s", header, content, footer)
+		cmds = append(cmds, cmd)
 	}
 
-	input = m.textarea.View()
+	return m, tea.Batch(cmds...)
+}
 
-	i := []string{query, loading, results, input}
-	o := []string{}
+func handleKeyUp(m Model) (Model, tea.Cmd) {
+	var cmds []tea.Cmd
 
-	// Remove empty strings
-	for _, s := range i {
-		if s != "" {
-			o = append(o, s)
+	if m.historyIndex == len(m.history) {
+		m.currentValue = m.frames[m.activeFrame].Textarea.Value()
+	}
+
+	// Set the value to the previous item in the history
+	if len(m.history) > 0 {
+		if m.historyIndex >= 0 {
+			cmd := func() tea.Msg {
+				return sql.SetFrameQuery{
+					Query: m.history[m.historyIndex],
+				}
+			}
+
+			cmds = append(cmds, cmd)
+		}
+
+		if m.historyIndex >= 1 {
+			m.historyIndex = m.historyIndex - 1
 		}
 	}
 
-	return strings.Join(o, "\n")
+	return m, tea.Batch(cmds...)
 }
 
 func NewSQLCmd() *cobra.Command {
-	return SQLCmd
+	return &cobra.Command{
+		Use:   "sql",
+		Short: "Run SQL queries",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := tea.NewProgram(initialModel()).Run()
+
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
 }
