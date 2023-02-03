@@ -3,7 +3,9 @@ package sql
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -28,12 +30,14 @@ type Frame struct {
 
 type FrameCompleted struct {
 	FrameId string
-	Offset  int
 	Query   string
 	Results string
 }
 
 type SetFrameQuery struct {
+	Query string
+}
+type RunQuery struct {
 	Query string
 }
 
@@ -64,14 +68,15 @@ func NewFrame(width int) Frame {
 	return Frame{
 		content:  "",
 		Id:       uuid.New().String(),
-		Textarea: textarea,
 		err:      nil,
+		Textarea: textarea,
 		width:    width,
+		loading:  false,
 	}
 }
 
 func (f Frame) Init() tea.Cmd {
-	return textarea.Blink
+	return tea.Batch(textarea.Blink)
 }
 
 func (f Frame) Update(msg tea.Msg) (Frame, tea.Cmd) {
@@ -112,10 +117,6 @@ func (f Frame) View() string {
 	input := ""
 	loading := ""
 	results := ""
-
-	if f.loading {
-		loading = "loading..."
-	}
 
 	if len(f.results) > 0 {
 		var style = lipgloss.NewStyle().
@@ -165,7 +166,6 @@ func (f Frame) View() string {
 
 func (f Frame) handleEnter(msg tea.KeyMsg) (Frame, tea.Cmd) {
 	var cmds []tea.Cmd
-
 	value := f.Textarea.Value()
 
 	if value == "" || !f.Textarea.Focused() {
@@ -180,64 +180,91 @@ func (f Frame) handleEnter(msg tea.KeyMsg) (Frame, tea.Cmd) {
 
 	if value[len(value)-1:] == ";" {
 		f.loading = true
+		cmds = append(cmds, func() tea.Msg {
+			return RunQuery{Query: value}
+		})
+	}
 
-		// Parse the string and execute the query, split by semi-colon
-		value = strings.Trim(value, " ")
-		queries := strings.Split(value, ";")
-		q := []string{}
+	return f, tea.Batch(cmds...)
+}
 
-		for _, query := range queries {
-			query = strings.Trim(query, " ")
-			query = strings.Trim(query, "\n")
+func (f Frame) RunQuery(query string) (Frame, tea.Cmd) {
+	var cmds []tea.Cmd
 
-			if query == "" {
-				continue
-			}
+	fmt.Println("Running query")
+	httpClient := &http.Client{
+		Timeout: time.Second * 10,
+	}
 
-			q = append(q, query)
+	res, err := httpClient.Get("http://example.com")
+
+	if err != nil {
+		f.err = err
+		return f, nil
+	}
+
+	defer res.Body.Close()
+
+	_, err = ioutil.ReadAll(res.Body)
+
+	if err != nil {
+		f.err = err
+		return f, nil
+	}
+
+	// req, err := http.NewRequest("POST", "http://localhost:8080/query", strings.NewReader(query))
+
+	// Parse the string and execute the query, split by semi-colon
+	query = strings.Trim(query, " ")
+	queries := strings.Split(query, ";")
+	q := []string{}
+
+	for _, query := range queries {
+		query = strings.Trim(query, " ")
+		query = strings.Trim(query, "\n")
+
+		if query == "" {
+			continue
 		}
 
-		f.results = []string{}
+		q = append(q, query)
+	}
 
-		var results []string
+	f.results = []string{}
+	var results []string
 
-		for range q {
-			jsonString := `[{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"}]`
-			// jsonString := `[]`
-			x := make([]map[string]interface{}, 0)
-			err := json.Unmarshal([]byte(jsonString), &x)
+	for range q {
+		jsonString := `[{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"}]`
+		x := make([]map[string]interface{}, 0)
+		err := json.Unmarshal([]byte(jsonString), &x)
 
-			if err != nil {
-				log.Fatalln("error:", err)
-			}
-
-			result, err := json.MarshalIndent(x, "", "  ")
-
-			if err != nil {
-				fmt.Println("error:", err)
-			}
-
-			// TODO: Style results
-			results = append(results, string(result))
+		if err != nil {
+			log.Fatalln("error:", err)
 		}
 
-		f.results = results
-		f.loading = false
+		result, err := json.MarshalIndent(x, "", "  ")
 
-		if len(q) > 0 {
-			f.Textarea.Blur()
-			f.query = f.Textarea.Value()
-			f.Completed = true
-
-			cmds = append(cmds, tea.Tick(time.Millisecond, func(time time.Time) tea.Msg {
-				return FrameCompleted{
-					FrameId: f.Id,
-					Offset:  f.Textarea.Height(),
-					Query:   f.query,
-					Results: f.View(),
-				}
-			}))
+		if err != nil {
+			fmt.Println("error:", err)
 		}
+
+		results = append(results, string(result))
+	}
+
+	f.results = results
+	f.loading = false
+	if len(f.results) > 0 {
+		f.Textarea.Blur()
+		f.query = f.Textarea.Value()
+		f.Completed = true
+
+		cmds = append(cmds, tea.Tick(time.Millisecond, func(time time.Time) tea.Msg {
+			return FrameCompleted{
+				FrameId: f.Id,
+				Query:   f.query,
+				Results: f.View(),
+			}
+		}))
 	}
 
 	return f, tea.Batch(cmds...)

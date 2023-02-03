@@ -4,7 +4,6 @@ import (
 	"litebasedb/cli/models/sql"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/spf13/cobra"
@@ -19,12 +18,8 @@ type Model struct {
 	history      []string
 	historyIndex int
 	width        int
-	viewport     viewport.Model
 }
 
-type AddedFrame struct {
-	Offset int
-}
 type Init struct{}
 
 func createFrame(m Model) sql.Frame {
@@ -35,7 +30,6 @@ func initialModel() tea.Model {
 	return Model{
 		activeFrame:  -1,
 		historyIndex: 0,
-		viewport:     viewport.New(300, 300),
 	}
 }
 
@@ -51,14 +45,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-		m.viewport.Width = msg.Width
-		// m.viewport.Height = msg.Height
-		// m.viewport.YPosition = 0
 
 		if len(m.frames) <= 0 {
 			m.frames = append(m.frames, createFrame(m))
 			m.activeFrame = 0
+			cmds = append(cmds, m.frames[m.activeFrame].Init())
 		}
+
 		if len(m.frames) > 0 {
 			for i, frame := range m.frames {
 				frame, cmd = frame.Update(msg)
@@ -66,8 +59,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		}
-	case AddedFrame:
-		// m.viewport.ViewDown()
+	case sql.RunQuery:
+		if m.activeFrame >= 0 {
+			frame, cmd = m.frames[m.activeFrame].RunQuery(msg.Query)
+			m.frames[m.activeFrame] = frame
+			cmds = append(cmds, cmd)
+		}
 	case sql.SetFrameQuery:
 		if m.activeFrame >= 0 {
 			frame, cmd = m.frames[m.activeFrame].Update(msg)
@@ -78,17 +75,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newFrame := createFrame(m)
 		m.frames = append(m.frames, newFrame)
 		m.activeFrame = len(m.frames) - 1
+		cmds = append(cmds, m.frames[m.activeFrame].Init())
 		m.history = append(m.history, msg.Query)
 		m.historyIndex = len(m.history)
 
 		cmd = tea.Println(msg.Results)
 		cmds = append(cmds, cmd)
-
-		cmds = append(cmds, func() tea.Msg {
-			return AddedFrame{
-				Offset: msg.Offset,
-			}
-		})
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
@@ -109,14 +101,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m, cmd = handleKeyDown(m)
 			cmds = append(cmds, cmd)
 			// return m, tea.Batch(cmds...)
-		} else {
-			if len(m.frames) > 0 && m.activeFrame >= 0 {
-				frame, cmd = m.frames[m.activeFrame].Update(msg)
-				cmds = append(cmds, cmd)
-				m.frames[m.activeFrame] = frame
-			}
 		}
 	}
+
+	frame, cmd = m.frames[m.activeFrame].Update(msg)
+	cmds = append(cmds, cmd)
+	m.frames[m.activeFrame] = frame
 
 	if len(m.frames) > 0 {
 		frameStrings := []string{}
@@ -129,22 +119,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.content = strings.Join(frameStrings, "\n")
-
-		// m.viewport.SetContent(strings.Join(frameStrings, "\n"))
 	} else {
 		m.content = ""
-		m.viewport.SetContent("")
 	}
-
-	// m.viewport, vpCmd = m.viewport.Update(msg)
-	// cmds = append(cmds, vpCmd)
 
 	return m, tea.Batch(cmds...)
 }
 
 func (m Model) View() string {
 	return m.content
-	// return m.viewport.View()
 }
 
 func handleKeyDown(m Model) (Model, tea.Cmd) {
