@@ -24,10 +24,12 @@ func TestNewQuery(t *testing.T) {
 			mock["accessKeySecret"],
 		)
 
-		query, err := NewQuery(db, mock["accessKeyId"], map[string]interface{}{
-			"statement":  encrytpedQuery["statement"],
-			"parameters": encrytpedQuery["parameters"],
-		}, "123")
+		query, err := NewQuery(
+			"hash",
+			db, mock["accessKeyId"], map[string]interface{}{
+				"statement":  encrytpedQuery["statement"],
+				"parameters": encrytpedQuery["parameters"],
+			}, "123")
 
 		if err != nil {
 			t.Fatal(err)
@@ -56,10 +58,12 @@ func TestNewQueryWithInvalidaAccessKeyId(t *testing.T) {
 			mock["accessKeySecret"],
 		)
 
-		_, err = NewQuery(db, "invalid", map[string]interface{}{
-			"statement":  encrytpedQuery["statement"],
-			"parameters": encrytpedQuery["parameters"],
-		}, "")
+		_, err = NewQuery(
+			"hash",
+			db, "invalid", map[string]interface{}{
+				"statement":  encrytpedQuery["statement"],
+				"parameters": encrytpedQuery["parameters"],
+			}, "")
 
 		if err == nil {
 			t.Fatal("Error should not be nil")
@@ -77,10 +81,13 @@ func TestNewQueryWithStatementThatCannotBeDecrypted(t *testing.T) {
 			log.Fatal(err)
 		}
 
-		_, err = NewQuery(db, mock["accessKeyId"], map[string]interface{}{
-			"statement":  "statement",
-			"parameters": "parameters",
-		}, "")
+		_, err = NewQuery(
+			"hash",
+			db,
+			mock["accessKeyId"], map[string]interface{}{
+				"statement":  "statement",
+				"parameters": "parameters",
+			}, "")
 
 		if err == nil {
 			t.Fatal("Error should not be nil")
@@ -105,10 +112,14 @@ func TestNewQueryWithParametersThatCannotBeDecrypted(t *testing.T) {
 			mock["accessKeySecret"],
 		)
 
-		_, err = NewQuery(db, mock["accessKeyId"], map[string]interface{}{
-			"statement":  encrytpedQuery["statement"],
-			"parameters": "parameters",
-		}, "")
+		_, err = NewQuery(
+			"hash",
+			db,
+			mock["accessKeyId"],
+			map[string]interface{}{
+				"statement":  encrytpedQuery["statement"],
+				"parameters": "parameters",
+			}, "")
 
 		if err == nil {
 			t.Fatal("Error should not be nil")
@@ -132,10 +143,16 @@ func TestResolve(t *testing.T) {
 			mock["accessKeySecret"],
 		)
 
-		query, err := NewQuery(db, mock["accessKeyId"], map[string]interface{}{
-			"statement":  encrytpedQuery["statement"],
-			"parameters": encrytpedQuery["parameters"],
-		}, "")
+		query, err := NewQuery(
+			"hash",
+			db,
+			mock["accessKeyId"],
+			map[string]interface{}{
+				"statement":  encrytpedQuery["statement"],
+				"parameters": encrytpedQuery["parameters"],
+			},
+			"",
+		)
 
 		if err != nil {
 			t.Fatal(err)

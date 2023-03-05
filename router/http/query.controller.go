@@ -6,8 +6,6 @@ import (
 )
 
 func QueryController(request *Request) *Response {
-	// start := time.Now()
-
 	databaseKey := request.Subdomains()[0]
 
 	if databaseKey == "" || len(request.Subdomains()) != 2 {
@@ -64,6 +62,7 @@ func QueryController(request *Request) *Response {
 		"",
 	)
 
+	// TODO: Only incrment on successfull response
 	defer counter.Increment(databaseUuid, branchUuid)
 
 	return &Response{

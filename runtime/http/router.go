@@ -71,12 +71,6 @@ func (router *RouterInstance) Delete(path string, handler func(request *Request)
 	return router.request("DELETE", path, handler)
 }
 
-func (router *RouterInstance) Fallback(callback func(request *Request) *Response) {
-	router.DefaultRoute = &Route{
-		Handler: callback,
-	}
-}
-
 func (router *RouterInstance) Dispatch(event *event.Event) *Response {
 	if !router.Initialized {
 		router.Init()
@@ -87,6 +81,12 @@ func (router *RouterInstance) Dispatch(event *event.Event) *Response {
 	request := PrepareRequest(event)
 
 	return router.findRoute(request.Method, request.Path).Handle(request)
+}
+
+func (router *RouterInstance) Fallback(callback func(request *Request) *Response) {
+	router.DefaultRoute = &Route{
+		Handler: callback,
+	}
 }
 
 func (router *RouterInstance) findRoute(method, path string) *Route {

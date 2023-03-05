@@ -20,16 +20,17 @@ type Query struct {
 	JsonStatement  string `json:"statement"`
 	parameters     []interface{}
 	statement      *sqlite3.Statement
+	SignatureHash  string
 }
 
-func NewQuery(database *database.Database, accessKeyId string, data map[string]interface{}, id string) (*Query, error) {
+func NewQuery(signatureHash string, database *database.Database, accessKeyId string, data map[string]interface{}, id string) (*Query, error) {
 	var batchedQueries []*Query
 	var statement string
 	var parameters string
 	var err error
 
 	if data["statement"] != nil {
-		statement, err = auth.SecretsManager().DecryptFor(accessKeyId, data["statement"].(string), accessKeyId)
+		statement, err = auth.SecretsManager().DecryptFor(signatureHash, accessKeyId, data["statement"].(string), accessKeyId)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt query statement")
@@ -37,7 +38,7 @@ func NewQuery(database *database.Database, accessKeyId string, data map[string]i
 	}
 
 	if data["parameters"] != nil {
-		parameters, err = auth.SecretsManager().DecryptFor(accessKeyId, data["parameters"].(string), "")
+		parameters, err = auth.SecretsManager().DecryptFor(signatureHash, accessKeyId, data["parameters"].(string), "")
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt query parameters")
@@ -49,7 +50,7 @@ func NewQuery(database *database.Database, accessKeyId string, data map[string]i
 		batchedQueries = make([]*Query, 0)
 
 		for _, b := range batch {
-			query, err := NewQuery(database, accessKeyId, b, "")
+			query, err := NewQuery(signatureHash, database, accessKeyId, b, "")
 
 			if err != nil {
 				query.Invalid = true
@@ -65,6 +66,7 @@ func NewQuery(database *database.Database, accessKeyId string, data map[string]i
 		Database:       database,
 		JsonStatement:  statement,
 		JsonParameters: parameters,
+		SignatureHash:  signatureHash,
 	}
 
 	if id == "" {
@@ -88,7 +90,7 @@ func (query *Query) Parameters() []interface{} {
 func (query *Query) Resolve() map[string]interface{} {
 	resolver := NewResolver()
 
-	return resolver.Handle(query.Database, query, false)
+	return resolver.Handle(query.SignatureHash, query.Database, query, false)
 }
 
 func (q *Query) Statement() (*sqlite3.Statement, error) {

@@ -12,5 +12,7 @@ func (controller *ConnectionController) Store(request *Request) *Response {
 }
 
 func (controller *ConnectionController) createConnection(request *Request) {
-	ConnectionManager().Listen(request.All()["host"].(string))
+	ConnectionManager().
+		WithSignatureHash(request.headers.Get("X-Lbdb-Signature")).
+		Listen(request.All()["host"].(string))
 }

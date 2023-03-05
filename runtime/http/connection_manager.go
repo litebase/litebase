@@ -2,8 +2,8 @@ package http
 
 import (
 	"fmt"
+	"litebasedb/internal/config"
 	"litebasedb/runtime/auth"
-	"litebasedb/runtime/config"
 	"log"
 	"strconv"
 	"time"
@@ -15,6 +15,7 @@ type ConnectionManagerInstance struct {
 	connectionTimer  *time.Ticker
 	host             string
 	messageCount     int
+	signatureHash    string
 }
 
 var staticConnectionManager *ConnectionManagerInstance
@@ -62,6 +63,7 @@ func (c *ConnectionManagerInstance) connect(host string) bool {
 	}
 
 	connectionKey, err := auth.SecretsManager().GetConnectionKey(
+		c.signatureHash,
 		databaseUuid,
 		branchUuid,
 	)
@@ -90,6 +92,7 @@ func (c *ConnectionManagerInstance) connect(host string) bool {
 func (c *ConnectionManagerInstance) createConnection() *Connection {
 	connection := NewConnection(
 		c.client(),
+		c.signatureHash,
 		config.Get("database_uuid"),
 		config.Get("branch_uuid"),
 	)
@@ -155,4 +158,10 @@ func (c *ConnectionManagerInstance) Tick() {
 			}
 		}
 	}()
+}
+
+func (c *ConnectionManagerInstance) WithSignatureHash(signatureHash string) *ConnectionManagerInstance {
+	c.signatureHash = signatureHash
+
+	return c
 }

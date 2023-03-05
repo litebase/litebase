@@ -1,7 +1,7 @@
 package http
 
 import (
-	"litebasedb/runtime/config"
+	"litebasedb/internal/config"
 	"litebasedb/runtime/database"
 	"litebasedb/runtime/query"
 )
@@ -15,7 +15,7 @@ func (controller *QueryController) Store(request *Request) *Response {
 	db, err := database.Get(
 		config.Get("database_uuid"),
 		config.Get("branch_uuid"),
-		request.RequestToken("Authorization").AccessKey(),
+		request.RequestToken("Authorization").AccessKey(request.headers.Get("X-Lbdb-Signature")),
 		false,
 	)
 
@@ -26,6 +26,7 @@ func (controller *QueryController) Store(request *Request) *Response {
 	}
 
 	requestQuery, err := query.NewQuery(
+		request.headers.Get("X-Lbdb-Signature"),
 		db,
 		request.RequestToken("Authorization").AccessKeyId,
 		request.All(),
@@ -41,7 +42,7 @@ func (controller *QueryController) Store(request *Request) *Response {
 
 	resolver := query.NewResolver()
 
-	response := resolver.Handle(db, requestQuery, false)
+	response := resolver.Handle(request.headers.Get("X-Lbdb-Signature"), db, requestQuery, false)
 
 	return JsonResponse(response, code, nil)
 }

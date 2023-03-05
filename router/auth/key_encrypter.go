@@ -9,11 +9,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"log"
 )
 
 type KeyEncrypter struct {
-	signature string
+	databaseUuid string
+	publicKey    *rsa.PublicKey
+	signature    string
 }
 
 func NewKeyEncrypter(signature string) *KeyEncrypter {
@@ -62,13 +63,13 @@ func (k *KeyEncrypter) Decrypt(data string) (map[string]string, error) {
 	block, err := aes.NewCipher(decryptedKey)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	aead, err := cipher.NewGCM(block)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	encrypted, err := base64.StdEncoding.DecodeString(decoded["value"])
@@ -106,7 +107,7 @@ func (k *KeyEncrypter) Encrypt(data string) (string, error) {
 	key := hash.Sum(nil)
 
 	// Encrypt the key with the public key
-	publicKey, err := k.publicKey()
+	publicKey, err := k.PublicKey()
 
 	if err != nil {
 		return "", err
@@ -157,10 +158,26 @@ func (k *KeyEncrypter) Encrypt(data string) (string, error) {
 	return base64.StdEncoding.EncodeToString(jsonEncoded), nil
 }
 
+func (k *KeyEncrypter) ForDatabase(databaseUuid string) *KeyEncrypter {
+	k.databaseUuid = databaseUuid
+
+	return k
+}
+
 func (k *KeyEncrypter) privateKey() (*rsa.PrivateKey, error) {
 	return GetPrivateKey(k.signature)
 }
 
-func (k *KeyEncrypter) publicKey() (*rsa.PublicKey, error) {
-	return GetPublicKey(k.signature)
+func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
+	var err error
+
+	if k.publicKey == nil {
+		if k.databaseUuid != "" {
+			k.publicKey, err = GetPublicKeyForDatabase(k.signature, k.databaseUuid)
+		} else {
+			k.publicKey, err = GetPublicKey(k.signature)
+		}
+	}
+
+	return k.publicKey, err
 }

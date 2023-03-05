@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"litebasedb/runtime/config"
+	"litebasedb/internal/config"
 	"litebasedb/runtime/event"
 	"litebasedb/runtime/http"
 )

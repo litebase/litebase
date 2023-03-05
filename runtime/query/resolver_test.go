@@ -4,7 +4,6 @@ import (
 	"litebasedb/internal/test"
 	"litebasedb/runtime/database"
 	"litebasedb/runtime/query"
-	"log"
 	"testing"
 )
 
@@ -66,16 +65,22 @@ func TestHandle(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			query, err := query.NewQuery(db, mock["accessKeyId"], map[string]interface{}{
-				"statement":  encrytpedQuery["statement"],
-				"parameters": encrytpedQuery["parameters"],
-			}, "")
+			query, err := query.NewQuery(
+				"hash",
+				db,
+				mock["accessKeyId"],
+				map[string]interface{}{
+					"statement":  encrytpedQuery["statement"],
+					"parameters": encrytpedQuery["parameters"],
+				},
+				"",
+			)
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			response := resolver.Handle(db, query, false)
+			response := resolver.Handle("signatureHash", db, query, false)
 
 			if response["status"] != c.expected {
 				t.Fatalf("Query was not successful: %s", response["message"])
@@ -145,16 +150,22 @@ func TestHandle(t *testing.T) {
 				})
 			}
 
-			query, err := query.NewQuery(db, mock["accessKeyId"], map[string]interface{}{
-				"batch": batchQueries,
-			}, "")
+			query, err := query.NewQuery(
+				"hash",
+				db,
+				mock["accessKeyId"],
+				map[string]interface{}{
+					"batch": batchQueries,
+				},
+				"",
+			)
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			response := resolver.Handle(db, query, false)
-			log.Println(response)
+			response := resolver.Handle("signatureHash", db, query, false)
+
 			if response["status"] != batchCase.expected {
 				t.Fatalf("Query was not successful: %s", response["message"])
 			}

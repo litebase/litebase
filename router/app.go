@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"litebasedb/internal/config"
 	"litebasedb/router/actions"
 	"litebasedb/router/auth"
+	"litebasedb/router/events"
 	"litebasedb/router/http"
+	"litebasedb/router/node"
 	netHttp "net/http"
 	"os"
 	"time"
@@ -16,8 +20,15 @@ type App struct {
 
 func NewApp() *App {
 	app := &App{}
-	auth.SecretsManager().Init()
+
 	auth.KeyManagerInit()
+	config.Init()
+
+	auth.SecretsManager().Init()
+	events.EventsManager().Init()
+	node.Init()
+
+	auth.Broadcaster(events.EventsManager().Hook())
 
 	return app
 }
@@ -31,13 +42,17 @@ func (app *App) runTasks() {
 			select {
 			case <-ticker.C:
 				actions.RunAutoScaling()
+				node.HealthCheck()
 			case <-quit:
 				ticker.Stop()
 				return
 			}
 		}
 	}()
+}
 
+func (app *App) register() {
+	node.Register()
 }
 
 func (app *App) Serve() {
@@ -50,8 +65,17 @@ func (app *App) Serve() {
 	}
 
 	app.server.Handler = http.Router()
-
+	app.register()
 	go app.runTasks()
 
-	app.server.ListenAndServe()
+	err := app.server.ListenAndServe()
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (app *App) Shutdown() {
+	node.Unregister()
+	app.server.Shutdown(context.TODO())
 }

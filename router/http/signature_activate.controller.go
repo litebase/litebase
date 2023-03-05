@@ -1,15 +1,16 @@
 package http
 
 import (
-	"litebasedb/router/auth"
+	"litebasedb/internal/config"
+	"litebasedb/router/events"
 )
 
-type SingatureStoreRequest struct {
+type SingatureActivateRequest struct {
 	Signature string `json:"signature" validate:"required"`
 }
 
-func SingatureStoreController(request *Request) *Response {
-	input, err := request.Input(&SingatureStoreRequest{})
+func SingatureActivateController(request *Request) *Response {
+	input, err := request.Input(&SingatureActivateRequest{})
 
 	if err != nil {
 		return &Response{
@@ -33,23 +34,22 @@ func SingatureStoreController(request *Request) *Response {
 		}
 	}
 
-	publicKey, err := auth.NextSignature(input.(*SingatureStoreRequest).Signature)
-
-	if err != nil {
+	if !config.HasSignature(input.(*SingatureActivateRequest).Signature) {
 		return &Response{
-			StatusCode: 500,
+			StatusCode: 400,
 			Body: map[string]interface{}{
-				"error": err.Error(),
+				"errors": "The signature is invalid.",
 			},
 		}
 	}
 
+	config.StoreSignature(input.(*SingatureActivateRequest).Signature)
+	events.Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
+
 	return &Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
-			"data": map[string]interface{}{
-				"public_key": publicKey,
-			},
+			"data": map[string]interface{}{},
 		},
 	}
 }

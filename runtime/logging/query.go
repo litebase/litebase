@@ -178,7 +178,7 @@ func (q *QueryLog) Write(accessKeyId, statement string, isWrite bool, executionT
 	jsonLog, err := json.Marshal(logData)
 
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 
 	q.GetFile().WriteString(

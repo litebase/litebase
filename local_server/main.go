@@ -32,7 +32,6 @@ func main() {
 			request := &event.Event{}
 			decoder := json.NewDecoder(r.Body)
 			decoder.Decode(&request)
-
 			var response interface{}
 
 			if r.Header.Get("X-Amz-Invocation-Type") == "RequestResponse" {

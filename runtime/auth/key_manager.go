@@ -1,31 +1,99 @@
 package auth
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"litebasedb/runtime/config"
+	"io"
+	"litebasedb/internal/config"
 	"log"
 	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
-func EncryptKey(key string) (string, error) {
-	encrypter := NewEncrypter([]byte(config.Get("signature")))
+var lockFile *os.File
 
-	return encrypter.Encrypt(key)
+func EncryptKey(signature, key string) (string, error) {
+	plaintextBytes := []byte(key)
+	hash := sha256.New()
+	hash.Write([]byte(signature))
+	secret := hash.Sum(nil)
+
+	block, err := aes.NewCipher(secret)
+
+	if err != nil {
+		return "", err
+	}
+
+	aead, err := cipher.NewGCM(block)
+
+	if err != nil {
+		return "", err
+	}
+
+	iv := make([]byte, aead.NonceSize())
+
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return "", err
+	}
+
+	ciphertext := aead.Seal(nil, iv, plaintextBytes, nil)
+	value := ciphertext[:len(ciphertext)-aead.Overhead()]
+	tag := ciphertext[len(ciphertext)-aead.Overhead():]
+	encrypted := append(iv, append(value, tag...)...)
+
+	return base64.StdEncoding.EncodeToString(encrypted), nil
 }
 
-func GeneratePrivateKey(signature string) (*rsa.PrivateKey, error) {
+func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
+	log.Println("Generating private key for", signature)
+	var err error
+
 	if _, err := os.Stat(KeyPath("private", signature)); err == nil {
 		return nil, errors.New("private key already exists")
 	}
+
+	// Create the signature directory if it does not exist
+	signatureDirectory := Path(signature)
+
+	if _, err := os.Stat(signatureDirectory); os.IsNotExist(err) {
+		if err := os.MkdirAll(signatureDirectory, 0755); err != nil {
+			log.Println(err)
+			return nil, err
+		}
+	}
+
+	// Get the lock file
+	lockFile, err = os.OpenFile(lockPath(signature), os.O_CREATE|os.O_RDWR, 0644)
+
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	defer lockFile.Close()
+
+	// Attempt to get an exclusive lock on the file
+	err = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	// Unlock the file when we're done
+	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN|syscall.LOCK_NB)
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 
@@ -104,27 +172,13 @@ func GetPrivateKey(signature string) (*rsa.PrivateKey, error) {
 }
 
 func GetPublicKey(signature string) (*rsa.PublicKey, error) {
-	path := KeyPath("public", signature)
-
-	publicKey, err := os.ReadFile(path)
+	privateKey, err := GetPrivateKey(signature)
 
 	if err != nil {
 		return nil, err
 	}
 
-	block, _ := pem.Decode(publicKey)
-
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block containing the key")
-	}
-
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return key.(*rsa.PublicKey), nil
+	return &privateKey.PublicKey, nil
 }
 
 func GetRawPublicKey(signature string) ([]byte, error) {
@@ -153,26 +207,37 @@ func lockPath(signature string) string {
 	}, "/")
 }
 
-func NextSignature(signature string) string {
-	publicKey := config.Swap("signature_next", signature, func() interface{} {
-		privateKey, err := GeneratePrivateKey(signature)
+func NextSignature(signature string) (string, error) {
+	if config.Get("signature") == signature {
+		publickey, err := GetRawPublicKey(signature)
 
-		if err != nil {
-			log.Fatal(err)
+		if err == nil {
+			return EncryptKey(signature, string(publickey))
 		}
-
-		return privateKey.PublicKey
-	})
-
-	publicKeyString := publicKey.(*rsa.PublicKey).N.String()
-
-	err := Rotate()
-
-	if err != nil {
-		log.Fatal(err)
 	}
 
-	return publicKeyString
+	config.Set("signature_next", signature)
+
+	_, err := generatePrivateKey(signature)
+
+	if err != nil {
+		return "", err
+	}
+
+	err = rotate()
+
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+
+	publicKey, err := GetRawPublicKey(signature)
+
+	if err != nil {
+		return "", err
+	}
+
+	return EncryptKey(signature, string(publicKey))
 }
 
 func Path(signature string) string {
@@ -183,12 +248,8 @@ func Path(signature string) string {
 	}, "/")
 }
 
-func Rotate() error {
+func rotate() error {
 	if config.Get("signature_next") == "" {
-		return nil
-	}
-
-	if _, err := os.Stat(KeyPath("private", config.Get("signature_next"))); err == nil {
 		return nil
 	}
 
@@ -205,12 +266,12 @@ func Rotate() error {
 		return err
 	}
 
-	if err := os.WriteFile(Path(config.Get("signature_next")+"/.rotate-lock"), []byte{}, 0666); err != nil {
+	if err := os.WriteFile(Path(fmt.Sprintf("%s/%s", config.Get("signature_next"), ".rotate-lock")), []byte{}, 0666); err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
-	var errorChan = make(chan error)
+	var errors = []error{}
 
 	wg.Add(1)
 
@@ -220,27 +281,25 @@ func Rotate() error {
 		err := rotateAccessKeys()
 
 		if err != nil {
-			errorChan <- err
+			errors = append(errors, err)
 		}
 	}()
+
+	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
 		err := rotateSettings()
 
 		if err != nil {
-			errorChan <- err
+			errors = append(errors, err)
 		}
 	}()
 
 	wg.Wait()
 
-	close(errorChan)
-
-	for err := range errorChan {
-		if err != nil {
-			return err
-		}
+	for _, err := range errors {
+		return err
 	}
 
 	manifest := map[string]interface{}{
@@ -268,12 +327,12 @@ func Rotate() error {
 func rotateAccessKeys() error {
 	accessKeyDir := strings.Join([]string{
 		Path(config.Get("signature")),
-		"access-keys",
+		"access_keys",
 	}, "/")
 
 	newAccessKeyDir := strings.Join([]string{
 		Path(config.Get("signature_next")),
-		"access-keys",
+		"access_keys",
 	}, "/")
 
 	accessKeys, err := os.ReadDir(accessKeyDir)
@@ -340,10 +399,32 @@ func rotateSettings() error {
 		return err
 	}
 
-	for _, setting := range settings {
+	for _, settingsDirectory := range settings {
+		// Get the file in the settings directory
+		settingsDirectoryFiles, err := os.ReadDir(strings.Join([]string{
+			settingsDir,
+			settingsDirectory.Name(),
+		}, "/"))
+
+		if err != nil {
+			return err
+		}
+
+		var settingsFileName string
+
+		for _, settingsFile := range settingsDirectoryFiles {
+			settingsFileName = settingsFile.Name()
+			break
+		}
+
+		if settingsFileName == "" {
+			return errors.New("no settings file found")
+		}
+
 		settingBytes, err := os.ReadFile(strings.Join([]string{
 			settingsDir,
-			setting.Name(),
+			settingsDirectory.Name(),
+			settingsFileName,
 		}, "/"))
 
 		if err != nil {
@@ -362,9 +443,17 @@ func rotateSettings() error {
 			return err
 		}
 
+		if err := os.MkdirAll(strings.Join([]string{
+			newSettingsDir,
+			settingsDirectory.Name(),
+		}, "/"), 0755); err != nil {
+			return err
+		}
+
 		if err := os.WriteFile(strings.Join([]string{
 			newSettingsDir,
-			setting.Name(),
+			settingsDirectory.Name(),
+			settingsFileName,
 		}, "/"), []byte(encryptedSetting), 0666); err != nil {
 			return err
 		}

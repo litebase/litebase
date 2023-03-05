@@ -6,8 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"litebasedb/internal/config"
 	"litebasedb/runtime/auth"
-	"litebasedb/runtime/config"
 	"litebasedb/runtime/event"
 	"log"
 )
@@ -19,13 +19,15 @@ type Connection struct {
 	databaseUuid   string
 	branchUuid     string
 	messageHash    string
+	signatureHash  string
 }
 
-func NewConnection(client *Client, databaseUuid string, branchUuid string) *Connection {
+func NewConnection(client *Client, signatureHash, databaseUuid, branchUuid string) *Connection {
 	return &Connection{
-		client:       client,
-		databaseUuid: databaseUuid,
-		branchUuid:   branchUuid,
+		client:        client,
+		databaseUuid:  databaseUuid,
+		branchUuid:    branchUuid,
+		signatureHash: signatureHash,
 	}
 }
 
@@ -85,7 +87,7 @@ func (c *Connection) handleQuery(data map[string]interface{}) {
 func (c *Connection) handleReady(messageHash string) bool {
 	c.messageHash = messageHash
 	nonceHash := hmac.New(sha256.New, []byte(fmt.Sprintf("%s:%s", c.connectionHash, c.messageHash)))
-	connectionKey, err := auth.SecretsManager().GetConnectionKey(c.databaseUuid, c.branchUuid)
+	connectionKey, err := auth.SecretsManager().GetConnectionKey(c.signatureHash, c.databaseUuid, c.branchUuid)
 
 	if err != nil {
 		log.Println(err)

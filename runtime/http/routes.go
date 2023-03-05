@@ -86,8 +86,10 @@ func LoadRoutes(router *RouterInstance) {
 		&AdminMiddleware{},
 	})
 
-	router.Post("signature", (&SignatureController{}).Store).Middleware([]Middleware{
-		// &AdminMiddleware{},
+	router.Post("signature", (&SignatureController{}).Store).Middleware([]Middleware{})
+
+	router.Post("signature/activate", (&SignatureActivateController{}).Store).Middleware([]Middleware{
+		&AdminMiddleware{},
 	})
 
 	router.Fallback(func(request *Request) *Response {

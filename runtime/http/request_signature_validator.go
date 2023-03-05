@@ -6,9 +6,9 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"litebasedb/internal/config"
 	"litebasedb/internal/utils"
 	"litebasedb/runtime/auth"
-	"litebasedb/runtime/config"
 	"log"
 	"strings"
 
@@ -68,7 +68,7 @@ func HandleRequestSignatureValidation(
 		jsonQueryParams, err = json.Marshal(queryParams)
 
 		if err != nil {
-			log.Fatal(err)
+			return false
 		}
 	} else {
 		jsonQueryParams = []byte("{}")
@@ -97,14 +97,13 @@ func HandleRequestSignatureValidation(
 	}, "")
 
 	secret, err := getSecret(
+		request.headers.Get("X-Lbdb-Signature"),
 		request.RequestToken(header),
 		serverToken,
 		connectionToken,
 	)
 
 	if err != nil {
-		// TODO: Handle error
-		log.Println(err)
 		return false
 	}
 
@@ -127,13 +126,14 @@ func HandleRequestSignatureValidation(
 	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken(header).Signature)) == 1
 }
 
-func getSecret(requestToken *auth.RequestToken, serverToken bool, connectionToken bool) (string, error) {
+func getSecret(signatureHash string, requestToken *auth.RequestToken, serverToken bool, connectionToken bool) (string, error) {
 	if serverToken {
-		return auth.SecretsManager().GetServerSecret(requestToken.AccessKeyId)
+		return auth.SecretsManager().GetServerSecret(signatureHash, requestToken.AccessKeyId)
 	}
 
 	if connectionToken {
 		connectionKey, err := auth.SecretsManager().GetConnectionKey(
+			signatureHash,
 			config.Get("database_uuid"),
 			config.Get("branch_uuid"),
 		)
@@ -148,5 +148,5 @@ func getSecret(requestToken *auth.RequestToken, serverToken bool, connectionToke
 		return string(hash.Sum(nil)), nil
 	}
 
-	return auth.SecretsManager().GetSecret(requestToken.AccessKeyId)
+	return auth.SecretsManager().GetSecret(signatureHash, requestToken.AccessKeyId)
 }

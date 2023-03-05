@@ -1,9 +1,9 @@
 package database
 
 import (
+	"litebasedb/internal/config"
 	"litebasedb/runtime/auth"
 	"litebasedb/runtime/backups"
-	"litebasedb/runtime/config"
 	"litebasedb/runtime/sqlite3"
 	"log"
 )
@@ -36,7 +36,8 @@ func (o *DatabaseOperator) IsWriting() bool {
 func (o *DatabaseOperator) Record() int {
 	branchUuid := config.Get("branch_uuid")
 	databaseUuid := config.Get("database_uuid")
-	settings, err := auth.SecretsManager().GetDatabaseSettings(databaseUuid, branchUuid)
+	// TODO: This needs to align with the current request
+	settings, err := auth.SecretsManager().GetDatabaseSettings("", databaseUuid, branchUuid)
 
 	if err != nil {
 		log.Fatal(err)

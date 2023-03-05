@@ -3,8 +3,8 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"litebasedb/internal/config"
 	"litebasedb/router/auth"
-	"litebasedb/router/config"
 	"litebasedb/router/connections"
 	"litebasedb/router/runtime"
 
@@ -32,7 +32,7 @@ func ForwardRequest(request *Request, databaseUuid string, branchUuid string, ac
 		fn = "function"
 	}
 
-	preparedRequest := runtime.PrepareRequest(&runtime.RuntimeRequestObject{
+	payload, err := runtime.PrepareRequest(&runtime.RuntimeRequestObject{
 		AccessKeyId:  accessKeyId,
 		Body:         request.Body,
 		DatabaseUuid: databaseUuid,
@@ -43,10 +43,16 @@ func ForwardRequest(request *Request, databaseUuid string, branchUuid string, ac
 		Query:        request.QueryParams,
 	}, accessKeyId == "")
 
-	payload, err := json.Marshal(preparedRequest)
-
 	if err != nil {
-		return nil
+		log.Println(err)
+
+		return &RuntimeResponse{
+			StatusCode: 500,
+			Body: map[string]interface{}{
+				"message": "Internal server error",
+				"status":  "error",
+			},
+		}
 	}
 
 	startTime := time.Now()
@@ -83,10 +89,21 @@ func PrepareResponse(startTime time.Time, executionContext int, res []byte) *Run
 	err := json.Unmarshal([]byte(res), response)
 
 	if err != nil {
+		log.Println(err)
 		return &RuntimeResponse{
 			StatusCode: 500,
 			Body: map[string]interface{}{
 				"message": "Internal server error",
+				"status":  "error",
+			},
+		}
+	}
+
+	if response.StatusCode >= 400 {
+		return &RuntimeResponse{
+			StatusCode: response.StatusCode,
+			Body: map[string]interface{}{
+				"message": response.Body["message"],
 				"status":  "error",
 			},
 		}

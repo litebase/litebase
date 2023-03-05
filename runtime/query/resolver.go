@@ -17,7 +17,7 @@ func NewResolver() *Resolver {
 	return &Resolver{}
 }
 
-func (r *Resolver) Handle(db *db.Database, query *Query, ephemeral bool) map[string]interface{} {
+func (r *Resolver) Handle(signatureHash string, db *db.Database, query *Query, ephemeral bool) map[string]interface{} {
 	var handlerError error
 	var response map[string]interface{}
 	shouldLock := r.shouldLock(query)
@@ -26,7 +26,7 @@ func (r *Resolver) Handle(db *db.Database, query *Query, ephemeral bool) map[str
 		concurrency.Lock()
 	}
 
-	response, handlerError = r.resolve(db, query)
+	response, handlerError = r.resolve(signatureHash, db, query)
 
 	if handlerError != nil {
 		fmt.Println("Error:", handlerError)
@@ -45,7 +45,7 @@ func (r *Resolver) Handle(db *db.Database, query *Query, ephemeral bool) map[str
 	return response
 }
 
-func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string]interface{}, error) {
+func (r *Resolver) resolveQuery(signatureHash string, database *db.Database, query *Query) (map[string]interface{}, error) {
 	var err error
 	var data map[string]any
 
@@ -98,7 +98,7 @@ func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string
 			return nil, err
 		}
 
-		encryptedQueryData, err := auth.SecretsManager().EncryptFor(query.AccessKeyId, string(queryData))
+		encryptedQueryData, err := auth.SecretsManager().EncryptFor(signatureHash, query.AccessKeyId, string(queryData))
 
 		if err != nil {
 			return nil, err
@@ -123,7 +123,7 @@ func (r *Resolver) resolveQuery(database *db.Database, query *Query) (map[string
 	return data, err
 }
 
-func (r *Resolver) resolve(database *db.Database, query *Query) (map[string]interface{}, error) {
+func (r *Resolver) resolve(signatureHash string, database *db.Database, query *Query) (map[string]interface{}, error) {
 	var handlerError error
 	var response map[string]interface{}
 
@@ -133,7 +133,7 @@ func (r *Resolver) resolve(database *db.Database, query *Query) (map[string]inte
 		results := make([]any, 0)
 
 		for _, query := range query.Batch {
-			response, _ = r.resolveQuery(database, query)
+			response, _ = r.resolveQuery(signatureHash, database, query)
 			jsonResponse, err := json.Marshal(response)
 
 			if err != nil {
@@ -148,7 +148,7 @@ func (r *Resolver) resolve(database *db.Database, query *Query) (map[string]inte
 			"data":   results,
 		}
 	} else {
-		response, handlerError = r.resolveQuery(database, query)
+		response, handlerError = r.resolveQuery(signatureHash, database, query)
 	}
 
 	database.GetConnection().Commit()

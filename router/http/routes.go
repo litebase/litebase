@@ -2,7 +2,7 @@ package http
 
 import (
 	"fmt"
-	"litebasedb/router/config"
+	"litebasedb/internal/config"
 )
 
 func LoadRoutes(router *RouterInstance) {
@@ -16,6 +16,14 @@ func LoadRoutes(router *RouterInstance) {
 		Adminstrative routes.
 	*/
 	router.Post(
+		"/databases/:databaseUuid/public-key",
+		DatabasePublicKeyController,
+	).Middleware([]Middleware{
+		RequireHost(host),
+		AdminAuth,
+	})
+
+	router.Post(
 		"/databases/:databaseUuid/:branchUuid/access-keys",
 		AccessKeyControllerStore,
 	).Middleware([]Middleware{
@@ -24,7 +32,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Delete(
-		"/databases/:uuid/:branchUuid/access-keys/:accessKeyId",
+		"/databases/:databaseUuid/:branchUuid/access-keys/:accessKeyId",
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
 		RequireHost(host),
@@ -32,7 +40,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Post(
-		"/databases/:uuid/:branchUuid/settings",
+		"/databases/:databaseUuid/:branchUuid/settings",
 		DatabaseSettingsStoreController,
 	).Middleware([]Middleware{
 		RequireHost(host),
@@ -40,7 +48,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Delete(
-		"/databases/:uuid/:branchUuid/settings",
+		"/databases/:databaseUuid/:branchUuid/settings",
 		DatabaseSettingsDestroyController,
 	).Middleware([]Middleware{
 		RequireHost(host),
@@ -55,17 +63,30 @@ func LoadRoutes(router *RouterInstance) {
 		AdminAuth,
 	})
 
+	router.Post(
+		"/signature/activate",
+		SingatureActivateController,
+	).Middleware([]Middleware{
+		RequireHost(host),
+		AdminAuth,
+	})
+
 	/*
 		Internal routes for cluster operations.
 	*/
 	router.Post(
-		"/databases/:uuid/:branchUuid/settings/purge",
+		"/databases/:databaseUuid/:branchUuid/settings/purge",
 		DatabaseSettingsPurgeController,
 	).Middleware([]Middleware{Internal})
 
 	router.Post(
-		"/databases/:uuid/:branchUuid/access-keys/purge",
+		"/databases/:databaseUuid/:branchUuid/access-keys/purge",
 		AccessKeyPurgeController,
+	).Middleware([]Middleware{Internal})
+
+	router.Post(
+		"/events",
+		EventStoreController,
 	).Middleware([]Middleware{Internal})
 
 	/*

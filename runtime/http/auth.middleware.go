@@ -1,6 +1,9 @@
 package http
 
 import (
+	_auth "litebasedb/internal/auth"
+	"litebasedb/runtime/auth"
+	"log"
 	"strconv"
 	"time"
 )
@@ -11,11 +14,12 @@ type AuthMiddleware struct {
 func (middleware *AuthMiddleware) Handle(request *Request) (*Request, *Response) {
 	if !middleware.ensureReuestHasAnAuthorizationHeader(request) ||
 		!middleware.ensureRequestIsProperlySigned(request) ||
-		!middleware.ensureRequestIsProperlySignedByServer(request) {
+		!middleware.ensureRequestIsProperlySignedByServer(request) ||
+		!middleware.ensureRequestPassesChallenge(request) {
 		return nil, &Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
-				"message": "Unauthorized 1",
+				"message": "Unauthorized",
 			},
 		}
 	}
@@ -24,7 +28,7 @@ func (middleware *AuthMiddleware) Handle(request *Request) (*Request, *Response)
 		return nil, &Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
-				"message": "Unauthorized 2",
+				"message": "Unauthorized",
 			},
 		}
 	}
@@ -60,4 +64,22 @@ func (middleware *AuthMiddleware) ensureRequestIsProperlySigned(request *Request
 
 func (middleware *AuthMiddleware) ensureRequestIsProperlySignedByServer(request *Request) bool {
 	return HandleRequestSignatureValidation(request, "Server-Authorization", true, false)
+}
+
+func (middleware *AuthMiddleware) ensureRequestPassesChallenge(request *Request) bool {
+	if request.headers.Get("X-Lbdb-Challenge") == "" {
+		return false
+	}
+
+	challenge, err := auth.SecretsManager().Decrypt(
+		_auth.FindSignature(request.headers.Get("X-Lbdb-Signature")),
+		request.headers.Get("X-Lbdb-Challenge"),
+	)
+
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	return challenge["value"] == request.headers.Get("X-Lbdb-Date")
 }

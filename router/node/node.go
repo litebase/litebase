@@ -1,10 +1,12 @@
 package node
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"litebasedb/router/config"
+	"io"
+	"litebasedb/internal/config"
+	"litebasedb/router/auth"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +17,7 @@ var NodeIpAddress string
 var NodeIPv6Address string
 
 func DirectoryPath() string {
-	return config.Get("dataPath") + "/nodes"
+	return config.Get("data_path") + "/nodes"
 }
 
 func FilePath(ipAddress string) string {
@@ -23,7 +25,7 @@ func FilePath(ipAddress string) string {
 		ipAddress = GetPrivateIpAddress()
 	}
 
-	return fmt.Sprintf("%s/%s:%s.json", DirectoryPath(), ipAddress, config.Get("port"))
+	return fmt.Sprintf("%s/%s_%s", DirectoryPath(), ipAddress, config.Get("port"))
 }
 
 func GetPrivateIpAddress() string {
@@ -47,7 +49,7 @@ func GetPrivateIpAddress() string {
 
 	defer res.Body.Close()
 
-	body, readErr := ioutil.ReadAll(res.Body)
+	body, readErr := io.ReadAll(res.Body)
 
 	if readErr != nil {
 		log.Fatal(readErr)
@@ -63,7 +65,7 @@ func GetPrivateIpAddress() string {
 
 	NodeIpAddress = data["Containers"].([]interface{})[0].(map[string]interface{})["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]interface{})[0].(string)
 
-	log.Println(fmt.Sprintf("Node IP Address: %s", NodeIpAddress))
+	log.Printf("Node IP Address: %s \n", NodeIpAddress)
 
 	return NodeIpAddress
 }
@@ -75,7 +77,6 @@ func GetIPv6Address() string {
 
 	if config.Get("env") == "local" || config.Get("env") == "testing" {
 		return "localhost" + ":" + config.Get("port")
-		// return "::1"
 	}
 
 	url := "http://169.254.170.2/v2/metadata"
@@ -88,7 +89,7 @@ func GetIPv6Address() string {
 
 	defer res.Body.Close()
 
-	body, readErr := ioutil.ReadAll(res.Body)
+	body, readErr := io.ReadAll(res.Body)
 
 	if readErr != nil {
 		log.Fatal(readErr)
@@ -117,21 +118,24 @@ func Has(ip string) bool {
 
 func HealthCheck() {
 	path := DirectoryPath()
-	ips := Instances()
+	nodes := Instances()
 
-	for _, ip := range ips {
-		if ip == GetPrivateIpAddress()+":"+config.Get("port") {
+	for _, node := range nodes {
+		if node == GetPrivateIpAddress()+"_"+config.Get("port") {
 			continue
 		}
 
-		go func(ip string) {
-			url := fmt.Sprintf("http://%s", ip)
+		ip := strings.Split(node, "_")[0]
+		port := strings.Split(node, "_")[1]
+
+		go func(ip, port string) {
+			url := fmt.Sprintf("http://%s:%s", ip, port)
 
 			res, err := http.Get(url)
 
 			if err != nil {
 				log.Println(err)
-				ipPath := fmt.Sprintf("%s/%s.json", path, ip)
+				ipPath := fmt.Sprintf("%s/%s_%s", path, ip, port)
 
 				if _, err := os.Stat(ipPath); err == nil {
 					os.Remove(ipPath)
@@ -141,7 +145,16 @@ func HealthCheck() {
 			}
 
 			defer res.Body.Close()
-		}(ip)
+		}(ip, port)
+	}
+}
+
+func Init() {
+	path := DirectoryPath()
+
+	// Make directory if it doesn't exist
+	if os.Stat(path); os.IsNotExist(os.ErrNotExist) {
+		os.Mkdir(path, 0755)
 	}
 }
 
@@ -170,16 +183,30 @@ func Instances() []string {
 	return instances
 }
 
-func PurgeDatabaseSettings(databaseUuid string) {
+func OtherNodes() []*NodeIdentifier {
 	ips := Instances()
+	nodes := []*NodeIdentifier{}
 
 	for _, ip := range ips {
-		if ip == GetPrivateIpAddress()+":"+config.Get("port") {
+		if ip == GetPrivateIpAddress()+"_"+config.Get("port") {
 			continue
 		}
 
-		go func(ip string) {
-			url := fmt.Sprintf("http://%s/databases/%s/settings/purge", ip, databaseUuid)
+		nodes = append(nodes, &NodeIdentifier{
+			IP:   strings.Split(ip, "_")[0],
+			Port: strings.Split(ip, "_")[1],
+		})
+	}
+
+	return nodes
+}
+
+func PurgeDatabaseSettings(databaseUuid string) {
+	nodes := OtherNodes()
+
+	for _, node := range nodes {
+		go func(node *NodeIdentifier) {
+			url := fmt.Sprintf("http://%s:%s/databases/%s/settings/purge", node.IP, node.Port, databaseUuid)
 			req, err := http.NewRequest("POST", url, nil)
 
 			if err != nil {
@@ -199,8 +226,79 @@ func PurgeDatabaseSettings(databaseUuid string) {
 			defer res.Body.Close()
 
 			if res.StatusCode != 200 {
-
+				log.Println(res)
 			}
-		}(ip)
+		}(node)
+	}
+}
+
+// Store the node ip in the nodes directory
+func Register() {
+	ipAddress := GetPrivateIpAddress()
+	filePath := FilePath(ipAddress)
+
+	if !Has(ipAddress) {
+		err := os.WriteFile(filePath, []byte(ipAddress), 0644)
+
+		if err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func SendEvent(node *NodeIdentifier, message NodeEvent) {
+	url := fmt.Sprintf("http://%s:%s/events", node.IP, node.Port)
+	data, err := json.Marshal(message)
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	encryptedHeader, err := auth.SecretsManager().Encrypt(
+		config.Get("signature"),
+		GetPrivateIpAddress(),
+	)
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	req.Header.Set("X-Lbdb-Node", encryptedHeader)
+
+	client := &http.Client{}
+
+	res, err := client.Do(req)
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		log.Println(res)
+	}
+}
+
+func Unregister() {
+	ipAddress := GetPrivateIpAddress()
+	filePath := FilePath(ipAddress)
+
+	if Has(ipAddress) {
+		err := os.Remove(filePath)
+
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }

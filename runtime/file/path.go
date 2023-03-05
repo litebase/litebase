@@ -1,8 +1,8 @@
 package file
 
 import (
+	"litebasedb/internal/config"
 	"litebasedb/runtime/auth"
-	"litebasedb/runtime/config"
 	"path/filepath"
 	"strings"
 )

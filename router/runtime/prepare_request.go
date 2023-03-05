@@ -3,41 +3,52 @@ package runtime
 import (
 	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/json"
+	_auth "litebasedb/internal/auth"
+	"litebasedb/internal/config"
 	"litebasedb/router/auth"
-	"litebasedb/router/config"
-	"log"
 	"strings"
 )
 
 /*
 Capture the incoming request from the Router Node that needs to be
-forwarded to the Data Runtime. Use the access key sever sercret access key
+forwarded to the Data Runtime. Use the Access Key `sever_sercret_access_key`
 to sign the request that is forwarded to the data runtime. When the request
 is an internal request used for administration, sign the request differently.
 */
-func PrepareRequest(request *RuntimeRequestObject, internal bool) *RuntimeRequest {
+func PrepareRequest(request *RuntimeRequestObject, internal bool) ([]byte, error) {
 	queryString := ""
 
 	if len(strings.Split(request.Path, "?")) > 1 {
 		queryString = strings.Split(request.Path, "?")[1]
 	}
 
+	challenge, err := auth.SecretsManager().EncryptForRuntime(
+		request.DatabaseUuid,
+		config.Get("signature"),
+		request.Headers["x-lbdb-date"],
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
 	server := map[string]interface{}{
-		"REQUEST_METHOD":     request.Method,
-		"REQUEST_URI":        request.Path,
-		"QUERY_STRING":       queryString,
-		"HTTP_CONTENT_TYPE":  request.Headers["content-type"],
-		"HTTP_HOST":          request.Headers["host"],
-		"HTTP_AUTHORIZATION": request.Headers["authorization"],
-		"HTTP_X_LBDB_DATE":   request.Headers["x-lbdb-date"],
+		"REQUEST_METHOD":        request.Method,
+		"REQUEST_URI":           request.Path,
+		"QUERY_STRING":          queryString,
+		"HTTP_CONTENT_TYPE":     request.Headers["content-type"],
+		"HTTP_HOST":             request.Headers["host"],
+		"HTTP_AUTHORIZATION":    request.Headers["authorization"],
+		"HTTP_X_LBDB_DATE":      request.Headers["x-lbdb-date"],
+		"HTTP_X_LBDB_SIGNATURE": _auth.SignatureHash(config.Get("signature")),
+		"HTTP_X_LBDB_CHALLENGE": challenge,
 	}
 
 	connectionKey, err := auth.SecretsManager().GetConnectionKey(request.DatabaseUuid, request.BranchUuid)
 
 	if err != nil {
-		log.Fatal(err)
-
-		return nil
+		return nil, err
 	}
 
 	if internal {
@@ -59,9 +70,7 @@ func PrepareRequest(request *RuntimeRequestObject, internal bool) *RuntimeReques
 		serverAccessKeySecret, err := auth.SecretsManager().GetServerSecret(request.DatabaseUuid, request.AccessKeyId)
 
 		if err != nil {
-			log.Fatal(err)
-
-			return nil
+			return nil, err
 		}
 
 		server["HTTP_SERVER_AUTHORIZATION"] = auth.SignRequest(
@@ -75,7 +84,7 @@ func PrepareRequest(request *RuntimeRequestObject, internal bool) *RuntimeReques
 		)
 	}
 
-	return &RuntimeRequest{
+	preparedRequest := &RuntimeRequest{
 		BranchUuid:   request.BranchUuid,
 		DatabaseUuid: request.DatabaseUuid,
 		Body:         request.Body,
@@ -83,4 +92,12 @@ func PrepareRequest(request *RuntimeRequestObject, internal bool) *RuntimeReques
 		Path:         request.Path,
 		Server:       server,
 	}
+
+	jsonPayload, err := json.Marshal(preparedRequest)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonPayload, nil
 }

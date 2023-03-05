@@ -1,8 +1,8 @@
 package http
 
 import (
+	"litebasedb/internal/config"
 	"litebasedb/router/auth"
-	"litebasedb/router/config"
 	"litebasedb/router/node"
 )
 

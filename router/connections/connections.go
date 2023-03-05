@@ -1,10 +1,9 @@
 package connections
 
 import (
-	"encoding/json"
 	"fmt"
+	"litebasedb/internal/config"
 	"litebasedb/router/auth"
-	"litebasedb/router/config"
 	"litebasedb/router/node"
 	"litebasedb/router/runtime"
 	"log"
@@ -55,7 +54,7 @@ func Balance(databaseUuid, branchUuid string) bool {
 	targetConnections := math.Min(float64(requestsPerSecond/60), 100)
 	connections := All(databaseUuid, branchUuid)
 	connectionsCount := float64(len(connections))
-	targetConnectionTimeSeconds, err := strconv.ParseInt(config.Get("targetConnectionTimeInSeconds"), 10, 64)
+	targetConnectionTimeSeconds, err := strconv.ParseInt(config.Get("target_connection_time_in_seconds"), 10, 64)
 
 	if err != nil {
 		targetConnectionTimeSeconds = 60
@@ -279,13 +278,14 @@ func PutConnection(databaseUuid, branchUuid string, connection *Connection) {
 Create a connection to the Runtime.
 */
 func RequestConnection(databaseUuid, branchUuid, fn string) (bool, error) {
+	// TODO: Need to lock this for a small period of time to prevent multiple connections from being created at the same time.
 	client := lambdaClient(databaseUuid, branchUuid)
 
 	if client == nil {
 		return false, nil
 	}
 
-	request := runtime.PrepareRequest(&runtime.RuntimeRequestObject{
+	payload, err := runtime.PrepareRequest(&runtime.RuntimeRequestObject{
 		AccessKeyId: "",
 		Body: map[string]interface{}{
 			"host": node.GetIPv6Address(),
@@ -302,8 +302,6 @@ func RequestConnection(databaseUuid, branchUuid, fn string) (bool, error) {
 		Path:   "/connection",
 		Query:  map[string]string{},
 	}, true)
-
-	payload, err := json.Marshal(request)
 
 	if err != nil {
 		return false, err

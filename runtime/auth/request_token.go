@@ -52,12 +52,12 @@ func CaptureRequestToken(authorizationHeader string) *RequestToken {
 	}
 }
 
-func (requestToken *RequestToken) AccessKey() *AccessKey {
+func (requestToken *RequestToken) AccessKey(signatureHash string) *AccessKey {
 	if requestToken.accessKey != nil {
 		return requestToken.accessKey
 	}
 
-	data, err := SecretsManager().GetAccessKey(requestToken.AccessKeyId)
+	data, err := SecretsManager().GetAccessKey(signatureHash, requestToken.AccessKeyId)
 
 	if err != nil {
 		return nil
@@ -76,8 +76,8 @@ func RequestTokenFromMap(input map[string]string) *RequestToken {
 	}
 }
 
-func (requestToken *RequestToken) GetDatabaseKey() (string, error) {
-	return SecretsManager().GetDatabaseKey(requestToken.AccessKeyId)
+func (requestToken *RequestToken) GetDatabaseKey(signatureHash string) (string, error) {
+	return SecretsManager().GetDatabaseKey(signatureHash, requestToken.AccessKeyId)
 }
 
 func (requestToken *RequestToken) ToMap() map[string]interface{} {

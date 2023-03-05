@@ -1,8 +1,8 @@
 package http
 
 import (
+	"litebasedb/internal/config"
 	"litebasedb/runtime/auth"
-	"litebasedb/runtime/config"
 	"litebasedb/runtime/database"
 )
 
@@ -12,19 +12,26 @@ type DatabaseSettingsController struct {
 func (controller *DatabaseSettingsController) Store(request *Request) *Response {
 	auth.SecretsManager().Init()
 
-	auth.SecretsManager().StoreDatabaseSettings(
+	err := auth.SecretsManager().StoreDatabaseSettings(
 		request.Get("database_uuid").(string),
 		request.Get("branch_uuid").(string),
 		request.Get("database_key").(string),
 		request.Get("data").(string),
 	)
 
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": err.Error(),
+		}, 500, nil)
+	}
+
 	auth.SecretsManager().PurgeDatabaseSettings(
 		request.Get("database_uuid").(string),
 		request.Get("branch_uuid").(string),
 	)
 
-	err := database.EnsureDatabaseExists(
+	err = database.EnsureDatabaseExists(
 		request.Get("database_uuid").(string),
 		request.Get("branch_uuid").(string),
 	)

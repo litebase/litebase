@@ -165,6 +165,10 @@ func (router *RouterInstance) request(method string, path string, handler func(r
 func (router *RouterInstance) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response := Router().Dispatch(r)
 
+	if response == nil {
+		return
+	}
+
 	if response.Stream != nil {
 		response.Stream(w)
 		return

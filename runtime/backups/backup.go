@@ -6,8 +6,9 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	_auth "litebasedb/internal/auth"
+	"litebasedb/internal/config"
 	"litebasedb/runtime/auth"
-	"litebasedb/runtime/config"
 	"litebasedb/runtime/file"
 	"sort"
 	"strconv"
@@ -120,7 +121,11 @@ func (backup *Backup) deleteArchiveFile() {
 
 	client := s3.New(awsSession)
 
-	bucket, err := auth.SecretsManager().GetBackupBucketName(backup.databaseUuid, backup.branchUuid)
+	bucket, err := auth.SecretsManager().GetBackupBucketName(
+		_auth.SignatureHash(config.Get("signature")),
+		backup.databaseUuid,
+		backup.branchUuid,
+	)
 
 	if err != nil {
 		log.Fatal(err)
@@ -271,7 +276,11 @@ func (backup *Backup) Upload() map[string]interface{} {
 			log.Fatal(err)
 		}
 
-		bucket, err := auth.SecretsManager().GetBackupBucketName(backup.databaseUuid, backup.branchUuid)
+		bucket, err := auth.SecretsManager().GetBackupBucketName(
+			_auth.SignatureHash(config.Get("signature")),
+			backup.databaseUuid,
+			backup.branchUuid,
+		)
 
 		if err != nil {
 			log.Fatal(err)

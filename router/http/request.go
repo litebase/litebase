@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"litebasedb/internal/validation"
 	"litebasedb/router/auth"
 	"net/http"
 	"strings"
@@ -62,6 +63,18 @@ func (request *Request) Headers() *Headers {
 	return request.headers
 }
 
+func (request *Request) Input(input any) (interface{}, error) {
+	jsonData, err := json.Marshal(request.Body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	json.Unmarshal(jsonData, &input)
+
+	return input, nil
+}
+
 func (request *Request) Param(key string) string {
 	return request.Route.Get(key)
 }
@@ -87,4 +100,30 @@ func (request *Request) Subdomains() []string {
 		return parts[0:2]
 	}
 	return parts[0:1]
+}
+
+func (request *Request) Validate(
+	input interface{},
+	messages map[string]string,
+) map[string][]string {
+	if err := validation.Validate(input); err != nil {
+		var e map[string][]string = make(map[string][]string)
+		for _, x := range err {
+			if e[x.Field()] == nil {
+				e[x.Field()] = []string{}
+			}
+
+			key := x.Field() + "." + x.Tag()
+
+			if messages[key] == "" {
+				continue
+			}
+
+			e[x.Field()] = append(e[x.Field()], messages[key])
+		}
+
+		return e
+	}
+
+	return nil
 }

@@ -10,4 +10,5 @@ type RuntimeRequestObject struct {
 	Method       string
 	Path         string
 	Query        map[string]string
+	Signature    string
 }

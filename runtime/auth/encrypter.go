@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
-	"log"
 )
 
 type Encrypter struct {
@@ -36,13 +35,13 @@ func (encrypter *Encrypter) Decrypt(text string) (string, error) {
 	block, err := aes.NewCipher(encrypter.key)
 
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	aead, err := cipher.NewGCM(block)
 
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	iv := encrypted[:aead.NonceSize()]
@@ -64,19 +63,19 @@ func (encrypter *Encrypter) Encrypt(plaintext string) (string, error) {
 	block, err := aes.NewCipher(encrypter.key)
 
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	aead, err := cipher.NewGCM(block)
 
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	iv := make([]byte, aead.NonceSize())
 
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	ciphertext := aead.Seal(nil, iv, plaintextBytes, nil)
