@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"litebasedb/app/auth"
+	"litebasedb/app/database"
+	"litebasedb/app/sqlite3"
 	"litebasedb/internal/config"
-	"litebasedb/runtime/auth"
-	"litebasedb/runtime/database"
-	"litebasedb/runtime/sqlite3"
 	"log"
 	"os"
 )

@@ -1,9 +1,0 @@
-go 1.19
-
-use (
-	.
-	./function
-	./local_server
-	./router
-	./runtime
-)
