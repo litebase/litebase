@@ -1,12 +1,16 @@
 package main
 
 import (
-	"litebasedb/server"
 	"log"
+
+	"litebasedb/app"
+	"litebasedb/server"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	server.NewServer().Start()
+	server.NewServer().Start(func(s *server.Server) {
+		app.NewApp(s).Run()
+	})
 }

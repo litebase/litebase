@@ -58,7 +58,7 @@ func (r *Replica) Connect() {
 	}
 
 	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/%s", os.Getenv("PRIMARY"), "replication"), body)
-	request.Header.Set("X-Replica-Id", os.Getenv("PORT"))
+	request.Header.Set("X-Replica-Id", os.Getenv("LITEBASEDB_PORT"))
 
 	if err != nil {
 		log.Println(err)

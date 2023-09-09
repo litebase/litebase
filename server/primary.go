@@ -32,7 +32,6 @@ func (p *Primary) Read() chan []byte {
 }
 
 func (p *Primary) ReadFromReplicas() chan []byte {
-	log.Println("reading from replica")
 	return p.writesFromReplicas
 }
 
@@ -48,7 +47,7 @@ func (p *Primary) Run() {
 
 			log.Println("Received: ", string(decoded))
 
-			// writeData(fmt.Sprintf("./data/%s/%d", os.Getenv("PORT"), time.Now().UnixNano()), decoded)
+			// writeData(fmt.Sprintf("./data/%s/%d", os.Getenv("LITEBASEDB_PORT"), time.Now().UnixNano()), decoded)
 			// default:
 			// log.Println("No data to replicate")
 		}

@@ -7,27 +7,43 @@ import (
 	"litebasedb/app/http"
 	"litebasedb/app/node"
 	"litebasedb/internal/config"
-	netHttp "net/http"
+	"litebasedb/server"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type App struct {
-	server *netHttp.Server
+	server *server.Server
 }
 
-func NewApp(server *netHttp.Server) *App {
-	app := &App{server}
+var staticApp *App
 
+func NewApp(server *server.Server) *App {
+	godotenv.Load(".env")
+
+	app := &App{server}
 	auth.KeyManagerInit()
 	config.Init()
 
 	auth.SecretsManager().Init()
 	events.EventsManager().Init()
+	auth.UserManager().Init()
 	node.Init()
 
 	auth.Broadcaster(events.EventsManager().Hook())
 
+	staticApp = app
+
 	return app
+}
+
+func Container() *App {
+	if staticApp == nil {
+		panic("App container is not initialized")
+	}
+
+	return staticApp
 }
 
 func (app *App) runTasks() {
@@ -42,7 +58,11 @@ func (app *App) runTasks() {
 }
 
 func (app *App) Run() {
-	app.server.Handler = http.Router()
+	app.server.HttpServer.Handler = http.Router()
 	node.Register()
 	go app.runTasks()
+}
+
+func (app *App) Server() *server.Server {
+	return app.server
 }

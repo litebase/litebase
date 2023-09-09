@@ -94,7 +94,9 @@ func LoadRoutes(router *RouterInstance) {
 	*/
 	router.Post("/query",
 		QueryController,
-	).Middleware([]Middleware{RequireSubdomain, Auth})
+	).Middleware([]Middleware{
+		// RequireSubdomain, Auth
+	})
 
 	router.Post("/transactions",
 		TrasactionControllerStore,

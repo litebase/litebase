@@ -65,7 +65,6 @@ func generate() {
 			return
 		}
 
-		fmt.Println("Public Key:")
 		file, err := os.ReadFile(KeyPath("public", config.Get("signature")))
 
 		if err != nil {
@@ -80,7 +79,14 @@ func generate() {
 			return
 		}
 
-		fmt.Println(key)
+		fmt.Println("\n------------")
+
+		fmt.Println("Public Key:")
+
+		fmt.Println("\n" + key + "\n")
+
+		fmt.Println("\n------------")
+
 	}
 }
 
@@ -261,7 +267,7 @@ func GetRawPublicKey(signature string) ([]byte, error) {
 
 func KeyManagerInit() {
 	// Generate a public key for the signature if one does not exist
-	generate()
+	// generate()
 	// Rotate the keys if a new signature is set
 	rotate()
 }

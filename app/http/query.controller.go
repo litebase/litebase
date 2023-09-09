@@ -6,11 +6,12 @@ import (
 	"litebasedb/app/database"
 	"litebasedb/app/query"
 	"litebasedb/internal/config"
+	"log"
 )
 
 func QueryController(request *Request) *Response {
 	databaseKey := request.Subdomains()[0]
-
+	log.Println("test")
 	if databaseKey == "" || len(request.Subdomains()) != 2 {
 		return &Response{
 			StatusCode: 400,

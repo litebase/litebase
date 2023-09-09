@@ -1,10 +1,5 @@
 package actions
 
-import (
-	"litebasedb/app/connections"
-	"strings"
-)
-
 var RunAutoScalingLocked bool = false
 
 func RunAutoScaling() {
@@ -14,13 +9,12 @@ func RunAutoScaling() {
 
 	RunAutoScalingLocked = true
 
-	activeDatabases := activeDatabases(0)
+	// activeDatabases := activeDatabases(0)
 
-	for _, key := range activeDatabases {
-		databaseUuid := strings.Split(key, ":")[0]
-		branchUuid := strings.Split(key, ":")[1]
-		connections.Balance(databaseUuid, branchUuid)
-	}
+	// for _, key := range activeDatabases {
+	// 	databaseUuid := strings.Split(key, ":")[0]
+	// 	branchUuid := strings.Split(key, ":")[1]
+	// }
 
 	RunAutoScalingLocked = false
 }

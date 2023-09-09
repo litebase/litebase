@@ -1,101 +1,63 @@
 package server
 
 import (
-	"bufio"
-	"litebasedb/app"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Server struct {
-	node Node
+	HttpServer *http.Server
+	Node       Node
 }
 
+var staticServer *Server
+
 func NewServer() *Server {
+	godotenv.Load(".env")
+
 	server := &Server{}
 
 	if server.isPrimary() {
-		server.node = NewPrimary()
+		server.Node = NewPrimary()
 	} else {
-		server.node = NewReplica()
+		server.Node = NewReplica()
 	}
 
 	return server
-}
-
-func (s *Server) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			if r.URL.Path == "/replication" {
-				log.Println("Replication request")
-				close := make(chan bool)
-				w.Header().Set("Content-Type", "text/plain")
-				w.Header().Set("Transfer-Encoding", "chunked")
-				w.Header().Set("Connection", "close")
-				s.node.(*Primary).AddReplica(r.Header["X-Replica-Id"][0], r.Header["X-Replica-Id"][0])
-				flusher := w.(http.Flusher)
-
-				go func() {
-					<-r.Context().Done()
-					log.Println("Connection closed")
-					s.node.(*Primary).RemoveReplica(r.Header["X-Replica-Id"][0])
-					close <- true
-				}()
-
-				go func() {
-					scanner := bufio.NewScanner(r.Body)
-
-					for scanner.Scan() {
-						line := scanner.Text()
-						s.node.(*Primary).WriteFromReplica([]byte(line))
-					}
-				}()
-
-				go func() {
-					s.node.Write([]byte("ok"))
-					flusher.Flush()
-				}()
-				for {
-					select {
-					case <-close:
-						return
-					case message := <-s.node.Read():
-						log.Println("Replicating")
-						w.Write(message)
-						flusher.Flush()
-					}
-				}
-			} else {
-				w.WriteHeader(http.StatusOK)
-				w.Header().Set("Content-Type", "application/json")
-				data := make([]byte, r.ContentLength)
-				r.Body.Read(data)
-				s.node.Write(data)
-				w.Write([]byte(`{"status": "ok"}`))
-			}
-		} else {
-			w.WriteHeader(http.StatusOK)
-		}
-	})
 }
 
 func (s *Server) isPrimary() bool {
 	return os.Getenv("PRIMARY") == ""
 }
 
-func (s *Server) Start() {
-	port := os.Getenv("PORT")
+func (s *Server) Primary() *Primary {
+	return s.Node.(*Primary)
+}
 
-	server := &http.Server{
+func (s *Server) Start(serverHook func(*Server)) {
+	port := os.Getenv("LITEBASEDB_PORT")
+
+	s.HttpServer = &http.Server{
 		Addr:         ":" + port,
 		ReadTimeout:  0,
 		WriteTimeout: 0,
 		IdleTimeout:  0,
 	}
 
-	s.node.Run()
-	app.NewApp(server).Run()
-	log.Println("Server running on port", port)
-	log.Fatal(server.ListenAndServe())
+	// s.Node.Run()
+
+	if serverHook != nil {
+		serverHook(s)
+	}
+
+	log.Println("LitebaseDB running on port", port)
+
+	log.Fatal(s.HttpServer.ListenAndServe())
+}
+
+func Static() *Server {
+	return staticServer
 }

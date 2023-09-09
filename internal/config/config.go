@@ -38,6 +38,7 @@ func NewConfig() *Config {
 			"env":                               os.Getenv("APP_ENV"),
 			"port":                              os.Getenv("LITEBASEDB_PORT"),
 			"region":                            os.Getenv("LITEBASEDB_REGION"),
+			"root_password":                     os.Getenv("LITEBASEDB_ROOT_PASSWORD"),
 			"signature":                         os.Getenv("LITEBASEDB_SIGNATURE"),
 			"target_connection_time_in_seconds": os.Getenv("LITEBASEDB_TARGET_CONNECTION_TIME_IN_SECONDS"),
 			"tmp_path":                          os.Getenv("LITEBASEDB_TMP_PATH"),
