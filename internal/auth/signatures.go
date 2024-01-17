@@ -2,7 +2,7 @@ package auth
 
 import (
 	"litebasedb/internal/config"
-	"os"
+	"litebasedb/server/storage"
 	"strings"
 )
 
@@ -12,7 +12,7 @@ stored in shared file storage. Since this method depends on file i/o, it is not
 recommended to use this method in a loop or in a hot path.
 */
 func ActiveSignature() string {
-	return config.Get("signature")
+	return config.Get().Signature
 }
 
 func ActiveSignatureHash() string {
@@ -23,11 +23,11 @@ func AllSignatures() map[string]string {
 	var signatures = map[string]string{}
 
 	directoryPath := strings.Join([]string{
-		config.Get("data_path"),
+		config.Get().DataPath,
 		".litebasedb",
 	}, "/")
 
-	signatureFiles, err := os.ReadDir(directoryPath)
+	signatureFiles, err := storage.FS().ReadDir(directoryPath)
 
 	if err != nil {
 		return signatures

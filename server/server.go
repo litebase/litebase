@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -8,17 +9,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Server struct {
+type ServerInstance struct {
 	HttpServer *http.Server
 	Node       Node
 }
 
-var staticServer *Server
+var serverInstance *ServerInstance
 
-func NewServer() *Server {
+func NewServer() *ServerInstance {
 	godotenv.Load(".env")
 
-	server := &Server{}
+	server := &ServerInstance{}
 
 	if server.isPrimary() {
 		server.Node = NewPrimary()
@@ -29,19 +30,19 @@ func NewServer() *Server {
 	return server
 }
 
-func (s *Server) isPrimary() bool {
+func (s *ServerInstance) isPrimary() bool {
 	return os.Getenv("PRIMARY") == ""
 }
 
-func (s *Server) Primary() *Primary {
+func (s *ServerInstance) Primary() *Primary {
 	return s.Node.(*Primary)
 }
 
-func (s *Server) Start(serverHook func(*Server)) {
+func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	port := os.Getenv("LITEBASEDB_PORT")
 
 	s.HttpServer = &http.Server{
-		Addr:         ":" + port,
+		Addr:         fmt.Sprintf(":%s", port),
 		ReadTimeout:  0,
 		WriteTimeout: 0,
 		IdleTimeout:  0,
@@ -58,6 +59,6 @@ func (s *Server) Start(serverHook func(*Server)) {
 	log.Fatal(s.HttpServer.ListenAndServe())
 }
 
-func Static() *Server {
-	return staticServer
+func Server() *ServerInstance {
+	return serverInstance
 }

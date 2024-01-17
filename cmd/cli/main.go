@@ -1,5 +1,9 @@
 package main
 
+import (
+	"litebasedb/cli/cmd"
+)
+
 func main() {
-	Execute()
+	cmd.NewRoot()
 }

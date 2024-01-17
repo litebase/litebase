@@ -16,7 +16,7 @@ var LoginCmd = &cobra.Command{
 
 var LogoutCmd = &cobra.Command{
 	Use:   "logout",
-	Short: "Logout of LitebaseDB account",
+	Short: "Logout your LitebaseDB account",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Logout successful")
 	},

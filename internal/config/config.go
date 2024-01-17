@@ -2,19 +2,42 @@ package config
 
 import (
 	"fmt"
+	"litebasedb/server/storage"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	data map[string]string
+	AppHost                 string
+	BranchUuid              string
+	DatabaseUuid            string
+	DataPath                string
+	DatabaseDirectory       string
+	DatabaseName            string
+	Debug                   bool
+	DefaultBranchName       string
+	Env                     string
+	FileSystemDriver        string
+	PageCompaction          bool
+	PageCompactionThreshold int64
+	PageCompactionInterval  int64
+	PageSize                int64
+	Port                    string
+	Region                  string
+	RootPassword            string
+	Signature               string
+	SignatureNext           string
+	TmpPath                 string
+	Url                     string
 }
 
-var StaticConfig *Config
+var ConfigInstance *Config = nil
 
 func Init() {
 	NewConfig()
 
-	signature := Get("signature")
+	signature := Get().Signature
 	storedSignature := storedSignature()
 
 	if storedSignature == "" {
@@ -22,88 +45,84 @@ func Init() {
 	}
 
 	if signature != storedSignature {
-		Set("signature", storedSignature)
+		ConfigInstance.Signature = storedSignature
 	} else {
-		os.Remove(fmt.Sprintf("%s/.litebasedb/signature", Get("data_path")))
+		storage.FS().Remove(fmt.Sprintf("%s/.litebasedb/signature", Get().DataPath))
 	}
+}
+
+func env(key string, defaultValue string) interface{} {
+	if os.Getenv(key) != "" {
+		return os.Getenv(key)
+	}
+
+	// if defaultValue == "" {
+	// 	panic(fmt.Sprintf("Environment variable %s is not set", key))
+	// }
+
+	return defaultValue
 }
 
 func NewConfig() *Config {
-	StaticConfig = &Config{
-		data: map[string]string{
-			"app_host":                          os.Getenv("APP_HOST"),
-			"branch_uuid":                       os.Getenv("LITEBASEDB_BRANCH_UUID"),
-			"data_path":                         os.Getenv("LITEBASEDB_DATA_PATH"),
-			"database_uuid":                     os.Getenv("LITEBASEDB_DB_UUID"),
-			"env":                               os.Getenv("APP_ENV"),
-			"port":                              os.Getenv("LITEBASEDB_PORT"),
-			"region":                            os.Getenv("LITEBASEDB_REGION"),
-			"root_password":                     os.Getenv("LITEBASEDB_ROOT_PASSWORD"),
-			"signature":                         os.Getenv("LITEBASEDB_SIGNATURE"),
-			"target_connection_time_in_seconds": os.Getenv("LITEBASEDB_TARGET_CONNECTION_TIME_IN_SECONDS"),
-			"tmp_path":                          os.Getenv("LITEBASEDB_TMP_PATH"),
-			"url":                               os.Getenv("APP_URL"),
-		},
+	godotenv.Load()
+
+	ConfigInstance = &Config{
+		AppHost:                 env("APP_HOST", "").(string),
+		BranchUuid:              os.Getenv("LITEBASEDB_BRANCH_UUID"),
+		DataPath:                os.Getenv("LITEBASEDB_DATA_PATH"),
+		DatabaseUuid:            os.Getenv("LITEBASEDB_DB_UUID"),
+		DefaultBranchName:       env("LITEBASEDB_DEFAULT_BRANCH_NAME", "main").(string),
+		Env:                     env("APP_ENV", "production").(string),
+		FileSystemDriver:        env("LITEBASEDB_FILESYSTEM_DRIVER", "local").(string),
+		Debug:                   env("APP_DEBUG", "false") == "true",
+		PageCompaction:          true,
+		PageCompactionThreshold: 1000,
+		PageCompactionInterval:  3000,
+		PageSize:                4096,
+		Port:                    env("LITEBASEDB_PORT", "8080").(string),
+		Region:                  env("LITEBASEDB_REGION", "").(string),
+		RootPassword:            env("LITEBASEDB_ROOT_PASSWORD", "").(string),
+		Signature:               env("LITEBASEDB_SIGNATURE", "").(string),
+		TmpPath:                 env("LITEBASEDB_TMP_PATH", "").(string),
+		Url:                     env("APP_URL", "").(string),
 	}
 
-	return StaticConfig
+	return ConfigInstance
 }
 
-func Get(key string) string {
-	if StaticConfig == nil {
+func Get() *Config {
+	if ConfigInstance == nil {
+
 		NewConfig()
 	}
 
-	if value, ok := StaticConfig.data[key]; ok {
-		return value
-	}
-
-	return ""
+	return ConfigInstance
 }
 
 // Check if the signature directory exists
 func HasSignature(signature string) bool {
-	_, err := os.Stat(fmt.Sprintf("%s/.litebasedb/%s", Get("data_path"), signature))
+	_, err := storage.FS().Stat(fmt.Sprintf("%s/.litebasedb/%s", Get().DataPath, signature))
 
 	return err == nil
 }
 
-func Set(key string, value string) {
-	if StaticConfig == nil {
-		NewConfig()
-	}
-
-	StaticConfig.data[key] = value
-}
-
 func StoreSignature(signature string) error {
-	Set("signature", signature)
-	dataPath := Get("data_path")
+	ConfigInstance.Signature = signature
+	dataPath := Get().DataPath
 	signaturePath := fmt.Sprintf("%s/.litebasedb/signature", dataPath)
 
-	return os.WriteFile(signaturePath, []byte(signature), 0644)
+	return storage.FS().WriteFile(signaturePath, []byte(signature), 0644)
 }
 
 func storedSignature() string {
-	dataPath := Get("data_path")
+	dataPath := Get().DataPath
 	signaturePath := fmt.Sprintf("%s/.litebasedb/signature", dataPath)
 
-	storedSignature, err := os.ReadFile(signaturePath)
+	storedSignature, err := storage.FS().ReadFile(signaturePath)
 
 	if err != nil {
 		return ""
 	}
 
 	return string(storedSignature)
-}
-
-func Swap(key string, value string, callback func() interface{}) interface{} {
-	originalValue := Get(key)
-
-	Set(key, value)
-
-	result := callback()
-	Set(key, originalValue)
-
-	return result
 }

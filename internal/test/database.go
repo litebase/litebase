@@ -3,20 +3,19 @@ package test
 import (
 	"crypto/rand"
 	"crypto/sha1"
-	"encoding/json"
 	"fmt"
 	"io"
-	"litebasedb/app/auth"
-	"litebasedb/app/database"
-	"litebasedb/app/sqlite3"
 	"litebasedb/internal/config"
+	"litebasedb/server/auth"
+	"litebasedb/server/database"
+	"litebasedb/server/sqlite3"
+	"litebasedb/server/storage"
 	"log"
-	"os"
 )
 
 func ClearDatabase() {
-	database.ClearDatabases()
-	os.RemoveAll("./data/_test")
+	database.ConnectionManager().Clear()
+	storage.FS().RemoveAll("./data/_test")
 }
 
 func CreateHash(length int) string {
@@ -30,60 +29,38 @@ func CreateHash(length int) string {
 }
 
 func MockDatabase() map[string]string {
-	prefix1 := CreateHash(32)
-	prefix2 := CreateHash(32)
+	// prefix1 := CreateHash(32)
+	// prefix2 := CreateHash(32)
 	databaseUuid := CreateHash(32)
 	branchUuid := CreateHash(32)
 	databaseKey := CreateHash(32)
 	accessKeyId := CreateHash(32)
 
-	config.Set("database_uuid", databaseUuid)
-	config.Set("branch_uuid", branchUuid)
+	config.Get().DatabaseUuid = databaseUuid
+	config.Get().BranchUuid = branchUuid
 
-	settings := map[string]interface{}{
-		"path": fmt.Sprintf("%s/%s/%s.db", prefix1, prefix2, databaseKey),
-		"branch_settings": map[string]interface{}{
-			"backups": map[string]interface{}{
-				"enabled": true,
-				"incremental_backups": map[string]interface{}{
-					"enabled": true,
-				},
-			},
-		},
-	}
-	jsonSettings, _ := json.Marshal(settings)
-	encryptedSettings, _ := auth.SecretsManager().Encrypt(config.Get("signature"), string(jsonSettings))
-
-	data := map[string]interface{}{
-		"database_uuid": databaseUuid,
-		"branch_uuid":   branchUuid,
-		"database_key":  databaseKey,
-		"data":          encryptedSettings,
-	}
+	// settings := map[string]interface{}{
+	// 	"path": fmt.Sprintf("%s/%s/%s.db", prefix1, prefix2, databaseKey),
+	// 	"branch_settings": map[string]interface{}{
+	// 		"backups": map[string]interface{}{
+	// 			"enabled": true,
+	// 			"incremental_backups": map[string]interface{}{
+	// 				"enabled": true,
+	// 			},
+	// 		},
+	// 	},
+	// }
 
 	auth.SecretsManager().Init()
 
-	auth.SecretsManager().StoreDatabaseSettings(
-		databaseUuid,
-		branchUuid,
-		databaseKey,
-		data["data"].(string),
-	)
+	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "accessKeySecret")
+	// serverAccessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "serverAccessKeySecret")
 
-	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get("signature"), "accessKeySecret")
-	// serverAccessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get("signature"), "serverAccessKeySecret")
+	accessKey := &auth.AccessKey{
+		AccessKeyId: accessKeyId,
+	}
 
-	auth.SecretsManager().StoreAccessKey(
-		databaseUuid,
-		branchUuid,
-		accessKeyId,
-		"",
-		// accessKeySecret,
-		// serverAccessKeySecret,
-		// map[string]interface{}{
-		// 	"*": []string{"ALL"},
-		// },
-	)
+	auth.SecretsManager().StoreAccessKey(accessKey)
 
 	err := database.EnsureDatabaseExists(databaseUuid, branchUuid)
 
@@ -122,8 +99,8 @@ func EncryptQuery(statement string, parameters string, accessKeyId string, acces
 	}
 }
 
-func RunQuery(db *database.Database, statement string, parameters []interface{}) sqlite3.Result {
-	sqliteStatement, err := db.GetConnection().Prepare(statement)
+func RunQuery(db *database.ClientConnection, statement string, parameters []interface{}) sqlite3.Result {
+	sqliteStatement, err := db.GetConnection().SqliteConnection().Prepare(statement)
 
 	if err != nil {
 		log.Fatal(err)
@@ -137,8 +114,6 @@ func RunQuery(db *database.Database, statement string, parameters []interface{})
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	db.GetConnection().Operator.Transmit()
 
 	db.Close()
 
