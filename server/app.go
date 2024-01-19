@@ -24,7 +24,13 @@ func NewApp(server *ServerInstance) *App {
 
 	app := &App{server}
 	config.Init()
-	cluster.Init()
+
+	_, err := cluster.Init()
+
+	if err != nil {
+		panic(err)
+	}
+
 	auth.KeyManagerInit()
 
 	auth.SecretsManager().Init()

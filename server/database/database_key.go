@@ -13,7 +13,14 @@ type DatabaseKey struct {
 	BranchUuid   string `json:"branch_uuid"`
 }
 
+var databaseKeyCache = map[string]*DatabaseKey{}
+
 func GetDatabaseKey(key string) (*DatabaseKey, error) {
+	// Check if the database key is cached
+	if databaseKey, ok := databaseKeyCache[key]; ok {
+		return databaseKey, nil
+	}
+
 	// Read the database key file
 	data, err := storage.FS().ReadFile(auth.GetDatabaseKeyPath(config.Get().Signature, key))
 
@@ -28,6 +35,9 @@ func GetDatabaseKey(key string) (*DatabaseKey, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Cache the database key
+	databaseKeyCache[key] = databaseKey
 
 	return databaseKey, nil
 }

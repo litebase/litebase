@@ -5,9 +5,17 @@
 #include <stdlib.h>
 
 extern int goXOpen(sqlite3_vfs *vfs, const char *name, sqlite3_file *file, int flags, int *outFlags);
+extern int goXDelete(sqlite3_vfs *vfs, const char *name, int syncDir);
+extern int goXAccess(sqlite3_vfs *vfs, const char *name, int flags, int *outRes);
+extern int goXSleep(sqlite3_vfs *, int microseconds);
+
+extern int goXClose(sqlite3_file *file);
 extern int goXRead(sqlite3_file *file, void *buf, int iAmt, sqlite3_int64 iOfst);
 extern int goXWrite(sqlite3_file *file, const void *buf, int iAmt, sqlite3_int64 iOfst);
 extern int goXFileSize(sqlite3_file *file, sqlite3_int64 *pSize);
+extern int goXLock(sqlite3_file *file, int eLock);
+extern int goXUnlock(sqlite3_file *file, int eLock);
+extern int goXCheckReservedLock(sqlite3_file *file, int *pResOut);
 
 static struct
 {
@@ -18,10 +26,10 @@ static struct
    */
   sqlite3_vfs *pOrigVfs;
 
-  /* The sThisVfs is the VFS structure used by this shim.  It is initialized
+  /* The vfs is the VFS structure used by this shim.  It is initialized
   ** at start-time and thus does not require a mutex
   */
-  sqlite3_vfs sThisVfs;
+  sqlite3_vfs vfs;
 
   /* The sIoMethods defines the methods used by sqlite3_file objects
   ** associated with this shim.  It is initialized at start-time and does
@@ -44,203 +52,209 @@ static struct
   ** shim, the following mutex must be held.
   */
   sqlite3_mutex *pMutex;
-} lbdb;
+} x;
 
-static sqlite3_vfs *lbdbRootVFS() { return lbdb.pOrigVfs; }
+static sqlite3_vfs *xRootVFS() { return x.pOrigVfs; }
 
 /* Translate an sqlite3_file* that is really a LBDBFile* into
 ** the sqlite3_file* for the underlying original VFS.
 */
-static sqlite3_file *lbdbFile(sqlite3_file *pFile)
+static sqlite3_file *xFile(sqlite3_file *pFile)
 {
   LBDBFile *p = (LBDBFile *)pFile;
 
   return (sqlite3_file *)&p[1];
 }
 
-int lbdbRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
+int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  // LBDBFile *connection = (LBDBFile *)pFile;
-  // // printf("Read: %s\n", connection->main ? "main" : "wal");
-
-  // if (connection->main == 0)
-  // {
-  //   return lbdbFile(pFile)->pMethods->xRead(lbdbFile(pFile), zBuf, iAmt, iOfst);
-  // }
-
   return goXRead(pFile, zBuf, iAmt, iOfst);
 }
 
-int lbdbWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
+int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  // return lbdbFile(pFile)->pMethods->xWrite(lbdbFile(pFile), zBuf, iAmt, iOfst);
-
   return goXWrite(pFile, zBuf, iAmt, iOfst);
 }
 
 // truncate
-int lbdbTruncate(sqlite3_file *pFile, sqlite3_int64 size)
+int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
-  return lbdbFile(pFile)->pMethods->xTruncate(lbdbFile(pFile), size);
+  // TODO: implement
+  return 0;
 }
 
-int lbdbSync(sqlite3_file *pFile, int flags)
+int xSync(sqlite3_file *pFile, int flags)
 {
-  return lbdbFile(pFile)->pMethods->xSync(lbdbFile(pFile), flags);
+  return 0;
 }
 
-int lbdbFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
+int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 {
   return goXFileSize(pFile, pSize);
 }
 
-int lbdbLock(sqlite3_file *pFile, int eLock)
+int xLock(sqlite3_file *pFile, int eLock)
 {
-  return lbdbFile(pFile)->pMethods->xLock(lbdbFile(pFile), eLock);
+  return goXLock(pFile, eLock);
 }
 
-int lbdbUnlock(sqlite3_file *pFile, int eLock)
+int xUnlock(sqlite3_file *pFile, int eLock)
 {
-  return lbdbFile(pFile)->pMethods->xUnlock(lbdbFile(pFile), eLock);
+  return goXUnlock(pFile, eLock);
 }
 
-int lbdbCheckReservedLock(sqlite3_file *pFile, int *pResOut)
+int xCheckReservedLock(sqlite3_file *pFile, int *pResOut)
 {
-  return lbdbFile(pFile)->pMethods->xCheckReservedLock(lbdbFile(pFile),
-                                                       pResOut);
+  return goXCheckReservedLock(pFile, pResOut);
 }
 
-int lbdbFileControl(sqlite3_file *pFile, int op, void *pArg)
+int xFileControl(sqlite3_file *pFile, int op, void *pArg)
 {
-  return lbdbFile(pFile)->pMethods->xFileControl(lbdbFile(pFile), op, pArg);
+  return SQLITE_NOTFOUND;
+
+  return 0;
 }
 
-int lbdbSectorSize(sqlite3_file *pFile)
+int xSectorSize(sqlite3_file *pFile)
 {
-  return lbdbFile(pFile)->pMethods->xSectorSize(lbdbFile(pFile));
+  return 0;
 }
 
-int lbdbDeviceCharacteristics(sqlite3_file *pFile)
+int xDeviceCharacteristics(sqlite3_file *pFile)
 {
-  return lbdbFile(pFile)->pMethods->xDeviceCharacteristics(lbdbFile(pFile));
+  return 0;
 }
 
-int lbdbShmMap(sqlite3_file *pFile, int iPg, int pgsz, int x, void volatile **pp)
+int xShmMap(sqlite3_file *pFile, int iPg, int pgsz, int x, void volatile **pp)
 {
-  return lbdbFile(pFile)->pMethods->xShmMap(lbdbFile(pFile), iPg, pgsz, x, pp);
+  // printf("xShmMap:\n");
+  return xFile(pFile)->pMethods->xShmMap(xFile(pFile), iPg, pgsz, x, pp);
 }
 
-int lbdbShmLock(sqlite3_file *pFile, int offset, int n, int flags)
+int xShmLock(sqlite3_file *pFile, int offset, int n, int flags)
 {
-  return lbdbFile(pFile)->pMethods->xShmLock(lbdbFile(pFile), offset, n, flags);
+  // printf("xShmLock:\n");
+
+  return xFile(pFile)->pMethods->xShmLock(xFile(pFile), offset, n, flags);
 }
 
-void lbdbShmBarrier(sqlite3_file *pFile)
+void xShmBarrier(sqlite3_file *pFile)
 {
-  lbdbFile(pFile)->pMethods->xShmBarrier(lbdbFile(pFile));
+  // printf("xShmBarrier:\n");
+  xFile(pFile)->pMethods->xShmBarrier(xFile(pFile));
 }
 
-int lbdbShmUnmap(sqlite3_file *pFile, int deleteFlag)
+int xShmUnmap(sqlite3_file *pFile, int deleteFlag)
 {
-  return lbdbFile(pFile)->pMethods->xShmUnmap(lbdbFile(pFile), deleteFlag);
+  // printf("xShmUnmap:\n");
+
+  return xFile(pFile)->pMethods->xShmUnmap(xFile(pFile), deleteFlag);
 }
 
-int lbdbOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)
+int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)
 {
-  int rc;
-
+  // Return the root VFS xOpen method if this is not a main database
   if ((flags & SQLITE_OPEN_MAIN_DB) == 0)
   {
-    return lbdbRootVFS()->xOpen(lbdbRootVFS(), zName, pFile, flags, pOutFlags);
+    return xRootVFS()->xOpen(pVfs, zName, pFile, flags, pOutFlags);
   }
 
-  LBDBFile *connection = (LBDBFile *)pFile;
-  sqlite3_file *file = lbdbFile(pFile);
+  int rc = goXOpen(pVfs, zName, pFile, flags, pOutFlags);
 
-  rc = lbdbRootVFS()->xOpen(lbdbRootVFS(), zName, file, flags, pOutFlags);
-
-  if (file->pMethods->iVersion == 1)
-  {
-    connection->base.pMethods = &lbdb.sIoMethodsV1;
-  }
-  else
-  {
-    connection->base.pMethods = &lbdb.sIoMethodsV2;
-  }
+  pFile->pMethods = &x_io_methods;
 
   return rc;
 }
 
-int lbdbDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir)
+int xDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir)
 {
-  return lbdbRootVFS()->xDelete(pVfs, zName, syncDir);
+  // printf("xDelete: %s\n", zName);
+  if (pVfs != &x.vfs)
+  {
+    return xRootVFS()->xDelete(pVfs, zName, syncDir);
+  }
+
+  return goXDelete(pVfs, zName, syncDir);
 }
 
-int lbdbAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
+int xAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
 {
-  // printf("Access: %s\n", zName);
-  return lbdbRootVFS()->xAccess(pVfs, zName, flags, pResOut);
+  if ((flags & SQLITE_OPEN_MAIN_DB) == 0)
+  {
+    return xRootVFS()->xAccess(pVfs, zName, flags, pResOut);
+  }
+
+  // printf("Access:\n");
+
+  return goXAccess(pVfs, zName, flags, pResOut);
 }
 
-int lbdbClose(sqlite3_file *pFile)
+int xSleep(sqlite3_vfs *vfs, int microseconds)
 {
-  return lbdbFile(pFile)->pMethods->xClose(lbdbFile(pFile));
+  return goXSleep(vfs, microseconds);
 }
 
-int register_litebasedb_vfs()
+int xClose(sqlite3_file *pFile)
+{
+  return goXClose(pFile);
+}
+
+int register_litebase_vfs()
 {
   sqlite3_vfs *pOrigVfs;
 
-  if (lbdb.isInitialized)
+  if (x.isInitialized)
   {
     return SQLITE_MISUSE;
   }
 
-  pOrigVfs = sqlite3_vfs_find(NULL);
+  pOrigVfs = sqlite3_vfs_find(0);
+  // pOrigVfs = sqlite3_vfs_find("unix-none");
 
   if (pOrigVfs == 0)
   {
     return SQLITE_ERROR;
   }
 
-  assert(pOrigVfs != &lbdb.sThisVfs);
+  assert(pOrigVfs != &x.vfs);
 
-  lbdb.pMutex = sqlite3_mutex_alloc(SQLITE_MUTEX_FAST);
+  x.pMutex = sqlite3_mutex_alloc(SQLITE_MUTEX_FAST);
 
-  if (!lbdb.pMutex)
+  if (!x.pMutex)
   {
     return SQLITE_NOMEM;
   }
 
-  lbdb.isInitialized = 1;
-  lbdb.pOrigVfs = pOrigVfs;
-  lbdb.sThisVfs = *pOrigVfs;
-  lbdb.sThisVfs.xOpen = lbdbOpen;
-  lbdb.sThisVfs.xDelete = lbdbDelete;
-  lbdb.sThisVfs.xAccess = lbdbAccess;
-  lbdb.sThisVfs.szOsFile += sizeof(LBDBFile);
-  lbdb.sThisVfs.zName = "litebasedb";
-  lbdb.sIoMethodsV1.iVersion = 1;
-  lbdb.sIoMethodsV1.xClose = lbdbClose;
-  lbdb.sIoMethodsV1.xRead = lbdbRead;
-  lbdb.sIoMethodsV1.xWrite = lbdbWrite;
-  lbdb.sIoMethodsV1.xTruncate = lbdbTruncate;
-  lbdb.sIoMethodsV1.xSync = lbdbSync;
-  lbdb.sIoMethodsV1.xFileSize = lbdbFileSize;
-  lbdb.sIoMethodsV1.xLock = lbdbLock;
-  lbdb.sIoMethodsV1.xUnlock = lbdbUnlock;
-  lbdb.sIoMethodsV1.xCheckReservedLock = lbdbCheckReservedLock;
-  lbdb.sIoMethodsV1.xFileControl = lbdbFileControl;
-  lbdb.sIoMethodsV1.xSectorSize = lbdbSectorSize;
-  lbdb.sIoMethodsV1.xDeviceCharacteristics = lbdbDeviceCharacteristics;
-  lbdb.sIoMethodsV2 = lbdb.sIoMethodsV1;
-  lbdb.sIoMethodsV2.iVersion = 2;
-  lbdb.sIoMethodsV2.xShmMap = lbdbShmMap;
-  lbdb.sIoMethodsV2.xShmLock = lbdbShmLock;
-  lbdb.sIoMethodsV2.xShmBarrier = lbdbShmBarrier;
-  lbdb.sIoMethodsV2.xShmUnmap = lbdbShmUnmap;
+  x.isInitialized = 1;
+  x.pOrigVfs = pOrigVfs;
+  x.vfs = *pOrigVfs;
+  x.vfs.zName = "litebase";
+  x.vfs.xOpen = xOpen;
+  x.vfs.xDelete = xDelete;
+  x.vfs.xAccess = xAccess;
+  x.vfs.xSleep = xSleep;
+  x.vfs.szOsFile += sizeof(LBDBFile);
+  x.sIoMethodsV1.iVersion = 1;
+  // x.sIoMethodsV1.xClose = xClose;
+  // x.sIoMethodsV1.xRead = xRead;
+  // x.sIoMethodsV1.xWrite = xWrite;
+  // x.sIoMethodsV1.xTruncate = xTruncate;
+  // x.sIoMethodsV1.xSync = xSync;
+  // x.sIoMethodsV1.xFileSize = xFileSize;
+  // x.sIoMethodsV1.xLock = xLock;
+  // x.sIoMethodsV1.xUnlock = xUnlock;
+  // x.sIoMethodsV1.xCheckReservedLock = xCheckReservedLock;
+  // x.sIoMethodsV1.xFileControl = xFileControl;
+  // x.sIoMethodsV1.xSectorSize = xSectorSize;
+  // x.sIoMethodsV1.xDeviceCharacteristics = xDeviceCharacteristics;
+  // x.sIoMethodsV2 = x.sIoMethodsV1;
+  // x.sIoMethodsV2.iVersion = 2;
+  // x.sIoMethodsV2.xShmMap = xShmMap;
+  // x.sIoMethodsV2.xShmLock = xShmLock;
+  // x.sIoMethodsV2.xShmBarrier = xShmBarrier;
+  // x.sIoMethodsV2.xShmUnmap = xShmUnmap;
 
-  sqlite3_vfs_register(&lbdb.sThisVfs, 1);
+  sqlite3_vfs_register(&x.vfs, 1);
 
   return SQLITE_OK;
 }
@@ -254,5 +268,20 @@ int newVfs()
 {
   sqlite3_config(SQLITE_CONFIG_LOG, errorLogCallback, NULL);
 
-  return register_litebasedb_vfs();
+  return register_litebase_vfs();
 }
+const sqlite3_io_methods x_io_methods = {
+    1,                      /* iVersion */
+    xClose,                 /* xClose */
+    xRead,                  /* xRead */
+    xWrite,                 /* xWrite */
+    xTruncate,              /* xTruncate */
+    xSync,                  /* xSync */
+    xFileSize,              /* xFileSize */
+    xLock,                  /* xLock */
+    xUnlock,                /* xUnlock */
+    xCheckReservedLock,     /* xCheckReservedLock */
+    xFileControl,           /* xFileControl */
+    xSectorSize,            /* xSectorSize */
+    xDeviceCharacteristics, /* xDeviceCharacteristics */
+};

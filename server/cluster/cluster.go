@@ -22,12 +22,22 @@ func Get() *ClusterInstance {
 	return cluster
 }
 
-func Init() *ClusterInstance {
+func Init() (*ClusterInstance, error) {
 	// Read the cluster file
 	data, err := storage.FS().ReadFile(Path())
 
 	if err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			if c, err := createClusterFromEnv(); err == nil {
+				cluster = c
+
+				return cluster, nil
+			}
+
+			return nil, fmt.Errorf("[%d] Cluster has not been initialized", 0)
+		}
+
+		return nil, err
 	}
 
 	c := &ClusterInstance{}
@@ -35,12 +45,22 @@ func Init() *ClusterInstance {
 	err = json.Unmarshal(data, c)
 
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	cluster = c
 
-	return cluster
+	return cluster, nil
+}
+
+func createClusterFromEnv() (*ClusterInstance, error) {
+	clusterId := os.Getenv("LITEBASEDB_CLUSTER_ID")
+
+	if clusterId == "" {
+		return nil, fmt.Errorf("[%d] LITEBASEDB_CLUSTER_ID environment variable is not set", 0)
+	}
+
+	return NewCluster(clusterId)
 }
 
 func NewCluster(id string) (*ClusterInstance, error) {
@@ -49,10 +69,9 @@ func NewCluster(id string) (*ClusterInstance, error) {
 
 	if err != nil {
 		if !os.IsNotExist(err) {
+			panic(err)
 			return nil, err
 		}
-
-		return nil, err
 	}
 
 	cluster := &ClusterInstance{

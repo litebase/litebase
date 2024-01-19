@@ -5,9 +5,15 @@ import (
 	"litebasedb/server/counter"
 	"litebasedb/server/database"
 	"litebasedb/server/query"
+	"log"
+	"time"
 )
 
 func QueryController(request *Request) *Response {
+	start := time.Now()
+	defer func() {
+		log.Println("QueryController", time.Since(start))
+	}()
 	key := request.Subdomains()[0]
 	// log.Println("databaseKey", databaseKey, len(request.Subdomains()))
 	if key == "" || len(request.Subdomains()) != 2 {

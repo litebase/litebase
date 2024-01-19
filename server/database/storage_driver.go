@@ -3,6 +3,7 @@ package database
 import (
 	timer "litebasedb/internal"
 	"litebasedb/internal/config"
+	internalStorage "litebasedb/internal/storage"
 	"litebasedb/server/file"
 	"log"
 	"sort"
@@ -13,7 +14,6 @@ type FileSystem struct {
 	checkpointer *Checkpointer
 	computedSize int64
 	mutex        *sync.RWMutex
-	pageCache    *PageCache
 	proxy        file.Proxy
 	readBytes    int64
 	path         string
@@ -23,11 +23,11 @@ type FileSystem struct {
 
 func NewFileSystem(path string) *FileSystem {
 	fs := &FileSystem{
-		mutex:     &sync.RWMutex{},
-		pageCache: NewPageCache(),
-		path:      path,
-		proxy:     file.NewFileProxy(path),
-		wal:       NewWAL(),
+		mutex: &sync.RWMutex{},
+		path:  path,
+		proxy: file.NewFileProxyV2(path),
+		size:  0,
+		wal:   NewWAL(),
 	}
 
 	fs.checkpointer = NewCheckpointer(func() {
@@ -103,6 +103,10 @@ func (fs *FileSystem) getFileSize() {
 // 	return ok
 // }
 
+func (fs *FileSystem) Open(path string) (internalStorage.File, error) {
+	return fs.proxy.Open(path)
+}
+
 func (fs *FileSystem) ReadAt(data []byte, offset int64) (n int, err error) {
 	start := timer.Start("READ PAGE")
 	pageNumber := PageNumber(offset)
@@ -110,21 +114,17 @@ func (fs *FileSystem) ReadAt(data []byte, offset int64) (n int, err error) {
 
 	if fs.wal.Has(pageNumber) {
 		n, err = fs.wal.Read(pageNumber, pageOffset, data)
-		// }
-		// else if fs.pageCache.Has(offset) {
-		// 	n, err = fs.pageCache.ReadAt(data, offset)
-		// }
 	} else {
 		n, err = fs.proxy.ReadAt(data, offset)
 
 		fs.readBytes += int64(n)
-
-		// if err == nil && len(data) == 4096 {
-		// 	fs.pageCache.WriteAt(data, offset)
-		// }
 	}
 
 	timer.Stop(start)
+
+	if err != nil {
+		return 0, err
+	}
 
 	return n, err
 }
@@ -136,16 +136,11 @@ func (fs *FileSystem) WriteAt(data []byte, offset int64) (n int, err error) {
 
 	n, err = fs.wal.Write(PageNumber(offset), data)
 
-	// if err == nil {
-	// 	fs.pageCache.WriteAt(data, offset)
-	// }
-
 	if len(fs.wal.pages) >= 1000 {
 		fs.CheckPoint()
 	}
 
 	timer.Stop(start)
-	// return fs.proxy.WriteAt(data, offset)
 
 	return n, err
 }
@@ -162,7 +157,7 @@ func (fs *FileSystem) Size() (int64, error) {
 		return int64(len(fs.wal.pages)) * config.Get().PageSize, nil
 	}
 
-	if fs.size > 0 && len(fs.wal.pages) > 0 {
+	if fs.size > 0 && (len(fs.wal.pages) > 0) {
 		maxPages := int64(fs.size / config.Get().PageSize)
 		newPages := 0
 

@@ -29,6 +29,20 @@ func NewFileProxy(path string) *FileProxy {
 	return fp
 }
 
+func (fp *FileProxy) Open(path string) (internalStorage.File, error) {
+	// fp.mutex.Lock()
+	// defer fp.mutex.Unlock()
+	var err error
+
+	fp.file, err = storage.FS().Open(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fp.file, nil
+}
+
 func (fp *FileProxy) MkdirAll(path string, perm fs.FileMode) error {
 	return storage.FS().MkdirAll(path, perm)
 }

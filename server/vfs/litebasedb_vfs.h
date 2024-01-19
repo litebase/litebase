@@ -12,4 +12,4 @@ struct LBDBFile
 
 int newVfs();
 
-const extern sqlite3_io_methods lbdb_io_methods;
+const extern sqlite3_io_methods x_io_methods;

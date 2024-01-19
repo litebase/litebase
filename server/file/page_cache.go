@@ -1,6 +1,7 @@
-package database
+package file
 
 import (
+	"fmt"
 	"log"
 	"sort"
 	"sync"
@@ -34,12 +35,28 @@ func (pc *PageCache) Clear() error {
 func (pc *PageCache) ReadAt(data []byte, off int64) (int, error) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
-	page := pc.pages[PageNumber(off)]
-	pc.usage[PageNumber(off)] += 1
-	pageOffset := PageOffset(off)
-	len := int64(len(data))
+	pageNumer := PageNumber(off)
+	page, ok := pc.pages[PageNumber(off)]
 
-	return copy(data, page[pageOffset:pageOffset+len]), nil
+	if !ok {
+		return 0, fmt.Errorf("page %d not found in cache", pageNumer)
+	}
+
+	pageOffset := PageOffset(pageNumer, off)
+
+	if pageOffset >= int64(len(page)) {
+		return 0, fmt.Errorf("page offset %d out of bounds for page %d", pageOffset, PageNumber(off))
+	}
+
+	n := copy(data, page[pageOffset:])
+
+	if n != len(data) {
+		return n, fmt.Errorf("expected to copy %d bytes, but copied %d", len(data), n)
+	}
+
+	pc.usage[PageNumber(off)] += 1
+
+	return n, nil
 }
 
 func (pc *PageCache) Has(off int64) bool {

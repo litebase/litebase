@@ -22,8 +22,6 @@ import (
 	"time"
 )
 
-var lockFile *os.File
-
 func EncryptKey(signature, key string) (string, error) {
 	plaintextBytes := []byte(key)
 	hash := sha256.New()
@@ -283,13 +281,6 @@ func KeyPath(keyType string, signature string) string {
 	}, "/")
 }
 
-func lockPath(signature string) string {
-	return strings.Join([]string{
-		Path(signature),
-		"private.lock",
-	}, "/")
-}
-
 func NextSignature(signature string) (string, error) {
 	if config.Get().Signature == signature {
 		publickey, err := GetRawPublicKey(signature)
@@ -351,7 +342,7 @@ func rotate() error {
 		return err
 	}
 
-	if err := os.WriteFile(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, ".rotate-lock")), []byte{}, 0666); err != nil {
+	if err := storage.FS().WriteFile(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, ".rotate-lock")), []byte{}, 0666); err != nil {
 		return err
 	}
 

@@ -11,13 +11,14 @@ import (
 )
 
 type Request struct {
-	BaseRequest *http.Request
-	Body        map[string]interface{}
-	headers     *Headers
-	Method      string
-	Path        string
-	QueryParams map[string]string
-	Route       *Route
+	BaseRequest  *http.Request
+	Body         map[string]interface{}
+	headers      *Headers
+	Method       string
+	Path         string
+	QueryParams  map[string]string
+	requestToken *auth.RequestToken
+	Route        *Route
 }
 
 func NewRequest(request *http.Request) *Request {
@@ -103,7 +104,11 @@ func (request *Request) QueryParam(key string) string {
 }
 
 func (request *Request) RequestToken(header string) *auth.RequestToken {
-	return auth.CaptureRequestToken(request.headers.Get(header))
+	if request.requestToken == nil {
+		request.requestToken = auth.CaptureRequestToken(request.headers.Get(header))
+	}
+
+	return request.requestToken
 }
 
 func (request *Request) SetRoute(route *Route) *Request {

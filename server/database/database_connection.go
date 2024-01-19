@@ -66,7 +66,7 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 	// con.connection.Exec(fmt.Sprintf("PRAGMA max_page_count = %d;", config.Get().MaxPageCount))
 	// con.connection.Exec("PRAGMA mmap_size = 129000000000")
 	// con.connection.Exec("PRAGMA cache_size = 15625")
-	// con.connection.Exec("PRAGMA cache_size = 10000")
+	// con.connection.Exec("PRAGMA cache_size = 0")
 	con.connection.Exec("PRAGMA cache_size = -125000") // 125K Kib = 128MB
 	con.connection.Exec("PRAGMA busy_timeout = 3000")
 

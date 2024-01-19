@@ -39,11 +39,13 @@ func NewFileSystem() *FileSystem {
 		mutex: &sync.Mutex{},
 	}
 
-	if os.Getenv("LITEBASEDB_FILESYSTEM_DRIVER") == "remote" {
-		fs.driver = NewLambdaFileSystemDriver()
-	} else {
-		fs.driver = NewLocalFileSystemDriver()
-	}
+	// if os.Getenv("LITEBASEDB_FILESYSTEM_DRIVER") == "remote" {
+	// 	fs.driver = NewLambdaFileSystemDriver()
+	// } else {
+	// 	fs.driver = NewLocalFileSystemDriver()
+	// }
+
+	fs.driver = NewS3FileSystemDriver()
 
 	return fs
 }

@@ -226,7 +226,6 @@ func (lfsd *LambdaFileSystemDriver) Stat(path string) (fs.FileInfo, error) {
 	}
 
 	return fileInfo, nil
-
 }
 
 func (lfsd *LambdaFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {

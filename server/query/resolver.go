@@ -3,7 +3,6 @@ package query
 import (
 	"fmt"
 	db "litebasedb/server/database"
-	"litebasedb/server/logging"
 	"time"
 )
 
@@ -85,13 +84,13 @@ func (r *Resolver) resolveQuery(
 			"data":            result,
 		}
 
-		logging.Query(
-			clientConnection.GetDatabaseUuid(),
-			clientConnection.GetBranchUuid(),
-			query.AccessKeyId,
-			query.OriginalStatement,
-			float64(end)/float64(1000), // Convert to seconds
-		)
+		// logging.Query(
+		// 	clientConnection.GetDatabaseUuid(),
+		// 	clientConnection.GetBranchUuid(),
+		// 	query.AccessKeyId,
+		// 	query.OriginalStatement,
+		// 	float64(end)/float64(1000), // Convert to seconds
+		// )
 	}
 
 	return data, err

@@ -13,11 +13,13 @@ import "C"
 
 import (
 	"io"
-	"log"
+	"sync/atomic"
+	"time"
 	"unsafe"
 )
 
 var storage StorageDriver
+var fileLockCount int64
 
 func RegisterVFS(stroageDriver StorageDriver) error {
 	storage = stroageDriver
@@ -33,29 +35,49 @@ func RegisterVFS(stroageDriver StorageDriver) error {
 
 //export goXOpen
 func goXOpen(vfs *C.sqlite3_vfs, name *C.char, file *C.sqlite3_file, flags C.int, outFlags *C.int) C.int {
+	return sqliteOK
+}
 
-	fileName := C.GoString(name)
+//export goXDelete
+func goXDelete(vfs *C.sqlite3_vfs, name *C.char, syncDir C.int) C.int {
+	return sqliteOK
+}
 
-	log.Println("OPEN", fileName)
+//export goXAccess
+func goXAccess(vfs *C.sqlite3_vfs, name *C.char, flags C.int, resOut *C.int) C.int {
+	*resOut = C.int(1)
 
+	return sqliteOK
+}
+
+//export goXSleep
+func goXSleep(cvfs *C.sqlite3_vfs, microseconds C.int) C.int {
+	d := time.Duration(microseconds) * time.Microsecond
+
+	time.Sleep(d)
+
+	return sqliteOK
+}
+
+//export goXClose
+func goXClose(pFile *C.sqlite3_file) C.int {
 	return sqliteOK
 }
 
 //export goXRead
 func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
-	// log.Println("READ")
-
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 	n, err := storage.ReadAt(goBuffer, int64(iOfst))
 
-	if err == io.EOF {
-		// return C.SQLITE_IOERR_SHORT_READ
-		if n < len(goBuffer) {
-			for i := n; i < len(goBuffer); i++ {
-				goBuffer[i] = 0
-			}
+	if n < len(goBuffer) && err == io.EOF {
+		for i := n; i < len(goBuffer); i++ {
+			goBuffer[i] = 0
 		}
-	} else if err != nil {
+
+		return errToC(IOErrorShortRead)
+	}
+
+	if err != nil {
 		return errToC(err)
 	}
 
@@ -64,15 +86,10 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 
 //export goXWrite
 func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
-	// log.Println("WRITE")
-
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 	_, err := storage.WriteAt(goBuffer, int64(iOfst))
 
-	// _, err := storage.WriteAt(C.GoBytes(unsafe.Pointer(zBuf), iAmt), int64(iOfst))
-
 	if err != nil {
-		log.Println("WRITE ERROR", err)
 		return C.SQLITE_IOERR_WRITE
 	}
 
@@ -81,16 +98,41 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 //export goXFileSize
 func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
-	// log.Println("SIZE")
-
 	size, err := storage.Size()
 
 	if err != nil {
-		log.Println("SIZE ERROR", err)
 		return C.SQLITE_IOERR_FSTAT
 	}
 
 	*pSize = C.sqlite3_int64(size)
+
+	return sqliteOK
+}
+
+//export goXLock
+func goXLock(pFile *C.sqlite3_file, lockType C.int) C.int {
+	atomic.AddInt64(&fileLockCount, 1)
+
+	return sqliteOK
+}
+
+//export goXUnlock
+func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
+	atomic.AddInt64(&fileLockCount, -1)
+
+	return sqliteOK
+}
+
+//export goXCheckReservedLock
+func goXCheckReservedLock(pFile *C.sqlite3_file, pResOut *C.int) C.int {
+	count := atomic.LoadInt64(&fileLockCount)
+	locked := count > 0
+
+	if locked {
+		*pResOut = C.int(0)
+	} else {
+		*pResOut = C.int(1)
+	}
 
 	return sqliteOK
 }
