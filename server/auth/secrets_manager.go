@@ -36,7 +36,7 @@ func SecretsManager() *SecretsManagerInstance {
 }
 
 func (s *SecretsManagerInstance) cache(key string) SecretsStore {
-	_, hasFileStore := s.secretStore["file"]
+	// _, hasFileStore := s.secretStore["file"]
 	_, hasMapStore := s.secretStore["map"]
 	_, hasTransientStore := s.secretStore["transient"]
 
@@ -48,11 +48,11 @@ func (s *SecretsManagerInstance) cache(key string) SecretsStore {
 		s.secretStore["transient"] = NewMapSecretsStore()
 	}
 
-	if key == "file" && !hasFileStore {
-		s.secretStore["file"] = NewFileSecretsStore(
-			fmt.Sprintf("%s/%s", config.Get().TmpPath, "litebasedb/cache"),
-		)
-	}
+	// if key == "file" && !hasFileStore {
+	// 	s.secretStore["file"] = NewFileSecretsStore(
+	// 		fmt.Sprintf("%s/%s", config.Get().TmpPath, "litebasedb/cache"),
+	// 	)
+	// }
 
 	return s.secretStore[key]
 }
@@ -121,6 +121,7 @@ func (s *SecretsManagerInstance) EncryptForRuntime(databaseUuid, signature, text
 
 func (s *SecretsManagerInstance) Encrypter(key string) *KeyEncrypter {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	if _, ok := s.encrypterInstances[key]; !ok {
 		params := strings.Split(key, ":")
@@ -132,8 +133,6 @@ func (s *SecretsManagerInstance) Encrypter(key string) *KeyEncrypter {
 			s.encrypterInstances[key] = NewKeyEncrypter(signature)
 		}
 	}
-
-	s.mutex.Unlock()
 
 	return s.encrypterInstances[key]
 }
@@ -159,7 +158,8 @@ func GetDatabaseKeysPath(signature string) string {
 }
 
 func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (string, error) {
-	value := s.cache("map").Get(s.publicKeyCacheKey(signature, databaseUuid))
+	var publicKey string
+	value := s.cache("map").Get(s.publicKeyCacheKey(signature, databaseUuid), &publicKey)
 
 	if value != nil {
 		publicKey, ok := value.(string)
@@ -169,15 +169,15 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 		}
 	}
 
-	fileValue := s.cache("file").Get(s.publicKeyCacheKey(signature, databaseUuid))
+	// fileValue := s.cache("file").Get(s.publicKeyCacheKey(signature, databaseUuid))
 
-	if fileValue != nil {
-		publicKey, ok := fileValue.(string)
+	// if fileValue != nil {
+	// 	publicKey, ok := fileValue.(string)
 
-		if ok {
-			return publicKey, nil
-		}
-	}
+	// 	if ok {
+	// 		return publicKey, nil
+	// 	}
+	// }
 
 	path := s.SecretsPath(
 		config.Get().Signature,
@@ -204,7 +204,8 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 }
 
 func (s *SecretsManagerInstance) GetAccessKeySecret(accessKeyId string) (string, error) {
-	value := s.cache("transient").Get(fmt.Sprintf("%s:access_key_secret", accessKeyId))
+	var secret string
+	value := s.cache("transient").Get(fmt.Sprintf("%s:access_key_secret", accessKeyId), &secret)
 
 	if value != nil {
 		return value.(string), nil

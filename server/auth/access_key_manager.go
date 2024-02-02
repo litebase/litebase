@@ -127,7 +127,7 @@ func (akm *AccessKeyManagerInstance) GenerateAccessKeySecret() string {
 
 func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error) {
 	var accessKey *AccessKey
-	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId))
+	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), &AccessKey{})
 
 	if value != nil {
 		accessKey, ok := value.(*AccessKey)
@@ -137,15 +137,15 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error)
 		}
 	}
 
-	fileValue := SecretsManager().cache("file").Get(akm.accessKeyCacheKey(accessKeyId))
+	// fileValue := SecretsManager().cache("file").Get(akm.accessKeyCacheKey(accessKeyId), &AccessKey{})
 
-	if fileValue != nil {
-		json.Unmarshal([]byte(fileValue.(string)), &accessKey)
-	}
+	// if fileValue != nil {
+	// 	json.Unmarshal([]byte(fileValue.(string)), &accessKey)
+	// }
 
-	if accessKey != nil {
-		return accessKey, nil
-	}
+	// if accessKey != nil {
+	// 	return accessKey, nil
+	// }
 
 	path := SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
 
@@ -167,8 +167,8 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error)
 		return nil, err
 	}
 
-	SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
-	SecretsManager().cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
+	SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
+	// SecretsManager().cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
 
 	return accessKey, nil
 }

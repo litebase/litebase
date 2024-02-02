@@ -37,24 +37,21 @@ func (store *MapSecretsStore) Forget(key string) {
 	delete(store.data, key)
 }
 
-func (store *MapSecretsStore) Get(key string) interface{} {
+func (store *MapSecretsStore) Get(key string, cacheItemType interface{}) interface{} {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 
 	if secret, ok := store.data[key]; ok {
-
 		if time.Now().After(secret.expiresAt) {
 			store.Forget(key)
 			return nil
 		}
 
-		jsonValue := interface{}(nil)
-
-		if err := json.Unmarshal([]byte(secret.value), &jsonValue); err != nil {
+		if err := json.Unmarshal([]byte(secret.value), cacheItemType); err != nil {
 			return nil
 		}
 
-		return jsonValue
+		return cacheItemType
 	}
 
 	return nil

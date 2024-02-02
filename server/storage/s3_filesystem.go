@@ -3,9 +3,9 @@ package storage
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -19,9 +19,7 @@ import (
 )
 
 type S3FileSystemDriver struct {
-	client          *s3.Client
-	contentEncoding string
-	checksumSHA1    []byte
+	client *s3.Client
 }
 
 func newS3Client() *s3.Client {
@@ -77,6 +75,7 @@ func (fs *S3FileSystemDriver) Create(path string) (internalStorage.File, error) 
 }
 
 func (fs *S3FileSystemDriver) Mkdir(path string, perm os.FileMode) error {
+
 	// Not required for S3
 
 	return nil
@@ -88,11 +87,13 @@ func (fs *S3FileSystemDriver) MkdirAll(path string, perm os.FileMode) error {
 	return nil
 }
 
-func (fs *S3FileSystemDriver) Open(name string) (internalStorage.File, error) {
+func (fs *S3FileSystemDriver) Open(path string) (internalStorage.File, error) {
+	log.Println("Open file", path)
+
 openFile:
 	response, err := fs.client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),
-		Key:    aws.String(preparePath(name)),
+		Key:    aws.String(preparePath(path)),
 	})
 
 	if err != nil {
@@ -103,7 +104,7 @@ openFile:
 				// Create the file if it doesn't exist
 				_, err := fs.client.PutObject(context.TODO(), &s3.PutObjectInput{
 					Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),
-					Key:    aws.String(preparePath(name)),
+					Key:    aws.String(preparePath(path)),
 				})
 
 				if err != nil {
@@ -125,16 +126,17 @@ openFile:
 		bytes:      *response.ContentLength,
 		client:     fs.client,
 		data:       data,
-		name:       name,
+		name:       path,
 		totalBytes: *response.ContentLength,
 	}, nil
 }
 
-func (fs *S3FileSystemDriver) OpenFile(name string, flag int, perm os.FileMode) (internalStorage.File, error) {
+func (fs *S3FileSystemDriver) OpenFile(path string, flag int, perm os.FileMode) (internalStorage.File, error) {
+	log.Println("Open file", path)
 openFile:
 	response, err := fs.client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),
-		Key:    aws.String(preparePath(name)),
+		Key:    aws.String(preparePath(path)),
 	})
 
 	if err != nil {
@@ -149,7 +151,7 @@ openFile:
 				// Create the file if it doesn't exist
 				_, err := fs.client.PutObject(context.TODO(), &s3.PutObjectInput{
 					Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),
-					Key:    aws.String(preparePath(name)),
+					Key:    aws.String(preparePath(path)),
 				})
 
 				if err != nil {
@@ -169,12 +171,13 @@ openFile:
 		bytes:      *response.ContentLength,
 		client:     fs.client,
 		data:       data,
-		name:       name,
+		name:       path,
 		totalBytes: *response.ContentLength,
 	}, nil
 }
 
 func (fs *S3FileSystemDriver) ReadDir(path string) ([]os.DirEntry, error) {
+	// log.Println("Read dir", path)
 	dirEnties := []os.DirEntry{}
 
 	input := &s3.ListObjectsV2Input{
@@ -218,9 +221,8 @@ func (fs *S3FileSystemDriver) ReadDir(path string) ([]os.DirEntry, error) {
 
 func (fs *S3FileSystemDriver) ReadFile(path string) ([]byte, error) {
 	response, err := fs.client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket:                  aws.String(os.Getenv("AWS_S3_BUCKET")),
-		Key:                     aws.String(preparePath(path)),
-		ResponseContentEncoding: aws.String(fs.contentEncoding),
+		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),
+		Key:    aws.String(preparePath(path)),
 	})
 
 	if err != nil {
@@ -330,6 +332,8 @@ func (fs *S3FileSystemDriver) Rename(oldpath, newpath string) error {
 }
 
 func (fs *S3FileSystemDriver) Stat(path string) (os.FileInfo, error) {
+	// TODO: Stat on directories doesn't really make sense for S3
+
 	output, err := fs.client.HeadObject(context.TODO(), &s3.HeadObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),
 		Key:    aws.String(preparePath(path)),
@@ -363,10 +367,6 @@ func (fs *S3FileSystemDriver) WriteFile(name string, data []byte, perm os.FileMo
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),
 		Key:    aws.String(preparePath(name)),
 		Body:   bytes.NewReader(data),
-		// ContentEncoding: aws.String(fs.contentEncoding),
-		// ContentMD5:      aws.String(string(fs.checksumSHA1)),
-		// ChecksumSHA1:    aws.String("SHA1"),
-		// PredefinedChecksum: types.ChecksumSHA1,
 	})
 
 	if err != nil {
@@ -376,31 +376,9 @@ func (fs *S3FileSystemDriver) WriteFile(name string, data []byte, perm os.FileMo
 	return nil
 }
 
-func (fs *S3FileSystemDriver) WithEncoding(encoding string) *S3FileSystemDriver {
-	fs.contentEncoding = encoding
-
-	return fs
-}
-
-func (fs *S3FileSystemDriver) WithChecksumSHA1(checkSumSHA1 []byte) *S3FileSystemDriver {
-	fs.checksumSHA1 = checkSumSHA1
-
-	return fs
-}
-
 func preparePath(path string) string {
 	//replace the data path
 	path = strings.Replace(path, os.Getenv("LITEBASEDB_DATA_PATH"), "", 1)
 
 	return path
-}
-
-func getPath(path string) string {
-	// md5 hash the path
-	pathHash := sha1.Sum([]byte(path))
-
-	// convert the hash to a string
-	pathHashString := string(pathHash[:])
-
-	return pathHashString
 }

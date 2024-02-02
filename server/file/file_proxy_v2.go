@@ -7,11 +7,12 @@ import (
 	internalStorage "litebasedb/internal/storage"
 	"litebasedb/server/storage"
 	"os"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 type FileProxyV2 struct {
 	exists    bool
-	file      internalStorage.File
 	pageCache *PageCache
 	// mutex *sync.Mutex
 	path string
@@ -42,13 +43,14 @@ func (fp *FileProxyV2) Open(path string) (internalStorage.File, error) {
 
 func (fp *FileProxyV2) ReadAt(data []byte, offset int64) (n int, err error) {
 	pageNumber := PageNumber(offset)
-	fileData, err := storage.FS().ReadFile(fp.pagePath(offset))
 
 	if fp.pageCache.Has(offset) {
 		n, err = fp.pageCache.ReadAt(data, offset)
 
 		return n, err
 	}
+
+	fileData, err := storage.FS().ReadFile(fp.pagePath(pageNumber))
 
 	// log.Println("READ PAGE", pageNumber, len(fileData))
 
@@ -60,14 +62,20 @@ func (fp *FileProxyV2) ReadAt(data []byte, offset int64) (n int, err error) {
 		return 0, err
 	}
 
+	decompressedData, err := decompressData(fileData)
+
+	if err != nil {
+		return 0, err
+	}
+
 	if pageNumber == 1 {
 		fp.exists = true
 	}
 
-	n = copy(data, fileData)
+	n = copy(data, decompressedData)
 
 	if err == nil && n == 4096 {
-		fp.pageCache.WriteAt(fileData, offset)
+		fp.pageCache.WriteAt(decompressedData, offset)
 	}
 
 	return n, nil
@@ -82,14 +90,20 @@ func (fp *FileProxyV2) WriteAt(data []byte, offset int64) (n int, err error) {
 
 	// fp.mutex.Lock()
 	// defer fp.mutex.Unlock()
+
+	compressedData, err := compressData(data)
+
+	if err != nil {
+		return 0, err
+	}
+
 	// TODO: What if the write is less than the page size?
-	err = storage.FS().WriteFile(fp.pagePath(offset), data, 0666)
+	err = storage.FS().WriteFile(fp.pagePath(pageNumber), compressedData, 0666)
 
 	if err == nil {
 		fp.pageCache.WriteAt(data, offset)
 	}
 
-	// return fp.file.WriteAt(data, offset)
 	return len(data), err
 }
 
@@ -132,6 +146,33 @@ func PageOffset(pagenumber, offset int64) int64 {
 	return offset - ((pagenumber - 1) * config.Get().PageSize)
 }
 
-func (fp *FileProxyV2) pagePath(offset int64) string {
-	return fmt.Sprintf("%s/page-%d", fp.path, PageNumber(offset))
+func (fp *FileProxyV2) pagePath(pageNumber int64) string {
+	return fmt.Sprintf("%s/page-%d", fp.path, pageNumber)
+}
+
+func compressData(data []byte) ([]byte, error) {
+	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedBestCompression))
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zstd encoder: %v", err)
+	}
+
+	defer encoder.Close()
+
+	compressedData := encoder.
+		EncodeAll(data, make([]byte, 0))
+
+	return compressedData, nil
+}
+
+func decompressData(data []byte) ([]byte, error) {
+	decoder, err := zstd.NewReader(nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zstd decoder: %v", err)
+	}
+
+	defer decoder.Close()
+
+	return decoder.DecodeAll(data, make([]byte, 0))
 }

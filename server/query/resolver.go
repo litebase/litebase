@@ -13,23 +13,10 @@ func NewResolver() *Resolver {
 	return &Resolver{}
 }
 
-func (r *Resolver) Handle(db *db.ClientConnection, query *Query) map[string]interface{} {
-	var handlerError error
-	var response map[string]interface{}
+func (r *Resolver) Handle(db *db.ClientConnection, query *Query) (map[string]interface{}, error) {
+	// var handlerError error
+	// var response map[string]interface{}
 
-	response, handlerError = r.resolveQuery(db, query)
-
-	if handlerError != nil {
-		fmt.Println("Error:", handlerError)
-	}
-
-	return response
-}
-
-func (r *Resolver) resolveQuery(
-	clientConnection *db.ClientConnection,
-	query *Query,
-) (map[string]interface{}, error) {
 	var err error
 	var data map[string]any
 
@@ -60,7 +47,7 @@ func (r *Resolver) resolveQuery(
 		}, nil
 	}
 
-	sqlite3Result, err := clientConnection.GetConnection().
+	sqlite3Result, err := db.GetConnection().
 		Query(statement, query.Parameters()...)
 
 	end := float64(time.Since(start)) / float64(time.Millisecond)
@@ -72,8 +59,8 @@ func (r *Resolver) resolveQuery(
 		}
 	} else {
 		result := map[string]any{
-			"changes":         clientConnection.GetConnection().Changes(),
-			"lastInsertRowID": clientConnection.GetConnection().SqliteConnection().LastInsertRowID(),
+			"changes":         db.GetConnection().Changes(),
+			"lastInsertRowID": db.GetConnection().SqliteConnection().LastInsertRowID(),
 			"rows":            sqlite3Result,
 			"rowCount":        len(sqlite3Result),
 		}

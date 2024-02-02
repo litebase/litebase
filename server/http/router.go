@@ -36,13 +36,11 @@ func Router() *RouterInstance {
 
 func (router *RouterInstance) compileKeys(method string) []RouteKey {
 	router.mutex.RLock()
+	defer router.mutex.RUnlock()
 
 	if router.Keys[method] != nil {
-		router.mutex.RUnlock()
 		return router.Keys[method]
 	}
-
-	router.mutex.RUnlock()
 
 	var keys = make([]string, 0, len(router.Routes[method]))
 
@@ -72,9 +70,7 @@ func (router *RouterInstance) compileKeys(method string) []RouteKey {
 		return len(compiledKeys[i].Route) > len(compiledKeys[j].Route)
 	})
 
-	router.mutex.Lock()
 	router.Keys[method] = compiledKeys
-	router.mutex.Unlock()
 
 	return router.Keys[method]
 }

@@ -13,7 +13,6 @@ import "C"
 
 import (
 	"io"
-	"sync/atomic"
 	"time"
 	"unsafe"
 )
@@ -111,29 +110,16 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 
 //export goXLock
 func goXLock(pFile *C.sqlite3_file, lockType C.int) C.int {
-	atomic.AddInt64(&fileLockCount, 1)
-
 	return sqliteOK
 }
 
 //export goXUnlock
 func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
-	atomic.AddInt64(&fileLockCount, -1)
-
 	return sqliteOK
 }
 
 //export goXCheckReservedLock
 func goXCheckReservedLock(pFile *C.sqlite3_file, pResOut *C.int) C.int {
-	count := atomic.LoadInt64(&fileLockCount)
-	locked := count > 0
-
-	if locked {
-		*pResOut = C.int(0)
-	} else {
-		*pResOut = C.int(1)
-	}
-
 	return sqliteOK
 }
 

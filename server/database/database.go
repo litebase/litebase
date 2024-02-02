@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/google/uuid"
 )
@@ -25,6 +26,7 @@ type Database struct {
 }
 
 var databases map[string]*Database = make(map[string]*Database)
+var databaseMutex = &sync.Mutex{}
 
 func Create(databaseName, branchName string) (*Database, error) {
 	branch := NewBranch(branchName, true)
@@ -170,6 +172,9 @@ func Exists(name string) bool {
 }
 
 func Get(databaseUuid string) (*Database, error) {
+	databaseMutex.Lock()
+	defer databaseMutex.Unlock()
+
 	if databases[databaseUuid] != nil {
 		return databases[databaseUuid], nil
 	}

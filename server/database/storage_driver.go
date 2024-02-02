@@ -42,6 +42,9 @@ func NewFileSystem(path string) *FileSystem {
 func (fs *FileSystem) CheckPoint() error {
 	var keys []int64
 
+	fs.wal.mutex.Lock()
+	defer fs.wal.mutex.Unlock()
+
 	for k := range fs.wal.pages {
 		keys = append(keys, k)
 	}
@@ -79,8 +82,7 @@ func (fs *FileSystem) CheckPoint() error {
 
 	fs.proxy.WritePages(pages)
 
-	log.Printf("CHECKPOINTED %d PAGES or %.1fMB", len(keys), float64(len(keys))*float64(config.Get().PageSize)/1024/1024)
-	// log.Printf("READ %.1fMB", float64(fs.readBytes)/1024/1024)
+	// log.Printf("CHECKPOINTED %d PAGES", len(keys))
 
 	fs.getFileSize()
 
@@ -96,12 +98,6 @@ func (fs *FileSystem) getFileSize() {
 
 	fs.size = size
 }
-
-// func (fs *FileSystem) Has(pageNumber int64) bool {
-// 	_, ok := fs.wal.pages[pageNumber]
-
-// 	return ok
-// }
 
 func (fs *FileSystem) Open(path string) (internalStorage.File, error) {
 	return fs.proxy.Open(path)
@@ -136,6 +132,9 @@ func (fs *FileSystem) WriteAt(data []byte, offset int64) (n int, err error) {
 
 	n, err = fs.wal.Write(PageNumber(offset), data)
 
+	fs.wal.mutex.Lock()
+	defer fs.wal.mutex.Unlock()
+
 	if len(fs.wal.pages) >= 1000 {
 		fs.CheckPoint()
 	}
@@ -152,6 +151,9 @@ func (fs *FileSystem) Size() (int64, error) {
 	if fs.size == 0 {
 		fs.getFileSize()
 	}
+
+	fs.wal.mutex.Lock()
+	defer fs.wal.mutex.Unlock()
 
 	if fs.size == 0 && len(fs.wal.pages) > 1 {
 		return int64(len(fs.wal.pages)) * config.Get().PageSize, nil

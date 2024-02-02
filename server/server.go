@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -39,13 +41,17 @@ func (s *ServerInstance) Primary() *Primary {
 }
 
 func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
+
 	port := os.Getenv("LITEBASEDB_PORT")
 
 	s.HttpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%s", port),
-		ReadTimeout:  0,
-		WriteTimeout: 0,
-		IdleTimeout:  0,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	// s.Node.Run()

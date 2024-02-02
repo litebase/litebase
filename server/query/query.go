@@ -68,7 +68,7 @@ func (query *Query) Parameters() []interface{} {
 	return query.parameters
 }
 
-func (query *Query) Resolve() map[string]interface{} {
+func (query *Query) Resolve() (map[string]interface{}, error) {
 	resolver := NewResolver()
 
 	return resolver.Handle(query.ClientConnection, query)

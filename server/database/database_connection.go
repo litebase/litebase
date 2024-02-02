@@ -1,8 +1,8 @@
 package database
 
 import (
-	"crypto/md5"
 	"fmt"
+	"hash/crc32"
 	"log"
 	"sync"
 
@@ -23,9 +23,10 @@ type DatabaseConnection struct {
 	databaseUuid string
 	fileSystem   *FileSystem
 	id           string
+	mutex        *sync.Mutex
 	path         string
 	session      *sqlite3.Session
-	statements   map[[16]byte]*sqlite3.Statement
+	statements   map[uint32]*sqlite3.Statement
 }
 
 func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConnection {
@@ -39,8 +40,9 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 		databaseUuid: databaseUuid,
 		fileSystem:   NewFileSystem(path),
 		// accessKey:  accessKey,
+		mutex:      &sync.Mutex{},
 		path:       path,
-		statements: map[[16]byte]*sqlite3.Statement{},
+		statements: map[uint32]*sqlite3.Statement{},
 	}
 
 	con.setId()
@@ -48,7 +50,7 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 	// TODO: add authorizer, something is broken
 	con.setAuthorizer()
 
-	connection, err = sqlite3.Open("file:"+con.path+"", 0)
+	connection, err = sqlite3.Open(fmt.Sprintf("litebase:%s", con.id), 0)
 
 	if err != nil {
 		log.Fatalln("Erorr init", err)
@@ -60,13 +62,6 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 	con.connection.Exec("pragma journal_mode=OFF")
 	// con.connection.Exec("pragma journal_mode=WAL")
 	con.connection.Exec("pragma wal_autocheckpoint=100")
-	// con.connection.Exec("pragma defer_foreign_keys=ON")
-	// con.connection.Exec("pragma locking_mode=EXCLUSIVE")
-	// con.connection.Exec(fmt.Sprintf("PRAGMA page_size = %d;", config.Get().PageSize))
-	// con.connection.Exec(fmt.Sprintf("PRAGMA max_page_count = %d;", config.Get().MaxPageCount))
-	// con.connection.Exec("PRAGMA mmap_size = 129000000000")
-	// con.connection.Exec("PRAGMA cache_size = 15625")
-	// con.connection.Exec("PRAGMA cache_size = 0")
 	con.connection.Exec("PRAGMA cache_size = -125000") // 125K Kib = 128MB
 	con.connection.Exec("PRAGMA busy_timeout = 3000")
 
@@ -108,8 +103,12 @@ func (con *DatabaseConnection) Statement(queryStatement string) (*sqlite3.Statem
 	var exists bool
 	var statement *sqlite3.Statement
 
-	hash := md5.Sum([]byte(queryStatement))
+	// hash := md5.Sum([]byte(queryStatement))
+	hash := crc32.ChecksumIEEE([]byte(queryStatement))
+
+	con.mutex.Lock()
 	statement, exists = con.statements[hash]
+	con.mutex.Unlock()
 
 	if !exists {
 		statement, err = con.connection.Prepare(queryStatement)
@@ -118,7 +117,9 @@ func (con *DatabaseConnection) Statement(queryStatement string) (*sqlite3.Statem
 			// TODO: If the schema changes, the statement will be invalid.
 			// We should track if a Query performs DDL and invalidate the
 			// statement cache for each connection.
+			con.mutex.Lock()
 			con.statements[hash] = statement
+			con.mutex.Unlock()
 		}
 	}
 
@@ -242,35 +243,38 @@ func (con *DatabaseConnection) Transaction(
 	handler func(con *DatabaseConnection) (sqlite3.Result, error),
 ) (sqlite3.Result, error) {
 	var err error
+	if !readOnly {
+		unlock := con.Lock(readOnly)
+		defer unlock()
 
-	unlock := con.Lock(readOnly)
-	defer unlock()
-
-	_, err = con.SqliteConnection().Exec("BEGIN")
-
-	if err != nil {
-		log.Println("Transaction Error:", err)
-		return nil, err
-	}
-
-	results, handlerError := handler(con)
-
-	if handlerError != nil {
-		_, err = con.SqliteConnection().Exec("ROLLBACK")
+		_, err = con.SqliteConnection().Exec("BEGIN")
 
 		if err != nil {
 			log.Println("Transaction Error:", err)
 			return nil, err
 		}
-
-		return nil, handlerError
 	}
 
-	_, err = con.SqliteConnection().Exec("COMMIT")
+	results, handlerError := handler(con)
 
-	if err != nil {
-		log.Println("Transaction Error:", err)
-		return nil, err
+	if !readOnly {
+		if handlerError != nil {
+			_, err = con.SqliteConnection().Exec("ROLLBACK")
+
+			if err != nil {
+				log.Println("Transaction Error:", err)
+				return nil, err
+			}
+
+			return nil, handlerError
+		}
+
+		_, err = con.SqliteConnection().Exec("COMMIT")
+
+		if err != nil {
+			log.Println("Transaction Error:", err)
+			return nil, err
+		}
 	}
 
 	return results, handlerError
@@ -294,17 +298,19 @@ func (con *DatabaseConnection) RegisterVFS() {
 }
 
 func (con *DatabaseConnection) Lock(readOnly bool) func() {
-	if readOnly {
-		ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).RLock()
-		return func() {
-			ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).RUnlock()
-		}
-	} else {
-		ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).Lock()
-		return func() {
-			ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).Unlock()
-		}
+	// if readOnly {
+	// 	ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).RLock()
+
+	// 	return func() {
+	// 		ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).RUnlock()
+	// 	}
+	// } else {
+	ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).Lock()
+
+	return func() {
+		ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).Unlock()
 	}
+	// }
 }
 
 func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {

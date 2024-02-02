@@ -22,6 +22,9 @@ import (
 	"time"
 )
 
+var privateKeys = map[string]*rsa.PrivateKey{}
+var privateKeysMutex = &sync.Mutex{}
+
 func EncryptKey(signature, key string) (string, error) {
 	plaintextBytes := []byte(key)
 	hash := sha256.New()
@@ -188,25 +191,32 @@ func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
 }
 
 func GetPrivateKey(signature string) (*rsa.PrivateKey, error) {
-	privateKey, err := storage.FS().ReadFile(KeyPath("private", signature))
+	privateKeysMutex.Lock()
+	defer privateKeysMutex.Unlock()
 
-	if err != nil {
-		return nil, err
+	if privateKeys[signature] == nil {
+		privateKey, err := storage.FS().ReadFile(KeyPath("private", signature))
+
+		if err != nil {
+			return nil, err
+		}
+
+		block, _ := pem.Decode(privateKey)
+
+		if block == nil {
+			return nil, errors.New("failed to parse PEM block containing the key")
+		}
+
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+
+		if err != nil {
+			return nil, err
+		}
+
+		privateKeys[signature] = key
 	}
 
-	block, _ := pem.Decode(privateKey)
-
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block containing the key")
-	}
-
-	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
+	return privateKeys[signature], nil
 }
 
 func GetPublicKey(signature string) (*rsa.PublicKey, error) {

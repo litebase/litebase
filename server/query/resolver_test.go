@@ -79,10 +79,14 @@ func TestHandle(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			response := resolver.Handle(db, query)
+			response, err := resolver.Handle(db, query)
 
 			if response["status"] != c.expected {
 				t.Fatalf("Query was not successful: %s", response["message"])
+			}
+
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
 

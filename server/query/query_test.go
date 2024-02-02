@@ -161,10 +161,14 @@ func TestResolve(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		response := query.Resolve()
+		response, err := query.Resolve()
 
 		if response["status"] != "success" {
 			t.Fatal("Response status is not correct")
+		}
+
+		if err != nil {
+			t.Fatal(err)
 		}
 	})
 }
