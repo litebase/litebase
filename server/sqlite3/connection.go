@@ -215,9 +215,9 @@ func (c *Connection) Authorizer(authorizer Authorizer) {
 
 //export go_authorizer
 func go_authorizer(userInfo unsafe.Pointer, action C.int, arg1, arg2, dbName, triggerOrView *C.char) C.int {
-	if authorizerCallback != nil {
-		return C.int(authorizerCallback(int(action), C.GoString(arg1), C.GoString(arg2), C.GoString(dbName), C.GoString(triggerOrView)))
-	}
+	// if authorizerCallback != nil {
+	// 	return C.int(authorizerCallback(int(action), C.GoString(arg1), C.GoString(arg2), C.GoString(dbName), C.GoString(triggerOrView)))
+	// }
 
 	return C.int(0)
 }

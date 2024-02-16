@@ -66,7 +66,8 @@ func goXClose(pFile *C.sqlite3_file) C.int {
 //export goXRead
 func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
-	n, err := storage.ReadAt(goBuffer, int64(iOfst))
+	data, err := storage.ReadAt(int64(iOfst))
+	n := copy(goBuffer, data)
 
 	if n < len(goBuffer) && err == io.EOF {
 		for i := n; i < len(goBuffer); i++ {

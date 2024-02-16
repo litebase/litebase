@@ -7,18 +7,19 @@ import (
 	internalStorage "litebasedb/internal/storage"
 	"litebasedb/server/storage"
 	"os"
+	"sync"
 
-	"github.com/klauspost/compress/zstd"
+	"github.com/klauspost/compress/s2"
 )
 
 type FileProxyV2 struct {
 	exists    bool
 	pageCache *PageCache
-	// mutex *sync.Mutex
-	path string
+	mutex     *sync.Mutex
+	path      string
 }
 
-func NewFileProxyV2(path string) *FileProxyV2 {
+func NewFileProxyV2(path, databaseUuid, branchUuid string) *FileProxyV2 {
 	// file, err := storage.FS().OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 
 	// if err != nil {
@@ -27,8 +28,8 @@ func NewFileProxyV2(path string) *FileProxyV2 {
 
 	fp := &FileProxyV2{
 		// file: file,
-		// mutex: &sync.Mutex{},
-		pageCache: NewPageCache(),
+		mutex:     &sync.Mutex{},
+		pageCache: NewPageCache(databaseUuid, branchUuid),
 		path:      path,
 	}
 
@@ -41,14 +42,18 @@ func (fp *FileProxyV2) Open(path string) (internalStorage.File, error) {
 	return nil, nil
 }
 
-func (fp *FileProxyV2) ReadAt(data []byte, offset int64) (n int, err error) {
-	pageNumber := PageNumber(offset)
+func (fp *FileProxyV2) ReadAt(offset int64) (data []byte, err error) {
+	data, err = fp.pageCache.Get(offset)
 
-	if fp.pageCache.Has(offset) {
-		n, err = fp.pageCache.ReadAt(data, offset)
-
-		return n, err
+	if err != nil {
+		return nil, err
 	}
+
+	if len(data) > 0 {
+		return data, nil
+	}
+
+	pageNumber := PageNumber(offset)
 
 	fileData, err := storage.FS().ReadFile(fp.pagePath(pageNumber))
 
@@ -56,35 +61,33 @@ func (fp *FileProxyV2) ReadAt(data []byte, offset int64) (n int, err error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return 0, io.EOF
+			return nil, io.EOF
 		}
 
-		return 0, err
+		return nil, err
 	}
 
 	decompressedData, err := decompressData(fileData)
 
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	if pageNumber == 1 {
 		fp.exists = true
 	}
 
-	n = copy(data, decompressedData)
-
-	if err == nil && n == 4096 {
-		fp.pageCache.WriteAt(decompressedData, offset)
+	if err == nil && len(decompressedData) == int(config.Get().PageSize) {
+		fp.pageCache.Put(offset, decompressedData)
 	}
 
-	return n, nil
+	return decompressedData, nil
 }
 
 func (fp *FileProxyV2) WriteAt(data []byte, offset int64) (n int, err error) {
 	pageNumber := PageNumber(offset)
 
-	if pageNumber == 1 {
+	if pageNumber == 1 && !fp.exists {
 		fp.exists = true
 	}
 
@@ -97,14 +100,17 @@ func (fp *FileProxyV2) WriteAt(data []byte, offset int64) (n int, err error) {
 		return 0, err
 	}
 
-	// TODO: What if the write is less than the page size?
 	err = storage.FS().WriteFile(fp.pagePath(pageNumber), compressedData, 0666)
 
 	if err == nil {
-		fp.pageCache.WriteAt(data, offset)
+		fp.pageCache.Put(offset, data)
 	}
 
-	return len(data), err
+	n = len(data)
+
+	data = nil
+
+	return n, err
 }
 
 func (fp *FileProxyV2) WritePages(pages []struct {
@@ -112,8 +118,8 @@ func (fp *FileProxyV2) WritePages(pages []struct {
 	Length int64
 	Offset int64
 }) error {
-	// fp.mutex.Lock()
-	// defer fp.mutex.Unlock()
+	fp.mutex.Lock()
+	defer fp.mutex.Unlock()
 
 	// TODO: Batch writes
 	// TODO: Lock for atomicity
@@ -132,10 +138,10 @@ func (fp *FileProxyV2) Size() (int64, error) {
 	// fp.mutex.Lock()
 	// defer fp.mutex.Unlock()
 	if fp.exists {
-		return 4096 * 4294967294, nil
+		return config.Get().PageSize * 4294967294, nil
 	}
 
-	return 0 * 4096, nil
+	return 0 * config.Get().PageSize, nil
 }
 
 func PageNumber(offset int64) int64 {
@@ -151,28 +157,9 @@ func (fp *FileProxyV2) pagePath(pageNumber int64) string {
 }
 
 func compressData(data []byte) ([]byte, error) {
-	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedBestCompression))
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create zstd encoder: %v", err)
-	}
-
-	defer encoder.Close()
-
-	compressedData := encoder.
-		EncodeAll(data, make([]byte, 0))
-
-	return compressedData, nil
+	return s2.Encode(nil, data), nil
 }
 
 func decompressData(data []byte) ([]byte, error) {
-	decoder, err := zstd.NewReader(nil)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create zstd decoder: %v", err)
-	}
-
-	defer decoder.Close()
-
-	return decoder.DecodeAll(data, make([]byte, 0))
+	return s2.Decode(nil, data)
 }

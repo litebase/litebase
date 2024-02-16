@@ -120,6 +120,8 @@ openFile:
 
 	data := make([]byte, *response.ContentLength)
 
+	defer response.Body.Close()
+
 	response.Body.Read(data)
 
 	return &S3File{
@@ -164,6 +166,8 @@ openFile:
 	}
 
 	data := make([]byte, *response.ContentLength)
+
+	defer response.Body.Close()
 
 	response.Body.Read(data)
 
@@ -236,6 +240,8 @@ func (fs *S3FileSystemDriver) ReadFile(path string) ([]byte, error) {
 
 		return nil, err
 	}
+
+	defer response.Body.Close()
 
 	data, err := io.ReadAll(response.Body)
 

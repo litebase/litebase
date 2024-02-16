@@ -1,0 +1,166 @@
+#include "./litebase_vfs_page_cache.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void evict(LitebaseVFSCache *cache)
+{
+	if (cache->size >= cache->capacity)
+	{
+		// Remove the least recently used item by its counter
+		int min_index = -1;
+		int min_counter = 0;
+
+		for (int i = 0; i < cache->capacity; ++i)
+		{
+			if (cache->index[i]->counter <= min_counter)
+			{
+				min_counter = cache->index[i]->counter;
+				min_index = i;
+			}
+		}
+
+		if (min_index == -1)
+		{
+			return;
+		}
+
+		int referenceKey = cache->index[min_index]->referenceKey;
+
+		if (referenceKey >= 0 && cache->data[referenceKey].data != NULL)
+		{
+			// Remove the least recently used item
+			free(cache->data[referenceKey].data);
+			cache->data[referenceKey].data = NULL;
+			cache->index[min_index]->key = -1;
+			cache->index[min_index]->referenceKey = -1;
+			cache->index[min_index]->counter = 0;
+			cache->size--;
+		}
+	}
+}
+
+int Get(LitebaseVFSCache *cache, int pageNumber, void *data)
+{
+	// Find the page in the index
+	for (int i = 0; i < cache->capacity; ++i)
+	{
+		if (cache->index[i]->key == -1 || cache->index[i]->referenceKey == -1)
+		{
+			continue;
+		}
+
+		if (cache->index[i]->key == pageNumber && cache->index[i]->referenceKey >= 0 && cache->data[cache->index[i]->referenceKey].data != NULL)
+		{
+			cache->index[i]->counter++;
+			memcpy(data, cache->data[cache->index[i]->referenceKey].data, 4096);
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+void Put(LitebaseVFSCache *cache, int pageNumber, void *data)
+{
+	// Check if the cache has reached its capacity
+	evict(cache);
+
+	// Find the next available slot
+	int indexKey = -1;
+	int referenceKey = -1;
+
+	for (int i = 0; i < cache->capacity; ++i)
+	{
+		if (cache->index[i]->key == -1)
+		{
+			indexKey = i;
+			break;
+		}
+	}
+
+	for (int i = 0; i < cache->capacity; ++i)
+	{
+		if (cache->data[i].data == NULL)
+		{
+			referenceKey = i;
+			break;
+		}
+	}
+
+	if (indexKey == -1 || referenceKey == -1)
+	{
+		return;
+	}
+
+	// Store the page in the index and the data in the data array
+	cache->index[indexKey]->key = pageNumber;
+	cache->index[indexKey]->referenceKey = referenceKey;
+	cache->index[indexKey]->counter = 1;
+	cache->data[referenceKey].data = malloc(4096);
+	memcpy(cache->data[referenceKey].data, data, 4096);
+	cache->size++;
+}
+
+void Delete(LitebaseVFSCache *cache, int pageNumber)
+{
+	// Find the page in the index
+	for (int i = 0; i < cache->capacity; ++i)
+	{
+		if (cache->index[i]->key == -1 || cache->index[i]->referenceKey == -1)
+		{
+			continue;
+		}
+
+		if (cache->index[i]->key == pageNumber && cache->index[i]->referenceKey >= 0 && cache->data[cache->index[i]->referenceKey].data != NULL)
+		{
+			free(cache->data[cache->index[i]->referenceKey].data);
+			cache->data[cache->index[i]->referenceKey].data = NULL;
+		}
+
+		cache->index[i]->key = -1;
+		cache->index[i]->referenceKey = -1;
+		cache->index[i]->counter = 0;
+		cache->size--;
+
+		break;
+	}
+}
+
+void Flush(LitebaseVFSCache *cache)
+{
+	printf("Flush\n");
+
+	// Remove all the pages from the index and the data array
+	for (int i = 0; i < cache->capacity; ++i)
+	{
+		free(cache->data[i].data);
+		cache->data[i].data = NULL;
+		cache->index[i]->key = -1;
+		cache->index[i]->referenceKey = -1;
+		cache->index[i]->counter = 0;
+		cache->size = 0;
+	}
+}
+
+LitebaseVFSCache *createCache(int capacity)
+{
+	LitebaseVFSCache *cache = malloc(sizeof(LitebaseVFSCache));
+	cache->capacity = capacity;
+	cache->size = 0;
+	cache->index = malloc(sizeof(LitebaseVFSCachePage) * capacity);
+	cache->data = malloc(sizeof(LitebaseVFSCachePageReference) * capacity);
+	cache->Get = Get;
+	cache->Put = Put;
+	cache->Delete = Delete;
+	cache->Flush = Flush;
+
+	for (int i = 0; i < capacity; ++i)
+	{
+		cache->index[i]->key = -1;
+		cache->index[i]->referenceKey = -1;
+		cache->index[i]->counter = 0;
+	}
+
+	return cache;
+}

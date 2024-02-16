@@ -15,17 +15,16 @@ type FileSystem struct {
 	computedSize int64
 	mutex        *sync.RWMutex
 	proxy        file.Proxy
-	readBytes    int64
 	path         string
 	size         int64
 	wal          *WAL
 }
 
-func NewFileSystem(path string) *FileSystem {
+func NewFileSystem(path, databaseUuid, branchUuid string) *FileSystem {
 	fs := &FileSystem{
 		mutex: &sync.RWMutex{},
 		path:  path,
-		proxy: file.NewFileProxyV2(path),
+		proxy: file.NewFileProxyV2(path, databaseUuid, branchUuid),
 		size:  0,
 		wal:   NewWAL(),
 	}
@@ -82,8 +81,7 @@ func (fs *FileSystem) CheckPoint() error {
 
 	fs.proxy.WritePages(pages)
 
-	// log.Printf("CHECKPOINTED %d PAGES", len(keys))
-
+	log.Printf("CHECKPOINTED %d PAGES", len(keys))
 	fs.getFileSize()
 
 	return nil
@@ -103,26 +101,24 @@ func (fs *FileSystem) Open(path string) (internalStorage.File, error) {
 	return fs.proxy.Open(path)
 }
 
-func (fs *FileSystem) ReadAt(data []byte, offset int64) (n int, err error) {
-	start := timer.Start("READ PAGE")
+func (fs *FileSystem) ReadAt(offset int64) (data []byte, err error) {
+	// start := timer.Start("READ PAGE")
 	pageNumber := PageNumber(offset)
 	pageOffset := PageOffset(offset)
 
 	if fs.wal.Has(pageNumber) {
-		n, err = fs.wal.Read(pageNumber, pageOffset, data)
+		data, err = fs.wal.Read(pageNumber, pageOffset)
 	} else {
-		n, err = fs.proxy.ReadAt(data, offset)
-
-		fs.readBytes += int64(n)
+		data, err = fs.proxy.ReadAt(offset)
 	}
 
-	timer.Stop(start)
+	// timer.Stop(start)
 
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return n, err
+	return data, err
 }
 
 func (fs *FileSystem) WriteAt(data []byte, offset int64) (n int, err error) {
@@ -132,10 +128,12 @@ func (fs *FileSystem) WriteAt(data []byte, offset int64) (n int, err error) {
 
 	n, err = fs.wal.Write(PageNumber(offset), data)
 
-	fs.wal.mutex.Lock()
-	defer fs.wal.mutex.Unlock()
+	// TODO: This will not work well with long running transactions
+	fs.wal.mutex.RLock()
+	shoudlCheckPoint := len(fs.wal.pages) > 1000
+	fs.wal.mutex.RUnlock()
 
-	if len(fs.wal.pages) >= 1000 {
+	if shoudlCheckPoint {
 		fs.CheckPoint()
 	}
 
@@ -152,8 +150,8 @@ func (fs *FileSystem) Size() (int64, error) {
 		fs.getFileSize()
 	}
 
-	fs.wal.mutex.Lock()
-	defer fs.wal.mutex.Unlock()
+	fs.wal.mutex.RLock()
+	defer fs.wal.mutex.RUnlock()
 
 	if fs.size == 0 && len(fs.wal.pages) > 1 {
 		return int64(len(fs.wal.pages)) * config.Get().PageSize, nil

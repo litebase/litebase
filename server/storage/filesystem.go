@@ -34,25 +34,25 @@ type FileSystemDriver interface {
 
 var fileSystem *FileSystem
 
-func NewFileSystem() *FileSystem {
+func NewFileSystem(driver string) *FileSystem {
 	fs := &FileSystem{
 		mutex: &sync.Mutex{},
 	}
 
-	// if os.Getenv("LITEBASEDB_FILESYSTEM_DRIVER") == "remote" {
-	// 	fs.driver = NewLambdaFileSystemDriver()
-	// } else {
-	// 	fs.driver = NewLocalFileSystemDriver()
-	// }
-
-	fs.driver = NewS3FileSystemDriver()
+	switch driver {
+	case "s3":
+		fs.driver = NewS3FileSystemDriver()
+	case "local":
+		fs.driver = NewLocalFileSystemDriver()
+	}
 
 	return fs
 }
 
 func FS() *FileSystem {
 	if fileSystem == nil {
-		fileSystem = NewFileSystem()
+		// TODO: Need to make a default from config
+		fileSystem = NewFileSystem("s3")
 	}
 
 	return fileSystem

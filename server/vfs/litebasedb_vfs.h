@@ -1,4 +1,5 @@
 #include "../sqlite3/sqlite3.h"
+#include "./litebase_vfs_page_cache.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,6 +9,7 @@ struct LBDBFile
 	sqlite3_file base; /* Base class. Must be first. */
 	int main;
 	int *pFile;
+	LitebaseVFSCache *cache;
 };
 
 int newVfs();

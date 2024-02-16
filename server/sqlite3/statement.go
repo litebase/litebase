@@ -14,7 +14,7 @@ type Statement struct {
 	columnNames  []string
 	Connection   *Connection
 	sqlite3_stmt *C.sqlite3_stmt
-	extra        string
+	extra        *C.char
 	text         string
 }
 
@@ -36,7 +36,7 @@ func (c *Connection) Prepare(query string) (*Statement, error) {
 		columnNames:  []string{},
 		Connection:   c,
 		sqlite3_stmt: s,
-		extra:        C.GoString(cExtra),
+		extra:        cExtra,
 		text:         query,
 	}, nil
 }
@@ -55,6 +55,14 @@ func (s *Statement) Reset() error {
 func (s *Statement) Bind(parameters ...interface{}) error {
 	var err error
 
+	var binding = func(callback func() C.int) error {
+		if rc := callback(); rc != SQLITE_OK {
+			return s.Connection.Error(rc)
+		}
+
+		return nil
+	}
+
 	for i, parameter := range parameters {
 		if parameter == nil {
 			if rc := C.sqlite3_bind_null(s.sqlite3_stmt, C.int(i+1)); rc != SQLITE_OK {
@@ -63,14 +71,6 @@ func (s *Statement) Bind(parameters ...interface{}) error {
 		}
 
 		index := C.int(i + 1)
-
-		var binding = func(callback func() C.int) error {
-			if rc := callback(); rc != SQLITE_OK {
-				return s.Connection.Error(rc)
-			}
-
-			return nil
-		}
 
 		switch value := parameter.(type) {
 		case int:

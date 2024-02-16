@@ -25,8 +25,8 @@ type DatabaseConnection struct {
 	id           string
 	mutex        *sync.Mutex
 	path         string
-	session      *sqlite3.Session
-	statements   map[uint32]*sqlite3.Statement
+	// session      *sqlite3.Session
+	statements map[uint32]*sqlite3.Statement
 }
 
 func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConnection {
@@ -38,7 +38,7 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 	con := &DatabaseConnection{
 		branchUuid:   branchUuid,
 		databaseUuid: databaseUuid,
-		fileSystem:   NewFileSystem(path),
+		fileSystem:   NewFileSystem(path, databaseUuid, branchUuid),
 		// accessKey:  accessKey,
 		mutex:      &sync.Mutex{},
 		path:       path,
@@ -61,8 +61,9 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 	con.connection.Exec("PRAGMA synchronous=OFF")
 	con.connection.Exec("pragma journal_mode=OFF")
 	// con.connection.Exec("pragma journal_mode=WAL")
-	con.connection.Exec("pragma wal_autocheckpoint=100")
-	con.connection.Exec("PRAGMA cache_size = -125000") // 125K Kib = 128MB
+	// con.connection.Exec("pragma wal_autocheckpoint=100")
+	con.connection.Exec("PRAGMA cache_size = 0")
+	// con.connection.Exec("PRAGMA cache_size = -125000") // 125K Kib = 128MB
 	con.connection.Exec("PRAGMA busy_timeout = 3000")
 
 	return con
@@ -130,15 +131,15 @@ func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 	return con.connection
 }
 
-func (con *DatabaseConnection) SessionStart() error {
-	if con.session != nil {
-		return fmt.Errorf("session already in progress")
-	}
+// func (con *DatabaseConnection) SessionStart() error {
+// 	if con.session != nil {
+// 		return fmt.Errorf("session already in progress")
+// 	}
 
-	con.session = sqlite3.CreateSession(con.connection.Base())
+// 	con.session = sqlite3.CreateSession(con.connection.Base())
 
-	return nil
-}
+// 	return nil
+// }
 
 func (c *DatabaseConnection) setAuthorizer() {
 	if c.accessKey == nil {
@@ -243,39 +244,45 @@ func (con *DatabaseConnection) Transaction(
 	handler func(con *DatabaseConnection) (sqlite3.Result, error),
 ) (sqlite3.Result, error) {
 	var err error
-	if !readOnly {
-		unlock := con.Lock(readOnly)
-		defer unlock()
 
-		_, err = con.SqliteConnection().Exec("BEGIN")
+	// Based on the readonly state of the transaction, we should inform
+	// the storage driver where to read pages from so that read only
+	// transactions are able to read from the WAL file without being
+	// blocked by a writer.
 
-		if err != nil {
-			log.Println("Transaction Error:", err)
-			return nil, err
-		}
+	// if !readOnly {
+	unlock := con.Lock(readOnly)
+	defer unlock()
+
+	_, err = con.SqliteConnection().Exec("BEGIN")
+
+	if err != nil {
+		log.Println("Transaction Error:", err)
+		return nil, err
 	}
+	// }
 
 	results, handlerError := handler(con)
 
-	if !readOnly {
-		if handlerError != nil {
-			_, err = con.SqliteConnection().Exec("ROLLBACK")
-
-			if err != nil {
-				log.Println("Transaction Error:", err)
-				return nil, err
-			}
-
-			return nil, handlerError
-		}
-
-		_, err = con.SqliteConnection().Exec("COMMIT")
+	// if !readOnly {
+	if handlerError != nil {
+		_, err = con.SqliteConnection().Exec("ROLLBACK")
 
 		if err != nil {
 			log.Println("Transaction Error:", err)
 			return nil, err
 		}
+
+		return nil, handlerError
 	}
+
+	_, err = con.SqliteConnection().Exec("COMMIT")
+
+	if err != nil {
+		log.Println("Transaction Error:", err)
+		return nil, err
+	}
+	// }
 
 	return results, handlerError
 }

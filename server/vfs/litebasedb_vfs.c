@@ -1,5 +1,5 @@
-
 #include "./litebasedb_vfs.h"
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,6 +52,8 @@ static struct
   ** shim, the following mutex must be held.
   */
   sqlite3_mutex *pMutex;
+
+  LitebaseVFSCache *cache;
 } x;
 
 static sqlite3_vfs *xRootVFS() { return x.pOrigVfs; }
@@ -68,12 +70,51 @@ static sqlite3_file *xFile(sqlite3_file *pFile)
 
 int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  return goXRead(pFile, zBuf, iAmt, iOfst);
+  // Get the page from the cache
+  if (iAmt != 4096)
+  {
+    return goXRead(pFile, zBuf, iAmt, iOfst);
+  }
+
+  int rc;
+  LBDBFile *p = (LBDBFile *)pFile;
+
+  // Calculate the page number
+  int pageNumber = iOfst / 4096 + 1;
+
+  int ok = p->cache->Get(p->cache, pageNumber, zBuf);
+
+  // If the page is not in the cache, read it from the file
+  if (ok != 0)
+  {
+    // If the page is not in the cache, read it from the file
+    rc = goXRead(pFile, zBuf, iAmt, iOfst);
+
+    if (rc != SQLITE_OK)
+    {
+      return rc;
+    }
+
+    // Then put the page in the cache if zBuf is 4096 bytes
+    p->cache->Put(p->cache, pageNumber, zBuf);
+  }
+
+  return SQLITE_OK;
 }
 
 int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  return goXWrite(pFile, zBuf, iAmt, iOfst);
+  LBDBFile *p = (LBDBFile *)pFile;
+
+  // Calculate the page number
+  int pageNumber = iOfst / 4096 + 1;
+
+  // If the page is in the cache, delete it
+  p->cache->Delete(p->cache, pageNumber);
+
+  int rc = goXWrite(pFile, zBuf, iAmt, iOfst);
+
+  return rc;
 }
 
 // truncate
@@ -83,25 +124,16 @@ int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
   return 0;
 }
 
-int xSync(sqlite3_file *pFile, int flags)
-{
-  return 0;
-}
+int xSync(sqlite3_file *pFile, int flags) { return 0; }
 
 int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 {
   return goXFileSize(pFile, pSize);
 }
 
-int xLock(sqlite3_file *pFile, int eLock)
-{
-  return goXLock(pFile, eLock);
-}
+int xLock(sqlite3_file *pFile, int eLock) { return goXLock(pFile, eLock); }
 
-int xUnlock(sqlite3_file *pFile, int eLock)
-{
-  return goXUnlock(pFile, eLock);
-}
+int xUnlock(sqlite3_file *pFile, int eLock) { return goXUnlock(pFile, eLock); }
 
 int xCheckReservedLock(sqlite3_file *pFile, int *pResOut)
 {
@@ -115,15 +147,9 @@ int xFileControl(sqlite3_file *pFile, int op, void *pArg)
   return 0;
 }
 
-int xSectorSize(sqlite3_file *pFile)
-{
-  return 0;
-}
+int xSectorSize(sqlite3_file *pFile) { return 0; }
 
-int xDeviceCharacteristics(sqlite3_file *pFile)
-{
-  return 0;
-}
+int xDeviceCharacteristics(sqlite3_file *pFile) { return 0; }
 
 int xShmMap(sqlite3_file *pFile, int iPg, int pgsz, int x, void volatile **pp)
 {
@@ -163,6 +189,9 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
 
   pFile->pMethods = &x_io_methods;
 
+  // Set the cache
+  ((LBDBFile *)pFile)->cache = createCache(25000);
+
   return rc;
 }
 
@@ -194,10 +223,7 @@ int xSleep(sqlite3_vfs *vfs, int microseconds)
   return goXSleep(vfs, microseconds);
 }
 
-int xClose(sqlite3_file *pFile)
-{
-  return goXClose(pFile);
-}
+int xClose(sqlite3_file *pFile) { return goXClose(pFile); }
 
 int register_litebase_vfs()
 {
@@ -270,6 +296,7 @@ int newVfs()
 
   return register_litebase_vfs();
 }
+
 const sqlite3_io_methods x_io_methods = {
     1,                      /* iVersion */
     xClose,                 /* xClose */
