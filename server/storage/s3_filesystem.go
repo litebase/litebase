@@ -88,8 +88,6 @@ func (fs *S3FileSystemDriver) MkdirAll(path string, perm os.FileMode) error {
 }
 
 func (fs *S3FileSystemDriver) Open(path string) (internalStorage.File, error) {
-	log.Println("Open file", path)
-
 openFile:
 	response, err := fs.client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET")),

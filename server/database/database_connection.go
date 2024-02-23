@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var vfsRegistered = false
 var vfsMutex = &sync.Mutex{}
 
 type DatabaseConnection struct {
@@ -39,15 +38,13 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 		branchUuid:   branchUuid,
 		databaseUuid: databaseUuid,
 		fileSystem:   NewFileSystem(path, databaseUuid, branchUuid),
-		// accessKey:  accessKey,
-		mutex:      &sync.Mutex{},
-		path:       path,
-		statements: map[uint32]*sqlite3.Statement{},
+		mutex:        &sync.Mutex{},
+		path:         path,
+		statements:   map[uint32]*sqlite3.Statement{},
 	}
 
 	con.setId()
 	con.RegisterVFS()
-	// TODO: add authorizer, something is broken
 	con.setAuthorizer()
 
 	connection, err = sqlite3.Open(fmt.Sprintf("litebase:%s", con.id), 0)
@@ -63,7 +60,6 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 	// con.connection.Exec("pragma journal_mode=WAL")
 	// con.connection.Exec("pragma wal_autocheckpoint=100")
 	con.connection.Exec("PRAGMA cache_size = 0")
-	// con.connection.Exec("PRAGMA cache_size = -125000") // 125K Kib = 128MB
 	con.connection.Exec("PRAGMA busy_timeout = 3000")
 
 	return con
@@ -291,17 +287,11 @@ func (con *DatabaseConnection) RegisterVFS() {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
-	if vfsRegistered {
-		return
-	}
-
-	err := vfs.RegisterVFS(con.fileSystem)
+	err := vfs.RegisterVFS(fmt.Sprintf("litebase:%s", con.id), con.fileSystem)
 
 	if err != nil {
 		log.Fatalf("Register VFS err: %s", err)
 	}
-
-	vfsRegistered = true
 }
 
 func (con *DatabaseConnection) Lock(readOnly bool) func() {

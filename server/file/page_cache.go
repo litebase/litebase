@@ -95,16 +95,11 @@ func (pc *PageCache) filePath() string {
 }
 
 func (pc *PageCache) Get(off int64) ([]byte, error) {
+	pageNumber := PageNumber(off)
+
 	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
-	pageNumer := PageNumber(off)
-
-	if !pc.Has(off) {
-		return nil, nil
-	}
-
-	// Get the page index
-	entry, ok := pc.index[pageNumer]
+	entry, ok := pc.index[pageNumber]
+	pc.mutex.RUnlock()
 
 	if !ok {
 		return nil, nil
@@ -126,20 +121,22 @@ func (pc *PageCache) Get(off int64) ([]byte, error) {
 	}
 
 	if n != int(config.Get().PageSize) {
-		log.Println("ERROR READING PAGE", pageNumer, "NOT ENOUGH DATA")
-		return nil, fmt.Errorf("page %d not enough data", pageNumer)
+		log.Println("ERROR READING PAGE", pageNumber, "NOT ENOUGH DATA")
+		return nil, fmt.Errorf("page %d not enough data", pageNumber)
 	}
 
-	pageOffset := PageOffset(pageNumer, off)
+	pageOffset := PageOffset(pageNumber, off)
 
 	if pageOffset >= int64(len(page)) {
 		return nil, fmt.Errorf("page offset %d out of bounds for page %d", pageOffset, PageNumber(off))
 	}
 
-	pc.index[PageNumber(off)] = []int64{
+	pc.mutex.Lock()
+	pc.index[pageNumber] = []int64{
 		entry[0],
 		entry[1] + 1,
 	}
+	pc.mutex.Unlock()
 
 	return page[pageOffset:], nil
 }
@@ -152,16 +149,26 @@ func (pc *PageCache) Has(off int64) bool {
 	return ok
 }
 
-func (pc *PageCache) Put(off int64, p []byte) {
-	pc.mutex.Lock()
+func (pc *PageCache) Put(off int64, p []byte) error {
+
 	pageNumber := PageNumber(off)
 	var err error
 	offset := int64(0)
+	// Check if the page is already in the cache
+	if pc.Has(off) {
+		pc.mutex.Lock()
+		entry := pc.index[pageNumber]
+		pc.mutex.Unlock()
 
-	// Check if there is a free page in the cache
-	if len(pc.freeList) > 0 {
+		offset = entry[0]
+		offset, err = pc.file.Seek(offset, 0)
+	} else if len(pc.freeList) > 0 {
+		// Check if there is a free page in the cache
+		pc.mutex.Lock()
 		offset = pc.freeList[0]
 		pc.freeList = pc.freeList[1:]
+		pc.mutex.Unlock()
+
 		offset, err = pc.file.Seek(offset, 0)
 	} else {
 		offset, err = pc.file.Seek(offset, io.SeekEnd)
@@ -169,6 +176,7 @@ func (pc *PageCache) Put(off int64, p []byte) {
 
 	if err != nil {
 		log.Println("ERROR SEEKING TO END OF PAGE CACHE FILE", err)
+		return err
 	}
 
 	// Write the page to the file system
@@ -184,6 +192,7 @@ func (pc *PageCache) Put(off int64, p []byte) {
 
 	if n != len(p) {
 		log.Println("ERROR: NOT ALL DATA WAS WRITTEN TO PAGE CACHE FILE")
+		return fmt.Errorf("not all data was written to page cache file")
 	}
 
 	pc.syncCounter += 1
@@ -194,9 +203,7 @@ func (pc *PageCache) Put(off int64, p []byte) {
 
 	pc.index[pageNumber] = []int64{offset, 0}
 
-	pc.mutex.Unlock()
-
-	pc.Evict()
+	return pc.Evict()
 }
 
 func (pc *PageCache) Delete(off int64) (err error) {
@@ -233,8 +240,8 @@ func (pc *PageCache) Evict() (err error) {
 		return nil
 	}
 
-	// pc.mutex.Lock()
-	// defer pc.mutex.Unlock()
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
 
 	pagesToEvict := pageCount - pc.maxEntries
 
@@ -266,9 +273,16 @@ func (pc *PageCache) Evict() (err error) {
 	return nil
 }
 
+func (pc *PageCache) Flush() error {
+	pc.fileLock.Lock()
+	defer pc.fileLock.Unlock()
+
+	return pc.file.Truncate(0)
+}
+
 func (pc *PageCache) Sync() {
 	pc.fileLock.Lock()
-	if pc.syncCounter > 0 {
+	if pc.syncCounter > 100 {
 		err := pc.file.Sync()
 
 		if err != nil {

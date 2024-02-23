@@ -1,10 +1,10 @@
-#include "./litebasedb_vfs.h"
+#include "./vfs.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-extern int goXOpen(sqlite3_vfs *vfs, const char *name, sqlite3_file *file, int flags, int *outFlags);
+extern int goXOpen(sqlite3_vfs *vfs, const char *name, sqlite3_file *file, int flags, int *outFlags, char *fileID);
 extern int goXDelete(sqlite3_vfs *vfs, const char *name, int syncDir);
 extern int goXAccess(sqlite3_vfs *vfs, const char *name, int flags, int *outRes);
 extern int goXSleep(sqlite3_vfs *, int microseconds);
@@ -53,7 +53,9 @@ static struct
   */
   sqlite3_mutex *pMutex;
 
-  LitebaseVFSCache *cache;
+  char id;
+
+  P1Cache *cache;
 } x;
 
 static sqlite3_vfs *xRootVFS() { return x.pOrigVfs; }
@@ -63,7 +65,7 @@ static sqlite3_vfs *xRootVFS() { return x.pOrigVfs; }
 */
 static sqlite3_file *xFile(sqlite3_file *pFile)
 {
-  LBDBFile *p = (LBDBFile *)pFile;
+  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
   return (sqlite3_file *)&p[1];
 }
@@ -77,12 +79,12 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
   }
 
   int rc;
-  LBDBFile *p = (LBDBFile *)pFile;
+  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
   // Calculate the page number
   int pageNumber = iOfst / 4096 + 1;
 
-  int ok = p->cache->Get(p->cache, pageNumber, zBuf);
+  int ok = p->p1Cache->Get(p->p1Cache, pageNumber, zBuf);
 
   // If the page is not in the cache, read it from the file
   if (ok != 0)
@@ -96,7 +98,7 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
     }
 
     // Then put the page in the cache if zBuf is 4096 bytes
-    p->cache->Put(p->cache, pageNumber, zBuf);
+    p->p1Cache->Put(p->p1Cache, pageNumber, zBuf);
   }
 
   return SQLITE_OK;
@@ -104,13 +106,13 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 
 int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  LBDBFile *p = (LBDBFile *)pFile;
+  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
   // Calculate the page number
   int pageNumber = iOfst / 4096 + 1;
 
   // If the page is in the cache, delete it
-  p->cache->Delete(p->cache, pageNumber);
+  p->p1Cache->Delete(p->p1Cache, pageNumber);
 
   int rc = goXWrite(pFile, zBuf, iAmt, iOfst);
 
@@ -185,12 +187,18 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
     return xRootVFS()->xOpen(pVfs, zName, pFile, flags, pOutFlags);
   }
 
-  int rc = goXOpen(pVfs, zName, pFile, flags, pOutFlags);
+  char *fileID;
+  fileID = (char *)malloc(sizeof(char) * 64);
+
+  int rc = goXOpen(pVfs, zName, pFile, flags, pOutFlags, fileID);
 
   pFile->pMethods = &x_io_methods;
 
+  ((LitebaseVFSFile *)pFile)->id = fileID;
+
   // Set the cache
-  ((LBDBFile *)pFile)->cache = createCache(25000);
+  // 3125000 * 4096 bytes = 128MB
+  ((LitebaseVFSFile *)pFile)->p1Cache = createCache(fileID, 3125000);
 
   return rc;
 }
@@ -235,7 +243,6 @@ int register_litebase_vfs()
   }
 
   pOrigVfs = sqlite3_vfs_find(0);
-  // pOrigVfs = sqlite3_vfs_find("unix-none");
 
   if (pOrigVfs == 0)
   {
@@ -259,8 +266,8 @@ int register_litebase_vfs()
   x.vfs.xDelete = xDelete;
   x.vfs.xAccess = xAccess;
   x.vfs.xSleep = xSleep;
-  x.vfs.szOsFile += sizeof(LBDBFile);
-  x.sIoMethodsV1.iVersion = 1;
+  x.vfs.szOsFile += sizeof(LitebaseVFSFile);
+  x.sIoMethodsV1.iVersion = 2;
   // x.sIoMethodsV1.xClose = xClose;
   // x.sIoMethodsV1.xRead = xRead;
   // x.sIoMethodsV1.xWrite = xWrite;

@@ -1,15 +1,16 @@
 #include "../sqlite3/sqlite3.h"
-#include "./litebase_vfs_page_cache.h"
+#include "./p1_cache.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct LBDBFile LBDBFile;
-struct LBDBFile
+typedef struct LitebaseVFSFile LitebaseVFSFile;
+struct LitebaseVFSFile
 {
 	sqlite3_file base; /* Base class. Must be first. */
+	char *id;
 	int main;
 	int *pFile;
-	LitebaseVFSCache *cache;
+	P1Cache *p1Cache;
 };
 
 int newVfs();

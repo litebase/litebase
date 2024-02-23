@@ -5,6 +5,7 @@ import (
 	"litebasedb/internal/config"
 	internalStorage "litebasedb/internal/storage"
 	"litebasedb/server/file"
+	"litebasedb/server/vfs"
 	"log"
 	"sort"
 	"sync"
@@ -36,6 +37,10 @@ func NewFileSystem(path, databaseUuid, branchUuid string) *FileSystem {
 	})
 
 	return fs
+}
+
+func (fs *FileSystem) Cache() vfs.StorageDriverCache {
+	return fs.proxy.PageCache()
 }
 
 func (fs *FileSystem) CheckPoint() error {

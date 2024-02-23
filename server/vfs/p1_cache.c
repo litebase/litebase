@@ -1,4 +1,4 @@
-#include "./litebase_vfs_page_cache.h"
+#include "./p1_cache.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@ int hash(int key, int capacity)
 	return key % capacity;
 }
 
-int Get(LitebaseVFSCache *cache, int pageNumber, void *data)
+int Get(P1Cache *cache, int pageNumber, void *data)
 {
 	int index = hash(pageNumber, cache->capacity);
 
@@ -19,14 +19,14 @@ int Get(LitebaseVFSCache *cache, int pageNumber, void *data)
 		return -1;
 	}
 
-	LitebaseVFSCachePage *entry = cache->index[index];
+	CachePage *entry = cache->index[index];
 
 	while (entry != NULL)
 	{
 		if (entry->key == pageNumber && entry->value != NULL)
 		{
 			// Save the next node
-			struct LitebaseVFSCachePage *nextNode = entry->next;
+			struct CachePage *nextNode = entry->next;
 
 			// If this entry is not already the head of the list
 			if (cache->index[index] != entry)
@@ -65,7 +65,7 @@ int Get(LitebaseVFSCache *cache, int pageNumber, void *data)
 	return -1;
 }
 
-void Put(LitebaseVFSCache *cache, int pageNumber, void *data)
+void Put(P1Cache *cache, int pageNumber, void *data)
 {
 	int index = hash(pageNumber, cache->capacity);
 
@@ -73,8 +73,8 @@ void Put(LitebaseVFSCache *cache, int pageNumber, void *data)
 	{
 		// Get the size of the linked list
 		int size = 0;
-		LitebaseVFSCachePage *entry = cache->index[index];
-		LitebaseVFSCachePage *tail;
+		CachePage *entry = cache->index[index];
+		CachePage *tail;
 
 		while (entry != NULL)
 		{
@@ -97,13 +97,16 @@ void Put(LitebaseVFSCache *cache, int pageNumber, void *data)
 				cache->index[index] = NULL;
 			}
 
-			// Remove the item at the tail of the linked list
+			// Spill the pages to the P2 cache
+			goSpillCachePage(cache->id, tail->key, tail->value);
+
+			// Free the tail from memory
 			free(tail->value);
 			free(tail);
 		}
 	}
 
-	LitebaseVFSCachePage *new_entry = malloc(sizeof(LitebaseVFSCachePage));
+	CachePage *new_entry = malloc(sizeof(CachePage));
 	new_entry->key = pageNumber;
 	new_entry->next = cache->index[index];
 
@@ -118,10 +121,10 @@ void Put(LitebaseVFSCache *cache, int pageNumber, void *data)
 	memcpy(cache->index[index]->value, data, 4096);
 }
 
-void Delete(LitebaseVFSCache *cache, int pageNumber)
+void P1CacheDelete(P1Cache *cache, int pageNumber)
 {
 	int index = hash(pageNumber, cache->capacity);
-	LitebaseVFSCachePage *current = cache->index[index];
+	CachePage *current = cache->index[index];
 
 	while (current != NULL)
 	{
@@ -161,18 +164,16 @@ void Delete(LitebaseVFSCache *cache, int pageNumber)
 	}
 }
 
-void Flush(LitebaseVFSCache *cache)
+void P1CacheFlush(P1Cache *cache)
 {
-	printf("Flush\n");
-
 	// Remove all the pages from the index and the data array
 	for (int i = 0; i < cache->capacity; ++i)
 	{
-		LitebaseVFSCachePage *current = cache->index[i];
+		CachePage *current = cache->index[i];
 
 		while (current != NULL)
 		{
-			LitebaseVFSCachePage *temp = current;
+			CachePage *temp = current;
 			current = current->next;
 
 			free(temp->value);
@@ -183,15 +184,16 @@ void Flush(LitebaseVFSCache *cache)
 	}
 }
 
-LitebaseVFSCache *createCache(int capacity)
+P1Cache *createCache(char *id, int capacity)
 {
-	LitebaseVFSCache *cache = malloc(sizeof(LitebaseVFSCache));
+	P1Cache *cache = malloc(sizeof(P1Cache));
+	cache->id = id;
 	cache->capacity = sqrt(capacity);
-	cache->index = malloc(sizeof(LitebaseVFSCachePage *) * capacity);
+	cache->index = malloc(sizeof(CachePage *) * capacity);
 	cache->Get = Get;
 	cache->Put = Put;
-	cache->Delete = Delete;
-	cache->Flush = Flush;
+	cache->Delete = P1CacheDelete;
+	cache->Flush = P1CacheFlush;
 
 	for (int i = 0; i < capacity; ++i)
 	{
@@ -201,7 +203,7 @@ LitebaseVFSCache *createCache(int capacity)
 	return cache;
 }
 
-void destroyCache(LitebaseVFSCache *cache)
+void destroyCache(P1Cache *cache)
 {
 	// Free each index
 	cache->Flush(cache);

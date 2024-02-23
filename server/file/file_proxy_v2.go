@@ -20,14 +20,7 @@ type FileProxyV2 struct {
 }
 
 func NewFileProxyV2(path, databaseUuid, branchUuid string) *FileProxyV2 {
-	// file, err := storage.FS().OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
-
-	// if err != nil {
-	// 	panic(err)
-	// }
-
 	fp := &FileProxyV2{
-		// file: file,
 		mutex:     &sync.Mutex{},
 		pageCache: NewPageCache(databaseUuid, branchUuid),
 		path:      path,
@@ -37,9 +30,11 @@ func NewFileProxyV2(path, databaseUuid, branchUuid string) *FileProxyV2 {
 }
 
 func (fp *FileProxyV2) Open(path string) (internalStorage.File, error) {
-	// fp.mutex.Lock()
-	// defer fp.mutex.Unlock()
 	return nil, nil
+}
+
+func (fp *FileProxyV2) PageCache() *PageCache {
+	return fp.pageCache
 }
 
 func (fp *FileProxyV2) ReadAt(offset int64) (data []byte, err error) {
@@ -56,8 +51,6 @@ func (fp *FileProxyV2) ReadAt(offset int64) (data []byte, err error) {
 	pageNumber := PageNumber(offset)
 
 	fileData, err := storage.FS().ReadFile(fp.pagePath(pageNumber))
-
-	// log.Println("READ PAGE", pageNumber, len(fileData))
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -77,9 +70,10 @@ func (fp *FileProxyV2) ReadAt(offset int64) (data []byte, err error) {
 		fp.exists = true
 	}
 
-	if err == nil && len(decompressedData) == int(config.Get().PageSize) {
-		fp.pageCache.Put(offset, decompressedData)
-	}
+	// TODO: Devise a better caching strategy. Currently we are only caching spilled pages in P2
+	// if err == nil && len(decompressedData) == int(config.Get().PageSize) {
+	// 	fp.pageCache.Put(offset, decompressedData)
+	// }
 
 	return decompressedData, nil
 }

@@ -7,33 +7,72 @@ package vfs
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <litebasedb_vfs.h>
+#include <vfs.h>
 */
 import "C"
 
 import (
+	"fmt"
 	"io"
+	"strings"
 	"time"
 	"unsafe"
 )
 
-var storage StorageDriver
 var fileLockCount int64
 
-func RegisterVFS(stroageDriver StorageDriver) error {
-	storage = stroageDriver
+var vfsMap = make(map[string]*LitebaseVFS)
 
+type LitebaseVFS struct {
+	file    *C.LitebaseVFSFile
+	storage StorageDriver
+}
+
+func RegisterVFS(id string, storageDriver StorageDriver) error {
 	rc := C.newVfs()
 
-	if rc == C.SQLITE_OK {
-		return nil
+	if rc != C.SQLITE_OK {
+		return errFromCode(int(rc))
 	}
 
-	return errFromCode(int(rc))
+	vfsMap[id] = &LitebaseVFS{
+		storage: storageDriver,
+	}
+
+	return nil
+}
+
+func (v *LitebaseVFS) P1CacheDelete(page int) error {
+	C.P1CacheDelete(v.file.p1Cache, C.int(page))
+
+	return nil
+}
+
+func (v *LitebaseVFS) P1CacheFlush() error {
+	C.P1CacheFlush(v.file.p1Cache)
+
+	return nil
 }
 
 //export goXOpen
-func goXOpen(vfs *C.sqlite3_vfs, name *C.char, file *C.sqlite3_file, flags C.int, outFlags *C.int) C.int {
+func goXOpen(vfs *C.sqlite3_vfs, name *C.char, file *C.sqlite3_file, flags C.int, outFlags *C.int, fileID unsafe.Pointer) C.int {
+	var id string
+	nameStr := C.GoString(name)
+	index := strings.Index(nameStr, "litebase:")
+
+	if index != -1 {
+		id = nameStr[index:]
+	} else {
+		fmt.Println("Prefix not found in the string")
+	}
+
+	// Set the id to the fileID pointer
+	goBufer := (*[1 << 28]byte)(fileID)[:len(id):len(id)]
+
+	copy(goBufer, id)
+
+	vfsMap[id].file = (*C.LitebaseVFSFile)(unsafe.Pointer(file))
+
 	return sqliteOK
 }
 
@@ -66,6 +105,8 @@ func goXClose(pFile *C.sqlite3_file) C.int {
 //export goXRead
 func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+	id := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile)).id
+	storage := vfsMap[C.GoString(id)].storage
 	data, err := storage.ReadAt(int64(iOfst))
 	n := copy(goBuffer, data)
 
@@ -87,6 +128,8 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 //export goXWrite
 func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+	id := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile)).id
+	storage := vfsMap[C.GoString(id)].storage
 	_, err := storage.WriteAt(goBuffer, int64(iOfst))
 
 	if err != nil {
@@ -98,6 +141,8 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 //export goXFileSize
 func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
+	id := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile)).id
+	storage := vfsMap[C.GoString(id)].storage
 	size, err := storage.Size()
 
 	if err != nil {
