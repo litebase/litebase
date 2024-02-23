@@ -14,18 +14,24 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"log"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 )
 
-var fileLockCount int64
-
 var vfsMap = make(map[string]*LitebaseVFS)
 
 type LitebaseVFS struct {
-	file    *C.LitebaseVFSFile
-	storage StorageDriver
+	exclusiveLocks atomic.Int64
+	file           *C.LitebaseVFSFile
+	lock           sync.RWMutex
+	pendingLocks   atomic.Int64
+	reservedLocks  atomic.Int64
+	sharedLocks    atomic.Int64
+	storage        StorageDriver
 }
 
 func RegisterVFS(id string, storageDriver StorageDriver) error {
@@ -36,6 +42,7 @@ func RegisterVFS(id string, storageDriver StorageDriver) error {
 	}
 
 	vfsMap[id] = &LitebaseVFS{
+		lock:    sync.RWMutex{},
 		storage: storageDriver,
 	}
 
@@ -128,8 +135,7 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 //export goXWrite
 func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
-	id := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile)).id
-	storage := vfsMap[C.GoString(id)].storage
+	storage := getVfsFromFile(pFile).storage
 	_, err := storage.WriteAt(goBuffer, int64(iOfst))
 
 	if err != nil {
@@ -141,8 +147,7 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 //export goXFileSize
 func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
-	id := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile)).id
-	storage := vfsMap[C.GoString(id)].storage
+	storage := getVfsFromFile(pFile).storage
 	size, err := storage.Size()
 
 	if err != nil {
@@ -156,17 +161,99 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 
 //export goXLock
 func goXLock(pFile *C.sqlite3_file, lockType C.int) C.int {
-	return sqliteOK
+	log.Println("Lock", lockType)
+	vfs := getVfsFromFile(pFile)
+
+	switch lockType {
+	case C.SQLITE_LOCK_NONE:
+		return C.SQLITE_OK
+	case C.SQLITE_LOCK_PENDING:
+		if vfs.exclusiveLocks.Load() > 0 {
+			return C.SQLITE_BUSY
+		}
+
+		vfs.lock.Lock()
+		vfs.pendingLocks.Add(1)
+	case C.SQLITE_LOCK_SHARED:
+		if vfs.exclusiveLocks.Load() > 0 || vfs.pendingLocks.Load() > 0 {
+			return C.SQLITE_BUSY
+		}
+
+		vfs.lock.RLock()
+		vfs.sharedLocks.Add(1)
+	case C.SQLITE_LOCK_RESERVED:
+		if vfs.exclusiveLocks.Load() > 0 || vfs.pendingLocks.Load() > 0 {
+			return C.SQLITE_BUSY
+		}
+
+		vfs.lock.Lock()
+		vfs.reservedLocks.Add(1)
+	case C.SQLITE_LOCK_EXCLUSIVE:
+		if vfs.sharedLocks.Load() > 0 || vfs.reservedLocks.Load() > 0 || vfs.pendingLocks.Load() > 0 {
+			return C.SQLITE_BUSY
+		}
+
+		vfs.lock.Lock()
+		vfs.exclusiveLocks.Add(1)
+	}
+
+	return C.SQLITE_OK
 }
 
 //export goXUnlock
 func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
-	return sqliteOK
+	log.Println("Unlock", lockType)
+	vfs := getVfsFromFile(pFile)
+
+	switch lockType {
+	case C.SQLITE_LOCK_NONE:
+		if vfs.reservedLocks.Load() > 0 {
+			vfs.lock.Unlock()
+			vfs.reservedLocks.Add(-1)
+		}
+
+		if vfs.exclusiveLocks.Load() > 0 {
+			vfs.lock.Unlock()
+			vfs.exclusiveLocks.Add(-1)
+		}
+
+		if vfs.sharedLocks.Load() > 0 {
+			vfs.lock.RUnlock()
+			vfs.sharedLocks.Add(-1)
+		}
+	case C.SQLITE_LOCK_SHARED:
+		if vfs.sharedLocks.Load() > 0 {
+			vfs.lock.RUnlock()
+			vfs.sharedLocks.Add(-1)
+		}
+	case C.SQLITE_LOCK_RESERVED:
+		if vfs.reservedLocks.Load() > 0 {
+			vfs.lock.Unlock()
+			vfs.reservedLocks.Add(-1)
+		}
+	case C.SQLITE_LOCK_EXCLUSIVE:
+		if vfs.exclusiveLocks.Load() > 0 {
+			vfs.lock.Unlock()
+			vfs.exclusiveLocks.Add(-1)
+		}
+	}
+
+	return C.SQLITE_OK
 }
 
 //export goXCheckReservedLock
 func goXCheckReservedLock(pFile *C.sqlite3_file, pResOut *C.int) C.int {
-	return sqliteOK
+	log.Println("CheckReservedLock")
+	vfs := getVfsFromFile(pFile)
+
+	// Check for reservered, pending, or exclusive locks
+	if vfs.reservedLocks.Load() > 0 || vfs.pendingLocks.Load() > 0 || vfs.exclusiveLocks.Load() > 0 {
+		*pResOut = 1
+	} else {
+		*pResOut = 0
+	}
+
+	return C.SQLITE_OK
 }
 
 func errToC(err error) C.int {
@@ -174,4 +261,11 @@ func errToC(err error) C.int {
 		return C.int(e.code)
 	}
 	return C.int(GenericError.code)
+}
+
+func getVfsFromFile(pFile *C.sqlite3_file) *LitebaseVFS {
+	file := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
+	id := file.id
+
+	return vfsMap[C.GoString(id)]
 }
