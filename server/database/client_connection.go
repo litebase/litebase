@@ -13,19 +13,27 @@ type ClientConnection struct {
 }
 
 func NewClientConnection(
-	path string,
 	databaseUuid string,
 	branchUuid string,
 ) *ClientConnection {
+	connection := NewDatabaseConnection(databaseUuid, branchUuid)
+
+	if connection == nil {
+		return nil
+	}
+
 	return &ClientConnection{
 		branchUuid:   branchUuid,
-		connection:   NewDatabaseConnection(path, databaseUuid, branchUuid),
+		connection:   connection,
 		databaseUuid: databaseUuid,
-		path:         path,
 	}
 }
 
 func (d *ClientConnection) Close() {
+	if d.connection == nil {
+		return
+	}
+
 	d.connection.Close()
 }
 

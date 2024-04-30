@@ -32,7 +32,6 @@ func NewApp(server *ServerInstance) *App {
 	}
 
 	auth.KeyManagerInit()
-
 	auth.SecretsManager().Init()
 	events.EventsManager().Init()
 	auth.UserManager().Init()
@@ -66,7 +65,8 @@ func (app *App) runTasks() {
 }
 
 func (app *App) Run() {
-	app.server.HttpServer.Handler = http.Router()
+	// app.server.HttpServer.Handler = http.Router()
+	http.Router().Server(app.server.ServeMux)
 	node.Register()
 	go app.runTasks()
 }

@@ -95,43 +95,8 @@ func (backup *Backup) deleteArchiveFile() {
 
 		return
 	}
-	// TODO: Update
-	// awsCredentials, err := auth.SecretsManager().GetAwsCredentials(backup.databaseUuid, backup.branchUuid)
-
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// awsSession, err := session.NewSession(aws.NewConfig().WithRegion(config.Get().Region).WithCredentials(credentials.NewStaticCredentials(
-	// 	awsCredentials.Key,
-	// 	awsCredentials.Secret,
-	// 	awsCredentials.Token,
-	// )))
-
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// client := s3.New(awsSession)
 
 	// TODO: Update
-	// // bucket, err := auth.SecretsManager().GetBackupBucketName(
-	// // 	backup.databaseUuid,
-	// // 	backup.branchUuid,
-	// // )
-
-	// // if err != nil {
-	// // 	log.Fatal(err)
-	// // }
-
-	// _, err = client.DeleteObject(&s3.DeleteObjectInput{
-	// 	Bucket: aws.String(bucket),
-	// 	Key:    aws.String(backup.BackupKey()),
-	// })
-
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 }
 
 func (backup *Backup) deleteFile() {
@@ -253,49 +218,7 @@ func (backup *Backup) Upload() map[string]interface{} {
 
 		storage.FS().WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0666)
 	} else {
-		// awsCredentials, err := auth.SecretsManager().GetAwsCredentials(backup.databaseUuid, backup.branchUuid)
 
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// session, err := session.NewSession(aws.NewConfig().WithRegion(config.Get().Region).WithCredentials(credentials.NewStaticCredentials(
-		// 	awsCredentials.Key,
-		// 	awsCredentials.Secret,
-		// 	awsCredentials.Token,
-		// )))
-
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// bucket, err := auth.SecretsManager().GetBackupBucketName(
-		// 	backup.databaseUuid,
-		// 	backup.branchUuid,
-		// )
-
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// uploader := s3manager.NewUploader(session)
-		// source, err := storage.FS().Open(path)
-
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// _, err = uploader.Upload(&s3manager.UploadInput{
-		// 	Bucket:       aws.String(bucket),
-		// 	Key:          aws.String(key),
-		// 	Body:         source,
-		// 	ACL:          aws.String("private"),
-		// 	StorageClass: aws.String("GLACIER_IR"),
-		// })
-
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
 	}
 
 	stat, err := storage.FS().Stat(path)

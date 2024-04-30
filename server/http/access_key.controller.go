@@ -4,7 +4,7 @@ import (
 	"litebasedb/server/auth"
 )
 
-func AccessKeyControllerIndex(request *Request) *Response {
+func AccessKeyControllerIndex(request *Request) Response {
 	accessKeysIds, err := auth.AccessKeyManager().AllAccessKeyIds()
 
 	if err != nil {
@@ -29,7 +29,7 @@ func AccessKeyControllerIndex(request *Request) *Response {
 	}, 200, nil)
 }
 
-func AccessKeyControllerStore(request *Request) *Response {
+func AccessKeyControllerStore(request *Request) Response {
 	accessKey, err := auth.AccessKeyManager().Create()
 
 	if err != nil {
@@ -39,7 +39,7 @@ func AccessKeyControllerStore(request *Request) *Response {
 		}, 500, nil)
 	}
 
-	return &Response{
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"status":  "success",
@@ -52,7 +52,7 @@ func AccessKeyControllerStore(request *Request) *Response {
 	}
 }
 
-func AccessKeyControllerUpdate(request *Request) *Response {
+func AccessKeyControllerUpdate(request *Request) Response {
 	auth.SecretsManager().Init()
 
 	accessKey, err := auth.AccessKeyManager().Get(request.Get("access_key_id").(string))
@@ -79,7 +79,7 @@ func AccessKeyControllerUpdate(request *Request) *Response {
 	}, 200, nil)
 }
 
-func AccessKeyControllerDestroy(request *Request) *Response {
+func AccessKeyControllerDestroy(request *Request) Response {
 	accessKey, err := auth.AccessKeyManager().Get(request.Param("accessKeyId"))
 
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 )
 
 /*
-#include"./sqlite3.h"
+#include "./sqlite3.h"
 #include <stdlib.h>
 
 extern int go_authorizer(void* pArg, int actionCode, char* arg1, char* arg2, char* arg3, char* arg4);
@@ -34,33 +34,26 @@ func (c *Connection) Base() *C.sqlite3 {
 	return (*C.sqlite3)(c)
 }
 
-func Open(path string, flags OpenFlags) (*Connection, error) {
+func Open(path, vfsId string) (*Connection, error) {
 	var cVfs, cName *C.char
 	var c *C.sqlite3
+
+	// Set vfs
+	cVfs = C.CString(vfsId)
+	defer C.free(unsafe.Pointer(cVfs))
 
 	cName = C.CString(path)
 	defer C.free(unsafe.Pointer(cName))
 
-	// Set memory database if empty string
-	if path == "" || path == ":memory:" {
-		path = ":memory:"
-		flags |= SQLITE_OPEN_MEMORY
-	}
-
 	// Set flags, add read/write flag if create flag is set
-	if flags == 0 {
-		flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_URI
-	}
-
-	if flags|SQLITE_OPEN_CREATE > 0 {
-		flags |= SQLITE_OPEN_READWRITE
-	}
+	flags := SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE
 
 	// Call sqlite3_open_v2
 	if err := C.sqlite3_open_v2(cName, &c, C.int(flags), cVfs); err != SQLITE_OK {
 		if c != nil {
 			C.sqlite3_close_v2(c)
 		}
+
 		return nil, errors.New(C.GoString(C.sqlite3_errstr(err)))
 	}
 

@@ -31,5 +31,5 @@ func GetFilePath(databaseUuid string, branchUuid string) (string, error) {
 
 	path = strings.Join(pathParts, "/")
 
-	return fmt.Sprintf("%s/%s", strings.TrimRight(config.Get().DataPath, "/"), strings.TrimLeft(path, "/")), nil
+	return strings.TrimLeft(path, "/"), nil
 }

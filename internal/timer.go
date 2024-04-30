@@ -60,7 +60,7 @@ func Stop(timestamp int64) {
 
 	log.Println(
 		fmt.Sprintf("[%s]:", timer.description),
-		fmt.Sprintf("(%s / %s)", time.Since(timer.timestart), time.Since(ClockStart)),
+		fmt.Sprintf("(%s)", time.Since(timer.timestart)),
 	)
 
 	TimersMutex.Lock()

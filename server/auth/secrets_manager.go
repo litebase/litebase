@@ -16,8 +16,9 @@ import (
 type SecretsManagerInstance struct {
 	databaseKeys       map[string]string
 	secretStore        map[string]SecretsStore
+	secretStoreMutex   sync.RWMutex
 	encrypterInstances map[string]*KeyEncrypter
-	mutex              *sync.Mutex
+	mutex              sync.RWMutex
 }
 
 var staticSecretsManager *SecretsManagerInstance
@@ -27,8 +28,9 @@ func SecretsManager() *SecretsManagerInstance {
 		staticSecretsManager = &SecretsManagerInstance{
 			databaseKeys:       make(map[string]string),
 			encrypterInstances: make(map[string]*KeyEncrypter),
-			mutex:              &sync.Mutex{},
+			mutex:              sync.RWMutex{},
 			secretStore:        make(map[string]SecretsStore),
+			secretStoreMutex:   sync.RWMutex{},
 		}
 	}
 
@@ -36,23 +38,34 @@ func SecretsManager() *SecretsManagerInstance {
 }
 
 func (s *SecretsManagerInstance) cache(key string) SecretsStore {
+	s.secretStoreMutex.RLock()
 	// _, hasFileStore := s.secretStore["file"]
 	_, hasMapStore := s.secretStore["map"]
 	_, hasTransientStore := s.secretStore["transient"]
+	s.secretStoreMutex.RUnlock()
 
 	if key == "map" && !hasMapStore {
+		s.secretStoreMutex.Lock()
 		s.secretStore["map"] = NewMapSecretsStore()
+		s.secretStoreMutex.Unlock()
 	}
 
 	if key == "transient" && !hasTransientStore {
+		s.secretStoreMutex.Lock()
 		s.secretStore["transient"] = NewMapSecretsStore()
+		s.secretStoreMutex.Unlock()
 	}
 
 	// if key == "file" && !hasFileStore {
+	// s.secretStoreMutex.Lock()
 	// 	s.secretStore["file"] = NewFileSecretsStore(
 	// 		fmt.Sprintf("%s/%s", config.Get().TmpPath, "litebasedb/cache"),
 	// 	)
+	// 	s.secretStoreMutex.Unlock()
 	// }
+
+	s.secretStoreMutex.RLock()
+	defer s.secretStoreMutex.RUnlock()
 
 	return s.secretStore[key]
 }
@@ -120,10 +133,13 @@ func (s *SecretsManagerInstance) EncryptForRuntime(databaseUuid, signature, text
 }
 
 func (s *SecretsManagerInstance) Encrypter(key string) *KeyEncrypter {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	var encrypter *KeyEncrypter
+	s.mutex.RLock()
+	encrypter, ok := s.encrypterInstances[key]
+	s.mutex.RUnlock()
 
-	if _, ok := s.encrypterInstances[key]; !ok {
+	if !ok {
+		s.mutex.Lock()
 		params := strings.Split(key, ":")
 		signature := params[0]
 
@@ -132,9 +148,13 @@ func (s *SecretsManagerInstance) Encrypter(key string) *KeyEncrypter {
 		} else {
 			s.encrypterInstances[key] = NewKeyEncrypter(signature)
 		}
+
+		encrypter = s.encrypterInstances[key]
+
+		s.mutex.Unlock()
 	}
 
-	return s.encrypterInstances[key]
+	return encrypter
 }
 
 func EncrypterKey(signature, databaseUuid string) string {

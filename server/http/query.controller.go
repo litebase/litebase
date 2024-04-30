@@ -6,7 +6,7 @@ import (
 	"litebasedb/server/query"
 )
 
-func QueryController(request *Request) *Response {
+func QueryController(request *Request) Response {
 	// start := time.Now()
 	// defer func() {
 	// 	log.Println("QueryController", time.Since(start))
@@ -20,7 +20,7 @@ func QueryController(request *Request) *Response {
 
 	requestToken := request.RequestToken("Authorization")
 
-	if requestToken == nil {
+	if !requestToken.Valid() {
 		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
 	}
 
@@ -69,7 +69,7 @@ func QueryController(request *Request) *Response {
 	}
 	// defer counter.Increment(databaseKey.DatabaseUuid, databaseKey.BranchUuid)
 
-	return &Response{
+	return Response{
 		StatusCode: 200,
 		Body:       response,
 	}

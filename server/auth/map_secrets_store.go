@@ -8,7 +8,7 @@ import (
 
 type MapSecretsStore struct {
 	data  map[string]MapSecret
-	mutex *sync.Mutex
+	mutex *sync.RWMutex
 }
 
 type MapSecret struct {
@@ -19,7 +19,7 @@ type MapSecret struct {
 func NewMapSecretsStore() *MapSecretsStore {
 	return &MapSecretsStore{
 		data:  make(map[string]MapSecret),
-		mutex: &sync.Mutex{},
+		mutex: &sync.RWMutex{},
 	}
 }
 
@@ -38,8 +38,8 @@ func (store *MapSecretsStore) Forget(key string) {
 }
 
 func (store *MapSecretsStore) Get(key string, cacheItemType interface{}) interface{} {
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
+	store.mutex.RLock()
+	defer store.mutex.RUnlock()
 
 	if secret, ok := store.data[key]; ok {
 		if time.Now().After(secret.expiresAt) {

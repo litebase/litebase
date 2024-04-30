@@ -1,7 +1,7 @@
 package http
 
-func TrasactionControllerStore(request *Request) *Response {
-	return &Response{
+func TrasactionControllerStore(request *Request) Response {
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"status":  "success",
@@ -10,8 +10,8 @@ func TrasactionControllerStore(request *Request) *Response {
 	}
 }
 
-func TrasactionControllerUpdate(request *Request) *Response {
-	return &Response{
+func TrasactionControllerUpdate(request *Request) Response {
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"status":  "success",
@@ -20,8 +20,8 @@ func TrasactionControllerUpdate(request *Request) *Response {
 	}
 }
 
-func TrasactionControllerDestroy(request *Request) *Response {
-	return &Response{
+func TrasactionControllerDestroy(request *Request) Response {
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"status":  "success",

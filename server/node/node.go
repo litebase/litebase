@@ -18,7 +18,7 @@ var NodeIpAddress string
 var NodeIPv6Address string
 
 func DirectoryPath() string {
-	return fmt.Sprintf("%s/nodes", config.Get().DataPath)
+	return fmt.Sprintf("%s/nodes/query", config.Get().DataPath)
 }
 
 func FilePath(ipAddress string) string {
@@ -26,7 +26,7 @@ func FilePath(ipAddress string) string {
 		ipAddress = GetPrivateIpAddress()
 	}
 
-	return fmt.Sprintf("%s/%s_%s", DirectoryPath(), ipAddress, config.Get().Port)
+	return fmt.Sprintf("%s/%s_%s", DirectoryPath(), ipAddress, config.Get().QueryNodePort)
 }
 
 func GetPrivateIpAddress() string {
@@ -35,7 +35,12 @@ func GetPrivateIpAddress() string {
 	}
 
 	if config.Get().Env == "local" || config.Get().Env == "testing" {
-		NodeIpAddress = "127.0.0.1"
+		// NodeIpAddress = "127.0.0.1"
+		NodeIpAddress, err := os.Hostname()
+
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		return NodeIpAddress
 	}
@@ -77,7 +82,7 @@ func GetIPv6Address() string {
 	}
 
 	if config.Get().Env == "local" || config.Get().Env == "testing" {
-		return fmt.Sprintf("localhost:%s", config.Get().Port)
+		return fmt.Sprintf("localhost:%s", config.Get().QueryNodePort)
 	}
 
 	url := "http://169.254.170.2/v2/metadata"
@@ -122,7 +127,7 @@ func HealthCheck() {
 	nodes := Instances()
 
 	for _, node := range nodes {
-		if node == GetPrivateIpAddress()+"_"+config.Get().Port {
+		if node == GetPrivateIpAddress()+"_"+config.Get().QueryNodePort {
 			continue
 		}
 
@@ -189,7 +194,7 @@ func OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 
 	for _, ip := range ips {
-		if ip == GetPrivateIpAddress()+"_"+config.Get().Port {
+		if ip == GetPrivateIpAddress()+"_"+config.Get().QueryNodePort {
 			continue
 		}
 
@@ -302,4 +307,6 @@ func Unregister() {
 			log.Println(err)
 		}
 	}
+
+	fmt.Println("↳ Node unregistered successfully")
 }

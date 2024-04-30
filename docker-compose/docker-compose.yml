@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  router:
+    build:
+      context: ../
+      dockerfile: ./docker-compose/router.Dockerfile
+    env_file:
+      - .env
+    ports:
+      - '8080:8080'
+    volumes:
+      - ../data:/mnt/data
+  server:
+    build:
+      context: ../
+      dockerfile: ./docker-compose/server.Dockerfile
+    depends_on:
+      - router
+    env_file:
+      - .env
+    ports:
+      - '8081:8081'
+    volumes:
+      - ../data:/mnt/data

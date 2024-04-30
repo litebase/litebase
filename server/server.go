@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"litebasedb/server/node"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -16,6 +17,7 @@ import (
 type ServerInstance struct {
 	HttpServer *http.Server
 	Node       Node
+	ServeMux   *http.ServeMux
 }
 
 var serverInstance *ServerInstance
@@ -43,17 +45,20 @@ func (s *ServerInstance) Primary() *Primary {
 }
 
 func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
 
-	port := os.Getenv("LITEBASEDB_PORT")
+	port := os.Getenv("LITEBASEDB_QUERY_NODE_PORT")
+
+	s.ServeMux = http.NewServeMux()
 
 	s.HttpServer = &http.Server{
 		Addr: fmt.Sprintf(":%s", port),
 		// ReadTimeout:  30 * time.Second,
 		// WriteTimeout: 30 * time.Second,
 		// IdleTimeout:  60 * time.Second,
+		Handler: s.ServeMux,
 	}
 
 	// s.Node.Run()
@@ -78,16 +83,24 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 		sig := <-signalChannel
 		switch sig {
 		case os.Interrupt:
-			fmt.Println("interrupt")
-			if err := s.HttpServer.Shutdown(context.Background()); err != nil {
-				log.Printf("HTTP server Shutdown: %v", err)
-			}
+			s.Shutdown()
 			<-serverDone
 			return
 		case syscall.SIGTERM:
-			fmt.Println("sigterm")
+			s.Shutdown()
+			<-serverDone
+			os.Exit(0)
 			return
 		}
+	}
+}
+
+func (s *ServerInstance) Shutdown() {
+	fmt.Println("")
+	node.Unregister()
+
+	if err := s.HttpServer.Shutdown(context.Background()); err != nil {
+		log.Printf("HTTP server Shutdown: %v", err)
 	}
 }
 

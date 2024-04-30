@@ -9,7 +9,6 @@ import (
 )
 
 type Config struct {
-	AppHost                 string
 	BranchUuid              string
 	DatabaseUuid            string
 	DataPath                string
@@ -23,13 +22,13 @@ type Config struct {
 	PageCompactionThreshold int64
 	PageCompactionInterval  int64
 	PageSize                int64
-	Port                    string
+	QueryNodePort           string
 	Region                  string
 	RootPassword            string
+	RouterNodePort          string
 	Signature               string
 	SignatureNext           string
 	TmpPath                 string
-	Url                     string
 }
 
 var ConfigInstance *Config = nil
@@ -67,24 +66,21 @@ func NewConfig() *Config {
 	godotenv.Load()
 
 	ConfigInstance = &Config{
-		AppHost:                 env("APP_HOST", "").(string),
-		BranchUuid:              os.Getenv("LITEBASEDB_BRANCH_UUID"),
 		DataPath:                os.Getenv("LITEBASEDB_DATA_PATH"),
-		DatabaseUuid:            os.Getenv("LITEBASEDB_DB_UUID"),
 		DefaultBranchName:       env("LITEBASEDB_DEFAULT_BRANCH_NAME", "main").(string),
-		Env:                     env("APP_ENV", "production").(string),
+		Env:                     env("LITEBASEDB_ENV", "production").(string),
 		FileSystemDriver:        env("LITEBASEDB_FILESYSTEM_DRIVER", "local").(string),
-		Debug:                   env("APP_DEBUG", "false") == "true",
+		Debug:                   env("LITEBASEDB_DEBUG", "false") == "true",
 		PageCompaction:          true,
 		PageCompactionThreshold: 1000,
 		PageCompactionInterval:  3000,
 		PageSize:                4096,
-		Port:                    env("LITEBASEDB_PORT", "8080").(string),
+		QueryNodePort:           env("LITEBASEDB_QUERY_NODE_PORT", "8080").(string),
 		Region:                  env("LITEBASEDB_REGION", "").(string),
+		RouterNodePort:          env("LITEBASEDB_ROUTER_NODE_PORT", "8080").(string),
 		RootPassword:            env("LITEBASEDB_ROOT_PASSWORD", "").(string),
 		Signature:               env("LITEBASEDB_SIGNATURE", "").(string),
 		TmpPath:                 env("LITEBASEDB_TMP_PATH", "").(string),
-		Url:                     env("APP_URL", "").(string),
 	}
 
 	return ConfigInstance

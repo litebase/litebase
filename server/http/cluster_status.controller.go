@@ -1,7 +1,7 @@
 package http
 
-func ClusterStatusController(request *Request) *Response {
-	return &Response{
+func ClusterStatusController(request *Request) Response {
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"message": "OK",

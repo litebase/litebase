@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-func Authentication(request *Request) (*Request, *Response) {
+func Authentication(request *Request) (*Request, Response) {
 	if !ensureReuestHasAnAuthorizationHeader(request) ||
 		!ensureRequestIsProperlySigned(request) {
-		return nil, &Response{
+		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
 				"status":  "error",
@@ -18,7 +18,7 @@ func Authentication(request *Request) (*Request, *Response) {
 	}
 
 	if !ensureRequestIsNotExpired(request) {
-		return nil, &Response{
+		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
 				"status":  "error",
@@ -27,7 +27,7 @@ func Authentication(request *Request) (*Request, *Response) {
 		}
 	}
 
-	return request, nil
+	return request, Response{}
 }
 
 func ensureReuestHasAnAuthorizationHeader(request *Request) bool {

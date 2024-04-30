@@ -6,7 +6,7 @@ import (
 	"litebasedb/server/node"
 )
 
-func Internal(request *Request) (*Request, *Response) {
+func Internal(request *Request) (*Request, Response) {
 	nodeHeader := request.Headers().Get("X-Lbdb-Node")
 	var nodeIp string
 
@@ -17,7 +17,7 @@ func Internal(request *Request) (*Request, *Response) {
 		)
 
 		if err != nil {
-			return nil, &Response{
+			return request, Response{
 				StatusCode: 401,
 			}
 		}
@@ -26,10 +26,10 @@ func Internal(request *Request) (*Request, *Response) {
 	}
 
 	if nodeIp == "" || !node.Has(nodeIp) {
-		return nil, &Response{
+		return request, Response{
 			StatusCode: 401,
 		}
 	}
 
-	return request, nil
+	return request, Response{}
 }

@@ -2,24 +2,20 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
-	"sort"
-	"strings"
-	"sync"
 )
 
 type RouterInstance struct {
-	DefaultRoute *Route
-	Initialized  bool
-	Keys         map[string][]RouteKey
-	mutex        *sync.RWMutex
+	DefaultRoute Route
+	HttpServer   *http.Server
 	Routes       map[string]map[string]*Route
 }
 
 type RouteKey struct {
 	Route string
-	Regex string
+	Regex *regexp.Regexp
 }
 
 var StaticRouter *RouterInstance
@@ -27,178 +23,146 @@ var StaticRouter *RouterInstance
 func Router() *RouterInstance {
 	if StaticRouter == nil {
 		StaticRouter = &RouterInstance{
-			mutex: &sync.RWMutex{},
+			Routes: map[string]map[string]*Route{
+				"GET":    nil,
+				"POST":   nil,
+				"PUT":    nil,
+				"PATCH":  nil,
+				"DELETE": nil,
+			},
 		}
 	}
 
 	return StaticRouter
 }
 
-func (router *RouterInstance) compileKeys(method string) []RouteKey {
-	router.mutex.RLock()
-	defer router.mutex.RUnlock()
+// func (router *RouterInstance) compileKeys(method string) []RouteKey {
+// 	router.mutex.RLock()
+// 	defer router.mutex.RUnlock()
 
-	if router.Keys[method] != nil {
-		return router.Keys[method]
-	}
+// 	if router.Keys[method] != nil {
+// 		return router.Keys[method]
+// 	}
 
-	var keys = make([]string, 0, len(router.Routes[method]))
+// 	var keys = make([]string, 0, len(router.Routes[method]))
 
-	for key := range router.Routes[method] {
-		keys = append(keys, key)
-	}
+// 	for key := range router.Routes[method] {
+// 		keys = append(keys, key)
+// 	}
 
-	var compiledKeys []RouteKey
+// 	var compiledKeys []RouteKey
 
-	for _, key := range keys {
-		var parts = strings.Split(key, "/")
+// 	for _, key := range keys {
+// 		var parts = strings.Split(key, "/")
 
-		for index, part := range parts {
-			if strings.HasPrefix(part, ":") {
-				parts[index] = "(.*)"
-			}
-		}
+// 		for index, part := range parts {
+// 			if strings.HasPrefix(part, ":") {
+// 				parts[index] = "(.*)"
+// 			}
+// 		}
 
-		compiledKeys = append(compiledKeys, RouteKey{
-			Route: key,
-			Regex: strings.Join(parts, "/"),
-		})
-	}
+// 		regex, _ := regexp.Compile(strings.Join(parts, "/"))
 
-	// Sort the keys by length, so that the longest one gets matched first
-	sort.SliceStable(compiledKeys, func(i, j int) bool {
-		return len(compiledKeys[i].Route) > len(compiledKeys[j].Route)
-	})
+// 		compiledKeys = append(compiledKeys, RouteKey{
+// 			Route: key,
+// 			Regex: regex,
+// 		})
+// 	}
 
-	router.Keys[method] = compiledKeys
+// 	// Sort the keys by length, so that the longest one gets matched first
+// 	sort.SliceStable(compiledKeys, func(i, j int) bool {
+// 		return len(compiledKeys[i].Route) > len(compiledKeys[j].Route)
+// 	})
 
-	return router.Keys[method]
-}
+// 	router.Keys[method] = compiledKeys
 
-func (router *RouterInstance) Delete(path string, handler func(request *Request) *Response) *Route {
+// 	return router.Keys[method]
+// }
+
+func (router *RouterInstance) Delete(path string, handler func(request *Request) Response) *Route {
 	return router.request("DELETE", path, handler)
 }
 
-func (router *RouterInstance) Fallback(callback func(request *Request) *Response) {
-	router.DefaultRoute = &Route{
+func (router *RouterInstance) Fallback(callback func(request *Request) Response) {
+	router.DefaultRoute = Route{
 		Handler: callback,
 	}
 }
 
-func (router *RouterInstance) Dispatch(request *http.Request) *Response {
-	req := PrepareRequest(request)
-
-	if !router.Initialized {
-		router.Init()
-		LoadRoutes(router)
-		router.Initialized = true
-	}
-
-	return router.findRoute(request.Method, req.Path).Handle(req)
-}
-
-func (router *RouterInstance) findRoute(method, path string) *Route {
-	if router.Routes[method] == nil {
-		return router.DefaultRoute
-	}
-
-	for _, routeKey := range router.compileKeys(method) {
-		r, _ := regexp.Compile(routeKey.Regex)
-
-		for _, match := range r.FindStringSubmatch(path) {
-			if match != "" {
-				route := router.Routes[method][routeKey.Route]
-
-				return route
-			}
-		}
-	}
-
-	return router.DefaultRoute
-}
-
-func (router *RouterInstance) Get(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Get(path string, handler func(request *Request) Response) *Route {
 	return router.request("GET", path, handler)
 }
 
-func (router *RouterInstance) Init() {
-	router.Keys = make(map[string][]RouteKey)
-
-	router.Routes = map[string]map[string]*Route{
-		"GET":    nil,
-		"POST":   nil,
-		"PUT":    nil,
-		"PATCH":  nil,
-		"DELETE": nil,
-	}
-}
-
-func (router *RouterInstance) Path(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Path(path string, handler func(request *Request) Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Post(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Post(path string, handler func(request *Request) Response) *Route {
 	return router.request("POST", path, handler)
 }
 
-func (router *RouterInstance) Patch(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Patch(path string, handler func(request *Request) Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Put(path string, handler func(request *Request) *Response) *Route {
+func (router *RouterInstance) Put(path string, handler func(request *Request) Response) *Route {
 	return router.request("PUT", path, handler)
 }
 
 func PrepareRequest(request *http.Request) *Request {
-
 	return NewRequest(request)
 }
 
-func (router *RouterInstance) request(method string, path string, handler func(request *Request) *Response) *Route {
-	router.mutex.Lock()
-	defer router.mutex.Unlock()
-
+func (router *RouterInstance) request(method string, path string, handler func(request *Request) Response) *Route {
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
 	}
 
-	router.Routes[method][path] = &Route{
-		Handler: handler,
-		Path:    path,
-	}
+	router.Routes[method][path] = &Route{Handler: handler}
 
-	route := router.Routes[method][path]
-
-	return route
+	return router.Routes[method][path]
 }
 
-func (router *RouterInstance) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	response := Router().Dispatch(r)
+func (router *RouterInstance) Server(serveMux *http.ServeMux) {
+	LoadRoutes(router)
 
-	if response == nil {
-		return
-	}
+	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		response := router.DefaultRoute.Handler(PrepareRequest(r))
+		w.WriteHeader(response.StatusCode)
+	})
 
-	if response.Stream != nil {
-		response.Stream(w)
-		return
-	}
+	for method := range router.Routes {
+		for path, route := range router.Routes[method] {
+			serveMux.HandleFunc(fmt.Sprintf("%s %s", method, path), func(w http.ResponseWriter, r *http.Request) {
+				response := route.Handle(PrepareRequest(r))
 
-	for key, value := range response.Headers {
-		w.Header().Set(key, value)
-	}
+				if response.StatusCode == 0 {
+					return
+				}
 
-	w.WriteHeader(response.StatusCode)
+				if response.Stream != nil {
+					response.Stream(w)
+					return
+				}
 
-	if response.Body == nil {
-		w.Write([]byte(""))
-	} else {
-		jsonBody, err := json.Marshal(response.Body)
+				for key, value := range response.Headers {
+					w.Header().Set(key, value)
+				}
 
-		if err != nil {
-			panic(err)
+				w.WriteHeader(response.StatusCode)
+
+				if response.Body == nil {
+					w.Write([]byte(""))
+				} else {
+					jsonBody, err := json.Marshal(response.Body)
+
+					if err != nil {
+						panic(err)
+					}
+
+					w.Write([]byte(jsonBody))
+				}
+			})
 		}
-
-		w.Write([]byte(jsonBody))
 	}
 }

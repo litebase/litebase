@@ -1,13 +1,14 @@
 package database
 
 import (
+	"errors"
 	"sync"
 )
 
 type ConnectionManagerInstance struct {
 	connections       map[string]map[string][]*ClientConnection
 	connectionMutexes map[string]map[string]*sync.RWMutex
-	mutex             *sync.Mutex
+	mutex             *sync.RWMutex
 }
 
 var StaticConnectionManagerInstance *ConnectionManagerInstance
@@ -17,7 +18,7 @@ func ConnectionManager() *ConnectionManagerInstance {
 		StaticConnectionManagerInstance = &ConnectionManagerInstance{
 			connections:       map[string]map[string][]*ClientConnection{},
 			connectionMutexes: map[string]map[string]*sync.RWMutex{},
-			mutex:             &sync.Mutex{},
+			mutex:             &sync.RWMutex{},
 		}
 	}
 
@@ -42,36 +43,21 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 		return connection, nil
 	}
 
-	database, err := Get(databaseUuid)
-
-	if err != nil {
-		return nil, err
-	}
-
-	path := database.BranchDatabaseFile(branchUuid)
-
 	if c.connections[databaseUuid] == nil {
 		c.connections[databaseUuid] = map[string][]*ClientConnection{}
 	}
 
-	con := NewClientConnection(path, databaseUuid, branchUuid)
+	if c.connections[databaseUuid][branchUuid] == nil {
+		c.connections[databaseUuid][branchUuid] = []*ClientConnection{}
+	}
+
+	con := NewClientConnection(databaseUuid, branchUuid)
+
+	if con == nil {
+		return nil, errors.New("Connection error")
+	}
 
 	return con, nil
-}
-
-func (c *ConnectionManagerInstance) GetMutex(databaseUuid string, branchUuid string) *sync.RWMutex {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if c.connectionMutexes[databaseUuid] == nil {
-		c.connectionMutexes[databaseUuid] = map[string]*sync.RWMutex{}
-	}
-
-	if c.connectionMutexes[databaseUuid][branchUuid] == nil {
-		c.connectionMutexes[databaseUuid][branchUuid] = &sync.RWMutex{}
-	}
-
-	return c.connectionMutexes[databaseUuid][branchUuid]
 }
 
 func (c *ConnectionManagerInstance) Release(databaseUuid string, branchUuid string, clientConnection *ClientConnection) {
@@ -94,6 +80,4 @@ func (c *ConnectionManagerInstance) Remove(databaseUuid string, branchUuid strin
 	defer c.mutex.Unlock()
 
 	clientConnection.Close()
-
-	delete(c.connections[databaseUuid], branchUuid)
 }

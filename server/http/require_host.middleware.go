@@ -1,9 +1,9 @@
 package http
 
 func RequireHost(host string) Middleware {
-	return func(request *Request) (*Request, *Response) {
+	return func(request *Request) (*Request, Response) {
 		if request.Headers().Get("Host") != host {
-			return nil, &Response{
+			return request, Response{
 				StatusCode: 403,
 				Body: map[string]interface{}{
 					"status":  "error",
@@ -12,6 +12,6 @@ func RequireHost(host string) Middleware {
 			}
 		}
 
-		return request, nil
+		return request, Response{}
 	}
 }

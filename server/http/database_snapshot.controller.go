@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func DatabaseSnapshotShowController(request *Request) *Response {
+func DatabaseSnapshotShowController(request *Request) Response {
 	timestamp, err := strconv.Atoi(request.Param("timestamp"))
 
 	if err != nil {

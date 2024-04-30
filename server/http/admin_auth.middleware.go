@@ -2,19 +2,20 @@ package http
 
 import (
 	"litebasedb/server/auth"
+	"log"
 	"strconv"
 	"time"
 )
 
-func AdminAuth(request *Request) (*Request, *Response) {
+func AdminAuth(request *Request) (*Request, Response) {
 	if basicAuth(request) {
-		return request, nil
+		return request, Response{}
 	}
 
 	if !ensureAdminRequestHasAnAuthorizationHeader(request) ||
 		!ensureAdminRequestIsProperlySigned(request) ||
 		ensureAdminRequestHasAValidToken(request) {
-		return nil, &Response{
+		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
 				"message": "Unauthorized",
@@ -23,7 +24,7 @@ func AdminAuth(request *Request) (*Request, *Response) {
 	}
 
 	if !ensureAdminRequestIsNotExpired(request) {
-		return nil, &Response{
+		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
 				"status":  "error",
@@ -32,7 +33,7 @@ func AdminAuth(request *Request) (*Request, *Response) {
 		}
 	}
 
-	return request, nil
+	return request, Response{}
 }
 
 func basicAuth(request *Request) bool {
@@ -49,6 +50,7 @@ func basicAuth(request *Request) bool {
 Ensure that there is an authorization header
 */
 func ensureAdminRequestHasAnAuthorizationHeader(request *Request) bool {
+	log.Println("Checking for authorization header", request.Headers().Get("Authorization"))
 	return request.Headers().Get("Authorization") != ""
 }
 

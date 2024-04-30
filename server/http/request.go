@@ -17,11 +17,12 @@ type Request struct {
 	Method       string
 	Path         string
 	QueryParams  map[string]string
-	requestToken *auth.RequestToken
-	Route        *Route
+	requestToken auth.RequestToken
+	Route        Route
 }
 
 func NewRequest(request *http.Request) *Request {
+	// ctx := request.Context()
 	headers := map[string]string{}
 
 	for key, value := range request.Header {
@@ -37,16 +38,9 @@ func NewRequest(request *http.Request) *Request {
 
 	headers["host"] = request.Host
 
-	body := make(map[string]interface{})
-
-	if request.Body != nil {
-		decoder := json.NewDecoder(request.Body)
-		decoder.Decode(&body)
-	}
-
 	return &Request{
 		BaseRequest: request,
-		Body:        body,
+		Body:        nil,
 		Method:      request.Method,
 		Path:        request.URL.Path,
 		headers:     NewHeaders(headers),
@@ -55,6 +49,14 @@ func NewRequest(request *http.Request) *Request {
 }
 
 func (r *Request) All() map[string]interface{} {
+	if r.Body == nil {
+		body := make(map[string]interface{})
+		decoder := json.NewDecoder(r.BaseRequest.Body)
+		decoder.Decode(&body)
+
+		r.Body = body
+	}
+
 	return r.Body
 }
 
@@ -84,7 +86,7 @@ func (request *Request) Headers() *Headers {
 }
 
 func (request *Request) Input(input any) (interface{}, error) {
-	jsonData, err := json.Marshal(request.Body)
+	jsonData, err := json.Marshal(request.All())
 
 	if err != nil {
 		return nil, err
@@ -96,22 +98,22 @@ func (request *Request) Input(input any) (interface{}, error) {
 }
 
 func (request *Request) Param(key string) string {
-	return request.Route.Get(key)
+	return request.BaseRequest.PathValue(key)
 }
 
 func (request *Request) QueryParam(key string) string {
 	return request.QueryParams[key]
 }
 
-func (request *Request) RequestToken(header string) *auth.RequestToken {
-	if request.requestToken == nil {
+func (request *Request) RequestToken(header string) auth.RequestToken {
+	if !request.requestToken.Valid() {
 		request.requestToken = auth.CaptureRequestToken(request.headers.Get(header))
 	}
 
 	return request.requestToken
 }
 
-func (request *Request) SetRoute(route *Route) *Request {
+func (request Request) SetRoute(route Route) Request {
 	request.Route = route
 
 	return request
@@ -126,7 +128,7 @@ func (request *Request) Subdomains() []string {
 	return parts[0:1]
 }
 
-func (request *Request) Validate(
+func (request Request) Validate(
 	input interface{},
 	messages map[string]string,
 ) map[string][]string {

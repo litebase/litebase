@@ -26,7 +26,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Delete(
-		"/users/:username",
+		"/users/{username}",
 		UserControllerDestroy,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -47,7 +47,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Delete(
-		"/access-keys/:accessKeyId",
+		"/access-keys/{accessKeyId}",
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -66,7 +66,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Get(
-		"/databases/:databaseUuid",
+		"/databases/{databaseUuid}",
 		DatabaseShowController,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -80,14 +80,14 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Delete(
-		"/databases/:databaseUuid",
+		"/databases/{databaseUuid}",
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
 		AdminAuth,
 	})
 
 	router.Post(
-		"/databases/:databaseUuid/public-key",
+		"/databases/{databaseUuid}/public-key",
 		DatabasePublicKeyController,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -111,7 +111,7 @@ func LoadRoutes(router *RouterInstance) {
 		Internal routes for cluster operations.
 	*/
 	router.Post(
-		"/databases/:databaseUuid/:branchUuid/settings/purge",
+		"/databases/{databaseUuid}/{branchUuid}/settings/purge",
 		DatabaseSettingsPurgeController,
 	).Middleware([]Middleware{Internal})
 
@@ -131,6 +131,14 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
+	router.Post("/query/stream",
+		QueryStreamController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		Authentication,
+		Authorization,
+	})
+
 	router.Post("/transactions",
 		TrasactionControllerStore,
 	).Middleware([]Middleware{
@@ -139,7 +147,7 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
-	router.Delete("/transactions/:id/",
+	router.Delete("/transactions/{id}/",
 		TrasactionControllerDestroy,
 	).Middleware([]Middleware{
 		RequireSubdomain,
@@ -147,7 +155,7 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
-	router.Post("/transactions/:id/",
+	router.Post("/transactions/{id}/",
 		TrasactionControllerUpdate,
 	).Middleware([]Middleware{
 		RequireSubdomain,
@@ -155,7 +163,7 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
-	router.Post("/transactions/:id/commit",
+	router.Post("/transactions/{id}/commit",
 		TransactionCommitController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
@@ -163,10 +171,17 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
-	router.Fallback(func(request *Request) *Response {
-		return &Response{
+	router.Fallback(func(request *Request) Response {
+		return Response{
 			StatusCode: 404,
 			Body:       nil,
+		}
+	})
+
+	router.Get("/", func(request *Request) Response {
+		return Response{
+			StatusCode: 200,
+			Body:       map[string]interface{}{"message": "Hello World"},
 		}
 	})
 

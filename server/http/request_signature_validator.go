@@ -19,7 +19,7 @@ func RequestSignatureValidator(
 	request *Request,
 	header string,
 ) bool {
-	if request.RequestToken(header) == nil {
+	if !request.RequestToken(header).Valid() {
 		return false
 	}
 

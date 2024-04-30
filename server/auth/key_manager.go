@@ -170,10 +170,6 @@ func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
 
 	defer file.Close()
 
-	if err != nil {
-		return nil, err
-	}
-
 	publicKey, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
 
 	if err != nil {

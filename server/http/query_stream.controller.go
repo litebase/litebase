@@ -1,0 +1,149 @@
+package http
+
+import (
+	"bufio"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"litebasedb/server/auth"
+	"litebasedb/server/database"
+	"litebasedb/server/query"
+	"log"
+	"net/http"
+)
+
+func QueryStreamController(request *Request) Response {
+	return Response{
+		StatusCode: 200,
+		Stream: func(w http.ResponseWriter) {
+			w.Header().Set("Transfer-Encoding", "chunked")
+			w.Header().Set("Connection", "close")
+
+			w.(http.Flusher).Flush()
+
+			databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+
+			if databaseKey == nil || err != nil {
+				w.Write(JsonNewLineError(fmt.Errorf("a valid database is required to make this request")))
+				log.Println("Database key error", err)
+				return
+			}
+
+			requestToken := request.RequestToken("Authorization")
+
+			if !requestToken.Valid() {
+				w.Write(JsonNewLineError(fmt.Errorf("a valid access key is required to make this request")))
+				log.Println("Request token error")
+				return
+			}
+
+			accessKey := requestToken.AccessKey(databaseKey.DatabaseUuid)
+
+			if accessKey == nil {
+				w.Write(JsonNewLineError(fmt.Errorf("a valid access key is required to make this request")))
+				log.Println("Access key error")
+				return
+			}
+
+			db, err := database.ConnectionManager().Get(
+				databaseKey.DatabaseUuid,
+				databaseKey.BranchUuid,
+			)
+
+			if err != nil {
+				w.Write(JsonNewLineError(err))
+				w.(http.Flusher).Flush()
+				log.Println("Database connection error", err)
+
+				if db != nil {
+					database.ConnectionManager().Remove(
+						databaseKey.DatabaseUuid,
+						databaseKey.BranchUuid,
+						db,
+					)
+				}
+
+				return
+			}
+
+			scanner := bufio.NewScanner(request.BaseRequest.Body)
+
+			for scanner.Scan() {
+				command := scanner.Text()
+
+				if err := scanner.Err(); err != nil {
+					log.Println(err)
+					break
+				}
+
+				if db == nil || db.GetConnection().Closed() {
+					w.Write(JsonNewLineError(fmt.Errorf("database connection error")))
+					return
+				}
+
+				response, err := processCommand(db, accessKey, command)
+
+				if err != nil {
+					w.Write(JsonNewLineError(err))
+					return
+				}
+
+				jsonResponse, err := json.Marshal(response)
+
+				if err != nil {
+					w.Write(JsonNewLineError(err))
+					log.Println("JSON error", err)
+					return
+				}
+
+				w.Write(jsonResponse)
+				w.(http.Flusher).Flush()
+			}
+
+			request.BaseRequest.Body.Close()
+			<-request.BaseRequest.Context().Done()
+			// log.Println("Connection closed")
+
+			database.ConnectionManager().Release(
+				databaseKey.DatabaseUuid,
+				databaseKey.BranchUuid,
+				db,
+			)
+		},
+	}
+}
+
+func processCommand(db *database.ClientConnection, accessKey *auth.AccessKey, command string) (map[string]interface{}, error) {
+	var queryCommand map[string]interface{}
+
+	err := json.Unmarshal([]byte(command), &queryCommand)
+
+	if err != nil {
+		return nil, err
+	}
+
+	requestQuery, err := query.NewQuery(
+		db.WithAccessKey(accessKey),
+		accessKey.AccessKeyId,
+		queryCommand,
+		"",
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := query.NewResolver().Handle(db, requestQuery)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if response["status"].(string) == "error" {
+		return nil, errors.New(response["message"].(string))
+	}
+
+	// defer counter.Increment(databaseKey.DatabaseUuid, databaseKey.BranchUuid)
+
+	return response, nil
+}

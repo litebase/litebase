@@ -10,11 +10,11 @@ type DatabasePublicKeyRequest struct {
 	Signature string `json:"signature" validate:"required"`
 }
 
-func DatabasePublicKeyController(request *Request) *Response {
+func DatabasePublicKeyController(request *Request) Response {
 	input, err := request.Input(&DatabasePublicKeyRequest{})
 
 	if err != nil {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"errors": err,
@@ -28,7 +28,7 @@ func DatabasePublicKeyController(request *Request) *Response {
 	})
 
 	if validationErrors != nil {
-		return &Response{
+		return Response{
 			StatusCode: 422,
 			Body: map[string]interface{}{
 				"errors": validationErrors,
@@ -39,7 +39,7 @@ func DatabasePublicKeyController(request *Request) *Response {
 	var signature string
 
 	if signature = _auth.FindSignature(request.Headers().Get("X-Lbdb-Signature")); signature == "" {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"errors": "The signature is invalid.",
@@ -53,7 +53,7 @@ func DatabasePublicKeyController(request *Request) *Response {
 	)
 
 	if err != nil {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"errors": "The signature is invalid.",
@@ -67,7 +67,7 @@ func DatabasePublicKeyController(request *Request) *Response {
 	)
 
 	if err != nil {
-		return &Response{
+		return Response{
 			StatusCode: 500,
 			Body: map[string]interface{}{
 				"errors": err,
@@ -82,7 +82,7 @@ func DatabasePublicKeyController(request *Request) *Response {
 	)
 
 	if err != nil {
-		return &Response{
+		return Response{
 			StatusCode: 500,
 			Body: map[string]interface{}{
 				"errors": err,
@@ -90,7 +90,7 @@ func DatabasePublicKeyController(request *Request) *Response {
 		}
 	}
 
-	return &Response{
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"status": "success",

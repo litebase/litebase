@@ -1,11 +1,9 @@
-package file
+package storage
 
 import (
 	"fmt"
 	"io"
-	"litebasedb/internal/config"
 	internalStorage "litebasedb/internal/storage"
-	"litebasedb/server/storage"
 	"os"
 	"sync"
 
@@ -16,13 +14,14 @@ type FileProxyV2 struct {
 	exists    bool
 	pageCache *PageCache
 	mutex     *sync.Mutex
+	pageSize  int64
 	path      string
 }
 
-func NewFileProxyV2(path, databaseUuid, branchUuid string) *FileProxyV2 {
+func NewFileProxyV2(path, databaseUuid, branchUuid string, pageSize int64) *FileProxyV2 {
 	fp := &FileProxyV2{
 		mutex:     &sync.Mutex{},
-		pageCache: NewPageCache(databaseUuid, branchUuid),
+		pageCache: NewPageCache("TODO", databaseUuid, branchUuid, pageSize),
 		path:      path,
 	}
 
@@ -48,9 +47,9 @@ func (fp *FileProxyV2) ReadAt(offset int64) (data []byte, err error) {
 		return data, nil
 	}
 
-	pageNumber := PageNumber(offset)
+	pageNumber := PageNumber(offset, fp.pageSize)
 
-	fileData, err := storage.FS().ReadFile(fp.pagePath(pageNumber))
+	fileData, err := FS().ReadFile(fp.pagePath(pageNumber))
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -71,7 +70,7 @@ func (fp *FileProxyV2) ReadAt(offset int64) (data []byte, err error) {
 	}
 
 	// TODO: Devise a better caching strategy. Currently we are only caching spilled pages in P2
-	// if err == nil && len(decompressedData) == int(config.Get().PageSize) {
+	// if err == nil && len(decompressedData) == int(fp.pageSize) {
 	// 	fp.pageCache.Put(offset, decompressedData)
 	// }
 
@@ -79,7 +78,7 @@ func (fp *FileProxyV2) ReadAt(offset int64) (data []byte, err error) {
 }
 
 func (fp *FileProxyV2) WriteAt(data []byte, offset int64) (n int, err error) {
-	pageNumber := PageNumber(offset)
+	pageNumber := PageNumber(offset, fp.pageSize)
 
 	if pageNumber == 1 && !fp.exists {
 		fp.exists = true
@@ -94,7 +93,7 @@ func (fp *FileProxyV2) WriteAt(data []byte, offset int64) (n int, err error) {
 		return 0, err
 	}
 
-	err = storage.FS().WriteFile(fp.pagePath(pageNumber), compressedData, 0666)
+	err = FS().WriteFile(fp.pagePath(pageNumber), compressedData, 0666)
 
 	if err == nil {
 		fp.pageCache.Put(offset, data)
@@ -132,19 +131,19 @@ func (fp *FileProxyV2) Size() (int64, error) {
 	// fp.mutex.Lock()
 	// defer fp.mutex.Unlock()
 	if fp.exists {
-		return config.Get().PageSize * 4294967294, nil
+		return fp.pageSize * 4294967294, nil
 	}
 
-	return 0 * config.Get().PageSize, nil
+	return 0 * fp.pageSize, nil
 }
 
-func PageNumber(offset int64) int64 {
-	return (offset / config.Get().PageSize) + 1
-}
+// func PageNumber(offset, pageSize int64) int64 {
+// 	return (offset / pageSize) + 1
+// }
 
-func PageOffset(pagenumber, offset int64) int64 {
-	return offset - ((pagenumber - 1) * config.Get().PageSize)
-}
+// func PageOffset(pagenumber, offset, pageSize int64) int64 {
+// 	return offset - ((pagenumber - 1) * pageSize)
+// }
 
 func (fp *FileProxyV2) pagePath(pageNumber int64) string {
 	return fmt.Sprintf("%s/page-%d", fp.path, pageNumber)

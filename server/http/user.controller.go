@@ -10,10 +10,10 @@ type UserControllerStoreRequest struct {
 	Privileges []string `json:"privileges" validate:"required"`
 }
 
-func UserControllerIndex(request *Request) *Response {
+func UserControllerIndex(request *Request) Response {
 	users := auth.UserManager().All()
 
-	return &Response{
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"data": users,
@@ -21,11 +21,11 @@ func UserControllerIndex(request *Request) *Response {
 	}
 }
 
-func UserControllerStore(request *Request) *Response {
+func UserControllerStore(request *Request) Response {
 	input, err := request.Input(&UserControllerStoreRequest{})
 
 	if err != nil {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"errors": err,
@@ -42,7 +42,7 @@ func UserControllerStore(request *Request) *Response {
 	})
 
 	if validationErrors != nil {
-		return &Response{
+		return Response{
 			StatusCode: 422,
 			Body: map[string]interface{}{
 				"errors": validationErrors,
@@ -51,7 +51,7 @@ func UserControllerStore(request *Request) *Response {
 	}
 
 	if input.(*UserControllerStoreRequest).Username == "root" {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"message": "This username is invalid.",
@@ -60,7 +60,7 @@ func UserControllerStore(request *Request) *Response {
 	}
 
 	if auth.UserManager().Get(input.(*UserControllerStoreRequest).Username) != nil {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"message": "This username is already in use.",
@@ -76,7 +76,7 @@ func UserControllerStore(request *Request) *Response {
 		data.Privileges,
 	)
 
-	return &Response{
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"message": "User created successfully",
@@ -84,11 +84,11 @@ func UserControllerStore(request *Request) *Response {
 	}
 }
 
-func UserControllerDestroy(request *Request) *Response {
+func UserControllerDestroy(request *Request) Response {
 	username := request.Param("username")
 
 	if username == "root" {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"message": "The username is invalid.",
@@ -97,7 +97,7 @@ func UserControllerDestroy(request *Request) *Response {
 	}
 
 	if auth.UserManager().Get(username) == nil {
-		return &Response{
+		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
 				"message": "The username is invalid.",
@@ -108,7 +108,7 @@ func UserControllerDestroy(request *Request) *Response {
 	err := auth.UserManager().Remove(username)
 
 	if err != nil {
-		return &Response{
+		return Response{
 			StatusCode: 500,
 			Body: map[string]interface{}{
 				"message": err.Error(),
@@ -116,7 +116,7 @@ func UserControllerDestroy(request *Request) *Response {
 		}
 	}
 
-	return &Response{
+	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
 			"message": "User deleted successfully",

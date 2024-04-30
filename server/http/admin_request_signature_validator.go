@@ -19,7 +19,7 @@ import (
 func AdminRequestSignatureValidator(request *Request) bool {
 	token := request.RequestToken("Authorization")
 
-	if token == nil {
+	if !token.Valid() {
 		return false
 	}
 

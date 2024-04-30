@@ -1,11 +1,9 @@
-package file
+package storage
 
 import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"litebasedb/internal/config"
-	"litebasedb/server/storage"
 	"log"
 	"os"
 	"sort"
@@ -19,28 +17,35 @@ type PageCache struct {
 	file          *os.File
 	directoryPath string
 	freeList      []int64
-	fs            *storage.FileSystem
+	fs            *FileSystem
 	maxEntries    int
 	mutex         *sync.RWMutex
 	index         map[int64][]int64
 	fileLock      *sync.Mutex
+	pageSize      int64
 	syncCounter   int
 	syncTicker    *time.Ticker
 	syncThreshold int
 	syncTime      time.Duration
 }
 
-func NewPageCache(databaseUuid string, branchUuid string) *PageCache {
+func NewPageCache(
+	tmpPath string,
+	databaseUuid string,
+	branchUuid string,
+	pageSize int64,
+) *PageCache {
 	pc := &PageCache{
 		branchUuid:    branchUuid,
 		databaseUuid:  databaseUuid,
-		directoryPath: fmt.Sprintf("%s/%s", config.Get().TmpPath, "page_cache"),
+		directoryPath: fmt.Sprintf("%s/%s", tmpPath, "page_cache"),
 		fileLock:      &sync.Mutex{},
 		freeList:      make([]int64, 0),
-		fs:            storage.NewFileSystem("local"),
+		fs:            NewFileSystem("local"),
 		index:         make(map[int64][]int64),
 		maxEntries:    25000, // ? MB
 		mutex:         &sync.RWMutex{},
+		pageSize:      pageSize,
 		syncCounter:   0,
 		syncThreshold: 0,
 		syncTime:      10 * time.Millisecond,
@@ -95,7 +100,7 @@ func (pc *PageCache) filePath() string {
 }
 
 func (pc *PageCache) Get(off int64) ([]byte, error) {
-	pageNumber := PageNumber(off)
+	pageNumber := PageNumber(off, pc.pageSize)
 
 	pc.mutex.RLock()
 	entry, ok := pc.index[pageNumber]
@@ -105,7 +110,7 @@ func (pc *PageCache) Get(off int64) ([]byte, error) {
 		return nil, nil
 	}
 
-	page := make([]byte, config.Get().PageSize)
+	page := make([]byte, pc.pageSize)
 
 	// Read the page from the file system
 	pc.file.Seek(int64(entry[0]), 0)
@@ -120,7 +125,7 @@ func (pc *PageCache) Get(off int64) ([]byte, error) {
 		return nil, err
 	}
 
-	if n != int(config.Get().PageSize) {
+	if n != int(pc.pageSize) {
 		log.Println("ERROR READING PAGE", pageNumber, "NOT ENOUGH DATA")
 		return nil, fmt.Errorf("page %d not enough data", pageNumber)
 	}
@@ -128,7 +133,7 @@ func (pc *PageCache) Get(off int64) ([]byte, error) {
 	pageOffset := PageOffset(pageNumber, off)
 
 	if pageOffset >= int64(len(page)) {
-		return nil, fmt.Errorf("page offset %d out of bounds for page %d", pageOffset, PageNumber(off))
+		return nil, fmt.Errorf("page offset %d out of bounds for page %d", pageOffset, PageNumber(off, pc.pageSize))
 	}
 
 	pc.mutex.Lock()
@@ -144,14 +149,14 @@ func (pc *PageCache) Get(off int64) ([]byte, error) {
 func (pc *PageCache) Has(off int64) bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
-	_, ok := pc.index[PageNumber(off)]
+	_, ok := pc.index[PageNumber(off, pc.pageSize)]
 
 	return ok
 }
 
 func (pc *PageCache) Put(off int64, p []byte) error {
 
-	pageNumber := PageNumber(off)
+	pageNumber := PageNumber(off, pc.pageSize)
 	var err error
 	offset := int64(0)
 	// Check if the page is already in the cache
@@ -215,7 +220,7 @@ func (pc *PageCache) Delete(off int64) (err error) {
 	}
 
 	// Get the cache offset
-	entry := pc.index[PageNumber(off)]
+	entry := pc.index[PageNumber(off, pc.pageSize)]
 
 	// Seek to the cache offset
 	_, err = pc.file.Seek(entry[0], 0)
@@ -223,7 +228,7 @@ func (pc *PageCache) Delete(off int64) (err error) {
 	pc.freeList = append(pc.freeList, entry[0])
 
 	// Remove the page from the index
-	delete(pc.index, PageNumber(off))
+	delete(pc.index, PageNumber(off, pc.pageSize))
 
 	// optionally delete the content in the file
 

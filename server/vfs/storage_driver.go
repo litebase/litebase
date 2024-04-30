@@ -1,15 +1,9 @@
 package vfs
 
 type StorageDriver interface {
-	Cache() StorageDriverCache
-	ReadAt(offset int64) (data []byte, err error)
-	WriteAt(data []byte, offset int64) (n int, err error)
-	Size() (int64, error)
-}
-
-type StorageDriverCache interface {
-	Get(key int64) (data []byte, err error)
-	Put(key int64, data []byte) error
-	Delete(key int64) error
-	Flush() error
+	Delete(file string) error
+	ReadAt(file string, offset int64, len int64) (data []byte, err error)
+	WriteAt(file string, data []byte, offset int64) (n int, err error)
+	Size(file string) (int64, error)
+	Truncate(file string, size int64) error
 }

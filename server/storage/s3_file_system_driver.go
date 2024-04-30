@@ -46,7 +46,7 @@ func newS3Client() *s3.Client {
 	}
 
 	return s3.NewFromConfig(sdkConfig, func(options *s3.Options) {
-		if os.Getenv("APP_ENV") == "local" {
+		if os.Getenv("LITEBASEDB_ENV") == "local" {
 			options.UsePathStyle = true
 		}
 	})

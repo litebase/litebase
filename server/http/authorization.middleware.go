@@ -1,10 +1,10 @@
 package http
 
-func Authorization(request *Request) (*Request, *Response) {
+func Authorization(request *Request) (*Request, Response) {
 	accessKey := request.RequestToken("Authorization").AccessKey(request.Subdomains()[0])
 
 	if accessKey == nil {
-		return nil, &Response{
+		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
 				"status":  "error",
@@ -18,7 +18,7 @@ func Authorization(request *Request) (*Request, *Response) {
 	err := accessKey.CanAccess(databaseUuid, branchUuid)
 
 	if err != nil {
-		return nil, &Response{
+		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{
 				"status":  "error",
@@ -27,5 +27,5 @@ func Authorization(request *Request) (*Request, *Response) {
 		}
 	}
 
-	return request, nil
+	return request, Response{}
 }

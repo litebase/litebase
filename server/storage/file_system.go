@@ -34,14 +34,14 @@ type FileSystemDriver interface {
 
 var fileSystem *FileSystem
 
-func NewFileSystem(driver string) *FileSystem {
+func NewFileSystem(fileSystem string) *FileSystem {
 	fs := &FileSystem{
 		mutex: &sync.Mutex{},
 	}
 
-	switch driver {
-	case "s3":
-		fs.driver = NewS3FileSystemDriver()
+	switch fileSystem {
+	// case "s3":
+	// 	fs.driver = NewS3FileSystemDriver()
 	case "local":
 		fs.driver = NewLocalFileSystemDriver()
 	}
@@ -52,7 +52,7 @@ func NewFileSystem(driver string) *FileSystem {
 func FS() *FileSystem {
 	if fileSystem == nil {
 		// TODO: Need to make a default from config
-		fileSystem = NewFileSystem("s3")
+		fileSystem = NewFileSystem("local")
 	}
 
 	return fileSystem

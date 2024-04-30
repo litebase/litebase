@@ -13,16 +13,16 @@ type RequestToken struct {
 	Signature     string   `json:"signature"`
 }
 
-func CaptureRequestToken(authorizationHeader string) *RequestToken {
+func CaptureRequestToken(authorizationHeader string) RequestToken {
 	if authorizationHeader == "" {
-		return nil
+		return RequestToken{}
 	}
 
 	// base64_decode the authorization header
 	rawDecodedText, err := base64.StdEncoding.DecodeString(authorizationHeader)
 
 	if err != nil {
-		return nil
+		return RequestToken{}
 	}
 
 	headerParts := strings.Split(string(rawDecodedText), ";")
@@ -32,32 +32,32 @@ func CaptureRequestToken(authorizationHeader string) *RequestToken {
 		headerPartParts := strings.Split(headerPart, "=")
 
 		if len(headerPartParts) != 2 {
-			return nil
+			return RequestToken{}
 		}
 
 		token[headerPartParts[0]] = headerPartParts[1]
 	}
 
 	if _, ok := token["credential"]; !ok {
-		return nil
+		return RequestToken{}
 	}
 
 	if _, ok := token["signed_headers"]; !ok {
-		return nil
+		return RequestToken{}
 	}
 
 	if _, ok := token["signature"]; !ok {
-		return nil
+		return RequestToken{}
 	}
 
-	return &RequestToken{
+	return RequestToken{
 		AccessKeyId:   token["credential"],
 		SignedHeaders: strings.Split(token["signed_headers"], ","),
 		Signature:     token["signature"],
 	}
 }
 
-func (requestToken *RequestToken) AccessKey(databaseUuid string) *AccessKey {
+func (requestToken RequestToken) AccessKey(databaseUuid string) *AccessKey {
 	if requestToken.accessKey != nil {
 		return requestToken.accessKey
 	}
@@ -73,8 +73,8 @@ func (requestToken *RequestToken) AccessKey(databaseUuid string) *AccessKey {
 	return requestToken.accessKey
 }
 
-func RequestTokenFromMap(input map[string]string) *RequestToken {
-	return &RequestToken{
+func RequestTokenFromMap(input map[string]string) RequestToken {
+	return RequestToken{
 		AccessKeyId:   input["access_key_id"],
 		SignedHeaders: strings.Split(input["signed_headers"], ","),
 		Signature:     input["signature"],
@@ -85,7 +85,7 @@ func RequestTokenFromMap(input map[string]string) *RequestToken {
 // 	return SecretsManager().GetDatabaseKey(databaseUuid, requestToken.AccessKeyId)
 // }
 
-func (requestToken *RequestToken) ToMap() map[string]interface{} {
+func (requestToken RequestToken) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		"access_key_id":  requestToken.AccessKeyId,
 		"signed_headers": requestToken.SignedHeaders,
@@ -93,7 +93,7 @@ func (requestToken *RequestToken) ToMap() map[string]interface{} {
 	}
 }
 
-func (requestToken *RequestToken) ToJson() string {
+func (requestToken RequestToken) ToJson() string {
 	jsonValue, err := json.Marshal(requestToken.ToMap())
 
 	if err != nil {
@@ -101,4 +101,8 @@ func (requestToken *RequestToken) ToJson() string {
 	}
 
 	return string(jsonValue)
+}
+
+func (requestToken RequestToken) Valid() bool {
+	return requestToken.AccessKeyId != "" && len(requestToken.SignedHeaders) > 0 && requestToken.Signature != ""
 }

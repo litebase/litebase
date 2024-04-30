@@ -1,34 +1,38 @@
 package database
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"hash/crc32"
 	"log"
 	"sync"
+	"time"
 
 	"litebasedb/server/auth"
+	"litebasedb/server/file"
 	"litebasedb/server/sqlite3"
+	"litebasedb/server/storage"
 	"litebasedb/server/vfs"
 
 	"github.com/google/uuid"
 )
 
-var vfsMutex = &sync.Mutex{}
-
 type DatabaseConnection struct {
-	accessKey    *auth.AccessKey
-	branchUuid   string
-	connection   *sqlite3.Connection
-	databaseUuid string
-	fileSystem   *FileSystem
-	id           string
-	mutex        *sync.Mutex
-	path         string
-	// session      *sqlite3.Session
-	statements map[uint32]*sqlite3.Statement
+	accessKey      *auth.AccessKey
+	branchUuid     string
+	connection     *sqlite3.Connection
+	databaseUuid   string
+	id             string
+	fileSystem     *storage.LocalDatabaseFileSystem
+	openRetries    int
+	statements     map[uint32]*sqlite3.Statement
+	statementMutex sync.RWMutex
+	tempFileSystem *storage.LocalDatabaseFileSystem
+	vfs            *vfs.LitebaseVFS
 }
 
-func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConnection {
+func NewDatabaseConnection(databaseUuid, branchUuid string) *DatabaseConnection {
+	log.Println("Opening connection")
 	var (
 		connection *sqlite3.Connection
 		err        error
@@ -37,30 +41,61 @@ func NewDatabaseConnection(path, databaseUuid, branchUuid string) *DatabaseConne
 	con := &DatabaseConnection{
 		branchUuid:   branchUuid,
 		databaseUuid: databaseUuid,
-		fileSystem:   NewFileSystem(path, databaseUuid, branchUuid),
-		mutex:        &sync.Mutex{},
-		path:         path,
-		statements:   map[uint32]*sqlite3.Statement{},
+		fileSystem: storage.NewLocalDatabaseFileSystem(
+			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+			databaseUuid,
+			branchUuid,
+		),
+		statements:     map[uint32]*sqlite3.Statement{},
+		statementMutex: sync.RWMutex{},
+		tempFileSystem: storage.NewLocalDatabaseFileSystem(
+			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+			databaseUuid,
+			branchUuid,
+		),
 	}
 
 	con.setId()
 	con.RegisterVFS()
 	con.setAuthorizer()
 
-	connection, err = sqlite3.Open(fmt.Sprintf("litebase:%s", con.id), 0)
+	con.openRetries = 0
+
+open:
+	connection, err = sqlite3.Open(
+		fmt.Sprintf("./%s/%s.db", file.GetFileDir(databaseUuid, branchUuid), con.Hash()),
+		fmt.Sprintf("litebase:%s", con.VfsHash()),
+	)
 
 	if err != nil {
-		log.Fatalln("Erorr init", err)
+		log.Println("Error Opening Database:", err)
+
+		if con.openRetries < 3 {
+			con.openRetries++
+			randomWait := time.Duration(con.openRetries*100) * time.Millisecond
+			time.Sleep(randomWait)
+			goto open
+		}
+
+		return nil
 	}
 
 	con.connection = connection
 
-	con.connection.Exec("PRAGMA synchronous=OFF")
-	con.connection.Exec("pragma journal_mode=OFF")
-	// con.connection.Exec("pragma journal_mode=WAL")
-	// con.connection.Exec("pragma wal_autocheckpoint=100")
+	con.connection.Exec("PRAGMA synchronous=NORMAL")
+	con.connection.Exec("PRAGMA journal_mode=delete")
+	// con.connection.Exec("PRAGMA journal_mode=wal")
+	// TODO: Need to figure out how to allow checkpoints to resume once there
+	// is more than one connection to the database opened. See the documentation
+	// https://www.sqlite.org/wal.html#avoiding_excessively_large_wal_files
+	con.connection.Exec("PRAGMA wal_autocheckpoint=100")
+	// con.connection.Exec("PRAGMA busy_timeout = 3000")
 	con.connection.Exec("PRAGMA cache_size = 0")
-	con.connection.Exec("PRAGMA busy_timeout = 3000")
+	con.connection.Exec("PRAGMA secure_delete = true")
+
+	// con.checkpointer = NewCheckpointer(func() {
+	// 	con.CheckPoint()
+	// })
 
 	return con
 }
@@ -69,12 +104,43 @@ func (con *DatabaseConnection) Changes() int64 {
 	return con.connection.Changes()
 }
 
+// func (con *DatabaseConnection) CheckPoint() {
+// 	checkpointResult, err := sqlite3.Checkpoint(con.connection.Base())
+
+// 	if err != nil {
+// 		log.Println("Checkpoint Error:", err)
+// 		return
+// 	}
+
+// 	// log.Printf("Wal Log Size: %d\n", checkpointResult.WalLogSize)
+// 	// log.Printf("Frames Checkpointed: %d\n", checkpointResult.NumFramesCheckpointed)
+
+// 	if checkpointResult.NumFramesCheckpointed > 0 {
+// 		con.fileSystem.mutex.Lock()
+// 		defer con.fileSystem.mutex.Unlock()
+// 		con.fileSystem.CheckPoint()
+// 	}
+// }
+
 func (con *DatabaseConnection) Close() {
 	log.Println("Closing connection")
-	// con.connection.Close()
-	con.fileSystem.CheckPoint()
+	con.connection.Close()
+	vfs.UnregisterVFS(fmt.Sprintf("litebase:%s", con.VfsHash()))
+	// con.fileSystem.CheckPoint()
 	// con.file.Close()
 	con.connection = nil
+	con.vfs = nil
+}
+
+func (con *DatabaseConnection) Closed() bool {
+	return con.connection == nil
+}
+
+func (con *DatabaseConnection) Hash() string {
+	sha1 := sha1.New()
+	sha1.Write([]byte(fmt.Sprintf("%s:%s", con.databaseUuid, con.branchUuid)))
+
+	return fmt.Sprintf("%x", sha1.Sum(nil))
 }
 
 func (c *DatabaseConnection) Id() string {
@@ -97,26 +163,23 @@ func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ..
 
 func (con *DatabaseConnection) Statement(queryStatement string) (*sqlite3.Statement, error) {
 	var err error
-	var exists bool
-	var statement *sqlite3.Statement
 
-	// hash := md5.Sum([]byte(queryStatement))
 	hash := crc32.ChecksumIEEE([]byte(queryStatement))
 
-	con.mutex.Lock()
-	statement, exists = con.statements[hash]
-	con.mutex.Unlock()
+	con.statementMutex.RLock()
+	statement, ok := con.statements[hash]
+	con.statementMutex.RUnlock()
 
-	if !exists {
+	if !ok {
 		statement, err = con.connection.Prepare(queryStatement)
 
 		if err == nil {
 			// TODO: If the schema changes, the statement will be invalid.
 			// We should track if a Query performs DDL and invalidate the
 			// statement cache for each connection.
-			con.mutex.Lock()
+			con.statementMutex.Lock()
 			con.statements[hash] = statement
-			con.mutex.Unlock()
+			con.statementMutex.Unlock()
 		}
 	}
 
@@ -126,16 +189,6 @@ func (con *DatabaseConnection) Statement(queryStatement string) (*sqlite3.Statem
 func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 	return con.connection
 }
-
-// func (con *DatabaseConnection) SessionStart() error {
-// 	if con.session != nil {
-// 		return fmt.Errorf("session already in progress")
-// 	}
-
-// 	con.session = sqlite3.CreateSession(con.connection.Base())
-
-// 	return nil
-// }
 
 func (c *DatabaseConnection) setAuthorizer() {
 	if c.accessKey == nil {
@@ -241,14 +294,19 @@ func (con *DatabaseConnection) Transaction(
 ) (sqlite3.Result, error) {
 	var err error
 
-	// Based on the readonly state of the transaction, we should inform
-	// the storage driver where to read pages from so that read only
-	// transactions are able to read from the WAL file without being
-	// blocked by a writer.
+	// Based on the readonly state of the transaction, we will lock the vfs to
+	// prevent more that one write transaction from happening at the same time.
 
 	// if !readOnly {
-	unlock := con.Lock(readOnly)
-	defer unlock()
+	// 	con.vfs.TransactionLock.Lock()
+	// 	defer con.vfs.TransactionLock.Unlock()
+	// } else {
+	// 	con.vfs.TransactionLock.RLock()
+	// 	defer con.vfs.TransactionLock.RUnlock()
+	// }
+
+	// unlock := con.Lock(readOnly)
+	// defer unlock()
 
 	_, err = con.SqliteConnection().Exec("BEGIN")
 
@@ -284,30 +342,24 @@ func (con *DatabaseConnection) Transaction(
 }
 
 func (con *DatabaseConnection) RegisterVFS() {
-	vfsMutex.Lock()
-	defer vfsMutex.Unlock()
-
-	err := vfs.RegisterVFS(fmt.Sprintf("litebase:%s", con.id), con.fileSystem)
+	vfs, err := vfs.RegisterVFS(
+		fmt.Sprintf("litebase:%s", con.VfsHash()),
+		con.fileSystem,
+		con.tempFileSystem,
+	)
 
 	if err != nil {
 		log.Fatalf("Register VFS err: %s", err)
 	}
+
+	con.vfs = vfs
 }
 
-func (con *DatabaseConnection) Lock(readOnly bool) func() {
-	// if readOnly {
-	// 	ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).RLock()
+func (con *DatabaseConnection) VfsHash() string {
+	sha1 := sha1.New()
+	sha1.Write([]byte(fmt.Sprintf("%s:%s:%s", con.databaseUuid, con.branchUuid, con.id)))
 
-	// 	return func() {
-	// 		ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).RUnlock()
-	// 	}
-	// } else {
-	ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).Lock()
-
-	return func() {
-		ConnectionManager().GetMutex(con.databaseUuid, con.branchUuid).Unlock()
-	}
-	// }
+	return fmt.Sprintf("%x", sha1.Sum(nil))
 }
 
 func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
