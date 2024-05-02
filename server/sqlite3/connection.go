@@ -96,9 +96,6 @@ func (c *Connection) Exec(query string, params ...interface{}) (Result, error) {
 func (c *Connection) Close() error {
 	var result error
 
-	// Interrupt any active queries
-	c.Interrupt()
-
 	// Close any active statements
 	/*var s *Statement
 	for {
