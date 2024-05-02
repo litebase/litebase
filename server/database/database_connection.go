@@ -120,9 +120,10 @@ func (con *DatabaseConnection) Checkpoint() error {
 
 func (con *DatabaseConnection) Close() {
 	con.connection.Close()
-	vfs.UnregisterVFS(fmt.Sprintf("litebase:%s", con.VfsHash()))
-	// con.fileSystem.CheckPoint()
-	// con.file.Close()
+	vfs.UnregisterVFS(
+		fmt.Sprintf("litebase:%s", con.Hash()),
+		fmt.Sprintf("litebase:%s", con.VfsHash()),
+	)
 	con.connection = nil
 	con.vfs = nil
 }

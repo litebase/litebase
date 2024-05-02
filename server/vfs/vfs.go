@@ -82,14 +82,16 @@ func RegisterVFS(
 	return vfsMap[vfsId], nil
 }
 
-func UnregisterVFS(id string) {
+func UnregisterVFS(conId, vfsId string) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
-	// TODO: Need to remove vfs lock for the connection id if there are no more VFSs
-	// associated with it
+	delete(vfsMap, vfsId)
 
-	delete(vfsMap, id)
+	// Remove vfs lock for the connection id if there are no more VFSs registered
+	if len(vfsMap) == 0 {
+		delete(vfsLocks, conId)
+	}
 }
 
 //export goXOpen
