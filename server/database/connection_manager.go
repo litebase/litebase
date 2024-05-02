@@ -214,7 +214,8 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 			var activeConnections = 0
 
 			for i, branchConnection := range branchConnections {
-				if !branchConnection.inUse && time.Since(branchConnection.lastUsedAt) > 1*time.Second {
+				// Close the connection if it is not in use and has been idle for more than a minute
+				if !branchConnection.inUse && time.Since(branchConnection.lastUsedAt) > 1*time.Minute {
 					database.branches[branchUuid] = append(branchConnections[:i], branchConnections[i+1:]...)
 					branchConnection.connection.Close()
 				} else {
