@@ -22,15 +22,15 @@ import (
 )
 
 var vfsMap = make(map[string]*LitebaseVFS)
-
-// var vfsLocks = make(map[string]*sync.RWMutex)
+var vfsLocks = make(map[string]*VfsLock)
 var vfsMutex = &sync.RWMutex{}
 
 type LitebaseVFS struct {
 	id              string
 	journalFile     *C.LitebaseVFSFile
-	lockType        int
+	lock            *VfsLock
 	mainFile        *C.LitebaseVFSFile
+	name            string
 	storage         *storage.LocalDatabaseFileSystem
 	tempStorage     *storage.LocalDatabaseFileSystem
 	TransactionLock *sync.RWMutex
@@ -44,7 +44,8 @@ type GoLitebaseVFSFile struct {
 }
 
 func RegisterVFS(
-	id string,
+	connectionId string,
+	vfsId string,
 	storage *storage.LocalDatabaseFileSystem,
 	tempStorage *storage.LocalDatabaseFileSystem,
 ) (*LitebaseVFS, error) {
@@ -52,12 +53,15 @@ func RegisterVFS(
 	defer vfsMutex.Unlock()
 
 	// Only register the VFS if it doesn't already exist
-	// TODO: Need to remove vfs if all database connections are closed.
-	if vfs, ok := vfsMap[id]; ok {
+	if vfs, ok := vfsMap[vfsId]; ok {
 		return vfs, nil
 	}
 
-	cZvsId := C.CString(id)
+	if _, ok := vfsLocks[connectionId]; !ok {
+		vfsLocks[connectionId] = NewVfsLock()
+	}
+
+	cZvsId := C.CString(vfsId)
 	defer C.free(unsafe.Pointer(cZvsId))
 	rc := C.newVfs(cZvsId)
 
@@ -65,21 +69,25 @@ func RegisterVFS(
 		return nil, errFromCode(int(rc))
 	}
 
-	vfsMap[id] = &LitebaseVFS{
-		id:              id,
+	vfsMap[vfsId] = &LitebaseVFS{
+		id:              vfsId,
+		lock:            vfsLocks[connectionId],
 		storage:         storage,
 		tempStorage:     tempStorage,
-		TransactionLock: sync.RWMutex{},
+		TransactionLock: &sync.RWMutex{},
 	}
 
-	log.Println("Registered VFS", id, len(vfsMap))
+	log.Println("Registered VFS", vfsId, len(vfsMap))
 
-	return vfsMap[id], nil
+	return vfsMap[vfsId], nil
 }
 
 func UnregisterVFS(id string) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
+
+	// TODO: Need to remove vfs lock for the connection id if there are no more VFSs
+	// associated with it
 
 	delete(vfsMap, id)
 }
@@ -355,28 +363,30 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 
 //export goXLock
 func goXLock(pFile *C.sqlite3_file, lockType C.int) C.int {
+	//xLock() upgrades the database file lock. In other words, xLock() moves the
+	// database file lock in the direction NONE toward EXCLUSIVE. The argument
+	// to xLock() is always one of SHARED, RESERVED, PENDING, or EXCLUSIVE,
+	// never SQLITE_LOCK_NONE. If the database file lock is already at or above
+	// the requested lock, then the call to xLock() is a no-op.
 	vfs := getVfsFromFile(pFile)
 
-	// If the lock type is already at the requested level, return SQLITE_OK
-	if vfs.lockType >= int(lockType) {
-		return C.SQLITE_OK
+	if !vfs.lock.Lock(vfs.id, int(lockType)) {
+		return C.SQLITE_BUSY
 	}
-
-	vfs.lockType = int(lockType)
 
 	return C.SQLITE_OK
 }
 
 //export goXUnlock
 func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
+	// xUnlock() downgrades the database file lock to either SHARED or NONE.
+	// to xUnlock() is a no-op. The xCheckReservedLock() method checks whether
+	// any database connection, either in this process or in some other process,
+	// is holding a RESERVED, PENDING, or EXCLUSIVE lock on the file. It returns
+	// true if such a lock exists and false otherwise.
 	vfs := getVfsFromFile(pFile)
 
-	// If the lock type is lower or equal to the requested level, return SQLITE_OK
-	if vfs.lockType <= int(lockType) {
-		return C.SQLITE_OK
-	}
-
-	vfs.lockType = int(lockType)
+	vfs.lock.Unlock(vfs.id, int(lockType))
 
 	return C.SQLITE_OK
 }
@@ -385,10 +395,10 @@ func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
 func goXCheckReservedLock(pFile *C.sqlite3_file, pResOut *C.int) C.int {
 	vfs := getVfsFromFile(pFile)
 
-	if vfs.lockType >= int(C.SQLITE_LOCK_RESERVED) {
-		*pResOut = 1
+	if vfs.lock.CheckReservedLock() {
+		*pResOut = C.int(1)
 	} else {
-		*pResOut = 0
+		*pResOut = C.int(0)
 	}
 
 	return C.SQLITE_OK

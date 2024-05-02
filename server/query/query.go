@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"litebasedb/server/database"
 	"litebasedb/server/sqlite3"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -12,6 +13,7 @@ type Query struct {
 	AccessKeyId        string
 	ClientConnection   *database.ClientConnection
 	Id                 string `json:"id"`
+	IsPragma           bool
 	invalid            bool
 	OriginalParameters []interface{} `json:"parameters"`
 	OriginalStatement  string        `json:"statement"`
@@ -25,21 +27,30 @@ func NewQuery(
 	data map[string]interface{},
 	id string,
 ) (*Query, error) {
-	var statement string
-	var parameters []interface{}
+	statement := data["statement"].(string)
+	parameters := data["parameters"].([]interface{})
 
-	statement = data["statement"].(string)
-	parameters = data["parameters"].([]interface{})
+	isPragma := false
+
+	if strings.HasPrefix(statement, "PRAGMA") {
+		isPragma = true
+	}
 
 	var query = &Query{
 		AccessKeyId:        accessKeyId,
 		ClientConnection:   clientConnection,
+		IsPragma:           isPragma,
 		OriginalStatement:  statement,
 		OriginalParameters: parameters,
 	}
 
 	if id == "" {
-		uuid, _ := uuid.NewUUID()
+		uuid, err := uuid.NewUUID()
+
+		if err != nil {
+			return nil, err
+		}
+
 		query.Id = uuid.String()
 	} else {
 		query.Id = id
@@ -91,6 +102,11 @@ func (q *Query) Statement() (*sqlite3.Statement, error) {
 }
 
 func (q *Query) Validate() error {
+	if q.IsPragma {
+		// TOOD: Validate the types of pragma that are allowed
+		return nil
+	}
+
 	statement, err := q.Statement()
 
 	if err != nil {

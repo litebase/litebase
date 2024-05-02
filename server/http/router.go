@@ -36,49 +36,6 @@ func Router() *RouterInstance {
 	return StaticRouter
 }
 
-// func (router *RouterInstance) compileKeys(method string) []RouteKey {
-// 	router.mutex.RLock()
-// 	defer router.mutex.RUnlock()
-
-// 	if router.Keys[method] != nil {
-// 		return router.Keys[method]
-// 	}
-
-// 	var keys = make([]string, 0, len(router.Routes[method]))
-
-// 	for key := range router.Routes[method] {
-// 		keys = append(keys, key)
-// 	}
-
-// 	var compiledKeys []RouteKey
-
-// 	for _, key := range keys {
-// 		var parts = strings.Split(key, "/")
-
-// 		for index, part := range parts {
-// 			if strings.HasPrefix(part, ":") {
-// 				parts[index] = "(.*)"
-// 			}
-// 		}
-
-// 		regex, _ := regexp.Compile(strings.Join(parts, "/"))
-
-// 		compiledKeys = append(compiledKeys, RouteKey{
-// 			Route: key,
-// 			Regex: regex,
-// 		})
-// 	}
-
-// 	// Sort the keys by length, so that the longest one gets matched first
-// 	sort.SliceStable(compiledKeys, func(i, j int) bool {
-// 		return len(compiledKeys[i].Route) > len(compiledKeys[j].Route)
-// 	})
-
-// 	router.Keys[method] = compiledKeys
-
-// 	return router.Keys[method]
-// }
-
 func (router *RouterInstance) Delete(path string, handler func(request *Request) Response) *Route {
 	return router.request("DELETE", path, handler)
 }

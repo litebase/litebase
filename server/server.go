@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"litebasedb/server/database"
 	"litebasedb/server/node"
 	"log"
 	"net/http"
@@ -98,6 +99,7 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 func (s *ServerInstance) Shutdown() {
 	fmt.Println("")
 	node.Unregister()
+	database.ConnectionManager().Shutdown()
 
 	if err := s.HttpServer.Shutdown(context.Background()); err != nil {
 		log.Printf("HTTP server Shutdown: %v", err)

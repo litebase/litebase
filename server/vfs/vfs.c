@@ -4,6 +4,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#define LOG_ENABLED 0
+
+void vfs_log(const char *format, ...)
+{
+  if (!LOG_ENABLED)
+  {
+    return;
+  }
+
+  // Get the current time
+  time_t now = time(NULL);
+  struct tm *local_time = localtime(&now);
+
+  // Determine the log level name
+  const char *level_name;
+  // Print the log message
+  printf("[%02d:%02d:%02d] [VFS LOG] ", local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
+
+  // Use the variable argument list to print the message
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);
+  va_end(args);
+
+  printf("\n");
+}
 
 extern int goXOpen(sqlite3_vfs *pVfs, const char *name, sqlite3_file *pFile, int flags, int *outFlags);
 extern int goXDelete(sqlite3_vfs *pVfs, const char *name, int syncDir);
@@ -51,34 +79,23 @@ static int xUnfetch(sqlite3_file *, sqlite3_int64 iOfst, void *p);
 ** access to randomness, etc.
 */
 #define ORIGVFS(p) (((LitebaseVFS *)(p))->pVfs)
-#define ORIGFILE(p) ((sqlite3_file *)(((LitebaseVFSFile *)(p)) + 1))
+#define ORIGFILE(p) ((sqlite3_file *)(((LitebaseVFSFile *)(p))->pReal))
 
 int xClose(sqlite3_file *pFile)
 {
-  // printf("C - xClose\n");
+  vfs_log("C - xClose");
   return goXClose(pFile);
 }
 
 int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  // printf("C - xRead\n");
-  int rc;
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
-  // If the page is not in the cache, read it from the file
-  rc = goXRead(pFile, zBuf, iAmt, iOfst);
-
-  if (rc != SQLITE_OK)
-  {
-    return rc;
-  }
-
-  return SQLITE_OK;
+  vfs_log("C - xRead");
+  return goXRead(pFile, zBuf, iAmt, iOfst);
 }
 
 int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  // printf("C - xWrite\n");
+  vfs_log("C - xWrite");
 
   return goXWrite(pFile, zBuf, iAmt, iOfst);
 }
@@ -86,74 +103,54 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 // truncate
 int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
-  // printf("C - xTruncate\n");
+  vfs_log("C - xTruncate");
   return goXTruncate(pFile, size);
 }
 
 int xSync(sqlite3_file *pFile, int flags)
 {
-  // printf("C - xSync\n");
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
-  return p->pReal->pMethods->xSync(p->pReal, flags);
-  // return 0;
+  vfs_log("C - xSync");
+  return SQLITE_OK;
 }
 
 int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 {
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-  // printf("C - xFileSize %s\n", p->pVfsId);
-  return p->pReal->pMethods->xFileSize(p->pReal, pSize);
-  // return goXFileSize(pFile, pSize);
+  vfs_log("C - xFileSize");
+
+  return goXFileSize(pFile, pSize);
 }
 
 int xLock(sqlite3_file *pFile, int eLock)
 {
-  // return SQLITE_OK;
-  printf("C - xLock\n");
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
+  vfs_log("C - xLock %d", eLock);
 
-  // Check if the lock is already held
-  // if (p->pReal->pMethods->xCheckReservedLock(pFile, &eLock) == SQLITE_LOCKED)
-  // {
-  //   // The lock is already held, return SQLITE_OK
-  //   return SQLITE_OK;
-  // }
-
-  return p->pReal->pMethods->xLock(p->pReal, eLock);
+  return goXLock(pFile, eLock);
 }
 
 int xUnlock(sqlite3_file *pFile, int eLock)
 {
-  // return SQLITE_OK;
-  printf("C - xUnlock\n");
-  // return goXUnlock(pFile, eLock);
-
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
-  return p->pReal->pMethods->xUnlock(p->pReal, eLock);
+  vfs_log("C - xUnlock");
+  return goXUnlock(pFile, eLock);
 }
 
 int xCheckReservedLock(sqlite3_file *pFile, int *pResOut)
 {
-  // printf("C - xCheckReservedLock\n");
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
+  vfs_log("C - xCheckReservedLock");
 
-  return p->pReal->pMethods->xCheckReservedLock(p->pReal, pResOut);
-
-  // return goXCheckReservedLock(pFile, pResOut);
+  return goXCheckReservedLock(pFile, pResOut);
 }
 
 int xFileControl(sqlite3_file *pFile, int op, void *pArg)
 {
-  // printf("C - xFileControl\n");
+  vfs_log("C - xFileControl %d", op);
+  // if (op == SQLITE_FCNTL_PRAGMA)
+  // {
+  //   vfs_log("C - xFileControl SQLITE_FCNTL_PRAGMA");
+  //   return SQLITE_NOTFOUND;
+  // }
+  // LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
-  // printf("C - xFileControl %d\n", op);
-
-  return p->pReal->pMethods->xFileControl(p->pReal, op, pArg);
-  // const char *name = ((LitebaseVFSFile *)pFile)->name;
+  return ORIGFILE(pFile)->pMethods->xFileControl(ORIGFILE(pFile), op, pArg);
 
   // switch (op)
   // {
@@ -172,94 +169,58 @@ int xFileControl(sqlite3_file *pFile, int op, void *pArg)
 
 int xSectorSize(sqlite3_file *pFile)
 {
-  // printf("C - xSectorSize\n");
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
-  return p->pReal->pMethods->xSectorSize(p->pReal);
-
-  // return 0;
+  vfs_log("C - xSectorSize");
+  return SQLITE_OK;
 }
 
 int xDeviceCharacteristics(sqlite3_file *pFile)
 {
-  // printf("C - xDeviceCharacteristics\n");
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
-  return p->pReal->pMethods->xDeviceCharacteristics(p->pReal);
-  // return SQLITE_IOCAP_ATOMIC;
+  vfs_log("C - xDeviceCharacteristics");
+  return SQLITE_IOCAP_ATOMIC;
 }
 
 int xShmMap(sqlite3_file *pFile, int iPg, int pgsz, int bExtend, void volatile **pp)
 {
-  // printf("C - xShmMap\n");
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-  if (p->pReal->pMethods->xShmMap)
-  {
-    printf("p->pReal->pMethods->xShmMap, iPg: %d, pgsz %d, bExtend %d\n", iPg, pgsz, bExtend);
-  }
-
-  int rc = p->pReal->pMethods->xShmMap(pFile, iPg, pgsz, bExtend, pp);
-
-  // printf("rc %d\n", rc);
-  if (rc != SQLITE_OK)
-  {
-    return rc;
-  }
-
-  return SQLITE_OK;
-
-  // return ORIGFILE(pFile)
-  //     ->pMethods->xShmMap(ORIGFILE(pFile), iPg, pgsz, bExtend, pp);
-  // // // return sqlite3OsShmMap(pFile, iPg, pgsz, x, pp);
-
-  // // allocate the space for the shared memory if it is not already allocated
-  // *pp = malloc(pgsz);
-
-  // // return ORIGFILE(pFile)->pMethods->xShmMap(ORIGFILE(pFile), iPg, pgsz, x, pp);
-  // // return ORIGFILE(pFile)->pMethods->xShmMap(ORIGFILE(pFile), iPg, pgsz, x, pp);
-  // return goXShmMap(pFile, iPg, pgsz, bExtend, pp);
+  vfs_log("C - xShmMap");
+  return ORIGFILE(pFile)->pMethods->xShmMap(ORIGFILE(pFile), iPg, pgsz, bExtend, pp);
 }
 
 int xShmLock(sqlite3_file *pFile, int offset, int n, int flags)
 {
-  // printf("C - xShmLock\n");
+  vfs_log("C - xShmLock");
   return ORIGFILE(pFile)->pMethods->xShmLock(ORIGFILE(pFile), offset, n, flags);
-  // return ORIGFILE(pFile)->pMethods->xShmLock(ORIGFILE(pFile), offset, n, flags);
-  // return goXShmLock(pFile, offset, n, flags);
 }
 
 void xShmBarrier(sqlite3_file *pFile)
 {
-  // printf("C - xShmBarrier\n");
+  vfs_log("C - xShmBarrier");
 
-  // ORIGFILE(pFile)->pMethods->xShmBarrier(ORIGFILE(pFile));
-
+  ORIGFILE(pFile)->pMethods->xShmBarrier(ORIGFILE(pFile));
   // goXShmBarrier(pFile);
-  // return ORIGFILE(pFile)->pMethods->xShmBarrier(ORIGFILE(pFile));
 }
 
 int xShmUnmap(sqlite3_file *pFile, int deleteFlag)
 {
-  // printf("C - xShmUnmap\n");
-
+  vfs_log("C - xShmUnmap");
   return ORIGFILE(pFile)->pMethods->xShmUnmap(ORIGFILE(pFile), deleteFlag);
   // return goXShmUnmap(pFile, deleteFlag);
 }
 
 static int xFetch(sqlite3_file *pFile, sqlite3_int64 iOfst, int iAmt, void **pp)
 {
-  // printf("C - xFetch\n");
-  return SQLITE_OK;
+  vfs_log("C - xFetch");
+  return ORIGFILE(pFile)->pMethods->xFetch(ORIGFILE(pFile), iOfst, iAmt, pp);
 }
 
 static int xUnfetch(sqlite3_file *pFile, sqlite3_int64 iOfst, void *p)
 {
-  // printf("C - xUnfetch\n");
-  return SQLITE_OK;
+  vfs_log("C - xUnfetch");
+  return ORIGFILE(pFile)->pMethods->xUnfetch(ORIGFILE(pFile), iOfst, p);
 }
 
 int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)
 {
+  vfs_log("C - xOpen %s", zName);
   char *vfsId = pVfs->pAppData;
   char *fileVfsId = malloc(strlen(vfsId) + 1);
 
@@ -276,7 +237,7 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
   p->pReal = (sqlite3_file *)&p[1];
-  rc = ORIGVFS(pVfs)->xOpen(ORIGVFS(pVfs), zName, p->pReal, flags, pOutFlags);
+  rc = ORIGVFS(pVfs)->xOpen(ORIGVFS(pVfs), zName, ORIGFILE(pFile), flags, pOutFlags);
 
   p->pName = zName;
   p->pVfsId = fileVfsId;
@@ -287,12 +248,13 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
 
 static int xDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir)
 {
+  vfs_log("C - xDelete");
   return goXDelete(pVfs, zName, syncDir);
 }
 
 static int xAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
 {
-  // printf("C - xAccess\n");
+  vfs_log("C - xAccess");
   LitebaseVFS *p = (LitebaseVFS *)pVfs;
 
   return ORIGVFS(pVfs)->xAccess(p->pVfs, zName, flags, pResOut);
@@ -301,7 +263,7 @@ static int xAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut
 
 static int xFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut)
 {
-  // printf("C - xFullPathname %s\n", zName);
+  vfs_log("C - xFullPathname %s", zName);
 
   LitebaseVFS *p = (LitebaseVFS *)pVfs;
 
@@ -310,50 +272,57 @@ static int xFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *z
 
 static void *xDlOpen(sqlite3_vfs *pVfs, const char *zFilename)
 {
+  vfs_log("C - xDlOpen");
   return ORIGVFS(pVfs)->xDlOpen(ORIGVFS(pVfs), zFilename);
 }
 
 static void xDlError(sqlite3_vfs *pVfs, int nByte, char *zErrMsg)
 {
+  vfs_log("C - xDlError");
   ORIGVFS(pVfs)->xDlError(ORIGVFS(pVfs), nByte, zErrMsg);
 }
 
 static void (*xDlSym(sqlite3_vfs *pVfs, void *p, const char *zSym))(void)
 {
+  vfs_log("C - xDlSym");
   return ORIGVFS(pVfs)->xDlSym(ORIGVFS(pVfs), p, zSym);
 }
 
 static void xDlClose(sqlite3_vfs *pVfs, void *pHandle)
 {
+  vfs_log("C - xDlClose");
   ORIGVFS(pVfs)->xDlClose(ORIGVFS(pVfs), pHandle);
 }
 
 int xSleep(sqlite3_vfs *pVfs, int microseconds)
 {
-  // printf("xSleep\n");
+  vfs_log("C - xSleep");
   return ORIGVFS(pVfs)->xSleep(ORIGVFS(pVfs), microseconds);
 }
 
 int xRandomness(sqlite3_vfs *pVfs, int nByte, char *zByte)
 {
-  // printf("xRandomness\n");
+  vfs_log("C - xRandomness");
   return ORIGVFS(pVfs)->xRandomness(ORIGVFS(pVfs), nByte, zByte);
 }
 
 int xCurrentTime(sqlite3_vfs *pVfs, double *pTime)
 {
-  // printf("xCurrentTime\n");
+  vfs_log("C - xCurrentTime");
+
   return ORIGVFS(pVfs)->xCurrentTime(ORIGVFS(pVfs), pTime);
 }
 
 int xGetLastError(sqlite3_vfs *pVfs, int a, char *b)
 {
+  vfs_log("C - xGetLastError");
+
   return ORIGVFS(pVfs)->xGetLastError(ORIGVFS(pVfs), a, b);
 }
 
 int xCurrentTimeInt64(sqlite3_vfs *pVfs, sqlite3_int64 *pTime)
 {
-  // printf("xCurrentTimeInt64\n");
+  vfs_log("C - xCurrentTimeInt64");
   return ORIGVFS(pVfs)->xCurrentTimeInt64(ORIGVFS(pVfs), pTime);
 }
 
@@ -399,7 +368,9 @@ const sqlite3_io_methods x_io_methods = {
     xShmMap,                /* xShmMap */
     xShmLock,               /* xShmLock */
     xShmBarrier,            /* xShmBarrier */
-    xShmUnmap               /* xShmUnmap */
+    xShmUnmap,              /* xShmUnmap */
+    xFetch,                 /* xFetch */
+    xUnfetch                /* xUnfetch */
 };
 
 int register_litebase_vfs(char *vfsId)

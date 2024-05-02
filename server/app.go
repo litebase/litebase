@@ -8,7 +8,6 @@ import (
 	"litebasedb/server/events"
 	"litebasedb/server/http"
 	"litebasedb/server/node"
-	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -54,14 +53,14 @@ func Container() *App {
 }
 
 func (app *App) runTasks() {
-	ticker := time.NewTicker(1 * time.Second)
+	// ticker := time.NewTicker(1 * time.Second)
 
-	go func() {
-		for range ticker.C {
-			// actions.RunAutoScaling()
-			// node.HealthCheck()
-		}
-	}()
+	// go func() {
+	// for range ticker.C {
+	// actions.RunAutoScaling()
+	// node.HealthCheck()
+	// }
+	// }()
 }
 
 func (app *App) Run() {

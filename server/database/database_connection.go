@@ -20,6 +20,7 @@ import (
 type DatabaseConnection struct {
 	accessKey      *auth.AccessKey
 	branchUuid     string
+	commitedAt     time.Time
 	connection     *sqlite3.Connection
 	databaseUuid   string
 	id             string
@@ -82,16 +83,19 @@ open:
 
 	con.connection = connection
 
-	con.connection.Exec("PRAGMA synchronous=NORMAL")
-	con.connection.Exec("PRAGMA journal_mode=delete")
-	// con.connection.Exec("PRAGMA journal_mode=wal")
-	// TODO: Need to figure out how to allow checkpoints to resume once there
+	con.connection.Exec("PRAGMA synchronous=OFF")
+	// con.connection.Exec("PRAGMA synchronous=NORMAL")
+	// con.connection.Exec("PRAGMA journal_mode=delete")
+	con.connection.Exec("PRAGMA journal_mode=wal")
+	// TODO: Need to figure out how to allow checkpoints to resu3me once there
 	// is more than one connection to the database opened. See the documentation
 	// https://www.sqlite.org/wal.html#avoiding_excessively_large_wal_files
-	con.connection.Exec("PRAGMA wal_autocheckpoint=100")
-	// con.connection.Exec("PRAGMA busy_timeout = 3000")
-	con.connection.Exec("PRAGMA cache_size = 0")
+	con.connection.Exec("PRAGMA wal_autocheckpoint=1000")
+	con.connection.Exec("PRAGMA busy_timeout = 3000")
+	// con.connection.Exec("PRAGMA cache_size = 0")
 	con.connection.Exec("PRAGMA secure_delete = true")
+	// con.connection.Exec("PRAGMA temp_store = memory")
+	// con.connection.Exec("PRAGMA mmap_size = 30000000000")
 
 	// con.checkpointer = NewCheckpointer(func() {
 	// 	con.CheckPoint()
@@ -104,26 +108,17 @@ func (con *DatabaseConnection) Changes() int64 {
 	return con.connection.Changes()
 }
 
-// func (con *DatabaseConnection) CheckPoint() {
-// 	checkpointResult, err := sqlite3.Checkpoint(con.connection.Base())
+func (con *DatabaseConnection) Checkpoint() error {
+	_, err := sqlite3.Checkpoint(con.connection.Base())
 
-// 	if err != nil {
-// 		log.Println("Checkpoint Error:", err)
-// 		return
-// 	}
+	if err != nil {
+		log.Println("Checkpoint Error:", err)
+	}
 
-// 	// log.Printf("Wal Log Size: %d\n", checkpointResult.WalLogSize)
-// 	// log.Printf("Frames Checkpointed: %d\n", checkpointResult.NumFramesCheckpointed)
-
-// 	if checkpointResult.NumFramesCheckpointed > 0 {
-// 		con.fileSystem.mutex.Lock()
-// 		defer con.fileSystem.mutex.Unlock()
-// 		con.fileSystem.CheckPoint()
-// 	}
-// }
+	return err
+}
 
 func (con *DatabaseConnection) Close() {
-	log.Println("Closing connection")
 	con.connection.Close()
 	vfs.UnregisterVFS(fmt.Sprintf("litebase:%s", con.VfsHash()))
 	// con.fileSystem.CheckPoint()
@@ -296,19 +291,20 @@ func (con *DatabaseConnection) Transaction(
 
 	// Based on the readonly state of the transaction, we will lock the vfs to
 	// prevent more that one write transaction from happening at the same time.
+	lock := ConnectionManager().GetLock(con.databaseUuid, con.branchUuid)
 
-	// if !readOnly {
-	// 	con.vfs.TransactionLock.Lock()
-	// 	defer con.vfs.TransactionLock.Unlock()
-	// } else {
-	// 	con.vfs.TransactionLock.RLock()
-	// 	defer con.vfs.TransactionLock.RUnlock()
-	// }
+	if !readOnly {
+		lock.Lock()
+		defer lock.Unlock()
+		_, err = con.SqliteConnection().Exec("BEGIN IMMEDIATE")
+	} else {
+		// lock.RLock()
+		// defer lock.RUnlock()
+		_, err = con.SqliteConnection().Exec("BEGIN DEFERRED")
+	}
 
 	// unlock := con.Lock(readOnly)
 	// defer unlock()
-
-	_, err = con.SqliteConnection().Exec("BEGIN")
 
 	if err != nil {
 		log.Println("Transaction Error:", err)
@@ -336,13 +332,17 @@ func (con *DatabaseConnection) Transaction(
 		log.Println("Transaction Error:", err)
 		return nil, err
 	}
-	// }
+
+	if !readOnly {
+		con.commitedAt = time.Now()
+	}
 
 	return results, handlerError
 }
 
 func (con *DatabaseConnection) RegisterVFS() {
 	vfs, err := vfs.RegisterVFS(
+		fmt.Sprintf("litebase:%s", con.Hash()),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
 		con.fileSystem,
 		con.tempFileSystem,

@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 	db "litebasedb/server/database"
+	"litebasedb/server/sqlite3"
 	"time"
 )
 
@@ -37,18 +38,18 @@ func (r *Resolver) Handle(db *db.ClientConnection, query *Query) (map[string]int
 	}
 
 	start := time.Now()
+	var sqlite3Result sqlite3.Result
+	var statement *sqlite3.Statement
 
-	statement, err := query.Statement()
+	if query.IsPragma {
+		sqlite3Result, err = db.GetConnection().SqliteConnection().Exec(query.OriginalStatement)
+	} else {
+		statement, err = query.Statement()
 
-	if err != nil {
-		return map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}, nil
+		if err == nil {
+			sqlite3Result, err = db.GetConnection().Query(statement, query.Parameters()...)
+		}
 	}
-
-	sqlite3Result, err := db.GetConnection().
-		Query(statement, query.Parameters()...)
 
 	end := float64(time.Since(start)) / float64(time.Millisecond)
 
