@@ -3,6 +3,7 @@ package storage
 import (
 	"crypto/sha256"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"io"
 	"litebasedb/internal/config"
@@ -22,62 +23,28 @@ func dataPath(databaseUuid, branchUuid string) string {
 }
 
 // TODO: Close idle connections
-func (s *Storage) Start() {
+func (s *Storage) Init() {
 	config.Init()
 	gob.Register(storage.StorageRequest{})
 	gob.Register(storage.StorageResponse{})
 
-	http.HandleFunc("/connection", func(w http.ResponseWriter, r *http.Request) {
-		close := make(chan struct{})
+	http.HandleFunc("POST /connection", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+		data := map[string]interface{}{}
 
-		enc := gob.NewEncoder(w)
+		err := json.NewDecoder(r.Body).Decode(&data)
 
-		// Read the messages from the request body
-		go func() {
-			dec := gob.NewDecoder(r.Body)
+		if err != nil {
+			log.Println("Error decoding message:", err)
+			return
+		}
 
-			for {
-				select {
-				case <-close:
-					return
-				default:
-					var request storage.StorageRequest
-					var response storage.StorageResponse
+		connectionId := data["connection_id"].(string)
+		connectionUrl := data["connection_url"].(string)
+		log.Println("Opening connection")
 
-					if err := dec.Decode(&request); err != nil {
-						close <- struct{}{}
-						return
-					}
+		CreateConnection(connectionUrl, connectionId)
 
-					if request.Command == "READ" {
-						data, err := read(request.DatabaseUuid, request.BranchUuid, request.Key, request.Page)
-						response.Data = data
-
-						if err != nil {
-							response.Error = err.Error()
-						}
-					}
-
-					if request.Command == "WRITE" {
-						err := write(request.DatabaseUuid, request.BranchUuid, request.Key, request.Data)
-
-						if err != nil {
-							response.Error = err.Error()
-						}
-					}
-
-					if err := enc.Encode(response); err != nil {
-						log.Println("Error encoding message:", err)
-						return
-					}
-
-					w.(http.Flusher).Flush()
-				}
-			}
-		}()
-
-		<-close
 		log.Println("Closing connection")
 	})
 
@@ -162,7 +129,9 @@ func (s *Storage) Start() {
 	http.HandleFunc("POST /databases/{databaseUuid}/{branchUuid}/{file}/truncate", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("Hello, %s", r.URL.Path)))
 	})
+}
 
+func (s *Storage) Serve() {
 	http.ListenAndServe(":8082", nil)
 }
 
@@ -192,8 +161,11 @@ func write(
 	key string,
 	data []byte,
 ) error {
+	// TODO: Write the data to a versioned page format
+	pageData := data
+
 writeFile:
-	err := os.WriteFile(fmt.Sprintf("%s/%s", dataPath(databaseUuid, branchUuid), key), data, 0644)
+	err := os.WriteFile(fmt.Sprintf("%s/%s", dataPath(databaseUuid, branchUuid), key), pageData, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {

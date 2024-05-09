@@ -69,7 +69,7 @@ func (r *RestorePoint) Apply() {
 		log.Fatal(err)
 	}
 
-	databaseFile, err := file.NewDatabaseFile(path)
+	databaseFile, err := storage.NewDatabaseFile(path)
 
 	if err != nil {
 		log.Fatal(err)
@@ -95,7 +95,7 @@ func (r *RestorePoint) Apply() {
 				continue
 			}
 
-			databasePage := &file.DatabasePage{
+			databasePage := &storage.DatabasePage{
 				Data: data,
 			}
 

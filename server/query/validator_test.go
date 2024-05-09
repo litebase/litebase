@@ -52,7 +52,7 @@ func TestValidateQuery(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = query.ValidateQuery(statement, q.Parameters()...)
+			err = query.ValidateQuery(statement.Sqlite3Statement, q.Parameters()...)
 
 			if err != nil && !reflect.DeepEqual(err, c.error) {
 				t.Fatalf(" Expected error to be %v, got %v", c.error, err)

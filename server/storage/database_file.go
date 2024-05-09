@@ -1,9 +1,8 @@
-package file
+package storage
 
 import (
 	"encoding/binary"
 	internalStorage "litebasedb/internal/storage"
-	"litebasedb/server/storage"
 	"log"
 	"os"
 	"sync"
@@ -32,7 +31,7 @@ func CreateDatabaseFile(path string) (*DatabaseFile, error) {
 		Path: path,
 	}
 
-	file, err := storage.FS().Create(path)
+	file, err := FS().Create(path)
 
 	if err != nil {
 		return nil, err
@@ -72,7 +71,7 @@ func (d *DatabaseFile) Close() {
 }
 
 func (d *DatabaseFile) Open() (internalStorage.File, error) {
-	return storage.FS().OpenFile(d.Path, os.O_RDWR, 0666)
+	return FS().OpenFile(d.Path, os.O_RDWR, 0666)
 }
 
 func (d *DatabaseFile) ReadHeader() {

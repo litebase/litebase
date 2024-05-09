@@ -84,6 +84,7 @@ func NewPageCache(
 func (pc *PageCache) Clear() error {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
+
 	pc.file.Close()
 	pc.fs.RemoveAll(pc.directoryPath)
 	pc.index = make(map[int64][]int64)
@@ -130,7 +131,7 @@ func (pc *PageCache) Get(off int64) ([]byte, error) {
 		return nil, fmt.Errorf("page %d not enough data", pageNumber)
 	}
 
-	pageOffset := PageOffset(pageNumber, off)
+	pageOffset := PageOffset(off, pc.pageSize)
 
 	if pageOffset >= int64(len(page)) {
 		return nil, fmt.Errorf("page offset %d out of bounds for page %d", pageOffset, PageNumber(off, pc.pageSize))
@@ -148,15 +149,15 @@ func (pc *PageCache) Get(off int64) ([]byte, error) {
 
 func (pc *PageCache) Has(off int64) bool {
 	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
 	_, ok := pc.index[PageNumber(off, pc.pageSize)]
+	pc.mutex.RUnlock()
 
 	return ok
 }
 
 func (pc *PageCache) Put(off int64, p []byte) error {
-
 	pageNumber := PageNumber(off, pc.pageSize)
+
 	var err error
 	offset := int64(0)
 	// Check if the page is already in the cache
@@ -166,7 +167,9 @@ func (pc *PageCache) Put(off int64, p []byte) error {
 		pc.mutex.Unlock()
 
 		offset = entry[0]
+		pc.fileLock.Lock()
 		offset, err = pc.file.Seek(offset, 0)
+		pc.fileLock.Unlock()
 	} else if len(pc.freeList) > 0 {
 		// Check if there is a free page in the cache
 		pc.mutex.Lock()
@@ -174,15 +177,23 @@ func (pc *PageCache) Put(off int64, p []byte) error {
 		pc.freeList = pc.freeList[1:]
 		pc.mutex.Unlock()
 
+		pc.fileLock.Lock()
 		offset, err = pc.file.Seek(offset, 0)
+		pc.fileLock.Unlock()
 	} else {
+		pc.fileLock.Lock()
 		offset, err = pc.file.Seek(offset, io.SeekEnd)
+		pc.fileLock.Unlock()
 	}
 
 	if err != nil {
 		log.Println("ERROR SEEKING TO END OF PAGE CACHE FILE", err)
 		return err
 	}
+
+	pc.mutex.Lock()
+	pc.index[pageNumber] = []int64{offset, 0}
+	pc.mutex.Unlock()
 
 	// Write the page to the file system
 	pc.fileLock.Lock()
@@ -205,8 +216,6 @@ func (pc *PageCache) Put(off int64, p []byte) error {
 	if pc.syncCounter == 1000 {
 		pc.Sync()
 	}
-
-	pc.index[pageNumber] = []int64{offset, 0}
 
 	return pc.Evict()
 }
@@ -308,5 +317,6 @@ func (pc *PageCache) Sync() {
 
 		pc.syncCounter = 0
 	}
+
 	pc.fileLock.Unlock()
 }

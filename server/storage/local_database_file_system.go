@@ -12,11 +12,11 @@ type LocalDatabaseFileSystem struct {
 	files      map[string]internalStorage.File
 	filesystem *LocalFileSystemDriver
 	mutex      *sync.RWMutex
-	// proxy file.Proxy
-	path string
+	path       string
+	pageSize   int64
 }
 
-func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string) *LocalDatabaseFileSystem {
+func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) *LocalDatabaseFileSystem {
 	// Check if the the directory exists
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
@@ -34,6 +34,7 @@ func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string) *LocalDat
 		filesystem: NewLocalFileSystemDriver(),
 		mutex:      &sync.RWMutex{},
 		path:       path,
+		pageSize:   pageSize,
 	}
 }
 
@@ -68,14 +69,12 @@ func (fs *LocalDatabaseFileSystem) Delete(path string) error {
 	return nil
 }
 
-func (fs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
-	// fs.mutex.RLock()
-	// if file, ok := fs.files[path]; ok {
-	// 	fs.mutex.RUnlock()
-	// 	return file, nil
-	// }
-	// fs.mutex.RUnlock()
+// No-op
+func (fs *LocalDatabaseFileSystem) FetchPage(pageNumber int64) ([]byte, error) {
+	return nil, nil
+}
 
+func (fs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
 	file, err := fs.filesystem.OpenFile(
 		fmt.Sprintf("%s/%s", fs.path, path),
 		os.O_RDWR|os.O_CREATE,
@@ -91,6 +90,15 @@ func (fs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, erro
 	fs.mutex.Unlock()
 
 	return file, nil
+}
+
+// No-op
+func (fs *LocalDatabaseFileSystem) PageCache() *PageCache {
+	return nil
+}
+
+func (fs *LocalDatabaseFileSystem) PageSize() int64 {
+	return fs.pageSize
 }
 
 func (fs *LocalDatabaseFileSystem) Path() string {

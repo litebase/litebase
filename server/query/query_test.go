@@ -194,7 +194,7 @@ func TestStatement(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if statement.SQL() != "SELECT * FROM users LIMIT ?" {
+		if statement.Sqlite3Statement.SQL() != "SELECT * FROM users LIMIT ?" {
 			t.Fatal("Statement is not correct")
 		}
 	})

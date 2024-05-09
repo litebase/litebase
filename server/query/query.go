@@ -3,7 +3,6 @@ package query
 import (
 	"encoding/json"
 	"litebasedb/server/database"
-	"litebasedb/server/sqlite3"
 	"strings"
 
 	"github.com/google/uuid"
@@ -18,7 +17,7 @@ type Query struct {
 	OriginalParameters []interface{} `json:"parameters"`
 	OriginalStatement  string        `json:"statement"`
 	parameters         []interface{}
-	statement          *sqlite3.Statement
+	statement          *database.Statement
 }
 
 func NewQuery(
@@ -85,7 +84,7 @@ func (query *Query) Resolve() (map[string]interface{}, error) {
 	return resolver.Handle(query.ClientConnection, query)
 }
 
-func (q *Query) Statement() (*sqlite3.Statement, error) {
+func (q *Query) Statement() (*database.Statement, error) {
 	var err error
 
 	if q.statement == nil {
@@ -103,7 +102,7 @@ func (q *Query) Statement() (*sqlite3.Statement, error) {
 
 func (q *Query) Validate() error {
 	if q.IsPragma {
-		// TOOD: Validate the types of pragma that are allowed
+		// TODO: Validate the types of pragma that are allowed
 		return nil
 	}
 
@@ -113,7 +112,7 @@ func (q *Query) Validate() error {
 		return err
 	}
 
-	return ValidateQuery(statement, q.Parameters()...)
+	return ValidateQuery(statement.Sqlite3Statement, q.Parameters()...)
 }
 
 func (query Query) isDDL() bool {

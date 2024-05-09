@@ -31,8 +31,8 @@ type LitebaseVFS struct {
 	lock            *VfsLock
 	mainFile        *C.LitebaseVFSFile
 	name            string
-	storage         *storage.LocalDatabaseFileSystem
-	tempStorage     *storage.LocalDatabaseFileSystem
+	storage         storage.DatabaseFileSystem
+	tempStorage     storage.DatabaseFileSystem
 	TransactionLock *sync.RWMutex
 	shmPointer      unsafe.Pointer
 	walFile         *C.LitebaseVFSFile
@@ -46,8 +46,8 @@ type GoLitebaseVFSFile struct {
 func RegisterVFS(
 	connectionId string,
 	vfsId string,
-	storage *storage.LocalDatabaseFileSystem,
-	tempStorage *storage.LocalDatabaseFileSystem,
+	storage storage.DatabaseFileSystem,
+	tempStorage storage.DatabaseFileSystem,
 ) (*LitebaseVFS, error) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
@@ -109,7 +109,7 @@ func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.
 	}
 
 	fileType := getFileType(zName)
-	// log.Println("Open", filename)
+
 	switch fileType {
 	case "journal":
 		vfs.tempStorage.Open(filename)
@@ -313,7 +313,6 @@ func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 	vfsFile := getFile(pFile)
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
-	// log.Println("Truncate", file.fileType)
 	var err error
 
 	switch vfsFile.fileType {
@@ -325,6 +324,7 @@ func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 	}
 
 	if err != nil {
+		log.Println("Truncate error", err)
 		return C.SQLITE_IOERR_TRUNCATE
 	}
 
@@ -354,6 +354,7 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 		size, err = vfs.storage.Size(filename)
 
 		if err != nil {
+			log.Println("Error getting file size", err)
 			return C.SQLITE_IOERR_FSTAT
 		}
 	}

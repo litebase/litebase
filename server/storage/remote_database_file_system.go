@@ -3,7 +3,8 @@ package storage
 import (
 	"crypto/sha256"
 	"fmt"
-	"litebasedb/internal/storage"
+
+	internalStorage "litebasedb/internal/storage"
 	"log"
 	"net/http"
 	"sync"
@@ -41,7 +42,10 @@ func NewRemoteDatabaseFileSystem(
 	}
 
 	return fs
+}
 
+func (fs *RemoteDatabaseFileSystem) Close(path string) error {
+	return nil
 }
 
 func (fs *RemoteDatabaseFileSystem) Delete(file string) error {
@@ -75,6 +79,14 @@ func getStorageUrl() string {
 	return "http://localhost:8082"
 }
 
+func (fs *RemoteDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
+	return nil, nil
+}
+
+func (fs *RemoteDatabaseFileSystem) Path() string {
+	return ""
+}
+
 func (fs *RemoteDatabaseFileSystem) ReadAt(file string, offset int64, length int64) (data []byte, err error) {
 	// start := timer.Start("READ PAGE")
 	// defer timer.Stop(start)
@@ -94,7 +106,7 @@ func (fs *RemoteDatabaseFileSystem) ReadAt(file string, offset int64, length int
 		}
 	}
 
-	response, err := fs.connection.Send(storage.StorageRequest{
+	response, err := fs.connection.Send(internalStorage.StorageRequest{
 		BranchUuid:   fs.branchUuid,
 		Command:      "READ",
 		DatabaseUuid: fs.databaseUuid,
@@ -127,7 +139,7 @@ func (fs *RemoteDatabaseFileSystem) WriteAt(file string, data []byte, offset int
 
 	pageNumber := PageNumber(offset, fs.pageSize)
 
-	_, err = fs.connection.Send(storage.StorageRequest{
+	_, err = fs.connection.Send(internalStorage.StorageRequest{
 		BranchUuid:   fs.branchUuid,
 		Command:      "WRITE",
 		Data:         data,

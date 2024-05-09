@@ -22,3 +22,14 @@ services:
       - '8081:8081'
     volumes:
       - ../data:/mnt/data
+  storage:
+    platform: linux/arm64
+    build:
+      context: ../
+      dockerfile: ./docker-compose/storage.Dockerfile
+    env_file:
+      - .env
+    ports:
+      - '9000:8080'
+    volumes:
+      - ../data:/mnt/data

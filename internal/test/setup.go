@@ -23,7 +23,7 @@ func Setup(t *testing.T) {
 }
 
 func Teardown() {
-	database.ConnectionManager().Clear()
+	database.ConnectionManager().Shutdown()
 	err := storage.FS().RemoveAll("./../../data/_test")
 
 	if err != nil {

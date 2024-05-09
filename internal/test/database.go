@@ -14,7 +14,7 @@ import (
 )
 
 func ClearDatabase() {
-	database.ConnectionManager().Clear()
+	database.ConnectionManager().Shutdown()
 	storage.FS().RemoveAll("./data/_test")
 }
 
