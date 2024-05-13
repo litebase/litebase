@@ -88,8 +88,17 @@ func UnregisterVFS(conId, vfsId string) {
 
 	delete(vfsMap, vfsId)
 
+	removeConnectionLock := false
+
+	for _, vfs := range vfsMap {
+		if vfs.id == vfsId {
+			removeConnectionLock = true
+			break
+		}
+	}
+
 	// Remove vfs lock for the connection id if there are no more VFSs registered
-	if len(vfsMap) == 0 {
+	if removeConnectionLock {
 		delete(vfsLocks, conId)
 	}
 }
@@ -252,6 +261,7 @@ func goXClose(pFile *C.sqlite3_file) C.int {
 //export goXRead
 func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+
 	vfs := getVfsFromFile(pFile)
 	vfsFile := getFile(pFile)
 	var data []byte
@@ -339,8 +349,6 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 
 	var size int64
 	var err error
-
-	// log.Println("FileSize", file.fileType)
 
 	switch vfsFile.fileType {
 	case "journal":

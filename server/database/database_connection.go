@@ -42,11 +42,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) *DatabaseConnection 
 	con := &DatabaseConnection{
 		branchUuid:   branchUuid,
 		databaseUuid: databaseUuid,
-		// fileSystem: storage.NewLocalDatabaseFileSystem(
-		// 	fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
-		// 	databaseUuid,
-		// 	branchUuid,
-		// ),
+
 		statements:     map[uint32]*Statement{},
 		statementMutex: sync.RWMutex{},
 		tempFileSystem: storage.NewLocalDatabaseFileSystem(
@@ -58,6 +54,13 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) *DatabaseConnection 
 	}
 
 	con.setId()
+
+	// con.fileSystem = storage.NewLocalDatabaseFileSystem(
+	// 	fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+	// 	databaseUuid,
+	// 	branchUuid,
+	// 	config.Get().PageSize,
+	// )
 
 	con.fileSystem = storage.DatabaseFileSystemManager().LambdaDatabaseFileSystem(
 		DatabaseHash(databaseUuid, branchUuid),
@@ -100,12 +103,14 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) *DatabaseConnection 
 	// TODO: Need to figure out how to allow checkpoints to resu3me once there
 	// is more than one connection to the database opened. See the documentation
 	// https://www.sqlite.org/wal.html#avoiding_excessively_large_wal_files
-	con.connection.Exec("PRAGMA wal_autocheckpoint=1000")
+	// con.connection.Exec("PRAGMA wal_autocheckpoint=1000")
 	con.connection.Exec("PRAGMA busy_timeout = 3000")
 	con.connection.Exec("PRAGMA cache_size = 0")
-	// con.connection.Exec("PRAGMA cache_size = 5000")
+	con.connection.Exec(fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize))
+
 	con.connection.Exec("PRAGMA secure_delete = true")
-	// con.connection.Exec("PRAGMA temp_store = memory")
+	// VFS does not handle temp files yet, so we will handle in memory.
+	con.connection.Exec("PRAGMA temp_store = memory")
 	// con.connection.Exec("PRAGMA mmap_size = 30000000000")
 
 	// con.checkpointer = NewCheckpointer(func() {
@@ -128,18 +133,27 @@ func (con *DatabaseConnection) Checkpoint() error {
 
 	if err != nil {
 		log.Println("Checkpoint Error:", err)
-		con.Close()
+		// con.Close()
 	}
 
 	return err
 }
 
 func (con *DatabaseConnection) Close() {
+	// Ensure all statements are finalized before closing the connection.
+	for _, statement := range con.statements {
+		statement.Sqlite3Statement.Finalize()
+	}
+
+	con.statements = map[uint32]*Statement{}
+
 	con.connection.Close()
+
 	vfs.UnregisterVFS(
 		fmt.Sprintf("litebase:%s", DatabaseHash(con.databaseUuid, con.branchUuid)),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
 	)
+
 	con.connection = nil
 	con.vfs = nil
 }
@@ -341,6 +355,7 @@ func (con *DatabaseConnection) Transaction(
 
 	// if !readOnly {
 	if handlerError != nil {
+		log.Println("Transaction Error:", handlerError)
 		_, err = con.SqliteConnection().Exec("ROLLBACK")
 
 		if err != nil {

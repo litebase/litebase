@@ -96,19 +96,6 @@ func (c *Connection) Exec(query string, params ...interface{}) (Result, error) {
 func (c *Connection) Close() error {
 	var result error
 
-	// Close any active statements
-	/*var s *Statement
-	for {
-		s = c.NextStatement(s)
-		if s == nil {
-			break
-		}
-		fmt.Println("finalizing", uintptr(unsafe.Pointer(s)))
-		if err := s.Finalize(); err != nil {
-			result = multierror.Append(result, err)
-		}
-	}*/
-
 	// Close database connection
 	if err := C.sqlite3_close_v2((*C.sqlite3)(c)); err != SQLITE_OK {
 		result = errors.New(C.GoString(C.sqlite3_errstr(err)))

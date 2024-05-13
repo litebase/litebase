@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	internalStorage "litebasedb/internal/storage"
+	"litebasedb/internal/timer"
 	"log"
 	"net/http"
 	"sync"
@@ -112,6 +113,7 @@ func (fs *LambdaDatabaseFileSystem) FetchPage(pageNumber int64) ([]byte, error) 
 func (fs *LambdaDatabaseFileSystem) getFileSize() {
 	if fs.hasPageOne {
 		fs.size = fs.pageSize * 4294967294
+		log.Println("Database size", fs.size)
 		return
 	}
 
@@ -136,26 +138,28 @@ func (fs *LambdaDatabaseFileSystem) Path() string {
 	return ""
 }
 
+var readCount int64 = 0
+
 func (fs *LambdaDatabaseFileSystem) ReadAt(name string, offset int64, length int64) (data []byte, err error) {
-	// start := timer.Start("READ PAGE")
-	// defer timer.Stop(start)
+	start := timer.Start("READ PAGE")
+	defer timer.Stop(start)
 
 	pageNumber := PageNumber(offset, fs.pageSize)
 
-	if fs.pageCache.Has(offset) {
-		// readStart := time.Now()
-		data, err = fs.pageCache.Get(offset)
+	// if fs.pageCache.Has(offset) {
+	// 	// readStart := time.Now()
+	// 	data, err = fs.pageCache.Get(offset)
 
-		if err != nil {
-			return nil, err
-		}
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		// log.Println("Read from cache", pageNumber, time.Since(readStart))
+	// 	// log.Println("Read from cache", pageNumber, time.Since(readStart))
 
-		if len(data) > 0 {
-			return data, nil
-		}
-	}
+	// 	if len(data) > 0 {
+	// 		return data, nil
+	// 	}
+	// }
 
 	// log.Println("Reading page", pageNumber)
 	compressedData, err := fs.FetchPage(pageNumber)
@@ -165,7 +169,7 @@ func (fs *LambdaDatabaseFileSystem) ReadAt(name string, offset int64, length int
 	}
 
 	if len(compressedData) == 0 {
-		return []byte{}, nil
+		return make([]byte, 65536), nil
 	}
 
 	data, err = fs.decompressData(compressedData)
@@ -182,11 +186,16 @@ func (fs *LambdaDatabaseFileSystem) ReadAt(name string, offset int64, length int
 	// fs.pageReader.ReadAhead(name, pageNumber, offset, data)
 
 	// We cannot cache page 1 since it can be updated by the database
-	if len(data) == int(fs.pageSize) {
-		if pageNumber != 1 {
-			fs.pageCache.Put(offset, data)
-		}
-	}
+	// if len(data) == int(fs.pageSize) {
+	// 	if pageNumber != 1 {
+	// 		// TODO: This can cause locked errors
+	// 		fs.pageCache.Put(offset, data)
+	// 	}
+	// }
+
+	// readCount++
+
+	// log.Println("Read count", readCount)
 
 	return data, err
 }
@@ -230,10 +239,11 @@ func (fs *LambdaDatabaseFileSystem) WriteAt(file string, data []byte, offset int
 
 	// Only cache full pages and cache the first page if we have already calculated the size
 	// of the database. Otherwise, we will get a SQLITE_CORRUPT error.
-	if pageNumber == 1 && fs.size > 0 && len(data) == int(fs.pageSize) ||
-		len(data) == int(fs.pageSize) {
-		fs.pageCache.Put(offset, data)
-	}
+	// if pageNumber == 1 && fs.size > 0 && len(data) == int(fs.pageSize) ||
+	// 	// TOOD: Page Cache does not work well with concurrency
+	// 	len(data) == int(fs.pageSize) {
+	// 	fs.pageCache.Put(offset, data)
+	// }
 
 	return len(data), err
 }

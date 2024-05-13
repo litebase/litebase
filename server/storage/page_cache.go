@@ -35,6 +35,7 @@ func NewPageCache(
 	branchUuid string,
 	pageSize int64,
 ) *PageCache {
+	log.Println("NEW PAGE CACHE")
 	pc := &PageCache{
 		branchUuid:    branchUuid,
 		databaseUuid:  databaseUuid,
@@ -43,7 +44,7 @@ func NewPageCache(
 		freeList:      make([]int64, 0),
 		fs:            NewFileSystem("local"),
 		index:         make(map[int64][]int64),
-		maxEntries:    25000, // ? MB
+		maxEntries:    20000, // ? MB
 		mutex:         &sync.RWMutex{},
 		pageSize:      pageSize,
 		syncCounter:   0,
@@ -54,7 +55,7 @@ func NewPageCache(
 
 	go func() {
 		for range pc.syncTicker.C {
-			pc.Sync()
+			// pc.Sync()
 		}
 	}()
 
@@ -211,11 +212,11 @@ func (pc *PageCache) Put(off int64, p []byte) error {
 		return fmt.Errorf("not all data was written to page cache file")
 	}
 
-	pc.syncCounter += 1
+	// pc.syncCounter += 1
 
-	if pc.syncCounter == 1000 {
-		pc.Sync()
-	}
+	// if pc.syncCounter == 1000 {
+	// 	pc.Sync()
+	// }
 
 	return pc.Evict()
 }
@@ -224,24 +225,7 @@ func (pc *PageCache) Delete(off int64) (err error) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
 
-	if !pc.Has(off) {
-		return nil
-	}
-
-	// Get the cache offset
-	entry := pc.index[PageNumber(off, pc.pageSize)]
-
-	// Seek to the cache offset
-	_, err = pc.file.Seek(entry[0], 0)
-
-	pc.freeList = append(pc.freeList, entry[0])
-
-	// Remove the page from the index
-	delete(pc.index, PageNumber(off, pc.pageSize))
-
-	// optionally delete the content in the file
-
-	return nil
+	return pc.remove(off)
 }
 
 func (pc *PageCache) Evict() (err error) {
@@ -273,7 +257,7 @@ func (pc *PageCache) Evict() (err error) {
 	evictedPages := 0
 
 	for i := 0; i < pagesToEvict; i++ {
-		err = pc.Delete(keys[i])
+		err = pc.remove(keys[i])
 
 		if err != nil {
 			log.Println("ERROR EVICTING PAGE", keys[i], err)
@@ -319,4 +303,27 @@ func (pc *PageCache) Sync() {
 	}
 
 	pc.fileLock.Unlock()
+}
+
+func (pc *PageCache) remove(off int64) error {
+	// Get the cache offset
+	entry, ok := pc.index[PageNumber(off, pc.pageSize)]
+
+	if !ok {
+		return nil
+	}
+
+	// Seek to the cache offset
+	_, err := pc.file.Seek(entry[0], 0)
+
+	if err != nil {
+		return err
+	}
+
+	pc.freeList = append(pc.freeList, entry[0])
+
+	// Remove the page from the index
+	delete(pc.index, PageNumber(off, pc.pageSize))
+
+	return nil
 }
