@@ -3,10 +3,9 @@ package timer
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
-
-	"litebasedb/internal/config"
 )
 
 var ClockStart time.Time
@@ -20,7 +19,7 @@ var TimersMutex sync.Mutex
 var Timers = map[int64]Timer{}
 
 func Clock() {
-	if !config.Get().Debug {
+	if os.Getenv("LITEBASEDB_DEBUG") != "true" {
 		return
 	}
 
@@ -28,7 +27,7 @@ func Clock() {
 }
 
 func Start(description string) int64 {
-	if !config.Get().Debug {
+	if os.Getenv("LITEBASEDB_DEBUG") != "true" {
 		return 0
 	}
 
@@ -46,7 +45,7 @@ func Start(description string) int64 {
 }
 
 func Stop(timestamp int64) {
-	if !config.Get().Debug {
+	if os.Getenv("LITEBASEDB_DEBUG") != "true" {
 		return
 	}
 
