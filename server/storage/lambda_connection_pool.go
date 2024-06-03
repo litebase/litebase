@@ -132,7 +132,6 @@ func (pool *LambdaConnectionPool) Get() (*LambdaConnection, error) {
 	pool.mutex.Lock()
 	var err error
 
-	// log.Println("No connection...")
 	if pool.connection == nil {
 		pool.connection, err = pool.Create()
 

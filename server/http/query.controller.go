@@ -6,7 +6,7 @@ import (
 	"litebasedb/server/query"
 )
 
-func QueryController(request *Request) Response {
+func QueryController(request Request) Response {
 	// start := time.Now()
 	// defer func() {
 	// 	log.Println("QueryController", time.Since(start))
@@ -14,7 +14,7 @@ func QueryController(request *Request) Response {
 
 	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
 
-	if databaseKey == nil || err != nil {
+	if err != nil {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
 	}
 
@@ -26,19 +26,13 @@ func QueryController(request *Request) Response {
 
 	accessKey := requestToken.AccessKey(databaseKey.DatabaseUuid)
 
-	if accessKey == nil {
+	if accessKey.AccessKeyId == "" {
 		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
 	}
 
 	db, err := database.ConnectionManager().Get(
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
-	)
-
-	defer database.ConnectionManager().Release(
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
-		db,
 	)
 
 	if err != nil {
@@ -55,19 +49,37 @@ func QueryController(request *Request) Response {
 	)
 
 	if err != nil {
+		database.ConnectionManager().Remove(
+			databaseKey.DatabaseUuid,
+			databaseKey.BranchUuid,
+			db,
+		)
+
 		return JsonResponse(map[string]interface{}{
 			"message": err.Error(),
 		}, 500, nil)
 	}
 
-	response, err := query.NewResolver().Handle(db, requestQuery)
+	response, err := query.ResolveQuery(db, requestQuery)
 
 	if err != nil {
+		database.ConnectionManager().Remove(
+			databaseKey.DatabaseUuid,
+			databaseKey.BranchUuid,
+			db,
+		)
+
 		return JsonResponse(map[string]interface{}{
 			"message": err.Error(),
 		}, 500, nil)
 	}
 	// defer counter.Increment(databaseKey.DatabaseUuid, databaseKey.BranchUuid)
+
+	defer database.ConnectionManager().Release(
+		databaseKey.DatabaseUuid,
+		databaseKey.BranchUuid,
+		db,
+	)
 
 	return Response{
 		StatusCode: 200,

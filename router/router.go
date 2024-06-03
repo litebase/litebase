@@ -3,48 +3,20 @@ package router
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
-	"time"
 
 	"github.com/joho/godotenv"
+	// _ "net/http/pprof"
 )
 
 type Router struct {
 	Cancel     context.CancelFunc
 	Context    context.Context
 	HttpServer *http.Server
-}
-
-func getNodeIpAddress() string {
-	nodeIpAddresses := []string{}
-
-	path := fmt.Sprintf("%s/%s", os.Getenv("LITEBASEDB_DATA_PATH"), "/nodes/query")
-	os.MkdirAll(path, 0755)
-	entries, err := os.ReadDir(path)
-
-	if err != nil {
-		panic(err)
-	}
-
-	for _, entry := range entries {
-		parts := strings.Split(entry.Name(), "_")
-
-		if len(parts) != 2 {
-			continue
-		}
-
-		nodeIpAddresses = append(nodeIpAddresses, fmt.Sprintf("http://%s:%s", parts[0], parts[1]))
-	}
-
-	return nodeIpAddresses[0]
 }
 
 func NewRouter() *Router {
@@ -54,29 +26,17 @@ func NewRouter() *Router {
 }
 
 func (router *Router) Start() {
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
+
 	port := os.Getenv("LITEBASEDB_ROUTER_NODE_PORT")
 	ctx := context.Background()
 	router.Context, router.Cancel = context.WithCancel(ctx)
 
-	proxy := &httputil.ReverseProxy{
-		Director: func(r *http.Request) {
-			targetURL, _ := url.Parse(getNodeIpAddress())
-			r.URL.Scheme = targetURL.Scheme
-			r.URL.Host = targetURL.Host
-		},
-		ErrorLog: log.New(io.Discard, "", 0),
-		ModifyResponse: func(res *http.Response) error {
-			return nil
-		},
-	}
-
 	router.HttpServer = &http.Server{
-		Addr: fmt.Sprintf(":%s", port),
-		// ReadTimeout: 1 * time.Second,
-		// WriteTimeout:      1 * time.Second,
-		IdleTimeout: 1 * time.Second,
-		// ReadHeaderTimeout: 1 * time.Second,
-		Handler: proxy,
+		Addr:    fmt.Sprintf(":%s", port),
+		Handler: RouterHandler(),
 	}
 
 	log.Println("Litebase Router running on port", port)

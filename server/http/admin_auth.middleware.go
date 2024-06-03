@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func AdminAuth(request *Request) (*Request, Response) {
+func AdminAuth(request Request) (Request, Response) {
 	if basicAuth(request) {
 		return request, Response{}
 	}
@@ -36,7 +36,7 @@ func AdminAuth(request *Request) (*Request, Response) {
 	return request, Response{}
 }
 
-func basicAuth(request *Request) bool {
+func basicAuth(request Request) bool {
 	username, password, ok := request.BaseRequest.BasicAuth()
 
 	if ok {
@@ -49,20 +49,20 @@ func basicAuth(request *Request) bool {
 /*
 Ensure that there is an authorization header
 */
-func ensureAdminRequestHasAnAuthorizationHeader(request *Request) bool {
+func ensureAdminRequestHasAnAuthorizationHeader(request Request) bool {
 	log.Println("Checking for authorization header", request.Headers().Get("Authorization"))
 	return request.Headers().Get("Authorization") != ""
 }
 
-func ensureAdminRequestIsProperlySigned(request *Request) bool {
+func ensureAdminRequestIsProperlySigned(request Request) bool {
 	return AdminRequestSignatureValidator(request)
 }
 
-func ensureAdminRequestHasAValidToken(request *Request) bool {
+func ensureAdminRequestHasAValidToken(request Request) bool {
 	return AdminRequestTokenValidator(request)
 }
 
-func ensureAdminRequestIsNotExpired(request *Request) bool {
+func ensureAdminRequestIsNotExpired(request Request) bool {
 	dateHeader := request.Headers().Get("X-Lbdb-Date")
 
 	if dateHeader == "" {

@@ -1,6 +1,6 @@
 package http
 
-func TrasactionControllerStore(request *Request) Response {
+func TrasactionControllerStore(request Request) Response {
 	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
@@ -10,7 +10,7 @@ func TrasactionControllerStore(request *Request) Response {
 	}
 }
 
-func TrasactionControllerUpdate(request *Request) Response {
+func TrasactionControllerUpdate(request Request) Response {
 	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{
@@ -20,7 +20,7 @@ func TrasactionControllerUpdate(request *Request) Response {
 	}
 }
 
-func TrasactionControllerDestroy(request *Request) Response {
+func TrasactionControllerDestroy(request Request) Response {
 	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{

@@ -7,19 +7,9 @@ import (
 	"testing"
 )
 
-func TestNewResolver(t *testing.T) {
-	resolver := query.NewResolver()
-
-	if resolver == nil {
-		t.Fatal("Resolver was not created")
-	}
-}
-
 func TestHandle(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-
-		resolver := query.NewResolver()
 
 		db, err := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
 
@@ -65,7 +55,7 @@ func TestHandle(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			query, err := query.NewQuery(
+			q, err := query.NewQuery(
 				db,
 				mock["accessKeyId"],
 				map[string]interface{}{
@@ -79,7 +69,7 @@ func TestHandle(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			response, err := resolver.Handle(db, query)
+			response, err := query.ResolveQuery(db, q)
 
 			if response["status"] != c.expected {
 				t.Fatalf("Query was not successful: %s", response["message"])

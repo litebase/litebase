@@ -8,7 +8,7 @@ type SingatureStoreRequest struct {
 	Signature string `json:"signature" validate:"required"`
 }
 
-func SingatureStoreController(request *Request) Response {
+func SingatureStoreController(request Request) Response {
 	input, err := request.Input(&SingatureStoreRequest{})
 
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 )
 
 type RequestToken struct {
-	accessKey     *AccessKey
+	accessKey     AccessKey
 	AccessKeyId   string   `json:"access_key_id"`
 	SignedHeaders []string `json:"signed_headers"`
 	Signature     string   `json:"signature"`
@@ -57,15 +57,15 @@ func CaptureRequestToken(authorizationHeader string) RequestToken {
 	}
 }
 
-func (requestToken RequestToken) AccessKey(databaseUuid string) *AccessKey {
-	if requestToken.accessKey != nil {
+func (requestToken RequestToken) AccessKey(databaseUuid string) AccessKey {
+	if requestToken.accessKey.AccessKeyId != "" {
 		return requestToken.accessKey
 	}
 
 	data, err := AccessKeyManager().Get(requestToken.AccessKeyId)
 
 	if err != nil {
-		return nil
+		return AccessKey{}
 	}
 
 	requestToken.accessKey = data

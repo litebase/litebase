@@ -4,7 +4,7 @@ import (
 	"litebasedb/server/backups"
 )
 
-func DatabaseRestoreController(request *Request) Response {
+func DatabaseRestoreController(request Request) Response {
 	var backupTimestamp int
 	var restorePointTimestamp int
 

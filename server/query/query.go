@@ -1,9 +1,10 @@
 package query
 
 import (
-	"encoding/json"
 	"litebasedb/server/database"
 	"strings"
+
+	"github.com/goccy/go-json"
 
 	"github.com/google/uuid"
 )
@@ -17,7 +18,7 @@ type Query struct {
 	OriginalParameters []interface{} `json:"parameters"`
 	OriginalStatement  string        `json:"statement"`
 	parameters         []interface{}
-	statement          *database.Statement
+	statement          database.Statement
 }
 
 func NewQuery(
@@ -25,7 +26,7 @@ func NewQuery(
 	accessKeyId string,
 	data map[string]interface{},
 	id string,
-) (*Query, error) {
+) (Query, error) {
 	statement := data["statement"].(string)
 	parameters := data["parameters"].([]interface{})
 
@@ -35,7 +36,7 @@ func NewQuery(
 		isPragma = true
 	}
 
-	var query = &Query{
+	var query = Query{
 		AccessKeyId:        accessKeyId,
 		ClientConnection:   clientConnection,
 		IsPragma:           isPragma,
@@ -47,7 +48,7 @@ func NewQuery(
 		uuid, err := uuid.NewUUID()
 
 		if err != nil {
-			return nil, err
+			return Query{}, err
 		}
 
 		query.Id = uuid.String()
@@ -58,7 +59,7 @@ func NewQuery(
 	return query, nil
 }
 
-func (query *Query) Parameters() []interface{} {
+func (query Query) Parameters() []interface{} {
 	if query.parameters == nil {
 		var bytes []byte
 
@@ -78,22 +79,20 @@ func (query *Query) Parameters() []interface{} {
 	return query.parameters
 }
 
-func (query *Query) Resolve() (map[string]interface{}, error) {
-	resolver := NewResolver()
-
-	return resolver.Handle(query.ClientConnection, query)
+func (query Query) Resolve() (map[string]interface{}, error) {
+	return ResolveQuery(query.ClientConnection, query)
 }
 
-func (q *Query) Statement() (*database.Statement, error) {
+func (q Query) Statement() (database.Statement, error) {
 	var err error
 
-	if q.statement == nil {
+	if q.statement == (database.Statement{}) {
 		q.statement, err = q.ClientConnection.
 			GetConnection().
 			Statement(q.OriginalStatement)
 
 		if err != nil {
-			return nil, err
+			return database.Statement{}, err
 		}
 	}
 

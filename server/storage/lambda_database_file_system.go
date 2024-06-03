@@ -5,7 +5,6 @@ import (
 	internalStorage "litebasedb/internal/storage"
 	"litebasedb/internal/timer"
 	"log"
-	"net/http"
 	"sync"
 
 	"github.com/klauspost/compress/s2"
@@ -14,12 +13,10 @@ import (
 type LambdaDatabaseFileSystem struct {
 	branchUuid     string
 	databaseUuid   string
-	client         *http.Client
 	connectionHash string
 	hasPageOne     bool
 	mutex          *sync.RWMutex
 	pageCache      *PageCache
-	pageReader     *PageReader
 	pageSize       int64
 	size           int64
 }
@@ -33,7 +30,6 @@ func NewLambdaDatabaseFileSystem(
 ) *LambdaDatabaseFileSystem {
 	fs := &LambdaDatabaseFileSystem{
 		branchUuid:     branchUuid,
-		client:         &http.Client{},
 		connectionHash: connectionHash,
 		databaseUuid:   databaseUuid,
 		hasPageOne:     false,
@@ -44,19 +40,28 @@ func NewLambdaDatabaseFileSystem(
 		size:      0,
 	}
 
-	fs.pageReader = NewPageReader(fs)
-
 	return fs
 }
 
 // No-op
 func (fs *LambdaDatabaseFileSystem) Close(file string) error {
 	log.Println("LambdaDatabaseFileSystem Close", file)
+
 	return nil
 }
 
 func (fs *LambdaDatabaseFileSystem) connection() (*LambdaConnection, error) {
-	return LambdaConnectionManager().Get(fs.connectionHash)
+	connection, err := LambdaConnectionManager().Get(fs.connectionHash)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if connection == nil {
+		return nil, fmt.Errorf("Connection not found")
+	}
+
+	return connection, nil
 }
 
 func (fs *LambdaDatabaseFileSystem) Delete(file string) error {
@@ -146,22 +151,18 @@ func (fs *LambdaDatabaseFileSystem) ReadAt(name string, offset int64, length int
 
 	pageNumber := PageNumber(offset, fs.pageSize)
 
-	// if fs.pageCache.Has(offset) {
-	// 	// readStart := time.Now()
-	// 	data, err = fs.pageCache.Get(offset)
+	if fs.pageCache.Has(offset) {
+		data, err = fs.pageCache.Get(offset)
 
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
+		if err != nil {
+			return nil, err
+		}
 
-	// 	// log.Println("Read from cache", pageNumber, time.Since(readStart))
+		if len(data) > 0 {
+			return data, nil
+		}
+	}
 
-	// 	if len(data) > 0 {
-	// 		return data, nil
-	// 	}
-	// }
-
-	// log.Println("Reading page", pageNumber)
 	compressedData, err := fs.FetchPage(pageNumber)
 
 	if err != nil {
@@ -169,7 +170,7 @@ func (fs *LambdaDatabaseFileSystem) ReadAt(name string, offset int64, length int
 	}
 
 	if len(compressedData) == 0 {
-		return make([]byte, 65536), nil
+		return make([]byte, 4096), nil
 	}
 
 	data, err = fs.decompressData(compressedData)
@@ -182,16 +183,13 @@ func (fs *LambdaDatabaseFileSystem) ReadAt(name string, offset int64, length int
 		fs.hasPageOne = true
 	}
 
-	// TODO: Read ahead only when the database connection has instructed us to do so.
-	// fs.pageReader.ReadAhead(name, pageNumber, offset, data)
-
 	// We cannot cache page 1 since it can be updated by the database
-	// if len(data) == int(fs.pageSize) {
-	// 	if pageNumber != 1 {
-	// 		// TODO: This can cause locked errors
-	// 		fs.pageCache.Put(offset, data)
-	// 	}
-	// }
+	if len(data) == int(fs.pageSize) {
+		// if pageNumber != 1 {
+			// TODO: This can cause locked errors
+			fs.pageCache.Put(offset, data)
+		// }
+	}
 
 	// readCount++
 
@@ -239,11 +237,11 @@ func (fs *LambdaDatabaseFileSystem) WriteAt(file string, data []byte, offset int
 
 	// Only cache full pages and cache the first page if we have already calculated the size
 	// of the database. Otherwise, we will get a SQLITE_CORRUPT error.
-	// if pageNumber == 1 && fs.size > 0 && len(data) == int(fs.pageSize) ||
-	// 	// TOOD: Page Cache does not work well with concurrency
-	// 	len(data) == int(fs.pageSize) {
-	// 	fs.pageCache.Put(offset, data)
-	// }
+	if pageNumber == 1 && fs.size > 0 && len(data) == int(fs.pageSize) ||
+		// TOOD: Page Cache does not work well with concurrency
+		len(data) == int(fs.pageSize) {
+		fs.pageCache.Put(offset, data)
+	}
 
 	return len(data), err
 }

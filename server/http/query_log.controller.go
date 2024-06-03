@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func QueryLogController(request *Request) Response {
+func QueryLogController(request Request) Response {
 	startTimestamp, err := strconv.Atoi(request.QueryParam("start"))
 
 	if err != nil {

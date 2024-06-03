@@ -13,15 +13,16 @@ import (
 type Request struct {
 	BaseRequest  *http.Request
 	Body         map[string]interface{}
-	headers      *Headers
+	headers      Headers
 	Method       string
 	Path         string
 	QueryParams  map[string]string
 	requestToken auth.RequestToken
 	Route        Route
+	subdomains   []string
 }
 
-func NewRequest(request *http.Request) *Request {
+func NewRequest(request *http.Request) Request {
 	// ctx := request.Context()
 	headers := map[string]string{}
 
@@ -38,17 +39,25 @@ func NewRequest(request *http.Request) *Request {
 
 	headers["host"] = request.Host
 
-	return &Request{
+	// Parse the subdomains once
+	parts := strings.Split(headers["host"], ".")
+	subdomains := parts[0:1]
+	if len(parts) >= 4 {
+		subdomains = parts[0:2]
+	}
+
+	return Request{
 		BaseRequest: request,
 		Body:        nil,
 		Method:      request.Method,
 		Path:        request.URL.Path,
 		headers:     NewHeaders(headers),
 		QueryParams: queryParams,
+		subdomains:  subdomains,
 	}
 }
 
-func (r *Request) All() map[string]interface{} {
+func (r Request) All() map[string]interface{} {
 	if r.Body == nil {
 		body := make(map[string]interface{})
 		decoder := json.NewDecoder(r.BaseRequest.Body)
@@ -60,32 +69,32 @@ func (r *Request) All() map[string]interface{} {
 	return r.Body
 }
 
-func (r *Request) DatabaseKey() *database.DatabaseKey {
+func (r Request) DatabaseKey() database.DatabaseKey {
 	// Get the database key from the subdomain
 	key := r.Subdomains()[0]
 
 	if key == "" || len(r.Subdomains()) != 2 {
-		return nil
+		return database.DatabaseKey{}
 	}
 
 	databaseKey, err := database.GetDatabaseKey(key)
 
 	if err != nil {
-		return nil
+		return database.DatabaseKey{}
 	}
 
 	return databaseKey
 }
 
-func (r *Request) Get(key string) interface{} {
+func (r Request) Get(key string) interface{} {
 	return r.Body[key]
 }
 
-func (request *Request) Headers() *Headers {
+func (request Request) Headers() Headers {
 	return request.headers
 }
 
-func (request *Request) Input(input any) (interface{}, error) {
+func (request Request) Input(input any) (interface{}, error) {
 	jsonData, err := json.Marshal(request.All())
 
 	if err != nil {
@@ -97,15 +106,15 @@ func (request *Request) Input(input any) (interface{}, error) {
 	return input, nil
 }
 
-func (request *Request) Param(key string) string {
+func (request Request) Param(key string) string {
 	return request.BaseRequest.PathValue(key)
 }
 
-func (request *Request) QueryParam(key string) string {
+func (request Request) QueryParam(key string) string {
 	return request.QueryParams[key]
 }
 
-func (request *Request) RequestToken(header string) auth.RequestToken {
+func (request Request) RequestToken(header string) auth.RequestToken {
 	if !request.requestToken.Valid() {
 		request.requestToken = auth.CaptureRequestToken(request.headers.Get(header))
 	}
@@ -119,13 +128,8 @@ func (request Request) SetRoute(route Route) Request {
 	return request
 }
 
-func (request *Request) Subdomains() []string {
-	parts := strings.Split(request.Headers().Get("host"), ".")
-
-	if len(parts) >= 4 {
-		return parts[0:2]
-	}
-	return parts[0:1]
+func (request Request) Subdomains() []string {
+	return request.subdomains
 }
 
 func (request Request) Validate(

@@ -73,7 +73,7 @@ func NewPageCache(
 		log.Println("ERROR CREATING PAGE CACHE DIRECTORY", err)
 	}
 
-	pc.file, err = os.OpenFile(pc.filePath(), os.O_RDWR|os.O_CREATE|os.O_SYNC, 0644)
+	pc.file, err = os.OpenFile(pc.filePath(), os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		log.Println("ERROR OPENING PAGE CACHE FILE", err)

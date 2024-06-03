@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"litebasedb/internal/config"
@@ -125,12 +126,12 @@ func (akm *AccessKeyManagerInstance) GenerateAccessKeySecret() string {
 	return fmt.Sprintf("%s%s", prefix, result)
 }
 
-func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error) {
-	var accessKey *AccessKey
-	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), &AccessKey{})
+func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (AccessKey, error) {
+	var accessKey AccessKey
+	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), AccessKey{})
 
 	if value != nil {
-		accessKey, ok := value.(*AccessKey)
+		accessKey, ok := value.(AccessKey)
 
 		if ok {
 			return accessKey, nil
@@ -152,25 +153,25 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error)
 	fileContents, err := storage.FS().ReadFile(path)
 
 	if err != nil {
-		return nil, err
+		return AccessKey{}, err
 	}
 
 	decrypted, err := SecretsManager().Decrypt(config.Get().Signature, string(fileContents))
 
 	if err != nil {
-		return nil, err
+		return AccessKey{}, err
 	}
 
-	err = json.Unmarshal([]byte(decrypted["value"]), &accessKey)
+	err = json.NewDecoder(bytes.NewReader([]byte(decrypted["value"]))).Decode(&accessKey)
 
 	if err != nil {
-		return nil, err
+		return AccessKey{}, err
 	}
 
 	SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
 	// SecretsManager().cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
 
-	return accessKey, nil
+	return accessKey, err
 }
 
 func (akm *AccessKeyManagerInstance) Has(databaseKey, accessKeyId string) bool {

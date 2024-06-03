@@ -31,7 +31,7 @@ type AccessKeyPermission struct {
 	Actions  []string `json:"actions"`
 }
 
-func (accessKey *AccessKey) authorized(resource string, action string) bool {
+func (accessKey AccessKey) authorized(resource string, action string) bool {
 	var accessKeyPermission *AccessKeyPermission
 
 	for _, permission := range accessKey.Permissions {
@@ -63,7 +63,7 @@ func (accessKey *AccessKey) authorized(resource string, action string) bool {
 	return false
 }
 
-func (accessKey *AccessKey) authorizedForDatabase(databaseUuid, branchUuid, action string) bool {
+func (accessKey AccessKey) authorizedForDatabase(databaseUuid, branchUuid, action string) bool {
 	if accessKey.authorized(fmt.Sprintf("%s:%s", databaseUuid, "*"), action) {
 		return true
 	}
@@ -71,7 +71,7 @@ func (accessKey *AccessKey) authorizedForDatabase(databaseUuid, branchUuid, acti
 	return accessKey.authorized(fmt.Sprintf("%s:%s", databaseUuid, branchUuid), action)
 }
 
-func (accessKey *AccessKey) authorizedForTable(databaseUuid, branchUuid, table, action string) bool {
+func (accessKey AccessKey) authorizedForTable(databaseUuid, branchUuid, table, action string) bool {
 	if accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseUuid, "*", table), action) {
 		return true
 	}
@@ -83,7 +83,7 @@ func (accessKey *AccessKey) authorizedForTable(databaseUuid, branchUuid, table, 
 	return accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseUuid, branchUuid, table), action)
 }
 
-func (accessKey *AccessKey) CanAccess(databaseUuid, branchUuid string) error {
+func (accessKey AccessKey) CanAccess(databaseUuid, branchUuid string) error {
 	if databaseUuid == "" || branchUuid == "" {
 		return NewDatabaseAccessError()
 	}
@@ -102,7 +102,7 @@ func (accessKey *AccessKey) CanAccess(databaseUuid, branchUuid string) error {
 
 }
 
-func (accessKey *AccessKey) CanAlter(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanAlter(databaseUuid, branchUuid string, args []string) (bool, error) {
 	table := args[0]
 
 	if table == "sqlite_master" {
@@ -120,7 +120,7 @@ func (accessKey *AccessKey) CanAlter(databaseUuid, branchUuid string, args []str
 	return false, NewDatabasePrivilegeError("ALTER")
 }
 
-func (accessKey *AccessKey) CanCreate(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanCreate(databaseUuid, branchUuid string, args []string) (bool, error) {
 	table, _, databaseName := args[0], args[1], args[2]
 
 	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:CREATE") {
@@ -148,7 +148,7 @@ func (accessKey *AccessKey) CanCreate(databaseUuid, branchUuid string, args []st
 	return false, NewDatabasePrivilegeError("CREATE")
 }
 
-func (accessKey *AccessKey) CanDelete(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanDelete(databaseUuid, branchUuid string, args []string) (bool, error) {
 	table, _, databaseName := args[0], args[1], args[2]
 
 	if databaseName == "main" || databaseName == "temp" {
@@ -174,7 +174,7 @@ func (accessKey *AccessKey) CanDelete(databaseUuid, branchUuid string, args []st
 	return false, NewDatabasePrivilegeError("DELETE")
 }
 
-func (accessKey *AccessKey) CanDrop(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanDrop(databaseUuid, branchUuid string, args []string) (bool, error) {
 	table := args[0]
 
 	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:DROP") {
@@ -184,7 +184,7 @@ func (accessKey *AccessKey) CanDrop(databaseUuid, branchUuid string, args []stri
 	return false, NewDatabasePrivilegeError("DROP")
 }
 
-func (accessKey *AccessKey) CanIndex(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanIndex(databaseUuid, branchUuid string, args []string) (bool, error) {
 	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:INDEX") {
 		return true, nil
 	}
@@ -192,7 +192,7 @@ func (accessKey *AccessKey) CanIndex(databaseUuid, branchUuid string, args []str
 	return false, NewDatabasePrivilegeError("INDEX")
 }
 
-func (accessKey *AccessKey) CanInsert(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanInsert(databaseUuid, branchUuid string, args []string) (bool, error) {
 	table := args[0]
 
 	if table == "sqlite_master" {
@@ -211,7 +211,7 @@ func (accessKey *AccessKey) CanInsert(databaseUuid, branchUuid string, args []st
 	return false, NewDatabasePrivilegeError("INSERT")
 }
 
-func (accessKey *AccessKey) CanPragma(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanPragma(databaseUuid, branchUuid string, args []string) (bool, error) {
 	// pragma, value := args[0].(string), args[1].(string)
 
 	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:PRAGMA") {
@@ -221,11 +221,11 @@ func (accessKey *AccessKey) CanPragma(databaseUuid, branchUuid string, args []st
 	return false, NewDatabasePrivilegeError("PRAGMA")
 }
 
-func (accessKey *AccessKey) CanRead(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanRead(databaseUuid, branchUuid string, args []string) (bool, error) {
 	return true, nil
 }
 
-func (accessKey *AccessKey) CanSelect(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanSelect(databaseUuid, branchUuid string, args []string) (bool, error) {
 	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:SELECT") {
 		return true, nil
 	}
@@ -233,7 +233,7 @@ func (accessKey *AccessKey) CanSelect(databaseUuid, branchUuid string, args []st
 	return false, NewDatabasePrivilegeError("SELECT")
 }
 
-func (accessKey *AccessKey) CanTrigger(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanTrigger(databaseUuid, branchUuid string, args []string) (bool, error) {
 	_, table := args[0], args[1]
 
 	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:TRIGGER") {
@@ -243,7 +243,7 @@ func (accessKey *AccessKey) CanTrigger(databaseUuid, branchUuid string, args []s
 	return false, NewDatabasePrivilegeError("TRIGGER")
 }
 
-func (accessKey *AccessKey) CanUpdate(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanUpdate(databaseUuid, branchUuid string, args []string) (bool, error) {
 	table := args[0]
 
 	if table == "sqlite_master" || table == "sqlite_temp_master" {
@@ -257,7 +257,7 @@ func (accessKey *AccessKey) CanUpdate(databaseUuid, branchUuid string, args []st
 	return false, NewDatabasePrivilegeError("UPDATE")
 }
 
-func (accessKey *AccessKey) Delete() {
+func (accessKey AccessKey) Delete() {
 	signatures := _auth.AllSignatures()
 
 	for _, signature := range signatures {
@@ -268,10 +268,10 @@ func (accessKey *AccessKey) Delete() {
 
 	AccessKeyManager().Purge(accessKey.AccessKeyId)
 
-	accessKey = nil
+	accessKey = AccessKey{}
 }
 
-func (accessKey *AccessKey) Update(
+func (accessKey AccessKey) Update(
 	privileges interface{},
 ) bool {
 	jsonValue, err := json.Marshal(accessKey)

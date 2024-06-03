@@ -5,7 +5,7 @@ import (
 	"litebasedb/server/node"
 )
 
-func EventStoreController(request *Request) Response {
+func EventStoreController(request Request) Response {
 	input, err := request.Input(&node.NodeEvent{})
 
 	if err != nil {

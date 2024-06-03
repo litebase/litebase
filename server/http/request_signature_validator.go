@@ -16,7 +16,7 @@ import (
 )
 
 func RequestSignatureValidator(
-	request *Request,
+	request Request,
 	header string,
 ) bool {
 	if !request.RequestToken(header).Valid() {

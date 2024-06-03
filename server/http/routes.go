@@ -123,9 +123,9 @@ func LoadRoutes(router *RouterInstance) {
 	router.Post("/storage/{connectionHash}/connections/{id}",
 		StorageConnectionController,
 	).Middleware([]Middleware{
-		// RequireSubdomain,
-		// Authentication,
-		// Authorization,
+		RequireSubdomain,
+		Authentication,
+		Authorization,
 	})
 
 	/*
@@ -135,8 +135,8 @@ func LoadRoutes(router *RouterInstance) {
 		QueryController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
-		Authentication,
-		Authorization,
+		// Authentication,
+		// Authorization,
 	})
 
 	router.Post("/query/stream",
@@ -179,14 +179,14 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
-	router.Fallback(func(request *Request) Response {
+	router.Fallback(func(request Request) Response {
 		return Response{
 			StatusCode: 404,
 			Body:       nil,
 		}
 	})
 
-	router.Get("/", func(request *Request) Response {
+	router.Get("/", func(request Request) Response {
 		return Response{
 			StatusCode: 200,
 			Body:       map[string]interface{}{"message": "Hello World"},

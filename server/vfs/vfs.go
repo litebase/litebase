@@ -12,6 +12,7 @@ package vfs
 import "C"
 
 import (
+	"fmt"
 	"io"
 	"litebasedb/server/storage"
 	"log"
@@ -26,16 +27,15 @@ var vfsLocks = make(map[string]*VfsLock)
 var vfsMutex = &sync.RWMutex{}
 
 type LitebaseVFS struct {
-	id              string
-	journalFile     *C.LitebaseVFSFile
-	lock            *VfsLock
-	mainFile        *C.LitebaseVFSFile
-	name            string
-	storage         storage.DatabaseFileSystem
-	tempStorage     storage.DatabaseFileSystem
-	TransactionLock *sync.RWMutex
-	shmPointer      unsafe.Pointer
-	walFile         *C.LitebaseVFSFile
+	id          string
+	journalFile *C.LitebaseVFSFile
+	lock        *VfsLock
+	mainFile    *C.LitebaseVFSFile
+	name        string
+	storage     storage.DatabaseFileSystem
+	tempStorage storage.DatabaseFileSystem
+	shmPointer  unsafe.Pointer
+	walFile     *C.LitebaseVFSFile
 }
 
 type GoLitebaseVFSFile struct {
@@ -70,14 +70,13 @@ func RegisterVFS(
 	}
 
 	vfsMap[vfsId] = &LitebaseVFS{
-		id:              vfsId,
-		lock:            vfsLocks[connectionId],
-		storage:         storage,
-		tempStorage:     tempStorage,
-		TransactionLock: &sync.RWMutex{},
+		id:          vfsId,
+		lock:        vfsLocks[connectionId],
+		storage:     storage,
+		tempStorage: tempStorage,
 	}
 
-	log.Println("Registered VFS", vfsId, len(vfsMap))
+	// log.Println("Registered VFS", vfsId, len(vfsMap))
 
 	return vfsMap[vfsId], nil
 }
@@ -85,6 +84,15 @@ func RegisterVFS(
 func UnregisterVFS(conId, vfsId string) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
+
+	vfs := vfsMap[vfsId]
+
+	if vfs != nil {
+		cvfsId := C.CString(vfsId)
+		defer C.free(unsafe.Pointer(cvfsId))
+
+		C.unregisterVfs(cvfsId)
+	}
 
 	delete(vfsMap, vfsId)
 
@@ -114,7 +122,7 @@ func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.
 	vfsMutex.RUnlock()
 
 	if !ok {
-		panic("VFS not found")
+		return C.SQLITE_IOERR
 	}
 
 	fileType := getFileType(zName)
@@ -150,6 +158,11 @@ func goXDelete(zVfs *C.sqlite3_vfs, zName *C.char, syncDir C.int) C.int {
 	vfsMutex.RUnlock()
 
 	filename := name[strings.LastIndex(name, "/")+1:]
+
+	if vfs == nil {
+		log.Println("VFS not found")
+		return C.SQLITE_OK
+	}
 
 	switch fileType {
 	case "journal", "wal":
@@ -240,7 +253,12 @@ func goXSleep(cvfs *C.sqlite3_vfs, microseconds C.int) C.int {
 
 //export goXClose
 func goXClose(pFile *C.sqlite3_file) C.int {
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_CLOSE
+	}
+
 	vfsFile := getFile(pFile)
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
@@ -262,10 +280,14 @@ func goXClose(pFile *C.sqlite3_file) C.int {
 func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_READ
+	}
+
 	vfsFile := getFile(pFile)
 	var data []byte
-	var err error
 	// Get just the file name from the path
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
@@ -296,7 +318,12 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 
 //export goXWrite
 func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_WRITE
+	}
+
 	vfsFile := getFile(pFile)
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
@@ -319,11 +346,14 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 //export goXTruncate
 func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_TRUNCATE
+	}
+
 	vfsFile := getFile(pFile)
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
-
-	var err error
 
 	switch vfsFile.fileType {
 	case "journal":
@@ -343,12 +373,16 @@ func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 
 //export goXFileSize
 func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_FSTAT
+	}
+
 	vfsFile := getFile(pFile)
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
 	var size int64
-	var err error
 
 	switch vfsFile.fileType {
 	case "journal":
@@ -379,7 +413,11 @@ func goXLock(pFile *C.sqlite3_file, lockType C.int) C.int {
 	// to xLock() is always one of SHARED, RESERVED, PENDING, or EXCLUSIVE,
 	// never SQLITE_LOCK_NONE. If the database file lock is already at or above
 	// the requested lock, then the call to xLock() is a no-op.
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_LOCK
+	}
 
 	if !vfs.lock.Lock(vfs.id, int(lockType)) {
 		return C.SQLITE_BUSY
@@ -395,7 +433,11 @@ func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
 	// any database connection, either in this process or in some other process,
 	// is holding a RESERVED, PENDING, or EXCLUSIVE lock on the file. It returns
 	// true if such a lock exists and false otherwise.
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_UNLOCK
+	}
 
 	vfs.lock.Unlock(vfs.id, int(lockType))
 
@@ -404,7 +446,11 @@ func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
 
 //export goXCheckReservedLock
 func goXCheckReservedLock(pFile *C.sqlite3_file, pResOut *C.int) C.int {
-	vfs := getVfsFromFile(pFile)
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_CHECKRESERVEDLOCK
+	}
 
 	if vfs.lock.CheckReservedLock() {
 		*pResOut = C.int(1)
@@ -479,7 +525,7 @@ func errToC(err error) C.int {
 	return C.int(GenericError.code)
 }
 
-func getVfsFromFile(pFile *C.sqlite3_file) *LitebaseVFS {
+func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 	file := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
 	vfsId := C.GoString(file.pVfsId)
 
@@ -489,26 +535,11 @@ func getVfsFromFile(pFile *C.sqlite3_file) *LitebaseVFS {
 	vfs, ok := vfsMap[vfsId]
 
 	if !ok {
-		panic("VFS not found")
+		return nil, fmt.Errorf("vfs not found")
 	}
 
-	return vfs
-
+	return vfs, nil
 }
-
-// func getVfsId(name *C.char) string {
-// 	var id string
-
-// 	// The id is the string before .db
-// 	id = C.GoString(name)
-// 	// Get the string after the last slash
-// 	id = id[strings.LastIndex(id, "/")+1:]
-// 	id = strings.TrimSuffix(id, ".db")
-// 	id = strings.TrimSuffix(id, ".db-journal")
-// 	id = strings.TrimSuffix(id, ".db-wal")
-
-// 	return fmt.Sprintf("litebase:%s", id)
-// }
 
 func getFile(pFile *C.sqlite3_file) GoLitebaseVFSFile {
 	file := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
@@ -516,7 +547,6 @@ func getFile(pFile *C.sqlite3_file) GoLitebaseVFSFile {
 	return GoLitebaseVFSFile{
 		fileType: getFileType(file.pName),
 		name:     C.GoString(file.pName),
-		// id:       C.GoString(file.id),
 	}
 }
 

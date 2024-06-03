@@ -97,6 +97,16 @@ func (c *LambdaConnection) Open(response http.ResponseWriter, r *http.Request, o
 	c.httpResponseWriter.(http.Flusher).Flush()
 	c.encoder = gob.NewEncoder(c.httpResponseWriter)
 
+	if c.httpResponseWriter == nil {
+		log.Println("Response writer is nil")
+		return errors.New("response writer is nil")
+	}
+
+	if c.httpResponseWriter.(http.Flusher) == nil {
+		log.Println("Response writer is not a flusher")
+		return errors.New("response writer is not a flusher")
+	}
+
 	if openCallback != nil {
 		openCallback()
 	}

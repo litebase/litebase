@@ -19,31 +19,33 @@ import (
 )
 
 type DatabaseConnection struct {
-	accessKey      *auth.AccessKey
+	accessKey      auth.AccessKey
 	branchUuid     string
 	commitedAt     time.Time
 	connection     *sqlite3.Connection
+	databaseHash   string
 	databaseUuid   string
 	id             string
 	fileSystem     storage.DatabaseFileSystem
-	openRetries    int
-	statements     map[uint32]*Statement
+	statements     map[uint32]Statement
 	statementMutex sync.RWMutex
 	tempFileSystem storage.DatabaseFileSystem
 	vfs            *vfs.LitebaseVFS
+	vfsHash        string
 }
 
-func NewDatabaseConnection(databaseUuid, branchUuid string) *DatabaseConnection {
+func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection, error) {
 	var (
 		connection *sqlite3.Connection
 		err        error
 	)
 
 	con := &DatabaseConnection{
-		branchUuid:   branchUuid,
-		databaseUuid: databaseUuid,
-
-		statements:     map[uint32]*Statement{},
+		branchUuid:     branchUuid,
+		databaseHash:   DatabaseHash(databaseUuid, branchUuid),
+		databaseUuid:   databaseUuid,
+		id:             uuid.NewString(),
+		statements:     map[uint32]Statement{},
 		statementMutex: sync.RWMutex{},
 		tempFileSystem: storage.NewLocalDatabaseFileSystem(
 			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
@@ -53,71 +55,58 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) *DatabaseConnection 
 		),
 	}
 
-	con.setId()
-
-	// con.fileSystem = storage.NewLocalDatabaseFileSystem(
-	// 	fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
-	// 	databaseUuid,
-	// 	branchUuid,
-	// 	config.Get().PageSize,
-	// )
-
-	con.fileSystem = storage.DatabaseFileSystemManager().LambdaDatabaseFileSystem(
-		DatabaseHash(databaseUuid, branchUuid),
+	con.fileSystem = storage.NewLocalDatabaseFileSystem(
 		fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
 		databaseUuid,
 		branchUuid,
 		config.Get().PageSize,
 	)
 
-	con.RegisterVFS()
+	// con.fileSystem = storage.DatabaseFileSystemManager().LambdaDatabaseFileSystem(
+	// 	DatabaseHash(databaseUuid, branchUuid),
+	// 	fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+	// 	databaseUuid,
+	// 	branchUuid,
+	// 	config.Get().PageSize,
+	// )
+
+	err = con.RegisterVFS()
+
+	if err != nil {
+		log.Println("Error Registering VFS:", err)
+
+		return nil, err
+	}
+
 	con.setAuthorizer()
 
-	con.openRetries = 0
-
-	// open:
 	connection, err = sqlite3.Open(
-		fmt.Sprintf("./%s/%s.db", file.GetFileDir(databaseUuid, branchUuid), DatabaseHash(databaseUuid, branchUuid)),
+		fmt.Sprintf("./%s/%s.db", file.GetFileDir(databaseUuid, branchUuid), con.databaseHash),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
 	)
 
 	if err != nil {
 		log.Println("Error Opening Database:", err)
 
-		// if con.openRetries < 3 {
-		// 	con.openRetries++
-		// 	randomWait := time.Duration(con.openRetries*100) * time.Millisecond
-		// 	time.Sleep(randomWait)
-		// 	goto open
-		// }
-
-		return nil
+		return nil, err
 	}
 
 	con.connection = connection
 
-	con.connection.Exec("PRAGMA synchronous=OFF")
-	// con.connection.Exec("PRAGMA synchronous=NORMAL")
+	con.connection.Exec("PRAGMA synchronous=NORMAL")
 	// con.connection.Exec("PRAGMA journal_mode=delete")
-	con.connection.Exec("PRAGMA journal_mode=wal")
-	// TODO: Need to figure out how to allow checkpoints to resu3me once there
-	// is more than one connection to the database opened. See the documentation
-	// https://www.sqlite.org/wal.html#avoiding_excessively_large_wal_files
-	// con.connection.Exec("PRAGMA wal_autocheckpoint=1000")
+	con.connection.Exec("PRAGMA journal_mode=wal2")
 	con.connection.Exec("PRAGMA busy_timeout = 3000")
-	con.connection.Exec("PRAGMA cache_size = 0")
+	con.connection.Exec("PRAGMA cache_size = -2000000")
+	// con.connection.Exec("PRAGMA cache_size = 0")
 	con.connection.Exec(fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize))
 
 	con.connection.Exec("PRAGMA secure_delete = true")
 	// VFS does not handle temp files yet, so we will handle in memory.
 	con.connection.Exec("PRAGMA temp_store = memory")
-	// con.connection.Exec("PRAGMA mmap_size = 30000000000")
+	con.connection.Exec("PRAGMA mmap_size = 1000000000")
 
-	// con.checkpointer = NewCheckpointer(func() {
-	// 	con.CheckPoint()
-	// })
-
-	return con
+	return con, nil
 }
 
 func (con *DatabaseConnection) Changes() int64 {
@@ -145,12 +134,14 @@ func (con *DatabaseConnection) Close() {
 		statement.Sqlite3Statement.Finalize()
 	}
 
-	con.statements = map[uint32]*Statement{}
+	con.statements = map[uint32]Statement{}
 
-	con.connection.Close()
+	if con.connection != nil {
+		con.connection.Close()
+	}
 
 	vfs.UnregisterVFS(
-		fmt.Sprintf("litebase:%s", DatabaseHash(con.databaseUuid, con.branchUuid)),
+		fmt.Sprintf("litebase:%s", con.databaseHash),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
 	)
 
@@ -166,14 +157,14 @@ func (c *DatabaseConnection) Id() string {
 	return c.id
 }
 
-func (con *DatabaseConnection) Prepare(command string) (*Statement, error) {
+func (con *DatabaseConnection) Prepare(command string) (Statement, error) {
 	statment, err := con.connection.Prepare(command)
 
 	if err != nil {
-		return nil, err
+		return Statement{}, err
 	}
 
-	return &Statement{
+	return Statement{
 		Sqlite3Statement: statment,
 	}, nil
 }
@@ -182,9 +173,6 @@ func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ..
 	return con.Transaction(
 		statement.IsReadonly(),
 		func(con *DatabaseConnection) (sqlite3.Result, error) {
-			// TODO: Look into the statement and see how we should handle
-			// loading pages to execute the query.
-
 			result, err := statement.Exec(parameters...)
 
 			if err != nil {
@@ -195,7 +183,7 @@ func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ..
 		})
 }
 
-func (con *DatabaseConnection) Statement(queryStatement string) (*Statement, error) {
+func (con *DatabaseConnection) Statement(queryStatement string) (Statement, error) {
 	var err error
 
 	hash := crc32.ChecksumIEEE([]byte(queryStatement))
@@ -204,6 +192,9 @@ func (con *DatabaseConnection) Statement(queryStatement string) (*Statement, err
 	statement, ok := con.statements[hash]
 	con.statementMutex.RUnlock()
 
+	con.statementMutex.Lock()
+	defer con.statementMutex.Unlock()
+
 	if !ok {
 		statement, err = con.Prepare(queryStatement)
 
@@ -211,9 +202,7 @@ func (con *DatabaseConnection) Statement(queryStatement string) (*Statement, err
 			// TODO: If the schema changes, the statement will be invalid.
 			// We should track if a Query performs DDL and invalidate the
 			// statement cache for each connection.
-			con.statementMutex.Lock()
 			con.statements[hash] = statement
-			con.statementMutex.Unlock()
 		}
 	}
 
@@ -225,7 +214,7 @@ func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 }
 
 func (c *DatabaseConnection) setAuthorizer() {
-	if c.accessKey == nil {
+	if c.accessKey.AccessKeyId == "" {
 		return
 	}
 
@@ -318,10 +307,6 @@ func (c *DatabaseConnection) setAuthorizer() {
 	})
 }
 
-func (c *DatabaseConnection) setId() {
-	c.id = uuid.New().String()
-}
-
 func (con *DatabaseConnection) Transaction(
 	readOnly bool,
 	handler func(con *DatabaseConnection) (sqlite3.Result, error),
@@ -335,7 +320,7 @@ func (con *DatabaseConnection) Transaction(
 	if !readOnly {
 		lock.Lock()
 		defer lock.Unlock()
-		_, err = con.SqliteConnection().Exec("BEGIN IMMEDIATE")
+		_, err = con.SqliteConnection().Exec("BEGIN CONCURRENT")
 	} else {
 		// lock.RLock()
 		// defer lock.RUnlock()
@@ -380,29 +365,34 @@ func (con *DatabaseConnection) Transaction(
 	return results, handlerError
 }
 
-func (con *DatabaseConnection) RegisterVFS() {
+func (con *DatabaseConnection) RegisterVFS() error {
 	vfs, err := vfs.RegisterVFS(
-		fmt.Sprintf("litebase:%s", DatabaseHash(con.databaseUuid, con.branchUuid)),
+		fmt.Sprintf("litebase:%s", con.databaseHash),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
 		con.fileSystem,
 		con.tempFileSystem,
 	)
 
 	if err != nil {
-		log.Fatalf("Register VFS err: %s", err)
+		return err
 	}
 
 	con.vfs = vfs
+
+	return nil
 }
 
 func (con *DatabaseConnection) VfsHash() string {
-	sha1 := sha1.New()
-	sha1.Write([]byte(fmt.Sprintf("%s:%s:%s", con.databaseUuid, con.branchUuid, con.id)))
+	if con.vfsHash == "" {
+		sha1 := sha1.New()
+		sha1.Write([]byte(fmt.Sprintf("%s:%s:%s", con.databaseUuid, con.branchUuid, con.id)))
+		con.vfsHash = fmt.Sprintf("%x", sha1.Sum(nil))
+	}
 
-	return fmt.Sprintf("%x", sha1.Sum(nil))
+	return con.vfsHash
 }
 
-func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
+func (con *DatabaseConnection) WithAccessKey(accessKey auth.AccessKey) *DatabaseConnection {
 	con.accessKey = accessKey
 
 	return con

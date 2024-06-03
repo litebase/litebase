@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func StorageConnectionController(request *Request) Response {
+func StorageConnectionController(request Request) Response {
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {

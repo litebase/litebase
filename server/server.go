@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -101,7 +102,11 @@ func (s *ServerInstance) Shutdown() {
 	node.Unregister()
 	database.ConnectionManager().Shutdown()
 
-	if err := s.HttpServer.Shutdown(context.Background()); err != nil {
+	// Create a context with a timeout for graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	if err := s.HttpServer.Shutdown(ctx); err != nil {
 		log.Printf("HTTP server Shutdown: %v", err)
 	}
 }

@@ -5,7 +5,7 @@ import (
 )
 
 type ClientConnection struct {
-	accessKey    *auth.AccessKey
+	accessKey    auth.AccessKey
 	branchUuid   string
 	connection   *DatabaseConnection
 	databaseUuid string
@@ -15,18 +15,18 @@ type ClientConnection struct {
 func NewClientConnection(
 	databaseUuid string,
 	branchUuid string,
-) *ClientConnection {
-	connection := NewDatabaseConnection(databaseUuid, branchUuid)
+) (*ClientConnection, error) {
+	connection, err := NewDatabaseConnection(databaseUuid, branchUuid)
 
 	if connection == nil {
-		return nil
+		return nil, err
 	}
 
 	return &ClientConnection{
 		branchUuid:   branchUuid,
 		connection:   connection,
 		databaseUuid: databaseUuid,
-	}
+	}, nil
 }
 
 func (d *ClientConnection) Close() {
@@ -53,7 +53,7 @@ func (d *ClientConnection) Path() string {
 	return d.path
 }
 
-func (d *ClientConnection) WithAccessKey(accessKey *auth.AccessKey) *ClientConnection {
+func (d *ClientConnection) WithAccessKey(accessKey auth.AccessKey) *ClientConnection {
 	d.accessKey = accessKey
 
 	d.connection.WithAccessKey(accessKey)

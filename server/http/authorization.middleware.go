@@ -1,9 +1,9 @@
 package http
 
-func Authorization(request *Request) (*Request, Response) {
+func Authorization(request Request) (Request, Response) {
 	accessKey := request.RequestToken("Authorization").AccessKey(request.Subdomains()[0])
 
-	if accessKey == nil {
+	if accessKey.AccessKeyId == "" {
 		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{

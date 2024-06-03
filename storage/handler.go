@@ -21,8 +21,6 @@ type Event struct {
 var commandProcessor = NewCommandProcessor()
 
 func CreateConnection(url, connectionId string) {
-
-	log.Println("Opening connection")
 	reader, writer := io.Pipe()
 
 	client := &http.Client{

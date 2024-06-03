@@ -3,7 +3,6 @@ package query
 import (
 	"fmt"
 	"litebasedb/server/database"
-	db "litebasedb/server/database"
 	"litebasedb/server/sqlite3"
 	"time"
 )
@@ -11,11 +10,7 @@ import (
 type Resolver struct {
 }
 
-func NewResolver() *Resolver {
-	return &Resolver{}
-}
-
-func (r *Resolver) Handle(db *db.ClientConnection, query *Query) (map[string]interface{}, error) {
+func ResolveQuery(db *database.ClientConnection, query Query) (map[string]interface{}, error) {
 	// var handlerError error
 	// var response map[string]interface{}
 
@@ -40,7 +35,7 @@ func (r *Resolver) Handle(db *db.ClientConnection, query *Query) (map[string]int
 
 	start := time.Now()
 	var sqlite3Result sqlite3.Result
-	var statement *database.Statement
+	var statement database.Statement
 
 	if query.IsPragma {
 		sqlite3Result, err = db.GetConnection().SqliteConnection().Exec(query.OriginalStatement)
@@ -51,8 +46,6 @@ func (r *Resolver) Handle(db *db.ClientConnection, query *Query) (map[string]int
 			sqlite3Result, err = db.GetConnection().Query(statement.Sqlite3Statement, query.Parameters()...)
 		}
 	}
-
-	end := float64(time.Since(start)) / float64(time.Millisecond)
 
 	if err != nil {
 		data = map[string]any{
@@ -68,7 +61,7 @@ func (r *Resolver) Handle(db *db.ClientConnection, query *Query) (map[string]int
 		}
 
 		data = map[string]any{
-			"_execution_time": end,
+			"_execution_time": float64(time.Since(start)) / float64(time.Millisecond),
 			"status":          "success",
 			"data":            result,
 		}

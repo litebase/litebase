@@ -1,19 +1,15 @@
 package database
 
 import (
-	"errors"
 	"log"
 	"sync"
 	"time"
 )
 
-// TODO: Checkpoint idle databases
-// TODO: Close idle connections
-
 type ConnectionManagerInstance struct {
-	cconnectionTicker *time.Ticker
-	databases         map[string]*BranchGroup
-	mutext            *sync.RWMutex
+	connectionTicker *time.Ticker
+	databases        map[string]*BranchGroup
+	mutext           *sync.RWMutex
 }
 
 type BranchGroup struct {
@@ -29,6 +25,7 @@ type BranchConnection struct {
 	inUse      bool
 }
 
+var connectionManagerMutex = &sync.RWMutex{}
 var StaticConnectionManagerInstance *ConnectionManagerInstance
 
 func NewBranchGroup() *BranchGroup {
@@ -40,6 +37,13 @@ func NewBranchGroup() *BranchGroup {
 }
 
 func ConnectionManager() *ConnectionManagerInstance {
+	if StaticConnectionManagerInstance != nil {
+		return StaticConnectionManagerInstance
+	}
+
+	connectionManagerMutex.Lock()
+	defer connectionManagerMutex.Unlock()
+
 	if StaticConnectionManagerInstance == nil {
 		StaticConnectionManagerInstance = &ConnectionManagerInstance{
 			mutext:    &sync.RWMutex{},
@@ -49,9 +53,9 @@ func ConnectionManager() *ConnectionManagerInstance {
 		// Start the connection ticker
 		go func() {
 			time.Sleep(1 * time.Second)
-			StaticConnectionManagerInstance.cconnectionTicker = time.NewTicker(1 * time.Second)
+			StaticConnectionManagerInstance.connectionTicker = time.NewTicker(1 * time.Second)
 
-			for range StaticConnectionManagerInstance.cconnectionTicker.C {
+			for range StaticConnectionManagerInstance.connectionTicker.C {
 				StaticConnectionManagerInstance.Tick()
 			}
 
@@ -124,6 +128,7 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 		for _, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
 			if !branchConnection.inUse {
 				branchConnection.inUse = true
+
 				return branchConnection.connection, nil
 			}
 		}
@@ -140,10 +145,10 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 
 	// Create a new client connection, only one connection can be created at a
 	// time to avoid SQL Logic errors on sqlite3_open.
-	con := NewClientConnection(databaseUuid, branchUuid)
+	con, err := NewClientConnection(databaseUuid, branchUuid)
 
-	if con == nil {
-		return nil, errors.New("connection error")
+	if err != nil {
+		return nil, err
 	}
 
 	c.databases[databaseUuid].branches[branchUuid] = append(c.databases[databaseUuid].branches[branchUuid], &BranchConnection{
@@ -175,7 +180,7 @@ func (c *ConnectionManagerInstance) Release(databaseUuid string, branchUuid stri
 	c.mutext.Lock()
 	defer c.mutext.Unlock()
 
-	c.Checkpoint(c.databases[databaseUuid], branchUuid, clientConnection)
+	// c.Checkpoint(c.databases[databaseUuid], branchUuid, clientConnection)
 
 	for i, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
@@ -245,8 +250,8 @@ func (c *ConnectionManagerInstance) Shutdown() {
 	defer c.mutext.Unlock()
 
 	// Stop connection ticker
-	if c.cconnectionTicker != nil {
-		c.cconnectionTicker.Stop()
+	if c.connectionTicker != nil {
+		c.connectionTicker.Stop()
 	}
 
 	// Close all connections

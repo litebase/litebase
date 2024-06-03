@@ -1,6 +1,7 @@
 package database
 
 import (
+	"bytes"
 	"encoding/json"
 	"litebasedb/internal/config"
 	"litebasedb/server/auth"
@@ -14,10 +15,10 @@ type DatabaseKey struct {
 	BranchUuid   string `json:"branch_uuid"`
 }
 
-var databaseKeyCache = map[string]*DatabaseKey{}
+var databaseKeyCache = map[string]DatabaseKey{}
 var databaseKeyMutex = &sync.RWMutex{}
 
-func GetDatabaseKey(key string) (*DatabaseKey, error) {
+func GetDatabaseKey(key string) (DatabaseKey, error) {
 	// Check if the database key is cached
 	databaseKeyMutex.RLock()
 
@@ -32,15 +33,15 @@ func GetDatabaseKey(key string) (*DatabaseKey, error) {
 	data, err := storage.FS().ReadFile(auth.GetDatabaseKeyPath(config.Get().Signature, key))
 
 	if err != nil {
-		return nil, err
+		return DatabaseKey{}, err
 	}
 
-	databaseKey := &DatabaseKey{}
-
-	err = json.Unmarshal(data, databaseKey)
+	databaseKey := DatabaseKey{}
+	
+	err = json.NewDecoder(bytes.NewReader(data)).Decode(&databaseKey)
 
 	if err != nil {
-		return nil, err
+		return DatabaseKey{}, err
 	}
 
 	// Cache the database key

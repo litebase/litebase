@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func Authentication(request *Request) (*Request, Response) {
+func Authentication(request Request) (Request, Response) {
 	if !ensureReuestHasAnAuthorizationHeader(request) ||
 		!ensureRequestIsProperlySigned(request) {
 		return request, Response{
@@ -30,11 +30,11 @@ func Authentication(request *Request) (*Request, Response) {
 	return request, Response{}
 }
 
-func ensureReuestHasAnAuthorizationHeader(request *Request) bool {
+func ensureReuestHasAnAuthorizationHeader(request Request) bool {
 	return request.Headers().Has("Authorization")
 }
 
-func ensureRequestIsNotExpired(request *Request) bool {
+func ensureRequestIsNotExpired(request Request) bool {
 	dateHeader := request.Headers().Get("X-Lbdb-Date")
 
 	if dateHeader == "" {
@@ -52,6 +52,6 @@ func ensureRequestIsNotExpired(request *Request) bool {
 	return time.Since(parsedTime) < 10*time.Second
 }
 
-func ensureRequestIsProperlySigned(request *Request) bool {
+func ensureRequestIsProperlySigned(request Request) bool {
 	return RequestSignatureValidator(request, "Authorization")
 }

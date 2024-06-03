@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func DatabaseBackupStoreController(request *Request) Response {
+func DatabaseBackupStoreController(request Request) Response {
 	backup, err := backups.RunBackup(
 		request.Param("database"),
 		request.Param("branch"),
@@ -26,7 +26,7 @@ func DatabaseBackupStoreController(request *Request) Response {
 	}, 200, nil)
 }
 
-func DatabaseBackupShowController(request *Request) Response {
+func DatabaseBackupShowController(request Request) Response {
 	timeInstance, err := time.Parse(time.UnixDate, request.Param("timestamp"))
 
 	if err != nil {
@@ -48,7 +48,7 @@ func DatabaseBackupShowController(request *Request) Response {
 	}, 200, nil)
 }
 
-func DatabaseBackupDestroyController(request *Request) Response {
+func DatabaseBackupDestroyController(request Request) Response {
 	i, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {

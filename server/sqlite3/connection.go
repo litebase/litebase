@@ -60,12 +60,14 @@ func Open(path, vfsId string) (*Connection, error) {
 	// Set extended error codes
 	if err := C.sqlite3_extended_result_codes(c, 1); err != SQLITE_OK {
 		C.sqlite3_close_v2(c)
+
 		return nil, errors.New(C.GoString(C.sqlite3_errstr(err)))
 	}
 
 	// Initialize sqlite
 	if err := C.sqlite3_initialize(); err != SQLITE_OK {
 		C.sqlite3_close_v2(c)
+
 		return nil, errors.New(C.GoString(C.sqlite3_errstr(err)))
 	}
 

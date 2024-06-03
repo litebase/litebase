@@ -2,7 +2,6 @@ package http
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"litebasedb/server/auth"
@@ -10,9 +9,11 @@ import (
 	"litebasedb/server/query"
 	"log"
 	"net/http"
+
+	"github.com/goccy/go-json"
 )
 
-func QueryStreamController(request *Request) Response {
+func QueryStreamController(request Request) Response {
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {
@@ -23,7 +24,7 @@ func QueryStreamController(request *Request) Response {
 
 			databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
 
-			if databaseKey == nil || err != nil {
+			if err != nil {
 				w.Write(JsonNewLineError(fmt.Errorf("a valid database is required to make this request")))
 				log.Println("Database key error", err)
 				return
@@ -39,7 +40,7 @@ func QueryStreamController(request *Request) Response {
 
 			accessKey := requestToken.AccessKey(databaseKey.DatabaseUuid)
 
-			if accessKey == nil {
+			if accessKey.AccessKeyId == "" {
 				w.Write(JsonNewLineError(fmt.Errorf("a valid access key is required to make this request")))
 				log.Println("Access key error")
 				return
@@ -71,11 +72,6 @@ func QueryStreamController(request *Request) Response {
 			for scanner.Scan() {
 				command := scanner.Text()
 
-				if err := scanner.Err(); err != nil {
-					log.Println(err)
-					break
-				}
-
 				if db == nil || db.GetConnection().Closed() {
 					w.Write(JsonNewLineError(fmt.Errorf("database connection error")))
 					return
@@ -100,6 +96,10 @@ func QueryStreamController(request *Request) Response {
 				w.(http.Flusher).Flush()
 			}
 
+			// if err := scanner.Err(); err != nil {
+			// 	log.Println(err)
+			// }
+
 			request.BaseRequest.Body.Close()
 			<-request.BaseRequest.Context().Done()
 			// log.Println("Connection closed")
@@ -113,7 +113,7 @@ func QueryStreamController(request *Request) Response {
 	}
 }
 
-func processCommand(db *database.ClientConnection, accessKey *auth.AccessKey, command string) (map[string]interface{}, error) {
+func processCommand(db *database.ClientConnection, accessKey auth.AccessKey, command string) (map[string]interface{}, error) {
 	var queryCommand map[string]interface{}
 
 	err := json.Unmarshal([]byte(command), &queryCommand)
@@ -133,7 +133,7 @@ func processCommand(db *database.ClientConnection, accessKey *auth.AccessKey, co
 		return nil, err
 	}
 
-	response, err := query.NewResolver().Handle(db, requestQuery)
+	response, err := requestQuery.Resolve()
 
 	if err != nil {
 		return nil, err

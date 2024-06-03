@@ -75,7 +75,7 @@ func NewConfig() *Config {
 		PageCompaction:          true,
 		PageCompactionThreshold: 1000,
 		PageCompactionInterval:  3000,
-		PageSize:                65536, //4096,
+		PageSize:                65536,
 		QueryNodePort:           env("LITEBASEDB_QUERY_NODE_PORT", "8080").(string),
 		Region:                  env("LITEBASEDB_REGION", "").(string),
 		RouterNodePort:          env("LITEBASEDB_ROUTER_NODE_PORT", "8080").(string),
