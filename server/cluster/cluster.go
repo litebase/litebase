@@ -34,7 +34,7 @@ func Init() (*ClusterInstance, error) {
 				return cluster, nil
 			}
 
-			return nil, fmt.Errorf("[%d] Cluster has not been initialized", 0)
+			return nil, err
 		}
 
 		return nil, err

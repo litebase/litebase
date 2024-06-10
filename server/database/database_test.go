@@ -1,29 +1,30 @@
 package database_test
 
-// func TestDatabaseCanBeCreated(t *testing.T) {
-// 	test.Setup(t)
+import (
+	"litebasedb/internal/test"
+	"litebasedb/server/database"
+	"testing"
+)
 
-// 	databaseUuid := "test"
-// 	branchUuid := "test"
-// 	path, _ := file.GetDatabaseFilePath(databaseUuid, branchUuid)
-// 	// accessKey := test.MockAccessKey(databaseUuid, branchUuid)
+func TestDatabaseCanBeCreated(t *testing.T) {
+	test.Setup(t)
 
-// 	db := database.NewConnection(
-// 		path,
-// 	)
+	databaseUuid := "test"
+	branchUuid := "test"
 
-// 	if db == nil {
-// 		t.Fail()
-// 	}
+	db, err := database.Create(
+		databaseUuid,
+		branchUuid,
+	)
 
-// 	if db.Connection() == nil {
-// 		t.Fail()
-// 	}
+	if db == nil {
+		t.Fail()
+	}
 
-// 	if db.Connection() == nil {
-// 		t.Fail()
-// 	}
-// }
+	if err != nil {
+		t.Error(err)
+	}
+}
 
 // func TestDatabaseCanBeClosed(t *testing.T) {
 // 	os.Setenv("DATABASE_DIRECTORY", "../data")

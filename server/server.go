@@ -12,8 +12,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 type ServerInstance struct {
@@ -25,8 +23,6 @@ type ServerInstance struct {
 var serverInstance *ServerInstance
 
 func NewServer() *ServerInstance {
-	godotenv.Load(".env")
-
 	server := &ServerInstance{}
 
 	if server.isPrimary() {

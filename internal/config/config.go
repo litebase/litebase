@@ -4,31 +4,23 @@ import (
 	"fmt"
 
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	BranchUuid              string
-	DatabaseUuid            string
-	DataPath                string
-	DatabaseDirectory       string
-	DatabaseName            string
-	Debug                   bool
-	DefaultBranchName       string
-	Env                     string
-	FileSystemDriver        string
-	PageCompaction          bool
-	PageCompactionThreshold int64
-	PageCompactionInterval  int64
-	PageSize                int64
-	QueryNodePort           string
-	Region                  string
-	RootPassword            string
-	RouterNodePort          string
-	Signature               string
-	SignatureNext           string
-	TmpPath                 string
+	DataPath          string
+	DatabaseDirectory string
+	Debug             bool
+	DefaultBranchName string
+	Env               string
+	FileSystemDriver  string
+	PageSize          int64
+	QueryNodePort     string
+	Region            string
+	RootPassword      string
+	RouterNodePort    string
+	Signature         string
+	SignatureNext     string
+	TmpPath           string
 }
 
 var ConfigInstance *Config = nil
@@ -63,25 +55,21 @@ func env(key string, defaultValue string) interface{} {
 }
 
 func NewConfig() *Config {
-	godotenv.Load()
+	// godotenv.Load()
 
 	ConfigInstance = &Config{
-		DataPath:                os.Getenv("LITEBASEDB_DATA_PATH"),
-		DefaultBranchName:       env("LITEBASEDB_DEFAULT_BRANCH_NAME", "main").(string),
-		Env:                     env("LITEBASEDB_ENV", "production").(string),
-		FileSystemDriver:        env("LITEBASEDB_FILESYSTEM_DRIVER", "local").(string),
-		Debug:                   env("LITEBASEDB_DEBUG", "false") == "true",
-		PageCompaction:          true,
-		PageCompactionThreshold: 1000,
-		PageCompactionInterval:  3000,
-		// PageSize:                4096,
-		PageSize:       65536,
-		QueryNodePort:  env("LITEBASEDB_QUERY_NODE_PORT", "8080").(string),
-		Region:         env("LITEBASEDB_REGION", "").(string),
-		RouterNodePort: env("LITEBASEDB_ROUTER_NODE_PORT", "8080").(string),
-		RootPassword:   env("LITEBASEDB_ROOT_PASSWORD", "").(string),
-		Signature:      env("LITEBASEDB_SIGNATURE", "").(string),
-		TmpPath:        env("LITEBASEDB_TMP_PATH", "").(string),
+		DataPath:          os.Getenv("LITEBASEDB_DATA_PATH"),
+		DefaultBranchName: env("LITEBASEDB_DEFAULT_BRANCH_NAME", "main").(string),
+		Env:               env("LITEBASEDB_ENV", "production").(string),
+		FileSystemDriver:  env("LITEBASEDB_FILESYSTEM_DRIVER", "local").(string),
+		Debug:             env("LITEBASEDB_DEBUG", "false") == "true",
+		PageSize:          65536,
+		QueryNodePort:     env("LITEBASEDB_QUERY_NODE_PORT", "8080").(string),
+		Region:            env("LITEBASEDB_REGION", "").(string),
+		RouterNodePort:    env("LITEBASEDB_ROUTER_NODE_PORT", "8080").(string),
+		RootPassword:      env("LITEBASEDB_ROOT_PASSWORD", "").(string),
+		Signature:         env("LITEBASEDB_SIGNATURE", "").(string),
+		TmpPath:           env("LITEBASEDB_TMP_PATH", "").(string),
 	}
 
 	return ConfigInstance
@@ -89,7 +77,6 @@ func NewConfig() *Config {
 
 func Get() *Config {
 	if ConfigInstance == nil {
-
 		NewConfig()
 	}
 

@@ -1,15 +1,28 @@
 package database
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
+)
+
+const (
+	ConnectionManagerStateRunning = iota
+	ConnectionManagerStateDraining
+	ConnectionManagerStateShutdown
+)
+
+const (
+	ErrorConnectionManagerShutdown = "new database connections cannot be created after shutdown"
+	ErrorConnectionManagerDraining = "new database connections cannot be created while shutting down"
 )
 
 type ConnectionManagerInstance struct {
 	connectionTicker *time.Ticker
 	databases        map[string]*DatabaseGroup
 	mutext           *sync.RWMutex
+	state            int
 }
 
 type BranchGroupStatus int
@@ -50,6 +63,7 @@ func ConnectionManager() *ConnectionManagerInstance {
 		StaticConnectionManagerInstance = &ConnectionManagerInstance{
 			mutext:    &sync.RWMutex{},
 			databases: map[string]*DatabaseGroup{},
+			state:     ConnectionManagerStateRunning,
 		}
 
 		// Start the connection ticker
@@ -203,6 +217,10 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 }
 
 func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) (*ClientConnection, error) {
+	if err := c.StateError(); err != nil {
+		return nil, err
+	}
+
 	c.mutext.Lock()
 	defer c.mutext.Unlock()
 
@@ -254,8 +272,6 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 func (c *ConnectionManagerInstance) Release(databaseUuid string, branchUuid string, clientConnection *ClientConnection) {
 	c.mutext.Lock()
 	defer c.mutext.Unlock()
-
-	// c.Checkpoint(c.databases[databaseUuid], branchUuid, clientConnection)
 
 	for i, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
@@ -328,6 +344,16 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 }
 
 func (c *ConnectionManagerInstance) Shutdown() {
+
+	// Drain all connections
+	for databaseUuid, database := range c.databases {
+		for branchUuid := range database.branches {
+			c.Drain(databaseUuid, branchUuid, func() error {
+				return nil
+			})
+		}
+	}
+
 	c.mutext.Lock()
 	defer c.mutext.Unlock()
 
@@ -336,16 +362,18 @@ func (c *ConnectionManagerInstance) Shutdown() {
 		c.connectionTicker.Stop()
 	}
 
-	// Close all connections
-	for _, database := range c.databases {
-		for _, branchConnections := range database.branches {
-			for _, branchConnection := range branchConnections {
-				branchConnection.connection.Close()
-			}
-		}
-	}
-
 	c.databases = map[string]*DatabaseGroup{}
+}
+
+func (c *ConnectionManagerInstance) StateError() error {
+	switch c.state {
+	case ConnectionManagerStateShutdown:
+		return fmt.Errorf(ErrorConnectionManagerShutdown)
+	case ConnectionManagerStateDraining:
+		return fmt.Errorf(ErrorConnectionManagerDraining)
+	default:
+		return nil
+	}
 }
 
 func (c *ConnectionManagerInstance) Tick() {

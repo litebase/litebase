@@ -5,8 +5,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"litebasedb/internal/config"
-	"litebasedb/server"
 	"litebasedb/server/auth"
 	"litebasedb/server/database"
 	"litebasedb/server/sqlite3"
@@ -42,13 +40,6 @@ func MockDatabase() TestDatabase {
 	branchUuid := CreateHash(32)
 	databaseKey := CreateHash(32)
 	accessKeyId := CreateHash(32)
-
-	config.Get().Signature = CreateHash(32)
-	config.Get().SignatureNext = CreateHash(32)
-	config.Get().DatabaseUuid = databaseUuid
-	config.Get().BranchUuid = branchUuid
-
-	server.NewApp(server.NewServer())
 
 	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "accessKeySecret")
 	// serverAccessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "serverAccessKeySecret")

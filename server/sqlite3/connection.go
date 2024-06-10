@@ -168,6 +168,10 @@ func (c *Connection) SetLastInsertId(v int64) {
 
 // Interrupt all queries for connection
 func (c *Connection) Interrupt() {
+	if c == nil {
+		return
+	}
+
 	C.sqlite3_interrupt((*C.sqlite3)(c))
 }
 

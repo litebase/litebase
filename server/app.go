@@ -8,8 +8,6 @@ import (
 	"litebasedb/server/events"
 	"litebasedb/server/http"
 	"litebasedb/server/node"
-
-	"github.com/joho/godotenv"
 )
 
 type App struct {
@@ -19,8 +17,6 @@ type App struct {
 var staticApp *App
 
 func NewApp(server *ServerInstance) *App {
-	godotenv.Load(".env")
-
 	app := &App{server}
 	config.Init()
 

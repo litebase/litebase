@@ -8,8 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/joho/godotenv"
 	// _ "net/http/pprof"
 )
 
@@ -20,8 +18,6 @@ type Router struct {
 }
 
 func NewRouter() *Router {
-	godotenv.Load(".env")
-
 	return &Router{}
 }
 
