@@ -119,15 +119,15 @@ int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 int xSync(sqlite3_file *pFile, int flags)
 {
   vfs_log("C - xSync");
-  return SQLITE_OK;
+
+  return ORIGFILE(pFile)->pMethods->xSync(ORIGFILE(pFile), flags);
 }
 
 int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 {
   vfs_log("C - xFileSize");
 
-  // return goXFileSize(pFile, pSize);
-  return ORIGFILE(pFile)->pMethods->xFileSize(ORIGFILE(pFile), pSize);
+  return goXFileSize(pFile, pSize);
 }
 
 int xLock(sqlite3_file *pFile, int eLock)
@@ -162,7 +162,7 @@ int xSectorSize(sqlite3_file *pFile)
 {
   vfs_log("C - xSectorSize");
 
-  return SQLITE_OK;
+  return ORIGFILE(pFile)->pMethods->xSectorSize(ORIGFILE(pFile));
 }
 
 int xDeviceCharacteristics(sqlite3_file *pFile)
@@ -254,8 +254,8 @@ static int xAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut
 
   LitebaseVFS *p = (LitebaseVFS *)pVfs;
 
-  return ORIGVFS(pVfs)->xAccess(p->pVfs, zName, flags, pResOut);
-  // return goXAccess(pVfs, zName, flags, pResOut);
+  // return ORIGVFS(pVfs)->xAccess(p->pVfs, zName, flags, pResOut);
+  return goXAccess(pVfs, zName, flags, pResOut);
 }
 
 static int xFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut)
