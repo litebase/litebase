@@ -6,23 +6,33 @@ import (
 	"litebasedb/internal/config"
 	"litebasedb/server/storage"
 	"os"
+	"sync"
 )
 
 type ClusterInstance struct {
-	Id string
+	Id string `json:"id"`
 }
 
-var cluster *ClusterInstance
+var (
+	cluster *ClusterInstance
+	mu      sync.Mutex
+)
 
 func Get() *ClusterInstance {
+	mu.Lock()
+	defer mu.Unlock()
+
 	if cluster == nil {
-		panic("Cluster not initialized")
+		panic("cluster not initialized")
 	}
 
 	return cluster
 }
 
 func Init() (*ClusterInstance, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	// Read the cluster file
 	data, err := storage.FS().ReadFile(Path())
 
@@ -69,7 +79,6 @@ func NewCluster(id string) (*ClusterInstance, error) {
 
 	if err != nil {
 		if !os.IsNotExist(err) {
-			panic(err)
 			return nil, err
 		}
 	}
@@ -78,7 +87,11 @@ func NewCluster(id string) (*ClusterInstance, error) {
 		Id: id,
 	}
 
-	cluster.Save()
+	err = cluster.Save()
+
+	if err != nil {
+		return nil, err
+	}
 
 	return cluster, nil
 }
@@ -94,11 +107,18 @@ func (cluster *ClusterInstance) Save() error {
 		return err
 	}
 
+writefile:
 	err = storage.FS().WriteFile(Path(), data, 0644)
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			storage.FS().MkdirAll(fmt.Sprintf("%s/.litebasedb", config.Get().DataPath), 0755)
+
+			goto writefile
+		}
+
 		return err
 	}
 
-	return nil
+	return storage.FS().WriteFile(Path(), data, 0644)
 }
