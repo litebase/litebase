@@ -2,18 +2,16 @@ package http
 
 import (
 	"bufio"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"litebasedb/server/auth"
 	"litebasedb/server/database"
 	"litebasedb/server/query"
 	"log"
 	"net/http"
-
-	"github.com/goccy/go-json"
 )
 
-func QueryStreamController(request Request) Response {
+func QueryStreamController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {
@@ -72,11 +70,6 @@ func QueryStreamController(request Request) Response {
 			for scanner.Scan() {
 				command := scanner.Text()
 
-				if db == nil || db.GetConnection().Closed() {
-					w.Write(JsonNewLineError(fmt.Errorf("database connection error")))
-					return
-				}
-
 				response, err := processCommand(db, accessKey, command)
 
 				if err != nil {
@@ -96,13 +89,8 @@ func QueryStreamController(request Request) Response {
 				w.(http.Flusher).Flush()
 			}
 
-			// if err := scanner.Err(); err != nil {
-			// 	log.Println(err)
-			// }
-
 			request.BaseRequest.Body.Close()
 			<-request.BaseRequest.Context().Done()
-			// log.Println("Connection closed")
 
 			database.ConnectionManager().Release(
 				databaseKey.DatabaseUuid,
@@ -139,9 +127,9 @@ func processCommand(db *database.ClientConnection, accessKey auth.AccessKey, com
 		return nil, err
 	}
 
-	if response["status"].(string) == "error" {
-		return nil, errors.New(response["message"].(string))
-	}
+	// if response["status"].(string) == "error" {
+	// 	return nil, errors.New(response["message"].(string))
+	// }
 
 	// defer counter.Increment(databaseKey.DatabaseUuid, databaseKey.BranchUuid)
 

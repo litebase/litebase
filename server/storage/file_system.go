@@ -33,26 +33,21 @@ type FileSystemDriver interface {
 }
 
 var fileSystem *FileSystem
+var fileSystemMutex = &sync.Mutex{}
 
-func NewFileSystem(fileSystem string) *FileSystem {
-	fs := &FileSystem{
-		mutex: &sync.Mutex{},
+func NewFileSystem() *FileSystem {
+	return &FileSystem{
+		mutex:  &sync.Mutex{},
+		driver: NewLocalFileSystemDriver(),
 	}
-
-	switch fileSystem {
-	// case "s3":
-	// 	fs.driver = NewS3FileSystemDriver()
-	case "local":
-		fs.driver = NewLocalFileSystemDriver()
-	}
-
-	return fs
 }
 
 func FS() *FileSystem {
+	fileSystemMutex.Lock()
+	defer fileSystemMutex.Unlock()
+
 	if fileSystem == nil {
-		// TODO: Need to make a default from config
-		fileSystem = NewFileSystem("local")
+		fileSystem = NewFileSystem()
 	}
 
 	return fileSystem

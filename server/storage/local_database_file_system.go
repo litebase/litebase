@@ -14,6 +14,7 @@ type LocalDatabaseFileSystem struct {
 	mutex      *sync.RWMutex
 	path       string
 	pageSize   int64
+	writeHook  func(offset int64)
 }
 
 func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) *LocalDatabaseFileSystem {
@@ -69,9 +70,10 @@ func (fs *LocalDatabaseFileSystem) Delete(path string) error {
 	return nil
 }
 
-// No-op
-func (fs *LocalDatabaseFileSystem) FetchPage(pageNumber int64) ([]byte, error) {
-	return nil, nil
+func (fs *LocalDatabaseFileSystem) Exists() bool {
+	_, err := os.Stat(fs.path)
+
+	return err == nil
 }
 
 func (fs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
@@ -90,15 +92,6 @@ func (fs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, erro
 	fs.mutex.Unlock()
 
 	return file, nil
-}
-
-// No-op
-func (fs *LocalDatabaseFileSystem) PageCache() *PageCache {
-	return nil
-}
-
-func (fs *LocalDatabaseFileSystem) PageSize() int64 {
-	return fs.pageSize
 }
 
 func (fs *LocalDatabaseFileSystem) Path() string {
@@ -138,7 +131,17 @@ func (fs *LocalDatabaseFileSystem) WriteAt(path string, data []byte, offset int6
 		return 0, os.ErrNotExist
 	}
 
-	return file.WriteAt(data, offset)
+	_, err = file.WriteAt(data, offset)
+
+	if err != nil {
+		return 0, err
+	}
+
+	if fs.writeHook != nil {
+		fs.writeHook(offset)
+	}
+
+	return
 }
 
 func (fs *LocalDatabaseFileSystem) Size(path string) (int64, error) {
@@ -159,4 +162,10 @@ func (fs *LocalDatabaseFileSystem) Truncate(path string, size int64) error {
 	}
 
 	return nil
+}
+
+func (fs *LocalDatabaseFileSystem) WithWriteHook(hook func(offset int64)) *LocalDatabaseFileSystem {
+	fs.writeHook = hook
+
+	return fs
 }

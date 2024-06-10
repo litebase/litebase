@@ -1,11 +1,11 @@
 package http
 
 type Route struct {
-	Handler              func(request Request) Response
+	Handler              func(request *Request) Response
 	RegisteredMiddleware []Middleware
 }
 
-func (route Route) Handle(request Request) Response {
+func (route Route) Handle(request *Request) Response {
 	var response Response
 
 	for _, registeredMiddleware := range route.RegisteredMiddleware {

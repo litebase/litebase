@@ -52,7 +52,7 @@ func (q *QueryLog) GetFile() internalStorage.File {
 
 	path := fmt.Sprintf(
 		"%s/logs/%d/query.log",
-		file.GetFileDir(q.databaseUuid, q.branchUuid),
+		file.GetDatabaseFileDir(q.databaseUuid, q.branchUuid),
 		int(timestamp.Unix()),
 	)
 
@@ -83,7 +83,7 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 	// Get all the directories in the logs directory
 	path := fmt.Sprintf(
 		"%s/logs",
-		file.GetFileDir(q.databaseUuid, q.branchUuid),
+		file.GetDatabaseFileDir(q.databaseUuid, q.branchUuid),
 	)
 
 	dirs, err := storage.FS().ReadDir(path)

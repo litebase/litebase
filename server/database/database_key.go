@@ -29,6 +29,9 @@ func GetDatabaseKey(key string) (DatabaseKey, error) {
 
 	databaseKeyMutex.RUnlock()
 
+	databaseKeyMutex.Lock()
+	defer databaseKeyMutex.Unlock()
+
 	// Read the database key file
 	data, err := storage.FS().ReadFile(auth.GetDatabaseKeyPath(config.Get().Signature, key))
 
@@ -37,7 +40,7 @@ func GetDatabaseKey(key string) (DatabaseKey, error) {
 	}
 
 	databaseKey := DatabaseKey{}
-	
+
 	err = json.NewDecoder(bytes.NewReader(data)).Decode(&databaseKey)
 
 	if err != nil {
@@ -45,9 +48,7 @@ func GetDatabaseKey(key string) (DatabaseKey, error) {
 	}
 
 	// Cache the database key
-	databaseKeyMutex.Lock()
 	databaseKeyCache[key] = databaseKey
-	databaseKeyMutex.Unlock()
 
 	return databaseKey, nil
 }

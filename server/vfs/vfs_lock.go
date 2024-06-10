@@ -8,6 +8,13 @@ import (
 	"sync"
 )
 
+const (
+	LockExclusive = C.SQLITE_LOCK_EXCLUSIVE
+	LockShared    = C.SQLITE_LOCK_SHARED
+	LockReserved  = C.SQLITE_LOCK_RESERVED
+	LockPending   = C.SQLITE_LOCK_PENDING
+)
+
 type VfsLock struct {
 	connections map[string]int
 	mutex       *sync.RWMutex

@@ -1,15 +1,25 @@
 package http
 
 import (
+	"fmt"
 	"litebasedb/server/backups"
+	"litebasedb/server/database"
 	"strconv"
 	"time"
 )
 
-func DatabaseBackupStoreController(request Request) Response {
+func DatabaseBackupStoreController(request *Request) Response {
+	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+
+	if err != nil {
+		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	}
+
+	// TODO: Need to take a backup lock to prevent multiple backups
+	// TODO: Need to prevent writes to the database while the backup is being taken
 	backup, err := backups.RunBackup(
-		request.Param("database"),
-		request.Param("branch"),
+		databaseKey.DatabaseUuid,
+		databaseKey.BranchUuid,
 	)
 
 	if err != nil {
@@ -26,19 +36,27 @@ func DatabaseBackupStoreController(request Request) Response {
 	}, 200, nil)
 }
 
-func DatabaseBackupShowController(request Request) Response {
-	timeInstance, err := time.Parse(time.UnixDate, request.Param("timestamp"))
+func DatabaseBackupShowController(request *Request) Response {
+	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+
+	if err != nil {
+		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	}
+
+	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
 			"status":  "error",
-			"message": err.Error(),
+			"message": "Invalid timestamp",
 		}, 500, nil)
 	}
 
+	timeInstance := time.Unix(timestamp, 0)
+
 	backup := backups.GetBackup(
-		request.Param("database"),
-		request.Param("branch"),
+		databaseKey.DatabaseUuid,
+		databaseKey.BranchUuid,
 		timeInstance,
 	)
 
@@ -48,7 +66,7 @@ func DatabaseBackupShowController(request Request) Response {
 	}, 200, nil)
 }
 
-func DatabaseBackupDestroyController(request Request) Response {
+func DatabaseBackupDestroyController(request *Request) Response {
 	i, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {

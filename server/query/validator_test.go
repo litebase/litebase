@@ -11,11 +11,11 @@ import (
 func TestValidateQuery(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		cases := []struct {
 			statement  string

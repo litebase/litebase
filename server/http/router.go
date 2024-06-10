@@ -36,41 +36,46 @@ func Router() *RouterInstance {
 	return StaticRouter
 }
 
-func (router *RouterInstance) Delete(path string, handler func(request Request) Response) Route {
+func (router *RouterInstance) Delete(path string, handler func(request *Request) Response) Route {
 	return router.request("DELETE", path, handler)
 }
 
-func (router *RouterInstance) Fallback(callback func(request Request) Response) {
+func (router *RouterInstance) Fallback(callback func(request *Request) Response) {
 	router.DefaultRoute = Route{
 		Handler: callback,
 	}
 }
 
-func (router *RouterInstance) Get(path string, handler func(request Request) Response) Route {
+func (router *RouterInstance) Get(path string, handler func(request *Request) Response) Route {
 	return router.request("GET", path, handler)
 }
 
-func (router *RouterInstance) Path(path string, handler func(request Request) Response) Route {
+func (router *RouterInstance) Path(path string, handler func(request *Request) Response) Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Post(path string, handler func(request Request) Response) Route {
+func (router *RouterInstance) Post(path string, handler func(request *Request) Response) Route {
 	return router.request("POST", path, handler)
 }
 
-func (router *RouterInstance) Patch(path string, handler func(request Request) Response) Route {
+func (router *RouterInstance) Patch(path string, handler func(request *Request) Response) Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Put(path string, handler func(request Request) Response) Route {
+func (router *RouterInstance) Put(path string, handler func(request *Request) Response) Route {
 	return router.request("PUT", path, handler)
 }
 
-func PrepareRequest(request *http.Request) Request {
+func PrepareRequest(request *http.Request) *Request {
 	return NewRequest(request)
 }
 
-func (router *RouterInstance) request(method string, path string, handler func(request Request) Response) Route {
+func (router *RouterInstance) request(method string, path string, handler func(request *Request) Response) Route {
+	// path = strings.TrimLeft(path, "/")
+	// path = strings.TrimRight(path, "/")
+	// // path = strings.ReplaceAll(path, "{", "\\{")
+	// // path = strings.ReplaceAll(path, "}", "\\}")
+	// path = fmt.Sprintf("/%s{/?}", path)
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]Route)
 	}

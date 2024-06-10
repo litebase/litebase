@@ -126,7 +126,6 @@ func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
 	database, err := Get(databaseUuid)
 
 	if err != nil {
-		log.Println(err)
 		return fmt.Errorf("Database %s has not been configured", databaseUuid)
 	}
 

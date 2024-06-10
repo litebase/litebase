@@ -28,14 +28,10 @@ var vfsMutex = &sync.RWMutex{}
 
 type LitebaseVFS struct {
 	id          string
-	journalFile *C.LitebaseVFSFile
-	lock        *VfsLock
-	mainFile    *C.LitebaseVFSFile
+	Lock        *VfsLock
 	name        string
 	storage     storage.DatabaseFileSystem
 	tempStorage storage.DatabaseFileSystem
-	shmPointer  unsafe.Pointer
-	walFile     *C.LitebaseVFSFile
 }
 
 type GoLitebaseVFSFile struct {
@@ -71,7 +67,7 @@ func RegisterVFS(
 
 	vfsMap[vfsId] = &LitebaseVFS{
 		id:          vfsId,
-		lock:        vfsLocks[connectionId],
+		Lock:        vfsLocks[connectionId],
 		storage:     storage,
 		tempStorage: tempStorage,
 	}
@@ -128,15 +124,10 @@ func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.
 	fileType := getFileType(zName)
 
 	switch fileType {
-	case "journal":
+	case "journal", "wal":
 		vfs.tempStorage.Open(filename)
-		vfs.journalFile = (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
-	case "wal":
-		vfs.tempStorage.Open(filename)
-		vfs.walFile = (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
 	default:
 		vfs.storage.Open(filename)
-		vfs.mainFile = (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
 	}
 
 	// Set the id to the fileID pointer
@@ -178,7 +169,6 @@ func goXDelete(zVfs *C.sqlite3_vfs, zName *C.char, syncDir C.int) C.int {
 func goXAccess(zVfs *C.sqlite3_vfs, zName *C.char, zFlags C.int, resOut *C.int) C.int {
 	cVfs := (*C.LitebaseVFS)(unsafe.Pointer(zVfs))
 	vfsId := C.GoString(cVfs.vfsId)
-	log.Println("Access", vfsId)
 	fileType := getFileType(zName)
 
 	vfsMutex.RLock()
@@ -186,14 +176,10 @@ func goXAccess(zVfs *C.sqlite3_vfs, zName *C.char, zFlags C.int, resOut *C.int) 
 	vfsMutex.RUnlock()
 
 	// Check for the existence of the file
-	if fileType == "journal" {
-		if goVfs.journalFile == nil {
-			*resOut = C.int(0)
-		} else {
-			*resOut = C.int(1)
-		}
-	} else if fileType == "wal" {
-		if goVfs.walFile == nil {
+	if fileType == "journal" || fileType == "wal" || fileType == "wal2" {
+		exists := goVfs.tempStorage.Exists()
+
+		if exists {
 			*resOut = C.int(0)
 		} else {
 			*resOut = C.int(1)
@@ -222,8 +208,7 @@ func goXFullPathname(zVfs *C.sqlite3_vfs, zName *C.char, nOut C.int, zOut *C.cha
 	var s string
 
 	switch fileType {
-	case "journal":
-	case "wal":
+	case "journal", "wal":
 		s = vfs.tempStorage.Path() + "/" + filename
 	default:
 		s = vfs.storage.Path() + "/" + filename
@@ -263,12 +248,8 @@ func goXClose(pFile *C.sqlite3_file) C.int {
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
 	switch vfsFile.fileType {
-	case "journal":
+	case "journal", "wal":
 		vfs.tempStorage.Close(filename)
-		vfs.journalFile = nil
-	case "wal":
-		vfs.tempStorage.Close(filename)
-		vfs.walFile = nil
 	default:
 		vfs.storage.Close(filename)
 	}
@@ -292,8 +273,7 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
 	switch vfsFile.fileType {
-	case "journal":
-	case "wal":
+	case "journal", "wal":
 		data, err = vfs.tempStorage.ReadAt(filename, int64(iOfst), int64(iAmt))
 	default:
 		data, err = vfs.storage.ReadAt(filename, int64(iOfst), int64(iAmt))
@@ -330,9 +310,12 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
 	switch vfsFile.fileType {
-	case "journal":
-	case "wal":
-		vfs.tempStorage.WriteAt(filename, goBuffer, int64(iOfst))
+	case "journal", "wal":
+		_, err := vfs.tempStorage.WriteAt(filename, goBuffer, int64(iOfst))
+
+		if err != nil {
+			return C.SQLITE_IOERR_WRITE
+		}
 	default:
 		_, err := vfs.storage.WriteAt(filename, goBuffer, int64(iOfst))
 
@@ -356,8 +339,7 @@ func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 	filename := vfsFile.name[strings.LastIndex(vfsFile.name, "/")+1:]
 
 	switch vfsFile.fileType {
-	case "journal":
-	case "wal":
+	case "journal", "wal":
 		err = vfs.tempStorage.Truncate(filename, int64(size))
 	default:
 		err = vfs.storage.Truncate(filename, int64(size))
@@ -385,8 +367,7 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 	var size int64
 
 	switch vfsFile.fileType {
-	case "journal":
-	case "wal":
+	case "journal", "wal":
 		size, err = vfs.tempStorage.Size(filename)
 
 		if err != nil {
@@ -419,7 +400,7 @@ func goXLock(pFile *C.sqlite3_file, lockType C.int) C.int {
 		return C.SQLITE_IOERR_LOCK
 	}
 
-	if !vfs.lock.Lock(vfs.id, int(lockType)) {
+	if !vfs.Lock.Lock(vfs.id, int(lockType)) {
 		return C.SQLITE_BUSY
 	}
 
@@ -439,7 +420,7 @@ func goXUnlock(pFile *C.sqlite3_file, lockType C.int) C.int {
 		return C.SQLITE_IOERR_UNLOCK
 	}
 
-	vfs.lock.Unlock(vfs.id, int(lockType))
+	vfs.Lock.Unlock(vfs.id, int(lockType))
 
 	return C.SQLITE_OK
 }
@@ -452,7 +433,7 @@ func goXCheckReservedLock(pFile *C.sqlite3_file, pResOut *C.int) C.int {
 		return C.SQLITE_IOERR_CHECKRESERVEDLOCK
 	}
 
-	if vfs.lock.CheckReservedLock() {
+	if vfs.Lock.CheckReservedLock() {
 		*pResOut = C.int(1)
 	} else {
 		*pResOut = C.int(0)
@@ -559,6 +540,14 @@ func getFileType(name *C.char) string {
 
 	if strings.HasSuffix(nameStr, "-wal") {
 		return "wal"
+	}
+
+	if strings.HasSuffix(nameStr, "-wal2") {
+		return "wal2"
+	}
+
+	if strings.HasSuffix(nameStr, "-shm") {
+		panic("Shared memory file")
 	}
 
 	return "main"

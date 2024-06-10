@@ -10,7 +10,7 @@ import (
 	"litebasedb/server/auth"
 )
 
-func AdminRequestTokenValidator(request Request) bool {
+func AdminRequestTokenValidator(request *Request) bool {
 	if request.Headers().Get("X-Lbdb-Token") == "" {
 		return false
 	}

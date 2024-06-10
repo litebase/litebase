@@ -9,7 +9,7 @@ type SingatureActivateRequest struct {
 	Signature string `json:"signature" validate:"required"`
 }
 
-func SingatureActivateController(request Request) Response {
+func SingatureActivateController(request *Request) Response {
 	input, err := request.Input(&SingatureActivateRequest{})
 
 	if err != nil {

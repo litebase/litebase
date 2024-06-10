@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"litebasedb/server/storage"
 
 	"os"
 
@@ -47,7 +46,7 @@ func Init() {
 	if signature != storedSignature {
 		ConfigInstance.Signature = storedSignature
 	} else {
-		storage.FS().Remove(fmt.Sprintf("%s/.litebasedb/signature", Get().DataPath))
+		os.Remove(fmt.Sprintf("%s/.litebasedb/signature", Get().DataPath))
 	}
 }
 
@@ -75,13 +74,14 @@ func NewConfig() *Config {
 		PageCompaction:          true,
 		PageCompactionThreshold: 1000,
 		PageCompactionInterval:  3000,
-		PageSize:                65536,
-		QueryNodePort:           env("LITEBASEDB_QUERY_NODE_PORT", "8080").(string),
-		Region:                  env("LITEBASEDB_REGION", "").(string),
-		RouterNodePort:          env("LITEBASEDB_ROUTER_NODE_PORT", "8080").(string),
-		RootPassword:            env("LITEBASEDB_ROOT_PASSWORD", "").(string),
-		Signature:               env("LITEBASEDB_SIGNATURE", "").(string),
-		TmpPath:                 env("LITEBASEDB_TMP_PATH", "").(string),
+		// PageSize:                4096,
+		PageSize:       65536,
+		QueryNodePort:  env("LITEBASEDB_QUERY_NODE_PORT", "8080").(string),
+		Region:         env("LITEBASEDB_REGION", "").(string),
+		RouterNodePort: env("LITEBASEDB_ROUTER_NODE_PORT", "8080").(string),
+		RootPassword:   env("LITEBASEDB_ROOT_PASSWORD", "").(string),
+		Signature:      env("LITEBASEDB_SIGNATURE", "").(string),
+		TmpPath:        env("LITEBASEDB_TMP_PATH", "").(string),
 	}
 
 	return ConfigInstance
@@ -98,7 +98,7 @@ func Get() *Config {
 
 // Check if the signature directory exists
 func HasSignature(signature string) bool {
-	_, err := storage.FS().Stat(fmt.Sprintf("%s/.litebasedb/%s", Get().DataPath, signature))
+	_, err := os.Stat(fmt.Sprintf("%s/.litebasedb/%s", Get().DataPath, signature))
 
 	return err == nil
 }
@@ -108,14 +108,14 @@ func StoreSignature(signature string) error {
 	dataPath := Get().DataPath
 	signaturePath := fmt.Sprintf("%s/.litebasedb/signature", dataPath)
 
-	return storage.FS().WriteFile(signaturePath, []byte(signature), 0644)
+	return os.WriteFile(signaturePath, []byte(signature), 0644)
 }
 
 func storedSignature() string {
 	dataPath := Get().DataPath
 	signaturePath := fmt.Sprintf("%s/.litebasedb/signature", dataPath)
 
-	storedSignature, err := storage.FS().ReadFile(signaturePath)
+	storedSignature, err := os.ReadFile(signaturePath)
 
 	if err != nil {
 		return ""

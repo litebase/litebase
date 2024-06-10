@@ -1,8 +1,9 @@
-package query
+package query_test
 
 import (
 	"litebasedb/internal/test"
 	"litebasedb/server/database"
+	"litebasedb/server/query"
 	"log"
 	"testing"
 )
@@ -11,25 +12,18 @@ func TestNewQuery(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		db, err := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		encrytpedQuery := test.EncryptQuery(
-			"SELECT * FROM users LIMIT ?",
-			"[1]",
-			mock["accessKeyId"],
-			mock["accessKeySecret"],
-		)
-
-		query, err := NewQuery(
-			db, mock["accessKeyId"], map[string]interface{}{
-				"statement":  encrytpedQuery["statement"],
-				"parameters": encrytpedQuery["parameters"],
+		query, err := query.NewQuery(
+			db, mock.AccessKeyId, map[string]interface{}{
+				"statement":  "SELECT * FROM users LIMIT ?",
+				"parameters": []interface{}{1},
 			},
-			"123",
+			"",
 		)
 
 		if err != nil {
@@ -42,117 +36,21 @@ func TestNewQuery(t *testing.T) {
 	})
 }
 
-func TestNewQueryWithInvalidaAccessKeyId(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-
-		db, err := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		encrytpedQuery := test.EncryptQuery(
-			"SELECT * FROM users LIMIT ?",
-			"[1]",
-			mock["accessKeyId"],
-			mock["accessKeySecret"],
-		)
-
-		_, err = NewQuery(
-			db, "invalid", map[string]interface{}{
-				"statement":  encrytpedQuery["statement"],
-				"parameters": encrytpedQuery["parameters"],
-			},
-			"123",
-		)
-
-		if err == nil {
-			t.Fatal("Error should not be nil")
-		}
-	})
-}
-
-func TestNewQueryWithStatementThatCannotBeDecrypted(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-
-		db, err := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		_, err = NewQuery(
-			db,
-			mock["accessKeyId"], map[string]interface{}{
-				"statement":  "statement",
-				"parameters": "parameters",
-			},
-			"",
-		)
-
-		if err == nil {
-			t.Fatal("Error should not be nil")
-		}
-	})
-}
-
-func TestNewQueryWithParametersThatCannotBeDecrypted(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-
-		db, err := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		encrytpedQuery := test.EncryptQuery(
-			"SELECT * FROM users LIMIT ?",
-			"[1]",
-			mock["accessKeyId"],
-			mock["accessKeySecret"],
-		)
-
-		_, err = NewQuery(
-			db,
-			mock["accessKeyId"],
-			map[string]interface{}{
-				"statement":  encrytpedQuery["statement"],
-				"parameters": "parameters",
-			},
-			"",
-		)
-
-		if err == nil {
-			t.Fatal("Error should not be nil")
-		}
-	})
-}
-
 func TestResolve(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
-		encrytpedQuery := test.EncryptQuery(
-			"SELECT * FROM users LIMIT ?",
-			"[1]",
-			mock["accessKeyId"],
-			mock["accessKeySecret"],
-		)
-
-		query, err := NewQuery(
+		query, err := query.NewQuery(
 			db,
-			mock["accessKeyId"],
+			mock.AccessKeyId,
 			map[string]interface{}{
-				"statement":  encrytpedQuery["statement"],
-				"parameters": encrytpedQuery["parameters"],
+				"statement":  "SELECT * FROM users LIMIT ?",
+				"parameters": []interface{}{1},
 			},
 			"",
 		)
@@ -176,13 +74,13 @@ func TestResolve(t *testing.T) {
 func TestStatement(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
-		query := &Query{
+		query := &query.Query{
 			ClientConnection:   db,
 			OriginalStatement:  "SELECT * FROM users LIMIT ?",
 			OriginalParameters: []interface{}{1},
@@ -203,11 +101,11 @@ func TestStatement(t *testing.T) {
 // func TestStatementOfBatchQuery(t *testing.T) {
 // 	test.Run(t, func() {
 // 		mock := test.MockDatabase()
-// 		db, _ := database.Get(mock["databaseUuid"], mock["branchUuid"], nil, false)
+// 		db, _ := database.Get(mock.DatabaseUuid, mock.BranchUuid, nil, false)
 
 // 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-// 		db, _ = database.Get(mock["databaseUuid"], mock["branchUuid"], nil, false)
+// 		db, _ = database.Get(mock.DatabaseUuid, mock.BranchUuid, nil, false)
 
 // 		query := &Query{
 // 			Batch: []*Query{{
@@ -233,19 +131,25 @@ func TestStatement(t *testing.T) {
 func TestValidate(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
-		query := &Query{
+		query := &query.Query{
 			ClientConnection:   db,
 			OriginalStatement:  "SELECT * FROM users LIMIT ?",
 			OriginalParameters: []interface{}{1},
 		}
 
-		err := query.Validate()
+		stmt, err := db.GetConnection().Statement(query.OriginalStatement)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = query.Validate(stmt)
 
 		if err != nil {
 			t.Fatal(err)

@@ -6,7 +6,7 @@ import (
 	"litebasedb/server/node"
 )
 
-func Internal(request Request) (Request, Response) {
+func Internal(request *Request) (*Request, Response) {
 	nodeHeader := request.Headers().Get("X-Lbdb-Node")
 	var nodeIp string
 

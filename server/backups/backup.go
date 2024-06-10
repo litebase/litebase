@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+/*
+A Backup is a complete logical snapshot of a database at a given point in time.
+This data is derived from a Snapshot and can be used to restore a database.
+*/
 type Backup struct {
 	databaseUuid      string
 	branchUuid        string
@@ -36,7 +40,7 @@ func GetBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Ti
 
 func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int) *Backup {
 	backups := make([]int, 0)
-	backupsDirectory := fmt.Sprintf("%s/%s", file.GetFileDir(databaseUuid, branchUuid), BACKUP_DIR)
+	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileDir(databaseUuid, branchUuid), BACKUP_DIR)
 
 	// Get a list of all directories in the directory
 	dirs, err := storage.FS().ReadDir(backupsDirectory)
@@ -90,7 +94,7 @@ func (backup *Backup) Delete() {
 
 func (backup *Backup) deleteArchiveFile() {
 	if config.Get().Env == "local" {
-		storageDir := file.GetFileDir(backup.databaseUuid, backup.branchUuid)
+		storageDir := file.GetDatabaseFileDir(backup.databaseUuid, backup.branchUuid)
 		storage.FS().Remove(fmt.Sprintf("%s/archives/%s", storageDir, backup.BackupKey()))
 
 		return
@@ -108,7 +112,7 @@ func (backup *Backup) deleteFile() {
 }
 
 func (backup *Backup) packageBackup() string {
-	input, err := file.GetFilePath(backup.databaseUuid, backup.branchUuid)
+	input, err := file.GetDatabaseFilePath(backup.databaseUuid, backup.branchUuid)
 
 	if err != nil {
 		log.Fatal(err)
@@ -153,7 +157,7 @@ func (backup *Backup) packageBackup() string {
 }
 
 func (backup *Backup) Path() string {
-	return fmt.Sprintf("%s/%s", file.GetFileDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
+	return fmt.Sprintf("%s/%s", file.GetDatabaseFileDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
 }
 
 func RunBackup(databaseUuid string, branchUuid string) (*Backup, error) {
@@ -204,7 +208,7 @@ func (backup *Backup) Upload() map[string]interface{} {
 	}
 
 	if config.Get().Env == "local" {
-		storageDir := file.GetFileDir(backup.databaseUuid, backup.branchUuid)
+		storageDir := file.GetDatabaseFileDir(backup.databaseUuid, backup.branchUuid)
 
 		if _, err := storage.FS().Stat(storageDir); os.IsNotExist(err) {
 			storage.FS().Mkdir(storageDir, 0755)
@@ -217,8 +221,6 @@ func (backup *Backup) Upload() map[string]interface{} {
 		}
 
 		storage.FS().WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0666)
-	} else {
-
 	}
 
 	stat, err := storage.FS().Stat(path)

@@ -1,18 +1,28 @@
 package file
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"litebasedb/internal/config"
 	"path/filepath"
-	"strings"
 )
 
 func DatabaseDirectory() string {
 	return fmt.Sprintf("%s/.litebasedb/_databases", config.Get().DataPath)
 }
 
-func GetFileDir(databaseUuid string, branchUuid string) string {
-	dir, err := GetFilePath(databaseUuid, branchUuid)
+func DatabaseHash(
+	databaseUuid string,
+	branchUuid string,
+) string {
+	sha1 := sha1.New()
+	sha1.Write([]byte(fmt.Sprintf("%s:%s", databaseUuid, branchUuid)))
+
+	return fmt.Sprintf("%x", sha1.Sum(nil))
+}
+
+func GetDatabaseFileDir(databaseUuid string, branchUuid string) string {
+	dir, err := GetDatabaseFilePath(databaseUuid, branchUuid)
 
 	if err != nil {
 		return ""
@@ -21,15 +31,12 @@ func GetFileDir(databaseUuid string, branchUuid string) string {
 	return filepath.Dir(dir)
 }
 
-func GetFilePath(databaseUuid string, branchUuid string) (string, error) {
-	path := fmt.Sprintf("%s/%s/%s", DatabaseDirectory(), databaseUuid, branchUuid)
-
-	pathParts := strings.Split(path, "/")
-
-	// Insert without replacing the branchuuid to the path before the last segement.
-	pathParts = append(pathParts[:len(pathParts)-1], append([]string{branchUuid}, pathParts[len(pathParts)-1:]...)...)
-
-	path = strings.Join(pathParts, "/")
-
-	return strings.TrimLeft(path, "/"), nil
+func GetDatabaseFilePath(databaseUuid string, branchUuid string) (string, error) {
+	return fmt.Sprintf(
+		"%s/%s/%s/%s.db",
+		DatabaseDirectory(),
+		databaseUuid,
+		branchUuid,
+		DatabaseHash(databaseUuid, branchUuid),
+	), nil
 }

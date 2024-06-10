@@ -1,55 +1,45 @@
 package http
 
 import (
+	"fmt"
 	"litebasedb/server/backups"
+	"litebasedb/server/database"
+	"log"
 )
 
-func DatabaseRestoreController(request Request) Response {
-	var backupTimestamp int
-	var restorePointTimestamp int
+func DatabaseRestoreController(request *Request) Response {
+	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
 
-	if value := request.Get("backup_timestamp"); value != nil {
-		backupTimestamp = int(value.(float64))
-	} else {
+	if err != nil {
+		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	}
+
+	if request.Get("timestamp") == nil {
 		return JsonResponse(map[string]interface{}{
 			"status":  "error",
-			"message": "backup_timestamp is required",
+			"message": "restore timestamp is required",
 		}, 400, nil)
 	}
 
-	if value := request.Get("restore_point_timestamp"); value != nil {
-		restorePointTimestamp = int(value.(float64))
-	}
+	timestamp := uint64(request.Get("timestamp").(float64))
 
-	if backupTimestamp != 0 && restorePointTimestamp == 0 {
-		err := backups.RestoreFromDatabaseBackup(
-			request.Param("database"),
-			request.Param("branch"),
-			backupTimestamp,
-		)
+	err = backups.RestoreFromTimestamp(
+		databaseKey.DatabaseUuid,
+		databaseKey.BranchUuid,
+		timestamp,
+		func(completed func() error) error {
+			return database.ConnectionManager().Drain(databaseKey.DatabaseUuid, databaseKey.BranchUuid, func() error {
+				log.Println("Database connections drained")
+				return completed()
+			})
+		},
+	)
 
-		if err != nil {
-			return JsonResponse(map[string]interface{}{
-				"status":  "error",
-				"message": err.Error(),
-			}, 500, nil)
-		}
-	}
-
-	if backupTimestamp != 0 && restorePointTimestamp != 0 {
-		err := backups.RestoreFromDatabaseBackupAtPointInTime(
-			request.Param("database"),
-			request.Param("branch"),
-			backupTimestamp,
-			restorePointTimestamp,
-		)
-
-		if err != nil {
-			return JsonResponse(map[string]interface{}{
-				"status":  "error",
-				"message": err.Error(),
-			}, 500, nil)
-		}
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": err.Error(),
+		}, 500, nil)
 	}
 
 	return JsonResponse(map[string]interface{}{

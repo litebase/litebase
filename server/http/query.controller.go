@@ -6,7 +6,7 @@ import (
 	"litebasedb/server/query"
 )
 
-func QueryController(request Request) Response {
+func QueryController(request *Request) Response {
 	// start := time.Now()
 	// defer func() {
 	// 	log.Println("QueryController", time.Since(start))

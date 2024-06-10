@@ -10,7 +10,7 @@ type UserControllerStoreRequest struct {
 	Privileges []string `json:"privileges" validate:"required"`
 }
 
-func UserControllerIndex(request Request) Response {
+func UserControllerIndex(request *Request) Response {
 	users := auth.UserManager().All()
 
 	return Response{
@@ -21,7 +21,7 @@ func UserControllerIndex(request Request) Response {
 	}
 }
 
-func UserControllerStore(request Request) Response {
+func UserControllerStore(request *Request) Response {
 	input, err := request.Input(&UserControllerStoreRequest{})
 
 	if err != nil {
@@ -84,7 +84,7 @@ func UserControllerStore(request Request) Response {
 	}
 }
 
-func UserControllerDestroy(request Request) Response {
+func UserControllerDestroy(request *Request) Response {
 	username := request.Param("username")
 
 	if username == "root" {

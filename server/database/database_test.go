@@ -5,7 +5,7 @@ package database_test
 
 // 	databaseUuid := "test"
 // 	branchUuid := "test"
-// 	path, _ := file.GetFilePath(databaseUuid, branchUuid)
+// 	path, _ := file.GetDatabaseFilePath(databaseUuid, branchUuid)
 // 	// accessKey := test.MockAccessKey(databaseUuid, branchUuid)
 
 // 	db := database.NewConnection(

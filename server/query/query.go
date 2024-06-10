@@ -99,17 +99,11 @@ func (q Query) Statement() (database.Statement, error) {
 	return q.statement, nil
 }
 
-func (q *Query) Validate() error {
-	if q.IsPragma {
-		// TODO: Validate the types of pragma that are allowed
-		return nil
-	}
-
-	statement, err := q.Statement()
-
-	if err != nil {
-		return err
-	}
+func (q *Query) Validate(statement database.Statement) error {
+	// if q.IsPragma {
+	// 	// TODO: Validate the types of pragma that are allowed
+	// 	return nil
+	// }
 
 	return ValidateQuery(statement.Sqlite3Statement, q.Parameters()...)
 }

@@ -12,7 +12,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Get(
-		"/users",
+		"/users/",
 		UserControllerIndex,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -33,7 +33,7 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Get(
-		"/access-keys",
+		"/access-keys/",
 		AccessKeyControllerIndex,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -59,7 +59,7 @@ func LoadRoutes(router *RouterInstance) {
 	).Middleware([]Middleware{Internal})
 
 	router.Get(
-		"/databases",
+		"/databases/",
 		DatabaseIndexController,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -120,23 +120,32 @@ func LoadRoutes(router *RouterInstance) {
 		EventStoreController,
 	).Middleware([]Middleware{Internal})
 
-	router.Post("/storage/{connectionHash}/connections/{id}",
-		StorageConnectionController,
-	).Middleware([]Middleware{
-		RequireSubdomain,
-		Authentication,
-		Authorization,
-	})
-
 	/*
 		Database routes.
 	*/
-	router.Post("/query",
-		QueryController,
+
+	router.Post("/backups",
+		DatabaseBackupStoreController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		// Authentication,
 		// Authorization,
+	})
+
+	router.Get("/backups/{timestamp}",
+		DatabaseBackupShowController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		// Authentication,
+		// Authorization,
+	})
+
+	router.Post("/query",
+		QueryController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		Authentication,
+		Authorization,
 	})
 
 	router.Post("/query/stream",
@@ -145,6 +154,30 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
+	})
+
+	router.Post("/restore",
+		DatabaseRestoreController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		// Authentication,
+		// Authorization,
+	})
+
+	router.Get("/snapshots/",
+		DatabaseSnapshotIndexController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		// Authentication,
+		// Authorization,
+	})
+
+	router.Get("/snapshots/{timestamp}",
+		DatabaseSnapshotShowController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		// Authentication,
+		// Authorization,
 	})
 
 	router.Post("/transactions",
@@ -179,17 +212,10 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
-	router.Fallback(func(request Request) Response {
+	router.Fallback(func(request *Request) Response {
 		return Response{
 			StatusCode: 404,
 			Body:       nil,
-		}
-	})
-
-	router.Get("/", func(request Request) Response {
-		return Response{
-			StatusCode: 200,
-			Body:       map[string]interface{}{"message": "Hello World"},
 		}
 	})
 

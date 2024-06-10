@@ -24,15 +24,6 @@ func ResolveQuery(db *database.ClientConnection, query Query) (map[string]interf
 		}, nil
 	}
 
-	err = query.Validate()
-
-	if err != nil {
-		return map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}, nil
-	}
-
 	start := time.Now()
 	var sqlite3Result sqlite3.Result
 	var statement database.Statement
@@ -43,8 +34,19 @@ func ResolveQuery(db *database.ClientConnection, query Query) (map[string]interf
 		statement, err = query.Statement()
 
 		if err == nil {
+
+			err = query.Validate(statement)
+
+			if err != nil {
+				return map[string]any{
+					"status":  "error",
+					"message": err.Error(),
+				}, nil
+			}
+
 			sqlite3Result, err = db.GetConnection().Query(statement.Sqlite3Statement, query.Parameters()...)
 		}
+
 	}
 
 	if err != nil {

@@ -37,6 +37,15 @@ func (d *ClientConnection) Close() {
 	d.connection.Close()
 }
 
+func (d *ClientConnection) ForceClose() {
+	if d.connection == nil {
+		return
+	}
+
+	d.connection.sqlite3.Interrupt()
+	d.connection.Close()
+}
+
 func (d *ClientConnection) GetBranchUuid() string {
 	return d.branchUuid
 }

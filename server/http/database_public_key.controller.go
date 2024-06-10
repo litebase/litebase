@@ -10,7 +10,7 @@ type DatabasePublicKeyRequest struct {
 	Signature string `json:"signature" validate:"required"`
 }
 
-func DatabasePublicKeyController(request Request) Response {
+func DatabasePublicKeyController(request *Request) Response {
 	input, err := request.Input(&DatabasePublicKeyRequest{})
 
 	if err != nil {

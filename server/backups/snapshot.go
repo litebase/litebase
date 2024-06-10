@@ -1,100 +1,204 @@
 package backups
 
 import (
+	"encoding/binary"
 	"fmt"
 	"litebasedb/server/file"
 	"litebasedb/server/storage"
-	"log"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 )
 
 type Snapshot struct {
-	BranchUuid    string `json:"branchUuid"`
-	DatabaseUuid  string `json:"databaseUuid"`
-	RestorePoints []int  `json:"restorePoints"`
-	Timestamp     int    `json:"timestamp"`
+	RestorePoints SnapshotRestorePoints `json:"restore_points"`
+	Timestamp     uint64                `json:"timestamp"`
 }
 
-func NewSnapshot(databaseUuid string, branchUuid string, timestamp int) *Snapshot {
+type SnapshotRestorePoints struct {
+	Data  []uint64 `json:"data"`
+	Start uint64   `json:"start"`
+	End   uint64   `json:"end"`
+	Total int      `json:"total"`
+}
+
+type RestorePoint struct {
+	Timestamp uint64
+	PageCount uint32
+}
+
+func NewSnapshot(timestamp uint64) *Snapshot {
 	snapshot := &Snapshot{
-		BranchUuid:   branchUuid,
-		DatabaseUuid: databaseUuid,
-		Timestamp:    timestamp,
+		Timestamp: timestamp,
 	}
 
 	return snapshot
 }
 
-func (s *Snapshot) AddPage(pageNumber int, data []byte) *Snapshot {
-	path := fmt.Sprintf("%s/%d", s.GetPath(s.DatabaseUuid, s.BranchUuid, s.Timestamp), pageNumber)
+func GetSnapshotPath(databaseUuid string, branchUuid string) string {
+	directory := file.GetDatabaseFileDir(databaseUuid, branchUuid)
 
-	err := storage.FS().WriteFile(path, data, 0666)
+	return fmt.Sprintf("%s/logs/snapshots", directory)
+}
+
+// Get Snapshots from the snapshot file segmented by day. We will get the first
+// checkpoint of the day and use it as the snapshot for that day.
+func GetSnapshots(databaseUuid string, branchUuid string) ([]Snapshot, error) {
+	snapshotFile, err := storage.FS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return s
-}
+	defer snapshotFile.Close()
 
-func (s *Snapshot) GetPath(databaseUuid string, branchUuid string, timestamp int) string {
-	return strings.Join([]string{
-		file.GetFileDir(databaseUuid, branchUuid),
-		RESTORE_POINTS_DIR,
-		fmt.Sprintf("%d", timestamp),
-	}, "/")
-}
+	snapshots := map[time.Time]Snapshot{}
 
-func GetSnapShot(databaseUuid string, branchUuid string, timestamp int) *Snapshot {
-	snapshot := NewSnapshot(databaseUuid, branchUuid, timestamp)
-	path := snapshot.GetPath(databaseUuid, branchUuid, timestamp)
+	// Read the snapshots 8 bytes at a time and get one timestamp per day
+	// This is because we only need one snapshot per day.
+	for {
+		data := make([]byte, 64)
 
-	if _, err := storage.FS().Stat(path); os.IsNotExist(err) {
-		storage.FS().Mkdir(path, 0755)
-	}
+		_, err := snapshotFile.Read(data)
 
-	return snapshot
-}
+		if err != nil {
+			break
+		}
 
-func (s *Snapshot) WithRestorePoints() *Snapshot {
-	// Get all the directories in the backup directory
-	// and return the ones that are greater than the timestamp
-	// of the snapshot
-	restorePointsDirectory := strings.Join([]string{
-		file.GetFileDir(s.DatabaseUuid, s.BranchUuid),
-		RESTORE_POINTS_DIR,
-	}, "/")
+		timestamp := binary.LittleEndian.Uint64(data[0:8])
 
-	nextBackup := GetNextBackup(s.DatabaseUuid, s.BranchUuid, s.Timestamp)
+		// Get the start of the day of the timestamp
+		startOfDay := time.Unix(int64(timestamp), 0).UTC()
+		startOfDay = time.Date(startOfDay.Year(), startOfDay.Month(), startOfDay.Day(), 0, 0, 0, 0, time.UTC)
 
-	directories, err := storage.FS().ReadDir(restorePointsDirectory)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	futureDate := int(time.Now().UTC().Add(time.Hour * 24 * 3).Unix())
-
-	for _, directory := range directories {
-		if directory.IsDir() {
-			timestamp, err := strconv.Atoi(directory.Name())
-
-			if err != nil {
-				continue
+		if _, ok := snapshots[startOfDay]; !ok {
+			snapshots[startOfDay] = Snapshot{
+				Timestamp: uint64(startOfDay.Unix()),
+				RestorePoints: SnapshotRestorePoints{
+					Start: timestamp,
+					End:   timestamp,
+					Total: 1,
+				},
 			}
-
-			if nextBackup != nil && timestamp > nextBackup.SnapshotTimestamp {
-				continue
-			}
-
-			if timestamp >= s.Timestamp && timestamp < futureDate {
-				s.RestorePoints = append(s.RestorePoints, timestamp)
+		} else {
+			snapshots[startOfDay] = Snapshot{
+				Timestamp: snapshots[startOfDay].Timestamp,
+				RestorePoints: SnapshotRestorePoints{
+					Start: snapshots[startOfDay].RestorePoints.Start,
+					End:   timestamp,
+					Total: snapshots[startOfDay].RestorePoints.Total + 1,
+				},
 			}
 		}
 	}
 
-	return s
+	values := make([]Snapshot, 0, len(snapshots))
+
+	for _, snapshot := range snapshots {
+		values = append(values, snapshot)
+	}
+
+	return values, nil
+}
+
+func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snapshot, error) {
+	snapshotFile, err := storage.FS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+
+	if err != nil {
+		return Snapshot{}, err
+	}
+
+	defer snapshotFile.Close()
+
+	var snapshot Snapshot
+
+	// Get the start of the day of the timestamp
+	snapshotStartOfDay := time.Unix(int64(timestamp), 0).UTC()
+	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
+
+	var currentSnapshotDay time.Time
+
+	for {
+		data := make([]byte, 64)
+
+		_, err := snapshotFile.Read(data)
+
+		if err != nil {
+			break
+		}
+
+		t := binary.LittleEndian.Uint64(data)
+
+		// Get the start of the day of the timestamp
+		startOfDay := time.Unix(int64(t), 0).UTC()
+		startOfDay = time.Date(startOfDay.Year(), startOfDay.Month(), startOfDay.Day(), 0, 0, 0, 0, time.UTC)
+
+		// We can stop once we have passed the snapshot day
+		if snapshotStartOfDay.Before(startOfDay) {
+			break
+		}
+
+		// If we have not reached the snapshot day, continue
+		if snapshotStartOfDay != startOfDay {
+			continue
+		}
+
+		if currentSnapshotDay.IsZero() {
+			currentSnapshotDay = startOfDay
+
+			snapshot = Snapshot{
+				Timestamp: uint64(startOfDay.Unix()),
+				RestorePoints: SnapshotRestorePoints{
+					Data:  []uint64{t},
+					Start: t,
+					End:   t,
+					Total: 1,
+				},
+			}
+		} else {
+			snapshot.RestorePoints.Data = append(snapshot.RestorePoints.Data, t)
+			snapshot.RestorePoints.End = t
+			snapshot.RestorePoints.Total++
+		}
+	}
+
+	return snapshot, nil
+}
+
+func GetRestorePoint(databaseUuid string, branchUuid string, timestamp uint64) (RestorePoint, error) {
+	snapshotFile, err := storage.FS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+
+	if err != nil {
+		return RestorePoint{}, err
+	}
+
+	defer snapshotFile.Close()
+
+	var restorePoint RestorePoint
+
+	for {
+		data := make([]byte, 64)
+
+		_, err := snapshotFile.Read(data)
+
+		if err != nil {
+			break
+		}
+
+		t := binary.LittleEndian.Uint64(data)
+
+		if t == timestamp {
+			restorePoint = RestorePoint{
+				Timestamp: t,
+				PageCount: binary.LittleEndian.Uint32(data[8:12]),
+			}
+
+			break
+		}
+	}
+
+	return restorePoint, nil
+}
+
+func (s Snapshot) IsEmpty() bool {
+	return s.Timestamp == 0
 }

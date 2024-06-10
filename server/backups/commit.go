@@ -11,15 +11,22 @@ import (
 type Commit struct {
 	DatabaseUuid    string `json:"databaseUuid"`
 	BranchUuid      string `json:"branchUuid"`
-	Timestamp       int    `json:"timestamp"`
-	CommitTimestamp int    `json:"commitTimestamp"`
+	Timestamp       int64  `json:"timestamp"`
+	CommitTimestamp int64  `json:"commitTimestamp"`
 	Hash            string `json:"hash"`
 	objectHashes    []string
 
 	StoresObjectHashes
 }
 
-func NewCommit(databaseUuid string, branchUuid string, timestamp int, commitTimestamp int, hash string, objectHashes []string) *Commit {
+func NewCommit(
+	databaseUuid string,
+	branchUuid string,
+	timestamp int64,
+	commitTimestamp int64,
+	hash string,
+	objectHashes []string,
+) *Commit {
 	return &Commit{
 		DatabaseUuid:    databaseUuid,
 		BranchUuid:      branchUuid,

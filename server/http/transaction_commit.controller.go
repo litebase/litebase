@@ -1,6 +1,6 @@
 package http
 
-func TransactionCommitController(request Request) Response {
+func TransactionCommitController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Body: map[string]interface{}{

@@ -16,7 +16,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func AdminRequestSignatureValidator(request Request) bool {
+func AdminRequestSignatureValidator(request *Request) bool {
 	token := request.RequestToken("Authorization")
 
 	if !token.Valid() {

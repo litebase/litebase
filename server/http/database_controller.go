@@ -10,7 +10,7 @@ type DatabaseStoreRequest struct {
 	Name string `json:"name" validate:"required"`
 }
 
-func DatabaseIndexController(request Request) Response {
+func DatabaseIndexController(request *Request) Response {
 	dbs, err := database.All()
 
 	if err != nil {
@@ -24,7 +24,7 @@ func DatabaseIndexController(request Request) Response {
 	)
 }
 
-func DatabaseShowController(request Request) Response {
+func DatabaseShowController(request *Request) Response {
 	db, err := database.Get(request.Param("databaseUuid"))
 
 	if err != nil {
@@ -38,7 +38,7 @@ func DatabaseShowController(request Request) Response {
 	)
 }
 
-func DatabaseStoreController(request Request) Response {
+func DatabaseStoreController(request *Request) Response {
 	input, err := request.Input(&DatabaseStoreRequest{})
 
 	if err != nil {
@@ -75,7 +75,7 @@ func DatabaseStoreController(request Request) Response {
 	)
 }
 
-func DatabaseDestroyController(request Request) Response {
+func DatabaseDestroyController(request *Request) Response {
 	db, err := database.Get(request.Param("databaseUuid"))
 
 	if err != nil {

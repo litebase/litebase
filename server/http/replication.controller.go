@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func ReplicationController(request Request) Response {
+func ReplicationController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {

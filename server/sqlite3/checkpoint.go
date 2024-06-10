@@ -7,7 +7,6 @@ package sqlite3
 import "C"
 import (
 	"errors"
-	"unsafe"
 )
 
 type CheckpointResult struct {
@@ -16,16 +15,12 @@ type CheckpointResult struct {
 	Result                int
 }
 
-func Checkpoint(db *C.sqlite3) (CheckpointResult, error) {
+func Checkpoint(db *C.sqlite3, checkpointHook func(CheckpointResult)) (CheckpointResult, error) {
 	var pWalLogSize, pNumFramesCheckpointed C.int
-	var cName *C.char
-
-	cName = C.CString("main")
-	defer C.free(unsafe.Pointer(cName))
 
 	res := C.sqlite3_wal_checkpoint_v2(
 		db,
-		cName, // The name of the database to checkpoint. If NULL, then it will checkpoint all attached databases.
+		nil, // The name of the database to checkpoint. If NULL, then it will checkpoint all attached databases.
 		C.SQLITE_CHECKPOINT_TRUNCATE,
 		&pWalLogSize,
 		&pNumFramesCheckpointed,
@@ -35,9 +30,13 @@ func Checkpoint(db *C.sqlite3) (CheckpointResult, error) {
 		return CheckpointResult{}, errors.New(C.GoString(C.sqlite3_errstr(res)))
 	}
 
-	return CheckpointResult{
+	result := CheckpointResult{
 		WalLogSize:            int(pWalLogSize),
 		NumFramesCheckpointed: int(pNumFramesCheckpointed),
 		Result:                int(res),
-	}, nil
+	}
+
+	checkpointHook(result)
+
+	return result, nil
 }

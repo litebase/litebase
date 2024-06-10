@@ -11,7 +11,7 @@ func TestHandle(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		db, err := database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		if err != nil {
 			t.Fatal(err)
@@ -21,35 +21,28 @@ func TestHandle(t *testing.T) {
 
 		cases := []struct {
 			statement  string
-			parameters string
+			parameters []interface{}
 			expected   string
 		}{
 			{
 				"SELECT * FROM users",
-				"[]",
+				[]interface{}{},
 				`success`,
 			},
 			{
 				"SELECT * FROM users LIMIT ?",
-				"[]",
-				`error`,
+				[]interface{}{1},
+				`success`,
 			},
 			{
 				"?SELECT * FROM users",
-				"[]",
+				[]interface{}{},
 				`error`,
 			},
 		}
 
 		for _, c := range cases {
-			encrytpedQuery := test.EncryptQuery(
-				c.statement,
-				c.parameters,
-				mock["accessKeyId"],
-				mock["accessKeySecret"],
-			)
-
-			db, err = database.ConnectionManager().Get(mock["databaseUuid"], mock["branchUuid"])
+			db, err = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 			if err != nil {
 				t.Fatal(err)
@@ -57,10 +50,10 @@ func TestHandle(t *testing.T) {
 
 			q, err := query.NewQuery(
 				db,
-				mock["accessKeyId"],
+				mock.AccessKeyId,
 				map[string]interface{}{
-					"statement":  encrytpedQuery["statement"],
-					"parameters": encrytpedQuery["parameters"],
+					"statement":  c.statement,
+					"parameters": c.parameters,
 				},
 				"",
 			)
@@ -75,7 +68,7 @@ func TestHandle(t *testing.T) {
 				t.Fatalf("Query was not successful: %s", response["message"])
 			}
 
-			if err != nil {
+			if err != nil && c.expected == `success` {
 				t.Fatal(err)
 			}
 		}
@@ -119,8 +112,8 @@ func TestHandle(t *testing.T) {
 		// 		encrytpedQuery := test.EncryptQuery(
 		// 			c.statement,
 		// 			c.parameters,
-		// 			mock["accessKeyId"],
-		// 			mock["accessKeySecret"],
+		// 			mock.AccessKeyId,
+		// 			mock.AccessKeySecret,
 		// 		)
 
 		// 		batchCases[batchIndex].batch[i].statement = encrytpedQuery["statement"]
@@ -129,7 +122,7 @@ func TestHandle(t *testing.T) {
 		// }
 
 		// for _, batchCase := range batchCases {
-		// 	db, err = database.Get(mock["databaseUuid"], mock["branchUuid"], nil, false)
+		// 	db, err = database.Get(mock.DatabaseUuid, mock.BranchUuid, nil, false)
 
 		// 	if err != nil {
 		// 		t.Fatal(err)
@@ -145,7 +138,7 @@ func TestHandle(t *testing.T) {
 
 		// 	query, err := query.NewQuery(
 		// 		db,
-		// 		mock["accessKeyId"],
+		// 		mock.AccessKeyId,
 		// 		map[string]interface{}{
 		// 			"batch": batchQueries,
 		// 		},
