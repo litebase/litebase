@@ -119,7 +119,7 @@ func Delete(database *Database) error {
 }
 
 func Directory() string {
-	return fmt.Sprintf("%s/.litebasedb/_databases", config.Get().DataPath)
+	return fmt.Sprintf("%s/.litebasedb/databases", config.Get().DataPath)
 }
 
 func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
