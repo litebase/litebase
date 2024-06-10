@@ -29,7 +29,3 @@ func NewBranch(name string, isPrimary bool) *Branch {
 		Name:      name,
 	}
 }
-
-func (b *Branch) Save() error {
-	return nil
-}

@@ -37,16 +37,24 @@ func (c *Checkpointer) AddPage(pageNumber uint32) {
 	c.pages[pageNumber] = true
 }
 
+func (c *Checkpointer) Pages() map[uint32]bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return c.pages
+}
+
 func (c *Checkpointer) Run() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	c.running = true
+
+	defer func() { c.running = false }()
+
 	if len(c.pages) == 0 {
 		return nil
 	}
-
-	c.running = true
-	defer func() { c.running = false }()
 
 	timestamp := uint64(time.Now().Unix())
 
