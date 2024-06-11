@@ -3,8 +3,8 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"litebasedb/internal/config"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server/storage"
 	"os"
 	"sync"
 	"time"
@@ -32,7 +32,7 @@ func UserManager() *UserManagerInstance {
 	if staticUserManager == nil {
 		staticUserManager = &UserManagerInstance{
 			mutex: &sync.Mutex{},
-			path:  fmt.Sprintf("%s/%s/%s", config.Get().DataPath, ".litebasedb", "users.json"),
+			path:  fmt.Sprintf("%s/%s/%s", config.Get().DataPath, ".litebase", "users.json"),
 			users: map[string]*User{},
 		}
 	}

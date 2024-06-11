@@ -3,9 +3,9 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	_auth "litebasedb/internal/auth"
-	"litebasedb/internal/config"
-	"litebasedb/server/storage"
+	_auth "litebase/internal/auth"
+	"litebase/internal/config"
+	"litebase/server/storage"
 	"log"
 	"strings"
 )

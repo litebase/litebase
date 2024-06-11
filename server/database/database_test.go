@@ -1,8 +1,8 @@
 package database_test
 
 import (
-	"litebasedb/internal/test"
-	"litebasedb/server/database"
+	"litebase/internal/test"
+	"litebase/server/database"
 	"testing"
 )
 

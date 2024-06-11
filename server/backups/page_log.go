@@ -3,7 +3,7 @@ package backups
 import (
 	"fmt"
 	"io"
-	"litebasedb/server/file"
+	"litebase/server/file"
 	"log"
 	"os"
 )

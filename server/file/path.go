@@ -3,12 +3,12 @@ package file
 import (
 	"crypto/sha1"
 	"fmt"
-	"litebasedb/internal/config"
+	"litebase/internal/config"
 	"path/filepath"
 )
 
 func DatabaseDirectory() string {
-	return fmt.Sprintf("%s/.litebasedb/databases", config.Get().DataPath)
+	return fmt.Sprintf("%s/.litebase/databases", config.Get().DataPath)
 }
 
 func DatabaseHash(

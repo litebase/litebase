@@ -2,7 +2,7 @@ package storage
 
 import (
 	"io/fs"
-	"litebasedb/internal/storage"
+	"litebase/internal/storage"
 	"os"
 	"sync"
 )

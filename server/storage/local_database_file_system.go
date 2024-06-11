@@ -2,7 +2,7 @@ package storage
 
 import (
 	"fmt"
-	internalStorage "litebasedb/internal/storage"
+	internalStorage "litebase/internal/storage"
 	"log"
 	"os"
 	"sync"

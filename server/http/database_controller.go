@@ -2,8 +2,8 @@ package http
 
 import (
 	"fmt"
-	"litebasedb/internal/config"
-	"litebasedb/server/database"
+	"litebase/internal/config"
+	"litebase/server/database"
 )
 
 type DatabaseStoreRequest struct {

@@ -3,8 +3,8 @@ package backups
 import (
 	"context"
 	"fmt"
-	"litebasedb/internal/config"
-	"litebasedb/server/file"
+	"litebase/internal/config"
+	"litebase/server/file"
 	"log"
 	"os"
 	"sync"

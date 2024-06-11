@@ -4,7 +4,7 @@ import (
 	"io/fs"
 	"os"
 
-	internalStorage "litebasedb/internal/storage"
+	internalStorage "litebase/internal/storage"
 )
 
 type LocalFileSystemDriver struct{}

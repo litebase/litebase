@@ -1,4 +1,4 @@
-# LitebaseDB
+# Litebase
 
 Hello World
 

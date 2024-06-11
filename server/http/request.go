@@ -3,9 +3,9 @@ package http
 import (
 	"encoding/json"
 	"fmt"
-	"litebasedb/internal/validation"
-	"litebasedb/server/auth"
-	"litebasedb/server/database"
+	"litebase/internal/validation"
+	"litebase/server/auth"
+	"litebase/server/database"
 	"net/http"
 	"strings"
 )

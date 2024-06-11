@@ -1,8 +1,8 @@
 package auth
 
 import (
-	"litebasedb/internal/config"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server/storage"
 	"strings"
 )
 
@@ -24,7 +24,7 @@ func AllSignatures() map[string]string {
 
 	directoryPath := strings.Join([]string{
 		config.Get().DataPath,
-		".litebasedb",
+		".litebase",
 	}, "/")
 
 	signatureFiles, err := storage.FS().ReadDir(directoryPath)

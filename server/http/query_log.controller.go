@@ -1,7 +1,7 @@
 package http
 
 import (
-	"litebasedb/server/logging"
+	"litebase/server/logging"
 	"strconv"
 )
 

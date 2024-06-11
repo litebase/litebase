@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"litebasedb/internal/utils"
+	"litebase/internal/utils"
 	"log"
 	"strings"
 

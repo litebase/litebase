@@ -1,6 +1,6 @@
 package components
 
-import "litebasedb/cli/styles"
+import "litebase/cli/styles"
 
 func ErrorAlert(message string) string {
 	return styles.AlertDangerStyle.Render(message)

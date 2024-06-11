@@ -3,8 +3,8 @@ package cluster
 import (
 	"encoding/json"
 	"fmt"
-	"litebasedb/internal/config"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server/storage"
 	"os"
 	"sync"
 )
@@ -97,7 +97,7 @@ func NewCluster(id string) (*ClusterInstance, error) {
 }
 
 func Path() string {
-	return fmt.Sprintf("%s/.litebasedb/cluster.json", config.Get().DataPath)
+	return fmt.Sprintf("%s/.litebase/cluster.json", config.Get().DataPath)
 }
 
 func (cluster *ClusterInstance) Save() error {
@@ -112,7 +112,7 @@ writefile:
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			storage.FS().MkdirAll(fmt.Sprintf("%s/.litebasedb", config.Get().DataPath), 0755)
+			storage.FS().MkdirAll(fmt.Sprintf("%s/.litebase", config.Get().DataPath), 0755)
 
 			goto writefile
 		}

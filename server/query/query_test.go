@@ -1,9 +1,9 @@
 package query_test
 
 import (
-	"litebasedb/internal/test"
-	"litebasedb/server/database"
-	"litebasedb/server/query"
+	"litebase/internal/test"
+	"litebase/server/database"
+	"litebase/server/query"
 	"log"
 	"testing"
 )

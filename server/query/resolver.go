@@ -2,8 +2,8 @@ package query
 
 import (
 	"fmt"
-	"litebasedb/server/database"
-	"litebasedb/server/sqlite3"
+	"litebase/server/database"
+	"litebase/server/sqlite3"
 	"time"
 )
 

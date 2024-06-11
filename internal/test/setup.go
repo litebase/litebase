@@ -1,10 +1,10 @@
 package test
 
 import (
-	"litebasedb/internal/config"
-	"litebasedb/server"
-	"litebasedb/server/database"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server"
+	"litebase/server/database"
+	"litebase/server/storage"
 	"log"
 	"os"
 	"testing"

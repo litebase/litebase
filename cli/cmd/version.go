@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"litebasedb/cli/components"
-	"litebasedb/cli/styles"
+	"litebase/cli/components"
+	"litebase/cli/styles"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -11,7 +11,7 @@ import (
 
 var VersionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of LitebaseDB",
+	Short: "Show the version number of CLI",
 	Run: func(cmd *cobra.Command, args []string) {
 		style := lipgloss.NewStyle().
 			Background(styles.PrimaryBackgroundColor).
@@ -19,7 +19,7 @@ var VersionCmd = &cobra.Command{
 			Padding(1, 2)
 
 		fmt.Print(
-			components.Container(style.Render("LitebaseDB CLI -→ v0.0.1")),
+			components.Container(style.Render("Litebase CLI -→ v0.0.1")),
 		)
 	},
 }

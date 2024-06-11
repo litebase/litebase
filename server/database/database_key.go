@@ -3,9 +3,9 @@ package database
 import (
 	"bytes"
 	"encoding/json"
-	"litebasedb/internal/config"
-	"litebasedb/server/auth"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server/auth"
+	"litebase/server/storage"
 	"sync"
 )
 

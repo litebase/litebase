@@ -1,7 +1,7 @@
 package components
 
 import (
-	"litebasedb/cli/api"
+	"litebase/cli/api"
 	"log"
 	"os"
 

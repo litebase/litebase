@@ -1,13 +1,13 @@
 package server
 
 import (
-	"litebasedb/internal/config"
-	"litebasedb/server/auth"
-	"litebasedb/server/cluster"
-	"litebasedb/server/database"
-	"litebasedb/server/events"
-	"litebasedb/server/http"
-	"litebasedb/server/node"
+	"litebase/internal/config"
+	"litebase/server/auth"
+	"litebase/server/cluster"
+	"litebase/server/database"
+	"litebase/server/events"
+	"litebase/server/http"
+	"litebase/server/node"
 )
 
 type App struct {

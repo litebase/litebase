@@ -1,7 +1,7 @@
 package query
 
 import (
-	"litebasedb/server/database"
+	"litebase/server/database"
 	"strings"
 
 	"github.com/goccy/go-json"

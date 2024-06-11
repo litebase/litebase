@@ -1,8 +1,8 @@
 package http
 
 import (
-	"litebasedb/server/events"
-	"litebasedb/server/node"
+	"litebase/server/events"
+	"litebase/server/node"
 )
 
 func EventStoreController(request *Request) Response {

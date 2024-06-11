@@ -1,7 +1,7 @@
 package components
 
 import (
-	"litebasedb/cli/styles"
+	"litebase/cli/styles"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"

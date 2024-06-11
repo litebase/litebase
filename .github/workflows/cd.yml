@@ -36,8 +36,8 @@ jobs:
           push: false
           outputs: type=local,dest=./
           platforms: linux/arm64
-          tags: litebasedb/runtime:latest
-          cache-from: type=registry,ref=litebasedb/runtime:latest
+          tags: litebase/runtime:latest
+          cache-from: type=registry,ref=litebase/runtime:latest
           cache-to: type=inline
 
       - uses: aws-actions/configure-aws-credentials@v1-node16

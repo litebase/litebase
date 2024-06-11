@@ -6,8 +6,8 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
-	"litebasedb/internal/config"
-	"litebasedb/server/auth"
+	"litebase/internal/config"
+	"litebase/server/auth"
 )
 
 func AdminRequestTokenValidator(request *Request) bool {

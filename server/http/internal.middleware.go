@@ -1,9 +1,9 @@
 package http
 
 import (
-	"litebasedb/internal/config"
-	"litebasedb/server/auth"
-	"litebasedb/server/node"
+	"litebase/internal/config"
+	"litebase/server/auth"
+	"litebase/server/node"
 )
 
 func Internal(request *Request) (*Request, Response) {

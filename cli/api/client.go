@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"litebasedb/cli/config"
+	"litebase/cli/config"
 	"net/http"
 	"strings"
 	"time"

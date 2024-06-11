@@ -2,15 +2,15 @@ package cmd
 
 import (
 	"fmt"
-	"litebasedb/cli/api"
-	"litebasedb/cli/components"
+	"litebase/cli/api"
+	"litebase/cli/components"
 
 	"github.com/spf13/cobra"
 )
 
 var ClusterCmd = &cobra.Command{
 	Use:   "cluster",
-	Short: "Manage clusters through the LitebaseDB Service",
+	Short: "Manage Litebase clusters",
 	Args:  cobra.MinimumNArgs(1),
 }
 

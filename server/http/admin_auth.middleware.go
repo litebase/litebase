@@ -1,7 +1,7 @@
 package http
 
 import (
-	"litebasedb/server/auth"
+	"litebase/server/auth"
 	"log"
 	"strconv"
 	"time"

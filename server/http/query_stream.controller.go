@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"litebasedb/server/auth"
-	"litebasedb/server/database"
-	"litebasedb/server/query"
+	"litebase/server/auth"
+	"litebase/server/database"
+	"litebase/server/query"
 	"log"
 	"net/http"
 )
@@ -40,7 +40,6 @@ func QueryStreamController(request *Request) Response {
 
 			if accessKey.AccessKeyId == "" {
 				w.Write(JsonNewLineError(fmt.Errorf("a valid access key is required to make this request")))
-				log.Println("Access key error")
 				return
 			}
 

@@ -2,7 +2,7 @@ package components
 
 import (
 	"fmt"
-	"litebasedb/cli/styles"
+	"litebase/cli/styles"
 	"strings"
 )
 

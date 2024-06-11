@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"litebasedb/cli/components"
-	"litebasedb/cli/config"
+	"litebase/cli/components"
+	"litebase/cli/config"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -32,27 +32,27 @@ func addCommands(cmd *cobra.Command) {
 func NewRoot() error {
 
 	cmd := &cobra.Command{
-		Use:               "litebasedb <command> <subcommand> [flags]",
-		Short:             "LitebaseDB CLI",
+		Use:               "litebase <command> <subcommand> [flags]",
+		Short:             "Litebase CLI",
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
-		Long:              `Connect with LitebaseDB from the command line.`,
+		Long:              `Connect with Litebase from the command line.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			title := lipgloss.NewStyle().Copy().Bold(true).
 				Margin(0, 0, 1).
-				Render("LitebaseDB CLI - v0.0.1")
+				Render("Litebase CLI - v0.0.1")
 
 			listSlice := []map[string]string{
 				{
 					"key":   "Website",
-					"value": "https://litebasedb.com",
+					"value": "https://litebase.com",
 				},
 				{
 					"key":   "Docs",
-					"value": "https://litebasedb.com/docs",
+					"value": "https://litebase.com/docs",
 				},
 				{
 					"key":   "GitHub",
-					"value": "https://github.com/litebasedb/litebasedb",
+					"value": "https://github.com/litebase/litebase",
 				},
 			}
 
@@ -60,7 +60,7 @@ func NewRoot() error {
 				fmt.Sprintf(
 					"%s\n%s\n\n\n%s",
 					title,
-					"For help type \"litebasedb help\"",
+					"For help type \"litebase help\"",
 					components.TabularList(listSlice),
 				),
 			)
@@ -71,7 +71,7 @@ func NewRoot() error {
 
 	addCommands(cmd)
 
-	cmd.PersistentFlags().StringVar(&confiPath, "config", "$HOME/.litebasedb/config", "Path to a configuration file (default \"$HOME/.litebasedb/config.json\")")
+	cmd.PersistentFlags().StringVar(&confiPath, "config", "$HOME/.litebase/config", "Path to a configuration file (default \"$HOME/.litebase/config.json\")")
 	cmd.PersistentFlags().StringVar(&profile, "profile", "", "The profile to use during this session")
 	cmd.PersistentFlags().StringVar(&cluster, "cluster", "", "Cluster")
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username")

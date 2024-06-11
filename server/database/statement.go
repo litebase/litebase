@@ -1,6 +1,6 @@
 package database
 
-import "litebasedb/server/sqlite3"
+import "litebase/server/sqlite3"
 
 type Statement struct {
 	// queryPlan []

@@ -3,11 +3,11 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"litebasedb/internal/config"
-	"litebasedb/server/auth"
-	"litebasedb/server/cluster"
-	"litebasedb/server/file"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server/auth"
+	"litebase/server/cluster"
+	"litebase/server/file"
+	"litebase/server/storage"
 	"log"
 	"os"
 	"path/filepath"
@@ -119,7 +119,7 @@ func Delete(database *Database) error {
 }
 
 func Directory() string {
-	return fmt.Sprintf("%s/.litebasedb/databases", config.Get().DataPath)
+	return fmt.Sprintf("%s/.litebase/databases", config.Get().DataPath)
 }
 
 func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
@@ -253,7 +253,7 @@ func (database *Database) BranchDatabaseFile(branchUuid string) string {
 
 func (database *Database) Url(branchUuid string) string {
 	return fmt.Sprintf(
-		"http://%s.%s.litebasedb.test:8080",
+		"http://%s.%s.litebase.test:8080",
 		database.Key(database.PrimaryBranchId),
 		cluster.Get().Id,
 	)

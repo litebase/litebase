@@ -1,7 +1,7 @@
 package backups
 
 import (
-	"litebasedb/server/storage"
+	"litebase/server/storage"
 	"os"
 	"path/filepath"
 )

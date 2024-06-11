@@ -1,6 +1,6 @@
 package http
 
-import "litebasedb/internal/utils"
+import "litebase/internal/utils"
 
 type Headers struct {
 	values map[string]string

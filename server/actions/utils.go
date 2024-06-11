@@ -1,7 +1,7 @@
 package actions
 
 import (
-	"litebasedb/server/counter"
+	"litebase/server/counter"
 	"time"
 )
 

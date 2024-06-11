@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"litebasedb/internal/config"
-	"litebasedb/server/auth"
-	"litebasedb/server/file"
-	"litebasedb/server/sqlite3"
-	"litebasedb/server/storage"
-	"litebasedb/server/vfs"
+	"litebase/internal/config"
+	"litebase/server/auth"
+	"litebase/server/file"
+	"litebase/server/sqlite3"
+	"litebase/server/storage"
+	"litebase/server/vfs"
 
 	"github.com/google/uuid"
 )

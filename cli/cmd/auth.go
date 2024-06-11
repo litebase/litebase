@@ -8,7 +8,7 @@ import (
 
 var LoginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Login to your LitebaseDB account",
+	Short: "Login to your Litebase account",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Login successful")
 	},
@@ -16,7 +16,7 @@ var LoginCmd = &cobra.Command{
 
 var LogoutCmd = &cobra.Command{
 	Use:   "logout",
-	Short: "Logout your LitebaseDB account",
+	Short: "Logout your Litebase account",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Logout successful")
 	},

@@ -1,4 +1,4 @@
-module litebasedb
+module litebase
 
 go 1.22
 

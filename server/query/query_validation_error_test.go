@@ -1,7 +1,7 @@
 package query_test
 
 import (
-	"litebasedb/server/query"
+	"litebase/server/query"
 	"testing"
 )
 

@@ -2,8 +2,8 @@ package http
 
 import (
 	"fmt"
-	"litebasedb/server/database"
-	"litebasedb/server/query"
+	"litebase/server/database"
+	"litebase/server/query"
 )
 
 func QueryController(request *Request) Response {

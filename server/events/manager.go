@@ -1,7 +1,7 @@
 package events
 
 import (
-	"litebasedb/server/node"
+	"litebase/server/node"
 )
 
 type EventsManagerInstance struct {

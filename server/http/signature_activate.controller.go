@@ -1,8 +1,8 @@
 package http
 
 import (
-	"litebasedb/internal/config"
-	"litebasedb/server/events"
+	"litebase/internal/config"
+	"litebase/server/events"
 )
 
 type SingatureActivateRequest struct {

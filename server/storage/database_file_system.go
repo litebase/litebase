@@ -1,6 +1,6 @@
 package storage
 
-import internalStorage "litebasedb/internal/storage"
+import internalStorage "litebase/internal/storage"
 
 type DatabaseFileSystem interface {
 	Close(path string) error

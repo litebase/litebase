@@ -1,7 +1,7 @@
 package database
 
 import (
-	"litebasedb/server/auth"
+	"litebase/server/auth"
 )
 
 type ClientConnection struct {

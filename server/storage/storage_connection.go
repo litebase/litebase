@@ -4,7 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"litebasedb/internal/storage"
+	"litebase/internal/storage"
 	"log"
 	"net/http"
 )

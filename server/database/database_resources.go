@@ -2,10 +2,10 @@ package database
 
 import (
 	"fmt"
-	"litebasedb/internal/config"
-	"litebasedb/server/backups"
-	"litebasedb/server/file"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server/backups"
+	"litebase/server/file"
+	"litebase/server/storage"
 	"sync"
 )
 

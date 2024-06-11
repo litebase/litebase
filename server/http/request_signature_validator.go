@@ -6,8 +6,8 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"litebasedb/internal/utils"
-	"litebasedb/server/auth"
+	"litebase/internal/utils"
+	"litebase/server/auth"
 	"log"
 	"strings"
 

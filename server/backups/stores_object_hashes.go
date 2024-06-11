@@ -2,8 +2,8 @@ package backups
 
 import (
 	"fmt"
-	"litebasedb/server/file"
-	"litebasedb/server/storage"
+	"litebase/server/file"
+	"litebase/server/storage"
 	"os"
 	"path/filepath"
 	"strings"

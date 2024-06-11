@@ -62,7 +62,7 @@ func NewFrame(width int) Frame {
 			return fmt.Sprintf("%s → ", style.Render("       ..."))
 		}
 
-		return fmt.Sprintf("%s → ", style.Render("litebasedb"))
+		return fmt.Sprintf("%s → ", style.Render("litebase"))
 	})
 
 	return Frame{

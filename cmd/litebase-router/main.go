@@ -1,7 +1,7 @@
 package main
 
 import (
-	"litebasedb/router"
+	"litebase/router"
 	"log"
 )
 

@@ -1,9 +1,9 @@
 package database
 
 import (
-	"litebasedb/internal/config"
-	"litebasedb/server/backups"
-	"litebasedb/server/file"
+	"litebase/internal/config"
+	"litebase/server/backups"
+	"litebase/server/file"
 	"os"
 	"sync"
 	"time"

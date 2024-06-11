@@ -2,8 +2,8 @@ package cluster_test
 
 import (
 	"encoding/json"
-	"litebasedb/internal/test"
-	"litebasedb/server/cluster"
+	"litebase/internal/test"
+	"litebase/server/cluster"
 	"os"
 	"testing"
 )
@@ -99,7 +99,7 @@ func TestClusterPath(t *testing.T) {
 	test.Run(t, func() {
 		path := cluster.Path()
 
-		if path != "../../data/_test/.litebasedb/cluster.json" {
+		if path != "../../data/_test/.litebase/cluster.json" {
 			t.Fatal("Path is not correct")
 		}
 	})

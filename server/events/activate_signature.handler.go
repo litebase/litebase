@@ -1,7 +1,7 @@
 package events
 
 import (
-	"litebasedb/internal/config"
+	"litebase/internal/config"
 )
 
 func ActivateSignatureHandler(data interface{}) {

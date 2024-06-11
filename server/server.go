@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"litebasedb/server/database"
-	"litebasedb/server/node"
+	"litebase/server/database"
+	"litebase/server/node"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -65,7 +65,7 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 		serverHook(s)
 	}
 
-	log.Println("LitebaseDB running on port", port)
+	log.Println("Litebase running on port", port)
 
 	serverDone := make(chan struct{})
 	go func() {

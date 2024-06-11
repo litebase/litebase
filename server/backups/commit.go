@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"fmt"
-	"litebasedb/server/storage"
+	"litebase/server/storage"
 	"strings"
 )
 

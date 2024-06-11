@@ -2,7 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
-	internalStorage "litebasedb/internal/storage"
+	internalStorage "litebase/internal/storage"
 	"log"
 	"os"
 	"sync"

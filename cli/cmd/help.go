@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"litebasedb/cli/components"
-	"litebasedb/cli/styles"
+	"litebase/cli/components"
+	"litebase/cli/styles"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -33,7 +33,7 @@ func NewHelpCmd() func(cmd *cobra.Command, args []string) {
 				lipgloss.NewStyle().MarginTop(1).PaddingLeft(2).Render(cmd.UseLine()),
 				commands,
 				flags,
-				// "Use \"litebasedb [command] --help\" for more information about a command.",
+				// "Use \"litebase [command] --help\" for more information about a command.",
 			),
 		)
 	}

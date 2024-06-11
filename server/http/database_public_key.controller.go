@@ -1,8 +1,8 @@
 package http
 
 import (
-	_auth "litebasedb/internal/auth"
-	"litebasedb/server/auth"
+	_auth "litebase/internal/auth"
+	"litebase/server/auth"
 )
 
 type DatabasePublicKeyRequest struct {

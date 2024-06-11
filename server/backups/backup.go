@@ -6,9 +6,9 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"litebasedb/internal/config"
-	"litebasedb/server/file"
-	"litebasedb/server/storage"
+	"litebase/internal/config"
+	"litebase/server/file"
+	"litebase/server/storage"
 	"sort"
 	"strconv"
 

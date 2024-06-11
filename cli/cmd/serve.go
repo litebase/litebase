@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"litebasedb/server"
+	"litebase/server"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
@@ -11,11 +10,11 @@ import (
 func NewServeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "serve",
-		Short: "Start the LitebaseDB server",
+		Short: "Start the Litebase server locally",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("serve called")
-
 			godotenv.Load(".env")
+
+			// TODO: Accept flags to congifure the server
 
 			server.NewServer().Start(func(s *server.ServerInstance) {
 				server.NewApp(s).Run()

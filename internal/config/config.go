@@ -38,7 +38,7 @@ func Init() {
 	if signature != storedSignature {
 		ConfigInstance.Signature = storedSignature
 	} else {
-		os.Remove(fmt.Sprintf("%s/.litebasedb/signature", Get().DataPath))
+		os.Remove(fmt.Sprintf("%s/.litebase/signature", Get().DataPath))
 	}
 }
 
@@ -85,7 +85,7 @@ func Get() *Config {
 
 // Check if the signature directory exists
 func HasSignature(signature string) bool {
-	_, err := os.Stat(fmt.Sprintf("%s/.litebasedb/%s", Get().DataPath, signature))
+	_, err := os.Stat(fmt.Sprintf("%s/.litebase/%s", Get().DataPath, signature))
 
 	return err == nil
 }
@@ -93,14 +93,14 @@ func HasSignature(signature string) bool {
 func StoreSignature(signature string) error {
 	ConfigInstance.Signature = signature
 	dataPath := Get().DataPath
-	signaturePath := fmt.Sprintf("%s/.litebasedb/signature", dataPath)
+	signaturePath := fmt.Sprintf("%s/.litebase/signature", dataPath)
 
 	return os.WriteFile(signaturePath, []byte(signature), 0644)
 }
 
 func storedSignature() string {
 	dataPath := Get().DataPath
-	signaturePath := fmt.Sprintf("%s/.litebasedb/signature", dataPath)
+	signaturePath := fmt.Sprintf("%s/.litebase/signature", dataPath)
 
 	storedSignature, err := os.ReadFile(signaturePath)
 

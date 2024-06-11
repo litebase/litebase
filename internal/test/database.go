@@ -5,10 +5,10 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"litebasedb/server/auth"
-	"litebasedb/server/database"
-	"litebasedb/server/sqlite3"
-	"litebasedb/server/storage"
+	"litebase/server/auth"
+	"litebase/server/database"
+	"litebase/server/sqlite3"
+	"litebase/server/storage"
 	"log"
 )
 

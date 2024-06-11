@@ -2,8 +2,8 @@ package http
 
 import (
 	"fmt"
-	"litebasedb/server/backups"
-	"litebasedb/server/database"
+	"litebase/server/backups"
+	"litebase/server/database"
 	"strconv"
 )
 

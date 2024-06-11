@@ -1,7 +1,7 @@
 package main
 
 import (
-	"litebasedb/server"
+	"litebase/server"
 	"log"
 
 	"github.com/joho/godotenv"

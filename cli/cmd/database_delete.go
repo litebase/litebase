@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"litebasedb/cli/api"
-	"litebasedb/cli/components"
+	"litebase/cli/api"
+	"litebase/cli/components"
 
 	"github.com/spf13/cobra"
 )

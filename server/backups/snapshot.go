@@ -3,8 +3,8 @@ package backups
 import (
 	"encoding/binary"
 	"fmt"
-	"litebasedb/server/file"
-	"litebasedb/server/storage"
+	"litebase/server/file"
+	"litebase/server/storage"
 	"os"
 	"time"
 )
