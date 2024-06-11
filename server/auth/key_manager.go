@@ -28,11 +28,9 @@ var privateKeysMutex = &sync.Mutex{}
 
 func EncryptKey(signature, key string) (string, error) {
 	plaintextBytes := []byte(key)
-	hash := sha256.New()
-	hash.Write([]byte(signature))
-	secret := hash.Sum(nil)
+	secret := generateHash(signature)
 
-	block, err := aes.NewCipher(secret)
+	block, err := aes.NewCipher([]byte(secret))
 
 	if err != nil {
 		return "", err
@@ -93,6 +91,13 @@ func generate() {
 		// fmt.Println("\n------------")
 
 	}
+}
+
+// Generate a hash of the signature so that it is not stored in plain text.
+func generateHash(signature string) string {
+	hash := sha256.Sum256([]byte(signature))
+
+	return hex.EncodeToString(hash[:])
 }
 
 func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
@@ -326,8 +331,8 @@ func NextSignature(signature string) (string, error) {
 func Path(signature string) string {
 	return strings.Join([]string{
 		config.Get().DataPath,
-		".litebasedb",
-		signature,
+		".litebase",
+		generateHash(signature),
 	}, "/")
 }
 

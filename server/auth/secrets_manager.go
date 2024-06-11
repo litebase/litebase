@@ -348,7 +348,7 @@ func (s *SecretsManagerInstance) SecretsPath(signature, key string) string {
 	return fmt.Sprintf(
 		"%s/.litebase/%s/%s",
 		config.Get().DataPath,
-		signature,
+		generateHash(signature),
 		key,
 	)
 }
