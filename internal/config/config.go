@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"log"
 
 	"os"
 )
@@ -29,17 +32,28 @@ func Init() {
 	NewConfig()
 
 	signature := Get().Signature
+
 	storedSignature := storedSignature()
 
-	if storedSignature == "" {
+	if signature != "" && storedSignature == "" {
+		StoreSignature(signature)
+		return
+	}
+
+	if signature == "" && storedSignature != "" {
+		ConfigInstance.Signature = storedSignature
+
 		return
 	}
 
 	if signature != storedSignature {
-		ConfigInstance.Signature = storedSignature
-	} else {
-		os.Remove(fmt.Sprintf("%s/.litebase/signature", Get().DataPath))
+		ConfigInstance.SignatureNext = storedSignature
+
+		return
 	}
+	log.Println(signature)
+
+	panic("The LITEBASE_SIGNATURE env variable is not set")
 }
 
 func env(key string, defaultValue string) interface{} {
@@ -47,16 +61,10 @@ func env(key string, defaultValue string) interface{} {
 		return os.Getenv(key)
 	}
 
-	// if defaultValue == "" {
-	// 	panic(fmt.Sprintf("Environment variable %s is not set", key))
-	// }
-
 	return defaultValue
 }
 
 func NewConfig() *Config {
-	// godotenv.Load()
-
 	ConfigInstance = &Config{
 		DataPath:          os.Getenv("LITEBASEDB_DATA_PATH"),
 		DefaultBranchName: env("LITEBASEDB_DEFAULT_BRANCH_NAME", "main").(string),
@@ -85,7 +93,7 @@ func Get() *Config {
 
 // Check if the signature directory exists
 func HasSignature(signature string) bool {
-	_, err := os.Stat(fmt.Sprintf("%s/.litebase/%s", Get().DataPath, signature))
+	_, err := os.Stat(fmt.Sprintf("%s/.litebase/%s", Get().DataPath, SignatureHash(signature)))
 
 	return err == nil
 }
@@ -93,14 +101,40 @@ func HasSignature(signature string) bool {
 func StoreSignature(signature string) error {
 	ConfigInstance.Signature = signature
 	dataPath := Get().DataPath
-	signaturePath := fmt.Sprintf("%s/.litebase/signature", dataPath)
+	signaturePath := fmt.Sprintf("%s/.litebase/.signature", dataPath)
 
-	return os.WriteFile(signaturePath, []byte(signature), 0644)
+writeFile:
+
+	err := os.WriteFile(signaturePath, []byte(signature), 0644)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(fmt.Sprintf("%s/.litebase", dataPath), 0755)
+
+			if err != nil {
+				return err
+			}
+
+			goto writeFile
+
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+// Generate a hash of the signature so that it is not stored in plain text.
+func SignatureHash(signature string) string {
+	hash := sha256.Sum256([]byte(signature))
+
+	return hex.EncodeToString(hash[:])
 }
 
 func storedSignature() string {
 	dataPath := Get().DataPath
-	signaturePath := fmt.Sprintf("%s/.litebase/signature", dataPath)
+	signaturePath := fmt.Sprintf("%s/.litebase/.signature", dataPath)
 
 	storedSignature, err := os.ReadFile(signaturePath)
 

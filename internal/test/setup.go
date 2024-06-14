@@ -15,10 +15,10 @@ import (
 func Setup(t *testing.T) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	os.Setenv("LITEBASEDB_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASEDB_SIGNATURE", CreateHash(32))
 	err := godotenv.Load("../../.env")
 
-	config.Get().Signature = CreateHash(32)
-	config.Get().SignatureNext = CreateHash(32)
+	// config.Get().SignatureNext = CreateHash(32)
 	server.NewApp(server.NewServer())
 
 	config.Get().DataPath = "../../data/_test"
@@ -27,10 +27,10 @@ func Setup(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-
 }
 
 func Teardown() {
+	os.Setenv("LITEBASEDB_SIGNATURE", "")
 	database.ConnectionManager().Shutdown()
 	err := storage.FS().RemoveAll("./../../data/_test")
 

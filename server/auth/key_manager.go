@@ -5,10 +5,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -28,7 +26,7 @@ var privateKeysMutex = &sync.Mutex{}
 
 func EncryptKey(signature, key string) (string, error) {
 	plaintextBytes := []byte(key)
-	secret := generateHash(signature)
+	secret := config.SignatureHash(signature)
 
 	block, err := aes.NewCipher([]byte(secret))
 
@@ -91,13 +89,6 @@ func generate() {
 		// fmt.Println("\n------------")
 
 	}
-}
-
-// Generate a hash of the signature so that it is not stored in plain text.
-func generateHash(signature string) string {
-	hash := sha256.Sum256([]byte(signature))
-
-	return hex.EncodeToString(hash[:])
 }
 
 func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
@@ -332,7 +323,7 @@ func Path(signature string) string {
 	return strings.Join([]string{
 		config.Get().DataPath,
 		".litebase",
-		generateHash(signature),
+		config.SignatureHash(signature),
 	}, "/")
 }
 
