@@ -48,15 +48,17 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	// }()
 
 	port := os.Getenv("LITEBASEDB_QUERY_NODE_PORT")
+	tlsCertPath := os.Getenv("LITEBASEDB_TLS_CERT_PATH")
+	tlsKeyPath := os.Getenv("LITEBASEDB_TLS_KEY_PATH")
 
 	s.ServeMux = http.NewServeMux()
 
 	s.HttpServer = &http.Server{
-		Addr: fmt.Sprintf(":%s", port),
-		// ReadTimeout:  30 * time.Second,
-		// WriteTimeout: 30 * time.Second,
-		// IdleTimeout:  60 * time.Second,
-		Handler: s.ServeMux,
+		Addr:         fmt.Sprintf(":%s", port),
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+		Handler:      s.ServeMux,
 	}
 
 	// s.Node.Run()
@@ -68,15 +70,26 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	log.Println("Litebase running on port", port)
 
 	serverDone := make(chan struct{})
+
 	go func() {
 		defer close(serverDone)
-		if err := s.HttpServer.ListenAndServe(); err != http.ErrServerClosed {
+		var err error
+
+		if tlsCertPath != "" && tlsKeyPath != "" {
+			err = s.HttpServer.ListenAndServeTLS(tlsCertPath, tlsKeyPath)
+		} else {
+			err = s.HttpServer.ListenAndServe()
+		}
+
+		if err != http.ErrServerClosed {
 			log.Fatalf("ListenAndServe(): %v", err)
 		}
 	}()
 
 	signalChannel := make(chan os.Signal, 2)
+
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+
 	for {
 		sig := <-signalChannel
 		switch sig {
@@ -100,6 +113,7 @@ func (s *ServerInstance) Shutdown() {
 
 	// Create a context with a timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+
 	defer cancel()
 
 	if err := s.HttpServer.Shutdown(ctx); err != nil {
