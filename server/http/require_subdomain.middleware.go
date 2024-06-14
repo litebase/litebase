@@ -1,6 +1,8 @@
 package http
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func RequireSubdomain(request *Request) (*Request, Response) {
 	if len(request.Subdomains()) < 2 {

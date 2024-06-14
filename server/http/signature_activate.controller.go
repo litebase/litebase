@@ -44,6 +44,7 @@ func SingatureActivateController(request *Request) Response {
 	}
 
 	config.StoreSignature(input.(*SingatureActivateRequest).Signature)
+
 	events.Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
 
 	return Response{
