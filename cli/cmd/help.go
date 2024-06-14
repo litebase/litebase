@@ -15,6 +15,11 @@ func NewHelpCmd() func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		commands := prepareCommands(cmd)
 		flags := prepareFlags(cmd)
+		longDescription := ""
+
+		if cmd.Long != "" {
+			longDescription = lipgloss.NewStyle().Padding(1, 0).Render(cmd.Long)
+		}
 
 		fmt.Print(
 			components.Container(
@@ -23,7 +28,7 @@ func NewHelpCmd() func(cmd *cobra.Command, args []string) {
 					Background(styles.PrimaryBackgroundColor).
 					Foreground(styles.PrimaryForegroundColor).
 					Padding(0, 1).Render(cmd.Short),
-				lipgloss.NewStyle().Padding(1, 0).Render(cmd.Long),
+				longDescription,
 				lipgloss.NewStyle().
 					Padding(0, 1).
 					MarginTop(1).
@@ -42,6 +47,10 @@ func NewHelpCmd() func(cmd *cobra.Command, args []string) {
 func prepareCommands(cmd *cobra.Command) string {
 	var commands string = ""
 	var longesteCommandName int = 0
+
+	if len(cmd.Commands()) == 0 {
+		return ""
+	}
 
 	for _, c := range cmd.Commands() {
 		if len(c.Use) > longesteCommandName {
