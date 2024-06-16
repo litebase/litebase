@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -26,9 +27,10 @@ var privateKeysMutex = &sync.Mutex{}
 
 func EncryptKey(signature, key string) (string, error) {
 	plaintextBytes := []byte(key)
-	secret := config.SignatureHash(signature)
 
-	block, err := aes.NewCipher([]byte(secret))
+	secret := sha256.Sum256([]byte(signature))
+
+	block, err := aes.NewCipher(secret[:])
 
 	if err != nil {
 		return "", err
@@ -55,29 +57,34 @@ func EncryptKey(signature, key string) (string, error) {
 }
 
 // Generate a new key for the current signature if one does not exist.
-func generate() {
-	_, err := storage.FS().Stat(KeyPath("public", config.Get().Signature))
+func generate() error {
+	signature := config.Get().Signature
+
+	// Ensure the signature is a 32 byte hash
+	if len(signature) != 64 {
+		return errors.New("invalid signature length")
+	}
+
+	_, err := storage.FS().Stat(KeyPath("public", signature))
 
 	if os.IsNotExist(err) {
-		_, err := generatePrivateKey(config.Get().Signature)
+		_, err := generatePrivateKey(signature)
 
 		if err != nil {
-			log.Fatal(err)
-			return
+			return err
 		}
 
-		file, err := storage.FS().ReadFile(KeyPath("public", config.Get().Signature))
+		file, err := storage.FS().ReadFile(KeyPath("public", signature))
 
 		if err != nil {
-			log.Fatal(err)
-			return
+			return err
 		}
 
-		_, err = EncryptKey(config.Get().Signature, string(file))
+		_, err = EncryptKey(signature, string(file))
 
 		if err != nil {
-			log.Fatal(err)
-			return
+			log.Println(err)
+			return err
 		}
 
 		// fmt.Println("\n------------")
@@ -89,6 +96,8 @@ func generate() {
 		// fmt.Println("\n------------")
 
 	}
+
+	return nil
 }
 
 func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
@@ -270,11 +279,18 @@ func GetRawPublicKey(signature string) ([]byte, error) {
 	return file, nil
 }
 
-func KeyManagerInit() {
+func KeyManagerInit() error {
 	// Generate a public key for the signature if one does not exist
-	generate()
+	err := generate()
+
+	if err != nil {
+		return err
+	}
+
 	// Rotate the keys if a new signature is set
 	rotate()
+
+	return nil
 }
 
 func KeyPath(keyType string, signature string) string {

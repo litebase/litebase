@@ -24,7 +24,6 @@ func QueryStreamController(request *Request) Response {
 
 			if err != nil {
 				w.Write(JsonNewLineError(fmt.Errorf("a valid database is required to make this request")))
-				log.Println("Database key error", err)
 				return
 			}
 

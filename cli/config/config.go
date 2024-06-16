@@ -14,7 +14,7 @@ type Configuration struct {
 
 	username string
 	password string
-	cluster  string
+	url      string
 }
 
 var configPath string
@@ -119,8 +119,8 @@ func SwitchProfile(name string) error {
 	return Save()
 }
 
-func SetCluster(cluster string) {
-	configuration.cluster = cluster
+func SetUrl(url string) {
+	configuration.url = url
 }
 
 func SetPassword(password string) {
@@ -131,8 +131,8 @@ func SetUsername(username string) {
 	configuration.username = username
 }
 
-func GetCluster() string {
-	return configuration.cluster
+func GetUrl() string {
+	return configuration.url
 }
 
 func GetPassword() string {

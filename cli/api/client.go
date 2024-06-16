@@ -135,8 +135,8 @@ func basicAuthHeader() string {
 }
 
 func clusterUrl() string {
-	if config.GetCluster() != "" {
-		return config.GetCluster()
+	if config.GetUrl() != "" {
+		return config.GetUrl()
 	}
 
 	profile := config.GetCurrentProfile()

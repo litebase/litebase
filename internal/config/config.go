@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"log"
 
 	"os"
 )
@@ -20,6 +19,7 @@ type Config struct {
 	QueryNodePort     string
 	Region            string
 	RootPassword      string
+	RootUsername      string
 	RouterNodePort    string
 	Signature         string
 	SignatureNext     string
@@ -28,7 +28,7 @@ type Config struct {
 
 var ConfigInstance *Config = nil
 
-func Init() {
+func Init() error {
 	NewConfig()
 
 	signature := Get().Signature
@@ -37,23 +37,26 @@ func Init() {
 
 	if signature != "" && storedSignature == "" {
 		StoreSignature(signature)
-		return
+		return nil
 	}
 
 	if signature == "" && storedSignature != "" {
 		ConfigInstance.Signature = storedSignature
 
-		return
+		return nil
 	}
 
 	if signature != storedSignature {
 		ConfigInstance.SignatureNext = storedSignature
 
-		return
+		return nil
 	}
-	log.Println(signature)
 
-	panic("The LITEBASE_SIGNATURE env variable is not set")
+	if signature != "" {
+		return nil
+	}
+
+	return fmt.Errorf("the LITEBASE_SIGNATURE environment variable is not set")
 }
 
 func env(key string, defaultValue string) interface{} {
@@ -66,18 +69,19 @@ func env(key string, defaultValue string) interface{} {
 
 func NewConfig() *Config {
 	ConfigInstance = &Config{
-		DataPath:          os.Getenv("LITEBASEDB_DATA_PATH"),
-		DefaultBranchName: env("LITEBASEDB_DEFAULT_BRANCH_NAME", "main").(string),
-		Env:               env("LITEBASEDB_ENV", "production").(string),
-		FileSystemDriver:  env("LITEBASEDB_FILESYSTEM_DRIVER", "local").(string),
-		Debug:             env("LITEBASEDB_DEBUG", "false") == "true",
+		DataPath:          env(os.Getenv("LITEBASE_DATA_PATH"), "./data").(string),
+		DefaultBranchName: env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
+		Env:               env("LITEBASE_ENV", "production").(string),
+		FileSystemDriver:  env("LITEBASE_FILESYSTEM_DRIVER", "local").(string),
+		Debug:             env("LITEBASE_DEBUG", "false") == "true",
 		PageSize:          65536,
-		QueryNodePort:     env("LITEBASEDB_QUERY_NODE_PORT", "8080").(string),
-		Region:            env("LITEBASEDB_REGION", "").(string),
-		RouterNodePort:    env("LITEBASEDB_ROUTER_NODE_PORT", "8080").(string),
-		RootPassword:      env("LITEBASEDB_ROOT_PASSWORD", "").(string),
-		Signature:         env("LITEBASEDB_SIGNATURE", "").(string),
-		TmpPath:           env("LITEBASEDB_TMP_PATH", "").(string),
+		QueryNodePort:     env("LITEBASE_QUERY_NODE_PORT", "8080").(string),
+		Region:            env("LITEBASE_REGION", "").(string),
+		RouterNodePort:    env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
+		RootPassword:      env("LITEBASE_ROOT_PASSWORD", "").(string),
+		RootUsername:      env("LITEBASE_ROOT_USERNAME", "root").(string),
+		Signature:         env("LITEBASE_SIGNATURE", "").(string),
+		TmpPath:           env("LITEBASE_TMP_PATH", "").(string),
 	}
 
 	return ConfigInstance

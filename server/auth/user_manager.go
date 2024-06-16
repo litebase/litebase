@@ -40,12 +40,12 @@ func UserManager() *UserManagerInstance {
 	return staticUserManager
 }
 
-func (u *UserManagerInstance) Init() {
+func (u *UserManagerInstance) Init() error {
 	// Get the users
 	users, err := u.allUsers()
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	u.mutex.Lock()
@@ -53,12 +53,22 @@ func (u *UserManagerInstance) Init() {
 	u.mutex.Unlock()
 
 	if len(users) == 0 {
-		err := u.Add("root", config.Get().RootPassword, []string{"*"})
+		if config.Get().RootUsername == "" {
+			return fmt.Errorf("the LITEBASE_ROOT_USERNAME environment variable is not set")
+		}
+
+		if config.Get().RootPassword == "" {
+			return fmt.Errorf("the LITEBASE_ROOT_PASSWORD environment variable is not set")
+		}
+
+		err := u.Add(config.Get().RootUsername, config.Get().RootPassword, []string{"*"})
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
+
+	return nil
 }
 
 func (u *UserManagerInstance) All() []User {

@@ -12,7 +12,7 @@ import (
 
 var confiPath string
 var profile string
-var cluster string
+var url string
 var username string
 var password string
 
@@ -21,6 +21,7 @@ func addCommands(cmd *cobra.Command) {
 	cmd.AddCommand(NewAccessKeyCmd())
 	cmd.AddCommand(NewClusterCmd())
 	cmd.AddCommand(NewDatabaseCmd())
+	cmd.AddCommand(NewInitCmd())
 	cmd.AddCommand(LoginCmd)
 	cmd.AddCommand(LogoutCmd)
 	cmd.AddCommand(NewProfileCmd())
@@ -73,7 +74,7 @@ func NewRoot() error {
 
 	cmd.PersistentFlags().StringVar(&confiPath, "config", "$HOME/.litebase/config", "Path to a configuration file (default \"$HOME/.litebase/config.json\")")
 	cmd.PersistentFlags().StringVar(&profile, "profile", "", "The profile to use during this session")
-	cmd.PersistentFlags().StringVar(&cluster, "cluster", "", "Cluster")
+	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username")
 	cmd.PersistentFlags().StringVar(&password, "password", "", "Password")
 
@@ -88,8 +89,8 @@ func NewRoot() error {
 
 func preRun() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if cluster != "" {
-			config.SetCluster(cluster)
+		if url != "" {
+			config.SetUrl(url)
 		}
 
 		if username != "" {

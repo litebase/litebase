@@ -244,9 +244,15 @@ func Register() {
 	filePath := FilePath(ipAddress)
 
 	if !Has(ipAddress) {
+	write:
 		err := storage.FS().WriteFile(filePath, []byte(ipAddress), 0644)
 
 		if err != nil {
+			if os.IsNotExist(err) {
+				storage.FS().MkdirAll(DirectoryPath(), 0755)
+				goto write
+			}
+
 			log.Println(err)
 		}
 	}
