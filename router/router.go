@@ -26,7 +26,7 @@ func (router *Router) Start() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
 	// }()
 
-	port := os.Getenv("LITEBASEDB_ROUTER_NODE_PORT")
+	port := os.Getenv("LITEBASE_ROUTER_NODE_PORT")
 	ctx := context.Background()
 	router.Context, router.Cancel = context.WithCancel(ctx)
 

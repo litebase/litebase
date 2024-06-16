@@ -11,8 +11,8 @@ import (
 
 func TestInit(t *testing.T) {
 	signature := test.CreateHash(32)
-	os.Setenv("LITEBASEDB_DATA_PATH", "../../data/_test")
-	os.Setenv("LITEBASEDB_SIGNATURE", signature)
+	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_SIGNATURE", signature)
 
 	config.Init()
 
@@ -26,8 +26,8 @@ func TestInit(t *testing.T) {
 
 func TestInitWithNewSignature(t *testing.T) {
 	signature := test.CreateHash(32)
-	os.Setenv("LITEBASEDB_DATA_PATH", "../../data/_test")
-	os.Setenv("LITEBASEDB_SIGNATURE", signature)
+	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_SIGNATURE", signature)
 
 	//Create the signature file
 	os.MkdirAll("../../data/_test/.litebase", 0755)
@@ -36,7 +36,7 @@ func TestInitWithNewSignature(t *testing.T) {
 
 	nextSignature := test.CreateHash(32)
 
-	os.Setenv("LITEBASEDB_SIGNATURE", nextSignature)
+	os.Setenv("LITEBASE_SIGNATURE", nextSignature)
 
 	config.Init()
 
@@ -53,7 +53,7 @@ func TestInitWithNewSignature(t *testing.T) {
 }
 
 func TestInitWithNoSignature(t *testing.T) {
-	os.Setenv("LITEBASEDB_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
 
 	// We should get a panic if there is no signature
 	defer func() {
@@ -77,7 +77,7 @@ func TestNewConfig(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	signature := test.CreateHash(32)
-	os.Setenv("LITEBASEDB_SIGNATURE", signature)
+	os.Setenv("LITEBASE_SIGNATURE", signature)
 	config.NewConfig()
 
 	if config.Get() == nil {
@@ -92,7 +92,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestStoreSignature(t *testing.T) {
-	os.Setenv("LITEBASEDB_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
 	signature := test.CreateHash(32)
 	config.NewConfig()
 

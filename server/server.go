@@ -47,9 +47,9 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
 	// }()
 
-	port := os.Getenv("LITEBASEDB_QUERY_NODE_PORT")
-	tlsCertPath := os.Getenv("LITEBASEDB_TLS_CERT_PATH")
-	tlsKeyPath := os.Getenv("LITEBASEDB_TLS_KEY_PATH")
+	port := os.Getenv("LITEBASE_QUERY_NODE_PORT")
+	tlsCertPath := os.Getenv("LITEBASE_TLS_CERT_PATH")
+	tlsKeyPath := os.Getenv("LITEBASE_TLS_KEY_PATH")
 
 	s.ServeMux = http.NewServeMux()
 

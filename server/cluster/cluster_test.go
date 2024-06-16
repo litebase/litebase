@@ -33,7 +33,7 @@ func TestGetCluster(t *testing.T) {
 }
 
 func TestClusterInit(t *testing.T) {
-	os.Setenv("LITEBASEDB_CLUSTER_ID", "TEST_CLUSTER_000")
+	os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
 	test.Run(t, func() {
 		c, err := cluster.Init()
 
@@ -66,7 +66,7 @@ func TestClusterInit(t *testing.T) {
 }
 
 func TestClusterInitNoClusterId(t *testing.T) {
-	os.Setenv("LITEBASEDB_CLUSTER_ID", "")
+	os.Setenv("LITEBASE_CLUSTER_ID", "")
 
 	_, err := cluster.Init()
 
@@ -74,7 +74,7 @@ func TestClusterInitNoClusterId(t *testing.T) {
 		t.Fatal("Error is nil")
 	}
 
-	os.Setenv("LITEBASEDB_CLUSTER_ID", "TEST_CLUSTER_000")
+	os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
 }
 
 func TestNewCluster(t *testing.T) {

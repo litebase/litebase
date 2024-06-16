@@ -38,7 +38,9 @@ func Init() (*ClusterInstance, error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			if c, err := createClusterFromEnv(); err == nil {
+			c, err := createClusterFromEnv()
+
+			if err == nil {
 				cluster = c
 
 				return cluster, nil
@@ -64,10 +66,10 @@ func Init() (*ClusterInstance, error) {
 }
 
 func createClusterFromEnv() (*ClusterInstance, error) {
-	clusterId := os.Getenv("LITEBASEDB_CLUSTER_ID")
+	clusterId := os.Getenv("LITEBASE_CLUSTER_ID")
 
 	if clusterId == "" {
-		return nil, fmt.Errorf("[%d] LITEBASEDB_CLUSTER_ID environment variable is not set", 0)
+		return nil, fmt.Errorf("LITEBASE_CLUSTER_ID environment variable is not set")
 	}
 
 	return NewCluster(clusterId)

@@ -19,7 +19,7 @@ var TimersMutex sync.Mutex
 var Timers = map[int64]Timer{}
 
 func Clock() {
-	if os.Getenv("LITEBASEDB_DEBUG") != "true" {
+	if os.Getenv("LITEBASE_DEBUG") != "true" {
 		return
 	}
 
@@ -27,7 +27,7 @@ func Clock() {
 }
 
 func Start(description string) int64 {
-	if os.Getenv("LITEBASEDB_DEBUG") != "true" {
+	if os.Getenv("LITEBASE_DEBUG") != "true" {
 		return 0
 	}
 
@@ -45,7 +45,7 @@ func Start(description string) int64 {
 }
 
 func Stop(timestamp int64) {
-	if os.Getenv("LITEBASEDB_DEBUG") != "true" {
+	if os.Getenv("LITEBASE_DEBUG") != "true" {
 		return
 	}
 

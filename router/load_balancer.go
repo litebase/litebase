@@ -85,7 +85,7 @@ func (lb *LoadBalancer) NextIndex() int {
 func (lb *LoadBalancer) setTargets() {
 	targets := []*Target{}
 
-	path := fmt.Sprintf("%s/%s", os.Getenv("LITEBASEDB_DATA_PATH"), "/nodes/query")
+	path := fmt.Sprintf("%s/%s", os.Getenv("LITEBASE_DATA_PATH"), "/nodes/query")
 	os.MkdirAll(path, 0755)
 	entries, err := os.ReadDir(path)
 

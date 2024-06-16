@@ -47,7 +47,7 @@ func (p *Primary) Run() {
 
 			log.Println("Received: ", string(decoded))
 
-			// writeData(fmt.Sprintf("./data/%s/%d", os.Getenv("LITEBASEDB_PORT"), time.Now().UnixNano()), decoded)
+			// writeData(fmt.Sprintf("./data/%s/%d", os.Getenv("LITEBASE_PORT"), time.Now().UnixNano()), decoded)
 			// default:
 			// log.Println("No data to replicate")
 		}
