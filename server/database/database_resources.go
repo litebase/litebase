@@ -143,7 +143,7 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 		return fileSystem
 	}
 
-	fileSystem := storage.NewLocalDatabaseFileSystem(
+	fileSystem := storage.NewTempDatabaseFileSystem(
 		fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
 		databaseUuid,
 		branchUuid,
