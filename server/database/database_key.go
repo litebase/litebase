@@ -55,6 +55,7 @@ func GetDatabaseKey(key string) (DatabaseKey, error) {
 
 func GetDatabaseKeyCount() int {
 	// Read all files in the databases directory
+	// STORAGE TODO: Deprecate, we need to create a database key index file and read from there
 	entries, err := storage.FS().ReadDir(auth.GetDatabaseKeysPath(config.Get().Signature))
 
 	if err != nil {

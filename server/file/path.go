@@ -21,7 +21,7 @@ func DatabaseHash(
 	return fmt.Sprintf("%x", sha1.Sum(nil))
 }
 
-func GetDatabaseFileDir(databaseUuid string, branchUuid string) string {
+func GetDatabaseFileBaseDir(databaseUuid string, branchUuid string) string {
 	dir, err := GetDatabaseFilePath(databaseUuid, branchUuid)
 
 	if err != nil {
@@ -29,6 +29,16 @@ func GetDatabaseFileDir(databaseUuid string, branchUuid string) string {
 	}
 
 	return filepath.Dir(dir)
+}
+
+func GetDatabaseFileDir(databaseUuid string, branchUuid string) string {
+	return fmt.Sprintf(
+		"%s/%s/%s/%s",
+		DatabaseDirectory(),
+		databaseUuid,
+		branchUuid,
+		DatabaseHash(databaseUuid, branchUuid),
+	)
 }
 
 func GetDatabaseFilePath(databaseUuid string, branchUuid string) (string, error) {

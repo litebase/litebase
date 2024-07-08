@@ -1,9 +1,10 @@
 package storage
 
 import (
+	"context"
 	"io/fs"
-	"litebase/internal/storage"
-	"os"
+	"litebase/internal/config"
+	internalStorage "litebase/internal/storage"
 	"sync"
 )
 
@@ -18,42 +19,38 @@ type FileSystem struct {
 // The FileSystemDriver interface defines the methods that must be implemented
 // by a file system driver.
 type FileSystemDriver interface {
-	Create(path string) (storage.File, error)
+	Create(path string) (internalStorage.File, error)
 	Mkdir(path string, perm fs.FileMode) error
 	MkdirAll(path string, perm fs.FileMode) error
-	Open(path string) (storage.File, error)
-	OpenFile(path string, flag int, perm fs.FileMode) (storage.File, error)
-	ReadDir(path string) ([]os.DirEntry, error)
+	Open(path string) (internalStorage.File, error)
+	OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error)
+	ReadDir(path string) ([]internalStorage.DirEntry, error)
 	ReadFile(path string) ([]byte, error)
 	Remove(path string) error
 	RemoveAll(path string) error
 	Rename(oldpath, newPath string) error
-	Stat(path string) (os.FileInfo, error)
+	Stat(path string) (internalStorage.FileInfo, error)
+	Truncate(path string, size int64) error
 	WriteFile(path string, data []byte, perm fs.FileMode) error
 }
 
-var fileSystem *FileSystem
-var fileSystemMutex = &sync.Mutex{}
-
 func NewFileSystem() *FileSystem {
+	var fileSystem FileSystemDriver
+
+	if config.Get().FileSystemDriver == "remote" {
+		// TODO: Use the Node context
+		fileSystem = NewRemoteFileSystemDriver(context.TODO())
+	} else {
+		fileSystem = NewLocalFileSystemDriver()
+	}
+
 	return &FileSystem{
 		mutex:  &sync.Mutex{},
-		driver: NewLocalFileSystemDriver(),
+		driver: fileSystem,
 	}
 }
 
-func FS() *FileSystem {
-	fileSystemMutex.Lock()
-	defer fileSystemMutex.Unlock()
-
-	if fileSystem == nil {
-		fileSystem = NewFileSystem()
-	}
-
-	return fileSystem
-}
-
-func (fs *FileSystem) Create(path string) (storage.File, error) {
+func (fs *FileSystem) Create(path string) (internalStorage.File, error) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 
@@ -74,21 +71,21 @@ func (fs *FileSystem) MkdirAll(path string, perm fs.FileMode) error {
 	return fs.driver.MkdirAll(path, perm)
 }
 
-func (fs *FileSystem) Open(path string) (storage.File, error) {
+func (fs *FileSystem) Open(path string) (internalStorage.File, error) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 
 	return fs.driver.Open(path)
 }
 
-func (fs *FileSystem) OpenFile(path string, flag int, perm fs.FileMode) (storage.File, error) {
+func (fs *FileSystem) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()
 
 	return fs.driver.OpenFile(path, flag, perm)
 }
 
-func (fs *FileSystem) ReadDir(path string) ([]os.DirEntry, error) {
+func (fs *FileSystem) ReadDir(path string) ([]internalStorage.DirEntry, error) {
 	return fs.driver.ReadDir(path)
 }
 
@@ -111,10 +108,10 @@ func (fs *FileSystem) RemoveAll(path string) error {
 }
 
 func (fs *FileSystem) Rename(oldpath, newpath string) error {
-	return os.Rename(oldpath, newpath)
+	return fs.driver.Rename(oldpath, newpath)
 }
 
-func (fs *FileSystem) Stat(path string) (os.FileInfo, error) {
+func (fs *FileSystem) Stat(path string) (internalStorage.FileInfo, error) {
 	return fs.driver.Stat(path)
 }
 

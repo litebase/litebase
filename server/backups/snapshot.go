@@ -35,7 +35,7 @@ func NewSnapshot(timestamp uint64) *Snapshot {
 }
 
 func GetSnapshotPath(databaseUuid string, branchUuid string) string {
-	directory := file.GetDatabaseFileDir(databaseUuid, branchUuid)
+	directory := file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)
 
 	return fmt.Sprintf("%s/logs/snapshots", directory)
 }

@@ -4,7 +4,8 @@ import (
 	"litebase/internal/config"
 	"litebase/server/backups"
 	"litebase/server/file"
-	"os"
+	"litebase/server/storage"
+	"log"
 	"sync"
 	"time"
 )
@@ -14,6 +15,7 @@ type Checkpointer struct {
 	checkpointLogger *backups.CheckpointLogger
 	databaseUuid     string
 	lock             sync.Mutex
+	metadata         *storage.DatabaseMetadata
 	pageLogger       *backups.PageLogger
 	pages            map[uint32]bool
 	running          bool
@@ -25,6 +27,7 @@ func NewCheckpointer(databaseUuid, branchUuid string) *Checkpointer {
 		checkpointLogger: backups.NewCheckpointLogger(databaseUuid, branchUuid),
 		databaseUuid:     databaseUuid,
 		lock:             sync.Mutex{},
+		metadata:         storage.NewDatabaseMetadata(databaseUuid, branchUuid),
 		pageLogger:       backups.NewPageLogger(databaseUuid, branchUuid),
 		pages:            map[uint32]bool{},
 	}
@@ -57,61 +60,44 @@ func (c *Checkpointer) Run() error {
 	}
 
 	timestamp := uint64(time.Now().Unix())
-
-	path, err := file.GetDatabaseFilePath(c.databaseUuid, c.branchUuid)
-
-	if err != nil {
-		return err
-	}
-
-	databaseFile, err := os.Open(path)
-
-	if err != nil {
-		return err
-	}
-
 	pageSize := config.Get().PageSize
+	pageCount := c.metadata.PageCount
 
-	// We need to get the size of the database file to calculate the page count.
-	// Normally, we could use a database connection to use the PRAGMA page_count
-	// * page_size query, but we don't want to open a connection.
-	fileInfo, err := os.Stat(path)
+	fs := DatabaseResources().FileSystem(c.databaseUuid, c.branchUuid)
 
-	if err != nil {
-		return err
-	}
+	largestPageNumber := uint32(0)
 
-	databaseSize := fileInfo.Size()
-	pageCount := uint32(databaseSize / int64(pageSize))
-
-	// TODO: Do more than one page at a time in goroutines
 	for pageNumber := range c.pages {
 		// Read the page from the database file
 		pageOffset := file.PageOffset(int64(pageNumber), pageSize)
-		_, err := databaseFile.Seek(pageOffset, 0)
+
+		pageData, err := fs.ReadAt(file.DatabaseHash(c.databaseUuid, c.branchUuid), pageOffset, pageSize)
 
 		if err != nil {
-			return err
-		}
-
-		pageData := make([]byte, pageSize)
-
-		_, err = databaseFile.Read(pageData)
-
-		if err != nil {
+			log.Println("Error reading page", err)
 			return err
 		}
 
 		err = c.pageLogger.Log(pageNumber, timestamp, pageData)
 
 		if err != nil {
+			log.Println("Error logging page", err)
 			return err
+		}
+
+		if pageNumber > largestPageNumber {
+			largestPageNumber = pageNumber
 		}
 	}
 
-	err = c.checkpointLogger.Log(timestamp, pageCount)
+	if uint32(pageCount) < largestPageNumber {
+		c.metadata.SetPageCount(int64(largestPageNumber))
+	}
+
+	err := c.checkpointLogger.Log(timestamp, uint32(pageCount))
 
 	if err != nil {
+		log.Println("Error logging checkpoint", err)
 		return err
 	}
 

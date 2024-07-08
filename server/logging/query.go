@@ -52,7 +52,7 @@ func (q *QueryLog) GetFile() internalStorage.File {
 
 	path := fmt.Sprintf(
 		"%s/logs/%d/query.log",
-		file.GetDatabaseFileDir(q.databaseUuid, q.branchUuid),
+		file.GetDatabaseFileBaseDir(q.databaseUuid, q.branchUuid),
 		int(timestamp.Unix()),
 	)
 
@@ -83,9 +83,10 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 	// Get all the directories in the logs directory
 	path := fmt.Sprintf(
 		"%s/logs",
-		file.GetDatabaseFileDir(q.databaseUuid, q.branchUuid),
+		file.GetDatabaseFileBaseDir(q.databaseUuid, q.branchUuid),
 	)
 
+	// STORAGE TODO: Deprecate, we need to create a query log index file and read from there
 	dirs, err := storage.FS().ReadDir(path)
 
 	if err != nil {
@@ -97,12 +98,12 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 	}
 
 	for directory := range dirs {
-		if !dirs[directory].IsDir() {
+		if !dirs[directory].IsDir {
 			continue
 		}
 
 		// Get the timestamp of the directory
-		directoryTimestamp, err := strconv.Atoi(dirs[directory].Name())
+		directoryTimestamp, err := strconv.Atoi(dirs[directory].Name)
 
 		if err != nil {
 			log.Fatal(err)

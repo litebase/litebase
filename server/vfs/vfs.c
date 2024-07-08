@@ -232,6 +232,7 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
   p->pReal = (sqlite3_file *)&p[1];
+
   rc = ORIGVFS(pVfs)->xOpen(ORIGVFS(pVfs), zName, ORIGFILE(pFile), flags, pOutFlags);
 
   p->pName = zName;

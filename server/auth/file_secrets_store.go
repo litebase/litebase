@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+/*
+The FileSecretsStore is a secrets store that stores secrets in files on disk.
+Thsese files are stored in a temporary directory and should be deleted when
+the application is closed.
+*/
 type FileSecretsStore struct {
 	path string
 }
@@ -18,6 +23,7 @@ type FileSecret struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+// TODO: This should be using the local file system abstraction
 func NewFileSecretsStore(path string) *FileSecretsStore {
 	return &FileSecretsStore{path}
 }
@@ -30,7 +36,7 @@ func (store *FileSecretsStore) Forget(key string) {
 	os.Remove(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
 }
 
-func (store *FileSecretsStore) Get(key string) interface{} {
+func (store *FileSecretsStore) Get(key string, cacheItemType interface{}) interface{} {
 	data, err := os.ReadFile(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
 	secret := FileSecret{}
 
@@ -49,13 +55,11 @@ func (store *FileSecretsStore) Get(key string) interface{} {
 		return nil
 	}
 
-	jsonValue := interface{}(nil)
-
-	if err := json.Unmarshal([]byte(secret.Value), &jsonValue); err != nil {
+	if err := json.Unmarshal([]byte(secret.Value), &cacheItemType); err != nil {
 		return nil
 	}
 
-	return jsonValue
+	return cacheItemType
 }
 
 // Key Function for the sha1 hash
@@ -74,7 +78,7 @@ func (store *FileSecretsStore) Put(key string, value any, seconds time.Duration)
 
 	secret := FileSecret{
 		Value:     string(jsonValue),
-		ExpiresAt: time.Now().Add(time.Second * seconds),
+		ExpiresAt: time.Now().Add(seconds),
 	}
 
 	jsonValue, err = json.Marshal(secret)

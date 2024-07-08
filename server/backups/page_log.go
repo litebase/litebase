@@ -3,7 +3,9 @@ package backups
 import (
 	"fmt"
 	"io"
+	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
+	"litebase/server/storage"
 	"log"
 	"os"
 )
@@ -19,23 +21,22 @@ file on disk, and the PageLogEntries are stored in compressed frames.
 */
 
 type PageLog struct {
-	file       *os.File
+	file       internalStorage.File
 	PageNumber uint32
 	Version    int
 }
 
 func OpenPageLog(databaseUuid, branchUuid string, pageNumber uint32) (*PageLog, error) {
 log:
-	directory := file.GetDatabaseFileDir(databaseUuid, branchUuid)
+	directory := file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)
 	path := fmt.Sprintf("%s/page_versions/%010d", directory, pageNumber)
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := storage.FS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(fmt.Sprintf("%s/page_versions", directory), 0755)
+			err = storage.FS().MkdirAll(fmt.Sprintf("%s/page_versions", directory), 0755)
 
 			if err != nil {
-
 				return nil, err
 			}
 

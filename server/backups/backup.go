@@ -40,9 +40,10 @@ func GetBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Ti
 
 func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int) *Backup {
 	backups := make([]int, 0)
-	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileDir(databaseUuid, branchUuid), BACKUP_DIR)
+	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid), BACKUP_DIR)
 
 	// Get a list of all directories in the directory
+	// STORAGE TODO: Deprecate, we need to create backup  index file and read from there
 	dirs, err := storage.FS().ReadDir(backupsDirectory)
 
 	if err != nil {
@@ -53,11 +54,11 @@ func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int
 	for _, dir := range dirs {
 		// Get the timestamp of the directory
 
-		if !dir.IsDir() {
+		if !dir.IsDir {
 			continue
 		}
 
-		timestamp, err := strconv.Atoi(dir.Name())
+		timestamp, err := strconv.Atoi(dir.Name)
 
 		if err != nil {
 			log.Fatal(err)
@@ -94,7 +95,7 @@ func (backup *Backup) Delete() {
 
 func (backup *Backup) deleteArchiveFile() {
 	if config.Get().Env == "local" {
-		storageDir := file.GetDatabaseFileDir(backup.databaseUuid, backup.branchUuid)
+		storageDir := file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid)
 		storage.FS().Remove(fmt.Sprintf("%s/archives/%s", storageDir, backup.BackupKey()))
 
 		return
@@ -157,7 +158,7 @@ func (backup *Backup) packageBackup() string {
 }
 
 func (backup *Backup) Path() string {
-	return fmt.Sprintf("%s/%s", file.GetDatabaseFileDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
+	return fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
 }
 
 func RunBackup(databaseUuid string, branchUuid string) (*Backup, error) {
@@ -180,7 +181,7 @@ func (backup *Backup) Size() int64 {
 		return 0
 	}
 
-	return stat.Size()
+	return stat.Size
 }
 
 func (backup *Backup) ToMap() map[string]interface{} {
@@ -208,7 +209,7 @@ func (backup *Backup) Upload() map[string]interface{} {
 	}
 
 	if config.Get().Env == "local" {
-		storageDir := file.GetDatabaseFileDir(backup.databaseUuid, backup.branchUuid)
+		storageDir := file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid)
 
 		if _, err := storage.FS().Stat(storageDir); os.IsNotExist(err) {
 			storage.FS().Mkdir(storageDir, 0755)
@@ -231,6 +232,6 @@ func (backup *Backup) Upload() map[string]interface{} {
 
 	return map[string]interface{}{
 		"key":  key,
-		"size": stat.Size(),
+		"size": stat.Size,
 	}
 }

@@ -4,14 +4,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
+	"litebase/server/storage"
 	"os"
 )
 
 type CheckpointLogger struct {
 	branchUuid   string
 	databaseUuid string
-	file         *os.File
+	file         internalStorage.File
 }
 
 func NewCheckpointLogger(databaseUuid, branchUuid string) *CheckpointLogger {
@@ -21,15 +23,15 @@ func NewCheckpointLogger(databaseUuid, branchUuid string) *CheckpointLogger {
 	}
 }
 
-func (c *CheckpointLogger) File() (*os.File, error) {
+func (c *CheckpointLogger) File() (internalStorage.File, error) {
 	if c.file != nil {
 		return c.file, nil
 	}
 
 openFile:
-	directory := file.GetDatabaseFileDir(c.databaseUuid, c.branchUuid)
+	directory := file.GetDatabaseFileBaseDir(c.databaseUuid, c.branchUuid)
 	path := fmt.Sprintf("%s/logs/snapshots", directory)
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := storage.FS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {

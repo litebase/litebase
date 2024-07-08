@@ -13,8 +13,8 @@ func NewLocalFileSystemDriver() *LocalFileSystemDriver {
 	return &LocalFileSystemDriver{}
 }
 
-func (fs *LocalFileSystemDriver) Create(name string) (internalStorage.File, error) {
-	return os.Create(name)
+func (fs *LocalFileSystemDriver) Create(path string) (internalStorage.File, error) {
+	return os.Create(path)
 }
 
 func (fs *LocalFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
@@ -33,8 +33,24 @@ func (fs *LocalFileSystemDriver) OpenFile(name string, flag int, perm fs.FileMod
 	return os.OpenFile(name, flag, perm)
 }
 
-func (fs *LocalFileSystemDriver) ReadDir(path string) ([]os.DirEntry, error) {
-	return os.ReadDir(path)
+func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
+	entries, err := os.ReadDir(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var dirEntries []internalStorage.DirEntry
+
+	for _, entry := range entries {
+		dirEntries = append(dirEntries, internalStorage.DirEntry{
+			Name:  entry.Name(),
+			IsDir: entry.IsDir(),
+			Type:  entry.Type(),
+		})
+	}
+
+	return dirEntries, nil
 }
 
 func (fs *LocalFileSystemDriver) ReadFile(path string) ([]byte, error) {
@@ -53,10 +69,21 @@ func (fs *LocalFileSystemDriver) Rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }
 
-func (fs *LocalFileSystemDriver) Stat(name string) (os.FileInfo, error) {
-	return os.Stat(name)
+func (fs *LocalFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
+	info, err := os.Stat(path)
+
+	return internalStorage.FileInfo{
+		Name:    info.Name(),
+		Size:    info.Size(),
+		Mode:    info.Mode(),
+		ModTime: info.ModTime(),
+	}, err
 }
 
-func (fs *LocalFileSystemDriver) WriteFile(name string, data []byte, perm fs.FileMode) error {
-	return os.WriteFile(name, data, perm)
+func (fs *LocalFileSystemDriver) Truncate(name string, size int64) error {
+	return os.Truncate(name, size)
+}
+
+func (fs *LocalFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
+	return os.WriteFile(path, data, perm)
 }

@@ -1,30 +1,42 @@
 package storage
 
 import (
+	"bytes"
+	"context"
 	"encoding/gob"
 	"fmt"
 	"io"
 	"litebase/internal/storage"
 	"log"
 	"net/http"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // TODO: Close idle connections
 type StorageConnection struct {
+	activated       chan bool
 	client          *http.Client
 	close           chan struct{}
+	context         context.Context
 	encoder         *gob.Encoder
+	Id              string
+	mutext          *sync.RWMutex
 	open            bool
 	responseChannel chan storage.StorageResponse
+	responseWriter  http.ResponseWriter
 	url             string
 }
 
-func NewStorageConnection(url string) *StorageConnection {
-	gob.Register(storage.StorageRequest{})
-	gob.Register(storage.StorageResponse{})
-
+func NewStorageConnection(ctx context.Context, url string) *StorageConnection {
 	connection := &StorageConnection{
+		Id:              uuid.NewString(),
+		activated:       make(chan bool),
 		close:           make(chan struct{}),
+		context:         ctx,
+		mutext:          &sync.RWMutex{},
 		responseChannel: make(chan storage.StorageResponse),
 		url:             url,
 	}
@@ -33,6 +45,8 @@ func NewStorageConnection(url string) *StorageConnection {
 }
 
 func (c *StorageConnection) Open() error {
+	headers := make(map[string]interface{})
+
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
@@ -40,13 +54,10 @@ func (c *StorageConnection) Open() error {
 	}
 
 	reader, writer := io.Pipe()
-	c.encoder = gob.NewEncoder(writer)
+	encoder := gob.NewEncoder(writer)
 	c.close = make(chan struct{})
-	c.responseChannel = make(chan storage.StorageResponse)
 
-	var headers map[string]interface{}
-
-	req, err := http.NewRequest("POST", c.url, reader)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/connection", c.url), reader)
 
 	if err != nil {
 		fmt.Println(err)
@@ -82,14 +93,14 @@ func (c *StorageConnection) Open() error {
 			return
 		}
 
-		c.open = true
-
 		defer response.Body.Close()
 
 		dec := gob.NewDecoder(response.Body)
 
 		for {
 			select {
+			case <-c.context.Done():
+				return
 			case <-c.close:
 				return
 			default:
@@ -102,23 +113,78 @@ func (c *StorageConnection) Open() error {
 					return
 				}
 
+				log.Println("Received response:", response)
 				c.responseChannel <- response
 			}
 		}
 	}()
 
-	return nil
+	// TODO: We need to ensure we are connected first before sending the connection message
+	err = encoder.Encode(storage.StorageConnection{
+		Id: c.Id,
+		// TODO: Need to send a return address
+		Url: "http://localhost:8081",
+	})
+
+	if err != nil {
+		log.Println("Error encoding connection message:", err)
+		return err
+	}
+
+	select {
+	case <-c.activated:
+		c.open = true
+		return nil
+	case <-time.After(3 * time.Second):
+		return fmt.Errorf("timeout waiting for connection")
+	}
 }
 
 func (c *StorageConnection) Close() {
+	c.mutext.Lock()
+	defer c.mutext.Unlock()
+
+	if !c.open {
+		return
+	}
+
 	c.open = false
 	c.client.CloseIdleConnections()
 	c.client = nil
-	close(c.close)
-	close(c.responseChannel)
 }
 
 func (c *StorageConnection) Send(message storage.StorageRequest) (storage.StorageResponse, error) {
+	// Create an Id for the message if one is not provided
+	if message.Id == "" {
+		message.Id = uuid.NewString()
+	}
+
+	if !StorageInit {
+		data := bytes.NewBuffer(nil)
+		enc := gob.NewEncoder(data)
+		enc.Encode(message)
+		response, err := http.Post("http://localhost:8085/command", "application/gob", data)
+
+		if err != nil {
+			log.Println(err)
+			return storage.StorageResponse{}, err
+		}
+
+		defer response.Body.Close()
+
+		dec := gob.NewDecoder(response.Body)
+
+		var responseMessage storage.StorageResponse
+
+		if err := dec.Decode(&responseMessage); err != nil {
+			log.Println(err)
+			c.Close()
+			return storage.StorageResponse{}, err
+		}
+
+		return responseMessage, nil
+	}
+
 	if !c.open {
 		err := c.Open()
 
@@ -134,7 +200,20 @@ func (c *StorageConnection) Send(message storage.StorageRequest) (storage.Storag
 		return storage.StorageResponse{}, err
 	}
 
-	response := <-c.responseChannel
+	c.responseWriter.(http.Flusher).Flush()
 
-	return response, nil
+	timeout := time.NewTimer(3 * time.Second)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case <-timeout.C:
+			return storage.StorageResponse{}, fmt.Errorf("timeout waiting for response")
+		case <-c.close:
+			return storage.StorageResponse{}, fmt.Errorf("connection closed")
+
+		case response := <-c.responseChannel:
+			return response, nil
+		}
+	}
 }

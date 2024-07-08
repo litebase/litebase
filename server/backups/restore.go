@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"litebase/internal/config"
+	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
+	"litebase/server/storage"
 	"log"
 	"os"
 	"sync"
@@ -24,6 +26,7 @@ func RestoreFromTimestamp(
 		return fmt.Errorf("restore point not found in snapshot")
 	}
 
+	// TODO: this needs to be based on split files
 	// Create the new database file
 	destination, err := file.GetDatabaseFilePath(databaseUuid, branchUuid)
 	filePath := fmt.Sprintf("%s%s", destination, "-restore")
@@ -32,7 +35,8 @@ func RestoreFromTimestamp(
 		return err
 	}
 
-	destinationFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	// TODO: this needs to be based on split files
+	destinationFile, err := storage.FS().OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 
 	if err != nil {
 		return err
@@ -43,9 +47,10 @@ func RestoreFromTimestamp(
 	// TOOD: Lock the databse connections from writes?
 
 	// Walk the files in the page versions directory
-	directory := file.GetDatabaseFileDir(databaseUuid, branchUuid)
+	directory := file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)
 	path := fmt.Sprintf("%s/page_versions", directory)
 
+	// TODO: this needs to be based on split files
 	dir, err := os.Open(path)
 
 	if err != nil {
@@ -181,7 +186,7 @@ func RestorePage(
 	branchUuid string,
 	pageNumber uint32,
 	backupTimestamp uint64,
-	destinationFile *os.File,
+	destinationFile internalStorage.File,
 	errorSignal chan error,
 ) {
 	// Open the page log

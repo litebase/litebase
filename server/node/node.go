@@ -173,6 +173,7 @@ func Instances() []string {
 	}
 
 	// Read the directory
+	// STORAGE TODO: Deprecate, we need to create a node index file and read from there
 	files, err := storage.FS().ReadDir(path)
 
 	if err != nil {
@@ -183,7 +184,7 @@ func Instances() []string {
 	instances := []string{}
 
 	for _, file := range files {
-		instances = append(instances, strings.ReplaceAll(file.Name(), ".json", ""))
+		instances = append(instances, strings.ReplaceAll(file.Name, ".json", ""))
 	}
 
 	return instances

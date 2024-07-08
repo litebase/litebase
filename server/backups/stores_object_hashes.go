@@ -13,7 +13,7 @@ type StoresObjectHashes struct{}
 
 func (s *StoresObjectHashes) GetPath(databaseUuid string, branchUuid string, timestamp int64, hash string) string {
 	return strings.Join([]string{
-		file.GetDatabaseFileDir(databaseUuid, branchUuid),
+		file.GetDatabaseFileBaseDir(databaseUuid, branchUuid),
 		BACKUP_DIR,
 		fmt.Sprintf("%d", timestamp),
 		BACKUP_OBJECT_DIR,

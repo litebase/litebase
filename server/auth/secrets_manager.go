@@ -39,7 +39,7 @@ func SecretsManager() *SecretsManagerInstance {
 
 func (s *SecretsManagerInstance) cache(key string) SecretsStore {
 	s.secretStoreMutex.RLock()
-	// _, hasFileStore := s.secretStore["file"]
+	_, hasFileStore := s.secretStore["file"]
 	_, hasMapStore := s.secretStore["map"]
 	_, hasTransientStore := s.secretStore["transient"]
 	s.secretStoreMutex.RUnlock()
@@ -56,13 +56,15 @@ func (s *SecretsManagerInstance) cache(key string) SecretsStore {
 		s.secretStoreMutex.Unlock()
 	}
 
-	// if key == "file" && !hasFileStore {
-	// s.secretStoreMutex.Lock()
-	// 	s.secretStore["file"] = NewFileSecretsStore(
-	// 		fmt.Sprintf("%s/%s", config.Get().TmpPath, "litebase/cache"),
-	// 	)
-	// 	s.secretStoreMutex.Unlock()
-	// }
+	if key == "file" && !hasFileStore {
+		s.secretStoreMutex.Lock()
+
+		s.secretStore["file"] = NewFileSecretsStore(
+			fmt.Sprintf("%s/%s", config.Get().TmpPath, "litebase/cache"),
+		)
+
+		s.secretStoreMutex.Unlock()
+	}
 
 	s.secretStoreMutex.RLock()
 	defer s.secretStoreMutex.RUnlock()
@@ -189,15 +191,15 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 		}
 	}
 
-	// fileValue := s.cache("file").Get(s.publicKeyCacheKey(signature, databaseUuid))
+	fileValue := s.cache("file").Get(s.publicKeyCacheKey(signature, databaseUuid), &publicKey)
 
-	// if fileValue != nil {
-	// 	publicKey, ok := fileValue.(string)
+	if fileValue != nil {
+		publicKey, ok := fileValue.(string)
 
-	// 	if ok {
-	// 		return publicKey, nil
-	// 	}
-	// }
+		if ok {
+			return publicKey, nil
+		}
+	}
 
 	path := s.SecretsPath(
 		config.Get().Signature,
@@ -220,7 +222,6 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 	s.cache("file").Put(s.publicKeyCacheKey(signature, databaseUuid), decryptedPublicKey["value"], time.Second*60)
 
 	return decryptedPublicKey["value"], nil
-
 }
 
 func (s *SecretsManagerInstance) GetAccessKeySecret(accessKeyId string) (string, error) {
@@ -299,12 +300,12 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 
 	for _, directory := range directories {
 		// check if the entry is a directory
-		if !directory.IsDir() {
+		if !directory.IsDir {
 			continue
 		}
 
 		// Check if there is a manifest file
-		manifestPath := fmt.Sprintf("%s/.litebase/%s/manifest.json", config.Get().DataPath, directory.Name())
+		manifestPath := fmt.Sprintf("%s/.litebase/%s/manifest.json", config.Get().DataPath, directory.Name)
 
 		if _, err := storage.FS().Stat(manifestPath); os.IsNotExist(err) {
 			continue
@@ -335,7 +336,7 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 		//Check if rotated at is greater than 24 hours
 		if rotatedAt == 0 || time.Since(rotatedAtTime) > 24*time.Hour {
 			// Remove the directory
-			err := storage.FS().RemoveAll(fmt.Sprintf("%s/.litebase/%s", config.Get().DataPath, directory.Name()))
+			err := storage.FS().RemoveAll(fmt.Sprintf("%s/.litebase/%s", config.Get().DataPath, directory.Name))
 
 			if err != nil {
 				log.Fatal(err)

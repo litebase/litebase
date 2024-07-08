@@ -33,6 +33,7 @@ func (akm *AccessKeyManagerInstance) accessKeyCacheKey(accessKeyId string) strin
 }
 
 func (akm *AccessKeyManagerInstance) AllAccessKeyIds() ([]string, error) {
+	// STORAGE TODO: Deprecate, we need to get all the access key ids from an index file
 	files, err := storage.FS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys"))
 
 	if err != nil {
@@ -42,7 +43,7 @@ func (akm *AccessKeyManagerInstance) AllAccessKeyIds() ([]string, error) {
 	var accessKeyIds []string
 
 	for _, file := range files {
-		accessKeyIds = append(accessKeyIds, file.Name())
+		accessKeyIds = append(accessKeyIds, file.Name)
 	}
 
 	return accessKeyIds, nil
@@ -127,26 +128,12 @@ func (akm *AccessKeyManagerInstance) GenerateAccessKeySecret() string {
 }
 
 func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (AccessKey, error) {
-	var accessKey AccessKey
-	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), AccessKey{})
+	accessKey := &AccessKey{}
+	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
 
 	if value != nil {
-		accessKey, ok := value.(AccessKey)
-
-		if ok {
-			return accessKey, nil
-		}
+		return *accessKey, nil
 	}
-
-	// fileValue := SecretsManager().cache("file").Get(akm.accessKeyCacheKey(accessKeyId), &AccessKey{})
-
-	// if fileValue != nil {
-	// 	json.Unmarshal([]byte(fileValue.(string)), &accessKey)
-	// }
-
-	// if accessKey != nil {
-	// 	return accessKey, nil
-	// }
 
 	path := SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
 
@@ -162,7 +149,7 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (AccessKey, error) 
 		return AccessKey{}, err
 	}
 
-	err = json.NewDecoder(bytes.NewReader([]byte(decrypted["value"]))).Decode(&accessKey)
+	err = json.NewDecoder(bytes.NewReader([]byte(decrypted["value"]))).Decode(accessKey)
 
 	if err != nil {
 		return AccessKey{}, err
@@ -171,7 +158,7 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (AccessKey, error) 
 	SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
 	// SecretsManager().cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
 
-	return accessKey, err
+	return *accessKey, err
 }
 
 func (akm *AccessKeyManagerInstance) Has(databaseKey, accessKeyId string) bool {
@@ -194,6 +181,6 @@ func (akm *AccessKeyManagerInstance) PurgeAll() {
 	}
 
 	for _, file := range files {
-		AccessKeyManager().Purge(file.Name())
+		AccessKeyManager().Purge(file.Name)
 	}
 }

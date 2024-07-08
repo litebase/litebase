@@ -71,6 +71,7 @@ func All() ([]*Database, error) {
 	var databases []*Database
 
 	// Read all files in the databases directory
+	// STORAGE TODO: Deprecate, we need to create a database index file and read from there
 	entries, err := storage.FS().ReadDir(Directory())
 
 	if err != nil {
@@ -78,7 +79,7 @@ func All() ([]*Database, error) {
 	}
 
 	for _, entry := range entries {
-		data, err := storage.FS().ReadFile(fmt.Sprintf("%s/%s", Directory(), entry.Name()))
+		data, err := storage.FS().ReadFile(fmt.Sprintf("%s/%s", Directory(), entry.Name))
 
 		if err != nil {
 			return nil, err

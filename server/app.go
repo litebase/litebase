@@ -8,16 +8,20 @@ import (
 	"litebase/server/events"
 	"litebase/server/http"
 	"litebase/server/node"
+	"litebase/server/storage"
 )
 
 type App struct {
-	server *ServerInstance
+	initialized bool
+	server      *ServerInstance
 }
 
-var staticApp *App
+var AppSingleton *App
 
 func NewApp(server *ServerInstance) *App {
-	app := &App{server}
+	app := &App{
+		server: server,
+	}
 	config.Init()
 
 	_, err := cluster.Init()
@@ -32,20 +36,16 @@ func NewApp(server *ServerInstance) *App {
 	auth.UserManager().Init()
 	node.Init()
 	database.Init()
-
 	auth.Broadcaster(events.EventsManager().Hook())
-
-	staticApp = app
+	storage.Init()
+	app.initialized = true
+	AppSingleton = app
 
 	return app
 }
 
-func Container() *App {
-	if staticApp == nil {
-		panic("App container is not initialized")
-	}
-
-	return staticApp
+func (app *App) IsInitialized() bool {
+	return app.initialized
 }
 
 func (app *App) runTasks() {
@@ -64,8 +64,4 @@ func (app *App) Run() {
 	http.Router().Server(app.server.ServeMux)
 	node.Register()
 	go app.runTasks()
-}
-
-func (app *App) Server() *ServerInstance {
-	return app.server
 }

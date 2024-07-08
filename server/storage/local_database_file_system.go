@@ -3,26 +3,32 @@ package storage
 import (
 	"fmt"
 	internalStorage "litebase/internal/storage"
+	"litebase/server/file"
 	"log"
 	"os"
+	"strings"
 	"sync"
 )
 
 type LocalDatabaseFileSystem struct {
 	files      map[string]internalStorage.File
-	filesystem *LocalFileSystemDriver
+	fileSystem *LocalFileSystemDriver
+	hasPageOne bool
 	mutex      *sync.RWMutex
 	path       string
 	pageSize   int64
+	size       int64
 	writeHook  func(offset int64)
 }
 
 func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) *LocalDatabaseFileSystem {
+	fs := NewLocalFileSystemDriver()
+
 	// Check if the the directory exists
-	if _, err := os.Stat(path); err != nil {
+	if _, err := fs.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			// Create the directory
-			if err := os.MkdirAll(path, 0755); err != nil {
+			if err := fs.MkdirAll(path, 0755); err != nil {
 				log.Fatalln("Error creating temp file system directory", err)
 			}
 		} else {
@@ -32,130 +38,121 @@ func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize 
 
 	return &LocalDatabaseFileSystem{
 		files:      make(map[string]internalStorage.File),
-		filesystem: NewLocalFileSystemDriver(),
+		fileSystem: fs,
 		mutex:      &sync.RWMutex{},
 		path:       path,
 		pageSize:   pageSize,
 	}
 }
 
-func (fs *LocalDatabaseFileSystem) Close(path string) error {
-	fs.mutex.Lock()
-	defer fs.mutex.Unlock()
+func (lfs *LocalDatabaseFileSystem) Close(path string) error {
+	lfs.mutex.Lock()
+	defer lfs.mutex.Unlock()
 
-	file, ok := fs.files[path]
+	file, ok := lfs.files[path]
 
 	if !ok {
 		return os.ErrNotExist
 	}
 
-	delete(fs.files, path)
+	delete(lfs.files, path)
 
 	return file.Close()
 }
 
-func (fs *LocalDatabaseFileSystem) Delete(path string) error {
-	fs.mutex.Lock()
-	defer fs.mutex.Unlock()
+func (lfs *LocalDatabaseFileSystem) Delete(path string) error {
+	lfs.mutex.Lock()
+	defer lfs.mutex.Unlock()
 
-	file, ok := fs.files[path]
+	file, ok := lfs.files[path]
 
 	if ok {
-		delete(fs.files, path)
+		delete(lfs.files, path)
 		file.Close()
 	}
 
-	os.Remove(fmt.Sprintf("%s/%s", fs.path, path))
+	lfs.fileSystem.Remove(fmt.Sprintf("%s/%s", lfs.path, path))
 
 	return nil
 }
 
-func (fs *LocalDatabaseFileSystem) Exists() bool {
-	_, err := os.Stat(fs.path)
+func (lfs *LocalDatabaseFileSystem) Exists() bool {
+	_, err := lfs.fileSystem.Stat(lfs.path)
 
 	return err == nil
 }
 
-func (fs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
-	file, err := fs.filesystem.OpenFile(
-		fmt.Sprintf("%s/%s", fs.path, path),
-		os.O_RDWR|os.O_CREATE,
-		0644,
-	)
+func (lfs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
+	path = fmt.Sprintf("%s/%s", lfs.path, strings.ReplaceAll(path, ".db", ""))
+
+	err := lfs.fileSystem.MkdirAll(path, 0755)
 
 	if err != nil {
 		return nil, err
 	}
 
-	fs.mutex.Lock()
-	fs.files[path] = file
-	fs.mutex.Unlock()
-
-	return file, nil
+	return nil, nil
 }
 
-func (fs *LocalDatabaseFileSystem) Path() string {
-	return fs.path
+func (lfs *LocalDatabaseFileSystem) Path() string {
+	return lfs.path
 }
 
-func (fs *LocalDatabaseFileSystem) ReadAt(path string, offset, len int64) ([]byte, error) {
-	fs.mutex.RLock()
-	file, ok := fs.files[path]
-	fs.mutex.RUnlock()
-
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-
-	var data = make([]byte, len)
-
-	n, err := file.ReadAt(data, offset)
+func (lfs *LocalDatabaseFileSystem) ReadAt(path string, offset, length int64) ([]byte, error) {
+	pageNumber := file.PageNumber(offset, lfs.pageSize)
+	path = strings.ReplaceAll(path, ".db", "")
+	data, err := lfs.fileSystem.ReadFile(fmt.Sprintf("%s/%s/%010d", lfs.path, path, pageNumber))
 
 	if err != nil {
-		return nil, err
+		if !os.IsNotExist(err) {
+			log.Println("Error reading file", err)
+			return nil, err
+		}
+
+		if os.IsNotExist(err) {
+			data = make([]byte, length)
+		}
+	} else {
+		data, err = pgDecoder().DecodeAll(data, nil)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if int64(n) != len {
-		return nil, fmt.Errorf("ReadAt: short read: got %d, expected %d", n, len)
+	if len(data) == int(lfs.pageSize) && pageNumber == 1 {
+		lfs.hasPageOne = true
 	}
 
 	return data, nil
 }
 
-func (fs *LocalDatabaseFileSystem) WriteAt(path string, data []byte, offset int64) (n int, err error) {
-	fs.mutex.RLock()
-	file, ok := fs.files[path]
-	fs.mutex.RUnlock()
-
-	if !ok {
-		return 0, os.ErrNotExist
+// TODO: this should use the metadata file to get the size
+func (lfs *LocalDatabaseFileSystem) Size(path string) (int64, error) {
+	if lfs.hasPageOne {
+		lfs.size = lfs.pageSize * 4294967294
 	}
 
-	_, err = file.WriteAt(data, offset)
-
-	if err != nil {
-		return 0, err
-	}
-
-	if fs.writeHook != nil {
-		fs.writeHook(offset)
-	}
-
-	return
+	return lfs.size, nil
 }
 
-func (fs *LocalDatabaseFileSystem) Size(path string) (int64, error) {
-	stat, err := os.Stat(fmt.Sprintf("%s/%s", fs.path, path))
+func (lfs *LocalDatabaseFileSystem) Truncate(path string, size int64) error {
+	path = strings.ReplaceAll(path, ".db", "")
 
-	if err != nil {
-		return 0, err
+	// No-op since pages are stored in separate files and we don't need to
+	// truncate the database "file" to a certain size.
+	if size > 0 {
+		return nil
 	}
 
-	return stat.Size(), nil
-}
+	// Remove all the files from the directory
+	err := lfs.fileSystem.RemoveAll(fmt.Sprintf("%s/%s", lfs.path, path))
 
-func (fs *LocalDatabaseFileSystem) Truncate(path string, size int64) error {
-	err := os.Truncate(fmt.Sprintf("%s/%s", fs.path, path), size)
+	if err != nil {
+		return err
+	}
+
+	err = lfs.fileSystem.MkdirAll(fmt.Sprintf("%s/%s", lfs.path, path), 0755)
 
 	if err != nil {
 		return err
@@ -164,8 +161,25 @@ func (fs *LocalDatabaseFileSystem) Truncate(path string, size int64) error {
 	return nil
 }
 
-func (fs *LocalDatabaseFileSystem) WithWriteHook(hook func(offset int64)) *LocalDatabaseFileSystem {
-	fs.writeHook = hook
+func (lfs *LocalDatabaseFileSystem) WithWriteHook(hook func(offset int64)) DatabaseFileSystem {
+	lfs.writeHook = hook
 
-	return fs
+	return lfs
+}
+
+func (lfs *LocalDatabaseFileSystem) WriteAt(path string, data []byte, offset int64) (n int, err error) {
+	compressed := pgEncoder().EncodeAll(data, nil)
+	pageNumber := file.PageNumber(offset, lfs.pageSize)
+	path = strings.ReplaceAll(path, ".db", "")
+	err = lfs.fileSystem.WriteFile(fmt.Sprintf("%s/%s/%010d", lfs.path, path, pageNumber), compressed, 0644)
+
+	if err != nil {
+		return 0, err
+	}
+
+	if lfs.writeHook != nil {
+		lfs.writeHook(offset)
+	}
+
+	return len(data), nil
 }

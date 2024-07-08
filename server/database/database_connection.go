@@ -117,9 +117,9 @@ func (con *DatabaseConnection) Checkpoint() error {
 
 		if err != nil {
 			log.Println("Error checkpointing database", err)
+		} else {
+			log.Println("Checkpointed database", con.databaseUuid, con.branchUuid)
 		}
-
-		log.Println("Checkpointed database", con.databaseUuid, con.branchUuid)
 	})
 
 	if err != nil {

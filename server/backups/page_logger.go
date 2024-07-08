@@ -1,5 +1,7 @@
 package backups
 
+import "log"
+
 type PageLogger struct {
 	databaseUuid string
 	branchUuid   string
@@ -16,6 +18,7 @@ func (p *PageLogger) Log(pageNumber uint32, timstamp uint64, data []byte) error 
 	pageLog, err := OpenPageLog(p.databaseUuid, p.branchUuid, pageNumber)
 
 	if err != nil {
+		log.Println("Error opening page log", err)
 		return err
 	}
 

@@ -20,8 +20,6 @@ type ServerInstance struct {
 	ServeMux   *http.ServeMux
 }
 
-var serverInstance *ServerInstance
-
 func NewServer() *ServerInstance {
 	server := &ServerInstance{}
 
@@ -63,11 +61,11 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 
 	// s.Node.Run()
 
+	log.Println("Litebase running on port", port)
+
 	if serverHook != nil {
 		serverHook(s)
 	}
-
-	log.Println("Litebase running on port", port)
 
 	serverDone := make(chan struct{})
 
@@ -119,8 +117,4 @@ func (s *ServerInstance) Shutdown() {
 	if err := s.HttpServer.Shutdown(ctx); err != nil {
 		log.Printf("HTTP server Shutdown: %v", err)
 	}
-}
-
-func Server() *ServerInstance {
-	return serverInstance
 }

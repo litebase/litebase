@@ -27,6 +27,7 @@ func AllSignatures() map[string]string {
 		".litebase",
 	}, "/")
 
+	// STORAGE TODO: Deprecate, we need to create a signature index file and read from there
 	signatureFiles, err := storage.FS().ReadDir(directoryPath)
 
 	if err != nil {
@@ -34,12 +35,12 @@ func AllSignatures() map[string]string {
 	}
 
 	for _, signatureFile := range signatureFiles {
-		if !signatureFile.IsDir() {
+		if !signatureFile.IsDir {
 			continue
 		}
 
-		signatureHash := SignatureHash(signatureFile.Name())
-		signatures[signatureHash] = signatureFile.Name()
+		signatureHash := SignatureHash(signatureFile.Name)
+		signatures[signatureHash] = signatureFile.Name
 	}
 
 	return signatures

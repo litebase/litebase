@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"litebase/internal/config"
+	internalStorage "litebase/internal/storage"
 	"litebase/server/storage"
 	"log"
 	"os"
@@ -441,6 +442,7 @@ func rotateAccessKeys() error {
 		"access_keys",
 	}, "/")
 
+	// STORAGE TODO: Deprecate, we need to create an access key index file and read from there
 	accessKeys, err := storage.FS().ReadDir(accessKeyDir)
 
 	if err != nil {
@@ -454,7 +456,7 @@ func rotateAccessKeys() error {
 	for _, accessKey := range accessKeys {
 		accessKeyBytes, err := storage.FS().ReadFile(strings.Join([]string{
 			accessKeyDir,
-			accessKey.Name(),
+			accessKey.Name,
 		}, "/"))
 
 		if err != nil {
@@ -475,7 +477,7 @@ func rotateAccessKeys() error {
 
 		if err := storage.FS().WriteFile(strings.Join([]string{
 			newAccessKeyDir,
-			accessKey.Name(),
+			accessKey.Name,
 		}, "/"), []byte(encryptedAccessKey), 0666); err != nil {
 			return err
 		}
@@ -495,6 +497,7 @@ func rotateDatabaseKeys() error {
 		"database_keys",
 	}, "/")
 
+	// STORAGE TODO: Deprecate, we need to create a database key index file and read from there
 	keys, err := storage.FS().ReadDir(keysDir)
 
 	if err != nil {
@@ -508,7 +511,7 @@ func rotateDatabaseKeys() error {
 	for _, key := range keys {
 		databaseKeyBytes, err := storage.FS().ReadFile(strings.Join([]string{
 			keysDir,
-			key.Name(),
+			key.Name,
 		}, "/"))
 
 		if err != nil {
@@ -517,7 +520,7 @@ func rotateDatabaseKeys() error {
 
 		if err := storage.FS().WriteFile(strings.Join([]string{
 			newKeysDir,
-			key.Name(),
+			key.Name,
 		}, "/"), databaseKeyBytes, 0666); err != nil {
 			return err
 		}
@@ -527,7 +530,7 @@ func rotateDatabaseKeys() error {
 }
 
 func rotateSettings() error {
-	var databaseSettings []os.DirEntry
+	var databaseSettings []internalStorage.DirEntry
 
 	settingsDir := strings.Join([]string{
 		Path(config.Get().Signature),
@@ -539,6 +542,7 @@ func rotateSettings() error {
 		"settings",
 	}, "/")
 
+	// STORAGE TODO: Deprecate, we need to create settings index file and read from there
 	settings, err := storage.FS().ReadDir(settingsDir)
 
 	if err != nil {
@@ -552,14 +556,15 @@ func rotateSettings() error {
 	for _, setting := range settings {
 		if err := storage.FS().MkdirAll(strings.Join([]string{
 			newSettingsDir,
-			setting.Name(),
+			setting.Name,
 		}, "/"), 0755); err != nil {
 			return err
 		}
 
+		// STORAGE TODO: Deprecate, we need to create a settings index file and read from there
 		databaseSettings, err = storage.FS().ReadDir(strings.Join([]string{
 			settingsDir,
-			setting.Name(),
+			setting.Name,
 		}, "/"))
 
 		if err != nil {
@@ -569,8 +574,8 @@ func rotateSettings() error {
 		for _, databaseSetting := range databaseSettings {
 			databaseSettingBytes, err := storage.FS().ReadFile(strings.Join([]string{
 				settingsDir,
-				setting.Name(),
-				databaseSetting.Name(),
+				setting.Name,
+				databaseSetting.Name,
 			}, "/"))
 
 			if err != nil {
@@ -591,8 +596,8 @@ func rotateSettings() error {
 
 			if err := storage.FS().WriteFile(strings.Join([]string{
 				newSettingsDir,
-				setting.Name(),
-				databaseSetting.Name(),
+				setting.Name,
+				databaseSetting.Name,
 			}, "/"), []byte(encryptedSetting), 0666); err != nil {
 				return err
 			}

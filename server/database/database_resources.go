@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/backups"
@@ -82,13 +83,27 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 	}
 
 	pageSize := config.Get().PageSize
+	var fileSystem storage.DatabaseFileSystem
 
-	fileSystem := storage.NewLocalDatabaseFileSystem(
-		fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
-		databaseUuid,
-		branchUuid,
-		pageSize,
-	).WithWriteHook(func(offset int64) {
+	if config.Get().FileSystemDriver == "remote" {
+		fileSystem = storage.NewRemoteDatabaseFileSystem(
+			// TODO: Use the Node context
+			context.TODO(),
+			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+			databaseUuid,
+			branchUuid,
+			pageSize,
+		)
+	} else {
+		fileSystem = storage.NewLocalDatabaseFileSystem(
+			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+			databaseUuid,
+			branchUuid,
+			pageSize,
+		)
+	}
+
+	fileSystem = fileSystem.WithWriteHook(func(offset int64) {
 		// Each time a page is written, we need to inform the check pointer to
 		// ensure it is included in the next backup.
 		d.Checkpointer(databaseUuid, branchUuid).AddPage(
