@@ -163,14 +163,10 @@ func (fs *RemoteFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 }
 
 func (fs *RemoteFileSystemDriver) ReadFile(path string) ([]byte, error) {
-	// start := time.Now()
-
 	response, err := fs.connection.Send(internalStorage.StorageRequest{
 		Command: internalStorage.StorageCommandReadFile,
 		Path:    path,
 	})
-
-	// log.Println("Read file in:", time.Since(start))
 
 	if err != nil {
 		return nil, err

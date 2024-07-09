@@ -442,63 +442,6 @@ func goXCheckReservedLock(pFile *C.sqlite3_file, pResOut *C.int) C.int {
 	return C.SQLITE_OK
 }
 
-//export goXShmMap
-// func goXShmMap(pFile *C.sqlite3_file, iPage C.int, pgsz C.int, bExtend C.int, pp uint32) C.int {
-// 	// log.Println("ShmMap", iPage, pgsz, bExtend)
-// 	vfs := getVfsFromFile(pFile)
-// 	// ptr := C.malloc(C.size_t(pgsz))
-// 	// pp = ptr
-// 	vfs.sharedMemory.Map(int(iPage), int(pgsz), int(bExtend), pp)
-
-// 	return C.SQLITE_OK
-// }
-
-//export goXShmLock
-// func goXShmLock(pFile *C.sqlite3_file, offset C.int, n C.int, flags C.int) C.int {
-// 	vfs := getVfsFromFile(pFile)
-
-// 	// If SQLITE_SHM_UNLOCK is set, unlock the shared memory segment
-// 	if flags&C.SQLITE_SHM_UNLOCK != 0 {
-// 		vfs.sharedMemory.Unlock(int64(offset), int64(n))
-// 		// If SQLITE_SHM_SHARED is set, apply a shared lock
-// 	} else if flags&C.SQLITE_SHM_SHARED != 0 {
-// 		rc := vfs.sharedMemory.SharedLock(int64(offset), int64(n))
-
-// 		if rc != 0 {
-// 			return C.SQLITE_BUSY
-// 		}
-// 		// If SQLITE_SHM_EXCLUSIVE is set, apply an exclusive lock
-// 	} else if flags&C.SQLITE_SHM_EXCLUSIVE != 0 {
-// 		rc := vfs.sharedMemory.ExclusiveLock(int64(offset), int64(n))
-
-// 		if rc != 0 {
-// 			return C.SQLITE_BUSY
-// 		}
-// 	}
-
-// 	return C.SQLITE_OK
-// }
-
-//export goXShmBarrier
-// func goXShmBarrier(pFile *C.sqlite3_file) {
-// 	// log.Println("ShmBarrier")
-
-// 	// Implement a memory barrier by using atomic operations
-// 	// var val int32
-// 	// atomic.StoreInt32(&val, 1)
-// 	// atomic.LoadInt32(&val)
-// }
-
-//export goXShmUnmap
-// func goXShmUnmap(pFile *C.sqlite3_file, deleteFlag C.int) C.int {
-// 	log.Println("ShmUnmap", deleteFlag)
-// 	vfs := getVfsFromFile(pFile)
-
-// 	vfs.sharedMemory.Unmap(0)
-
-// 	return C.SQLITE_OK
-// }
-
 func errToC(err error) C.int {
 	if e, ok := err.(sqliteError); ok {
 		return C.int(e.code)

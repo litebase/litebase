@@ -89,12 +89,15 @@ func (l *VfsLock) Lock(connectionId string, lockType int) bool {
 		if lockType == C.SQLITE_LOCK_EXCLUSIVE && v > C.SQLITE_LOCK_NONE && k != connectionId {
 			return false
 		}
+
 		if lockType == C.SQLITE_LOCK_SHARED && v >= C.SQLITE_LOCK_PENDING {
 			return false
 		}
+
 		if lockType == C.SQLITE_LOCK_RESERVED && v >= C.SQLITE_LOCK_RESERVED && k != connectionId {
 			return false
 		}
+
 		if lockType == C.SQLITE_LOCK_PENDING && v >= C.SQLITE_LOCK_PENDING {
 			return false
 		}

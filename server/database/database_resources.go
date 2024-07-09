@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/backups"
@@ -87,8 +86,6 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 
 	if config.Get().FileSystemDriver == "remote" {
 		fileSystem = storage.NewRemoteDatabaseFileSystem(
-			// TODO: Use the Node context
-			context.TODO(),
 			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
 			databaseUuid,
 			branchUuid,

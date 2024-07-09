@@ -85,14 +85,14 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 	// con.sqlite3.Exec("PRAGMA journal_mode=off")
 	con.sqlite3.Exec("PRAGMA journal_mode=wal")
 	con.sqlite3.Exec("PRAGMA busy_timeout = 3000")
-	con.sqlite3.Exec("PRAGMA cache_size = -2000000")
+	// con.sqlite3.Exec("PRAGMA cache_size = -2000000")
 	// con.sqlite3.Exec("PRAGMA cache_size = 0")
 
 	con.sqlite3.Exec("PRAGMA secure_delete = true")
 	// VFS does not handle temp files yet, so we will handle in memory.
 	con.sqlite3.Exec("PRAGMA temp_store = memory")
 	// TODO: This doesn't work with kv store
-	con.sqlite3.Exec("PRAGMA mmap_size = 1000000000")
+	// con.sqlite3.Exec("PRAGMA mmap_size = 1000000000")
 
 	return con, nil
 }
@@ -194,10 +194,10 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 	statement, ok := con.statements[hash]
 	con.statementMutex.RUnlock()
 
-	con.statementMutex.Lock()
-	defer con.statementMutex.Unlock()
-
 	if !ok {
+		con.statementMutex.Lock()
+		defer con.statementMutex.Unlock()
+
 		statement, err = con.Prepare(queryStatement)
 
 		if err == nil {

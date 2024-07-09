@@ -84,6 +84,7 @@ func QueryStreamController(request *Request) Response {
 				}
 
 				w.Write(jsonResponse)
+
 				w.(http.Flusher).Flush()
 			}
 

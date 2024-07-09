@@ -8,7 +8,7 @@ import (
 var StorageInit = false
 
 func Init() {
-	// StorageInit = true
+	StorageInit = true
 
 	gob.Register(storage.StorageConnection{})
 	gob.Register(storage.StorageRequest{})

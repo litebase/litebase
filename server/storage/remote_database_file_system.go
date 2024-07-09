@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"fmt"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
@@ -13,7 +12,7 @@ import (
 
 type RemoteDatabaseFileSystem struct {
 	files      map[string]internalStorage.File
-	fileSystem *RemoteFileSystemDriver
+	fileSystem *FileSystem
 	hasPageOne bool
 	mutex      *sync.RWMutex
 	path       string
@@ -22,14 +21,12 @@ type RemoteDatabaseFileSystem struct {
 	writeHook  func(offset int64)
 }
 
-func NewRemoteDatabaseFileSystem(ctx context.Context, path, databaseUuid, branchUuid string, pageSize int64) *RemoteDatabaseFileSystem {
-	fs := NewRemoteFileSystemDriver(ctx)
-
+func NewRemoteDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) *RemoteDatabaseFileSystem {
 	// Check if the the directory exists
-	if _, err := fs.Stat(path); err != nil {
+	if _, err := FS().Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			// Create the directory
-			if err := fs.MkdirAll(path, 0755); err != nil {
+			if err := FS().MkdirAll(path, 0755); err != nil {
 				log.Fatalln("Error creating temp file system directory", err)
 			}
 		} else {
@@ -39,7 +36,7 @@ func NewRemoteDatabaseFileSystem(ctx context.Context, path, databaseUuid, branch
 
 	return &RemoteDatabaseFileSystem{
 		files:      make(map[string]internalStorage.File),
-		fileSystem: fs,
+		fileSystem: FS(),
 		mutex:      &sync.RWMutex{},
 		path:       path,
 		pageSize:   pageSize,

@@ -72,6 +72,10 @@ func (fs *LocalFileSystemDriver) Rename(oldpath, newpath string) error {
 func (fs *LocalFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	info, err := os.Stat(path)
 
+	if err != nil {
+		return internalStorage.FileInfo{}, err
+	}
+
 	return internalStorage.FileInfo{
 		Name:    info.Name(),
 		Size:    info.Size(),

@@ -33,7 +33,6 @@ func (akm *AccessKeyManagerInstance) accessKeyCacheKey(accessKeyId string) strin
 }
 
 func (akm *AccessKeyManagerInstance) AllAccessKeyIds() ([]string, error) {
-	// STORAGE TODO: Deprecate, we need to get all the access key ids from an index file
 	files, err := storage.FS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys"))
 
 	if err != nil {

@@ -3,6 +3,8 @@ module litebase
 go 1.22
 
 require (
+	github.com/aws/aws-lambda-go v1.47.0
+	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/goccy/go-json v0.10.3
 	github.com/joho/godotenv v1.5.1
@@ -10,11 +12,7 @@ require (
 	github.com/sqids/sqids-go v0.4.1
 )
 
-require (
-	github.com/aws/aws-lambda-go v1.47.0 // indirect
-	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2 // indirect
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
-)
+require gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

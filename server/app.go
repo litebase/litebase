@@ -37,7 +37,7 @@ func NewApp(server *ServerInstance) *App {
 	node.Init()
 	database.Init()
 	auth.Broadcaster(events.EventsManager().Hook())
-	storage.Init()
+
 	app.initialized = true
 	AppSingleton = app
 
@@ -63,5 +63,6 @@ func (app *App) Run() {
 	// app.server.HttpServer.Handler = http.Router()
 	http.Router().Server(app.server.ServeMux)
 	node.Register()
+	storage.Init()
 	go app.runTasks()
 }

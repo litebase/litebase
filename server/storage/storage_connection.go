@@ -113,7 +113,6 @@ func (c *StorageConnection) Open() error {
 					return
 				}
 
-				log.Println("Received response:", response)
 				c.responseChannel <- response
 			}
 		}
@@ -211,7 +210,6 @@ func (c *StorageConnection) Send(message storage.StorageRequest) (storage.Storag
 			return storage.StorageResponse{}, fmt.Errorf("timeout waiting for response")
 		case <-c.close:
 			return storage.StorageResponse{}, fmt.Errorf("connection closed")
-
 		case response := <-c.responseChannel:
 			return response, nil
 		}

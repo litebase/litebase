@@ -59,8 +59,6 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 		Handler:      s.ServeMux,
 	}
 
-	// s.Node.Run()
-
 	log.Println("Litebase running on port", port)
 
 	if serverHook != nil {
