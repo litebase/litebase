@@ -9,21 +9,23 @@ import (
 )
 
 type Config struct {
-	DataPath          string
-	DatabaseDirectory string
-	Debug             bool
-	DefaultBranchName string
-	Env               string
-	FileSystemDriver  string
-	PageSize          int64
-	QueryNodePort     string
-	Region            string
-	RootPassword      string
-	RootUsername      string
-	RouterNodePort    string
-	Signature         string
-	SignatureNext     string
-	TmpPath           string
+	DataPath             string
+	DatabaseDirectory    string
+	Debug                bool
+	DefaultBranchName    string
+	Env                  string
+	FileSystemDriver     string
+	PageSize             int64
+	QueryNodePort        string
+	Region               string
+	RemoteStorageAddress string
+	RootPassword         string
+	RootUsername         string
+	RouterNodePort       string
+	Signature            string
+	SignatureNext        string
+	StoragePort          string
+	TmpPath              string
 }
 
 var ConfigInstance *Config = nil
@@ -69,19 +71,21 @@ func env(key string, defaultValue string) interface{} {
 
 func NewConfig() *Config {
 	ConfigInstance = &Config{
-		DataPath:          env(os.Getenv("LITEBASE_DATA_PATH"), "./data").(string),
-		DefaultBranchName: env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
-		Env:               env("LITEBASE_ENV", "production").(string),
-		FileSystemDriver:  env("LITEBASE_FILESYSTEM_DRIVER", "local").(string),
-		Debug:             env("LITEBASE_DEBUG", "false") == "true",
-		PageSize:          65536,
-		QueryNodePort:     env("LITEBASE_QUERY_NODE_PORT", "8080").(string),
-		Region:            env("LITEBASE_REGION", "").(string),
-		RouterNodePort:    env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
-		RootPassword:      env("LITEBASE_ROOT_PASSWORD", "").(string),
-		RootUsername:      env("LITEBASE_ROOT_USERNAME", "root").(string),
-		Signature:         env("LITEBASE_SIGNATURE", "").(string),
-		TmpPath:           env("LITEBASE_TMP_PATH", "").(string),
+		DataPath:             env(os.Getenv("LITEBASE_DATA_PATH"), "./data").(string),
+		DefaultBranchName:    env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
+		Env:                  env("LITEBASE_ENV", "production").(string),
+		FileSystemDriver:     env("LITEBASE_FILESYSTEM_DRIVER", "local").(string),
+		Debug:                env("LITEBASE_DEBUG", "false") == "true",
+		PageSize:             65536,
+		QueryNodePort:        env("LITEBASE_QUERY_NODE_PORT", "8080").(string),
+		Region:               env("LITEBASE_REGION", "").(string),
+		RemoteStorageAddress: env("LITEBASE_REMOTE_STORAGE_ADDRESS", "").(string),
+		RouterNodePort:       env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
+		RootPassword:         env("LITEBASE_ROOT_PASSWORD", "").(string),
+		RootUsername:         env("LITEBASE_ROOT_USERNAME", "root").(string),
+		Signature:            env("LITEBASE_SIGNATURE", "").(string),
+		StoragePort:          env("LITEBASE_STORAGE_PORT", "8080").(string),
+		TmpPath:              env("LITEBASE_TMP_PATH", "").(string),
 	}
 
 	return ConfigInstance

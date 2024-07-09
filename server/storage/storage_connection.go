@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"litebase/internal/config"
 	"litebase/internal/storage"
 	"log"
 	"net/http"
@@ -162,7 +163,7 @@ func (c *StorageConnection) Send(message storage.StorageRequest) (storage.Storag
 		data := bytes.NewBuffer(nil)
 		enc := gob.NewEncoder(data)
 		enc.Encode(message)
-		response, err := http.Post("http://localhost:8085/command", "application/gob", data)
+		response, err := http.Post(fmt.Sprintf("%s/command", config.Get().RemoteStorageAddress), "application/gob", data)
 
 		if err != nil {
 			log.Println(err)

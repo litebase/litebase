@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/gob"
+	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/storage"
 	"log"
@@ -72,6 +73,9 @@ func (s *Storage) Init() {
 }
 
 func (s *Storage) Serve() {
-	// TOOD: Set the port from the configuration
-	http.ListenAndServe(":8085", nil)
+	port := config.Get().StoragePort
+
+	log.Println("Litebase Storage running on port", port)
+
+	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }

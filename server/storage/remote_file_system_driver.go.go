@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"litebase/internal/config"
 	internalStorage "litebase/internal/storage"
 	"log"
 	"net/http"
@@ -14,22 +15,14 @@ import (
 type RemoteFileSystemDriver struct {
 	connection *StorageConnection
 	client     *http.Client
-	// hasPageOne bool
-	mutex *sync.RWMutex
-	// pageCache    *PageCache
-	// pageSize int64
-	// size     int64
+	mutex      *sync.RWMutex
 }
 
 func NewRemoteFileSystemDriver(ctx context.Context) *RemoteFileSystemDriver {
 	fs := &RemoteFileSystemDriver{
-		connection: StorageConnectionManager().Create(ctx, "http://localhost:8085"),
+		connection: StorageConnectionManager().Create(ctx, config.Get().RemoteStorageAddress),
 		client:     &http.Client{},
-		// hasPageOne: false,
-		mutex: &sync.RWMutex{},
-		// pageCache:    NewPageCache(tmpPath, databaseUuid, branchUuid, pageSize),
-		// pageSize: pageSize,
-		// size:     0,
+		mutex:      &sync.RWMutex{},
 	}
 
 	return fs
@@ -39,33 +32,6 @@ func (fs *RemoteFileSystemDriver) Create(file string) (internalStorage.File, err
 	log.Fatalln("Not implemented")
 	return nil, nil
 }
-
-// func (fs *RemoteFileSystemDriver) Delete(file string) error {
-// 	url := fmt.Sprintf("%s/databases/%s/%s/%s", getStorageUrl(), fs.databaseUuid, fs.branchUuid, file)
-
-// 	request, err := http.NewRequest("DELETE", url, nil)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	_, err = fs.client.Do(request)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
-// func (fs *RemoteFileSystemDriver) getFileSize() {
-// 	if fs.hasPageOne {
-// 		fs.size = fs.pageSize * 4294967294
-// 		return
-// 	}
-
-// 	fs.size = 0 * fs.pageSize
-// }
 
 func (fs *RemoteFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
 	response, err := fs.connection.Send(internalStorage.StorageRequest{

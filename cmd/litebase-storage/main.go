@@ -8,10 +8,14 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	godotenv.Load(".env")
+
 	s := storage.New()
 	s.Init()
 
