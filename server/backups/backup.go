@@ -43,7 +43,6 @@ func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int
 	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid), BACKUP_DIR)
 
 	// Get a list of all directories in the directory
-	// STORAGE TODO: Deprecate, we need to create backup  index file and read from there
 	dirs, err := storage.FS().ReadDir(backupsDirectory)
 
 	if err != nil {

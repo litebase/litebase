@@ -442,7 +442,6 @@ func rotateAccessKeys() error {
 		"access_keys",
 	}, "/")
 
-	// STORAGE TODO: Deprecate, we need to create an access key index file and read from there
 	accessKeys, err := storage.FS().ReadDir(accessKeyDir)
 
 	if err != nil {
@@ -497,7 +496,6 @@ func rotateDatabaseKeys() error {
 		"database_keys",
 	}, "/")
 
-	// STORAGE TODO: Deprecate, we need to create a database key index file and read from there
 	keys, err := storage.FS().ReadDir(keysDir)
 
 	if err != nil {
@@ -542,7 +540,6 @@ func rotateSettings() error {
 		"settings",
 	}, "/")
 
-	// STORAGE TODO: Deprecate, we need to create settings index file and read from there
 	settings, err := storage.FS().ReadDir(settingsDir)
 
 	if err != nil {
@@ -561,7 +558,6 @@ func rotateSettings() error {
 			return err
 		}
 
-		// STORAGE TODO: Deprecate, we need to create a settings index file and read from there
 		databaseSettings, err = storage.FS().ReadDir(strings.Join([]string{
 			settingsDir,
 			setting.Name,

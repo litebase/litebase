@@ -86,7 +86,6 @@ func (q *QueryLog) Read(start, end int) []map[string]interface{} {
 		file.GetDatabaseFileBaseDir(q.databaseUuid, q.branchUuid),
 	)
 
-	// STORAGE TODO: Deprecate, we need to create a query log index file and read from there
 	dirs, err := storage.FS().ReadDir(path)
 
 	if err != nil {
