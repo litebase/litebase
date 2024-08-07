@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"litebase/server/database"
 	"litebase/server/node"
+	"litebase/server/storage"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -15,36 +16,27 @@ import (
 )
 
 type ServerInstance struct {
+	cancel     context.CancelFunc
+	context    context.Context
 	HttpServer *http.Server
-	Node       Node
 	ServeMux   *http.ServeMux
 }
 
 func NewServer() *ServerInstance {
-	server := &ServerInstance{}
-
-	if server.isPrimary() {
-		server.Node = NewPrimary()
-	} else {
-		server.Node = NewReplica()
+	ctx, cancel := context.WithCancel(context.Background())
+	server := &ServerInstance{
+		cancel:  cancel,
+		context: ctx,
 	}
 
 	return server
 }
 
-func (s *ServerInstance) isPrimary() bool {
-	return os.Getenv("PRIMARY") == ""
-}
-
-func (s *ServerInstance) Primary() *Primary {
-	return s.Node.(*Primary)
+func (s *ServerInstance) Context() context.Context {
+	return s.context
 }
 
 func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
-	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
-
 	port := os.Getenv("LITEBASE_QUERY_NODE_PORT")
 	tlsCertPath := os.Getenv("LITEBASE_TLS_CERT_PATH")
 	tlsKeyPath := os.Getenv("LITEBASE_TLS_KEY_PATH")
@@ -52,17 +44,23 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	s.ServeMux = http.NewServeMux()
 
 	s.HttpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
-		Handler:      s.ServeMux,
+		Addr: fmt.Sprintf(":%s", port),
+		// ReadTimeout:  3 * time.Second,
+		// WriteTimeout: 3 * time.Second,
+		// IdleTimeout:  60 * time.Second,
+		Handler: s.ServeMux,
 	}
 
 	log.Println("Litebase Server running on port", port)
 
 	if serverHook != nil {
 		serverHook(s)
+	}
+
+	err := node.Node().Start()
+
+	if err != nil {
+		log.Fatalf("Node start: %v", err)
 	}
 
 	serverDone := make(chan struct{})
@@ -89,26 +87,26 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	for {
 		sig := <-signalChannel
 		switch sig {
-		case os.Interrupt:
-			s.Shutdown()
+		case os.Interrupt, syscall.SIGTERM:
+			node.Node().Shutdown()
+
+			s.Shutdown(node.Node().Context())
 			<-serverDone
-			return
-		case syscall.SIGTERM:
-			s.Shutdown()
-			<-serverDone
+
 			os.Exit(0)
 			return
 		}
 	}
 }
 
-func (s *ServerInstance) Shutdown() {
+func (s *ServerInstance) Shutdown(ctx context.Context) {
 	fmt.Println("")
-	node.Unregister()
+	s.cancel()
 	database.ConnectionManager().Shutdown()
+	storage.FS().Detatch()
 
 	// Create a context with a timeout for graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 
 	defer cancel()
 

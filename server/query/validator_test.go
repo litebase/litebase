@@ -41,18 +41,19 @@ func TestValidateQuery(t *testing.T) {
 
 		for _, c := range cases {
 			q := &query.Query{
-				ClientConnection:   db,
-				OriginalStatement:  c.statement,
-				OriginalParameters: c.parameters,
+				BranchUuid:   mock.BranchUuid,
+				DatabaseUuid: mock.DatabaseUuid,
+				Statement:    c.statement,
+				Parameters:   c.parameters,
 			}
 
-			statement, err := q.Statement()
+			statement, err := db.GetConnection().Statement(c.statement)
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			err = query.ValidateQuery(statement.Sqlite3Statement, q.Parameters()...)
+			err = query.ValidateQuery(statement.Sqlite3Statement, q.Parameters...)
 
 			if err != nil && !reflect.DeepEqual(err, c.error) {
 				t.Fatalf(" Expected error to be %v, got %v", c.error, err)

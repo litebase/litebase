@@ -97,7 +97,7 @@ func TestNewCluster(t *testing.T) {
 
 func TestClusterPath(t *testing.T) {
 	test.Run(t, func() {
-		path := cluster.Path()
+		path := cluster.ConfigPath()
 
 		if path != "../../data/_test/.litebase/cluster.json" {
 			t.Fatal("Path is not correct")
@@ -116,7 +116,7 @@ func TestClusterSave(t *testing.T) {
 		}
 
 		// Check if the file exists
-		dataBytes, err := os.ReadFile(cluster.Path())
+		dataBytes, err := os.ReadFile(cluster.ConfigPath())
 
 		if err != nil {
 			t.Fatal(err)

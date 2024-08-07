@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/klauspost/compress/zstd"
+	"github.com/klauspost/compress/s2"
 )
 
 /*
@@ -27,7 +27,7 @@ compressed frame. The header is 100 bytes and header contains:
 | 44     | 66   | Reserved for future use           |
 
 The compressed frame is the serialized data of the page compressed using the
-zstd compression algorithm.
+s2 compression algorithm.
 */
 type PageLogEntry struct {
 	Data             []byte
@@ -40,9 +40,6 @@ type PageLogEntry struct {
 }
 
 const version = 1
-
-var encoder, _ = zstd.NewWriter(nil)
-var decoder, _ = zstd.NewReader(nil)
 
 func NewPageLogEntry(pageNumber uint32, timestamp uint64, data []byte) *PageLogEntry {
 	hash := sha1.New()
@@ -59,7 +56,7 @@ func NewPageLogEntry(pageNumber uint32, timestamp uint64, data []byte) *PageLogE
 }
 
 func (p *PageLogEntry) Serialize() ([]byte, error) {
-	compressed := encoder.EncodeAll(p.Data, nil)
+	compressed := s2.Encode(nil, p.Data)
 
 	serialized := []byte{}
 	header := make([]byte, 100) // Create a byte slice of size 100
@@ -114,7 +111,7 @@ func DeserializePageLogEntry(reader io.Reader) (*PageLogEntry, error) {
 		return nil, err
 	}
 
-	decompressed, err := decoder.DecodeAll(compressed, nil)
+	decompressed, err := s2.Decode(nil, compressed)
 
 	if err != nil {
 		return nil, err

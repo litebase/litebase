@@ -1,3 +1,7 @@
 package sqlite3
 
-type Result []map[string]interface{}
+type Result struct {
+	Changes int64
+	Columns []string
+	Rows    [][]Column
+}

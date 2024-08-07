@@ -3,15 +3,11 @@ package http
 import (
 	"fmt"
 	"litebase/server/database"
+	"litebase/server/file"
 	"litebase/server/query"
 )
 
 func QueryController(request *Request) Response {
-	// start := time.Now()
-	// defer func() {
-	// 	log.Println("QueryController", time.Since(start))
-	// }()
-
 	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
 
 	if err != nil {
@@ -42,9 +38,11 @@ func QueryController(request *Request) Response {
 	}
 
 	requestQuery, err := query.NewQuery(
-		db.WithAccessKey(accessKey),
-		accessKey.AccessKeyId,
-		request.All(),
+		databaseKey.DatabaseUuid,
+		databaseKey.BranchUuid,
+		accessKey,
+		request.Get("statement").(string),
+		request.Get("parameters").([]interface{}),
 		"",
 	)
 
@@ -60,7 +58,10 @@ func QueryController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	response, err := query.ResolveQuery(db, requestQuery)
+	response, err := query.ResolveQuery(
+		file.DatabaseHash(databaseKey.DatabaseUuid, databaseKey.BranchUuid),
+		requestQuery,
+	)
 
 	if err != nil {
 		database.ConnectionManager().Remove(
@@ -73,6 +74,7 @@ func QueryController(request *Request) Response {
 			"message": err.Error(),
 		}, 500, nil)
 	}
+
 	// defer counter.Increment(databaseKey.DatabaseUuid, databaseKey.BranchUuid)
 
 	defer database.ConnectionManager().Release(
@@ -83,6 +85,6 @@ func QueryController(request *Request) Response {
 
 	return Response{
 		StatusCode: 200,
-		Body:       response,
+		Body:       response.ToMap(),
 	}
 }

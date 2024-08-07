@@ -24,14 +24,14 @@ type Request struct {
 
 func NewRequest(request *http.Request) *Request {
 	// ctx := request.Context()
-	headers := map[string]string{}
+	headers := make(map[string]string, len(request.Header))
 
 	for key, value := range request.Header {
 		headers[key] = value[0]
 	}
 
 	query := request.URL.Query()
-	queryParams := map[string]string{}
+	queryParams := make(map[string]string, len(query))
 
 	for key, value := range query {
 		queryParams[key] = value[0]
@@ -41,7 +41,9 @@ func NewRequest(request *http.Request) *Request {
 
 	// Parse the subdomains once
 	parts := strings.Split(headers["host"], ".")
+
 	subdomains := parts[0:1]
+
 	if len(parts) >= 4 {
 		subdomains = parts[0:2]
 	}
@@ -60,8 +62,8 @@ func NewRequest(request *http.Request) *Request {
 func (r *Request) All() map[string]interface{} {
 	if r.Body == nil {
 		body := make(map[string]interface{})
-		decoder := json.NewDecoder(r.BaseRequest.Body)
-		decoder.Decode(&body)
+		json.NewDecoder(r.BaseRequest.Body).Decode(&body)
+		r.BaseRequest.Body.Close()
 
 		r.Body = body
 	}

@@ -1,121 +1,82 @@
 package query
 
 import (
+	"litebase/server/auth"
 	"litebase/server/database"
-	"strings"
-
-	"github.com/goccy/go-json"
-
-	"github.com/google/uuid"
+	"litebase/server/node"
 )
 
 type Query struct {
-	AccessKeyId        string
-	ClientConnection   *database.ClientConnection
-	Id                 string `json:"id"`
-	IsPragma           bool
-	invalid            bool
-	OriginalParameters []interface{} `json:"parameters"`
-	OriginalStatement  string        `json:"statement"`
-	parameters         []interface{}
-	statement          database.Statement
+	AccessKey    auth.AccessKey
+	BranchUuid   string
+	DatabaseUuid string
+	Id           string `json:"id"`
+	invalid      bool
+	Parameters   []interface{} `json:"parameters"`
+	Statement    string        `json:"statement"`
 }
 
 func NewQuery(
-	clientConnection *database.ClientConnection,
-	accessKeyId string,
-	data map[string]interface{},
+	databaseUuid string,
+	branchUuid string,
+	accessKey auth.AccessKey,
+	statement string,
+	parameters []interface{},
 	id string,
-) (Query, error) {
-	statement := data["statement"].(string)
-	parameters := data["parameters"].([]interface{})
-
-	isPragma := false
-
-	if strings.HasPrefix(statement, "PRAGMA") {
-		isPragma = true
+) (*Query, error) {
+	var query = &Query{
+		AccessKey:    accessKey,
+		BranchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
+		Statement:    statement,
+		Parameters:   parameters,
 	}
 
-	var query = Query{
-		AccessKeyId:        accessKeyId,
-		ClientConnection:   clientConnection,
-		IsPragma:           isPragma,
-		OriginalStatement:  statement,
-		OriginalParameters: parameters,
-	}
-
-	if id == "" {
-		uuid, err := uuid.NewUUID()
-
-		if err != nil {
-			return Query{}, err
-		}
-
-		query.Id = uuid.String()
-	} else {
-		query.Id = id
-	}
+	query.Id = id
 
 	return query, nil
 }
 
-func (query Query) Parameters() []interface{} {
-	if query.parameters == nil {
-		var bytes []byte
-
-		if query.OriginalParameters == nil {
-			bytes = []byte("[]")
-		} else {
-			bytes, _ = json.Marshal(query.OriginalParameters)
-
-			if bytes == nil {
-				bytes = []byte("[]")
-			}
-		}
-
-		json.Unmarshal(bytes, &query.parameters)
-	}
-
-	return query.parameters
-}
-
-func (query Query) Resolve() (map[string]interface{}, error) {
-	return ResolveQuery(query.ClientConnection, query)
-}
-
-func (q Query) Statement() (database.Statement, error) {
-	var err error
-
-	if q.statement == (database.Statement{}) {
-		q.statement, err = q.ClientConnection.
-			GetConnection().
-			Statement(q.OriginalStatement)
-
-		if err != nil {
-			return database.Statement{}, err
-		}
-	}
-
-	return q.statement, nil
+func (query Query) Resolve(databaseHash string) (node.NodeQueryResponse, error) {
+	return ResolveQuery(databaseHash, &query)
 }
 
 func (q *Query) Validate(statement database.Statement) error {
-	// if q.IsPragma {
+	// if q.IsPragma() {
 	// 	// TODO: Validate the types of pragma that are allowed
 	// 	return nil
 	// }
 
-	return ValidateQuery(statement.Sqlite3Statement, q.Parameters()...)
+	return ValidateQuery(statement.Sqlite3Statement, q.Parameters...)
 }
 
-func (query Query) isDDL() bool {
-	return query.OriginalStatement[0:6] == "CREATE" || query.OriginalStatement[0:6] == "ALTER" || query.OriginalStatement[0:6] == "DROP"
+func (query Query) IsDDL() bool {
+	return (len(query.Statement) >= 6 && (query.Statement[:6] == "CREATE" ||
+		query.Statement[:6] == "create" || query.Statement[:6] == "ALTER" ||
+		query.Statement[:6] == "alter" || query.Statement[:6] == "DROP" ||
+		query.Statement[:6] == "drop"))
 }
 
-func (query Query) isDML() bool {
-	return query.OriginalStatement[0:6] == "INSERT" || query.OriginalStatement[0:6] == "UPDATE" || query.OriginalStatement[0:6] == "DELETE"
+func (query Query) IsDML() bool {
+	return (len(query.Statement) >= 6 && (query.Statement[:6] == "INSERT" || query.Statement[:6] == "insert" ||
+		query.Statement[:6] == "UPDATE" || query.Statement[:6] == "update" ||
+		query.Statement[:6] == "DELETE" || query.Statement[:6] == "delete"))
 }
 
-func (query Query) isDQL() bool {
-	return query.OriginalStatement[0:6] == "SELECT"
+func (query Query) IsDQL() bool {
+	return (len(query.Statement) >= 6 && (query.Statement[:6] == "SELECT" ||
+		query.Statement[:6] == "select"))
+}
+
+func (query Query) IsPragma() bool {
+	return (len(query.Statement) >= 6 && (query.Statement[:6] == "PRAGMA" ||
+		query.Statement[:6] == "pragma"))
+}
+
+func (query Query) IsRead() bool {
+	return query.IsDQL()
+}
+
+func (query Query) IsWrite() bool {
+	return query.IsDDL() || query.IsDML() || query.IsPragma()
 }

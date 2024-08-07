@@ -17,6 +17,8 @@ func (fs *LocalFileSystemDriver) Create(path string) (internalStorage.File, erro
 	return os.Create(path)
 }
 
+func (fs *LocalFileSystemDriver) Detatch() {}
+
 func (fs *LocalFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
 	return os.Mkdir(path, perm)
 }

@@ -6,56 +6,40 @@ import (
 
 type ClientConnection struct {
 	accessKey    auth.AccessKey
-	branchUuid   string
+	BranchUuid   string
 	connection   *DatabaseConnection
-	databaseUuid string
+	DatabaseUuid string
 	path         string
 }
 
 func NewClientConnection(
 	databaseUuid string,
 	branchUuid string,
+	walTimestamp int64,
 ) (*ClientConnection, error) {
-	connection, err := NewDatabaseConnection(databaseUuid, branchUuid)
+	connection, err := NewDatabaseConnection(databaseUuid, branchUuid, walTimestamp)
 
 	if connection == nil {
 		return nil, err
 	}
 
 	return &ClientConnection{
-		branchUuid:   branchUuid,
+		BranchUuid:   branchUuid,
 		connection:   connection,
-		databaseUuid: databaseUuid,
+		DatabaseUuid: databaseUuid,
 	}, nil
 }
 
 func (d *ClientConnection) Close() {
-	if d.connection == nil {
+	if d == nil || d.connection == nil {
 		return
 	}
 
 	d.connection.Close()
-}
-
-func (d *ClientConnection) ForceClose() {
-	if d.connection == nil {
-		return
-	}
-
-	d.connection.sqlite3.Interrupt()
-	d.connection.Close()
-}
-
-func (d *ClientConnection) GetBranchUuid() string {
-	return d.branchUuid
 }
 
 func (d *ClientConnection) GetConnection() *DatabaseConnection {
 	return d.connection
-}
-
-func (d *ClientConnection) GetDatabaseUuid() string {
-	return d.databaseUuid
 }
 
 func (d *ClientConnection) Path() string {
@@ -66,7 +50,8 @@ func (d *ClientConnection) WithAccessKey(accessKey auth.AccessKey) *ClientConnec
 	d.accessKey = accessKey
 
 	d.connection.WithAccessKey(accessKey)
-	d.connection.setAuthorizer()
+	// TODO: This needs to be implemented
+	// d.connection.setAuthorizer()
 
 	return d
 }

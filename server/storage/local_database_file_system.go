@@ -2,23 +2,26 @@ package storage
 
 import (
 	"fmt"
+	"io"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
 
 type LocalDatabaseFileSystem struct {
-	files      map[string]internalStorage.File
-	fileSystem *LocalFileSystemDriver
-	hasPageOne bool
-	mutex      *sync.RWMutex
-	path       string
-	pageSize   int64
-	size       int64
-	writeHook  func(offset int64)
+	files         map[string]internalStorage.File
+	fileSystem    *LocalFileSystemDriver
+	hasPageOne    bool
+	mutex         *sync.RWMutex
+	path          string
+	pagesPerRange int64
+	pageSize      int64
+	size          int64
+	writeHook     func(path string, offset int64, data []byte)
 }
 
 func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) *LocalDatabaseFileSystem {
@@ -37,11 +40,12 @@ func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize 
 	}
 
 	return &LocalDatabaseFileSystem{
-		files:      make(map[string]internalStorage.File),
-		fileSystem: fs,
-		mutex:      &sync.RWMutex{},
-		path:       path,
-		pageSize:   pageSize,
+		files:         make(map[string]internalStorage.File),
+		fileSystem:    fs,
+		mutex:         &sync.RWMutex{},
+		path:          path,
+		pagesPerRange: 1000,
+		pageSize:      pageSize,
 	}
 }
 
@@ -82,6 +86,48 @@ func (lfs *LocalDatabaseFileSystem) Exists() bool {
 	return err == nil
 }
 
+func (lfs *LocalDatabaseFileSystem) getRangeFile(path string, pageNumber int64) (internalStorage.File, error) {
+	directory := strings.ReplaceAll(path, ".db", "")
+	rangeNumber := file.PageRange(pageNumber, lfs.pagesPerRange)
+
+	var builder strings.Builder
+	builder.Grow(len(lfs.path) + len(directory) + 12) // Preallocate memory
+	builder.WriteString(lfs.path)
+	builder.WriteString("/")
+	builder.WriteString(directory)
+	builder.WriteString("/")
+
+	// Create a strings.Builder for efficient string concatenation
+	var pageNumberBuilder strings.Builder
+	pageNumberBuilder.Grow(10) // Preallocate memory for 10 characters
+
+	// Convert rangeNumber to a zero-padded 10-digit string
+	rangeStr := strconv.FormatInt(rangeNumber, 10)
+	padding := 10 - len(rangeStr)
+	for i := 0; i < padding; i++ {
+		pageNumberBuilder.WriteByte('0')
+	}
+	pageNumberBuilder.WriteString(rangeStr)
+
+	builder.WriteString(pageNumberBuilder.String())
+	path = builder.String()
+
+	if file, ok := lfs.files[path]; ok {
+		return file, nil
+	}
+
+	file, err := lfs.fileSystem.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+
+	if err != nil {
+		log.Println("Error opening range file", err)
+		return nil, err
+	}
+
+	lfs.files[path] = file
+
+	return file, nil
+}
+
 func (lfs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
 	path = fmt.Sprintf("%s/%s", lfs.path, strings.ReplaceAll(path, ".db", ""))
 
@@ -98,33 +144,38 @@ func (lfs *LocalDatabaseFileSystem) Path() string {
 	return lfs.path
 }
 
-func (lfs *LocalDatabaseFileSystem) ReadAt(path string, offset, length int64) ([]byte, error) {
+func (lfs *LocalDatabaseFileSystem) ReadAt(path string, data []byte, offset, length int64) (int, error) {
 	pageNumber := file.PageNumber(offset, lfs.pageSize)
-	path = strings.ReplaceAll(path, ".db", "")
-	data, err := lfs.fileSystem.ReadFile(fmt.Sprintf("%s/%s/%010d", lfs.path, path, pageNumber))
+
+	// Get the range file for the page
+	rangeFile, err := lfs.getRangeFile(path, pageNumber)
 
 	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Println("Error reading file", err)
-			return nil, err
-		}
+		log.Println("Error getting range file", err)
+		return 0, err
+	}
 
-		if os.IsNotExist(err) {
-			data = make([]byte, length)
-		}
-	} else {
-		data, err = pgDecoder().DecodeAll(data, nil)
+	// lfs.mutex.Lock()
+	// defer lfs.mutex.Unlock()
 
-		if err != nil {
-			return nil, err
+	n, err := rangeFile.ReadAt(data, file.PageRangeOffset(pageNumber, lfs.pagesPerRange, lfs.pageSize))
+
+	if err != nil {
+		if err != io.EOF {
+			log.Println("Error reading page", pageNumber, err)
+			return 0, err
 		}
 	}
 
-	if len(data) == int(lfs.pageSize) && pageNumber == 1 {
+	if pageNumber == 1 && n > 0 {
 		lfs.hasPageOne = true
 	}
 
-	return data, nil
+	return n, nil
+}
+
+func (lfs *LocalDatabaseFileSystem) SetTransactionTimestamp(timestamp int64) {
+	// No-op
 }
 
 // TODO: this should use the metadata file to get the size
@@ -134,6 +185,10 @@ func (lfs *LocalDatabaseFileSystem) Size(path string) (int64, error) {
 	}
 
 	return lfs.size, nil
+}
+
+func (lfs *LocalDatabaseFileSystem) TransactionTimestamp() int64 {
+	return 0
 }
 
 func (lfs *LocalDatabaseFileSystem) Truncate(path string, size int64) error {
@@ -161,25 +216,50 @@ func (lfs *LocalDatabaseFileSystem) Truncate(path string, size int64) error {
 	return nil
 }
 
-func (lfs *LocalDatabaseFileSystem) WithWriteHook(hook func(offset int64)) DatabaseFileSystem {
+func (lfs *LocalDatabaseFileSystem) WalPath(path string) string {
+	return ""
+}
+
+func (lfs *LocalDatabaseFileSystem) WithTransactionTimestamp(timestamp int64) DatabaseFileSystem {
+	// No-op
+	return lfs
+}
+
+func (lfs *LocalDatabaseFileSystem) WithWriteHook(hook func(path string, offset int64, data []byte)) DatabaseFileSystem {
 	lfs.writeHook = hook
 
 	return lfs
 }
 
 func (lfs *LocalDatabaseFileSystem) WriteAt(path string, data []byte, offset int64) (n int, err error) {
-	compressed := pgEncoder().EncodeAll(data, nil)
+	lfs.mutex.Lock()
+	defer lfs.mutex.Unlock()
+
 	pageNumber := file.PageNumber(offset, lfs.pageSize)
-	path = strings.ReplaceAll(path, ".db", "")
-	err = lfs.fileSystem.WriteFile(fmt.Sprintf("%s/%s/%010d", lfs.path, path, pageNumber), compressed, 0644)
+
+	rangeFile, err := lfs.getRangeFile(path, pageNumber)
 
 	if err != nil {
+		log.Println("Error getting range file", err)
+		return 0, err
+	}
+
+	pageRangeOffset := file.PageRangeOffset(pageNumber, lfs.pagesPerRange, lfs.pageSize)
+
+	n, err = rangeFile.WriteAt(data, pageRangeOffset)
+
+	if err != nil {
+		log.Println("Error writing page", pageNumber, err)
 		return 0, err
 	}
 
 	if lfs.writeHook != nil {
-		lfs.writeHook(offset)
+		lfs.writeHook(path, offset, data)
 	}
 
-	return len(data), nil
+	if pageNumber == 1 {
+		lfs.hasPageOne = true
+	}
+
+	return n, nil
 }

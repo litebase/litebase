@@ -171,6 +171,10 @@ func Exists(name string) bool {
 	return false
 }
 
+func TmpDirectory() string {
+	return fmt.Sprintf("%s/.litebase/databases", config.Get().TmpPath)
+}
+
 func Get(databaseUuid string) (*Database, error) {
 	databaseMutex.Lock()
 	defer databaseMutex.Unlock()

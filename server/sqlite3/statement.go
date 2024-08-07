@@ -5,6 +5,7 @@ package sqlite3
 // #include "./sqlite3.h"
 import "C"
 import (
+	"context"
 	"errors"
 	"unsafe"
 )
@@ -13,20 +14,29 @@ type Statement struct {
 	columnCount  int
 	columnNames  []string
 	Connection   *Connection
+	context      context.Context
+	isReadOnly   StatementReadonly
 	sqlite3_stmt *C.sqlite3_stmt
 	extra        *C.char
 	text         string
 }
 
+type StatementReadonly string
+
+const (
+	StatementReadonlyTrue  StatementReadonly = "true"
+	StatementReadonlyFalse StatementReadonly = "false"
+)
+
 // Prepare query
-func (c *Connection) Prepare(query string) (*Statement, error) {
+func (c *Connection) Prepare(ctx context.Context, query string) (*Statement, error) {
 	var cQuery, cExtra *C.char
 	var s *C.sqlite3_stmt
 
 	cQuery = C.CString(query)
 	defer C.free(unsafe.Pointer(cQuery))
 
-	if err := C.sqlite3_prepare_v3((*C.sqlite3)(c), cQuery, -1, C.SQLITE_PREPARE_PERSISTENT, &s, &cExtra); err != SQLITE_OK {
+	if err := C.sqlite3_prepare_v3((*C.sqlite3)(c.sqlite3), cQuery, -1, C.SQLITE_PREPARE_PERSISTENT, &s, &cExtra); err != SQLITE_OK {
 		return nil, c.Error(err)
 	}
 
@@ -35,6 +45,7 @@ func (c *Connection) Prepare(query string) (*Statement, error) {
 		columnCount:  0,
 		columnNames:  []string{},
 		Connection:   c,
+		context:      ctx,
 		sqlite3_stmt: s,
 		extra:        cExtra,
 		text:         query,
@@ -102,9 +113,11 @@ func (s *Statement) Bind(parameters ...interface{}) error {
 			rc = C.sqlite3_bind_text(s.sqlite3_stmt, index, cText, cTextLen, C.SQLITE_TRANSIENT)
 		case []byte:
 			var valuePointer unsafe.Pointer
+
 			if len(value) > 0 {
 				valuePointer = unsafe.Pointer(&value[0])
 			}
+
 			rc = C.sqlite3_bind_blob(s.sqlite3_stmt, index, valuePointer, C.int(len(value)), C.SQLITE_TRANSIENT)
 		default:
 			rc = C.sqlite3_bind_null(s.sqlite3_stmt, index)
@@ -123,41 +136,45 @@ func (s *Statement) Exec(parameters ...interface{}) (Result, error) {
 	defer s.Reset()
 
 	if s.sqlite3_stmt == nil {
-		return nil, errors.New("sqlite3 statement is nil")
+		return Result{}, errors.New("sqlite3 statement is nil")
 	}
 
-	if err := s.Bind(parameters...); err != nil {
-		return nil, err
-	}
-
-	var results []map[string]any
-	columnNames := s.ColumnNames()
-
-	for {
-		rc := C.sqlite3_step(s.sqlite3_stmt)
-
-		if rc == SQLITE_DONE {
-			break
-		} else if rc == SQLITE_BUSY {
-			continue
-		} else if rc == SQLITE_ROW {
-			result := make(map[string]any)
-
-			for i, columnName := range columnNames {
-				result[columnName] = s.ColumnValue(i)
-			}
-
-			results = append(results, result)
-		} else {
-			return nil, s.Connection.Error(rc)
+	if len(parameters) > 0 {
+		if err := s.Bind(parameters...); err != nil {
+			return Result{}, err
 		}
 	}
 
-	// if err := s.ClearBindings(); err != nil {
-	// 	return nil, err
-	// }
+	result := Result{}
 
-	return results, nil
+	if s.text != "COMMIT" && s.text != "ROLLBACK" {
+		result.Columns = s.ColumnNames()
+	}
+
+	for {
+		select {
+		case <-s.context.Done():
+			return Result{}, errors.New("context done")
+		default:
+			rc := C.sqlite3_step(s.sqlite3_stmt)
+
+			if rc == SQLITE_DONE {
+				return result, nil
+			} else if rc == SQLITE_BUSY {
+				continue
+			} else if rc == SQLITE_ROW {
+				columns := make([]Column, len(result.Columns))
+
+				for i := range result.Columns {
+					columns[i] = NewColumn(s.ColumnValue(i))
+				}
+
+				result.Rows = append(result.Rows, columns)
+			} else {
+				return Result{}, s.Connection.Error(rc)
+			}
+		}
+	}
 }
 
 // https://www.sqlite.org/c3ref/finalize.html
@@ -213,6 +230,7 @@ func (s *Statement) ColumnNames() []string {
 	if len(s.columnNames) == 0 {
 		columnCount := s.ColumnCount()
 		s.columnNames = make([]string, 0, columnCount)
+
 		for i := 0; i < columnCount; i++ {
 			s.columnNames = append(s.columnNames, s.ColumnName(i))
 		}
@@ -259,7 +277,19 @@ func (s *Statement) IsReadonly() bool {
 		return false
 	}
 
-	return int(C.sqlite3_stmt_readonly((*C.sqlite3_stmt)(s.sqlite3_stmt))) != 0
+	if s.isReadOnly != "" {
+		return s.isReadOnly == StatementReadonlyTrue
+	}
+
+	readonly := int(C.sqlite3_stmt_readonly((*C.sqlite3_stmt)(s.sqlite3_stmt))) != 0
+
+	if readonly {
+		s.isReadOnly = StatementReadonlyTrue
+	} else {
+		s.isReadOnly = StatementReadonlyFalse
+	}
+
+	return readonly
 }
 
 func (s *Statement) SQL() string {

@@ -24,15 +24,15 @@ func NewLoadBalancer() *LoadBalancer {
 	lb.setTargets()
 
 	go func() {
-		// lb.getTargets()
-		// lb.runHealthChecks()
+		lb.getTargets()
+		lb.runHealthChecks()
 	}()
 
 	return lb
 }
 
 func (lb *LoadBalancer) getTargets() {
-	timer := time.NewTicker(1 * time.Second)
+	timer := time.NewTicker(3 * time.Second)
 
 	for range timer.C {
 		lb.setTargets()
@@ -65,6 +65,7 @@ func (lb *LoadBalancer) NextTarget() (*Target, error) {
 
 	for i := next; i < l; i++ {
 		index := i % len(lb.targets) // take an index by modding with length
+
 		// if we have an alive backend, use it and store if its not the original one
 		if lb.targets[index].IsAlive() {
 			if i != next {
@@ -85,16 +86,20 @@ func (lb *LoadBalancer) NextIndex() int {
 func (lb *LoadBalancer) setTargets() {
 	targets := []*Target{}
 
-	path := fmt.Sprintf("%s/%s", os.Getenv("LITEBASE_DATA_PATH"), "/nodes/query")
-	os.MkdirAll(path, 0755)
-	entries, err := os.ReadDir(path)
+	entries, err := os.ReadDir(fmt.Sprintf("%s/%s", os.Getenv("LITEBASE_DATA_PATH"), ".litebase/nodes"))
 
 	if err != nil {
-		panic(err)
+		if os.IsNotExist(err) {
+			log.Printf("No targets available")
+		}
+
+		log.Println(err)
+
+		return
 	}
 
 	for _, entry := range entries {
-		parts := strings.Split(entry.Name(), "_")
+		parts := strings.Split(entry.Name(), ":")
 
 		if len(parts) != 2 {
 			continue
@@ -122,7 +127,7 @@ func (lb *LoadBalancer) checkTarget(target *Target) bool {
 
 func (lb *LoadBalancer) Handle(w http.ResponseWriter, r *http.Request) {
 	attempts := GetAttemptsFromContext(r)
-
+	log.Println("Attempts: ", attempts)
 	if attempts > 3 {
 		log.Printf("%s(%s) Max attempts reached, terminating\n", r.RemoteAddr, r.URL.Path)
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
@@ -130,10 +135,8 @@ func (lb *LoadBalancer) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	target, err := lb.NextTarget()
-
+	log.Println("Target: ", target)
 	if err != nil {
-		// log.Printf("%s(%s) No targets available\n", r.RemoteAddr, r.URL.Path)
-		// log.Println(err)
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
 		return
 	}

@@ -2,80 +2,161 @@ package query
 
 import (
 	"fmt"
+	"litebase/server/cluster"
 	"litebase/server/database"
+	"litebase/server/node"
 	"litebase/server/sqlite3"
+	"log"
 	"time"
 )
 
 type Resolver struct {
 }
 
-func ResolveQuery(db *database.ClientConnection, query Query) (map[string]interface{}, error) {
-	// var handlerError error
-	// var response map[string]interface{}
-
-	var err error
-	var data map[string]any
-
+func ResolveQuery(databaseHash string, query *Query) (QueryResponse, error) {
 	if query.invalid {
-		return map[string]any{
-			"status":  "error",
-			"message": fmt.Errorf("invalid or malformed query"),
-		}, nil
+		return QueryResponse{}, fmt.Errorf("invalid or malformed query")
 	}
 
-	start := time.Now()
-	var sqlite3Result sqlite3.Result
-	var statement database.Statement
+	if shouldForwardToPrimary(query) {
+		return forwardQueryToPrimary(query.DatabaseUuid, query.BranchUuid, query)
+	}
 
-	if query.IsPragma {
-		sqlite3Result, err = db.GetConnection().SqliteConnection().Exec(query.OriginalStatement)
-	} else {
-		statement, err = query.Statement()
+	return resolveQueryLocally(databaseHash, query.DatabaseUuid, query.BranchUuid, query)
+}
 
-		if err == nil {
+func resolveQueryLocally(databaseHash, databaseUuid, branchUuid string, query *Query) (QueryResponse, error) {
+	return resolveWithQueue(databaseHash, databaseUuid, branchUuid, query, func(query *Query) (QueryResponse, error) {
+		var data QueryResponse
+		start := time.Now()
+		var sqlite3Result sqlite3.Result
+		var statement database.Statement
+		var changes int64
+		var lastInsertRowID int64
+		var err error
+		var db *database.ClientConnection
 
-			err = query.Validate(statement)
+		db, err = database.ConnectionManager().Get(databaseUuid, branchUuid)
 
-			if err != nil {
-				return map[string]any{
-					"status":  "error",
-					"message": err.Error(),
-				}, nil
+		if err != nil {
+			log.Println("Error getting database connection", err)
+
+			return QueryResponse{
+				Id: query.Id,
+			}, err
+		}
+
+		defer database.ConnectionManager().Release(databaseUuid, branchUuid, db)
+
+		db = db.WithAccessKey(query.AccessKey)
+
+		if query.IsPragma() {
+			log.Println("Executing pragma query")
+			sqlite3Result, err = db.GetConnection().SqliteConnection().Exec(db.GetConnection().Context(), query.Statement)
+			changes = db.GetConnection().Changes()
+		} else {
+			statement, err = db.GetConnection().Statement(query.Statement)
+
+			if err == nil {
+				// err = query.Validate(statement)
+
+				// if err != nil {
+				// 	return QueryResponse{}, err
+				// }
+
+				sqlite3Result, err = db.GetConnection().Query(statement.Sqlite3Statement, query.Parameters...)
+
+				if !query.IsDQL() {
+					changes = db.GetConnection().Changes()
+					lastInsertRowID = db.GetConnection().SqliteConnection().LastInsertRowID()
+				}
 			}
-
-			sqlite3Result, err = db.GetConnection().Query(statement.Sqlite3Statement, query.Parameters()...)
 		}
 
-	}
-
-	if err != nil {
-		data = map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}
-	} else {
-		result := map[string]any{
-			"changes":         db.GetConnection().Changes(),
-			"lastInsertRowID": db.GetConnection().SqliteConnection().LastInsertRowID(),
-			"rows":            sqlite3Result,
-			"rowCount":        len(sqlite3Result),
+		if err != nil {
+			database.ConnectionManager().Remove(databaseUuid, branchUuid, db)
+			return QueryResponse{
+				Id: query.Id,
+			}, err
 		}
 
-		data = map[string]any{
-			"_execution_time": float64(time.Since(start)) / float64(time.Millisecond),
-			"status":          "success",
-			"data":            result,
+		data = QueryResponse{
+			Changes:         changes,
+			Columns:         sqlite3Result.Columns,
+			Id:              query.Id,
+			LastInsertRowId: lastInsertRowID,
+			Rows:            sqlite3Result.Rows,
+			RowCount:        len(sqlite3Result.Rows),
 		}
+
+		data.ExecutionTime = float64(time.Since(start)) / float64(time.Millisecond)
 
 		// logging.Query(
-		// 	clientConnection.GetDatabaseUuid(),
-		// 	clientConnection.GetBranchUuid(),
+		// 	clientConnection.DatabaseUuid,
+		// 	clientConnection.BranchUuid,
 		// 	query.AccessKeyId,
 		// 	query.OriginalStatement,
 		// 	float64(end)/float64(1000), // Convert to seconds
 		// )
+
+		return data, err
+	})
+}
+
+func resolveWithQueue(databaseHash, databaseUuid, branchUuid string, query *Query, f func(query *Query) (QueryResponse, error)) (QueryResponse, error) {
+	if query.IsWrite() {
+		queue := GetWriteQueue(databaseHash, databaseUuid, branchUuid)
+
+		if queue == nil {
+			return QueryResponse{}, fmt.Errorf("database not found")
+		}
+
+		return queue.Handle(func() (QueryResponse, error) {
+			return f(query)
+		})
 	}
 
-	return data, err
+	return f(query)
+}
+
+func forwardQueryToPrimary(databaseUuid, branchUuid string, query *Query) (QueryResponse, error) {
+	response, err := node.Node().Send(
+		node.NodeMessage{
+			Id:   fmt.Sprintf("query:%s", query.Id),
+			Type: "QueryMessage",
+			Data: node.QueryMessage{
+				AccessKeyId:  query.AccessKey.AccessKeyId,
+				BranchUuid:   branchUuid,
+				DatabaseUuid: databaseUuid,
+				Id:           query.Id,
+				Statement:    query.Statement,
+				Parameters:   query.Parameters,
+			},
+		},
+	)
+
+	if err != nil {
+		return QueryResponse{}, err
+	}
+
+	if response.Type == "Error" {
+		return QueryResponse{}, fmt.Errorf(response.Error)
+	}
+
+	if response.Type != "QueryMessageResponse" {
+		return QueryResponse{}, fmt.Errorf("unexpected response from primary")
+	}
+
+	return QueryResponse{
+		Changes:         response.Data.(node.QueryMessageResponse).Changes,
+		Columns:         response.Data.(node.QueryMessageResponse).Columns,
+		ExecutionTime:   response.Data.(node.QueryMessageResponse).ExecutionTime,
+		LastInsertRowId: response.Data.(node.QueryMessageResponse).LastInsertRowID,
+		RowCount:        response.Data.(node.QueryMessageResponse).RowCount,
+		Rows:            response.Data.(node.QueryMessageResponse).Rows,
+	}, nil
+}
+
+func shouldForwardToPrimary(query *Query) bool {
+	return (query.IsPragma() || query.IsDML()) && node.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY
 }

@@ -4,6 +4,7 @@ import (
 	"litebase/internal/config"
 	"litebase/server/auth"
 	"litebase/server/node"
+	"log"
 )
 
 func Internal(request *Request) (*Request, Response) {
@@ -26,6 +27,8 @@ func Internal(request *Request) (*Request, Response) {
 	}
 
 	if nodeIp == "" || !node.Has(nodeIp) {
+		log.Println("Unauthorized node connection attempt: ", nodeIp)
+
 		return request, Response{
 			StatusCode: 401,
 		}

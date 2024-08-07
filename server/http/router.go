@@ -10,7 +10,7 @@ import (
 type RouterInstance struct {
 	DefaultRoute Route
 	HttpServer   *http.Server
-	Routes       map[string]map[string]Route
+	Routes       map[string]map[string]*Route
 }
 
 type RouteKey struct {
@@ -23,7 +23,7 @@ var StaticRouter *RouterInstance
 func Router() *RouterInstance {
 	if StaticRouter == nil {
 		StaticRouter = &RouterInstance{
-			Routes: map[string]map[string]Route{
+			Routes: map[string]map[string]*Route{
 				"GET":    nil,
 				"POST":   nil,
 				"PUT":    nil,
@@ -36,7 +36,7 @@ func Router() *RouterInstance {
 	return StaticRouter
 }
 
-func (router *RouterInstance) Delete(path string, handler func(request *Request) Response) Route {
+func (router *RouterInstance) Delete(path string, handler func(request *Request) Response) *Route {
 	return router.request("DELETE", path, handler)
 }
 
@@ -46,23 +46,23 @@ func (router *RouterInstance) Fallback(callback func(request *Request) Response)
 	}
 }
 
-func (router *RouterInstance) Get(path string, handler func(request *Request) Response) Route {
+func (router *RouterInstance) Get(path string, handler func(request *Request) Response) *Route {
 	return router.request("GET", path, handler)
 }
 
-func (router *RouterInstance) Path(path string, handler func(request *Request) Response) Route {
+func (router *RouterInstance) Path(path string, handler func(request *Request) Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Post(path string, handler func(request *Request) Response) Route {
+func (router *RouterInstance) Post(path string, handler func(request *Request) Response) *Route {
 	return router.request("POST", path, handler)
 }
 
-func (router *RouterInstance) Patch(path string, handler func(request *Request) Response) Route {
+func (router *RouterInstance) Patch(path string, handler func(request *Request) Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Put(path string, handler func(request *Request) Response) Route {
+func (router *RouterInstance) Put(path string, handler func(request *Request) Response) *Route {
 	return router.request("PUT", path, handler)
 }
 
@@ -70,17 +70,12 @@ func PrepareRequest(request *http.Request) *Request {
 	return NewRequest(request)
 }
 
-func (router *RouterInstance) request(method string, path string, handler func(request *Request) Response) Route {
-	// path = strings.TrimLeft(path, "/")
-	// path = strings.TrimRight(path, "/")
-	// // path = strings.ReplaceAll(path, "{", "\\{")
-	// // path = strings.ReplaceAll(path, "}", "\\}")
-	// path = fmt.Sprintf("/%s{/?}", path)
+func (router *RouterInstance) request(method string, path string, handler func(request *Request) Response) *Route {
 	if router.Routes[method] == nil {
-		router.Routes[method] = make(map[string]Route)
+		router.Routes[method] = make(map[string]*Route)
 	}
 
-	router.Routes[method][path] = Route{Handler: handler}
+	router.Routes[method][path] = NewRoute(handler)
 
 	return router.Routes[method][path]
 }
@@ -99,6 +94,11 @@ func (router *RouterInstance) Server(serveMux *http.ServeMux) {
 				response := route.Handle(PrepareRequest(r))
 
 				if response.StatusCode == 0 {
+					return
+				}
+
+				if response.StatusCode >= 400 {
+					w.WriteHeader(response.StatusCode)
 					return
 				}
 

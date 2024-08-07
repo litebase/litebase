@@ -2,31 +2,661 @@ package node
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"litebase/internal/config"
 	"litebase/server/auth"
+	"litebase/server/cluster"
 	"litebase/server/storage"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
+	"syscall"
+	"time"
 )
 
 var NodeIpAddress string
 var NodeIPv6Address string
+var NodeInstanceSingleton *NodeInstance
 
-func DirectoryPath() string {
-	return fmt.Sprintf("%s/nodes/query", config.Get().DataPath)
+const (
+	NODE_HEARTBEAT_INTERVAL = 3 * time.Second
+	NODE_HEARTBEAT_TIMEOUT  = 1 * time.Second
+	NODE_IDLE_TIMEOUT       = 60 * time.Second
+	NODE_STATE_ACTIVE       = "active"
+	NODE_STATE_IDLE         = "idle"
+)
+
+type NodeInstance struct {
+	address                 string
+	cancel                  context.CancelFunc
+	context                 context.Context
+	databaseCheckpointer    NodeReplicaCheckpointer
+	databaseWalSynchronizer NodeDatabaseWalSynchronizer
+	lastActive              time.Time
+	Id                      string
+	LeaseExpiresAt          int64
+	Membership              string
+	mutext                  *sync.Mutex
+	primaryAddress          string
+	primary                 *NodePrimary
+	replica                 *NodeReplica
+	queryBuilder            NodeQueryBuilder
+	requestTicker           *time.Ticker
+	State                   string
+	standBy                 chan struct{}
+}
+
+func Node() *NodeInstance {
+	if NodeInstanceSingleton == nil {
+		NodeInstanceSingleton = &NodeInstance{
+			address:    "",
+			lastActive: time.Now(),
+			Membership: cluster.CLUSTER_MEMBERSHIP_STAND_BY,
+			// Membership: cluster.CLUSTER_MEMBERSHIP_REPLICA,
+			mutext:  &sync.Mutex{},
+			standBy: make(chan struct{}),
+			State:   NODE_STATE_ACTIVE,
+		}
+
+		hash := sha256.Sum256([]byte(NodeInstanceSingleton.Address()))
+		NodeInstanceSingleton.Id = hex.EncodeToString(hash[:])
+		NodeInstanceSingleton.context, NodeInstanceSingleton.cancel = context.WithCancel(context.Background())
+	}
+
+	return NodeInstanceSingleton
+}
+
+func (n *NodeInstance) Address() string {
+	if n.address != "" {
+		return n.address
+	}
+
+	if os.Getenv("ECS_CONTAINER_METADATA_URI_V4") == "" {
+		address, err := os.Hostname()
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		n.address = fmt.Sprintf("%s:%s", address, config.Get().QueryNodePort)
+
+		return n.address
+	}
+
+	url := fmt.Sprintf("%s/task", os.Getenv("ECS_CONTAINER_METADATA_URI_V4"))
+
+	res, err := http.Get(url)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer res.Body.Close()
+
+	body, readErr := io.ReadAll(res.Body)
+
+	if readErr != nil {
+		log.Fatal(readErr)
+	}
+
+	var data map[string]interface{}
+
+	jsonErr := json.Unmarshal(body, &data)
+
+	if jsonErr != nil {
+		log.Fatal(jsonErr)
+	}
+
+	// TODO: Use PrivateDNSName instead of IPv4Addresses
+	address := data["Containers"].([]interface{})[0].(map[string]interface{})["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]interface{})[0].(string)
+
+	n.address = fmt.Sprintf("%s:%s", address, os.Getenv("PORT"))
+
+	log.Printf("Node IP Address: %s \n", n.address)
+
+	return n.address
+}
+
+func (n *NodeInstance) Context() context.Context {
+	return n.context
+}
+
+func (n *NodeInstance) Heartbeat() {
+	if n.Membership == cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+		n.renewLease()
+		return
+	}
+
+	if n.context.Err() != nil {
+		return
+	}
+
+	if !n.IsStandBy() && !n.primaryLeaseVerification() {
+		success := n.runElection()
+
+		if !success {
+			time.Sleep(cluster.ELECTION_RETRY_WAIT)
+		}
+	}
+}
+
+func (n *NodeInstance) IsIdle() bool {
+	return n.State == NODE_STATE_IDLE
+}
+
+func (n *NodeInstance) IsPrimary() bool {
+	if n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA || n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
+		return false
+	}
+
+	// If the cluster membership is primary and the lease is still valid
+	if n.Membership == cluster.CLUSTER_MEMBERSHIP_PRIMARY && time.Now().Unix() < n.LeaseExpiresAt {
+		return true
+	}
+
+	// Check if the primary file exists and is not empty
+	if primaryData, err := os.ReadFile(cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
+		if err != nil {
+			log.Printf("Error accessing primary file: %v", err)
+		}
+
+		return false
+	}
+
+	// Check if the lease file exists, is not empty, and has a valid future timestamp
+	leaseData, err := os.ReadFile(cluster.LeasePath())
+
+	if err != nil || len(leaseData) == 0 {
+		return false
+	}
+
+	// Check if the lease file has a valid future timestamp
+	leaseTime, err := strconv.ParseInt(string(leaseData), 10, 64)
+
+	if err != nil {
+		log.Printf("Failed to parse lease timestamp: %v", err)
+		return false
+	}
+
+	if time.Now().Unix() < leaseTime {
+		return true
+	}
+
+	return false
+}
+
+func (n *NodeInstance) IsReplica() bool {
+	return n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA
+}
+
+func (n *NodeInstance) IsStandBy() bool {
+	return n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY
+}
+
+func (n *NodeInstance) joinCluster() error {
+	if err := n.storeAddress(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *NodeInstance) monitorPrimary() {
+	n.Heartbeat()
+
+	ticker := time.NewTicker(NODE_HEARTBEAT_INTERVAL)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if n.IsIdle() {
+				continue
+			}
+
+			n.Heartbeat()
+		case <-n.context.Done():
+			ticker.Stop()
+			// Exit if the parent context is canceled
+			return
+		}
+	}
+}
+
+func (n *NodeInstance) Primary() *NodePrimary {
+	return n.primary
+}
+
+func (n *NodeInstance) PrimaryAddress() string {
+	if n.primaryAddress == "" {
+		primaryData, err := os.ReadFile(cluster.PrimaryPath())
+
+		if err != nil {
+			log.Printf("Failed to read primary file: %v", err)
+			return ""
+		}
+
+		n.primaryAddress = string(primaryData)
+	}
+
+	return n.primaryAddress
+}
+
+func (n *NodeInstance) primaryLeaseVerification() bool {
+	primaryData, err := os.ReadFile(cluster.PrimaryPath())
+
+	if err != nil {
+		log.Printf("Failed to read primary file: %v", err)
+		return false
+	}
+
+	// There is a primary file but it is empty
+	if len(primaryData) == 0 {
+		return false
+	}
+
+	// Check if the primary is still alive
+	leaseData, err := os.ReadFile(cluster.LeasePath())
+
+	if err != nil {
+		log.Printf("Failed to read lease file: %v", err)
+		return false
+	}
+
+	if len(leaseData) == 0 {
+		return false
+	}
+
+	leaseTime, err := strconv.ParseInt(string(leaseData), 10, 64)
+
+	if err != nil {
+		log.Printf("Failed to parse lease timestamp: %v", err)
+		return false
+	}
+
+	if time.Now().Unix() >= leaseTime {
+		n.removePrimaryStatus()
+		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_REPLICA)
+
+		return false
+	}
+
+	return true
+}
+
+// Release the lease and remove the primary status from the node. This should
+// be called before changing the cluster membership to replica.
+func (n *NodeInstance) releaseLease() error {
+	n.LeaseExpiresAt = 0
+
+	if n.Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+		return fmt.Errorf("node is not a leader")
+	}
+
+	// Refactor to directly truncate files without checking for existence
+	if err := truncateFile(cluster.PrimaryPath()); err != nil {
+		return err
+	}
+
+	if err := truncateFile(cluster.LeasePath()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *NodeInstance) Replica() *NodeReplica {
+	return n.replica
+}
+
+func (n *NodeInstance) removeAddress() error {
+	return os.Remove(fmt.Sprintf("%s/.litebase/nodes/%s", config.Get().DataPath, n.Address()))
+}
+
+func (n *NodeInstance) removePrimaryStatus() error {
+	// Release the lease
+	n.releaseLease()
+
+	if n.primary != nil {
+		n.primary.Stop()
+		n.primary = nil
+	}
+
+	return nil
+}
+
+func (n *NodeInstance) renewLease() error {
+	if n.Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+		return fmt.Errorf("node is not a leader")
+	}
+
+	if err := n.context.Err(); err != nil {
+		log.Println("Operation canceled before starting.")
+		return err
+	}
+
+	// Verify the primary is stil the current node
+	primaryAddress, err := os.ReadFile(cluster.PrimaryPath())
+
+	if err != nil {
+		return err
+	}
+
+	if string(primaryAddress) != n.Address() {
+		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_REPLICA)
+
+		return fmt.Errorf("primary address verification failed")
+	}
+
+	if err := n.context.Err(); err != nil {
+		log.Println("Operation canceled before starting.")
+		return err
+	}
+
+	expiresAt := time.Now().Add(cluster.LEASE_DURATION).Unix()
+	leaseTimestamp := strconv.FormatInt(expiresAt, 10)
+
+	err = os.WriteFile(cluster.LeasePath(), []byte(leaseTimestamp), os.ModePerm)
+
+	if err != nil {
+		log.Printf("Failed to write lease file: %v", err)
+		return err
+	}
+
+	if err := n.context.Err(); err != nil {
+		log.Println("Operation canceled before starting.")
+		return err
+	}
+
+	// Verify the Lease file has the written value
+	leaseData, err := os.ReadFile(cluster.LeasePath())
+
+	if err != nil {
+		log.Printf("Failed to read lease file: %v", err)
+		return err
+	}
+
+	if string(leaseData) != leaseTimestamp {
+		return fmt.Errorf("failed to verify lease file")
+	}
+
+	n.LeaseExpiresAt = expiresAt
+
+	return nil
+}
+
+func (n *NodeInstance) runElection() bool {
+	if n.context.Err() != nil {
+		log.Println("Operation canceled before starting.")
+		return false
+	}
+
+	// Attempt to open the nomination file with exclusive lock
+	nominationFile, err := os.OpenFile(cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
+
+	if err != nil {
+		log.Printf("Failed to open nomination file: %v", err)
+		return false
+	}
+
+	defer nominationFile.Close()
+
+	// Attempt to acquire an exclusive lock
+	err = syscall.Flock(int(nominationFile.Fd()), syscall.LOCK_EX)
+
+	if err != nil {
+		log.Printf("Failed to lock nomination file: %v", err)
+		return false
+	}
+
+	defer syscall.Flock(int(nominationFile.Fd()), syscall.LOCK_UN) // Ensure unlock
+
+	if n.context.Err() != nil {
+		log.Println("Operation canceled before starting.")
+		return false
+	}
+
+	// Check if the nomination file is empty or contains this node's address
+	nominationData, err := io.ReadAll(nominationFile)
+
+	if err != nil {
+		log.Printf("Failed to read nomination file: %v", err)
+		return false
+	}
+
+	address := n.Address()
+	timestamp := time.Now().UnixNano()
+	entry := fmt.Sprintf("%s,%d\n", address, timestamp)
+
+	if len(nominationData) == 0 || !strings.Contains(string(nominationData), address) {
+		nominationFile.Seek(0, io.SeekStart)
+
+		err := nominationFile.Truncate(0)
+
+		if err != nil {
+			log.Printf("Failed to truncate nomination file: %v", err)
+			return false
+		}
+
+		_, err = nominationFile.WriteString(entry)
+
+		if err != nil {
+			log.Printf("Failed to write to nomination file: %v", err)
+			return false
+		}
+	}
+	// else {
+	// File is not empty and does not contain this node's address
+	// Implement logic to determine if this node should still become primary based on timestamps or other criteria
+	// }
+
+	// Logic to determine if this node becomes primary based on the contents of the nomination file
+	// This could involve reading back the file contents and checking timestamps or other coordination logic
+
+	if n.context.Err() != nil {
+		log.Println("Operation canceled before starting.")
+		return false
+	}
+
+	// Assuming this node is determined to be primary
+	if isPrimaryBasedOnFileContents(nominationData, address, timestamp) {
+		err = os.WriteFile(cluster.PrimaryPath(), []byte(address), 0644)
+
+		if err != nil {
+			log.Printf("Failed to write primary file: %v", err)
+			return false
+		}
+
+		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_PRIMARY)
+		truncateFile(cluster.NominationPath())
+		err := n.renewLease()
+
+		if err != nil {
+			log.Printf("Failed to renew lease: %v", err)
+			return false
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func (n *NodeInstance) runTicker() {
+	n.requestTicker = time.NewTicker(1 * time.Second)
+
+	for {
+		select {
+		case <-n.context.Done():
+			return
+		case <-n.requestTicker.C:
+			// Continue if the node is idle
+			if n.State == NODE_STATE_IDLE {
+				continue
+			}
+
+			// Ensure Replicas are still connected to the primary
+			// if n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA && n.primaryConnection == nil && !n.connecting {
+			// 	n.connectWithPrimary()
+			// }
+
+			// Continue if the node has not been inactive for the idle timeout duration
+			if n.lastActive == (time.Time{}) || time.Since(n.lastActive) <= NODE_IDLE_TIMEOUT {
+				continue
+			}
+
+			// Change the cluster membership to stand by
+			// n.SetMembership(cluster.CLUSTER_MEMBERSHIP_STAND_BY)
+		}
+	}
+}
+
+func (n *NodeInstance) SetDatabaseCheckpointer(checkpointer NodeReplicaCheckpointer) {
+	n.databaseCheckpointer = checkpointer
+}
+
+func (n *NodeInstance) SetDatabaseWalSchronizer(synchronizer NodeDatabaseWalSynchronizer) {
+	n.databaseWalSynchronizer = synchronizer
+}
+
+func (n *NodeInstance) SetMembership(membership string) {
+	n.mutext.Lock()
+	defer n.mutext.Unlock()
+
+	prevMembership := n.Membership
+
+	n.Membership = membership
+	// Forget the last known primary address
+	n.primaryAddress = ""
+
+	if membership == cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+		n.primary = NewNodePrimary(n.queryBuilder)
+
+		if n.replica != nil {
+			n.replica.Stop()
+			n.replica = nil
+		}
+	}
+
+	if membership == cluster.CLUSTER_MEMBERSHIP_REPLICA && prevMembership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+		n.replica = NewNodeReplica(n.databaseCheckpointer, n.databaseWalSynchronizer)
+
+		if n.primary != nil {
+			n.removePrimaryStatus()
+		}
+	}
+
+	if membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
+		n.State = NODE_STATE_IDLE
+	}
+}
+
+func (n *NodeInstance) SetQueryBuilder(queryBuilder NodeQueryBuilder) {
+	n.queryBuilder = queryBuilder
+}
+
+func (n *NodeInstance) Shutdown() error {
+	if err := n.removeAddress(); err != nil {
+		log.Println("Failed to remove address file: ", err)
+	}
+
+	if n.IsPrimary() {
+		n.removePrimaryStatus()
+	}
+
+	n.cancel()
+
+	return nil
+}
+
+func (n *NodeInstance) Start() error {
+	if err := n.joinCluster(); err != nil {
+		return err
+	}
+
+	go n.monitorPrimary()
+	go n.runTicker()
+
+	n.Tick()
+
+	return nil
+}
+
+func (n *NodeInstance) storeAddress() error {
+	return os.WriteFile(fmt.Sprintf("%s/%s", cluster.NodePath(), n.Address()), []byte(n.Address()), 0644)
+}
+
+func (n *NodeInstance) Tick() {
+	n.lastActive = time.Now()
+
+	if n.State == NODE_STATE_IDLE {
+		n.State = NODE_STATE_ACTIVE
+	}
+
+	// If the node is a standby, and it hasn't won the election at this point,
+	// it should manually become a replica and ensure it has membership.
+	if n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
+		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_REPLICA)
+
+		n.Heartbeat()
+	}
+}
+
+// isPrimaryBasedOnFileContents checks if the current node is the primary based on the contents of the nomination file.
+// nominationData is the content of the nomination file.
+// address is the address of the current node().
+// timestamp is the timestamp when the current node attempted to nominate itself.
+func isPrimaryBasedOnFileContents(nominationData []byte, address string, timestamp int64) bool {
+	// Split the file content into lines, each representing an entry
+	lines := strings.Split(string(nominationData), "\n")
+
+	for _, line := range lines {
+		if line == "" {
+			continue // Skip empty lines
+		}
+
+		parts := strings.Split(line, ",")
+
+		if len(parts) != 2 {
+			log.Printf("Invalid entry in nomination file: %s", line)
+			continue
+		}
+
+		entryAddress := parts[0]
+
+		entryTimestamp, err := strconv.ParseInt(parts[1], 10, 64)
+
+		if err != nil {
+			log.Printf("Invalid timestamp for entry in nomination file: %s", parts[1])
+			continue
+		}
+
+		// log.Println(entryAddress, entryTimestamp, address, timestamp)
+		// If there's an entry with an earlier timestamp, current node cannot be primary
+		if entryTimestamp < timestamp && entryAddress != address {
+			return false
+		}
+	}
+
+	// If no entry has an earlier timestamp, or in case of a tie, the node with the lexicographically smaller address wins
+	return true
+}
+
+// truncateFile truncates the specified file. It creates the file if it does not exist.
+func truncateFile(filePath string) error {
+	return os.WriteFile(filePath, []byte(""), os.ModePerm)
 }
 
 func FilePath(ipAddress string) string {
-	if ipAddress == "" {
-		ipAddress = GetPrivateIpAddress()
-	}
-
-	return fmt.Sprintf("%s/%s_%s", DirectoryPath(), ipAddress, config.Get().QueryNodePort)
+	return fmt.Sprintf("%s/%s", cluster.NodePath(), ipAddress)
 }
 
 func GetPrivateIpAddress() string {
@@ -122,58 +752,27 @@ func Has(ip string) bool {
 	return false
 }
 
-func HealthCheck() {
-	path := DirectoryPath()
-	nodes := Instances()
-
-	for _, node := range nodes {
-		if node == GetPrivateIpAddress()+"_"+config.Get().QueryNodePort {
-			continue
-		}
-
-		ip := strings.Split(node, "_")[0]
-		port := strings.Split(node, "_")[1]
-
-		go func(ip, port string) {
-			url := fmt.Sprintf("http://%s:%s", ip, port)
-
-			res, err := http.Get(url)
-
-			if err != nil {
-				log.Println(err)
-				ipPath := fmt.Sprintf("%s/%s_%s", path, ip, port)
-
-				if _, err := storage.FS().Stat(ipPath); err == nil {
-					storage.FS().Remove(ipPath)
-				}
-
-				return
-			}
-
-			defer res.Body.Close()
-		}(ip, port)
-	}
-}
-
-func Init() {
-	path := DirectoryPath()
+func Init(queryBuilder NodeQueryBuilder, checkPointer NodeReplicaCheckpointer, walSynchronizer NodeDatabaseWalSynchronizer) {
+	registerNodeMessages()
 
 	// Make directory if it doesn't exist
-	if storage.FS().Stat(path); os.IsNotExist(os.ErrNotExist) {
-		storage.FS().Mkdir(path, 0755)
+	if storage.FS().Stat(cluster.NodePath()); os.IsNotExist(os.ErrNotExist) {
+		storage.FS().Mkdir(cluster.NodePath(), 0755)
 	}
+
+	Node().SetQueryBuilder(queryBuilder)
+	Node().SetDatabaseCheckpointer(checkPointer)
+	Node().SetDatabaseWalSchronizer(walSynchronizer)
 }
 
 func Instances() []string {
-	path := DirectoryPath()
-
 	// Check if the directory exists
-	if _, err := storage.FS().Stat(path); os.IsNotExist(err) {
+	if _, err := storage.FS().Stat(cluster.NodePath()); os.IsNotExist(err) {
 		return []string{}
 	}
 
 	// Read the directory
-	files, err := storage.FS().ReadDir(path)
+	files, err := storage.FS().ReadDir(cluster.NodePath())
 
 	if err != nil {
 		return []string{}
@@ -194,17 +793,21 @@ func OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 
 	for _, ip := range ips {
-		if ip == GetPrivateIpAddress()+"_"+config.Get().QueryNodePort {
+		if ip == GetPrivateIpAddress()+":"+config.Get().QueryNodePort {
 			continue
 		}
 
 		nodes = append(nodes, &NodeIdentifier{
-			IP:   strings.Split(ip, "_")[0],
-			Port: strings.Split(ip, "_")[1],
+			Address: strings.Split(ip, ":")[0],
+			Port:    strings.Split(ip, ":")[1],
 		})
 	}
 
 	return nodes
+}
+
+func (n *NodeInstance) Publish(nodeMessage NodeMessage) error {
+	return n.primary.Publish(nodeMessage)
 }
 
 func PurgeDatabaseSettings(databaseUuid string) {
@@ -212,7 +815,7 @@ func PurgeDatabaseSettings(databaseUuid string) {
 
 	for _, node := range nodes {
 		go func(node *NodeIdentifier) {
-			url := fmt.Sprintf("http://%s:%s/databases/%s/settings/purge", node.IP, node.Port, databaseUuid)
+			url := fmt.Sprintf("http://%s:%s/databases/%s/settings/purge", node.Address, node.Port, databaseUuid)
 			req, err := http.NewRequest("POST", url, nil)
 
 			if err != nil {
@@ -238,28 +841,8 @@ func PurgeDatabaseSettings(databaseUuid string) {
 	}
 }
 
-// Store the node ip in the nodes directory
-func Register() {
-	ipAddress := GetPrivateIpAddress()
-	filePath := FilePath(ipAddress)
-
-	if !Has(ipAddress) {
-	write:
-		err := storage.FS().WriteFile(filePath, []byte(ipAddress), 0644)
-
-		if err != nil {
-			if os.IsNotExist(err) {
-				storage.FS().MkdirAll(DirectoryPath(), 0755)
-				goto write
-			}
-
-			log.Println(err)
-		}
-	}
-}
-
 func SendEvent(node *NodeIdentifier, message NodeEvent) {
-	url := fmt.Sprintf("http://%s:%s/events", node.IP, node.Port)
+	url := fmt.Sprintf("http://%s:%s/events", node.Address, node.Port)
 	data, err := json.Marshal(message)
 
 	if err != nil {
@@ -276,7 +859,7 @@ func SendEvent(node *NodeIdentifier, message NodeEvent) {
 
 	encryptedHeader, err := auth.SecretsManager().Encrypt(
 		config.Get().Signature,
-		GetPrivateIpAddress(),
+		Node().Address(),
 	)
 
 	if err != nil {
@@ -302,17 +885,11 @@ func SendEvent(node *NodeIdentifier, message NodeEvent) {
 	}
 }
 
-func Unregister() {
-	ipAddress := GetPrivateIpAddress()
-	filePath := FilePath(ipAddress)
+func (n *NodeInstance) Send(nodeMessage NodeMessage) (NodeMessage, error) {
+	return n.replica.Send(nodeMessage)
+}
 
-	if Has(ipAddress) {
-		err := storage.FS().Remove(filePath)
+func (n *NodeInstance) SendWithStreamingResonse(nodeMessage NodeMessage) (chan NodeMessage, error) {
+	return n.replica.SendWithStreamingResonse(nodeMessage)
 
-		if err != nil {
-			log.Println(err)
-		}
-	}
-
-	fmt.Println("↳ Node unregistered successfully")
 }

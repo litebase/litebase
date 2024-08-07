@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"crypto/sha1"
 	"fmt"
 	"hash/crc32"
@@ -11,6 +12,7 @@ import (
 	"litebase/internal/config"
 	"litebase/server/auth"
 	"litebase/server/file"
+	"litebase/server/node"
 	"litebase/server/sqlite3"
 	"litebase/server/storage"
 	"litebase/server/vfs"
@@ -21,36 +23,53 @@ import (
 type DatabaseConnection struct {
 	accessKey      auth.AccessKey
 	branchUuid     string
+	cancel         context.CancelFunc
 	checkpointer   *Checkpointer
-	commitedAt     time.Time
+	committedAt    time.Time
+	committing     bool
+	context        context.Context
 	databaseHash   string
 	databaseUuid   string
 	id             string
 	fileSystem     storage.DatabaseFileSystem
 	sqlite3        *sqlite3.Connection
-	statements     map[uint32]Statement
-	statementMutex sync.RWMutex
+	statements     sync.Map
 	tempFileSystem storage.DatabaseFileSystem
 	vfs            *vfs.LitebaseVFS
 	vfsHash        string
+	walTimestamp   int64
 }
 
-func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection, error) {
+func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) (*DatabaseConnection, error) {
 	var (
 		connection *sqlite3.Connection
 		err        error
 	)
 
+	ctx, canel := context.WithCancel(context.Background())
+
+	var databaseHash string
+	var tempFileSystem storage.DatabaseFileSystem
+
+	// if node.Node().IsPrimary() {
+	databaseHash = file.DatabaseHash(databaseUuid, branchUuid)
+	tempFileSystem = DatabaseResources().TempFileSystem(databaseUuid, branchUuid)
+	// } else {
+	// 	databaseHash = file.DatabaseHashWithTimestamp(databaseUuid, branchUuid, walTimestamp)
+	// 	tempFileSystem = DatabaseResources().TempFileSystemWithTimestamp(databaseUuid, branchUuid, walTimestamp)
+	// }
+
 	con := &DatabaseConnection{
 		branchUuid:     branchUuid,
+		cancel:         canel,
 		checkpointer:   DatabaseResources().Checkpointer(databaseUuid, branchUuid),
-		databaseHash:   file.DatabaseHash(databaseUuid, branchUuid),
+		context:        ctx,
+		databaseHash:   databaseHash,
 		databaseUuid:   databaseUuid,
 		fileSystem:     DatabaseResources().FileSystem(databaseUuid, branchUuid),
 		id:             uuid.NewString(),
-		statements:     map[uint32]Statement{},
-		statementMutex: sync.RWMutex{},
-		tempFileSystem: DatabaseResources().TempFileSystem(databaseUuid, branchUuid),
+		statements:     sync.Map{},
+		tempFileSystem: tempFileSystem,
 	}
 
 	err = con.RegisterVFS()
@@ -63,7 +82,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 
 	con.setAuthorizer()
 
-	path, err := file.GetDatabaseFilePath(databaseUuid, branchUuid)
+	path, err := file.GetDatabaseFileTmpPath(node.Node().Id, databaseUuid, branchUuid)
 
 	if err != nil {
 		log.Println("Error Getting Database File Path:", err)
@@ -71,30 +90,65 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 		return nil, err
 	}
 
-	connection, err = sqlite3.Open(path, fmt.Sprintf("litebase:%s", con.VfsHash()))
+	connection, err = sqlite3.Open(
+		con.context,
+		path,
+		fmt.Sprintf("litebase:%s", con.VfsHash()),
+		sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE|sqlite3.SQLITE_OPEN_NOMUTEX,
+	)
 
 	if err != nil {
-		log.Println("Error Opening Database:", err)
-
 		return nil, err
 	}
 
 	con.sqlite3 = connection
-	con.sqlite3.Exec(fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize))
-	con.sqlite3.Exec("PRAGMA synchronous=NORMAL")
-	// con.sqlite3.Exec("PRAGMA journal_mode=off")
-	con.sqlite3.Exec("PRAGMA journal_mode=wal")
-	con.sqlite3.Exec("PRAGMA busy_timeout = 3000")
-	// con.sqlite3.Exec("PRAGMA cache_size = -2000000")
-	// con.sqlite3.Exec("PRAGMA cache_size = 0")
+	_, err = con.sqlite3.Exec(ctx, fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize))
 
-	con.sqlite3.Exec("PRAGMA secure_delete = true")
+	if err != nil {
+		return nil, err
+	}
+	// If we are not using the original vfs, we do not need this
+	con.sqlite3.Exec(ctx, "PRAGMA synchronous=OFF")
+	_, err = con.sqlite3.Exec(ctx, "PRAGMA journal_mode=wal")
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = con.sqlite3.Exec(ctx, "PRAGMA busy_timeout = 3000")
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = con.sqlite3.Exec(ctx, "PRAGMA cache_size = -2000000")
+	// _, err = con.sqlite3.Exec(ctx, "PRAGMA cache_size = 0")
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = con.sqlite3.Exec(ctx, "PRAGMA secure_delete = true")
+
+	if err != nil {
+		return nil, err
+	}
+
 	// VFS does not handle temp files yet, so we will handle in memory.
-	con.sqlite3.Exec("PRAGMA temp_store = memory")
-	// TODO: This doesn't work with kv store
-	// con.sqlite3.Exec("PRAGMA mmap_size = 1000000000")
+	_, err = con.sqlite3.Exec(ctx, "PRAGMA temp_store = memory")
 
-	return con, nil
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: This doesn't work with kv file system
+	// con.sqlite3.Exec(ctx, "PRAGMA mmap_size = 1000000000")
+
+	if !node.Node().IsPrimary() {
+		_, err = con.sqlite3.Exec(ctx, "PRAGMA query_only = true")
+	}
+
+	return con, err
 }
 
 func (con *DatabaseConnection) Changes() int64 {
@@ -117,26 +171,24 @@ func (con *DatabaseConnection) Checkpoint() error {
 
 		if err != nil {
 			log.Println("Error checkpointing database", err)
-		} else {
-			log.Println("Checkpointed database", con.databaseUuid, con.branchUuid)
 		}
 	})
-
-	if err != nil {
-		log.Println("Checkpoint Error:", err)
-		// con.Close()
-	}
 
 	return err
 }
 
 func (con *DatabaseConnection) Close() {
-	// Ensure all statements are finalized before closing the connection.
-	for _, statement := range con.statements {
-		statement.Sqlite3Statement.Finalize()
-	}
+	// Cancel the context of the connection.
+	con.cancel()
 
-	con.statements = map[uint32]Statement{}
+	// Ensure all statements are finalized before closing the connection.
+	con.statements.Range(func(key any, statement any) bool {
+		statement.(Statement).Sqlite3Statement.Finalize()
+
+		return true
+	})
+
+	con.statements = sync.Map{}
 
 	if con.sqlite3 != nil {
 		con.sqlite3.Close()
@@ -155,30 +207,49 @@ func (con *DatabaseConnection) Closed() bool {
 	return con.sqlite3 == nil
 }
 
+func (con *DatabaseConnection) Commit() error {
+	commitStatemnt, err := con.Statement("COMMIT")
+
+	if err != nil {
+		return err
+	}
+
+	return con.SqliteConnection().Committing(func() error {
+		_, err = commitStatemnt.Sqlite3Statement.Exec()
+
+		return err
+	})
+}
+
+func (con *DatabaseConnection) Context() context.Context {
+	return con.context
+}
+
 func (c *DatabaseConnection) Id() string {
 	return c.id
 }
 
-func (con *DatabaseConnection) Prepare(command string) (Statement, error) {
-	statment, err := con.sqlite3.Prepare(command)
+func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Statement, error) {
+	statment, err := con.sqlite3.Prepare(ctx, command)
 
 	if err != nil {
 		return Statement{}, err
 	}
 
 	return Statement{
+		context:          ctx,
 		Sqlite3Statement: statment,
 	}, nil
 }
 
-func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ...interface{}) (sqlite3.Result, error) {
+func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ...any) (sqlite3.Result, error) {
 	return con.Transaction(
 		statement.IsReadonly(),
 		func(con *DatabaseConnection) (sqlite3.Result, error) {
 			result, err := statement.Exec(parameters...)
 
 			if err != nil {
-				return nil, err
+				return sqlite3.Result{}, err
 			}
 
 			return result, nil
@@ -190,25 +261,20 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 
 	hash := crc32.ChecksumIEEE([]byte(queryStatement))
 
-	con.statementMutex.RLock()
-	statement, ok := con.statements[hash]
-	con.statementMutex.RUnlock()
+	statement, ok := con.statements.Load(hash)
 
 	if !ok {
-		con.statementMutex.Lock()
-		defer con.statementMutex.Unlock()
-
-		statement, err = con.Prepare(queryStatement)
+		statement, err = con.Prepare(con.context, queryStatement)
 
 		if err == nil {
 			// TODO: If the schema changes, the statement will be invalid.
 			// We should track if a Query performs DDL and invalidate the
 			// statement cache for each connection.
-			con.statements[hash] = statement
+			con.statements.Store(hash, statement)
 		}
 	}
 
-	return statement, err
+	return statement.(Statement), err
 }
 
 func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
@@ -319,39 +385,47 @@ func (con *DatabaseConnection) Transaction(
 	// prevent more that one write transaction from happening at the same time.
 
 	if !readOnly {
-		_, err = con.SqliteConnection().Exec("BEGIN IMMEDIATE")
+		// Start the transaction with a write lock.
+		err = con.SqliteConnection().BeginImmediate()
+
+		// Writes should only happen on the primary node. So we can adjust the
+		// wal timestamp on the connection to the current time.
+		// con.walTimestamp = time.Now().UTC().UnixNano()
+
+		// Notify the database file system that a write transaction is happening.
+		// con.tempFileSystem.SetTransactionTimestamp(con.walTimestamp)
 	} else {
-		_, err = con.SqliteConnection().Exec("BEGIN DEFERRED")
+		err = con.SqliteConnection().BeginDeferred()
 	}
 
 	if err != nil {
 		log.Println("Transaction Error:", err)
-		return nil, err
+		return sqlite3.Result{}, err
 	}
 
 	results, handlerError := handler(con)
 
 	if handlerError != nil {
 		log.Println("Transaction Error:", handlerError)
-		_, err = con.SqliteConnection().Exec("ROLLBACK")
+		err = con.Rollback()
 
 		if err != nil {
 			log.Println("Transaction Error:", err)
-			return nil, err
+			return sqlite3.Result{}, err
 		}
 
-		return nil, handlerError
+		return sqlite3.Result{}, handlerError
 	}
 
-	_, err = con.SqliteConnection().Exec("COMMIT")
+	err = con.Commit()
 
 	if err != nil {
 		log.Println("Transaction Error:", err)
-		return nil, err
+		return sqlite3.Result{}, err
 	}
 
 	if !readOnly {
-		con.commitedAt = time.Now()
+		con.committedAt = time.Now()
 	}
 
 	return results, handlerError
@@ -372,6 +446,18 @@ func (con *DatabaseConnection) RegisterVFS() error {
 	con.vfs = vfs
 
 	return nil
+}
+
+func (con *DatabaseConnection) Rollback() error {
+	commitStatemnt, err := con.Statement("ROLLBACK")
+
+	if err != nil {
+		return err
+	}
+
+	_, err = commitStatemnt.Sqlite3Statement.Exec()
+
+	return err
 }
 
 func (con *DatabaseConnection) VfsHash() string {

@@ -1,8 +1,10 @@
 package sqlite3
 
 import (
+	"context"
 	"errors"
 	"log"
+	"runtime/cgo"
 	"time"
 	"unsafe"
 )
@@ -12,17 +14,24 @@ import (
 #include <stdlib.h>
 
 extern int go_authorizer(void* pArg, int actionCode, char* arg1, char* arg2, char* arg3, char* arg4);
-extern void go_commit_hook();
+extern void go_commit_hook(uintptr_t connectionHandle);
+extern int go_progress_handler(uintptr_t connectionHandle);
 */
 import "C"
 
 type OpenFlags C.int
-type Connection C.sqlite3
+type Connection struct {
+	authorizer Authorizer
+	committing bool
+	committed  chan struct{}
+	context    context.Context
+	sqlite3    *C.sqlite3
+}
 
 type Authorizer func(action int, arg1, arg2, dbName, triggerOrView string) (allow int)
 
+// TODO: These singletons need to be attached to the connection instead of being global
 var authorizerCallback Authorizer
-var commitHook func() (abort bool)
 
 func init() {
 	if err := C.sqlite3_initialize(); err != SQLITE_OK {
@@ -31,12 +40,16 @@ func init() {
 }
 
 func (c *Connection) Base() *C.sqlite3 {
-	return (*C.sqlite3)(c)
+	return (*C.sqlite3)(c.sqlite3)
 }
 
-func Open(path, vfsId string) (*Connection, error) {
+func Open(ctx context.Context, path, vfsId string, flags OpenFlags) (*Connection, error) {
 	var cVfs, cName *C.char
-	var c *C.sqlite3
+	c := &Connection{
+		committing: false,
+		committed:  make(chan struct{}),
+		context:    ctx,
+	}
 
 	// Set vfs
 	cVfs = C.CString(vfsId)
@@ -45,42 +58,171 @@ func Open(path, vfsId string) (*Connection, error) {
 	cName = C.CString(path)
 	defer C.free(unsafe.Pointer(cName))
 
-	// Set flags, add read/write flag if create flag is set
-	flags := SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE
+	var vfs *C.char
+	if len(vfsId) == 0 {
+		vfs = nil
+	} else {
+		vfs = cVfs
+	}
 
 	// Call sqlite3_open_v2
-	if err := C.sqlite3_open_v2(cName, &c, C.int(flags), cVfs); err != SQLITE_OK {
-		if c != nil {
-			C.sqlite3_close_v2(c)
+	if err := C.sqlite3_open_v2(cName, &c.sqlite3, C.int(flags), vfs); err != SQLITE_OK {
+		if c.sqlite3 != nil {
+			C.sqlite3_close_v2(c.sqlite3)
 		}
 
 		return nil, errors.New(C.GoString(C.sqlite3_errstr(err)))
 	}
 
 	// Set extended error codes
-	if err := C.sqlite3_extended_result_codes(c, 1); err != SQLITE_OK {
-		C.sqlite3_close_v2(c)
+	if err := C.sqlite3_extended_result_codes(c.sqlite3, 1); err != SQLITE_OK {
+		C.sqlite3_close_v2(c.sqlite3)
 
 		return nil, errors.New(C.GoString(C.sqlite3_errstr(err)))
 	}
 
 	// Initialize sqlite
 	if err := C.sqlite3_initialize(); err != SQLITE_OK {
-		C.sqlite3_close_v2(c)
+		C.sqlite3_close_v2(c.sqlite3)
 
 		return nil, errors.New(C.GoString(C.sqlite3_errstr(err)))
 	}
 
-	return (*Connection)(c), nil
+	// TODO: See if we can make use of these, probably for change detection
+	// c.commitHook()
+	// c.progressCallback()
+
+	return c, nil
+}
+
+func (c *Connection) Begin() error {
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), C.CString("BEGIN"), nil, nil, nil)
+
+	if rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
+	}
+
+	return nil
+}
+
+func (c *Connection) BeginDeferred() error {
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), C.CString("BEGIN DEFERRED"), nil, nil, nil)
+
+	if rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
+	}
+
+	return nil
+}
+
+func (c *Connection) BeginImmediate() error {
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), C.CString("BEGIN IMMEDIATE"), nil, nil, nil)
+
+	if rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
+	}
+
+	return nil
+}
+
+// Set the busy timeout for the connection
+func (c *Connection) BusyTimeout(duration time.Duration) error {
+	if err := C.sqlite3_busy_timeout((*C.sqlite3)(c.sqlite3), C.int(duration/time.Millisecond)); err != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(err)))
+	} else {
+		return nil
+	}
+}
+
+// Cache Flush
+func (c *Connection) CacheFlush() error {
+	if err := C.sqlite3_db_cacheflush((*C.sqlite3)(c.sqlite3)); err != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(err)))
+	} else {
+		return nil
+	}
+}
+
+// Get number of rows affected by last query
+func (c *Connection) Changes() int64 {
+	return int64(C.sqlite3_changes((*C.sqlite3)(c.sqlite3)))
+}
+
+// Close Connection
+func (c *Connection) Close() error {
+	var result error
+
+	// Close database connection
+	if err := C.sqlite3_close_v2((*C.sqlite3)(c.sqlite3)); err != SQLITE_OK {
+		result = errors.New(C.GoString(C.sqlite3_errstr(err)))
+	}
+
+	// Return any errors
+	return result
+}
+
+func (c *Connection) Commit() error {
+	cSql := C.CString("COMMIT")
+	defer C.free(unsafe.Pointer(cSql))
+
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), cSql, nil, nil, nil)
+
+	if rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
+	}
+
+	return nil
+}
+
+// TODO: Need to handle rollback event as well
+func (c *Connection) Committing(f func() error) error {
+	c.committing = true
+
+	if err := f(); err != nil {
+		c.committing = false
+		return err
+	}
+
+	c.committing = false
+
+	return nil
+}
+
+// Register a Go function as a commit hook on the SQLite database connection.
+// The hook function will be called whenever a transaction is committed.
+// The hook function should return true to rollback the transaction or false to commit the transaction.
+func (c *Connection) commitHook() {
+	connectionHandle := cgo.NewHandle(c)
+
+	C.sqlite3_commit_hook(
+		(*C.sqlite3)(c.sqlite3),
+		(*[0]byte)(C.go_commit_hook),
+		unsafe.Pointer(connectionHandle),
+	)
+}
+
+//export go_commit_hook
+func go_commit_hook(connectionHandle C.uintptr_t) {
+	handle := cgo.Handle(connectionHandle)
+	// defer handle.Delete()
+	c := handle.Value().(*Connection)
+
+	if !c.committing {
+		return
+	}
+
+	// log.Println("Commit hook called")
+	// c.committed <- struct{}{}
+	// log.Println("Commit hook done")
 }
 
 // Execute a query
-func (c *Connection) Exec(query string, params ...interface{}) (Result, error) {
+func (c *Connection) Exec(ctx context.Context, query string, params ...interface{}) (Result, error) {
 	var stmt *Statement
 	var err error
 
-	if stmt, err = c.Prepare(query); err != nil {
-		return nil, err
+	if stmt, err = c.Prepare(ctx, query); err != nil {
+		return Result{}, err
 	}
 
 	defer func() {
@@ -94,17 +236,45 @@ func (c *Connection) Exec(query string, params ...interface{}) (Result, error) {
 	return stmt.Exec(params...)
 }
 
-// Close Connection
-func (c *Connection) Close() error {
-	var result error
-
-	// Close database connection
-	if err := C.sqlite3_close_v2((*C.sqlite3)(c)); err != SQLITE_OK {
-		result = errors.New(C.GoString(C.sqlite3_errstr(err)))
+// Interrupt all queries for connection
+func (c *Connection) Interrupt() {
+	if c.sqlite3 == nil {
+		return
 	}
 
-	// Return any errors
-	return result
+	C.sqlite3_interrupt((*C.sqlite3)(c.sqlite3))
+}
+
+// Get last insert id
+func (c *Connection) LastInsertRowID() int64 {
+	return int64(C.sqlite3_last_insert_rowid((*C.sqlite3)(c.sqlite3)))
+}
+
+func (c *Connection) progressCallback() {
+	connectionHandle := cgo.NewHandle(c)
+
+	C.sqlite3_progress_handler(
+		(*C.sqlite3)(c.sqlite3),
+		1,
+		(*[0]byte)(C.go_progress_handler),
+		unsafe.Pointer(connectionHandle),
+	)
+}
+
+//export go_progress_handler
+func go_progress_handler(connectionHandle C.uintptr_t) C.int {
+	handle := cgo.Handle(connectionHandle)
+	defer handle.Delete()
+	c := handle.Value().(*Connection)
+
+	// log.Println("Progress handler called")
+	if !c.committing {
+		return 0
+	}
+
+	// runtime.Gosched()
+
+	return SQLITE_OK
 }
 
 // Get Read-only state. Also returns false if database not found
@@ -119,7 +289,7 @@ func (c *Connection) Readonly(schema string) bool {
 	cSchema = C.CString(schema)
 	defer C.free(unsafe.Pointer(cSchema))
 
-	r := int(C.sqlite3_db_readonly((*C.sqlite3)(c), cSchema))
+	r := int(C.sqlite3_db_readonly((*C.sqlite3)(c.sqlite3), cSchema))
 
 	if r == -1 {
 		return false
@@ -128,67 +298,22 @@ func (c *Connection) Readonly(schema string) bool {
 	}
 }
 
-// Set the busy timeout for the connection
-func (c *Connection) BusyTimeout(duration time.Duration) error {
-	if err := C.sqlite3_busy_timeout((*C.sqlite3)(c), C.int(duration/time.Millisecond)); err != SQLITE_OK {
-		return errors.New(C.GoString(C.sqlite3_errstr(err)))
-	} else {
-		return nil
+func (c *Connection) Rollback() error {
+	cSql := C.CString("ROLLBACK")
+	defer C.free(unsafe.Pointer(cSql))
+
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), cSql, nil, nil, nil)
+
+	if rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
 	}
-}
 
-// Get number of rows affected by last query
-func (c *Connection) Changes() int64 {
-	return int64(C.sqlite3_changes((*C.sqlite3)(c)))
-}
-
-// Get last insert id
-func (c *Connection) LastInsertRowID() int64 {
-	return int64(C.sqlite3_last_insert_rowid((*C.sqlite3)(c)))
-}
-
-// Cache Flush
-func (c *Connection) CacheFlush() error {
-	if err := C.sqlite3_db_cacheflush((*C.sqlite3)(c)); err != SQLITE_OK {
-		return errors.New(C.GoString(C.sqlite3_errstr(err)))
-	} else {
-		return nil
-	}
-}
-
-// Get last insert id
-func (c *Connection) LastInsertId() int64 {
-	return int64(C.sqlite3_last_insert_rowid((*C.sqlite3)(c)))
+	return nil
 }
 
 // Set last insert id
 func (c *Connection) SetLastInsertId(v int64) {
-	C.sqlite3_set_last_insert_rowid((*C.sqlite3)(c), C.sqlite3_int64(v))
-}
-
-// Interrupt all queries for connection
-func (c *Connection) Interrupt() {
-	if c == nil {
-		return
-	}
-
-	C.sqlite3_interrupt((*C.sqlite3)(c))
-}
-
-// Register a Go function as a commit hook on the SQLite database connection.
-// The hook function will be called whenever a transaction is committed.
-// The hook function should return true to rollback the transaction or false to commit the transaction.
-func (c *Connection) CommitHook(hook func() (abort bool)) {
-	commitHook = hook
-
-	C.sqlite3_commit_hook((*C.sqlite3)(c), (*[0]byte)(C.go_commit_hook), nil)
-}
-
-//export go_commit_hook
-func go_commit_hook() {
-	if commitHook != nil {
-		commitHook()
-	}
+	C.sqlite3_set_last_insert_rowid((*C.sqlite3)(c.sqlite3), C.sqlite3_int64(v))
 }
 
 // Register a Go function as an authorizer callback function.
@@ -196,7 +321,8 @@ func go_commit_hook() {
 func (c *Connection) Authorizer(authorizer Authorizer) {
 	authorizerCallback = authorizer
 
-	C.sqlite3_set_authorizer((*C.sqlite3)(c), (*[0]byte)(C.go_authorizer), nil)
+	// TODO: We need to ensure that our authorizer of the struct is called by cgo
+	C.sqlite3_set_authorizer((*C.sqlite3)(c.sqlite3), (*[0]byte)(C.go_authorizer), nil)
 }
 
 //export go_authorizer

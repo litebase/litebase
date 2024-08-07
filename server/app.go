@@ -8,19 +8,19 @@ import (
 	"litebase/server/events"
 	"litebase/server/http"
 	"litebase/server/node"
-	"litebase/server/storage"
+	"litebase/server/query"
 )
 
 type App struct {
 	initialized bool
-	server      *ServerInstance
+	Server      *ServerInstance
 }
 
 var AppSingleton *App
 
 func NewApp(server *ServerInstance) *App {
 	app := &App{
-		server: server,
+		Server: server,
 	}
 	config.Init()
 
@@ -32,9 +32,13 @@ func NewApp(server *ServerInstance) *App {
 
 	auth.KeyManagerInit()
 	auth.SecretsManager().Init()
-	events.EventsManager().Init()
 	auth.UserManager().Init()
-	node.Init()
+	node.Init(
+		query.NewQueryBuilder(),
+		database.NewDatabaseCheckpointer(),
+		database.NewDatabaseWalSynchronizer(),
+	)
+	events.EventsManager().Init()
 	database.Init()
 	auth.Broadcaster(events.EventsManager().Hook())
 
@@ -60,9 +64,7 @@ func (app *App) runTasks() {
 }
 
 func (app *App) Run() {
-	// app.server.HttpServer.Handler = http.Router()
-	http.Router().Server(app.server.ServeMux)
-	node.Register()
-	storage.Init()
+	http.Router().Server(app.Server.ServeMux)
+
 	go app.runTasks()
 }

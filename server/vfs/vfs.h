@@ -20,4 +20,6 @@ int newVfs(char *vfsId);
 
 void unregisterVfs(char *vfsId);
 
+int litebase_is_journal_file(sqlite3_file *pFile);
+
 const extern sqlite3_io_methods x_io_methods;

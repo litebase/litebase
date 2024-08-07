@@ -8,3 +8,11 @@ func PageNumber(offset, pageSize int64) int64 {
 func PageOffset(pageNumber, pageSize int64) int64 {
 	return (pageNumber - 1) * pageSize
 }
+
+func PageRange(pageNumber, rangeSize int64) int64 {
+	return (pageNumber-1)/rangeSize + 1
+}
+
+func PageRangeOffset(pageNumber, rangeSize, pageSize int64) int64 {
+	return (pageNumber - 1) % rangeSize * pageSize
+}

@@ -12,9 +12,8 @@ type Response struct {
 }
 
 func JsonResponse(body map[string]interface{}, statusCode int, headers map[string]string) Response {
-	responseHeaders := map[string]string{
-		"Content-Type": "application/json",
-	}
+	responseHeaders := make(map[string]string, len(headers)+1)
+	responseHeaders["Content-Type"] = "application/json"
 
 	for key, value := range headers {
 		responseHeaders[key] = value

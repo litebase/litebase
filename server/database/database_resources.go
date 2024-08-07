@@ -5,6 +5,7 @@ import (
 	"litebase/internal/config"
 	"litebase/server/backups"
 	"litebase/server/file"
+	"litebase/server/node"
 	"litebase/server/storage"
 	"sync"
 )
@@ -59,15 +60,15 @@ func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) 
 	d.mutext.Lock()
 	defer d.mutext.Unlock()
 
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
+	key := databaseUuid + ":" + branchUuid
 
-	if checkpointer, ok := d.checkpointers[hash]; ok {
+	if checkpointer, ok := d.checkpointers[key]; ok {
 		return checkpointer
 	}
 
 	checkpointer := NewCheckpointer(databaseUuid, branchUuid)
 
-	d.checkpointers[hash] = checkpointer
+	d.checkpointers[key] = checkpointer
 
 	return checkpointer
 }
@@ -84,28 +85,33 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 	pageSize := config.Get().PageSize
 	var fileSystem storage.DatabaseFileSystem
 
-	if config.Get().FileSystemDriver == "remote" {
-		fileSystem = storage.NewRemoteDatabaseFileSystem(
-			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
-			databaseUuid,
-			branchUuid,
-			pageSize,
-		)
-	} else {
-		fileSystem = storage.NewLocalDatabaseFileSystem(
-			fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
-			databaseUuid,
-			branchUuid,
-			pageSize,
-		)
-	}
+	fileSystem = storage.NewLocalDatabaseFileSystem(
+		fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+		databaseUuid,
+		branchUuid,
+		pageSize,
+	)
 
-	fileSystem = fileSystem.WithWriteHook(func(offset int64) {
+	fileSystem = fileSystem.WithWriteHook(func(path string, offset int64, data []byte) {
 		// Each time a page is written, we need to inform the check pointer to
 		// ensure it is included in the next backup.
 		d.Checkpointer(databaseUuid, branchUuid).AddPage(
 			uint32(file.PageNumber(offset, pageSize)),
 		)
+
+		if node.Node().IsPrimary() {
+			// node.Node().Publish(
+			// 	node.NodeMessage{
+			// 		Id:   "broadcast",
+			// 		Type: "WALCheckpointMessage",
+			// 		Data: node.WALCheckpointMessage{
+			// 			DatabaseUuid: databaseUuid,
+			// 			BranchUuid:   branchUuid,
+			// 			Timestamp:    fileSystem.TransactionTimestamp(),
+			// 		},
+			// 	},
+			// )
+		}
 	})
 
 	d.fileSystems[hash] = fileSystem
@@ -130,6 +136,23 @@ func (d *DatabaseResourceManager) PageLogger(databaseUuid, branchUuid string) *b
 	return pageLogger
 }
 
+func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
+	d.mutext.Lock()
+	defer d.mutext.Unlock()
+
+	hash := file.DatabaseHash(databaseUuid, branchUuid)
+
+	if pageLogger, ok := d.pageLoggers[hash]; ok {
+		pageLogger.Close()
+	}
+
+	delete(d.checkpointLoggers, hash)
+	delete(d.checkpointers, hash)
+	delete(d.fileSystems, hash)
+	delete(d.pageLoggers, hash)
+	delete(d.tempFileSystems, hash)
+}
+
 func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string) storage.DatabaseFileSystem {
 	d.mutext.Lock()
 	defer d.mutext.Unlock()
@@ -140,27 +163,89 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 		return fileSystem
 	}
 
+	path := fmt.Sprintf("%s/%s/%s/%s", TmpDirectory(), node.Node().Id, databaseUuid, branchUuid)
+
 	fileSystem := storage.NewTempDatabaseFileSystem(
-		fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+		path,
 		databaseUuid,
 		branchUuid,
 		config.Get().PageSize,
 	)
+
+	// TODO: Define the boundaries of a transaction so we can ship multiple pages at one time.
+	fileSystem = fileSystem.WithWriteHook(func(path string, offset int64, data []byte) {
+		// Each time a page is written, we will replicate it out to the other
+		// nodes. These pages are written in order.
+		if node.Node().IsPrimary() {
+			// walFile, err := os.OpenFile(fmt.Sprintf("%s/%s", fileSystem.Path(), path), os.O_RDONLY, 0644)
+
+			// if err != nil {
+			// 	log.Println("Error reading file", err, path)
+			// 	return
+			// }
+
+			// defer walFile.Close()
+
+			// hasher := sha256.New()
+
+			// if _, err := walFile.WriteTo(hasher); err != nil {
+			// 	log.Println("Error reading file", err, path)
+			// 	return
+			// }
+
+			// var fileSha256 [32]byte
+
+			// copy(fileSha256[:], hasher.Sum(nil))
+
+			// // log.Println("Sending WAL replication message", fileSystem.TransactionTimestamp())
+
+			// err = node.Node().Publish(
+			// 	node.NodeMessage{
+			// 		Id:   "broadcast",
+			// 		Type: "WALReplicationMessage",
+			// 		Data: node.WALReplicationMessage{
+			// 			BranchUuid:   branchUuid,
+			// 			DatabaseUuid: databaseUuid,
+			// 			Data:         s2.Encode(nil, data),
+			// 			Offset:       int(offset),
+			// 			Length:       len(data),
+			// 			Sha256:       fileSha256,
+			// 			Timestamp:    fileSystem.TransactionTimestamp(),
+			// 		},
+			// 	},
+			// )
+
+			// if err != nil {
+			// 	log.Println("Failed to publish WAL replication message: ", err)
+			// }
+		}
+	})
 
 	d.tempFileSystems[hash] = fileSystem
 
 	return fileSystem
 }
 
-func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
+func (d *DatabaseResourceManager) TempFileSystemWithTimestamp(databaseUuid, branchUuid string, timestamp int64) storage.DatabaseFileSystem {
 	d.mutext.Lock()
 	defer d.mutext.Unlock()
 
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
+	hash := file.DatabaseHashWithTimestamp(databaseUuid, branchUuid, timestamp)
 
-	delete(d.checkpointLoggers, hash)
-	delete(d.checkpointers, hash)
-	delete(d.fileSystems, hash)
-	delete(d.pageLoggers, hash)
-	delete(d.tempFileSystems, hash)
+	if fileSystem, ok := d.tempFileSystems[hash]; ok {
+		return fileSystem
+	}
+
+	path := fmt.Sprintf("%s/%s/%s/%s", TmpDirectory(), node.Node().Id, databaseUuid, branchUuid)
+
+	fileSystem := storage.NewTempDatabaseFileSystem(
+		path,
+		databaseUuid,
+		branchUuid,
+		config.Get().PageSize,
+	).WithTransactionTimestamp(timestamp)
+
+	d.tempFileSystems[hash] = fileSystem
+
+	return fileSystem
 }

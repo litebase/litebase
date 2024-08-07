@@ -23,7 +23,14 @@ func RequestSignatureValidator(
 		return false
 	}
 
-	body := request.All()
+	var body map[string]interface{}
+
+	// Check the length of the content length header to determine if we should
+	// attempt to read the body. Otherwise, this may preemptively read the body
+	// of streaming requests.
+	if request.Headers().Get("Content-Length") != "" {
+		body = request.All()
+	}
 
 	// Change all the keys to lower case
 	for key, value := range body {

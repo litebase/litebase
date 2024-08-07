@@ -45,6 +45,9 @@ func NewTarget(lb *LoadBalancer, host, port string) *Target {
 		}
 
 		log.Printf("%s\n", err.Error())
+
+		// Close the connection
+		w.WriteHeader(http.StatusBadGateway)
 	}
 
 	target.RevereseProxy = proxy

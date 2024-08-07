@@ -3,6 +3,7 @@ package query_test
 import (
 	"litebase/internal/test"
 	"litebase/server/database"
+	"litebase/server/file"
 	"litebase/server/query"
 	"testing"
 )
@@ -42,19 +43,12 @@ func TestHandle(t *testing.T) {
 		}
 
 		for _, c := range cases {
-			db, err = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
 			q, err := query.NewQuery(
-				db,
-				mock.AccessKeyId,
-				map[string]interface{}{
-					"statement":  c.statement,
-					"parameters": c.parameters,
-				},
+				mock.DatabaseUuid,
+				mock.BranchUuid,
+				mock.AccessKey,
+				c.statement,
+				c.parameters,
 				"",
 			)
 
@@ -62,11 +56,10 @@ func TestHandle(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			response, err := query.ResolveQuery(db, q)
-
-			if response["status"] != c.expected {
-				t.Fatalf("Query was not successful: %s", response["message"])
-			}
+			_, err = query.ResolveQuery(
+				file.DatabaseHash(mock.DatabaseUuid, mock.BranchUuid),
+				q,
+			)
 
 			if err != nil && c.expected == `success` {
 				t.Fatal(err)

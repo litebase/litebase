@@ -66,12 +66,13 @@ func (c *Checkpointer) Run() error {
 	fs := DatabaseResources().FileSystem(c.databaseUuid, c.branchUuid)
 
 	largestPageNumber := uint32(0)
+	var pageData = make([]byte, pageSize)
 
 	for pageNumber := range c.pages {
 		// Read the page from the database file
 		pageOffset := file.PageOffset(int64(pageNumber), pageSize)
 
-		pageData, err := fs.ReadAt(file.DatabaseHash(c.databaseUuid, c.branchUuid), pageOffset, pageSize)
+		_, err := fs.ReadAt(file.DatabaseHash(c.databaseUuid, c.branchUuid), pageData, pageOffset, pageSize)
 
 		if err != nil {
 			log.Println("Error reading page", err)

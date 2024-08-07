@@ -1,26 +1,70 @@
 package http
 
+import (
+	"context"
+	"time"
+)
+
 type Route struct {
 	Handler              func(request *Request) Response
 	RegisteredMiddleware []Middleware
+	timeout              time.Duration
 }
 
-func (route Route) Handle(request *Request) Response {
+func NewRoute(handler func(request *Request) Response) *Route {
+	return &Route{
+		Handler: handler,
+		timeout: 5 * time.Second,
+	}
+}
+
+func (route *Route) Handle(request *Request) Response {
 	var response Response
 
 	for _, registeredMiddleware := range route.RegisteredMiddleware {
 		request, response = registeredMiddleware(request)
 
+		// Check if the middleware has returned a response by checking the status code
 		if response.StatusCode > 0 {
 			return response
 		}
 	}
 
-	return route.Handler(request)
+	// The route has no timeout
+	if route.timeout == 0 {
+		return route.Handler(request)
+	}
+
+	ctx, cancel := context.WithTimeout(request.BaseRequest.Context(), route.timeout)
+	defer cancel()
+
+	handlerResponse := make(chan Response)
+
+	go func() {
+		handlerResponse <- route.Handler(request)
+	}()
+
+	select {
+	case response = <-handlerResponse:
+		return response
+	case <-ctx.Done():
+		return Response{
+			StatusCode: 408,
+			Body: map[string]interface{}{
+				"message": "Request timed out",
+			},
+		}
+	}
 }
 
-func (route Route) Middleware(middleware []Middleware) Route {
+func (route *Route) Middleware(middleware []Middleware) *Route {
 	route.RegisteredMiddleware = append(route.RegisteredMiddleware, middleware...)
+
+	return route
+}
+
+func (route *Route) Timeout(duration time.Duration) *Route {
+	route.timeout = duration
 
 	return route
 }

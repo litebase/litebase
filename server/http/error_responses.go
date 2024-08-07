@@ -5,13 +5,17 @@ import (
 	"fmt"
 )
 
-func JsonNewLineError(err error) []byte {
+func JsonStringError(err error) []byte {
 	jsonData, _ := json.Marshal(map[string]interface{}{
 		"status":  "error",
 		"message": fmt.Sprintf("Error: %s", err.Error()),
 	})
 
-	return []byte(string(jsonData) + "\n")
+	return jsonData
+}
+
+func JsonNewLineError(err error) []byte {
+	return []byte(string(JsonStringError(err)) + "\n")
 }
 
 func BadRequestResponse(err error) Response {
@@ -19,6 +23,13 @@ func BadRequestResponse(err error) Response {
 		"status":  "error",
 		"message": fmt.Sprintf("Error: %s", err.Error()),
 	}, 400, nil)
+}
+
+func ForbiddenResponse(err error) Response {
+	return JsonResponse(map[string]interface{}{
+		"status":  "error",
+		"message": fmt.Sprintf("Error: %s", err.Error()),
+	}, 403, nil)
 }
 
 func ServerErrorResponse(err error) Response {

@@ -13,11 +13,10 @@ import (
 )
 
 type TestDatabase struct {
-	DatabaseUuid    string
-	BranchUuid      string
-	DatabaseKey     string
-	AccessKeyId     string
-	AccessKeySecret string
+	DatabaseUuid string
+	BranchUuid   string
+	DatabaseKey  string
+	AccessKey    auth.AccessKey
 }
 
 func ClearDatabase() {
@@ -44,11 +43,11 @@ func MockDatabase() TestDatabase {
 	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "accessKeySecret")
 	// serverAccessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "serverAccessKeySecret")
 
-	accessKey := &auth.AccessKey{
+	accessKey := auth.AccessKey{
 		AccessKeyId: accessKeyId,
 	}
 
-	auth.SecretsManager().StoreAccessKey(accessKey)
+	auth.SecretsManager().StoreAccessKey(&accessKey)
 
 	_, err := database.Create(databaseUuid, branchUuid)
 
@@ -57,16 +56,15 @@ func MockDatabase() TestDatabase {
 	}
 
 	return TestDatabase{
-		DatabaseUuid:    databaseUuid,
-		BranchUuid:      branchUuid,
-		DatabaseKey:     databaseKey,
-		AccessKeyId:     accessKeyId,
-		AccessKeySecret: "accessKeySecret",
+		DatabaseUuid: databaseUuid,
+		BranchUuid:   branchUuid,
+		DatabaseKey:  databaseKey,
+		AccessKey:    accessKey,
 	}
 }
 
 func RunQuery(db *database.ClientConnection, statement string, parameters []interface{}) sqlite3.Result {
-	sqliteStatement, err := db.GetConnection().SqliteConnection().Prepare(statement)
+	sqliteStatement, err := db.GetConnection().SqliteConnection().Prepare(db.GetConnection().Context(), statement)
 
 	if err != nil {
 		log.Fatal(err)

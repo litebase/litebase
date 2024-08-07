@@ -7,7 +7,7 @@ type Headers struct {
 }
 
 func NewHeaders(headers map[string]string) Headers {
-	h := make(map[string]string)
+	h := make(map[string]string, len(headers))
 
 	for key, value := range headers {
 		h[utils.TransformHeaderKey(key)] = value

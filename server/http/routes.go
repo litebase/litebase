@@ -1,8 +1,10 @@
 package http
 
+import "time"
+
 func LoadRoutes(router *RouterInstance) {
 	/*
-		Adminstrative routes.
+		Administrative routes.
 	*/
 	router.Get(
 		"/cluster/status",
@@ -111,6 +113,27 @@ func LoadRoutes(router *RouterInstance) {
 		Internal routes for cluster operations.
 	*/
 	router.Post(
+		"/cluster/connection",
+		ClusterConnectionController,
+	).Middleware(
+		[]Middleware{Internal},
+	).Timeout(0)
+
+	router.Post(
+		"/cluster/primary",
+		ClusterPrimaryController,
+	).Middleware(
+		[]Middleware{Internal},
+	).Timeout(0)
+
+	router.Post(
+		"/cluster/replica",
+		ClusterReplicaController,
+	).Middleware(
+		[]Middleware{Internal},
+	).Timeout(0)
+
+	router.Post(
 		"/databases/{databaseUuid}/{branchUuid}/settings/purge",
 		DatabaseSettingsPurgeController,
 	).Middleware([]Middleware{Internal})
@@ -131,7 +154,6 @@ func LoadRoutes(router *RouterInstance) {
 	/*
 		Database routes.
 	*/
-
 	router.Post("/backups",
 		DatabaseBackupStoreController,
 	).Middleware([]Middleware{
@@ -144,8 +166,8 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseBackupShowController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
-		// Authentication,
-		// Authorization,
+		Authentication,
+		Authorization,
 	})
 
 	router.Post("/query",
@@ -154,7 +176,8 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-	})
+		NodeTick,
+	}).Timeout(300 * time.Second)
 
 	router.Post("/query/stream",
 		QueryStreamController,
@@ -162,7 +185,17 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-	})
+		NodeTick,
+	}).Timeout(300 * time.Second)
+
+	router.Get("/query/websocket",
+		QueryWebsocketController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		Authentication,
+		Authorization,
+		NodeTick,
+	}).Timeout(300 * time.Second)
 
 	router.Post("/restore",
 		DatabaseRestoreController,

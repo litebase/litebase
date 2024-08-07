@@ -1,6 +1,6 @@
 package node
 
 type NodeIdentifier struct {
-	IP   string `json:"ip"`
-	Port string `json:"port"`
+	Address string `json:"address"`
+	Port    string `json:"port"`
 }

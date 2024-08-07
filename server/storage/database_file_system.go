@@ -8,9 +8,13 @@ type DatabaseFileSystem interface {
 	Exists() bool
 	Open(path string) (internalStorage.File, error)
 	Path() string
-	ReadAt(path string, offset, len int64) ([]byte, error)
-	WithWriteHook(hook func(offset int64)) DatabaseFileSystem
-	WriteAt(path string, data []byte, offset int64) (int, error)
+	ReadAt(path string, data []byte, offset, len int64) (int, error)
 	Size(path string) (int64, error)
+	SetTransactionTimestamp(timestamp int64)
+	TransactionTimestamp() int64
 	Truncate(path string, size int64) error
+	WalPath(path string) string
+	WithTransactionTimestamp(timestamp int64) DatabaseFileSystem
+	WithWriteHook(hook func(path string, offset int64, data []byte)) DatabaseFileSystem
+	WriteAt(path string, data []byte, offset int64) (int, error)
 }

@@ -1,9 +1,7 @@
 package storage
 
 import (
-	"context"
 	"io/fs"
-	"litebase/internal/config"
 	internalStorage "litebase/internal/storage"
 	"sync"
 )
@@ -20,6 +18,7 @@ type FileSystem struct {
 // by a file system driver.
 type FileSystemDriver interface {
 	Create(path string) (internalStorage.File, error)
+	Detatch()
 	Mkdir(path string, perm fs.FileMode) error
 	MkdirAll(path string, perm fs.FileMode) error
 	Open(path string) (internalStorage.File, error)
@@ -35,14 +34,7 @@ type FileSystemDriver interface {
 }
 
 func NewFileSystem() *FileSystem {
-	var fileSystem FileSystemDriver
-
-	if config.Get().FileSystemDriver == "remote" {
-		// TODO: Use the Node context
-		fileSystem = NewRemoteFileSystemDriver(context.TODO())
-	} else {
-		fileSystem = NewLocalFileSystemDriver()
-	}
+	fileSystem := NewLocalFileSystemDriver()
 
 	return &FileSystem{
 		mutex:  &sync.Mutex{},
@@ -55,6 +47,10 @@ func (fs *FileSystem) Create(path string) (internalStorage.File, error) {
 	defer fs.mutex.Unlock()
 
 	return fs.driver.Create(path)
+}
+
+func (fs *FileSystem) Detatch() {
+	fs.driver.Detatch()
 }
 
 func (fs *FileSystem) Mkdir(path string, perm fs.FileMode) error {

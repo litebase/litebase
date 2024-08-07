@@ -40,6 +40,9 @@ func ReceiveEvent(message *node.NodeEvent) {
 	channels[message.Key].Messages <- message
 }
 
+// TODO: Create a singleton goroutine that listens for messages from the cluster
+// and store the subscriptions in a map. Call the functions when a message is received.
+
 // Subscribe to a message from the cluster.
 func Subscribe(key string, f func(message *node.NodeEvent)) {
 	if channels == nil {
@@ -54,9 +57,13 @@ func Subscribe(key string, f func(message *node.NodeEvent)) {
 
 	go func() {
 		for {
-			message := <-channels[key].Messages
+			select {
+			case <-node.Node().Context().Done():
+				return
+			case message := <-channels[key].Messages:
 
-			f(message)
+				f(message)
+			}
 		}
 	}()
 }

@@ -1,8 +1,11 @@
 package database
 
-import "litebase/server/sqlite3"
+import (
+	"context"
+	"litebase/server/sqlite3"
+)
 
 type Statement struct {
-	// queryPlan []
+	context          context.Context
 	Sqlite3Statement *sqlite3.Statement
 }

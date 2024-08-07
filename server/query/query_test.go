@@ -3,8 +3,8 @@ package query_test
 import (
 	"litebase/internal/test"
 	"litebase/server/database"
+	"litebase/server/file"
 	"litebase/server/query"
-	"log"
 	"testing"
 )
 
@@ -12,17 +12,12 @@ func TestNewQuery(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		query, err := query.NewQuery(
-			db, mock.AccessKeyId, map[string]interface{}{
-				"statement":  "SELECT * FROM users LIMIT ?",
-				"parameters": []interface{}{1},
-			},
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			mock.AccessKey,
+			"SELECT * FROM users LIMIT ?",
+			[]interface{}{1},
 			"",
 		)
 
@@ -30,7 +25,7 @@ func TestNewQuery(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if query.OriginalStatement != "SELECT * FROM users LIMIT ?" {
+		if query.Statement != "SELECT * FROM users LIMIT ?" {
 			t.Fatal("Statement is not correct")
 		}
 	})
@@ -43,15 +38,12 @@ func TestResolve(t *testing.T) {
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
-
 		query, err := query.NewQuery(
-			db,
-			mock.AccessKeyId,
-			map[string]interface{}{
-				"statement":  "SELECT * FROM users LIMIT ?",
-				"parameters": []interface{}{1},
-			},
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			mock.AccessKey,
+			"SELECT * FROM users LIMIT ?",
+			[]interface{}{1},
 			"",
 		)
 
@@ -59,11 +51,9 @@ func TestResolve(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		response, err := query.Resolve()
-
-		if response["status"] != "success" {
-			t.Fatal("Response status is not correct")
-		}
+		_, err = query.Resolve(
+			file.DatabaseHash(mock.DatabaseUuid, mock.BranchUuid),
+		)
 
 		if err != nil {
 			t.Fatal(err)
@@ -81,12 +71,13 @@ func TestStatement(t *testing.T) {
 		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		query := &query.Query{
-			ClientConnection:   db,
-			OriginalStatement:  "SELECT * FROM users LIMIT ?",
-			OriginalParameters: []interface{}{1},
+			BranchUuid:   mock.BranchUuid,
+			DatabaseUuid: mock.DatabaseUuid,
+			Statement:    "SELECT * FROM users LIMIT ?",
+			Parameters:   []interface{}{1},
 		}
 
-		statement, err := query.Statement()
+		statement, err := db.GetConnection().Statement(query.Statement)
 
 		if err != nil {
 			t.Fatal(err)
@@ -138,12 +129,13 @@ func TestValidate(t *testing.T) {
 		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		query := &query.Query{
-			ClientConnection:   db,
-			OriginalStatement:  "SELECT * FROM users LIMIT ?",
-			OriginalParameters: []interface{}{1},
+			BranchUuid:   mock.BranchUuid,
+			DatabaseUuid: mock.DatabaseUuid,
+			Statement:    "SELECT * FROM users LIMIT ?",
+			Parameters:   []interface{}{1},
 		}
 
-		stmt, err := db.GetConnection().Statement(query.OriginalStatement)
+		stmt, err := db.GetConnection().Statement(query.Statement)
 
 		if err != nil {
 			t.Fatal(err)
