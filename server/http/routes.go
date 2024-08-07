@@ -143,14 +143,6 @@ func LoadRoutes(router *RouterInstance) {
 		EventStoreController,
 	).Middleware([]Middleware{Internal})
 
-	router.Post("/storage/connections/{id}",
-		StorageConnectionController,
-	).Middleware([]Middleware{
-		// RequireSubdomain,
-		// Authentication,
-		// Authorization,
-	})
-
 	/*
 		Database routes.
 	*/
