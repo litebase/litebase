@@ -1,8 +1,10 @@
 package sqlite3
 
-// #include <stdlib.h>
-// #include <stdio.h>
-// #include "./sqlite3.h"
+/*
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include "./sqlite3.h"
+*/
 import "C"
 import (
 	"context"
@@ -11,6 +13,7 @@ import (
 )
 
 type Statement struct {
+	blobBuffer   []byte
 	columnCount  int
 	columnNames  []string
 	Connection   *Connection
@@ -37,11 +40,12 @@ func (c *Connection) Prepare(ctx context.Context, query string) (*Statement, err
 	defer C.free(unsafe.Pointer(cQuery))
 
 	if err := C.sqlite3_prepare_v3((*C.sqlite3)(c.sqlite3), cQuery, -1, C.SQLITE_PREPARE_PERSISTENT, &s, &cExtra); err != SQLITE_OK {
-		return nil, c.Error(err)
+		return nil, c.Error(int(err))
 	}
 
 	// Return prepared statement and extra string
 	return &Statement{
+		blobBuffer:   []byte{},
 		columnCount:  0,
 		columnNames:  []string{},
 		Connection:   c,
@@ -56,7 +60,7 @@ func (s *Statement) Reset() error {
 	err := C.sqlite3_reset(s.sqlite3_stmt)
 
 	if err != SQLITE_OK {
-		return s.Connection.Error(err)
+		return s.Connection.Error(int(err))
 	} else {
 		return nil
 	}
@@ -124,7 +128,7 @@ func (s *Statement) Bind(parameters ...interface{}) error {
 		}
 
 		if rc != SQLITE_OK {
-			return s.Connection.Error(rc)
+			return s.Connection.Error(int(rc))
 		}
 	}
 
@@ -156,10 +160,58 @@ func (s *Statement) Exec(parameters ...interface{}) (Result, error) {
 		case <-s.context.Done():
 			return Result{}, errors.New("context done")
 		default:
-			rc := C.sqlite3_step(s.sqlite3_stmt)
+			rc := s.Step()
 
 			if rc == SQLITE_DONE {
 				return result, nil
+			} else if rc == SQLITE_BUSY {
+				continue
+			} else if rc == SQLITE_ROW {
+				if len(result.Columns) > 0 {
+					columns := make([]Column, len(result.Columns))
+
+					for i := range result.Columns {
+						columns[i] = NewColumn(s.ColumnValue(i))
+					}
+
+					result.Rows = append(result.Rows, columns)
+				}
+			} else {
+				return Result{}, s.Connection.Error(rc)
+			}
+		}
+	}
+}
+
+// Bind the parameteres to the statement and return the results
+func (s *Statement) ExecStreaming(parameters ...interface{}) (Result, chan [][]Column, error) {
+	defer s.Reset()
+
+	if s.sqlite3_stmt == nil {
+		return Result{}, nil, errors.New("sqlite3 statement is nil")
+	}
+
+	if len(parameters) > 0 {
+		if err := s.Bind(parameters...); err != nil {
+			return Result{}, nil, err
+		}
+	}
+
+	result := Result{}
+
+	if s.text != "COMMIT" && s.text != "ROLLBACK" {
+		result.Columns = s.ColumnNames()
+	}
+
+	for {
+		select {
+		case <-s.context.Done():
+			return Result{}, nil, errors.New("context done")
+		default:
+			rc := s.Step()
+
+			if rc == SQLITE_DONE {
+				return result, nil, nil
 			} else if rc == SQLITE_BUSY {
 				continue
 			} else if rc == SQLITE_ROW {
@@ -171,7 +223,7 @@ func (s *Statement) Exec(parameters ...interface{}) (Result, error) {
 
 				result.Rows = append(result.Rows, columns)
 			} else {
-				return Result{}, s.Connection.Error(rc)
+				return Result{}, nil, s.Connection.Error(rc)
 			}
 		}
 	}
@@ -190,6 +242,31 @@ func (s *Statement) Finalize() error {
 	}
 
 	return nil
+}
+
+func (s *Statement) getBlobData(index int) []byte {
+	// Get the size of the blob data
+	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(index)))
+
+	// Ensure the buffer is large enough
+	if cap(s.blobBuffer) < size {
+		s.blobBuffer = make([]byte, size)
+	} else {
+		s.blobBuffer = s.blobBuffer[:size]
+	}
+
+	// Get the pointer to the blob data
+	blobPtr := C.sqlite3_column_blob(s.sqlite3_stmt, C.int(index))
+
+	if blobPtr == nil {
+		return nil
+	}
+
+	// Copy the blob data into the buffer
+	copy(s.blobBuffer, (*[1 << 30]byte)(unsafe.Pointer(blobPtr))[:size:size])
+
+	// Return a slice of the buffer containing the blob data
+	return s.blobBuffer
 }
 
 func (s *Statement) IsBusy() bool {
@@ -252,7 +329,7 @@ func (s *Statement) ColumnValue(index int) any {
 	case SQLITE_TEXT:
 		return C.GoString((*C.char)(unsafe.Pointer(C.sqlite3_column_text(s.sqlite3_stmt, C.int(index)))))
 	case SQLITE_BLOB:
-		return C.GoBytes(unsafe.Pointer(C.sqlite3_column_blob(s.sqlite3_stmt, C.int(index))), C.int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(index))))
+		return s.getBlobData(index)
 	case SQLITE_NULL:
 		return nil
 	default:
@@ -323,5 +400,10 @@ func (s *Statement) ParameterName(index int) string {
 	if s.sqlite3_stmt == nil {
 		return ""
 	}
+
 	return C.GoString(C.sqlite3_bind_parameter_name(s.sqlite3_stmt, C.int(index)))
+}
+
+func (s *Statement) Step() int {
+	return int(C.sqlite3_step(s.sqlite3_stmt))
 }

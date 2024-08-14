@@ -3,8 +3,6 @@ module litebase
 go 1.22
 
 require (
-	github.com/aws/aws-lambda-go v1.47.0
-	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1

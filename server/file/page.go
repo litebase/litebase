@@ -13,6 +13,10 @@ func PageRange(pageNumber, rangeSize int64) int64 {
 	return (pageNumber-1)/rangeSize + 1
 }
 
+func PageRangeIndex(pageNumber, rangeSize int64) int64 {
+	return (pageNumber - 1) % rangeSize
+}
+
 func PageRangeOffset(pageNumber, rangeSize, pageSize int64) int64 {
 	return (pageNumber - 1) % rangeSize * pageSize
 }

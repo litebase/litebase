@@ -15,7 +15,7 @@ type TempDatabaseFileSystem struct {
 	path         string
 	pageSize     int64
 	walTimestamp int64
-	writeHook    func(path string, offset int64, data []byte)
+	writeHook    func(offset int64, data []byte)
 }
 
 func NewTempDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) DatabaseFileSystem {
@@ -168,7 +168,7 @@ func (tfs *TempDatabaseFileSystem) WalPath(filename string) string {
 	return fmt.Sprintf("%s/%s", tfs.path, filename)
 }
 
-func (tfs *TempDatabaseFileSystem) WithWriteHook(hook func(path string, offset int64, data []byte)) DatabaseFileSystem {
+func (tfs *TempDatabaseFileSystem) WithWriteHook(hook func(offset int64, data []byte)) DatabaseFileSystem {
 	tfs.writeHook = hook
 
 	return tfs
@@ -196,8 +196,12 @@ func (tfs *TempDatabaseFileSystem) WriteAt(path string, data []byte, offset int6
 	}
 
 	if tfs.writeHook != nil {
-		tfs.writeHook(path, offset, data)
+		tfs.writeHook(offset, data)
 	}
 
 	return
+}
+
+func (tfs *TempDatabaseFileSystem) WriteHook(offset int64, data []byte) {
+	// No-op
 }

@@ -35,7 +35,6 @@ type DatabaseConnection struct {
 	sqlite3        *sqlite3.Connection
 	statements     sync.Map
 	tempFileSystem storage.DatabaseFileSystem
-	vfs            *vfs.LitebaseVFS
 	vfsHash        string
 	walTimestamp   int64
 }
@@ -121,7 +120,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 		return nil, err
 	}
 
-	_, err = con.sqlite3.Exec(ctx, "PRAGMA cache_size = -2000000")
+	_, err = con.sqlite3.Exec(ctx, "PRAGMA cache_size = -2000000") // 2GB
 	// _, err = con.sqlite3.Exec(ctx, "PRAGMA cache_size = 0")
 
 	if err != nil {
@@ -140,9 +139,6 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: This doesn't work with kv file system
-	// con.sqlite3.Exec(ctx, "PRAGMA mmap_size = 1000000000")
 
 	if !node.Node().IsPrimary() {
 		_, err = con.sqlite3.Exec(ctx, "PRAGMA query_only = true")
@@ -200,7 +196,6 @@ func (con *DatabaseConnection) Close() {
 	)
 
 	con.sqlite3 = nil
-	con.vfs = nil
 }
 
 func (con *DatabaseConnection) Closed() bool {
@@ -393,7 +388,7 @@ func (con *DatabaseConnection) Transaction(
 		// con.walTimestamp = time.Now().UTC().UnixNano()
 
 		// Notify the database file system that a write transaction is happening.
-		// con.tempFileSystem.SetTransactionTimestamp(con.walTimestamp)
+		// con.fileSystem.SetTransactionTimestamp(time.Now().UTC().UnixNano())
 	} else {
 		err = con.SqliteConnection().BeginDeferred()
 	}
@@ -432,18 +427,17 @@ func (con *DatabaseConnection) Transaction(
 }
 
 func (con *DatabaseConnection) RegisterVFS() error {
-	vfs, err := vfs.RegisterVFS(
+	err := vfs.RegisterVFS(
 		fmt.Sprintf("litebase:%s", con.databaseHash),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
+		file.GetDatabaseFileDir(con.databaseUuid, con.branchUuid),
+		config.Get().PageSize,
 		con.fileSystem,
-		con.tempFileSystem,
 	)
 
 	if err != nil {
 		return err
 	}
-
-	con.vfs = vfs
 
 	return nil
 }

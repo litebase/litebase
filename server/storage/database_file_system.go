@@ -10,11 +10,9 @@ type DatabaseFileSystem interface {
 	Path() string
 	ReadAt(path string, data []byte, offset, len int64) (int, error)
 	Size(path string) (int64, error)
-	SetTransactionTimestamp(timestamp int64)
-	TransactionTimestamp() int64
 	Truncate(path string, size int64) error
 	WalPath(path string) string
-	WithTransactionTimestamp(timestamp int64) DatabaseFileSystem
-	WithWriteHook(hook func(path string, offset int64, data []byte)) DatabaseFileSystem
+	WithWriteHook(hook func(offset int64, data []byte)) DatabaseFileSystem
 	WriteAt(path string, data []byte, offset int64) (int, error)
+	WriteHook(offset int64, data []byte)
 }

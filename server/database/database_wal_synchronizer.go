@@ -128,5 +128,5 @@ func (d *DatabaseWalSynchronizer) WalPath(databaseUuid, branchUuid string) strin
 
 // On the primary, this is the timestamp of the last transaction.
 func (d *DatabaseWalSynchronizer) WalTimestamp(databaseUuid, branchUuid string) (int64, error) {
-	return DatabaseResources().TempFileSystem(databaseUuid, branchUuid).TransactionTimestamp(), nil
+	return 0, nil
 }

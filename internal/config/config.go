@@ -76,7 +76,7 @@ func NewConfig() *Config {
 		Env:                  env("LITEBASE_ENV", "production").(string),
 		FileSystemDriver:     env("LITEBASE_FILESYSTEM_DRIVER", "local").(string),
 		Debug:                env("LITEBASE_DEBUG", "false") == "true",
-		PageSize:             65536,
+		PageSize:             4096,
 		QueryNodePort:        env("LITEBASE_QUERY_NODE_PORT", "8080").(string),
 		Region:               env("LITEBASE_REGION", "").(string),
 		RemoteStorageAddress: env("LITEBASE_REMOTE_STORAGE_ADDRESS", "").(string),

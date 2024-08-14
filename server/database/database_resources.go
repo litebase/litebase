@@ -92,7 +92,7 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 		pageSize,
 	)
 
-	fileSystem = fileSystem.WithWriteHook(func(path string, offset int64, data []byte) {
+	fileSystem = fileSystem.WithWriteHook(func(offset int64, data []byte) {
 		// Each time a page is written, we need to inform the check pointer to
 		// ensure it is included in the next backup.
 		d.Checkpointer(databaseUuid, branchUuid).AddPage(
@@ -173,7 +173,7 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 	)
 
 	// TODO: Define the boundaries of a transaction so we can ship multiple pages at one time.
-	fileSystem = fileSystem.WithWriteHook(func(path string, offset int64, data []byte) {
+	fileSystem = fileSystem.WithWriteHook(func(offset int64, data []byte) {
 		// Each time a page is written, we will replicate it out to the other
 		// nodes. These pages are written in order.
 		if node.Node().IsPrimary() {
@@ -220,30 +220,6 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 			// }
 		}
 	})
-
-	d.tempFileSystems[hash] = fileSystem
-
-	return fileSystem
-}
-
-func (d *DatabaseResourceManager) TempFileSystemWithTimestamp(databaseUuid, branchUuid string, timestamp int64) storage.DatabaseFileSystem {
-	d.mutext.Lock()
-	defer d.mutext.Unlock()
-
-	hash := file.DatabaseHashWithTimestamp(databaseUuid, branchUuid, timestamp)
-
-	if fileSystem, ok := d.tempFileSystems[hash]; ok {
-		return fileSystem
-	}
-
-	path := fmt.Sprintf("%s/%s/%s/%s", TmpDirectory(), node.Node().Id, databaseUuid, branchUuid)
-
-	fileSystem := storage.NewTempDatabaseFileSystem(
-		path,
-		databaseUuid,
-		branchUuid,
-		config.Get().PageSize,
-	).WithTransactionTimestamp(timestamp)
 
 	d.tempFileSystems[hash] = fileSystem
 

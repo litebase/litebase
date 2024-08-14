@@ -7,21 +7,20 @@ import (
 	"litebase/server/file"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 )
 
 type LocalDatabaseFileSystem struct {
-	files         map[string]internalStorage.File
-	fileSystem    *LocalFileSystemDriver
-	hasPageOne    bool
-	mutex         *sync.RWMutex
-	path          string
-	pagesPerRange int64
-	pageSize      int64
-	size          int64
-	writeHook     func(path string, offset int64, data []byte)
+	dataRanges map[int64]*DataRange
+	fileSystem *LocalFileSystemDriver
+	hasPageOne bool
+	mutex      *sync.RWMutex
+	path       string
+	pageSize   int64
+	size       int64
+	timestamp  int64
+	writeHook  func(offset int64, data []byte)
 }
 
 func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) *LocalDatabaseFileSystem {
@@ -40,12 +39,11 @@ func NewLocalDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize 
 	}
 
 	return &LocalDatabaseFileSystem{
-		files:         make(map[string]internalStorage.File),
-		fileSystem:    fs,
-		mutex:         &sync.RWMutex{},
-		path:          path,
-		pagesPerRange: 1000,
-		pageSize:      pageSize,
+		dataRanges: make(map[int64]*DataRange),
+		fileSystem: fs,
+		mutex:      &sync.RWMutex{},
+		path:       path,
+		pageSize:   pageSize,
 	}
 }
 
@@ -53,29 +51,17 @@ func (lfs *LocalDatabaseFileSystem) Close(path string) error {
 	lfs.mutex.Lock()
 	defer lfs.mutex.Unlock()
 
-	file, ok := lfs.files[path]
-
-	if !ok {
-		return os.ErrNotExist
+	for key, dataRange := range lfs.dataRanges {
+		dataRange.Close()
+		delete(lfs.dataRanges, key)
 	}
 
-	delete(lfs.files, path)
-
-	return file.Close()
+	return nil
 }
 
 func (lfs *LocalDatabaseFileSystem) Delete(path string) error {
-	lfs.mutex.Lock()
-	defer lfs.mutex.Unlock()
-
-	file, ok := lfs.files[path]
-
-	if ok {
-		delete(lfs.files, path)
-		file.Close()
-	}
-
-	lfs.fileSystem.Remove(fmt.Sprintf("%s/%s", lfs.path, path))
+	// No-op since pages are stored in separate files and we don't need to
+	// delete the database "file".
 
 	return nil
 }
@@ -86,46 +72,21 @@ func (lfs *LocalDatabaseFileSystem) Exists() bool {
 	return err == nil
 }
 
-func (lfs *LocalDatabaseFileSystem) getRangeFile(path string, pageNumber int64) (internalStorage.File, error) {
-	directory := strings.ReplaceAll(path, ".db", "")
-	rangeNumber := file.PageRange(pageNumber, lfs.pagesPerRange)
-
-	var builder strings.Builder
-	builder.Grow(len(lfs.path) + len(directory) + 12) // Preallocate memory
-	builder.WriteString(lfs.path)
-	builder.WriteString("/")
-	builder.WriteString(directory)
-	builder.WriteString("/")
-
-	// Create a strings.Builder for efficient string concatenation
-	var pageNumberBuilder strings.Builder
-	pageNumberBuilder.Grow(10) // Preallocate memory for 10 characters
-
-	// Convert rangeNumber to a zero-padded 10-digit string
-	rangeStr := strconv.FormatInt(rangeNumber, 10)
-	padding := 10 - len(rangeStr)
-	for i := 0; i < padding; i++ {
-		pageNumberBuilder.WriteByte('0')
-	}
-	pageNumberBuilder.WriteString(rangeStr)
-
-	builder.WriteString(pageNumberBuilder.String())
-	path = builder.String()
-
-	if file, ok := lfs.files[path]; ok {
-		return file, nil
+func (lfs *LocalDatabaseFileSystem) getRangeFile(path string, rangeNumber int64) (*DataRange, error) {
+	if dataRange, ok := lfs.dataRanges[rangeNumber]; ok {
+		return dataRange, nil
 	}
 
-	file, err := lfs.fileSystem.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	dataRange, err := NewDataRange(lfs, path, rangeNumber)
 
 	if err != nil {
-		log.Println("Error opening range file", err)
+		log.Println("Error creating data range", err)
 		return nil, err
 	}
 
-	lfs.files[path] = file
+	lfs.dataRanges[rangeNumber] = dataRange
 
-	return file, nil
+	return dataRange, nil
 }
 
 func (lfs *LocalDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
@@ -145,20 +106,20 @@ func (lfs *LocalDatabaseFileSystem) Path() string {
 }
 
 func (lfs *LocalDatabaseFileSystem) ReadAt(path string, data []byte, offset, length int64) (int, error) {
+	lfs.mutex.RLock()
+	defer lfs.mutex.RUnlock()
+
 	pageNumber := file.PageNumber(offset, lfs.pageSize)
 
 	// Get the range file for the page
-	rangeFile, err := lfs.getRangeFile(path, pageNumber)
+	rangeFile, err := lfs.getRangeFile(path, file.PageRange(pageNumber, DataRangeMaxPages))
 
 	if err != nil {
 		log.Println("Error getting range file", err)
 		return 0, err
 	}
 
-	// lfs.mutex.Lock()
-	// defer lfs.mutex.Unlock()
-
-	n, err := rangeFile.ReadAt(data, file.PageRangeOffset(pageNumber, lfs.pagesPerRange, lfs.pageSize))
+	n, err := rangeFile.ReadAt(data, pageNumber)
 
 	if err != nil {
 		if err != io.EOF {
@@ -175,7 +136,7 @@ func (lfs *LocalDatabaseFileSystem) ReadAt(path string, data []byte, offset, len
 }
 
 func (lfs *LocalDatabaseFileSystem) SetTransactionTimestamp(timestamp int64) {
-	// No-op
+	lfs.timestamp = timestamp
 }
 
 // TODO: this should use the metadata file to get the size
@@ -188,30 +149,11 @@ func (lfs *LocalDatabaseFileSystem) Size(path string) (int64, error) {
 }
 
 func (lfs *LocalDatabaseFileSystem) TransactionTimestamp() int64 {
-	return 0
+	return lfs.timestamp
 }
 
 func (lfs *LocalDatabaseFileSystem) Truncate(path string, size int64) error {
-	path = strings.ReplaceAll(path, ".db", "")
-
 	// No-op since pages are stored in separate files and we don't need to
-	// truncate the database "file" to a certain size.
-	if size > 0 {
-		return nil
-	}
-
-	// Remove all the files from the directory
-	err := lfs.fileSystem.RemoveAll(fmt.Sprintf("%s/%s", lfs.path, path))
-
-	if err != nil {
-		return err
-	}
-
-	err = lfs.fileSystem.MkdirAll(fmt.Sprintf("%s/%s", lfs.path, path), 0755)
-
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -221,11 +163,12 @@ func (lfs *LocalDatabaseFileSystem) WalPath(path string) string {
 }
 
 func (lfs *LocalDatabaseFileSystem) WithTransactionTimestamp(timestamp int64) DatabaseFileSystem {
-	// No-op
+	lfs.timestamp = timestamp
+
 	return lfs
 }
 
-func (lfs *LocalDatabaseFileSystem) WithWriteHook(hook func(path string, offset int64, data []byte)) DatabaseFileSystem {
+func (lfs *LocalDatabaseFileSystem) WithWriteHook(hook func(offset int64, data []byte)) DatabaseFileSystem {
 	lfs.writeHook = hook
 
 	return lfs
@@ -237,16 +180,15 @@ func (lfs *LocalDatabaseFileSystem) WriteAt(path string, data []byte, offset int
 
 	pageNumber := file.PageNumber(offset, lfs.pageSize)
 
-	rangeFile, err := lfs.getRangeFile(path, pageNumber)
+	rangeFile, err := lfs.getRangeFile(path, file.PageRange(pageNumber, DataRangeMaxPages))
 
 	if err != nil {
 		log.Println("Error getting range file", err)
 		return 0, err
 	}
 
-	pageRangeOffset := file.PageRangeOffset(pageNumber, lfs.pagesPerRange, lfs.pageSize)
-
-	n, err = rangeFile.WriteAt(data, pageRangeOffset)
+	n, err = rangeFile.WriteAt(data, pageNumber)
+	// n, err = rangeFile.WriteAt(data, pageNumber, lfs.timestamp)
 
 	if err != nil {
 		log.Println("Error writing page", pageNumber, err)
@@ -254,7 +196,7 @@ func (lfs *LocalDatabaseFileSystem) WriteAt(path string, data []byte, offset int
 	}
 
 	if lfs.writeHook != nil {
-		lfs.writeHook(path, offset, data)
+		lfs.writeHook(offset, data)
 	}
 
 	if pageNumber == 1 {
@@ -262,4 +204,8 @@ func (lfs *LocalDatabaseFileSystem) WriteAt(path string, data []byte, offset int
 	}
 
 	return n, nil
+}
+
+func (lfs *LocalDatabaseFileSystem) WriteHook(offset int64, data []byte) {
+	lfs.writeHook(offset, data)
 }

@@ -69,12 +69,14 @@ func ConnectionManager() *ConnectionManagerInstance {
 
 func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, branchUuid string, clientConnection *ClientConnection) bool {
 	// Skip if the checkpoint time is empty
-	if clientConnection.connection.committedAt.IsZero() || clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
+	if clientConnection.connection.committedAt.IsZero() ||
+		clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
 		return false
 	}
 
 	// Skip if the database connection is before the checkpoint time
-	if clientConnection.connection.committedAt.IsZero() || clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
+	if clientConnection.connection.committedAt.IsZero() ||
+		clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
 		return false
 	}
 

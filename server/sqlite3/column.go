@@ -8,6 +8,18 @@ type Column struct {
 	value interface{}
 }
 
+func (r Column) Blob() ([]byte, bool) {
+	b, ok := r.value.([]byte)
+
+	return b, ok
+}
+
+func (r Column) Bool() (bool, bool) {
+	b, ok := r.value.(bool)
+
+	return b, ok
+}
+
 func (r Column) Float64() (float64, bool) {
 	f, ok := r.value.(float64)
 
