@@ -5,20 +5,30 @@ import (
 	"encoding/json"
 	"litebase/internal/config"
 	"litebase/server/auth"
+	"litebase/server/file"
 	"litebase/server/storage"
 	"sync"
 )
 
 type DatabaseKey struct {
 	Key          string `json:"key"`
+	DatabaseHash string `json:"database_hash"`
 	DatabaseUuid string `json:"database_uuid"`
 	BranchUuid   string `json:"branch_uuid"`
 }
 
-var databaseKeyCache = map[string]DatabaseKey{}
+var databaseKeyCache = map[string]*DatabaseKey{}
 var databaseKeyMutex = &sync.RWMutex{}
 
-func GetDatabaseKey(key string) (DatabaseKey, error) {
+func NewDatabaseKey(databaseUuid, branchUuid string) *DatabaseKey {
+	return &DatabaseKey{
+		DatabaseHash: file.DatabaseHash(databaseUuid, branchUuid),
+		DatabaseUuid: databaseUuid,
+		BranchUuid:   branchUuid,
+	}
+}
+
+func GetDatabaseKey(key string) (*DatabaseKey, error) {
 	// Check if the database key is cached
 	databaseKeyMutex.RLock()
 
@@ -36,15 +46,15 @@ func GetDatabaseKey(key string) (DatabaseKey, error) {
 	data, err := storage.FS().ReadFile(auth.GetDatabaseKeyPath(config.Get().Signature, key))
 
 	if err != nil {
-		return DatabaseKey{}, err
+		return nil, err
 	}
 
-	databaseKey := DatabaseKey{}
+	databaseKey := &DatabaseKey{}
 
 	err = json.NewDecoder(bytes.NewReader(data)).Decode(&databaseKey)
 
 	if err != nil {
-		return DatabaseKey{}, err
+		return nil, err
 	}
 
 	// Cache the database key

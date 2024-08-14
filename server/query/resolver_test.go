@@ -3,7 +3,6 @@ package query_test
 import (
 	"litebase/internal/test"
 	"litebase/server/database"
-	"litebase/server/file"
 	"litebase/server/query"
 	"testing"
 )
@@ -44,12 +43,13 @@ func TestHandle(t *testing.T) {
 
 		for _, c := range cases {
 			q, err := query.NewQuery(
-				mock.DatabaseUuid,
-				mock.BranchUuid,
+				database.NewDatabaseKey(mock.DatabaseUuid, mock.BranchUuid),
 				mock.AccessKey,
-				c.statement,
-				c.parameters,
-				"",
+				&query.QueryInput{
+					Statement:  c.statement,
+					Parameters: c.parameters,
+					Id:         "",
+				},
 			)
 
 			if err != nil {
@@ -57,7 +57,6 @@ func TestHandle(t *testing.T) {
 			}
 
 			_, err = query.ResolveQuery(
-				file.DatabaseHash(mock.DatabaseUuid, mock.BranchUuid),
 				q,
 			)
 

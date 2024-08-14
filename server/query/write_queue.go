@@ -9,16 +9,19 @@ import (
 var writeQueues = sync.Map{}
 
 type WriteQueue struct {
-	branchUuid   string
-	context      context.Context
-	databaseUuid string
-	jobs         chan WriteQueueJob
-	running      *int32
+	branchUuid        string
+	context           context.Context
+	databaseUuid      string
+	jobs              chan WriteQueueJob
+	resultChannelPool sync.Pool
+	running           *int32
 }
 
 type WriteQueueJob struct {
 	context context.Context
-	handler func() (QueryResponse, error)
+	handler func(f func(query *Query) (QueryResponse, error), query *Query) (QueryResponse, error)
+	f       func(query *Query) (QueryResponse, error)
+	query   *Query
 	result  chan WriteQueueResult
 }
 
@@ -27,37 +30,45 @@ type WriteQueueResult struct {
 	queryResponse QueryResponse
 }
 
-func GetWriteQueue(databaseHash, databaseUuid, branchUuid string) *WriteQueue {
+func GetWriteQueue(query *Query) *WriteQueue {
 	ctx := context.TODO()
 
-	if writeQueue, ok := writeQueues.Load(databaseHash); ok {
+	if writeQueue, ok := writeQueues.Load(query.DatabaseKey.DatabaseHash); ok {
 		return writeQueue.(*WriteQueue)
 	}
 
 	writeQueue := &WriteQueue{
-		branchUuid:   branchUuid,
+		branchUuid:   query.DatabaseKey.BranchUuid,
 		context:      ctx,
-		databaseUuid: databaseUuid,
+		databaseUuid: query.DatabaseKey.DatabaseUuid,
 		jobs:         make(chan WriteQueueJob),
 		running:      new(int32),
+		resultChannelPool: sync.Pool{
+			New: func() interface{} {
+				return make(chan WriteQueueResult)
+			},
+		},
 	}
 
-	writeQueues.Store(databaseHash, writeQueue)
+	writeQueues.Store(query.DatabaseKey.DatabaseHash, writeQueue)
 
 	return writeQueue
 }
 
-func (wq *WriteQueue) Handle(handler func() (QueryResponse, error)) (QueryResponse, error) {
+func (wq *WriteQueue) Handle(handler func(f func(query *Query) (QueryResponse, error), query *Query) (QueryResponse, error), f func(query *Query) (QueryResponse, error), query *Query) (QueryResponse, error) {
 	if !wq.isRunning() {
 		atomic.StoreInt32(wq.running, 1)
 		go wq.processQueue()
 	}
 
-	resultChannel := make(chan WriteQueueResult)
+	resultChannel := wq.resultChannelGet()
+	defer wq.resultChannelPut(resultChannel)
 
 	wq.jobs <- WriteQueueJob{
 		context: wq.context,
+		f:       f,
 		handler: handler,
+		query:   query,
 		result:  resultChannel,
 	}
 
@@ -83,7 +94,7 @@ func (wq *WriteQueue) processQueue() {
 			atomic.StoreInt32(wq.running, 0)
 			return
 		case job = <-wq.jobs:
-			queryResponse, err := job.handler()
+			queryResponse, err := job.handler(job.f, job.query)
 
 			job.result <- WriteQueueResult{
 				err:           err,
@@ -93,4 +104,17 @@ func (wq *WriteQueue) processQueue() {
 			// close(job.result)
 		}
 	}
+}
+
+func (wq *WriteQueue) resultChannelGet() chan WriteQueueResult {
+	return wq.resultChannelPool.Get().(chan WriteQueueResult)
+}
+
+func (wq *WriteQueue) resultChannelPut(resultChannel chan WriteQueueResult) {
+	select {
+	case <-resultChannel:
+	default:
+	}
+
+	wq.resultChannelPool.Put(resultChannel)
 }

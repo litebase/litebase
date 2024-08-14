@@ -5,6 +5,7 @@ import "io"
 type NodeQueryBuilder interface {
 	Build(
 		accessKeyId string,
+		databaseHash string,
 		databaseUuid string,
 		branchUuid string,
 		statement string,
@@ -14,7 +15,7 @@ type NodeQueryBuilder interface {
 }
 
 type NodeQuery interface {
-	Resolve(databaseHash string) (NodeQueryResponse, error)
+	Resolve() (NodeQueryResponse, error)
 }
 
 type NodeQueryResponse interface {

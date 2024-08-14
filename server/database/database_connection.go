@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	"hash"
 	"hash/crc32"
+	"hash/fnv"
 	"log"
-	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"litebase/internal/config"
 	"litebase/server/auth"
@@ -22,21 +24,22 @@ import (
 )
 
 type DatabaseConnection struct {
-	accessKey      auth.AccessKey
-	branchUuid     string
-	cancel         context.CancelFunc
-	checkpointer   *Checkpointer
-	committedAt    time.Time
-	committing     bool
-	context        context.Context
-	databaseHash   string
-	databaseUuid   string
-	id             string
-	fileSystem     storage.DatabaseFileSystem
-	sqlite3        *sqlite3.Connection
-	statements     sync.Map
-	tempFileSystem storage.DatabaseFileSystem
-	vfsHash        string
+	accessKey       *auth.AccessKey
+	branchUuid      string
+	cancel          context.CancelFunc
+	checkpointer    *Checkpointer
+	committedAt     time.Time
+	committing      bool
+	context         context.Context
+	databaseHash    string
+	databaseUuid    string
+	id              string
+	fileSystem      storage.DatabaseFileSystem
+	sqlite3         *sqlite3.Connection
+	statements      sync.Map
+	statementHasher hash.Hash32
+	tempFileSystem  storage.DatabaseFileSystem
+	vfsHash         string
 }
 
 func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) (*DatabaseConnection, error) {
@@ -59,16 +62,17 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 	// }
 
 	con := &DatabaseConnection{
-		branchUuid:     branchUuid,
-		cancel:         canel,
-		checkpointer:   DatabaseResources().Checkpointer(databaseUuid, branchUuid),
-		context:        ctx,
-		databaseHash:   databaseHash,
-		databaseUuid:   databaseUuid,
-		fileSystem:     DatabaseResources().FileSystem(databaseUuid, branchUuid),
-		id:             uuid.NewString(),
-		statements:     sync.Map{},
-		tempFileSystem: tempFileSystem,
+		branchUuid:      branchUuid,
+		cancel:          canel,
+		checkpointer:    DatabaseResources().Checkpointer(databaseUuid, branchUuid),
+		context:         ctx,
+		databaseHash:    databaseHash,
+		databaseUuid:    databaseUuid,
+		fileSystem:      DatabaseResources().FileSystem(databaseUuid, branchUuid),
+		id:              uuid.NewString(),
+		statements:      sync.Map{},
+		statementHasher: fnv.New32a(),
+		tempFileSystem:  tempFileSystem,
 	}
 
 	err = con.RegisterVFS()
@@ -116,12 +120,12 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 		configStatements = append(configStatements, "PRAGMA query_only = true")
 	}
 
-	configStatementString := strings.Join(configStatements, ";")
+	for _, statement := range configStatements {
+		_, err = con.sqlite3.Exec(ctx, statement)
 
-	_, err = con.sqlite3.Exec(ctx, configStatementString)
-
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return con, err
@@ -234,9 +238,9 @@ func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ..
 func (con *DatabaseConnection) Statement(queryStatement string) (Statement, error) {
 	var err error
 
-	hash := crc32.ChecksumIEEE([]byte(queryStatement))
+	checksum := crc32.ChecksumIEEE(unsafe.Slice(unsafe.StringData(queryStatement), len(queryStatement)))
 
-	statement, ok := con.statements.Load(hash)
+	statement, ok := con.statements.Load(checksum)
 
 	if !ok {
 		statement, err = con.Prepare(con.context, queryStatement)
@@ -245,7 +249,7 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 			// TODO: If the schema changes, the statement will be invalid.
 			// We should track if a Query performs DDL and invalidate the
 			// statement cache for each connection.
-			con.statements.Store(hash, statement)
+			con.statements.Store(checksum, statement)
 		}
 	}
 
@@ -257,7 +261,7 @@ func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 }
 
 func (c *DatabaseConnection) setAuthorizer() {
-	if c.accessKey.AccessKeyId == "" {
+	if c.accessKey == nil {
 		return
 	}
 
@@ -444,7 +448,7 @@ func (con *DatabaseConnection) VfsHash() string {
 	return con.vfsHash
 }
 
-func (con *DatabaseConnection) WithAccessKey(accessKey auth.AccessKey) *DatabaseConnection {
+func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
 	con.accessKey = accessKey
 
 	return con

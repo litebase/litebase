@@ -5,7 +5,7 @@ import (
 )
 
 type ClientConnection struct {
-	accessKey    auth.AccessKey
+	accessKey    *auth.AccessKey
 	BranchUuid   string
 	connection   *DatabaseConnection
 	DatabaseUuid string
@@ -46,7 +46,7 @@ func (d *ClientConnection) Path() string {
 	return d.path
 }
 
-func (d *ClientConnection) WithAccessKey(accessKey auth.AccessKey) *ClientConnection {
+func (d *ClientConnection) WithAccessKey(accessKey *auth.AccessKey) *ClientConnection {
 	d.accessKey = accessKey
 
 	d.connection.WithAccessKey(accessKey)

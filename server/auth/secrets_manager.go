@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebase/internal/config"
+	"litebase/server/file"
 	"litebase/server/storage"
 	"log"
 	"os"
@@ -402,6 +403,7 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 		}
 
 		data, _ := json.Marshal(map[string]string{
+			"database_hash": file.DatabaseHash(databaseUuid, branchUuid),
 			"database_uuid": databaseUuid,
 			"branch_uuid":   branchUuid,
 		})

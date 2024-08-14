@@ -3,7 +3,6 @@ package http
 import (
 	"fmt"
 	"litebase/server/database"
-	"litebase/server/file"
 	"litebase/server/query"
 )
 
@@ -38,12 +37,13 @@ func QueryController(request *Request) Response {
 	}
 
 	requestQuery, err := query.NewQuery(
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
+		databaseKey,
 		accessKey,
-		request.Get("statement").(string),
-		request.Get("parameters").([]interface{}),
-		"",
+		&query.QueryInput{
+			Statement:  request.Body["statement"].(string),
+			Parameters: request.Body["parameters"].([]interface{}),
+			Id:         request.Body["id"].(string),
+		},
 	)
 
 	if err != nil {
@@ -58,10 +58,7 @@ func QueryController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	response, err := query.ResolveQuery(
-		file.DatabaseHash(databaseKey.DatabaseUuid, databaseKey.BranchUuid),
-		requestQuery,
-	)
+	response, err := query.ResolveQuery(requestQuery)
 
 	if err != nil {
 		database.ConnectionManager().Remove(

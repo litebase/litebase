@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"litebase/server/database"
-	"litebase/server/file"
 	"litebase/server/query"
 	"log"
 	"net/http"
@@ -72,7 +71,6 @@ func QueryWebsocketController(request *Request) Response {
 			defer bufferPool.Put(scannedTextBuffer)
 
 			var command *query.QueryInput
-			var databaseHash = file.DatabaseHash(databaseKey.DatabaseUuid, databaseKey.BranchUuid)
 
 			for {
 				err := conn.ReadJSON(&command)
@@ -93,7 +91,7 @@ func QueryWebsocketController(request *Request) Response {
 					return
 				}
 
-				response, err := processCommand(databaseHash, databaseKey, accessKey, command)
+				response, err := processCommand(databaseKey, accessKey, command)
 
 				if err != nil {
 					log.Println("Error processing command", err)
@@ -112,7 +110,7 @@ func QueryWebsocketController(request *Request) Response {
 				// x := responseBuffer.Next(n)
 				err = conn.WriteJSON(query.QueryJsonResponse{
 					Status: "success",
-					Data:   response.(query.QueryResponse),
+					Data:   response,
 				})
 				// log.Println("Response", string(x))
 				// err = conn.WriteMessage(messageType, x)

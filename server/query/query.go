@@ -4,41 +4,34 @@ import (
 	"litebase/server/auth"
 	"litebase/server/database"
 	"litebase/server/node"
+	"strings"
 )
 
 type Query struct {
-	AccessKey    auth.AccessKey
-	BranchUuid   string
-	DatabaseUuid string
-	Id           string `json:"id"`
-	invalid      bool
-	Parameters   []interface{} `json:"parameters"`
-	Statement    string        `json:"statement"`
+	AccessKey   *auth.AccessKey
+	DatabaseKey *database.DatabaseKey
+	Input       *QueryInput
+	invalid     bool
 }
 
 func NewQuery(
-	databaseUuid string,
-	branchUuid string,
-	accessKey auth.AccessKey,
-	statement string,
-	parameters []interface{},
-	id string,
+	databaseKey *database.DatabaseKey,
+	accessKey *auth.AccessKey,
+	input *QueryInput,
 ) (*Query, error) {
-	var query = &Query{
-		AccessKey:    accessKey,
-		BranchUuid:   branchUuid,
-		DatabaseUuid: databaseUuid,
-		Statement:    statement,
-		Parameters:   parameters,
-	}
-
-	query.Id = id
-
-	return query, nil
+	return &Query{
+		AccessKey:   accessKey,
+		DatabaseKey: databaseKey,
+		Input:       input,
+	}, nil
 }
 
-func (query Query) Resolve(databaseHash string) (node.NodeQueryResponse, error) {
-	return ResolveQuery(databaseHash, &query)
+func (query *Query) ResolveQuery() (QueryResponse, error) {
+	return ResolveQuery(query)
+}
+
+func (query *Query) Resolve() (node.NodeQueryResponse, error) {
+	return ResolveQuery(query)
 }
 
 func (q *Query) Validate(statement database.Statement) error {
@@ -47,36 +40,42 @@ func (q *Query) Validate(statement database.Statement) error {
 	// 	return nil
 	// }
 
-	return ValidateQuery(statement.Sqlite3Statement, q.Parameters...)
+	return ValidateQuery(statement.Sqlite3Statement, q.Input.Parameters...)
 }
 
-func (query Query) IsDDL() bool {
-	return (len(query.Statement) >= 6 && (query.Statement[:6] == "CREATE" ||
-		query.Statement[:6] == "create" || query.Statement[:6] == "ALTER" ||
-		query.Statement[:6] == "alter" || query.Statement[:6] == "DROP" ||
-		query.Statement[:6] == "drop"))
+func (query *Query) IsDDL() bool {
+	return (len(query.Input.Statement) >= 6 &&
+		(strings.HasPrefix(query.Input.Statement, "create") || strings.HasPrefix(query.Input.Statement, "CREATE") ||
+			strings.HasPrefix(query.Input.Statement, "alter") || strings.HasPrefix(query.Input.Statement, "ALTER") ||
+			strings.HasPrefix(query.Input.Statement, "drop") || strings.HasPrefix(query.Input.Statement, "DROP")))
 }
 
-func (query Query) IsDML() bool {
-	return (len(query.Statement) >= 6 && (query.Statement[:6] == "INSERT" || query.Statement[:6] == "insert" ||
-		query.Statement[:6] == "UPDATE" || query.Statement[:6] == "update" ||
-		query.Statement[:6] == "DELETE" || query.Statement[:6] == "delete"))
+func (query *Query) IsDML() bool {
+	return (len(query.Input.Statement) >= 6 &&
+		(strings.HasPrefix(query.Input.Statement, "insert") || strings.HasPrefix(query.Input.Statement, "INSERT") ||
+			strings.HasPrefix(query.Input.Statement, "update") || strings.HasPrefix(query.Input.Statement, "UPDATE") ||
+			strings.HasPrefix(query.Input.Statement, "delete") || strings.HasPrefix(query.Input.Statement, "DELETE")))
 }
 
-func (query Query) IsDQL() bool {
-	return (len(query.Statement) >= 6 && (query.Statement[:6] == "SELECT" ||
-		query.Statement[:6] == "select"))
+func (query *Query) IsDQL() bool {
+	return len(query.Input.Statement) >= 6 && (strings.HasPrefix(query.Input.Statement, "select") || strings.HasPrefix(query.Input.Statement, "SELECT"))
 }
 
-func (query Query) IsPragma() bool {
-	return (len(query.Statement) >= 6 && (query.Statement[:6] == "PRAGMA" ||
-		query.Statement[:6] == "pragma"))
+func (query *Query) IsPragma() bool {
+	return len(query.Input.Statement) >= 6 && (strings.HasPrefix(query.Input.Statement, "pragma") || strings.HasPrefix(query.Input.Statement, "PRAGMA"))
 }
 
-func (query Query) IsRead() bool {
+func (query *Query) IsRead() bool {
 	return query.IsDQL()
 }
 
-func (query Query) IsWrite() bool {
+func (query *Query) IsWrite() bool {
 	return query.IsDDL() || query.IsDML() || query.IsPragma()
+}
+
+func (query *Query) Reset() {
+	query.AccessKey = nil
+	query.DatabaseKey = nil
+	query.Input = nil
+	query.invalid = false
 }

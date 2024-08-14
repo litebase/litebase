@@ -57,6 +57,7 @@ func (np *NodePrimary) HandleMessage(message NodeMessage) (NodeMessage, error) {
 func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 	query, err := np.queryBuilder.Build(
 		message.Data.(QueryMessage).AccessKeyId,
+		message.Data.(QueryMessage).DatabaseHash,
 		message.Data.(QueryMessage).DatabaseUuid,
 		message.Data.(QueryMessage).BranchUuid,
 		message.Data.(QueryMessage).Statement,
@@ -74,7 +75,7 @@ func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 		}
 	}
 
-	response, err := query.Resolve(message.Data.(QueryMessage).DatabaseHash)
+	response, err := query.Resolve()
 
 	if err != nil {
 		log.Println("Failed to process query message: ", err)

@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"litebase/server/auth"
 	"litebase/server/database"
-	"litebase/server/file"
-	"litebase/server/node"
 	"litebase/server/query"
 	"log"
 	"net/http"
@@ -56,7 +54,7 @@ func QueryStreamController(request *Request) Response {
 			defer bufferPool.Put(scannedTextBuffer)
 
 			var command *query.QueryInput
-			var databaseHash = file.DatabaseHash(databaseKey.DatabaseUuid, databaseKey.BranchUuid)
+
 			scanner := bufio.NewScanner(request.BaseRequest.Body)
 
 			for scanner.Scan() {
@@ -81,7 +79,7 @@ func QueryStreamController(request *Request) Response {
 					return
 				}
 
-				response, err := processCommand(databaseHash, databaseKey, accessKey, command)
+				response, err := processCommand(databaseKey, accessKey, command)
 
 				if err != nil {
 					w.Write(JsonNewLineError(err))
@@ -124,29 +122,23 @@ func QueryStreamController(request *Request) Response {
 }
 
 func processCommand(
-	databaseHash string,
-	databaseKey database.DatabaseKey,
-	accessKey auth.AccessKey,
+	databaseKey *database.DatabaseKey,
+	accessKey *auth.AccessKey,
 	input *query.QueryInput,
-) (node.NodeQueryResponse, error) {
-	requestQuery, err := query.NewQuery(
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
+) (query.QueryResponse, error) {
+	requestQuery := query.Get(
+		databaseKey,
 		accessKey,
-		input.Statement,
-		input.Parameters,
-		input.Id,
+		input,
 	)
 
-	if err != nil {
-		return nil, err
-	}
+	defer query.Put(requestQuery)
 
-	response, err := requestQuery.Resolve(databaseHash)
+	response, err := requestQuery.ResolveQuery()
 
 	if err != nil {
 		log.Println("Error resolving query", err)
-		return nil, err
+		return query.QueryResponse{}, err
 	}
 
 	return response, nil

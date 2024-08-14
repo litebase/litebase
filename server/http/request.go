@@ -71,18 +71,18 @@ func (r *Request) All() map[string]interface{} {
 	return r.Body
 }
 
-func (r *Request) DatabaseKey() database.DatabaseKey {
+func (r *Request) DatabaseKey() *database.DatabaseKey {
 	// Get the database key from the subdomain
 	key := r.Subdomains()[0]
 
 	if key == "" || len(r.Subdomains()) != 2 {
-		return database.DatabaseKey{}
+		return nil
 	}
 
 	databaseKey, err := database.GetDatabaseKey(key)
 
 	if err != nil {
-		return database.DatabaseKey{}
+		return nil
 	}
 
 	return databaseKey

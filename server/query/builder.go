@@ -2,6 +2,7 @@ package query
 
 import (
 	"litebase/server/auth"
+	"litebase/server/database"
 	"litebase/server/node"
 )
 
@@ -17,6 +18,7 @@ func NewQueryBuilder() *QueryBuilder {
 
 func (qb *QueryBuilder) Build(
 	accessKeyId string,
+	databaseHash string,
 	databaseUuid string,
 	branchUuid string,
 	statement string,
@@ -26,15 +28,16 @@ func (qb *QueryBuilder) Build(
 	accessKey, err := auth.AccessKeyManager().Get(accessKeyId)
 
 	if err != nil {
-		return Query{}, err
+		return &Query{}, err
 	}
 
 	return NewQuery(
-		databaseUuid,
-		branchUuid,
+		database.NewDatabaseKey(databaseUuid, branchUuid),
 		accessKey,
-		statement,
-		parameters,
-		id,
+		&QueryInput{
+			Statement:  statement,
+			Parameters: parameters,
+			Id:         id,
+		},
 	)
 }

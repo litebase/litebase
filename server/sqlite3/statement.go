@@ -9,11 +9,19 @@ import "C"
 import (
 	"context"
 	"errors"
+	"sync"
 	"unsafe"
 )
 
+var statementBufferPool = sync.Pool{
+	New: func() interface{} {
+		buf := make([]byte, 1024)
+
+		return &buf
+	},
+}
+
 type Statement struct {
-	blobBuffer   []byte
 	columnCount  int
 	columnNames  []string
 	Connection   *Connection
@@ -45,7 +53,6 @@ func (c *Connection) Prepare(ctx context.Context, query string) (*Statement, err
 
 	// Return prepared statement and extra string
 	return &Statement{
-		blobBuffer:   []byte{},
 		columnCount:  0,
 		columnNames:  []string{},
 		Connection:   c,
@@ -111,10 +118,27 @@ func (s *Statement) Bind(parameters ...interface{}) error {
 			}
 			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(boolean))
 		case string:
-			cText := C.CString(value)
+			buf := getStatementBuffer()
+
+			// Ensure the buffer is large enough
+			if cap(*buf) < len(value)+1 {
+				*buf = make([]byte, len(value)+1)
+			} else {
+				*buf = (*buf)[:len(value)+1]
+			}
+
+			// Copy the string into the buffer
+			copy(*buf, value)
+			(*buf)[len(value)] = 0
+
+			// Convert the buffer to a CString
+			cText := (*C.char)(unsafe.Pointer(&(*buf)[0]))
 			cTextLen := C.int(len(value))
-			defer C.free(unsafe.Pointer(cText))
-			rc = C.sqlite3_bind_text(s.sqlite3_stmt, index, cText, cTextLen, C.SQLITE_TRANSIENT)
+
+			rc = C.sqlite3_bind_text(s.sqlite3_stmt, C.int(index), cText, cTextLen, C.SQLITE_TRANSIENT)
+
+			// Return the buffer to the pool
+			putStatementBuffer(buf)
 		case []byte:
 			var valuePointer unsafe.Pointer
 
@@ -245,14 +269,16 @@ func (s *Statement) Finalize() error {
 }
 
 func (s *Statement) getBlobData(index int) []byte {
+	buf := getStatementBuffer()
+
 	// Get the size of the blob data
 	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(index)))
 
 	// Ensure the buffer is large enough
-	if cap(s.blobBuffer) < size {
-		s.blobBuffer = make([]byte, size)
+	if cap(*buf) < size {
+		*buf = make([]byte, size)
 	} else {
-		s.blobBuffer = s.blobBuffer[:size]
+		*buf = (*buf)[:size]
 	}
 
 	// Get the pointer to the blob data
@@ -263,10 +289,42 @@ func (s *Statement) getBlobData(index int) []byte {
 	}
 
 	// Copy the blob data into the buffer
-	copy(s.blobBuffer, (*[1 << 30]byte)(unsafe.Pointer(blobPtr))[:size:size])
+	copy(*buf, (*[1 << 30]byte)(unsafe.Pointer(blobPtr))[:size:size])
+
+	defer putStatementBuffer(buf)
 
 	// Return a slice of the buffer containing the blob data
-	return s.blobBuffer
+	return *buf
+}
+
+// Use the text buffer to store the text data
+func (s *Statement) getTextData(index int) string {
+	buf := getStatementBuffer()
+
+	// Get the size of the text data
+	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(index)))
+
+	// Ensure the buffer is large enough
+	if cap(*buf) < size {
+		*buf = make([]byte, size)
+	} else {
+		*buf = (*buf)[:size]
+	}
+
+	// Get the pointer to the text data
+	textPtr := C.sqlite3_column_text(s.sqlite3_stmt, C.int(index))
+
+	if textPtr == nil {
+		return ""
+	}
+
+	// Copy the text data into the buffer
+	copy(*buf, (*[1 << 30]byte)(unsafe.Pointer(textPtr))[:size:size])
+
+	defer putStatementBuffer(buf)
+
+	// Return a slice of the buffer containing the text data
+	return string(*buf)
 }
 
 func (s *Statement) IsBusy() bool {
@@ -327,7 +385,8 @@ func (s *Statement) ColumnValue(index int) any {
 	case SQLITE_FLOAT:
 		return float64(C.sqlite3_column_double(s.sqlite3_stmt, C.int(index)))
 	case SQLITE_TEXT:
-		return C.GoString((*C.char)(unsafe.Pointer(C.sqlite3_column_text(s.sqlite3_stmt, C.int(index)))))
+		// return C.GoString((*C.char)(unsafe.Pointer(C.sqlite3_column_text(s.sqlite3_stmt, C.int(index)))))
+		return s.getTextData(index)
 	case SQLITE_BLOB:
 		return s.getBlobData(index)
 	case SQLITE_NULL:
@@ -406,4 +465,17 @@ func (s *Statement) ParameterName(index int) string {
 
 func (s *Statement) Step() int {
 	return int(C.sqlite3_step(s.sqlite3_stmt))
+}
+
+// Function to get a buffer from the pool
+func getStatementBuffer() *[]byte {
+	return statementBufferPool.Get().(*[]byte)
+}
+
+// Function to return a buffer to the pool
+func putStatementBuffer(buf *[]byte) {
+	// Reset the buffer before putting it back to the pool
+	*buf = (*buf)[:0] // Reset the buffer before putting it back to the pool
+
+	statementBufferPool.Put(buf)
 }

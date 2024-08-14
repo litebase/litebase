@@ -3,7 +3,7 @@ package http
 func Authorization(request *Request) (*Request, Response) {
 	accessKey := request.RequestToken("Authorization").AccessKey(request.Subdomains()[0])
 
-	if accessKey.AccessKeyId == "" {
+	if accessKey == nil {
 		return request, Response{
 			StatusCode: 401,
 			Body: map[string]interface{}{

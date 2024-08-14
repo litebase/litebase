@@ -126,12 +126,12 @@ func (akm *AccessKeyManagerInstance) GenerateAccessKeySecret() string {
 	return fmt.Sprintf("%s%s", prefix, result)
 }
 
-func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (AccessKey, error) {
-	accessKey := &AccessKey{}
+func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error) {
+	var accessKey = &AccessKey{}
 	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
 
 	if value != nil {
-		return *accessKey, nil
+		return accessKey, nil
 	}
 
 	path := SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
@@ -139,25 +139,25 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (AccessKey, error) 
 	fileContents, err := storage.FS().ReadFile(path)
 
 	if err != nil {
-		return AccessKey{}, err
+		return nil, err
 	}
 
 	decrypted, err := SecretsManager().Decrypt(config.Get().Signature, string(fileContents))
 
 	if err != nil {
-		return AccessKey{}, err
+		return nil, err
 	}
 
 	err = json.NewDecoder(bytes.NewReader([]byte(decrypted["value"]))).Decode(accessKey)
 
 	if err != nil {
-		return AccessKey{}, err
+		return nil, err
 	}
 
 	SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
 	// SecretsManager().cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
 
-	return *accessKey, err
+	return accessKey, err
 }
 
 func (akm *AccessKeyManagerInstance) Has(databaseKey, accessKeyId string) bool {

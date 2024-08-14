@@ -16,7 +16,7 @@ type TestDatabase struct {
 	DatabaseUuid string
 	BranchUuid   string
 	DatabaseKey  string
-	AccessKey    auth.AccessKey
+	AccessKey    *auth.AccessKey
 }
 
 func ClearDatabase() {
@@ -43,11 +43,11 @@ func MockDatabase() TestDatabase {
 	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "accessKeySecret")
 	// serverAccessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "serverAccessKeySecret")
 
-	accessKey := auth.AccessKey{
+	accessKey := &auth.AccessKey{
 		AccessKeyId: accessKeyId,
 	}
 
-	auth.SecretsManager().StoreAccessKey(&accessKey)
+	auth.SecretsManager().StoreAccessKey(accessKey)
 
 	_, err := database.Create(databaseUuid, branchUuid)
 
