@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,7 +37,6 @@ type DatabaseConnection struct {
 	statements     sync.Map
 	tempFileSystem storage.DatabaseFileSystem
 	vfsHash        string
-	walTimestamp   int64
 }
 
 func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) (*DatabaseConnection, error) {
@@ -101,47 +101,27 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 	}
 
 	con.sqlite3 = connection
-	_, err = con.sqlite3.Exec(ctx, fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize))
 
-	if err != nil {
-		return nil, err
-	}
-	// If we are not using the original vfs, we do not need this
-	con.sqlite3.Exec(ctx, "PRAGMA synchronous=OFF")
-	_, err = con.sqlite3.Exec(ctx, "PRAGMA journal_mode=wal")
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = con.sqlite3.Exec(ctx, "PRAGMA busy_timeout = 3000")
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = con.sqlite3.Exec(ctx, "PRAGMA cache_size = -2000000") // 2GB
-	// _, err = con.sqlite3.Exec(ctx, "PRAGMA cache_size = 0")
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = con.sqlite3.Exec(ctx, "PRAGMA secure_delete = true")
-
-	if err != nil {
-		return nil, err
-	}
-
-	// VFS does not handle temp files yet, so we will handle in memory.
-	_, err = con.sqlite3.Exec(ctx, "PRAGMA temp_store = memory")
-
-	if err != nil {
-		return nil, err
+	configStatements := []string{
+		fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize),
+		"PRAGMA journal_mode=wal",
+		"PRAGMA synchronous=OFF",
+		"PRAGMA busy_timeout = 3000",
+		"PRAGMA cache_size = -2000000",
+		"PRAGMA secure_delete = true",
+		"PRAGMA temp_store = memory",
 	}
 
 	if !node.Node().IsPrimary() {
-		_, err = con.sqlite3.Exec(ctx, "PRAGMA query_only = true")
+		configStatements = append(configStatements, "PRAGMA query_only = true")
+	}
+
+	configStatementString := strings.Join(configStatements, ";")
+
+	_, err = con.sqlite3.Exec(ctx, configStatementString)
+
+	if err != nil {
+		return nil, err
 	}
 
 	return con, err

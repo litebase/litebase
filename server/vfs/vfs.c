@@ -99,17 +99,14 @@ int xClose(sqlite3_file *pFile)
   // Free the memory allocated for the VFS ID
   free(p->pVfsId);
 
-  // if (litebase_is_journal_file(pFile))
-  // {
   return ORIGFILE(pFile)->pMethods->xClose(ORIGFILE(pFile));
-  // }
 }
 
 int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   int rc = SQLITE_OK;
 
-  if (litebase_is_journal_file(pFile))
+  if (((LitebaseVFSFile *)pFile)->isJournal)
   {
     return ORIGFILE(pFile)->pMethods->xRead(ORIGFILE(pFile), zBuf, iAmt, iOfst);
   }
@@ -154,7 +151,7 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   int rc;
 
-  if (litebase_is_journal_file(pFile))
+  if (((LitebaseVFSFile *)pFile)->isJournal)
   {
     rc = ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
   }
@@ -198,7 +195,7 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 // truncate
 int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
-  if (litebase_is_journal_file(pFile))
+  if (((LitebaseVFSFile *)pFile)->isJournal)
   {
     return ORIGFILE(pFile)->pMethods->xTruncate(ORIGFILE(pFile), size);
   }
@@ -218,7 +215,7 @@ int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 {
   int rc = SQLITE_OK;
 
-  if (litebase_is_journal_file(pFile))
+  if (((LitebaseVFSFile *)pFile)->isJournal)
   {
     return ORIGFILE(pFile)->pMethods->xFileSize(ORIGFILE(pFile), pSize);
   }
@@ -310,10 +307,7 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
   int rc;
   char *vfsId = pVfs->pAppData;
   char *fileVfsId = malloc(strlen(vfsId) + 1);
-
   strcpy(fileVfsId, vfsId);
-
-  // rc = goXOpen(pVfs, zName, pFile, flags, pOutFlags);
 
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
@@ -324,6 +318,8 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
   p->pName = zName;
   p->pVfsId = fileVfsId;
   pFile->pMethods = &x_io_methods;
+
+  p->isJournal = litebase_is_journal_file(pFile);
 
   return rc;
 }
@@ -525,6 +521,7 @@ void unregisterVfs(char *vfsId)
 
       // Realloc the vfsInstances array and check for errors
       LitebaseVFS **newVfsInstances = realloc(vfsInstances, sizeof(LitebaseVFS *) * vfsInstancesSize);
+
       if (newVfsInstances == NULL)
       {
         printf("Failed to realloc vfsInstances\n");

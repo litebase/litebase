@@ -23,6 +23,7 @@ typedef struct LitebaseVFSFile
 	sqlite3_file base;	 /* Base class. Must be first. */
 	sqlite3_file *pReal; /* Pointer to the real underlying file */
 
+	int isJournal;
 	const char *pName;
 	char *pVfsId;
 } LitebaseVFSFile;

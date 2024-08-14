@@ -108,7 +108,7 @@ int DataRangeReadAt(DataRange *dr, void *buffer, int iAmt, int pageNumber, int *
 			// If we hit EOF, zero out the rest of the buffer
 			memset((char *)buffer + nRead, 0, iAmt - nRead);
 
-			return SQLITE_IOERR_SHORT_READ; // Consider this a successful read with zero padding
+			return SQLITE_IOERR_SHORT_READ;
 		}
 
 		return SQLITE_IOERR_READ;
