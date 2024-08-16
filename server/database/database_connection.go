@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
-	"hash"
 	"hash/crc32"
-	"hash/fnv"
 	"log"
 	"sync"
 	"time"
@@ -24,22 +22,21 @@ import (
 )
 
 type DatabaseConnection struct {
-	accessKey       *auth.AccessKey
-	branchUuid      string
-	cancel          context.CancelFunc
-	checkpointer    *Checkpointer
-	committedAt     time.Time
-	committing      bool
-	context         context.Context
-	databaseHash    string
-	databaseUuid    string
-	id              string
-	fileSystem      storage.DatabaseFileSystem
-	sqlite3         *sqlite3.Connection
-	statements      sync.Map
-	statementHasher hash.Hash32
-	tempFileSystem  storage.DatabaseFileSystem
-	vfsHash         string
+	accessKey      *auth.AccessKey
+	branchUuid     string
+	cancel         context.CancelFunc
+	checkpointer   *Checkpointer
+	committedAt    time.Time
+	committing     bool
+	context        context.Context
+	databaseHash   string
+	databaseUuid   string
+	id             string
+	fileSystem     storage.DatabaseFileSystem
+	sqlite3        *sqlite3.Connection
+	statements     sync.Map
+	tempFileSystem storage.DatabaseFileSystem
+	vfsHash        string
 }
 
 func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) (*DatabaseConnection, error) {
@@ -62,17 +59,16 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 	// }
 
 	con := &DatabaseConnection{
-		branchUuid:      branchUuid,
-		cancel:          canel,
-		checkpointer:    DatabaseResources().Checkpointer(databaseUuid, branchUuid),
-		context:         ctx,
-		databaseHash:    databaseHash,
-		databaseUuid:    databaseUuid,
-		fileSystem:      DatabaseResources().FileSystem(databaseUuid, branchUuid),
-		id:              uuid.NewString(),
-		statements:      sync.Map{},
-		statementHasher: fnv.New32a(),
-		tempFileSystem:  tempFileSystem,
+		branchUuid:     branchUuid,
+		cancel:         canel,
+		checkpointer:   DatabaseResources().Checkpointer(databaseUuid, branchUuid),
+		context:        ctx,
+		databaseHash:   databaseHash,
+		databaseUuid:   databaseUuid,
+		fileSystem:     DatabaseResources().FileSystem(databaseUuid, branchUuid),
+		id:             uuid.NewString(),
+		statements:     sync.Map{},
+		tempFileSystem: tempFileSystem,
 	}
 
 	err = con.RegisterVFS()

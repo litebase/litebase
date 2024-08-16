@@ -48,7 +48,7 @@ func RestoreFromTimestamp(
 
 	// Walk the files in the page versions directory
 	directory := file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)
-	path := fmt.Sprintf("%s/page_versions", directory)
+	path := fmt.Sprintf("%s/logs/page_versions", directory)
 
 	// TODO: this needs to be based on split files
 	dir, err := os.Open(path)

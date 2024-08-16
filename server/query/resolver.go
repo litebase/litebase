@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"litebase/server/cluster"
 	"litebase/server/database"
+	"litebase/server/logs"
 	"litebase/server/node"
 	"litebase/server/sqlite3"
 	"log"
@@ -13,21 +14,20 @@ import (
 type Resolver struct {
 }
 
-func ResolveQuery(query *Query) (QueryResponse, error) {
+func ResolveQuery(query *Query, response *QueryResponse) error {
 	if query.invalid {
-		return QueryResponse{}, fmt.Errorf("invalid or malformed query")
+		return fmt.Errorf("invalid or malformed query")
 	}
 
 	if shouldForwardToPrimary(query) {
-		return forwardQueryToPrimary(query)
+		return forwardQueryToPrimary(query, response)
 	}
 
-	return resolveQueryLocally(query)
+	return resolveQueryLocally(query, response)
 }
 
-func resolveQueryLocally(query *Query) (QueryResponse, error) {
-	return resolveWithQueue(query, func(query *Query) (QueryResponse, error) {
-		var data QueryResponse
+func resolveQueryLocally(query *Query, response *QueryResponse) error {
+	return resolveWithQueue(query, response, func(query *Query, response *QueryResponse) error {
 		start := time.Now()
 		var sqlite3Result sqlite3.Result
 		var statement database.Statement
@@ -41,9 +41,7 @@ func resolveQueryLocally(query *Query) (QueryResponse, error) {
 		if err != nil {
 			log.Println("Error getting database connection", err)
 
-			return QueryResponse{
-				Id: query.Input.Id,
-			}, err
+			return err
 		}
 
 		defer database.ConnectionManager().Release(query.DatabaseKey.DatabaseUuid, query.DatabaseKey.BranchUuid, db)
@@ -75,52 +73,50 @@ func resolveQueryLocally(query *Query) (QueryResponse, error) {
 
 		if err != nil {
 			database.ConnectionManager().Remove(query.DatabaseKey.DatabaseUuid, query.DatabaseKey.BranchUuid, db)
-			return QueryResponse{
-				Id: query.Input.Id,
-			}, err
+			return err
 		}
 
-		data = QueryResponse{
-			Changes:         changes,
-			Columns:         sqlite3Result.Columns,
-			Id:              query.Input.Id,
-			LastInsertRowId: lastInsertRowID,
-			Rows:            sqlite3Result.Rows,
-			RowCount:        len(sqlite3Result.Rows),
-		}
+		response.Changes = changes
+		response.Columns = sqlite3Result.Columns
+		response.Id = query.Input.Id
+		response.LastInsertRowId = lastInsertRowID
+		response.Latency = float64(time.Since(start)) / float64(time.Millisecond)
+		response.Rows = sqlite3Result.Rows
+		response.RowCount = len(sqlite3Result.Rows)
 
-		data.ExecutionTime = float64(time.Since(start)) / float64(time.Millisecond)
+		go logs.Query(
+			logs.QueryLogEnry{
+				DatabaseHash: query.DatabaseKey.DatabaseHash,
+				DatabaseUuid: query.DatabaseKey.DatabaseUuid,
+				BranchUuid:   query.DatabaseKey.BranchUuid,
+				AccessKeyId:  query.AccessKey.AccessKeyId,
+				Statement:    query.Input.Statement,
+				Latency:      response.Latency,
+			},
+		)
 
-		// logging.Query(
-		// 	clientConnection.DatabaseUuid,
-		// 	clientConnection.BranchUuid,
-		// 	query.AccessKeyId,
-		// 	query.OriginalStatement,
-		// 	float64(end)/float64(1000), // Convert to seconds
-		// )
-
-		return data, err
+		return err
 	})
 }
 
-func resolveWithQueue(query *Query, f func(query *Query) (QueryResponse, error)) (QueryResponse, error) {
+func resolveWithQueue(query *Query, response *QueryResponse, f func(query *Query, response *QueryResponse) error) error {
 	if query.IsWrite() {
 		queue := GetWriteQueue(query)
 
 		if queue == nil {
-			return QueryResponse{}, fmt.Errorf("database not found")
+			return fmt.Errorf("database not found")
 		}
 
-		return queue.Handle(func(f func(query *Query) (QueryResponse, error), query *Query) (QueryResponse, error) {
-			return f(query)
-		}, f, query)
+		return queue.Handle(func(f func(query *Query, response *QueryResponse) error, query *Query, response *QueryResponse) error {
+			return f(query, response)
+		}, f, query, response)
 	}
 
-	return f(query)
+	return f(query, response)
 }
 
-func forwardQueryToPrimary(query *Query) (QueryResponse, error) {
-	response, err := node.Node().Send(
+func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
+	primaryResponse, err := node.Node().Send(
 		node.NodeMessage{
 			Id:   fmt.Sprintf("query:%s", query.Input.Id),
 			Type: "QueryMessage",
@@ -136,25 +132,25 @@ func forwardQueryToPrimary(query *Query) (QueryResponse, error) {
 	)
 
 	if err != nil {
-		return QueryResponse{}, err
+		return err
 	}
 
-	if response.Type == "Error" {
-		return QueryResponse{}, fmt.Errorf(response.Error)
+	if primaryResponse.Type == "Error" {
+		return fmt.Errorf(primaryResponse.Error)
 	}
 
-	if response.Type != "QueryMessageResponse" {
-		return QueryResponse{}, fmt.Errorf("unexpected response from primary")
+	if primaryResponse.Type != "QueryMessageResponse" {
+		return fmt.Errorf("unexpected response from primary")
 	}
 
-	return QueryResponse{
-		Changes:         response.Data.(node.QueryMessageResponse).Changes,
-		Columns:         response.Data.(node.QueryMessageResponse).Columns,
-		ExecutionTime:   response.Data.(node.QueryMessageResponse).ExecutionTime,
-		LastInsertRowId: response.Data.(node.QueryMessageResponse).LastInsertRowID,
-		RowCount:        response.Data.(node.QueryMessageResponse).RowCount,
-		Rows:            response.Data.(node.QueryMessageResponse).Rows,
-	}, nil
+	response.Changes = primaryResponse.Data.(node.QueryMessageResponse).Changes
+	response.Columns = primaryResponse.Data.(node.QueryMessageResponse).Columns
+	response.Latency = primaryResponse.Data.(node.QueryMessageResponse).Latency
+	response.LastInsertRowId = primaryResponse.Data.(node.QueryMessageResponse).LastInsertRowID
+	response.RowCount = primaryResponse.Data.(node.QueryMessageResponse).RowCount
+	response.Rows = primaryResponse.Data.(node.QueryMessageResponse).Rows
+
+	return nil
 }
 
 func shouldForwardToPrimary(query *Query) bool {

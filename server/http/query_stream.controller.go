@@ -15,7 +15,14 @@ import (
 
 var bufferPool = sync.Pool{
 	New: func() interface{} {
-		return bytes.NewBuffer(make([]byte, 1*1024*1024)) // 1 MiB
+		return bytes.NewBuffer(make([]byte, 1024))
+	},
+}
+
+// Define a sync.Pool for reusable Command structs
+var inputPool = sync.Pool{
+	New: func() interface{} {
+		return &query.QueryInput{}
 	},
 }
 
@@ -47,17 +54,26 @@ func QueryStreamController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			responseBuffer := bufferPool.Get().(*bytes.Buffer)
 			scannedTextBuffer := bufferPool.Get().(*bytes.Buffer)
+			requestBuffer := bufferPool.Get().(*bytes.Buffer)
+			responseBuffer := bufferPool.Get().(*bytes.Buffer)
 
-			defer bufferPool.Put(responseBuffer)
 			defer bufferPool.Put(scannedTextBuffer)
+			defer bufferPool.Put(requestBuffer)
+			defer bufferPool.Put(responseBuffer)
 
-			var command *query.QueryInput
+			var input *query.QueryInput
+			var err error
+
+			var decoder = json.NewDecoder(requestBuffer)
+			var encoder = json.NewEncoder(responseBuffer)
 
 			scanner := bufio.NewScanner(request.BaseRequest.Body)
+			response := &query.QueryResponse{}
+			jsonResponse := &query.QueryJsonResponse{}
 
 			for scanner.Scan() {
+				requestBuffer.Reset()
 				responseBuffer.Reset()
 				scannedTextBuffer.Reset()
 
@@ -71,7 +87,7 @@ func QueryStreamController(request *Request) Response {
 					continue
 				}
 
-				err := json.Unmarshal(scannedTextBuffer.Next(n), &command)
+				_, err = requestBuffer.Write(scannedTextBuffer.Next(n))
 
 				if err != nil {
 					w.Write(JsonNewLineError(err))
@@ -79,7 +95,9 @@ func QueryStreamController(request *Request) Response {
 					return
 				}
 
-				response, err := processCommand(databaseKey, accessKey, command)
+				input = inputPool.Get().(*query.QueryInput)
+
+				err = decoder.Decode(&input)
 
 				if err != nil {
 					w.Write(JsonNewLineError(err))
@@ -87,7 +105,11 @@ func QueryStreamController(request *Request) Response {
 					return
 				}
 
-				data, err := response.ToJSON()
+				response.Reset()
+
+				err = processInput(databaseKey, accessKey, input, response)
+
+				inputPool.Put(input)
 
 				if err != nil {
 					w.Write(JsonNewLineError(err))
@@ -95,16 +117,27 @@ func QueryStreamController(request *Request) Response {
 					return
 				}
 
-				n, err = responseBuffer.Write(data)
+				jsonResponse.Status = "success"
+				jsonResponse.Data = response
+
+				err = encoder.Encode(jsonResponse)
 
 				if err != nil {
 					w.Write(JsonNewLineError(err))
 					w.(http.Flusher).Flush()
-
 					return
 				}
 
-				_, err = w.Write(responseBuffer.Next(n))
+				// n, err = responseBuffer.Write(data)
+
+				// if err != nil {
+				// 	w.Write(JsonNewLineError(err))
+				// 	w.(http.Flusher).Flush()
+
+				// 	return
+				// }
+
+				_, err = w.Write(responseBuffer.Bytes())
 
 				if err != nil {
 					log.Println("Error writing response", err)
@@ -113,19 +146,21 @@ func QueryStreamController(request *Request) Response {
 					return
 				}
 
-				w.Write([]byte("\n"))
+				// w.Write([]byte("\n"))
 
 				w.(http.Flusher).Flush()
+
 			}
 		},
 	}
 }
 
-func processCommand(
+func processInput(
 	databaseKey *database.DatabaseKey,
 	accessKey *auth.AccessKey,
 	input *query.QueryInput,
-) (query.QueryResponse, error) {
+	response *query.QueryResponse,
+) error {
 	requestQuery := query.Get(
 		databaseKey,
 		accessKey,
@@ -134,12 +169,12 @@ func processCommand(
 
 	defer query.Put(requestQuery)
 
-	response, err := requestQuery.ResolveQuery()
+	err := requestQuery.ResolveQuery(response)
 
 	if err != nil {
 		log.Println("Error resolving query", err)
-		return query.QueryResponse{}, err
+		return err
 	}
 
-	return response, nil
+	return nil
 }

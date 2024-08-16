@@ -72,6 +72,8 @@ func QueryWebsocketController(request *Request) Response {
 
 			var command *query.QueryInput
 
+			response := &query.QueryResponse{}
+
 			for {
 				err := conn.ReadJSON(&command)
 
@@ -91,7 +93,9 @@ func QueryWebsocketController(request *Request) Response {
 					return
 				}
 
-				response, err := processCommand(databaseKey, accessKey, command)
+				response.Reset()
+
+				err = processInput(databaseKey, accessKey, command, response)
 
 				if err != nil {
 					log.Println("Error processing command", err)

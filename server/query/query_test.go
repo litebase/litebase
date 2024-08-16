@@ -38,6 +38,7 @@ func TestResolve(t *testing.T) {
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
+		queryResponse := &query.QueryResponse{}
 		query, err := query.NewQuery(
 			database.NewDatabaseKey(mock.DatabaseUuid, mock.BranchUuid),
 			mock.AccessKey,
@@ -52,7 +53,7 @@ func TestResolve(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = query.Resolve()
+		err = query.Resolve(queryResponse)
 
 		if err != nil {
 			t.Fatal(err)

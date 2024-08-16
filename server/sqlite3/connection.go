@@ -19,6 +19,12 @@ extern int go_progress_handler(uintptr_t connectionHandle);
 */
 import "C"
 
+var (
+	SQL_BEGIN           = (*C.char)(unsafe.Pointer(&[]byte("BEGIN")[0]))
+	SQL_BEGIN_DEFERRED  = (*C.char)(unsafe.Pointer(&[]byte("BEGIN DEFERRED")[0]))
+	SQL_BEGIN_IMMEDIATE = (*C.char)(unsafe.Pointer(&[]byte("BEGIN IMMEDIATE")[0]))
+)
+
 type OpenFlags C.int
 type Connection struct {
 	authorizer Authorizer
@@ -96,7 +102,7 @@ func Open(ctx context.Context, path, vfsId string, flags OpenFlags) (*Connection
 }
 
 func (c *Connection) Begin() error {
-	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), C.CString("BEGIN"), nil, nil, nil)
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), SQL_BEGIN, nil, nil, nil)
 
 	if rc != SQLITE_OK {
 		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
@@ -106,7 +112,7 @@ func (c *Connection) Begin() error {
 }
 
 func (c *Connection) BeginDeferred() error {
-	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), C.CString("BEGIN DEFERRED"), nil, nil, nil)
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), SQL_BEGIN_DEFERRED, nil, nil, nil)
 
 	if rc != SQLITE_OK {
 		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
@@ -116,7 +122,7 @@ func (c *Connection) BeginDeferred() error {
 }
 
 func (c *Connection) BeginImmediate() error {
-	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), C.CString("BEGIN IMMEDIATE"), nil, nil, nil)
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), SQL_BEGIN_IMMEDIATE, nil, nil, nil)
 
 	if rc != SQLITE_OK {
 		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
@@ -162,10 +168,9 @@ func (c *Connection) Close() error {
 }
 
 func (c *Connection) Commit() error {
-	cSql := C.CString("COMMIT")
-	defer C.free(unsafe.Pointer(cSql))
+	sql := (*C.char)(unsafe.Pointer(&[]byte("COMMIT")[0]))
 
-	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), cSql, nil, nil, nil)
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), sql, nil, nil, nil)
 
 	if rc != SQLITE_OK {
 		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
@@ -299,10 +304,9 @@ func (c *Connection) Readonly(schema string) bool {
 }
 
 func (c *Connection) Rollback() error {
-	cSql := C.CString("ROLLBACK")
-	defer C.free(unsafe.Pointer(cSql))
+	sql := (*C.char)(unsafe.Pointer(&[]byte("ROLLBACK")[0]))
 
-	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), cSql, nil, nil, nil)
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), sql, nil, nil, nil)
 
 	if rc != SQLITE_OK {
 		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))

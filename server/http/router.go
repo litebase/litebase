@@ -66,10 +66,6 @@ func (router *RouterInstance) Put(path string, handler func(request *Request) Re
 	return router.request("PUT", path, handler)
 }
 
-func PrepareRequest(request *http.Request) *Request {
-	return NewRequest(request)
-}
-
 func (router *RouterInstance) request(method string, path string, handler func(request *Request) Response) *Route {
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
@@ -84,14 +80,14 @@ func (router *RouterInstance) Server(serveMux *http.ServeMux) {
 	LoadRoutes(router)
 
 	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		response := router.DefaultRoute.Handler(PrepareRequest(r))
+		response := router.DefaultRoute.Handler(NewRequest(r))
 		w.WriteHeader(response.StatusCode)
 	})
 
 	for method := range router.Routes {
 		for path, route := range router.Routes[method] {
 			serveMux.HandleFunc(fmt.Sprintf("%s %s", method, path), func(w http.ResponseWriter, r *http.Request) {
-				response := route.Handle(PrepareRequest(r))
+				response := route.Handle(NewRequest(r))
 
 				if response.StatusCode == 0 {
 					return

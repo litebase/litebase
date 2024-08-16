@@ -26,7 +26,7 @@ type QueryMessage struct {
 type QueryMessageResponse struct {
 	Changes         int64
 	Columns         []string
-	ExecutionTime   float64
+	Latency         float64
 	LastInsertRowID int64
 	RowCount        int
 	Rows            [][]sqlite3.Column

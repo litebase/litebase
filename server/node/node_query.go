@@ -15,7 +15,7 @@ type NodeQueryBuilder interface {
 }
 
 type NodeQuery interface {
-	Resolve() (NodeQueryResponse, error)
+	Resolve(response NodeQueryResponse) error
 }
 
 type NodeQueryResponse interface {

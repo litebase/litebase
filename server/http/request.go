@@ -15,7 +15,6 @@ type Request struct {
 	Body         map[string]interface{}
 	headers      Headers
 	Method       string
-	Path         string
 	QueryParams  map[string]string
 	requestToken auth.RequestToken
 	Route        Route
@@ -23,36 +22,35 @@ type Request struct {
 }
 
 func NewRequest(request *http.Request) *Request {
-	// ctx := request.Context()
 	headers := make(map[string]string, len(request.Header))
 
 	for key, value := range request.Header {
 		headers[key] = value[0]
 	}
 
-	query := request.URL.Query()
-	queryParams := make(map[string]string, len(query))
+	headers["host"] = request.Host
 
-	for key, value := range query {
+	queryParams := make(map[string]string, len(request.URL.Query()))
+
+	for key, value := range request.URL.Query() {
 		queryParams[key] = value[0]
 	}
-
-	headers["host"] = request.Host
 
 	// Parse the subdomains once
 	parts := strings.Split(headers["host"], ".")
 
-	subdomains := parts[0:1]
+	var subdomains []string
 
 	if len(parts) >= 4 {
 		subdomains = parts[0:2]
+	} else {
+		subdomains = parts[0:1]
 	}
 
 	return &Request{
 		BaseRequest: request,
 		Body:        nil,
 		Method:      request.Method,
-		Path:        request.URL.Path,
 		headers:     NewHeaders(headers),
 		QueryParams: queryParams,
 		subdomains:  subdomains,
@@ -112,6 +110,9 @@ func (request *Request) Param(key string) string {
 	return request.BaseRequest.PathValue(key)
 }
 
+func (request *Request) Path() string {
+	return request.BaseRequest.URL.Path
+}
 func (request *Request) QueryParam(key string, defaultValue ...string) string {
 	value := request.QueryParams[key]
 

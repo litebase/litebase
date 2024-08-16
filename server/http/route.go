@@ -48,12 +48,16 @@ func (route *Route) Handle(request *Request) Response {
 	case response = <-handlerResponse:
 		return response
 	case <-ctx.Done():
-		return Response{
-			StatusCode: 408,
-			Body: map[string]interface{}{
-				"message": "Request timed out",
-			},
+		response.StatusCode = 408
+
+		if response.Body == nil {
+			response.Body = make(map[string]interface{})
 		}
+
+		response.Body["status"] = "error"
+		response.Body["message"] = "Request timed out"
+
+		return response
 	}
 }
 

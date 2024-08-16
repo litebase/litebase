@@ -84,19 +84,16 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
 
-	for {
-		sig := <-signalChannel
-		switch sig {
-		case os.Interrupt, syscall.SIGTERM:
-			node.Node().Shutdown()
+	// Wait for a signal to shutdown the server
+	<-signalChannel
 
-			s.Shutdown(node.Node().Context())
-			<-serverDone
+	node.Node().Shutdown()
+	s.Shutdown(node.Node().Context())
 
-			os.Exit(0)
-			return
-		}
-	}
+	// Wait for the server to shutdown
+	<-serverDone
+
+	os.Exit(0)
 }
 
 func (s *ServerInstance) Shutdown(ctx context.Context) {

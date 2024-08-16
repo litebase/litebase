@@ -30,12 +30,12 @@ func (c *CheckpointLogger) File() (internalStorage.File, error) {
 
 openFile:
 	directory := file.GetDatabaseFileBaseDir(c.databaseUuid, c.branchUuid)
-	path := fmt.Sprintf("%s/logs/snapshots", directory)
+	path := fmt.Sprintf("%s/logs/snapshots/SNAPSHOT_LOG", directory)
 	file, err := storage.FS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(fmt.Sprintf("%s/logs", directory), 0755)
+			err = os.MkdirAll(fmt.Sprintf("%s/logs/snapshots", directory), 0755)
 
 			if err != nil {
 				return nil, err

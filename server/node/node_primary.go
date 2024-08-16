@@ -75,7 +75,10 @@ func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 		}
 	}
 
-	response, err := query.Resolve()
+	// TODO: Implement this, needs to be an instance of query.QueryResponse
+	var response NodeQueryResponse
+
+	err = query.Resolve(response)
 
 	if err != nil {
 		log.Println("Failed to process query message: ", err)
@@ -95,7 +98,7 @@ func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 		// Data: QueryMessageResponse{
 		// 	Changes:         response.Changes,
 		// 	Columns:         response.Columns(),
-		// 	ExecutionTime:   response.ExecutionTime(),
+		// 	Latency:   response.Latency(),
 		// 	LastInsertRowID: response.LastInsertRowId(),
 		// 	RowCount:        response.RowCount(),
 		// 	Rows:            response.Rows(),
@@ -207,7 +210,6 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 	readBytes := 0
 	fileSha256 := sha256.New()
 
-	// TODO: Handle streaming...
 	for {
 		// Read the file in chunks
 		chunk := make([]byte, maxChunkSize)

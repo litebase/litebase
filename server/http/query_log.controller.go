@@ -1,7 +1,7 @@
 package http
 
 import (
-	"litebase/server/logging"
+	"litebase/server/logs"
 	"strconv"
 )
 
@@ -24,9 +24,10 @@ func QueryLogController(request *Request) Response {
 		}, 400, nil)
 	}
 
-	queryLog := logging.GetQueryLog(
-		request.Param("database"),
-		request.Param("branch"),
+	queryLog := logs.GetQueryLog(
+		request.DatabaseKey().DatabaseHash,
+		request.DatabaseKey().DatabaseUuid,
+		request.DatabaseKey().BranchUuid,
 	)
 
 	data := queryLog.Read(startTimestamp, endTimestamp)

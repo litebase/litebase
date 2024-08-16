@@ -38,8 +38,11 @@ static int xUnfetch(sqlite3_file *, sqlite3_int64 iOfst, void *p);
 static int vfsInstancesSize = 0;
 static LitebaseVFS **vfsInstances = NULL;
 
-int pageNumber(int offset, int pageSize)
+int pageNumber(sqlite3_int64 offset, int pageSize)
 {
+  assert(pageSize > 0);
+  assert(offset >= 0);
+
   return (offset / pageSize) + 1;
 }
 
@@ -165,6 +168,9 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
       return SQLITE_ERROR;
     }
 
+// TODO: There is a bug where we get a negative offset, need to investigate
+    // printf("iOfst: %d\n", iOfst);
+    // printf("vfs->pageSize: %d\n", vfs->pageSize);
     int pgNumber = pageNumber(iOfst, vfs->pageSize);
 
     DataRange *dr = LitebaseVFSGetRangeFile(vfs, pageRange(pgNumber), vfs->pageSize);

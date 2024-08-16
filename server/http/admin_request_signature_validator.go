@@ -85,7 +85,7 @@ func AdminRequestSignatureValidator(request *Request) bool {
 
 	requestString := strings.Join([]string{
 		request.Method,
-		"/" + strings.TrimLeft(request.Path, "/"),
+		"/" + strings.TrimLeft(request.Path(), "/"),
 		string(jsonHeaders),
 		string(jsonQueryParams),
 		string(jsonBody),

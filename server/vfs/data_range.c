@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 /*
@@ -61,10 +63,24 @@ DataRange *NewDataRange(const char *path, int rangeNumber, int pageSize)
 
 	if (dr->file == -1)
 	{
-		fprintf(stderr, "Error opening range file: %s\n", strerror(errno));
-		CloseDataRange(dr);
-
-		return NULL;
+		if (errno == ENOENT)
+		{
+			// If the directory does not exist, create it
+			if (stat(path, NULL) == -1)
+			{
+				printf("Creating directory: %s\n", path);
+				if (mkdir(path, 0755) == -1)
+				{
+					fprintf(stderr, "Error creating directory: %s\n", strerror(errno));
+				}
+			}
+		}
+		else
+		{
+			fprintf(stderr, "Error opening range file: %s\n", strerror(errno));
+			CloseDataRange(dr);
+			return NULL;
+		}
 	}
 
 	return dr;
@@ -93,7 +109,7 @@ int DataRangeReadAt(DataRange *dr, void *buffer, int iAmt, int pageNumber, int *
 	// Seek to the beginning of the page
 	if (lseek(dr->file, offset, SEEK_SET) == -1)
 	{
-		vfs_log("Error seeking to page %d\n", pageNumber);
+		vfs_log("[DataRangeReadAt] Error seeking to page %d\n", pageNumber);
 
 		return SQLITE_IOERR_SEEK;
 	}
@@ -127,7 +143,7 @@ int DataRangeWriteAt(DataRange *dr, const void *buffer, int pageNumber)
 	// Seek to the beginning of the page
 	if (lseek(dr->file, offset, SEEK_SET) == -1)
 	{
-		vfs_log("Error seeking to page %d\n", pageNumber);
+		vfs_log("[DataRangeWriteAt] Error seeking to page %d\n", pageNumber);
 
 		return SQLITE_IOERR_SEEK;
 	}

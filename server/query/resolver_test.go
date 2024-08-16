@@ -41,6 +41,8 @@ func TestHandle(t *testing.T) {
 			},
 		}
 
+		queryResponse := &query.QueryResponse{}
+
 		for _, c := range cases {
 			q, err := query.NewQuery(
 				database.NewDatabaseKey(mock.DatabaseUuid, mock.BranchUuid),
@@ -56,9 +58,9 @@ func TestHandle(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, err = query.ResolveQuery(
-				q,
-			)
+			queryResponse.Reset()
+
+			err = query.ResolveQuery(q, queryResponse)
 
 			if err != nil && c.expected == `success` {
 				t.Fatal(err)

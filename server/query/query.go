@@ -26,12 +26,12 @@ func NewQuery(
 	}, nil
 }
 
-func (query *Query) ResolveQuery() (QueryResponse, error) {
-	return ResolveQuery(query)
+func (query *Query) ResolveQuery(response *QueryResponse) error {
+	return ResolveQuery(query, response)
 }
 
-func (query *Query) Resolve() (node.NodeQueryResponse, error) {
-	return ResolveQuery(query)
+func (query *Query) Resolve(response node.NodeQueryResponse) error {
+	return ResolveQuery(query, response.(*QueryResponse))
 }
 
 func (q *Query) Validate(statement database.Statement) error {
