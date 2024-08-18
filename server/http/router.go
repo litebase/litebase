@@ -1,6 +1,7 @@
 package http
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -112,13 +113,25 @@ func (router *RouterInstance) Server(serveMux *http.ServeMux) {
 				if response.Body == nil {
 					w.Write([]byte(""))
 				} else {
-					jsonBody, err := json.Marshal(response.Body)
 
-					if err != nil {
-						panic(err)
+					if response.Headers["Content-Encoding"] == "gzip" {
+						gw := gzip.NewWriter(w)
+						defer gw.Close()
+
+						err := json.NewEncoder(gw).Encode(response.Body)
+
+						if err != nil {
+							panic(err)
+						}
+					} else {
+						jsonBody, err := json.Marshal(response.Body)
+
+						if err != nil {
+							panic(err)
+						}
+
+						w.Write([]byte(jsonBody))
 					}
-
-					w.Write([]byte(jsonBody))
 				}
 			})
 		}

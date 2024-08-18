@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"litebase/server/cache"
+	"litebase/server/storage"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -24,10 +26,19 @@ type QueryIndex struct {
 	path  string
 }
 
-func GetQueryIndex(path, name string) (*QueryIndex, error) {
-	file, err := os.OpenFile(fmt.Sprintf("%s/%s", path, name), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+func GetQueryIndex(path, name string, timestamp int64) (*QueryIndex, error) {
+	indexPath := fmt.Sprintf("%s/%d/%s", path, timestamp, name)
+
+	err := storage.FS().MkdirAll(filepath.Dir(indexPath), 0755)
 
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	file, err := os.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+
+	if err != nil {
+
 		return nil, err
 	}
 
@@ -145,7 +156,6 @@ func (q *QueryIndex) Set(key string, value string) error {
 		return err
 	}
 
-	log.Println("Wrote entry to file")
 	q.cache.Put(key, []byte(value))
 
 	return nil

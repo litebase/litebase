@@ -162,6 +162,16 @@ func LoadRoutes(router *RouterInstance) {
 		Authorization,
 	})
 
+	// TODO: re-enable authentication and authorization
+	router.Get("/metrics/query",
+		QueryLogController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		// Authentication,
+		// Authorization,
+		NodeTick,
+	}).Timeout(1 * time.Second)
+
 	router.Post("/query",
 		QueryController,
 	).Middleware([]Middleware{
