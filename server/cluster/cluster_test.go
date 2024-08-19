@@ -99,7 +99,7 @@ func TestClusterPath(t *testing.T) {
 	test.Run(t, func() {
 		path := cluster.ConfigPath()
 
-		if path != "../../data/_test/.litebase/cluster.json" {
+		if path != "../../data/test/cluster.json" {
 			t.Fatal("Path is not correct")
 		}
 	})

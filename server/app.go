@@ -30,7 +30,12 @@ func NewApp(server *ServerInstance) *App {
 		panic(err)
 	}
 
-	auth.KeyManagerInit()
+	err = auth.KeyManagerInit()
+
+	if err != nil {
+		panic(err)
+	}
+
 	auth.SecretsManager().Init()
 	auth.UserManager().Init()
 	node.Init(

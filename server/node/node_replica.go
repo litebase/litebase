@@ -193,9 +193,9 @@ func (nr *NodeReplica) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 }
 
 func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage NodeMessage) (chan NodeMessage, error) {
-	// return nr.primaryConnection.SendWithStreamingResonse(nodeMessage)
-
-	// log.Println("[SENDING]:", nodeMessage.Type)
+	if Node().PrimaryAddress() == "" {
+		return nil, errors.New("Primary address is not set")
+	}
 
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)

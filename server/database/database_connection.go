@@ -97,6 +97,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 	)
 
 	if err != nil {
+		log.Println("Error Opening Database Connection:", err)
 		return nil, err
 	}
 

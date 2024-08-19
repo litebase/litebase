@@ -287,7 +287,7 @@ func (s *SecretsManagerInstance) PurgeDatabaseSettings(databaseUuid string, bran
 
 func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 	// Get all the file names in the litebase directory
-	directories, err := storage.FS().ReadDir(fmt.Sprintf("%s/.litebase", config.Get().DataPath))
+	directories, err := storage.FS().ReadDir(config.Get().DataPath)
 
 	if err != nil {
 		log.Println(err)
@@ -295,6 +295,7 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 		return
 	}
 
+	// TODO: ignore directories that start with an underscore
 	if len(directories) <= 2 {
 		return
 	}
@@ -306,7 +307,7 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 		}
 
 		// Check if there is a manifest file
-		manifestPath := fmt.Sprintf("%s/.litebase/%s/manifest.json", config.Get().DataPath, directory.Name)
+		manifestPath := fmt.Sprintf("%s/%s/manifest.json", config.Get().DataPath, directory.Name)
 
 		if _, err := storage.FS().Stat(manifestPath); os.IsNotExist(err) {
 			continue
@@ -337,7 +338,7 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 		//Check if rotated at is greater than 24 hours
 		if rotatedAt == 0 || time.Since(rotatedAtTime) > 24*time.Hour {
 			// Remove the directory
-			err := storage.FS().RemoveAll(fmt.Sprintf("%s/.litebase/%s", config.Get().DataPath, directory.Name))
+			err := storage.FS().RemoveAll(fmt.Sprintf("%s/%s", config.Get().DataPath, directory.Name))
 
 			if err != nil {
 				log.Fatal(err)
@@ -348,7 +349,7 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 
 func (s *SecretsManagerInstance) SecretsPath(signature, key string) string {
 	return fmt.Sprintf(
-		"%s/.litebase/%s/%s",
+		"%s/%s/%s",
 		config.Get().DataPath,
 		config.SignatureHash(signature),
 		key,

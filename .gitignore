@@ -1,12 +1,9 @@
 /build
-/cache
 /data
-/node_modules
 /output
-/vendor
-error.log
 .DS_STORE
 .env
 .env.*
-.phpunit.result.cache
-minio/
+.vscode/
+*.prof
+.test/

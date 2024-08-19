@@ -71,7 +71,7 @@ func env(key string, defaultValue string) interface{} {
 
 func NewConfig() *Config {
 	ConfigInstance = &Config{
-		DataPath:             env(os.Getenv("LITEBASE_DATA_PATH"), "./data").(string),
+		DataPath:             env("LITEBASE_DATA_PATH", "./data").(string),
 		DefaultBranchName:    env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		Env:                  env("LITEBASE_ENV", "production").(string),
 		FileSystemDriver:     env("LITEBASE_FILESYSTEM_DRIVER", "local").(string),
@@ -101,7 +101,7 @@ func Get() *Config {
 
 // Check if the signature directory exists
 func HasSignature(signature string) bool {
-	_, err := os.Stat(fmt.Sprintf("%s/.litebase/%s", Get().DataPath, SignatureHash(signature)))
+	_, err := os.Stat(fmt.Sprintf("%s/%s", Get().DataPath, SignatureHash(signature)))
 
 	return err == nil
 }
@@ -109,7 +109,7 @@ func HasSignature(signature string) bool {
 func StoreSignature(signature string) error {
 	ConfigInstance.Signature = signature
 	dataPath := Get().DataPath
-	signaturePath := fmt.Sprintf("%s/.litebase/.signature", dataPath)
+	signaturePath := fmt.Sprintf("%s/.signature", dataPath)
 
 writeFile:
 
@@ -117,7 +117,7 @@ writeFile:
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(fmt.Sprintf("%s/.litebase", dataPath), 0755)
+			err = os.MkdirAll(dataPath, 0755)
 
 			if err != nil {
 				return err
@@ -142,7 +142,7 @@ func SignatureHash(signature string) string {
 
 func storedSignature() string {
 	dataPath := Get().DataPath
-	signaturePath := fmt.Sprintf("%s/.litebase/.signature", dataPath)
+	signaturePath := fmt.Sprintf("%s/.signature", dataPath)
 
 	storedSignature, err := os.ReadFile(signaturePath)
 

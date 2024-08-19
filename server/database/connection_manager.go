@@ -346,7 +346,7 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 	err := c.retrieveWal(databaseUuid, branchUuid)
 
 	if err != nil {
-		// log.Println("ERROR retrieving wal", err)
+		log.Println("ERROR retrieving wal", err)
 		return nil, err
 	}
 
@@ -357,6 +357,7 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 	con, err := NewClientConnection(databaseUuid, branchUuid, walTimestamp)
 
 	if err != nil {
+		log.Println("ERROR creating client connection", err)
 		return nil, err
 	}
 

@@ -14,13 +14,14 @@ extern void go_write_hook(uintptr_t vfsHandle, int iAmt, sqlite3_int64 iOfst, vo
 import "C"
 
 import (
+	"errors"
 	"litebase/server/storage"
 	"runtime/cgo"
 	"sync"
 	"unsafe"
 )
 
-var vfsMap = make(map[string]*LitebaseVFS)
+var VfsMap = make(map[string]*LitebaseVFS)
 var vfsMutex = &sync.RWMutex{}
 
 type LitebaseVFS struct {
@@ -38,8 +39,24 @@ func RegisterVFS(
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
+	if connectionId == "" {
+		return errors.New("connectionId cannot be empty")
+	}
+
+	if vfsId == "" {
+		return errors.New("vfsId cannot be empty")
+	}
+
+	if dataPath == "" {
+		return errors.New("dataPath cannot be empty")
+	}
+
+	if pageSize < 512 {
+		return errors.New("pageSize must be at least 512")
+	}
+
 	// Only register the VFS if it doesn't already exist
-	if _, ok := vfsMap[vfsId]; ok {
+	if _, ok := VfsMap[vfsId]; ok {
 		return nil
 	}
 
@@ -49,11 +66,7 @@ func RegisterVFS(
 	cDataPath := C.CString(dataPath)
 	defer C.free(unsafe.Pointer(cDataPath))
 
-	rc := C.newVfs(cZvfsId, cDataPath, C.int(pageSize))
-
-	if rc != C.SQLITE_OK {
-		return errFromCode(int(rc))
-	}
+	C.newVfs(cZvfsId, cDataPath, C.int(pageSize))
 
 	l := &LitebaseVFS{
 		fileSystem: fileSystem,
@@ -62,16 +75,16 @@ func RegisterVFS(
 
 	l.writeHook()
 
-	vfsMap[vfsId] = l
+	VfsMap[vfsId] = l
 
 	return nil
 }
 
-func UnregisterVFS(conId, vfsId string) {
+func UnregisterVFS(conId, vfsId string) error {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
-	vfs := vfsMap[vfsId]
+	vfs := VfsMap[vfsId]
 
 	if vfs != nil {
 		cvfsId := C.CString(vfsId)
@@ -80,11 +93,22 @@ func UnregisterVFS(conId, vfsId string) {
 		C.unregisterVfs(cvfsId)
 	}
 
-	delete(vfsMap, vfsId)
+	delete(VfsMap, vfsId)
+
+	return nil
+}
+
+func VFSIsRegistered(vfsId string) bool {
+	cVfsId := C.CString(vfsId)
+	defer C.free(unsafe.Pointer(cVfsId))
+
+	vfsPointer := C.sqlite3_vfs_find(C.CString(vfsId))
+
+	return vfsPointer != nil
 }
 
 // Setup the write hook for the VFS to receive write events from SQLite.
-func (l *LitebaseVFS) writeHook() {
+func (l *LitebaseVFS) writeHook() error {
 	vfsHandle := cgo.NewHandle(l)
 
 	cVfsId := C.CString(l.id)
@@ -95,6 +119,8 @@ func (l *LitebaseVFS) writeHook() {
 		(*[0]byte)(C.go_write_hook),
 		unsafe.Pointer(vfsHandle),
 	)
+
+	return nil
 }
 
 //export go_write_hook

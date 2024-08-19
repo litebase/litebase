@@ -95,36 +95,36 @@ func createClusterFromEnv() (*ClusterInstance, error) {
 }
 
 func createDirectoriesAndFiles() error {
-	err := os.MkdirAll(fmt.Sprintf("%s/.litebase/cluster", config.Get().DataPath), 0755)
+	err := os.MkdirAll(fmt.Sprintf("%s/_cluster", config.Get().DataPath), 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = os.MkdirAll(fmt.Sprintf("%s/.litebase/nodes", config.Get().DataPath), 0755)
+	err = os.MkdirAll(fmt.Sprintf("%s/_nodes", config.Get().DataPath), 0755)
 
 	if err != nil {
 		return err
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, NOMINATION_FILE)); os.IsNotExist(err) {
-		_, err = os.Create(fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, NOMINATION_FILE))
+	if _, err := os.Stat(fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, NOMINATION_FILE)); os.IsNotExist(err) {
+		_, err = os.Create(fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, NOMINATION_FILE))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, LEASE_FILE)); os.IsNotExist(err) {
-		_, err = os.Create(fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, LEASE_FILE))
+	if _, err := os.Stat(fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, LEASE_FILE)); os.IsNotExist(err) {
+		_, err = os.Create(fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, LEASE_FILE))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, PRIMARY_FILE)); os.IsNotExist(err) {
-		_, err = os.Create(fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, PRIMARY_FILE))
+	if _, err := os.Stat(fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, PRIMARY_FILE)); os.IsNotExist(err) {
+		_, err = os.Create(fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, PRIMARY_FILE))
 
 		if err != nil {
 			return err
@@ -158,23 +158,23 @@ func NewCluster(id string) (*ClusterInstance, error) {
 }
 
 func ConfigPath() string {
-	return fmt.Sprintf("%s/.litebase/cluster/config.json", config.Get().DataPath)
+	return fmt.Sprintf("%s/_cluster/config.json", config.Get().DataPath)
 }
 
 func LeasePath() string {
-	return fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, LEASE_FILE)
+	return fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, LEASE_FILE)
 }
 
 func NodePath() string {
-	return fmt.Sprintf("%s/.litebase/nodes", config.Get().DataPath)
+	return fmt.Sprintf("%s/_nodes", config.Get().DataPath)
 }
 
 func NominationPath() string {
-	return fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, NOMINATION_FILE)
+	return fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, NOMINATION_FILE)
 }
 
 func PrimaryPath() string {
-	return fmt.Sprintf("%s/.litebase/cluster/%s", config.Get().DataPath, PRIMARY_FILE)
+	return fmt.Sprintf("%s/_cluster/%s", config.Get().DataPath, PRIMARY_FILE)
 }
 
 func (cluster *ClusterInstance) Save() error {
@@ -189,7 +189,7 @@ writefile:
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			storage.FS().MkdirAll(fmt.Sprintf("%s/.litebase", config.Get().DataPath), 0755)
+			storage.FS().MkdirAll(config.Get().DataPath, 0755)
 
 			goto writefile
 		}

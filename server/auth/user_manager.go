@@ -32,7 +32,7 @@ func UserManager() *UserManagerInstance {
 	if staticUserManager == nil {
 		staticUserManager = &UserManagerInstance{
 			mutex: &sync.Mutex{},
-			path:  fmt.Sprintf("%s/%s/%s", config.Get().DataPath, ".litebase", "users.json"),
+			path:  fmt.Sprintf("%s/%s", config.Get().DataPath, "users.json"),
 			users: map[string]*User{},
 		}
 	}

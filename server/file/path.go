@@ -8,11 +8,11 @@ import (
 )
 
 func DatabaseDirectory() string {
-	return fmt.Sprintf("%s/.litebase/databases", config.Get().DataPath)
+	return fmt.Sprintf("%s/_databases", config.Get().DataPath)
 }
 
 func DatabaseTmpDirectory() string {
-	return fmt.Sprintf("%s/.litebase/databases", config.Get().TmpPath)
+	return fmt.Sprintf("%s/_databases", config.Get().TmpPath)
 }
 
 func DatabaseHash(

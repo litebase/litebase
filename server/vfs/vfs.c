@@ -168,7 +168,7 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
       return SQLITE_ERROR;
     }
 
-// TODO: There is a bug where we get a negative offset, need to investigate
+    // TODO: There is a bug where we get a negative offset, need to investigate
     // printf("iOfst: %d\n", iOfst);
     // printf("vfs->pageSize: %d\n", vfs->pageSize);
     int pgNumber = pageNumber(iOfst, vfs->pageSize);
@@ -549,7 +549,7 @@ int litebase_is_journal_file(sqlite3_file *pFile)
   return len >= 4 && (strcmp(p->pName + len - 4, "-wal") == 0 || strcmp(p->pName + len - 8, "-journal") == 0);
 }
 
-void litebase_vfs_write_hook(char *vfsId, int (*callback)(void *, int, sqlite3_int64, const void *), void *handle)
+int litebase_vfs_write_hook(char *vfsId, int (*callback)(void *, int, sqlite3_int64, const void *), void *handle)
 {
   for (int i = 0; i < vfsInstancesSize; i++)
   {
@@ -557,9 +557,12 @@ void litebase_vfs_write_hook(char *vfsId, int (*callback)(void *, int, sqlite3_i
     {
       vfsInstances[i]->goVfsPointer = handle;
       vfsInstances[i]->writeHook = callback;
-      return;
+
+      return SQLITE_OK;
     }
   }
+
+  return SQLITE_ERROR;
 }
 
 void logCallback(void *pArg, int iErrCode, const char *zMsg)
@@ -569,6 +572,10 @@ void logCallback(void *pArg, int iErrCode, const char *zMsg)
 
 int newVfs(char *vfsId, char *dataPath, int pageSize)
 {
+  assert(vfsId != NULL);
+  assert(dataPath != NULL);
+  assert(pageSize >= 512);
+
   sqlite3_config(SQLITE_CONFIG_LOG, logCallback, NULL);
 
   return register_litebase_vfs(vfsId, dataPath, pageSize);

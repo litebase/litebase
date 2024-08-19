@@ -34,6 +34,6 @@ void unregisterVfs(char *vfsId);
 
 int litebase_is_journal_file(sqlite3_file *pFile);
 
-void litebase_vfs_write_hook(char *vfsId, int (*)(void *, int, sqlite3_int64, const void *), void *);
+int litebase_vfs_write_hook(char *vfsId, int (*)(void *, int, sqlite3_int64, const void *), void *);
 
 const extern sqlite3_io_methods x_io_methods;

@@ -82,10 +82,10 @@ func (tfs *TempDatabaseFileSystem) Exists() bool {
 func (tfs *TempDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
 	var filePath = fmt.Sprintf("%s/%s", tfs.path, path)
 
-	if tfs.walTimestamp > 0 {
-		filePath = fmt.Sprintf("%s_%d", filePath, tfs.walTimestamp)
-		log.Println("Opening file with timestamp", filePath)
-	}
+	// if tfs.walTimestamp > 0 {
+	// 	filePath = fmt.Sprintf("%s_%d", filePath, tfs.walTimestamp)
+	// 	log.Println("Opening file with timestamp", filePath)
+	// }
 
 	file, err := tfs.fileSystem.OpenFile(
 		filePath,

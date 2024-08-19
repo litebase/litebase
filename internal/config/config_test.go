@@ -11,13 +11,13 @@ import (
 
 func TestInit(t *testing.T) {
 	signature := test.CreateHash(32)
-	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 	os.Setenv("LITEBASE_SIGNATURE", signature)
 
 	config.Init()
 
 	// The signature file should be stored
-	if _, err := os.Stat("../../data/_test/.litebase/.signature"); os.IsNotExist(err) {
+	if _, err := os.Stat("../../.test/.signature"); os.IsNotExist(err) {
 		t.Fatalf("The signature file was not created")
 	}
 
@@ -26,13 +26,13 @@ func TestInit(t *testing.T) {
 
 func TestInitWithNewSignature(t *testing.T) {
 	signature := test.CreateHash(32)
-	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 	os.Setenv("LITEBASE_SIGNATURE", signature)
 
 	//Create the signature file
-	os.MkdirAll("../../data/_test/.litebase", 0755)
+	os.MkdirAll("../../.test", 0755)
 
-	os.WriteFile("../../data/_test/.litebase/.signature", []byte(signature), 0644)
+	os.WriteFile("../../.test/.signature", []byte(signature), 0644)
 
 	nextSignature := test.CreateHash(32)
 
@@ -53,7 +53,7 @@ func TestInitWithNewSignature(t *testing.T) {
 }
 
 func TestInitWithNoSignature(t *testing.T) {
-	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 
 	// We should get a panic if there is no signature
 	defer func() {
@@ -92,14 +92,14 @@ func TestGet(t *testing.T) {
 }
 
 func TestStoreSignature(t *testing.T) {
-	os.Setenv("LITEBASE_DATA_PATH", "../../data/_test")
+	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 	signature := test.CreateHash(32)
 	config.NewConfig()
 
 	config.StoreSignature(signature)
 
 	// check if the signature was stored
-	if _, err := os.Stat("../../data/_test/.litebase/.signature"); os.IsNotExist(err) {
+	if _, err := os.Stat("../../.test/.signature"); os.IsNotExist(err) {
 		t.Fatalf("The signature file was not created")
 	}
 

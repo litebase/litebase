@@ -2,7 +2,7 @@ package test
 
 import (
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"litebase/server/auth"
@@ -21,13 +21,13 @@ type TestDatabase struct {
 
 func ClearDatabase() {
 	database.ConnectionManager().Shutdown()
-	storage.FS().RemoveAll("./data/_test")
+	storage.FS().RemoveAll("./.test")
 }
 
 func CreateHash(length int) string {
 	randomBytes := make([]byte, length)
 	io.ReadFull(rand.Reader, randomBytes)
-	hash := sha1.New()
+	hash := sha256.New()
 	hash.Write(randomBytes)
 	hashBytes := hash.Sum(nil)
 

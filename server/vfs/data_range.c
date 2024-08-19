@@ -65,20 +65,25 @@ DataRange *NewDataRange(const char *path, int rangeNumber, int pageSize)
 	{
 		if (errno == ENOENT)
 		{
-			// If the directory does not exist, create it
+			// If the directory does not exist, create it then try to open the file again
 			if (stat(path, NULL) == -1)
 			{
-				printf("Creating directory: %s\n", path);
 				if (mkdir(path, 0755) == -1)
 				{
 					fprintf(stderr, "Error creating directory: %s\n", strerror(errno));
+				}
+				else
+				{
+					dr->file = open(dr->path, O_CREAT | O_RDWR, 0644);
 				}
 			}
 		}
 		else
 		{
 			fprintf(stderr, "Error opening range file: %s\n", strerror(errno));
+
 			CloseDataRange(dr);
+
 			return NULL;
 		}
 	}
@@ -101,7 +106,8 @@ int DataRangeReadAt(DataRange *dr, void *buffer, int iAmt, int pageNumber, int *
 	// Check if the file is NULL
 	if (dr->file == -1)
 	{
-		vfs_log("Error reading data range %d: file is NULL\n", pageNumber);
+		// Print to stderr
+		fprintf(stderr, "[DataRangeReadAt] Error reading data range %d: file is NULL\n", pageNumber);
 
 		return SQLITE_IOERR;
 	}
@@ -109,7 +115,7 @@ int DataRangeReadAt(DataRange *dr, void *buffer, int iAmt, int pageNumber, int *
 	// Seek to the beginning of the page
 	if (lseek(dr->file, offset, SEEK_SET) == -1)
 	{
-		vfs_log("[DataRangeReadAt] Error seeking to page %d\n", pageNumber);
+		printf("[DataRangeReadAt] Error seeking to page %d\n", pageNumber);
 
 		return SQLITE_IOERR_SEEK;
 	}
@@ -143,7 +149,7 @@ int DataRangeWriteAt(DataRange *dr, const void *buffer, int pageNumber)
 	// Seek to the beginning of the page
 	if (lseek(dr->file, offset, SEEK_SET) == -1)
 	{
-		vfs_log("[DataRangeWriteAt] Error seeking to page %d\n", pageNumber);
+		fprintf(stderr, "[DataRangeWriteAt] Error seeking to page %d\n", pageNumber);
 
 		return SQLITE_IOERR_SEEK;
 	}
@@ -151,7 +157,7 @@ int DataRangeWriteAt(DataRange *dr, const void *buffer, int pageNumber)
 	// Write the page
 	if (write(dr->file, buffer, dr->pageSize) == -1)
 	{
-		vfs_log("Error writing page %d\n", pageNumber);
+		fprintf(stderr, "[DataRangeWriteAt] Error writing page %d\n", pageNumber);
 
 		return SQLITE_IOERR_WRITE;
 	}

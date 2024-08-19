@@ -91,7 +91,9 @@ func errFromCode(code int) error {
 	if code == 0 {
 		return nil
 	}
+
 	err, ok := errMap[code]
+
 	if ok {
 		return err
 	}

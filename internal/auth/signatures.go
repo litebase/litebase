@@ -3,8 +3,6 @@ package auth
 import (
 	"litebase/internal/config"
 	"litebase/server/storage"
-
-	"strings"
 )
 
 /*
@@ -23,12 +21,8 @@ func ActiveSignatureHash() string {
 func AllSignatures() map[string]string {
 	var signatures = map[string]string{}
 
-	directoryPath := strings.Join([]string{
-		config.Get().DataPath,
-		".litebase",
-	}, "/")
-
-	signatureFiles, err := storage.FS().ReadDir(directoryPath)
+	// TODO: ignore directories that start with an underscore
+	signatureFiles, err := storage.FS().ReadDir(config.Get().DataPath)
 
 	if err != nil {
 		return signatures

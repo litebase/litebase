@@ -339,7 +339,6 @@ func NextSignature(signature string) (string, error) {
 func Path(signature string) string {
 	return strings.Join([]string{
 		config.Get().DataPath,
-		".litebase",
 		config.SignatureHash(signature),
 	}, "/")
 }

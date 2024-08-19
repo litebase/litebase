@@ -58,7 +58,7 @@ func Node() *NodeInstance {
 	if NodeInstanceSingleton == nil {
 		NodeInstanceSingleton = &NodeInstance{
 			address:    "",
-			lastActive: time.Now(),
+			lastActive: time.Time{},
 			Membership: cluster.CLUSTER_MEMBERSHIP_STAND_BY,
 			// Membership: cluster.CLUSTER_MEMBERSHIP_REPLICA,
 			mutext:  &sync.Mutex{},
@@ -153,6 +153,11 @@ func (n *NodeInstance) IsIdle() bool {
 }
 
 func (n *NodeInstance) IsPrimary() bool {
+	// If the node has not been activatedf, tick it before running these checks
+	if n.lastActive == (time.Time{}) {
+		n.Tick()
+	}
+
 	if n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA || n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
 		return false
 	}
@@ -318,7 +323,7 @@ func (n *NodeInstance) Replica() *NodeReplica {
 }
 
 func (n *NodeInstance) removeAddress() error {
-	return os.Remove(fmt.Sprintf("%s/.litebase/nodes/%s", config.Get().DataPath, n.Address()))
+	return os.Remove(fmt.Sprintf("%s/_nodes/%s", config.Get().DataPath, n.Address()))
 }
 
 func (n *NodeInstance) removePrimaryStatus() error {
