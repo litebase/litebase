@@ -98,6 +98,14 @@ func TestGoWriteHook(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
+		offsets := make([]int64, 0)
+
+		filesystem := database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid)
+
+		filesystem.WithWriteHook(func(offset int64, data []byte) {
+			offsets = append(offsets, offset)
+		})
+
 		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
 
 		if err != nil {
@@ -106,5 +114,8 @@ func TestGoWriteHook(t *testing.T) {
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
+		if len(offsets) == 0 {
+			t.Errorf("WithWriteHook() failed, expected > 0, got %v", len(offsets))
+		}
 	})
 }
