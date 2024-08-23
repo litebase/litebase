@@ -1,14 +1,4 @@
 #include "./data_range.h"
-#include "./log.h"
-#include <errno.h>
-#include <fcntl.h>
-#include <inttypes.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 /*
 A data range represents a subset of the data in a database. It is used to split
@@ -17,7 +7,7 @@ that typically would not be possible with a single file.
 */
 const int DataRangeMaxPages = 1024;
 
-char *getPath(const char *path, int number)
+static char *getPath(const char *path, int number)
 {
 	// Get the page number with 10 digits and leading zeros
 	char *pageNumber = (char *)malloc(11);
@@ -82,7 +72,7 @@ DataRange *NewDataRange(const char *path, int rangeNumber, int pageSize)
 		{
 			fprintf(stderr, "Error opening range file: %s\n", strerror(errno));
 
-			CloseDataRange(dr);
+			DataRangeClose(dr);
 
 			return NULL;
 		}
@@ -91,12 +81,19 @@ DataRange *NewDataRange(const char *path, int rangeNumber, int pageSize)
 	return dr;
 }
 
-void CloseDataRange(DataRange *dr)
+int DataRangeClose(DataRange *dr)
 {
-	printf("CloseDataRange\n");
+	if (dr == NULL)
+	{
+		return 1;
+	}
+
 	close(dr->file);
 	free(dr->path);
 	free(dr);
+	dr = NULL;
+
+	return 0;
 }
 
 int DataRangeReadAt(DataRange *dr, void *buffer, int iAmt, int pageNumber, int *pReadBytes)
@@ -138,6 +135,50 @@ int DataRangeReadAt(DataRange *dr, void *buffer, int iAmt, int pageNumber, int *
 
 	// Return the number of bytes read when we have a true successful read
 	*pReadBytes = (int)nRead;
+
+	return SQLITE_OK;
+}
+int DataRangeRemove(DataRange *dr)
+{
+	if (dr == NULL)
+	{
+		return SQLITE_ERROR;
+	}
+
+	if (remove(dr->path) == -1)
+	{
+		fprintf(stderr, "[DataRangeRemove] Error removing data range file: %s\n", strerror(errno));
+
+		return SQLITE_ERROR;
+	}
+
+	return SQLITE_OK;
+}
+
+int DataRangeSize(DataRange *dr, int *size)
+{
+	struct stat st;
+
+	if (fstat(dr->file, &st) == -1)
+	{
+		fprintf(stderr, "[DataRangeSize] Error getting data range file size: %s\n", strerror(errno));
+
+		return SQLITE_ERROR;
+	}
+
+	*size = st.st_size;
+
+	return SQLITE_OK;
+}
+
+int DataRangeTruncate(DataRange *dr, int offset)
+{
+	if (ftruncate(dr->file, offset) == -1)
+	{
+		fprintf(stderr, "[DataRangeTruncate] Error truncating data range file: %s\n", strerror(errno));
+
+		return SQLITE_ERROR;
+	}
 
 	return SQLITE_OK;
 }

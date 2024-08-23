@@ -1,11 +1,5 @@
-#include <assert.h>
-#include <inttypes.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "./log.h"
 #include "./vfs.h"
+#include "./log.h"
 
 /*
 ** Method declarations for LitebaseDBFile.
@@ -95,6 +89,51 @@ DataRange *LitebaseVFSGetRangeFile(LitebaseVFS *vfs, int rangeNumber, int pageSi
   return (DataRange *)dr;
 }
 
+// TODO: Does this need to be thread safe?
+int LitebaseVFSRemoveRangeFile(LitebaseVFS *vfs, DataRange *dr)
+{
+  int rc;
+
+  rc = DataRangeRemove(dr);
+
+  if (rc != 0)
+  {
+    fprintf(stderr, "Error removing data range index\n");
+
+    return rc;
+  }
+
+  // Remove the DataRange instance from the list
+  for (int i = 0; i < vfs->dataRangesSize; i++)
+  {
+    if (vfs->dataRanges[i] == dr)
+    {
+      for (int j = i; j < vfs->dataRangesSize - 1; j++)
+      {
+        vfs->dataRanges[j] = vfs->dataRanges[j + 1];
+      }
+
+      vfs->dataRangesSize--;
+
+      // Realloc the dataRanges array and check for errors
+      DataRange **newDataRanges = realloc(vfs->dataRanges, sizeof(DataRange *) * vfs->dataRangesSize);
+
+      if (newDataRanges == NULL)
+      {
+        fprintf(stderr, "Failed to realloc dataRanges\n");
+
+        return SQLITE_ERROR;
+      }
+
+      vfs->dataRanges = newDataRanges;
+
+      return SQLITE_OK;
+    }
+  }
+
+  return SQLITE_ERROR;
+}
+
 int xClose(sqlite3_file *pFile)
 {
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
@@ -168,9 +207,6 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
       return SQLITE_ERROR;
     }
 
-    // TODO: There is a bug where we get a negative offset, need to investigate
-    // printf("iOfst: %d\n", iOfst);
-    // printf("vfs->pageSize: %d\n", vfs->pageSize);
     int pgNumber = pageNumber(iOfst, vfs->pageSize);
 
     DataRange *dr = LitebaseVFSGetRangeFile(vfs, pageRange(pgNumber), vfs->pageSize);
@@ -189,6 +225,12 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
       vfs->hasPageOne = 1;
     }
 
+    if (vfs->meta->pageCount < pgNumber)
+    {
+      MetaAddPage(vfs->meta);
+      // printf("Page count: %d\n", vfs->meta->pageCount);
+    }
+
     if (rc == SQLITE_OK && vfs->writeHook != NULL)
     {
       vfs->writeHook(vfs->goVfsPointer, iAmt, iOfst, zBuf);
@@ -198,7 +240,17 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
   return rc;
 }
 
-// truncate
+/*
+Truncate or remove the data ranges based on the number of pages that need to be
+removed. Each range can hold DataRangeMaxPages pages. This routine is typically
+called when the database is being vacuumed so we can remove the pages that are
+no longer needed.
+
+The number of pages that need to be removed is calculated by the difference
+between the current size of the database and the new size of the database.
+Where there is a remainder, we need to remove the last range file and truncate
+the range file that contains the last page that needs to be removed.
+*/
 int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
   if (((LitebaseVFSFile *)pFile)->isJournal)
@@ -206,9 +258,82 @@ int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
     return ORIGFILE(pFile)->pMethods->xTruncate(ORIGFILE(pFile), size);
   }
 
+  LitebaseVFS *vfs = vfsFromFile(pFile);
+
+  if (vfs == NULL)
+  {
+    fprintf(stderr, "[xTruncate] VFS is NULL\n");
+
+    return SQLITE_ERROR;
+  }
+
   // Our main database file is always 2^32 pages in size, so we don't need to do
   // anything here for the main database file. No need to truncate the database
   // to the reported size.
+  uint64_t currentSize = MetaFileSize(vfs->meta);
+
+  int rc;
+
+  if (size >= currentSize)
+  {
+    return SQLITE_OK;
+  }
+
+  int bytesToRemove = size;
+  int startingPage = (size / vfs->pageSize) + 1;
+  int endingPage = currentSize / vfs->pageSize;
+  int startingRange = pageRange(startingPage);
+  int endingRange = pageRange(endingPage);
+
+  // Open ranges from end to start and continue until the bytesToRemove is 0
+  for (int i = endingRange; i >= startingRange; i--)
+  {
+    DataRange *dr = LitebaseVFSGetRangeFile(vfs, i, vfs->pageSize);
+
+    int rangeSize = 0;
+
+    int rc = DataRangeSize(dr, &rangeSize);
+
+    if (rc != 0)
+    {
+      fprintf(stderr, "[xTruncate] Error getting data range size\n");
+
+      return SQLITE_ERROR;
+    }
+
+    if (rangeSize <= bytesToRemove)
+    {
+      rc = DataRangeRemove(dr);
+
+      if (rc != 0)
+      {
+        fprintf(stderr, "[xTruncate] Error removing data range\n");
+
+        return SQLITE_ERROR;
+      }
+
+      bytesToRemove -= rangeSize;
+    }
+    else
+    {
+      rc = DataRangeTruncate(dr, bytesToRemove);
+
+      if (rc != 0)
+      {
+        fprintf(stderr, "[xTruncate] Error truncating data range\n");
+
+        return SQLITE_ERROR;
+      }
+
+      bytesToRemove = 0;
+    }
+
+    if (bytesToRemove == 0)
+    {
+      break;
+    }
+  }
+
   return SQLITE_OK;
 }
 
@@ -231,18 +356,12 @@ int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 
     if (vfs == NULL)
     {
-      printf("VFS is NULL\n");
+      fprintf(stderr, "VFS is NULL\n");
+
       return SQLITE_ERROR;
     }
 
-    if (vfs->hasPageOne == 1)
-    {
-      *pSize = (sqlite3_int64)vfs->pageSize * (sqlite3_int64)4294967294;
-    }
-    else
-    {
-      *pSize = 0;
-    }
+    *pSize = MetaFileSize(vfs->meta);
   }
 
   return rc;
@@ -467,6 +586,7 @@ int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
   litebase_vfs.base.pAppData = pVfsId;
 
   litebase_vfs.dataRanges = malloc(sizeof(DataRange *) * 1);
+  litebase_vfs.meta = NewMeta(pDataPath, pageSize);
 
   vfsInstancesSize++;
 
@@ -505,6 +625,7 @@ void unregisterVfs(char *vfsId)
 
       free(vfs->dataPath);
       free(vfs->dataRanges);
+      free(vfs->meta);
 
       int rc = sqlite3_vfs_unregister(pVfs);
 

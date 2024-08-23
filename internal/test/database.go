@@ -7,6 +7,7 @@ import (
 	"io"
 	"litebase/server/auth"
 	"litebase/server/database"
+	"litebase/server/file"
 	"litebase/server/sqlite3"
 	"litebase/server/storage"
 	"log"
@@ -15,7 +16,7 @@ import (
 type TestDatabase struct {
 	DatabaseUuid string
 	BranchUuid   string
-	DatabaseKey  string
+	DatabaseKey  *database.DatabaseKey
 	AccessKey    *auth.AccessKey
 }
 
@@ -35,9 +36,6 @@ func CreateHash(length int) string {
 }
 
 func MockDatabase() TestDatabase {
-	databaseUuid := CreateHash(32)
-	branchUuid := CreateHash(32)
-	databaseKey := CreateHash(32)
 	accessKeyId := CreateHash(32)
 
 	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "accessKeySecret")
@@ -49,17 +47,21 @@ func MockDatabase() TestDatabase {
 
 	auth.SecretsManager().StoreAccessKey(accessKey)
 
-	_, err := database.Create(databaseUuid, branchUuid)
+	db, err := database.Create("test-database", "main")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return TestDatabase{
-		DatabaseUuid: databaseUuid,
-		BranchUuid:   branchUuid,
-		DatabaseKey:  databaseKey,
-		AccessKey:    accessKey,
+		DatabaseUuid: db.Id,
+		BranchUuid:   db.PrimaryBranchId,
+		DatabaseKey: &database.DatabaseKey{
+			DatabaseHash: file.DatabaseHash(db.Id, db.PrimaryBranchId),
+			DatabaseUuid: db.Id,
+			BranchUuid:   db.PrimaryBranchId,
+		},
+		AccessKey: accessKey,
 	}
 }
 
@@ -78,8 +80,6 @@ func RunQuery(db *database.ClientConnection, statement string, parameters []inte
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	db.Close()
 
 	return result
 }

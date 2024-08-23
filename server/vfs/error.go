@@ -12,11 +12,6 @@ func (e sqliteError) Error() string {
 }
 
 // https://www.sqlite.org/rescode.html
-
-const (
-	sqliteOK = 0
-)
-
 var (
 	GenericError    = sqliteError{1, "Generic Error"}
 	InternalError   = sqliteError{2, "Internal Error"}

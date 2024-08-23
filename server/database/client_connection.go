@@ -30,6 +30,10 @@ func NewClientConnection(
 	}, nil
 }
 
+func (d *ClientConnection) Checkpoint() error {
+	return d.connection.Checkpoint()
+}
+
 func (d *ClientConnection) Close() {
 	if d == nil || d.connection == nil {
 		return

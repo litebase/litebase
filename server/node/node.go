@@ -25,6 +25,7 @@ import (
 var NodeIpAddress string
 var NodeIPv6Address string
 var NodeInstanceSingleton *NodeInstance
+var NodeInstanceSingletonMutex sync.Mutex
 
 const (
 	NODE_HEARTBEAT_INTERVAL = 3 * time.Second
@@ -55,6 +56,9 @@ type NodeInstance struct {
 }
 
 func Node() *NodeInstance {
+	NodeInstanceSingletonMutex.Lock()
+	defer NodeInstanceSingletonMutex.Unlock()
+
 	if NodeInstanceSingleton == nil {
 		NodeInstanceSingleton = &NodeInstance{
 			address:    "",
@@ -483,7 +487,6 @@ func (n *NodeInstance) runElection() bool {
 		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_PRIMARY)
 		truncateFile(cluster.NominationPath())
 		err := n.renewLease()
-
 		if err != nil {
 			log.Printf("Failed to renew lease: %v", err)
 			return false
@@ -569,15 +572,18 @@ func (n *NodeInstance) SetQueryBuilder(queryBuilder NodeQueryBuilder) {
 }
 
 func (n *NodeInstance) Shutdown() error {
-	if err := n.removeAddress(); err != nil {
-		log.Println("Failed to remove address file: ", err)
-	}
+	NodeInstanceSingletonMutex.Lock()
+	defer NodeInstanceSingletonMutex.Unlock()
+
+	n.removeAddress()
 
 	if n.IsPrimary() {
 		n.removePrimaryStatus()
 	}
 
 	n.cancel()
+
+	NodeInstanceSingleton = nil
 
 	return nil
 }

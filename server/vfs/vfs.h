@@ -1,5 +1,15 @@
+#ifndef LITEBASE_VFS_H
+#define LITEBASE_VFS_H
+
 #include "../sqlite3/sqlite3.h"
 #include "./data_range.h"
+#include "./meta.h"
+
+#include <assert.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 typedef int (*write_hook)(void *, int, sqlite3_int64, const void *);
 
@@ -10,6 +20,7 @@ typedef struct LitebaseVFS
 	sqlite3_vfs *pVfs; /* Parent VFS */
 	char *dataPath;
 	DataRange **dataRanges;
+	Meta *meta;
 	int dataRangesSize;
 	void *goVfsPointer;
 	int hasPageOne;
@@ -37,3 +48,5 @@ int litebase_is_journal_file(sqlite3_file *pFile);
 int litebase_vfs_write_hook(char *vfsId, int (*)(void *, int, sqlite3_int64, const void *), void *);
 
 const extern sqlite3_io_methods x_io_methods;
+
+#endif

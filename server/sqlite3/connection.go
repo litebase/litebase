@@ -337,3 +337,23 @@ func go_authorizer(userInfo unsafe.Pointer, action C.int, arg1, arg2, dbName, tr
 
 	return C.int(0)
 }
+
+/*
+Vacuum the database to remove unused pages and repack the database file.
+
+This operation should be done when the database is not in use as it locks the
+database EXCLUSIVELY. The connection manager should drain any active connections
+and ensure any changes are checkpointed before calling this method. Otherwise,
+the Checkpointer may reference pages that no longer exist in the database file.
+*/
+func (c *Connection) Vacuum() error {
+	sql := (*C.char)(unsafe.Pointer(&[]byte("VACUUM")[0]))
+
+	rc := C.sqlite3_exec((*C.sqlite3)(c.sqlite3), sql, nil, nil, nil)
+
+	if rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
+	}
+
+	return nil
+}
