@@ -33,7 +33,7 @@ func (akm *AccessKeyManagerInstance) accessKeyCacheKey(accessKeyId string) strin
 }
 
 func (akm *AccessKeyManagerInstance) AllAccessKeyIds() ([]string, error) {
-	files, err := storage.FS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys"))
+	files, err := storage.ObjectFS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys"))
 
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error)
 
 	path := SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
 
-	fileContents, err := storage.FS().ReadFile(path)
+	fileContents, err := storage.ObjectFS().ReadFile(path)
 
 	if err != nil {
 		return nil, err
@@ -173,7 +173,7 @@ func (akm *AccessKeyManagerInstance) Purge(accessKeyId string) {
 
 func (akm *AccessKeyManagerInstance) PurgeAll() {
 	// Get all the file names in the access keys directory
-	files, err := storage.FS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys"))
+	files, err := storage.ObjectFS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys"))
 
 	if err != nil {
 		return

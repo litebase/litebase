@@ -79,6 +79,8 @@ func QueryWebsocketController(request *Request) Response {
 
 				if err != nil {
 					// Handle error
+					log.Println("Error unmarshalling command", err)
+					conn.WriteJSON(JsonStringError(err))
 					break
 				}
 				// log.Println("Message", string(message))
@@ -86,12 +88,6 @@ func QueryWebsocketController(request *Request) Response {
 				// n, _ := scannedTextBuffer.Write(message)
 
 				// err = json.Unmarshal(scannedTextBuffer.Next(n), &command)
-
-				if err != nil {
-					log.Println("Error unmarshalling command", err)
-					conn.WriteJSON(JsonStringError(err))
-					return
-				}
 
 				response.Reset()
 

@@ -15,15 +15,15 @@ func NewLock(path string) *Lock {
 		path: path,
 	}
 
-	if _, err := storage.FS().Stat(filepath.Dir(path)); os.IsNotExist(err) {
-		storage.FS().MkdirAll(filepath.Dir(path), 0755)
+	if _, err := storage.ObjectFS().Stat(filepath.Dir(path)); os.IsNotExist(err) {
+		storage.ObjectFS().MkdirAll(filepath.Dir(path), 0755)
 	}
 
-	storage.FS().WriteFile(path, []byte{}, 0666)
+	storage.ObjectFS().WriteFile(path, []byte{}, 0666)
 
 	return lock
 }
 
 func (l *Lock) Release() {
-	storage.FS().Remove(l.path)
+	storage.ObjectFS().Remove(l.path)
 }

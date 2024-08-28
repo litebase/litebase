@@ -107,13 +107,13 @@ func (q *QueryLog) GetFile() internalStorage.File {
 	if q.file == nil {
 		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, node.Node().Id)
 
-		err := storage.FS().MkdirAll(filepath.Dir(path), 0755)
+		err := storage.TieredFS().MkdirAll(filepath.Dir(path), 0755)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		file, err := storage.FS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+		file, err := storage.TieredFS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 		if err != nil {
 			log.Fatal(err)
@@ -131,7 +131,7 @@ func (q *QueryLog) GetStatementIndex() *QueryIndex {
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				os.MkdirAll(q.path, 0755)
+				storage.TieredFS().MkdirAll(q.path, 0755)
 			} else {
 				log.Fatal(err)
 			}
@@ -190,7 +190,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		file.GetDatabaseFileBaseDir(q.databaseUuid, q.branchUuid),
 	)
 
-	dirs, err := storage.FS().ReadDir(path)
+	dirs, err := storage.TieredFS().ReadDir(path)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -219,7 +219,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		}
 
 		// Read all the files in the directory
-		files, err := storage.FS().ReadDir(fmt.Sprintf("%s/%d", path, directoryTimestamp))
+		files, err := storage.TieredFS().ReadDir(fmt.Sprintf("%s/%d", path, directoryTimestamp))
 
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -234,7 +234,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 				continue
 			}
 
-			file, err := storage.FS().Open(fmt.Sprintf("%s/%d/%s", path, directoryTimestamp, entry.Name))
+			file, err := storage.TieredFS().Open(fmt.Sprintf("%s/%d/%s", path, directoryTimestamp, entry.Name))
 
 			if err != nil {
 				log.Println(err)

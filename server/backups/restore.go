@@ -36,7 +36,7 @@ func RestoreFromTimestamp(
 	}
 
 	// TODO: this needs to be based on split files
-	destinationFile, err := storage.FS().OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	destinationFile, err := storage.ObjectFS().OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func RestoreFromTimestamp(
 	path := fmt.Sprintf("%s/logs/page_versions", directory)
 
 	// TODO: this needs to be based on split files
-	dir, err := os.Open(path)
+	dir, err := storage.ObjectFS().Open(path)
 
 	if err != nil {
 		return err

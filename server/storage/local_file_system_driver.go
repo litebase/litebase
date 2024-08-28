@@ -1,42 +1,49 @@
 package storage
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 
 	internalStorage "litebase/internal/storage"
 )
 
-type LocalFileSystemDriver struct{}
+type LocalFileSystemDriver struct {
+	basePath string
+}
 
-func NewLocalFileSystemDriver() *LocalFileSystemDriver {
-	return &LocalFileSystemDriver{}
+func NewLocalFileSystemDriver(basePath string) *LocalFileSystemDriver {
+	return &LocalFileSystemDriver{
+		basePath: basePath,
+	}
 }
 
 func (fs *LocalFileSystemDriver) Create(path string) (internalStorage.File, error) {
-	return os.Create(path)
+	return os.Create(fs.path(path))
 }
 
-func (fs *LocalFileSystemDriver) Detatch() {}
-
 func (fs *LocalFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
-	return os.Mkdir(path, perm)
+	return os.Mkdir(fs.path(path), perm)
 }
 
 func (fs *LocalFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error {
-	return os.MkdirAll(path, perm)
+	return os.MkdirAll(fs.path(path), perm)
 }
 
-func (fs *LocalFileSystemDriver) Open(name string) (internalStorage.File, error) {
-	return os.Open(name)
+func (fs *LocalFileSystemDriver) Open(path string) (internalStorage.File, error) {
+	return os.Open(fs.path(path))
 }
 
-func (fs *LocalFileSystemDriver) OpenFile(name string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	return os.OpenFile(name, flag, perm)
+func (fs *LocalFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
+	return os.OpenFile(fs.path(path), flag, perm)
+}
+
+func (fs *LocalFileSystemDriver) path(path string) string {
+	return fmt.Sprintf("%s/%s", fs.basePath, path)
 }
 
 func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
-	entries, err := os.ReadDir(path)
+	entries, err := os.ReadDir(fs.path(path))
 
 	if err != nil {
 		return nil, err
@@ -56,40 +63,35 @@ func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntr
 }
 
 func (fs *LocalFileSystemDriver) ReadFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
+	return os.ReadFile(fs.path(path))
 }
 
 func (fs *LocalFileSystemDriver) Remove(path string) error {
-	return os.Remove(path)
+	return os.Remove(fs.path(path))
 }
 
 func (fs *LocalFileSystemDriver) RemoveAll(path string) error {
-	return os.RemoveAll(path)
+	return os.RemoveAll(fs.path(path))
 }
 
 func (fs *LocalFileSystemDriver) Rename(oldpath, newpath string) error {
-	return os.Rename(oldpath, newpath)
+	return os.Rename(fs.path(oldpath), fs.path(oldpath))
 }
 
 func (fs *LocalFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
-	info, err := os.Stat(path)
+	info, err := os.Stat(fs.path(path))
 
 	if err != nil {
-		return internalStorage.FileInfo{}, err
+		return nil, err
 	}
 
-	return internalStorage.FileInfo{
-		Name:    info.Name(),
-		Size:    info.Size(),
-		Mode:    info.Mode(),
-		ModTime: info.ModTime(),
-	}, err
+	return info, err
 }
 
-func (fs *LocalFileSystemDriver) Truncate(name string, size int64) error {
-	return os.Truncate(name, size)
+func (fs *LocalFileSystemDriver) Truncate(path string, size int64) error {
+	return os.Truncate(fs.path(path), size)
 }
 
 func (fs *LocalFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
-	return os.WriteFile(path, data, perm)
+	return os.WriteFile(fs.path(path), data, perm)
 }

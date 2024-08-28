@@ -10,7 +10,7 @@ import (
 
 type TempDatabaseFileSystem struct {
 	files        map[string]internalStorage.File
-	fileSystem   *LocalFileSystemDriver
+	fileSystem   *FileSystem
 	mutex        *sync.RWMutex
 	path         string
 	pageSize     int64
@@ -19,7 +19,7 @@ type TempDatabaseFileSystem struct {
 }
 
 func NewTempDatabaseFileSystem(path, databaseUuid, branchUuid string, pageSize int64) DatabaseFileSystem {
-	fs := NewLocalFileSystemDriver()
+	fs := TmpFS()
 
 	// Check if the the directory exists
 	if _, err := fs.Stat(path); err != nil {
@@ -79,6 +79,10 @@ func (tfs *TempDatabaseFileSystem) Exists() bool {
 	return err == nil
 }
 
+func (tfs *TempDatabaseFileSystem) FileSystem() *FileSystem {
+	return tfs.fileSystem
+}
+
 func (tfs *TempDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
 	var filePath = fmt.Sprintf("%s/%s", tfs.path, path)
 
@@ -103,6 +107,10 @@ func (tfs *TempDatabaseFileSystem) Open(path string) (internalStorage.File, erro
 	tfs.mutex.Unlock()
 
 	return file, nil
+}
+
+func (dfs *TempDatabaseFileSystem) PageSize() int64 {
+	return dfs.pageSize
 }
 
 func (tfs *TempDatabaseFileSystem) Path() string {
@@ -142,7 +150,7 @@ func (tfs *TempDatabaseFileSystem) Size(path string) (int64, error) {
 		return 0, err
 	}
 
-	return stat.Size, nil
+	return stat.Size(), nil
 }
 
 func (tfs *TempDatabaseFileSystem) TransactionTimestamp() int64 {

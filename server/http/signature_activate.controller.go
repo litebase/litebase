@@ -2,6 +2,7 @@ package http
 
 import (
 	"litebase/internal/config"
+	"litebase/server/auth"
 	"litebase/server/events"
 )
 
@@ -43,7 +44,7 @@ func SingatureActivateController(request *Request) Response {
 		}
 	}
 
-	config.StoreSignature(input.(*SingatureActivateRequest).Signature)
+	auth.StoreSignature(input.(*SingatureActivateRequest).Signature)
 
 	events.Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
 

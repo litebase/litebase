@@ -30,11 +30,11 @@ func OpenPageLog(databaseUuid, branchUuid string, pageNumber uint32) (*PageLog, 
 log:
 	directory := file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)
 	path := fmt.Sprintf("%s/logs/page_versions/%010d", directory, pageNumber)
-	file, err := storage.FS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := storage.TieredFS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = storage.FS().MkdirAll(fmt.Sprintf("%s/logs/page_versions", directory), 0755)
+			err = storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/page_versions", directory), 0755)
 
 			if err != nil {
 				return nil, err

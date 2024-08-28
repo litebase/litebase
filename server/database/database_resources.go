@@ -7,6 +7,7 @@ import (
 	"litebase/server/file"
 	"litebase/server/node"
 	"litebase/server/storage"
+	"log"
 	"sync"
 )
 
@@ -56,21 +57,35 @@ func (d *DatabaseResourceManager) CheckpointLogger(databaseUuid, branchUuid stri
 	return checkpointLogger
 }
 
-func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) *Checkpointer {
+func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) (*Checkpointer, error) {
 	d.mutext.Lock()
-	defer d.mutext.Unlock()
 
 	key := databaseUuid + ":" + branchUuid
 
 	if checkpointer, ok := d.checkpointers[key]; ok {
-		return checkpointer
+		d.mutext.Unlock()
+		return checkpointer, nil
 	}
 
-	checkpointer := NewCheckpointer(databaseUuid, branchUuid)
+	// Always unlock the mutex before creating a new checkpointer to avoid a
+	// deadlock when getting the FileSystem.
+	d.mutext.Unlock()
 
+	checkpointer, err := NewCheckpointer(
+		d.FileSystem(databaseUuid, branchUuid),
+		databaseUuid,
+		branchUuid,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	d.mutext.Lock()
 	d.checkpointers[key] = checkpointer
+	d.mutext.Unlock()
 
-	return checkpointer
+	return checkpointer, nil
 }
 
 func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) storage.DatabaseFileSystem {
@@ -85,7 +100,8 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 	pageSize := config.Get().PageSize
 	var fileSystem storage.DatabaseFileSystem
 
-	fileSystem = storage.NewLocalDatabaseFileSystem(
+	fileSystem = storage.NewDurableDatabaseFileSystem(
+		storage.TieredFS(),
 		fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
 		databaseUuid,
 		branchUuid,
@@ -93,9 +109,16 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 	)
 
 	fileSystem = fileSystem.WithWriteHook(func(offset int64, data []byte) {
+		checkpointer, err := d.Checkpointer(databaseUuid, branchUuid)
+
+		if err != nil {
+			log.Println("Error creating checkpointer", err)
+			return
+		}
+
 		// Each time a page is written, we need to inform the check pointer to
 		// ensure it is included in the next backup.
-		d.Checkpointer(databaseUuid, branchUuid).AddPage(
+		checkpointer.AddPage(
 			uint32(file.PageNumber(offset, pageSize)),
 		)
 
@@ -177,7 +200,7 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 		// Each time a page is written, we will replicate it out to the other
 		// nodes. These pages are written in order.
 		if node.Node().IsPrimary() {
-			// walFile, err := os.OpenFile(fmt.Sprintf("%s/%s", fileSystem.Path(), path), os.O_RDONLY, 0644)
+			// walFile, err := storage.TieredFS().OpenFile(fmt.Sprintf("%s/%s", fileSystem.Path(), path), os.O_RDONLY, 0644)
 
 			// if err != nil {
 			// 	log.Println("Error reading file", err, path)

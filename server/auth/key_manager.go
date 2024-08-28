@@ -66,7 +66,7 @@ func generate() error {
 		return errors.New("invalid signature length")
 	}
 
-	_, err := storage.FS().Stat(KeyPath("public", signature))
+	_, err := storage.ObjectFS().Stat(KeyPath("public", signature))
 
 	if os.IsNotExist(err) {
 		_, err := generatePrivateKey(signature)
@@ -75,7 +75,7 @@ func generate() error {
 			return err
 		}
 
-		file, err := storage.FS().ReadFile(KeyPath("public", signature))
+		file, err := storage.ObjectFS().ReadFile(KeyPath("public", signature))
 
 		if err != nil {
 			return err
@@ -104,22 +104,22 @@ func generate() error {
 func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
 	var err error
 
-	if _, err := storage.FS().Stat(KeyPath("private", signature)); err == nil {
+	if _, err := storage.ObjectFS().Stat(KeyPath("private", signature)); err == nil {
 		return nil, errors.New("private key already exists")
 	}
 
 	// Create the signature directory if it does not exist
 	signatureDirectory := Path(signature)
 
-	if _, err := storage.FS().Stat(signatureDirectory); os.IsNotExist(err) {
-		if err := storage.FS().MkdirAll(signatureDirectory, 0755); err != nil {
+	if _, err := storage.ObjectFS().Stat(signatureDirectory); os.IsNotExist(err) {
+		if err := storage.ObjectFS().MkdirAll(signatureDirectory, 0755); err != nil {
 			log.Println(err)
 			return nil, err
 		}
 	}
 
 	// // Get the lock file
-	// lockFile, err = os.OpenFile(lockPath(signature), os.O_CREATE|os.O_RDWR, 0644)
+	// lockFile, err = storage.ObjectFS().OpenFile(lockPath(signature), os.O_CREATE|os.O_RDWR, 0644)
 
 	// if err != nil {
 	// 	log.Println(err)
@@ -146,12 +146,12 @@ func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
 		return nil, err
 	}
 
-	if err := storage.FS().MkdirAll(Path(signature), 0755); err != nil {
+	if err := storage.ObjectFS().MkdirAll(Path(signature), 0755); err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
-	file, err := storage.FS().Create(KeyPath("private", signature))
+	file, err := storage.ObjectFS().Create(KeyPath("private", signature))
 
 	if err != nil {
 		log.Println(err)
@@ -169,7 +169,7 @@ func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
 		return nil, err
 	}
 
-	file, err = storage.FS().Create(KeyPath("public", signature))
+	file, err = storage.ObjectFS().Create(KeyPath("public", signature))
 
 	if err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func GetPrivateKey(signature string) (*rsa.PrivateKey, error) {
 	defer privateKeysMutex.Unlock()
 
 	if privateKeys[signature] == nil {
-		privateKey, err := storage.FS().ReadFile(KeyPath("private", signature))
+		privateKey, err := storage.ObjectFS().ReadFile(KeyPath("private", signature))
 
 		if err != nil {
 			return nil, err
@@ -225,7 +225,7 @@ func GetPrivateKey(signature string) (*rsa.PrivateKey, error) {
 func GetPublicKey(signature string) (*rsa.PublicKey, error) {
 	path := KeyPath("public", signature)
 
-	publicKey, err := storage.FS().ReadFile(path)
+	publicKey, err := storage.ObjectFS().ReadFile(path)
 
 	if err != nil {
 		return nil, err
@@ -271,7 +271,7 @@ func GetPublicKeyForDatabase(signature, databaseUuid string) (*rsa.PublicKey, er
 func GetRawPublicKey(signature string) ([]byte, error) {
 	path := KeyPath("public", signature)
 
-	file, err := storage.FS().ReadFile(path)
+	file, err := storage.ObjectFS().ReadFile(path)
 
 	if err != nil {
 		return nil, err
@@ -338,7 +338,6 @@ func NextSignature(signature string) (string, error) {
 
 func Path(signature string) string {
 	return strings.Join([]string{
-		config.Get().DataPath,
 		config.SignatureHash(signature),
 	}, "/")
 }
@@ -348,20 +347,20 @@ func rotate() error {
 		return nil
 	}
 
-	if _, err := storage.FS().Stat(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, ".rotate-lock"))); err == nil {
+	if _, err := storage.ObjectFS().Stat(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, ".rotate-lock"))); err == nil {
 		return nil
 	}
 
-	if _, err := storage.FS().Stat(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, "manifest.json"))); err == nil {
+	if _, err := storage.ObjectFS().Stat(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, "manifest.json"))); err == nil {
 		return nil
 	}
 
 	// create rotate lock
-	if err := os.MkdirAll(Path(config.Get().SignatureNext), 0755); err != nil {
+	if err := storage.ObjectFS().MkdirAll(Path(config.Get().SignatureNext), 0755); err != nil {
 		return err
 	}
 
-	if err := storage.FS().WriteFile(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, ".rotate-lock")), []byte{}, 0666); err != nil {
+	if err := storage.ObjectFS().WriteFile(Path(fmt.Sprintf("%s/%s", config.Get().SignatureNext, ".rotate-lock")), []byte{}, 0666); err != nil {
 		return err
 	}
 
@@ -419,7 +418,7 @@ func rotate() error {
 		return err
 	}
 
-	if err := storage.FS().WriteFile(Path(config.Get().SignatureNext+"/manifest.json"), manifestBytes, 0666); err != nil {
+	if err := storage.ObjectFS().WriteFile(Path(config.Get().SignatureNext+"/manifest.json"), manifestBytes, 0666); err != nil {
 		return err
 	}
 
@@ -441,18 +440,18 @@ func rotateAccessKeys() error {
 		"access_keys",
 	}, "/")
 
-	accessKeys, err := storage.FS().ReadDir(accessKeyDir)
+	accessKeys, err := storage.ObjectFS().ReadDir(accessKeyDir)
 
 	if err != nil {
 		return err
 	}
 
-	if err := storage.FS().MkdirAll(newAccessKeyDir, 0755); err != nil {
+	if err := storage.ObjectFS().MkdirAll(newAccessKeyDir, 0755); err != nil {
 		return err
 	}
 
 	for _, accessKey := range accessKeys {
-		accessKeyBytes, err := storage.FS().ReadFile(strings.Join([]string{
+		accessKeyBytes, err := storage.ObjectFS().ReadFile(strings.Join([]string{
 			accessKeyDir,
 			accessKey.Name,
 		}, "/"))
@@ -473,7 +472,7 @@ func rotateAccessKeys() error {
 			return err
 		}
 
-		if err := storage.FS().WriteFile(strings.Join([]string{
+		if err := storage.ObjectFS().WriteFile(strings.Join([]string{
 			newAccessKeyDir,
 			accessKey.Name,
 		}, "/"), []byte(encryptedAccessKey), 0666); err != nil {
@@ -495,18 +494,18 @@ func rotateDatabaseKeys() error {
 		"database_keys",
 	}, "/")
 
-	keys, err := storage.FS().ReadDir(keysDir)
+	keys, err := storage.ObjectFS().ReadDir(keysDir)
 
 	if err != nil {
 		return err
 	}
 
-	if err := storage.FS().MkdirAll(newKeysDir, 0755); err != nil {
+	if err := storage.ObjectFS().MkdirAll(newKeysDir, 0755); err != nil {
 		return err
 	}
 
 	for _, key := range keys {
-		databaseKeyBytes, err := storage.FS().ReadFile(strings.Join([]string{
+		databaseKeyBytes, err := storage.ObjectFS().ReadFile(strings.Join([]string{
 			keysDir,
 			key.Name,
 		}, "/"))
@@ -515,7 +514,7 @@ func rotateDatabaseKeys() error {
 			return err
 		}
 
-		if err := storage.FS().WriteFile(strings.Join([]string{
+		if err := storage.ObjectFS().WriteFile(strings.Join([]string{
 			newKeysDir,
 			key.Name,
 		}, "/"), databaseKeyBytes, 0666); err != nil {
@@ -539,25 +538,25 @@ func rotateSettings() error {
 		"settings",
 	}, "/")
 
-	settings, err := storage.FS().ReadDir(settingsDir)
+	settings, err := storage.ObjectFS().ReadDir(settingsDir)
 
 	if err != nil {
 		return err
 	}
 
-	if err := storage.FS().MkdirAll(newSettingsDir, 0755); err != nil {
+	if err := storage.ObjectFS().MkdirAll(newSettingsDir, 0755); err != nil {
 		return err
 	}
 
 	for _, setting := range settings {
-		if err := storage.FS().MkdirAll(strings.Join([]string{
+		if err := storage.ObjectFS().MkdirAll(strings.Join([]string{
 			newSettingsDir,
 			setting.Name,
 		}, "/"), 0755); err != nil {
 			return err
 		}
 
-		databaseSettings, err = storage.FS().ReadDir(strings.Join([]string{
+		databaseSettings, err = storage.ObjectFS().ReadDir(strings.Join([]string{
 			settingsDir,
 			setting.Name,
 		}, "/"))
@@ -567,7 +566,7 @@ func rotateSettings() error {
 		}
 
 		for _, databaseSetting := range databaseSettings {
-			databaseSettingBytes, err := storage.FS().ReadFile(strings.Join([]string{
+			databaseSettingBytes, err := storage.ObjectFS().ReadFile(strings.Join([]string{
 				settingsDir,
 				setting.Name,
 				databaseSetting.Name,
@@ -589,7 +588,7 @@ func rotateSettings() error {
 				return err
 			}
 
-			if err := storage.FS().WriteFile(strings.Join([]string{
+			if err := storage.ObjectFS().WriteFile(strings.Join([]string{
 				newSettingsDir,
 				setting.Name,
 				databaseSetting.Name,

@@ -8,7 +8,7 @@ import (
 )
 
 func DatabaseDirectory() string {
-	return fmt.Sprintf("%s/_databases", config.Get().DataPath)
+	return "_databases"
 }
 
 func DatabaseTmpDirectory() string {

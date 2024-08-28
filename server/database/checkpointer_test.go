@@ -10,7 +10,16 @@ import (
 func TestNewCheckpointer(t *testing.T) {
 	test.Run(t, func() {
 		db := test.MockDatabase()
-		cp := database.NewCheckpointer(db.DatabaseUuid, db.BranchUuid)
+
+		cp, err := database.NewCheckpointer(
+			database.DatabaseResources().FileSystem(db.DatabaseUuid, db.BranchUuid),
+			db.DatabaseUuid,
+			db.BranchUuid,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if cp == nil {
 			t.Fatal("CheckPointer is nil")
@@ -21,7 +30,15 @@ func TestNewCheckpointer(t *testing.T) {
 func TestCheckpointerAddPage(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		cp := database.NewCheckpointer(mock.DatabaseUuid, mock.BranchUuid)
+		cp, err := database.NewCheckpointer(
+			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		cp.AddPage(1)
 
@@ -41,7 +58,15 @@ func TestCheckpointerRun(t *testing.T) {
 			log.Fatal(err)
 		}
 
-		cp := database.NewCheckpointer(mock.DatabaseUuid, mock.BranchUuid)
+		cp, err := database.NewCheckpointer(
+			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		cp.AddPage(1)
 

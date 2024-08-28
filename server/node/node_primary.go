@@ -8,6 +8,7 @@ import (
 	"io"
 	"litebase/internal/config"
 	"litebase/server/auth"
+	"litebase/server/storage"
 	"log"
 	"net/http"
 	"os"
@@ -127,7 +128,7 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 		}
 	}
 
-	walFile, err := os.Open(path)
+	walFile, err := storage.ObjectFS().Open(path)
 
 	if err != nil {
 		if os.IsNotExist(err) {

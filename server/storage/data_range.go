@@ -14,38 +14,44 @@ import (
 A data range represents a subset of the data in a database. It is used to split
 the database into smaller files to allow the database to scale to larger sizes
 that typically would not be possible with a single file.
-
 */
 
 const (
-	DataRangeHeaderSize          int64 = 100
-	DataRangeVersion             int32 = 1
-	DataRangePageSize            int32 = 65536
-	DataRangeMaxPages            int64 = 1024
-	DataRangePageBlockPartitions int32 = 16
-	DataRangePageBlockSize       int32 = DataRangePageSize / DataRangePageBlockPartitions
+	DataRangeHeaderSize int64 = 100
+	DataRangeVersion    int32 = 1
+	DataRangePageSize   int32 = 65536
+	DataRangeMaxPages   int64 = 1024
 )
 
 type DataRange struct {
-	file   internalStorage.File
-	lfs    *LocalDatabaseFileSystem
-	path   string
-	number int64
+	file     internalStorage.File
+	fs       *FileSystem
+	pageSize int64
+	path     string
+	number   int64
 }
 
 // NewDataRange creates a new data range for the specified path.
-func NewDataRange(lfs *LocalDatabaseFileSystem, path string, rangeNumber int64) (*DataRange, error) {
-
+func NewDataRange(fs *FileSystem, path string, rangeNumber int64, pageSize int64) (*DataRange, error) {
 	dr := &DataRange{
-		lfs:    lfs,
-		path:   path,
-		number: rangeNumber,
+		fs:       fs,
+		pageSize: pageSize,
+		path:     path,
+		number:   rangeNumber,
 	}
-	file, err := lfs.fileSystem.OpenFile(dr.getPath(lfs, path, rangeNumber), os.O_RDWR|os.O_APPEND, 0644)
+
+	file, err := fs.OpenFile(dr.getPath(), os.O_CREATE|os.O_RDWR, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			file, err = lfs.fileSystem.OpenFile(dr.getPath(lfs, path, rangeNumber), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+			err = fs.MkdirAll(path, 0755)
+
+			if err != nil {
+				log.Println("Error creating range directory", err)
+				return nil, err
+			}
+
+			file, err = fs.OpenFile(dr.getPath(), os.O_CREATE|os.O_RDWR, 0644)
 
 			if err != nil {
 				log.Println("Error creating range file", err)
@@ -66,15 +72,31 @@ func (dr *DataRange) Close() error {
 	return dr.file.Close()
 }
 
-func (dr *DataRange) getPath(lfs *LocalDatabaseFileSystem, path string, pageNumber int64) string {
-	directory := strings.ReplaceAll(path, ".db", "")
-	rangeNumber := file.PageRange(pageNumber, DataRangeMaxPages)
+func (dr *DataRange) Delete() error {
+	log.Println("DELETEING RANGE!!!", dr.path, dr.number)
+	err := dr.file.Close()
 
+	if err != nil {
+		log.Println("Error closing data range file", err)
+
+		return err
+	}
+
+	err = dr.fs.Remove(dr.getPath())
+
+	if err != nil {
+		log.Println("Error removing data range file", err)
+
+		return err
+	}
+
+	return nil
+}
+
+func (dr *DataRange) getPath() string {
 	var builder strings.Builder
-	builder.Grow(len(lfs.path) + len(directory) + 10) // Preallocate memory
-	builder.WriteString(lfs.path)
-	builder.WriteString("/")
-	builder.WriteString(directory)
+	builder.Grow(len(dr.path) + 10) // Preallocate memory
+	builder.WriteString(dr.path)
 	builder.WriteString("/")
 
 	// Create a strings.Builder for efficient string concatenation
@@ -82,7 +104,7 @@ func (dr *DataRange) getPath(lfs *LocalDatabaseFileSystem, path string, pageNumb
 	pageNumberBuilder.Grow(15) // Preallocate memory for 10 characters
 
 	// Convert rangeNumber to a zero-padded 10-digit string
-	rangeStr := strconv.FormatInt(rangeNumber, 10)
+	rangeStr := strconv.FormatInt(dr.number, 10)
 	padding := 10 - len(rangeStr)
 
 	for i := 0; i < padding; i++ {
@@ -97,26 +119,55 @@ func (dr *DataRange) getPath(lfs *LocalDatabaseFileSystem, path string, pageNumb
 }
 
 func (dr *DataRange) ReadAt(p []byte, pageNumber int64) (n int, err error) {
-	offset := file.PageRangeOffset(pageNumber, DataRangeMaxPages, dr.lfs.pageSize)
+	offset := file.PageRangeOffset(pageNumber, DataRangeMaxPages, dr.pageSize)
 
 	// Read the data from the data range file
 	n, err = dr.file.ReadAt(p, offset)
 
 	if err != nil {
+		if err == io.EOF {
+			return n, nil
+		}
+
 		log.Println("Error reading data range file", err)
+
 		return 0, err
 	}
 
 	return n, nil
 }
 
-func (dr *DataRange) WriteAt(p []byte, pageNumber int64) (n int, err error) {
-	log.Println("Writing to data range", pageNumber, len(p))
-	// Append the data to the data range file
-	_, err = dr.file.Seek(0, io.SeekEnd)
+func (dr *DataRange) Size() (int64, error) {
+	stat, err := dr.file.Stat()
 
 	if err != nil {
-		log.Println("Error seeking to end of data range file", err)
+		log.Println("Error getting file size", err)
+		return 0, err
+	}
+
+	return stat.Size(), nil
+}
+
+func (dr *DataRange) Truncate(size int64) error {
+	err := dr.file.Truncate(size)
+
+	if err != nil {
+		log.Println("Error truncating data range file", err)
+
+		return err
+	}
+
+	return nil
+}
+
+func (dr *DataRange) WriteAt(p []byte, pageNumber int64) (n int, err error) {
+	offset := file.PageRangeOffset(pageNumber, DataRangeMaxPages, dr.pageSize)
+
+	// Seek from the beginning of the data range file to the offset for the page
+	_, err = dr.file.Seek(offset, io.SeekStart)
+
+	if err != nil {
+		log.Println("Error seeking to start of data range file", err)
 		return 0, err
 	}
 
@@ -126,8 +177,6 @@ func (dr *DataRange) WriteAt(p []byte, pageNumber int64) (n int, err error) {
 		log.Println("Error writing to data range file", err)
 		return 0, err
 	}
-
-	// Write the data to the data range file
 
 	return n, nil
 

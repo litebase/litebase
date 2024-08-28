@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"litebase/server/database"
 	"litebase/server/node"
-	"litebase/server/storage"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -37,7 +36,7 @@ func (s *ServerInstance) Context() context.Context {
 }
 
 func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
-	port := os.Getenv("LITEBASE_QUERY_NODE_PORT")
+	port := os.Getenv("LITEBASE_PORT")
 	tlsCertPath := os.Getenv("LITEBASE_TLS_CERT_PATH")
 	tlsKeyPath := os.Getenv("LITEBASE_TLS_KEY_PATH")
 
@@ -100,7 +99,6 @@ func (s *ServerInstance) Shutdown(ctx context.Context) {
 	fmt.Println("")
 	s.cancel()
 	database.ConnectionManager().Shutdown()
-	storage.FS().Detatch()
 
 	// Create a context with a timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)

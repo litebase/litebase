@@ -1,6 +1,14 @@
 #include "./vfs.h"
 #include "./log.h"
 
+extern int goXOpen(sqlite3_vfs *pVfs, const char *zName, int flags, int *pOutFlags);
+
+extern int goXClose(sqlite3_file *file);
+extern int goXRead(sqlite3_file *file, void *buf, int iAmt, sqlite3_int64 iOfst);
+extern int goXWrite(sqlite3_file *file, const void *buf, int iAmt, sqlite3_int64 iOfst);
+extern int goXTruncate(sqlite3_file *file, sqlite3_int64 size);
+extern int goXFileSize(sqlite3_file *file, sqlite3_int64 *pSize);
+
 /*
 ** Method declarations for LitebaseDBFile.
 */
@@ -55,85 +63,6 @@ LitebaseVFS *vfsFromFile(sqlite3_file *pFile)
   return NULL;
 }
 
-// TODO: Limit the number of data ranges that can be opened at once to manage memory usage
-DataRange *LitebaseVFSGetRangeFile(LitebaseVFS *vfs, int rangeNumber, int pageSize)
-{
-  int rc;
-  DataRange *dr;
-
-  for (int i = 0; i < vfs->dataRangesSize; i++)
-  {
-    if (vfs->dataRanges[i]->number == rangeNumber)
-    {
-      return (DataRange *)vfs->dataRanges[i];
-    }
-  }
-
-  dr = NewDataRange(vfs->dataPath, rangeNumber, pageSize);
-
-  if (dr == NULL)
-  {
-    fprintf(stderr, "Error creating data range index\n");
-
-    return NULL;
-  }
-
-  vfs->dataRangesSize++;
-
-  // realloc the dataRanges array
-  vfs->dataRanges = realloc(vfs->dataRanges, sizeof(DataRange *) * vfs->dataRangesSize);
-
-  // Push the new DataRange instance to the list
-  vfs->dataRanges[vfs->dataRangesSize - 1] = dr;
-
-  return (DataRange *)dr;
-}
-
-// TODO: Does this need to be thread safe?
-int LitebaseVFSRemoveRangeFile(LitebaseVFS *vfs, DataRange *dr)
-{
-  int rc;
-
-  rc = DataRangeRemove(dr);
-
-  if (rc != 0)
-  {
-    fprintf(stderr, "Error removing data range index\n");
-
-    return rc;
-  }
-
-  // Remove the DataRange instance from the list
-  for (int i = 0; i < vfs->dataRangesSize; i++)
-  {
-    if (vfs->dataRanges[i] == dr)
-    {
-      for (int j = i; j < vfs->dataRangesSize - 1; j++)
-      {
-        vfs->dataRanges[j] = vfs->dataRanges[j + 1];
-      }
-
-      vfs->dataRangesSize--;
-
-      // Realloc the dataRanges array and check for errors
-      DataRange **newDataRanges = realloc(vfs->dataRanges, sizeof(DataRange *) * vfs->dataRangesSize);
-
-      if (newDataRanges == NULL)
-      {
-        fprintf(stderr, "Failed to realloc dataRanges\n");
-
-        return SQLITE_ERROR;
-      }
-
-      vfs->dataRanges = newDataRanges;
-
-      return SQLITE_OK;
-    }
-  }
-
-  return SQLITE_ERROR;
-}
-
 int xClose(sqlite3_file *pFile)
 {
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
@@ -154,36 +83,37 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
   }
   else
   {
-    LitebaseVFS *vfs = vfsFromFile(pFile);
+    // LitebaseVFS *vfs = vfsFromFile(pFile);
 
-    if (vfs == NULL)
-    {
-      vfs_log("VFS is NULL\n");
+    // if (vfs == NULL)
+    // {
+    //   vfs_log("VFS is NULL\n");
 
-      return SQLITE_ERROR;
-    }
+    //   return SQLITE_ERROR;
+    // }
 
-    int pgNumber = pageNumber(iOfst, vfs->pageSize);
+    // int pgNumber = pageNumber(iOfst, vfs->pageSize);
 
-    DataRange *dr = LitebaseVFSGetRangeFile(vfs, pageRange(pgNumber), vfs->pageSize);
+    // DataRange *dr = LitebaseVFSGetRangeFile(vfs, pageRange(pgNumber), vfs->pageSize);
 
-    if (dr == NULL)
-    {
-      vfs_log("DataRange is NULL\n");
+    // if (dr == NULL)
+    // {
+    //   vfs_log("DataRange is NULL\n");
 
-      return SQLITE_ERROR;
-    }
+    //   return SQLITE_ERROR;
+    // }
 
-    int readBytes = 0;
+    // int readBytes = 0;
 
-    rc = DataRangeReadAt(dr, zBuf, iAmt, pgNumber, &readBytes);
+    // rc = DataRangeReadAt(dr, zBuf, iAmt, pgNumber, &readBytes);
 
-    // After reading page 1, mark the vfs as having page one so that we can
-    // return the computed file size.
-    if (pgNumber == 1 && readBytes > 0)
-    {
-      vfs->hasPageOne = 1;
-    }
+    // // After reading page 1, mark the vfs as having page one so that we can
+    // // return the computed file size.
+    // if (pgNumber == 1 && readBytes > 0)
+    // {
+    //   vfs->hasPageOne = 1;
+    // }
+    rc = goXRead(pFile, zBuf, iAmt, iOfst);
   }
 
   return rc;
@@ -191,66 +121,14 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 
 int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  int rc;
-
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    rc = ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
-  }
-  else
-  {
-    LitebaseVFS *vfs = vfsFromFile(pFile);
-
-    if (vfs == NULL)
-    {
-      vfs_log("VFS is NULL\n");
-      return SQLITE_ERROR;
-    }
-
-    int pgNumber = pageNumber(iOfst, vfs->pageSize);
-
-    DataRange *dr = LitebaseVFSGetRangeFile(vfs, pageRange(pgNumber), vfs->pageSize);
-
-    if (dr == NULL)
-    {
-      vfs_log("DataRange is NULL\n");
-
-      return SQLITE_ERROR;
-    }
-
-    rc = DataRangeWriteAt(dr, zBuf, pgNumber);
-
-    if (pgNumber == 1)
-    {
-      vfs->hasPageOne = 1;
-    }
-
-    if (vfs->meta->pageCount < pgNumber)
-    {
-      MetaAddPage(vfs->meta);
-      // printf("Page count: %d\n", vfs->meta->pageCount);
-    }
-
-    if (rc == SQLITE_OK && vfs->writeHook != NULL)
-    {
-      vfs->writeHook(vfs->goVfsPointer, iAmt, iOfst, zBuf);
-    }
+    return ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
   }
 
-  return rc;
+  return goXWrite(pFile, zBuf, iAmt, iOfst);
 }
 
-/*
-Truncate or remove the data ranges based on the number of pages that need to be
-removed. Each range can hold DataRangeMaxPages pages. This routine is typically
-called when the database is being vacuumed so we can remove the pages that are
-no longer needed.
-
-The number of pages that need to be removed is calculated by the difference
-between the current size of the database and the new size of the database.
-Where there is a remainder, we need to remove the last range file and truncate
-the range file that contains the last page that needs to be removed.
-*/
 int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
   if (((LitebaseVFSFile *)pFile)->isJournal)
@@ -258,83 +136,7 @@ int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
     return ORIGFILE(pFile)->pMethods->xTruncate(ORIGFILE(pFile), size);
   }
 
-  LitebaseVFS *vfs = vfsFromFile(pFile);
-
-  if (vfs == NULL)
-  {
-    fprintf(stderr, "[xTruncate] VFS is NULL\n");
-
-    return SQLITE_ERROR;
-  }
-
-  // Our main database file is always 2^32 pages in size, so we don't need to do
-  // anything here for the main database file. No need to truncate the database
-  // to the reported size.
-  uint64_t currentSize = MetaFileSize(vfs->meta);
-
-  int rc;
-
-  if (size >= currentSize)
-  {
-    return SQLITE_OK;
-  }
-
-  int bytesToRemove = size;
-  int startingPage = (size / vfs->pageSize) + 1;
-  int endingPage = currentSize / vfs->pageSize;
-  int startingRange = pageRange(startingPage);
-  int endingRange = pageRange(endingPage);
-
-  // Open ranges from end to start and continue until the bytesToRemove is 0
-  for (int i = endingRange; i >= startingRange; i--)
-  {
-    DataRange *dr = LitebaseVFSGetRangeFile(vfs, i, vfs->pageSize);
-
-    int rangeSize = 0;
-
-    int rc = DataRangeSize(dr, &rangeSize);
-
-    if (rc != 0)
-    {
-      fprintf(stderr, "[xTruncate] Error getting data range size\n");
-
-      return SQLITE_ERROR;
-    }
-
-    if (rangeSize <= bytesToRemove)
-    {
-      rc = DataRangeRemove(dr);
-
-      if (rc != 0)
-      {
-        fprintf(stderr, "[xTruncate] Error removing data range\n");
-
-        return SQLITE_ERROR;
-      }
-
-      bytesToRemove -= rangeSize;
-    }
-    else
-    {
-      rc = DataRangeTruncate(dr, bytesToRemove);
-
-      if (rc != 0)
-      {
-        fprintf(stderr, "[xTruncate] Error truncating data range\n");
-
-        return SQLITE_ERROR;
-      }
-
-      bytesToRemove = 0;
-    }
-
-    if (bytesToRemove == 0)
-    {
-      break;
-    }
-  }
-
-  return SQLITE_OK;
+  return goXTruncate(pFile, size);
 }
 
 int xSync(sqlite3_file *pFile, int flags)
@@ -350,21 +152,8 @@ int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
   {
     return ORIGFILE(pFile)->pMethods->xFileSize(ORIGFILE(pFile), pSize);
   }
-  else
-  {
-    LitebaseVFS *vfs = vfsFromFile(pFile);
 
-    if (vfs == NULL)
-    {
-      fprintf(stderr, "VFS is NULL\n");
-
-      return SQLITE_ERROR;
-    }
-
-    *pSize = MetaFileSize(vfs->meta);
-  }
-
-  return rc;
+  return goXFileSize(pFile, pSize);
 }
 
 int xLock(sqlite3_file *pFile, int eLock)
@@ -430,21 +219,23 @@ static int xUnfetch(sqlite3_file *pFile, sqlite3_int64 iOfst, void *p)
 int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)
 {
   int rc;
-  char *vfsId = pVfs->pAppData;
-  char *fileVfsId = malloc(strlen(vfsId) + 1);
-  strcpy(fileVfsId, vfsId);
+  char *fileVfsId = malloc(strlen(pVfs->zName) + 1);
+  strcpy(fileVfsId, pVfs->zName);
 
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
+  p->pName = zName;
+  p->isJournal = litebase_is_journal_file(pFile);
+  p->pVfsId = fileVfsId;
   p->pReal = (sqlite3_file *)&p[1];
+
+  if (p->isJournal == 0)
+  {
+    rc = goXOpen(pVfs, zName, flags, pOutFlags);
+  }
 
   rc = ORIGVFS(pVfs)->xOpen(ORIGVFS(pVfs), zName, ORIGFILE(pFile), flags, pOutFlags);
 
-  p->pName = zName;
-  p->pVfsId = fileVfsId;
   pFile->pMethods = &x_io_methods;
-
-  p->isJournal = litebase_is_journal_file(pFile);
 
   return rc;
 }
@@ -570,6 +361,7 @@ int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
   sqlite3_vfs *pOrig = sqlite3_vfs_find(0);
 
   litebase_vfs.base.zName = pVfsId;
+
   litebase_vfs.pVfs = pOrig;
   litebase_vfs.vfsId = pVfsId;
   litebase_vfs.dataPath = pDataPath;
@@ -582,11 +374,6 @@ int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
   }
 
   litebase_vfs.base.szOsFile = sizeof(LitebaseVFSFile) + litebase_vfs.pVfs->szOsFile;
-  litebase_vfs.base.zName = pVfsId;
-  litebase_vfs.base.pAppData = pVfsId;
-
-  litebase_vfs.dataRanges = malloc(sizeof(DataRange *) * 1);
-  litebase_vfs.meta = NewMeta(pDataPath, pageSize);
 
   vfsInstancesSize++;
 
@@ -619,13 +406,11 @@ void unregisterVfs(char *vfsId)
       }
 
       // Free the memory allocated for the VFS ID
-      free(pVfs->pAppData);
+      // free(pVfs->pAppData);
 
       LitebaseVFS *vfs = (LitebaseVFS *)pVfs;
 
       free(vfs->dataPath);
-      free(vfs->dataRanges);
-      free(vfs->meta);
 
       int rc = sqlite3_vfs_unregister(pVfs);
 

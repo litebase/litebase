@@ -2,8 +2,10 @@ package database
 
 import (
 	"fmt"
+	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"litebase/server/node"
+	"litebase/server/storage"
 	"log"
 	"os"
 	"sync"
@@ -496,7 +498,7 @@ func (c *ConnectionManagerInstance) retrieveWal(databaseUuid, branchUuid string)
 
 	defer lock.Unlock()
 
-	var walFile *os.File
+	var walFile internalStorage.File
 	var fileSha256 [32]byte
 	var timestamp int64
 
@@ -515,7 +517,7 @@ func (c *ConnectionManagerInstance) retrieveWal(databaseUuid, branchUuid string)
 		lastChunk := walMessageResponse.LastChunk
 
 		if walFile == nil {
-			walFile, err = os.OpenFile(
+			walFile, err = storage.TmpFS().OpenFile(
 				WalVersionPath(databaseUuid, branchUuid, walMessageResponse.Timestamp),
 				os.O_RDWR|os.O_CREATE,
 				0644,

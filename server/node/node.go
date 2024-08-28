@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -90,7 +89,7 @@ func (n *NodeInstance) Address() string {
 			log.Fatal(err)
 		}
 
-		n.address = fmt.Sprintf("%s:%s", address, config.Get().QueryNodePort)
+		n.address = fmt.Sprintf("%s:%s", address, config.Get().Port)
 
 		return n.address
 	}
@@ -172,7 +171,7 @@ func (n *NodeInstance) IsPrimary() bool {
 	}
 
 	// Check if the primary file exists and is not empty
-	if primaryData, err := os.ReadFile(cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
+	if primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
 		if err != nil {
 			log.Printf("Error accessing primary file: %v", err)
 		}
@@ -181,7 +180,7 @@ func (n *NodeInstance) IsPrimary() bool {
 	}
 
 	// Check if the lease file exists, is not empty, and has a valid future timestamp
-	leaseData, err := os.ReadFile(cluster.LeasePath())
+	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
 
 	if err != nil || len(leaseData) == 0 {
 		return false
@@ -246,7 +245,7 @@ func (n *NodeInstance) Primary() *NodePrimary {
 
 func (n *NodeInstance) PrimaryAddress() string {
 	if n.primaryAddress == "" {
-		primaryData, err := os.ReadFile(cluster.PrimaryPath())
+		primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath())
 
 		if err != nil {
 			log.Printf("Failed to read primary file: %v", err)
@@ -260,7 +259,7 @@ func (n *NodeInstance) PrimaryAddress() string {
 }
 
 func (n *NodeInstance) primaryLeaseVerification() bool {
-	primaryData, err := os.ReadFile(cluster.PrimaryPath())
+	primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath())
 
 	if err != nil {
 		log.Printf("Failed to read primary file: %v", err)
@@ -273,7 +272,7 @@ func (n *NodeInstance) primaryLeaseVerification() bool {
 	}
 
 	// Check if the primary is still alive
-	leaseData, err := os.ReadFile(cluster.LeasePath())
+	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
 
 	if err != nil {
 		log.Printf("Failed to read lease file: %v", err)
@@ -327,7 +326,7 @@ func (n *NodeInstance) Replica() *NodeReplica {
 }
 
 func (n *NodeInstance) removeAddress() error {
-	return os.Remove(fmt.Sprintf("%s/_nodes/%s", config.Get().DataPath, n.Address()))
+	return os.Remove(fmt.Sprintf("_nodes/%s", n.Address()))
 }
 
 func (n *NodeInstance) removePrimaryStatus() error {
@@ -353,7 +352,7 @@ func (n *NodeInstance) renewLease() error {
 	}
 
 	// Verify the primary is stil the current node
-	primaryAddress, err := os.ReadFile(cluster.PrimaryPath())
+	primaryAddress, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath())
 
 	if err != nil {
 		return err
@@ -373,7 +372,7 @@ func (n *NodeInstance) renewLease() error {
 	expiresAt := time.Now().Add(cluster.LEASE_DURATION).Unix()
 	leaseTimestamp := strconv.FormatInt(expiresAt, 10)
 
-	err = os.WriteFile(cluster.LeasePath(), []byte(leaseTimestamp), os.ModePerm)
+	err = storage.ObjectFS().WriteFile(cluster.LeasePath(), []byte(leaseTimestamp), os.ModePerm)
 
 	if err != nil {
 		log.Printf("Failed to write lease file: %v", err)
@@ -386,7 +385,7 @@ func (n *NodeInstance) renewLease() error {
 	}
 
 	// Verify the Lease file has the written value
-	leaseData, err := os.ReadFile(cluster.LeasePath())
+	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
 
 	if err != nil {
 		log.Printf("Failed to read lease file: %v", err)
@@ -409,7 +408,7 @@ func (n *NodeInstance) runElection() bool {
 	}
 
 	// Attempt to open the nomination file with exclusive lock
-	nominationFile, err := os.OpenFile(cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
+	nominationFile, err := storage.ObjectFS().OpenFile(cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		log.Printf("Failed to open nomination file: %v", err)
@@ -418,20 +417,22 @@ func (n *NodeInstance) runElection() bool {
 
 	defer nominationFile.Close()
 
+	// TODO: Refactor this for the new storage system
 	// Attempt to acquire an exclusive lock
-	err = syscall.Flock(int(nominationFile.Fd()), syscall.LOCK_EX)
+	// err = syscall.Flock(int(nominationFile.Fd()), syscall.LOCK_EX)
 
-	if err != nil {
-		log.Printf("Failed to lock nomination file: %v", err)
-		return false
-	}
+	// if err != nil {
+	// 	log.Printf("Failed to lock nomination file: %v", err)
+	// 	return false
+	// }
 
-	defer syscall.Flock(int(nominationFile.Fd()), syscall.LOCK_UN) // Ensure unlock
+	// Todo: Refactor this for the new storage system
+	// defer syscall.Flock(int(nominationFile.Fd()), syscall.LOCK_UN) // Ensure unlock
 
-	if n.context.Err() != nil {
-		log.Println("Operation canceled before starting.")
-		return false
-	}
+	// if n.context.Err() != nil {
+	// 	log.Println("Operation canceled before starting.")
+	// 	return false
+	// }
 
 	// Check if the nomination file is empty or contains this node's address
 	nominationData, err := io.ReadAll(nominationFile)
@@ -477,7 +478,7 @@ func (n *NodeInstance) runElection() bool {
 
 	// Assuming this node is determined to be primary
 	if isPrimaryBasedOnFileContents(nominationData, address, timestamp) {
-		err = os.WriteFile(cluster.PrimaryPath(), []byte(address), 0644)
+		err = storage.ObjectFS().WriteFile(cluster.PrimaryPath(), []byte(address), 0644)
 
 		if err != nil {
 			log.Printf("Failed to write primary file: %v", err)
@@ -602,7 +603,7 @@ func (n *NodeInstance) Start() error {
 }
 
 func (n *NodeInstance) storeAddress() error {
-	return os.WriteFile(fmt.Sprintf("%s/%s", cluster.NodePath(), n.Address()), []byte(n.Address()), 0644)
+	return storage.ObjectFS().WriteFile(fmt.Sprintf("%s/%s", cluster.NodePath(), n.Address()), []byte(n.Address()), 0644)
 }
 
 func (n *NodeInstance) Tick() {
@@ -663,7 +664,7 @@ func isPrimaryBasedOnFileContents(nominationData []byte, address string, timesta
 
 // truncateFile truncates the specified file. It creates the file if it does not exist.
 func truncateFile(filePath string) error {
-	return os.WriteFile(filePath, []byte(""), os.ModePerm)
+	return storage.ObjectFS().WriteFile(filePath, []byte(""), os.ModePerm)
 }
 
 func FilePath(ipAddress string) string {
@@ -723,7 +724,7 @@ func GetIPv6Address() string {
 	}
 
 	if config.Get().Env == "local" || config.Get().Env == "testing" {
-		return fmt.Sprintf("localhost:%s", config.Get().QueryNodePort)
+		return fmt.Sprintf("localhost:%s", config.Get().Port)
 	}
 
 	url := "http://169.254.170.2/v2/metadata"
@@ -756,9 +757,10 @@ func GetIPv6Address() string {
 }
 
 func Has(ip string) bool {
-	if _, err := storage.FS().Stat(FilePath(ip)); err == nil {
-		return true
-	}
+	// TODO: Need to reimplement our cluster membership logic
+	// if _, err := storage.ObjectFS().Stat(FilePath(ip)); err == nil {
+	// 	return true
+	// }
 
 	return false
 }
@@ -767,8 +769,8 @@ func Init(queryBuilder NodeQueryBuilder, checkPointer NodeReplicaCheckpointer, w
 	registerNodeMessages()
 
 	// Make directory if it doesn't exist
-	if storage.FS().Stat(cluster.NodePath()); os.IsNotExist(os.ErrNotExist) {
-		storage.FS().Mkdir(cluster.NodePath(), 0755)
+	if storage.ObjectFS().Stat(cluster.NodePath()); os.IsNotExist(os.ErrNotExist) {
+		storage.ObjectFS().Mkdir(cluster.NodePath(), 0755)
 	}
 
 	Node().SetQueryBuilder(queryBuilder)
@@ -778,12 +780,12 @@ func Init(queryBuilder NodeQueryBuilder, checkPointer NodeReplicaCheckpointer, w
 
 func Instances() []string {
 	// Check if the directory exists
-	if _, err := storage.FS().Stat(cluster.NodePath()); os.IsNotExist(err) {
+	if _, err := storage.ObjectFS().Stat(cluster.NodePath()); os.IsNotExist(err) {
 		return []string{}
 	}
 
 	// Read the directory
-	files, err := storage.FS().ReadDir(cluster.NodePath())
+	files, err := storage.ObjectFS().ReadDir(cluster.NodePath())
 
 	if err != nil {
 		return []string{}
@@ -804,7 +806,7 @@ func OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 
 	for _, ip := range ips {
-		if ip == GetPrivateIpAddress()+":"+config.Get().QueryNodePort {
+		if ip == GetPrivateIpAddress()+":"+config.Get().Port {
 			continue
 		}
 

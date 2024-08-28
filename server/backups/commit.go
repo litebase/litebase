@@ -50,7 +50,7 @@ func (c *Commit) Key() string {
 }
 
 func (c *Commit) loadObjects() {
-	file, err := storage.FS().Open(c.GetPath(c.DatabaseUuid, c.BranchUuid, c.Timestamp, c.Hash))
+	file, err := storage.ObjectFS().Open(c.GetPath(c.DatabaseUuid, c.BranchUuid, c.Timestamp, c.Hash))
 
 	if err != nil {
 		return

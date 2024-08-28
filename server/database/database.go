@@ -53,7 +53,7 @@ func Create(databaseName, branchName string) (*Database, error) {
 		return nil, err
 	}
 
-	err = storage.FS().MkdirAll(database.BranchDirectory(branch.Id), 0755)
+	err = storage.ObjectFS().MkdirAll(database.BranchDirectory(branch.Id), 0755)
 
 	if err != nil {
 		log.Println("ERROR", err)
@@ -64,7 +64,7 @@ func Create(databaseName, branchName string) (*Database, error) {
 }
 
 func Init() {
-	storage.FS().Mkdir(Directory(), 0755)
+	storage.ObjectFS().Mkdir(Directory(), 0755)
 }
 
 func All() ([]*Database, error) {
@@ -72,14 +72,14 @@ func All() ([]*Database, error) {
 
 	// Read all files in the databases directory
 	// STORAGE TODO: Deprecate, we need to create a database index file and read from there
-	entries, err := storage.FS().ReadDir(Directory())
+	entries, err := storage.ObjectFS().ReadDir(Directory())
 
 	if err != nil {
 		return nil, err
 	}
 
 	for _, entry := range entries {
-		data, err := storage.FS().ReadFile(fmt.Sprintf("%s/%s", Directory(), entry.Name))
+		data, err := storage.ObjectFS().ReadFile(fmt.Sprintf("%s/%s", Directory(), entry.Name))
 
 		if err != nil {
 			return nil, err
@@ -102,7 +102,7 @@ func All() ([]*Database, error) {
 func Delete(database *Database) error {
 	path := fmt.Sprintf("%s/%s.json", Directory(), database.Id)
 
-	if _, err := storage.FS().Stat(path); os.IsNotExist(err) {
+	if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("database '%s' does not exist", database.Id)
 	}
 
@@ -116,11 +116,11 @@ func Delete(database *Database) error {
 	// TODO: Delete all access keys
 	// TODO: Delete all backups and storage
 
-	return storage.FS().Remove(path)
+	return storage.ObjectFS().Remove(path)
 }
 
 func Directory() string {
-	return fmt.Sprintf("%s/_databases", config.Get().DataPath)
+	return "_databases"
 }
 
 func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
@@ -132,24 +132,24 @@ func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
 
 	path := database.BranchDatabaseFile(branchUuid)
 
-	if _, err := storage.FS().Stat(filepath.Dir(path)); os.IsNotExist(err) {
-		storage.FS().MkdirAll(filepath.Dir(path), 0755)
+	if _, err := storage.ObjectFS().Stat(filepath.Dir(path)); os.IsNotExist(err) {
+		storage.ObjectFS().MkdirAll(filepath.Dir(path), 0755)
 	}
 
-	if _, err := storage.FS().Stat(fmt.Sprintf("%s/backups", filepath.Dir(path))); os.IsNotExist(err) {
-		storage.FS().MkdirAll(filepath.Dir(path)+"/backups", 0755)
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/backups", filepath.Dir(path))); os.IsNotExist(err) {
+		storage.ObjectFS().MkdirAll(filepath.Dir(path)+"/backups", 0755)
 	}
 
-	if _, err := storage.FS().Stat(fmt.Sprintf("%s/restore_points", filepath.Dir(path))); os.IsNotExist(err) {
-		storage.FS().MkdirAll(fmt.Sprintf("%s/restore_points", filepath.Dir(path))+"/restore_points", 0755)
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/restore_points", filepath.Dir(path))); os.IsNotExist(err) {
+		storage.ObjectFS().MkdirAll(fmt.Sprintf("%s/restore_points", filepath.Dir(path))+"/restore_points", 0755)
 	}
 
-	if _, err := storage.FS().Stat(fmt.Sprintf("%s/logs", filepath.Dir(path))); os.IsNotExist(err) {
-		storage.FS().MkdirAll(fmt.Sprintf("%s/restore_points", filepath.Dir(path))+"/restore_points", 0755)
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/logs", filepath.Dir(path))); os.IsNotExist(err) {
+		storage.ObjectFS().MkdirAll(fmt.Sprintf("%s/restore_points", filepath.Dir(path))+"/restore_points", 0755)
 	}
 
-	if _, err := storage.FS().Stat(path); os.IsNotExist(err) {
-		storage.FS().WriteFile(path, []byte(""), 0666)
+	if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
+		storage.ObjectFS().WriteFile(path, []byte(""), 0666)
 	}
 
 	return nil
@@ -172,7 +172,7 @@ func Exists(name string) bool {
 }
 
 func TmpDirectory() string {
-	return fmt.Sprintf("%s/_databases", config.Get().TmpPath)
+	return "_databases"
 }
 
 func Get(databaseUuid string) (*Database, error) {
@@ -184,7 +184,7 @@ func Get(databaseUuid string) (*Database, error) {
 	}
 
 	path := fmt.Sprintf("%s/%s/settings.json", file.DatabaseDirectory(), databaseUuid)
-	file, err := storage.FS().Open(path)
+	file, err := storage.ObjectFS().Open(path)
 
 	if err != nil {
 		return nil, fmt.Errorf("database '%s' has not been configured", databaseUuid)
@@ -218,7 +218,7 @@ func (database *Database) Key(branchUuid string) string {
 }
 
 func (database *Database) save() error {
-	storage.FS().MkdirAll(fmt.Sprintf("%s/%s", Directory(), database.Id), 0755)
+	storage.ObjectFS().MkdirAll(fmt.Sprintf("%s/%s", Directory(), database.Id), 0755)
 
 	jsonData, err := json.Marshal(database)
 
@@ -226,7 +226,7 @@ func (database *Database) save() error {
 		return err
 	}
 
-	createError := storage.FS().WriteFile(fmt.Sprintf("%s/%s/settings.json", Directory(), database.Id), jsonData, 0666)
+	createError := storage.ObjectFS().WriteFile(fmt.Sprintf("%s/%s/settings.json", Directory(), database.Id), jsonData, 0666)
 
 	auth.SecretsManager().StoreDatabaseKey(
 		database.Key(database.PrimaryBranchId),
@@ -258,8 +258,12 @@ func (database *Database) BranchDatabaseFile(branchUuid string) string {
 
 func (database *Database) Url(branchUuid string) string {
 	return fmt.Sprintf(
-		"http://%s.%s.litebase.test:8080",
+		"http://%s.%s.%s.litebase.test:%s",
 		database.Key(database.PrimaryBranchId),
+		// TODO: Get the region
+		"region",
 		cluster.Get().Id,
+		// TODO: Make optional for production
+		config.Get().Port,
 	)
 }

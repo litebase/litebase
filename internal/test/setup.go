@@ -2,11 +2,9 @@ package test
 
 import (
 	"fmt"
-	"litebase/internal/config"
 	"litebase/server"
 	"litebase/server/database"
 	"litebase/server/node"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"testing"
@@ -26,7 +24,7 @@ func Setup(t *testing.T) {
 	}
 
 	if envDataPath == "" {
-		envDataPath = os.Getenv("LITEBASE_DATA_PATH")
+		envDataPath = os.Getenv("LITEBASE_LOCAL_DATA_PATH")
 	}
 
 	dataPath := fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
@@ -35,7 +33,7 @@ func Setup(t *testing.T) {
 	os.MkdirAll(dataPath, 0755)
 	os.MkdirAll(tmpPath, 0755)
 
-	t.Setenv("LITEBASE_DATA_PATH", dataPath)
+	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)
 	t.Setenv("LITEBASE_SIGNATURE", CreateHash(64))
 
@@ -52,7 +50,7 @@ func Teardown() {
 	database.ConnectionManager().Shutdown()
 	node.Node().Shutdown()
 
-	err := storage.FS().RemoveAll(config.Get().DataPath)
+	err := os.RemoveAll(envDataPath)
 
 	if err != nil {
 		log.Fatal(err)

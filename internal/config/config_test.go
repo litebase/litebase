@@ -91,21 +91,6 @@ func TestGet(t *testing.T) {
 	test.Teardown()
 }
 
-func TestStoreSignature(t *testing.T) {
-	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
-	signature := test.CreateHash(32)
-	config.NewConfig()
-
-	config.StoreSignature(signature)
-
-	// check if the signature was stored
-	if _, err := os.Stat("../../.test/.signature"); os.IsNotExist(err) {
-		t.Fatalf("The signature file was not created")
-	}
-
-	test.Teardown()
-}
-
 func TestSignatureHash(t *testing.T) {
 	signature := test.CreateHash(32)
 	hash := sha256.Sum256([]byte(signature))

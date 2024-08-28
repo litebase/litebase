@@ -60,9 +60,7 @@ func (s *SecretsManagerInstance) cache(key string) SecretsStore {
 	if key == "file" && !hasFileStore {
 		s.secretStoreMutex.Lock()
 
-		s.secretStore["file"] = NewFileSecretsStore(
-			fmt.Sprintf("%s/%s", config.Get().TmpPath, "litebase/cache"),
-		)
+		s.secretStore["file"] = NewFileSecretsStore("litebase/cache")
 
 		s.secretStoreMutex.Unlock()
 	}
@@ -107,7 +105,7 @@ func (s *SecretsManagerInstance) DeleteDatabaseKey(databaseKey string) {
 	}
 
 	for _, filePath := range filePaths {
-		err := storage.FS().Remove(filePath)
+		err := storage.ObjectFS().Remove(filePath)
 
 		if err != nil {
 			log.Println(err)
@@ -207,7 +205,7 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 		fmt.Sprintf("public_keys/%s/public_key", databaseUuid),
 	)
 
-	key, err := storage.FS().ReadFile(path)
+	key, err := storage.ObjectFS().ReadFile(path)
 
 	if err != nil {
 		return "", err
@@ -246,8 +244,8 @@ func (s *SecretsManagerInstance) GetAccessKeySecret(accessKeyId string) (string,
 
 func (s *SecretsManagerInstance) Init() {
 	// Ensure the secrets path exists
-	if _, err := storage.FS().Stat(s.SecretsPath(config.Get().Signature, "")); os.IsNotExist(err) {
-		err := storage.FS().MkdirAll(s.SecretsPath(config.Get().Signature, ""), 0755)
+	if _, err := storage.ObjectFS().Stat(s.SecretsPath(config.Get().Signature, "")); os.IsNotExist(err) {
+		err := storage.ObjectFS().MkdirAll(s.SecretsPath(config.Get().Signature, ""), 0755)
 
 		if err != nil {
 			log.Fatal(err)
@@ -255,8 +253,8 @@ func (s *SecretsManagerInstance) Init() {
 	}
 
 	// Ensure the access keys path exists
-	if _, err := storage.FS().Stat(s.SecretsPath(config.Get().Signature, "access_keys")); os.IsNotExist(err) {
-		err := storage.FS().MkdirAll(s.SecretsPath(config.Get().Signature, "access_keys"), 0755)
+	if _, err := storage.ObjectFS().Stat(s.SecretsPath(config.Get().Signature, "access_keys")); os.IsNotExist(err) {
+		err := storage.ObjectFS().MkdirAll(s.SecretsPath(config.Get().Signature, "access_keys"), 0755)
 
 		if err != nil {
 			log.Fatal(err)
@@ -264,8 +262,8 @@ func (s *SecretsManagerInstance) Init() {
 	}
 
 	// Ensure the settings path exists
-	if _, err := storage.FS().Stat(s.SecretsPath(config.Get().Signature, "settings")); os.IsNotExist(err) {
-		err := storage.FS().MkdirAll(s.SecretsPath(config.Get().Signature, "settings"), 0755)
+	if _, err := storage.ObjectFS().Stat(s.SecretsPath(config.Get().Signature, "settings")); os.IsNotExist(err) {
+		err := storage.ObjectFS().MkdirAll(s.SecretsPath(config.Get().Signature, "settings"), 0755)
 
 		if err != nil {
 			log.Fatal(err)
@@ -287,7 +285,7 @@ func (s *SecretsManagerInstance) PurgeDatabaseSettings(databaseUuid string, bran
 
 func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 	// Get all the file names in the litebase directory
-	directories, err := storage.FS().ReadDir(config.Get().DataPath)
+	directories, err := storage.ObjectFS().ReadDir("")
 
 	if err != nil {
 		log.Println(err)
@@ -307,14 +305,14 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 		}
 
 		// Check if there is a manifest file
-		manifestPath := fmt.Sprintf("%s/%s/manifest.json", config.Get().DataPath, directory.Name)
+		manifestPath := fmt.Sprintf("%s/manifest.json", directory.Name)
 
-		if _, err := storage.FS().Stat(manifestPath); os.IsNotExist(err) {
+		if _, err := storage.ObjectFS().Stat(manifestPath); os.IsNotExist(err) {
 			continue
 		}
 
 		// Check if the signature is still valid
-		manifest, err := storage.FS().ReadFile(manifestPath)
+		manifest, err := storage.ObjectFS().ReadFile(manifestPath)
 
 		if err != nil {
 			continue
@@ -338,7 +336,7 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 		//Check if rotated at is greater than 24 hours
 		if rotatedAt == 0 || time.Since(rotatedAtTime) > 24*time.Hour {
 			// Remove the directory
-			err := storage.FS().RemoveAll(fmt.Sprintf("%s/%s", config.Get().DataPath, directory.Name))
+			err := storage.ObjectFS().RemoveAll(directory.Name)
 
 			if err != nil {
 				log.Fatal(err)
@@ -349,8 +347,7 @@ func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
 
 func (s *SecretsManagerInstance) SecretsPath(signature, key string) string {
 	return fmt.Sprintf(
-		"%s/%s/%s",
-		config.Get().DataPath,
+		"%s/%s",
 		config.SignatureHash(signature),
 		key,
 	)
@@ -372,7 +369,7 @@ func (s *SecretsManagerInstance) StoreAccessKey(accessKey *AccessKey) error {
 		log.Fatal(err)
 	}
 
-	err = storage.FS().WriteFile(
+	err = storage.ObjectFS().WriteFile(
 		s.SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
 		[]byte(encryptedAccessKey),
 		0666,
@@ -399,8 +396,8 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 	}
 
 	for _, filePath := range filePaths {
-		if _, err := storage.FS().Stat(filepath.Dir(filePath)); os.IsNotExist(err) {
-			storage.FS().MkdirAll(filepath.Dir(filePath), 0700)
+		if _, err := storage.ObjectFS().Stat(filepath.Dir(filePath)); os.IsNotExist(err) {
+			storage.ObjectFS().MkdirAll(filepath.Dir(filePath), 0700)
 		}
 
 		data, _ := json.Marshal(map[string]string{
@@ -409,7 +406,7 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 			"branch_uuid":   branchUuid,
 		})
 
-		err := storage.FS().WriteFile(filePath, data, 0666)
+		err := storage.ObjectFS().WriteFile(filePath, data, 0666)
 
 		if err != nil {
 			log.Fatal(err)
@@ -418,11 +415,11 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 }
 
 func (s *SecretsManagerInstance) StoreDatabasePublicKey(signature, databaseUuid, publicKey string) error {
-	if _, err := storage.FS().Stat(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseUuid))); os.IsNotExist(err) {
-		storage.FS().MkdirAll(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseUuid)), 0755)
+	if _, err := storage.ObjectFS().Stat(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseUuid))); os.IsNotExist(err) {
+		storage.ObjectFS().MkdirAll(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseUuid)), 0755)
 	}
 
-	err := storage.FS().WriteFile(
+	err := storage.ObjectFS().WriteFile(
 		s.SecretsPath(signature, fmt.Sprintf("public_keys/%s/public_key", databaseUuid)),
 		[]byte(publicKey),
 		0666,

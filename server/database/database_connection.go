@@ -27,7 +27,6 @@ type DatabaseConnection struct {
 	cancel         context.CancelFunc
 	checkpointer   *Checkpointer
 	committedAt    time.Time
-	committing     bool
 	context        context.Context
 	databaseHash   string
 	databaseUuid   string
@@ -45,7 +44,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 		err        error
 	)
 
-	ctx, canel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.TODO())
 
 	var databaseHash string
 	var tempFileSystem storage.DatabaseFileSystem
@@ -58,10 +57,19 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 	// 	tempFileSystem = DatabaseResources().TempFileSystemWithTimestamp(databaseUuid, branchUuid, walTimestamp)
 	// }
 
+	checkpointer, err := DatabaseResources().Checkpointer(databaseUuid, branchUuid)
+
+	if err != nil {
+		cancel()
+		log.Println("Error Getting Checkpointer:", err)
+
+		return nil, err
+	}
+
 	con := &DatabaseConnection{
 		branchUuid:     branchUuid,
-		cancel:         canel,
-		checkpointer:   DatabaseResources().Checkpointer(databaseUuid, branchUuid),
+		cancel:         cancel,
+		checkpointer:   checkpointer,
 		context:        ctx,
 		databaseHash:   databaseHash,
 		databaseUuid:   databaseUuid,

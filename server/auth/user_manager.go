@@ -32,7 +32,7 @@ func UserManager() *UserManagerInstance {
 	if staticUserManager == nil {
 		staticUserManager = &UserManagerInstance{
 			mutex: &sync.Mutex{},
-			path:  fmt.Sprintf("%s/%s", config.Get().DataPath, "users.json"),
+			path:  "users.json",
 			users: map[string]*User{},
 		}
 	}
@@ -92,10 +92,10 @@ func (u *UserManagerInstance) All() []User {
 
 func (u *UserManagerInstance) allUsers() (map[string]*User, error) {
 	var users map[string]*User
-	file, err := storage.FS().ReadFile(u.path)
+	file, err := storage.ObjectFS().ReadFile(u.path)
 
 	if err != nil && os.IsNotExist(err) {
-		_, err = storage.FS().Create(u.path)
+		_, err = storage.ObjectFS().Create(u.path)
 
 		if err != nil {
 			return nil, err
@@ -189,7 +189,7 @@ func (u *UserManagerInstance) writeFile() error {
 		return err
 	}
 
-	err = storage.FS().WriteFile(u.path, data, 0644)
+	err = storage.ObjectFS().WriteFile(u.path, data, 0644)
 
 	return err
 }

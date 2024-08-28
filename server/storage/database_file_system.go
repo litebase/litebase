@@ -6,7 +6,9 @@ type DatabaseFileSystem interface {
 	Close(path string) error
 	Delete(path string) error
 	Exists() bool
+	FileSystem() *FileSystem
 	Open(path string) (internalStorage.File, error)
+	PageSize() int64
 	Path() string
 	ReadAt(path string, data []byte, offset, len int64) (int, error)
 	Size(path string) (int64, error)

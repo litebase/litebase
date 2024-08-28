@@ -18,7 +18,6 @@ type FileSystem struct {
 // by a file system driver.
 type FileSystemDriver interface {
 	Create(path string) (internalStorage.File, error)
-	Detatch()
 	Mkdir(path string, perm fs.FileMode) error
 	MkdirAll(path string, perm fs.FileMode) error
 	Open(path string) (internalStorage.File, error)
@@ -33,12 +32,10 @@ type FileSystemDriver interface {
 	WriteFile(path string, data []byte, perm fs.FileMode) error
 }
 
-func NewFileSystem() *FileSystem {
-	fileSystem := NewLocalFileSystemDriver()
-
+func NewFileSystem(fsd FileSystemDriver) *FileSystem {
 	return &FileSystem{
 		mutex:  &sync.Mutex{},
-		driver: fileSystem,
+		driver: fsd,
 	}
 }
 
@@ -47,10 +44,6 @@ func (fs *FileSystem) Create(path string) (internalStorage.File, error) {
 	defer fs.mutex.Unlock()
 
 	return fs.driver.Create(path)
-}
-
-func (fs *FileSystem) Detatch() {
-	fs.driver.Detatch()
 }
 
 func (fs *FileSystem) Mkdir(path string, perm fs.FileMode) error {
@@ -109,6 +102,13 @@ func (fs *FileSystem) Rename(oldpath, newpath string) error {
 
 func (fs *FileSystem) Stat(path string) (internalStorage.FileInfo, error) {
 	return fs.driver.Stat(path)
+}
+
+func (fs *FileSystem) Truncate(path string, size int64) error {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
+
+	return fs.driver.Truncate(path, size)
 }
 
 func (fs *FileSystem) WriteFile(path string, data []byte, perm fs.FileMode) error {

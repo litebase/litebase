@@ -12,6 +12,17 @@ func Authorization(request *Request) (*Request, Response) {
 			},
 		}
 	}
+	databaseKey := request.DatabaseKey()
+
+	if databaseKey == nil {
+		return request, Response{
+			StatusCode: 404,
+			Body: map[string]interface{}{
+				"status":  "error",
+				"message": "Database not found",
+			},
+		}
+	}
 
 	databaseUuid := request.DatabaseKey().DatabaseUuid
 	branchUuid := request.DatabaseKey().BranchUuid

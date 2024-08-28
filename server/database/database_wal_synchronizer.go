@@ -3,6 +3,7 @@ package database
 import (
 	"crypto/sha256"
 	"io"
+	"litebase/server/storage"
 	"log"
 	"os"
 )
@@ -32,7 +33,7 @@ func (d *DatabaseWalSynchronizer) Sync(
 	newPath := WalVersionPath(databaseUuid, branchUuid, timestamp)
 
 	var newWalFileExists bool
-	fileInfo, err := os.Stat(newPath)
+	fileInfo, err := storage.TmpFS().Stat(newPath)
 
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -46,7 +47,7 @@ func (d *DatabaseWalSynchronizer) Sync(
 	}
 
 	// Open the current file
-	currentWalFile, err := os.OpenFile(currentPath, os.O_CREATE|os.O_RDWR, 0644)
+	currentWalFile, err := storage.TmpFS().OpenFile(currentPath, os.O_CREATE|os.O_RDWR, 0644)
 
 	if err != nil {
 		log.Println("Error opening file", err, currentPath)
@@ -55,7 +56,7 @@ func (d *DatabaseWalSynchronizer) Sync(
 
 	defer currentWalFile.Close()
 
-	newWalFile, err := os.OpenFile(newPath, os.O_CREATE|os.O_RDWR, 0644)
+	newWalFile, err := storage.TmpFS().OpenFile(newPath, os.O_CREATE|os.O_RDWR, 0644)
 
 	if err != nil {
 		log.Println("Error creating file", err, newPath)

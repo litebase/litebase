@@ -22,7 +22,7 @@ func AllSignatures() map[string]string {
 	var signatures = map[string]string{}
 
 	// TODO: ignore directories that start with an underscore
-	signatureFiles, err := storage.FS().ReadDir(config.Get().DataPath)
+	signatureFiles, err := storage.ObjectFS().ReadDir("")
 
 	if err != nil {
 		return signatures

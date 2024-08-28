@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	internalStorage "litebase/internal/storage"
 	"litebase/server/cache"
 	"litebase/server/storage"
 	"log"
@@ -21,7 +22,7 @@ Log entries.
 
 type QueryIndex struct {
 	cache *cache.LFUCache
-	file  *os.File
+	file  internalStorage.File
 	mutex *sync.Mutex
 	path  string
 }
@@ -29,13 +30,13 @@ type QueryIndex struct {
 func GetQueryIndex(path, name string, timestamp int64) (*QueryIndex, error) {
 	indexPath := fmt.Sprintf("%s/%d/%s", path, timestamp, name)
 
-	err := storage.FS().MkdirAll(filepath.Dir(indexPath), 0755)
+	err := storage.TieredFS().MkdirAll(filepath.Dir(indexPath), 0755)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	file, err := os.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	file, err := storage.TieredFS().OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if err != nil {
 

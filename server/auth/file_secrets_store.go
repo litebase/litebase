@@ -4,8 +4,8 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"litebase/server/storage"
 	"log"
-	"os"
 	"time"
 )
 
@@ -29,15 +29,15 @@ func NewFileSecretsStore(path string) *FileSecretsStore {
 }
 
 func (store *FileSecretsStore) Flush() {
-	os.RemoveAll(store.path)
+	storage.TmpFS().RemoveAll(store.path)
 }
 
 func (store *FileSecretsStore) Forget(key string) {
-	os.Remove(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
+	storage.TmpFS().Remove(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
 }
 
 func (store *FileSecretsStore) Get(key string, cacheItemType interface{}) interface{} {
-	data, err := os.ReadFile(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
+	data, err := storage.TmpFS().ReadFile(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
 	secret := FileSecret{}
 
 	if err != nil {
@@ -87,7 +87,7 @@ func (store *FileSecretsStore) Put(key string, value any, seconds time.Duration)
 		log.Fatal(err)
 	}
 
-	err = os.WriteFile(store.path+"/"+store.Key(key), jsonValue, 0666)
+	err = storage.TmpFS().WriteFile(store.path+"/"+store.Key(key), jsonValue, 0666)
 
 	return err == nil
 }

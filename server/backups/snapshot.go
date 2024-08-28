@@ -43,7 +43,7 @@ func GetSnapshotPath(databaseUuid string, branchUuid string) string {
 // Get Snapshots from the snapshot file segmented by day. We will get the first
 // checkpoint of the day and use it as the snapshot for that day.
 func GetSnapshots(databaseUuid string, branchUuid string) ([]Snapshot, error) {
-	snapshotFile, err := storage.FS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
 
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func GetSnapshots(databaseUuid string, branchUuid string) ([]Snapshot, error) {
 }
 
 func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snapshot, error) {
-	snapshotFile, err := storage.FS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
 
 	if err != nil {
 		return Snapshot{}, err
@@ -165,7 +165,7 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snap
 }
 
 func GetRestorePoint(databaseUuid string, branchUuid string, timestamp uint64) (RestorePoint, error) {
-	snapshotFile, err := storage.FS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
 
 	if err != nil {
 		return RestorePoint{}, err

@@ -43,7 +43,7 @@ func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int
 	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid), BACKUP_DIR)
 
 	// Get a list of all directories in the directory
-	dirs, err := storage.FS().ReadDir(backupsDirectory)
+	dirs, err := storage.ObjectFS().ReadDir(backupsDirectory)
 
 	if err != nil {
 		log.Fatal(err)
@@ -95,7 +95,7 @@ func (backup *Backup) Delete() {
 func (backup *Backup) deleteArchiveFile() {
 	if config.Get().Env == "local" {
 		storageDir := file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid)
-		storage.FS().Remove(fmt.Sprintf("%s/archives/%s", storageDir, backup.BackupKey()))
+		storage.ObjectFS().Remove(fmt.Sprintf("%s/archives/%s", storageDir, backup.BackupKey()))
 
 		return
 	}
@@ -104,11 +104,11 @@ func (backup *Backup) deleteArchiveFile() {
 }
 
 func (backup *Backup) deleteFile() {
-	if _, err := storage.FS().Stat(backup.Path()); os.IsNotExist(err) {
+	if _, err := storage.ObjectFS().Stat(backup.Path()); os.IsNotExist(err) {
 		return
 	}
 
-	storage.FS().Remove(backup.Path())
+	storage.ObjectFS().Remove(backup.Path())
 }
 
 func (backup *Backup) packageBackup() string {
@@ -120,7 +120,7 @@ func (backup *Backup) packageBackup() string {
 
 	output := backup.Path()
 
-	file, err := storage.FS().Open(input)
+	file, err := storage.ObjectFS().Open(input)
 
 	if err != nil {
 		log.Fatal(err)
@@ -130,13 +130,13 @@ func (backup *Backup) packageBackup() string {
 
 	reader := bufio.NewReader(file)
 
-	err = storage.FS().MkdirAll(filepath.Dir(output), 0755)
+	err = storage.ObjectFS().MkdirAll(filepath.Dir(output), 0755)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	gzipFile, err := storage.FS().Create(output)
+	gzipFile, err := storage.ObjectFS().Create(output)
 
 	if err != nil {
 		log.Fatal(err)
@@ -174,13 +174,13 @@ func RunBackup(databaseUuid string, branchUuid string) (*Backup, error) {
 }
 
 func (backup *Backup) Size() int64 {
-	stat, err := storage.FS().Stat(backup.Path())
+	stat, err := storage.ObjectFS().Stat(backup.Path())
 
 	if err != nil {
 		return 0
 	}
 
-	return stat.Size
+	return stat.Size()
 }
 
 func (backup *Backup) ToMap() map[string]interface{} {
@@ -203,27 +203,27 @@ func (backup *Backup) Upload() map[string]interface{} {
 	path := backup.packageBackup()
 	key := filepath.Base(path)
 
-	if _, err := storage.FS().Stat(path); os.IsNotExist(err) {
+	if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
 		log.Fatalf("Backup archive file not found: %s", path)
 	}
 
 	if config.Get().Env == "local" {
 		storageDir := file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid)
 
-		if _, err := storage.FS().Stat(storageDir); os.IsNotExist(err) {
-			storage.FS().Mkdir(storageDir, 0755)
+		if _, err := storage.ObjectFS().Stat(storageDir); os.IsNotExist(err) {
+			storage.ObjectFS().Mkdir(storageDir, 0755)
 		}
 
-		source, err := storage.FS().ReadFile(path)
+		source, err := storage.ObjectFS().ReadFile(path)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		storage.FS().WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0666)
+		storage.ObjectFS().WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0666)
 	}
 
-	stat, err := storage.FS().Stat(path)
+	stat, err := storage.ObjectFS().Stat(path)
 
 	if err != nil {
 		log.Fatal(err)

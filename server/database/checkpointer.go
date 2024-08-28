@@ -21,16 +21,22 @@ type Checkpointer struct {
 	running          bool
 }
 
-func NewCheckpointer(databaseUuid, branchUuid string) *Checkpointer {
+func NewCheckpointer(dfs storage.DatabaseFileSystem, databaseUuid, branchUuid string) (*Checkpointer, error) {
+	metadata, err := storage.NewDatabaseMetadata(dfs, databaseUuid, branchUuid)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &Checkpointer{
 		branchUuid:       branchUuid,
 		checkpointLogger: backups.NewCheckpointLogger(databaseUuid, branchUuid),
 		databaseUuid:     databaseUuid,
 		lock:             sync.Mutex{},
-		metadata:         storage.NewDatabaseMetadata(databaseUuid, branchUuid),
+		metadata:         metadata,
 		pageLogger:       backups.NewPageLogger(databaseUuid, branchUuid),
 		pages:            map[uint32]bool{},
-	}
+	}, nil
 }
 
 func (c *Checkpointer) AddPage(pageNumber uint32) {

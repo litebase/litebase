@@ -3,11 +3,11 @@ package database
 import (
 	"fmt"
 	"litebase/server/file"
-	"os"
+	"litebase/server/storage"
 )
 
 func CreateWalVersion(databaseUuid, branchUuid string, timestamp int64) error {
-	walVersionFile, err := os.Create(WalVersionPath(databaseUuid, branchUuid, timestamp))
+	walVersionFile, err := storage.LocalFS().Create(WalVersionPath(databaseUuid, branchUuid, timestamp))
 
 	if err != nil {
 		return err

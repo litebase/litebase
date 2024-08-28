@@ -24,13 +24,13 @@ func (s *StoresObjectHashes) GetPath(databaseUuid string, branchUuid string, tim
 
 func (s *StoresObjectHashes) storeObjectHash(path string, data []byte) error {
 	write := func() error {
-		return storage.FS().WriteFile(path, data, 0666)
+		return storage.ObjectFS().WriteFile(path, data, 0666)
 	}
 
 	err := write()
 
 	if err != nil && os.IsNotExist(err) {
-		storage.FS().MkdirAll(filepath.Dir(path), 0755)
+		storage.ObjectFS().MkdirAll(filepath.Dir(path), 0755)
 		err = write()
 	}
 

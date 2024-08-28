@@ -263,7 +263,7 @@ func (accessKey AccessKey) Delete() {
 	for _, signature := range signatures {
 		path := SecretsManager().SecretsPath(signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId))
 
-		storage.FS().Remove(path)
+		storage.ObjectFS().Remove(path)
 	}
 
 	AccessKeyManager().Purge(accessKey.AccessKeyId)
@@ -280,7 +280,7 @@ func (accessKey AccessKey) Update(
 		log.Fatal(err)
 	}
 
-	storage.FS().WriteFile(
+	storage.ObjectFS().WriteFile(
 		SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
 		jsonValue,
 		0666,

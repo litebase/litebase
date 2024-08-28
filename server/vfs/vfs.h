@@ -2,8 +2,6 @@
 #define LITEBASE_VFS_H
 
 #include "../sqlite3/sqlite3.h"
-#include "./data_range.h"
-#include "./meta.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -19,8 +17,6 @@ typedef struct LitebaseVFS
 	sqlite3_vfs base;  /* VFS methods */
 	sqlite3_vfs *pVfs; /* Parent VFS */
 	char *dataPath;
-	DataRange **dataRanges;
-	Meta *meta;
 	int dataRangesSize;
 	void *goVfsPointer;
 	int hasPageOne;

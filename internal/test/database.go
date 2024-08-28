@@ -22,7 +22,7 @@ type TestDatabase struct {
 
 func ClearDatabase() {
 	database.ConnectionManager().Shutdown()
-	storage.FS().RemoveAll("./.test")
+	storage.ObjectFS().RemoveAll("./.test")
 }
 
 func CreateHash(length int) string {

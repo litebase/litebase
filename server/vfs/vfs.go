@@ -15,8 +15,12 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"litebase/server/storage"
+	"log"
 	"runtime/cgo"
+	"strings"
 	"sync"
 	"unsafe"
 )
@@ -25,6 +29,7 @@ var VfsMap = make(map[string]*LitebaseVFS)
 var vfsMutex = &sync.RWMutex{}
 
 type LitebaseVFS struct {
+	filename   string
 	fileSystem storage.DatabaseFileSystem
 	id         string
 }
@@ -131,4 +136,149 @@ func go_write_hook(vfsHandle C.uintptr_t, iAmt C.int, iOfst C.sqlite3_int64, zBu
 	l := handle.Value().(*LitebaseVFS)
 
 	l.fileSystem.WriteHook(int64(iOfst), goBuffer)
+}
+
+func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
+	file := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
+	vfsId := C.GoString(file.pVfsId)
+
+	vfsMutex.RLock()
+	defer vfsMutex.RUnlock()
+
+	vfs, ok := VfsMap[vfsId]
+
+	if !ok {
+		return nil, fmt.Errorf("vfs not found")
+	}
+
+	return vfs, nil
+}
+
+//export goXOpen
+func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.int, outFlags *C.int) C.int {
+	vfsId := C.GoString(zVfs.zName)
+	name := C.GoString(zName)
+	filename := name[strings.LastIndex(name, "/")+1:]
+
+	vfsMutex.RLock()
+	vfs, ok := VfsMap[vfsId]
+	vfsMutex.RUnlock()
+
+	if !ok {
+		return C.SQLITE_IOERR
+	}
+
+	// fileType := getFileType(name)
+
+	// switch fileType {
+	// case "journal", "wal":
+	// 	vfs.tempStorage.Open(filename)
+	// default:
+	vfs.fileSystem.Open(filename)
+	vfs.filename = filename
+	// }
+
+	return C.SQLITE_OK
+}
+
+//export goXRead
+func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
+	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		log.Println("Error getting VFS from file", err)
+		return C.SQLITE_IOERR_READ
+	}
+
+	// Get just the file name from the path
+	vfsFile := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
+	name := C.GoString(vfsFile.pName)
+	name = name[strings.LastIndex(name, "/")+1:]
+
+	n, err := vfs.fileSystem.ReadAt(
+		name,
+		goBuffer,
+		int64(iOfst),
+		int64(iAmt),
+	)
+
+	if err != nil && err != io.EOF {
+		return C.SQLITE_IOERR_READ
+	}
+
+	if n < len(goBuffer) && err == io.EOF {
+		for i := n; i < len(goBuffer); i++ {
+			goBuffer[i] = 0
+		}
+
+		log.Println("Short read", n, len(goBuffer))
+		// return errToC(IOErrorShortRead)
+	}
+
+	return C.SQLITE_OK
+}
+
+//export goXWrite
+func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_WRITE
+	}
+
+	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+
+	_, err = vfs.fileSystem.WriteAt(vfs.filename, goBuffer, int64(iOfst))
+
+	if err != nil {
+		return C.SQLITE_IOERR_WRITE
+	}
+
+	return C.SQLITE_OK
+}
+
+//export goXFileSize
+func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_FSTAT
+	}
+
+	size, err := vfs.fileSystem.Size(vfs.filename)
+
+	if err != nil {
+		log.Println("Error getting file size", err)
+		return C.SQLITE_IOERR_FSTAT
+	}
+
+	*pSize = C.sqlite3_int64(size)
+
+	return C.SQLITE_OK
+}
+
+//export goXTruncate
+func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_TRUNCATE
+	}
+
+	err = vfs.fileSystem.Truncate(vfs.filename, int64(size))
+
+	if err != nil {
+		return C.SQLITE_IOERR_TRUNCATE
+	}
+
+	return C.SQLITE_OK
+}
+
+func errToC(err error) C.int {
+	if e, ok := err.(sqliteError); ok {
+		return C.int(e.code)
+	}
+	return C.int(GenericError.code)
 }

@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-type FileInfo struct {
-	Name    string
-	Size    int64
-	Mode    fs.FileMode
-	ModTime time.Time
-	IsDir   bool
+type FileInfo interface {
+	Name() string
+	Size() int64
+	Mode() fs.FileMode
+	ModTime() time.Time
+	IsDir() bool
 }

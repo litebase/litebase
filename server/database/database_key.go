@@ -43,7 +43,7 @@ func GetDatabaseKey(key string) (*DatabaseKey, error) {
 	defer databaseKeyMutex.Unlock()
 
 	// Read the database key file
-	data, err := storage.FS().ReadFile(auth.GetDatabaseKeyPath(config.Get().Signature, key))
+	data, err := storage.ObjectFS().ReadFile(auth.GetDatabaseKeyPath(config.Get().Signature, key))
 
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func GetDatabaseKey(key string) (*DatabaseKey, error) {
 
 func GetDatabaseKeyCount() int {
 	// Read all files in the databases directory
-	entries, err := storage.FS().ReadDir(auth.GetDatabaseKeysPath(config.Get().Signature))
+	entries, err := storage.ObjectFS().ReadDir(auth.GetDatabaseKeysPath(config.Get().Signature))
 
 	if err != nil {
 		return 0

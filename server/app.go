@@ -24,7 +24,14 @@ func NewApp(server *ServerInstance) *App {
 	}
 	config.Init()
 
-	_, err := cluster.Init()
+	// TODO: Only all the Primary Node to do this
+	err := auth.InitSignature()
+
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = cluster.Init()
 
 	if err != nil {
 		panic(err)
