@@ -20,7 +20,7 @@ type Configuration struct {
 var configPath string
 var configuration *Configuration
 
-var ErrorProfileNotFound = errors.New("Profile not found")
+var ErrorProfileNotFound = errors.New("Profile not found, provide a valid profile name or enter cluster credentials")
 
 func Init(path string) error {
 	// Replace the $HOME environment variable with the actual path
@@ -99,12 +99,18 @@ func DeleteProfile(name string) error {
 	return Save()
 }
 
-func GetCurrentProfile() *Profile {
+func GetCurrentProfile() (*Profile, error) {
 	if configuration.CurrentProfile == "" {
-		return &GetProfiles()[0]
+		profiles := GetProfiles()
+
+		if len(profiles) > 0 {
+			return &profiles[0], nil
+		}
+
+		return nil, ErrorProfileNotFound
 	}
 
-	return GetProfile(configuration.CurrentProfile)
+	return GetProfile(configuration.CurrentProfile), nil
 }
 
 func SwitchProfile(name string) error {

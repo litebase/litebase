@@ -15,9 +15,14 @@ func NewClusterUserDeleteCmd() *cobra.Command {
 		Short: "Delete a user",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			client := api.NewClient()
+			client, err := api.NewClient()
 
-			_, _, err := client.Request("DELETE", "/users/"+args[0], nil)
+			if err != nil {
+				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
+				return
+			}
+
+			_, _, err = client.Request("DELETE", "/users/"+args[0], nil)
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

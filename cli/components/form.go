@@ -305,9 +305,15 @@ func (f *Form) submit() tea.Cmd {
 	f.errorMessage = ""
 
 	return func() tea.Msg {
-		client := api.NewClient()
+		client, err := api.NewClient()
+
+		if err != nil {
+			f.errorMessage = err.Error()
+
+			return errorMsg{}
+		}
+
 		var errors api.Errors
-		var err error
 		var responseData map[string]interface{}
 		requestData := make(map[string]interface{})
 

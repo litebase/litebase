@@ -14,7 +14,12 @@ func NewProfileCurrentCmd() *cobra.Command {
 		Short: "Return the current profile",
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			profiles := config.GetCurrentProfile()
+			profiles, err := config.GetCurrentProfile()
+
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 
 			fmt.Print(
 				components.Container(

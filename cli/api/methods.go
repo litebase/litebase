@@ -1,15 +1,33 @@
 package api
 
 func Get(path string) (map[string]interface{}, error) {
-	data, _, err := NewClient().Request("GET", path, nil)
+	client, err := NewClient()
+
+	if err != nil {
+		return nil, err
+	}
+
+	data, _, err := client.Request("GET", path, nil)
 
 	return data, err
 }
 
 func Post(path string, body map[string]interface{}) (map[string]interface{}, Errors, error) {
-	return NewClient().Request("POST", path, body)
+	client, err := NewClient()
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return client.Request("POST", path, body)
 }
 
 func Delete(path string) (map[string]interface{}, Errors, error) {
-	return NewClient().Request("DELETE", path, nil)
+	client, err := NewClient()
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return client.Request("DELETE", path, nil)
 }

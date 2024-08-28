@@ -19,7 +19,7 @@ type Client struct {
 
 type Errors map[string][]string
 
-func NewClient() *Client {
+func NewClient() (*Client, error) {
 	defaultHeaders := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
@@ -29,13 +29,19 @@ func NewClient() *Client {
 		defaultHeaders["Authorization"] = basicAuthHeader()
 	}
 
+	clusterUrl, err := clusterUrl()
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
-		BaseUrl:        clusterUrl(),
+		BaseUrl:        clusterUrl,
 		defaultHeaders: defaultHeaders,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-	}
+	}, nil
 }
 
 func (c *Client) Request(method, path string, data map[string]interface{}) (map[string]interface{}, Errors, error) {
@@ -116,10 +122,10 @@ func basicAuthHeader() string {
 		username = config.GetUsername()
 		password = config.GetPassword()
 	} else {
-		profile := config.GetCurrentProfile()
+		profile, err := config.GetCurrentProfile()
 
-		if profile == nil {
-			return ""
+		if err != nil {
+			return err.Error()
 		}
 
 		username = profile.Credentials.Username
@@ -134,18 +140,18 @@ func basicAuthHeader() string {
 	)
 }
 
-func clusterUrl() string {
+func clusterUrl() (string, error) {
 	if config.GetUrl() != "" {
-		return config.GetUrl()
+		return config.GetUrl(), nil
 	}
 
-	profile := config.GetCurrentProfile()
+	profile, err := config.GetCurrentProfile()
 
-	if profile == nil {
-		return ""
+	if err != nil {
+		return "", err
 	}
 
-	return profile.Cluster
+	return profile.Cluster, nil
 }
 
 func shouldUseBasicAuth() bool {
@@ -153,9 +159,9 @@ func shouldUseBasicAuth() bool {
 		return true
 	}
 
-	profile := config.GetCurrentProfile()
+	profile, err := config.GetCurrentProfile()
 
-	if profile == nil {
+	if err != nil {
 		return false
 	}
 
