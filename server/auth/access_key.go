@@ -257,18 +257,24 @@ func (accessKey AccessKey) CanUpdate(databaseUuid, branchUuid string, args []str
 	return false, NewDatabasePrivilegeError("UPDATE")
 }
 
-func (accessKey AccessKey) Delete() {
+func (accessKey AccessKey) Delete() error {
 	signatures := _auth.AllSignatures()
 
 	for _, signature := range signatures {
 		path := SecretsManager().SecretsPath(signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId))
+		err := storage.ObjectFS().Remove(path)
 
-		storage.ObjectFS().Remove(path)
+		if err != nil {
+			log.Println(err)
+			// return err
+		}
 	}
 
 	AccessKeyManager().Purge(accessKey.AccessKeyId)
 
 	accessKey = AccessKey{}
+
+	return nil
 }
 
 func (accessKey AccessKey) Update(

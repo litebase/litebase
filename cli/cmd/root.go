@@ -31,14 +31,13 @@ func addCommands(cmd *cobra.Command) {
 }
 
 func NewRoot() error {
-
 	cmd := &cobra.Command{
 		Use:               "litebase <command> <subcommand> [flags]",
 		Short:             "Litebase CLI",
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 		Long:              `Connect with Litebase from the command line.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			title := lipgloss.NewStyle().Copy().Bold(true).
+			title := lipgloss.NewStyle().Bold(true).
 				Margin(0, 0, 1).
 				Render("Litebase CLI - v0.0.1")
 

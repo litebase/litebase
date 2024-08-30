@@ -70,19 +70,13 @@ func NewTable(
 	columns []string,
 	rows [][]string,
 ) *Table {
-	height := 1
-	width := 40
-
-	if len(rows) > 0 {
-		height = len(rows)
-	}
 
 	columnWidths := make([]int, len(columns))
 
 	// First set the column widths based on the column titles
 	for i, title := range columns {
 		if (len(title) + 4) > columnWidths[i] {
-			columnWidths[i] = len(title) + 4
+			columnWidths[i] = len(title)
 		}
 	}
 
@@ -93,17 +87,6 @@ func NewTable(
 				columnWidths[i] = len(cell) + 4
 			}
 		}
-	}
-
-	// Set the width of the table based on the column widths
-	totalWidth := 0
-
-	for _, columnWidth := range columnWidths {
-		totalWidth += columnWidth
-	}
-
-	if totalWidth >= width {
-		width = totalWidth
 	}
 
 	tableColumns := make([]table.Column, len(columns))
@@ -120,13 +103,20 @@ func NewTable(
 		tableRows[i] = row
 	}
 
+	height := 11
+
+	if len(rows) < height {
+		height = len(rows) + 1
+	}
+
 	tbl := table.New(
 		table.WithColumns(tableColumns),
 		table.WithRows(tableRows),
-		table.WithWidth(width),
 		table.WithHeight(height),
-		table.WithFocused(true),
+		table.WithFocused(false),
 	)
+
+	tbl.Blur()
 
 	s := table.DefaultStyles()
 
@@ -137,8 +127,10 @@ func NewTable(
 		Bold(false)
 
 	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
+		// Foreground(lipgloss.Color("229")).
+		Foreground(lipgloss.Color("0")).
+		// Background(lipgloss.Color("57")).
+		// Background(lipgloss.Color("240")).
 		Bold(false)
 
 	tbl.SetStyles(s)
@@ -159,4 +151,10 @@ func (t *Table) Render() {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}
+}
+
+func (t *Table) WitFocus() *Table {
+	table.WithFocused(true)(&t.table)
+
+	return t
 }

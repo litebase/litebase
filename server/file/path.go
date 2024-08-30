@@ -8,11 +8,11 @@ import (
 )
 
 func DatabaseDirectory() string {
-	return "_databases"
+	return "_databases/"
 }
 
 func DatabaseTmpDirectory() string {
-	return fmt.Sprintf("%s/_databases", config.Get().TmpPath)
+	return fmt.Sprintf("%s/_databases/", config.Get().TmpPath)
 }
 
 func DatabaseHash(
@@ -50,7 +50,7 @@ func GetDatabaseFileBaseDir(databaseUuid string, branchUuid string) string {
 
 func GetDatabaseFileDir(databaseUuid string, branchUuid string) string {
 	return fmt.Sprintf(
-		"%s/%s/%s/%s",
+		"%s%s/%s/%s",
 		DatabaseDirectory(),
 		databaseUuid,
 		branchUuid,
@@ -60,7 +60,7 @@ func GetDatabaseFileDir(databaseUuid string, branchUuid string) string {
 
 func GetDatabaseFilePath(databaseUuid string, branchUuid string) (string, error) {
 	return fmt.Sprintf(
-		"%s/%s/%s/%s.db",
+		"%s%s/%s/%s.db",
 		DatabaseDirectory(),
 		databaseUuid,
 		branchUuid,
@@ -70,7 +70,7 @@ func GetDatabaseFilePath(databaseUuid string, branchUuid string) (string, error)
 
 func GetDatabaseFileTmpPath(nodeId, databaseUuid string, branchUuid string) (string, error) {
 	return fmt.Sprintf(
-		"%s/%s/%s/%s/%s.db",
+		"%s%s/%s/%s/%s.db",
 		DatabaseTmpDirectory(),
 		nodeId,
 		databaseUuid,

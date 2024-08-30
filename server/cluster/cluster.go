@@ -165,7 +165,7 @@ func LeasePath() string {
 }
 
 func NodePath() string {
-	return "_nodes"
+	return "_nodes/"
 }
 
 func NominationPath() string {

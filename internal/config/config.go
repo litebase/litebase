@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	ClusterId            string
 	DataPath             string
 	DatabaseDirectory    string
 	Debug                bool
@@ -24,6 +25,9 @@ type Config struct {
 	RouterNodePort       string
 	Signature            string
 	SignatureNext        string
+	StorageBucket        string
+	StorageEndpoint      string
+	StorageMode          string
 	StoragePort          string
 	TmpPath              string
 }
@@ -46,6 +50,7 @@ func env(key string, defaultValue string) interface{} {
 
 func NewConfig() *Config {
 	ConfigInstance = &Config{
+		ClusterId:            env("LITEBASE_CLUSTER_ID", "").(string),
 		DataPath:             env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:    env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		Env:                  env("LITEBASE_ENV", "production").(string),
@@ -59,6 +64,9 @@ func NewConfig() *Config {
 		RootPassword:         env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:         env("LITEBASE_ROOT_USERNAME", "root").(string),
 		Signature:            env("LITEBASE_SIGNATURE", "").(string),
+		StorageBucket:        env("LITEBASE_STORAGE_BUCKET", "").(string),
+		StorageEndpoint:      env("LITEBASE_STORAGE_ENDPOINT", "").(string),
+		StorageMode:          env("LITEBASE_STORAGE_MODE", "local").(string),
 		TmpPath:              env("LITEBASE_TMP_PATH", "").(string),
 	}
 

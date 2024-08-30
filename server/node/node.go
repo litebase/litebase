@@ -603,7 +603,7 @@ func (n *NodeInstance) Start() error {
 }
 
 func (n *NodeInstance) storeAddress() error {
-	return storage.ObjectFS().WriteFile(fmt.Sprintf("%s/%s", cluster.NodePath(), n.Address()), []byte(n.Address()), 0644)
+	return storage.ObjectFS().WriteFile(fmt.Sprintf("%s%s", cluster.NodePath(), n.Address()), []byte(n.Address()), 0644)
 }
 
 func (n *NodeInstance) Tick() {
@@ -668,7 +668,7 @@ func truncateFile(filePath string) error {
 }
 
 func FilePath(ipAddress string) string {
-	return fmt.Sprintf("%s/%s", cluster.NodePath(), ipAddress)
+	return fmt.Sprintf("%s%s", cluster.NodePath(), ipAddress)
 }
 
 func GetPrivateIpAddress() string {
@@ -676,7 +676,7 @@ func GetPrivateIpAddress() string {
 		return NodeIpAddress
 	}
 
-	if config.Get().Env == "local" || config.Get().Env == "testing" {
+	if config.Get().Env == "local" || config.Get().Env == "test" {
 		// NodeIpAddress = "127.0.0.1"
 		NodeIpAddress, err := os.Hostname()
 
@@ -723,7 +723,7 @@ func GetIPv6Address() string {
 		return NodeIPv6Address
 	}
 
-	if config.Get().Env == "local" || config.Get().Env == "testing" {
+	if config.Get().Env == "local" || config.Get().Env == "test" {
 		return fmt.Sprintf("localhost:%s", config.Get().Port)
 	}
 

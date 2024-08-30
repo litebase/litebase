@@ -2,7 +2,6 @@ package http
 
 import (
 	"litebase/server/auth"
-	"log"
 	"strconv"
 	"time"
 )
@@ -50,7 +49,6 @@ func basicAuth(request *Request) bool {
 Ensure that there is an authorization header
 */
 func ensureAdminRequestHasAnAuthorizationHeader(request *Request) bool {
-	log.Println("Checking for authorization header", request.Headers().Get("Authorization"))
 	return request.Headers().Get("Authorization") != ""
 }
 

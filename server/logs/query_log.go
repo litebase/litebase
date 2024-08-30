@@ -219,7 +219,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		}
 
 		// Read all the files in the directory
-		files, err := storage.TieredFS().ReadDir(fmt.Sprintf("%s/%d", path, directoryTimestamp))
+		files, err := storage.TieredFS().ReadDir(fmt.Sprintf("%s/%d/", path, directoryTimestamp))
 
 		if err != nil {
 			if os.IsNotExist(err) {

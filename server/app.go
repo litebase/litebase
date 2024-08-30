@@ -9,6 +9,7 @@ import (
 	"litebase/server/http"
 	"litebase/server/node"
 	"litebase/server/query"
+	"litebase/server/storage"
 )
 
 type App struct {
@@ -22,7 +23,10 @@ func NewApp(server *ServerInstance) *App {
 	app := &App{
 		Server: server,
 	}
+
 	config.Init()
+
+	storage.Init()
 
 	// TODO: Only all the Primary Node to do this
 	err := auth.InitSignature()
@@ -55,8 +59,8 @@ func NewApp(server *ServerInstance) *App {
 	auth.Broadcaster(events.EventsManager().Hook())
 
 	app.initialized = true
-	AppSingleton = app
 
+	AppSingleton = app
 	return app
 }
 

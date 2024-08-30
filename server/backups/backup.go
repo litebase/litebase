@@ -193,7 +193,7 @@ func (backup *Backup) ToMap() map[string]interface{} {
 }
 
 func (backup *Backup) Upload() map[string]interface{} {
-	if config.Get().Env == "testing" {
+	if config.Get().Env == "test" {
 		return map[string]interface{}{
 			"key":  "test",
 			"size": 0,

@@ -3,6 +3,7 @@ package auth
 import (
 	"litebase/internal/config"
 	"litebase/server/storage"
+	"log"
 )
 
 /*
@@ -25,10 +26,17 @@ func AllSignatures() map[string]string {
 	signatureFiles, err := storage.ObjectFS().ReadDir("")
 
 	if err != nil {
+		log.Println("Error reading signatures", err)
 		return signatures
 	}
 
 	for _, signatureFile := range signatureFiles {
+		//Ignore paths that start with an underscore
+		if signatureFile.Name[0] == '_' {
+			continue
+		}
+
+		// Ignore non directories
 		if !signatureFile.IsDir {
 			continue
 		}

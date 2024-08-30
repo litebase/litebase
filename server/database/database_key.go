@@ -63,13 +63,13 @@ func GetDatabaseKey(key string) (*DatabaseKey, error) {
 	return databaseKey, nil
 }
 
-func GetDatabaseKeyCount() int {
+func GetDatabaseKeyCount() int64 {
 	// Read all files in the databases directory
-	entries, err := storage.ObjectFS().ReadDir(auth.GetDatabaseKeysPath(config.Get().Signature))
+	entries, err := storage.ObjectFS().ReadDir(auth.GetDatabaseKeysPath(config.Get().Signature) + "/")
 
 	if err != nil {
 		return 0
 	}
 
-	return len(entries)
+	return int64(len(entries))
 }

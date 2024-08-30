@@ -46,6 +46,10 @@ func (fs *FileSystem) Create(path string) (internalStorage.File, error) {
 	return fs.driver.Create(path)
 }
 
+func (fs *FileSystem) Driver() FileSystemDriver {
+	return fs.driver
+}
+
 func (fs *FileSystem) Mkdir(path string, perm fs.FileMode) error {
 	fs.mutex.Lock()
 	defer fs.mutex.Unlock()

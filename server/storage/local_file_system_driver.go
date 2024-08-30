@@ -55,7 +55,6 @@ func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntr
 		dirEntries = append(dirEntries, internalStorage.DirEntry{
 			Name:  entry.Name(),
 			IsDir: entry.IsDir(),
-			Type:  entry.Type(),
 		})
 	}
 

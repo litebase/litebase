@@ -1,6 +1,9 @@
 package database
 
 import (
+	"math/rand/v2"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sqids/sqids-go"
 )
@@ -13,7 +16,8 @@ type Branch struct {
 }
 
 func NewBranch(name string, isPrimary bool) *Branch {
-	keyCount := uint64(GetDatabaseKeyCount())
+	randomFactor := rand.Int64N(100000)
+	keyCount := uint64(GetDatabaseKeyCount() + time.Now().UnixMilli() + randomFactor)
 
 	s, _ := sqids.New(sqids.Options{
 		Alphabet:  "0123456789abcdefghijklmnopqrstuvwxyz",

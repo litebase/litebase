@@ -102,7 +102,7 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 
 	fileSystem = storage.NewDurableDatabaseFileSystem(
 		storage.TieredFS(),
-		fmt.Sprintf("%s/%s/%s", Directory(), databaseUuid, branchUuid),
+		fmt.Sprintf("%s%s/%s", Directory(), databaseUuid, branchUuid),
 		databaseUuid,
 		branchUuid,
 		pageSize,
@@ -186,7 +186,7 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 		return fileSystem
 	}
 
-	path := fmt.Sprintf("%s/%s/%s/%s", TmpDirectory(), node.Node().Id, databaseUuid, branchUuid)
+	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), node.Node().Id, databaseUuid, branchUuid)
 
 	fileSystem := storage.NewTempDatabaseFileSystem(
 		path,

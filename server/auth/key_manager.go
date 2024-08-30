@@ -437,7 +437,7 @@ func rotateAccessKeys() error {
 
 	newAccessKeyDir := strings.Join([]string{
 		Path(config.Get().SignatureNext),
-		"access_keys",
+		"access_keys/",
 	}, "/")
 
 	accessKeys, err := storage.ObjectFS().ReadDir(accessKeyDir)
@@ -491,7 +491,7 @@ func rotateDatabaseKeys() error {
 
 	newKeysDir := strings.Join([]string{
 		Path(config.Get().SignatureNext),
-		"database_keys",
+		"database_keys/",
 	}, "/")
 
 	keys, err := storage.ObjectFS().ReadDir(keysDir)
@@ -535,7 +535,7 @@ func rotateSettings() error {
 
 	newSettingsDir := strings.Join([]string{
 		Path(config.Get().SignatureNext),
-		"settings",
+		"settings/",
 	}, "/")
 
 	settings, err := storage.ObjectFS().ReadDir(settingsDir)
@@ -559,6 +559,7 @@ func rotateSettings() error {
 		databaseSettings, err = storage.ObjectFS().ReadDir(strings.Join([]string{
 			settingsDir,
 			setting.Name,
+			"/",
 		}, "/"))
 
 		if err != nil {

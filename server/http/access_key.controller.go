@@ -2,6 +2,7 @@ package http
 
 import (
 	"litebase/server/auth"
+	"log"
 )
 
 func AccessKeyControllerIndex(request *Request) Response {
@@ -80,6 +81,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 }
 
 func AccessKeyControllerDestroy(request *Request) Response {
+	log.Println("Destroying access key", request.Param("accessKeyId"))
 	accessKey, err := auth.AccessKeyManager().Get(request.Param("accessKeyId"))
 
 	if err != nil {
@@ -89,7 +91,14 @@ func AccessKeyControllerDestroy(request *Request) Response {
 		}, 404, nil)
 	}
 
-	accessKey.Delete()
+	err = accessKey.Delete()
+
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": "Access key could not be deleted",
+		}, 500, nil)
+	}
 
 	return JsonResponse(map[string]interface{}{
 		"status":  "success",

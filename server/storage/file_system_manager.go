@@ -28,7 +28,11 @@ func ObjectFS() *FileSystem {
 	defer fileSystemMutex.Unlock()
 
 	if objectFileSystem == nil {
-		objectFileSystem = NewFileSystem(NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "object")))
+		if config.Get().StorageMode == "object" {
+			objectFileSystem = NewFileSystem(NewObjectFileSystemDriver())
+		} else if config.Get().StorageMode == "local" {
+			objectFileSystem = NewFileSystem(NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "object")))
+		}
 	}
 
 	return objectFileSystem
