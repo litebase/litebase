@@ -23,6 +23,14 @@ func NewCheckpointLogger(databaseUuid, branchUuid string) *CheckpointLogger {
 	}
 }
 
+func (c *CheckpointLogger) Close() error {
+	if c.file != nil {
+		return c.file.Close()
+	}
+
+	return nil
+}
+
 func (c *CheckpointLogger) File() (internalStorage.File, error) {
 	if c.file != nil {
 		return c.file, nil
@@ -30,7 +38,7 @@ func (c *CheckpointLogger) File() (internalStorage.File, error) {
 
 openFile:
 	directory := file.GetDatabaseFileBaseDir(c.databaseUuid, c.branchUuid)
-	path := fmt.Sprintf("%s/logs/snapshots/SNAPSHOT_LOG", directory)
+	path := GetSnapshotPath(c.databaseUuid, c.branchUuid)
 	file, err := storage.TieredFS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {

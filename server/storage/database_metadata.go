@@ -5,6 +5,7 @@ import (
 	"fmt"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
+	"log"
 	"os"
 )
 
@@ -57,6 +58,10 @@ func NewDatabaseMetadata(dfs DatabaseFileSystem, databaseUuid, branchUuid string
 	return metadata, nil
 }
 
+func (d *DatabaseMetadata) Close() error {
+	return d.file.Close()
+}
+
 // Load the database metadata
 func (d *DatabaseMetadata) Load() error {
 	// Read the first 8 bytes to get the page count
@@ -87,8 +92,11 @@ func (d *DatabaseMetadata) Save() error {
 
 	// Write the page count
 	binary.LittleEndian.PutUint64(data, uint64(d.PageCount))
+	log.Println("WRITING PAGE COUNT", d.PageCount)
+	_, err := d.file.WriteAt(data, 0)
 
-	return d.databaseFileSystem.FileSystem().WriteFile(d.Path(), data, 0644)
+	return err
+
 }
 
 // Increment the page count

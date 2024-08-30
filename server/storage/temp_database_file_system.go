@@ -143,6 +143,17 @@ func (tfs *TempDatabaseFileSystem) SetTransactionTimestamp(timestamp int64) {
 	tfs.walTimestamp = timestamp
 }
 
+func (tfs *TempDatabaseFileSystem) Shutdown() error {
+	tfs.mutex.Lock()
+	defer tfs.mutex.Unlock()
+
+	for _, file := range tfs.files {
+		file.Close()
+	}
+
+	return nil
+}
+
 func (tfs *TempDatabaseFileSystem) Size(path string) (int64, error) {
 	stat, err := tfs.fileSystem.Stat(fmt.Sprintf("%s/%s", tfs.path, path))
 

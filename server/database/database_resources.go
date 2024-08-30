@@ -169,6 +169,16 @@ func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
 		pageLogger.Close()
 	}
 
+	// Perform any shutdown logic for the checkpoint logger
+	if d.checkpointLoggers[hash] != nil {
+		d.checkpointLoggers[hash].Close()
+	}
+
+	// Perform any shutdown logic for the file system
+	if d.fileSystems[hash] != nil {
+		d.fileSystems[hash].Shutdown()
+	}
+
 	delete(d.checkpointLoggers, hash)
 	delete(d.checkpointers, hash)
 	delete(d.fileSystems, hash)

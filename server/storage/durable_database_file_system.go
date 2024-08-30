@@ -62,13 +62,7 @@ func NewDurableDatabaseFileSystem(fs *FileSystem, path, databaseUuid, branchUuid
 }
 
 func (dfs *DurableDatabaseFileSystem) Close(path string) error {
-	dfs.mutex.Lock()
-	defer dfs.mutex.Unlock()
-
-	for key, dataRange := range dfs.dataRanges {
-		dataRange.Close()
-		delete(dfs.dataRanges, key)
-	}
+	log.Fatalln("Close not implemented")
 
 	return nil
 }
@@ -162,6 +156,24 @@ func (dfs *DurableDatabaseFileSystem) SetTransactionTimestamp(timestamp int64) {
 // TODO: this should use the metadata file to get the size
 func (dfs *DurableDatabaseFileSystem) Size(path string) (int64, error) {
 	return dfs.metadata.FileSize(), nil
+}
+
+func (dfs *DurableDatabaseFileSystem) Shutdown() error {
+	dfs.mutex.Lock()
+	defer dfs.mutex.Unlock()
+
+	for key, dataRange := range dfs.dataRanges {
+		dataRange.Close()
+		delete(dfs.dataRanges, key)
+	}
+
+	dfs.metadata.Close()
+
+	if driver, ok := dfs.fileSystem.Driver().(*TieredFileSystemDriver); ok {
+		driver.PurgeClosedFiles()
+	}
+
+	return nil
 }
 
 func (dfs *DurableDatabaseFileSystem) TransactionTimestamp() int64 {

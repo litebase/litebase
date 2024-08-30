@@ -76,6 +76,10 @@ func (fs *ObjectFileSystemDriver) EnsureBucketExists() {
 		Bucket: aws.String(config.Get().StorageBucket),
 	})
 
+	if err != nil {
+		log.Println("failed to check if bucket exists", err)
+	}
+
 	if headBucketOutput != nil {
 		return
 	}
@@ -101,14 +105,10 @@ func (fs *ObjectFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error 
 }
 
 func (fs *ObjectFileSystemDriver) Open(path string) (internalStorage.File, error) {
-	// This is a no-op since we can't open files in S3
-
 	return NewObjectFile(fs.client, path, os.O_RDWR), nil
 }
 
 func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	// This is a no-op since we can't open files in S3
-
 	return NewObjectFile(fs.client, path, flag), nil
 }
 

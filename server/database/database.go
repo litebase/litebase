@@ -199,7 +199,6 @@ func Get(databaseUuid string) (*Database, error) {
 	err = json.NewDecoder(file).Decode(database)
 
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 

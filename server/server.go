@@ -31,10 +31,6 @@ func NewServer() *ServerInstance {
 	return server
 }
 
-func (s *ServerInstance) Context() context.Context {
-	return s.context
-}
-
 func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	port := os.Getenv("LITEBASE_PORT")
 	tlsCertPath := os.Getenv("LITEBASE_TLS_CERT_PATH")

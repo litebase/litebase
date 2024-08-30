@@ -11,6 +11,7 @@ type DatabaseFileSystem interface {
 	PageSize() int64
 	Path() string
 	ReadAt(path string, data []byte, offset, len int64) (int, error)
+	Shutdown() error
 	Size(path string) (int64, error)
 	Truncate(path string, size int64) error
 	WalPath(path string) string
