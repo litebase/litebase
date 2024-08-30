@@ -28,7 +28,7 @@ const (
 type ConnectionManagerInstance struct {
 	connectionTicker *time.Ticker
 	databases        map[string]*DatabaseGroup
-	mutext           *sync.RWMutex
+	mutex            *sync.RWMutex
 	state            int
 }
 
@@ -45,7 +45,7 @@ func ConnectionManager() *ConnectionManagerInstance {
 
 	if StaticConnectionManagerInstance == nil {
 		StaticConnectionManagerInstance = &ConnectionManagerInstance{
-			mutext:    &sync.RWMutex{},
+			mutex:     &sync.RWMutex{},
 			databases: map[string]*DatabaseGroup{},
 			state:     ConnectionManagerStateRunning,
 		}
@@ -112,8 +112,8 @@ func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, bra
 }
 
 func (c *ConnectionManagerInstance) CheckpointAll() {
-	c.mutext.Lock()
-	defer c.mutext.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	for _, database := range c.databases {
 		for branchUuid, brancheConnections := range database.branches {
@@ -128,20 +128,20 @@ func (c *ConnectionManagerInstance) CheckpointAll() {
 }
 
 func (c *ConnectionManagerInstance) CheckpointReplica(databaseUuid, branchUuid string, timestamp int64) {
-	c.mutext.Lock()
+	c.mutex.Lock()
 	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
 	c.databases[databaseUuid].branchWalSha256[branchUuid] = [32]byte{}
 	c.databases[databaseUuid].branchWalTimestamps[branchUuid] = timestamp
-	c.mutext.Unlock()
+	c.mutex.Unlock()
 }
 
 func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string, drained func() error) error {
-	c.mutext.Lock()
+	c.mutex.Lock()
 
 	databaseGroup, ok := c.databases[databaseUuid]
 
 	if !ok {
-		defer c.mutext.Unlock()
+		defer c.mutex.Unlock()
 
 		return drained()
 	}
@@ -153,7 +153,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	_, ok = databaseGroup.branches[branchUuid]
 
 	if !ok {
-		defer c.mutext.Unlock()
+		defer c.mutex.Unlock()
 
 		return drained()
 	}
@@ -195,7 +195,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 
 	wg.Wait()
 
-	c.mutext.Unlock()
+	c.mutex.Unlock()
 
 	// // Wait for all connections to close
 	// var retries = 0
@@ -209,7 +209,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 
 	// 	time.Sleep(10 * time.Millisecond)
 
-	// 	c.mutext.Lock()
+	// 	c.mutex.Lock()
 	// 	for i := 0; i < len(databaseGroup.branches[branchUuid]); {
 	// 		branchConnection := databaseGroup.branches[branchUuid][i]
 
@@ -221,13 +221,13 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	// 			i++
 	// 		}
 	// 	}
-	// 	c.mutext.Unlock()
+	// 	c.mutex.Unlock()
 
 	// 	retries++
 	// }
 
-	// c.mutext.Lock()
-	// defer c.mutext.Unlock()
+	// c.mutex.Lock()
+	// defer c.mutex.Unlock()
 
 	// // Force close all connections
 	// for _, branchConnection := range databaseGroup.branches[branchUuid] {
@@ -313,8 +313,8 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 		return nil, err
 	}
 
-	c.mutext.Lock()
-	defer c.mutext.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	// if c.databases[databaseUuid] != nil {
 	// 	c.databases[databaseUuid].lockMutex.Lock()
@@ -373,8 +373,8 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 }
 
 func (c *ConnectionManagerInstance) Release(databaseUuid string, branchUuid string, clientConnection *ClientConnection) {
-	c.mutext.Lock()
-	defer c.mutext.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	if c.databases[databaseUuid] == nil {
 		return
@@ -419,15 +419,15 @@ func (c *ConnectionManagerInstance) remove(databaseUuid string, branchUuid strin
 }
 
 func (c *ConnectionManagerInstance) Remove(databaseUuid string, branchUuid string, clientConnection *ClientConnection) {
-	c.mutext.Lock()
-	defer c.mutext.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.remove(databaseUuid, branchUuid, clientConnection)
 }
 
 func (c *ConnectionManagerInstance) RemoveIdleConnections() {
-	c.mutext.Lock()
-	defer c.mutext.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	for databaseUuid, database := range c.databases {
 		var activeBranches = len(database.branches)
@@ -596,8 +596,8 @@ func (c *ConnectionManagerInstance) Shutdown() {
 		}
 	}
 
-	c.mutext.Lock()
-	defer c.mutext.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	// Stop connection ticker
 	if c.connectionTicker != nil {
@@ -623,11 +623,11 @@ func (c *ConnectionManagerInstance) UpdateWal(
 	fileSha256 [32]byte,
 	timestamp int64,
 ) error {
-	c.mutext.Lock()
+	c.mutex.Lock()
 	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
 	c.databases[databaseUuid].branchWalSha256[branchUuid] = fileSha256
 	c.databases[databaseUuid].branchWalTimestamps[branchUuid] = timestamp
-	c.mutext.Unlock()
+	c.mutex.Unlock()
 
 	return nil
 }
@@ -638,8 +638,8 @@ func (c *ConnectionManagerInstance) Tick() {
 }
 
 func (c *ConnectionManagerInstance) WalTimestamp(databaseUuid, branchUuid string) (int64, error) {
-	c.mutext.Lock()
-	defer c.mutext.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
 

@@ -15,7 +15,7 @@ type DatabaseResourceManager struct {
 	checkpointLoggers map[string]*backups.CheckpointLogger
 	checkpointers     map[string]*Checkpointer
 	fileSystems       map[string]storage.DatabaseFileSystem
-	mutext            *sync.Mutex
+	mutex             *sync.Mutex
 	pageLoggers       map[string]*backups.PageLogger
 	tempFileSystems   map[string]storage.DatabaseFileSystem
 }
@@ -31,7 +31,7 @@ func DatabaseResources() *DatabaseResourceManager {
 		databaseResourceManager = &DatabaseResourceManager{
 			checkpointers:   map[string]*Checkpointer{},
 			fileSystems:     map[string]storage.DatabaseFileSystem{},
-			mutext:          &sync.Mutex{},
+			mutex:           &sync.Mutex{},
 			pageLoggers:     map[string]*backups.PageLogger{},
 			tempFileSystems: map[string]storage.DatabaseFileSystem{},
 		}
@@ -41,8 +41,8 @@ func DatabaseResources() *DatabaseResourceManager {
 }
 
 func (d *DatabaseResourceManager) CheckpointLogger(databaseUuid, branchUuid string) *backups.CheckpointLogger {
-	d.mutext.Lock()
-	defer d.mutext.Unlock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
 
@@ -58,18 +58,18 @@ func (d *DatabaseResourceManager) CheckpointLogger(databaseUuid, branchUuid stri
 }
 
 func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) (*Checkpointer, error) {
-	d.mutext.Lock()
+	d.mutex.Lock()
 
 	key := databaseUuid + ":" + branchUuid
 
 	if checkpointer, ok := d.checkpointers[key]; ok {
-		d.mutext.Unlock()
+		d.mutex.Unlock()
 		return checkpointer, nil
 	}
 
 	// Always unlock the mutex before creating a new checkpointer to avoid a
 	// deadlock when getting the FileSystem.
-	d.mutext.Unlock()
+	d.mutex.Unlock()
 
 	checkpointer, err := NewCheckpointer(
 		d.FileSystem(databaseUuid, branchUuid),
@@ -81,16 +81,16 @@ func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) 
 		return nil, err
 	}
 
-	d.mutext.Lock()
+	d.mutex.Lock()
 	d.checkpointers[key] = checkpointer
-	d.mutext.Unlock()
+	d.mutex.Unlock()
 
 	return checkpointer, nil
 }
 
 func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) storage.DatabaseFileSystem {
-	d.mutext.Lock()
-	defer d.mutext.Unlock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
 
 	if fileSystem, ok := d.fileSystems[hash]; ok {
@@ -143,8 +143,8 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 }
 
 func (d *DatabaseResourceManager) PageLogger(databaseUuid, branchUuid string) *backups.PageLogger {
-	d.mutext.Lock()
-	defer d.mutext.Unlock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
 
@@ -160,8 +160,8 @@ func (d *DatabaseResourceManager) PageLogger(databaseUuid, branchUuid string) *b
 }
 
 func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
-	d.mutext.Lock()
-	defer d.mutext.Unlock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
 
@@ -177,8 +177,8 @@ func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
 }
 
 func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string) storage.DatabaseFileSystem {
-	d.mutext.Lock()
-	defer d.mutext.Unlock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
 

@@ -18,13 +18,13 @@ import (
 )
 
 type NodePrimary struct {
-	mutext       *sync.RWMutex
+	mutex        *sync.RWMutex
 	queryBuilder NodeQueryBuilder
 }
 
 func NewNodePrimary(queryBuilder NodeQueryBuilder) *NodePrimary {
 	primary := &NodePrimary{
-		mutext:       &sync.RWMutex{},
+		mutex:        &sync.RWMutex{},
 		queryBuilder: queryBuilder,
 	}
 
@@ -263,14 +263,14 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 // 		return err
 // 	}
 
-// 	np.mutext.Lock()
+// 	np.mutex.Lock()
 
 // 	if _, ok := np.connections[id]; ok {
 // 		np.connections[id].Close()
 // 	}
 
 // 	np.connections[id] = connection
-// 	np.mutext.Unlock()
+// 	np.mutex.Unlock()
 
 // 	connection.confirmConnection()
 
@@ -278,16 +278,16 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 
 // 	connection.listen()
 
-// 	np.mutext.Lock()
+// 	np.mutex.Lock()
 // 	delete(np.connections, id)
-// 	np.mutext.Unlock()
+// 	np.mutex.Unlock()
 
 // 	return nil
 // }
 
 func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
-	np.mutext.RLock()
-	defer np.mutext.RUnlock()
+	np.mutex.RLock()
+	defer np.mutex.RUnlock()
 
 	nodes := OtherNodes()
 
@@ -367,8 +367,8 @@ func (np *NodePrimary) Start() error {
 }
 
 func (np *NodePrimary) Stop() {
-	// np.mutext.Lock()
-	// defer np.mutext.Unlock()
+	// np.mutex.Lock()
+	// defer np.mutex.Unlock()
 
 	// for _, connection := range np.connections {
 	// 	connection.Close()

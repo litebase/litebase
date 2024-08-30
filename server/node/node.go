@@ -44,7 +44,7 @@ type NodeInstance struct {
 	Id                      string
 	LeaseExpiresAt          int64
 	Membership              string
-	mutext                  *sync.Mutex
+	mutex                   *sync.Mutex
 	primaryAddress          string
 	primary                 *NodePrimary
 	replica                 *NodeReplica
@@ -64,7 +64,7 @@ func Node() *NodeInstance {
 			lastActive: time.Time{},
 			Membership: cluster.CLUSTER_MEMBERSHIP_STAND_BY,
 			// Membership: cluster.CLUSTER_MEMBERSHIP_REPLICA,
-			mutext:  &sync.Mutex{},
+			mutex:   &sync.Mutex{},
 			standBy: make(chan struct{}),
 			State:   NODE_STATE_ACTIVE,
 		}
@@ -537,8 +537,8 @@ func (n *NodeInstance) SetDatabaseWalSchronizer(synchronizer NodeDatabaseWalSync
 }
 
 func (n *NodeInstance) SetMembership(membership string) {
-	n.mutext.Lock()
-	defer n.mutext.Unlock()
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 
 	prevMembership := n.Membership
 

@@ -10,14 +10,14 @@ import (
 type PageLogger struct {
 	databaseUuid string
 	branchUuid   string
-	mutext       *sync.Mutex
+	mutex        *sync.Mutex
 }
 
 func NewPageLogger(databaseUuid, branchUuid string) *PageLogger {
 	return &PageLogger{
 		databaseUuid: databaseUuid,
 		branchUuid:   branchUuid,
-		mutext:       &sync.Mutex{},
+		mutex:        &sync.Mutex{},
 	}
 }
 
