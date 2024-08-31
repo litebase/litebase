@@ -24,12 +24,16 @@ func NewApp(server *ServerInstance) *App {
 		Server: server,
 	}
 
-	config.Init()
+	err := config.Init()
+
+	if err != nil {
+		panic(err)
+	}
 
 	storage.Init()
 
 	// TODO: Only all the Primary Node to do this
-	err := auth.InitSignature()
+	err = auth.InitSignature()
 
 	if err != nil {
 		panic(err)
