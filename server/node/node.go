@@ -128,6 +128,13 @@ func (n *NodeInstance) Address() string {
 	return n.address
 }
 
+func (n *NodeInstance) AddressPath() string {
+	// Replace the colon in the address with an underscore
+	address := strings.ReplaceAll(n.Address(), ":", "_")
+
+	return fmt.Sprintf("%s%s", cluster.NodePath(), address)
+}
+
 func (n *NodeInstance) Context() context.Context {
 	return n.context
 }
@@ -603,7 +610,7 @@ func (n *NodeInstance) Start() error {
 }
 
 func (n *NodeInstance) storeAddress() error {
-	return storage.ObjectFS().WriteFile(fmt.Sprintf("%s%s", cluster.NodePath(), n.Address()), []byte(n.Address()), 0644)
+	return storage.ObjectFS().WriteFile(n.AddressPath(), []byte(n.Address()), 0644)
 }
 
 func (n *NodeInstance) Tick() {
@@ -795,7 +802,8 @@ func Instances() []string {
 	instances := []string{}
 
 	for _, file := range files {
-		instances = append(instances, strings.ReplaceAll(file.Name, ".json", ""))
+		address := strings.ReplaceAll(file.Name, "_", ":")
+		instances = append(instances, address)
 	}
 
 	return instances

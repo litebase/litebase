@@ -14,6 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/klauspost/compress/s2"
 )
 
 type ObjectFile struct {
@@ -56,10 +57,12 @@ func (o *ObjectFile) Close() error {
 		return nil
 	}
 
+	compressed := s2.Encode(nil, o.data)
+
 	_, err := o.client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(config.Get().StorageBucket),
 		Key:    aws.String(o.Key),
-		Body:   bytes.NewReader(o.data),
+		Body:   bytes.NewReader(compressed),
 	})
 
 	if err != nil {
@@ -78,7 +81,11 @@ func (o *ObjectFile) Read(p []byte) (n int, err error) {
 
 	n = copy(p, o.data)
 
-	return n, nil
+	if n == len(o.data) {
+		err = io.EOF
+	}
+
+	return n, err
 }
 
 // Read bytes from the file at a specific offset.
@@ -136,10 +143,12 @@ func (o *ObjectFile) Sync() error {
 		return os.ErrPermission
 	}
 
+	compressed := s2.Encode(nil, o.data)
+
 	_, err := o.client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(config.Get().StorageBucket),
 		Key:    aws.String(o.Key),
-		Body:   bytes.NewReader(o.data),
+		Body:   bytes.NewReader(compressed),
 	})
 
 	if err != nil {
@@ -168,10 +177,12 @@ func (o *ObjectFile) Truncate(size int64) error {
 		o.data = o.data[:size]
 	}
 
+	compressed := s2.Encode(nil, o.data)
+
 	_, err := o.client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(config.Get().StorageBucket),
 		Key:    aws.String(o.Key),
-		Body:   bytes.NewReader(o.data),
+		Body:   bytes.NewReader(compressed),
 	})
 
 	if err != nil {
@@ -180,6 +191,14 @@ func (o *ObjectFile) Truncate(size int64) error {
 	}
 
 	return nil
+}
+
+func (o *ObjectFile) WithData(data []byte) *ObjectFile {
+	if len(data) > 0 {
+		o.data = append(o.data, data...)
+	}
+
+	return o
 }
 
 // Write bytes to the file at the current offset.

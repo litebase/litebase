@@ -10,7 +10,6 @@ import (
 	"litebase/server/storage"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/google/uuid"
@@ -100,7 +99,7 @@ func All() ([]*Database, error) {
 }
 
 func Delete(database *Database) error {
-	path := fmt.Sprintf("%s%s.json", Directory(), database.Id)
+	path := fmt.Sprintf("%s%s", Directory(), database.Id)
 
 	if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("database '%s' does not exist", database.Id)
@@ -121,38 +120,6 @@ func Delete(database *Database) error {
 
 func Directory() string {
 	return "_databases/"
-}
-
-func EnsureDatabaseExists(databaseUuid string, branchUuid string) error {
-	database, err := Get(databaseUuid)
-
-	if err != nil {
-		return fmt.Errorf("Database %s has not been configured", databaseUuid)
-	}
-
-	path := database.BranchDatabaseFile(branchUuid)
-
-	if _, err := storage.ObjectFS().Stat(filepath.Dir(path)); os.IsNotExist(err) {
-		storage.ObjectFS().MkdirAll(filepath.Dir(path), 0755)
-	}
-
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/backups", filepath.Dir(path))); os.IsNotExist(err) {
-		storage.ObjectFS().MkdirAll(filepath.Dir(path)+"/backups", 0755)
-	}
-
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/restore_points", filepath.Dir(path))); os.IsNotExist(err) {
-		storage.ObjectFS().MkdirAll(fmt.Sprintf("%s/restore_points", filepath.Dir(path))+"/restore_points", 0755)
-	}
-
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/logs", filepath.Dir(path))); os.IsNotExist(err) {
-		storage.ObjectFS().MkdirAll(fmt.Sprintf("%s/restore_points", filepath.Dir(path))+"/restore_points", 0755)
-	}
-
-	if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
-		storage.ObjectFS().WriteFile(path, []byte(""), 0666)
-	}
-
-	return nil
 }
 
 func Exists(name string) bool {
@@ -253,10 +220,6 @@ func (database *Database) MarshalJSON() ([]byte, error) {
 
 func (database *Database) BranchDirectory(branchUuid string) string {
 	return fmt.Sprintf("%s%s/%s", Directory(), database.Id, branchUuid)
-}
-
-func (database *Database) BranchDatabaseFile(branchUuid string) string {
-	return fmt.Sprintf("%s/%s", database.BranchDirectory(branchUuid), "database.sqlite")
 }
 
 func (database *Database) Url(branchUuid string) string {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"litebase/server/database"
 	"litebase/server/node"
+	"litebase/server/storage"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -94,7 +95,12 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 func (s *ServerInstance) Shutdown(ctx context.Context) {
 	fmt.Println("")
 	s.cancel()
+
+	// Shutdown all connections
 	database.ConnectionManager().Shutdown()
+
+	// Shutdown any storage resources
+	storage.Shutdown()
 
 	// Create a context with a timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)

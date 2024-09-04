@@ -75,7 +75,7 @@ func TestDataRangeWriteAt(t *testing.T) {
 			}
 		}
 
-		info, err := storage.LocalFS().Stat(fmt.Sprintf("TEST_DATA_RANGE/%010d", 1))
+		info, err := storage.LocalFS().Stat(fmt.Sprintf("TEST_DATA_RANGE/%010d/", 1))
 
 		if err != nil {
 			t.Errorf("Failed to get file info, expected nil, got %s", err)
@@ -156,7 +156,7 @@ func TestDataRangeRemove(t *testing.T) {
 		}
 
 		// Verify the data range is removed
-		_, err = storage.LocalFS().Stat(fmt.Sprintf("%s/TEST_DATA_RANGE/%010d", config.Get().DataPath, 1))
+		_, err = storage.LocalFS().Stat(fmt.Sprintf("%s/TEST_DATA_RANGE/%010d/", config.Get().DataPath, 1))
 
 		if err == nil {
 			t.Errorf("Remove() failed, expected error, got nil")

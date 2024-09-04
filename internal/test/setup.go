@@ -14,7 +14,7 @@ import (
 
 var envDataPath string
 
-func Setup(t *testing.T) {
+func Setup(t testing.TB) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	err := godotenv.Load("./../../.env.test")
@@ -43,7 +43,6 @@ func Setup(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-
 }
 
 func Teardown() {
@@ -57,7 +56,7 @@ func Teardown() {
 	}
 }
 
-func Run(t *testing.T, callback func()) {
+func Run(t testing.TB, callback func()) {
 	Setup(t)
 	callback()
 	Teardown()

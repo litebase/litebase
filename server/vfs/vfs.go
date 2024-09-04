@@ -80,6 +80,7 @@ func RegisterVFS(
 
 	l.writeHook()
 
+	log.Println("Registered VFS", vfsId)
 	VfsMap[vfsId] = l
 
 	return nil

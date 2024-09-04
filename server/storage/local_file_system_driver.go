@@ -1,20 +1,28 @@
 package storage
 
 import (
-	"fmt"
+	"bytes"
 	"io/fs"
 	"os"
+	"strings"
+	"sync"
 
 	internalStorage "litebase/internal/storage"
 )
 
 type LocalFileSystemDriver struct {
 	basePath string
+	buffers  sync.Pool
 }
 
 func NewLocalFileSystemDriver(basePath string) *LocalFileSystemDriver {
 	return &LocalFileSystemDriver{
 		basePath: basePath,
+		buffers: sync.Pool{
+			New: func() interface{} {
+				return bytes.NewBuffer(make([]byte, 1024))
+			},
+		},
 	}
 }
 
@@ -39,7 +47,14 @@ func (fs *LocalFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMod
 }
 
 func (fs *LocalFileSystemDriver) path(path string) string {
-	return fmt.Sprintf("%s/%s", fs.basePath, path)
+	var builder strings.Builder
+
+	builder.Grow(len(fs.basePath) + 1 + len(path)) // Preallocate memory
+	builder.WriteString(fs.basePath)
+	builder.WriteString("/")
+	builder.WriteString(path)
+
+	return builder.String()
 }
 
 func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
@@ -62,7 +77,13 @@ func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntr
 }
 
 func (fs *LocalFileSystemDriver) ReadFile(path string) ([]byte, error) {
-	return os.ReadFile(fs.path(path))
+	data, err := os.ReadFile(fs.path(path))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (fs *LocalFileSystemDriver) Remove(path string) error {
@@ -74,7 +95,7 @@ func (fs *LocalFileSystemDriver) RemoveAll(path string) error {
 }
 
 func (fs *LocalFileSystemDriver) Rename(oldpath, newpath string) error {
-	return os.Rename(fs.path(oldpath), fs.path(oldpath))
+	return os.Rename(fs.path(oldpath), fs.path(newpath))
 }
 
 func (fs *LocalFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {

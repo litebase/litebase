@@ -3,9 +3,9 @@ package storage
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
-	"log"
 	"os"
 )
 
@@ -67,7 +67,13 @@ func (d *DatabaseMetadata) Load() error {
 	// Read the first 8 bytes to get the page count
 	data := make([]byte, 8)
 
-	_, err := d.file.Read(data)
+	_, err := d.file.Seek(0, io.SeekStart)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = d.file.Read(data)
 
 	if err != nil {
 		return err
@@ -92,7 +98,7 @@ func (d *DatabaseMetadata) Save() error {
 
 	// Write the page count
 	binary.LittleEndian.PutUint64(data, uint64(d.PageCount))
-	log.Println("WRITING PAGE COUNT", d.PageCount)
+
 	_, err := d.file.WriteAt(data, 0)
 
 	return err

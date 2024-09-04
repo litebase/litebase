@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -22,6 +21,7 @@ type QueryLog struct {
 	branchUuid     string
 	databaseUuid   string
 	file           internalStorage.File
+	keyBuffer      *bytes.Buffer
 	mutex          sync.RWMutex
 	path           string
 	queryHasher    hash.Hash64
@@ -60,6 +60,7 @@ func GetQueryLog(databaseHash, databaseUuid, branchUuid string) *QueryLog {
 		queryLoggers[databaseHash] = &QueryLog{
 			branchUuid:   branchUuid,
 			databaseUuid: databaseUuid,
+			keyBuffer:    bytes.NewBuffer(make([]byte, 20)),
 			mutex:        sync.RWMutex{},
 			path:         path,
 			queryHasher:  crc64.New(crc64.MakeTable(crc64.ISO)),
@@ -302,8 +303,6 @@ func (q *QueryLog) Watch() {
 }
 
 func (q *QueryLog) Write(accessKeyId, statement string, latency float64) {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
 
 	timestamp := time.Now().UTC().Truncate(time.Second)
 
@@ -314,18 +313,32 @@ func (q *QueryLog) Write(accessKeyId, statement string, latency float64) {
 	buffer.WriteString("access_key_id=")
 	buffer.WriteString(accessKeyId)
 	buffer.WriteString(" statement=")
-	buffer.WriteString(strings.ToLower(statement))
+
+	// Lowercase the statement
+	statementBytes := []byte(statement)
+
+	for i := 0; i < len(statement); i++ {
+		char := statementBytes[i]
+		if char >= 'A' && char <= 'Z' {
+			char += 'a' - 'A'
+		}
+
+		buffer.WriteByte(char)
+	}
 
 	logData := buffer.Bytes()
 	q.queryHasher.Reset()
 	q.queryHasher.Write(logData)
 	checksum := q.queryHasher.Sum64()
 	// Convert the checksum to a hexadecimal
-	key := strconv.FormatUint(checksum, 16)
+	q.keyBuffer.Reset()
+	// key := strconv.FormatUint(checksum, 16)
+
+	q.keyBuffer.Write(strconv.AppendUint(q.keyBuffer.Bytes()[:0], checksum, 16))
 
 	// Check if the statement is already in the dictionary
-	if _, ok := q.GetStatementIndex().Get(key); !ok {
-		err := q.GetStatementIndex().Set(key, string(logData))
+	if _, ok := q.GetStatementIndex().Get(q.keyBuffer.String()); !ok {
+		err := q.GetStatementIndex().Set(q.keyBuffer.String(), string(logData))
 
 		if err != nil {
 			log.Fatal(err)
@@ -333,8 +346,18 @@ func (q *QueryLog) Write(accessKeyId, statement string, latency float64) {
 	}
 
 	if !q.watching {
-		go q.Watch()
+		q.mutex.Lock()
+		shouldWatch := !q.watching
+
+		if shouldWatch {
+			q.Watch()
+		}
+
+		q.mutex.Unlock()
 	}
+
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 
 	if _, ok := q.queue[timestamp]; !ok {
 		q.queue[timestamp] = map[uint64]*QueryMetric{}
@@ -343,14 +366,11 @@ func (q *QueryLog) Write(accessKeyId, statement string, latency float64) {
 	metric, ok := q.queue[timestamp][checksum]
 
 	if !ok {
-		q.queue[timestamp][checksum] = &QueryMetric{
-			id:        checksum,
-			Count:     1,
-			latencies: []float64{latency},
-			Timestamp: uint32(timestamp.UTC().Unix()),
-		}
+		q.queue[timestamp][checksum] = NewQueryMetric(timestamp.UTC().Unix(), checksum)
+		q.queue[timestamp][checksum].AddLatency(latency)
+
 		return
 	}
 
-	metric.latencies = append(metric.latencies, latency)
+	metric.AddLatency(latency)
 }

@@ -253,8 +253,8 @@ func (s *SecretsManagerInstance) Init() {
 	}
 
 	// Ensure the access keys path exists
-	if _, err := storage.ObjectFS().Stat(s.SecretsPath(config.Get().Signature, "access_keys")); os.IsNotExist(err) {
-		err := storage.ObjectFS().MkdirAll(s.SecretsPath(config.Get().Signature, "access_keys"), 0755)
+	if _, err := storage.ObjectFS().Stat(s.SecretsPath(config.Get().Signature, "access_keys/")); os.IsNotExist(err) {
+		err := storage.ObjectFS().MkdirAll(s.SecretsPath(config.Get().Signature, "access_keys/"), 0755)
 
 		if err != nil {
 			log.Fatal(err)
@@ -262,8 +262,8 @@ func (s *SecretsManagerInstance) Init() {
 	}
 
 	// Ensure the settings path exists
-	if _, err := storage.ObjectFS().Stat(s.SecretsPath(config.Get().Signature, "settings")); os.IsNotExist(err) {
-		err := storage.ObjectFS().MkdirAll(s.SecretsPath(config.Get().Signature, "settings"), 0755)
+	if _, err := storage.ObjectFS().Stat(s.SecretsPath(config.Get().Signature, "settings/")); os.IsNotExist(err) {
+		err := storage.ObjectFS().MkdirAll(s.SecretsPath(config.Get().Signature, "settings/"), 0755)
 
 		if err != nil {
 			log.Fatal(err)

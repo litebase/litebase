@@ -109,7 +109,7 @@ func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
 	}
 
 	// Create the signature directory if it does not exist
-	signatureDirectory := Path(signature)
+	signatureDirectory := Path(signature) + "/"
 
 	if _, err := storage.ObjectFS().Stat(signatureDirectory); os.IsNotExist(err) {
 		if err := storage.ObjectFS().MkdirAll(signatureDirectory, 0755); err != nil {

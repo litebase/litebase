@@ -12,16 +12,39 @@ import (
 // A query metric is a snapshot of the query performance at a given time. These
 // statistics can be stored on disk and only take 64 bytes of space.
 type QueryMetric struct {
-	id         uint64
-	Count      uint32 `json:"count"`
-	latencies  []float64
-	LatencyAvg float64 `json:"latency_avg"`
-	LatencyMin float64 `json:"latency_min"`
-	LatencyMax float64 `json:"latency_max"`
-	LatencyP50 float64 `json:"latency_p50"`
-	LatencyP90 float64 `json:"latency_p90"`
-	LatencyP99 float64 `json:"latency_p99"`
-	Timestamp  uint32  `json:"timestamp"`
+	id           uint64
+	Count        uint32 `json:"count"`
+	latencies    []float64
+	latencyIndex int
+	LatencyAvg   float64 `json:"latency_avg"`
+	LatencyMin   float64 `json:"latency_min"`
+	LatencyMax   float64 `json:"latency_max"`
+	LatencyP50   float64 `json:"latency_p50"`
+	LatencyP90   float64 `json:"latency_p90"`
+	LatencyP99   float64 `json:"latency_p99"`
+	Timestamp    uint32  `json:"timestamp"`
+}
+
+const LatencyBufferSize = 128
+
+func NewQueryMetric(timestamp int64, id uint64) *QueryMetric {
+	return &QueryMetric{
+		id:           id,
+		Count:        1,
+		latencyIndex: 0,
+		latencies:    make([]float64, LatencyBufferSize),
+		Timestamp:    uint32(timestamp),
+	}
+}
+
+func (q *QueryMetric) AddLatency(latency float64) {
+	if q.latencyIndex >= len(q.latencies) {
+		// Grow the slice
+		q.latencies = append(q.latencies, make([]float64, LatencyBufferSize)...)
+	}
+
+	q.latencies[q.latencyIndex] = latency
+	q.latencyIndex++
 }
 
 func (q *QueryMetric) Bytes(buf *bytes.Buffer) []byte {

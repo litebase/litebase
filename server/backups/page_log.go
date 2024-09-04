@@ -1,6 +1,7 @@
 package backups
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	internalStorage "litebase/internal/storage"
@@ -56,10 +57,10 @@ func (p *PageLog) Close() {
 	p.file.Close()
 }
 
-func (p *PageLog) Append(entry *PageLogEntry) error {
+func (p *PageLog) Append(compressionBuffer *bytes.Buffer, entry *PageLogEntry) error {
 	p.file.Seek(0, io.SeekEnd)
 
-	serialized, err := entry.Serialize()
+	serialized, err := entry.Serialize(compressionBuffer)
 
 	if err != nil {
 		return err

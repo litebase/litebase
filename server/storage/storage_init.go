@@ -4,3 +4,5 @@
 package storage
 
 func Init() {}
+
+func Shutdown() {}

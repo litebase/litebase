@@ -83,36 +83,6 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
   }
   else
   {
-    // LitebaseVFS *vfs = vfsFromFile(pFile);
-
-    // if (vfs == NULL)
-    // {
-    //   vfs_log("VFS is NULL\n");
-
-    //   return SQLITE_ERROR;
-    // }
-
-    // int pgNumber = pageNumber(iOfst, vfs->pageSize);
-
-    // DataRange *dr = LitebaseVFSGetRangeFile(vfs, pageRange(pgNumber), vfs->pageSize);
-
-    // if (dr == NULL)
-    // {
-    //   vfs_log("DataRange is NULL\n");
-
-    //   return SQLITE_ERROR;
-    // }
-
-    // int readBytes = 0;
-
-    // rc = DataRangeReadAt(dr, zBuf, iAmt, pgNumber, &readBytes);
-
-    // // After reading page 1, mark the vfs as having page one so that we can
-    // // return the computed file size.
-    // if (pgNumber == 1 && readBytes > 0)
-    // {
-    //   vfs->hasPageOne = 1;
-    // }
     rc = goXRead(pFile, zBuf, iAmt, iOfst);
   }
 

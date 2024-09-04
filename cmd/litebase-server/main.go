@@ -3,6 +3,7 @@ package main
 import (
 	"litebase/server"
 	"log"
+	"runtime"
 
 	"github.com/joho/godotenv"
 
@@ -12,6 +13,8 @@ import (
 
 func main() {
 	go func() {
+		runtime.SetBlockProfileRate(1)
+
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 

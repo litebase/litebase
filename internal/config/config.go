@@ -27,6 +27,7 @@ type Config struct {
 	SignatureNext        string
 	StorageBucket        string
 	StorageEndpoint      string
+	StorageRegion        string
 	StorageMode          string
 	StoragePort          string
 	TmpPath              string
@@ -66,6 +67,7 @@ func NewConfig() *Config {
 		Signature:            env("LITEBASE_SIGNATURE", "").(string),
 		StorageBucket:        env("LITEBASE_STORAGE_BUCKET", "").(string),
 		StorageEndpoint:      env("LITEBASE_STORAGE_ENDPOINT", "").(string),
+		StorageRegion:        env("LITEBASE_STORAGE_REGION", "").(string),
 		StorageMode:          env("LITEBASE_STORAGE_MODE", "local").(string),
 		TmpPath:              env("LITEBASE_TMP_PATH", "").(string),
 	}

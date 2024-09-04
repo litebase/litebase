@@ -192,6 +192,9 @@ Where there is a remainder, we need to remove the last range file and truncate
 the range file that contains the last page that needs to be removed.
 */
 func (dfs *DurableDatabaseFileSystem) Truncate(path string, size int64) error {
+	dfs.mutex.Lock()
+	defer dfs.mutex.Unlock()
+
 	currentSize := dfs.metadata.FileSize()
 
 	if size >= currentSize {

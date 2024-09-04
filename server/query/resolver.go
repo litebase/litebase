@@ -84,7 +84,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		response.Rows = sqlite3Result.Rows
 		response.RowCount = len(sqlite3Result.Rows)
 
-		go logs.Query(
+		logs.Query(
 			logs.QueryLogEnry{
 				DatabaseHash: query.DatabaseKey.DatabaseHash,
 				DatabaseUuid: query.DatabaseKey.DatabaseUuid,
