@@ -25,6 +25,7 @@ type TieredFileSystemDriver struct {
 	localFileSystemDriver   FileSystemDriver
 	mutex                   *sync.RWMutex
 	durableFileSystemDriver FileSystemDriver
+	WriteInterval           time.Duration
 	watchTicker             *time.Ticker
 }
 
@@ -32,17 +33,25 @@ const (
 	TieredFileTTL = 1 * time.Hour
 )
 
+type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
+
 /*
 Create a new instance of a tiered file system driver. This driver will manage
 files that are stored on the local file system and durable file system.
 */
-func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver FileSystemDriver, durableFileSystemDriver FileSystemDriver) *TieredFileSystemDriver {
+func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver FileSystemDriver, durableFileSystemDriver FileSystemDriver, f ...TieredFileSystemNewFunc) *TieredFileSystemDriver {
 	fsd := &TieredFileSystemDriver{
 		context:                 context,
 		Files:                   map[string]*TieredFile{},
 		localFileSystemDriver:   localFileSystemDriver,
 		mutex:                   &sync.RWMutex{},
 		durableFileSystemDriver: durableFileSystemDriver,
+	}
+
+	if len(f) > 0 {
+		for _, fn := range f {
+			fn(context, fsd)
+		}
 	}
 
 	go fsd.watchForFileChanges()
@@ -468,7 +477,7 @@ storage in the last minute, the file will be written to durable storage. If a
 file has been closed, the file will be released.
 */
 func (fsd *TieredFileSystemDriver) watchForFileChanges() {
-	fsd.watchTicker = time.NewTicker(1 * time.Second)
+	fsd.watchTicker = time.NewTicker(1 * fsd.WriteInterval)
 
 	for {
 		select {

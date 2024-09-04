@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-// Test that files are durably stored properly using the watch and writeback mechanism.
 // File access with different permissions should be tested how it affects local file access
 
 func TestNewTieredFileSystemDriver(t *testing.T) {
@@ -892,6 +891,48 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 					t.Errorf("expected (%v, %v), got (%v, %v)", tt.expected, tt.ok, file, ok)
 				}
 			})
+		}
+	})
+}
+
+func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
+	test.Run(t, func() {
+		os.MkdirAll(config.Get().DataPath+"/local/", 0755)
+		os.MkdirAll(config.Get().DataPath+"/object/", 0755)
+
+		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			dfsd,
+			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
+				tieredFileSystemDriver.WriteInterval = time.Millisecond * 1
+			},
+		)
+
+		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.Create returned nil")
+		}
+
+		tieredFile.Write([]byte("test"))
+
+		time.Sleep(time.Millisecond * 2)
+
+		data, err := dfsd.ReadFile("test.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if string(data) != "test" {
+			t.Errorf("TieredFileSystemDriver.WriteFile returned incorrect data, got %s", data)
 		}
 	})
 }

@@ -25,6 +25,8 @@ import (
 	"github.com/klauspost/compress/s2"
 )
 
+// TODO: Remove AWS SDK
+
 type ObjectFileSystemDriver struct {
 	bucket   *string
 	buffers  sync.Pool
