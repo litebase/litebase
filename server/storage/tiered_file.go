@@ -194,7 +194,11 @@ func (f *TieredFile) Truncate(size int64) error {
 }
 
 func (f *TieredFile) Write(p []byte) (n int, err error) {
-	if f.Flag == os.O_RDONLY {
+	if f.Flag&os.O_RDONLY != 0 {
+		return 0, fs.ErrInvalid
+	}
+
+	if f.Flag&os.O_WRONLY == 0 && f.Flag&os.O_RDWR == 0 {
 		return 0, fs.ErrInvalid
 	}
 

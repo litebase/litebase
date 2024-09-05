@@ -46,6 +46,7 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 		localFileSystemDriver:   localFileSystemDriver,
 		mutex:                   &sync.RWMutex{},
 		durableFileSystemDriver: durableFileSystemDriver,
+		WriteInterval:           1 * time.Minute,
 	}
 
 	if len(f) > 0 {
@@ -188,8 +189,12 @@ a new tiered file durable that will be used to manage the file.
 */
 func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
 	if file, ok := fsd.GetLocalFile(path); ok {
-		// TODO: Compare the flags and permissions to ensure they match
-		return file, nil
+		// Compare the flags to ensure they match
+		if file.Flag&flag == flag {
+			return file, nil
+		}
+
+		file.Close()
 	}
 
 	// To open a file, we need to first try and read the file from the durable storage
@@ -199,7 +204,6 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	// on the local file system.
 	if err != nil {
 		if os.IsNotExist(err) && (flag&os.O_CREATE) != os.O_CREATE {
-			log.Println("File does not exist in durable storage", path)
 			return nil, err
 		}
 	}
@@ -299,7 +303,7 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 		fsd.mutex.RUnlock()
 
 		file.Seek(0, io.SeekStart)
-		log.Println("Reading file from local storage", path)
+
 		return io.ReadAll(file)
 	}
 

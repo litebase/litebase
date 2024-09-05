@@ -6,13 +6,10 @@ import (
 	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server/storage"
-	"log"
 	"os"
 	"testing"
 	"time"
 )
-
-// File access with different permissions should be tested how it affects local file access
 
 func TestNewTieredFileSystemDriver(t *testing.T) {
 	test.Run(t, func() {
@@ -59,8 +56,6 @@ func TestTieredFileSystemDriverCreate(t *testing.T) {
 		if info == nil {
 			t.Error("TieredFileSystemDriver.Stat returned nil")
 		}
-
-		log.Println(info)
 	})
 }
 
@@ -933,6 +928,390 @@ func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 
 		if string(data) != "test" {
 			t.Errorf("TieredFileSystemDriver.WriteFile returned incorrect data, got %s", data)
+		}
+	})
+}
+
+func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
+	test.Run(t, func() {
+		os.MkdirAll(config.Get().DataPath+"/local/", 0755)
+		os.MkdirAll(config.Get().DataPath+"/object/", 0755)
+
+		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			dfsd,
+		)
+
+		// Test open read only file that does not exist
+		_, err := tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0644)
+
+		if err == nil || !os.IsNotExist(err) {
+			t.Errorf("TieredFileSystemDriver.OpenFile should return os.IsNotExist error, got %v", err)
+		}
+
+		tieredFile, err := tieredFileSystemDriver.Create("test")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.Create returned nil")
+		}
+
+		tieredFile.Close()
+
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Attempting to write to a read only file should return an error
+		_, err = tieredFile.Write([]byte("test"))
+
+		if err == nil {
+			t.Error("TieredFileSystemDriver.Write should return an error")
+		}
+
+		if tieredFile != nil {
+			tieredFile.Close()
+		}
+
+		// Create a new file
+		_, err = tieredFileSystemDriver.Create("test2")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Test opening a write only file
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test2", os.O_WRONLY, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Should be able to write to the file
+		n, err := tieredFile.Write([]byte("test"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != 4 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Create a new file
+		_, err = tieredFileSystemDriver.Create("test3")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Test opening a read write file
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test3", os.O_RDWR, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Should be able to read and write to the file
+		tieredFile.Write([]byte("test"))
+
+		tieredFile.Seek(0, io.SeekStart)
+
+		data := make([]byte, 4)
+
+		_, err = tieredFile.Read(data)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Test opening a file with create flag
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Test opening a file with create flag and read write flag
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE|os.O_RDWR, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != 4 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Test opening a file with append flag
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test5", os.O_CREATE|os.O_APPEND, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err == nil {
+			t.Error("TieredFileSystemDriver.Write should return an error")
+		}
+
+		if n != 0 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Test opening a file with truncate flag
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test6", os.O_CREATE|os.O_TRUNC, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err == nil {
+			t.Error("TieredFileSystemDriver.Write should return an error")
+		}
+
+		if n != 0 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Test opening a file with append and read write flags
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test7", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != 4 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Read from the file
+		tieredFile.Seek(0, io.SeekStart)
+
+		data = make([]byte, 4)
+
+		_, err = tieredFile.Read(data)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if string(data) != "test" {
+			t.Errorf("TieredFileSystemDriver.OpenFile returned incorrect data, got %s", data)
+		}
+
+		// Test opening a file with truncate and read write flags
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test8", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != 4 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Read from the file
+		tieredFile.Seek(0, io.SeekStart)
+
+		data = make([]byte, 4)
+
+		_, err = tieredFile.Read(data)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if string(data) != "test" {
+			t.Errorf("TieredFileSystemDriver.OpenFile returned incorrect data, got %s", data)
+		}
+
+		// Test opening a file with append and read only flags
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test9", os.O_CREATE|os.O_APPEND|os.O_RDONLY, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err == nil {
+			t.Error("TieredFileSystemDriver.Write should return an error")
+		}
+
+		if n != 0 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Test opening a file with truncate and read only flags
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test10", os.O_CREATE|os.O_TRUNC|os.O_RDONLY, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err == nil {
+			t.Error("TieredFileSystemDriver.Write should return an error")
+		}
+
+		if n != 0 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Test opening a file with append and write only flags
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test11", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != 4 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Read from the file
+		tieredFile.Seek(0, io.SeekStart)
+
+		data = make([]byte, 4)
+
+		_, err = tieredFile.Read(data)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if string(data) != "test" {
+			t.Errorf("TieredFileSystemDriver.OpenFile returned incorrect data, got %s", data)
+		}
+
+		// Test opening a file with truncate and write only flags
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test12", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.OpenFile returned nil")
+		}
+
+		// Write to the file
+		n, err = tieredFile.Write([]byte("test"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != 4 {
+			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+
+		// Read from the file
+		tieredFile.Seek(0, io.SeekStart)
+
+		data = make([]byte, 4)
+
+		_, err = tieredFile.Read(data)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if string(data) != "test" {
+			t.Errorf("TieredFileSystemDriver.OpenFile returned incorrect data, got %s", data)
 		}
 	})
 }
