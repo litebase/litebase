@@ -251,9 +251,6 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 		return nil, err
 	}
 
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
 	newFile := fsd.AddFile(path, file, flag)
 
 	return newFile, nil
