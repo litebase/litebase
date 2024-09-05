@@ -8,7 +8,6 @@ import (
 	internalStorage "litebase/internal/storage"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
 )
@@ -52,7 +51,7 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 		MaxFiledOpened:          TieredFileSystemMaxOpenFiles,
 		mutex:                   &sync.RWMutex{},
 		durableFileSystemDriver: durableFileSystemDriver,
-		WriteInterval:           1 * time.Minute,
+		WriteInterval:           1 * time.Second,
 	}
 
 	if len(f) > 0 {
@@ -140,9 +139,6 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile) {
 
 	// Update the last written time to indicate the file is synced
 	file.WrittenAt = time.Now()
-	if strings.Contains(file.Key, "_METADATA") {
-		log.Println("File flushed to durable storage", file.Key)
-	}
 }
 
 func (fsd *TieredFileSystemDriver) GetLocalFile(path string) (*TieredFile, bool) {
@@ -493,7 +489,7 @@ storage in the last minute, the file will be written to durable storage. If a
 file has been closed, the file will be released.
 */
 func (fsd *TieredFileSystemDriver) watchForFileChanges() {
-	fsd.watchTicker = time.NewTicker(1 * fsd.WriteInterval)
+	fsd.watchTicker = time.NewTicker(fsd.WriteInterval)
 
 	for {
 		select {
