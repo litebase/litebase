@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"container/list"
 	"context"
 	"io"
 	"io/fs"
@@ -21,9 +22,10 @@ type TieredFileSystemDriver struct {
 	context                 context.Context
 	durableFileSystemDriver FileSystemDriver
 	FileCount               int
+	FileOrder               *list.List
 	Files                   map[string]*TieredFile
 	localFileSystemDriver   FileSystemDriver
-	maxFilesOpened          int
+	MaxFiledOpened          int
 	mutex                   *sync.RWMutex
 	WriteInterval           time.Duration
 	watchTicker             *time.Ticker
@@ -44,9 +46,10 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 	fsd := &TieredFileSystemDriver{
 		context:                 context,
 		FileCount:               0,
+		FileOrder:               list.New(),
 		Files:                   map[string]*TieredFile{},
 		localFileSystemDriver:   localFileSystemDriver,
-		maxFilesOpened:          TieredFileSystemMaxOpenFiles,
+		MaxFiledOpened:          TieredFileSystemMaxOpenFiles,
 		mutex:                   &sync.RWMutex{},
 		durableFileSystemDriver: durableFileSystemDriver,
 		WriteInterval:           1 * time.Minute,
@@ -63,6 +66,28 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 	return fsd
 }
 
+func (fsd *TieredFileSystemDriver) AddFile(path string, file internalStorage.File, flag int) *TieredFile {
+	if fsd.FileCount >= fsd.MaxFiledOpened {
+		fsd.RemoveOldestFile()
+	}
+
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	fsd.Files[path] = NewTieredFile(
+		fsd,
+		path,
+		file,
+		flag,
+	)
+
+	element := fsd.FileOrder.PushBack(fsd.Files[path])
+	fsd.Files[path].Element = element
+	fsd.FileCount++
+
+	return fsd.Files[path]
+}
+
 /*
 Creating a new file istantiates a new file durable that will be used to manage
 the file on the local file system. When the file is closed, or written to, it
@@ -75,23 +100,13 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 		return nil, err
 	}
 
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
+	newFile := fsd.AddFile(path, file, os.O_CREATE|os.O_RDWR)
 
-	fsd.Files[path] = NewTieredFile(
-		fsd,
-		path,
-		file,
-		os.O_CREATE|os.O_RDWR,
-	)
+	newFile.MarkUpdated()
 
-	fsd.FileCount++
+	fsd.flushFileToDurableStorage(newFile)
 
-	fsd.Files[path].MarkUpdated()
-
-	fsd.flushFileToDurableStorage(fsd.Files[path])
-
-	return fsd.Files[path], nil
+	return newFile, nil
 }
 
 /*
@@ -239,16 +254,9 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
 
-	fsd.Files[path] = NewTieredFile(
-		fsd,
-		path,
-		file,
-		flag,
-	)
+	newFile := fsd.AddFile(path, file, flag)
 
-	fsd.FileCount++
-
-	return fsd.Files[path], nil
+	return newFile, nil
 }
 
 /*
@@ -273,6 +281,7 @@ func (fsd *TieredFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEn
 		}
 
 		if !entry.IsDir {
+			fsd.AddFile(path+"/"+entry.Name, nil, os.O_RDONLY)
 			fsd.Files[entry.Name] = NewTieredFile(
 				fsd,
 				path+"/"+entry.Name,
@@ -400,6 +409,24 @@ func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
 	}
 
 	return fsd.durableFileSystemDriver.RemoveAll(path)
+}
+
+func (fsd *TieredFileSystemDriver) RemoveOldestFile() {
+	fsd.mutex.Lock()
+
+	element := fsd.FileOrder.Front()
+
+	if element == nil {
+		fsd.mutex.Unlock()
+		return
+	}
+
+	file := element.Value.(*TieredFile)
+
+	fsd.FileOrder.Remove(element)
+	fsd.mutex.Unlock()
+
+	fsd.ReleaseFile(file)
 }
 
 /*

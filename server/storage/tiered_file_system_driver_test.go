@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"litebase/internal/config"
+	internalStorage "litebase/internal/storage"
 	"litebase/internal/test"
 	"litebase/server/storage"
 	"os"
@@ -1309,6 +1310,64 @@ func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 
 		if tieredFileSystemDriver.FileCount != 0 {
 			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		}
+	})
+}
+
+func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
+	test.Run(t, func() {
+		os.MkdirAll(config.Get().DataPath+"/local/", 0755)
+		os.MkdirAll(config.Get().DataPath+"/object/", 0755)
+
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
+				tieredFileSystemDriver.MaxFiledOpened = 4
+			},
+		)
+
+		files := []string{
+			"test1.txt",
+			"test2.txt",
+			"test3.txt",
+			"test4.txt",
+			"test5.txt",
+			"test6.txt",
+		}
+
+		tieredFiles := make([]internalStorage.File, 6)
+		var err error
+
+		for i, file := range files {
+			tieredFiles[i], err = tieredFileSystemDriver.Create(file)
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			if tieredFiles[i] == nil {
+				t.Error("TieredFileSystemDriver.Create returned nil")
+			}
+		}
+
+		if tieredFileSystemDriver.FileCount != 4 {
+			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		}
+
+		// Now there may be files that are out in the wild, when a closed file
+		// is used and error will be thrown.
+		for i := range tieredFiles {
+			// Attempt to write to the file
+			_, err = tieredFiles[i].Write([]byte("test"))
+
+			// The first two files should return an error
+			if i > 1 && err != nil {
+				t.Error(err)
+			} else if i <= 1 && err == nil {
+				t.Error("TieredFileSystemDriver.Write should return an error")
+			}
 		}
 	})
 }

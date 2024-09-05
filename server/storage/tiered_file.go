@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"container/list"
 	"io"
 	"io/fs"
 	internalStorage "litebase/internal/storage"
@@ -10,18 +11,24 @@ import (
 
 type TieredFile struct {
 	/*
-		CreatedAt stores the time the TieredFile struct was creeated. This
-		value will be used in correlation with the updatedAt and writtenAt
-		values to determine how long the File has been open.
-	*/
-	CreatedAt time.Time
-	/*
 		Closed is a boolean value that determines if the File has been Closed
 		by local storage. If the File has been Closed, the File will be marked
 		for release, which means the File will be removed from local storage
 		and the TieredFileSystemDriver will no longer be able to access it.
 	*/
 	Closed bool
+	/*
+		CreatedAt stores the time the TieredFile struct was creeated. This
+		value will be used in correlation with the updatedAt and writtenAt
+		values to determine how long the File has been open.
+	*/
+	CreatedAt time.Time
+	/*
+		Element is a pointer to the list.Element that is used to store the File
+		in the LRU cache. The Element is used to determine the position of the
+		File in the LRU cache and to remove the File from the LRU cache.
+	*/
+	Element *list.Element
 	/*
 		File is the internalStorage.File object that is used to read and write
 		data to the File. The File is a instance of *os.File which points to a
@@ -87,6 +94,8 @@ func (f *TieredFile) Close() error {
 }
 
 func (f *TieredFile) closeFile() error {
+	f.Closed = true
+
 	if f.File == nil {
 		return nil
 	}
@@ -101,10 +110,19 @@ func (f *TieredFile) closeFile() error {
 }
 
 func (f *TieredFile) MarkUpdated() {
+	if f.Closed {
+		return
+	}
+
 	f.UpdatedAt = time.Now()
+	f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 }
 
 func (f *TieredFile) Read(p []byte) (n int, err error) {
+	if f.Closed {
+		return 0, fs.ErrClosed
+	}
+
 	if f.File == nil {
 		// Pull the File from durable storage
 		data, err := f.tieredFileSystemDriver.durableFileSystemDriver.ReadFile(f.Key)
@@ -126,6 +144,10 @@ func (f *TieredFile) Read(p []byte) (n int, err error) {
 }
 
 func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
+	if f.Closed {
+		return 0, fs.ErrClosed
+	}
+
 	if f.File == nil {
 		// Pull the File from durable storage
 		data, err := f.tieredFileSystemDriver.durableFileSystemDriver.ReadFile(f.Key)
@@ -147,6 +169,10 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func (f *TieredFile) Seek(offset int64, whence int) (int64, error) {
+	if f.Closed {
+		return 0, fs.ErrClosed
+	}
+
 	if f.File == nil {
 		return 0, nil
 	}
@@ -164,10 +190,18 @@ func (f *TieredFile) shouldBeWrittenToDurableStorage() bool {
 }
 
 func (f *TieredFile) Stat() (fs.FileInfo, error) {
+	if f.Closed {
+		return nil, fs.ErrClosed
+	}
+
 	return f.File.Stat()
 }
 
 func (f *TieredFile) Sync() error {
+	if f.Closed {
+		return fs.ErrClosed
+	}
+
 	err := f.File.Sync()
 
 	if err != nil {
@@ -180,6 +214,10 @@ func (f *TieredFile) Sync() error {
 }
 
 func (f *TieredFile) Truncate(size int64) error {
+	if f.Closed {
+		return fs.ErrClosed
+	}
+
 	err := f.File.Truncate(size)
 
 	if err != nil {
@@ -192,6 +230,10 @@ func (f *TieredFile) Truncate(size int64) error {
 }
 
 func (f *TieredFile) Write(p []byte) (n int, err error) {
+	if f.Closed {
+		return 0, fs.ErrClosed
+	}
+
 	if f.Flag&os.O_RDONLY != 0 {
 		return 0, fs.ErrInvalid
 	}
@@ -210,6 +252,10 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 }
 
 func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
+	if f.Closed {
+		return 0, fs.ErrClosed
+	}
+
 	n, err = f.File.WriteAt(p, off)
 
 	if err == nil {
@@ -220,6 +266,10 @@ func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 }
 
 func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
+	if f.Closed {
+		return 0, fs.ErrClosed
+	}
+
 	n, err = f.File.WriteTo(w)
 
 	if err == nil {
@@ -230,6 +280,10 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (f *TieredFile) WriteString(s string) (n int, err error) {
+	if f.Closed {
+		return 0, fs.ErrClosed
+	}
+
 	n, err = f.File.WriteString(s)
 
 	if err == nil {
