@@ -81,6 +81,12 @@ func (f *TieredFile) Close() error {
 
 	f.Closed = true
 
+	f.tieredFileSystemDriver.ReleaseFile(f)
+
+	return nil
+}
+
+func (f *TieredFile) closeFile() error {
 	if f.File == nil {
 		return nil
 	}
@@ -90,14 +96,6 @@ func (f *TieredFile) Close() error {
 	if err != nil {
 		return err
 	}
-
-	// if f.updatedAt.After(f.writtenAt) {
-	// 	err := f.Sync()
-
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	return f.File.Close()
 }

@@ -206,7 +206,7 @@ func TestTieredFileSystemDriverOpenDurableFile(t *testing.T) {
 
 		// If the file is not found in local storage or durable storage, the
 		// file system driver should return an os.IsNotExist error.
-		tieredFile, err := tieredFileSystemDriver.Open("test.txt")
+		_, err := tieredFileSystemDriver.Open("test.txt")
 
 		if err == nil || !os.IsNotExist(err) {
 			t.Errorf("TieredFileSystemDriver.Open should return os.IsNotExist error, got %v", err)
@@ -220,7 +220,7 @@ func TestTieredFileSystemDriverOpenDurableFile(t *testing.T) {
 			t.Error(err)
 		}
 
-		tieredFile, err = tieredFileSystemDriver.Open("test.txt")
+		tieredFile, err := tieredFileSystemDriver.Open("test.txt")
 
 		if err != nil {
 			t.Error(err)
@@ -398,51 +398,6 @@ func TestTieredFileSystemDriverOpenFile(t *testing.T) {
 
 		if n != 4 {
 			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
-		}
-	})
-}
-
-func TestTieredFileSystemPurgeClosedFiles(t *testing.T) {
-	test.Run(t, func() {
-		os.MkdirAll(config.Get().DataPath+"/local", 0755)
-		os.MkdirAll(config.Get().DataPath+"/object", 0755)
-
-		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
-			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
-		)
-
-		tieredFile, err := tieredFileSystemDriver.Create("test")
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		if tieredFile == nil {
-			t.Error("TieredFileSystemDriver.Create returned nil")
-		}
-
-		files := tieredFileSystemDriver.Files
-
-		if len(files) != 1 {
-			t.Errorf("TieredFileSystemDriver.Files returned incorrect number of files, got %d", len(files))
-		}
-
-		tieredFile.Close()
-
-		if len(files) != 1 {
-			t.Errorf("TieredFileSystemDriver.Files returned incorrect number of files, got %d", len(files))
-		}
-
-		err = tieredFileSystemDriver.PurgeClosedFiles()
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		if len(files) != 0 {
-			t.Errorf("TieredFileSystemDriver.Files returned incorrect number of files, got %d", len(files))
 		}
 	})
 }
@@ -831,6 +786,15 @@ func TestTieredFileSystemDriverWriteFile(t *testing.T) {
 
 func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 	test.Run(t, func() {
+		os.MkdirAll(config.Get().DataPath+"/local/", 0755)
+		os.MkdirAll(config.Get().DataPath+"/object/", 0755)
+
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+		)
+
 		now := time.Now()
 
 		tests := []struct {
@@ -852,7 +816,7 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 			{
 				name: "File exists but is closed",
 				files: map[string]*storage.TieredFile{
-					"file2": &storage.TieredFile{Closed: true, UpdatedAt: now.Add(-time.Minute * 30), CreatedAt: now.Add(-time.Hour * 2)},
+					"file2": {Closed: true, UpdatedAt: now.Add(-time.Minute * 30), CreatedAt: now.Add(-time.Hour * 2)},
 				},
 				path:     "file2",
 				expected: nil,
@@ -878,9 +842,9 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				fsd := &storage.TieredFileSystemDriver{Files: tt.files}
+				tieredFileSystemDriver.Files = tt.files
 
-				file, ok := fsd.GetLocalFile(tt.path)
+				file, ok := tieredFileSystemDriver.GetLocalFile(tt.path)
 
 				if (file == nil && tt.expected != nil) || (file != nil && tt.expected == nil) || (file != nil && tt.expected != nil && (*file != *tt.expected)) || ok != tt.ok {
 					t.Errorf("expected (%v, %v), got (%v, %v)", tt.expected, tt.ok, file, ok)
@@ -1312,6 +1276,39 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 
 		if string(data) != "test" {
 			t.Errorf("TieredFileSystemDriver.OpenFile returned incorrect data, got %s", data)
+		}
+	})
+}
+
+func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
+	test.Run(t, func() {
+		os.MkdirAll(config.Get().DataPath+"/local/", 0755)
+		os.MkdirAll(config.Get().DataPath+"/object/", 0755)
+
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+		)
+
+		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tieredFile == nil {
+			t.Error("TieredFileSystemDriver.Create returned nil")
+		}
+
+		if tieredFileSystemDriver.FileCount != 1 {
+			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		}
+
+		tieredFile.Close()
+
+		if tieredFileSystemDriver.FileCount != 0 {
+			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
 		}
 	})
 }

@@ -169,10 +169,6 @@ func (dfs *DurableDatabaseFileSystem) Shutdown() error {
 
 	dfs.metadata.Close()
 
-	if driver, ok := dfs.fileSystem.Driver().(*TieredFileSystemDriver); ok {
-		driver.PurgeClosedFiles()
-	}
-
 	return nil
 }
 
