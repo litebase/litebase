@@ -55,13 +55,23 @@ func TieredFS() *FileSystem {
 	defer fileSystemMutex.Unlock()
 
 	if tieredFileSystem == nil {
-		tieredFileSystem = NewFileSystem(
-			NewTieredFileSystemDriver(
-				context.TODO(),
-				NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "tiered")),
-				NewObjectFileSystemDriver(),
-			),
-		)
+		if config.Get().StorageMode == "object" {
+			tieredFileSystem = NewFileSystem(
+				NewTieredFileSystemDriver(
+					context.TODO(),
+					NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "tiered")),
+					NewObjectFileSystemDriver(),
+				),
+			)
+		} else if config.Get().StorageMode == "local" {
+			tieredFileSystem = NewFileSystem(
+				NewTieredFileSystemDriver(
+					context.TODO(),
+					NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "tiered")),
+					NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "object")),
+				),
+			)
+		}
 	}
 
 	return tieredFileSystem

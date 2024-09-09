@@ -88,23 +88,15 @@ func (f *TieredFile) Close() error {
 
 	f.Closed = true
 
-	f.tieredFileSystemDriver.ReleaseFile(f)
+	f.tieredFileSystemDriver.WithLock(func() {
+		f.tieredFileSystemDriver.ReleaseFile(f)
+	})
 
 	return nil
 }
 
 func (f *TieredFile) closeFile() error {
 	f.Closed = true
-
-	if f.File == nil {
-		return nil
-	}
-
-	err := f.File.Sync()
-
-	if err != nil {
-		return err
-	}
 
 	return f.File.Close()
 }
@@ -123,23 +115,6 @@ func (f *TieredFile) Read(p []byte) (n int, err error) {
 		return 0, fs.ErrClosed
 	}
 
-	if f.File == nil {
-		// Pull the File from durable storage
-		data, err := f.tieredFileSystemDriver.durableFileSystemDriver.ReadFile(f.Key)
-
-		if err != nil {
-			return 0, err
-		}
-
-		err = f.tieredFileSystemDriver.localFileSystemDriver.WriteFile(f.Key, data, 0)
-
-		if err != nil {
-			return 0, err
-		}
-
-		return copy(p, data), io.EOF
-	}
-
 	return f.File.Read(p)
 }
 
@@ -148,33 +123,12 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 		return 0, fs.ErrClosed
 	}
 
-	if f.File == nil {
-		// Pull the File from durable storage
-		data, err := f.tieredFileSystemDriver.durableFileSystemDriver.ReadFile(f.Key)
-
-		if err != nil {
-			return 0, err
-		}
-
-		err = f.tieredFileSystemDriver.localFileSystemDriver.WriteFile(f.Key, data, 0)
-
-		if err != nil {
-			return 0, err
-		}
-
-		return copy(p, data[off:]), nil
-	}
-
 	return f.File.ReadAt(p, off)
 }
 
 func (f *TieredFile) Seek(offset int64, whence int) (int64, error) {
 	if f.Closed {
 		return 0, fs.ErrClosed
-	}
-
-	if f.File == nil {
-		return 0, nil
 	}
 
 	return f.File.Seek(offset, whence)

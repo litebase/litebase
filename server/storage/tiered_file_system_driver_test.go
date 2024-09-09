@@ -1324,7 +1324,7 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
-				tieredFileSystemDriver.MaxFiledOpened = 4
+				tieredFileSystemDriver.MaxFilesOpened = 4
 			},
 		)
 
