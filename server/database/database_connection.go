@@ -113,16 +113,50 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 
 	configStatements := []string{
 		fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize),
+		/*
+			Databbases should always be in WAL mode. This allows for multiple
+			readers and a single writer.
+		*/
 		"PRAGMA journal_mode=wal",
-		"PRAGMA synchronous=OFF",
+		/*
+			WAL autocheckpoint should be set to 0. This will prevent the WAL
+			file from being checkpointed automatically. Litebase has its own
+			checkpointing mechanism that will be used to checkpoint the WAL.
+
+			It is very important that this setting remain in place as our the
+			checkpointer is reponsible writing pages to durable storage and
+			properly reporting the page count of the database.
+		*/
+		"PRAGMA wal_autocheckpoint=0",
+		/*
+			PRAGMA synchronous=NORMAL will ensure that the database is durable
+			by writing to the WAL file before the transaction is committed.
+		*/
+		"PRAGMA synchronous=NORMAL",
+		/*
+			PRAGMA busy_timeout will set the timeout for waiting for a lock
+			to 3 seconds. This will allow clients to wait for a lock to be
+			released before returning an error.
+		*/
 		"PRAGMA busy_timeout = 3000",
+		/*
+			The amount of cache that SQLite will use is set to -2000000. This
+			will allow SQLite to use as much memory as it needs for caching.
+		*/
 		"PRAGMA cache_size = -2000000",
+		/*
+			PRAGMA secure_delete will ensure that data is securely deleted from
+			the database. This will prevent data from being recovered from the
+			database file. The added benefit is that it will also reduce the
+			amount of data that needs to be written to durable storage after
+			compression removes data padded with zeros.
+		*/
 		"PRAGMA secure_delete = true",
 		"PRAGMA temp_store = memory",
 	}
 
 	if !node.Node().IsPrimary() {
-		configStatements = append(configStatements, "PRAGMA query_only = true")
+		// configStatements = append(configStatements, "PRAGMA query_only = true")
 	}
 
 	for _, statement := range configStatements {
