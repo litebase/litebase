@@ -78,6 +78,7 @@ func (wq *WriteQueue) Handle(
 		if shouldStart {
 			wq.start()
 		}
+
 		wq.mutex.Unlock()
 	}
 
@@ -119,6 +120,10 @@ func (wq *WriteQueue) processQueue() {
 				localQueue[queueIndex] = job
 				queueIndex++
 			default:
+				if !wq.running {
+					return
+				}
+
 				break pullJobs
 			}
 		}
