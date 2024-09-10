@@ -191,7 +191,7 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile) {
 
 	if err != nil {
 		// Handle error (retry, log, etc.)
-		log.Println("Error writing file to durable storage", err)
+		// log.Println("Error writing file to durable storage", err)
 		return
 	}
 
@@ -441,14 +441,20 @@ func (fsd *TieredFileSystemDriver) RemoveOldestFile() {
 
 	// Remove the file if it does not need to be written to durable storage or
 	// else find the next file that is ready to be released.
-	for file.shouldBeWrittenToDurableStorage() {
-		element = element.Next()
+	if !file.shouldBeWrittenToDurableStorage() {
+		for file.shouldBeWrittenToDurableStorage() {
+			element = element.Next()
 
-		if element == nil {
-			return
+			if element == nil {
+				return
+			}
+
+			file = element.Value.(*TieredFile)
 		}
+	}
 
-		file = element.Value.(*TieredFile)
+	if element == nil || file == nil {
+		return
 	}
 
 	fsd.FileOrder.Remove(element)
