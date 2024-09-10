@@ -62,6 +62,10 @@ func (d *DatabaseMetadata) Close() error {
 	return d.file.Close()
 }
 
+func (d *DatabaseMetadata) FileSize() int64 {
+	return d.PageCount * d.PageSize
+}
+
 // Load the database metadata
 func (d *DatabaseMetadata) Load() error {
 	// Read the first 8 bytes to get the page count
@@ -82,10 +86,6 @@ func (d *DatabaseMetadata) Load() error {
 	d.PageCount = int64(binary.LittleEndian.Uint64(data))
 
 	return nil
-}
-
-func (d *DatabaseMetadata) FileSize() int64 {
-	return d.PageCount * d.PageSize
 }
 
 func (d *DatabaseMetadata) Path() string {
