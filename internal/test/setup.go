@@ -32,6 +32,8 @@ func Setup(t testing.TB) {
 
 	os.MkdirAll(dataPath, 0755)
 	os.MkdirAll(tmpPath, 0755)
+	os.MkdirAll(dataPath+"/local", 0755)
+	os.MkdirAll(dataPath+"/object", 0755)
 
 	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)

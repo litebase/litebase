@@ -6,6 +6,7 @@ import (
 	"litebase/server/file"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -24,6 +25,7 @@ const (
 )
 
 type DataRange struct {
+	closed   bool
 	file     internalStorage.File
 	fs       *FileSystem
 	pageSize int64
@@ -44,7 +46,7 @@ func NewDataRange(fs *FileSystem, path string, rangeNumber int64, pageSize int64
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = fs.MkdirAll(path, 0755)
+			err = fs.MkdirAll(filepath.Dir(dr.getPath()), 0755)
 
 			if err != nil {
 				log.Println("Error creating range directory", err)
@@ -69,11 +71,19 @@ func NewDataRange(fs *FileSystem, path string, rangeNumber int64, pageSize int64
 }
 
 func (dr *DataRange) Close() error {
-	return dr.file.Close()
+	err := dr.file.Close()
+
+	if err != nil {
+		log.Println("Error closing data range file", err)
+		return err
+	}
+
+	dr.closed = true
+
+	return nil
 }
 
 func (dr *DataRange) Delete() error {
-	log.Println("DELETEING RANGE!!!", dr.path, dr.number)
 	err := dr.file.Close()
 
 	if err != nil {
@@ -119,6 +129,10 @@ func (dr *DataRange) getPath() string {
 }
 
 func (dr *DataRange) ReadAt(p []byte, pageNumber int64) (n int, err error) {
+	if dr.closed {
+		return 0, os.ErrClosed
+	}
+
 	offset := file.PageRangeOffset(pageNumber, DataRangeMaxPages, dr.pageSize)
 
 	// Read the data from the data range file
@@ -138,6 +152,10 @@ func (dr *DataRange) ReadAt(p []byte, pageNumber int64) (n int, err error) {
 }
 
 func (dr *DataRange) Size() (int64, error) {
+	if dr.closed {
+		return 0, os.ErrClosed
+	}
+
 	stat, err := dr.file.Stat()
 
 	if err != nil {
@@ -149,6 +167,10 @@ func (dr *DataRange) Size() (int64, error) {
 }
 
 func (dr *DataRange) Truncate(size int64) error {
+	if dr.closed {
+		return os.ErrClosed
+	}
+
 	err := dr.file.Truncate(size)
 
 	if err != nil {
@@ -161,6 +183,10 @@ func (dr *DataRange) Truncate(size int64) error {
 }
 
 func (dr *DataRange) WriteAt(p []byte, pageNumber int64) (n int, err error) {
+	if dr.closed {
+		return 0, os.ErrClosed
+	}
+
 	offset := file.PageRangeOffset(pageNumber, DataRangeMaxPages, dr.pageSize)
 
 	// Seek from the beginning of the data range file to the offset for the page

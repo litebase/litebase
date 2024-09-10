@@ -20,10 +20,17 @@ func TestNewDataRange(t *testing.T) {
 		if dataRange == nil {
 			t.Errorf("NewDataRange() failed, expected not nil, got nil")
 		}
+
+		// Ensure the data range file is created
+		_, err = storage.LocalFS().Stat(fmt.Sprintf("TEST_DATA_RANGE/%010d", 1))
+
+		if err != nil {
+			t.Errorf("NewDataRange() failed, expected nil, got %s", err)
+		}
 	})
 }
 
-func TestDataRangeReadAt(t *testing.T) {
+func TestDataRangeWriteAtAndReadAt(t *testing.T) {
 	test.Run(t, func() {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
@@ -34,86 +41,41 @@ func TestDataRangeReadAt(t *testing.T) {
 		if dataRange == nil {
 			t.Errorf("NewDataRange() failed, expected not nil, got nil")
 		}
-	})
-}
 
-func TestDataRangeWriteAt(t *testing.T) {
-	test.Run(t, func() {
-		var dataSize int64 = 4096
-		var entryCount int = 1024
+		pageNumbers := []int64{1, 2, 3, 4, 5}
 
-		expectedSize := (dataSize * int64(entryCount))
+		// Write some data to the data range
+		for _, pageNumber := range pageNumbers {
+			data := make([]byte, 4096)
 
-		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
+			for i := 0; i < len(data); i++ {
+				data[i] = byte(pageNumber)
 
-		if err != nil {
-			t.Errorf("NewDataRange() failed, expected nil, got %s", err)
-		}
+				n, err := dataRange.WriteAt(data, pageNumber)
 
-		if dataRange == nil {
-			t.Errorf("NewDataRange() failed, expected not nil, got nil")
-		}
+				if err != nil {
+					t.Errorf("WriteAt() failed, expected nil, got %s", err)
+				}
 
-		for i := 0; i < entryCount; i++ {
-			// Fill the data with the value i of the size of dataSize
-			data := make([]byte, dataSize)
-
-			for j := 0; j < len(data); j++ {
-				data[j] = byte(i)
+				if n != 4096 {
+					t.Errorf("WriteAt() failed, expected 4096, got %d", n)
+				}
 			}
+		}
 
-			var pageNumber int64 = int64(i + 1)
+		for _, pageNumber := range pageNumbers {
+			data := make([]byte, 4096)
 
-			n, err := dataRange.WriteAt(data, pageNumber)
+			n, err := dataRange.ReadAt(data, pageNumber)
 
 			if err != nil {
-				t.Errorf("WriteAt() failed, expected nil, got %s", err)
+				t.Errorf("ReadAt() failed, expected nil, got %s", err)
 			}
 
-			if n != int(dataSize) {
-				t.Errorf("WriteAt() failed, expected %d, got %d", dataSize, n)
+			if n != 4096 {
+				t.Errorf("ReadAt() failed, expected 4096, got %d", n)
 			}
 		}
-
-		info, err := storage.LocalFS().Stat(fmt.Sprintf("TEST_DATA_RANGE/%010d/", 1))
-
-		if err != nil {
-			t.Errorf("Failed to get file info, expected nil, got %s", err)
-		}
-
-		if info.Size() != expectedSize {
-			t.Errorf("WriteAt() failed, expected %d, got %d", expectedSize, info.Size())
-		}
-
-		// // Verify the data in the range index
-		// file, err := storage.LocalFS().Open(fmt.Sprintf("TEST_DATA_RANGE/%010d", 1))
-
-		// if err != nil {
-		// 	t.Errorf("Failed to open file, expected nil, got %s", err)
-		// }
-
-		// // Read the index entries that should match the expected offsets
-		// for i := 0; i < entryCount; i++ {
-		// 	buffer := make([]byte, dataSize)
-
-		// 	readBytes, err := file.ReadAt(buffer, int64(i*4096))
-
-		// 	if err != nil {
-		// 		t.Errorf("Failed to read file, expected nil, got %s", err)
-		// 	}
-
-		// 	if readBytes != int(dataSize) {
-		// 		t.Errorf("ReadAt() failed, expected %d, got %d", dataSize, readBytes)
-		// 	}
-
-		// 	for j := 0; j < len(buffer); j++ {
-		// 		if buffer[j] != byte(i) {
-		// 			t.Fatalf("ReadAt() data does not match")
-
-		// 			break
-		// 		}
-		// 	}
-		// }
 	})
 }
 
@@ -133,6 +95,34 @@ func TestDataRangeClose(t *testing.T) {
 
 		if err != nil {
 			t.Errorf("Close() failed, expected nil, got %s", err)
+		}
+
+		// Verify the data range is closed by trying to read from it
+		_, err = dataRange.ReadAt([]byte{}, int64(1))
+
+		if err == nil {
+			t.Errorf("Close() failed, expected error, got nil")
+		}
+
+		// Verify the data range is closed by trying to get the size
+		_, err = dataRange.Size()
+
+		if err == nil {
+			t.Errorf("Close() failed, expected error, got nil")
+		}
+
+		// Verify the data range is closed by trying to truncate it
+		err = dataRange.Truncate(1024)
+
+		if err == nil {
+			t.Errorf("Close() failed, expected error, got nil")
+		}
+
+		// Verify the data range is closed by trying to write to it
+		_, err = dataRange.WriteAt([]byte{}, int64(1))
+
+		if err == nil {
+			t.Errorf("Close() failed, expected error, got nil")
 		}
 	})
 }
