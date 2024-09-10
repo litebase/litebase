@@ -34,7 +34,7 @@ type TieredFileSystemDriver struct {
 
 const (
 	TieredFileTTL                = 1 * time.Hour
-	TieredFileSystemMaxOpenFiles = 250
+	TieredFileSystemMaxOpenFiles = 10000
 )
 
 type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
@@ -439,8 +439,16 @@ func (fsd *TieredFileSystemDriver) RemoveOldestFile() {
 
 	file := element.Value.(*TieredFile)
 
-	if file.shouldBeWrittenToDurableStorage() {
-		fsd.flushFileToDurableStorage(file)
+	// Remove the file if it does not need to be written to durable storage or
+	// else find the next file that is ready to be released.
+	for file.shouldBeWrittenToDurableStorage() {
+		element = element.Next()
+
+		if element == nil {
+			return
+		}
+
+		file = element.Value.(*TieredFile)
 	}
 
 	fsd.FileOrder.Remove(element)
