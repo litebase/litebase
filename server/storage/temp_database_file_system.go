@@ -83,6 +83,10 @@ func (tfs *TempDatabaseFileSystem) FileSystem() *FileSystem {
 	return tfs.fileSystem
 }
 
+func (tfs *TempDatabaseFileSystem) Metadata() *DatabaseMetadata {
+	return nil
+}
+
 func (tfs *TempDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
 	var filePath = fmt.Sprintf("%s/%s", tfs.path, path)
 

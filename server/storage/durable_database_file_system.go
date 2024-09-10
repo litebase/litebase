@@ -103,6 +103,10 @@ func (dfs *DurableDatabaseFileSystem) getRangeFile(rangeNumber int64) (*DataRang
 	return dataRange, nil
 }
 
+func (dfs *DurableDatabaseFileSystem) Metadata() *DatabaseMetadata {
+	return dfs.metadata
+}
+
 func (dfs *DurableDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
 	path = fmt.Sprintf("%s/%s", dfs.path, strings.ReplaceAll(path, ".db", ""))
 

@@ -146,10 +146,7 @@ func QueryStreamController(request *Request) Response {
 					return
 				}
 
-				// w.Write([]byte("\n"))
-
 				w.(http.Flusher).Flush()
-
 			}
 		},
 	}

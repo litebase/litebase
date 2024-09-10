@@ -2,6 +2,7 @@ package logs
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"hash"
 	"hash/crc64"
@@ -164,7 +165,11 @@ func (q *QueryLog) Flush() {
 			_, err := file.Write(metric.Bytes(data))
 
 			if err != nil {
-				log.Fatal(err)
+				if errors.Is(err, os.ErrClosed) {
+					log.Fatal(err)
+				}
+
+				log.Println(err)
 			}
 
 			delete(metrics, checksum)

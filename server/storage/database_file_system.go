@@ -8,6 +8,7 @@ type DatabaseFileSystem interface {
 	Exists() bool
 	FileSystem() *FileSystem
 	Open(path string) (internalStorage.File, error)
+	Metadata() *DatabaseMetadata
 	PageSize() int64
 	Path() string
 	ReadAt(path string, data []byte, offset, len int64) (int, error)

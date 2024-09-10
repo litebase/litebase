@@ -102,7 +102,7 @@ func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, bra
 	err := clientConnection.connection.Checkpoint()
 
 	if err != nil {
-		// log.Println("Error checkpointing database", err)
+		log.Println("Error checkpointing database", err)
 		return false
 	}
 
@@ -335,7 +335,6 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 				// }
 
 				branchConnection.Claim()
-				// log.Println("Get connection", len(c.databases[databaseUuid].branches[branchUuid]))
 
 				return branchConnection.connection, nil
 			}
@@ -344,13 +343,14 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 
 	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
 
+	// TODO: Fix this
 	// Retrieve the WAL from the primary
-	err := c.retrieveWal(databaseUuid, branchUuid)
+	// err := c.retrieveWal(databaseUuid, branchUuid)
 
-	if err != nil {
-		log.Println("ERROR retrieving wal", err)
-		return nil, err
-	}
+	// if err != nil {
+	// 	log.Println("ERROR retrieving wal", err)
+	// 	return nil, err
+	// }
 
 	walTimestamp := c.databases[databaseUuid].branchWalTimestamps[branchUuid]
 

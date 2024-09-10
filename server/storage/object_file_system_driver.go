@@ -122,6 +122,8 @@ func (fs *ObjectFileSystemDriver) Open(path string) (internalStorage.File, error
 }
 
 func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
+	// TODO: Handle the create flag
+	// TODO: Read the data from object storage and place in the file data
 	return NewObjectFile(fs.client, path, flag), nil
 }
 

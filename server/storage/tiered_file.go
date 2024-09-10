@@ -112,23 +112,45 @@ func (f *TieredFile) MarkUpdated() {
 
 func (f *TieredFile) Read(p []byte) (n int, err error) {
 	if f.Closed {
-		return 0, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return file.Read(p)
 	}
+
+	f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
 	return f.File.Read(p)
 }
 
 func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 	if f.Closed {
-		return 0, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return file.ReadAt(p, off)
 	}
+
+	f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
 	return f.File.ReadAt(p, off)
 }
 
-func (f *TieredFile) Seek(offset int64, whence int) (int64, error) {
+func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 	if f.Closed {
-		return 0, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return file.Seek(offset, whence)
 	}
 
 	return f.File.Seek(offset, whence)
@@ -145,15 +167,29 @@ func (f *TieredFile) shouldBeWrittenToDurableStorage() bool {
 
 func (f *TieredFile) Stat() (fs.FileInfo, error) {
 	if f.Closed {
-		return nil, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return file.Stat()
 	}
+
+	f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
 	return f.File.Stat()
 }
 
 func (f *TieredFile) Sync() error {
 	if f.Closed {
-		return fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return err
+		}
+
+		return file.Sync()
 	}
 
 	err := f.File.Sync()
@@ -162,6 +198,8 @@ func (f *TieredFile) Sync() error {
 		return err
 	}
 
+	f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+
 	f.UpdatedAt = time.Now()
 
 	return nil
@@ -169,7 +207,13 @@ func (f *TieredFile) Sync() error {
 
 func (f *TieredFile) Truncate(size int64) error {
 	if f.Closed {
-		return fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return err
+		}
+
+		return file.Truncate(size)
 	}
 
 	err := f.File.Truncate(size)
@@ -178,14 +222,22 @@ func (f *TieredFile) Truncate(size int64) error {
 		return err
 	}
 
-	f.UpdatedAt = time.Now()
+	f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+
+	f.MarkUpdated()
 
 	return nil
 }
 
 func (f *TieredFile) Write(p []byte) (n int, err error) {
 	if f.Closed {
-		return 0, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return file.Write(p)
 	}
 
 	if f.Flag&os.O_RDONLY != 0 {
@@ -199,7 +251,9 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 	n, err = f.File.Write(p)
 
 	if err == nil {
-		f.UpdatedAt = time.Now()
+		f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+
+		f.MarkUpdated()
 	}
 
 	return n, err
@@ -207,12 +261,20 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 
 func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 	if f.Closed {
-		return 0, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return file.WriteAt(p, off)
 	}
 
 	n, err = f.File.WriteAt(p, off)
 
 	if err == nil {
+		f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+
 		f.MarkUpdated()
 	}
 
@@ -221,13 +283,21 @@ func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 
 func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 	if f.Closed {
-		return 0, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return file.WriteTo(w)
 	}
 
 	n, err = f.File.WriteTo(w)
 
 	if err == nil {
-		f.UpdatedAt = time.Now()
+		f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+
+		f.MarkUpdated()
 	}
 
 	return n, err
@@ -235,13 +305,21 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 
 func (f *TieredFile) WriteString(s string) (n int, err error) {
 	if f.Closed {
-		return 0, fs.ErrClosed
+		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return file.WriteString(s)
 	}
 
 	n, err = f.File.WriteString(s)
 
 	if err == nil {
-		f.UpdatedAt = time.Now()
+		f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+
+		f.MarkUpdated()
 	}
 
 	return n, err

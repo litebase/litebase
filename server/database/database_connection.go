@@ -101,7 +101,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 		con.context,
 		path,
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
-		sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE|sqlite3.SQLITE_OPEN_NOMUTEX,
+		sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE,
 	)
 
 	if err != nil {
@@ -197,15 +197,15 @@ func (con *DatabaseConnection) Checkpoint() error {
 }
 
 func (con *DatabaseConnection) Close() {
-	// Cancel the context of the connection.
-	con.cancel()
-
 	// Ensure all statements are finalized before closing the connection.
 	con.statements.Range(func(key any, statement any) bool {
 		statement.(Statement).Sqlite3Statement.Finalize()
 
 		return true
 	})
+
+	// Cancel the context of the connection.
+	con.cancel()
 
 	con.statements = sync.Map{}
 
