@@ -21,7 +21,7 @@ func Checkpoint(db *C.sqlite3, checkpointHook func(CheckpointResult)) (Checkpoin
 	res := C.sqlite3_wal_checkpoint_v2(
 		db,
 		nil, // The name of the database to checkpoint. If NULL, then it will checkpoint all attached databases.
-		C.SQLITE_CHECKPOINT_FULL,
+		C.SQLITE_CHECKPOINT_TRUNCATE,
 		&pWalLogSize,
 		&pNumFramesCheckpointed,
 	)
