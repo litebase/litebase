@@ -72,7 +72,7 @@ func (c *Checkpointer) Run() error {
 		// Read the page from the database file
 		pageOffset := file.PageOffset(int64(pageNumber), pageSize)
 
-		_, err := fs.ReadAt(file.DatabaseHash(c.databaseUuid, c.branchUuid), pageData, pageOffset, pageSize)
+		_, err := fs.ReadAt(pageData, pageOffset, pageSize)
 
 		if err != nil {
 			log.Println("Error reading page", err)

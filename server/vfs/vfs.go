@@ -199,7 +199,6 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 	name = name[strings.LastIndex(name, "/")+1:]
 
 	n, err := vfs.fileSystem.ReadAt(
-		name,
 		goBuffer,
 		int64(iOfst),
 		int64(iAmt),
@@ -231,7 +230,7 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.fileSystem.WriteAt(vfs.filename, goBuffer, int64(iOfst))
+	_, err = vfs.fileSystem.WriteAt(goBuffer, int64(iOfst))
 
 	if err != nil {
 		return C.SQLITE_IOERR_WRITE
@@ -248,7 +247,7 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 		return C.SQLITE_IOERR_FSTAT
 	}
 
-	size, err := vfs.fileSystem.Size(vfs.filename)
+	size, err := vfs.fileSystem.Size()
 
 	if err != nil {
 		log.Println("Error getting file size", err)
@@ -268,7 +267,7 @@ func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 		return C.SQLITE_IOERR_TRUNCATE
 	}
 
-	err = vfs.fileSystem.Truncate(vfs.filename, int64(size))
+	err = vfs.fileSystem.Truncate(int64(size))
 
 	if err != nil {
 		return C.SQLITE_IOERR_TRUNCATE

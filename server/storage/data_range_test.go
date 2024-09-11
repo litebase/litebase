@@ -127,6 +127,43 @@ func TestDataRangeClose(t *testing.T) {
 	})
 }
 
+func TestDataRangePageCount(t *testing.T) {
+	test.Run(t, func() {
+		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
+
+		if err != nil {
+			t.Errorf("NewDataRange() failed, expected nil, got %s", err)
+		}
+
+		if dataRange == nil {
+			t.Errorf("NewDataRange() failed, expected not nil, got nil")
+		}
+
+		pageCount := dataRange.PageCount()
+
+		if pageCount != 0 {
+			t.Errorf("PageCount() failed, expected 0, got %d", pageCount)
+		}
+
+		// Write some data to the data range
+		n, err := dataRange.WriteAt(make([]byte, 4096), int64(1))
+
+		if err != nil {
+			t.Errorf("WriteAt() failed, expected nil, got %s", err)
+		}
+
+		if n != 4096 {
+			t.Errorf("WriteAt() failed, expected 4096, got %d", n)
+		}
+
+		pageCount = dataRange.PageCount()
+
+		if pageCount != 1 {
+			t.Errorf("PageCount() failed, expected 1, got %d", pageCount)
+		}
+	})
+}
+
 func TestDataRangeRemove(t *testing.T) {
 	test.Run(t, func() {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)

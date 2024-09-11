@@ -1,13 +1,11 @@
 package storage
 
 import (
-	"fmt"
 	"io"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"log"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -20,7 +18,6 @@ type DurableDatabaseFileSystem struct {
 	mutex        *sync.RWMutex
 	path         string
 	pageSize     int64
-	timestamp    int64
 	writeHook    func(offset int64, data []byte)
 }
 
@@ -75,7 +72,7 @@ func (dfs *DurableDatabaseFileSystem) FileSystem() *FileSystem {
 	return dfs.fileSystem
 }
 
-func (dfs *DurableDatabaseFileSystem) getRangeFile(rangeNumber int64) (*DataRange, error) {
+func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*DataRange, error) {
 	if dataRange, ok := dfs.dataRanges[rangeNumber]; ok {
 		return dataRange, nil
 	}
@@ -99,13 +96,8 @@ func (dfs *DurableDatabaseFileSystem) Metadata() *DatabaseMetadata {
 }
 
 func (dfs *DurableDatabaseFileSystem) Open(path string) (internalStorage.File, error) {
-	path = fmt.Sprintf("%s/%s", dfs.path, strings.ReplaceAll(path, ".db", ""))
-
-	err := dfs.fileSystem.MkdirAll(path, 0755)
-
-	if err != nil {
-		return nil, err
-	}
+	// No-op since pages are stored in separate files and we don't need to open
+	// the database "file".
 
 	return nil, nil
 }
@@ -118,14 +110,14 @@ func (dfs *DurableDatabaseFileSystem) Path() string {
 	return dfs.path
 }
 
-func (dfs *DurableDatabaseFileSystem) ReadAt(path string, data []byte, offset, length int64) (int, error) {
+func (dfs *DurableDatabaseFileSystem) ReadAt(data []byte, offset, length int64) (int, error) {
 	dfs.mutex.RLock()
 	defer dfs.mutex.RUnlock()
 
 	pageNumber := file.PageNumber(offset, dfs.pageSize)
 	// log.Println("RANGE", file.PageRange(pageNumber, DataRangeMaxPages))
 	// Get the range file for the page
-	rangeFile, err := dfs.getRangeFile(file.PageRange(pageNumber, DataRangeMaxPages))
+	rangeFile, err := dfs.GetRangeFile(file.PageRange(pageNumber, DataRangeMaxPages))
 
 	if err != nil {
 		log.Println("Error getting range file", err)
@@ -144,12 +136,8 @@ func (dfs *DurableDatabaseFileSystem) ReadAt(path string, data []byte, offset, l
 	return n, nil
 }
 
-func (dfs *DurableDatabaseFileSystem) SetTransactionTimestamp(timestamp int64) {
-	dfs.timestamp = timestamp
-}
-
 // TODO: this should use the metadata file to get the size
-func (dfs *DurableDatabaseFileSystem) Size(path string) (int64, error) {
+func (dfs *DurableDatabaseFileSystem) Size() (int64, error) {
 	return dfs.metadata.FileSize(), nil
 }
 
@@ -167,10 +155,6 @@ func (dfs *DurableDatabaseFileSystem) Shutdown() error {
 	return nil
 }
 
-func (dfs *DurableDatabaseFileSystem) TransactionTimestamp() int64 {
-	return dfs.timestamp
-}
-
 /*
 Truncate or remove the data ranges based on the number of pages that need to be
 removed. Each range can hold DataRangeMaxPages pages. This routine is typically
@@ -182,7 +166,7 @@ between the current size of the database and the new size of the database.
 Where there is a remainder, we need to remove the last range file and truncate
 the range file that contains the last page that needs to be removed.
 */
-func (dfs *DurableDatabaseFileSystem) Truncate(path string, size int64) error {
+func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
@@ -192,7 +176,7 @@ func (dfs *DurableDatabaseFileSystem) Truncate(path string, size int64) error {
 		return nil
 	}
 
-	bytesToRemove := size
+	bytesToRemove := currentSize - size
 	startingPage := size/dfs.pageSize + 1
 	endingPage := currentSize / dfs.pageSize
 	startingRange := file.PageRange(startingPage, DataRangeMaxPages)
@@ -200,7 +184,7 @@ func (dfs *DurableDatabaseFileSystem) Truncate(path string, size int64) error {
 
 	// Open ranges from end to start and continue until the bytesToRemove is 0
 	for rangeNumber := endingRange; rangeNumber >= startingRange; rangeNumber-- {
-		dataRange, err := dfs.getRangeFile(rangeNumber)
+		dataRange, err := dfs.GetRangeFile(rangeNumber)
 
 		if err != nil {
 			log.Println("Error getting range file", err)
@@ -215,6 +199,7 @@ func (dfs *DurableDatabaseFileSystem) Truncate(path string, size int64) error {
 		}
 
 		if rangeSize <= bytesToRemove {
+			dataRangePageCount := dataRange.PageCount()
 			err := dataRange.Delete()
 
 			if err != nil {
@@ -223,9 +208,9 @@ func (dfs *DurableDatabaseFileSystem) Truncate(path string, size int64) error {
 			}
 
 			// Remove the range from the map
-			dfs.mutex.Lock()
 			delete(dfs.dataRanges, rangeNumber)
-			dfs.mutex.Unlock()
+
+			dfs.metadata.SetPageCount(dfs.metadata.PageCount - dataRangePageCount)
 
 			bytesToRemove -= rangeSize
 		} else {
@@ -248,28 +233,18 @@ func (dfs *DurableDatabaseFileSystem) Truncate(path string, size int64) error {
 	return nil
 }
 
-func (dfs *DurableDatabaseFileSystem) WalPath(path string) string {
-	return ""
-}
-
-func (dfs *DurableDatabaseFileSystem) WithTransactionTimestamp(timestamp int64) *DurableDatabaseFileSystem {
-	dfs.timestamp = timestamp
-
-	return dfs
-}
-
 func (dfs *DurableDatabaseFileSystem) WithWriteHook(hook func(offset int64, data []byte)) *DurableDatabaseFileSystem {
 	dfs.writeHook = hook
 
 	return dfs
 }
 
-func (dfs *DurableDatabaseFileSystem) WriteAt(path string, data []byte, offset int64) (n int, err error) {
+func (dfs *DurableDatabaseFileSystem) WriteAt(data []byte, offset int64) (n int, err error) {
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
 	pageNumber := file.PageNumber(offset, dfs.pageSize)
-	rangeFile, err := dfs.getRangeFile(file.PageRange(pageNumber, DataRangeMaxPages))
+	rangeFile, err := dfs.GetRangeFile(file.PageRange(pageNumber, DataRangeMaxPages))
 
 	if err != nil {
 		log.Println("Error getting range file", err)
@@ -277,7 +252,6 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(path string, data []byte, offset i
 	}
 
 	n, err = rangeFile.WriteAt(data, pageNumber)
-	// n, err = rangeFile.WriteAt(data, pageNumber, dfs.timestamp)
 
 	if err != nil {
 		log.Println("Error writing page", pageNumber, err)

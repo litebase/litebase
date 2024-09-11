@@ -128,6 +128,21 @@ func (dr *DataRange) getPath() string {
 	return builder.String()
 }
 
+func (dr *DataRange) PageCount() int64 {
+	if dr.closed {
+		return 0
+	}
+
+	size, err := dr.Size()
+
+	if err != nil {
+		log.Println("Error getting data range file size", err)
+		return 0
+	}
+
+	return size / dr.pageSize
+}
+
 func (dr *DataRange) ReadAt(p []byte, pageNumber int64) (n int, err error) {
 	if dr.closed {
 		return 0, os.ErrClosed
