@@ -12,6 +12,14 @@ type ObjectFileInfo struct {
 	modTime time.Time
 }
 
+func NewObjectFileInfo(name string, size int64, modTime time.Time) *ObjectFileInfo {
+	return &ObjectFileInfo{
+		name:    name,
+		size:    size,
+		modTime: modTime,
+	}
+}
+
 func (fi *ObjectFileInfo) IsDir() bool {
 	// Check if name ends with a slash
 	return strings.HasSuffix(fi.name, "/")

@@ -12,6 +12,7 @@ import (
 	p "path"
 	"strings"
 	"sync"
+	"time"
 
 	"litebase/internal/config"
 	internalStorage "litebase/internal/storage"
@@ -313,10 +314,7 @@ func (fs *ObjectFileSystemDriver) Rename(oldpath, newpath string) error {
 func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	// If the paths ends with a slash, it's a directory
 	if strings.HasSuffix(path, "/") {
-		return &ObjectFileInfo{
-			name: path,
-			size: 0,
-		}, nil
+		return NewObjectFileInfo(path, 0, time.Now()), nil
 	}
 
 	result, err := fs.client.HeadObject(context.TODO(), &s3.HeadObjectInput{
@@ -337,11 +335,7 @@ func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, e
 		return nil, err
 	}
 
-	return &ObjectFileInfo{
-		name:    path,
-		size:    int64(*result.ContentLength),
-		modTime: *result.LastModified,
-	}, nil
+	return NewObjectFileInfo(path, int64(*result.ContentLength), *result.LastModified), nil
 }
 
 func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
