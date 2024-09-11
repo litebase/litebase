@@ -39,11 +39,23 @@ func (fs *LocalFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error {
 }
 
 func (fs *LocalFileSystemDriver) Open(path string) (internalStorage.File, error) {
-	return os.Open(fs.path(path))
+	file, err := os.Open(fs.path(path))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 func (fs *LocalFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	return os.OpenFile(fs.path(path), flag, perm)
+	file, err := os.OpenFile(fs.path(path), flag, perm)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 func (fs *LocalFileSystemDriver) path(path string) string {

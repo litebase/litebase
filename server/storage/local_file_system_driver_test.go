@@ -8,25 +8,21 @@ import (
 	"testing"
 )
 
-func TestNewFileSystem(t *testing.T) {
+func TestNewLocalFileSystemDriver(t *testing.T) {
 	test.Run(t, func() {
-		driver := storage.NewLocalFileSystemDriver("test")
+		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
-		if fs == nil {
-			t.Error("NewFileSystem() returned nil")
+		if driver == nil {
+			t.Error("NewLocalFileSystemDriver() returned nil")
 		}
 	})
 }
 
-func TestFileSystemCreate(t *testing.T) {
+func TestLocalFileSystemDriverCreate(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
-		file, err := fs.Create("test")
+		file, err := driver.Create("test")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
@@ -38,13 +34,11 @@ func TestFileSystemCreate(t *testing.T) {
 	})
 }
 
-func TestFileSystemMkdir(t *testing.T) {
+func TestLocalFileSystemDriverMkdir(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
-		err := fs.Mkdir("test", 0755)
+		err := driver.Mkdir("test", 0755)
 
 		if err != nil {
 			t.Errorf("Mkdir() returned an error: %v", err)
@@ -52,13 +46,11 @@ func TestFileSystemMkdir(t *testing.T) {
 	})
 }
 
-func TestFileSystemMkdirAll(t *testing.T) {
+func TestLocalFileSystemDriverMkdirAll(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
-		err := fs.MkdirAll("test", 0755)
+		err := driver.MkdirAll("test", 0755)
 
 		if err != nil {
 			t.Errorf("MkdirAll() returned an error: %v", err)
@@ -66,30 +58,28 @@ func TestFileSystemMkdirAll(t *testing.T) {
 	})
 }
 
-func TestFileSystemOpen(t *testing.T) {
+func TestLocalFileSystemDriverOpen(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
-		file, err := fs.Open("test")
+		file, err := driver.Open("test.txt")
 
 		if err == nil {
 			t.Errorf("Open() returned nil, expected an error")
 		}
 
-		if file == nil {
+		if file != nil {
 			t.Error("Open() returned nil")
 		}
 
 		// Create the file
-		_, err = fs.Create("test")
+		_, err = driver.Create("test.txt")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		file, err = fs.Open("test")
+		file, err = driver.Open("test.txt")
 
 		if err != nil {
 			t.Errorf("Open() returned an error: %v", err)
@@ -101,30 +91,28 @@ func TestFileSystemOpen(t *testing.T) {
 	})
 }
 
-func TestFileSystemOpenFile(t *testing.T) {
+func TestLocalFileSystemDriverOpenFile(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
-		file, err := fs.OpenFile("test", 0, 0755)
+		file, err := driver.OpenFile("test.txt", 0, 0755)
 
 		if err == nil {
 			t.Errorf("OpenFile() returned nil, expected an error")
 		}
 
-		if file == nil {
+		if file != nil {
 			t.Error("OpenFile() returned nil")
 		}
 
 		// Create the file
-		_, err = fs.Create("test")
+		_, err = driver.Create("test.txt")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		file, err = fs.OpenFile("test", 0, 0755)
+		file, err = driver.OpenFile("test.txt", 0, 0755)
 
 		if err != nil {
 			t.Errorf("OpenFile() returned an error: %v", err)
@@ -136,18 +124,18 @@ func TestFileSystemOpenFile(t *testing.T) {
 	})
 }
 
-func TestFileSystemReadDir(t *testing.T) {
+func TestLocalFileSystemDriverPath(t *testing.T) {}
+
+func TestLocalFileSystemDriverReadDir(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
-
-		fs := storage.NewFileSystem(driver)
 
 		// Add some files and folders to the directory
 		directories := []string{"test1", "test2", "test3"}
 		files := []string{"test1.txt", "test2.txt", "test3.txt"}
 
 		for _, directory := range directories {
-			err := fs.Mkdir(directory, 0755)
+			err := driver.Mkdir(directory, 0755)
 
 			if err != nil {
 				t.Errorf("Mkdir() returned an error: %v", err)
@@ -155,14 +143,14 @@ func TestFileSystemReadDir(t *testing.T) {
 		}
 
 		for _, file := range files {
-			_, err := fs.Create(file)
+			_, err := driver.Create(file)
 
 			if err != nil {
 				t.Errorf("Create() returned an error: %v", err)
 			}
 		}
 
-		entries, err := fs.ReadDir("")
+		entries, err := driver.ReadDir("")
 
 		if err != nil {
 			t.Errorf("ReadDir() returned an error: %v", err)
@@ -208,51 +196,84 @@ func TestFileSystemReadDir(t *testing.T) {
 	})
 }
 
-func TestFileSystemReadFile(t *testing.T) {
+func TestLocalFileSystemDriverReadFile(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
 		// Create a file
-		_, err := fs.Create("test")
+		file, err := driver.Create("test.txt")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		data, err := fs.ReadFile("test")
+		if file == nil {
+			t.Error("Create() returned nil")
+		}
+
+		// Write some data to the file
+		data := []byte("Hello, World!")
+		_, err = file.Write(data)
 
 		if err != nil {
-			t.Errorf("ReadFile() returned an error: %v", err)
+			t.Errorf("Write() returned an error: %v", err)
 		}
 
-		if len(data) != 0 {
-			t.Errorf("ReadFile() returned %d bytes, expected 0", len(data))
-		}
-	})
-}
-
-func TestFileSystemRemove(t *testing.T) {
-	test.Run(t, func() {
-		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
-
-		fs := storage.NewFileSystem(driver)
-
-		// Create a file
-		file, err := fs.Create("test")
-
-		if err != nil {
-			t.Errorf("Create() returned an error: %v", err)
-		}
-
+		// Close the file
 		err = file.Close()
 
 		if err != nil {
 			t.Errorf("Close() returned an error: %v", err)
 		}
 
-		err = fs.Remove("test")
+		// Read the file
+		file, err = driver.Open("test.txt")
+
+		if err != nil {
+			t.Errorf("Open() returned an error: %v", err)
+		}
+
+		if file == nil {
+			t.Error("Open() returned nil")
+		}
+
+		readData := make([]byte, len(data))
+		_, err = file.Read(readData)
+
+		if err != nil {
+			t.Errorf("Read() returned an error: %v", err)
+		}
+
+		if string(readData) != string(data) {
+			t.Errorf("Read() returned %s, expected %s", string(readData), string(data))
+		}
+	})
+}
+
+func TestLocalFileSystemDriverRemove(t *testing.T) {
+	test.Run(t, func() {
+		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
+
+		// Create a file
+		file, err := driver.Create("test.txt")
+
+		if err != nil {
+			t.Errorf("Create() returned an error: %v", err)
+		}
+
+		if file == nil {
+			t.Error("Create() returned nil")
+		}
+
+		// Close the file
+		err = file.Close()
+
+		if err != nil {
+			t.Errorf("Close() returned an error: %v", err)
+		}
+
+		// Remove the file
+		err = driver.Remove("test.txt")
 
 		if err != nil {
 			t.Errorf("Remove() returned an error: %v", err)
@@ -260,21 +281,19 @@ func TestFileSystemRemove(t *testing.T) {
 	})
 }
 
-func TestFileSystemDriverRemoveAll(t *testing.T) {
+func TestLocalFileSystemDriverRemoveAll(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
 		// Create a file
-		_, err := fs.Create("test.txt")
+		_, err := driver.Create("test.txt")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
 		// Create a directory
-		err = fs.Mkdir("test", 0755)
+		err = driver.Mkdir("test", 0755)
 
 		if err != nil {
 			t.Errorf("Mkdir() returned an error: %v", err)
@@ -287,14 +306,14 @@ func TestFileSystemDriverRemoveAll(t *testing.T) {
 		}
 
 		// Check if the directory is removed
-		_, err = fs.ReadDir("test")
+		_, err = driver.ReadDir("test")
 
 		if err == nil {
 			t.Error("ReadDir() did not return an error, expected an error")
 		}
 
 		// Check if the file is removed
-		_, err = fs.ReadFile("test.txt")
+		_, err = driver.ReadFile("test.txt")
 
 		if err == nil {
 			t.Error("ReadFile() did not return an error, expected an error")
@@ -302,58 +321,52 @@ func TestFileSystemDriverRemoveAll(t *testing.T) {
 	})
 }
 
-func TestFileSystemRename(t *testing.T) {
+func TestLocalFileSystemDriverRename(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
 		// Create a file
-		_, err := fs.Create("test")
+		_, err := driver.Create("test.txt")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		err = fs.Rename("test", "test2")
+		// Rename the file
+		err = driver.Rename("test.txt", "test2.txt")
 
 		if err != nil {
 			t.Errorf("Rename() returned an error: %v", err)
 		}
 
 		// Check if the file is renamed
-		_, err = fs.ReadFile("test")
+		_, err = driver.ReadFile("test.txt")
 
 		if err == nil {
 			t.Error("ReadFile() did not return an error, expected an error")
 		}
 
-		data, err := fs.ReadFile("test2")
+		_, err = driver.ReadFile("test2.txt")
 
 		if err != nil {
 			t.Errorf("ReadFile() returned an error: %v", err)
 		}
-
-		if len(data) != 0 {
-			t.Errorf("ReadFile() returned %d bytes, expected 0", len(data))
-		}
 	})
 }
 
-func TestFileSystemStat(t *testing.T) {
+func TestLocalFileSystemDriverStat(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
 		// Create a file
-		_, err := fs.Create("test")
+		_, err := driver.Create("test.txt")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		info, err := fs.Stat("test")
+		// Get the file info
+		info, err := driver.Stat("test.txt")
 
 		if err != nil {
 			t.Errorf("Stat() returned an error: %v", err)
@@ -365,37 +378,99 @@ func TestFileSystemStat(t *testing.T) {
 	})
 }
 
-func TestFileSystemTruncate(t *testing.T) {
+func TestLocalFileSystemDriverTruncate(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
 		// Create a file
-		_, err := fs.Create("test")
+		file, err := driver.Create("test.txt")
 
 		if err != nil {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		err = fs.Truncate("test", 1024)
+		if file == nil {
+			t.Error("Create() returned nil")
+		}
+
+		// Write some data to the file
+		data := []byte("Hello, World!")
+		_, err = file.Write(data)
+
+		if err != nil {
+			t.Errorf("Write() returned an error: %v", err)
+		}
+
+		// Close the file
+		err = file.Close()
+
+		if err != nil {
+			t.Errorf("Close() returned an error: %v", err)
+		}
+
+		// Truncate the file
+		err = driver.Truncate("test.txt", 5)
 
 		if err != nil {
 			t.Errorf("Truncate() returned an error: %v", err)
 		}
+
+		// Read the file
+		file, err = driver.Open("test.txt")
+
+		if err != nil {
+			t.Errorf("Open() returned an error: %v", err)
+		}
+
+		if file == nil {
+			t.Error("Open() returned nil")
+		}
+
+		readData := make([]byte, 5)
+		_, err = file.Read(readData)
+
+		if err != nil {
+			t.Errorf("Read() returned an error: %v", err)
+		}
+
+		if string(readData) != string(data[:5]) {
+			t.Errorf("Read() returned %s, expected %s", string(readData), string(data[:5]))
+		}
 	})
 }
 
-func TestFileSystemWriteFile(t *testing.T) {
+func TestLocalFileSystemDriverWriteFile(t *testing.T) {
 	test.Run(t, func() {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local"))
 
-		fs := storage.NewFileSystem(driver)
-
-		err := fs.WriteFile("test", []byte("test"), 0755)
+		// Write some data to a file
+		data := []byte("Hello, World!")
+		err := driver.WriteFile("test.txt", data, 0755)
 
 		if err != nil {
 			t.Errorf("WriteFile() returned an error: %v", err)
+		}
+
+		// Read the file
+		file, err := driver.Open("test.txt")
+
+		if err != nil {
+			t.Errorf("Open() returned an error: %v", err)
+		}
+
+		if file == nil {
+			t.Error("Open() returned nil")
+		}
+
+		readData := make([]byte, len(data))
+		_, err = file.Read(readData)
+
+		if err != nil {
+			t.Errorf("Read() returned an error: %v", err)
+		}
+
+		if string(readData) != string(data) {
+			t.Errorf("Read() returned %s, expected %s", string(readData), string(data))
 		}
 	})
 }
