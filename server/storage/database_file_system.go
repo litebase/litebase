@@ -3,7 +3,6 @@ package storage
 import internalStorage "litebase/internal/storage"
 
 type DatabaseFileSystem interface {
-	Close(path string) error
 	Delete(path string) error
 	Exists() bool
 	FileSystem() *FileSystem

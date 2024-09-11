@@ -31,10 +31,10 @@ type DatabaseConnection struct {
 	databaseHash   string
 	databaseUuid   string
 	id             string
-	fileSystem     storage.DatabaseFileSystem
+	fileSystem     *storage.DurableDatabaseFileSystem
 	sqlite3        *sqlite3.Connection
 	statements     sync.Map
-	tempFileSystem storage.DatabaseFileSystem
+	tempFileSystem *storage.TempDatabaseFileSystem
 	vfsHash        string
 }
 
@@ -46,12 +46,9 @@ func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) 
 
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	var databaseHash string
-	var tempFileSystem storage.DatabaseFileSystem
-
 	// if node.Node().IsPrimary() {
-	databaseHash = file.DatabaseHash(databaseUuid, branchUuid)
-	tempFileSystem = DatabaseResources().TempFileSystem(databaseUuid, branchUuid)
+	databaseHash := file.DatabaseHash(databaseUuid, branchUuid)
+	tempFileSystem := DatabaseResources().TempFileSystem(databaseUuid, branchUuid)
 	// } else {
 	// 	databaseHash = file.DatabaseHashWithTimestamp(databaseUuid, branchUuid, walTimestamp)
 	// 	tempFileSystem = DatabaseResources().TempFileSystemWithTimestamp(databaseUuid, branchUuid, walTimestamp)

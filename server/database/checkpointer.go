@@ -21,7 +21,7 @@ type Checkpointer struct {
 	running          bool
 }
 
-func NewCheckpointer(dfs storage.DatabaseFileSystem, databaseUuid, branchUuid string) (*Checkpointer, error) {
+func NewCheckpointer(dfs *storage.DurableDatabaseFileSystem, databaseUuid, branchUuid string) (*Checkpointer, error) {
 	return &Checkpointer{
 		branchUuid:       branchUuid,
 		checkpointLogger: backups.NewCheckpointLogger(databaseUuid, branchUuid),

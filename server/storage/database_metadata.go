@@ -12,13 +12,13 @@ import (
 type DatabaseMetadata struct {
 	BranchUuid         string `json:"branch_uuid"`
 	DatabaseUuid       string `json:"database_uuid"`
-	databaseFileSystem DatabaseFileSystem
+	databaseFileSystem *DurableDatabaseFileSystem
 	file               internalStorage.File
 	PageCount          int64
 	PageSize           int64
 }
 
-func NewDatabaseMetadata(dfs DatabaseFileSystem, databaseUuid, branchUuid string) (*DatabaseMetadata, error) {
+func NewDatabaseMetadata(dfs *DurableDatabaseFileSystem, databaseUuid, branchUuid string) (*DatabaseMetadata, error) {
 	var err error
 
 	metadata := &DatabaseMetadata{

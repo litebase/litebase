@@ -30,7 +30,7 @@ var vfsMutex = &sync.RWMutex{}
 
 type LitebaseVFS struct {
 	filename   string
-	fileSystem storage.DatabaseFileSystem
+	fileSystem *storage.DurableDatabaseFileSystem
 	id         string
 }
 
@@ -39,7 +39,7 @@ func RegisterVFS(
 	vfsId string,
 	dataPath string,
 	pageSize int64,
-	fileSystem storage.DatabaseFileSystem,
+	fileSystem *storage.DurableDatabaseFileSystem,
 ) error {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()

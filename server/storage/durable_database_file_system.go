@@ -20,7 +20,6 @@ type DurableDatabaseFileSystem struct {
 	mutex        *sync.RWMutex
 	path         string
 	pageSize     int64
-	size         int64
 	timestamp    int64
 	writeHook    func(offset int64, data []byte)
 }
@@ -33,8 +32,6 @@ func NewDurableDatabaseFileSystem(fs *FileSystem, path, databaseUuid, branchUuid
 			if err := fs.MkdirAll(path, 0755); err != nil {
 				log.Fatalln("Error creating temp file system directory", err)
 			}
-		} else {
-			log.Fatalln("Error checking temp file system directory", err)
 		}
 	}
 
@@ -59,12 +56,6 @@ func NewDurableDatabaseFileSystem(fs *FileSystem, path, databaseUuid, branchUuid
 	dfs.metadata = metadata
 
 	return dfs
-}
-
-func (dfs *DurableDatabaseFileSystem) Close(path string) error {
-	log.Fatalln("Close not implemented")
-
-	return nil
 }
 
 func (dfs *DurableDatabaseFileSystem) Delete(path string) error {
@@ -267,7 +258,7 @@ func (dfs *DurableDatabaseFileSystem) WithTransactionTimestamp(timestamp int64) 
 	return dfs
 }
 
-func (dfs *DurableDatabaseFileSystem) WithWriteHook(hook func(offset int64, data []byte)) DatabaseFileSystem {
+func (dfs *DurableDatabaseFileSystem) WithWriteHook(hook func(offset int64, data []byte)) *DurableDatabaseFileSystem {
 	dfs.writeHook = hook
 
 	return dfs

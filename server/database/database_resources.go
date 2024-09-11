@@ -14,10 +14,10 @@ import (
 type DatabaseResourceManager struct {
 	checkpointLoggers map[string]*backups.CheckpointLogger
 	checkpointers     map[string]*Checkpointer
-	fileSystems       map[string]storage.DatabaseFileSystem
+	fileSystems       map[string]*storage.DurableDatabaseFileSystem
 	mutex             *sync.Mutex
 	pageLoggers       map[string]*backups.PageLogger
-	tempFileSystems   map[string]storage.DatabaseFileSystem
+	tempFileSystems   map[string]*storage.TempDatabaseFileSystem
 }
 
 var databaseResourceManager *DatabaseResourceManager
@@ -30,10 +30,10 @@ func DatabaseResources() *DatabaseResourceManager {
 	if databaseResourceManager == nil {
 		databaseResourceManager = &DatabaseResourceManager{
 			checkpointers:   map[string]*Checkpointer{},
-			fileSystems:     map[string]storage.DatabaseFileSystem{},
+			fileSystems:     map[string]*storage.DurableDatabaseFileSystem{},
 			mutex:           &sync.Mutex{},
 			pageLoggers:     map[string]*backups.PageLogger{},
-			tempFileSystems: map[string]storage.DatabaseFileSystem{},
+			tempFileSystems: map[string]*storage.TempDatabaseFileSystem{},
 		}
 	}
 
@@ -88,7 +88,7 @@ func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) 
 	return checkpointer, nil
 }
 
-func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) storage.DatabaseFileSystem {
+func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) *storage.DurableDatabaseFileSystem {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
@@ -98,9 +98,8 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) st
 	}
 
 	pageSize := config.Get().PageSize
-	var fileSystem storage.DatabaseFileSystem
 
-	fileSystem = storage.NewDurableDatabaseFileSystem(
+	fileSystem := storage.NewDurableDatabaseFileSystem(
 		storage.TieredFS(),
 		fmt.Sprintf("%s%s/%s", Directory(), databaseUuid, branchUuid),
 		databaseUuid,
@@ -186,7 +185,7 @@ func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
 	delete(d.tempFileSystems, hash)
 }
 
-func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string) storage.DatabaseFileSystem {
+func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string) *storage.TempDatabaseFileSystem {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -198,12 +197,7 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 
 	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), node.Node().Id, databaseUuid, branchUuid)
 
-	fileSystem := storage.NewTempDatabaseFileSystem(
-		path,
-		databaseUuid,
-		branchUuid,
-		config.Get().PageSize,
-	)
+	fileSystem := storage.NewTempDatabaseFileSystem(path, databaseUuid, branchUuid)
 
 	// TODO: Define the boundaries of a transaction so we can ship multiple pages at one time.
 	fileSystem = fileSystem.WithWriteHook(func(offset int64, data []byte) {
