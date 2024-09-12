@@ -3,15 +3,20 @@ package storage
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/md5"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"litebase/internal/config"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +33,17 @@ type S3Client struct {
 	region          string
 	secretAccessKey string
 	signer          *v4.Signer
+}
+
+type Delete struct {
+	XMLName xml.Name           `xml:"Delete"`
+	Objects []ObjectIdentifier `xml:"Object"`
+	Quiet   bool               `xml:"Quiet"`
+}
+
+type ObjectIdentifier struct {
+	Key       string `xml:"Key"`
+	VersionId string `xml:"VersionId,omitempty"`
 }
 
 func NewS3Client(bucket string, region string) *S3Client {
@@ -52,24 +68,51 @@ func NewS3Client(bucket string, region string) *S3Client {
 
 func (s3 *S3Client) createCanonicalRequest(buffer *bytes.Buffer, method, uri, query, payloadHash string, headers map[string]string) []byte {
 	buffer.Reset()
-
 	buffer.WriteString(method)
 	buffer.WriteString("\n")
 	buffer.WriteString(uri)
 	buffer.WriteString("\n")
-	buffer.WriteString(query)
+
+	// Transform the raw query to UriEncode(<QueryParameter>) + "=" + UriEncode(<value>) + "&"
+	parsedQuery, err := url.ParseQuery(query)
+
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+
+	// Sort the query parameters by key
+	var keys []string
+
+	for key := range parsedQuery {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	// Reconstruct the query string with URI-encoded components
+	var encodedQuery []string
+
+	for _, key := range keys {
+		for _, value := range parsedQuery[key] {
+			encodedQuery = append(encodedQuery, url.QueryEscape(key)+"="+url.QueryEscape(value))
+		}
+	}
+
+	buffer.WriteString(strings.Join(encodedQuery, "&"))
+
 	buffer.WriteString("\n")
 
-	keys := make([]string, 0, len(headers))
+	keys = make([]string, 0, len(headers))
 
 	for k := range headers {
-		keys = append(keys, strings.ToLower(k))
+		keys = append(keys, k)
 	}
 
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		buffer.WriteString(k)
+		buffer.WriteString(strings.ToLower(k))
 		buffer.WriteString(":")
 		buffer.WriteString(strings.TrimSpace(headers[k]))
 		buffer.WriteString("\n")
@@ -78,7 +121,7 @@ func (s3 *S3Client) createCanonicalRequest(buffer *bytes.Buffer, method, uri, qu
 	buffer.WriteString("\n")
 
 	for i, k := range keys {
-		buffer.WriteString(k)
+		buffer.WriteString(strings.ToLower(k))
 
 		if i != len(keys)-1 {
 			buffer.WriteString(";")
@@ -154,7 +197,22 @@ func (s3 *S3Client) addAuthHeader(headers map[string]string, accessKey, signatur
 	buffer.WriteString("/aws4_request")
 
 	buffer.WriteString(", SignedHeaders=")
-	buffer.WriteString("host;x-amz-content-sha256;x-amz-date")
+
+	keys := make([]string, 0, len(headers))
+
+	for k := range headers {
+		keys = append(keys, strings.ToLower(k))
+	}
+
+	sort.Strings(keys)
+
+	for i, k := range keys {
+		buffer.WriteString(k)
+
+		if i != len(keys)-1 {
+			buffer.WriteString(";")
+		}
+	}
 
 	buffer.WriteString(", Signature=")
 	buffer.WriteString(signature)
@@ -162,10 +220,11 @@ func (s3 *S3Client) addAuthHeader(headers map[string]string, accessKey, signatur
 	headers["Authorization"] = buffer.String()
 }
 
-func (s3 *S3Client) signRequest(request *http.Request, data []byte) {
+func (s3 *S3Client) signRequest(request *http.Request, data []byte, additionalHeaders map[string]string) {
 	date := time.Now().UTC().Format("20060102T150405Z")
 
 	payloadHash := "UNSIGNED-PAYLOAD"
+
 	if request.Method == "PUT" || request.Method == "POST" {
 		hash := sha256.New()
 		hash.Write(data)
@@ -176,6 +235,10 @@ func (s3 *S3Client) signRequest(request *http.Request, data []byte) {
 		"host":                 request.URL.Host,
 		"x-amz-content-sha256": payloadHash,
 		"x-amz-date":           date,
+	}
+
+	for k, v := range additionalHeaders {
+		headers[k] = v
 	}
 
 	uri := request.URL.Path
@@ -206,37 +269,161 @@ func (s3 *S3Client) url(key string) string {
 	builder.WriteString(s3.endpoint)
 	builder.WriteByte('/')
 	builder.WriteString(s3.bucket)
-	builder.WriteByte('/')
-	builder.WriteString(key)
 
-	return builder.String()
-
-}
-
-func (s3 *S3Client) GetObject(key string) ([]byte, error) {
-	request, err := http.NewRequest("GET", s3.url(key)+"?x-id=GetObject", nil)
-
-	if err != nil {
-		return nil, err
+	if key != "" {
+		builder.WriteByte('/')
+		builder.WriteString(key)
 	}
 
-	s3.signRequest(request, nil)
+	return builder.String()
+}
+
+func (s3 *S3Client) CopyObject(sourceKey, destinationKey string) error {
+	request, err := http.NewRequest("PUT", s3.url(destinationKey), nil)
+
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("x-amz-copy-source", s3.bucket+"/"+sourceKey)
+
+	s3.signRequest(request, nil, nil)
 
 	resp, err := s3.httpClient.Do(request)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if resp.StatusCode != 200 {
-		// log.Println(resp)
-		data, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
 
-		defer resp.Body.Close()
+	return nil
+}
 
-		log.Println("DATA", string(data))
+type CreateBucketResponse struct {
+	StatusCode int
+}
 
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+func (s3 *S3Client) CreateBucket() (CreateBucketResponse, error) {
+	request, err := http.NewRequest("PUT", s3.url(""), nil)
+
+	if err != nil {
+		return CreateBucketResponse{}, err
+	}
+
+	s3.signRequest(request, nil, nil)
+
+	resp, err := s3.httpClient.Do(request)
+
+	if err != nil {
+		return CreateBucketResponse{}, err
+	}
+
+	if resp.StatusCode != 200 {
+		return CreateBucketResponse{
+			StatusCode: resp.StatusCode,
+		}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return CreateBucketResponse{
+		StatusCode: resp.StatusCode,
+	}, nil
+}
+
+func (s3 *S3Client) DeleteObject(key string) error {
+	request, err := http.NewRequest("DELETE", s3.url(key), nil)
+
+	if err != nil {
+		return err
+	}
+
+	s3.signRequest(request, nil, nil)
+
+	resp, err := s3.httpClient.Do(request)
+
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != 204 {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (s3 *S3Client) DeleteObjects(keys []string) error {
+	objectsToDelete := make([]ObjectIdentifier, len(keys))
+
+	for i, key := range keys {
+		objectsToDelete[i] = ObjectIdentifier{
+			Key: key,
+		}
+	}
+
+	data, err := xml.Marshal(Delete{
+		Objects: objectsToDelete,
+		Quiet:   true,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Compute the MD5 hash of the request body
+	hash := md5.New()
+	hash.Write(data)
+	md5Sum := hash.Sum(nil)
+
+	request, err := http.NewRequest("POST", s3.url("")+"?delete", bytes.NewReader(data))
+
+	if err != nil {
+		return err
+	}
+
+	s3.signRequest(request, data, map[string]string{
+		"Content-Md5": base64.StdEncoding.EncodeToString(md5Sum),
+	})
+
+	resp, err := s3.httpClient.Do(request)
+
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+type GetObjectResponse struct {
+	Data       []byte
+	StatusCode int
+}
+
+func (s3 *S3Client) GetObject(key string) (GetObjectResponse, error) {
+	request, err := http.NewRequest("GET", s3.url(key)+"?x-id=GetObject", nil)
+
+	if err != nil {
+		return GetObjectResponse{}, err
+	}
+
+	s3.signRequest(request, nil, nil)
+
+	resp, err := s3.httpClient.Do(request)
+
+	if err != nil {
+		return GetObjectResponse{}, err
+	}
+
+	if resp.StatusCode != 200 {
+		return GetObjectResponse{
+			StatusCode: resp.StatusCode,
+		}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -244,53 +431,174 @@ func (s3 *S3Client) GetObject(key string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if err != nil {
-		return nil, err
+		return GetObjectResponse{}, err
 	}
 
-	return data, nil
+	return GetObjectResponse{
+		Data:       data,
+		StatusCode: resp.StatusCode,
+	}, nil
 }
 
-func (s3 *S3Client) PutObject(key string, data []byte) error {
-	request, err := http.NewRequest("PUT", s3.url(key)+"?x-id=PutObject", bytes.NewReader(data))
+type HeadBucketResponse struct {
+	StatusCode int
+}
+
+func (s3 *S3Client) HeadBucket() (HeadBucketResponse, error) {
+	request, err := http.NewRequest("HEAD", s3.url(""), nil)
 
 	if err != nil {
-		return err
+		return HeadBucketResponse{}, err
 	}
 
-	s3.signRequest(request, data)
+	s3.signRequest(request, nil, nil)
 
 	resp, err := s3.httpClient.Do(request)
 
 	if err != nil {
-		log.Println(err)
-		return err
+		return HeadBucketResponse{}, err
 	}
 
 	if resp.StatusCode != 200 {
-		log.Println(resp)
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return HeadBucketResponse{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	return nil
+	return HeadBucketResponse{
+			StatusCode: resp.StatusCode,
+		},
+		nil
 }
 
-func (s3 *S3Client) DeleteObject(key string) {
-	request, err := http.NewRequest("DELETE", s3.url(key), nil)
+type HeadObjectResponse struct {
+	ChecksumSHA256 string
+	ContentLength  int64
+	ContentType    string
+	Etag           string
+	LastModified   time.Time
+	StatusCode     int
+}
+
+func (s3 *S3Client) HeadObject(key string) (HeadObjectResponse, error) {
+	request, err := http.NewRequest("HEAD", s3.url(key), nil)
 
 	if err != nil {
-		return
+		return HeadObjectResponse{}, err
 	}
 
-	s3.signRequest(request, nil)
+	s3.signRequest(request, nil, nil)
 
 	resp, err := s3.httpClient.Do(request)
 
 	if err != nil {
-		return
+		return HeadObjectResponse{}, err
 	}
 
-	if resp.StatusCode != 204 {
-		return
+	if resp.StatusCode != 200 {
+		return HeadObjectResponse{
+			StatusCode: resp.StatusCode,
+		}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
+
+	contentLength, _ := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+	lastModified, _ := time.Parse(time.RFC1123, resp.Header.Get("Last-Modified"))
+
+	return HeadObjectResponse{
+		ContentLength: contentLength,
+		ContentType:   resp.Header.Get("Content-Type"),
+		Etag:          resp.Header.Get("Etag"),
+		LastModified:  lastModified,
+		StatusCode:    resp.StatusCode,
+	}, nil
 }
-func (s3 *S3Client) ListObjectsV2() {}
+
+func (s3 *S3Client) ListObjectsV2(input ListObjectsV2Input) (ListObjectsV2Response, error) {
+	url := s3.url("") + "?list-type=2"
+
+	if input.Delimiter != "" {
+		url += "&delimiter=" + input.Delimiter
+	}
+
+	if input.MaxKeys != 0 {
+		url += "&max-keys=" + strconv.Itoa(input.MaxKeys)
+	}
+
+	if input.Prefix != "" {
+		url += "&prefix=" + input.Prefix
+	}
+
+	if input.ContinuationToken != "" {
+		url += "&continuation-token=" + input.ContinuationToken
+	}
+
+	if input.StartAfter != "" {
+		url += "&start-after=" + input.StartAfter
+	}
+
+	request, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return ListObjectsV2Response{}, err
+	}
+
+	s3.signRequest(request, nil, nil)
+
+	resp, err := s3.httpClient.Do(request)
+
+	if err != nil {
+		return ListObjectsV2Response{}, err
+	}
+
+	if resp.StatusCode != 200 {
+		return ListObjectsV2Response{
+			StatusCode: resp.StatusCode,
+		}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// Unmarshal the XML response
+	var listBucketResult ListBucketResult
+
+	decoder := xml.NewDecoder(resp.Body)
+
+	err = decoder.Decode(&listBucketResult)
+
+	if err != nil {
+		return ListObjectsV2Response{
+			StatusCode: resp.StatusCode,
+		}, err
+	}
+
+	return ListObjectsV2Response{
+		ListBucketResult: listBucketResult,
+		StatusCode:       resp.StatusCode,
+	}, nil
+}
+
+type PutObjectResponse struct {
+	StatusCode int
+}
+
+func (s3 *S3Client) PutObject(key string, data []byte) (PutObjectResponse, error) {
+	request, err := http.NewRequest("PUT", s3.url(key)+"?x-id=PutObject", bytes.NewReader(data))
+
+	if err != nil {
+		return PutObjectResponse{}, err
+	}
+
+	s3.signRequest(request, data, nil)
+
+	resp, err := s3.httpClient.Do(request)
+
+	if err != nil {
+		return PutObjectResponse{}, err
+	}
+
+	if resp.StatusCode != 200 {
+		return PutObjectResponse{
+			StatusCode: resp.StatusCode,
+		}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return PutObjectResponse{
+		StatusCode: resp.StatusCode,
+	}, nil
+}

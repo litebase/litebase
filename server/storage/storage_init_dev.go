@@ -5,7 +5,6 @@ package storage
 
 import (
 	"litebase/internal/config"
-	"log"
 )
 
 func Init() {
@@ -15,14 +14,16 @@ func Init() {
 		return
 	}
 
-	if storageMode == "object" && (config.Get().Env == "local" || config.Get().Env == "test") {
+	if storageMode == "object" && (config.Get().Env == "local") {
 		StartTestS3Server()
 		return
 	}
 }
 
 func Shutdown() {
-	log.Println("Shutting down storage")
+	storageMode := config.Get().StorageMode
 
-	StopTestS3Server()
+	if storageMode == "object" && (config.Get().Env == "local") {
+		StopTestS3Server()
+	}
 }

@@ -12,8 +12,6 @@ import (
 	"sync"
 )
 
-var pageSize = config.Get().PageSize
-
 func RestoreFromTimestamp(
 	databaseUuid string,
 	branchUuid string,
@@ -222,7 +220,7 @@ func RestorePage(
 				break
 			}
 
-			offset := file.PageOffset(int64(pageNumber), pageSize)
+			offset := file.PageOffset(int64(pageNumber), config.Get().PageSize)
 
 			// Write the page to the destination file
 			_, err := destinationFile.WriteAt(entry.Data, offset)

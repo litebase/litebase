@@ -53,8 +53,6 @@ func StartTestS3Server() {
 
 	// Ensure the bucket exists
 	ObjectFS().Driver().(*ObjectFileSystemDriver).EnsureBucketExists()
-
-	log.Println("Started test s3 server")
 }
 
 func StopTestS3Server() {

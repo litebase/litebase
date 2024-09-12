@@ -1,24 +1,19 @@
 package storage
 
 import (
-	"bytes"
-	"context"
 	"crypto/sha256"
 	"io"
 	"io/fs"
-	"litebase/internal/config"
 	"log"
 	"os"
 	"slices"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/klauspost/compress/s2"
 )
 
 type ObjectFile struct {
-	client         *s3.Client
+	client         *S3Client
 	data           []byte
 	fileInfo       *ObjectFileInfo
 	Key            string
@@ -26,7 +21,7 @@ type ObjectFile struct {
 	sha256Checksum [32]byte
 }
 
-func NewObjectFile(client *s3.Client, key string, openFlags int) *ObjectFile {
+func NewObjectFile(client *S3Client, key string, openFlags int) *ObjectFile {
 	return &ObjectFile{
 		client: client,
 		data:   []byte{},
@@ -59,11 +54,7 @@ func (o *ObjectFile) Close() error {
 
 	compressed := s2.Encode(nil, o.data)
 
-	_, err := o.client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(config.Get().StorageBucket),
-		Key:    aws.String(o.Key),
-		Body:   bytes.NewReader(compressed),
-	})
+	_, err := o.client.PutObject(o.Key, compressed)
 
 	if err != nil {
 		log.Println("Error closing file", err)
@@ -145,11 +136,7 @@ func (o *ObjectFile) Sync() error {
 
 	compressed := s2.Encode(nil, o.data)
 
-	_, err := o.client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(config.Get().StorageBucket),
-		Key:    aws.String(o.Key),
-		Body:   bytes.NewReader(compressed),
-	})
+	_, err := o.client.PutObject(o.Key, compressed)
 
 	if err != nil {
 		log.Println("Error syncing file", err)
@@ -179,11 +166,7 @@ func (o *ObjectFile) Truncate(size int64) error {
 
 	compressed := s2.Encode(nil, o.data)
 
-	_, err := o.client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(config.Get().StorageBucket),
-		Key:    aws.String(o.Key),
-		Body:   bytes.NewReader(compressed),
-	})
+	_, err := o.client.PutObject(o.Key, compressed)
 
 	if err != nil {
 		log.Println("Error truncating file", err)

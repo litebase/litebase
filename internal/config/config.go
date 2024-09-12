@@ -77,6 +77,7 @@ func NewConfig() *Config {
 
 func Get() *Config {
 	if ConfigInstance == nil {
+		// panic("Config not initialized, initializing now")
 		NewConfig()
 	}
 

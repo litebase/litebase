@@ -32,7 +32,7 @@ func CreateHash(length int) string {
 	hash.Write(randomBytes)
 	hashBytes := hash.Sum(nil)
 
-	return fmt.Sprintf("%x", hashBytes)
+	return fmt.Sprintf("%x", hashBytes)[:length]
 }
 
 func MockDatabase() TestDatabase {
