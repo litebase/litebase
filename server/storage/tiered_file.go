@@ -112,7 +112,10 @@ func (f *TieredFile) MarkUpdated() {
 	}
 
 	f.UpdatedAt = time.Now()
-	f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+
+	if f.Element != nil {
+		f.tieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+	}
 }
 
 func (f *TieredFile) Read(p []byte) (n int, err error) {
