@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server/storage"
@@ -258,6 +259,59 @@ func TestS3ListObjectsV2(t *testing.T) {
 
 		if !found {
 			t.Error("ListObjectsV2() did not return the expected object")
+		}
+	})
+}
+
+func TestS3ListObjectsV2WithPaginator(t *testing.T) {
+	test.RunWithObjectStorage(t, func() {
+		client := storage.NewS3Client(config.Get().StorageBucket, "region")
+		files := make(map[string]bool, 100)
+
+		for i := 0; i < 100; i++ {
+			files[fmt.Sprintf("test/file-%d", i)] = false
+		}
+
+		for key := range files {
+			_, err := client.PutObject(key, []byte("test"))
+
+			if err != nil {
+				t.Errorf("PutObject() returned an error: %v", err)
+			}
+		}
+
+		paginator := storage.NewListObjectsV2Paginator(client, storage.ListObjectsV2Input{
+			Delimiter: "/",
+			MaxKeys:   10,
+			Prefix:    "test/",
+		})
+
+		for paginator.HasMorePages() {
+			page, err := paginator.NextPage()
+
+			if err != nil {
+				t.Errorf("NextPage() returned an error: %v", err)
+			}
+
+			if len(page.Contents) == 0 {
+				break
+			}
+
+			if len(page.Contents) > 10 {
+				t.Errorf("NextPage() returned unexpected number of objects: %d", len(page.Contents))
+			}
+
+			for _, object := range page.Contents {
+				if _, ok := files[object.Key]; ok {
+					files[object.Key] = true
+				}
+			}
+		}
+
+		for key, found := range files {
+			if !found {
+				t.Errorf("ListObjectsV2() did not return the expected object: %s", key)
+			}
 		}
 	})
 }
