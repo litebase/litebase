@@ -199,55 +199,6 @@ func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string
 
 	fileSystem := storage.NewTempDatabaseFileSystem(path, databaseUuid, branchUuid)
 
-	// TODO: Define the boundaries of a transaction so we can ship multiple pages at one time.
-	fileSystem = fileSystem.WithWriteHook(func(offset int64, data []byte) {
-		// Each time a page is written, we will replicate it out to the other
-		// nodes. These pages are written in order.
-		if node.Node().IsPrimary() {
-			// walFile, err := storage.TieredFS().OpenFile(fmt.Sprintf("%s/%s", fileSystem.Path(), path), os.O_RDONLY, 0644)
-
-			// if err != nil {
-			// 	log.Println("Error reading file", err, path)
-			// 	return
-			// }
-
-			// defer walFile.Close()
-
-			// hasher := sha256.New()
-
-			// if _, err := walFile.WriteTo(hasher); err != nil {
-			// 	log.Println("Error reading file", err, path)
-			// 	return
-			// }
-
-			// var fileSha256 [32]byte
-
-			// copy(fileSha256[:], hasher.Sum(nil))
-
-			// // log.Println("Sending WAL replication message", fileSystem.TransactionTimestamp())
-
-			// err = node.Node().Publish(
-			// 	node.NodeMessage{
-			// 		Id:   "broadcast",
-			// 		Type: "WALReplicationMessage",
-			// 		Data: node.WALReplicationMessage{
-			// 			BranchUuid:   branchUuid,
-			// 			DatabaseUuid: databaseUuid,
-			// 			Data:         s2.Encode(nil, data),
-			// 			Offset:       int(offset),
-			// 			Length:       len(data),
-			// 			Sha256:       fileSha256,
-			// 			Timestamp:    fileSystem.TransactionTimestamp(),
-			// 		},
-			// 	},
-			// )
-
-			// if err != nil {
-			// 	log.Println("Failed to publish WAL replication message: ", err)
-			// }
-		}
-	})
-
 	d.tempFileSystems[hash] = fileSystem
 
 	return fileSystem
