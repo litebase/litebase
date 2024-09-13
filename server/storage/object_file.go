@@ -14,45 +14,45 @@ import (
 
 type ObjectFile struct {
 	client         *S3Client
-	data           []byte
-	fileInfo       *ObjectFileInfo
+	Data           []byte
+	FileInfo       *ObjectFileInfo
 	Key            string
-	openFlags      int
-	sha256Checksum [32]byte
+	OpenFlags      int
+	Sha256Checksum [32]byte
 }
 
 func NewObjectFile(client *S3Client, key string, openFlags int) *ObjectFile {
 	return &ObjectFile{
 		client: client,
-		data:   []byte{},
-		fileInfo: &ObjectFileInfo{
+		Data:   []byte{},
+		FileInfo: &ObjectFileInfo{
 			name:    key,
 			size:    0,
 			modTime: time.Now(),
 		},
 		Key:            key,
-		openFlags:      openFlags,
-		sha256Checksum: sha256.Sum256([]byte{}),
+		OpenFlags:      openFlags,
+		Sha256Checksum: sha256.Sum256([]byte{}),
 	}
 }
 
 // If changes have been made to the file, this will upload the changes to the
 // object store upon closing the file.
 func (o *ObjectFile) Close() error {
-	if len(o.data) == 0 {
+	if len(o.Data) == 0 {
 		return nil
 	}
 
-	if o.sha256Checksum == sha256.Sum256(o.data) {
+	if o.Sha256Checksum == sha256.Sum256(o.Data) {
 		return nil
 	}
 
 	// Fail silently if the file is read-only
-	if o.openFlags == os.O_RDONLY {
+	if o.OpenFlags == os.O_RDONLY {
 		return nil
 	}
 
-	compressed := s2.Encode(nil, o.data)
+	compressed := s2.Encode(nil, o.Data)
 
 	_, err := o.client.PutObject(o.Key, compressed)
 
@@ -66,13 +66,13 @@ func (o *ObjectFile) Close() error {
 
 // Read bytes from the file.
 func (o *ObjectFile) Read(p []byte) (n int, err error) {
-	if len(o.data) == 0 {
+	if len(o.Data) == 0 {
 		return 0, io.EOF
 	}
 
-	n = copy(p, o.data)
+	n = copy(p, o.Data)
 
-	if n == len(o.data) {
+	if n < len(o.Data) {
 		err = io.EOF
 	}
 
@@ -81,43 +81,43 @@ func (o *ObjectFile) Read(p []byte) (n int, err error) {
 
 // Read bytes from the file at a specific offset.
 func (o *ObjectFile) ReadAt(p []byte, off int64) (n int, err error) {
-	if len(o.data) == 0 {
+	if len(o.Data) == 0 {
 		return 0, io.EOF
 	}
 
-	if off > int64(len(o.data)) {
+	if off > int64(len(o.Data)) {
 		return 0, io.EOF
 	}
 
-	n = copy(p, o.data[off:])
+	n = copy(p, o.Data[off:])
 
 	return n, nil
 }
 
 func (o *ObjectFile) Seek(offset int64, whence int) (int64, error) {
-	if len(o.data) == 0 {
+	if len(o.Data) == 0 {
 		return 0, io.EOF
 	}
 
 	switch whence {
 	case io.SeekStart:
-		if offset > int64(len(o.data)) {
+		if offset > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
 
 		return offset, nil
 	case io.SeekCurrent:
-		if offset+int64(len(o.data)) > int64(len(o.data)) {
+		if offset+int64(len(o.Data)) > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
 
-		return offset + int64(len(o.data)), nil
+		return offset + int64(len(o.Data)), nil
 	case io.SeekEnd:
-		if offset+int64(len(o.data)) > int64(len(o.data)) {
+		if offset+int64(len(o.Data)) > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
 
-		return offset + int64(len(o.data)), nil
+		return offset + int64(len(o.Data)), nil
 	}
 
 	return 0, nil
@@ -125,16 +125,16 @@ func (o *ObjectFile) Seek(offset int64, whence int) (int64, error) {
 
 // Return stats about the file.
 func (o *ObjectFile) Stat() (fs.FileInfo, error) {
-	return o.fileInfo, nil
+	return o.FileInfo, nil
 }
 
 // Sync the file with the object store.
 func (o *ObjectFile) Sync() error {
-	if o.openFlags == os.O_RDONLY {
+	if o.OpenFlags == os.O_RDONLY {
 		return os.ErrPermission
 	}
 
-	compressed := s2.Encode(nil, o.data)
+	compressed := s2.Encode(nil, o.Data)
 
 	_, err := o.client.PutObject(o.Key, compressed)
 
@@ -148,23 +148,23 @@ func (o *ObjectFile) Sync() error {
 
 // Resize the file to a specific size.
 func (o *ObjectFile) Truncate(size int64) error {
-	if o.openFlags == os.O_RDONLY {
+	if o.OpenFlags == os.O_RDONLY {
 		return os.ErrPermission
 	}
 
 	if size == 0 {
-		o.data = []byte{}
+		o.Data = []byte{}
 	}
 
-	if size > int64(len(o.data)) {
-		o.data = slices.Grow(o.data, int(size))
+	if size > int64(len(o.Data)) {
+		o.Data = slices.Grow(o.Data, int(size))
 	}
 
-	if size < int64(len(o.data)) {
-		o.data = o.data[:size]
+	if size < int64(len(o.Data)) {
+		o.Data = o.Data[:size]
 	}
 
-	compressed := s2.Encode(nil, o.data)
+	compressed := s2.Encode(nil, o.Data)
 
 	_, err := o.client.PutObject(o.Key, compressed)
 
@@ -178,57 +178,67 @@ func (o *ObjectFile) Truncate(size int64) error {
 
 func (o *ObjectFile) WithData(data []byte) *ObjectFile {
 	if len(data) > 0 {
-		o.data = append(o.data, data...)
+		o.Data = append(o.Data, data...)
 	}
+
+	o.Sha256Checksum = sha256.Sum256(o.Data)
 
 	return o
 }
 
 // Write bytes to the file at the current offset.
 func (o *ObjectFile) Write(p []byte) (n int, err error) {
-	if o.openFlags == os.O_RDONLY {
+	if o.OpenFlags == os.O_RDONLY {
 		return 0, os.ErrPermission
 	}
 
-	o.data = append(o.data, p...)
+	o.Data = append(o.Data, p...)
+
+	o.Sha256Checksum = sha256.Sum256(o.Data)
 
 	return len(p), nil
 }
 
 func (o *ObjectFile) WriteAt(p []byte, off int64) (n int, err error) {
-	if o.openFlags == os.O_RDONLY {
+	if o.OpenFlags == os.O_RDONLY {
 		return 0, os.ErrPermission
 	}
 
-	if off > int64(len(o.data)) {
+	if off > int64(len(o.Data)) {
 		return 0, io.EOF
 	}
 
-	o.data = append(o.data[:off], append(p, o.data[off:]...)...)
+	o.Data = append(o.Data[:off], p...)
+
+	o.Sha256Checksum = sha256.Sum256(o.Data)
 
 	return len(p), nil
 }
 
 func (o *ObjectFile) WriteTo(w io.Writer) (n int64, err error) {
-	if o.openFlags == os.O_RDONLY {
+	if o.OpenFlags == os.O_RDONLY {
 		return 0, os.ErrPermission
 	}
 
-	bytesWritten, err := w.Write(o.data)
+	bytesWritten, err := w.Write(o.Data)
 
 	if err != nil {
 		return 0, err
 	}
 
+	o.Sha256Checksum = sha256.Sum256(o.Data)
+
 	return int64(bytesWritten), nil
 }
 
 func (o *ObjectFile) WriteString(s string) (ret int, err error) {
-	if o.openFlags == os.O_RDONLY {
+	if o.OpenFlags == os.O_RDONLY {
 		return 0, os.ErrPermission
 	}
 
-	o.data = append(o.data, []byte(s)...)
+	o.Data = append(o.Data, []byte(s)...)
+
+	o.Sha256Checksum = sha256.Sum256(o.Data)
 
 	return len(s), nil
 }
