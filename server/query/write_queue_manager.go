@@ -1,7 +1,6 @@
 package query
 
 import (
-	"log"
 	"sync"
 	"time"
 )
@@ -33,7 +32,6 @@ func (wqm *WriteQueueManager) Run() {
 			}
 
 			if value.(*WriteQueue).isIdle() {
-				log.Println("stopping write queue")
 				value.(*WriteQueue).stop()
 			}
 

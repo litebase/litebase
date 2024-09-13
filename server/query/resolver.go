@@ -99,7 +99,11 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 	})
 }
 
-func resolveWithQueue(query *Query, response *QueryResponse, f func(query *Query, response *QueryResponse) error) error {
+func resolveWithQueue(
+	query *Query,
+	response *QueryResponse,
+	f func(query *Query, response *QueryResponse) error,
+) error {
 	if query.IsWrite() {
 		queue := GetWriteQueue(query)
 
@@ -107,9 +111,13 @@ func resolveWithQueue(query *Query, response *QueryResponse, f func(query *Query
 			return fmt.Errorf("database not found")
 		}
 
-		return queue.Handle(func(f func(query *Query, response *QueryResponse) error, query *Query, response *QueryResponse) error {
-			return f(query, response)
-		}, f, query, response)
+		return queue.Handle(
+			func(f func(query *Query, response *QueryResponse) error,
+				query *Query,
+				response *QueryResponse,
+			) error {
+				return f(query, response)
+			}, f, query, response)
 	}
 
 	return f(query, response)

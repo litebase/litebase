@@ -66,7 +66,11 @@ func GetWriteQueue(query *Query) *WriteQueue {
 }
 
 func (wq *WriteQueue) Handle(
-	handler func(f func(query *Query, response *QueryResponse) error, query *Query, response *QueryResponse) error,
+	handler func(
+		f func(query *Query, response *QueryResponse) error,
+		query *Query,
+		response *QueryResponse,
+	) error,
 	f func(query *Query, response *QueryResponse) error,
 	query *Query,
 	response *QueryResponse,
@@ -104,43 +108,26 @@ func (wq *WriteQueue) isIdle() bool {
 }
 
 func (wq *WriteQueue) processQueue() {
-	// var job WriteQueueJob
-	localQueue := make([]WriteQueueJob, WriteQueueCapacity)
-	queueIndex := 0
-
 	for {
-		if !wq.running {
-			return
-		}
-
-	pullJobs:
-		for queueIndex < WriteQueueCapacity {
-			select {
-			case job := <-wq.jobs:
-				localQueue[queueIndex] = job
-				queueIndex++
-			default:
-				if !wq.running {
-					return
-				}
-
-				break pullJobs
-			}
-		}
-
-		// Process jobs from the local queue one at a time
-		if queueIndex > 0 {
-			job := localQueue[0]
-			copy(localQueue[0:], localQueue[1:queueIndex])
-			queueIndex--
-
+		select {
+		case job := <-wq.jobs:
+			// Process the job immediately
 			err := job.handler(job.f, job.query, job.response)
 
+			// Send the result back
 			result := wq.resultPool.Get().(*WriteQueueResult)
 			result.err = err
 			job.result <- result
 			wq.resultPool.Put(result)
 			wq.activeAt = time.Now()
+		default:
+			// Check if we should stop running
+			if !wq.running {
+				return
+			}
+
+			// Sleep briefly to avoid busy-waiting
+			time.Sleep(10 * time.Microsecond)
 		}
 	}
 }
