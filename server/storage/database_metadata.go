@@ -7,6 +7,7 @@ import (
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"os"
+	"sync"
 )
 
 type DatabaseMetadata struct {
@@ -14,6 +15,7 @@ type DatabaseMetadata struct {
 	DatabaseUuid       string `json:"database_uuid"`
 	databaseFileSystem *DurableDatabaseFileSystem
 	file               internalStorage.File
+	mutext             sync.Mutex
 	PageCount          int64
 	PageSize           int64
 }
@@ -25,28 +27,9 @@ func NewDatabaseMetadata(dfs *DurableDatabaseFileSystem, databaseUuid, branchUui
 		BranchUuid:         branchUuid,
 		DatabaseUuid:       databaseUuid,
 		databaseFileSystem: dfs,
+		mutext:             sync.Mutex{},
 		PageCount:          0,
 		PageSize:           dfs.PageSize(),
-	}
-
-	metadata.file, err = dfs.FileSystem().OpenFile(metadata.Path(), os.O_CREATE|os.O_RDWR, 0644)
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			err := dfs.FileSystem().MkdirAll(file.GetDatabaseFileDir(databaseUuid, branchUuid), 0755)
-
-			if err != nil {
-				return nil, err
-			}
-
-			metadata.file, err = dfs.FileSystem().OpenFile(metadata.Path(), os.O_CREATE|os.O_RDWR, 0644)
-
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
 	}
 
 	err = metadata.Load()
@@ -59,7 +42,46 @@ func NewDatabaseMetadata(dfs *DurableDatabaseFileSystem, databaseUuid, branchUui
 }
 
 func (d *DatabaseMetadata) Close() error {
-	return d.file.Close()
+	if d.file == nil {
+		return nil
+	}
+
+	err := d.file.Close()
+
+	d.file = nil
+
+	return err
+}
+
+func (d *DatabaseMetadata) File() (internalStorage.File, error) {
+	var err error
+
+	d.mutext.Lock()
+	defer d.mutext.Unlock()
+
+	if d.file == nil {
+		d.file, err = d.databaseFileSystem.FileSystem().OpenFile(d.Path(), os.O_CREATE|os.O_RDWR, 0644)
+
+		if err != nil {
+			if os.IsNotExist(err) {
+				err := d.databaseFileSystem.FileSystem().MkdirAll(file.GetDatabaseFileDir(d.DatabaseUuid, d.BranchUuid), 0755)
+
+				if err != nil {
+					return nil, err
+				}
+
+				d.file, err = d.databaseFileSystem.FileSystem().OpenFile(d.Path(), os.O_CREATE|os.O_RDWR, 0644)
+
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	return d.file, nil
 }
 
 func (d *DatabaseMetadata) FileSize() int64 {
@@ -71,13 +93,25 @@ func (d *DatabaseMetadata) Load() error {
 	// Read the first 8 bytes to get the page count
 	data := make([]byte, 8)
 
-	_, err := d.file.Seek(0, io.SeekStart)
+	file, err := d.File()
 
 	if err != nil {
 		return err
 	}
 
-	_, err = d.file.Read(data)
+	_, err = file.Seek(0, io.SeekStart)
+
+	if err != nil {
+		return err
+	}
+
+	file, err = d.File()
+
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Read(data)
 
 	if err != nil {
 		return err
@@ -99,7 +133,13 @@ func (d *DatabaseMetadata) Save() error {
 	// Write the page count
 	binary.LittleEndian.PutUint64(data, uint64(d.PageCount))
 
-	_, err := d.file.WriteAt(data, 0)
+	file, err := d.File()
+
+	if err != nil {
+		return err
+	}
+
+	_, err = file.WriteAt(data, 0)
 
 	return err
 

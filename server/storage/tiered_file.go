@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	internalStorage "litebase/internal/storage"
-	"log"
 	"os"
 	"time"
 )
@@ -269,7 +268,6 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 
 func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 	if f.Closed {
-		log.Println("TieredFile.WriteAt: File is closed")
 		file, err := f.tieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
 
 		if err != nil {

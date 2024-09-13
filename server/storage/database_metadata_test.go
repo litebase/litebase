@@ -74,6 +74,40 @@ func TestDatabaseMetadataClose(t *testing.T) {
 	})
 }
 
+func TestDatabaseMetadataFile(t *testing.T) {
+	test.Run(t, func() {
+		mockDatabase := test.MockDatabase()
+
+		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
+			storage.LocalFS(),
+			"local",
+			mockDatabase.DatabaseUuid,
+			mockDatabase.BranchUuid,
+			4096,
+		)
+
+		databaseMetadata, _ := storage.NewDatabaseMetadata(
+			localDatabaseFileSystem,
+			mockDatabase.DatabaseUuid,
+			mockDatabase.BranchUuid,
+		)
+
+		_, err := databaseMetadata.File()
+
+		if err != nil {
+			t.Errorf("error getting database metadata file: %v", err)
+		}
+
+		databaseMetadata.Close()
+
+		_, err = databaseMetadata.File()
+
+		if err != nil {
+			t.Errorf("expected no error when getting database metadata file after close, got: %v", err)
+		}
+	})
+}
+
 func TestDatabaseMetadataFileSize(t *testing.T) {
 	test.Run(t, func() {
 		mockDatabase := test.MockDatabase()
