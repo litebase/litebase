@@ -2,16 +2,10 @@ package database
 
 import (
 	"fmt"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/file"
 	"litebase/server/node"
-	"litebase/server/storage"
 	"log"
-	"os"
 	"sync"
 	"time"
-
-	"github.com/klauspost/compress/s2"
 )
 
 const (
@@ -24,6 +18,8 @@ const (
 	ErrorConnectionManagerShutdown = "new database connections cannot be created after shutdown"
 	ErrorConnectionManagerDraining = "new database connections cannot be created while shutting down"
 )
+
+const DatabaseIdleTimeout = 1 * time.Minute
 
 type ConnectionManagerInstance struct {
 	connectionTicker *time.Ticker
@@ -71,14 +67,11 @@ func ConnectionManager() *ConnectionManagerInstance {
 
 func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, branchUuid string, clientConnection *ClientConnection) bool {
 	// Skip if the checkpoint time is empty
-	if clientConnection.connection.committedAt.IsZero() ||
-		clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
+	if clientConnection.connection.committedAt.IsZero() {
 		return false
 	}
 
-	// Skip if the database connection is before the checkpoint time
-	if clientConnection.connection.committedAt.IsZero() ||
-		clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
+	if clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
 		return false
 	}
 
@@ -125,14 +118,6 @@ func (c *ConnectionManagerInstance) CheckpointAll() {
 			}
 		}
 	}
-}
-
-func (c *ConnectionManagerInstance) CheckpointReplica(databaseUuid, branchUuid string, timestamp int64) {
-	c.mutex.Lock()
-	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
-	c.databases[databaseUuid].branchWalSha256[branchUuid] = [32]byte{}
-	c.databases[databaseUuid].branchWalTimestamps[branchUuid] = timestamp
-	c.mutex.Unlock()
 }
 
 func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string, drained func() error) error {
@@ -238,9 +223,6 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	databaseGroup.lockMutex.Lock()
 	defer databaseGroup.lockMutex.Unlock()
 
-	delete(databaseGroup.branches, branchUuid)
-	delete(databaseGroup.branchWalSha256, branchUuid)
-
 	return drained()
 }
 
@@ -267,8 +249,6 @@ func (c *ConnectionManagerInstance) ensureDatabaseBranchExists(databaseUuid, bra
 
 	if c.databases[databaseUuid].branches[branchUuid] == nil {
 		c.databases[databaseUuid].branches[branchUuid] = []*BranchConnection{}
-		c.databases[databaseUuid].branchWalSha256[branchUuid] = [32]byte{}
-		c.databases[databaseUuid].branchWalTimestamps[branchUuid] = 0
 		c.databases[databaseUuid].locks[branchUuid] = &sync.RWMutex{}
 	}
 }
@@ -326,14 +306,6 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 		len(c.databases[databaseUuid].branches[branchUuid]) > 0 {
 		for _, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
 			if !branchConnection.Claimed() {
-				// if branchConnection.walSha256 != c.databases[databaseUuid].branchWalSha256[branchUuid] {
-				// 	// Remove the branch connection from the database group branch
-				// 	c.remove(databaseUuid, branchUuid, branchConnection.connection)
-				// 	log.Println("WAL sha256 mismatch, removing connection", branchConnection.walSha256, c.databases[databaseUuid].branchWalSha256[branchUuid])
-
-				// 	continue
-				// }
-
 				branchConnection.Claim()
 
 				return branchConnection.connection, nil
@@ -343,30 +315,17 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 
 	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
 
-	// TODO: Fix this
-	// Retrieve the WAL from the primary
-	// err := c.retrieveWal(databaseUuid, branchUuid)
-
-	// if err != nil {
-	// 	log.Println("ERROR retrieving wal", err)
-	// 	return nil, err
-	// }
-
-	walTimestamp := c.databases[databaseUuid].branchWalTimestamps[branchUuid]
-
 	// Create a new client connection, only one connection can be created at a
 	// time to avoid SQL Logic errors on sqlite3_open.
-	con, err := NewClientConnection(databaseUuid, branchUuid, walTimestamp)
+	con, err := NewClientConnection(databaseUuid, branchUuid)
 
 	if err != nil {
-		log.Println("ERROR creating client connection", err)
 		return nil, err
 	}
 
 	c.databases[databaseUuid].branches[branchUuid] = append(c.databases[databaseUuid].branches[branchUuid], NewBranchConnection(
+		c.databases[databaseUuid],
 		con,
-		walTimestamp,
-		c.databases[databaseUuid].branchWalSha256[branchUuid],
 	))
 
 	return con, nil
@@ -382,13 +341,6 @@ func (c *ConnectionManagerInstance) Release(databaseUuid string, branchUuid stri
 
 	for _, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
-			// if branchConnection.walSha256 != c.databases[databaseUuid].branchWalSha256[branchUuid] {
-			// 	// Remove the branch connection from the database group branch
-			// 	c.remove(databaseUuid, branchUuid, clientConnection)
-
-			// 	return
-			// }
-
 			branchConnection.Unclaim()
 			branchConnection.lastUsedAt = time.Now()
 			break
@@ -410,8 +362,6 @@ func (c *ConnectionManagerInstance) remove(databaseUuid string, branchUuid strin
 	// If there are no more branches, remove the database
 	if len(c.databases[databaseUuid].branches[branchUuid]) == 0 {
 		delete(c.databases[databaseUuid].branches, branchUuid)
-		delete(c.databases[databaseUuid].branchWalSha256, branchUuid)
-		delete(c.databases[databaseUuid].branchWalTimestamps, branchUuid)
 		DatabaseResources().Remove(databaseUuid, branchUuid)
 	}
 
@@ -436,10 +386,15 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 			var activeConnections = 0
 
 			for i, branchConnection := range branchConnections {
-				// Close the connection if it is not in use and has been idle for more than a minute
-				if !branchConnection.Claimed() && time.Since(branchConnection.lastUsedAt) > 1*time.Minute {
+				// Close the connection if it is not in use and has been idle
+				// for more than a minute. We need to also avoid removing
+				// connections that require a checkpoint. Not doing so can lead
+				// to database corruption.
+				if !branchConnection.RequiresCheckpoint() && !branchConnection.Claimed() && time.Since(branchConnection.lastUsedAt) > DatabaseIdleTimeout {
 					database.branches[branchUuid] = append(branchConnections[:i], branchConnections[i+1:]...)
 					branchConnection.connection.Close()
+				} else if branchConnection.RequiresCheckpoint() {
+					activeConnections++
 				} else {
 					activeConnections++
 				}
@@ -461,129 +416,6 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 			delete(c.databases, databaseUuid)
 		}
 	}
-}
-
-func (c *ConnectionManagerInstance) retrieveWal(databaseUuid, branchUuid string) error {
-	if node.Node().IsPrimary() {
-		return nil
-	}
-
-	databaseGroup := c.databases[databaseUuid]
-
-	if databaseGroup == nil {
-		return fmt.Errorf("database group not found")
-	}
-
-	responses, err := node.Node().SendWithStreamingResonse(
-		node.NodeMessage{
-			Id:   fmt.Sprintf("wal:%s", file.DatabaseHash(databaseUuid, branchUuid)),
-			Type: "WALMessage",
-			Data: node.WALMessage{
-				DatabaseUuid: databaseUuid,
-				BranchUuid:   branchUuid,
-			},
-		},
-	)
-
-	if err != nil {
-		log.Println("Failed to retrieve wal from primary: ", err)
-		return err
-	}
-
-	// TODO: The following causes a deadlock
-	lock := databaseGroup.locks[branchUuid]
-
-	// Lock the branch to allow the WAL to be written
-	lock.Lock()
-
-	defer lock.Unlock()
-
-	var walFile internalStorage.File
-	var fileSha256 [32]byte
-	var timestamp int64
-
-	for response := range responses {
-		if response.Type == "Error" {
-			log.Println("Error retrieving wal from primary: ", response.Error)
-			return fmt.Errorf(response.Error)
-		}
-
-		if response.Type != "WALMessageResponse" {
-			log.Println("Unexpected response from primary: ", response.Type)
-			return fmt.Errorf("unexpected response from primary")
-		}
-
-		walMessageResponse := response.Data.(node.WALMessageResponse)
-		lastChunk := walMessageResponse.LastChunk
-
-		if walFile == nil {
-			walFile, err = storage.TmpFS().OpenFile(
-				WalVersionPath(databaseUuid, branchUuid, walMessageResponse.Timestamp),
-				os.O_RDWR|os.O_CREATE,
-				0644,
-			)
-
-			if err != nil {
-				log.Println("Failed to open WAL file: ", err)
-				return err
-			}
-
-			defer walFile.Close()
-
-			// Truncate the file
-			if err := walFile.Truncate(0); err != nil {
-				log.Println("Failed to truncate WAL file: ", err)
-				return err
-			}
-		}
-
-		decompressed, err := s2.Decode(nil, walMessageResponse.Data)
-
-		if err != nil {
-			log.Println("Failed to decode WAL chunk: ", err)
-			return err
-		}
-
-		_, err = walFile.Write(decompressed)
-
-		if err != nil {
-			log.Println("Failed to write WAL file: ", err)
-			return err
-		}
-
-		if lastChunk {
-			fileSha256 = walMessageResponse.Sha256
-			timestamp = walMessageResponse.Timestamp
-			break
-		}
-	}
-
-	// if walFile == nil {
-	// 	return nil
-	// }
-
-	// hasher := sha256.New()
-
-	// walFile.Seek(0, 0)
-
-	// if _, err := walFile.WriteTo(hasher); err != nil {
-	// return err
-	// }
-
-	// var updatedFileSha256 [32]byte
-
-	// copy(updatedFileSha256[:], hasher.Sum(nil))
-
-	// if fileSha256 != updatedFileSha256 {
-	// 	// TODO: Delete the wal and pull the latest from the primary or remote storage
-	// 	log.Println("sha256 mismatch")
-	// 	return nil
-	// }
-
-	c.databases[databaseUuid].branchWalSha256[branchUuid] = fileSha256
-	c.databases[databaseUuid].branchWalTimestamps[branchUuid] = timestamp
-
-	return nil
 }
 
 func (c *ConnectionManagerInstance) Shutdown() {
@@ -625,8 +457,6 @@ func (c *ConnectionManagerInstance) UpdateWal(
 ) error {
 	c.mutex.Lock()
 	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
-	c.databases[databaseUuid].branchWalSha256[branchUuid] = fileSha256
-	c.databases[databaseUuid].branchWalTimestamps[branchUuid] = timestamp
 	c.mutex.Unlock()
 
 	return nil
@@ -635,13 +465,4 @@ func (c *ConnectionManagerInstance) UpdateWal(
 func (c *ConnectionManagerInstance) Tick() {
 	c.CheckpointAll()
 	c.RemoveIdleConnections()
-}
-
-func (c *ConnectionManagerInstance) WalTimestamp(databaseUuid, branchUuid string) (int64, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
-
-	return c.databases[databaseUuid].branchWalTimestamps[branchUuid], nil
 }

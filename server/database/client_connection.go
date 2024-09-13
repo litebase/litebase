@@ -15,9 +15,8 @@ type ClientConnection struct {
 func NewClientConnection(
 	databaseUuid string,
 	branchUuid string,
-	walTimestamp int64,
 ) (*ClientConnection, error) {
-	connection, err := NewDatabaseConnection(databaseUuid, branchUuid, walTimestamp)
+	connection, err := NewDatabaseConnection(databaseUuid, branchUuid)
 
 	if connection == nil {
 		return nil, err

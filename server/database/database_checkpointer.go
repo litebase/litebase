@@ -16,7 +16,7 @@ func (d *DatabaseCheckpointer) CheckpointReplica(databaseUuid, branchUuid string
 		return err
 	}
 
-	ConnectionManager().CheckpointReplica(databaseUuid, branchUuid, timesatmp)
+	// ConnectionManager().CheckpointReplica(databaseUuid, branchUuid, timesatmp)
 
 	return nil
 }

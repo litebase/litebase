@@ -6,26 +6,27 @@ import (
 )
 
 type BranchConnection struct {
-	cancel       context.CancelFunc
-	context      context.Context
-	connection   *ClientConnection
-	inUse        bool
-	lastUsedAt   time.Time
-	walTimestamp int64
-	walSha256    [32]byte
+	cancel        context.CancelFunc
+	context       context.Context
+	connection    *ClientConnection
+	databaseGroup *DatabaseGroup
+	inUse         bool
+	lastUsedAt    time.Time
 }
 
-func NewBranchConnection(connection *ClientConnection, walTimestamp int64, sha256 [32]byte) *BranchConnection {
+func NewBranchConnection(
+	databaseGroup *DatabaseGroup,
+	connection *ClientConnection,
+) *BranchConnection {
 	context, cancel := context.WithCancel(context.Background())
 
 	return &BranchConnection{
-		cancel:       cancel,
-		connection:   connection,
-		context:      context,
-		inUse:        true,
-		lastUsedAt:   time.Now(),
-		walSha256:    sha256,
-		walTimestamp: walTimestamp,
+		cancel:        cancel,
+		connection:    connection,
+		context:       context,
+		databaseGroup: databaseGroup,
+		inUse:         true,
+		lastUsedAt:    time.Now(),
 	}
 }
 
@@ -40,6 +41,11 @@ func (b *BranchConnection) Claimed() bool {
 func (b *BranchConnection) Close() {
 	b.cancel()
 	b.connection.Close()
+}
+
+func (b *BranchConnection) RequiresCheckpoint() bool {
+	return (b.databaseGroup.checkpointedAt.IsZero() && !b.connection.connection.committedAt.IsZero()) ||
+		(b.connection.connection.committedAt.After(b.databaseGroup.checkpointedAt))
 }
 
 func (b *BranchConnection) Unclaim() {

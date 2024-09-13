@@ -38,7 +38,7 @@ type DatabaseConnection struct {
 	vfsHash        string
 }
 
-func NewDatabaseConnection(databaseUuid, branchUuid string, walTimestamp int64) (*DatabaseConnection, error) {
+func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection, error) {
 	var (
 		connection *sqlite3.Connection
 		err        error
@@ -187,6 +187,8 @@ func (con *DatabaseConnection) Checkpoint() error {
 
 		if err != nil {
 			log.Println("Error checkpointing database", err)
+		} else {
+			log.Println("Successful database checkpoint")
 		}
 	})
 
