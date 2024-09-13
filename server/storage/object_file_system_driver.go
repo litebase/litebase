@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
@@ -249,9 +250,8 @@ func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, e
 
 func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
 	// This is a no-op since we can't truncate files in S3
-	log.Fatalln("Truncate not implemented for object storage")
 
-	return nil
+	return fmt.Errorf("truncate not implemented for object storage")
 }
 
 func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
