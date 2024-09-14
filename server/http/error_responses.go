@@ -15,7 +15,7 @@ func JsonStringError(err error) []byte {
 }
 
 func JsonNewLineError(err error) []byte {
-	return []byte(string(JsonStringError(err)) + "\n")
+	return append(JsonStringError(err), '\n')
 }
 
 func BadRequestResponse(err error) Response {

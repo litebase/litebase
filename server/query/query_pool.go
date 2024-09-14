@@ -23,6 +23,8 @@ func Get(
 ) *Query {
 	query := queryPool.Get().(*Query)
 
+	query.Reset()
+
 	query.AccessKey = accessKey
 	query.DatabaseKey = databaseKey
 	query.Input = input

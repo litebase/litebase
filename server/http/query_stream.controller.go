@@ -3,7 +3,7 @@ package http
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
 	"litebase/server/auth"
 	"litebase/server/database"
@@ -20,11 +20,13 @@ var bufferPool = sync.Pool{
 }
 
 // Define a sync.Pool for reusable Command structs
-var inputPool = sync.Pool{
+var inputPool = &sync.Pool{
 	New: func() interface{} {
 		return &query.QueryInput{}
 	},
 }
+
+const QueryStreamFlushInterval = 0
 
 func QueryStreamController(request *Request) Response {
 	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
@@ -54,100 +56,14 @@ func QueryStreamController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			scannedTextBuffer := bufferPool.Get().(*bytes.Buffer)
-			requestBuffer := bufferPool.Get().(*bytes.Buffer)
-			responseBuffer := bufferPool.Get().(*bytes.Buffer)
-
-			defer bufferPool.Put(scannedTextBuffer)
-			defer bufferPool.Put(requestBuffer)
-			defer bufferPool.Put(responseBuffer)
-
-			var input *query.QueryInput
-			var err error
-
-			var decoder = json.NewDecoder(requestBuffer)
-			var encoder = json.NewEncoder(responseBuffer)
-
 			scanner := bufio.NewScanner(request.BaseRequest.Body)
-			response := &query.QueryResponse{}
-			jsonResponse := &query.QueryJsonResponse{}
+			ctx, cancel := context.WithCancel(context.Background())
+			writer := make(chan *bytes.Buffer, 1)
 
-			for scanner.Scan() {
-				requestBuffer.Reset()
-				responseBuffer.Reset()
-				scannedTextBuffer.Reset()
+			go read(cancel, scanner, databaseKey, accessKey, writer)
+			go write(ctx, w, writer)
 
-				n, _ := scannedTextBuffer.Write(scanner.Bytes())
-
-				// TODO: We need to handle a connection event. NodeJS doesn't start
-				// the request without any data being sent first.
-				if n == 0 {
-					w.Write([]byte(`{"connected": true}` + "\n"))
-					w.(http.Flusher).Flush()
-					continue
-				}
-
-				_, err = requestBuffer.Write(scannedTextBuffer.Next(n))
-
-				if err != nil {
-					w.Write(JsonNewLineError(err))
-					w.(http.Flusher).Flush()
-					return
-				}
-
-				input = inputPool.Get().(*query.QueryInput)
-
-				err = decoder.Decode(&input)
-
-				if err != nil {
-					w.Write(JsonNewLineError(err))
-					w.(http.Flusher).Flush()
-					return
-				}
-
-				response.Reset()
-
-				err = processInput(databaseKey, accessKey, input, response)
-
-				inputPool.Put(input)
-
-				if err != nil {
-					w.Write(JsonNewLineError(err))
-					w.(http.Flusher).Flush()
-					return
-				}
-
-				jsonResponse.Status = "success"
-				jsonResponse.Data = response
-
-				err = encoder.Encode(jsonResponse)
-
-				if err != nil {
-					w.Write(JsonNewLineError(err))
-					w.(http.Flusher).Flush()
-					return
-				}
-
-				// n, err = responseBuffer.Write(data)
-
-				// if err != nil {
-				// 	w.Write(JsonNewLineError(err))
-				// 	w.(http.Flusher).Flush()
-
-				// 	return
-				// }
-
-				_, err = w.Write(responseBuffer.Bytes())
-
-				if err != nil {
-					log.Println("Error writing response", err)
-					w.Write(JsonNewLineError(err))
-
-					return
-				}
-
-				w.(http.Flusher).Flush()
-			}
+			<-ctx.Done()
 		},
 	}
 }
@@ -174,4 +90,140 @@ func processInput(
 	}
 
 	return nil
+}
+
+func read(
+	cancel context.CancelFunc,
+	scanner *bufio.Scanner,
+	databaseKey *database.DatabaseKey,
+	accessKey *auth.AccessKey,
+	writer chan *bytes.Buffer,
+) {
+	errorBuffer := bufferPool.Get().(*bytes.Buffer)
+	defer bufferPool.Put(errorBuffer)
+	errorBuffer.Reset()
+
+	for scanner.Scan() {
+		errorBuffer.Reset()
+
+		if err := scanner.Err(); err != nil {
+			writer <- errorBuffer
+			break
+		}
+
+		scanBuffer := bufferPool.Get().(*bytes.Buffer)
+		scanBuffer.Reset()
+		scanBuffer.Write(scanner.Bytes())
+
+		go scan(databaseKey, accessKey, scanBuffer, writer)
+	}
+
+	cancel()
+}
+
+func scan(databaseKey *database.DatabaseKey,
+	accessKey *auth.AccessKey,
+	scanBuffer *bytes.Buffer,
+	writer chan *bytes.Buffer,
+) {
+	writeBuffer := bufferPool.Get().(*bytes.Buffer)
+	writeBuffer.Reset()
+
+	defer bufferPool.Put(scanBuffer)
+
+	n := scanBuffer.Len()
+
+	// TODO: We need to handle a connection event. NodeJS doesn't start
+	// the request without any data being sent first.
+	if n == 0 {
+		writeBuffer.Write([]byte(`{"connected": true}` + "\n"))
+		writer <- writeBuffer
+		return
+	}
+
+	var err error
+
+	response := query.ResponsePool().Get()
+	defer query.ResponsePool().Put(response)
+
+	jsonResponse := &query.QueryJsonResponse{}
+
+	input := inputPool.Get().(*query.QueryInput)
+	defer inputPool.Put(input)
+
+	decoder := query.JsonDecoderPool().Get()
+	defer query.JsonDecoderPool().Put(decoder)
+
+	decoder.Buffer.Write(scanBuffer.Bytes())
+
+	err = decoder.JsonDecoder.Decode(input)
+
+	// err = json.Unmarshal(scanBuffer.Bytes(), input)
+
+	if err != nil {
+		writeBuffer.Write(JsonNewLineError(err))
+		writer <- writeBuffer
+		return
+	}
+
+	response.Reset()
+
+	err = processInput(databaseKey, accessKey, input, response)
+
+	if err != nil {
+		writeBuffer.Write(JsonNewLineError(err))
+		writer <- writeBuffer
+		return
+	}
+
+	jsonResponse.Status = "success"
+	jsonResponse.Data = response
+
+	encoder := query.JsonEncoderPool().Get()
+	defer query.JsonEncoderPool().Put(encoder)
+
+	err = encoder.JsonEncoder.Encode(jsonResponse)
+
+	if err != nil {
+		writeBuffer.Write(JsonNewLineError(err))
+		writer <- writeBuffer
+		return
+	}
+
+	// responseBuffer := bufferPool.Get().(*bytes.Buffer)
+	// defer bufferPool.Put(responseBuffer)
+
+	// responseBuffer.Reset()
+
+	// _, err = responseBuffer.Write(encoder.Buffer.Bytes())
+
+	// if err != nil {
+	// 	writeBuffer.Write(JsonNewLineError(err))
+	// 	writer <- writeBuffer
+	// 	return
+	// }
+
+	writeBuffer.Write(encoder.Buffer.Bytes())
+
+	writer <- writeBuffer
+}
+
+// TODO: Implement a write function to handle writing responses to the client
+// So that we can buffer more than one response before sending it to the client
+func write(ctx context.Context, w http.ResponseWriter, writer chan *bytes.Buffer) {
+	// TODO: detect the different client connections that have inflight requests
+	// and do a best effort to buffer the writes to send as many as possible at
+	// once instead of sending one at a time.
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case buffer := <-writer:
+			w.Write(buffer.Bytes())
+			w.(http.Flusher).Flush()
+
+			bufferPool.Put(buffer)
+			// 	time.Sleep(QueryStreamFlushInterval)
+		}
+	}
 }

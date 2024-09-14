@@ -188,7 +188,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 		if err != nil {
 			log.Println("Error checkpointing database", err)
 		} else {
-			log.Println("Successful database checkpoint")
+			// log.Println("Successful database checkpoint")
 		}
 	})
 
