@@ -48,6 +48,30 @@ func TestCheckpointerAddPage(t *testing.T) {
 	})
 }
 
+func TestCheckpointerPages(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+		cp, err := database.NewCheckpointer(
+			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cp.AddPage(1)
+		cp.AddPage(2)
+
+		pages := cp.Pages()
+
+		if len(pages) != 2 {
+			t.Fatal("Pages were not retrieved correctly")
+		}
+	})
+}
+
 func TestCheckpointerRun(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
@@ -74,6 +98,28 @@ func TestCheckpointerRun(t *testing.T) {
 
 		if err != nil {
 			t.Fatal(err)
+		}
+	})
+}
+
+func TestCheckpointerRunNoPages(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+
+		cp, err := database.NewCheckpointer(
+			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cp.Run()
+
+		if err != nil {
+			t.Fatal("Expected no error when running with no pages, got:", err)
 		}
 	})
 }
