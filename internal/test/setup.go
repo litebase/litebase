@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"litebase/internal/test/minio"
 	"litebase/server"
 	"litebase/server/database"
 	"litebase/server/node"
@@ -141,7 +142,7 @@ func SetupObjectStorage(m *testing.M, callback func()) {
 		log.Fatal(err)
 	}
 
-	objectStorageAddress, minioShutdown, err = StartMinioServer(fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")))
+	objectStorageAddress, minioShutdown, err = minio.StartMinioServer(fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")))
 
 	if err != nil {
 		log.Fatal(err)
@@ -153,5 +154,5 @@ func SetupObjectStorage(m *testing.M, callback func()) {
 	callback()
 
 	// Teardown the environment
-	StopMinioServer(minioShutdown)
+	minio.StopMinioServer(minioShutdown)
 }
