@@ -53,10 +53,6 @@ log:
 	}, nil
 }
 
-func (p *PageLog) Close() {
-	p.file.Close()
-}
-
 func (p *PageLog) Append(compressionBuffer *bytes.Buffer, entry *PageLogEntry) error {
 	p.file.Seek(0, io.SeekEnd)
 
@@ -71,15 +67,17 @@ func (p *PageLog) Append(compressionBuffer *bytes.Buffer, entry *PageLogEntry) e
 	return err
 }
 
+func (p *PageLog) Close() error {
+	return p.file.Close()
+}
+
 // Read through the PageLog and return all the entries. This is done by reading
 // the file from the beginning to the end and deserializing the entries.
-func (p *PageLog) Reader() (chan *PageLogEntry, chan error) {
-	entries := make(chan *PageLogEntry)
-	readerError := make(chan error)
+func (p *PageLog) Reader() ([]*PageLogEntry, error) {
+	entries := make([]*PageLogEntry, 0)
+	var readerError error
 
 	go func() {
-		defer close(entries)
-
 		// Reset the file pointer to the beginning of the file
 		_, err := p.file.Seek(0, io.SeekStart)
 
@@ -98,12 +96,11 @@ func (p *PageLog) Reader() (chan *PageLogEntry, chan error) {
 			}
 
 			if err != nil {
-				readerError <- err
+				readerError = err
 				break
 			}
 
-			// Send the entry on the channel
-			entries <- pageLogEntry
+			entries = append(entries, pageLogEntry)
 		}
 	}()
 

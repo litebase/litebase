@@ -198,38 +198,34 @@ func RestorePage(
 	defer pageLog.Close()
 
 	// Read the page log entries
-	reader, readerError := pageLog.Reader()
+	entries, err := pageLog.Reader()
 
-	for {
-		select {
-		case err := <-readerError:
+	if err != nil {
+		errorSignal <- err
+		return
+	}
+
+	for _, entry := range entries {
+
+		// TODO: We need to write the latest version of the page without having to write all previous pages first
+		// Check if the entry is within the backup timestamp
+		// if entry.Timestamp < backupTimestamp {
+		// 	continue
+		// }
+
+		if entry.Timestamp > backupTimestamp {
+			break
+		}
+
+		offset := file.PageOffset(int64(pageNumber), config.Get().PageSize)
+
+		// Write the page to the destination file
+		_, err := destinationFile.WriteAt(entry.Data, offset)
+
+		if err != nil {
+			log.Println("Error writing page", pageNumber, err)
 			errorSignal <- err
 			return
-		case entry, ok := <-reader:
-			if !ok {
-				return
-			}
-
-			// TODO: We need to write the latest version of the page without having to write all previous pages first
-			// Check if the entry is within the backup timestamp
-			// if entry.Timestamp < backupTimestamp {
-			// 	continue
-			// }
-
-			if entry.Timestamp > backupTimestamp {
-				break
-			}
-
-			offset := file.PageOffset(int64(pageNumber), config.Get().PageSize)
-
-			// Write the page to the destination file
-			_, err := destinationFile.WriteAt(entry.Data, offset)
-
-			if err != nil {
-				log.Println("Error writing page", pageNumber, err)
-				errorSignal <- err
-				return
-			}
 		}
 	}
 }
