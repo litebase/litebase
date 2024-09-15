@@ -36,7 +36,7 @@ type PageLogEntry struct {
 	Timestamp        uint64
 	SizeCompressed   int
 	SizeDecompressed int
-	SHA1             string
+	SHA1             []byte
 	Version          uint32
 }
 
@@ -48,7 +48,7 @@ const (
 func NewPageLogEntry(pageNumber uint32, timestamp uint64, data []byte) *PageLogEntry {
 	hash := sha1.New()
 	hash.Write(data)
-	sha1 := fmt.Sprintf("%x", hash.Sum(nil))
+	sha1 := hash.Sum(nil)
 
 	return &PageLogEntry{
 		Data:       data,
@@ -60,8 +60,9 @@ func NewPageLogEntry(pageNumber uint32, timestamp uint64, data []byte) *PageLogE
 }
 
 func (p *PageLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte, error) {
+	p.SizeDecompressed = len(p.Data)
 	compressionBufferCap := compressionBuffer.Cap()
-	maxEncodedLen := s2.MaxEncodedLen(len(p.Data))
+	maxEncodedLen := s2.MaxEncodedLen(p.SizeDecompressed)
 
 	if compressionBufferCap < maxEncodedLen {
 		compressionBuffer.Grow(maxEncodedLen - compressionBufferCap + 1)
@@ -70,6 +71,8 @@ func (p *PageLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte, error
 	compressed := s2.Encode(compressionBuffer.Bytes()[:0], p.Data)
 
 	compressionBuffer.Write(compressed)
+
+	p.SizeCompressed = len(compressed)
 
 	serialized := make([]byte, PageLogHeaderSize+compressionBuffer.Len())
 
@@ -82,7 +85,7 @@ func (p *PageLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte, error
 	// 4 bytes for the size of the uncompressed data
 	binary.LittleEndian.PutUint32(serialized[16:20], uint32(len(p.Data)))
 	// 4 bytes for the size of the compressed data
-	binary.LittleEndian.PutUint32(serialized[20:24], uint32(len(compressed)))
+	binary.LittleEndian.PutUint32(serialized[20:24], uint32(p.SizeCompressed))
 	// 20 bytes for the SHA1 hash of the uncompressed data
 	copy(serialized[24:44], []byte(p.SHA1))
 	// The remaining 66 bytes are reserved for future use and are already zero
@@ -112,7 +115,7 @@ func DeserializePageLogEntry(reader io.Reader) (*PageLogEntry, error) {
 	// 4 bytes for the size of the compressed data
 	compressedSize := binary.LittleEndian.Uint32(header[20:24])
 	// 20 bytes for the SHA1 hash of the uncompressed data
-	sha1String := string(header[24:44])
+	entrySHA1 := header[24:44]
 
 	// Read the compressed frame
 	compressed := make([]byte, compressedSize)
@@ -130,10 +133,10 @@ func DeserializePageLogEntry(reader io.Reader) (*PageLogEntry, error) {
 	}
 
 	hash := sha1.New()
-	hash.Write(decompressed)
-	calculatedSha1 := fmt.Sprintf("%x", hash.Sum(nil))
+	hash.Write((decompressed))
+	calculatedSha1 := hash.Sum(nil)
 
-	if calculatedSha1 != sha1String {
+	if bytes.Compare(entrySHA1, []byte(calculatedSha1)) != 0 {
 		return nil, fmt.Errorf("SHA1 hash mismatch")
 	}
 
