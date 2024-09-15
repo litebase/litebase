@@ -47,7 +47,7 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 	fsd := &TieredFileSystemDriver{
 		buffers: sync.Pool{
 			New: func() interface{} {
-				return bytes.NewBuffer(make([]byte, 0, 4096))
+				return bytes.NewBuffer(make([]byte, 0, 1024))
 			},
 		},
 		context:                 context,

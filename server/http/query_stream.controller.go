@@ -158,8 +158,6 @@ func scan(databaseKey *database.DatabaseKey,
 
 	err = decoder.JsonDecoder.Decode(input)
 
-	// err = json.Unmarshal(scanBuffer.Bytes(), input)
-
 	if err != nil {
 		writeBuffer.Write(JsonNewLineError(err))
 		writer <- writeBuffer
@@ -189,19 +187,6 @@ func scan(databaseKey *database.DatabaseKey,
 		writer <- writeBuffer
 		return
 	}
-
-	// responseBuffer := bufferPool.Get().(*bytes.Buffer)
-	// defer bufferPool.Put(responseBuffer)
-
-	// responseBuffer.Reset()
-
-	// _, err = responseBuffer.Write(encoder.Buffer.Bytes())
-
-	// if err != nil {
-	// 	writeBuffer.Write(JsonNewLineError(err))
-	// 	writer <- writeBuffer
-	// 	return
-	// }
 
 	writeBuffer.Write(encoder.Buffer.Bytes())
 
