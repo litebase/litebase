@@ -125,9 +125,6 @@ func (wq *WriteQueue) processQueue() {
 			if !wq.running {
 				return
 			}
-
-			// Sleep briefly to avoid busy-waiting
-			time.Sleep(10 * time.Microsecond)
 		}
 	}
 }

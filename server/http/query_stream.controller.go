@@ -103,19 +103,30 @@ func read(
 	defer bufferPool.Put(errorBuffer)
 	errorBuffer.Reset()
 
-	for scanner.Scan() {
-		errorBuffer.Reset()
+	for {
+		if scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				writer <- errorBuffer
+				break
+			}
 
-		if err := scanner.Err(); err != nil {
-			writer <- errorBuffer
-			break
+			errorBuffer.Reset()
+
+			if err := scanner.Err(); err != nil {
+				writer <- errorBuffer
+				break
+			}
+
+			scanBuffer := bufferPool.Get().(*bytes.Buffer)
+			scanBuffer.Reset()
+			scanBuffer.Write(scanner.Bytes())
+
+			go scan(databaseKey, accessKey, scanBuffer, writer)
 		}
 
-		scanBuffer := bufferPool.Get().(*bytes.Buffer)
-		scanBuffer.Reset()
-		scanBuffer.Write(scanner.Bytes())
-
-		go scan(databaseKey, accessKey, scanBuffer, writer)
+		if err := scanner.Err(); err != nil {
+			break
+		}
 	}
 
 	cancel()
