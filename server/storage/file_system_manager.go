@@ -13,9 +13,17 @@ var tieredFileSystem *FileSystem
 var tmpFileSystem *FileSystem
 var fileSystemMutex = &sync.RWMutex{}
 
+// Ensure all file systems are initialized by setting them to nil
+func InitFS() {
+	localFileSystem = nil
+	objectFileSystem = nil
+	tieredFileSystem = nil
+	tmpFileSystem = nil
+}
+
 func LocalFS() *FileSystem {
-	fileSystemMutex.RLock()
-	defer fileSystemMutex.RUnlock()
+	fileSystemMutex.Lock()
+	defer fileSystemMutex.Unlock()
 
 	if localFileSystem == nil {
 		localFileSystem = NewFileSystem(NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "local")))

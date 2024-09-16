@@ -31,6 +31,9 @@ func Setup(t testing.TB, callbacks ...func()) {
 		envDataPath = os.Getenv("LITEBASE_LOCAL_DATA_PATH")
 	}
 
+	// Initialize the storage files systems
+	storage.InitFS()
+
 	dataPath := fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
 	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
 
@@ -81,7 +84,6 @@ func Run(t testing.TB, callback func()) {
 }
 
 func RunWithObjectStorage(t testing.TB, callback func()) {
-
 	// Setup the environment
 	Setup(t, func() {
 		bucketName := CreateHash(32)

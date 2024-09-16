@@ -3,7 +3,6 @@ package storage_test
 import (
 	"context"
 	"io"
-	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server/storage"
 	"testing"
@@ -19,8 +18,8 @@ func TestNewTieredFile(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.LocalFS(),
+			storage.ObjectFS(),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -57,6 +56,8 @@ func TestNewTieredFile(t *testing.T) {
 
 func TestTieredFileClose(t *testing.T) {
 	test.Run(t, func() {
+		// fs := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/local")
+
 		file, err := storage.LocalFS().Create("text.txt")
 
 		if err != nil {
@@ -65,8 +66,8 @@ func TestTieredFileClose(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.LocalFS(),
+			storage.ObjectFS(),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -91,8 +92,8 @@ func TestTieredFileMarkUpdated(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.LocalFS(),
+			storage.ObjectFS(),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -111,11 +112,10 @@ func TestTieredFileMarkUpdated(t *testing.T) {
 
 func TestTieredFileRead(t *testing.T) {
 	test.Run(t, func() {
-
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.LocalFS(),
+			storage.ObjectFS(),
 		)
 
 		tf, err := tfsd.Create("test.txt")

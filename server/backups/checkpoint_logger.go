@@ -42,7 +42,7 @@ func (c *CheckpointLogger) File() (internalStorage.File, error) {
 openFile:
 	directory := file.GetDatabaseFileBaseDir(c.DatabaseUuid, c.BranchUuid)
 	path := GetSnapshotPath(c.DatabaseUuid, c.BranchUuid)
-	file, err := storage.TieredFS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := storage.TieredFS().OpenFile(path, SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -70,7 +70,11 @@ func (c *CheckpointLogger) Log(timestamp uint64, pageCount uint32) error {
 		return err
 	}
 
-	file.Seek(0, io.SeekEnd)
+	_, err = file.Seek(0, io.SeekEnd)
+
+	if err != nil {
+		return err
+	}
 
 	data := make([]byte, 64)
 	binary.LittleEndian.PutUint64(data[0:8], timestamp)

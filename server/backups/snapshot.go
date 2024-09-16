@@ -3,6 +3,7 @@ package backups
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"litebase/server/file"
 	"litebase/server/storage"
 	"os"
@@ -26,32 +27,42 @@ type RestorePoint struct {
 	PageCount uint32
 }
 
-func NewSnapshot(timestamp uint64) *Snapshot {
-	snapshot := &Snapshot{
-		Timestamp: timestamp,
-	}
-
-	return snapshot
-}
-
 func GetSnapshotPath(databaseUuid string, branchUuid string) string {
-	directory := file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)
-
-	return fmt.Sprintf("%s/logs/snapshots/SNAPSHOT_LOG", directory)
+	return fmt.Sprintf(
+		"%s/logs/snapshots/SNAPSHOT_LOG",
+		file.GetDatabaseFileBaseDir(databaseUuid, branchUuid),
+	)
 }
 
 // Get Snapshots from the snapshot file segmented by day. We will get the first
 // checkpoint of the day and use it as the snapshot for that day.
 func GetSnapshots(databaseUuid string, branchUuid string) ([]Snapshot, error) {
-	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+openFile:
+	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			err := storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)), 0755)
+
+			if err != nil {
+				return nil, err
+			}
+
+			goto openFile
+		} else {
+			return nil, err
+		}
 	}
 
 	defer snapshotFile.Close()
 
 	snapshots := map[time.Time]Snapshot{}
+
+	_, err = snapshotFile.Seek(0, io.SeekStart)
+
+	if err != nil {
+		return nil, err
+	}
 
 	// Read the snapshots 8 bytes at a time and get one timestamp per day
 	// This is because we only need one snapshot per day.
@@ -101,13 +112,19 @@ func GetSnapshots(databaseUuid string, branchUuid string) ([]Snapshot, error) {
 }
 
 func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snapshot, error) {
-	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
 		return Snapshot{}, err
 	}
 
 	defer snapshotFile.Close()
+
+	_, err = snapshotFile.Seek(0, io.SeekStart)
+
+	if err != nil {
+		return Snapshot{}, err
+	}
 
 	var snapshot Snapshot
 
@@ -141,7 +158,6 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snap
 		if snapshotStartOfDay != startOfDay {
 			continue
 		}
-
 		if currentSnapshotDay.IsZero() {
 			currentSnapshotDay = startOfDay
 
@@ -165,13 +181,19 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snap
 }
 
 func GetRestorePoint(databaseUuid string, branchUuid string, timestamp uint64) (RestorePoint, error) {
-	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), os.O_RDONLY, 0644)
+	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
 		return RestorePoint{}, err
 	}
 
 	defer snapshotFile.Close()
+
+	_, err = snapshotFile.Seek(0, io.SeekStart)
+
+	if err != nil {
+		return RestorePoint{}, err
+	}
 
 	var restorePoint RestorePoint
 
