@@ -10,8 +10,8 @@ import (
 // opened and closed
 type PageLogger struct {
 	buffers      sync.Pool
-	databaseUuid string
-	branchUuid   string
+	DatabaseUuid string
+	BranchUuid   string
 	mutex        *sync.Mutex
 }
 
@@ -22,13 +22,17 @@ func NewPageLogger(databaseUuid, branchUuid string) *PageLogger {
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
-		databaseUuid: databaseUuid,
-		branchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
+		BranchUuid:   branchUuid,
 		mutex:        &sync.Mutex{},
 	}
 }
 
-func (p *PageLogger) Close() {
+func (p *PageLogger) Close() error {
+	// Release the buffers
+	p.buffers = sync.Pool{}
+
+	return nil
 }
 
 func (p *PageLogger) Log(pageNumber uint32, timstamp uint64, data []byte) error {
@@ -37,7 +41,7 @@ func (p *PageLogger) Log(pageNumber uint32, timstamp uint64, data []byte) error 
 
 	compressionBuffer.Reset()
 
-	pageLog, err := OpenPageLog(p.databaseUuid, p.branchUuid, pageNumber)
+	pageLog, err := OpenPageLog(p.DatabaseUuid, p.BranchUuid, pageNumber)
 
 	if err != nil {
 		log.Println("Error opening page log", err)
