@@ -11,15 +11,18 @@ import (
 )
 
 type CheckpointLogger struct {
-	branchUuid   string
-	databaseUuid string
+	BranchUuid   string
+	DatabaseUuid string
 	file         internalStorage.File
 }
 
+// The CheckpointLogger is responsible for logging Snapshots to a file when the
+// database is checkpointed. Each log entry contains a timestamp and the number
+// of pages that were written to the snapshot.
 func NewCheckpointLogger(databaseUuid, branchUuid string) *CheckpointLogger {
 	return &CheckpointLogger{
-		branchUuid:   branchUuid,
-		databaseUuid: databaseUuid,
+		BranchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
 	}
 }
 
@@ -37,8 +40,8 @@ func (c *CheckpointLogger) File() (internalStorage.File, error) {
 	}
 
 openFile:
-	directory := file.GetDatabaseFileBaseDir(c.databaseUuid, c.branchUuid)
-	path := GetSnapshotPath(c.databaseUuid, c.branchUuid)
+	directory := file.GetDatabaseFileBaseDir(c.DatabaseUuid, c.BranchUuid)
+	path := GetSnapshotPath(c.DatabaseUuid, c.BranchUuid)
 	file, err := storage.TieredFS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 	if err != nil {
