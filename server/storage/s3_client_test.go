@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/internal/test/minio"
 	"litebase/server/storage"
 	"os"
 	"testing"
 )
 
 func TestMain(m *testing.M) {
-	test.SetupObjectStorage(m, func() {
+	minio.SetupObjectStorage(m, func() {
 		os.Exit(m.Run())
 	})
 }

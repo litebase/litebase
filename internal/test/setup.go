@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"litebase/internal/test/minio"
 	"litebase/server"
 	"litebase/server/database"
 	"litebase/server/node"
@@ -18,8 +17,6 @@ import (
 )
 
 var envDataPath string
-var objectStorageAddress string
-var minioShutdown func() error
 
 func Setup(t testing.TB, callbacks ...func()) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -91,7 +88,11 @@ func RunWithObjectStorage(t testing.TB, callback func()) {
 		t.Setenv("LITEBASE_STORAGE_MODE", "object")
 		t.Setenv("LITEBASE_STORAGE_BUCKET", bucketName)
 
-		mc, err := mclient.New(objectStorageAddress, &mclient.Options{
+		if host := os.Getenv("LITEBASE_STORAGE_HOST"); host == "" {
+			log.Fatal("LITEBASE_STORAGE_HOST is not set")
+		}
+
+		mc, err := mclient.New(os.Getenv("LITEBASE_STORAGE_HOST"), &mclient.Options{
 			Creds:  credentials.NewStaticV4(os.Getenv("MINIO_ROOT_USER"), os.Getenv("MINIO_ROOT_PASSWORD"), ""),
 			Secure: false,
 		})
@@ -127,32 +128,4 @@ func RunWithObjectStorage(t testing.TB, callback func()) {
 			log.Fatal(err)
 		}
 	})
-}
-
-func SetupObjectStorage(m *testing.M, callback func()) {
-	err := godotenv.Load("./../../.env.test")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = os.MkdirAll(fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")), 0755)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	objectStorageAddress, minioShutdown, err = minio.StartMinioServer(fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")))
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	os.Setenv("LITEBASE_STORAGE_ENDPOINT", fmt.Sprintf("http://%s", objectStorageAddress))
-
-	// Run the test
-	callback()
-
-	// Teardown the environment
-	minio.StopMinioServer(minioShutdown)
 }

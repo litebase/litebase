@@ -2,14 +2,49 @@ package minio
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
+	"testing"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/minio/madmin-go/v3"
 	minio "github.com/minio/minio/cmd"
 )
+
+var objectStorageAddress string
+var minioShutdown func() error
+
+func SetupObjectStorage(m *testing.M, callback func()) {
+	err := godotenv.Load("./../../.env.test")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.MkdirAll(fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")), 0755)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	objectStorageAddress, minioShutdown, err = StartMinioServer(fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	os.Setenv("LITEBASE_STORAGE_HOST", objectStorageAddress)
+	os.Setenv("LITEBASE_STORAGE_ENDPOINT", fmt.Sprintf("http://%s", objectStorageAddress))
+
+	// Run the test
+	callback()
+
+	// Teardown the environment
+	StopMinioServer(minioShutdown)
+}
 
 func StartMinioServer(directory string) (string, func() error, error) {
 	l, err := net.Listen("tcp", "localhost:0")
