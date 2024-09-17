@@ -78,3 +78,10 @@ func GetDatabaseFileTmpPath(nodeId, databaseUuid string, branchUuid string) (str
 		DatabaseHash(databaseUuid, branchUuid),
 	), nil
 }
+
+func GetDatabaseRollbackDirectory(databaseUuid, branchUuid string) string {
+	return fmt.Sprintf(
+		"%s/logs/rollback",
+		GetDatabaseFileBaseDir(databaseUuid, branchUuid),
+	)
+}

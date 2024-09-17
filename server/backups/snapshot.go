@@ -12,13 +12,13 @@ import (
 
 type Snapshot struct {
 	RestorePoints SnapshotRestorePoints `json:"restore_points"`
-	Timestamp     uint64                `json:"timestamp"`
+	Timestamp     int64                 `json:"timestamp"`
 }
 
 type SnapshotRestorePoints struct {
 	Data  []uint64 `json:"data"`
-	Start uint64   `json:"start"`
-	End   uint64   `json:"end"`
+	Start int64    `json:"start"`
+	End   int64    `json:"end"`
 	Total int      `json:"total"`
 }
 
@@ -75,15 +75,15 @@ openFile:
 			break
 		}
 
-		timestamp := binary.LittleEndian.Uint64(data[0:8])
+		timestamp := int64(binary.LittleEndian.Uint64(data[0:8]))
 
 		// Get the start of the day of the timestamp
-		startOfDay := time.Unix(int64(timestamp), 0).UTC()
+		startOfDay := time.Unix(timestamp, 0).UTC()
 		startOfDay = time.Date(startOfDay.Year(), startOfDay.Month(), startOfDay.Day(), 0, 0, 0, 0, time.UTC)
 
 		if _, ok := snapshots[startOfDay]; !ok {
 			snapshots[startOfDay] = Snapshot{
-				Timestamp: uint64(startOfDay.Unix()),
+				Timestamp: startOfDay.Unix(),
 				RestorePoints: SnapshotRestorePoints{
 					Start: timestamp,
 					End:   timestamp,
@@ -111,7 +111,7 @@ openFile:
 	return values, nil
 }
 
-func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snapshot, error) {
+func GetSnapshot(databaseUuid string, branchUuid string, timestamp int64) (Snapshot, error) {
 	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
@@ -129,7 +129,7 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snap
 	var snapshot Snapshot
 
 	// Get the start of the day of the timestamp
-	snapshotStartOfDay := time.Unix(int64(timestamp), 0).UTC()
+	snapshotStartOfDay := time.Unix(timestamp, 0).UTC()
 	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
 
 	var currentSnapshotDay time.Time
@@ -143,7 +143,7 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snap
 			break
 		}
 
-		t := binary.LittleEndian.Uint64(data)
+		t := int64(binary.LittleEndian.Uint64(data))
 
 		// Get the start of the day of the timestamp
 		startOfDay := time.Unix(int64(t), 0).UTC()
@@ -162,16 +162,16 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snap
 			currentSnapshotDay = startOfDay
 
 			snapshot = Snapshot{
-				Timestamp: uint64(startOfDay.Unix()),
+				Timestamp: startOfDay.Unix(),
 				RestorePoints: SnapshotRestorePoints{
-					Data:  []uint64{t},
+					Data:  []uint64{uint64(t)},
 					Start: t,
 					End:   t,
 					Total: 1,
 				},
 			}
 		} else {
-			snapshot.RestorePoints.Data = append(snapshot.RestorePoints.Data, t)
+			snapshot.RestorePoints.Data = append(snapshot.RestorePoints.Data, uint64(t))
 			snapshot.RestorePoints.End = t
 			snapshot.RestorePoints.Total++
 		}
@@ -180,7 +180,7 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp uint64) (Snap
 	return snapshot, nil
 }
 
-func GetRestorePoint(databaseUuid string, branchUuid string, timestamp uint64) (RestorePoint, error) {
+func GetRestorePoint(databaseUuid string, branchUuid string, timestamp int64) (RestorePoint, error) {
 	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
@@ -208,7 +208,7 @@ func GetRestorePoint(databaseUuid string, branchUuid string, timestamp uint64) (
 
 		t := binary.LittleEndian.Uint64(data)
 
-		if t == timestamp {
+		if int64(t) == timestamp {
 			restorePoint = RestorePoint{
 				Timestamp: t,
 				PageCount: binary.LittleEndian.Uint32(data[8:12]),

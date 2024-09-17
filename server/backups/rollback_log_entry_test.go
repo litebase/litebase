@@ -3,30 +3,29 @@ package backups_test
 import (
 	"bytes"
 	"crypto/sha1"
-	"fmt"
 	"litebase/internal/test"
 	"litebase/server/backups"
 	"testing"
 	"time"
 )
 
-func TestNewPageLogEntry(t *testing.T) {
+func TestNewRollbackLogEntry(t *testing.T) {
 	test.Run(t, func() {
 		timestamp := time.Now().Unix()
 		data := []byte("test data")
 
 		hash := sha1.New()
 		hash.Write(data)
-		sha1 := fmt.Sprintf("%x", hash.Sum(nil))
+		sha1 := hash.Sum(nil)
 
-		entry := backups.NewPageLogEntry(1, uint64(timestamp), data)
+		entry := backups.NewRollbackLogEntry(1, timestamp, data)
 
 		if entry == nil {
 			t.Fatal("PageLogEntry is nil")
 		}
 
-		if entry.Version != backups.PageLogVersion {
-			t.Fatalf("Expected Version %d, got %d", backups.PageLogVersion, entry.Version)
+		if entry.Version != backups.RollbackLogVersion {
+			t.Fatalf("Expected Version %d, got %d", backups.RollbackLogVersion, entry.Version)
 		}
 
 		if len(entry.Data) == 0 {
@@ -37,7 +36,7 @@ func TestNewPageLogEntry(t *testing.T) {
 			t.Fatalf("Expected PageNumber 1, got %d", entry.PageNumber)
 		}
 
-		if entry.Timestamp != uint64(timestamp) {
+		if entry.Timestamp != timestamp {
 			t.Fatalf("Expected Timestamp %d, got %d", timestamp, entry.Timestamp)
 		}
 
@@ -51,7 +50,7 @@ func TestPageLogEntrySerialize(t *testing.T) {
 	test.Run(t, func() {
 		timestamp := time.Now().Unix()
 		data := []byte("test data")
-		entry := backups.NewPageLogEntry(1, uint64(timestamp), data)
+		entry := backups.NewRollbackLogEntry(1, timestamp, data)
 
 		// Serialize the entry
 		buf := bytes.NewBuffer(make([]byte, 1024))
@@ -63,7 +62,7 @@ func TestPageLogEntrySerialize(t *testing.T) {
 		}
 
 		// Deserialize the entry
-		deserializedEntry, err := backups.DeserializePageLogEntry(bytes.NewReader(serialized))
+		deserializedEntry, err := backups.DeserializeRollbackLogEntry(bytes.NewReader(serialized))
 
 		if err != nil {
 			t.Fatalf("Failed to deserialize PageLogEntry: %v", err)

@@ -8,10 +8,10 @@ import (
 	"time"
 )
 
-func TestNewCheckpointLogger(t *testing.T) {
+func TestNewSnapshotLogger(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		logger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
+		logger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 
 		if logger == nil {
 			t.Fatal("Expected logger to be created, got nil")
@@ -27,10 +27,10 @@ func TestNewCheckpointLogger(t *testing.T) {
 	})
 }
 
-func TestCheckpointLoggerClose(t *testing.T) {
+func TestSnapshotLoggerClose(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		logger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
+		logger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 
 		if err := logger.Close(); err != nil {
 			t.Fatalf("Expected no error on close, got %v", err)
@@ -38,10 +38,10 @@ func TestCheckpointLoggerClose(t *testing.T) {
 	})
 }
 
-func TestCheckpointLoggerFile(t *testing.T) {
+func TestSnapshotLoggerFile(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		logger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
+		logger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 
 		file, err := logger.File()
 
@@ -55,10 +55,10 @@ func TestCheckpointLoggerFile(t *testing.T) {
 	})
 }
 
-func TestCheckpointLoggerFileAlreadyOpened(t *testing.T) {
+func TestSnapshotLoggerFileAlreadyOpened(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		logger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
+		logger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 
 		_, err := logger.File()
 		if err != nil {
@@ -76,17 +76,17 @@ func TestCheckpointLoggerFileAlreadyOpened(t *testing.T) {
 	})
 }
 
-func TestCheckpointLoggerLog(t *testing.T) {
+func TestSnapshotLoggerLog(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		logger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
-		timestamps := make([]uint64, 0)
+		logger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
+		timestamps := make([]int64, 0)
 
 		for i := 0; i < 10; i++ {
 			// Timestamps sub seconds to avoid collisions
-			timestamp := uint64(time.Now().Add(time.Duration(10-i) * time.Second).UnixNano())
+			timestamp := time.Now().Add(time.Duration(10-i) * time.Second).UnixNano()
 			timestamps = append(timestamps, timestamp)
-			err := logger.Log(timestamp, uint32(i))
+			err := logger.Log(timestamp, int64(i))
 
 			if err != nil {
 				t.Fatalf("Expected no error on File(), got %v", err)
@@ -113,7 +113,7 @@ func TestCheckpointLoggerLog(t *testing.T) {
 				break
 			}
 
-			entryTimestamp := binary.LittleEndian.Uint64(entry[0:8])
+			entryTimestamp := int64(binary.LittleEndian.Uint64(entry[0:8]))
 
 			if entryTimestamp != timestamp {
 				t.Fatal("Expected valid log entry, got nil")

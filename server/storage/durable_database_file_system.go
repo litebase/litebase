@@ -251,15 +251,27 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(data []byte, offset int64) (n int,
 		return 0, err
 	}
 
+	if dfs.writeHook != nil {
+		// Get the current version of the page
+		currentPagedata := make([]byte, dfs.pageSize)
+
+		_, err := rangeFile.ReadAt(currentPagedata, pageNumber)
+
+		if err != nil {
+			log.Println("Error reading page for write hook", err)
+
+			return 0, err
+		}
+
+		// Call the write hook
+		dfs.writeHook(offset, currentPagedata)
+	}
+
 	n, err = rangeFile.WriteAt(data, pageNumber)
 
 	if err != nil {
 		log.Println("Error writing page", pageNumber, err)
 		return 0, err
-	}
-
-	if dfs.writeHook != nil {
-		dfs.writeHook(offset, data)
 	}
 
 	if dfs.metadata.PageCount < pageNumber {

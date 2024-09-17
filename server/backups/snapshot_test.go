@@ -33,13 +33,13 @@ func TestGetSnapshots(t *testing.T) {
 			t.Fatalf("Expected 0 snapshots, got %d", len(snapshots))
 		}
 
-		checkpointerLogger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
+		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
 		for i := 0; i < 5; i++ {
-			timestamp := uint64(time.Now().Add(time.Duration(5-i) * time.Second).UnixNano())
-			checkpointerLogger.Log(timestamp, uint32(i))
+			timestamp := time.Now().Add(time.Duration(5-i) * time.Second).Unix()
+			checkpointerLogger.Log(timestamp, int64(i))
 		}
 
 		snapshots, err = backups.GetSnapshots(mock.DatabaseUuid, mock.BranchUuid)
@@ -58,12 +58,12 @@ func TestGetSnapshot(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		checkpointerLogger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
+		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := uint64(time.Now().Unix())
-		err := checkpointerLogger.Log(timestamp, uint32(1))
+		timestamp := time.Now().Unix()
+		err := checkpointerLogger.Log(timestamp, int64(1))
 
 		if err != nil {
 			t.Fatalf("Failed to log snapshot: %v", err)
@@ -89,12 +89,12 @@ func TestGetRestorePoints(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		checkpointerLogger := backups.NewCheckpointLogger(mock.DatabaseUuid, mock.BranchUuid)
+		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := uint64(time.Now().Add(time.Duration(-1) * time.Hour).Unix())
-		checkpointerLogger.Log(timestamp, uint32(100))
+		timestamp := time.Now().Add(time.Duration(-1) * time.Hour).Unix()
+		checkpointerLogger.Log(timestamp, int64(100))
 
 		snapshot, err := backups.GetSnapshot(mock.DatabaseUuid, mock.BranchUuid, timestamp)
 

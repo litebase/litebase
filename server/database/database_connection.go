@@ -176,21 +176,31 @@ func (con *DatabaseConnection) Checkpoint() error {
 		return nil
 	}
 
-	if con.checkpointer.Running() {
-		return nil
+	err := con.checkpointer.Begin()
+
+	if err != nil {
+		return err
 	}
 
-	// TODO: What if the checkpoint takes too long? Will other checkpoints be blocked?
-	// Will this also block the main thread?
-	_, err := sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) {
-		err := con.checkpointer.Run()
+	_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) {
+		log.Println("Checkpoint Done")
 
-		if err != nil {
+		if result.Result != 0 {
 			log.Println("Error checkpointing database", err)
 		} else {
-			// log.Println("Successful database checkpoint")
+			err = con.checkpointer.Commit()
+
+			if err != nil {
+				log.Println("Error checkpointing database", err)
+			} else {
+				log.Println("Successful database checkpoint")
+			}
 		}
 	})
+
+	if err != nil {
+		con.checkpointer.Rollback()
+	}
 
 	return err
 }

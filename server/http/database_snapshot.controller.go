@@ -39,7 +39,7 @@ func DatabaseSnapshotShowController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
 	}
 
-	timestamp, err := strconv.ParseUint(request.Param("timestamp"), 10, 64)
+	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{

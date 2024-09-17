@@ -120,11 +120,15 @@ func (l *LitebaseVFS) writeHook() error {
 	cVfsId := C.CString(l.id)
 	defer C.free(unsafe.Pointer(cVfsId))
 
-	C.litebase_vfs_write_hook(
+	rc := C.litebase_vfs_write_hook(
 		cVfsId,
 		(*[0]byte)(C.go_write_hook),
 		unsafe.Pointer(vfsHandle),
 	)
+
+	if rc != C.SQLITE_OK {
+		return fmt.Errorf("failed to set write hook: %d", rc)
+	}
 
 	return nil
 }

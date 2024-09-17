@@ -21,7 +21,7 @@ func DatabaseRestoreController(request *Request) Response {
 		}, 400, nil)
 	}
 
-	timestamp := uint64(request.Get("timestamp").(float64))
+	timestamp := int64(request.Get("timestamp").(float64))
 
 	err = backups.RestoreFromTimestamp(
 		databaseKey.DatabaseUuid,

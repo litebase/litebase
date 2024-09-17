@@ -11,29 +11,29 @@ import (
 )
 
 /*
-The PageLogEntry is a data structure used to store the data of a database page
-at a given point in time. Each PageLogEntry contains the data of a page, the
-page number, the timestamp of the entry, and the version of the page.
+The RollbackLogEntry is a data structure used to store the data of a database page
+at a given point in time. Each RollbackLogEntry contains the data of a page, the
+page number, the timestamp of the entry, and the version of the entry.
 
-When serialized, the PageLogEntry data is stored with a header followed by a
-compressed frame. The header is 100 bytes and header contains:
+When serialized, the RollbackLogEntry data is stored with a header followed by a
+compressed data frame. The header is 100 bytes and header contains:
 | offset | size | description |
 |--------|------|-----------------------------------|
-| 0      | 4    | The version of the page           |
-| 4      | 4    | The page number of the page       |
+| 0      | 4    | The version number of the entry   |
+| 4      | 4    | The page number                   |
 | 8      | 8    | The timestamp of the entry        |
 | 16     | 4    | The size of the uncompressed data |
 | 20     | 4    | The size of the compressed data   |
-| 24     | 20   | The SHA1 hash of the uncompressed data |
+| 24     | 20   | SHA1 hash of uncompressed data    |
 | 44     | 66   | Reserved for future use           |
 
 The compressed frame is the serialized data of the page compressed using the
 s2 compression algorithm.
 */
-type PageLogEntry struct {
+type RollbackLogEntry struct {
 	Data             []byte
-	PageNumber       uint32
-	Timestamp        uint64
+	PageNumber       int64
+	Timestamp        int64
 	SizeCompressed   int
 	SizeDecompressed int
 	SHA1             []byte
@@ -41,62 +41,65 @@ type PageLogEntry struct {
 }
 
 const (
-	PageLogVersion    = 1
-	PageLogHeaderSize = 100
+	RollbackLogVersion         = 1
+	RollbackLogEntryHeaderSize = 100
 )
 
-func NewPageLogEntry(pageNumber uint32, timestamp uint64, data []byte) *PageLogEntry {
+func NewRollbackLogEntry(pageNumber, timestamp int64, data []byte) *RollbackLogEntry {
 	hash := sha1.New()
 	hash.Write(data)
 	sha1 := hash.Sum(nil)
 
-	return &PageLogEntry{
+	return &RollbackLogEntry{
 		Data:       data,
 		PageNumber: pageNumber,
 		SHA1:       sha1,
 		Timestamp:  timestamp,
-		Version:    PageLogVersion,
+		Version:    RollbackLogVersion,
 	}
 }
 
-func (p *PageLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte, error) {
-	p.SizeDecompressed = len(p.Data)
+func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte, error) {
+	rle.SizeDecompressed = len(rle.Data)
 	compressionBufferCap := compressionBuffer.Cap()
-	maxEncodedLen := s2.MaxEncodedLen(p.SizeDecompressed)
+	maxEncodedLen := s2.MaxEncodedLen(rle.SizeDecompressed)
 
 	if compressionBufferCap < maxEncodedLen {
 		compressionBuffer.Grow(maxEncodedLen - compressionBufferCap + 1)
 	}
 
-	compressed := s2.Encode(compressionBuffer.Bytes()[:0], p.Data)
+	compressed := s2.Encode(compressionBuffer.Bytes()[:0], rle.Data)
 
 	compressionBuffer.Write(compressed)
 
-	p.SizeCompressed = len(compressed)
+	rle.SizeCompressed = len(compressed)
 
-	serialized := make([]byte, PageLogHeaderSize+compressionBuffer.Len())
+	serialized := make([]byte, RollbackLogEntryHeaderSize+rle.SizeCompressed)
 
 	// 4 bytes for the version
-	binary.LittleEndian.PutUint32(serialized[0:4], uint32(p.Version))
+	binary.LittleEndian.PutUint32(serialized[0:4], rle.Version)
 	// 4 bytes for the page number
-	binary.LittleEndian.PutUint32(serialized[4:8], uint32(p.PageNumber))
+	binary.LittleEndian.PutUint32(serialized[4:8], uint32(rle.PageNumber))
 	// 8 bytes for the timestamp
-	binary.LittleEndian.PutUint64(serialized[8:16], p.Timestamp)
+	binary.LittleEndian.PutUint64(serialized[8:16], uint64(rle.Timestamp))
 	// 4 bytes for the size of the uncompressed data
-	binary.LittleEndian.PutUint32(serialized[16:20], uint32(len(p.Data)))
+	binary.LittleEndian.PutUint32(serialized[16:20], uint32(len(rle.Data)))
 	// 4 bytes for the size of the compressed data
-	binary.LittleEndian.PutUint32(serialized[20:24], uint32(p.SizeCompressed))
+	binary.LittleEndian.PutUint32(serialized[20:24], uint32(rle.SizeCompressed))
 	// 20 bytes for the SHA1 hash of the uncompressed data
-	copy(serialized[24:44], []byte(p.SHA1))
+	copy(serialized[24:44], []byte(rle.SHA1))
 	// The remaining 66 bytes are reserved for future use and are already zero
 
-	copy(serialized[100:], compressed)
+	// Copy the compressed data to the serialized buffer
+	copy(serialized[RollbackLogEntryHeaderSize:], compressed)
 
 	return serialized, nil
 }
 
-func DeserializePageLogEntry(reader io.Reader) (*PageLogEntry, error) {
-	header := make([]byte, 100)
+// RollbackLogEntry are read from the file in reverse order, so we need to
+// deserialize the entry from the end of the file.
+func DeserializeRollbackLogEntry(reader io.ReadSeeker) (*RollbackLogEntry, error) {
+	header := make([]byte, RollbackLogEntryHeaderSize)
 
 	_, err := reader.Read(header)
 
@@ -107,9 +110,9 @@ func DeserializePageLogEntry(reader io.Reader) (*PageLogEntry, error) {
 	// 4 bytes for the version
 	version := binary.LittleEndian.Uint32(header[0:4])
 	// 4 bytes for the page number
-	pageNumber := binary.LittleEndian.Uint32(header[4:8])
+	pageNumber := int64(binary.LittleEndian.Uint32(header[4:8]))
 	// 8 bytes for the timestamp
-	timestamp := binary.LittleEndian.Uint64(header[8:16])
+	timestamp := int64(binary.LittleEndian.Uint64(header[8:16]))
 	// 4 bytes for the size of the uncompressed data
 	decompressedSize := binary.LittleEndian.Uint32(header[16:20])
 	// 4 bytes for the size of the compressed data
@@ -140,7 +143,7 @@ func DeserializePageLogEntry(reader io.Reader) (*PageLogEntry, error) {
 		return nil, fmt.Errorf("SHA1 hash mismatch")
 	}
 
-	return &PageLogEntry{
+	return &RollbackLogEntry{
 		Data:             decompressed,
 		PageNumber:       pageNumber,
 		Timestamp:        timestamp,

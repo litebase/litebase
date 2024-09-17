@@ -12,12 +12,12 @@ import (
 )
 
 type DatabaseResourceManager struct {
-	checkpointLoggers map[string]*backups.CheckpointLogger
-	checkpointers     map[string]*Checkpointer
-	fileSystems       map[string]*storage.DurableDatabaseFileSystem
-	mutex             *sync.Mutex
-	pageLoggers       map[string]*backups.PageLogger
-	tempFileSystems   map[string]*storage.TempDatabaseFileSystem
+	snapshotLoggers map[string]*backups.SnapshotLogger
+	checkpointers   map[string]*Checkpointer
+	fileSystems     map[string]*storage.DurableDatabaseFileSystem
+	mutex           *sync.Mutex
+	rollbackLoggers map[string]*backups.RollbackLogger
+	tempFileSystems map[string]*storage.TempDatabaseFileSystem
 }
 
 var databaseResourceManager *DatabaseResourceManager
@@ -32,29 +32,12 @@ func DatabaseResources() *DatabaseResourceManager {
 			checkpointers:   map[string]*Checkpointer{},
 			fileSystems:     map[string]*storage.DurableDatabaseFileSystem{},
 			mutex:           &sync.Mutex{},
-			pageLoggers:     map[string]*backups.PageLogger{},
+			rollbackLoggers: map[string]*backups.RollbackLogger{},
 			tempFileSystems: map[string]*storage.TempDatabaseFileSystem{},
 		}
 	}
 
 	return databaseResourceManager
-}
-
-func (d *DatabaseResourceManager) CheckpointLogger(databaseUuid, branchUuid string) *backups.CheckpointLogger {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
-
-	if checkpointLogger, ok := d.checkpointLoggers[hash]; ok {
-		return checkpointLogger
-	}
-
-	checkpointLogger := backups.NewCheckpointLogger(databaseUuid, branchUuid)
-
-	d.checkpointLoggers[hash] = checkpointLogger
-
-	return checkpointLogger
 }
 
 func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) (*Checkpointer, error) {
@@ -114,11 +97,13 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) *s
 			log.Println("Error creating checkpointer", err)
 			return
 		}
+		log.Println("Writing page to file system", file.PageNumber(offset, pageSize))
 
 		// Each time a page is written, we need to inform the check pointer to
 		// ensure it is included in the next backup.
-		checkpointer.AddPage(
-			uint32(file.PageNumber(offset, pageSize)),
+		checkpointer.CheckpointPage(
+			file.PageNumber(offset, pageSize),
+			data,
 		)
 
 		if node.Node().IsPrimary() {
@@ -141,19 +126,19 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) *s
 	return fileSystem
 }
 
-func (d *DatabaseResourceManager) PageLogger(databaseUuid, branchUuid string) *backups.PageLogger {
+func (d *DatabaseResourceManager) PageLogger(databaseUuid, branchUuid string) *backups.RollbackLogger {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
 
-	if pageLogger, ok := d.pageLoggers[hash]; ok {
+	if pageLogger, ok := d.rollbackLoggers[hash]; ok {
 		return pageLogger
 	}
 
-	pageLogger := backups.NewPageLogger(databaseUuid, branchUuid)
+	pageLogger := backups.NewRollbackLogger(databaseUuid, branchUuid)
 
-	d.pageLoggers[hash] = pageLogger
+	d.rollbackLoggers[hash] = pageLogger
 
 	return pageLogger
 }
@@ -164,13 +149,13 @@ func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
 
 	hash := file.DatabaseHash(databaseUuid, branchUuid)
 
-	if pageLogger, ok := d.pageLoggers[hash]; ok {
+	if pageLogger, ok := d.rollbackLoggers[hash]; ok {
 		pageLogger.Close()
 	}
 
 	// Perform any shutdown logic for the checkpoint logger
-	if d.checkpointLoggers[hash] != nil {
-		d.checkpointLoggers[hash].Close()
+	if d.snapshotLoggers[hash] != nil {
+		d.snapshotLoggers[hash].Close()
 	}
 
 	// Perform any shutdown logic for the file system
@@ -178,11 +163,28 @@ func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
 		d.fileSystems[hash].Shutdown()
 	}
 
-	delete(d.checkpointLoggers, hash)
+	delete(d.snapshotLoggers, hash)
 	delete(d.checkpointers, hash)
 	delete(d.fileSystems, hash)
-	delete(d.pageLoggers, hash)
+	delete(d.rollbackLoggers, hash)
 	delete(d.tempFileSystems, hash)
+}
+
+func (d *DatabaseResourceManager) SnapshotLogger(databaseUuid, branchUuid string) *backups.SnapshotLogger {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	hash := file.DatabaseHash(databaseUuid, branchUuid)
+
+	if snapshotLogger, ok := d.snapshotLoggers[hash]; ok {
+		return snapshotLogger
+	}
+
+	snapshotLogger := backups.NewSnapshotLogger(databaseUuid, branchUuid)
+
+	d.snapshotLoggers[hash] = snapshotLogger
+
+	return snapshotLogger
 }
 
 func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string) *storage.TempDatabaseFileSystem {

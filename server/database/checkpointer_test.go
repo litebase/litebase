@@ -3,7 +3,6 @@ package database_test
 import (
 	"litebase/internal/test"
 	"litebase/server/database"
-	"log"
 	"testing"
 )
 
@@ -27,7 +26,39 @@ func TestNewCheckpointer(t *testing.T) {
 	})
 }
 
-func TestCheckpointerAddPage(t *testing.T) {
+func TestCheckpointerBegin(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+
+		cp, err := database.NewCheckpointer(
+			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cp.Begin()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cp.Checkpoint == nil {
+			t.Fatal("Checkpoint is nil after Begin")
+		}
+
+		err = cp.Begin()
+
+		if err != database.ErrorCheckpointAlreadyInProgressError {
+			t.Fatal("Expected CheckpointAlreadyInProgressError")
+		}
+	})
+}
+
+func TestCheckpointerCheckpointPage(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 		cp, err := database.NewCheckpointer(
@@ -40,17 +71,41 @@ func TestCheckpointerAddPage(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cp.AddPage(1)
+		err = cp.CheckpointPage(1, []byte("test data"))
 
-		if len(cp.Pages()) != 1 {
+		if err != database.ErrorNoCheckpointInProgressError {
+			t.Fatal("Expected NoCheckpointInProgressError")
+		}
+
+		err = cp.Begin()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cp.CheckpointPage(1, []byte("test data"))
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cp.Checkpoint.LargestPageNumber != 1 {
 			t.Fatal("Page was not added")
 		}
 	})
 }
 
-func TestCheckpointerPages(t *testing.T) {
+func TestCheckpointerCommit(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
+		dfs := database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid)
+
+		pageCount := dfs.Metadata().PageCount
+
+		if pageCount != 0 {
+			t.Fatal("Expected initial page count to be 0")
+		}
+
 		cp, err := database.NewCheckpointer(
 			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
 			mock.DatabaseUuid,
@@ -61,25 +116,51 @@ func TestCheckpointerPages(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cp.AddPage(1)
-		cp.AddPage(2)
+		err = cp.Commit()
 
-		pages := cp.Pages()
+		if err != database.ErrorNoCheckpointInProgressError {
+			t.Fatal("Expected NoCheckpointInProgressError")
+		}
 
-		if len(pages) != 2 {
-			t.Fatal("Pages were not retrieved correctly")
+		err = cp.Begin()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cp.CheckpointPage(1, []byte("test data"))
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cp.Commit()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cp.Checkpoint != nil {
+			t.Fatal("Checkpoint should be nil after Commit")
+		}
+
+		pageCount = dfs.Metadata().PageCount
+
+		if pageCount != 1 {
+			t.Fatal("Expected page count to be 1 after commit")
 		}
 	})
 }
 
-func TestCheckpointerRun(t *testing.T) {
+func TestCheckpointerRollback(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
+		dfs := database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid)
 
-		_, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		pageCount := dfs.Metadata().PageCount
 
-		if err != nil {
-			log.Fatal(err)
+		if pageCount != 0 {
+			t.Fatal("Expected initial page count to be 0")
 		}
 
 		cp, err := database.NewCheckpointer(
@@ -92,34 +173,62 @@ func TestCheckpointerRun(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cp.AddPage(1)
-
-		err = cp.Run()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func TestCheckpointerRunNoPages(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-
-		cp, err := database.NewCheckpointer(
-			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
-			mock.DatabaseUuid,
-			mock.BranchUuid,
-		)
+		err = cp.Begin()
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cp.Run()
+		err = cp.CheckpointPage(1, []byte("test data"))
 
 		if err != nil {
-			t.Fatal("Expected no error when running with no pages, got:", err)
+			t.Fatal(err)
+		}
+
+		err = cp.Commit()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		pageCount = dfs.Metadata().PageCount
+
+		if pageCount != 1 {
+			t.Fatal("Expected initial page count to be 1")
+		}
+
+		err = cp.Rollback()
+
+		if err != database.ErrorNoCheckpointInProgressError {
+			t.Fatal("Expected NoCheckpointInProgressError")
+		}
+
+		err = cp.Begin()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cp.CheckpointPage(2, []byte("test data"))
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cp.Rollback()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cp.Checkpoint != nil {
+			t.Fatal("Checkpoint should be nil after Rollback")
+		}
+
+		pageCount = dfs.Metadata().PageCount
+
+		if pageCount != 1 {
+			t.Fatal("Expected initial page count to be 1")
 		}
 	})
 }

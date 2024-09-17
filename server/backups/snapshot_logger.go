@@ -10,23 +10,23 @@ import (
 	"os"
 )
 
-type CheckpointLogger struct {
+type SnapshotLogger struct {
 	BranchUuid   string
 	DatabaseUuid string
 	file         internalStorage.File
 }
 
-// The CheckpointLogger is responsible for logging Snapshots to a file when the
-// database is checkpointed. Each log entry contains a timestamp and the number
+// The SnapshotLogger is responsible for logging Snapshots to a file when the
+// database is Snapshotted. Each log entry contains a timestamp and the number
 // of pages that were written to the snapshot.
-func NewCheckpointLogger(databaseUuid, branchUuid string) *CheckpointLogger {
-	return &CheckpointLogger{
+func NewSnapshotLogger(databaseUuid, branchUuid string) *SnapshotLogger {
+	return &SnapshotLogger{
 		BranchUuid:   branchUuid,
 		DatabaseUuid: databaseUuid,
 	}
 }
 
-func (c *CheckpointLogger) Close() error {
+func (c *SnapshotLogger) Close() error {
 	if c.file != nil {
 		return c.file.Close()
 	}
@@ -34,7 +34,7 @@ func (c *CheckpointLogger) Close() error {
 	return nil
 }
 
-func (c *CheckpointLogger) File() (internalStorage.File, error) {
+func (c *SnapshotLogger) File() (internalStorage.File, error) {
 	if c.file != nil {
 		return c.file, nil
 	}
@@ -63,7 +63,7 @@ openFile:
 	return c.file, nil
 }
 
-func (c *CheckpointLogger) Log(timestamp uint64, pageCount uint32) error {
+func (c *SnapshotLogger) Log(timestamp, pageCount int64) error {
 	file, err := c.File()
 
 	if err != nil {
@@ -77,8 +77,8 @@ func (c *CheckpointLogger) Log(timestamp uint64, pageCount uint32) error {
 	}
 
 	data := make([]byte, 64)
-	binary.LittleEndian.PutUint64(data[0:8], timestamp)
-	binary.LittleEndian.PutUint32(data[8:12], pageCount)
+	binary.LittleEndian.PutUint64(data[0:8], uint64(timestamp))
+	binary.LittleEndian.PutUint32(data[8:12], uint32(pageCount))
 
 	_, err = file.Write(data)
 

@@ -1,9 +1,8 @@
 package database
 
 import (
-	"litebase/internal/config"
+	"errors"
 	"litebase/server/backups"
-	"litebase/server/file"
 	"litebase/server/storage"
 	"log"
 	"sync"
@@ -11,102 +10,138 @@ import (
 )
 
 type Checkpointer struct {
-	branchUuid       string
-	checkpointLogger *backups.CheckpointLogger
-	databaseUuid     string
-	lock             sync.Mutex
-	metadata         *storage.DatabaseMetadata
-	pageLogger       *backups.PageLogger
-	pages            map[uint32]bool
-	running          bool
+	branchUuid     string
+	Checkpoint     *Checkpoint
+	databaseUuid   string
+	lock           sync.Mutex
+	metadata       *storage.DatabaseMetadata
+	rollbackLogger *backups.RollbackLogger
+	snapshotLogger *backups.SnapshotLogger
 }
+
+type Checkpoint struct {
+	Offset            int64
+	LargestPageNumber int64
+	Size              int64
+	Timestamp         int64
+}
+
+var (
+	ErrorCheckpointAlreadyInProgressError = errors.New("checkpoint already in progress")
+	ErrorNoCheckpointInProgressError      = errors.New("no checkpoint in progress")
+)
 
 func NewCheckpointer(dfs *storage.DurableDatabaseFileSystem, databaseUuid, branchUuid string) (*Checkpointer, error) {
 	return &Checkpointer{
-		branchUuid:       branchUuid,
-		checkpointLogger: backups.NewCheckpointLogger(databaseUuid, branchUuid),
-		databaseUuid:     databaseUuid,
-		lock:             sync.Mutex{},
-		metadata:         dfs.Metadata(),
-		pageLogger:       backups.NewPageLogger(databaseUuid, branchUuid),
-		pages:            map[uint32]bool{},
+		branchUuid:     branchUuid,
+		databaseUuid:   databaseUuid,
+		lock:           sync.Mutex{},
+		metadata:       dfs.Metadata(),
+		rollbackLogger: backups.NewRollbackLogger(databaseUuid, branchUuid),
+		snapshotLogger: backups.NewSnapshotLogger(databaseUuid, branchUuid),
 	}, nil
 }
 
-func (c *Checkpointer) AddPage(pageNumber uint32) {
+func (c *Checkpointer) Begin() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.pages[pageNumber] = true
-}
-
-func (c *Checkpointer) Pages() map[uint32]bool {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	return c.pages
-}
-
-func (c *Checkpointer) Run() error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	c.running = true
-
-	defer func() { c.running = false }()
-
-	if len(c.pages) == 0 {
-		return nil
+	if c.Checkpoint != nil {
+		return ErrorCheckpointAlreadyInProgressError
 	}
 
-	timestamp := uint64(time.Now().Unix())
-	pageSize := config.Get().PageSize
+	timestamp := time.Now().Unix()
+
+	offset, size, err := c.rollbackLogger.StartFrame(timestamp)
+
+	if err != nil {
+		return err
+	}
+
+	c.Checkpoint = &Checkpoint{
+		Offset:    offset,
+		Size:      size,
+		Timestamp: timestamp,
+	}
+
+	return nil
+}
+
+func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.Checkpoint == nil {
+		return ErrorNoCheckpointInProgressError
+	}
+
+	if pageNumber > c.Checkpoint.LargestPageNumber {
+		c.Checkpoint.LargestPageNumber = pageNumber
+	}
+
+	size, err := c.rollbackLogger.Log(pageNumber, c.Checkpoint.Timestamp, data)
+
+	if err != nil {
+		return err
+	}
+
+	c.Checkpoint.Size += size
+
+	return nil
+}
+
+func (c *Checkpointer) Commit() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.Checkpoint == nil {
+		return ErrorNoCheckpointInProgressError
+	}
+
+	err := c.rollbackLogger.Commit(c.Checkpoint.Timestamp, c.Checkpoint.Offset, c.Checkpoint.Size)
+
+	if err != nil {
+		return err
+	}
+
 	pageCount := c.metadata.PageCount
+	largestPageNumber := c.Checkpoint.LargestPageNumber
 
-	fs := DatabaseResources().FileSystem(c.databaseUuid, c.branchUuid)
-
-	largestPageNumber := uint32(0)
-	var pageData = make([]byte, pageSize)
-
-	for pageNumber := range c.pages {
-		// Read the page from the database file
-		pageOffset := file.PageOffset(int64(pageNumber), pageSize)
-
-		_, err := fs.ReadAt(pageData, pageOffset, pageSize)
-
-		if err != nil {
-			log.Println("Error reading page", err)
-			return err
-		}
-
-		err = c.pageLogger.Log(pageNumber, timestamp, pageData)
-
-		if err != nil {
-			log.Println("Error logging page", err)
-			return err
-		}
-
-		if pageNumber > largestPageNumber {
-			largestPageNumber = pageNumber
-		}
-	}
-
-	if uint32(pageCount) < largestPageNumber {
+	if pageCount < largestPageNumber {
 		c.metadata.SetPageCount(int64(largestPageNumber))
 	}
 
-	err := c.checkpointLogger.Log(timestamp, uint32(pageCount))
+	err = c.snapshotLogger.Log(c.Checkpoint.Timestamp, pageCount)
 
 	if err != nil {
 		log.Println("Error logging checkpoint", err)
 		return err
 	}
 
-	c.pages = map[uint32]bool{}
+	c.Checkpoint = nil
 
 	return nil
 }
 
-func (c *Checkpointer) Running() bool {
-	return c.running
+func (c *Checkpointer) Rollback() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.Checkpoint == nil {
+		return ErrorNoCheckpointInProgressError
+	}
+
+	err := c.rollbackLogger.Rollback(
+		c.Checkpoint.Timestamp,
+		c.Checkpoint.Offset,
+		c.Checkpoint.Size,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	c.Checkpoint = nil
+
+	return nil
 }
