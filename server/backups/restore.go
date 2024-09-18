@@ -1,231 +1,127 @@
 package backups
 
 import (
-	"context"
-	"fmt"
 	"litebase/internal/config"
-	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"litebase/server/storage"
 	"log"
-	"os"
-	"sync"
+	"sort"
+	"strconv"
+	"time"
 )
 
+// TODO: Set source and target database UUIDs. A new database should be created beforehand.
+// TOOD: Update the database key of the target database to the source database key on success?
 func RestoreFromTimestamp(
 	databaseUuid string,
 	branchUuid string,
-	backupTimestamp uint64,
+	backupTimestamp int64,
+	fileSystem *storage.DurableDatabaseFileSystem,
 	onComplete func(func() error) error,
 ) error {
+	// Truncate the timestamp to the start of the hour
+	startOfHourTimestamp := time.Unix(backupTimestamp, 0).UTC().Truncate(time.Hour).Unix()
+
+	rollbackLogger := NewRollbackLogger(databaseUuid, branchUuid)
+
 	restorePoint, err := GetRestorePoint(databaseUuid, branchUuid, backupTimestamp)
 
 	if err != nil {
-		return fmt.Errorf("restore point not found in snapshot")
-	}
-
-	// TODO: this needs to be based on split files
-	// Create the new database file
-	destination, err := file.GetDatabaseFilePath(databaseUuid, branchUuid)
-	filePath := fmt.Sprintf("%s%s", destination, "-restore")
-
-	if err != nil {
 		return err
 	}
-
-	// TODO: this needs to be based on split files
-	destinationFile, err := storage.ObjectFS().OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-
-	if err != nil {
-		return err
-	}
-
-	defer destinationFile.Close()
-
-	// TOOD: Lock the databse connections from writes?
 
 	// Walk the files in the page versions directory
-	directory := file.GetDatabaseFileBaseDir(databaseUuid, branchUuid)
-	path := fmt.Sprintf("%s/logs/page_versions", directory)
+	directory := file.GetDatabaseRollbackDirectory(databaseUuid, branchUuid)
 
-	// TODO: this needs to be based on split files
-	dir, err := storage.ObjectFS().Open(path)
+	entries, err := storage.TieredFS().ReadDir(directory)
 
 	if err != nil {
 		return err
 	}
 
-	defer dir.Close()
+	rollbackLogTimestamps := make([]int64, 0)
 
-	errorSignal := make(chan error)
+	for _, entry := range entries {
+		if entry.IsDir {
+			continue
+		}
 
-	go func() {
-		ctx, cancel := context.WithCancel(context.Background())
+		entryTimestamp, err := strconv.ParseInt(entry.Name, 10, 64)
 
-		go func() {
-			for err := range errorSignal {
-				fmt.Println("Error:", err)
-				cancel() // cancel the context on error
-			}
-		}()
+		if err != nil {
+			log.Println("Error parsing entry name:", entry.Name, err)
+			return err
+		}
 
-		var processedPages uint32 = 0
-		var chunkSize uint32 = 10
-		currentChunk := []uint32{1, chunkSize}
+		if startOfHourTimestamp < entryTimestamp {
+			continue
+		}
 
-		for {
-			if processedPages > restorePoint.PageCount {
-				break
-			}
+		rollbackLogTimestamps = append(rollbackLogTimestamps, entryTimestamp)
+	}
 
-			var wg sync.WaitGroup
+	// Sort the timestamps in descending order
+	sort.Slice(rollbackLogTimestamps, func(i, j int) bool {
+		return rollbackLogTimestamps[i] > rollbackLogTimestamps[j]
+	})
 
-			for pageNumber := currentChunk[0]; pageNumber <= currentChunk[1]; pageNumber++ {
-				wg.Add(1)
+	// Open the rollback logs and restore the pages
+	for _, entryTimestamp := range rollbackLogTimestamps {
+		rollbackLog, err := rollbackLogger.GetLog(entryTimestamp)
 
-				go func() {
-					defer wg.Done()
+		if err != nil {
+			log.Println("Error opening rollback log:", err)
+			return err
+		}
 
-					// Open the page log
-					// pageLog, err := OpenPageLog(databaseUuid, branchUuid, pageNumber)
+		frames, err := rollbackLog.ReadAfter(backupTimestamp)
 
-					// if err != nil {
-					// 	errorSignal <- err
-					// 	return
-					// }
+		if err != nil {
+			log.Println("Error reading rollback log:", err)
+			return err
+		}
 
-					select {
-					case <-ctx.Done():
-						return // exit the goroutine if the context is cancelled
-					default:
-						RestorePage(
-							databaseUuid,
-							branchUuid,
-							pageNumber,
-							backupTimestamp,
-							destinationFile,
-							errorSignal,
-						)
+		for _, frame := range frames {
+			timestamps := make([]int64, len(frame))
 
-						processedPages++
-					}
-				}()
+			for i, rollbackLogEntry := range frame {
+				timestamps[i] = rollbackLogEntry.Timestamp
 			}
 
-			wg.Wait() // wait for all goroutines in the current batch to finish
+			for _, rollbackLogEntry := range frame {
+				_, err = fileSystem.WriteWithoutWriteHook(func() (int, error) {
+					return fileSystem.WriteAt(rollbackLogEntry.Data, file.PageOffset(rollbackLogEntry.PageNumber, config.Get().PageSize))
+				})
 
-			// Update the current chunk
-			currentChunk[0] = currentChunk[1] + 1
-			currentChunk[1] = currentChunk[0] + chunkSize
-
-			select {
-			case <-ctx.Done():
-				return // exit the loop if the context is cancelled
-			default:
+				if err != nil {
+					log.Println("Error writing page:", rollbackLogEntry.PageNumber, err)
+					return err
+				}
 			}
 		}
 
-		// Close the error signal channel
-		close(errorSignal)
-	}()
+		rollbackLog.Close()
+	}
 
-	// Wait for all the page logs to be read
-	err = <-errorSignal
+	// Truncate the database file
+	err = fileSystem.Truncate(int64(restorePoint.PageCount) * config.Get().PageSize)
 
 	if err != nil {
+		log.Println("Error truncating database file:", err)
+		return err
+	}
+
+	err = fileSystem.Metadata().SetPageCount(restorePoint.PageCount)
+
+	if err != nil {
+		log.Println("Error setting page count:", err)
 		return err
 	}
 
 	// Wrap things up after running this callback
 	return onComplete(func() error {
-		// Rename the source file to the destination file.
-		err = os.Rename(destination, destination+".bak")
-
-		if err != nil {
-			return err
-		}
-
-		err = os.Rename(filePath, destination)
-
-		if err != nil {
-			return err
-		}
-
-		// Delete the wal and shm files
-		err = os.Remove(fmt.Sprintf("%s-wal", destination))
-
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		}
-
-		err = os.Remove(fmt.Sprintf("%s-shm", destination))
-
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		}
-
-		// Delete the backup file.
-		err = os.Remove(fmt.Sprintf("%s.bak", destination))
-
-		if err != nil {
-			return err
-		}
+		// Re-key the target database to the source database key
 
 		return nil
 	})
-}
-
-func RestorePage(
-	databaseUuid string,
-	branchUuid string,
-	pageNumber uint32,
-	backupTimestamp uint64,
-	destinationFile internalStorage.File,
-	errorSignal chan error,
-) {
-	// Open the page log
-	pageLog, err := OpenPageLog(databaseUuid, branchUuid, pageNumber)
-
-	if err != nil {
-		errorSignal <- err
-		return
-	}
-
-	defer pageLog.Close()
-
-	// Read the page log entries
-	entries, err := pageLog.Reader()
-
-	if err != nil {
-		errorSignal <- err
-		return
-	}
-
-	for _, entry := range entries {
-
-		// TODO: We need to write the latest version of the page without having to write all previous pages first
-		// Check if the entry is within the backup timestamp
-		// if entry.Timestamp < backupTimestamp {
-		// 	continue
-		// }
-
-		if entry.Timestamp > backupTimestamp {
-			break
-		}
-
-		offset := file.PageOffset(int64(pageNumber), config.Get().PageSize)
-
-		// Write the page to the destination file
-		_, err := destinationFile.WriteAt(entry.Data, offset)
-
-		if err != nil {
-			log.Println("Error writing page", pageNumber, err)
-			errorSignal <- err
-			return
-		}
-	}
 }

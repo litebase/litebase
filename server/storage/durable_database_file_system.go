@@ -136,6 +136,12 @@ func (dfs *DurableDatabaseFileSystem) ReadAt(data []byte, offset, length int64) 
 	return n, nil
 }
 
+func (dfs *DurableDatabaseFileSystem) SetWriteHook(hook func(offset int64, data []byte)) *DurableDatabaseFileSystem {
+	dfs.writeHook = hook
+
+	return dfs
+}
+
 // TODO: this should use the metadata file to get the size
 func (dfs *DurableDatabaseFileSystem) Size() (int64, error) {
 	return dfs.metadata.FileSize(), nil
@@ -233,12 +239,6 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 	return nil
 }
 
-func (dfs *DurableDatabaseFileSystem) WithWriteHook(hook func(offset int64, data []byte)) *DurableDatabaseFileSystem {
-	dfs.writeHook = hook
-
-	return dfs
-}
-
 func (dfs *DurableDatabaseFileSystem) WriteAt(data []byte, offset int64) (n int, err error) {
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
@@ -253,9 +253,9 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(data []byte, offset int64) (n int,
 
 	if dfs.writeHook != nil {
 		// Get the current version of the page
-		currentPagedata := make([]byte, dfs.pageSize)
+		currentPageData := make([]byte, dfs.pageSize)
 
-		_, err := rangeFile.ReadAt(currentPagedata, pageNumber)
+		_, err := rangeFile.ReadAt(currentPageData, pageNumber)
 
 		if err != nil {
 			log.Println("Error reading page for write hook", err)
@@ -264,7 +264,7 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(data []byte, offset int64) (n int,
 		}
 
 		// Call the write hook
-		dfs.writeHook(offset, currentPagedata)
+		dfs.writeHook(offset, currentPageData)
 	}
 
 	n, err = rangeFile.WriteAt(data, pageNumber)
@@ -283,4 +283,19 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(data []byte, offset int64) (n int,
 
 func (dfs *DurableDatabaseFileSystem) WriteHook(offset int64, data []byte) {
 	dfs.writeHook(offset, data)
+}
+
+func (dfs *DurableDatabaseFileSystem) WriteWithoutWriteHook(fn func() (int, error)) (int, error) {
+	dfs.mutex.Lock()
+	writeHook := dfs.writeHook
+	dfs.writeHook = nil
+	dfs.mutex.Unlock()
+
+	n, err := fn()
+
+	dfs.mutex.Lock()
+	dfs.writeHook = writeHook
+	dfs.mutex.Unlock()
+
+	return n, err
 }

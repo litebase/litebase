@@ -72,7 +72,7 @@ func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte,
 
 	compressionBuffer.Write(compressed)
 
-	rle.SizeCompressed = len(compressed)
+	rle.SizeCompressed = compressionBuffer.Len()
 
 	serialized := make([]byte, RollbackLogEntryHeaderSize+rle.SizeCompressed)
 

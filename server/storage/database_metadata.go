@@ -145,7 +145,7 @@ func (d *DatabaseMetadata) Save() error {
 
 }
 
-// Increment the page count
+// Update the page count
 func (d *DatabaseMetadata) SetPageCount(count int64) error {
 	d.PageCount = count
 

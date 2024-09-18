@@ -48,13 +48,13 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 
 	// if node.Node().IsPrimary() {
 	databaseHash := file.DatabaseHash(databaseUuid, branchUuid)
-	tempFileSystem := DatabaseResources().TempFileSystem(databaseUuid, branchUuid)
+	tempFileSystem := Resources(databaseUuid, branchUuid).TempFileSystem()
 	// } else {
 	// 	databaseHash = file.DatabaseHashWithTimestamp(databaseUuid, branchUuid, walTimestamp)
 	// 	tempFileSystem = DatabaseResources().TempFileSystemWithTimestamp(databaseUuid, branchUuid, walTimestamp)
 	// }
 
-	checkpointer, err := DatabaseResources().Checkpointer(databaseUuid, branchUuid)
+	checkpointer, err := Resources(databaseUuid, branchUuid).Checkpointer()
 
 	if err != nil {
 		cancel()
@@ -70,7 +70,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 		context:        ctx,
 		databaseHash:   databaseHash,
 		databaseUuid:   databaseUuid,
-		fileSystem:     DatabaseResources().FileSystem(databaseUuid, branchUuid),
+		fileSystem:     Resources(databaseUuid, branchUuid).FileSystem(),
 		id:             uuid.NewString(),
 		statements:     sync.Map{},
 		tempFileSystem: tempFileSystem,
@@ -183,8 +183,6 @@ func (con *DatabaseConnection) Checkpoint() error {
 	}
 
 	_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) {
-		log.Println("Checkpoint Done")
-
 		if result.Result != 0 {
 			log.Println("Error checkpointing database", err)
 		} else {
@@ -193,7 +191,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 			if err != nil {
 				log.Println("Error checkpointing database", err)
 			} else {
-				log.Println("Successful database checkpoint")
+				// log.Println("Successful database checkpoint")
 			}
 		}
 	})

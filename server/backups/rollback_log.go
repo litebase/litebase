@@ -9,6 +9,8 @@ import (
 	"litebase/server/storage"
 	"log"
 	"os"
+	"slices"
+	"sort"
 )
 
 type RollbackLogIdentifier uint32
@@ -30,13 +32,6 @@ retrieve the page version that meets the restore criteria.
 type RollbackLog struct {
 	File      internalStorage.File
 	Timestamp int64
-}
-
-type RollbackLogIndexEntry struct {
-	offset     int64
-	pageNumber int64
-	size       int64
-	timestamp  int64
 }
 
 func OpenRollbackLog(databaseUuid, branchUuid string, timestamp int64) (*RollbackLog, error) {
@@ -138,15 +133,15 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 		return err
 	}
 
-	frameEntry, err := DeserializeRollbackLogFrame(data)
+	frame, err := DeserializeRollbackLogFrame(data)
 
 	if err != nil {
 		return err
 	}
 
 	// Update the frame entry with the new offset
-	frameEntry.Committed = 1
-	frameEntry.Size = size
+	frame.Committed = 1
+	frame.Size = size
 
 	_, err = r.File.Seek(offset, io.SeekStart)
 
@@ -154,7 +149,7 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 		return err
 	}
 
-	data, err = frameEntry.Serialize()
+	data, err = frame.Serialize()
 
 	if err != nil {
 		return err
@@ -167,9 +162,8 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 
 // TODO: use a channel or some sort of io copy to read the log entries so we can
 // read them and immediately process them without having to store them in memory.
-func (r *RollbackLog) ReadAfter(timestamp int64) ([]*RollbackLogEntry, error) {
-	entries := make([]*RollbackLogEntry, 0)
-	index := make(map[int64]RollbackLogFrame)
+func (r *RollbackLog) ReadAfter(timestamp int64) ([][]*RollbackLogEntry, error) {
+	index := make(map[int64][]RollbackLogFrame)
 
 	// Reset the file pointer to the start of the file
 	_, err := r.File.Seek(0, io.SeekStart)
@@ -201,9 +195,11 @@ func (r *RollbackLog) ReadAfter(timestamp int64) ([]*RollbackLogEntry, error) {
 			return nil, err
 		}
 
-		if frame.Timestamp > timestamp {
+		if frame.Timestamp >= timestamp {
 			if _, ok := index[frame.Timestamp]; !ok {
-				index[frame.Timestamp] = frame
+				index[frame.Timestamp] = []RollbackLogFrame{frame}
+			} else {
+				index[frame.Timestamp] = append(index[frame.Timestamp], frame)
 			}
 		}
 
@@ -215,26 +211,62 @@ func (r *RollbackLog) ReadAfter(timestamp int64) ([]*RollbackLogEntry, error) {
 		}
 	}
 
-	// Read the entries from the index
-	for _, frame := range index {
-		_, err := r.File.Seek(frame.Offset+RollbackFrameHeaderSize, io.SeekStart)
+	indexKeys := make([]int64, 0, len(index))
 
-		if err != nil {
-			log.Println("Error seeking to frame offset:", err)
-			return nil, err
-		}
-
-		entry, err := DeserializeRollbackLogEntry(r.File)
-
-		if err != nil {
-			log.Println("Error deserializing rollback log entry:", err)
-			return nil, err
-		}
-
-		entries = append(entries, entry)
+	for k := range index {
+		indexKeys = append(indexKeys, k)
 	}
 
-	return entries, nil
+	// Sort the keys in descending order
+	sort.Slice(indexKeys, func(i, j int) bool {
+		return indexKeys[i] > indexKeys[j]
+	})
+
+	frames := make([][]*RollbackLogEntry, 0)
+
+	i := 0
+
+	// Frames are segmented by timestamp, but each frame should be treated
+	// as a separate entry to properly read the log entries in reverse order.
+	for _, key := range indexKeys {
+		frameEntries := index[key]
+
+		slices.Reverse(frameEntries)
+
+		// Enter the frame and read the log entries
+		for _, frame := range frameEntries {
+			frames = append(frames, make([]*RollbackLogEntry, 0))
+
+			_, err := r.File.Seek(frame.Offset+RollbackFrameHeaderSize, io.SeekStart)
+
+			if err != nil {
+				log.Println("Error seeking to frame offset:", err)
+				return nil, err
+			}
+
+			frameSize := frame.Size - RollbackFrameHeaderSize
+
+			for frameSize > 0 {
+				entry, err := DeserializeRollbackLogEntry(r.File)
+
+				if err != nil {
+					log.Println("Error deserializing rollback log entry:", err)
+					return nil, err
+				}
+
+				frameSize -= int64(RollbackLogEntryHeaderSize + entry.SizeCompressed)
+
+				frames[i] = append(frames[i], entry)
+			}
+
+			// Sort the pages in the frame by page number in descending order
+			slices.Reverse(frames[i])
+
+			i++
+		}
+	}
+
+	return frames, nil
 }
 
 func (r *RollbackLog) Rollback(offset, size int64) error {

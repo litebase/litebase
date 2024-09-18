@@ -363,7 +363,7 @@ func (c *ConnectionManagerInstance) remove(databaseUuid string, branchUuid strin
 	// If there are no more branches, remove the database
 	if len(c.databases[databaseUuid].branches[branchUuid]) == 0 {
 		delete(c.databases[databaseUuid].branches, branchUuid)
-		DatabaseResources().Remove(databaseUuid, branchUuid)
+		Resources(databaseUuid, branchUuid).Remove()
 	}
 
 	clientConnection.Close()
@@ -404,7 +404,7 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 			// if the database branch has no more branch connections, remove the database branch
 			if activeConnections == 0 {
 				delete(database.branches, branchUuid)
-				DatabaseResources().Remove(databaseUuid, branchUuid)
+				Resources(databaseUuid, branchUuid).Remove()
 			}
 
 			if len(database.branches) == 0 {

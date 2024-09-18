@@ -8,12 +8,12 @@ import (
 
 func TestNewCheckpointer(t *testing.T) {
 	test.Run(t, func() {
-		db := test.MockDatabase()
+		mock := test.MockDatabase()
 
 		cp, err := database.NewCheckpointer(
-			database.DatabaseResources().FileSystem(db.DatabaseUuid, db.BranchUuid),
-			db.DatabaseUuid,
-			db.BranchUuid,
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 		)
 
 		if err != nil {
@@ -31,9 +31,9 @@ func TestCheckpointerBegin(t *testing.T) {
 		mock := test.MockDatabase()
 
 		cp, err := database.NewCheckpointer(
-			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 		)
 
 		if err != nil {
@@ -62,9 +62,9 @@ func TestCheckpointerCheckpointPage(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 		cp, err := database.NewCheckpointer(
-			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 		)
 
 		if err != nil {
@@ -98,7 +98,7 @@ func TestCheckpointerCheckpointPage(t *testing.T) {
 func TestCheckpointerCommit(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		dfs := database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid)
+		dfs := database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem()
 
 		pageCount := dfs.Metadata().PageCount
 
@@ -107,9 +107,9 @@ func TestCheckpointerCommit(t *testing.T) {
 		}
 
 		cp, err := database.NewCheckpointer(
-			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 		)
 
 		if err != nil {
@@ -155,7 +155,7 @@ func TestCheckpointerCommit(t *testing.T) {
 func TestCheckpointerRollback(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		dfs := database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid)
+		dfs := database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem()
 
 		pageCount := dfs.Metadata().PageCount
 
@@ -164,9 +164,9 @@ func TestCheckpointerRollback(t *testing.T) {
 		}
 
 		cp, err := database.NewCheckpointer(
-			database.DatabaseResources().FileSystem(mock.DatabaseUuid, mock.BranchUuid),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 		)
 
 		if err != nil {

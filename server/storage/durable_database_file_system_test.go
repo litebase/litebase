@@ -247,6 +247,40 @@ func TestDurableDatabaseFileSystemReadAt(t *testing.T) {
 	})
 }
 
+func TestDurableDatabaseFileSystemSetWriteHook(t *testing.T) {
+	test.Run(t, func() {
+		mockDatabase := test.MockDatabase()
+
+		var offset int64
+		var data []byte
+
+		dfs := storage.NewDurableDatabaseFileSystem(
+			storage.LocalFS(),
+			"local",
+			mockDatabase.DatabaseUuid,
+			mockDatabase.BranchUuid,
+			0,
+		).SetWriteHook(func(o int64, d []byte) {
+			offset = o
+			data = d
+		})
+
+		if dfs == nil {
+			t.Error("expected a database file system, got nil")
+		}
+
+		dfs.WriteHook(0, []byte("test"))
+
+		if offset != 0 {
+			t.Error("expected 0, got", offset)
+		}
+
+		if string(data) != "test" {
+			t.Error("expected test, got", string(data))
+		}
+	})
+}
+
 func TestDurableDatabaseFileSystemSize(t *testing.T) {
 	test.Run(t, func() {
 		mockDatabase := test.MockDatabase()
@@ -359,40 +393,6 @@ func TestDurableDatabaseFileSystemTruncate(t *testing.T) {
 	})
 }
 
-func TestDurableDatabaseFileSystemWithWriteHook(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
-
-		var offset int64
-		var data []byte
-
-		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			"local",
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
-			0,
-		).WithWriteHook(func(o int64, d []byte) {
-			offset = o
-			data = d
-		})
-
-		if dfs == nil {
-			t.Error("expected a database file system, got nil")
-		}
-
-		dfs.WriteHook(0, []byte("test"))
-
-		if offset != 0 {
-			t.Error("expected 0, got", offset)
-		}
-
-		if string(data) != "test" {
-			t.Error("expected test, got", string(data))
-		}
-	})
-}
-
 func TestDurableDatabaseFileSystemWriteAt(t *testing.T) {
 	test.Run(t, func() {
 		mockDatabase := test.MockDatabase()
@@ -431,6 +431,44 @@ func TestDurableDatabaseFileSystemWriteAt(t *testing.T) {
 
 		if string(buffer[:n]) != "test" {
 			t.Error("expected test, got", string(buffer[:n]))
+		}
+	})
+}
+
+func TestDurableDatabaseFileSystemWithoutWriteHook(t *testing.T) {
+	test.Run(t, func() {
+		mockDatabase := test.MockDatabase()
+
+		var hookCalled bool
+
+		dfs := storage.NewDurableDatabaseFileSystem(
+			storage.LocalFS(),
+			"local",
+			mockDatabase.DatabaseUuid,
+			mockDatabase.BranchUuid,
+			4096,
+		).SetWriteHook(func(o int64, d []byte) {
+			hookCalled = true
+		})
+
+		if dfs == nil {
+			t.Error("expected a database file system, got nil")
+		}
+
+		n, err := dfs.WriteWithoutWriteHook(func() (int, error) {
+			return dfs.WriteAt([]byte("test"), 0)
+		})
+
+		if err != nil {
+			t.Error("expected nil, got", err)
+		}
+
+		if n != 4 {
+			t.Error("expected 4, got", n)
+		}
+
+		if hookCalled {
+			t.Error("expected hook not to be called")
 		}
 	})
 }

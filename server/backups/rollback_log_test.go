@@ -264,7 +264,6 @@ func TestRollbackLogReadAfter(t *testing.T) {
 		defer rollbackLog.Close()
 
 		for i, tc := range testCases {
-			log.Println(tc.timestamp)
 			entries, err := rollbackLog.ReadAfter(tc.timestamp)
 
 			if err != nil {
@@ -275,13 +274,13 @@ func TestRollbackLogReadAfter(t *testing.T) {
 
 			for _, ftc := range testCases {
 				if ftc.timestamp > tc.timestamp {
-					afterTestCaseCount += 1
+					afterTestCaseCount += len(ftc.pages)
 				}
 			}
 
 			if afterTestCaseCount != len(entries) {
 				log.Println(i)
-				t.Fatalf("Expected %d entries after timestamp %d, got %d", afterTestCaseCount, tc.timestamp, len(entries))
+				t.Errorf("Expected %d entries after timestamp %d, got %d", afterTestCaseCount, tc.timestamp, len(entries))
 			}
 		}
 	})

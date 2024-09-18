@@ -16,15 +16,15 @@ type Snapshot struct {
 }
 
 type SnapshotRestorePoints struct {
-	Data  []uint64 `json:"data"`
-	Start int64    `json:"start"`
-	End   int64    `json:"end"`
-	Total int      `json:"total"`
+	Data  []int64 `json:"data"`
+	Start int64   `json:"start"`
+	End   int64   `json:"end"`
+	Total int     `json:"total"`
 }
 
 type RestorePoint struct {
-	Timestamp uint64
-	PageCount uint32
+	Timestamp int64
+	PageCount int64
 }
 
 func GetSnapshotPath(databaseUuid string, branchUuid string) string {
@@ -164,14 +164,14 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp int64) (Snaps
 			snapshot = Snapshot{
 				Timestamp: startOfDay.Unix(),
 				RestorePoints: SnapshotRestorePoints{
-					Data:  []uint64{uint64(t)},
+					Data:  []int64{t},
 					Start: t,
 					End:   t,
 					Total: 1,
 				},
 			}
 		} else {
-			snapshot.RestorePoints.Data = append(snapshot.RestorePoints.Data, uint64(t))
+			snapshot.RestorePoints.Data = append(snapshot.RestorePoints.Data, t)
 			snapshot.RestorePoints.End = t
 			snapshot.RestorePoints.Total++
 		}
@@ -206,12 +206,12 @@ func GetRestorePoint(databaseUuid string, branchUuid string, timestamp int64) (R
 			break
 		}
 
-		t := binary.LittleEndian.Uint64(data)
+		t := int64(binary.LittleEndian.Uint64(data))
 
 		if int64(t) == timestamp {
 			restorePoint = RestorePoint{
 				Timestamp: t,
-				PageCount: binary.LittleEndian.Uint32(data[8:12]),
+				PageCount: int64(binary.LittleEndian.Uint32(data[8:12])),
 			}
 
 			break

@@ -31,7 +31,7 @@ var (
 	ErrorNoCheckpointInProgressError      = errors.New("no checkpoint in progress")
 )
 
-func NewCheckpointer(dfs *storage.DurableDatabaseFileSystem, databaseUuid, branchUuid string) (*Checkpointer, error) {
+func NewCheckpointer(databaseUuid, branchUuid string, dfs *storage.DurableDatabaseFileSystem) (*Checkpointer, error) {
 	return &Checkpointer{
 		branchUuid:     branchUuid,
 		databaseUuid:   databaseUuid,

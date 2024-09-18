@@ -21,8 +21,8 @@ func CreateWalVersion(databaseUuid, branchUuid string, timestamp int64) error {
 func WalPath(databaseUuid, branchUuid string) string {
 	return fmt.Sprintf(
 		"%s/%s.db-wal",
-		DatabaseResources().
-			TempFileSystem(databaseUuid, branchUuid).
+		Resources(databaseUuid, branchUuid).
+			TempFileSystem().
 			Path(),
 		file.DatabaseHash(databaseUuid, branchUuid),
 	)
@@ -35,8 +35,8 @@ func WalVersionPath(databaseUuid, branchUuid string, timestamp int64) string {
 
 	return fmt.Sprintf(
 		"%s/%s.db-wal_%d",
-		DatabaseResources().
-			TempFileSystem(databaseUuid, branchUuid).
+		Resources(databaseUuid, branchUuid).
+			TempFileSystem().
 			Path(),
 		file.DatabaseHash(databaseUuid, branchUuid),
 		timestamp,

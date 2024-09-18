@@ -11,53 +11,62 @@ import (
 	"sync"
 )
 
-type DatabaseResourceManager struct {
-	snapshotLoggers map[string]*backups.SnapshotLogger
-	checkpointers   map[string]*Checkpointer
-	fileSystems     map[string]*storage.DurableDatabaseFileSystem
-	mutex           *sync.Mutex
-	rollbackLoggers map[string]*backups.RollbackLogger
-	tempFileSystems map[string]*storage.TempDatabaseFileSystem
+type DatabaseResources struct {
+	BranchUuid     string
+	DatabaseUuid   string
+	snapshotLogger *backups.SnapshotLogger
+	checkpointer   *Checkpointer
+	fileSystem     *storage.DurableDatabaseFileSystem
+	mutex          *sync.RWMutex
+	refCount       int32
+	rollbackLogger *backups.RollbackLogger
+	tempFileSystem *storage.TempDatabaseFileSystem
 }
 
-var databaseResourceManager *DatabaseResourceManager
-var databaseResourceManagerMutex = &sync.Mutex{}
+var databaseResourceManagerMutex = &sync.RWMutex{}
+var resources = map[string]*DatabaseResources{}
 
-func DatabaseResources() *DatabaseResourceManager {
+func Resources(databaseUuid, branchUuid string) *DatabaseResources {
+	databaseResourceManagerMutex.RLock()
+
+	if resource, ok := resources[file.DatabaseHash(databaseUuid, branchUuid)]; ok {
+		databaseResourceManagerMutex.RUnlock()
+
+		return resource
+	}
+
+	databaseResourceManagerMutex.RUnlock()
+
 	databaseResourceManagerMutex.Lock()
 	defer databaseResourceManagerMutex.Unlock()
 
-	if databaseResourceManager == nil {
-		databaseResourceManager = &DatabaseResourceManager{
-			checkpointers:   map[string]*Checkpointer{},
-			fileSystems:     map[string]*storage.DurableDatabaseFileSystem{},
-			mutex:           &sync.Mutex{},
-			rollbackLoggers: map[string]*backups.RollbackLogger{},
-			tempFileSystems: map[string]*storage.TempDatabaseFileSystem{},
-		}
+	resource := &DatabaseResources{
+		BranchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
+		mutex:        &sync.RWMutex{},
 	}
 
-	return databaseResourceManager
+	resources[file.DatabaseHash(databaseUuid, branchUuid)] = resource
+
+	return resource
 }
 
-func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) (*Checkpointer, error) {
-	d.mutex.Lock()
+func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
+	d.mutex.RLock()
 
-	key := databaseUuid + ":" + branchUuid
-
-	if checkpointer, ok := d.checkpointers[key]; ok {
-		d.mutex.Unlock()
-		return checkpointer, nil
+	if d.checkpointer != nil {
+		d.mutex.RUnlock()
+		return d.checkpointer, nil
 	}
 
 	// Always unlock the mutex before creating a new checkpointer to avoid a
 	// deadlock when getting the FileSystem.
-	d.mutex.Unlock()
+	d.mutex.RUnlock()
 
 	checkpointer, err := NewCheckpointer(
-		d.FileSystem(databaseUuid, branchUuid),
-		databaseUuid,
-		branchUuid,
+		d.DatabaseUuid,
+		d.BranchUuid,
+		d.FileSystem(),
 	)
 
 	if err != nil {
@@ -65,39 +74,44 @@ func (d *DatabaseResourceManager) Checkpointer(databaseUuid, branchUuid string) 
 	}
 
 	d.mutex.Lock()
-	d.checkpointers[key] = checkpointer
+
+	if d.checkpointer == nil {
+		d.checkpointer = checkpointer
+	}
+
 	d.mutex.Unlock()
 
-	return checkpointer, nil
+	return d.checkpointer, nil
 }
 
-func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) *storage.DurableDatabaseFileSystem {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
+func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
+	d.mutex.RLock()
 
-	if fileSystem, ok := d.fileSystems[hash]; ok {
-		return fileSystem
+	if d.fileSystem != nil {
+		d.mutex.RUnlock()
+
+		return d.fileSystem
 	}
+
+	d.mutex.RUnlock()
 
 	pageSize := config.Get().PageSize
 
 	fileSystem := storage.NewDurableDatabaseFileSystem(
 		storage.TieredFS(),
-		fmt.Sprintf("%s%s/%s", Directory(), databaseUuid, branchUuid),
-		databaseUuid,
-		branchUuid,
+		fmt.Sprintf("%s%s/%s", Directory(), d.DatabaseUuid, d.BranchUuid),
+		d.DatabaseUuid,
+		d.BranchUuid,
 		pageSize,
 	)
 
-	fileSystem = fileSystem.WithWriteHook(func(offset int64, data []byte) {
-		checkpointer, err := d.Checkpointer(databaseUuid, branchUuid)
+	fileSystem = fileSystem.SetWriteHook(func(offset int64, data []byte) {
+		checkpointer, err := d.Checkpointer()
 
 		if err != nil {
 			log.Println("Error creating checkpointer", err)
 			return
 		}
-		log.Println("Writing page to file system", file.PageNumber(offset, pageSize))
 
 		// Each time a page is written, we need to inform the check pointer to
 		// ensure it is included in the next backup.
@@ -121,87 +135,114 @@ func (d *DatabaseResourceManager) FileSystem(databaseUuid, branchUuid string) *s
 		}
 	})
 
-	d.fileSystems[hash] = fileSystem
-
-	return fileSystem
-}
-
-func (d *DatabaseResourceManager) PageLogger(databaseUuid, branchUuid string) *backups.RollbackLogger {
 	d.mutex.Lock()
-	defer d.mutex.Unlock()
 
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
-
-	if pageLogger, ok := d.rollbackLoggers[hash]; ok {
-		return pageLogger
+	if d.fileSystem == nil {
+		d.fileSystem = fileSystem
 	}
 
-	pageLogger := backups.NewRollbackLogger(databaseUuid, branchUuid)
+	d.mutex.Unlock()
 
-	d.rollbackLoggers[hash] = pageLogger
-
-	return pageLogger
+	return d.fileSystem
 }
 
-func (d *DatabaseResourceManager) Remove(databaseUuid, branchUuid string) {
+func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
+	d.mutex.RLock()
+
+	if d.rollbackLogger != nil {
+		d.mutex.RUnlock()
+
+		return d.rollbackLogger
+	}
+
+	d.mutex.RUnlock()
+
+	pageLogger := backups.NewRollbackLogger(d.DatabaseUuid, d.BranchUuid)
+
+	d.mutex.Lock()
+
+	if d.rollbackLogger == nil {
+		d.rollbackLogger = pageLogger
+	}
+
+	d.mutex.Unlock()
+
+	return d.rollbackLogger
+}
+
+// TODO: Need to investigate how this works separatley from the connections and backups.
+// Will the ConnectionManager steal a resource away outside the context of a connection.
+func (d *DatabaseResources) Remove() {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
-
-	if pageLogger, ok := d.rollbackLoggers[hash]; ok {
-		pageLogger.Close()
+	if d.rollbackLogger != nil {
+		d.rollbackLogger.Close()
 	}
 
 	// Perform any shutdown logic for the checkpoint logger
-	if d.snapshotLoggers[hash] != nil {
-		d.snapshotLoggers[hash].Close()
+	if d.snapshotLogger != nil {
+		d.snapshotLogger.Close()
 	}
 
 	// Perform any shutdown logic for the file system
-	if d.fileSystems[hash] != nil {
-		d.fileSystems[hash].Shutdown()
+	if d.fileSystem != nil {
+		d.fileSystem.Shutdown()
 	}
 
-	delete(d.snapshotLoggers, hash)
-	delete(d.checkpointers, hash)
-	delete(d.fileSystems, hash)
-	delete(d.rollbackLoggers, hash)
-	delete(d.tempFileSystems, hash)
+	d.snapshotLogger = nil
+	d.checkpointer = nil
+	d.fileSystem = nil
+	d.rollbackLogger = nil
+	d.tempFileSystem = nil
 }
 
-func (d *DatabaseResourceManager) SnapshotLogger(databaseUuid, branchUuid string) *backups.SnapshotLogger {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
+	d.mutex.RLock()
 
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
+	if d.snapshotLogger != nil {
+		d.mutex.RUnlock()
 
-	if snapshotLogger, ok := d.snapshotLoggers[hash]; ok {
-		return snapshotLogger
+		return d.snapshotLogger
+
 	}
 
-	snapshotLogger := backups.NewSnapshotLogger(databaseUuid, branchUuid)
+	d.mutex.RUnlock()
 
-	d.snapshotLoggers[hash] = snapshotLogger
+	d.mutex.Lock()
 
-	return snapshotLogger
+	if d.snapshotLogger == nil {
+		d.snapshotLogger = backups.NewSnapshotLogger(d.DatabaseUuid, d.BranchUuid)
+
+	}
+
+	d.mutex.Unlock()
+
+	return d.snapshotLogger
 }
 
-func (d *DatabaseResourceManager) TempFileSystem(databaseUuid, branchUuid string) *storage.TempDatabaseFileSystem {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
+	d.mutex.RLock()
 
-	hash := file.DatabaseHash(databaseUuid, branchUuid)
+	if d.tempFileSystem != nil {
+		d.mutex.RUnlock()
 
-	if fileSystem, ok := d.tempFileSystems[hash]; ok {
-		return fileSystem
+		return d.tempFileSystem
 	}
 
-	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), node.Node().Id, databaseUuid, branchUuid)
+	d.mutex.RUnlock()
 
-	fileSystem := storage.NewTempDatabaseFileSystem(path, databaseUuid, branchUuid)
+	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), node.Node().Id, d.DatabaseUuid, d.BranchUuid)
 
-	d.tempFileSystems[hash] = fileSystem
+	fileSystem := storage.NewTempDatabaseFileSystem(path, d.DatabaseUuid, d.BranchUuid)
 
-	return fileSystem
+	d.mutex.Lock()
+
+	if d.tempFileSystem == nil {
+		d.tempFileSystem = fileSystem
+	}
+
+	d.mutex.Unlock()
+
+	return d.tempFileSystem
 }

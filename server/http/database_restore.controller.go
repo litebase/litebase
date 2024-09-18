@@ -23,10 +23,13 @@ func DatabaseRestoreController(request *Request) Response {
 
 	timestamp := int64(request.Get("timestamp").(float64))
 
+	dfs := database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem()
+
 	err = backups.RestoreFromTimestamp(
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
 		timestamp,
+		dfs,
 		func(completed func() error) error {
 			return database.ConnectionManager().Drain(databaseKey.DatabaseUuid, databaseKey.BranchUuid, func() error {
 				log.Println("Database connections drained")
