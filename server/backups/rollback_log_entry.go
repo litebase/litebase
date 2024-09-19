@@ -46,6 +46,7 @@ const (
 	RollbackLogEntryHeaderSize = 100
 )
 
+// Create a new RollbackLogEntry with the given parameters.
 func NewRollbackLogEntry(pageNumber, timestamp int64, data []byte) *RollbackLogEntry {
 	hash := sha1.New()
 	hash.Write(data)
@@ -60,6 +61,7 @@ func NewRollbackLogEntry(pageNumber, timestamp int64, data []byte) *RollbackLogE
 	}
 }
 
+// Serialize the RollbackLogEntry into a byte slice.
 func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte, error) {
 	rle.SizeDecompressed = len(rle.Data)
 	compressionBufferCap := compressionBuffer.Cap()
@@ -99,8 +101,7 @@ func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte,
 	return serialized, nil
 }
 
-// RollbackLogEntry are read from the file in reverse order, so we need to
-// deserialize the entry from the end of the file.
+// Deserialize  a RollbackLogEntry from a reader.
 func DeserializeRollbackLogEntry(reader io.ReadSeeker) (*RollbackLogEntry, error) {
 	header := make([]byte, RollbackLogEntryHeaderSize)
 

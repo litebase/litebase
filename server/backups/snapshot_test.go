@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"litebase/internal/test"
 	"litebase/server/backups"
+	"log"
 	"testing"
 	"time"
 )
@@ -38,7 +39,8 @@ func TestGetSnapshots(t *testing.T) {
 
 		// Simulate writing a snapshot to the file
 		for i := 0; i < 5; i++ {
-			timestamp := time.Now().Add(time.Duration(5-i) * time.Second).Unix()
+			timestamp := time.Now().Add(-time.Duration(5-i) * time.Second).Unix()
+			log.Println("Logging snapshot at timestamp: ", timestamp)
 			checkpointerLogger.Log(timestamp, int64(i))
 		}
 
@@ -48,7 +50,7 @@ func TestGetSnapshots(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		if len(snapshots) != 5 {
+		if len(snapshots) == 0 || snapshots[0].RestorePoints.Total != 5 {
 			t.Fatalf("Expected 5 snapshots, got %d", len(snapshots))
 		}
 	})

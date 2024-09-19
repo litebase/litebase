@@ -6,6 +6,7 @@ import (
 	"io"
 	"litebase/server/file"
 	"litebase/server/storage"
+	"log"
 	"os"
 	"time"
 )
@@ -27,6 +28,7 @@ type RestorePoint struct {
 	PageCount int64
 }
 
+// Return the
 func GetSnapshotPath(databaseUuid string, branchUuid string) string {
 	return fmt.Sprintf(
 		"%s/logs/snapshots/SNAPSHOT_LOG",
@@ -64,7 +66,7 @@ openFile:
 		return nil, err
 	}
 
-	// Read the snapshots 8 bytes at a time and get one timestamp per day
+	// Read the snapshots 64 bytes at a time and get one timestamp per day
 	// This is because we only need one snapshot per day.
 	for {
 		data := make([]byte, 64)
@@ -72,6 +74,7 @@ openFile:
 		_, err := snapshotFile.Read(data)
 
 		if err != nil {
+			log.Println("Error reading snapshot file:", err)
 			break
 		}
 
@@ -111,6 +114,8 @@ openFile:
 	return values, nil
 }
 
+// Get a single snapshot for a specific timestamp. This method does not include
+// All the restore points for the day, just the first one.
 func GetSnapshot(databaseUuid string, branchUuid string, timestamp int64) (Snapshot, error) {
 	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
@@ -180,6 +185,7 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp int64) (Snaps
 	return snapshot, nil
 }
 
+// Get a specific restore point from the snapshot file.
 func GetRestorePoint(databaseUuid string, branchUuid string, timestamp int64) (RestorePoint, error) {
 	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
@@ -221,6 +227,7 @@ func GetRestorePoint(databaseUuid string, branchUuid string, timestamp int64) (R
 	return restorePoint, nil
 }
 
+// Determine if the snapshot is empty.
 func (s Snapshot) IsEmpty() bool {
 	return s.Timestamp == 0
 }

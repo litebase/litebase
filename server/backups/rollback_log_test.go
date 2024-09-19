@@ -169,51 +169,6 @@ func TestRollbackLogCommit(t *testing.T) {
 	})
 }
 
-// func TestRollbackLogReader(t *testing.T) {
-// 	test.Run(t, func() {
-// 		mock := test.MockDatabase()
-// 		timestamp := time.Now().Unix()
-// 		pageNumber := int64(1)
-
-// 		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, timestamp)
-
-// 		if err != nil {
-// 			t.Fatalf("Failed to open RollbackLog: %v", err)
-// 		}
-
-// 		defer rollbackLog.Close()
-
-// 		entries := make([]*backups.RollbackLogEntry, 0)
-
-// 		for i := 0; i < 5; i++ {
-// 			entry := backups.NewRollbackLogEntry(pageNumber, time.Now().Unix(), []byte("test data"))
-// 			entries = append(entries, entry)
-
-// 			size, err := rollbackLog.AppendLog(bytes.NewBuffer([]byte{}), entry)
-
-// 			if err != nil {
-// 				t.Fatalf("Failed to append RollbackLogEntry: %v", err)
-// 			}
-
-// 			if size <= 0 {
-// 				t.Fatalf("Expected size to be greater than 0, got %d", size)
-// 			}
-// 		}
-
-// 		readerEntries, readerError := rollbackLog.Reader()
-
-// 		if readerError != nil {
-// 			t.Fatalf("Error reading RollbackLog: %v", readerError)
-// 		}
-
-// 		for i, entry := range readerEntries {
-// 			if entry.PageNumber != entries[i].PageNumber {
-// 				t.Fatalf("Expected PageNumber %d, got %d", entries[i].PageNumber, entry.PageNumber)
-// 			}
-// 		}
-// 	})
-// }
-
 func TestRollbackLogReadAfter(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
@@ -264,16 +219,25 @@ func TestRollbackLogReadAfter(t *testing.T) {
 		defer rollbackLog.Close()
 
 		for i, tc := range testCases {
-			entries, err := rollbackLog.ReadAfter(tc.timestamp)
+			var entries []*backups.RollbackLogEntry
+			rollbackLogEntriesChannel, doneChannel, errorChannel := rollbackLog.ReadForTimestamp(tc.timestamp)
 
-			if err != nil {
-				t.Fatalf("Failed to read RollbackLog: %v", err)
+		outerLoop:
+			for {
+				select {
+				case <-doneChannel:
+					break outerLoop
+				case err := <-errorChannel:
+					t.Fatalf("Failed to read RollbackLog: %v", err)
+					break outerLoop
+				case e := <-rollbackLogEntriesChannel:
+					entries = append(entries, e...)
+				}
 			}
-
 			afterTestCaseCount := 0
 
 			for _, ftc := range testCases {
-				if ftc.timestamp > tc.timestamp {
+				if ftc.timestamp >= tc.timestamp {
 					afterTestCaseCount += len(ftc.pages)
 				}
 			}

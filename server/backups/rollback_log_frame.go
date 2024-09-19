@@ -29,6 +29,7 @@ type RollbackLogFrame struct {
 	Timestamp int64
 }
 
+// Deserialize a byte slice into a RollbackLogFrame.
 func DeserializeRollbackLogFrame(data []byte) (RollbackLogFrame, error) {
 	if len(data) < RollbackFrameHeaderSize {
 		return RollbackLogFrame{}, fmt.Errorf("data length is less than %d bytes", RollbackFrameHeaderSize)
@@ -50,6 +51,7 @@ func DeserializeRollbackLogFrame(data []byte) (RollbackLogFrame, error) {
 	return r, nil
 }
 
+// Serialize the RollbackLogFrame into a byte slice.
 func (r RollbackLogFrame) Serialize() ([]byte, error) {
 	serialized := make([]byte, RollbackFrameHeaderSize)
 

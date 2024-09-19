@@ -26,6 +26,7 @@ func NewSnapshotLogger(databaseUuid, branchUuid string) *SnapshotLogger {
 	}
 }
 
+// Close the logger and the underlying file.
 func (c *SnapshotLogger) Close() error {
 	if c.file != nil {
 		return c.file.Close()
@@ -34,19 +35,18 @@ func (c *SnapshotLogger) Close() error {
 	return nil
 }
 
+// Get the snapshot log file, creating it if it does not exist.
 func (c *SnapshotLogger) File() (internalStorage.File, error) {
 	if c.file != nil {
 		return c.file, nil
 	}
 
 openFile:
-	directory := file.GetDatabaseFileBaseDir(c.DatabaseUuid, c.BranchUuid)
-	path := GetSnapshotPath(c.DatabaseUuid, c.BranchUuid)
-	file, err := storage.TieredFS().OpenFile(path, SNAPSHOT_LOG_FLAGS, 0644)
+	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(c.DatabaseUuid, c.BranchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/snapshots", directory), 0755)
+			err := storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(c.DatabaseUuid, c.BranchUuid)), 0755)
 
 			if err != nil {
 				return nil, err
@@ -58,11 +58,12 @@ openFile:
 		return nil, err
 	}
 
-	c.file = file
+	c.file = snapshotFile
 
 	return c.file, nil
 }
 
+// Write a snapshot log entry to the snapshot log file.
 func (c *SnapshotLogger) Log(timestamp, pageCount int64) error {
 	file, err := c.File()
 

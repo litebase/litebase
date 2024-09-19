@@ -74,33 +74,36 @@ func RestoreFromTimestamp(
 			return err
 		}
 
-		frames, err := rollbackLog.ReadAfter(backupTimestamp)
+		framesChannel, doneChannel, errorChannel := rollbackLog.ReadForTimestamp(backupTimestamp)
 
-		if err != nil {
-			log.Println("Error reading rollback log:", err)
-			return err
-		}
+	rollbackLogTimestampsLoop:
+		for {
+			select {
+			case <-doneChannel:
+				break rollbackLogTimestampsLoop
+			case err := <-errorChannel:
+				log.Println("Error reading rollback log:", err)
+				return err
+			case frame := <-framesChannel:
 
-		for _, frame := range frames {
-			timestamps := make([]int64, len(frame))
+				timestamps := make([]int64, len(frame))
 
-			for i, rollbackLogEntry := range frame {
-				timestamps[i] = rollbackLogEntry.Timestamp
-			}
+				for i, rollbackLogEntry := range frame {
+					timestamps[i] = rollbackLogEntry.Timestamp
+				}
 
-			for _, rollbackLogEntry := range frame {
-				_, err = fileSystem.WriteWithoutWriteHook(func() (int, error) {
-					return fileSystem.WriteAt(rollbackLogEntry.Data, file.PageOffset(rollbackLogEntry.PageNumber, config.Get().PageSize))
-				})
+				for _, rollbackLogEntry := range frame {
+					_, err = fileSystem.WriteWithoutWriteHook(func() (int, error) {
+						return fileSystem.WriteAt(rollbackLogEntry.Data, file.PageOffset(rollbackLogEntry.PageNumber, config.Get().PageSize))
+					})
 
-				if err != nil {
-					log.Println("Error writing page:", rollbackLogEntry.PageNumber, err)
-					return err
+					if err != nil {
+						log.Println("Error writing page:", rollbackLogEntry.PageNumber, err)
+						return err
+					}
 				}
 			}
 		}
-
-		rollbackLog.Close()
 	}
 
 	// Truncate the database file
