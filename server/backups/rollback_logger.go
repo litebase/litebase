@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// TODO: Add a LFU cache for page logs to reduce the number of files that are
-// opened and closed
 type RollbackLogger struct {
 	buffers      sync.Pool
 	DatabaseUuid string

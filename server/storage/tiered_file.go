@@ -170,7 +170,7 @@ should be written to durable storage if it has been updated and the last write
 to durable storage was more than a minute ago.
 */
 func (f *TieredFile) shouldBeWrittenToDurableStorage() bool {
-	return f.UpdatedAt.After(f.WrittenAt) && time.Since(f.WrittenAt) >= f.tieredFileSystemDriver.WriteInterval
+	return f.UpdatedAt.After(f.WrittenAt) && (time.Since(f.WrittenAt) >= f.tieredFileSystemDriver.WriteInterval)
 }
 
 func (f *TieredFile) Stat() (fs.FileInfo, error) {

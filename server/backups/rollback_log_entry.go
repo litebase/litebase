@@ -19,13 +19,14 @@ When serialized, the RollbackLogEntry data is stored with a header followed by a
 compressed data frame. The header is 100 bytes and header contains:
 | offset | size | description |
 |--------|------|-----------------------------------|
-| 0      | 4    | The version number of the entry   |
-| 4      | 4    | The page number                   |
-| 8      | 8    | The timestamp of the entry        |
-| 16     | 4    | The size of the uncompressed data |
-| 20     | 4    | The size of the compressed data   |
-| 24     | 20   | SHA1 hash of uncompressed data    |
-| 44     | 66   | Reserved for future use           |
+| 0      | 4    | The identifier if the entry       |
+| 8      | 4    | The version number of the entry   |
+| 8      | 4    | The page number                   |
+| 12      | 8    | The timestamp of the entry       |
+| 20     | 4    | The size of the uncompressed data |
+| 24     | 4    | The size of the compressed data   |
+| 28     | 20   | SHA1 hash of uncompressed data    |
+| 48     | 52   | Reserved for future use           |
 
 The compressed frame is the serialized data of the page compressed using the
 s2 compression algorithm.
@@ -72,23 +73,25 @@ func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte,
 
 	compressionBuffer.Write(compressed)
 
-	rle.SizeCompressed = compressionBuffer.Len()
+	rle.SizeCompressed = len(compressed)
 
 	serialized := make([]byte, RollbackLogEntryHeaderSize+rle.SizeCompressed)
 
+	// 4 bytes for the identifier
+	binary.LittleEndian.PutUint32(serialized[0:4], uint32(RollbackLogEntryID))
 	// 4 bytes for the version
-	binary.LittleEndian.PutUint32(serialized[0:4], rle.Version)
+	binary.LittleEndian.PutUint32(serialized[4:8], rle.Version)
 	// 4 bytes for the page number
-	binary.LittleEndian.PutUint32(serialized[4:8], uint32(rle.PageNumber))
+	binary.LittleEndian.PutUint32(serialized[8:12], uint32(rle.PageNumber))
 	// 8 bytes for the timestamp
-	binary.LittleEndian.PutUint64(serialized[8:16], uint64(rle.Timestamp))
+	binary.LittleEndian.PutUint64(serialized[12:20], uint64(rle.Timestamp))
 	// 4 bytes for the size of the uncompressed data
-	binary.LittleEndian.PutUint32(serialized[16:20], uint32(len(rle.Data)))
+	binary.LittleEndian.PutUint32(serialized[20:24], uint32(len(rle.Data)))
 	// 4 bytes for the size of the compressed data
-	binary.LittleEndian.PutUint32(serialized[20:24], uint32(rle.SizeCompressed))
+	binary.LittleEndian.PutUint32(serialized[24:28], uint32(rle.SizeCompressed))
 	// 20 bytes for the SHA1 hash of the uncompressed data
-	copy(serialized[24:44], []byte(rle.SHA1))
-	// The remaining 66 bytes are reserved for future use and are already zero
+	copy(serialized[28:48], []byte(rle.SHA1))
+	// The remaining 52 bytes are reserved for future use and are already zero
 
 	// Copy the compressed data to the serialized buffer
 	copy(serialized[RollbackLogEntryHeaderSize:], compressed)
@@ -107,18 +110,25 @@ func DeserializeRollbackLogEntry(reader io.ReadSeeker) (*RollbackLogEntry, error
 		return nil, err
 	}
 
+	// 4 bytes for the identifier
+	id := RollbackLogIdentifier(binary.LittleEndian.Uint32(header[0:4]))
+
+	if id != RollbackLogEntryID {
+		return nil, fmt.Errorf("this data is not a RollbackLogEntry expected: %d got: %d", RollbackLogEntryID, id)
+	}
+
 	// 4 bytes for the version
-	version := binary.LittleEndian.Uint32(header[0:4])
+	version := binary.LittleEndian.Uint32(header[4:8])
 	// 4 bytes for the page number
-	pageNumber := int64(binary.LittleEndian.Uint32(header[4:8]))
+	pageNumber := int64(binary.LittleEndian.Uint32(header[8:12]))
 	// 8 bytes for the timestamp
-	timestamp := int64(binary.LittleEndian.Uint64(header[8:16]))
+	timestamp := int64(binary.LittleEndian.Uint64(header[12:20]))
 	// 4 bytes for the size of the uncompressed data
-	decompressedSize := binary.LittleEndian.Uint32(header[16:20])
+	decompressedSize := binary.LittleEndian.Uint32(header[20:24])
 	// 4 bytes for the size of the compressed data
-	compressedSize := binary.LittleEndian.Uint32(header[20:24])
+	compressedSize := binary.LittleEndian.Uint32(header[24:28])
 	// 20 bytes for the SHA1 hash of the uncompressed data
-	entrySHA1 := header[24:44]
+	entrySHA1 := header[28:48]
 
 	// Read the compressed frame
 	compressed := make([]byte, compressedSize)

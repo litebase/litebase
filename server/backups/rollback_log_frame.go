@@ -7,6 +7,21 @@ import (
 
 const RollbackFrameHeaderSize = 32
 
+/*
+The RollbackLogFrame is a data structure used to segment the rollback log into
+frames of database updates. Each frame contains metadata about the changes made
+to the database at a specific point in time and are used to efficiently manage
+and restore database states during rollback operations.
+
+When serialized the RollbackLogFrame data is stored in the following format:
+| offset | size | description                       |
+|--------|------|-----------------------------------|
+| 0      | 4    | The identifier of the frame       |
+| 4      | 4    | The committed state               |
+| 8      | 8    | The offset of the data            |
+| 16     | 8    | The size of the data              |
+| 24     | 8    | The timestamp of the entry        |
+*/
 type RollbackLogFrame struct {
 	Committed int
 	Offset    int64
