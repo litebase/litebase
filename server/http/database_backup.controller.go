@@ -55,12 +55,19 @@ func DatabaseBackupShowController(request *Request) Response {
 
 	timeInstance := time.Unix(timestamp, 0)
 
-	backup := backups.GetBackup(
+	backup, err := backups.GetBackup(
 		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
 		timeInstance.Unix(),
 	)
+
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": err.Error(),
+		}, 500, nil)
+	}
 
 	return JsonResponse(map[string]interface{}{
 		"status": "success",
@@ -82,12 +89,19 @@ func DatabaseBackupDestroyController(request *Request) Response {
 
 	databaseKey := request.DatabaseKey()
 
-	backup := backups.GetBackup(
+	backup, err := backups.GetBackup(
 		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
 		timeInstance.Unix(),
 	)
+
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"status":  "error",
+			"message": err.Error(),
+		}, 500, nil)
+	}
 
 	if backup == nil {
 		return JsonResponse(map[string]interface{}{

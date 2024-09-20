@@ -24,11 +24,11 @@ A Backup is a complete logical snapshot of a database at a given point in time.
 This data is derived from a Snapshot and can be used to restore a database.
 */
 type Backup struct {
-	dfs               *storage.DurableDatabaseFileSystem
-	BranchUuid        string
-	DatabaseUuid      string
-	maxPartSize       int64
-	SnapshotTimestamp int64
+	dfs          *storage.DurableDatabaseFileSystem
+	BranchUuid   string
+	DatabaseUuid string
+	maxPartSize  int64
+	RestorePoint RestorePoint
 }
 
 type BackupConfigCallback func(backup *Backup)
@@ -41,15 +41,25 @@ func GetBackup(
 	databaseUuid string,
 	branchUuid string,
 	snapshotTimestamp int64,
-) *Backup {
-	backup := &Backup{
-		BranchUuid:        branchUuid,
-		DatabaseUuid:      databaseUuid,
-		dfs:               dfs,
-		SnapshotTimestamp: snapshotTimestamp,
+) (*Backup, error) {
+	restorePoint, err := GetRestorePoint(databaseUuid, branchUuid, snapshotTimestamp)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return backup
+	if restorePoint == (RestorePoint{}) {
+		return nil, fmt.Errorf("no restore point found")
+	}
+
+	backup := &Backup{
+		BranchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
+		dfs:          dfs,
+		RestorePoint: restorePoint,
+	}
+
+	return backup, nil
 }
 
 /*
@@ -61,7 +71,7 @@ func GetNextBackup(
 	databaseUuid string,
 	branchUuid string,
 	snapshotTimestamp int64,
-) *Backup {
+) (*Backup, error) {
 	backups := make([]int64, 0)
 	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid), BACKUP_DIR)
 
@@ -102,7 +112,7 @@ func GetNextBackup(
 		}
 	}
 
-	return nil
+	return nil, fmt.Errorf("no next backup found")
 }
 
 /*
@@ -137,7 +147,7 @@ func (backup *Backup) DirectoryPath() string {
 	return fmt.Sprintf(
 		"%s/%d",
 		file.GetDatabaseBackupsDirectory(backup.DatabaseUuid, backup.BranchUuid),
-		backup.SnapshotTimestamp,
+		backup.RestorePoint.Timestamp,
 	)
 }
 
@@ -171,7 +181,7 @@ func (backup *Backup) Hash() string {
 	hash := sha1.New()
 	hash.Write([]byte(backup.DatabaseUuid))
 	hash.Write([]byte(backup.BranchUuid))
-	hash.Write([]byte(fmt.Sprintf("%d", backup.SnapshotTimestamp)))
+	hash.Write([]byte(fmt.Sprintf("%d", backup.RestorePoint.Timestamp)))
 
 	return hex.EncodeToString(hash.Sum(nil))
 }
@@ -281,16 +291,16 @@ func (backup *Backup) packageBackup() error {
 			partNumber++
 			fileSize = 0
 
-			// Close the gzip writer
-			if err := gzipWriter.Close(); err != nil {
-				log.Println("Error closing gzip writer:", err)
+			// Close the tar writer
+			if err := tarWriter.Close(); err != nil {
+				log.Println("Error closing zip writer:", err)
 
 				return err
 			}
 
-			// Close the tar writer
-			if err := tarWriter.Close(); err != nil {
-				log.Println("Error closing zip writer:", err)
+			// Close the gzip writer
+			if err := gzipWriter.Close(); err != nil {
+				log.Println("Error closing gzip writer:", err)
 
 				return err
 			}
@@ -375,10 +385,10 @@ func Run(
 	}
 
 	backup := &Backup{
-		dfs:               dfs,
-		BranchUuid:        branchUuid,
-		DatabaseUuid:      databaseUuid,
-		SnapshotTimestamp: time.Now().Unix(),
+		dfs:          dfs,
+		BranchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
+		RestorePoint: restorePoint,
 	}
 
 	for _, callback := range callbacks {
@@ -445,6 +455,6 @@ func (backup *Backup) ToMap() map[string]interface{} {
 		"database_id": backup.DatabaseUuid,
 		"branch_id":   backup.BranchUuid,
 		"size":        backup.Size(),
-		"timestamp":   backup.SnapshotTimestamp,
+		"timestamp":   backup.RestorePoint.Timestamp,
 	}
 }
