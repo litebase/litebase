@@ -54,7 +54,6 @@ func ConnectionManager() *ConnectionManagerInstance {
 			for {
 				select {
 				case <-node.Node().Context().Done():
-					log.Println("Connection manager shutting down")
 					return
 				case <-StaticConnectionManagerInstance.connectionTicker.C:
 					StaticConnectionManagerInstance.Tick()

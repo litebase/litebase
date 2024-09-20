@@ -174,6 +174,16 @@ func Get(databaseUuid string) (*Database, error) {
 	return database, nil
 }
 
+func (database *Database) HasBranch(branchUuid string) bool {
+	for _, branch := range database.Branches {
+		if branch.Id == branchUuid {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (database *Database) Key(branchUuid string) string {
 	var branch *Branch
 

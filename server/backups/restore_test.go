@@ -6,17 +6,64 @@ import (
 	"litebase/internal/test"
 	"litebase/server/backups"
 	"litebase/server/database"
+	"litebase/server/file"
 	"testing"
 	"time"
 )
 
+func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
+	test.Run(t, func() {
+		source := test.MockDatabase()
+		target := test.MockDatabase()
+		sourceDirectory := file.GetDatabaseFileDir(source.DatabaseUuid, source.BranchUuid)
+		targetDirectory := file.GetDatabaseFileDir(target.DatabaseUuid, target.BranchUuid)
+
+		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
+		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
+
+		for i := 1; i <= 10; i++ {
+			sourceDfs.FileSystem().Create(
+				fmt.Sprintf("%s/%010d", sourceDirectory, i),
+			)
+		}
+
+		err := backups.CopySouceDatabaseToTargetDatabase(
+			5,
+			source.DatabaseUuid,
+			source.BranchUuid,
+			target.DatabaseUuid,
+			target.BranchUuid,
+			sourceDfs,
+			targetDfs,
+		)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		// Verify that only the first 5 pages were copied
+		entries, err := targetDfs.FileSystem().ReadDir(targetDirectory)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		// There should be 5 entries in the target directory, including the metadata file
+		if len(entries) != 6 {
+			t.Errorf("Expected 5 entries, got %d", len(entries))
+		}
+	})
+}
+
 func TestRestoreFromTimestamp(t *testing.T) {
 	test.Run(t, func() {
-		mock := test.MockDatabase()
+		source := test.MockDatabase()
+		target := test.MockDatabase()
 
-		dfs := database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem()
+		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
+		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err := database.ConnectionManager().Get(source.DatabaseUuid, source.BranchUuid)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -29,7 +76,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -48,7 +95,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
-		err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -67,26 +114,26 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
-		err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
 		// Get the lastest snapshot timestamp
-		snapshots, err := backups.GetSnapshots(mock.DatabaseUuid, mock.BranchUuid)
+		snapshots, err := backups.GetSnapshots(source.DatabaseUuid, source.BranchUuid)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		snapshot, err := backups.GetSnapshot(mock.DatabaseUuid, mock.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
+		snapshot, err := backups.GetSnapshot(source.DatabaseUuid, source.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		restorePoint, err := backups.GetRestorePoint(mock.DatabaseUuid, mock.BranchUuid, snapshot.RestorePoints.Data[0])
+		restorePoint, err := backups.GetRestorePoint(source.DatabaseUuid, source.BranchUuid, snapshot.RestorePoints.Data[0])
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -94,14 +141,23 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		var restored bool
 
-		// Mock the onComplete function
+		// source the onComplete function
 		onComplete := func(restoreFunc func() error) error {
 			restored = true
 			return nil
 		}
 
 		// Call the RestoreFromTimestamp function
-		err = backups.RestoreFromTimestamp(mock.DatabaseUuid, mock.BranchUuid, restorePoint.Timestamp, dfs, onComplete)
+		err = backups.RestoreFromTimestamp(
+			source.DatabaseUuid,
+			source.BranchUuid,
+			target.DatabaseUuid,
+			target.BranchUuid,
+			restorePoint.Timestamp,
+			sourceDfs,
+			targetDfs,
+			onComplete,
+		)
 
 		// Check for errors
 		if err != nil {
@@ -112,9 +168,9 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Error("Expected onComplete to be called")
 		}
 
-		database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
+		database.ConnectionManager().Release(target.DatabaseUuid, target.BranchUuid, db)
 
-		db, err = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err = database.ConnectionManager().Get(target.DatabaseUuid, target.BranchUuid)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -131,8 +187,8 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Errorf("Expected 0 rows, got %d", len(result.Rows))
 		}
 
-		if dfs.Metadata().PageCount != restorePoint.PageCount {
-			t.Errorf("Expected PageCount %d, got %d", restorePoint.PageCount, dfs.Metadata().PageCount)
+		if targetDfs.Metadata().PageCount != restorePoint.PageCount {
+			t.Errorf("Expected PageCount %d, got %d", restorePoint.PageCount, targetDfs.Metadata().PageCount)
 		}
 	})
 }
@@ -148,11 +204,13 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 	for _, timeout := range timeouts {
 		t.Run(fmt.Sprintf("restore with timeout: %s", timeout), func(t *testing.T) {
 			test.Run(t, func() {
-				mock := test.MockDatabase()
+				source := test.MockDatabase()
+				target := test.MockDatabase()
 
-				dfs := database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem()
+				sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
+				targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
 
-				db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+				db, err := database.ConnectionManager().Get(source.DatabaseUuid, source.BranchUuid)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -165,7 +223,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
-				err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -185,7 +243,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				}
 
 				db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
-				err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -206,26 +264,26 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 
 				db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
-				err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
 				// Get the lastest snapshot timestamp
-				snapshots, err := backups.GetSnapshots(mock.DatabaseUuid, mock.BranchUuid)
+				snapshots, err := backups.GetSnapshots(source.DatabaseUuid, source.BranchUuid)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
-				snapshot, err := backups.GetSnapshot(mock.DatabaseUuid, mock.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
+				snapshot, err := backups.GetSnapshot(source.DatabaseUuid, source.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
-				restorePoint, err := backups.GetRestorePoint(mock.DatabaseUuid, mock.BranchUuid, snapshot.RestorePoints.Data[0])
+				restorePoint, err := backups.GetRestorePoint(source.DatabaseUuid, source.BranchUuid, snapshot.RestorePoints.Data[0])
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -240,7 +298,16 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				}
 
 				// Call the RestoreFromTimestamp function
-				err = backups.RestoreFromTimestamp(mock.DatabaseUuid, mock.BranchUuid, restorePoint.Timestamp, dfs, onComplete)
+				err = backups.RestoreFromTimestamp(
+					source.DatabaseUuid,
+					source.BranchUuid,
+					target.DatabaseUuid,
+					target.BranchUuid,
+					restorePoint.Timestamp,
+					sourceDfs,
+					targetDfs,
+					onComplete,
+				)
 
 				// Check for errors
 				if err != nil {
@@ -251,9 +318,9 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					t.Error("Expected onComplete to be called")
 				}
 
-				database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
+				database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
 
-				db, err = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+				db, err = database.ConnectionManager().Get(target.DatabaseUuid, target.BranchUuid)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -270,8 +337,8 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					t.Errorf("Expected 0 rows, got %d", len(result.Rows))
 				}
 
-				if dfs.Metadata().PageCount != restorePoint.PageCount {
-					t.Errorf("Expected PageCount %d, got %d", restorePoint.PageCount, dfs.Metadata().PageCount)
+				if targetDfs.Metadata().PageCount != restorePoint.PageCount {
+					t.Errorf("Expected PageCount %d, got %d", restorePoint.PageCount, targetDfs.Metadata().PageCount)
 				}
 			})
 		})

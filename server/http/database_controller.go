@@ -45,7 +45,7 @@ func DatabaseStoreController(request *Request) Response {
 		return BadRequestResponse(err)
 	}
 
-	validationErrors := request.Validate(input, map[string]string{
+	validationErrors := request.Validate(&DatabaseStoreRequest{}, map[string]string{
 		"name.required": "The name field is required.",
 	})
 

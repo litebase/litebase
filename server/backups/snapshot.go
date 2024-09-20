@@ -6,7 +6,6 @@ import (
 	"io"
 	"litebase/server/file"
 	"litebase/server/storage"
-	"log"
 	"os"
 	"time"
 )
@@ -74,7 +73,6 @@ openFile:
 		_, err := snapshotFile.Read(data)
 
 		if err != nil {
-			log.Println("Error reading snapshot file:", err)
 			break
 		}
 
