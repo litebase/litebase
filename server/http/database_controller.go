@@ -25,7 +25,7 @@ func DatabaseIndexController(request *Request) Response {
 }
 
 func DatabaseShowController(request *Request) Response {
-	db, err := database.Get(request.Param("databaseUuid"))
+	db, err := database.Get(request.Param("database_id"))
 
 	if err != nil {
 		return BadRequestResponse(err)
@@ -76,7 +76,7 @@ func DatabaseStoreController(request *Request) Response {
 }
 
 func DatabaseDestroyController(request *Request) Response {
-	db, err := database.Get(request.Param("databaseUuid"))
+	db, err := database.Get(request.Param("database_id"))
 
 	if err != nil {
 		return BadRequestResponse(err)
