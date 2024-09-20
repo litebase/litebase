@@ -21,10 +21,11 @@ func CopySouceDatabaseToTargetDatabase(
 	sourceFileSystem *storage.DurableDatabaseFileSystem,
 	targetFileSystem *storage.DurableDatabaseFileSystem,
 ) error {
+	maxRangeNumber := file.PageRange(maxPageNumber, config.Get().PageSize)
 	sourceDirectory := file.GetDatabaseFileDir(sourceDatabaseUuid, sourceBranchUuid)
 	targetDirectory := file.GetDatabaseFileDir(targetDatabaseUuid, targetBranchUuid)
 
-	// Loop through the pages in the source database and copy them to the target database
+	// Loop through the files in the source database and copy them to the target database
 	entries, err := sourceFileSystem.FileSystem().ReadDir(sourceDirectory)
 
 	if err != nil {
@@ -41,14 +42,14 @@ func CopySouceDatabaseToTargetDatabase(
 			continue
 		}
 
-		entryPageNumber, err := strconv.ParseInt(entry.Name, 10, 64)
+		rangeNumber, err := strconv.ParseInt(entry.Name, 10, 64)
 
 		if err != nil {
 			log.Println("Error parsing entry name:", entry.Name, err)
 			return err
 		}
 
-		if entryPageNumber > maxPageNumber {
+		if rangeNumber > maxRangeNumber {
 			continue
 		}
 
@@ -66,14 +67,14 @@ func CopySouceDatabaseToTargetDatabase(
 		targetFile, err := targetFileSystem.FileSystem().Create(targetFilePath)
 
 		if err != nil {
-			log.Println("Error writing page:", entryPageNumber, err)
+			log.Println("Error writing file:", rangeNumber, err)
 			return err
 		}
 
 		_, err = io.Copy(targetFile, sourceFile)
 
 		if err != nil {
-			log.Println("Error copying page:", entryPageNumber, err)
+			log.Println("Error copying page:", rangeNumber, err)
 			return err
 		}
 	}
