@@ -344,9 +344,12 @@ func (backup *Backup) packageBackup() error {
 
 /*
 Run a backup for the given database and branch. This will create a snapshot of
-the database and store it in the filesystem.
+the database and store it in the filesystem. The backup will be based on the
+current state of the database at the time of backup. As the backup runs,
+rollback logs will be applied where needed to keep the database in the
+propert state. This will allow the backup to copy all existing files
+while the database is online and in use.
 */
-// TODO: How will we prevent the database from being written to while we are backing it up?
 func Run(
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseUuid string,
@@ -361,6 +364,16 @@ func Run(
 		return nil, fmt.Errorf("backup is already running")
 	}
 
+	restorePoint, err := GetRestorePoint(databaseUuid, branchUuid, time.Now().Unix())
+
+	if err != nil {
+		return nil, err
+	}
+
+	if restorePoint == (RestorePoint{}) {
+		return nil, fmt.Errorf("no restore point found")
+	}
+
 	backup := &Backup{
 		dfs:               dfs,
 		BranchUuid:        branchUuid,
@@ -372,7 +385,7 @@ func Run(
 		callback(backup)
 	}
 
-	err := backup.packageBackup()
+	err = backup.packageBackup()
 
 	if err != nil {
 		return nil, err

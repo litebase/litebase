@@ -103,7 +103,7 @@ func RestoreFromTimestamp(
 		return err
 	}
 
-	// Walk the files in the page versions directory
+	// Walk the files in the rollback logs directory
 	directory := file.GetDatabaseRollbackDirectory(sourceDatabaseUuid, sourceBranchUuid)
 
 	entries, err := storage.TieredFS().ReadDir(directory)

@@ -27,7 +27,9 @@ type RestorePoint struct {
 	PageCount int64
 }
 
-// Return the
+/*
+Return the path to the snapshot log file for a database.
+*/
 func GetSnapshotPath(databaseUuid string, branchUuid string) string {
 	return fmt.Sprintf(
 		"%s/logs/snapshots/SNAPSHOT_LOG",
@@ -35,8 +37,10 @@ func GetSnapshotPath(databaseUuid string, branchUuid string) string {
 	)
 }
 
-// Get Snapshots from the snapshot file segmented by day. We will get the first
-// checkpoint of the day and use it as the snapshot for that day.
+/*
+Get Snapshots from the snapshot file segmented by day. We will get the first
+checkpoint of the day and use it as the snapshot for that day.
+*/
 func GetSnapshots(databaseUuid string, branchUuid string) ([]Snapshot, error) {
 openFile:
 	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
@@ -112,8 +116,10 @@ openFile:
 	return values, nil
 }
 
-// Get a single snapshot for a specific timestamp. This method does not include
-// All the restore points for the day, just the first one.
+/*
+Get a single snapshot for a specific timestamp. This method does not include
+All the restore points for the day, just the first one.
+*/
 func GetSnapshot(databaseUuid string, branchUuid string, timestamp int64) (Snapshot, error) {
 	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
@@ -183,11 +189,17 @@ func GetSnapshot(databaseUuid string, branchUuid string, timestamp int64) (Snaps
 	return snapshot, nil
 }
 
-// Get a specific restore point from the snapshot file.
+/*
+Get a specific restore point from the snapshot file.
+*/
 func GetRestorePoint(databaseUuid string, branchUuid string, timestamp int64) (RestorePoint, error) {
 	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(databaseUuid, branchUuid), SNAPSHOT_LOG_FLAGS, 0644)
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			return RestorePoint{}, nil
+		}
+
 		return RestorePoint{}, err
 	}
 
@@ -225,7 +237,9 @@ func GetRestorePoint(databaseUuid string, branchUuid string, timestamp int64) (R
 	return restorePoint, nil
 }
 
-// Determine if the snapshot is empty.
+/*
+Determine if the snapshot is empty.
+*/
 func (s Snapshot) IsEmpty() bool {
 	return s.Timestamp == 0
 }

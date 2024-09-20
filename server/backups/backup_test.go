@@ -278,13 +278,23 @@ func TestBackupRun(t *testing.T) {
 			t.Errorf("expected no error, got %v", err)
 		}
 
+		backup, err := backups.Run(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+		)
+
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+
 		err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
 
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
 		}
 
-		backup, err := backups.Run(
+		backup, err = backups.Run(
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
