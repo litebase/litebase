@@ -1,7 +1,8 @@
 package backups
 
 import (
-	"archive/zip"
+	"archive/tar"
+	"compress/gzip"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -32,6 +33,9 @@ type Backup struct {
 
 type BackupConfigCallback func(backup *Backup)
 
+/*
+Returns a Backup object for the given database and branch at a timestamp.
+*/
 func GetBackup(
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseUuid string,
@@ -48,6 +52,10 @@ func GetBackup(
 	return backup
 }
 
+/*
+Returns next backup for the given database and branch relative to the given
+timestamp provided.
+*/
 func GetNextBackup(
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseUuid string,
@@ -97,6 +105,9 @@ func GetNextBackup(
 	return nil
 }
 
+/*
+Remove the backup files from the filesystem.
+*/
 func (backup *Backup) Delete() error {
 	hash := backup.Hash()
 
@@ -130,6 +141,9 @@ func (backup *Backup) DirectoryPath() string {
 	)
 }
 
+/*
+Returns the file path for a database backup with the given part number.
+*/
 func (backup *Backup) FilePath(partNumber int) string {
 	return fmt.Sprintf(
 		"%s/%s",
@@ -138,6 +152,9 @@ func (backup *Backup) FilePath(partNumber int) string {
 	)
 }
 
+/*
+Returns the maximum part size for a backup.
+*/
 func (backup *Backup) GetMaxPartSize() int64 {
 	if backup.maxPartSize == 0 {
 		return BACKUP_MAX_PART_SIZE
@@ -146,6 +163,10 @@ func (backup *Backup) GetMaxPartSize() int64 {
 	return backup.maxPartSize
 }
 
+/*
+Returns the hash of the backup which is used to identify the backup. This hash
+consists of the database UUID, branch UUID, and the snapshot timestamp.
+*/
 func (backup *Backup) Hash() string {
 	hash := sha1.New()
 	hash.Write([]byte(backup.DatabaseUuid))
@@ -155,8 +176,12 @@ func (backup *Backup) Hash() string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+/*
+Returns the file key for a backup part. This contains the hash of the backup
+and the part number followed by the .tar.gz extension.
+*/
 func (backup *Backup) Key(partNumber int) string {
-	return fmt.Sprintf("%s-%d.zip", backup.Hash(), partNumber)
+	return fmt.Sprintf("%s-%d.tar.gz", backup.Hash(), partNumber)
 }
 
 // TODO: How will we prevent the database from being written to while we are backing it up?
@@ -165,8 +190,10 @@ func (backup *Backup) packageBackup() error {
 
 	var fileSize int64
 	var partNumber = 1
-	var zipFile internalStorage.File
-	var zipWriter *zip.Writer
+	var outputFile internalStorage.File
+	var tarWriter *tar.Writer
+	var gzipWriter *gzip.Writer
+
 	var err error
 
 	// Loop through the files in the source database and copy them to the target database
@@ -178,9 +205,9 @@ func (backup *Backup) packageBackup() error {
 	}
 
 	for _, entry := range entries {
-		if zipFile == nil {
+		if outputFile == nil {
 		createFile:
-			zipFile, err = backup.dfs.FileSystem().Create(backup.FilePath(partNumber))
+			outputFile, err = backup.dfs.FileSystem().Create(backup.FilePath(partNumber))
 
 			if err != nil {
 				if os.IsNotExist(err) {
@@ -198,28 +225,45 @@ func (backup *Backup) packageBackup() error {
 				return err
 			}
 
-			zipWriter = zip.NewWriter(zipFile)
+			gzipWriter = gzip.NewWriter(outputFile)
+			tarWriter = tar.NewWriter(gzipWriter)
 		}
 
 		if entry.IsDir {
 			continue
 		}
 
-		writer, err := zipWriter.Create(entry.Name)
+		// Get the full path of the source file
+		path := fmt.Sprintf("%s/%s", sourceDirectory, entry.Name)
 
-		if err != nil {
-			log.Println("Error writing to zip file:", err)
-			return err
-		}
-
-		sourceFile, err := backup.dfs.FileSystem().Open(fmt.Sprintf("%s/%s", sourceDirectory, entry.Name))
+		// Open the source file
+		sourceFile, err := backup.dfs.FileSystem().Open(path)
 
 		if err != nil {
 			log.Println("Error opening source file:", entry.Name, err)
 			return err
 		}
 
-		n, err := io.Copy(writer, sourceFile)
+		// Get file info
+		info, err := sourceFile.Stat()
+
+		if err != nil {
+			return err
+		}
+
+		// Create tar header
+		header, err := tar.FileInfoHeader(info, info.Name())
+
+		if err != nil {
+			return err
+		}
+
+		// Write header
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+
+		n, err := io.Copy(tarWriter, sourceFile)
 
 		if err != nil {
 			log.Println("Error copying file:", entry.Name, err)
@@ -233,42 +277,59 @@ func (backup *Backup) packageBackup() error {
 			partNumber++
 			fileSize = 0
 
-			// Close the writer
-			if err := zipWriter.Close(); err != nil {
+			// Close the gzip writer
+			if err := gzipWriter.Close(); err != nil {
+				log.Println("Error closing gzip writer:", err)
+
+				return err
+			}
+
+			// Close the tar writer
+			if err := tarWriter.Close(); err != nil {
 				log.Println("Error closing zip writer:", err)
 
 				return err
 			}
 
 			// Close the file to ensure the data is flushed.
-			err = zipFile.Close()
+			err = outputFile.Close()
 
 			if err != nil {
-				log.Println("Error closing zip file:", err)
+				log.Println("Error closing tar file:", err)
 
 				return err
 			}
 
-			zipFile = nil
-			zipWriter = nil
+			outputFile = nil
+			tarWriter = nil
+			gzipWriter = nil
 		}
 	}
 
-	// Close the final zip writer
-	if zipWriter != nil {
-		if err := zipWriter.Close(); err != nil {
-			log.Println("Error closing zip writer:", err)
+	// Close the final tar writer
+	if tarWriter != nil {
+		if err := tarWriter.Close(); err != nil {
+			log.Println("Error closing tar writer:", err)
 
 			return err
 		}
 	}
 
-	// Close the final zip file to ensure the data is flushed.
-	if zipFile != nil {
-		err = zipFile.Close()
+	// Close the gzip writer
+	if gzipWriter != nil {
+		if err := gzipWriter.Close(); err != nil {
+			log.Println("Error closing gzip writer:", err)
+
+			return err
+		}
+	}
+
+	// Close the final tar file to ensure the data is flushed.
+	if outputFile != nil {
+		err = outputFile.Close()
 
 		if err != nil {
-			log.Println("Error closing zip file:", err)
+			log.Println("Error closing tar file:", err)
 
 			return err
 		}
