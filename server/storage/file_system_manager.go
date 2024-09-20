@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"fmt"
 	"litebase/internal/config"
 	"sync"
@@ -66,7 +65,7 @@ func TieredFS() *FileSystem {
 		if config.Get().StorageMode == "object" {
 			tieredFileSystem = NewFileSystem(
 				NewTieredFileSystemDriver(
-					context.TODO(),
+					GetStorageContext(),
 					NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "tiered")),
 					NewObjectFileSystemDriver(),
 				),
@@ -74,7 +73,7 @@ func TieredFS() *FileSystem {
 		} else if config.Get().StorageMode == "local" {
 			tieredFileSystem = NewFileSystem(
 				NewTieredFileSystemDriver(
-					context.TODO(),
+					GetStorageContext(),
 					NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "tiered")),
 					NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, "object")),
 				),

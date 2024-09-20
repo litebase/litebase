@@ -62,6 +62,8 @@ func NewApp(server *ServerInstance) *App {
 	database.Init()
 	auth.Broadcaster(events.EventsManager().Hook())
 
+	storage.SetStorageContext(node.Node().Context())
+
 	app.initialized = true
 
 	AppSingleton = app
