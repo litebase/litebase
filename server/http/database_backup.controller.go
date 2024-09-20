@@ -17,7 +17,8 @@ func DatabaseBackupStoreController(request *Request) Response {
 
 	// TODO: Need to take a backup lock to prevent multiple backups
 	// TODO: Need to prevent writes to the database while the backup is being taken
-	backup, err := backups.RunBackup(
+	backup, err := backups.Run(
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
 	)
@@ -55,9 +56,10 @@ func DatabaseBackupShowController(request *Request) Response {
 	timeInstance := time.Unix(timestamp, 0)
 
 	backup := backups.GetBackup(
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
-		timeInstance,
+		timeInstance.Unix(),
 	)
 
 	return JsonResponse(map[string]interface{}{
@@ -78,10 +80,13 @@ func DatabaseBackupDestroyController(request *Request) Response {
 
 	timeInstance := time.Unix(i, 0)
 
+	databaseKey := request.DatabaseKey()
+
 	backup := backups.GetBackup(
-		request.Param("database"),
-		request.Param("branch"),
-		timeInstance,
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
+		databaseKey.DatabaseUuid,
+		databaseKey.BranchUuid,
+		timeInstance.Unix(),
 	)
 
 	if backup == nil {

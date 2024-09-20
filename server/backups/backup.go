@@ -1,20 +1,20 @@
 package backups
 
 import (
-	"bufio"
-	"compress/gzip"
+	"archive/zip"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
-	"litebase/internal/config"
+	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"litebase/server/storage"
 	"sort"
 	"strconv"
+	"strings"
 
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -23,23 +23,38 @@ A Backup is a complete logical snapshot of a database at a given point in time.
 This data is derived from a Snapshot and can be used to restore a database.
 */
 type Backup struct {
-	databaseUuid      string
-	branchUuid        string
-	SnapshotTimestamp int
+	dfs               *storage.DurableDatabaseFileSystem
+	BranchUuid        string
+	DatabaseUuid      string
+	maxPartSize       int64
+	SnapshotTimestamp int64
 }
 
-func GetBackup(databaseUuid string, branchUuid string, snapshotTimestamp time.Time) *Backup {
+type BackupConfigCallback func(backup *Backup)
+
+func GetBackup(
+	dfs *storage.DurableDatabaseFileSystem,
+	databaseUuid string,
+	branchUuid string,
+	snapshotTimestamp int64,
+) *Backup {
 	backup := &Backup{
-		databaseUuid:      databaseUuid,
-		branchUuid:        branchUuid,
-		SnapshotTimestamp: int(snapshotTimestamp.UTC().Unix()),
+		BranchUuid:        branchUuid,
+		DatabaseUuid:      databaseUuid,
+		dfs:               dfs,
+		SnapshotTimestamp: snapshotTimestamp,
 	}
 
 	return backup
 }
 
-func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int) *Backup {
-	backups := make([]int, 0)
+func GetNextBackup(
+	dfs *storage.DurableDatabaseFileSystem,
+	databaseUuid string,
+	branchUuid string,
+	snapshotTimestamp int64,
+) *Backup {
+	backups := make([]int64, 0)
 	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid), BACKUP_DIR)
 
 	// Get a list of all directories in the directory
@@ -57,7 +72,7 @@ func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int
 			continue
 		}
 
-		timestamp, err := strconv.Atoi(dir.Name)
+		timestamp, err := strconv.ParseInt(dir.Name, 10, 64)
 
 		if err != nil {
 			log.Fatal(err)
@@ -68,169 +83,274 @@ func GetNextBackup(databaseUuid string, branchUuid string, snapshotTimestamp int
 	}
 
 	// Sort the backups
-	sort.Ints(backups)
+	sort.Slice(backups, func(i, j int) bool {
+		return backups[i] < backups[j]
+	})
 
 	// Loop through the backups
 	for _, b := range backups {
 		if b > snapshotTimestamp {
-			return GetBackup(databaseUuid, branchUuid, time.Unix(int64(b), 0))
+			return GetBackup(dfs, databaseUuid, branchUuid, b)
 		}
 	}
 
 	return nil
 }
 
-func (backup *Backup) BackupKey() string {
+func (backup *Backup) Delete() error {
+	hash := backup.Hash()
+
+	// Read the directory to find matching file names and part numbers
+	entries, err := storage.ObjectFS().ReadDir(backup.DirectoryPath())
+
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir {
+			continue
+		}
+
+		if strings.HasPrefix(entry.Name, hash) {
+			if err := storage.ObjectFS().Remove(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (backup *Backup) DirectoryPath() string {
+	return fmt.Sprintf(
+		"%s/%d",
+		file.GetDatabaseBackupsDirectory(backup.DatabaseUuid, backup.BranchUuid),
+		backup.SnapshotTimestamp,
+	)
+}
+
+func (backup *Backup) FilePath(partNumber int) string {
+	return fmt.Sprintf(
+		"%s/%s",
+		backup.DirectoryPath(),
+		backup.Key(partNumber),
+	)
+}
+
+func (backup *Backup) GetMaxPartSize() int64 {
+	if backup.maxPartSize == 0 {
+		return BACKUP_MAX_PART_SIZE
+	}
+
+	return backup.maxPartSize
+}
+
+func (backup *Backup) Hash() string {
 	hash := sha1.New()
-	hash.Write([]byte(fmt.Sprintf("%s-%s-%d", backup.databaseUuid, backup.branchUuid, backup.SnapshotTimestamp)))
+	hash.Write([]byte(backup.DatabaseUuid))
+	hash.Write([]byte(backup.BranchUuid))
+	hash.Write([]byte(fmt.Sprintf("%d", backup.SnapshotTimestamp)))
 
-	return fmt.Sprintf("%s/%d/%x.db.gz", BACKUP_DIR, backup.SnapshotTimestamp, hash.Sum(nil))
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func (backup *Backup) Delete() {
-	backup.deleteFile()
-	backup.deleteArchiveFile()
+func (backup *Backup) Key(partNumber int) string {
+	return fmt.Sprintf("%s-%d.zip", backup.Hash(), partNumber)
 }
 
-func (backup *Backup) deleteArchiveFile() {
-	if config.Get().Env == "local" {
-		storageDir := file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid)
-		storage.ObjectFS().Remove(fmt.Sprintf("%s/archives/%s", storageDir, backup.BackupKey()))
+// TODO: How will we prevent the database from being written to while we are backing it up?
+func (backup *Backup) packageBackup() error {
+	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseUuid, backup.BranchUuid)
 
-		return
-	}
+	var fileSize int64
+	var partNumber = 1
+	var zipFile internalStorage.File
+	var zipWriter *zip.Writer
+	var err error
 
-	// TODO: Update
-}
-
-func (backup *Backup) deleteFile() {
-	if _, err := storage.ObjectFS().Stat(backup.Path()); os.IsNotExist(err) {
-		return
-	}
-
-	storage.ObjectFS().Remove(backup.Path())
-}
-
-func (backup *Backup) packageBackup() string {
-	input, err := file.GetDatabaseFilePath(backup.databaseUuid, backup.branchUuid)
+	// Loop through the files in the source database and copy them to the target database
+	entries, err := backup.dfs.FileSystem().ReadDir(sourceDirectory)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error reading source directory:", err)
+		return err
 	}
 
-	output := backup.Path()
+	for _, entry := range entries {
+		if zipFile == nil {
+		createFile:
+			zipFile, err = backup.dfs.FileSystem().Create(backup.FilePath(partNumber))
 
-	file, err := storage.ObjectFS().Open(input)
+			if err != nil {
+				if os.IsNotExist(err) {
+					// If the directory does not exist, create it
+					if err := backup.dfs.FileSystem().MkdirAll(backup.DirectoryPath(), 0755); err != nil {
+						log.Println("Error creating backup directory:", err)
+						return err
+					}
 
-	if err != nil {
-		log.Fatal(err)
+					goto createFile
+				}
+
+				log.Println("Error creating zip file:", err)
+
+				return err
+			}
+
+			zipWriter = zip.NewWriter(zipFile)
+		}
+
+		if entry.IsDir {
+			continue
+		}
+
+		writer, err := zipWriter.Create(entry.Name)
+
+		if err != nil {
+			log.Println("Error writing to zip file:", err)
+			return err
+		}
+
+		sourceFile, err := backup.dfs.FileSystem().Open(fmt.Sprintf("%s/%s", sourceDirectory, entry.Name))
+
+		if err != nil {
+			log.Println("Error opening source file:", entry.Name, err)
+			return err
+		}
+
+		n, err := io.Copy(writer, sourceFile)
+
+		if err != nil {
+			log.Println("Error copying file:", entry.Name, err)
+
+			return err
+		}
+
+		fileSize += n
+
+		if fileSize >= backup.GetMaxPartSize() {
+			partNumber++
+			fileSize = 0
+
+			// Close the writer
+			if err := zipWriter.Close(); err != nil {
+				log.Println("Error closing zip writer:", err)
+
+				return err
+			}
+
+			// Close the file to ensure the data is flushed.
+			err = zipFile.Close()
+
+			if err != nil {
+				log.Println("Error closing zip file:", err)
+
+				return err
+			}
+
+			zipFile = nil
+			zipWriter = nil
+		}
 	}
 
-	defer file.Close()
+	// Close the final zip writer
+	if zipWriter != nil {
+		if err := zipWriter.Close(); err != nil {
+			log.Println("Error closing zip writer:", err)
 
-	reader := bufio.NewReader(file)
-
-	err = storage.ObjectFS().MkdirAll(filepath.Dir(output), 0755)
-
-	if err != nil {
-		log.Fatal(err)
+			return err
+		}
 	}
 
-	gzipFile, err := storage.ObjectFS().Create(output)
+	// Close the final zip file to ensure the data is flushed.
+	if zipFile != nil {
+		err = zipFile.Close()
 
-	if err != nil {
-		log.Fatal(err)
+		if err != nil {
+			log.Println("Error closing zip file:", err)
+
+			return err
+		}
 	}
 
-	defer gzipFile.Close()
-	writer := gzip.NewWriter(gzipFile)
-
-	defer writer.Close()
-
-	_, err = io.Copy(writer, reader)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return output
+	return nil
 }
 
-func (backup *Backup) Path() string {
-	return fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid), backup.BackupKey())
-}
+func Run(
+	dfs *storage.DurableDatabaseFileSystem,
+	databaseUuid string,
+	branchUuid string,
+	callbacks ...BackupConfigCallback,
+) (*Backup, error) {
+	lock := GetBackupLock(file.DatabaseHash(databaseUuid, branchUuid))
 
-func RunBackup(databaseUuid string, branchUuid string) (*Backup, error) {
+	if lock.TryLock() {
+		defer lock.Unlock()
+	} else {
+		return nil, fmt.Errorf("backup is already running")
+	}
+
 	backup := &Backup{
-		branchUuid:   branchUuid,
-		databaseUuid: databaseUuid,
+		dfs:               dfs,
+		BranchUuid:        branchUuid,
+		DatabaseUuid:      databaseUuid,
+		SnapshotTimestamp: time.Now().Unix(),
 	}
 
-	backup.SnapshotTimestamp = int(time.Now().UTC().Unix())
+	for _, callback := range callbacks {
+		callback(backup)
+	}
 
-	backup.packageBackup()
+	err := backup.packageBackup()
+
+	if err != nil {
+		return nil, err
+	}
 
 	return backup, nil
 }
 
+func (backup *Backup) SetMaxPartSize(size int64) {
+	backup.maxPartSize = size
+}
+
 func (backup *Backup) Size() int64 {
-	stat, err := storage.ObjectFS().Stat(backup.Path())
+	var size int64
+	hash := backup.Hash()
+
+	// Read the directory to find matching file names and part numbers
+	entries, err := storage.ObjectFS().ReadDir(backup.DirectoryPath())
 
 	if err != nil {
 		return 0
 	}
 
-	return stat.Size()
+	for _, entry := range entries {
+		if entry.IsDir {
+			continue
+		}
+
+		if strings.HasPrefix(entry.Name, hash) {
+			stat, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name))
+
+			if err != nil {
+				log.Println("Error getting file size:", err)
+				return 0
+			}
+
+			size += stat.Size()
+		}
+	}
+
+	return size
 }
 
 func (backup *Backup) ToMap() map[string]interface{} {
 	return map[string]interface{}{
-		"databaseUuid": backup.databaseUuid,
-		"branchUuid":   backup.branchUuid,
-		"size":         backup.Size(),
-		"timestamp":    backup.SnapshotTimestamp,
-	}
-}
-
-func (backup *Backup) Upload() map[string]interface{} {
-	if config.Get().Env == "test" {
-		return map[string]interface{}{
-			"key":  "test",
-			"size": 0,
-		}
-	}
-
-	path := backup.packageBackup()
-	key := filepath.Base(path)
-
-	if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
-		log.Fatalf("Backup archive file not found: %s", path)
-	}
-
-	if config.Get().Env == "local" {
-		storageDir := file.GetDatabaseFileBaseDir(backup.databaseUuid, backup.branchUuid)
-
-		if _, err := storage.ObjectFS().Stat(storageDir); os.IsNotExist(err) {
-			storage.ObjectFS().Mkdir(storageDir, 0755)
-		}
-
-		source, err := storage.ObjectFS().ReadFile(path)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		storage.ObjectFS().WriteFile(fmt.Sprintf("%s/%s", storageDir, key), source, 0666)
-	}
-
-	stat, err := storage.ObjectFS().Stat(path)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return map[string]interface{}{
-		"key":  key,
-		"size": stat.Size,
+		"database_id": backup.DatabaseUuid,
+		"branch_id":   backup.BranchUuid,
+		"size":        backup.Size(),
+		"timestamp":   backup.SnapshotTimestamp,
 	}
 }

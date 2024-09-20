@@ -38,6 +38,13 @@ func DatabaseHashWithTimestamp(
 	return fmt.Sprintf("%x", sha1.Sum(nil))
 }
 
+func GetDatabaseBackupsDirectory(databaseUuid, branchUuid string) string {
+	return fmt.Sprintf(
+		"%s/backups",
+		GetDatabaseFileBaseDir(databaseUuid, branchUuid),
+	)
+}
+
 func GetDatabaseFileBaseDir(databaseUuid string, branchUuid string) string {
 	dir, err := GetDatabaseFilePath(databaseUuid, branchUuid)
 
