@@ -151,9 +151,24 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 
 	newFile.MarkUpdated()
 
-	fsd.flushFileToDurableStorage(newFile)
+	fsd.flushFileToDurableStorage(newFile, false)
 
 	return newFile, nil
+}
+
+/*
+Force flushing all files to durable storage. This operation is typically
+performed when the driver is being closed.
+*/
+func (fsd *TieredFileSystemDriver) flushFiles() error {
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	for _, file := range fsd.Files {
+		fsd.flushFileToDurableStorage(file, true)
+	}
+
+	return nil
 }
 
 /*
@@ -161,8 +176,9 @@ Flushing a file to durable storage involves writing the file to the durable file
 system. This operation is typically performed when the file has been updated
 and has not been written to durable storage in the last minute.
 */
-func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile) {
-	if !file.shouldBeWrittenToDurableStorage() {
+func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, force bool) {
+	if !file.shouldBeWrittenToDurableStorage() && !force {
+		log.Println("File does not need to be written to durable storage", file.Key)
 		return
 	}
 
@@ -268,6 +284,14 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	if file, ok := fsd.GetLocalFile(path); ok {
 		// Compare the flags to ensure they match
 		if file.Flag&flag == flag {
+			_, err := file.Seek(0, io.SeekStart)
+
+			if err != nil {
+				log.Println("Error seeking to start of file", err)
+
+				return nil, err
+			}
+
 			return file, nil
 		}
 
@@ -291,7 +315,13 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	}
 
 	// Write the file data to the local file system
-	file.Seek(0, io.SeekStart)
+	_, err = file.Seek(0, io.SeekStart)
+
+	if err != nil {
+		log.Println("Error seeking to start of file", err)
+
+		return nil, err
+	}
 
 	_, err = fsd.CopyFile(file, f)
 
@@ -301,6 +331,14 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	}
 
 	newFile := fsd.AddFile(path, file, flag)
+
+	// Write the file data to the local file system
+	_, err = file.Seek(0, io.SeekStart)
+
+	if err != nil {
+		log.Println("Error seeking to start of file", err)
+		return nil, err
+	}
 
 	return newFile, nil
 }
@@ -550,13 +588,19 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 	for {
 		select {
 		case <-fsd.context.Done():
+			// Force flush all files to durable storage
+			err := fsd.flushFiles()
+
+			if err != nil {
+				log.Println("Error flushing files to durable storage", err)
+			}
 			return
 		case <-fsd.watchTicker.C:
 			fsd.mutex.Lock()
 
 			for _, file := range fsd.Files {
 				if file.shouldBeWrittenToDurableStorage() {
-					fsd.flushFileToDurableStorage(file)
+					fsd.flushFileToDurableStorage(file, false)
 				}
 			}
 
@@ -609,8 +653,7 @@ func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.F
 
 	file.MarkUpdated()
 
-	log.Println("Flushing to durable storage", path)
-	fsd.flushFileToDurableStorage(fsd.Files[path])
+	fsd.flushFileToDurableStorage(fsd.Files[path], true)
 
 	return nil
 }

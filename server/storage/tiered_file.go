@@ -89,7 +89,7 @@ func (f *TieredFile) Close() error {
 	f.Closed = true
 
 	f.tieredFileSystemDriver.WithLock(func() {
-		f.tieredFileSystemDriver.flushFileToDurableStorage(f)
+		f.tieredFileSystemDriver.flushFileToDurableStorage(f, true)
 		f.tieredFileSystemDriver.ReleaseFile(f)
 	})
 
