@@ -184,7 +184,11 @@ func (backup *Backup) Key(partNumber int) string {
 	return fmt.Sprintf("%s-%d.tar.gz", backup.Hash(), partNumber)
 }
 
-// TODO: How will we prevent the database from being written to while we are backing it up?
+/*
+Package the backup files into a tarball and compress it using gzip. This will
+create a series of files in the filesystem that can be used to restore the
+database.
+*/
 func (backup *Backup) packageBackup() error {
 	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseUuid, backup.BranchUuid)
 
@@ -338,6 +342,11 @@ func (backup *Backup) packageBackup() error {
 	return nil
 }
 
+/*
+Run a backup for the given database and branch. This will create a snapshot of
+the database and store it in the filesystem.
+*/
+// TODO: How will we prevent the database from being written to while we are backing it up?
 func Run(
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseUuid string,
@@ -372,10 +381,18 @@ func Run(
 	return backup, nil
 }
 
+/*
+Set the maximum part size for a backup. This is the maximum size of each part
+of the backup. If the backup exceeds this size, then it will be split into
+multiple parts.
+*/
 func (backup *Backup) SetMaxPartSize(size int64) {
 	backup.maxPartSize = size
 }
 
+/*
+Returns the size of the backup in bytes.
+*/
 func (backup *Backup) Size() int64 {
 	var size int64
 	hash := backup.Hash()
@@ -407,6 +424,9 @@ func (backup *Backup) Size() int64 {
 	return size
 }
 
+/*
+Returns a map representation of the backup.
+*/
 func (backup *Backup) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		"database_id": backup.DatabaseUuid,
