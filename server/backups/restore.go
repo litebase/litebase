@@ -10,11 +10,14 @@ import (
 	"litebase/server/file"
 	"litebase/server/storage"
 	"log"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var ErrorRestoreBackupNotFound = errors.New("restore backup not found")
 
 func CopySourceDatabaseToTargetDatabase(
 	maxPageNumber int64,
@@ -25,7 +28,7 @@ func CopySourceDatabaseToTargetDatabase(
 	sourceFileSystem *storage.DurableDatabaseFileSystem,
 	targetFileSystem *storage.DurableDatabaseFileSystem,
 ) error {
-	maxRangeNumber := file.PageRange(maxPageNumber, config.Get().PageSize)
+	maxRangeNumber := file.PageRange(maxPageNumber, storage.DataRangeMaxPages)
 	sourceDirectory := file.GetDatabaseFileDir(sourceDatabaseUuid, sourceBranchUuid)
 	targetDirectory := file.GetDatabaseFileDir(targetDatabaseUuid, targetBranchUuid)
 
@@ -33,7 +36,10 @@ func CopySourceDatabaseToTargetDatabase(
 	entries, err := sourceFileSystem.FileSystem().ReadDir(sourceDirectory)
 
 	if err != nil {
-		log.Println("Error reading source directory:", err)
+		if os.IsNotExist(err) {
+			return ErrorRestoreBackupNotFound
+		}
+
 		return err
 	}
 
@@ -106,7 +112,10 @@ func RestoreFromBackup(
 	entries, err := sourceFileSystem.FileSystem().ReadDir(timestampPath)
 
 	if err != nil {
-		log.Println("Error reading source database directory:", err)
+		if os.IsNotExist(err) {
+			return ErrorRestoreBackupNotFound
+		}
+
 		return err
 	}
 

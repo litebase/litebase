@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server/backups"
 	"litebase/server/database"
@@ -1303,9 +1304,214 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 	})
 }
 
-// TODO: Test trying to backup before an actual restore point, this should fail
+func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+
+		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		defer database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
+
+		// Create a test table
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		backup, err := backups.Run(
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			time.Now().Add(time.Hour).Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
+		)
+
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		if err != backups.BackupErrorNoRestorePoint {
+			t.Fatalf("expected %v, got %v", backups.BackupErrorNoRestorePoint, err)
+		}
+
+		if backup != nil {
+			t.Fatalf("expected nil, got %v", backup)
+		}
+	})
+}
+
+func TestBackupRunWithInvalidPastRestorePoint(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+
+		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		defer database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
+
+		// Create a test table
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		backup, err := backups.Run(
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			time.Now().Add(-time.Hour).Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
+		)
+
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		if err != backups.BackupErrorNoRestorePoint {
+			t.Fatalf("expected %v, got %v", backups.BackupErrorNoRestorePoint, err)
+		}
+
+		if backup != nil {
+			t.Fatalf("expected nil, got %v", backup)
+		}
+	})
+}
 
 // TODO: Test writing to the database while a backup is running
+func TestBackupRunContents(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+
+		dfs := database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem()
+		checkpointer, err := database.Resources(mock.DatabaseUuid, mock.BranchUuid).Checkpointer()
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		testCases := []struct {
+			timestamp int64
+			pages     []int64
+		}{
+			{
+				timestamp: time.Now().Truncate(time.Hour).Add(-time.Duration(5) * time.Minute).Unix(),
+				pages:     []int64{1, 2, 3},
+			},
+			{
+				timestamp: time.Now().Truncate(time.Hour).Add(-time.Duration(4) * time.Minute).Unix(),
+				pages:     []int64{1, 2, 3, 4, 5},
+			},
+			{
+				timestamp: time.Now().Truncate(time.Hour).Add(-time.Duration(3) * time.Minute).Unix(),
+				pages:     []int64{1, 3},
+			},
+			{
+				timestamp: time.Now().Truncate(time.Hour).Add(-time.Duration(2) * time.Minute).Unix(),
+				pages:     []int64{1, 2},
+			},
+			{
+				timestamp: time.Now().Truncate(time.Hour).Add(-time.Duration(1) * time.Minute).Unix(),
+				pages:     []int64{1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+		}
+
+		for _, testCase := range testCases {
+			for _, page := range testCase.pages {
+				_, err := dfs.WriteAt(
+					[]byte(fmt.Sprintf("page-%d", page)),
+					file.PageOffset(page, config.Get().PageSize),
+				)
+
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+			}
+
+			checkpointer.SetTimestamp(testCase.timestamp)
+
+			err = checkpointer.Begin()
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			for _, page := range testCase.pages {
+				checkpointer.CheckpointPage(
+					page,
+					[]byte(fmt.Sprintf("page-%d", page)),
+				)
+			}
+
+			err = checkpointer.Commit()
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		}
+
+		backup, err := backups.Run(
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			time.Now().Truncate(time.Hour).Add(-time.Duration(1)*time.Minute).Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
+		)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if backup == nil {
+			t.Fatalf("expected nil, got %v", backup)
+		}
+
+		// Create a new database
+		newMock := test.MockDatabase()
+		targetDfs := database.Resources(newMock.DatabaseUuid, newMock.BranchUuid).FileSystem()
+
+		// Restore the database
+		err = backups.RestoreFromBackup(
+			time.Now().Truncate(time.Hour).Add(-time.Duration(1)*time.Minute).Unix(),
+			backup.Hash(),
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			newMock.DatabaseUuid,
+			newMock.BranchUuid,
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+			targetDfs,
+		)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Open the backup file in the new database
+		if targetDfs.Metadata().PageCount != 9 {
+			t.Fatalf("expected 9, got %d", targetDfs.Metadata().PageCount)
+		}
+	})
+}
 
 func TestBackupSize(t *testing.T) {
 	test.Run(t, func() {

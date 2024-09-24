@@ -21,6 +21,8 @@ import (
 	"log"
 )
 
+var BackupErrorNoRestorePoint = fmt.Errorf("no restore point found")
+
 /*
 A Backup is a complete logical snapshot of a database at a given point in time.
 This data is derived from a Snapshot and can be used to restore a database.
@@ -422,7 +424,7 @@ func Run(
 	}
 
 	if restorePoint == (RestorePoint{}) {
-		return nil, fmt.Errorf("no restore point found")
+		return nil, BackupErrorNoRestorePoint
 	}
 
 	backup := &Backup{

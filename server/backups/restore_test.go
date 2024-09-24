@@ -7,6 +7,7 @@ import (
 	"litebase/server/backups"
 	"litebase/server/database"
 	"litebase/server/file"
+	"litebase/server/storage"
 	"testing"
 	"time"
 )
@@ -22,13 +23,11 @@ func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
 		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
 
 		for i := 1; i <= 10; i++ {
-			sourceDfs.FileSystem().Create(
-				fmt.Sprintf("%s/%010d", sourceDirectory, i),
-			)
+			sourceDfs.FileSystem().Create(fmt.Sprintf("%s/%010d", sourceDirectory, i))
 		}
 
 		err := backups.CopySourceDatabaseToTargetDatabase(
-			5,
+			5*storage.DataRangeMaxPages,
 			source.DatabaseUuid,
 			source.BranchUuid,
 			target.DatabaseUuid,
@@ -68,6 +67,8 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
+
+		defer database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
 
 		// Create a test table and insert some data
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
@@ -168,13 +169,13 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Error("Expected onComplete to be called")
 		}
 
-		database.ConnectionManager().Release(target.DatabaseUuid, target.BranchUuid, db)
-
 		db, err = database.ConnectionManager().Get(target.DatabaseUuid, target.BranchUuid)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
+
+		defer database.ConnectionManager().Release(target.DatabaseUuid, target.BranchUuid, db)
 
 		// Verify the data is restored correctly
 		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
@@ -189,6 +190,96 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		if targetDfs.Metadata().PageCount != restorePoint.PageCount {
 			t.Errorf("Expected PageCount %d, got %d", restorePoint.PageCount, targetDfs.Metadata().PageCount)
+		}
+	})
+}
+
+func TestRestoreFromInvalidBackup(t *testing.T) {
+	test.Run(t, func() {
+		source := test.MockDatabase()
+		target := test.MockDatabase()
+
+		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
+		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
+
+		db, err := database.ConnectionManager().Get(source.DatabaseUuid, source.BranchUuid)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		defer database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
+
+		// Create a test table and insert some data
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		// Insert some test data
+		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
+
+		for i := 0; i < 1000; i++ {
+			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (value) VALUES (?)", "value")
+
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		}
+
+		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
+
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		// Get the lastest snapshot timestamp
+		snapshots, err := backups.GetSnapshots(source.DatabaseUuid, source.BranchUuid)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		snapshot, err := backups.GetSnapshot(source.DatabaseUuid, source.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		restorePoint, err := backups.GetRestorePoint(source.DatabaseUuid, source.BranchUuid, snapshot.RestorePoints.Data[0])
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		// Call the RestoreFromTimestamp function
+		err = backups.RestoreFromBackup(
+			restorePoint.Timestamp,
+			"test",
+			source.DatabaseUuid,
+			source.BranchUuid,
+			target.DatabaseUuid,
+			target.BranchUuid,
+			sourceDfs,
+			targetDfs,
+		)
+
+		// Check for errors
+		if err == nil {
+			t.Error("Expected an error, got nil")
+		}
+
+		if err != backups.ErrorRestoreBackupNotFound {
+			t.Errorf("Expected error %v, got %v", backups.ErrorRestoreBackupNotFound, err)
 		}
 	})
 }
@@ -215,6 +306,8 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
+
+				defer database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
 
 				// Create a test table and insert some data
 				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
@@ -318,13 +411,13 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					t.Error("Expected onComplete to be called")
 				}
 
-				database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
-
 				db, err = database.ConnectionManager().Get(target.DatabaseUuid, target.BranchUuid)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
+
+				defer database.ConnectionManager().Release(target.DatabaseUuid, target.BranchUuid, db)
 
 				// Verify the data is restored correctly
 				result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")

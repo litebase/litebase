@@ -7,6 +7,7 @@ import (
 	"litebase/server/file"
 	"litebase/server/storage"
 	"log"
+	"sort"
 	"time"
 )
 
@@ -30,12 +31,10 @@ func ReadBackupRangeFile(
 		rollbackLogger: rollbackLogger,
 	}
 
-	// log.Println("RESTORE POINT", b.snapshot)
-
 	var rollbackLogs []*RollbackLog
-	var timeStamps []int64
+	var timestamps []int64
 
-	timeStamps = append(timeStamps, b.restorePoint.Timestamp)
+	timestamps = append(timestamps, b.restorePoint.Timestamp)
 
 	// Check if now is the current hour of the restore point timestamp.
 	// If not, we need to get all the rollback logs for each hour between
@@ -46,19 +45,19 @@ func ReadBackupRangeFile(
 
 	if hourDifference > 0 {
 		for i := 1; i <= int(hourDifference); i++ {
-			timeStamps = append(timeStamps, restoreStartOfHour+int64(i)*3600)
+			timestamps = append(timestamps, restoreStartOfHour+int64(i)*3600)
 		}
 	}
 
 	// Order timestamps in descending order
-	for i, j := 0, len(timeStamps)-1; i < j; i, j = i+1, j-1 {
-		timeStamps[i], timeStamps[j] = timeStamps[j], timeStamps[i]
-	}
+	sort.Slice(timestamps, func(i, j int) bool {
+		return timestamps[i] > timestamps[j]
+	})
 
 	// We may need to use multiple logs depending on how long the backup takes
 	// And if we cross over into hours that fall outside of the current log
 	// and where we are in the backup process.
-	for _, timestamp := range timeStamps {
+	for _, timestamp := range timestamps {
 		rollbackLog, err := b.rollbackLogger.GetLog(timestamp)
 
 		if err != nil {
