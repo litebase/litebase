@@ -1,6 +1,9 @@
 package backups
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"litebase/internal/config"
@@ -9,10 +12,11 @@ import (
 	"log"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
-func CopySouceDatabaseToTargetDatabase(
+func CopySourceDatabaseToTargetDatabase(
 	maxPageNumber int64,
 	sourceDatabaseUuid,
 	sourceBranchUuid,
@@ -76,6 +80,139 @@ func CopySouceDatabaseToTargetDatabase(
 		if err != nil {
 			log.Println("Error copying page:", rangeNumber, err)
 			return err
+		}
+
+		targetFile.Close()
+	}
+
+	return nil
+}
+
+func RestoreFromBackup(
+	timestamp int64,
+	hash string,
+	sourceDatabaseUuid string,
+	sourceBranchUuid string,
+	targetDatabaseUuid string,
+	targetBranchUuid string,
+	sourceFileSystem *storage.DurableDatabaseFileSystem,
+	targetFileSystem *storage.DurableDatabaseFileSystem,
+) error {
+	// Check if the souce database file system has the files for the specified timestamp
+	sourceDatabasePath := file.GetDatabaseBackupsDirectory(sourceDatabaseUuid, sourceBranchUuid)
+	timestampPath := fmt.Sprintf("%s/%d", sourceDatabasePath, timestamp)
+	backupParts := []string{}
+
+	entries, err := sourceFileSystem.FileSystem().ReadDir(timestampPath)
+
+	if err != nil {
+		log.Println("Error reading source database directory:", err)
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir {
+			continue
+		}
+
+		if !strings.HasPrefix(entry.Name, hash) {
+			continue
+		}
+
+		backupParts = append(backupParts, entry.Name)
+	}
+
+	if len(backupParts) == 0 {
+		log.Println("Backup not found for the specified timestamp")
+		return errors.New("backup not found for the specified timestamp")
+	}
+
+	// Order the backup parts by the suffix
+	sort.Slice(backupParts, func(i, j int) bool {
+		// Extract numeric suffixes
+		getSuffix := func(filename string) int {
+			parts := strings.Split(filename, "_")
+
+			if len(parts) < 2 {
+				return 0
+			}
+
+			suffix := strings.TrimSuffix(parts[len(parts)-1], ".tar.gz")
+
+			num, err := strconv.Atoi(suffix)
+
+			if err != nil {
+				return 0
+			}
+
+			return num
+		}
+
+		return getSuffix(backupParts[i]) < getSuffix(backupParts[j])
+	})
+
+	// TODO: We can do this with parallelism
+	// Open each tar.gz backup part and write it to the target database
+	for _, backupPart := range backupParts {
+		backupPartPath := fmt.Sprintf("%s/%s", timestampPath, backupPart)
+		backupFile, err := sourceFileSystem.FileSystem().Open(backupPartPath)
+
+		if err != nil {
+			log.Println("Error opening backup part:", backupPartPath)
+
+			return err
+		}
+
+		gzipReader, err := gzip.NewReader(backupFile)
+
+		if err != nil {
+			log.Println("Error creating gzip reader:", err)
+
+			return err
+		}
+
+		tarReader := tar.NewReader(gzipReader)
+
+		for {
+			header, err := tarReader.Next()
+
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			if err != nil {
+				log.Println("Error reading tar header:", err)
+
+				return err
+			}
+
+			switch header.Typeflag {
+			case tar.TypeDir:
+				// The database directory should only contain files
+			case tar.TypeReg:
+				data, err := io.ReadAll(tarReader)
+
+				if err != nil {
+					log.Println("Error reading file data:", header.Name, err)
+				}
+
+				err = targetFileSystem.FileSystem().WriteFile(
+					file.GetDatabaseFileDir(targetDatabaseUuid, targetBranchUuid)+"/"+header.Name,
+					data,
+					0644,
+				)
+
+				if err != nil {
+					log.Println("Error writing file:", header.Name, err)
+
+					return err
+				}
+
+				if header.Name == "_METADATA" {
+					// It is important to reload the metadata after writing to it
+					targetFileSystem.Metadata().Load()
+				}
+			}
 		}
 	}
 
@@ -144,7 +281,7 @@ func RestoreFromTimestamp(
 	})
 
 	// Copy the source database files to the target database
-	err = CopySouceDatabaseToTargetDatabase(
+	err = CopySourceDatabaseToTargetDatabase(
 		restorePoint.PageCount,
 		sourceDatabaseUuid,
 		sourceBranchUuid,
@@ -168,7 +305,7 @@ func RestoreFromTimestamp(
 			return err
 		}
 
-		framesChannel, doneChannel, errorChannel := rollbackLog.ReadForTimestamp(backupTimestamp)
+		rollbackLogEntries, doneChannel, errorChannel := rollbackLog.ReadForTimestamp(backupTimestamp)
 
 	rollbackLogTimestampsLoop:
 		for {
@@ -178,14 +315,7 @@ func RestoreFromTimestamp(
 			case err := <-errorChannel:
 				log.Println("Error reading rollback log:", err)
 				return err
-			case frame := <-framesChannel:
-
-				timestamps := make([]int64, len(frame))
-
-				for i, rollbackLogEntry := range frame {
-					timestamps[i] = rollbackLogEntry.Timestamp
-				}
-
+			case frame := <-rollbackLogEntries:
 				for _, rollbackLogEntry := range frame {
 					_, err = targetFileSystem.WriteWithoutWriteHook(func() (int, error) {
 						return targetFileSystem.WriteAt(rollbackLogEntry.Data, file.PageOffset(rollbackLogEntry.PageNumber, config.Get().PageSize))

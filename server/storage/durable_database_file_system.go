@@ -142,7 +142,6 @@ func (dfs *DurableDatabaseFileSystem) SetWriteHook(hook func(offset int64, data 
 	return dfs
 }
 
-// TODO: this should use the metadata file to get the size
 func (dfs *DurableDatabaseFileSystem) Size() (int64, error) {
 	return dfs.metadata.FileSize(), nil
 }

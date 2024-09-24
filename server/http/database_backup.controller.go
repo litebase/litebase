@@ -15,12 +15,12 @@ func DatabaseBackupStoreController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
 	}
 
-	// TODO: Need to take a backup lock to prevent multiple backups
-	// TODO: Need to prevent writes to the database while the backup is being taken
 	backup, err := backups.Run(
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
+		time.Now().Unix(),
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).RollbackLogger(),
 	)
 
 	if err != nil {

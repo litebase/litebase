@@ -247,8 +247,6 @@ func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 			for _, frame := range frameEntries {
 				rollbackLogEntries := make([]*RollbackLogEntry, 0)
 
-				// frames = append(frames, make([]*RollbackLogEntry, 0))
-
 				_, err := r.File.Seek(frame.Offset+RollbackFrameHeaderSize, io.SeekStart)
 
 				if err != nil {

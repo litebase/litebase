@@ -17,6 +17,7 @@ type Checkpointer struct {
 	metadata       *storage.DatabaseMetadata
 	rollbackLogger *backups.RollbackLogger
 	snapshotLogger *backups.SnapshotLogger
+	Timestamp      int64
 }
 
 type Checkpoint struct {
@@ -43,6 +44,8 @@ func NewCheckpointer(databaseUuid, branchUuid string, dfs *storage.DurableDataba
 }
 
 func (c *Checkpointer) Begin() error {
+	var timestamp int64
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -50,7 +53,11 @@ func (c *Checkpointer) Begin() error {
 		return ErrorCheckpointAlreadyInProgressError
 	}
 
-	timestamp := time.Now().Unix()
+	if c.Timestamp == 0 {
+		timestamp = time.Now().Unix()
+	} else {
+		timestamp = c.Timestamp
+	}
 
 	offset, size, err := c.rollbackLogger.StartFrame(timestamp)
 
@@ -144,4 +151,8 @@ func (c *Checkpointer) Rollback() error {
 	c.Checkpoint = nil
 
 	return nil
+}
+
+func (c *Checkpointer) SetTimestamp(timestamp int64) {
+	c.Timestamp = timestamp
 }

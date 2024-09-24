@@ -27,7 +27,7 @@ func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
 			)
 		}
 
-		err := backups.CopySouceDatabaseToTargetDatabase(
+		err := backups.CopySourceDatabaseToTargetDatabase(
 			5,
 			source.DatabaseUuid,
 			source.BranchUuid,

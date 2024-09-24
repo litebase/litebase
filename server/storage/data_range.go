@@ -20,7 +20,6 @@ that typically would not be possible with a single file.
 const (
 	DataRangeHeaderSize int64 = 100
 	DataRangeVersion    int32 = 1
-	DataRangePageSize   int32 = 65536
 	DataRangeMaxPages   int64 = 1024
 )
 

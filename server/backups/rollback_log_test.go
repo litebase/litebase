@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"litebase/internal/test"
 	"litebase/server/backups"
-	"log"
 	"testing"
 	"time"
 )
@@ -218,7 +217,7 @@ func TestRollbackLogReadAfter(t *testing.T) {
 
 		defer rollbackLog.Close()
 
-		for i, tc := range testCases {
+		for _, tc := range testCases {
 			var entries []*backups.RollbackLogEntry
 			rollbackLogEntriesChannel, doneChannel, errorChannel := rollbackLog.ReadForTimestamp(tc.timestamp)
 
@@ -243,7 +242,6 @@ func TestRollbackLogReadAfter(t *testing.T) {
 			}
 
 			if afterTestCaseCount != len(entries) {
-				log.Println(i)
 				t.Errorf("Expected %d entries after timestamp %d, got %d", afterTestCaseCount, tc.timestamp, len(entries))
 			}
 		}

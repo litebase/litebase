@@ -232,3 +232,25 @@ func TestCheckpointerRollback(t *testing.T) {
 		}
 	})
 }
+
+func TestCheckpointerSetTimestamp(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+
+		cp, err := database.NewCheckpointer(
+			mock.DatabaseUuid,
+			mock.BranchUuid,
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cp.SetTimestamp(1)
+
+		if cp.Timestamp != 1 {
+			t.Fatal("Timestamp was not set")
+		}
+	})
+}

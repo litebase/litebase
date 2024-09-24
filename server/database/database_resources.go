@@ -51,6 +51,17 @@ func Resources(databaseUuid, branchUuid string) *DatabaseResources {
 	return resource
 }
 
+func ShutdownResources() {
+	databaseResourceManagerMutex.Lock()
+	defer databaseResourceManagerMutex.Unlock()
+
+	for _, resource := range resources {
+		resource.Remove()
+	}
+
+	resources = map[string]*DatabaseResources{}
+}
+
 func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 	d.mutex.RLock()
 
@@ -213,7 +224,6 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 
 	if d.snapshotLogger == nil {
 		d.snapshotLogger = backups.NewSnapshotLogger(d.DatabaseUuid, d.BranchUuid)
-
 	}
 
 	d.mutex.Unlock()

@@ -60,14 +60,11 @@ func Setup(t testing.TB, callbacks ...func()) {
 
 func Teardown(callbacks ...func()) {
 	database.ConnectionManager().Shutdown()
+	database.ShutdownResources()
 	node.Node().Shutdown()
 	storage.Shutdown()
 
-	err := os.RemoveAll(os.Getenv("LITEBASE_LOCAL_DATA_PATH"))
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	os.RemoveAll(envDataPath)
 
 	for _, callback := range callbacks {
 		callback()

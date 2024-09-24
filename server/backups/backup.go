@@ -2,21 +2,23 @@ package backups
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"crypto/sha1"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"litebase/internal/config"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"litebase/server/storage"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 
 	"log"
-	"os"
-	"time"
 )
 
 /*
@@ -24,11 +26,12 @@ A Backup is a complete logical snapshot of a database at a given point in time.
 This data is derived from a Snapshot and can be used to restore a database.
 */
 type Backup struct {
-	dfs          *storage.DurableDatabaseFileSystem
-	BranchUuid   string
-	DatabaseUuid string
-	maxPartSize  int64
-	RestorePoint RestorePoint
+	dfs            *storage.DurableDatabaseFileSystem
+	BranchUuid     string
+	DatabaseUuid   string
+	maxPartSize    int64
+	rollbackLogger *RollbackLogger
+	RestorePoint   RestorePoint
 }
 
 type BackupConfigCallback func(backup *Backup)
@@ -200,15 +203,16 @@ create a series of files in the filesystem that can be used to restore the
 database.
 */
 func (backup *Backup) packageBackup() error {
-	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseUuid, backup.BranchUuid)
-
+	var err error
 	var fileSize int64
 	var partNumber = 1
 	var outputFile internalStorage.File
 	var tarWriter *tar.Writer
 	var gzipWriter *gzip.Writer
+	var sourceFile internalStorage.File
 
-	var err error
+	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, config.Get().PageSize)
+	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseUuid, backup.BranchUuid)
 
 	// Loop through the files in the source database and copy them to the target database
 	entries, err := backup.dfs.FileSystem().ReadDir(sourceDirectory)
@@ -219,30 +223,6 @@ func (backup *Backup) packageBackup() error {
 	}
 
 	for _, entry := range entries {
-		if outputFile == nil {
-		createFile:
-			outputFile, err = backup.dfs.FileSystem().Create(backup.FilePath(partNumber))
-
-			if err != nil {
-				if os.IsNotExist(err) {
-					// If the directory does not exist, create it
-					if err := backup.dfs.FileSystem().MkdirAll(backup.DirectoryPath(), 0755); err != nil {
-						log.Println("Error creating backup directory:", err)
-						return err
-					}
-
-					goto createFile
-				}
-
-				log.Println("Error creating zip file:", err)
-
-				return err
-			}
-
-			gzipWriter = gzip.NewWriter(outputFile)
-			tarWriter = tar.NewWriter(gzipWriter)
-		}
-
 		if entry.IsDir {
 			continue
 		}
@@ -250,8 +230,65 @@ func (backup *Backup) packageBackup() error {
 		// Get the full path of the source file
 		path := fmt.Sprintf("%s/%s", sourceDirectory, entry.Name)
 
+		var data []byte
+
 		// Open the source file
-		sourceFile, err := backup.dfs.FileSystem().Open(path)
+		sourceFile, err = backup.dfs.FileSystem().Open(path)
+
+		if err != nil {
+			return err
+		}
+
+		// Ensure we are working on a range file
+		if entry.Name[0] != '_' {
+			rangeNumber, err := strconv.ParseInt(entry.Name, 10, 64)
+
+			if err != nil {
+				log.Println("Error parsing entry name:", entry.Name, err)
+				return err
+			}
+
+			// Skip if the range number is greater than the max range number of
+			// the backup based on the restore point page count.
+			if rangeNumber > maxRangeNumber {
+				continue
+			}
+
+			// Apply rollback logs to the file
+			data, err = backup.stepApplyRollbackLogs(rangeNumber, sourceFile)
+
+			if err != nil {
+				return err
+			}
+		} else {
+			// Currently the only other file in a database directory is the
+			// metadata file. This will be the only other file that is not a
+			// range file. This file needs to be updated with the page count
+			// from the restore point.
+
+			data, err = io.ReadAll(sourceFile)
+
+			if err != nil {
+				return err
+			}
+
+			if entry.Name == "_METADATA" {
+				// Set the first 8 bytes of the metadata file to the page count
+				binary.LittleEndian.PutUint64(data[:8], uint64(backup.RestorePoint.PageCount))
+			}
+		}
+
+		if outputFile == nil {
+			outputFile, err = backup.stepCreateFile(partNumber)
+
+			if err != nil {
+				return err
+			}
+
+			// Create a new gzip and tar writer
+			gzipWriter = gzip.NewWriter(outputFile)
+			tarWriter = tar.NewWriter(gzipWriter)
+		}
 
 		if err != nil {
 			log.Println("Error opening source file:", entry.Name, err)
@@ -266,27 +303,31 @@ func (backup *Backup) packageBackup() error {
 		}
 
 		// Create tar header
-		header, err := tar.FileInfoHeader(info, info.Name())
-
-		if err != nil {
-			return err
+		header := &tar.Header{
+			Name:    entry.Name,
+			ModTime: info.ModTime(),
+			Mode:    int64(info.Mode()),
+			Size:    int64(len(data)),
 		}
 
 		// Write header
 		if err := tarWriter.WriteHeader(header); err != nil {
+			log.Println("Error writing tar header:", err)
 			return err
 		}
 
-		n, err := io.Copy(tarWriter, sourceFile)
+		// Copy the file to the tar writer
+		n, err := io.Copy(tarWriter, bytes.NewReader(data))
 
 		if err != nil {
-			log.Println("Error copying file:", entry.Name, err)
+			log.Println("Error writing tar data:", err)
 
 			return err
 		}
 
 		fileSize += n
 
+		// If the file size is greater than the max part size, create a new part
 		if fileSize >= backup.GetMaxPartSize() {
 			partNumber++
 			fileSize = 0
@@ -340,9 +381,7 @@ func (backup *Backup) packageBackup() error {
 
 	// Close the final tar file to ensure the data is flushed.
 	if outputFile != nil {
-		err = outputFile.Close()
-
-		if err != nil {
+		if err := outputFile.Close(); err != nil {
 			log.Println("Error closing tar file:", err)
 
 			return err
@@ -361,9 +400,11 @@ propert state. This will allow the backup to copy all existing files
 while the database is online and in use.
 */
 func Run(
-	dfs *storage.DurableDatabaseFileSystem,
 	databaseUuid string,
 	branchUuid string,
+	timestamp int64,
+	dfs *storage.DurableDatabaseFileSystem,
+	rollbackLogger *RollbackLogger,
 	callbacks ...BackupConfigCallback,
 ) (*Backup, error) {
 	lock := GetBackupLock(file.DatabaseHash(databaseUuid, branchUuid))
@@ -374,7 +415,7 @@ func Run(
 		return nil, fmt.Errorf("backup is already running")
 	}
 
-	restorePoint, err := GetRestorePoint(databaseUuid, branchUuid, time.Now().Unix())
+	restorePoint, err := GetRestorePoint(databaseUuid, branchUuid, timestamp)
 
 	if err != nil {
 		return nil, err
@@ -385,10 +426,11 @@ func Run(
 	}
 
 	backup := &Backup{
-		dfs:          dfs,
-		BranchUuid:   branchUuid,
-		DatabaseUuid: databaseUuid,
-		RestorePoint: restorePoint,
+		BranchUuid:     branchUuid,
+		DatabaseUuid:   databaseUuid,
+		dfs:            dfs,
+		RestorePoint:   restorePoint,
+		rollbackLogger: rollbackLogger,
 	}
 
 	for _, callback := range callbacks {
@@ -445,6 +487,41 @@ func (backup *Backup) Size() int64 {
 	}
 
 	return size
+}
+
+func (backup *Backup) stepApplyRollbackLogs(rangeNumber int64, sourceFile internalStorage.File) ([]byte, error) {
+	return ReadBackupRangeFile(
+		sourceFile,
+		rangeNumber,
+		backup.RestorePoint,
+		backup.rollbackLogger,
+	)
+}
+
+/*
+Create a new file for the backup part.
+*/
+func (backup *Backup) stepCreateFile(partNumber int) (outputFile internalStorage.File, err error) {
+createFile:
+	outputFile, err = backup.dfs.FileSystem().Create(backup.FilePath(partNumber))
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			// If the directory does not exist, create it
+			if err := backup.dfs.FileSystem().MkdirAll(backup.DirectoryPath(), 0755); err != nil {
+				log.Println("Error creating backup directory:", err)
+				return nil, err
+			}
+
+			goto createFile
+		}
+
+		log.Println("Error creating output file:", err)
+
+		return nil, err
+	}
+
+	return outputFile, nil
 }
 
 /*
