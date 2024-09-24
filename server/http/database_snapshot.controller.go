@@ -14,10 +14,16 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
 	}
 
-	snapshots, err := backups.GetSnapshots(
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
-	)
+	snapshots, err := database.
+		Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).
+		SnapshotLogger().
+		GetSnapshots()
+
+	values := make([]*backups.Snapshot, 0)
+
+	for _, snapshot := range snapshots {
+		values = append(values, snapshot)
+	}
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
@@ -28,7 +34,7 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 
 	return JsonResponse(map[string]interface{}{
 		"status": "success",
-		"data":   snapshots,
+		"data":   values,
 	}, 200, nil)
 }
 
@@ -48,11 +54,10 @@ func DatabaseSnapshotShowController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	snapshot, err := backups.GetSnapshot(
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
-		timestamp,
-	)
+	snapshot, err := database.
+		Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).
+		SnapshotLogger().
+		GetSnapshot(timestamp)
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{

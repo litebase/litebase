@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"litebase/internal/test"
 	"litebase/server/backups"
+	"litebase/server/database"
 	"testing"
 	"time"
 )
@@ -38,40 +39,106 @@ func TestSnapshotLoggerClose(t *testing.T) {
 	})
 }
 
-func TestSnapshotLoggerFile(t *testing.T) {
+func TestSnapshotLoggerGetSnapshot(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		logger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
 
-		file, err := logger.File()
+		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
+		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
+		defer checkpointerLogger.Close()
+
+		// Simulate writing a snapshot to the file
+		timestamp := time.Now().Unix()
+		err := checkpointerLogger.Log(timestamp, int64(1))
 
 		if err != nil {
-			t.Fatalf("Expected no error on File(), got %v", err)
+			t.Fatalf("Failed to log snapshot: %v", err)
 		}
 
-		if file == nil {
-			t.Fatal("Expected file to be created, got nil")
+		snapshot, err := snapshotLogger.GetSnapshot(timestamp)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if snapshot.Timestamp == 0 {
+			t.Fatalf("Expected a valid timestamp, got 0")
+		}
+
+		if snapshot.RestorePoints.Total != 0 {
+			t.Fatalf("Expected 0 restore points, got %d", snapshot.RestorePoints.Total)
 		}
 	})
 }
 
-func TestSnapshotLoggerFileAlreadyOpened(t *testing.T) {
+func TestSnapshotLoggerGetSnapshots(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		logger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
+		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
+		keys := snapshotLogger.Keys()
 
-		_, err := logger.File()
-		if err != nil {
-			t.Fatalf("Expected no error on first File() call, got %v", err)
+		if len(keys) != 0 {
+			t.Fatalf("Expected 0 snapshots, got %d", len(keys))
 		}
 
-		file, err := logger.File()
-		if err != nil {
-			t.Fatalf("Expected no error on second File() call, got %v", err)
+		// Simulate writing a snapshot to the file
+		for i := 0; i < 5; i++ {
+			timestamp := time.Now().Add(-time.Duration(5-i) * time.Second).Unix()
+			snapshotLogger.Log(timestamp, int64(i))
 		}
 
-		if file == nil {
-			t.Fatal("Expected file to be created, got nil")
+		snapshots, err := snapshotLogger.GetSnapshots()
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		keys = snapshotLogger.Keys()
+
+		snapshot := snapshots[keys[0]]
+
+		snapshot.Load()
+
+		if snapshot.RestorePoints.Total != 5 {
+			t.Fatalf("Expected 5 snapshots, got %d", snapshot.RestorePoints.Total)
+		}
+	})
+}
+
+func TestSnapshotLoggerGetSnapshotsWithRestorePoints(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
+
+		// Simulate writing a snapshot to the file
+		snapshotLogger.Log(time.Now().Add(-3*time.Second).Unix(), int64(1))
+		snapshotLogger.Log(time.Now().Add(-2*time.Second).Unix(), int64(2))
+		snapshotLogger.Log(time.Now().Add(-1*time.Second).Unix(), int64(3))
+
+		snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		keys := snapshotLogger.Keys()
+
+		snapshot := snapshots[keys[0]]
+
+		if snapshot.RestorePoints.Total != 3 {
+			t.Fatalf("Expected 3 restore points, got %d", snapshot.RestorePoints.Total)
+		}
+
+		if snapshot.RestorePoints.Start == snapshot.RestorePoints.End {
+			t.Fatalf("Expected start and end to be different for the first snapshot")
+		}
+
+		if len(snapshot.RestorePoints.Data) != 3 {
+			t.Fatalf("Expected 3 restore points to be loaded, got %d", len(snapshot.RestorePoints.Data))
+		}
+
+		if snapshot.RestorePoints.Total != 3 {
+			t.Fatalf("Expected 3 restore points to be totaled, got %d", snapshot.RestorePoints.Total)
 		}
 	})
 }
@@ -94,7 +161,13 @@ func TestSnapshotLoggerLog(t *testing.T) {
 		}
 
 		// read the file to verify the logs were written
-		file, err := logger.File()
+		snapshot, err := logger.GetSnapshot(timestamps[0])
+
+		if snapshot == nil {
+			t.Fatalf("Expected snapshot to be created, got nil")
+		}
+
+		file := snapshot.File
 
 		if err != nil {
 			t.Fatalf("Expected no error on File(), got %v", err)

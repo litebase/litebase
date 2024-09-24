@@ -1,0 +1,248 @@
+package backups
+
+import (
+	"encoding/binary"
+	"fmt"
+	"io"
+	internalStorage "litebase/internal/storage"
+	"litebase/server/file"
+	"litebase/server/storage"
+	"log"
+	"os"
+	"sync"
+)
+
+type Snapshot struct {
+	/*
+		The UUID of the branch the snapshot is for.
+	*/
+	BranchUuid string
+	/*
+		The UUID of the database the snapshot is for.
+	*/
+	DatabaseUuid string
+	/*
+		The file to write the snapshot log to.
+	*/
+	File internalStorage.File
+	/*
+		The last time the snapshot was accessed. This timestamp is used for
+		cleanup purposes.
+	*/
+	LastAccessedAt int64
+	/*
+		A mutex to lock the snapshot for concurrent access. This is especially
+		necessary when writing to the snapshot log file while backups are being
+		processed at the same time.
+	*/
+	mutex sync.Mutex
+	/*
+		A list of restore points for the snapshot.
+	*/
+	RestorePoints SnapshotRestorePoints `json:"restore_points"`
+	/*
+		The UTC start of the day of the snapshot.
+	*/
+	Timestamp int64 `json:"timestamp"`
+}
+
+type SnapshotRestorePoints struct {
+	Data  []int64 `json:"data"`
+	Start int64   `json:"start"`
+	End   int64   `json:"end"`
+	Total int     `json:"total"`
+}
+
+type RestorePoint struct {
+	Timestamp int64
+	PageCount int64
+}
+
+/*
+Create a new instance of a snapshot.
+*/
+func NewSnapshot(databaseUuid string, branchUuid string, dayTimestamp, timestamp int64) *Snapshot {
+	return &Snapshot{
+		BranchUuid:   branchUuid,
+		DatabaseUuid: databaseUuid,
+		RestorePoints: SnapshotRestorePoints{
+			Data:  []int64{},
+			Start: timestamp,
+			End:   timestamp,
+			Total: 0,
+		},
+		Timestamp: dayTimestamp,
+	}
+}
+
+/*
+Close the snapshot file.
+*/
+func (s *Snapshot) Close() error {
+	if s.File != nil {
+		return s.File.Close()
+	}
+
+	return nil
+}
+
+/*
+Return the path to the snapshot log file for a database.
+*/
+func GetSnapshotPath(databaseUuid string, branchUuid string, timestamp int64) string {
+	return fmt.Sprintf(
+		"%s/%d",
+		file.GetDatabaseSnapshotDirectory(databaseUuid, branchUuid),
+		timestamp,
+	)
+}
+
+/*
+Get a specific restore point from the snapshot file.
+*/
+func (s *Snapshot) GetRestorePoint(timestamp int64) (RestorePoint, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.File == nil {
+		err := s.openFile()
+
+		if err != nil {
+			return RestorePoint{}, err
+		}
+	}
+
+	_, err := s.File.Seek(0, io.SeekStart)
+
+	if err != nil {
+		log.Println("Error seeking to start of snapshot file", err)
+		return RestorePoint{}, err
+	}
+
+	var restorePoint RestorePoint
+
+	for {
+		data := make([]byte, 64)
+
+		_, err := s.File.Read(data)
+
+		if err != nil {
+			break
+		}
+
+		t := int64(binary.LittleEndian.Uint64(data))
+
+		if int64(t) == timestamp {
+			restorePoint = RestorePoint{
+				Timestamp: t,
+				PageCount: int64(binary.LittleEndian.Uint32(data[8:12])),
+			}
+
+			break
+		}
+	}
+
+	return restorePoint, nil
+}
+
+/*
+Determine if the snapshot is empty.
+*/
+func (s *Snapshot) IsEmpty() bool {
+	return s.Timestamp == 0
+}
+
+func (s *Snapshot) Load() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.File == nil {
+		err := s.openFile()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err := s.File.Seek(0, io.SeekStart)
+
+	if err != nil {
+		log.Println("Error seeking to start of snapshot file", err)
+
+		return err
+	}
+
+	for {
+		data := make([]byte, 64)
+
+		_, err := s.File.Read(data)
+
+		if err != nil {
+			break
+		}
+
+		t := int64(binary.LittleEndian.Uint64(data))
+
+		// Get the start of the day of the timestamp
+		s.RestorePoints.Data = append(s.RestorePoints.Data, t)
+		s.RestorePoints.End = t
+		s.RestorePoints.Total++
+	}
+
+	return nil
+}
+
+func (s *Snapshot) Log(timestamp, pageCount int64) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.File == nil {
+		err := s.openFile()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err := s.File.Seek(0, io.SeekEnd)
+
+	if err != nil {
+		return err
+	}
+
+	data := make([]byte, 64)
+	binary.LittleEndian.PutUint64(data[0:8], uint64(timestamp))
+	binary.LittleEndian.PutUint32(data[8:12], uint32(pageCount))
+
+	_, err = s.File.Write(data)
+
+	return err
+}
+
+func (s *Snapshot) openFile() error {
+openFile:
+	snapshotFile, err := storage.TieredFS().OpenFile(
+		GetSnapshotPath(s.DatabaseUuid, s.BranchUuid, s.Timestamp),
+		SNAPSHOT_LOG_FLAGS,
+		0644,
+	)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			err := storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(s.DatabaseUuid, s.BranchUuid)), 0755)
+
+			if err != nil {
+				return err
+			}
+
+			goto openFile
+		} else {
+			log.Println("Error opening snapshot file", err)
+			return err
+		}
+	}
+
+	s.File = snapshotFile
+
+	return nil
+}

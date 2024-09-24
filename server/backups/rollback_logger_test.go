@@ -53,8 +53,20 @@ func TestRollbackLoggerCommit(t *testing.T) {
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(mock.DatabaseUuid, mock.BranchUuid)
 
+		offset, size, err := rollbackLogger.StartFrame(1234567890)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		size, err = rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
 		// Commit a log
-		err := rollbackLogger.Commit(1234567890, 1, 100)
+		err = rollbackLogger.Commit(1234567890, offset, size)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -90,7 +102,7 @@ func TestPageLoggerGetLog(t *testing.T) {
 	})
 }
 
-func TestPageLoggerLog(t *testing.T) {
+func TestRollbackLoggerLog(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 

@@ -42,19 +42,26 @@ type BackupConfigCallback func(backup *Backup)
 Returns a Backup object for the given database and branch at a timestamp.
 */
 func GetBackup(
+	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseUuid string,
 	branchUuid string,
-	snapshotTimestamp int64,
+	timestamp int64,
 ) (*Backup, error) {
-	restorePoint, err := GetRestorePoint(databaseUuid, branchUuid, snapshotTimestamp)
+	snapshot, err := snapshotLogger.GetSnapshot(timestamp)
+
+	if err != nil {
+		return nil, err
+	}
+
+	restorePoint, err := snapshot.GetRestorePoint(timestamp)
 
 	if err != nil {
 		return nil, err
 	}
 
 	if restorePoint == (RestorePoint{}) {
-		return nil, fmt.Errorf("no restore point found")
+		return nil, BackupErrorNoRestorePoint
 	}
 
 	backup := &Backup{
@@ -72,6 +79,7 @@ Returns next backup for the given database and branch relative to the given
 timestamp provided.
 */
 func GetNextBackup(
+	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseUuid string,
 	branchUuid string,
@@ -113,7 +121,7 @@ func GetNextBackup(
 	// Loop through the backups
 	for _, b := range backups {
 		if b > snapshotTimestamp {
-			return GetBackup(dfs, databaseUuid, branchUuid, b)
+			return GetBackup(snapshotLogger, dfs, databaseUuid, branchUuid, b)
 		}
 	}
 
@@ -405,6 +413,7 @@ func Run(
 	databaseUuid string,
 	branchUuid string,
 	timestamp int64,
+	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
 	rollbackLogger *RollbackLogger,
 	callbacks ...BackupConfigCallback,
@@ -417,7 +426,13 @@ func Run(
 		return nil, fmt.Errorf("backup is already running")
 	}
 
-	restorePoint, err := GetRestorePoint(databaseUuid, branchUuid, timestamp)
+	snapshot, err := snapshotLogger.GetSnapshot(timestamp)
+
+	if err != nil {
+		return nil, err
+	}
+
+	restorePoint, err := snapshot.GetRestorePoint(timestamp)
 
 	if err != nil {
 		return nil, err

@@ -234,6 +234,7 @@ func RestoreFromTimestamp(
 	targetDatabaseUuid string,
 	targetBranchUuid string,
 	backupTimestamp int64,
+	snapshotLogger *SnapshotLogger,
 	sourceFileSystem *storage.DurableDatabaseFileSystem,
 	targetFileSystem *storage.DurableDatabaseFileSystem,
 	onComplete func(func() error) error,
@@ -243,7 +244,13 @@ func RestoreFromTimestamp(
 
 	rollbackLogger := NewRollbackLogger(sourceDatabaseUuid, sourceBranchUuid)
 
-	restorePoint, err := GetRestorePoint(sourceDatabaseUuid, sourceBranchUuid, backupTimestamp)
+	snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
+
+	if err != nil {
+		return err
+	}
+
+	restorePoint, err := snapshot.GetRestorePoint(backupTimestamp)
 
 	if err != nil {
 		return err

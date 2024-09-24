@@ -19,6 +19,7 @@ func DatabaseBackupStoreController(request *Request) Response {
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
 		time.Now().Unix(),
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger(),
 		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).RollbackLogger(),
 	)
@@ -56,6 +57,7 @@ func DatabaseBackupShowController(request *Request) Response {
 	timeInstance := time.Unix(timestamp, 0)
 
 	backup, err := backups.GetBackup(
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger(),
 		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,
@@ -90,6 +92,7 @@ func DatabaseBackupDestroyController(request *Request) Response {
 	databaseKey := request.DatabaseKey()
 
 	backup, err := backups.GetBackup(
+		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger(),
 		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
 		databaseKey.DatabaseUuid,
 		databaseKey.BranchUuid,

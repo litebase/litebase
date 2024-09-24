@@ -1,6 +1,7 @@
 package backups
 
 import (
+	"errors"
 	"io"
 	"litebase/internal/config"
 	internalStorage "litebase/internal/storage"
@@ -10,6 +11,8 @@ import (
 	"sort"
 	"time"
 )
+
+var ErrorBackupRangeFileEmpty = errors.New("backup range file is empty")
 
 type BackupRangeFile struct {
 	file           internalStorage.File
@@ -81,6 +84,11 @@ func ReadBackupRangeFile(
 		return nil, err
 	}
 
+	if len(fileContents) == 0 {
+		log.Println("Backup range file is empty")
+		return nil, ErrorBackupRangeFileEmpty
+	}
+
 	pageMap := make(map[int64]struct{})
 
 	// Work through the rollback logs to apply any changes made to this range
@@ -114,6 +122,12 @@ func ReadBackupRangeFile(
 					}
 
 					offset := file.PageRangeOffset(rollbackLogEntry.PageNumber, storage.DataRangeMaxPages, config.Get().PageSize)
+
+					if offset >= int64(len(fileContents)) {
+						log.Println("Offset is greater than the length of the file contents")
+						return nil, errors.New("offset is greater than the length of the file contents")
+					}
+
 					copy(fileContents[offset:], rollbackLogEntry.Data)
 					pageMap[rollbackLogEntry.PageNumber] = struct{}{}
 				}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"slices"
 	"sort"
+	"sync"
 )
 
 type RollbackLogIdentifier uint32
@@ -29,6 +30,7 @@ retrieve the page version that meets the restore criteria.
 */
 type RollbackLog struct {
 	File      internalStorage.File
+	mutex     sync.Mutex
 	Timestamp int64
 }
 
@@ -56,6 +58,7 @@ log:
 
 	return &RollbackLog{
 		File:      file,
+		mutex:     sync.Mutex{},
 		Timestamp: timestamp,
 	}, nil
 }
@@ -63,6 +66,9 @@ log:
 // Append a new frame to the rollback log and return the offset and size of the
 // frame to the caller.
 func (r *RollbackLog) AppendFrame(timestamp int64) (offset int64, size int64, err error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	offset, err = r.File.Seek(0, io.SeekEnd)
 
 	if err != nil {
@@ -94,6 +100,9 @@ func (r *RollbackLog) AppendFrame(timestamp int64) (offset int64, size int64, er
 // Append a new log entry to the rollback log and return the size of the entry
 // to the caller.
 func (r *RollbackLog) AppendLog(compressionBuffer *bytes.Buffer, entry *RollbackLogEntry) (size int64, err error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	_, err = r.File.Seek(0, io.SeekEnd)
 
 	if err != nil {
@@ -113,11 +122,21 @@ func (r *RollbackLog) AppendLog(compressionBuffer *bytes.Buffer, entry *Rollback
 
 // Close the rollback log and the underlying file.
 func (r *RollbackLog) Close() error {
+	if r.File == nil {
+		return nil
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	return r.File.Close()
 }
 
 // Commit the current frame in the rollback log.
 func (r *RollbackLog) Commit(offset int64, size int64) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	// Read the frame entry
 	data := make([]byte, RollbackFrameHeaderSize)
 
@@ -130,6 +149,7 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 	_, err = r.File.Read(data)
 
 	if err != nil {
+		log.Println("Error reading frame entry:", err)
 		return err
 	}
 
@@ -173,6 +193,9 @@ func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 	errorChannel = make(chan error)
 
 	go func() {
+		r.mutex.Lock()
+		defer r.mutex.Unlock()
+
 		index := make(map[int64][]RollbackLogFrame)
 
 		// Reset the file pointer to the start of the file
@@ -187,13 +210,25 @@ func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 		// Loop through the frames in the rollback log and find frames that are
 		// greater than the timestamp specified
 		frameEntryData := make([]byte, RollbackFrameHeaderSize)
+		offset := int64(0)
 
 		for {
-			_, err := r.File.Read(frameEntryData)
+			// Reset the file pointer to the start of the file
+			offset, err = r.File.Seek(offset, io.SeekStart)
+
+			if err != nil {
+				log.Println("Error seeking file:", err)
+				errorChannel <- err
+				return
+			}
+
+			n, err := r.File.Read(frameEntryData)
 
 			if err == io.EOF {
 				break
 			}
+
+			offset += int64(n)
 
 			if err != nil {
 				log.Println("Error reading frame entry:", err)
@@ -204,6 +239,7 @@ func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 			frame, err := DeserializeRollbackLogFrame(frameEntryData)
 
 			if err != nil {
+				log.Println("Error deserializing frame entry:", err)
 				errorChannel <- err
 				return
 			}
@@ -216,7 +252,7 @@ func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 				}
 			}
 
-			_, err = r.File.Seek(frame.Offset+frame.Size, io.SeekStart)
+			offset, err = r.File.Seek(frame.Offset+frame.Size, io.SeekStart)
 
 			if err != nil {
 				log.Println("Error seeking to next frame:", err)

@@ -1,19 +1,24 @@
 package backups
 
 import (
-	"encoding/binary"
-	"fmt"
-	"io"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
 	"litebase/server/storage"
-	"os"
+	"log"
+	"strconv"
+	"sync"
+	"time"
 )
 
+// TODO: Cleanup unused log files
 type SnapshotLogger struct {
-	BranchUuid   string
-	DatabaseUuid string
-	file         internalStorage.File
+	BranchUuid        string
+	DatabaseUuid      string
+	file              internalStorage.File
+	keys              []int64
+	logs              map[int64]*Snapshot
+	logsLastCleanedAt time.Time
+	mutex             *sync.Mutex
 }
 
 // The SnapshotLogger is responsible for logging Snapshots to a file when the
@@ -23,65 +28,160 @@ func NewSnapshotLogger(databaseUuid, branchUuid string) *SnapshotLogger {
 	return &SnapshotLogger{
 		BranchUuid:   branchUuid,
 		DatabaseUuid: databaseUuid,
+		logs:         make(map[int64]*Snapshot),
+		mutex:        &sync.Mutex{},
 	}
 }
 
+func (sl *SnapshotLogger) cleanupOpenSnapshotLogs() {
+	if !sl.logsLastCleanedAt.IsZero() || time.Since(sl.logsLastCleanedAt) <= 5*time.Minute {
+		return
+	}
+
+	for _, snapshot := range sl.logs {
+		if time.Since(time.Unix(snapshot.LastAccessedAt, 0)) > 5*time.Minute {
+			if err := snapshot.Close(); err != nil {
+				log.Println("Error closing snapshot log", err)
+			}
+
+			delete(sl.logs, snapshot.Timestamp)
+
+			for i, key := range sl.keys {
+				if key == snapshot.Timestamp {
+					sl.keys = append(sl.keys[:i], sl.keys[i+1:]...)
+					break
+				}
+			}
+		}
+	}
+
+	sl.logsLastCleanedAt = time.Now()
+}
+
 // Close the logger and the underlying file.
-func (c *SnapshotLogger) Close() error {
-	if c.file != nil {
-		return c.file.Close()
+func (sl *SnapshotLogger) Close() error {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	if sl.file != nil {
+		return sl.file.Close()
+	}
+
+	for _, l := range sl.logs {
+		if err := l.Close(); err != nil {
+			log.Println("Error closing snapshot log", err)
+		}
 	}
 
 	return nil
 }
 
-// Get the snapshot log file, creating it if it does not exist.
-func (c *SnapshotLogger) File() (internalStorage.File, error) {
-	if c.file != nil {
-		return c.file, nil
+/*
+Get a single snapshot for a specific timestamp. This method does not include
+All the restore points for the day, just the first one.
+*/
+func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	// Get the start of the day of the timestamp
+	snapshotStartOfDay := time.Unix(timestamp, 0).UTC()
+	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
+	startOfDayTimestamp := snapshotStartOfDay.Unix()
+
+	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
+		sl.logs[startOfDayTimestamp] = NewSnapshot(sl.DatabaseUuid, sl.BranchUuid, startOfDayTimestamp, timestamp)
+		sl.keys = append(sl.keys, startOfDayTimestamp)
 	}
 
-openFile:
-	snapshotFile, err := storage.TieredFS().OpenFile(GetSnapshotPath(c.DatabaseUuid, c.BranchUuid), SNAPSHOT_LOG_FLAGS, 0644)
+	if len(sl.logs[startOfDayTimestamp].RestorePoints.Data) <= 0 {
+		sl.logs[startOfDayTimestamp].Load()
+	}
+
+	sl.cleanupOpenSnapshotLogs()
+
+	return sl.logs[startOfDayTimestamp], nil
+}
+
+/*
+List Snapshots from the snapshots directory. Each file is a log segmented by day.
+We will get the first checkpoint of the day and use it as the snapshot for that day.
+*/
+func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	entries, err := storage.TieredFS().ReadDir(
+		file.GetDatabaseSnapshotDirectory(sl.DatabaseUuid, sl.BranchUuid),
+	)
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			err := storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(c.DatabaseUuid, c.BranchUuid)), 0755)
-
-			if err != nil {
-				return nil, err
-			}
-
-			goto openFile
-		}
-
 		return nil, err
 	}
 
-	c.file = snapshotFile
+	for _, entry := range entries {
+		if entry.IsDir {
+			continue
+		}
 
-	return c.file, nil
+		timestamp, err := strconv.ParseInt(entry.Name, 10, 64)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if _, ok := sl.logs[timestamp]; ok {
+			continue
+		}
+
+		sl.logs[timestamp] = NewSnapshot(sl.DatabaseUuid, sl.BranchUuid, timestamp, 0)
+		sl.keys = append(sl.keys, timestamp)
+	}
+
+	return sl.logs, nil
+}
+
+func (sl *SnapshotLogger) GetSnapshotsWithRestorePoints() (map[int64]*Snapshot, error) {
+	snapshots, err := sl.GetSnapshots()
+
+	if err != nil {
+		return nil, err
+	}
+
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	for _, snapshot := range snapshots {
+		if len(snapshot.RestorePoints.Data) <= 0 {
+			snapshot.Load()
+		}
+	}
+
+	return sl.logs, nil
+
 }
 
 // Write a snapshot log entry to the snapshot log file.
-func (c *SnapshotLogger) Log(timestamp, pageCount int64) error {
-	file, err := c.File()
+func (sl *SnapshotLogger) Log(timestamp, pageCount int64) error {
+	// Get the start of the day of the timestamp
+	snapshotStartOfDay := time.Unix(timestamp, 0).UTC()
+	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
+	startOfDayTimestamp := snapshotStartOfDay.Unix()
 
-	if err != nil {
-		return err
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
+		sl.logs[startOfDayTimestamp] = NewSnapshot(sl.DatabaseUuid, sl.BranchUuid, startOfDayTimestamp, 0)
+		sl.keys = append(sl.keys, startOfDayTimestamp)
 	}
 
-	_, err = file.Seek(0, io.SeekEnd)
+	return sl.logs[startOfDayTimestamp].Log(timestamp, pageCount)
+}
 
-	if err != nil {
-		return err
-	}
+func (sl *SnapshotLogger) Keys() []int64 {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
 
-	data := make([]byte, 64)
-	binary.LittleEndian.PutUint64(data[0:8], uint64(timestamp))
-	binary.LittleEndian.PutUint32(data[8:12], uint32(pageCount))
-
-	_, err = file.Write(data)
-
-	return err
+	return sl.keys
 }

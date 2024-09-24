@@ -59,6 +59,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		source := test.MockDatabase()
 		target := test.MockDatabase()
 
+		snapshotLogger := database.Resources(source.DatabaseUuid, source.BranchUuid).SnapshotLogger()
 		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
 		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
 
@@ -121,20 +122,19 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
+		// Get the snapshots
+		snapshotLogger.GetSnapshots()
+
 		// Get the lastest snapshot timestamp
-		snapshots, err := backups.GetSnapshots(source.DatabaseUuid, source.BranchUuid)
+		snapshotKeys := snapshotLogger.Keys()
+
+		snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		snapshot, err := backups.GetSnapshot(source.DatabaseUuid, source.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
-
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-
-		restorePoint, err := backups.GetRestorePoint(source.DatabaseUuid, source.BranchUuid, snapshot.RestorePoints.Data[0])
+		restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.Data[0])
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -155,6 +155,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			target.DatabaseUuid,
 			target.BranchUuid,
 			restorePoint.Timestamp,
+			snapshotLogger,
 			sourceDfs,
 			targetDfs,
 			onComplete,
@@ -199,6 +200,7 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		source := test.MockDatabase()
 		target := test.MockDatabase()
 
+		snapshotLogger := database.Resources(source.DatabaseUuid, source.BranchUuid).SnapshotLogger()
 		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
 		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
 
@@ -242,20 +244,19 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
+		// Get the snapshots
+		snapshotLogger.GetSnapshots()
+
 		// Get the lastest snapshot timestamp
-		snapshots, err := backups.GetSnapshots(source.DatabaseUuid, source.BranchUuid)
+		snapshotKeys := snapshotLogger.Keys()
+
+		snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		snapshot, err := backups.GetSnapshot(source.DatabaseUuid, source.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
-
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-
-		restorePoint, err := backups.GetRestorePoint(source.DatabaseUuid, source.BranchUuid, snapshot.RestorePoints.Data[0])
+		restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.Data[0])
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -298,6 +299,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				source := test.MockDatabase()
 				target := test.MockDatabase()
 
+				snapshotLogger := database.Resources(source.DatabaseUuid, source.BranchUuid).SnapshotLogger()
 				sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
 				targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
 
@@ -363,20 +365,19 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
+				// Get the snapshots
+				snapshotLogger.GetSnapshots()
+
 				// Get the lastest snapshot timestamp
-				snapshots, err := backups.GetSnapshots(source.DatabaseUuid, source.BranchUuid)
+				snapshotKeys := snapshotLogger.Keys()
+
+				snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
-				snapshot, err := backups.GetSnapshot(source.DatabaseUuid, source.BranchUuid, snapshots[len(snapshots)-1].Timestamp)
-
-				if err != nil {
-					t.Errorf("Expected no error, got %v", err)
-				}
-
-				restorePoint, err := backups.GetRestorePoint(source.DatabaseUuid, source.BranchUuid, snapshot.RestorePoints.Data[0])
+				restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.Data[0])
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -397,6 +398,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					target.DatabaseUuid,
 					target.BranchUuid,
 					restorePoint.Timestamp,
+					snapshotLogger,
 					sourceDfs,
 					targetDfs,
 					onComplete,

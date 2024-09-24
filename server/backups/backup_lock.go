@@ -17,7 +17,7 @@ var BackupLockMutex = &sync.Mutex{}
 var BackupLocksLastCleanedAt = time.Now()
 
 func cleanUpOldBackupLocks() {
-	if time.Since(BackupLocksLastCleanedAt) <= 5*time.Minute {
+	if !BackupLocksLastCleanedAt.IsZero() || time.Since(BackupLocksLastCleanedAt) <= 5*time.Minute {
 		return
 	}
 

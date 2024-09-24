@@ -92,3 +92,10 @@ func GetDatabaseRollbackDirectory(databaseUuid, branchUuid string) string {
 		GetDatabaseFileBaseDir(databaseUuid, branchUuid),
 	)
 }
+
+func GetDatabaseSnapshotDirectory(databaseUuid, branchUuid string) string {
+	return fmt.Sprintf(
+		"%s/logs/snapshots",
+		GetDatabaseFileBaseDir(databaseUuid, branchUuid),
+	)
+}

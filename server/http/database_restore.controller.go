@@ -51,6 +51,7 @@ func DatabaseRestoreController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("target branch '%s' does not exist in target database '%s'", targetBranchUuid, targetDatabaseUuid))
 	}
 
+	snapshotLogger := database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger()
 	sourceDfs := database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem()
 	targetDfs := database.Resources(targetDatabaseUuid, targetBranchUuid).FileSystem()
 
@@ -60,6 +61,7 @@ func DatabaseRestoreController(request *Request) Response {
 		targetDatabaseUuid,
 		targetBranchUuid,
 		timestamp,
+		snapshotLogger,
 		sourceDfs,
 		targetDfs,
 		func(completed func() error) error {

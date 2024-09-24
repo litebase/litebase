@@ -46,6 +46,7 @@ func TestGetBackup(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
@@ -100,6 +101,7 @@ func TestGetNextBackup(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -109,6 +111,7 @@ func TestGetNextBackup(t *testing.T) {
 		}
 
 		nextBackup, err := backups.GetNextBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
@@ -162,6 +165,7 @@ func TestBackupDelete(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -216,6 +220,7 @@ func TestBackupDirectoryPath(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid, time.Now().Unix(),
@@ -263,6 +268,7 @@ func TestBackupFilePath(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
@@ -311,6 +317,7 @@ func TestBackGetAndSetMaxPartSize(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid, time.Now().Unix(),
@@ -358,6 +365,7 @@ func TestBackupHash(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid, time.Now().Unix(),
@@ -405,6 +413,7 @@ func TestBackupKey(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
@@ -452,6 +461,7 @@ func TestBackupRun(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -470,6 +480,7 @@ func TestBackupRun(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -523,6 +534,7 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 				mock.DatabaseUuid,
 				mock.BranchUuid,
 				time.Now().Unix(),
+				database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 			)
@@ -535,12 +547,13 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
-			time.Sleep(100 * time.Nanosecond)
+			time.Sleep(250 * time.Nanosecond)
 
 			_, err := backups.Run(
 				mock.DatabaseUuid,
 				mock.BranchUuid,
 				time.Now().Unix(),
+				database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 			)
@@ -599,6 +612,7 @@ func TestBackupRunWithMultipleFiles(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			dfs,
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 			func(backup *backups.Backup) {
@@ -638,6 +652,7 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 
 		defer database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
 
+		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
 		checkpointer, err := database.Resources(mock.DatabaseUuid, mock.BranchUuid).Checkpointer()
 
 		if err != nil {
@@ -691,7 +706,7 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 			}
 		}
 
-		snapshots, err := backups.GetSnapshots(mock.DatabaseUuid, mock.BranchUuid)
+		snapshots, err := snapshotLogger.GetSnapshots()
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -704,23 +719,40 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 		}
 
 		if totalRestorePoints != 5 {
-			t.Errorf("expected 4 restore points, got %d", totalRestorePoints)
+			t.Fatalf("expected 4 restore points, got %d", totalRestorePoints)
 		}
 
-		snapshot, err := backups.GetSnapshot(mock.DatabaseUuid, mock.BranchUuid, snapshots[0].Timestamp)
+		timestamps := make([]int64, 0)
 
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
+		for _, s := range snapshots {
+			log.Println("Timestamp", s.Timestamp)
+			snapshot, err := snapshotLogger.GetSnapshot(s.Timestamp)
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			timestamps = append(timestamps, snapshot.RestorePoints.Data...)
+		}
+
+		if len(timestamps) != 5 {
+			t.Fatalf("expected %d restore points, got %d", 5, len(timestamps))
 		}
 
 		totalCount := 0
 
+		// Sort the timestamps from oldest to newest
+		sort.Slice(timestamps, func(i, j int) bool {
+			return timestamps[i] < timestamps[j]
+		})
+
 		// Create a backup for each restore point
-		for i, timestamp := range snapshot.RestorePoints.Data {
+		for i, timestamp := range timestamps {
 			backup, err := backups.Run(
 				mock.DatabaseUuid,
 				mock.BranchUuid,
 				timestamp,
+				snapshotLogger,
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 			)
@@ -801,6 +833,7 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 
 		defer database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
 
+		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
 		checkpointer, err := database.Resources(mock.DatabaseUuid, mock.BranchUuid).Checkpointer()
 
 		if err != nil {
@@ -856,7 +889,7 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 			}
 		}
 
-		snapshots, err := backups.GetSnapshots(mock.DatabaseUuid, mock.BranchUuid)
+		snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -872,7 +905,9 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 			t.Errorf("expected 18 restore points, got %d", totalRestorePoints)
 		}
 
-		snapshot, err := backups.GetSnapshot(mock.DatabaseUuid, mock.BranchUuid, snapshots[0].Timestamp)
+		keys := snapshotLogger.Keys()
+
+		snapshot, err := snapshotLogger.GetSnapshot(snapshots[keys[0]].Timestamp)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -884,6 +919,7 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 				mock.DatabaseUuid,
 				mock.BranchUuid,
 				timestamp,
+				database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 			)
@@ -965,6 +1001,7 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 
 		defer database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
 
+		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
 		checkpointer, err := database.Resources(mock.DatabaseUuid, mock.BranchUuid).Checkpointer()
 
 		if err != nil {
@@ -1018,7 +1055,7 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 			}
 		}
 
-		snapshots, err := backups.GetSnapshots(mock.DatabaseUuid, mock.BranchUuid)
+		snapshots, err := snapshotLogger.GetSnapshots()
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -1037,7 +1074,7 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 		timestamps := make([]int64, 0)
 
 		for _, s := range snapshots {
-			snapshot, err := backups.GetSnapshot(mock.DatabaseUuid, mock.BranchUuid, s.Timestamp)
+			snapshot, err := snapshotLogger.GetSnapshot(s.Timestamp)
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -1054,6 +1091,7 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 				mock.DatabaseUuid,
 				mock.BranchUuid,
 				timestamp,
+				database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 			)
@@ -1135,6 +1173,7 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 
 		defer database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
 
+		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
 		checkpointer, err := database.Resources(mock.DatabaseUuid, mock.BranchUuid).Checkpointer()
 
 		if err != nil {
@@ -1189,7 +1228,7 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 			}
 		}
 
-		snapshots, err := backups.GetSnapshots(mock.DatabaseUuid, mock.BranchUuid)
+		snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -1208,7 +1247,7 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 		timestamps := make([]int64, 0)
 
 		for _, s := range snapshots {
-			snapshot, err := backups.GetSnapshot(mock.DatabaseUuid, mock.BranchUuid, s.Timestamp)
+			snapshot, err := snapshotLogger.GetSnapshot(s.Timestamp)
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -1234,6 +1273,7 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 				mock.DatabaseUuid,
 				mock.BranchUuid,
 				timestamp,
+				database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 				database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 			)
@@ -1333,6 +1373,7 @@ func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Add(time.Hour).Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -1380,6 +1421,7 @@ func TestBackupRunWithInvalidPastRestorePoint(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Add(-time.Hour).Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -1398,7 +1440,174 @@ func TestBackupRunWithInvalidPastRestorePoint(t *testing.T) {
 	})
 }
 
-// TODO: Test writing to the database while a backup is running
+func TestBackupRunWithConcurrentWrites(t *testing.T) {
+	test.Run(t, func() {
+		mock := test.MockDatabase()
+
+		checkpointer, err := database.Resources(mock.DatabaseUuid, mock.BranchUuid).Checkpointer()
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		defer database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
+
+		// Create a test table
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(2) * time.Hour).Unix())
+
+		err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Create timestamps for the restore points that are one minue intervals
+		// that go back 60 minutes
+		timestamps := make([]int64, 0)
+
+		for i := 60; i > 0; i-- {
+			timestamps = append(timestamps, time.Now().Truncate(time.Hour).Add(-time.Duration(i)*time.Minute).Unix())
+		}
+
+		// var timestampChan = make(chan int64, len(timestamps))
+		var timestampChan = make(chan int64, 1)
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		// Run inserts into the database
+		go func() {
+			defer wg.Done()
+
+			for _, timestamp := range timestamps {
+				err = db.GetConnection().SqliteConnection().Begin()
+
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+
+				for j := 0; j < 1000; j++ {
+					_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", fmt.Sprintf("test-%d", j))
+
+					if err != nil {
+						t.Errorf("expected no error, got %v", err)
+					}
+				}
+
+				err = db.GetConnection().SqliteConnection().Commit()
+
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+
+				checkpointer.SetTimestamp(timestamp)
+
+				err = database.ConnectionManager().ForceCheckpoint(mock.DatabaseUuid, mock.BranchUuid)
+
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+
+				timestampChan <- timestamp
+			}
+
+			close(timestampChan)
+		}()
+
+		// Run backups and restores
+		go func() {
+			defer wg.Done()
+
+			for timestamp := range timestampChan {
+				backup, err := backups.Run(
+					mock.DatabaseUuid,
+					mock.BranchUuid,
+					timestamp,
+					database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
+					database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+					database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
+				)
+
+				if err != nil {
+					log.Println("Backup Timestmap", timestamp)
+					t.Errorf("expected no error, got %v", err)
+				}
+
+				if backup == nil {
+					continue
+				}
+
+				// Create a new database
+				newMock := test.MockDatabase()
+
+				// Restore the database
+				err = backups.RestoreFromBackup(
+					timestamp,
+					backup.Hash(),
+					mock.DatabaseUuid,
+					mock.BranchUuid,
+					newMock.DatabaseUuid,
+					newMock.BranchUuid,
+					database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
+					database.Resources(newMock.DatabaseUuid, newMock.BranchUuid).FileSystem(),
+				)
+
+				if err != nil {
+					if err == backups.BackupErrorNoRestorePoint {
+						continue
+					}
+
+					if err == backups.ErrorBackupRangeFileEmpty {
+						continue
+					}
+
+					t.Errorf("expected no error, got %v", err)
+				}
+
+				db, err := database.ConnectionManager().Get(newMock.DatabaseUuid, newMock.BranchUuid)
+
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+
+				// Check if the test table exists
+				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+
+				oldData, _ := database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem().FileSystem().ReadFile(
+					file.GetDatabaseFileBaseDir(mock.DatabaseUuid, mock.BranchUuid) + "/0000000001",
+				)
+
+				newData, _ := database.Resources(newMock.DatabaseUuid, newMock.BranchUuid).FileSystem().FileSystem().ReadFile(
+					file.GetDatabaseFileBaseDir(newMock.DatabaseUuid, newMock.BranchUuid) + "/0000000001",
+				)
+
+				if !bytes.Equal(oldData, newData) {
+					t.Errorf("expected %s, got %s", oldData, newData)
+				}
+
+				database.ConnectionManager().Release(newMock.DatabaseUuid, newMock.BranchUuid, db)
+			}
+		}()
+
+		wg.Wait()
+	})
+}
+
 func TestBackupRunContents(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
@@ -1474,6 +1683,7 @@ func TestBackupRunContents(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Truncate(time.Hour).Add(-time.Duration(1)*time.Minute).Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -1542,6 +1752,7 @@ func TestBackupSize(t *testing.T) {
 			mock.DatabaseUuid,
 			mock.BranchUuid,
 			time.Now().Unix(),
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).RollbackLogger(),
 		)
@@ -1584,6 +1795,7 @@ func TestBackupToMap(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger(),
 			database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem(),
 			mock.DatabaseUuid,
 			mock.BranchUuid,
