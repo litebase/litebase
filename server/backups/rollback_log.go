@@ -140,13 +140,14 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 	// Read the frame entry
 	data := make([]byte, RollbackFrameHeaderSize)
 
-	_, err := r.File.Seek(offset, io.SeekStart)
+	// _, err := r.File.Seek(offset, io.SeekStart)
 
-	if err != nil {
-		return err
-	}
+	// if err != nil {
+	// 	return err
+	// }
 
-	_, err = r.File.Read(data)
+	// _, err = r.File.Read(data)
+	_, err := r.File.ReadAt(data, offset)
 
 	if err != nil {
 		log.Println("Error reading frame entry:", err)
@@ -156,18 +157,23 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 	frame, err := DeserializeRollbackLogFrame(data)
 
 	if err != nil {
-		return err
+		log.Println("Error deserializing frame entry:", len(data))
+		// If we are unable to deserialize the frame entry, we should not
+		// continue with the commit operation. In fact the whole program should
+		// panic because this is a critical error. The rollback log is corrupted
+		// and we cannot continue.
+		log.Fatalln("Error deserializing frame entry:", err)
 	}
 
 	// Update the frame entry with the new offset
 	frame.Committed = 1
 	frame.Size = size
 
-	_, err = r.File.Seek(offset, io.SeekStart)
+	// _, err = r.File.Seek(offset, io.SeekStart)
 
-	if err != nil {
-		return err
-	}
+	// if err != nil {
+	// 	return err
+	// }
 
 	data, err = frame.Serialize()
 
@@ -175,7 +181,8 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 		return err
 	}
 
-	_, err = r.File.Write(data)
+	// _, err = r.File.Write(data)
+	_, err = r.File.WriteAt(data, offset)
 
 	return err
 }

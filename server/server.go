@@ -33,6 +33,9 @@ func NewServer() *ServerInstance {
 }
 
 func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
+	// TODO: Add TLS support using autocert or certmagic if this is a query node
+	// TODO: Wait until a primary node is elected before starting the server with TLS
+	// TODO: Ensure only the primary can renew the TLS certificate
 	port := os.Getenv("LITEBASE_PORT")
 	tlsCertPath := os.Getenv("LITEBASE_TLS_CERT_PATH")
 	tlsKeyPath := os.Getenv("LITEBASE_TLS_KEY_PATH")
@@ -81,11 +84,11 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
 
 	// Wait for a signal to shutdown the server
-	<-signalChannel
-
+	sig := <-signalChannel
+	log.Println("Received signal", sig)
 	node.Node().Shutdown()
-	s.Shutdown(node.Node().Context())
 
+	s.Shutdown(s.context)
 	// Wait for the server to shutdown
 	<-serverDone
 

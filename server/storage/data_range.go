@@ -20,7 +20,7 @@ that typically would not be possible with a single file.
 const (
 	DataRangeHeaderSize int64 = 100
 	DataRangeVersion    int32 = 1
-	DataRangeMaxPages   int64 = 1024
+	DataRangeMaxPages   int64 = 4096
 )
 
 type DataRange struct {
@@ -203,15 +203,7 @@ func (dr *DataRange) WriteAt(p []byte, pageNumber int64) (n int, err error) {
 
 	offset := file.PageRangeOffset(pageNumber, DataRangeMaxPages, dr.pageSize)
 
-	// Seek from the beginning of the data range file to the offset for the page
-	_, err = dr.file.Seek(offset, io.SeekStart)
-
-	if err != nil {
-		log.Println("Error seeking to start of data range file", err)
-		return 0, err
-	}
-
-	n, err = dr.file.Write(p)
+	n, err = dr.file.WriteAt(p, offset)
 
 	if err != nil {
 		log.Println("Error writing to data range file", err)

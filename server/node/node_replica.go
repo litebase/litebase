@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/auth"
 	"log"
 	"net/http"
+	"runtime"
 	"sync"
 	"time"
 
@@ -23,17 +25,19 @@ type NodeReplica struct {
 	databaseCheckpointer    NodeReplicaCheckpointer
 	databaseWalSynchronizer NodeDatabaseWalSynchronizer
 	Id                      string
+	node                    *NodeInstance
 	startMutex              *sync.RWMutex
 }
 
-func NewNodeReplica(databaseCheckpointer NodeReplicaCheckpointer, databaseWalSynchronizer NodeDatabaseWalSynchronizer) *NodeReplica {
+func NewNodeReplica(node *NodeInstance) *NodeReplica {
 	context, cancel := context.WithCancel(context.Background())
 
 	replica := &NodeReplica{
 		cancel:                  cancel,
 		context:                 context,
-		databaseCheckpointer:    databaseCheckpointer,
-		databaseWalSynchronizer: databaseWalSynchronizer,
+		databaseCheckpointer:    node.databaseCheckpointer,
+		databaseWalSynchronizer: node.databaseWalSynchronizer,
+		node:                    node,
 		startMutex:              &sync.RWMutex{},
 	}
 
@@ -88,6 +92,8 @@ func (nr *NodeReplica) HandleMessage(message NodeMessage) (NodeMessage, error) {
 
 func (nr *NodeReplica) handleBroadcastMessage(message NodeMessage) error {
 	switch message.Type {
+	case "HeartbeatMessage":
+		Node().PrimaryHeartbeat = time.Now()
 	case "WALCheckpointMessage":
 		err := nr.databaseCheckpointer.CheckpointReplica(
 			message.Data.(WALCheckpointMessage).DatabaseUuid,
@@ -121,6 +127,100 @@ func (nr *NodeReplica) handleBroadcastMessage(message NodeMessage) error {
 			log.Println("Failed to sync WAL data: ", err)
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (nr *NodeReplica) JoinCluster() error {
+	httpClient := &http.Client{
+		Timeout: 3 * time.Second,
+	}
+
+	url := fmt.Sprintf("http://%s/cluster/members", nr.node.PrimaryAddress())
+
+	data := map[string]string{
+		"address": Node().Address(),
+		"group":   config.Get().NodeType,
+	}
+
+	jsonData, err := json.Marshal(data)
+
+	if err != nil {
+		return err
+	}
+
+	request, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+
+	if err != nil {
+		log.Println("Failed to join cluster: ", err)
+		return err
+	}
+
+	encryptedHeader, err := auth.SecretsManager().Encrypt(
+		config.Get().Signature,
+		nr.node.Address(),
+	)
+
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	request.Header.Set("X-Lbdb-Node", encryptedHeader)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := httpClient.Do(request)
+
+	if err != nil {
+		log.Println("Failed to join cluster: ", err)
+		return err
+	}
+
+	if response.StatusCode >= 400 {
+		return errors.New("failed to join cluster")
+	}
+
+	log.Println("Joined cluster")
+
+	return nil
+}
+
+func (nr *NodeReplica) LeaveCluster() error {
+	httpClient := &http.Client{
+		Timeout: 3 * time.Second,
+	}
+
+	if nr.node.primaryAddress == "" {
+		return nil
+	}
+
+	url := fmt.Sprintf("http://%s/cluster/members/%s", nr.node.primaryAddress, nr.node.Address())
+
+	request, err := http.NewRequest("DELETE", url, nil)
+
+	if err != nil {
+		log.Println("Failed to leave cluster: ", err)
+		return err
+	}
+
+	encryptedHeader, err := auth.SecretsManager().Encrypt(
+		config.Get().Signature,
+		nr.node.Address(),
+	)
+
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	request.Header.Set("X-Lbdb-Node", encryptedHeader)
+
+	_, err = httpClient.Do(request)
+
+	if err != nil {
+		log.Println("Failed to leave cluster: ", err)
+		return err
 	}
 
 	return nil
@@ -175,6 +275,7 @@ func (nr *NodeReplica) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 
 	if response.StatusCode >= 400 {
 		log.Println("Failed to send message: ", response.Status)
+		runtime.Stack(nil, true)
 		return NodeMessage{}, errors.New("failed to send message")
 	}
 

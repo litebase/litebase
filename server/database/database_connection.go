@@ -135,11 +135,12 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 			to 3 seconds. This will allow clients to wait for a lock to be
 			released before returning an error.
 		*/
-		"PRAGMA busy_timeout = 3000",
+		"PRAGMA busy_timeout = 5000",
 		/*
 			The amount of cache that SQLite will use is set to -2000000. This
 			will allow SQLite to use as much memory as it needs for caching.
 		*/
+		// "PRAGMA cache_size = 0",
 		"PRAGMA cache_size = -2000000",
 		/*
 			PRAGMA secure_delete will ensure that data is securely deleted from
@@ -181,8 +182,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 	if err != nil {
 		return err
 	}
-
-	_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) {
+	_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) error {
 		if result.Result != 0 {
 			log.Println("Error checkpointing database", err)
 		} else {
@@ -190,10 +190,13 @@ func (con *DatabaseConnection) Checkpoint() error {
 
 			if err != nil {
 				log.Println("Error checkpointing database", err)
+				return err
 			} else {
 				// log.Println("Successful database checkpoint")
 			}
 		}
+
+		return nil
 	})
 
 	if err != nil {

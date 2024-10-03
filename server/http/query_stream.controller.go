@@ -50,18 +50,18 @@ func QueryStreamController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {
-			w.Header().Set("Transfer-Encoding", "chunked")
 			w.Header().Set("Connection", "close")
 			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("Transfer-Encoding", "chunked")
 
 			defer request.BaseRequest.Body.Close()
 
-			scanner := bufio.NewScanner(request.BaseRequest.Body)
 			ctx, cancel := context.WithCancel(context.Background())
+			scanner := bufio.NewScanner(request.BaseRequest.Body)
 			writer := make(chan *bytes.Buffer, 1)
 
-			go read(cancel, scanner, databaseKey, accessKey, writer)
-			go write(ctx, w, writer)
+			go readQueryStream(cancel, scanner, databaseKey, accessKey, writer)
+			go writeQueryStream(ctx, w, writer)
 
 			<-ctx.Done()
 		},
@@ -92,7 +92,7 @@ func processInput(
 	return nil
 }
 
-func read(
+func readQueryStream(
 	cancel context.CancelFunc,
 	scanner *bufio.Scanner,
 	databaseKey *database.DatabaseKey,
@@ -101,11 +101,17 @@ func read(
 ) {
 	errorBuffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(errorBuffer)
+
 	errorBuffer.Reset()
 
 	for {
+		if err := scanner.Err(); err != nil {
+			break
+		}
+
 		if scanner.Scan() {
 			if err := scanner.Err(); err != nil {
+				errorBuffer.WriteString(err.Error())
 				writer <- errorBuffer
 				break
 			}
@@ -113,6 +119,7 @@ func read(
 			errorBuffer.Reset()
 
 			if err := scanner.Err(); err != nil {
+				errorBuffer.WriteString(err.Error())
 				writer <- errorBuffer
 				break
 			}
@@ -122,9 +129,7 @@ func read(
 			scanBuffer.Write(scanner.Bytes())
 
 			go scan(databaseKey, accessKey, scanBuffer, writer)
-		}
-
-		if err := scanner.Err(); err != nil {
+		} else {
 			break
 		}
 	}
@@ -206,7 +211,11 @@ func scan(databaseKey *database.DatabaseKey,
 
 // TODO: Implement a write function to handle writing responses to the client
 // So that we can buffer more than one response before sending it to the client
-func write(ctx context.Context, w http.ResponseWriter, writer chan *bytes.Buffer) {
+func writeQueryStream(
+	ctx context.Context,
+	w http.ResponseWriter,
+	writer chan *bytes.Buffer,
+) {
 	// TODO: detect the different client connections that have inflight requests
 	// and do a best effort to buffer the writes to send as many as possible at
 	// once instead of sending one at a time.
@@ -219,7 +228,6 @@ func write(ctx context.Context, w http.ResponseWriter, writer chan *bytes.Buffer
 			w.(http.Flusher).Flush()
 
 			bufferPool.Put(buffer)
-			// 	time.Sleep(QueryStreamFlushInterval)
 		}
 	}
 }

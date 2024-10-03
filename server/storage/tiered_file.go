@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	internalStorage "litebase/internal/storage"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -44,6 +45,14 @@ type TieredFile struct {
 		Used to identify the File in the durable storage and local storage.
 	*/
 	Key string
+
+	/*
+		Mutex is a pointer to a sync.Mutex that is used to lock the file when
+		reading or writing to the file. This is used to prevent multiple
+		concurrent operations from occurring at the same time.
+	*/
+	mutex *sync.Mutex
+
 	/*
 		The pointer to the FileSystemDriver that created the File.
 	*/
@@ -75,6 +84,7 @@ func NewTieredFile(
 		File:                   file,
 		Flag:                   flag,
 		Key:                    key,
+		mutex:                  &sync.Mutex{},
 		tieredFileSystemDriver: tieredFileSystemDriver,
 		UpdatedAt:              time.Time{},
 		WrittenAt:              time.Time{},

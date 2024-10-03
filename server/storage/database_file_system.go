@@ -3,8 +3,6 @@ package storage
 import internalStorage "litebase/internal/storage"
 
 type DatabaseFileSystem interface {
-	Delete(path string) error
-	Exists() bool
 	FileSystem() *FileSystem
 	Open(path string) (internalStorage.File, error)
 	Metadata() *DatabaseMetadata
@@ -15,7 +13,6 @@ type DatabaseFileSystem interface {
 	Shutdown() error
 	Size(path string) (int64, error)
 	Truncate(path string, size int64) error
-	WalPath(path string) string
 	WriteAt(path string, data []byte, offset int64) (int, error)
 	WriteHook(offset int64, data []byte)
 }

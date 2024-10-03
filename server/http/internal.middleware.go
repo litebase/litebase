@@ -3,7 +3,7 @@ package http
 import (
 	"litebase/internal/config"
 	"litebase/server/auth"
-	"litebase/server/node"
+	"litebase/server/cluster"
 	"log"
 )
 
@@ -26,7 +26,7 @@ func Internal(request *Request) (*Request, Response) {
 		nodeIp = nodeIpDecrypted["value"]
 	}
 
-	if nodeIp == "" || !node.Has(nodeIp) {
+	if nodeIp == "" || !cluster.Get().IsMember(nodeIp) {
 		log.Println("Unauthorized node connection attempt: ", nodeIp)
 
 		return request, Response{

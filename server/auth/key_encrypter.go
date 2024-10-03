@@ -178,6 +178,5 @@ func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
 			k.publicKey, err = GetPublicKey(k.signature)
 		}
 	}
-
 	return k.publicKey, err
 }

@@ -4,17 +4,9 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
-	"litebase/internal/test/minio"
 	"litebase/server/storage"
-	"os"
 	"testing"
 )
-
-func TestMain(m *testing.M) {
-	minio.SetupObjectStorage(m, func() {
-		os.Exit(m.Run())
-	})
-}
 
 func TestNewS3Client(t *testing.T) {
 	test.RunWithObjectStorage(t, func() {
@@ -288,21 +280,21 @@ func TestS3ListObjectsV2WithPaginator(t *testing.T) {
 		})
 
 		for paginator.HasMorePages() {
-			page, err := paginator.NextPage()
+			response, err := paginator.NextPage()
 
 			if err != nil {
 				t.Errorf("NextPage() returned an error: %v", err)
 			}
 
-			if len(page.Contents) == 0 {
+			if len(response.ListBucketResult.Contents) == 0 {
 				break
 			}
 
-			if len(page.Contents) > 10 {
-				t.Errorf("NextPage() returned unexpected number of objects: %d", len(page.Contents))
+			if len(response.ListBucketResult.Contents) > 10 {
+				t.Errorf("NextPage() returned unexpected number of objects: %d", len(response.ListBucketResult.Contents))
 			}
 
-			for _, object := range page.Contents {
+			for _, object := range response.ListBucketResult.Contents {
 				if _, ok := files[object.Key]; ok {
 					files[object.Key] = true
 				}

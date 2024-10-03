@@ -7,6 +7,7 @@ import (
 	"litebase/internal/config"
 	"litebase/server/storage"
 	"math/rand"
+	"os"
 	"slices"
 	"sync"
 	"time"
@@ -36,6 +37,10 @@ func (akm *AccessKeyManagerInstance) AllAccessKeyIds() ([]string, error) {
 	files, err := storage.ObjectFS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys/"))
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+
 		return nil, err
 	}
 
@@ -78,10 +83,12 @@ func (akm *AccessKeyManagerInstance) Create() (*AccessKey, error) {
 func (akm *AccessKeyManagerInstance) GenerateAccessKeyId() (string, error) {
 	akm.mutex.Lock()
 	defer akm.mutex.Unlock()
+
 	var (
 		rounds    = 0
 		maxRounds = 100
 	)
+
 	prefix := "lbdbak_"
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	var accessKeyId string

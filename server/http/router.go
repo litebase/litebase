@@ -94,11 +94,6 @@ func (router *RouterInstance) Server(serveMux *http.ServeMux) {
 					return
 				}
 
-				if response.StatusCode >= 400 {
-					w.WriteHeader(response.StatusCode)
-					return
-				}
-
 				if response.Stream != nil {
 					response.Stream(w)
 					return

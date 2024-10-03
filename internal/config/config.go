@@ -8,6 +8,19 @@ import (
 	"os"
 )
 
+const (
+	ENV_DEVELOPMENT = "development"
+	ENV_PRODUCTION  = "production"
+	ENV_TEST        = "test"
+
+	NODE_TYPE_QUERY   = "query"
+	NODE_TYPE_STORAGE = "storage"
+
+	STORAGE_MODE_DISTRIBUTED = "distributed"
+	STORAGE_MODE_LOCAL       = "local"
+	STORAGE_MODE_OBJECT      = "object"
+)
+
 type Config struct {
 	ClusterId            string
 	DataPath             string
@@ -16,6 +29,7 @@ type Config struct {
 	DefaultBranchName    string
 	Env                  string
 	FileSystemDriver     string
+	NodeType             string
 	PageSize             int64
 	Port                 string
 	Region               string
@@ -28,8 +42,9 @@ type Config struct {
 	StorageBucket        string
 	StorageEndpoint      string
 	StorageRegion        string
-	StorageMode          string
+	StorageObjectMode    string
 	StoragePort          string
+	StorageTieredMode    string
 	TmpPath              string
 }
 
@@ -55,8 +70,8 @@ func NewConfig() *Config {
 		DataPath:             env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:    env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		Env:                  env("LITEBASE_ENV", "production").(string),
-		FileSystemDriver:     env("LITEBASE_FILESYSTEM_DRIVER", "local").(string),
 		Debug:                env("LITEBASE_DEBUG", "false") == "true",
+		NodeType:             env("LITEBASE_NODE_TYPE", NODE_TYPE_QUERY).(string),
 		PageSize:             4096,
 		Port:                 env("LITEBASE_PORT", "8080").(string),
 		Region:               env("LITEBASE_REGION", "").(string),
@@ -68,7 +83,8 @@ func NewConfig() *Config {
 		StorageBucket:        env("LITEBASE_STORAGE_BUCKET", "").(string),
 		StorageEndpoint:      env("LITEBASE_STORAGE_ENDPOINT", "").(string),
 		StorageRegion:        env("LITEBASE_STORAGE_REGION", "").(string),
-		StorageMode:          env("LITEBASE_STORAGE_MODE", "local").(string),
+		StorageObjectMode:    env("LITEBASE_STORAGE_OBJECT_MODE", "local").(string),
+		StorageTieredMode:    env("LITEBASE_STORAGE_TIERED_MODE", "local").(string),
 		TmpPath:              env("LITEBASE_TMP_PATH", "").(string),
 	}
 

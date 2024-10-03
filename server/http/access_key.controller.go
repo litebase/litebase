@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"litebase/server/auth"
 	"log"
 )
@@ -36,7 +37,7 @@ func AccessKeyControllerStore(request *Request) Response {
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
 			"status":  "error",
-			"message": "Access key could not be created",
+			"message": fmt.Sprintf("Access key could not be created: %s", err.Error()),
 		}, 500, nil)
 	}
 

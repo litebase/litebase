@@ -55,14 +55,11 @@ func TestInitWithNewSignature(t *testing.T) {
 func TestInitWithNoSignature(t *testing.T) {
 	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 
-	// We should get a panic if there is no signature
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("The code did not panic")
-		}
-	}()
+	err := config.Init()
 
-	config.Init()
+	if err != nil {
+		t.Fatalf("The error was not nil")
+	}
 
 	test.Teardown()
 }

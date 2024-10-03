@@ -181,7 +181,7 @@ func (q *QueryLog) Flush() {
 	err := file.Sync()
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 }
 

@@ -20,8 +20,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 )
 
 type S3Client struct {
@@ -32,7 +30,6 @@ type S3Client struct {
 	httpClient      http.Client
 	region          string
 	secretAccessKey string
-	signer          *v4.Signer
 }
 
 type Delete struct {
@@ -58,7 +55,6 @@ func NewS3Client(bucket string, region string) *S3Client {
 		endpoint:        config.Get().StorageEndpoint,
 		region:          region,
 		secretAccessKey: os.Getenv("LITEBASE_STORAGE_SECRET_ACCESS_KEY"),
-		signer:          v4.NewSigner(),
 	}
 
 	client.httpClient = http.Client{}
@@ -514,16 +510,18 @@ func (s3 *S3Client) HeadObject(key string) (HeadObjectResponse, error) {
 func (s3 *S3Client) ListObjectsV2(input ListObjectsV2Input) (ListObjectsV2Response, error) {
 	url := s3.url("") + "?list-type=2"
 
-	if input.Delimiter != "" {
-		url += "&delimiter=" + input.Delimiter
-	}
-
 	if input.MaxKeys != 0 {
 		url += "&max-keys=" + strconv.Itoa(input.MaxKeys)
 	}
 
 	if input.Prefix != "" {
 		url += "&prefix=" + input.Prefix
+
+		if input.Delimiter != "" {
+			url += "&delimiter=" + input.Delimiter
+		}
+	} else {
+		url += "&prefix=/"
 	}
 
 	if input.ContinuationToken != "" {

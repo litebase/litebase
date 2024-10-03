@@ -2,6 +2,7 @@ package storage
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -15,20 +16,21 @@ import (
 type ObjectFile struct {
 	client         *S3Client
 	Data           []byte
-	FileInfo       *ObjectFileInfo
+	FileInfo       StaticFileInfo
 	Key            string
 	OpenFlags      int
+	readPos        int
 	Sha256Checksum [32]byte
 }
 
 func NewObjectFile(client *S3Client, key string, openFlags int) *ObjectFile {
 	return &ObjectFile{
 		client: client,
-		Data:   []byte{},
-		FileInfo: &ObjectFileInfo{
-			name:    key,
-			size:    0,
-			modTime: time.Now(),
+		Data:   nil,
+		FileInfo: StaticFileInfo{
+			StaticName:    key,
+			StaticSize:    0,
+			StaticModTime: time.Now(),
 		},
 		Key:            key,
 		OpenFlags:      openFlags,
@@ -66,13 +68,33 @@ func (o *ObjectFile) Close() error {
 
 // Read bytes from the file.
 func (o *ObjectFile) Read(p []byte) (n int, err error) {
-	if len(o.Data) == 0 {
-		return 0, io.EOF
+	if o.Data == nil {
+		response, err := o.client.GetObject(o.Key)
+
+		if err != nil {
+			return 0, err
+		}
+
+		if len(response.Data) == 0 {
+			return 0, io.EOF
+		}
+
+		o.Data, err = s2.Decode(nil, response.Data)
+
+		if err != nil {
+			log.Println("Error decoding file", err)
+			return 0, err
+		}
+
+		// Reset read position after fetching new data
+		o.readPos = 0
 	}
 
-	n = copy(p, o.Data)
+	n = copy(p, o.Data[o.readPos:])
 
-	if n < len(o.Data) {
+	o.readPos += n
+
+	if o.readPos >= len(o.Data) {
 		err = io.EOF
 	}
 
@@ -98,29 +120,30 @@ func (o *ObjectFile) Seek(offset int64, whence int) (int64, error) {
 	if len(o.Data) == 0 {
 		return 0, io.EOF
 	}
-
 	switch whence {
 	case io.SeekStart:
-		if offset > int64(len(o.Data)) {
+		if offset < 0 || offset > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
-
+		o.readPos = int(offset)
 		return offset, nil
 	case io.SeekCurrent:
-		if offset+int64(len(o.Data)) > int64(len(o.Data)) {
+		newPos := int64(o.readPos) + offset
+		if newPos < 0 || newPos > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
-
-		return offset + int64(len(o.Data)), nil
+		o.readPos = int(newPos)
+		return newPos, nil
 	case io.SeekEnd:
-		if offset+int64(len(o.Data)) > int64(len(o.Data)) {
+		newPos := int64(len(o.Data)) + offset
+		if newPos < 0 || newPos > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
-
-		return offset + int64(len(o.Data)), nil
+		o.readPos = int(newPos)
+		return newPos, nil
+	default:
+		return 0, fmt.Errorf("invalid whence: %d", whence)
 	}
-
-	return 0, nil
 }
 
 // Return stats about the file.
@@ -194,8 +217,6 @@ func (o *ObjectFile) Write(p []byte) (n int, err error) {
 
 	o.Data = append(o.Data, p...)
 
-	o.Sha256Checksum = sha256.Sum256(o.Data)
-
 	return len(p), nil
 }
 
@@ -210,8 +231,6 @@ func (o *ObjectFile) WriteAt(p []byte, off int64) (n int, err error) {
 
 	o.Data = append(o.Data[:off], p...)
 
-	o.Sha256Checksum = sha256.Sum256(o.Data)
-
 	return len(p), nil
 }
 
@@ -225,8 +244,6 @@ func (o *ObjectFile) WriteTo(w io.Writer) (n int64, err error) {
 	if err != nil {
 		return 0, err
 	}
-
-	o.Sha256Checksum = sha256.Sum256(o.Data)
 
 	return int64(bytesWritten), nil
 }

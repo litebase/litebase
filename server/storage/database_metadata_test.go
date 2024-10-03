@@ -2,6 +2,7 @@ package storage_test
 
 import (
 	"fmt"
+	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server/file"
 	"litebase/server/storage"
@@ -14,7 +15,7 @@ func TestNewDatabaseMetadata(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,
@@ -54,7 +55,7 @@ func TestDatabaseMetadataClose(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,
@@ -80,7 +81,7 @@ func TestDatabaseMetadataFile(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,
@@ -114,7 +115,7 @@ func TestDatabaseMetadataFileSize(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,
@@ -144,7 +145,7 @@ func TestDatabaseMetadataLoad(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,
@@ -194,7 +195,7 @@ func TestDatabaseMetadataPath(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,
@@ -220,7 +221,7 @@ func TestDatabaseMetadataSave(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,
@@ -266,7 +267,7 @@ func TestDatabaseMetadataSetPageCount(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
-			"local",
+			config.STORAGE_MODE_LOCAL,
 			mockDatabase.DatabaseUuid,
 			mockDatabase.BranchUuid,
 			4096,

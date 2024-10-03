@@ -27,7 +27,7 @@ func TestNewObjectFile(t *testing.T) {
 			t.Errorf("Key is unexpected: %v", of.Key)
 		}
 
-		if of.FileInfo == nil {
+		if of.FileInfo == (storage.StaticFileInfo{}) {
 			t.Error("FileInfo is nil")
 		}
 
@@ -99,6 +99,12 @@ func TestObjectFileRead(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
+			err := storage.ObjectFS().WriteFile(key, []byte{}, 0644)
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
 			of := storage.NewObjectFile(client, key, openFlags)
 
 			buf := make([]byte, 10)
@@ -116,15 +122,20 @@ func TestObjectFileRead(t *testing.T) {
 		t.Run("with data", func(t *testing.T) {
 			client := storage.NewS3Client(config.Get().StorageBucket, config.Get().StorageRegion)
 			key := "test.txt"
-			openFlags := 0
+			openFlags := 0644
+
+			err := storage.ObjectFS().WriteFile(key, []byte("test data"), 0644)
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
 
 			of := storage.NewObjectFile(client, key, openFlags)
-			of.Data = []byte("test data")
 
 			buf := make([]byte, 10)
 			n, err := of.Read(buf)
 
-			if err != nil {
+			if err != nil && err != io.EOF {
 				t.Errorf("unexpected error: %v", err)
 			}
 

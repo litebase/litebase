@@ -66,8 +66,8 @@ func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 	startOfHour := time.Unix(int64(timestamp), 0)
 	startOfHourTimestamp := startOfHour.Truncate(time.Hour).Unix()
 
-	if log, ok := rl.logs[startOfHourTimestamp]; ok {
-		return log, nil
+	if l, ok := rl.logs[startOfHourTimestamp]; ok {
+		return l, nil
 	}
 
 	rollbackLog, err := OpenRollbackLog(rl.DatabaseUuid, rl.BranchUuid, startOfHourTimestamp)
@@ -77,9 +77,9 @@ func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 		return nil, err
 	}
 
-	rl.logs[timestamp] = rollbackLog
+	rl.logs[startOfHourTimestamp] = rollbackLog
 
-	return rl.logs[timestamp], nil
+	return rl.logs[startOfHourTimestamp], nil
 }
 
 func (rl *RollbackLogger) Log(pageNumber, timestamp int64, data []byte) (size int64, err error) {

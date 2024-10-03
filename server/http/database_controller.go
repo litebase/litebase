@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/database"
+	"log"
 )
 
 type DatabaseStoreRequest struct {
@@ -25,9 +26,16 @@ func DatabaseIndexController(request *Request) Response {
 }
 
 func DatabaseShowController(request *Request) Response {
-	db, err := database.Get(request.Param("database_id"))
+	database_id := request.Param("database_id")
+
+	if database_id == "" {
+		return BadRequestResponse(fmt.Errorf("a valid database_id is required"))
+	}
+
+	db, err := database.Get(database_id)
 
 	if err != nil {
+		log.Println(err)
 		return BadRequestResponse(err)
 	}
 
@@ -42,14 +50,16 @@ func DatabaseStoreController(request *Request) Response {
 	input, err := request.Input(&DatabaseStoreRequest{})
 
 	if err != nil {
+		log.Println(err)
 		return BadRequestResponse(err)
 	}
 
-	validationErrors := request.Validate(&DatabaseStoreRequest{}, map[string]string{
+	validationErrors := request.Validate(input, map[string]string{
 		"name.required": "The name field is required.",
 	})
 
 	if validationErrors != nil {
+		log.Println(validationErrors)
 		return ValidationErrorResponse(validationErrors)
 	}
 

@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"fmt"
 	"litebase/server"
 	"litebase/server/database"
@@ -12,8 +11,6 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
-	mclient "github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 var envDataPath string
@@ -56,6 +53,8 @@ func Setup(t testing.TB, callbacks ...func()) {
 	if t != nil && err != nil {
 		t.Fail()
 	}
+
+	node.Node().Start()
 }
 
 func Teardown(callbacks ...func()) {
@@ -84,31 +83,8 @@ func RunWithObjectStorage(t testing.TB, callback func()) {
 	// Setup the environment
 	Setup(t, func() {
 		bucketName := CreateHash(32)
-		t.Setenv("LITEBASE_STORAGE_MODE", "object")
+		t.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
 		t.Setenv("LITEBASE_STORAGE_BUCKET", bucketName)
-
-		if host := os.Getenv("LITEBASE_STORAGE_HOST"); host == "" {
-			log.Fatal("LITEBASE_STORAGE_HOST is not set")
-		}
-
-		mc, err := mclient.New(os.Getenv("LITEBASE_STORAGE_HOST"), &mclient.Options{
-			Creds:  credentials.NewStaticV4(os.Getenv("MINIO_ROOT_USER"), os.Getenv("MINIO_ROOT_PASSWORD"), ""),
-			Secure: false,
-		})
-
-		if err != nil {
-			log.Fatal("Error creating Minio client", err)
-		}
-
-		err = mc.MakeBucket(
-			context.Background(),
-			os.Getenv("LITEBASE_STORAGE_BUCKET"),
-			mclient.MakeBucketOptions{},
-		)
-
-		if err != nil {
-			log.Fatal("Error creating bucket", err)
-		}
 	})
 
 	// Run the test

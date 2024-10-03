@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+const (
+	DefaultWriteInterval = 10 * time.Second
+)
+
 /*
 Data in this driver is stored locally on disk then eventually pushed up to
 durable storage with S3 compatability. This provides fast read access
@@ -58,7 +62,7 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 		MaxFilesOpened:          TieredFileSystemMaxOpenFiles,
 		mutex:                   &sync.RWMutex{},
 		durableFileSystemDriver: durableFileSystemDriver,
-		WriteInterval:           1 * time.Second,
+		WriteInterval:           DefaultWriteInterval,
 	}
 
 	if len(f) > 0 {
@@ -182,6 +186,8 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 		return
 	}
 
+	file.mutex.Lock()
+
 	_, err := file.File.Seek(0, io.SeekStart)
 
 	if err != nil {
@@ -213,6 +219,8 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 
 	// Update the last written time to indicate the file is synced
 	file.WrittenAt = time.Now()
+
+	file.mutex.Unlock()
 }
 
 func (fsd *TieredFileSystemDriver) GetLocalFile(path string) (*TieredFile, bool) {

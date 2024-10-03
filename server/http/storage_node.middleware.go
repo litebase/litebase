@@ -1,0 +1,22 @@
+package http
+
+import (
+	"litebase/internal/config"
+)
+
+/*
+This middleware function checks if the node is a query node.
+If it is not, it returns a 400 status code with a message.
+*/
+func StorageNode(request *Request) (*Request, Response) {
+	if config.Get().NodeType != config.NODE_TYPE_STORAGE {
+		return request, Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"message": "This type of request can only be perfomed on a storage node",
+			},
+		}
+	}
+
+	return request, Response{}
+}

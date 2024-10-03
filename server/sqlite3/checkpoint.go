@@ -15,7 +15,7 @@ type CheckpointResult struct {
 	Result                int
 }
 
-func Checkpoint(db *C.sqlite3, checkpointHook func(CheckpointResult)) (CheckpointResult, error) {
+func Checkpoint(db *C.sqlite3, checkpointHook func(CheckpointResult) error) (CheckpointResult, error) {
 	var pWalLogSize, pNumFramesCheckpointed C.int
 
 	res := C.sqlite3_wal_checkpoint_v2(
@@ -36,7 +36,5 @@ func Checkpoint(db *C.sqlite3, checkpointHook func(CheckpointResult)) (Checkpoin
 		Result:                int(res),
 	}
 
-	checkpointHook(result)
-
-	return result, nil
+	return result, checkpointHook(result)
 }

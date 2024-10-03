@@ -4,70 +4,53 @@
 package storage
 
 import (
-	"context"
 	"fmt"
-	"litebase/internal/config"
 	"log"
+	"net"
+	"net/http/httptest"
 	"os"
-	"os/exec"
-	"syscall"
+
+	"github.com/johannesboyne/gofakes3"
+	"github.com/johannesboyne/gofakes3/backend/s3afero"
+	"github.com/spf13/afero"
 )
 
-var minioCmd *exec.Cmd
-var minioCmdCtx context.Context
-var minioCmdCancel context.CancelFunc
+var s3Server *httptest.Server
 
 func StartTestS3Server() {
-	minioCmdCtx, minioCmdCancel = context.WithCancel(context.Background())
-	clusterId := config.Get().ClusterId
-
-	if clusterId == "" {
-		panic("cluster id is required to create a test s3 server")
-	}
-
-	storageDirectory := fmt.Sprintf("%s/_object_storage", config.Get().DataPath)
-
-	err := os.MkdirAll(storageDirectory, 0755)
+	backend, err := s3afero.MultiBucket(
+		afero.NewBasePathFs(
+			afero.NewOsFs(),
+			fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")),
+		),
+	)
 
 	if err != nil {
-		log.Fatalf("failed to create bucket directory, %v", err)
+		log.Fatalf("failed to create test s3 server, %v", err)
 	}
 
-	// Start the MinIO server as a separate process
-	minioCmd = exec.CommandContext(minioCmdCtx, "minio", "server", storageDirectory, "--address", ":9000") // "--quiet"
+	faker := gofakes3.New(backend)
+	s3Server = httptest.NewUnstartedServer(faker.Server())
 
-	// Redirect i/o
-	minioCmd.Stdout = os.Stdout
-	minioCmd.Stderr = os.Stderr
+	listener, err := net.Listen("tcp", ":9000")
 
-	// Ignore signals in the command process
-	minioCmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-
-	err = minioCmd.Start()
 	if err != nil {
-		log.Fatalf("failed to start minio server, %v", err)
+		log.Printf("failed to create test s3 server, %v", err)
+
+		return
 	}
+
+	s3Server.Listener = listener
+
+	s3Server.Start()
 
 	// Ensure the bucket exists
 	ObjectFS().Driver().(*ObjectFileSystemDriver).EnsureBucketExists()
+
+	log.Println("Started test s3 server")
 }
 
 func StopTestS3Server() {
-	if minioCmd != nil {
-		minioCmdCancel()
-
-		// minioCmd.Process.Signal(syscall.SIGKILL)
-
-		// log.Println("Stopping test s3 server")
-		// err := minioCmd.Process.Kill()
-
-		// if err != nil {
-		// 	log.Fatalf("failed to stop minio server, %v", err)
-		// }
-
-		log.Println("Stopped test s3 server")
-	}
+	s3Server.Close()
+	log.Println("Stopped test s3 server")
 }

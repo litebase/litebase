@@ -126,7 +126,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	databaseGroup, ok := c.databases[databaseUuid]
 
 	if !ok {
-		defer c.mutex.Unlock()
+		c.mutex.Unlock()
 
 		return drained()
 	}
@@ -138,7 +138,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	_, ok = databaseGroup.branches[branchUuid]
 
 	if !ok {
-		defer c.mutex.Unlock()
+		c.mutex.Unlock()
 
 		return drained()
 	}
@@ -430,7 +430,6 @@ func (c *ConnectionManagerInstance) Shutdown() {
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
 	// Stop connection ticker
 	if c.connectionTicker != nil {
 		c.connectionTicker.Stop()

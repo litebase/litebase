@@ -8,6 +8,7 @@ import (
 	"io"
 	"litebase/internal/config"
 	"litebase/server/auth"
+	"litebase/server/cluster"
 	"litebase/server/storage"
 	"log"
 	"net/http"
@@ -254,54 +255,27 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 	// return NodeMessage{}
 }
 
-// func (np *NodePrimary) OpenConnection(w http.ResponseWriter, r *http.Request) error {
-// 	connection := NewNodeReplicaConnection(np.queryBuilder, w, r)
-
-// 	id, err := connection.Open()
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	np.mutex.Lock()
-
-// 	if _, ok := np.connections[id]; ok {
-// 		np.connections[id].Close()
-// 	}
-
-// 	np.connections[id] = connection
-// 	np.mutex.Unlock()
-
-// 	connection.confirmConnection()
-
-// 	log.Println("Connection opened: ", id)
-
-// 	connection.listen()
-
-// 	np.mutex.Lock()
-// 	delete(np.connections, id)
-// 	np.mutex.Unlock()
-
-// 	return nil
-// }
+func (np *NodePrimary) Heartbeat() error {
+	return np.Publish(NodeMessage{
+		Id:   "broadcast",
+		Type: "HeartbeatMessage",
+	})
+}
 
 func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 	np.mutex.RLock()
 	defer np.mutex.RUnlock()
+	var nodes []*NodeIdentifier
 
-	nodes := OtherNodes()
+	if config.Get().NodeType == config.NODE_TYPE_QUERY {
+		nodes = OtherQueryNodes()
+	} else if config.Get().NodeType == config.NODE_TYPE_STORAGE {
+		nodes = OtherStorageNodes()
+	}
 
 	if len(nodes) == 0 {
 		return nil
 	}
-
-	// for _, connection := range np.connections {
-	// 	err := connection.Send(nodeMessage)
-
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)
@@ -348,6 +322,7 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 
 			if err != nil {
 				log.Println("Failed to send message: ", err)
+				cluster.Get().RemoveMember(node.String())
 				return
 			}
 

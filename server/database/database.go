@@ -155,6 +155,7 @@ func Get(databaseUuid string) (*Database, error) {
 	}
 
 	path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseUuid)
+
 	file, err := storage.ObjectFS().Open(path)
 
 	if err != nil {

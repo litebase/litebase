@@ -52,9 +52,9 @@ func (p *ListObjectsV2Paginator) HasMorePages() bool {
 	return p.isTruncated
 }
 
-func (p *ListObjectsV2Paginator) NextPage() (ListBucketResult, error) {
+func (p *ListObjectsV2Paginator) NextPage() (ListObjectsV2Response, error) {
 	if !p.HasMorePages() {
-		return ListBucketResult{}, nil
+		return ListObjectsV2Response{}, nil
 	}
 
 	resp, err := p.s3Client.ListObjectsV2(
@@ -67,7 +67,7 @@ func (p *ListObjectsV2Paginator) NextPage() (ListBucketResult, error) {
 	)
 
 	if err != nil {
-		return ListBucketResult{}, err
+		return resp, err
 	}
 
 	p.continuationToken = resp.ListBucketResult.NextContinuationToken
@@ -76,5 +76,5 @@ func (p *ListObjectsV2Paginator) NextPage() (ListBucketResult, error) {
 		p.isTruncated = false
 	}
 
-	return resp.ListBucketResult, nil
+	return resp, nil
 }

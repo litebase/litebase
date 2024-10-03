@@ -18,7 +18,6 @@ type DatabaseResources struct {
 	checkpointer   *Checkpointer
 	fileSystem     *storage.DurableDatabaseFileSystem
 	mutex          *sync.RWMutex
-	refCount       int32
 	rollbackLogger *backups.RollbackLogger
 	tempFileSystem *storage.TempDatabaseFileSystem
 }

@@ -10,7 +10,6 @@ import (
 	"litebase/server/storage"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 )
 
@@ -28,9 +27,10 @@ type QueryIndex struct {
 }
 
 func GetQueryIndex(path, name string, timestamp int64) (*QueryIndex, error) {
+	directoryPath := fmt.Sprintf("%s/%d", path, timestamp)
 	indexPath := fmt.Sprintf("%s/%d/%s", path, timestamp, name)
 
-	err := storage.TieredFS().MkdirAll(filepath.Dir(indexPath), 0755)
+	err := storage.TieredFS().MkdirAll(directoryPath, 0755)
 
 	if err != nil {
 		log.Fatal(err)
@@ -39,7 +39,7 @@ func GetQueryIndex(path, name string, timestamp int64) (*QueryIndex, error) {
 	file, err := storage.TieredFS().OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if err != nil {
-
+		log.Fatalln("Failed to open file", err)
 		return nil, err
 	}
 

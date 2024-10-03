@@ -1,6 +1,11 @@
 package http
 
-import "time"
+import (
+	"litebase/server/storage"
+	"log"
+	"os"
+	"time"
+)
 
 func LoadRoutes(router *RouterInstance) {
 	/*
@@ -11,6 +16,7 @@ func LoadRoutes(router *RouterInstance) {
 		ClusterStatusController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Get(
@@ -18,6 +24,7 @@ func LoadRoutes(router *RouterInstance) {
 		UserControllerIndex,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Post(
@@ -25,6 +32,7 @@ func LoadRoutes(router *RouterInstance) {
 		UserControllerStore,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Delete(
@@ -32,6 +40,7 @@ func LoadRoutes(router *RouterInstance) {
 		UserControllerDestroy,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Get(
@@ -39,6 +48,7 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyControllerIndex,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Post(
@@ -46,6 +56,7 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyControllerStore,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Delete(
@@ -53,25 +64,31 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Post(
 		"/access-keys/purge",
 		AccessKeyPurgeController,
-	).Middleware([]Middleware{Internal})
+	).Middleware([]Middleware{
+		Internal,
+		QueryNode,
+	})
 
 	router.Get(
 		"/databases/",
 		DatabaseIndexController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Get(
-		"/databases/{databaseUuid}",
+		"/databases/{database_id}",
 		DatabaseShowController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Post(
@@ -79,6 +96,7 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseStoreController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Delete(
@@ -86,6 +104,7 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Post(
@@ -93,6 +112,7 @@ func LoadRoutes(router *RouterInstance) {
 		DatabasePublicKeyController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Post(
@@ -100,6 +120,7 @@ func LoadRoutes(router *RouterInstance) {
 		SingatureStoreController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	router.Post(
@@ -107,6 +128,7 @@ func LoadRoutes(router *RouterInstance) {
 		SingatureActivateController,
 	).Middleware([]Middleware{
 		AdminAuth,
+		QueryNode,
 	})
 
 	/*
@@ -118,6 +140,24 @@ func LoadRoutes(router *RouterInstance) {
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(0)
+
+	router.Post(
+		"/cluster/members",
+		ClusterMemberStoreController,
+	).Middleware(
+		[]Middleware{
+			// TODO: PrivateNetwork,
+		},
+	).Timeout(3 * time.Second)
+
+	router.Delete(
+		"/cluster/members/{address}",
+		ClusterMemberDestroyController,
+	).Middleware(
+		[]Middleware{
+			// TODO: PrivateNetwork,
+		},
+	).Timeout(3 * time.Second)
 
 	router.Post(
 		"/cluster/primary",
@@ -136,12 +176,18 @@ func LoadRoutes(router *RouterInstance) {
 	router.Post(
 		"/databases/{databaseUuid}/{branchUuid}/settings/purge",
 		DatabaseSettingsPurgeController,
-	).Middleware([]Middleware{Internal})
+	).Middleware([]Middleware{
+		Internal,
+		QueryNode,
+	})
 
 	router.Post(
 		"/events",
 		EventStoreController,
-	).Middleware([]Middleware{Internal})
+	).Middleware([]Middleware{
+		Internal,
+		QueryNode,
+	})
 
 	/*
 		Database routes.
@@ -150,8 +196,9 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseBackupStoreController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
-		// Authentication,
-		// Authorization,
+		Authentication,
+		Authorization,
+		QueryNode,
 	})
 
 	router.Get("/backups/{timestamp}",
@@ -160,15 +207,16 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
+		QueryNode,
 	})
 
-	// TODO: re-enable authentication and authorization
 	router.Get("/metrics/query",
 		QueryLogController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
-		// Authentication,
-		// Authorization,
+		Authentication,
+		Authorization,
+		QueryNode,
 		NodeTick,
 	}).Timeout(1 * time.Second)
 
@@ -178,6 +226,7 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
+		QueryNode,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
@@ -187,15 +236,7 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		NodeTick,
-	}).Timeout(300 * time.Second)
-
-	router.Get("/query/websocket",
-		QueryWebsocketController,
-	).Middleware([]Middleware{
-		RequireSubdomain,
-		Authentication,
-		Authorization,
+		QueryNode,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
@@ -203,24 +244,34 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseRestoreController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
-		// Authentication,
-		// Authorization,
+		Authentication,
+		Authorization,
+		QueryNode,
 	})
 
 	router.Get("/snapshots/",
 		DatabaseSnapshotIndexController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
-		// Authentication,
-		// Authorization,
+		Authentication,
+		Authorization,
+		QueryNode,
 	})
 
 	router.Get("/snapshots/{timestamp}",
 		DatabaseSnapshotShowController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
-		// Authentication,
-		// Authorization,
+		Authentication,
+		Authorization,
+		QueryNode,
+	})
+
+	router.Post("/storage",
+		DistributedStorageController,
+	).Middleware([]Middleware{
+		Internal,
+		StorageNode,
 	})
 
 	router.Post("/transactions",
@@ -229,6 +280,7 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
+		QueryNode,
 	})
 
 	router.Delete("/transactions/{id}/",
@@ -237,6 +289,7 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
+		QueryNode,
 	})
 
 	router.Post("/transactions/{id}/",
@@ -245,6 +298,7 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
+		QueryNode,
 	})
 
 	router.Post("/transactions/{id}/commit",
@@ -253,6 +307,7 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
+		QueryNode,
 	})
 
 	router.Fallback(func(request *Request) Response {

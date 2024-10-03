@@ -3,19 +3,17 @@ package main
 import (
 	"litebase/server"
 	"log"
-	"runtime"
 
 	"github.com/joho/godotenv"
 
-	"net/http"
 	_ "net/http/pprof"
 )
 
 func main() {
 	go func() {
-		runtime.SetBlockProfileRate(1)
+		// runtime.SetBlockProfileRate(1)
 
-		log.Println(http.ListenAndServe("localhost:6060", nil))
+		// log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)

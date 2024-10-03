@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"litebase/server/cluster"
 	"litebase/server/database"
@@ -140,7 +141,8 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 	)
 
 	if err != nil {
-		return err
+		log.Println("Error forwarding query to primary", err)
+		return errors.New("error forwarding query to primary")
 	}
 
 	if primaryResponse.Type == "Error" {

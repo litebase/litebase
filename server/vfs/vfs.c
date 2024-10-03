@@ -319,7 +319,7 @@ const sqlite3_io_methods x_io_methods = {
 
 int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
 {
-  vfs_log("Registering Litebase VFS");
+  // vfs_log("Registering Litebase VFS");
 
   char *pVfsId = malloc(strlen(vfsId) + 1);
   strcpy(pVfsId, vfsId);
@@ -360,7 +360,7 @@ int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
 
 void unregisterVfs(char *vfsId)
 {
-  vfs_log("Unregistering Litebase VFS");
+  // vfs_log("Unregistering Litebase VFS");
 
   for (int i = 0; i < vfsInstancesSize; i++)
   {

@@ -11,4 +11,5 @@ type FileInfo interface {
 	Mode() fs.FileMode
 	ModTime() time.Time
 	IsDir() bool
+	Sys() interface{}
 }

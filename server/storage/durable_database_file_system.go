@@ -115,7 +115,7 @@ func (dfs *DurableDatabaseFileSystem) ReadAt(data []byte, offset, length int64) 
 	defer dfs.mutex.RUnlock()
 
 	pageNumber := file.PageNumber(offset, dfs.pageSize)
-	// log.Println("RANGE", file.PageRange(pageNumber, DataRangeMaxPages))
+
 	// Get the range file for the page
 	rangeFile, err := dfs.GetRangeFile(file.PageRange(pageNumber, DataRangeMaxPages))
 

@@ -3,8 +3,10 @@ package cluster
 import (
 	"encoding/json"
 	"fmt"
+	"litebase/internal/config"
 	"litebase/server/storage"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,14 +17,19 @@ const (
 	CLUSTER_MEMBERSHIP_STAND_BY = "STAND_BY"
 	ELECTION_RETRY_WAIT         = 1 * time.Second
 
-	LEASE_DURATION  = 5 * time.Second
+	LEASE_DURATION  = 70 * time.Second
 	LEASE_FILE      = "LEASE"
 	NOMINATION_FILE = "NOMINATION"
 	PRIMARY_FILE    = "PRIMARY"
 )
 
 type ClusterInstance struct {
-	Id string `json:"id"`
+	Id                 string `json:"id"`
+	QueryPrimary       string
+	QueryNodes         []string
+	MembersRetrievedAt time.Time
+	StorageNodes       []string
+	StoragePrimary     string
 }
 
 var (
@@ -94,36 +101,60 @@ func createClusterFromEnv() (*ClusterInstance, error) {
 }
 
 func createDirectoriesAndFiles() error {
-	err := storage.ObjectFS().MkdirAll("_cluster", 0755)
+	err := storage.ObjectFS().MkdirAll("_cluster/query", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = storage.ObjectFS().MkdirAll("_nodes", 0755)
+	err = storage.ObjectFS().MkdirAll("_cluster/storage", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/%s", NOMINATION_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/%s", NOMINATION_FILE))
+	err = storage.ObjectFS().MkdirAll("_nodes/query", 0755)
+
+	if err != nil {
+		return err
+	}
+
+	err = storage.ObjectFS().MkdirAll("_nodes/storage", 0755)
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", NOMINATION_FILE)); os.IsNotExist(err) {
+		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", NOMINATION_FILE))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/%s", LEASE_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/%s", LEASE_FILE))
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", NOMINATION_FILE)); os.IsNotExist(err) {
+		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", NOMINATION_FILE))
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", LEASE_FILE)); os.IsNotExist(err) {
+		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", LEASE_FILE))
+
+		if err != nil {
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/%s", PRIMARY_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/%s", PRIMARY_FILE))
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", PRIMARY_FILE)); os.IsNotExist(err) {
+		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", PRIMARY_FILE))
+
+		if err != nil {
+			return err
+		}
+	}
+
+	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", PRIMARY_FILE)); os.IsNotExist(err) {
+		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", PRIMARY_FILE))
 
 		if err != nil {
 			return err
@@ -161,19 +192,27 @@ func ConfigPath() string {
 }
 
 func LeasePath() string {
-	return fmt.Sprintf("_cluster/%s", LEASE_FILE)
+	return fmt.Sprintf("_cluster/%s/%s", config.Get().NodeType, LEASE_FILE)
 }
 
 func NodePath() string {
-	return "_nodes/"
+	return fmt.Sprintf("_nodes/%s/", config.Get().NodeType)
+}
+
+func NodeQueryPath() string {
+	return fmt.Sprintf("_nodes/%s/", config.NODE_TYPE_QUERY)
+}
+
+func NodeStoragePath() string {
+	return fmt.Sprintf("_nodes/%s/", config.NODE_TYPE_STORAGE)
 }
 
 func NominationPath() string {
-	return fmt.Sprintf("_cluster/%s", NOMINATION_FILE)
+	return fmt.Sprintf("_cluster/%s/%s", config.Get().NodeType, NOMINATION_FILE)
 }
 
 func PrimaryPath() string {
-	return fmt.Sprintf("_cluster/%s", PRIMARY_FILE)
+	return fmt.Sprintf("_cluster/%s/%s", config.Get().NodeType, PRIMARY_FILE)
 }
 
 func (cluster *ClusterInstance) Save() error {

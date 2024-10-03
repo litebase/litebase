@@ -208,6 +208,7 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 	key, err := storage.ObjectFS().ReadFile(path)
 
 	if err != nil {
+		log.Println(err)
 		return "", err
 	}
 

@@ -87,15 +87,6 @@ func generate() error {
 			log.Println(err)
 			return err
 		}
-
-		// fmt.Println("\n------------")
-
-		// fmt.Println("Public Key:")
-
-		// fmt.Println("\n" + key + "\n")
-
-		// fmt.Println("\n------------")
-
 	}
 
 	return nil
@@ -190,6 +181,13 @@ func generatePrivateKey(signature string) (*rsa.PrivateKey, error) {
 		return nil, err
 	}
 
+	// Close the file to ensure the data is written
+	err = file.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
 	return key, nil
 }
 
@@ -248,7 +246,7 @@ func GetPublicKey(signature string) (*rsa.PublicKey, error) {
 
 func GetPublicKeyForDatabase(signature, databaseUuid string) (*rsa.PublicKey, error) {
 	publicKey, err := SecretsManager().GetPublicKey(signature, databaseUuid)
-
+	log.Println("publicKey", publicKey)
 	if err != nil {
 		return nil, err
 	}

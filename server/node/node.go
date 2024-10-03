@@ -27,7 +27,7 @@ var NodeInstanceSingleton *NodeInstance
 var NodeInstanceSingletonMutex sync.Mutex
 
 const (
-	NODE_HEARTBEAT_INTERVAL = 3 * time.Second
+	NODE_HEARTBEAT_INTERVAL = 1 * time.Second
 	NODE_HEARTBEAT_TIMEOUT  = 1 * time.Second
 	NODE_IDLE_TIMEOUT       = 60 * time.Second
 	NODE_STATE_ACTIVE       = "active"
@@ -40,13 +40,16 @@ type NodeInstance struct {
 	context                 context.Context
 	databaseCheckpointer    NodeReplicaCheckpointer
 	databaseWalSynchronizer NodeDatabaseWalSynchronizer
+	joinedClusterAt         time.Time
 	lastActive              time.Time
 	Id                      string
 	LeaseExpiresAt          int64
+	LeaseRenewedAt          time.Time
 	Membership              string
 	mutex                   *sync.Mutex
 	primaryAddress          string
 	primary                 *NodePrimary
+	PrimaryHeartbeat        time.Time
 	replica                 *NodeReplica
 	queryBuilder            NodeQueryBuilder
 	requestTicker           *time.Ticker
@@ -82,50 +85,16 @@ func (n *NodeInstance) Address() string {
 		return n.address
 	}
 
-	if os.Getenv("ECS_CONTAINER_METADATA_URI_V4") == "" {
-		address, err := os.Hostname()
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		n.address = fmt.Sprintf("%s:%s", address, config.Get().Port)
-
-		return n.address
-	}
-
-	url := fmt.Sprintf("%s/task", os.Getenv("ECS_CONTAINER_METADATA_URI_V4"))
-
-	res, err := http.Get(url)
+	address, err := os.Hostname()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer res.Body.Close()
-
-	body, readErr := io.ReadAll(res.Body)
-
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-
-	var data map[string]interface{}
-
-	jsonErr := json.Unmarshal(body, &data)
-
-	if jsonErr != nil {
-		log.Fatal(jsonErr)
-	}
-
-	// TODO: Use PrivateDNSName instead of IPv4Addresses
-	address := data["Containers"].([]interface{})[0].(map[string]interface{})["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]interface{})[0].(string)
-
-	n.address = fmt.Sprintf("%s:%s", address, os.Getenv("PORT"))
-
-	log.Printf("Node IP Address: %s \n", n.address)
+	n.address = fmt.Sprintf("%s:%s", address, config.Get().Port)
 
 	return n.address
+
 }
 
 func (n *NodeInstance) AddressPath() string {
@@ -140,8 +109,13 @@ func (n *NodeInstance) Context() context.Context {
 }
 
 func (n *NodeInstance) Heartbeat() {
-	if n.Membership == cluster.CLUSTER_MEMBERSHIP_PRIMARY {
-		n.renewLease()
+	if n.IsPrimary() {
+		if cluster.LEASE_DURATION-time.Since(n.LeaseRenewedAt) < 10*time.Second {
+			n.renewLease()
+		} else {
+			n.Primary().Heartbeat()
+		}
+
 		return
 	}
 
@@ -164,7 +138,7 @@ func (n *NodeInstance) IsIdle() bool {
 
 func (n *NodeInstance) IsPrimary() bool {
 	// If the node has not been activatedf, tick it before running these checks
-	if n.lastActive == (time.Time{}) {
+	if n.lastActive.IsZero() {
 		n.Tick()
 	}
 
@@ -177,35 +151,7 @@ func (n *NodeInstance) IsPrimary() bool {
 		return true
 	}
 
-	// Check if the primary file exists and is not empty
-	if primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
-		if err != nil {
-			log.Printf("Error accessing primary file: %v", err)
-		}
-
-		return false
-	}
-
-	// Check if the lease file exists, is not empty, and has a valid future timestamp
-	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
-
-	if err != nil || len(leaseData) == 0 {
-		return false
-	}
-
-	// Check if the lease file has a valid future timestamp
-	leaseTime, err := strconv.ParseInt(string(leaseData), 10, 64)
-
-	if err != nil {
-		log.Printf("Failed to parse lease timestamp: %v", err)
-		return false
-	}
-
-	if time.Now().Unix() < leaseTime {
-		return true
-	}
-
-	return false
+	return n.primaryFileVerification()
 }
 
 func (n *NodeInstance) IsReplica() bool {
@@ -266,6 +212,10 @@ func (n *NodeInstance) PrimaryAddress() string {
 }
 
 func (n *NodeInstance) primaryLeaseVerification() bool {
+	if n.IsReplica() && !n.PrimaryHeartbeat.IsZero() && time.Since(n.PrimaryHeartbeat) < 3*time.Second {
+		return true
+	}
+
 	primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath())
 
 	if err != nil {
@@ -307,6 +257,38 @@ func (n *NodeInstance) primaryLeaseVerification() bool {
 	return true
 }
 
+func (n *NodeInstance) primaryFileVerification() bool {
+	// Check if the primary file exists and is not empty
+	if primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
+		if err != nil {
+			log.Printf("Error accessing primary file: %v", err)
+		}
+
+		return false
+	}
+
+	// Check if the lease file exists, is not empty, and has a valid future timestamp
+	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
+
+	if err != nil || len(leaseData) == 0 {
+		return false
+	}
+
+	// Check if the lease file has a valid future timestamp
+	leaseTime, err := strconv.ParseInt(string(leaseData), 10, 64)
+
+	if err != nil {
+		log.Printf("Failed to parse lease timestamp: %v", err)
+		return false
+	}
+
+	if time.Now().Unix() < leaseTime {
+		return true
+	}
+
+	return false
+}
+
 // Release the lease and remove the primary status from the node. This should
 // be called before changing the cluster membership to replica.
 func (n *NodeInstance) releaseLease() error {
@@ -333,7 +315,7 @@ func (n *NodeInstance) Replica() *NodeReplica {
 }
 
 func (n *NodeInstance) removeAddress() error {
-	return os.Remove(fmt.Sprintf("_nodes/%s", n.Address()))
+	return storage.ObjectFS().Remove(n.AddressPath())
 }
 
 func (n *NodeInstance) removePrimaryStatus() error {
@@ -403,6 +385,7 @@ func (n *NodeInstance) renewLease() error {
 		return fmt.Errorf("failed to verify lease file")
 	}
 
+	n.LeaseRenewedAt = time.Now()
 	n.LeaseExpiresAt = expiresAt
 
 	return nil
@@ -494,7 +477,9 @@ func (n *NodeInstance) runElection() bool {
 
 		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_PRIMARY)
 		truncateFile(cluster.NominationPath())
+
 		err := n.renewLease()
+
 		if err != nil {
 			log.Printf("Failed to renew lease: %v", err)
 			return false
@@ -563,7 +548,7 @@ func (n *NodeInstance) SetMembership(membership string) {
 	}
 
 	if membership == cluster.CLUSTER_MEMBERSHIP_REPLICA && prevMembership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
-		n.replica = NewNodeReplica(n.databaseCheckpointer, n.databaseWalSynchronizer)
+		n.replica = NewNodeReplica(n)
 
 		if n.primary != nil {
 			n.removePrimaryStatus()
@@ -583,10 +568,18 @@ func (n *NodeInstance) Shutdown() error {
 	NodeInstanceSingletonMutex.Lock()
 	defer NodeInstanceSingletonMutex.Unlock()
 
-	n.removeAddress()
+	err := n.removeAddress()
+
+	if err != nil {
+		log.Println(err)
+	}
 
 	if n.IsPrimary() {
 		n.removePrimaryStatus()
+	}
+
+	if n.IsReplica() {
+		n.replica.LeaveCluster()
 	}
 
 	n.cancel()
@@ -598,6 +591,7 @@ func (n *NodeInstance) Shutdown() error {
 
 func (n *NodeInstance) Start() error {
 	if err := n.joinCluster(); err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -614,6 +608,25 @@ func (n *NodeInstance) storeAddress() error {
 }
 
 func (n *NodeInstance) Tick() {
+	// Check if the is still registered as primary
+	if n.lastActive.IsZero() {
+		if n.primaryFileVerification() {
+			n.SetMembership(cluster.CLUSTER_MEMBERSHIP_PRIMARY)
+		}
+	}
+
+	// Check if the node has be joined the cluster
+	if n.PrimaryAddress() != "" && n.PrimaryAddress() != n.Address() && n.replica != nil && n.joinedClusterAt.IsZero() {
+		log.Println("Joining cluster")
+		err := n.replica.JoinCluster()
+
+		if err != nil {
+			log.Println(err)
+		} else {
+			n.joinedClusterAt = time.Now()
+		}
+	}
+
 	n.lastActive = time.Now()
 
 	if n.State == NODE_STATE_IDLE {
@@ -624,6 +637,7 @@ func (n *NodeInstance) Tick() {
 	// it should manually become a replica and ensure it has membership.
 	if n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
 		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_REPLICA)
+		// Join the cluster as a replica
 
 		n.Heartbeat()
 	}
@@ -658,7 +672,6 @@ func isPrimaryBasedOnFileContents(nominationData []byte, address string, timesta
 			continue
 		}
 
-		// log.Println(entryAddress, entryTimestamp, address, timestamp)
 		// If there's an entry with an earlier timestamp, current node cannot be primary
 		if entryTimestamp < timestamp && entryAddress != address {
 			return false
@@ -678,96 +691,16 @@ func FilePath(ipAddress string) string {
 	return fmt.Sprintf("%s%s", cluster.NodePath(), ipAddress)
 }
 
-func GetPrivateIpAddress() string {
-	if NodeIpAddress != "" {
-		return NodeIpAddress
-	}
-
-	if config.Get().Env == "local" || config.Get().Env == "test" {
-		// NodeIpAddress = "127.0.0.1"
-		NodeIpAddress, err := os.Hostname()
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		return NodeIpAddress
-	}
-
-	url := fmt.Sprintf("%s/task", os.Getenv("ECS_CONTAINER_METADATA_URI_V4"))
-
-	res, err := http.Get(url)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer res.Body.Close()
-
-	body, readErr := io.ReadAll(res.Body)
-
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-
-	var data map[string]interface{}
-
-	jsonErr := json.Unmarshal(body, &data)
-
-	if jsonErr != nil {
-		log.Fatal(jsonErr)
-	}
-
-	NodeIpAddress = data["Containers"].([]interface{})[0].(map[string]interface{})["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]interface{})[0].(string)
-
-	log.Printf("Node IP Address: %s \n", NodeIpAddress)
-
-	return NodeIpAddress
-}
-
-func GetIPv6Address() string {
-	if NodeIPv6Address != "" {
-		return NodeIPv6Address
-	}
-
-	if config.Get().Env == "local" || config.Get().Env == "test" {
-		return fmt.Sprintf("localhost:%s", config.Get().Port)
-	}
-
-	url := "http://169.254.170.2/v2/metadata"
-
-	res, err := http.Get(url)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer res.Body.Close()
-
-	body, readErr := io.ReadAll(res.Body)
-
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-
-	var data map[string]interface{}
-
-	jsonErr := json.Unmarshal(body, &data)
-
-	if jsonErr != nil {
-		log.Fatal(jsonErr)
-	}
-
-	NodeIPv6Address = data["Containers"].([]interface{})[0].(map[string]interface{})["Networks"].([]interface{})[0].(map[string]interface{})["IPv6Addresses"].([]interface{})[0].(string)
-
-	return NodeIPv6Address
-}
-
 func Has(ip string) bool {
-	// TODO: Need to reimplement our cluster membership logic
-	// if _, err := storage.ObjectFS().Stat(FilePath(ip)); err == nil {
-	// 	return true
-	// }
+	nodes := OtherNodes()
+
+	log.Println("NODES", nodes)
+
+	for _, node := range nodes {
+		if node.String() == ip {
+			return true
+		}
+	}
 
 	return false
 }
@@ -785,43 +718,59 @@ func Init(queryBuilder NodeQueryBuilder, checkPointer NodeReplicaCheckpointer, w
 	Node().SetDatabaseWalSchronizer(walSynchronizer)
 }
 
-func Instances() []string {
-	// Check if the directory exists
-	if _, err := storage.ObjectFS().Stat(cluster.NodePath()); os.IsNotExist(err) {
-		return []string{}
+func OtherNodes() []*NodeIdentifier {
+	nodes := []*NodeIdentifier{}
+	address := Node().Address()
+	cluster.Get().GetMembers(true)
+
+	for _, node := range cluster.Get().QueryNodes {
+		if node != address {
+			nodes = append(nodes, &NodeIdentifier{
+				Address: strings.Split(node, ":")[0],
+				Port:    strings.Split(node, ":")[1],
+			})
+		}
 	}
 
-	// Read the directory
-	files, err := storage.ObjectFS().ReadDir(cluster.NodePath())
-
-	if err != nil {
-		return []string{}
+	for _, node := range cluster.Get().StorageNodes {
+		if node != address {
+			nodes = append(nodes, &NodeIdentifier{
+				Address: strings.Split(node, ":")[0],
+				Port:    strings.Split(node, ":")[1],
+			})
+		}
 	}
 
-	// Loop through the files
-	instances := []string{}
-
-	for _, file := range files {
-		address := strings.ReplaceAll(file.Name, "_", ":")
-		instances = append(instances, address)
-	}
-
-	return instances
+	return nodes
 }
 
-func OtherNodes() []*NodeIdentifier {
-	ips := Instances()
+func OtherQueryNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
+	address := Node().Address()
 
-	for _, ip := range ips {
-		if ip == GetPrivateIpAddress()+":"+config.Get().Port {
-			continue
+	for _, node := range cluster.Get().QueryNodes {
+		if node != address {
+			nodes = append(nodes, &NodeIdentifier{
+				Address: strings.Split(node, ":")[0],
+				Port:    strings.Split(node, ":")[1],
+			})
 		}
+	}
 
-		nodes = append(nodes, &NodeIdentifier{
-			Address: strings.Split(ip, ":")[0],
-			Port:    strings.Split(ip, ":")[1],
-		})
+	return nodes
+}
+
+func OtherStorageNodes() []*NodeIdentifier {
+	nodes := []*NodeIdentifier{}
+	address := Node().Address()
+
+	for _, node := range cluster.Get().StorageNodes {
+		if node != address {
+			nodes = append(nodes, &NodeIdentifier{
+				Address: strings.Split(node, ":")[0],
+				Port:    strings.Split(node, ":")[1],
+			})
+		}
 	}
 
 	return nodes

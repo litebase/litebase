@@ -17,7 +17,13 @@ type App struct {
 	Server      *ServerInstance
 }
 
-var AppSingleton *App
+func attempSecretInitialization() bool {
+	if config.Get().Env == config.ENV_TEST {
+		return true
+	}
+
+	return config.Get().NodeType == config.NODE_TYPE_QUERY && node.Node().IsPrimary()
+}
 
 func NewApp(server *ServerInstance) *App {
 	app := &App{
@@ -30,13 +36,17 @@ func NewApp(server *ServerInstance) *App {
 		panic(err)
 	}
 
-	storage.Init()
+	storage.Init(
+		node.Node().Address(),
+		auth.SecretsManager(),
+	)
 
-	// TODO: Only all the Primary Node to do this
-	err = auth.InitSignature()
+	if attempSecretInitialization() {
+		err := auth.InitSignature()
 
-	if err != nil {
-		panic(err)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	_, err = cluster.Init()
@@ -45,28 +55,30 @@ func NewApp(server *ServerInstance) *App {
 		panic(err)
 	}
 
-	err = auth.KeyManagerInit()
+	if attempSecretInitialization() {
+		err = auth.KeyManagerInit()
 
-	if err != nil {
-		panic(err)
+		if err != nil {
+			panic(err)
+		}
+
+		auth.SecretsManager().Init()
+		auth.UserManager().Init()
+		database.Init()
 	}
 
-	auth.SecretsManager().Init()
-	auth.UserManager().Init()
 	node.Init(
 		query.NewQueryBuilder(),
 		database.NewDatabaseCheckpointer(),
 		database.NewDatabaseWalSynchronizer(),
 	)
 	events.EventsManager().Init()
-	database.Init()
-	auth.Broadcaster(events.EventsManager().Hook())
 
+	auth.Broadcaster(events.EventsManager().Hook())
 	storage.SetStorageContext(node.Node().Context())
 
 	app.initialized = true
 
-	AppSingleton = app
 	return app
 }
 

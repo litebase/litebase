@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -15,7 +14,6 @@ import (
 	"litebase/internal/config"
 	internalStorage "litebase/internal/storage"
 
-	"github.com/aws/smithy-go/transport/http"
 	"github.com/klauspost/compress/s2"
 )
 
@@ -97,24 +95,17 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 	entries := make([]internalStorage.DirEntry, 0)
 
 	for paginator.HasMorePages() {
-		page, err := paginator.NextPage()
+		response, err := paginator.NextPage()
 
 		if err != nil {
-			var httpError *http.ResponseError
-
-			if ok := errors.As(err, &httpError); ok {
-				if httpError.Response.StatusCode == 404 {
-					log.Println("Directory does not exist", path)
-					break
-					// return nil, os.ErrNotExist
-				}
+			if response.StatusCode == 404 {
+				return nil, os.ErrNotExist
 			}
 
-			log.Println("Error reading directory", err)
 			return nil, err
 		}
 
-		for _, obj := range page.Contents {
+		for _, obj := range response.ListBucketResult.Contents {
 			key := p.Base(obj.Key)
 
 			entries = append(entries, internalStorage.DirEntry{
@@ -123,7 +114,7 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 			})
 		}
 
-		for _, prefix := range page.CommonPrefixes {
+		for _, prefix := range response.ListBucketResult.CommonPrefixes {
 			key := p.Base(prefix)
 
 			entries = append(entries, internalStorage.DirEntry{
@@ -184,15 +175,15 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 	paginator := NewListObjectsV2Paginator(fs.s3Client, input)
 
 	for paginator.HasMorePages() {
-		page, err := paginator.NextPage()
+		response, err := paginator.NextPage()
 
 		if err != nil {
 			return err
 		}
 
-		objectsToDelete := make([]string, len(page.Contents))
+		objectsToDelete := make([]string, len(response.ListBucketResult.Contents))
 
-		for i, object := range page.Contents {
+		for i, object := range response.ListBucketResult.Contents {
 			objectsToDelete[i] = object.Key
 		}
 
@@ -202,7 +193,7 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 			return err
 		}
 
-		if len(page.Contents) == 0 {
+		if len(response.ListBucketResult.Contents) == 0 {
 			break
 		}
 	}
@@ -231,7 +222,7 @@ func (fs *ObjectFileSystemDriver) Rename(oldKey, newKey string) error {
 func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	// If the paths ends with a slash, it's a directory
 	if strings.HasSuffix(path, "/") {
-		return NewObjectFileInfo(path, 0, time.Now()), nil
+		return NewStaticFileInfo(path, 0, time.Now()), nil
 	}
 
 	result, err := fs.s3Client.HeadObject(path)
@@ -245,7 +236,7 @@ func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, e
 		return nil, err
 	}
 
-	return NewObjectFileInfo(path, result.ContentLength, result.LastModified), nil
+	return NewStaticFileInfo(path, result.ContentLength, result.LastModified), nil
 }
 
 func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
