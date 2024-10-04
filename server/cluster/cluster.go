@@ -24,12 +24,13 @@ const (
 )
 
 type ClusterInstance struct {
-	Id                 string `json:"id"`
-	QueryPrimary       string
-	QueryNodes         []string
-	MembersRetrievedAt time.Time
-	StorageNodes       []string
-	StoragePrimary     string
+	Id                  string `json:"id"`
+	QueryPrimary        string
+	QueryNodes          []string
+	MembersRetrievedAt  time.Time
+	StorageNodeHashRing *storage.StorageNodeHashRing
+	StorageNodes        []string
+	StoragePrimary      string
 }
 
 var (
@@ -83,7 +84,9 @@ func Init() (*ClusterInstance, error) {
 		return nil, err
 	}
 
-	c := &ClusterInstance{}
+	c := &ClusterInstance{
+		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
+	}
 
 	err = json.Unmarshal(data, c)
 
@@ -100,7 +103,7 @@ func Init() (*ClusterInstance, error) {
 Create a cluster from the environment variables.
 */
 func createClusterFromEnv() (*ClusterInstance, error) {
-	clusterId := os.Getenv("LITEBASE_CLUSTER_ID")
+	clusterId := config.Get().ClusterId
 
 	if clusterId == "" {
 		return nil, fmt.Errorf("LITEBASE_CLUSTER_ID environment variable is not set")
@@ -202,7 +205,8 @@ func NewCluster(id string) (*ClusterInstance, error) {
 	}
 
 	cluster := &ClusterInstance{
-		Id: id,
+		Id:                  id,
+		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
 	}
 
 	err = cluster.Save()
@@ -294,9 +298,11 @@ Get all the members of the cluster.
 */
 func (cluster *ClusterInstance) GetMembers(cached bool) ([]string, []string) {
 	// Return the known nodes if the last retrieval was less than a minute
-	if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
-		return cluster.QueryNodes, cluster.StorageNodes
-	}
+	// if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
+	// 	return cluster.QueryNodes, cluster.StorageNodes
+	// }
+
+	// TODO: Do both of these in parallel
 
 	// Check if the directory exists
 	if _, err := storage.ObjectFS().Stat(NodePath()); os.IsNotExist(err) {
@@ -332,15 +338,33 @@ func (cluster *ClusterInstance) GetMembers(cached bool) ([]string, []string) {
 
 	// Loop through the files
 	cluster.StorageNodes = []string{}
+	cluster.StorageNodeHashRing = storage.NewStorageNodeHashRing([]string{})
 
 	for _, file := range files {
 		address := strings.ReplaceAll(file.Name, "_", ":")
 		cluster.StorageNodes = append(cluster.StorageNodes, address)
+		cluster.StorageNodeHashRing.AddNode(address)
 	}
 
 	cluster.MembersRetrievedAt = time.Now()
 
 	return cluster.QueryNodes, cluster.StorageNodes
+}
+
+func (cluster *ClusterInstance) GetStorageNode(key string) (int, string, error) {
+	cluster.GetMembers(true)
+
+	index, address, err := cluster.StorageNodeHashRing.GetNode(key)
+
+	if err != nil {
+		return -1, "", err
+	}
+
+	if address == "" {
+		return -1, "", storage.ErrNoStorageNodesAvailable
+	}
+
+	return index, address, nil
 }
 
 /*
@@ -376,6 +400,10 @@ func (cluster *ClusterInstance) AddMember(group, ip string) error {
 			err = storage.ObjectFS().WriteFile(NodeQueryPath()+strings.ReplaceAll(ip, ":", "_"), []byte(ip), 0644)
 		} else {
 			err = storage.ObjectFS().WriteFile(NodeStoragePath()+strings.ReplaceAll(ip, ":", "_"), []byte(ip), 0644)
+
+			if err == nil {
+				cluster.StorageNodeHashRing.AddNode(ip)
+			}
 		}
 	}
 
@@ -420,6 +448,8 @@ func (cluster *ClusterInstance) RemoveMember(ip string) error {
 			if err != nil {
 				return err
 			}
+
+			cluster.StorageNodeHashRing.RemoveNode(ip)
 
 			break
 		}

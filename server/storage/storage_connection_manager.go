@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"hash/fnv"
+	"errors"
 	"sync"
 )
 
@@ -17,6 +17,8 @@ type StorageConnectionManager struct {
 Get the singleton instance of the storage connection manager.
 */
 var storageConnectionManagerInstance *StorageConnectionManager
+
+var ErrNoStorageNodesAvailable = errors.New("no storage nodes available")
 
 /*
 Helper to get the singleton instance of the storage connection manager or create.
@@ -35,37 +37,44 @@ func SCM() *StorageConnectionManager {
 /*
 Close all of the connections to the storage nodes.
 */
-func (s *StorageConnectionManager) Close() {
+func (s *StorageConnectionManager) Close() []error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	errors := make([]error, 0)
+
 	for _, connection := range s.connections {
-		connection.Close()
+		err := connection.Close()
+
+		if err != nil {
+			errors = append(errors, err)
+		}
 	}
+
+	return errors
 }
 
 /*
 Get the connection to the storage node that should be used for the given key.
 */
 func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection, error) {
-	// Get the numerical hash of the key
-	h := fnv.New32a()
-	h.Write([]byte(key))
-	hash := h.Sum32()
 
-	// TODO: Update this to the number of storage nodes that are available
-	// Get the index of the storage node that should be used for this key
-	index := int(hash) % 1
+	index, address, err := StorageDiscovery.GetStorageNode(key)
+
+	if err != nil {
+		return nil, err
+	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if s.connections[index] != nil && !s.connections[index].IsOpen() {
-		s.connections[index] = NewStorageConnection(index, "http://localhost:8081/storage")
+		s.removeConnection(index)
+		s.connections[index] = NewStorageConnection(index, "http://"+address+"/storage")
 	}
 
 	if s.connections[index] == nil {
-		s.connections[index] = NewStorageConnection(index, "http://localhost:8081/storage")
+		s.connections[index] = NewStorageConnection(index, "http://"+address+"/storage")
 	}
 
 	return s.connections[index], nil
@@ -74,9 +83,8 @@ func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection
 /*
 Remove the connection from the manager.
 */
-func (s *StorageConnectionManager) RemoveConnection(index int) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *StorageConnectionManager) removeConnection(index int) {
+	s.connections[index].Close()
 
 	delete(s.connections, index)
 }
@@ -94,6 +102,8 @@ func (s *StorageConnectionManager) Send(request DistributedFileSystemRequest) (D
 	response, err := connection.Send(request)
 
 	if err != nil {
+		s.removeConnection(connection.Index)
+
 		return DistributedFileSystemResponse{}, err
 	}
 

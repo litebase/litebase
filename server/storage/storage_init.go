@@ -3,6 +3,12 @@
 
 package storage
 
-func Init() {}
+func Init(
+	ipAddress string,
+	encryption StorageEncryptionInterface,
+) {
+	NodeIPAddress = ipAddress
+	StorageEncryption = encryption
+}
 
 func Shutdown() {}

@@ -70,16 +70,17 @@ func TestClusterInit(t *testing.T) {
 }
 
 func TestClusterInitNoClusterId(t *testing.T) {
-	test.Run(t, func() {
-		os.Setenv("LITEBASE_CLUSTER_ID", "")
+	t.Setenv("LITEBASE_CLUSTER_ID", "")
 
-		_, err := cluster.Init()
-
-		if err == nil {
-			t.Fatal("Error is nil")
+	// There should be a panic here when we run the test bed so we need to
+	// recover from it
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("The code did not panic")
 		}
+	}()
 
-		os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
+	test.Run(t, func() {
 	})
 }
 
@@ -322,6 +323,54 @@ func TestClusterGetMembersWithNodes(t *testing.T) {
 
 		if len(queryNodes) != 1 && len(storageNodes) != 1 {
 			t.Fatal("Members should not be empty")
+		}
+	})
+}
+
+func TestClusterGetStorageNodes(t *testing.T) {
+	test.Run(t, func() {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+
+		err := c.Save()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, address, err := c.GetStorageNode("test")
+
+		if err != storage.ErrNoStorageNodesAvailable {
+			t.Fatalf("Expected error %v, got %v", storage.ErrNoStorageNodesAvailable, err)
+		}
+
+		if address != "" {
+			t.Fatal("Storage nodes should be empty")
+		}
+
+		// Add a storage node
+		err = c.AddMember(
+			config.NODE_TYPE_STORAGE,
+			"10.0.0.0:8080",
+		)
+
+		if err != nil {
+			t.Fatalf("Error adding storage node: %s", err)
+		}
+
+		_, err = storage.ObjectFS().Stat(cluster.NodeStoragePath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+
+		if err != nil {
+			t.Errorf("Error checking storage node file: %s", err)
+		}
+
+		_, address, err = c.GetStorageNode("test")
+
+		if err != nil {
+			t.Fatalf("Error getting storage node: %s", err)
+		}
+
+		if address == "" {
+			t.Fatal("Storage nodes should not be empty")
 		}
 	})
 }

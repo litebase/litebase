@@ -167,6 +167,12 @@ func (n *NodeInstance) joinCluster() error {
 		return err
 	}
 
+	err := cluster.Get().AddMember(config.Get().NodeType, n.Address())
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -568,6 +574,10 @@ func (n *NodeInstance) Shutdown() error {
 	NodeInstanceSingletonMutex.Lock()
 	defer NodeInstanceSingletonMutex.Unlock()
 
+	if n.IsReplica() {
+		n.replica.LeaveCluster()
+	}
+
 	err := n.removeAddress()
 
 	if err != nil {
@@ -576,10 +586,6 @@ func (n *NodeInstance) Shutdown() error {
 
 	if n.IsPrimary() {
 		n.removePrimaryStatus()
-	}
-
-	if n.IsReplica() {
-		n.replica.LeaveCluster()
 	}
 
 	n.cancel()
@@ -617,7 +623,6 @@ func (n *NodeInstance) Tick() {
 
 	// Check if the node has be joined the cluster
 	if n.PrimaryAddress() != "" && n.PrimaryAddress() != n.Address() && n.replica != nil && n.joinedClusterAt.IsZero() {
-		log.Println("Joining cluster")
 		err := n.replica.JoinCluster()
 
 		if err != nil {

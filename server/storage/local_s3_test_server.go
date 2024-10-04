@@ -52,5 +52,4 @@ func StartTestS3Server() {
 
 func StopTestS3Server() {
 	s3Server.Close()
-	log.Println("Stopped test s3 server")
 }

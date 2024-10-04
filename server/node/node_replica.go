@@ -181,8 +181,6 @@ func (nr *NodeReplica) JoinCluster() error {
 		return errors.New("failed to join cluster")
 	}
 
-	log.Println("Joined cluster")
-
 	return nil
 }
 

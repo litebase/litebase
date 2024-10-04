@@ -55,6 +55,8 @@ func NewApp(server *ServerInstance) *App {
 		panic(err)
 	}
 
+	storage.SetDiscoveryProvider(cluster.Get())
+
 	if attempSecretInitialization() {
 		err = auth.KeyManagerInit()
 

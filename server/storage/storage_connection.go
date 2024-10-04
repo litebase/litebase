@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"litebase/internal/config"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ distributed file system. The connection is established when the first request is
 sent and closed after a period of inactivity.
 */
 type StorageConnection struct {
+	Address         string
 	cancel          context.CancelFunc
 	connected       chan struct{}
 	connecting      bool
@@ -51,7 +53,6 @@ type StorageConnection struct {
 	open            bool
 	reader          *io.PipeReader
 	response        chan DistributedFileSystemResponse
-	url             string
 	writer          *io.PipeWriter
 	writeBuffer     *bufio.Writer
 }
@@ -59,14 +60,14 @@ type StorageConnection struct {
 /*
 Create a new storage connection instance.
 */
-func NewStorageConnection(index int, url string) *StorageConnection {
+func NewStorageConnection(index int, address string) *StorageConnection {
 	return &StorageConnection{
+		Address:   address,
 		connected: make(chan struct{}),
 		errorChan: make(chan error),
 		Index:     index,
 		mutex:     &sync.Mutex{},
 		response:  make(chan DistributedFileSystemResponse),
-		url:       url,
 	}
 }
 
@@ -143,7 +144,7 @@ func (sc *StorageConnection) createAndSendRequest() (*http.Response, error) {
 	sc.reader, sc.writer = io.Pipe()
 	sc.writeBuffer = bufio.NewWriterSize(sc.writer, 1024)
 
-	request, err := http.NewRequestWithContext(sc.context, "POST", sc.url, sc.reader)
+	request, err := http.NewRequestWithContext(sc.context, "POST", sc.Address, sc.reader)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -180,6 +181,9 @@ func (sc *StorageConnection) createHTTPClient() {
 		Timeout: 0,
 		Transport: &http.Transport{
 			DisableKeepAlives: true,
+			DialContext: (&net.Dialer{
+				Timeout: 3 * time.Second, // Timeout for establishing a connection
+			}).DialContext,
 			// IdleConnTimeout:   1 * time.Second,
 		},
 	}
@@ -191,7 +195,6 @@ Handle an error that occurred while connecting to the storage node.
 func (sc *StorageConnection) handleError(err error) {
 	log.Println(err)
 	sc.closeConnection()
-	sc.errorChan <- err
 }
 
 /*
@@ -216,6 +219,7 @@ readMessages:
 			break readMessages
 		case <-sc.context.Done():
 			break readMessages
+		default:
 		}
 	}
 
@@ -360,6 +364,8 @@ func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (Distrib
 			return DistributedFileSystemResponse{}, errors.New("timeout")
 		case <-sc.context.Done():
 			return DistributedFileSystemResponse{}, errors.New("context closed")
+		case err := <-sc.errorChan:
+			return DistributedFileSystemResponse{}, err
 		case response := <-sc.response:
 			if response.Error != "" {
 				// Return the proper error for io.EOF
@@ -391,6 +397,7 @@ func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (Distrib
 			}
 
 			return response, nil
+		default:
 		}
 	}
 }

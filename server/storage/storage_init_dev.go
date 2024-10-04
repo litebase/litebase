@@ -7,20 +7,16 @@ import (
 	"litebase/internal/config"
 )
 
-type StorageEncryptionInterface interface {
-	Encrypt(signature string, text string) (string, error)
-}
-
-var StorageEncryption StorageEncryptionInterface
-var NodeIPAddress string
-
 /*
 Init initializes the storage package with the given IP address and encryption
 implementation. If the storage mode is local, the function returns immediately.
 If the storage mode is object and the environment is development or test, the
 function starts a test S3 server.
 */
-func Init(ipAddress string, encryption StorageEncryptionInterface) {
+func Init(
+	ipAddress string,
+	encryption StorageEncryptionInterface,
+) {
 	NodeIPAddress = ipAddress
 	StorageEncryption = encryption
 
