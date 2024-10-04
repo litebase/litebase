@@ -2,9 +2,12 @@ package cluster_test
 
 import (
 	"encoding/json"
+	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server/cluster"
+	"litebase/server/storage"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -34,6 +37,7 @@ func TestGetCluster(t *testing.T) {
 
 func TestClusterInit(t *testing.T) {
 	os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
+
 	test.Run(t, func() {
 		c, err := cluster.Init()
 
@@ -66,15 +70,17 @@ func TestClusterInit(t *testing.T) {
 }
 
 func TestClusterInitNoClusterId(t *testing.T) {
-	os.Setenv("LITEBASE_CLUSTER_ID", "")
+	test.Run(t, func() {
+		os.Setenv("LITEBASE_CLUSTER_ID", "")
 
-	_, err := cluster.Init()
+		_, err := cluster.Init()
 
-	if err == nil {
-		t.Fatal("Error is nil")
-	}
+		if err == nil {
+			t.Fatal("Error is nil")
+		}
 
-	os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
+		os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
+	})
 }
 
 func TestNewCluster(t *testing.T) {
@@ -95,12 +101,128 @@ func TestNewCluster(t *testing.T) {
 	})
 }
 
-func TestClusterPath(t *testing.T) {
+func TestClusterConfigPath(t *testing.T) {
 	test.Run(t, func() {
 		path := cluster.ConfigPath()
 
-		if path != "../../data/test/cluster.json" {
+		if path != "_cluster/config.json" {
 			t.Fatal("Path is not correct")
+		}
+	})
+}
+
+func TestClusterLeasePathForQueryNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
+
+	test.Run(t, func() {
+		path := cluster.LeasePath()
+
+		if path != "_cluster/query/LEASE" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterLeasePathForStorageNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
+
+	test.Run(t, func() {
+		path := cluster.LeasePath()
+
+		if path != "_cluster/storage/LEASE" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterNodePathForQueryNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
+
+	test.Run(t, func() {
+		path := cluster.NodePath()
+
+		if path != "_nodes/query/" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterNodePathForStorageNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
+
+	test.Run(t, func() {
+		path := cluster.NodePath()
+
+		if path != "_nodes/storage/" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterNodeQueryPath(t *testing.T) {
+	test.Run(t, func() {
+		path := cluster.NodeQueryPath()
+
+		if path != "_nodes/query/" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterNodeStoragePath(t *testing.T) {
+	test.Run(t, func() {
+		path := cluster.NodeStoragePath()
+
+		if path != "_nodes/storage/" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterNominationPathForQueryNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
+
+	test.Run(t, func() {
+		path := cluster.NominationPath()
+
+		if path != "_cluster/query/NOMINATION" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterNominationPathForStorageNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
+
+	test.Run(t, func() {
+		path := cluster.NominationPath()
+
+		if path != "_cluster/storage/NOMINATION" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterPrimaryPathForQueryNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
+
+	test.Run(t, func() {
+		path := cluster.PrimaryPath()
+
+		if path != "_cluster/query/PRIMARY" {
+			t.Fatalf("Path is not correct: %s", path)
+		}
+	})
+}
+
+func TestClusterPrimaryPathForStorageNode(t *testing.T) {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
+
+	test.Run(t, func() {
+		path := cluster.PrimaryPath()
+
+		if path != "_cluster/storage/PRIMARY" {
+			t.Fatalf("Path is not correct: %s", path)
 		}
 	})
 }
@@ -116,7 +238,7 @@ func TestClusterSave(t *testing.T) {
 		}
 
 		// Check if the file exists
-		dataBytes, err := os.ReadFile(cluster.ConfigPath())
+		dataBytes, err := storage.ObjectFS().ReadFile(cluster.ConfigPath())
 
 		if err != nil {
 			t.Fatal(err)
@@ -132,6 +254,165 @@ func TestClusterSave(t *testing.T) {
 
 		if data["id"] != "TEST_CLUSTER_003" {
 			t.Fatal("Cluster ID is not correct")
+		}
+	})
+}
+
+func TestClusterGetMembers(t *testing.T) {
+	test.Run(t, func() {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_004")
+
+		err := c.Save()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		queryNodes, storageNodes := c.GetMembers(true)
+
+		if len(queryNodes) != 0 && len(storageNodes) != 0 {
+			t.Fatal("Members should be empty")
+		}
+	})
+}
+
+func TestClusterGetMembersWithNodes(t *testing.T) {
+	test.Run(t, func() {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+
+		err := c.Save()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Add a query node
+		err = cluster.Get().AddMember(
+			config.NODE_TYPE_QUERY,
+			"10.0.0.0:8080",
+		)
+
+		if err != nil {
+			t.Errorf("Error adding query node: %s", err)
+		}
+
+		_, err = storage.ObjectFS().Stat(cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+
+		if err != nil {
+			t.Errorf("Error checking query node file: %s", err)
+		}
+
+		// Add a storage node
+		err = cluster.Get().AddMember(
+			config.NODE_TYPE_STORAGE,
+			"10.1.0.0:8080",
+		)
+
+		if err != nil {
+			t.Fatalf("Error adding storage node: %s", err)
+		}
+
+		_, err = storage.ObjectFS().Stat(cluster.NodeStoragePath() + strings.ReplaceAll("10.1.0.0:8080", ":", "_"))
+
+		if err != nil {
+			t.Errorf("Error checking storage node file: %s", err)
+		}
+
+		queryNodes, storageNodes := c.GetMembers(true)
+
+		if len(queryNodes) != 1 && len(storageNodes) != 1 {
+			t.Fatal("Members should not be empty")
+		}
+	})
+}
+
+func TestClusterIsMember(t *testing.T) {
+	test.Run(t, func() {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+
+		err := c.Save()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Add a query node
+		err = c.AddMember(
+			config.NODE_TYPE_QUERY,
+			"10.0.0.0:8080",
+		)
+
+		if err != nil {
+			t.Fatalf("Error adding query node: %s", err)
+		}
+
+		if !c.IsMember("10.0.0.0:8080") {
+			t.Fatal("Node should be a member")
+		}
+	})
+}
+
+func TestClusterAddMember(t *testing.T) {
+	test.Run(t, func() {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_006")
+
+		err := c.Save()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = c.AddMember(
+			config.NODE_TYPE_QUERY,
+			"10.0.0.0:8080",
+		)
+
+		if err != nil {
+			t.Fatalf("Error adding query node: %s", err)
+		}
+
+		_, err = storage.ObjectFS().Stat(cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+
+		if err != nil {
+			t.Errorf("Error checking query node file: %s", err)
+		}
+	})
+}
+
+func TestClusterRemoveMember(t *testing.T) {
+	test.Run(t, func() {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_007")
+
+		err := c.Save()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = c.AddMember(
+			config.NODE_TYPE_QUERY,
+			"10.0.0.0:8080",
+		)
+
+		if err != nil {
+			t.Fatalf("Error adding query node: %s", err)
+		}
+
+		// Verify is a member
+		if !c.IsMember("10.0.0.0:8080") {
+			t.Fatal("Node should be a member")
+		}
+
+		err = c.RemoveMember("10.0.0.0:8080")
+
+		if err != nil {
+			t.Fatalf("Error removing query node: %s", err)
+		}
+
+		_, err = storage.ObjectFS().Stat(cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+
+		if err == nil {
+			t.Errorf("Query node file should not exist")
 		}
 	})
 }
