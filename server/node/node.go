@@ -329,7 +329,6 @@ func (n *NodeInstance) removePrimaryStatus() error {
 	n.releaseLease()
 
 	if n.primary != nil {
-		n.primary.Stop()
 		n.primary = nil
 	}
 

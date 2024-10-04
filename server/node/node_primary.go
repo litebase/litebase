@@ -336,16 +336,3 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 
 	return nil
 }
-
-func (np *NodePrimary) Start() error {
-	return nil
-}
-
-func (np *NodePrimary) Stop() {
-	// np.mutex.Lock()
-	// defer np.mutex.Unlock()
-
-	// for _, connection := range np.connections {
-	// 	connection.Close()
-	// }
-}
