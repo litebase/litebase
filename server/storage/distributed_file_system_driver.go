@@ -53,6 +53,9 @@ func (fsd *DistributedFileSystemDriver) AddFile(
 	flag int,
 	perm fs.FileMode,
 ) *DistributedFile {
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
 	if fsd.FileCount >= fsd.MaxFilesOpened {
 		fsd.RemoveOldestFile()
 	}
@@ -77,11 +80,20 @@ func (fsd *DistributedFileSystemDriver) AddFile(
 	return fsd.Files[path]
 }
 
+func (fsd *DistributedFileSystemDriver) ClearFiles() {
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	for path, file := range fsd.Files {
+		fsd.ReleaseFile(file)
+		delete(fsd.Files, path)
+	}
+}
+
 /*
 Create a new file at the specified path.
 */
 func (fsd *DistributedFileSystemDriver) Create(path string) (internalStorage.File, error) {
-	log.Println("CREATE", path)
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
 

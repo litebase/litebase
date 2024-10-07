@@ -186,7 +186,6 @@ func LoadRoutes(router *RouterInstance) {
 		EventStoreController,
 	).Middleware([]Middleware{
 		Internal,
-		QueryNode,
 	})
 
 	/*

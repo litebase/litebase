@@ -106,7 +106,7 @@ func (s *ServerInstance) Shutdown(ctx context.Context) {
 	storage.Shutdown()
 
 	// Create a context with a timeout for graceful shutdown
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 
 	defer cancel()
 

@@ -1,12 +1,11 @@
 package http
 
 import (
-	"litebase/server/events"
 	"litebase/server/node"
 )
 
 func EventStoreController(request *Request) Response {
-	input, err := request.Input(&node.NodeEvent{})
+	input, err := request.Input(&node.EventMessage{})
 
 	if err != nil {
 		return Response{
@@ -17,7 +16,7 @@ func EventStoreController(request *Request) Response {
 		}
 	}
 
-	events.ReceiveEvent(input.(*node.NodeEvent))
+	node.ReceiveEvent(input.(*node.EventMessage))
 
 	return Response{
 		StatusCode: 200,

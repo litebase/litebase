@@ -5,10 +5,13 @@ import (
 	"litebase/server/auth"
 	"litebase/server/cluster"
 	"log"
+	"time"
 )
 
 func Internal(request *Request) (*Request, Response) {
 	nodeHeader := request.Headers().Get("X-Lbdb-Node")
+	nodeTimestamp := request.Headers().Get("X-Lbdb-Node-Timestamp")
+
 	var nodeIp string
 
 	if nodeHeader != "" {
@@ -26,7 +29,24 @@ func Internal(request *Request) (*Request, Response) {
 		nodeIp = nodeIpDecrypted["value"]
 	}
 
-	if nodeIp == "" || !cluster.Get().IsMember(nodeIp) {
+	if nodeTimestamp == "" {
+		return request, Response{
+			StatusCode: 401,
+		}
+	}
+
+	parsedTimestamp, err := time.Parse(time.RFC3339, nodeTimestamp)
+
+	if err != nil {
+		return request, Response{
+			StatusCode: 500,
+			Body: map[string]interface{}{
+				"message": err.Error(),
+			},
+		}
+	}
+
+	if nodeIp == "" || !cluster.Get().IsMember(nodeIp, parsedTimestamp) {
 		log.Println("Unauthorized node connection attempt: ", nodeIp)
 
 		return request, Response{

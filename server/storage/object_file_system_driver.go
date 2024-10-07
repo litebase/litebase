@@ -31,7 +31,10 @@ func NewObjectFileSystemDriver() *ObjectFileSystemDriver {
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
-		s3Client: NewS3Client(config.Get().StorageBucket, config.Get().StorageRegion),
+		s3Client: NewS3Client(
+			config.Get().StorageBucket,
+			config.Get().StorageRegion,
+		),
 	}
 
 	return driver

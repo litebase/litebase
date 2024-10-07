@@ -55,6 +55,8 @@ type NodeInstance struct {
 	requestTicker           *time.Ticker
 	State                   string
 	standBy                 chan struct{}
+	startedAt               time.Time
+	storedAddressAt         time.Time
 }
 
 func Node() *NodeInstance {
@@ -163,13 +165,48 @@ func (n *NodeInstance) IsStandBy() bool {
 }
 
 func (n *NodeInstance) joinCluster() error {
-	if err := n.storeAddress(); err != nil {
-		return err
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	if !n.joinedClusterAt.IsZero() {
+		return nil
 	}
 
+	if n.storedAddressAt.IsZero() {
+		if err := n.storeAddress(); err != nil {
+			return err
+		}
+	}
+
+	// The Node should be added to the cluster map
 	err := cluster.Get().AddMember(config.Get().NodeType, n.Address())
 
 	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	// Check if the node has joined the cluster
+	if n.PrimaryAddress() != "" && n.PrimaryAddress() != n.Address() && n.replica != nil && n.joinedClusterAt.IsZero() {
+		err := n.replica.JoinCluster()
+
+		if err != nil {
+			log.Println(err)
+		} else {
+			n.joinedClusterAt = time.Now()
+			log.Println("JOINED CLUSTER")
+		}
+	} else {
+		n.joinedClusterAt = time.Now()
+	}
+
+	err = n.Broadcast("cluster:join", map[string]string{
+		"address": n.Address(),
+		"group":   config.Get().NodeType,
+	})
+
+	if err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -544,7 +581,7 @@ func (n *NodeInstance) SetMembership(membership string) {
 	n.primaryAddress = ""
 
 	if membership == cluster.CLUSTER_MEMBERSHIP_PRIMARY {
-		n.primary = NewNodePrimary(n.queryBuilder)
+		n.primary = NewNodePrimary(n)
 
 		if n.replica != nil {
 			n.replica.Stop()
@@ -573,18 +610,27 @@ func (n *NodeInstance) Shutdown() error {
 	NodeInstanceSingletonMutex.Lock()
 	defer NodeInstanceSingletonMutex.Unlock()
 
-	if n.IsReplica() {
-		n.replica.LeaveCluster()
+	if n.IsPrimary() {
+		n.removePrimaryStatus()
 	}
 
-	err := n.removeAddress()
+	err := n.Broadcast("cluster:leave", map[string]string{
+		"address": n.Address(),
+		"group":   config.Get().NodeType,
+	})
 
 	if err != nil {
 		log.Println(err)
 	}
 
-	if n.IsPrimary() {
-		n.removePrimaryStatus()
+	if n.IsReplica() {
+		n.replica.LeaveCluster()
+	}
+
+	err = n.removeAddress()
+
+	if err != nil {
+		log.Println(err)
 	}
 
 	n.cancel()
@@ -595,21 +641,27 @@ func (n *NodeInstance) Shutdown() error {
 }
 
 func (n *NodeInstance) Start() error {
-	if err := n.joinCluster(); err != nil {
-		log.Println(err)
-		return err
-	}
+	n.startedAt = time.Now()
 
 	go n.monitorPrimary()
 	go n.runTicker()
-
 	n.Tick()
 
 	return nil
 }
 
 func (n *NodeInstance) storeAddress() error {
-	return storage.ObjectFS().WriteFile(n.AddressPath(), []byte(n.Address()), 0644)
+	err := storage.ObjectFS().WriteFile(n.AddressPath(), []byte(n.Address()), 0644)
+
+	if err != nil {
+		log.Println(err)
+
+		return err
+	}
+
+	n.storedAddressAt = time.Now()
+
+	return nil
 }
 
 func (n *NodeInstance) Tick() {
@@ -620,15 +672,8 @@ func (n *NodeInstance) Tick() {
 		}
 	}
 
-	// Check if the node has be joined the cluster
-	if n.PrimaryAddress() != "" && n.PrimaryAddress() != n.Address() && n.replica != nil && n.joinedClusterAt.IsZero() {
-		err := n.replica.JoinCluster()
-
-		if err != nil {
-			log.Println(err)
-		} else {
-			n.joinedClusterAt = time.Now()
-		}
+	if n.joinedClusterAt.IsZero() {
+		n.joinCluster()
 	}
 
 	n.lastActive = time.Now()
@@ -696,7 +741,7 @@ func FilePath(ipAddress string) string {
 }
 
 func Has(ip string) bool {
-	nodes := OtherNodes()
+	nodes := Node().OtherNodes()
 
 	log.Println("NODES", nodes)
 
@@ -722,9 +767,9 @@ func Init(queryBuilder NodeQueryBuilder, checkPointer NodeReplicaCheckpointer, w
 	Node().SetDatabaseWalSchronizer(walSynchronizer)
 }
 
-func OtherNodes() []*NodeIdentifier {
+func (n *NodeInstance) OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
-	address := Node().Address()
+	address := n.Address()
 	cluster.Get().GetMembers(true)
 
 	for _, node := range cluster.Get().QueryNodes {
@@ -785,7 +830,7 @@ func (n *NodeInstance) Publish(nodeMessage NodeMessage) error {
 }
 
 func PurgeDatabaseSettings(databaseUuid string) {
-	nodes := OtherNodes()
+	nodes := Node().OtherNodes()
 
 	for _, node := range nodes {
 		go func(node *NodeIdentifier) {
@@ -815,48 +860,55 @@ func PurgeDatabaseSettings(databaseUuid string) {
 	}
 }
 
-func SendEvent(node *NodeIdentifier, message NodeEvent) {
+func (n *NodeInstance) SendEvent(node *NodeIdentifier, message NodeEvent) error {
 	url := fmt.Sprintf("http://%s:%s/events", node.Address, node.Port)
 	data, err := json.Marshal(message)
 
 	if err != nil {
 		log.Println(err)
-		return
+		return err
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(n.context, "POST", url, bytes.NewBuffer(data))
 
 	if err != nil {
 		log.Println(err)
-		return
+		return err
 	}
 
 	encryptedHeader, err := auth.SecretsManager().Encrypt(
 		config.Get().Signature,
-		Node().Address(),
+		n.Address(),
 	)
 
 	if err != nil {
 		log.Println(err)
-		return
+		return err
 	}
 
 	req.Header.Set("X-Lbdb-Node", encryptedHeader)
+	req.Header.Set("X-Lbdb-Node-Timestamp", n.startedAt.Format(time.RFC3339))
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 3 * time.Second,
+	}
 
 	res, err := client.Do(req)
 
 	if err != nil {
 		log.Println(err)
-		return
+		return err
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
 		log.Println(res)
+
+		return fmt.Errorf("failed to send message")
 	}
+
+	return nil
 }
 
 func (n *NodeInstance) Send(nodeMessage NodeMessage) (NodeMessage, error) {
@@ -865,5 +917,8 @@ func (n *NodeInstance) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 
 func (n *NodeInstance) SendWithStreamingResonse(nodeMessage NodeMessage) (chan NodeMessage, error) {
 	return n.replica.SendWithStreamingResonse(nodeMessage)
+}
 
+func (n *NodeInstance) Timestamp() time.Time {
+	return n.startedAt
 }

@@ -12,6 +12,12 @@ var tieredFileSystem *FileSystem
 var tmpFileSystem *FileSystem
 var fileSystemMutex = &sync.RWMutex{}
 
+func ClearFSFiles() {
+	if config.Get().StorageTieredMode == config.STORAGE_MODE_DISTRIBUTED && tieredFileSystem != nil {
+		tieredFileSystem.Driver().(*DistributedFileSystemDriver).ClearFiles()
+	}
+}
+
 // Ensure all file systems are initialized by setting them to nil
 func InitFS() {
 	localFileSystem = nil

@@ -1,4 +1,4 @@
-package events
+package node
 
 import (
 	"litebase/internal/config"

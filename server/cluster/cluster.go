@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/storage"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -298,57 +299,94 @@ Get all the members of the cluster.
 */
 func (cluster *ClusterInstance) GetMembers(cached bool) ([]string, []string) {
 	// Return the known nodes if the last retrieval was less than a minute
-	// if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
-	// 	return cluster.QueryNodes, cluster.StorageNodes
-	// }
+	if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
+		return cluster.QueryNodes, cluster.StorageNodes
+	}
 
-	// TODO: Do both of these in parallel
+	var queryNodesError, storageNodesError error
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(2)
 
 	// Check if the directory exists
-	if _, err := storage.ObjectFS().Stat(NodePath()); os.IsNotExist(err) {
+	go func() {
+		defer wg.Done()
+
+		if _, err := storage.ObjectFS().Stat(NodePath()); os.IsNotExist(err) {
+			queryNodesError = err
+			return
+		}
+
+		// Read the directory
+		files, err := storage.ObjectFS().ReadDir(NodeQueryPath())
+
+		if err != nil {
+			queryNodesError = err
+			return
+		}
+
+		// Loop through the files
+		cluster.QueryNodes = []string{}
+
+		for _, file := range files {
+			address := strings.ReplaceAll(file.Name, "_", ":")
+			cluster.QueryNodes = append(cluster.QueryNodes, address)
+		}
+
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		// Check if the directory exists
+		if _, err := storage.ObjectFS().Stat(NodePath()); os.IsNotExist(err) {
+			storageNodesError = err
+			return
+		}
+
+		// Read the directory
+		files, err := storage.ObjectFS().ReadDir(NodeStoragePath())
+
+		if err != nil {
+			storageNodesError = err
+			return
+		}
+
+		// Loop through the files
+		cluster.StorageNodes = []string{}
+		cluster.StorageNodeHashRing = storage.NewStorageNodeHashRing([]string{})
+
+		for _, file := range files {
+			address := strings.ReplaceAll(file.Name, "_", ":")
+			cluster.StorageNodes = append(cluster.StorageNodes, address)
+			cluster.StorageNodeHashRing.AddNode(address)
+		}
+	}()
+
+	wg.Wait()
+
+	if queryNodesError != nil && queryNodesError != os.ErrNotExist {
+		log.Println("Query nodes error: ", queryNodesError)
 		return nil, nil
 	}
 
-	// Read the directory
-	files, err := storage.ObjectFS().ReadDir(NodeQueryPath())
-
-	if err != nil {
+	if storageNodesError != nil && storageNodesError != os.ErrNotExist {
+		log.Println("Storage nodes error: ", storageNodesError)
 		return nil, nil
-	}
-
-	// Loop through the files
-	cluster.QueryNodes = []string{}
-
-	for _, file := range files {
-		address := strings.ReplaceAll(file.Name, "_", ":")
-		cluster.QueryNodes = append(cluster.QueryNodes, address)
-	}
-
-	// Check if the directory exists
-	if _, err := storage.ObjectFS().Stat(NodePath()); os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	// Read the directory
-	files, err = storage.ObjectFS().ReadDir(NodeStoragePath())
-
-	if err != nil {
-		return nil, nil
-	}
-
-	// Loop through the files
-	cluster.StorageNodes = []string{}
-	cluster.StorageNodeHashRing = storage.NewStorageNodeHashRing([]string{})
-
-	for _, file := range files {
-		address := strings.ReplaceAll(file.Name, "_", ":")
-		cluster.StorageNodes = append(cluster.StorageNodes, address)
-		cluster.StorageNodeHashRing.AddNode(address)
 	}
 
 	cluster.MembersRetrievedAt = time.Now()
 
 	return cluster.QueryNodes, cluster.StorageNodes
+}
+
+func (cluster *ClusterInstance) GetMembersSince(after time.Time) ([]string, []string) {
+	if cluster.MembersRetrievedAt.After(after) {
+		return cluster.QueryNodes, cluster.StorageNodes
+	}
+
+	return cluster.GetMembers(false)
 }
 
 func (cluster *ClusterInstance) GetStorageNode(key string) (int, string, error) {
@@ -370,8 +408,8 @@ func (cluster *ClusterInstance) GetStorageNode(key string) (int, string, error) 
 /*
 Check if the node is a member of the cluster.
 */
-func (cluster *ClusterInstance) IsMember(ip string) bool {
-	cluster.GetMembers(true)
+func (cluster *ClusterInstance) IsMember(ip string, since time.Time) bool {
+	cluster.GetMembersSince(since)
 
 	for _, member := range cluster.QueryNodes {
 		if member == ip {
@@ -395,7 +433,7 @@ func (cluster *ClusterInstance) AddMember(group, ip string) error {
 	var err error
 	cluster.GetMembers(false)
 
-	if !cluster.IsMember(ip) {
+	if !cluster.IsMember(ip, time.Now()) {
 		if group == config.NODE_TYPE_QUERY {
 			err = storage.ObjectFS().WriteFile(NodeQueryPath()+strings.ReplaceAll(ip, ":", "_"), []byte(ip), 0644)
 		} else {

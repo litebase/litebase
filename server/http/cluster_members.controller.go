@@ -76,6 +76,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 }
 
 func ClusterMemberStoreController(request *Request) Response {
+	log.Println("ClusterMemberStoreController")
 	queryNodes, storageNodes := cluster.Get().GetMembers(false)
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
@@ -134,6 +135,7 @@ func ClusterMemberStoreController(request *Request) Response {
 		}
 	}
 
+	log.Println("Added member to the cluster: ", address)
 	return Response{
 		StatusCode: 200,
 		Body:       nil,

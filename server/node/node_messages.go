@@ -13,6 +13,12 @@ type NodeMessage struct {
 	Error       string
 }
 
+type NodeGossipMessage struct {
+	Action  string
+	Address string
+	Group   string
+}
+
 type QueryMessage struct {
 	AccessKeyId  string
 	BranchUuid   string

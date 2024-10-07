@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetClusterNotInitialized(t *testing.T) {
@@ -277,6 +278,65 @@ func TestClusterGetMembers(t *testing.T) {
 	})
 }
 
+func TestClusterGetMembersSince(t *testing.T) {
+	test.Run(t, func() {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+
+		err := c.Save()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		queryNodes, storageNodes := c.GetMembersSince(time.Now())
+
+		if len(queryNodes) != 0 && len(storageNodes) != 0 {
+			t.Fatal("Members should be empty")
+		}
+
+		// Add a query node
+		err = cluster.Get().AddMember(
+			config.NODE_TYPE_QUERY,
+			"10.0.0.0:8080",
+		)
+
+		if err != nil {
+			t.Errorf("Error adding query node: %s", err)
+		}
+
+		_, err = storage.ObjectFS().Stat(cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+
+		if err != nil {
+			t.Errorf("Error checking query node file: %s", err)
+		}
+
+		queryNodes, storageNodes = c.GetMembersSince(time.Now())
+
+		if len(queryNodes) != 1 && len(storageNodes) != 0 {
+			t.Fatal("Members should not be empty")
+		}
+
+		// Delete the query node file
+		err = storage.ObjectFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+
+		if err != nil {
+			t.Errorf("Error deleting query node file: %s", err)
+		}
+
+		queryNodes, storageNodes = c.GetMembers(true)
+
+		if len(queryNodes) != 1 && len(storageNodes) != 0 {
+			t.Fatal("Members should not be empty")
+		}
+
+		queryNodes, storageNodes = c.GetMembersSince(time.Now())
+
+		if len(queryNodes) != 0 && len(storageNodes) != 0 {
+			t.Fatal("Members should be empty")
+		}
+	})
+}
+
 func TestClusterGetMembersWithNodes(t *testing.T) {
 	test.Run(t, func() {
 		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
@@ -395,7 +455,7 @@ func TestClusterIsMember(t *testing.T) {
 			t.Fatalf("Error adding query node: %s", err)
 		}
 
-		if !c.IsMember("10.0.0.0:8080") {
+		if !c.IsMember("10.0.0.0:8080", time.Now()) {
 			t.Fatal("Node should be a member")
 		}
 	})
@@ -448,7 +508,7 @@ func TestClusterRemoveMember(t *testing.T) {
 		}
 
 		// Verify is a member
-		if !c.IsMember("10.0.0.0:8080") {
+		if !c.IsMember("10.0.0.0:8080", time.Now()) {
 			t.Fatal("Node should be a member")
 		}
 

@@ -5,7 +5,6 @@ import (
 	"litebase/server/auth"
 	"litebase/server/cluster"
 	"litebase/server/database"
-	"litebase/server/events"
 	"litebase/server/http"
 	"litebase/server/node"
 	"litebase/server/query"
@@ -17,12 +16,12 @@ type App struct {
 	Server      *ServerInstance
 }
 
-func attempSecretInitialization() bool {
+func attemptSecretInitialization() bool {
 	if config.Get().Env == config.ENV_TEST {
 		return true
 	}
 
-	return config.Get().NodeType == config.NODE_TYPE_QUERY && node.Node().IsPrimary()
+	return config.Get().NodeType == config.NODE_TYPE_QUERY
 }
 
 func NewApp(server *ServerInstance) *App {
@@ -41,7 +40,7 @@ func NewApp(server *ServerInstance) *App {
 		auth.SecretsManager(),
 	)
 
-	if attempSecretInitialization() {
+	if attemptSecretInitialization() {
 		err := auth.InitSignature()
 
 		if err != nil {
@@ -57,7 +56,7 @@ func NewApp(server *ServerInstance) *App {
 
 	storage.SetDiscoveryProvider(cluster.Get())
 
-	if attempSecretInitialization() {
+	if attemptSecretInitialization() {
 		err = auth.KeyManagerInit()
 
 		if err != nil {
@@ -74,10 +73,11 @@ func NewApp(server *ServerInstance) *App {
 		database.NewDatabaseCheckpointer(),
 		database.NewDatabaseWalSynchronizer(),
 	)
-	events.EventsManager().Init()
+	node.EventsManager().Init()
 
-	auth.Broadcaster(events.EventsManager().Hook())
+	auth.Broadcaster(node.EventsManager().Hook())
 	storage.SetStorageContext(node.Node().Context())
+	storage.SetStorageTimestamp(node.Node().Timestamp())
 
 	app.initialized = true
 

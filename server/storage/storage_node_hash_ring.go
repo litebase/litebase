@@ -3,7 +3,6 @@ package storage
 import (
 	"fmt"
 	"hash/crc32"
-	"log"
 	"sort"
 	"sync"
 )
@@ -84,7 +83,6 @@ func (hr *StorageNodeHashRing) GetNode(key string) (int, string, error) {
 	if idx == len(hr.sortedKeys) {
 		idx = 0
 	}
-	log.Println("NODES", len(hr.nodes), hr.nodes)
 
 	return idx, hr.hashMap[hr.sortedKeys[idx]], nil
 }
@@ -104,7 +102,6 @@ func (hr *StorageNodeHashRing) AddNode(node string) {
 
 	hr.nodes = append(hr.nodes, node)
 	hr.generateHashMap()
-	log.Println("NODES", len(hr.nodes), hr.nodes)
 }
 
 /*

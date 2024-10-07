@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha256"
@@ -26,6 +27,7 @@ type S3Client struct {
 	accessKeyId     string
 	bucket          string
 	buffers         sync.Pool
+	context         context.Context
 	endpoint        string
 	httpClient      http.Client
 	region          string
@@ -52,6 +54,7 @@ func NewS3Client(bucket string, region string) *S3Client {
 				return bytes.NewBuffer(make([]byte, 256))
 			},
 		},
+		context:         context.Background(),
 		endpoint:        config.Get().StorageEndpoint,
 		region:          region,
 		secretAccessKey: os.Getenv("LITEBASE_STORAGE_SECRET_ACCESS_KEY"),
@@ -275,7 +278,7 @@ func (s3 *S3Client) url(key string) string {
 }
 
 func (s3 *S3Client) CopyObject(sourceKey, destinationKey string) error {
-	request, err := http.NewRequest("PUT", s3.url(destinationKey), nil)
+	request, err := http.NewRequestWithContext(s3.context, "PUT", s3.url(destinationKey), nil)
 
 	if err != nil {
 		return err
@@ -303,7 +306,7 @@ type CreateBucketResponse struct {
 }
 
 func (s3 *S3Client) CreateBucket() (CreateBucketResponse, error) {
-	request, err := http.NewRequest("PUT", s3.url(""), nil)
+	request, err := http.NewRequestWithContext(s3.context, "PUT", s3.url(""), nil)
 
 	if err != nil {
 		return CreateBucketResponse{}, err
@@ -329,7 +332,7 @@ func (s3 *S3Client) CreateBucket() (CreateBucketResponse, error) {
 }
 
 func (s3 *S3Client) DeleteObject(key string) error {
-	request, err := http.NewRequest("DELETE", s3.url(key), nil)
+	request, err := http.NewRequestWithContext(s3.context, "DELETE", s3.url(key), nil)
 
 	if err != nil {
 		return err
@@ -373,7 +376,7 @@ func (s3 *S3Client) DeleteObjects(keys []string) error {
 	hash.Write(data)
 	md5Sum := hash.Sum(nil)
 
-	request, err := http.NewRequest("POST", s3.url("")+"?delete", bytes.NewReader(data))
+	request, err := http.NewRequestWithContext(s3.context, "POST", s3.url("")+"?delete", bytes.NewReader(data))
 
 	if err != nil {
 		return err
@@ -402,7 +405,7 @@ type GetObjectResponse struct {
 }
 
 func (s3 *S3Client) GetObject(key string) (GetObjectResponse, error) {
-	request, err := http.NewRequest("GET", s3.url(key)+"?x-id=GetObject", nil)
+	request, err := http.NewRequestWithContext(s3.context, "GET", s3.url(key)+"?x-id=GetObject", nil)
 
 	if err != nil {
 		return GetObjectResponse{}, err
@@ -441,7 +444,7 @@ type HeadBucketResponse struct {
 }
 
 func (s3 *S3Client) HeadBucket() (HeadBucketResponse, error) {
-	request, err := http.NewRequest("HEAD", s3.url(""), nil)
+	request, err := http.NewRequestWithContext(s3.context, "HEAD", s3.url(""), nil)
 
 	if err != nil {
 		return HeadBucketResponse{}, err
@@ -475,7 +478,7 @@ type HeadObjectResponse struct {
 }
 
 func (s3 *S3Client) HeadObject(key string) (HeadObjectResponse, error) {
-	request, err := http.NewRequest("HEAD", s3.url(key), nil)
+	request, err := http.NewRequestWithContext(s3.context, "HEAD", s3.url(key), nil)
 
 	if err != nil {
 		return HeadObjectResponse{}, err
@@ -532,7 +535,7 @@ func (s3 *S3Client) ListObjectsV2(input ListObjectsV2Input) (ListObjectsV2Respon
 		url += "&start-after=" + input.StartAfter
 	}
 
-	request, err := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequestWithContext(s3.context, "GET", url, nil)
 
 	if err != nil {
 		return ListObjectsV2Response{}, err
@@ -576,7 +579,7 @@ type PutObjectResponse struct {
 }
 
 func (s3 *S3Client) PutObject(key string, data []byte) (PutObjectResponse, error) {
-	request, err := http.NewRequest("PUT", s3.url(key)+"?x-id=PutObject", bytes.NewReader(data))
+	request, err := http.NewRequestWithContext(s3.context, "PUT", s3.url(key)+"?x-id=PutObject", bytes.NewReader(data))
 
 	if err != nil {
 		return PutObjectResponse{}, err

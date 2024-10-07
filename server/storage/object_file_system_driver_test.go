@@ -43,7 +43,10 @@ func TestObjectFileSystemDriverEnsureBucketExists(t *testing.T) {
 		// Ensure the bucket exists
 		driver.EnsureBucketExists()
 
-		s3Client := storage.NewS3Client(config.Get().StorageBucket, config.Get().StorageRegion)
+		s3Client := storage.NewS3Client(
+			config.Get().StorageBucket,
+			config.Get().StorageRegion,
+		)
 
 		// Check if the bucket exists
 		_, err := s3Client.HeadBucket()
@@ -249,7 +252,10 @@ func TestObjectFileSystemDriverRename(t *testing.T) {
 		}
 
 		// Check if the old file name no longer exists
-		s3Client := storage.NewS3Client(config.Get().StorageBucket, config.Get().StorageRegion)
+		s3Client := storage.NewS3Client(
+			config.Get().StorageBucket,
+			config.Get().StorageRegion,
+		)
 
 		_, err = s3Client.GetObject("test.txt")
 

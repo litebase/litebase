@@ -14,19 +14,20 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/klauspost/compress/s2"
 )
 
 type NodePrimary struct {
-	mutex        *sync.RWMutex
-	queryBuilder NodeQueryBuilder
+	mutex *sync.RWMutex
+	node  *NodeInstance
 }
 
-func NewNodePrimary(queryBuilder NodeQueryBuilder) *NodePrimary {
+func NewNodePrimary(node *NodeInstance) *NodePrimary {
 	primary := &NodePrimary{
-		mutex:        &sync.RWMutex{},
-		queryBuilder: queryBuilder,
+		mutex: &sync.RWMutex{},
+		node:  node,
 	}
 
 	return primary
@@ -57,7 +58,7 @@ func (np *NodePrimary) HandleMessage(message NodeMessage) (NodeMessage, error) {
 }
 
 func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
-	query, err := np.queryBuilder.Build(
+	query, err := np.node.queryBuilder.Build(
 		message.Data.(QueryMessage).AccessKeyId,
 		message.Data.(QueryMessage).DatabaseHash,
 		message.Data.(QueryMessage).DatabaseUuid,
@@ -287,7 +288,7 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 	}
 
 	client := &http.Client{
-		Timeout: 0,
+		Timeout: 1 * time.Second,
 	}
 
 	wg := sync.WaitGroup{}
@@ -316,6 +317,7 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 			}
 
 			request.Header.Set("X-Lbdb-Node", encryptedHeader)
+			request.Header.Set("X-Lbdb-Node-Timestamp", np.node.startedAt.Format(time.RFC3339))
 			request.Header.Set("Content-Type", "application/gob")
 
 			response, err := client.Do(request)

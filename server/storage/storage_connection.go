@@ -123,6 +123,12 @@ func (sc *StorageConnection) connect() error {
 		return err
 	}
 
+	if response.StatusCode != 200 {
+		log.Println("failed to connect to storage node: ", response.Status)
+		sc.handleError(errors.New(response.Status))
+		return errors.New(response.Status)
+	}
+
 	go sc.handleResponse(response)
 
 	select {
@@ -157,6 +163,7 @@ func (sc *StorageConnection) createAndSendRequest() (*http.Response, error) {
 	}
 
 	request.Header.Set("X-Lbdb-Node", encryptedHeader)
+	request.Header.Set("X-Lbdb-Node-Timestamp", time.Now().Format(time.RFC3339))
 
 	go sc.writeConnectionRequest()
 
@@ -219,7 +226,6 @@ readMessages:
 			break readMessages
 		case <-sc.context.Done():
 			break readMessages
-		default:
 		}
 	}
 
