@@ -66,16 +66,19 @@ func ConnectionManager() *ConnectionManagerInstance {
 }
 
 func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, branchUuid string, clientConnection *ClientConnection) bool {
-	// Skip if the checkpoint time is empty
+	// Skip if the committed at time time stamp for the connection is empty
 	if clientConnection.connection.committedAt.IsZero() {
 		return false
 	}
 
+	// Skip if the committed at time stamp of the connection is before the last
+	// checkpoint of the database group
 	if clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
 		return false
 	}
 
-	// Skip if the last checkpoint was performed in less than a second
+	// Skip if the last checkpoint for the database group was performed less
+	// than a second
 	if time.Since(databaseGroup.checkpointedAt) <= 1*time.Second {
 		return false
 	}

@@ -38,6 +38,9 @@ type DatabaseConnection struct {
 	vfsHash        string
 }
 
+/*
+Create a new database connection instance.
+*/
 func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection, error) {
 	var (
 		connection *sqlite3.Connection
@@ -140,7 +143,6 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 			The amount of cache that SQLite will use is set to -2000000. This
 			will allow SQLite to use as much memory as it needs for caching.
 		*/
-		// "PRAGMA cache_size = 0",
 		"PRAGMA cache_size = -2000000",
 		/*
 			PRAGMA secure_delete will ensure that data is securely deleted from
@@ -168,10 +170,16 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 	return con, err
 }
 
+/*
+Return the number of rows changed by the last statement.
+*/
 func (con *DatabaseConnection) Changes() int64 {
 	return con.sqlite3.Changes()
 }
 
+/*
+Checkpoint changes that have been made to the database.
+*/
 func (con *DatabaseConnection) Checkpoint() error {
 	if con == nil || con.sqlite3 == nil {
 		return nil
@@ -206,6 +214,9 @@ func (con *DatabaseConnection) Checkpoint() error {
 	return err
 }
 
+/*
+Close the database connection.
+*/
 func (con *DatabaseConnection) Close() {
 	// Ensure all statements are finalized before closing the connection.
 	con.statements.Range(func(key any, statement any) bool {
@@ -231,10 +242,16 @@ func (con *DatabaseConnection) Close() {
 	con.sqlite3 = nil
 }
 
+/*
+Check if the connection is closed.
+*/
 func (con *DatabaseConnection) Closed() bool {
 	return con.sqlite3 == nil
 }
 
+/*
+Commit the current transaction.
+*/
 func (con *DatabaseConnection) Commit() error {
 	commitStatemnt, err := con.Statement("COMMIT")
 
@@ -249,14 +266,23 @@ func (con *DatabaseConnection) Commit() error {
 	})
 }
 
+/*
+Return the context of the connection.
+*/
 func (con *DatabaseConnection) Context() context.Context {
 	return con.context
 }
 
+/*
+Return the id of the connection.
+*/
 func (c *DatabaseConnection) Id() string {
 	return c.id
 }
 
+/*
+Prepare a statement for execution.
+*/
 func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Statement, error) {
 	statment, err := con.sqlite3.Prepare(ctx, command)
 
@@ -270,6 +296,9 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 	}, nil
 }
 
+/*
+Execute a query on the database using a transaction.
+*/
 func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ...any) (sqlite3.Result, error) {
 	return con.Transaction(
 		statement.IsReadonly(),
@@ -284,6 +313,43 @@ func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ..
 		})
 }
 
+/*
+Register and instance of the VFS for the database connection.
+*/
+func (con *DatabaseConnection) RegisterVFS() error {
+	err := vfs.RegisterVFS(
+		fmt.Sprintf("litebase:%s", con.databaseHash),
+		fmt.Sprintf("litebase:%s", con.VfsHash()),
+		file.GetDatabaseFileDir(con.databaseUuid, con.branchUuid),
+		config.Get().PageSize,
+		con.fileSystem,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/*
+Rollback the current transaction.
+*/
+func (con *DatabaseConnection) Rollback() error {
+	commitStatemnt, err := con.Statement("ROLLBACK")
+
+	if err != nil {
+		return err
+	}
+
+	_, err = commitStatemnt.Sqlite3Statement.Exec()
+
+	return err
+}
+
+/*
+Create a statement for a query.
+*/
 func (con *DatabaseConnection) Statement(queryStatement string) (Statement, error) {
 	var err error
 
@@ -305,10 +371,16 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 	return statement.(Statement), err
 }
 
+/*
+Return the underlying sqlite3 connection of the database connection.
+*/
 func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 	return con.sqlite3
 }
 
+/*
+Set the authorizer for the database connection.
+*/
 func (c *DatabaseConnection) setAuthorizer() {
 	if c.accessKey == nil {
 		return
@@ -403,14 +475,14 @@ func (c *DatabaseConnection) setAuthorizer() {
 	})
 }
 
+/*
+Execute a transaction on the database.
+*/
 func (con *DatabaseConnection) Transaction(
 	readOnly bool,
 	handler func(con *DatabaseConnection) (sqlite3.Result, error),
 ) (sqlite3.Result, error) {
 	var err error
-
-	// Based on the readonly state of the transaction, we will lock the vfs to
-	// prevent more that one write transaction from happening at the same time.
 
 	if !readOnly {
 		// Start the transaction with a write lock.
@@ -459,34 +531,9 @@ func (con *DatabaseConnection) Transaction(
 	return results, handlerError
 }
 
-func (con *DatabaseConnection) RegisterVFS() error {
-	err := vfs.RegisterVFS(
-		fmt.Sprintf("litebase:%s", con.databaseHash),
-		fmt.Sprintf("litebase:%s", con.VfsHash()),
-		file.GetDatabaseFileDir(con.databaseUuid, con.branchUuid),
-		config.Get().PageSize,
-		con.fileSystem,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (con *DatabaseConnection) Rollback() error {
-	commitStatemnt, err := con.Statement("ROLLBACK")
-
-	if err != nil {
-		return err
-	}
-
-	_, err = commitStatemnt.Sqlite3Statement.Exec()
-
-	return err
-}
-
+/*
+Return the VFS hash for the connection.
+*/
 func (con *DatabaseConnection) VfsHash() string {
 	if con.vfsHash == "" {
 		sha1 := sha1.New()
@@ -497,6 +544,9 @@ func (con *DatabaseConnection) VfsHash() string {
 	return con.vfsHash
 }
 
+/*
+Set the access key for the database connection.
+*/
 func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
 	con.accessKey = accessKey
 

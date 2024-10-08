@@ -76,6 +76,11 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 	return fsd
 }
 
+/*
+Adding a file to the driver involves creating a new file durable that will be
+used to manage the file on the local file system. When the file is closed, or
+written to, it will be pushed to the durable file system.
+*/
 func (fsd *TieredFileSystemDriver) AddFile(path string, file internalStorage.File, flag int) *TieredFile {
 	if fsd.FileCount >= fsd.MaxFilesOpened {
 		fsd.RemoveOldestFile()
@@ -95,7 +100,9 @@ func (fsd *TieredFileSystemDriver) AddFile(path string, file internalStorage.Fil
 	return fsd.Files[path]
 }
 
-// CopyFile copies data from src to dst using a buffer pool to minimize memory allocations
+/*
+CopyFile copies data from src to dst using a buffer pool to minimize memory allocations.
+*/
 func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64, error) {
 	buf := fsd.buffers.Get().(*bytes.Buffer)
 	defer fsd.buffers.Put(buf)
@@ -626,7 +633,8 @@ func (fsd *TieredFileSystemDriver) WithLock(fn func()) {
 
 /*
 Writing a file in the tiered file system driver involves writing the file on
-the local file system. Writing the file to durable storage will be deferred.
+the local file system. Writing the file to durable storage will take place
+immmediately after.
 */
 func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
 	var err error
