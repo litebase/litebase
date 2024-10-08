@@ -27,8 +27,8 @@ func Init(
 		return
 	}
 
-	if objectMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_DEVELOPMENT || config.Get().Env == config.ENV_TEST) ||
-		tieredMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_DEVELOPMENT || config.Get().Env == config.ENV_TEST) {
+	if objectMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_TEST) ||
+		tieredMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_TEST) {
 		StartTestS3Server()
 		return
 	}
@@ -41,8 +41,8 @@ func Shutdown() {
 	objectMode := config.Get().StorageObjectMode
 	tieredMode := config.Get().StorageTieredMode
 
-	if objectMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_DEVELOPMENT || config.Get().Env == config.ENV_TEST) ||
-		tieredMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_DEVELOPMENT || config.Get().Env == config.ENV_TEST) {
+	if objectMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_TEST) ||
+		tieredMode == config.STORAGE_MODE_OBJECT && (config.Get().Env == config.ENV_TEST) {
 		StopTestS3Server()
 	}
 }
