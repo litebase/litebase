@@ -11,8 +11,8 @@ import (
 )
 
 type DatabaseMetadata struct {
-	BranchId           string `json:"branch_uuid"`
-	DatabaseId         string `json:"database_uuid"`
+	BranchId           string `json:"branch_id"`
+	DatabaseId         string `json:"database_id"`
 	databaseFileSystem *DurableDatabaseFileSystem
 	file               internalStorage.File
 	mutext             sync.Mutex

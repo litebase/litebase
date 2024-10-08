@@ -77,7 +77,7 @@ func DatabasePublicKeyController(request *Request) Response {
 
 	err = auth.SecretsManager().StoreDatabasePublicKey(
 		input.(*DatabasePublicKeyRequest).Signature,
-		request.Param("database_uuid"),
+		request.Param("database_id"),
 		encrypted,
 	)
 

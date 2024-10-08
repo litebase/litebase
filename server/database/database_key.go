@@ -13,8 +13,8 @@ import (
 type DatabaseKey struct {
 	Key          string `json:"key"`
 	DatabaseHash string `json:"database_hash"`
-	DatabaseId   string `json:"database_uuid"`
-	BranchId     string `json:"branch_uuid"`
+	DatabaseId   string `json:"database_id"`
+	BranchId     string `json:"branch_id"`
 }
 
 var databaseKeyCache = map[string]*DatabaseKey{}

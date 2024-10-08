@@ -403,8 +403,8 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 
 		data, _ := json.Marshal(map[string]string{
 			"database_hash": file.DatabaseHash(databaseId, branchId),
-			"database_uuid": databaseId,
-			"branch_uuid":   branchId,
+			"database_id":   databaseId,
+			"branch_id":     branchId,
 		})
 
 		err := storage.ObjectFS().WriteFile(filePath, data, 0666)
