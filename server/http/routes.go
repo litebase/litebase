@@ -101,6 +101,7 @@ func LoadRoutes(router *RouterInstance) {
 
 	router.Delete(
 		"/databases/{databaseUuid}",
+		"/databases/{databaseId}",
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -109,6 +110,7 @@ func LoadRoutes(router *RouterInstance) {
 
 	router.Post(
 		"/databases/{databaseUuid}/public-key",
+		"/databases/{databaseId}/public-key",
 		DatabasePublicKeyController,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -175,6 +177,7 @@ func LoadRoutes(router *RouterInstance) {
 
 	router.Post(
 		"/databases/{databaseUuid}/{branchUuid}/settings/purge",
+		"/databases/{databaseId}/{branchId}/settings/purge",
 		DatabaseSettingsPurgeController,
 	).Middleware([]Middleware{
 		Internal,
