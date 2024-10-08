@@ -194,7 +194,6 @@ func (n *NodeInstance) joinCluster() error {
 			log.Println(err)
 		} else {
 			n.joinedClusterAt = time.Now()
-			log.Println("JOINED CLUSTER")
 		}
 	} else {
 		n.joinedClusterAt = time.Now()
@@ -672,10 +671,6 @@ func (n *NodeInstance) Tick() {
 		}
 	}
 
-	if n.joinedClusterAt.IsZero() {
-		n.joinCluster()
-	}
-
 	n.lastActive = time.Now()
 
 	if n.State == NODE_STATE_IDLE {
@@ -689,6 +684,10 @@ func (n *NodeInstance) Tick() {
 		// Join the cluster as a replica
 
 		n.Heartbeat()
+	}
+
+	if n.joinedClusterAt.IsZero() {
+		n.joinCluster()
 	}
 }
 
