@@ -15,7 +15,7 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 	}
 
 	snapshots, err := database.
-		Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).
+		Resources(databaseKey.DatabaseId, databaseKey.BranchId).
 		SnapshotLogger().
 		GetSnapshots()
 
@@ -55,7 +55,7 @@ func DatabaseSnapshotShowController(request *Request) Response {
 	}
 
 	snapshot, err := database.
-		Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).
+		Resources(databaseKey.DatabaseId, databaseKey.BranchId).
 		SnapshotLogger().
 		GetSnapshot(timestamp)
 

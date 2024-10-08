@@ -828,12 +828,12 @@ func (n *NodeInstance) Publish(nodeMessage NodeMessage) error {
 	return n.primary.Publish(nodeMessage)
 }
 
-func PurgeDatabaseSettings(databaseUuid string) {
+func PurgeDatabaseSettings(databaseId string) {
 	nodes := Node().OtherNodes()
 
 	for _, node := range nodes {
 		go func(node *NodeIdentifier) {
-			url := fmt.Sprintf("http://%s:%s/databases/%s/settings/purge", node.Address, node.Port, databaseUuid)
+			url := fmt.Sprintf("http://%s:%s/databases/%s/settings/purge", node.Address, node.Port, databaseId)
 			req, err := http.NewRequest("POST", url, nil)
 
 			if err != nil {

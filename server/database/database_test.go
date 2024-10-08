@@ -9,12 +9,12 @@ import (
 func TestDatabaseCanBeCreated(t *testing.T) {
 	test.Setup(t)
 
-	databaseUuid := "test"
-	branchUuid := "test"
+	databaseId := "test"
+	branchId := "test"
 
 	db, err := database.Create(
-		databaseUuid,
-		branchUuid,
+		databaseId,
+		branchId,
 	)
 
 	if db == nil {

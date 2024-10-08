@@ -13,18 +13,18 @@ import (
 type DatabaseKey struct {
 	Key          string `json:"key"`
 	DatabaseHash string `json:"database_hash"`
-	DatabaseUuid string `json:"database_uuid"`
-	BranchUuid   string `json:"branch_uuid"`
+	DatabaseId   string `json:"database_uuid"`
+	BranchId     string `json:"branch_uuid"`
 }
 
 var databaseKeyCache = map[string]*DatabaseKey{}
 var databaseKeyMutex = &sync.RWMutex{}
 
-func NewDatabaseKey(databaseUuid, branchUuid string) *DatabaseKey {
+func NewDatabaseKey(databaseId, branchId string) *DatabaseKey {
 	return &DatabaseKey{
-		DatabaseHash: file.DatabaseHash(databaseUuid, branchUuid),
-		DatabaseUuid: databaseUuid,
-		BranchUuid:   branchUuid,
+		DatabaseHash: file.DatabaseHash(databaseId, branchId),
+		DatabaseId:   databaseId,
+		BranchId:     branchId,
 	}
 }
 

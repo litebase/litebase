@@ -16,7 +16,7 @@ func TestOpenRollbackLog(t *testing.T) {
 
 		timestampAtHour := time.Now().Truncate(time.Hour).Unix()
 
-		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, timestampAtHour)
+		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseId, mock.BranchId, timestampAtHour)
 
 		if err != nil {
 			t.Fatalf("Failed to open RollbackLog: %v", err)
@@ -39,7 +39,7 @@ func TestRollbackLogAppendFrame(t *testing.T) {
 		mock := test.MockDatabase()
 		timestamp := time.Now().Unix()
 
-		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, timestamp)
+		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseId, mock.BranchId, timestamp)
 
 		if err != nil {
 			t.Fatalf("Failed to open RollbackLog: %v", err)
@@ -69,7 +69,7 @@ func TestRollbackLogAppendLog(t *testing.T) {
 		timestamp := time.Now().Unix()
 		pageNumber := int64(1)
 
-		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, timestamp)
+		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseId, mock.BranchId, timestamp)
 
 		if err != nil {
 			t.Fatalf("Failed to open RollbackLog: %v", err)
@@ -96,7 +96,7 @@ func TestRollbackLogClose(t *testing.T) {
 		mock := test.MockDatabase()
 		timestamp := time.Now().Unix()
 
-		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, timestamp)
+		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseId, mock.BranchId, timestamp)
 
 		if err != nil {
 			t.Fatalf("Failed to open RollbackLog: %v", err)
@@ -116,7 +116,7 @@ func TestRollbackLogCommit(t *testing.T) {
 		timestamp := time.Now().Unix()
 		pageNumber := int64(1)
 
-		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, timestamp)
+		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseId, mock.BranchId, timestamp)
 
 		if err != nil {
 			t.Fatalf("Failed to open RollbackLog: %v", err)
@@ -183,7 +183,7 @@ func TestRollbackLogReadAfter(t *testing.T) {
 			{startOfHour.Add(time.Duration(3) * time.Minute).Unix(), []int64{1, 6, 7, 8}},
 		}
 
-		backupLogger := backups.NewRollbackLogger(mock.DatabaseUuid, mock.BranchUuid)
+		backupLogger := backups.NewRollbackLogger(mock.DatabaseId, mock.BranchId)
 
 		for _, tc := range testCases {
 			offset, size, err := backupLogger.StartFrame(tc.timestamp)
@@ -209,7 +209,7 @@ func TestRollbackLogReadAfter(t *testing.T) {
 			}
 		}
 
-		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, startOfHour.Unix())
+		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseId, mock.BranchId, startOfHour.Unix())
 
 		if err != nil {
 			t.Fatalf("Failed to open RollbackLog: %v", err)
@@ -254,7 +254,7 @@ func TestRollbackLogRollback(t *testing.T) {
 		timestamp := time.Now().Unix()
 		pageNumber := int64(1)
 
-		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseUuid, mock.BranchUuid, timestamp)
+		rollbackLog, err := backups.OpenRollbackLog(mock.DatabaseId, mock.BranchId, timestamp)
 
 		if err != nil {
 			t.Fatalf("Failed to open RollbackLog: %v", err)

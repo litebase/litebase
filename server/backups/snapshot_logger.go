@@ -12,8 +12,8 @@ import (
 
 // TODO: Cleanup unused log files
 type SnapshotLogger struct {
-	BranchUuid        string
-	DatabaseUuid      string
+	BranchId          string
+	DatabaseId        string
 	file              internalStorage.File
 	keys              []int64
 	logs              map[int64]*Snapshot
@@ -24,12 +24,12 @@ type SnapshotLogger struct {
 // The SnapshotLogger is responsible for logging Snapshots to a file when the
 // database is Snapshotted. Each log entry contains a timestamp and the number
 // of pages that were written to the snapshot.
-func NewSnapshotLogger(databaseUuid, branchUuid string) *SnapshotLogger {
+func NewSnapshotLogger(databaseId, branchId string) *SnapshotLogger {
 	return &SnapshotLogger{
-		BranchUuid:   branchUuid,
-		DatabaseUuid: databaseUuid,
-		logs:         make(map[int64]*Snapshot),
-		mutex:        &sync.Mutex{},
+		BranchId:   branchId,
+		DatabaseId: databaseId,
+		logs:       make(map[int64]*Snapshot),
+		mutex:      &sync.Mutex{},
 	}
 }
 
@@ -90,7 +90,7 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	startOfDayTimestamp := snapshotStartOfDay.Unix()
 
 	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
-		sl.logs[startOfDayTimestamp] = NewSnapshot(sl.DatabaseUuid, sl.BranchUuid, startOfDayTimestamp, timestamp)
+		sl.logs[startOfDayTimestamp] = NewSnapshot(sl.DatabaseId, sl.BranchId, startOfDayTimestamp, timestamp)
 		sl.keys = append(sl.keys, startOfDayTimestamp)
 	}
 
@@ -112,7 +112,7 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 	defer sl.mutex.Unlock()
 
 	entries, err := storage.TieredFS().ReadDir(
-		file.GetDatabaseSnapshotDirectory(sl.DatabaseUuid, sl.BranchUuid),
+		file.GetDatabaseSnapshotDirectory(sl.DatabaseId, sl.BranchId),
 	)
 
 	if err != nil {
@@ -134,7 +134,7 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 			continue
 		}
 
-		sl.logs[timestamp] = NewSnapshot(sl.DatabaseUuid, sl.BranchUuid, timestamp, 0)
+		sl.logs[timestamp] = NewSnapshot(sl.DatabaseId, sl.BranchId, timestamp, 0)
 		sl.keys = append(sl.keys, timestamp)
 	}
 
@@ -172,7 +172,7 @@ func (sl *SnapshotLogger) Log(timestamp, pageCount int64) error {
 	defer sl.mutex.Unlock()
 
 	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
-		sl.logs[startOfDayTimestamp] = NewSnapshot(sl.DatabaseUuid, sl.BranchUuid, startOfDayTimestamp, 0)
+		sl.logs[startOfDayTimestamp] = NewSnapshot(sl.DatabaseId, sl.BranchId, startOfDayTimestamp, 0)
 		sl.keys = append(sl.keys, startOfDayTimestamp)
 	}
 

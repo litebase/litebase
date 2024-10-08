@@ -96,8 +96,8 @@ func (nr *NodeReplica) handleBroadcastMessage(message NodeMessage) error {
 		Node().PrimaryHeartbeat = time.Now()
 	case "WALCheckpointMessage":
 		err := nr.databaseCheckpointer.CheckpointReplica(
-			message.Data.(WALCheckpointMessage).DatabaseUuid,
-			message.Data.(WALCheckpointMessage).BranchUuid,
+			message.Data.(WALCheckpointMessage).DatabaseId,
+			message.Data.(WALCheckpointMessage).BranchId,
 			message.Data.(WALCheckpointMessage).Timestamp,
 		)
 
@@ -114,8 +114,8 @@ func (nr *NodeReplica) handleBroadcastMessage(message NodeMessage) error {
 		}
 
 		err = nr.databaseWalSynchronizer.Sync(
-			message.Data.(WALReplicationMessage).DatabaseUuid,
-			message.Data.(WALReplicationMessage).BranchUuid,
+			message.Data.(WALReplicationMessage).DatabaseId,
+			message.Data.(WALReplicationMessage).BranchId,
 			decompressedData,
 			message.Data.(WALReplicationMessage).Offset,
 			message.Data.(WALReplicationMessage).Length,

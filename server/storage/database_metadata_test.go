@@ -16,27 +16,27 @@ func TestNewDatabaseMetadata(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, err := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		if err != nil {
 			t.Errorf("error creating database metadata: %v", err)
 		}
 
-		if databaseMetadata.BranchUuid != mockDatabase.BranchUuid {
-			t.Errorf("expected branch uuid %s, got %s", mockDatabase.BranchUuid, databaseMetadata.BranchUuid)
+		if databaseMetadata.BranchId != mockDatabase.BranchId {
+			t.Errorf("expected branch uuid %s, got %s", mockDatabase.BranchId, databaseMetadata.BranchId)
 		}
 
-		if databaseMetadata.DatabaseUuid != mockDatabase.DatabaseUuid {
-			t.Errorf("expected database uuid %s, got %s", mockDatabase.DatabaseUuid, databaseMetadata.DatabaseUuid)
+		if databaseMetadata.DatabaseId != mockDatabase.DatabaseId {
+			t.Errorf("expected database uuid %s, got %s", mockDatabase.DatabaseId, databaseMetadata.DatabaseId)
 		}
 
 		if databaseMetadata.PageSize != 4096 {
@@ -56,15 +56,15 @@ func TestDatabaseMetadataClose(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, _ := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		err := databaseMetadata.Close()
@@ -82,15 +82,15 @@ func TestDatabaseMetadataFile(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, _ := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		_, err := databaseMetadata.File()
@@ -116,15 +116,15 @@ func TestDatabaseMetadataFileSize(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, _ := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		if databaseMetadata.FileSize() != 0 {
@@ -146,15 +146,15 @@ func TestDatabaseMetadataLoad(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, _ := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		databaseMetadata.PageCount = 10
@@ -173,8 +173,8 @@ func TestDatabaseMetadataLoad(t *testing.T) {
 
 		databaseMetadata, _ = storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		err = databaseMetadata.Load()
@@ -196,20 +196,20 @@ func TestDatabaseMetadataPath(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, _ := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		path := databaseMetadata.Path()
 
-		if path != fmt.Sprintf("%s/_METADATA", file.GetDatabaseFileDir(mockDatabase.DatabaseUuid, mockDatabase.BranchUuid)) {
+		if path != fmt.Sprintf("%s/_METADATA", file.GetDatabaseFileDir(mockDatabase.DatabaseId, mockDatabase.BranchId)) {
 			t.Errorf("expected path local/_METADATA, got %s", path)
 		}
 	})
@@ -222,15 +222,15 @@ func TestDatabaseMetadataSave(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, _ := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		databaseMetadata.PageCount = 10
@@ -251,8 +251,8 @@ func TestDatabaseMetadataSave(t *testing.T) {
 		// Load
 		databaseMetadata, _ = storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		if databaseMetadata.PageCount != 10 {
@@ -268,15 +268,15 @@ func TestDatabaseMetadataSetPageCount(t *testing.T) {
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
 			config.STORAGE_MODE_LOCAL,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 			4096,
 		)
 
 		databaseMetadata, _ := storage.NewDatabaseMetadata(
 			localDatabaseFileSystem,
-			mockDatabase.DatabaseUuid,
-			mockDatabase.BranchUuid,
+			mockDatabase.DatabaseId,
+			mockDatabase.BranchId,
 		)
 
 		databaseMetadata.SetPageCount(100)

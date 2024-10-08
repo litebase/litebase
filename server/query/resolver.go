@@ -37,7 +37,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		var err error
 		var db *database.ClientConnection
 
-		db, err = database.ConnectionManager().Get(query.DatabaseKey.DatabaseUuid, query.DatabaseKey.BranchUuid)
+		db, err = database.ConnectionManager().Get(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId)
 
 		if err != nil {
 			log.Println("Error getting database connection", err)
@@ -45,7 +45,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 			return err
 		}
 
-		defer database.ConnectionManager().Release(query.DatabaseKey.DatabaseUuid, query.DatabaseKey.BranchUuid, db)
+		defer database.ConnectionManager().Release(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
 
 		db = db.WithAccessKey(query.AccessKey)
 
@@ -73,7 +73,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		}
 
 		if err != nil {
-			database.ConnectionManager().Remove(query.DatabaseKey.DatabaseUuid, query.DatabaseKey.BranchUuid, db)
+			database.ConnectionManager().Remove(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
 			return err
 		}
 
@@ -88,8 +88,8 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		logs.Query(
 			logs.QueryLogEnry{
 				DatabaseHash: query.DatabaseKey.DatabaseHash,
-				DatabaseUuid: query.DatabaseKey.DatabaseUuid,
-				BranchUuid:   query.DatabaseKey.BranchUuid,
+				DatabaseId:   query.DatabaseKey.DatabaseId,
+				BranchId:     query.DatabaseKey.BranchId,
 				AccessKeyId:  query.AccessKey.AccessKeyId,
 				Statement:    query.Input.Statement,
 				Latency:      response.Latency,
@@ -130,12 +130,12 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 			Id:   fmt.Sprintf("query:%s", query.Input.Id),
 			Type: "QueryMessage",
 			Data: node.QueryMessage{
-				AccessKeyId:  query.AccessKey.AccessKeyId,
-				BranchUuid:   query.DatabaseKey.BranchUuid,
-				DatabaseUuid: query.DatabaseKey.DatabaseUuid,
-				Id:           query.Input.Id,
-				Statement:    query.Input.Statement,
-				Parameters:   query.Input.Parameters,
+				AccessKeyId: query.AccessKey.AccessKeyId,
+				BranchId:    query.DatabaseKey.BranchId,
+				DatabaseId:  query.DatabaseKey.DatabaseId,
+				Id:          query.Input.Id,
+				Statement:   query.Input.Statement,
+				Parameters:  query.Input.Parameters,
 			},
 		},
 	)

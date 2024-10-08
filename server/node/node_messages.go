@@ -21,9 +21,9 @@ type NodeGossipMessage struct {
 
 type QueryMessage struct {
 	AccessKeyId  string
-	BranchUuid   string
+	BranchId     string
 	DatabaseHash string
-	DatabaseUuid string
+	DatabaseId   string
 	Id           string
 	Parameters   []any
 	Statement    string
@@ -48,35 +48,35 @@ type ReplicaConnectionResponse struct {
 }
 
 type WALMessage struct {
-	BranchUuid   string
-	DatabaseUuid string
+	BranchId   string
+	DatabaseId string
 }
 
 type WALMessageResponse struct {
-	BranchUuid   string
-	ChunkNumber  int
-	Data         []byte
-	DatabaseUuid string
-	LastChunk    bool
-	Sha256       [32]byte
-	Timestamp    int64
-	TotalChunks  int
+	BranchId    string
+	ChunkNumber int
+	Data        []byte
+	DatabaseId  string
+	LastChunk   bool
+	Sha256      [32]byte
+	Timestamp   int64
+	TotalChunks int
 }
 
 type WALCheckpointMessage struct {
-	BranchUuid   string
-	DatabaseUuid string
-	Timestamp    int64
+	BranchId   string
+	DatabaseId string
+	Timestamp  int64
 }
 
 type WALReplicationMessage struct {
-	BranchUuid   string
-	DatabaseUuid string
-	Data         []byte
-	Offset       int
-	Length       int
-	Sha256       [32]byte
-	Timestamp    int64
+	BranchId   string
+	DatabaseId string
+	Data       []byte
+	Offset     int
+	Length     int
+	Sha256     [32]byte
+	Timestamp  int64
 }
 
 func registerNodeMessages() {

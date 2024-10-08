@@ -146,20 +146,20 @@ func TmpDirectory() string {
 	return "_databases/"
 }
 
-func Get(databaseUuid string) (*Database, error) {
+func Get(databaseId string) (*Database, error) {
 	databaseMutex.Lock()
 	defer databaseMutex.Unlock()
 
-	if databases[databaseUuid] != nil {
-		return databases[databaseUuid], nil
+	if databases[databaseId] != nil {
+		return databases[databaseId], nil
 	}
 
-	path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseUuid)
+	path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseId)
 
 	file, err := storage.ObjectFS().Open(path)
 
 	if err != nil {
-		return nil, fmt.Errorf("database '%s' has not been configured", databaseUuid)
+		return nil, fmt.Errorf("database '%s' has not been configured", databaseId)
 	}
 
 	database := &Database{}
@@ -170,14 +170,14 @@ func Get(databaseUuid string) (*Database, error) {
 		return nil, err
 	}
 
-	databases[databaseUuid] = database
+	databases[databaseId] = database
 
 	return database, nil
 }
 
-func (database *Database) HasBranch(branchUuid string) bool {
+func (database *Database) HasBranch(branchId string) bool {
 	for _, branch := range database.Branches {
-		if branch.Id == branchUuid {
+		if branch.Id == branchId {
 			return true
 		}
 	}
@@ -185,11 +185,11 @@ func (database *Database) HasBranch(branchUuid string) bool {
 	return false
 }
 
-func (database *Database) Key(branchUuid string) string {
+func (database *Database) Key(branchId string) string {
 	var branch *Branch
 
 	for _, b := range database.Branches {
-		if b.Id == branchUuid {
+		if b.Id == branchId {
 			branch = b
 			break
 		}
@@ -229,11 +229,11 @@ func (database *Database) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (database *Database) BranchDirectory(branchUuid string) string {
-	return fmt.Sprintf("%s%s/%s", Directory(), database.Id, branchUuid)
+func (database *Database) BranchDirectory(branchId string) string {
+	return fmt.Sprintf("%s%s/%s", Directory(), database.Id, branchId)
 }
 
-func (database *Database) Url(branchUuid string) string {
+func (database *Database) Url(branchId string) string {
 	return fmt.Sprintf(
 		"http://%s.%s.%s.litebase.test:%s",
 		database.Key(database.PrimaryBranchId),

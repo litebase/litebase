@@ -7,8 +7,8 @@ import (
 
 type BackupLock struct {
 	lock         *sync.Mutex
-	BranchUuid   string
-	DatabaseUuid string
+	BranchId     string
+	DatabaseId   string
 	LastLockedAt time.Time
 }
 

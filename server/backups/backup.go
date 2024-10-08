@@ -29,8 +29,8 @@ This data is derived from a Snapshot and can be used to restore a database.
 */
 type Backup struct {
 	dfs            *storage.DurableDatabaseFileSystem
-	BranchUuid     string
-	DatabaseUuid   string
+	BranchId       string
+	DatabaseId     string
 	maxPartSize    int64
 	rollbackLogger *RollbackLogger
 	RestorePoint   RestorePoint
@@ -44,8 +44,8 @@ Returns a Backup object for the given database and branch at a timestamp.
 func GetBackup(
 	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 	timestamp int64,
 ) (*Backup, error) {
 	snapshot, err := snapshotLogger.GetSnapshot(timestamp)
@@ -65,8 +65,8 @@ func GetBackup(
 	}
 
 	backup := &Backup{
-		BranchUuid:   branchUuid,
-		DatabaseUuid: databaseUuid,
+		BranchId:     branchId,
+		DatabaseId:   databaseId,
 		dfs:          dfs,
 		RestorePoint: restorePoint,
 	}
@@ -81,12 +81,12 @@ timestamp provided.
 func GetNextBackup(
 	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 	snapshotTimestamp int64,
 ) (*Backup, error) {
 	backups := make([]int64, 0)
-	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid), BACKUP_DIR)
+	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseId, branchId), BACKUP_DIR)
 
 	// Get a list of all directories in the directory
 	dirs, err := storage.ObjectFS().ReadDir(backupsDirectory)
@@ -121,7 +121,7 @@ func GetNextBackup(
 	// Loop through the backups
 	for _, b := range backups {
 		if b > snapshotTimestamp {
-			return GetBackup(snapshotLogger, dfs, databaseUuid, branchUuid, b)
+			return GetBackup(snapshotLogger, dfs, databaseId, branchId, b)
 		}
 	}
 
@@ -159,7 +159,7 @@ func (backup *Backup) Delete() error {
 func (backup *Backup) DirectoryPath() string {
 	return fmt.Sprintf(
 		"%s/%d",
-		file.GetDatabaseBackupsDirectory(backup.DatabaseUuid, backup.BranchUuid),
+		file.GetDatabaseBackupsDirectory(backup.DatabaseId, backup.BranchId),
 		backup.RestorePoint.Timestamp,
 	)
 }
@@ -192,8 +192,8 @@ consists of the database UUID, branch UUID, and the snapshot timestamp.
 */
 func (backup *Backup) Hash() string {
 	hash := sha1.New()
-	hash.Write([]byte(backup.DatabaseUuid))
-	hash.Write([]byte(backup.BranchUuid))
+	hash.Write([]byte(backup.DatabaseId))
+	hash.Write([]byte(backup.BranchId))
 	hash.Write([]byte(fmt.Sprintf("%d", backup.RestorePoint.Timestamp)))
 
 	return hex.EncodeToString(hash.Sum(nil))
@@ -222,7 +222,7 @@ func (backup *Backup) packageBackup() error {
 	var sourceFile internalStorage.File
 
 	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, config.Get().PageSize)
-	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseUuid, backup.BranchUuid)
+	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseId, backup.BranchId)
 
 	// Loop through the files in the source database and copy them to the target database
 	entries, err := backup.dfs.FileSystem().ReadDir(sourceDirectory)
@@ -410,15 +410,15 @@ propert state. This will allow the backup to copy all existing files
 while the database is online and in use.
 */
 func Run(
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 	timestamp int64,
 	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
 	rollbackLogger *RollbackLogger,
 	callbacks ...BackupConfigCallback,
 ) (*Backup, error) {
-	lock := GetBackupLock(file.DatabaseHash(databaseUuid, branchUuid))
+	lock := GetBackupLock(file.DatabaseHash(databaseId, branchId))
 
 	if lock.TryLock() {
 		defer lock.Unlock()
@@ -443,8 +443,8 @@ func Run(
 	}
 
 	backup := &Backup{
-		BranchUuid:     branchUuid,
-		DatabaseUuid:   databaseUuid,
+		BranchId:       branchId,
+		DatabaseId:     databaseId,
 		dfs:            dfs,
 		RestorePoint:   restorePoint,
 		rollbackLogger: rollbackLogger,
@@ -546,8 +546,8 @@ Returns a map representation of the backup.
 */
 func (backup *Backup) ToMap() map[string]interface{} {
 	return map[string]interface{}{
-		"database_id": backup.DatabaseUuid,
-		"branch_id":   backup.BranchUuid,
+		"database_id": backup.DatabaseId,
+		"branch_id":   backup.BranchId,
 		"size":        backup.Size(),
 		"timestamp":   backup.RestorePoint.Timestamp,
 	}

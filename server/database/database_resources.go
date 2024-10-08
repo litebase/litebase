@@ -12,8 +12,8 @@ import (
 )
 
 type DatabaseResources struct {
-	BranchUuid     string
-	DatabaseUuid   string
+	BranchId       string
+	DatabaseId     string
 	snapshotLogger *backups.SnapshotLogger
 	checkpointer   *Checkpointer
 	fileSystem     *storage.DurableDatabaseFileSystem
@@ -25,10 +25,14 @@ type DatabaseResources struct {
 var databaseResourceManagerMutex = &sync.RWMutex{}
 var resources = map[string]*DatabaseResources{}
 
-func Resources(databaseUuid, branchUuid string) *DatabaseResources {
+/*
+Get the resources for the given database and branch UUIDs. If the resources
+have not been created, create them and store them in the resources map.
+*/
+func Resources(databaseId, branchId string) *DatabaseResources {
 	databaseResourceManagerMutex.RLock()
 
-	if resource, ok := resources[file.DatabaseHash(databaseUuid, branchUuid)]; ok {
+	if resource, ok := resources[file.DatabaseHash(databaseId, branchId)]; ok {
 		databaseResourceManagerMutex.RUnlock()
 
 		return resource
@@ -40,16 +44,19 @@ func Resources(databaseUuid, branchUuid string) *DatabaseResources {
 	defer databaseResourceManagerMutex.Unlock()
 
 	resource := &DatabaseResources{
-		BranchUuid:   branchUuid,
-		DatabaseUuid: databaseUuid,
-		mutex:        &sync.RWMutex{},
+		BranchId:   branchId,
+		DatabaseId: databaseId,
+		mutex:      &sync.RWMutex{},
 	}
 
-	resources[file.DatabaseHash(databaseUuid, branchUuid)] = resource
+	resources[file.DatabaseHash(databaseId, branchId)] = resource
 
 	return resource
 }
 
+/*
+Shutdown all of the database resources that have been created.
+*/
 func ShutdownResources() {
 	databaseResourceManagerMutex.Lock()
 	defer databaseResourceManagerMutex.Unlock()
@@ -61,6 +68,9 @@ func ShutdownResources() {
 	resources = map[string]*DatabaseResources{}
 }
 
+/*
+Return a database checkpointer.
+*/
 func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 	d.mutex.RLock()
 
@@ -74,8 +84,8 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 	d.mutex.RUnlock()
 
 	checkpointer, err := NewCheckpointer(
-		d.DatabaseUuid,
-		d.BranchUuid,
+		d.DatabaseId,
+		d.BranchId,
 		d.FileSystem(),
 	)
 
@@ -109,9 +119,9 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 
 	fileSystem := storage.NewDurableDatabaseFileSystem(
 		storage.TieredFS(),
-		fmt.Sprintf("%s%s/%s", Directory(), d.DatabaseUuid, d.BranchUuid),
-		d.DatabaseUuid,
-		d.BranchUuid,
+		fmt.Sprintf("%s%s/%s", Directory(), d.DatabaseId, d.BranchId),
+		d.DatabaseId,
+		d.BranchId,
 		pageSize,
 	)
 
@@ -136,8 +146,8 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 			// 		Id:   "broadcast",
 			// 		Type: "WALCheckpointMessage",
 			// 		Data: node.WALCheckpointMessage{
-			// 			DatabaseUuid: databaseUuid,
-			// 			BranchUuid:   branchUuid,
+			// 			DatabaseId: databaseId,
+			// 			BranchId:   branchId,
 			// 			Timestamp:    fileSystem.TransactionTimestamp(),
 			// 		},
 			// 	},
@@ -167,7 +177,7 @@ func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 
 	d.mutex.RUnlock()
 
-	pageLogger := backups.NewRollbackLogger(d.DatabaseUuid, d.BranchUuid)
+	pageLogger := backups.NewRollbackLogger(d.DatabaseId, d.BranchId)
 
 	d.mutex.Lock()
 
@@ -222,7 +232,7 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	d.mutex.Lock()
 
 	if d.snapshotLogger == nil {
-		d.snapshotLogger = backups.NewSnapshotLogger(d.DatabaseUuid, d.BranchUuid)
+		d.snapshotLogger = backups.NewSnapshotLogger(d.DatabaseId, d.BranchId)
 	}
 
 	d.mutex.Unlock()
@@ -241,9 +251,9 @@ func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 
 	d.mutex.RUnlock()
 
-	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), node.Node().Id, d.DatabaseUuid, d.BranchUuid)
+	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), node.Node().Id, d.DatabaseId, d.BranchId)
 
-	fileSystem := storage.NewTempDatabaseFileSystem(path, d.DatabaseUuid, d.BranchUuid)
+	fileSystem := storage.NewTempDatabaseFileSystem(path, d.DatabaseId, d.BranchId)
 
 	d.mutex.Lock()
 

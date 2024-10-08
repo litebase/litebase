@@ -10,9 +10,9 @@ const WriteQueueCapacity = 1000
 
 type WriteQueue struct {
 	activeAt          time.Time
-	branchUuid        string
+	branchId          string
 	context           context.Context
-	databaseUuid      string
+	databaseId        string
 	jobs              chan WriteQueueJob
 	mutex             sync.Mutex
 	resultPool        sync.Pool
@@ -41,9 +41,9 @@ func GetWriteQueue(query *Query) *WriteQueue {
 	}
 
 	writeQueue := &WriteQueue{
-		branchUuid:   query.DatabaseKey.BranchUuid,
-		context:      ctx,
-		databaseUuid: query.DatabaseKey.DatabaseUuid,
+		branchId:   query.DatabaseKey.BranchId,
+		context:    ctx,
+		databaseId: query.DatabaseKey.DatabaseId,
 		// Setup a buffered channel to hold up to 1000 concurrent jobs
 		jobs:  make(chan WriteQueueJob, WriteQueueCapacity),
 		mutex: sync.Mutex{},

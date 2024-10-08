@@ -11,7 +11,7 @@ func TestHandle(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -45,7 +45,7 @@ func TestHandle(t *testing.T) {
 
 		for _, c := range cases {
 			q, err := query.NewQuery(
-				database.NewDatabaseKey(mock.DatabaseUuid, mock.BranchUuid),
+				database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 				mock.AccessKey,
 				&query.QueryInput{
 					Statement:  c.statement,
@@ -116,7 +116,7 @@ func TestHandle(t *testing.T) {
 		// }
 
 		// for _, batchCase := range batchCases {
-		// 	db, err = database.Get(mock.DatabaseUuid, mock.BranchUuid, nil, false)
+		// 	db, err = database.Get(mock.DatabaseId, mock.BranchId, nil, false)
 
 		// 	if err != nil {
 		// 		t.Fatal(err)

@@ -9,7 +9,7 @@ type TempDatabaseFileSystem struct {
 	path string
 }
 
-func NewTempDatabaseFileSystem(path, databaseUuid, branchUuid string) *TempDatabaseFileSystem {
+func NewTempDatabaseFileSystem(path, databaseId, branchId string) *TempDatabaseFileSystem {
 	fs := TmpFS()
 
 	// Check if the the directory exists

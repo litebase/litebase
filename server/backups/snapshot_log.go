@@ -16,11 +16,11 @@ type Snapshot struct {
 	/*
 		The UUID of the branch the snapshot is for.
 	*/
-	BranchUuid string
+	BranchId string
 	/*
 		The UUID of the database the snapshot is for.
 	*/
-	DatabaseUuid string
+	DatabaseId string
 	/*
 		The file to write the snapshot log to.
 	*/
@@ -61,10 +61,10 @@ type RestorePoint struct {
 /*
 Create a new instance of a snapshot.
 */
-func NewSnapshot(databaseUuid string, branchUuid string, dayTimestamp, timestamp int64) *Snapshot {
+func NewSnapshot(databaseId string, branchId string, dayTimestamp, timestamp int64) *Snapshot {
 	return &Snapshot{
-		BranchUuid:   branchUuid,
-		DatabaseUuid: databaseUuid,
+		BranchId:   branchId,
+		DatabaseId: databaseId,
 		RestorePoints: SnapshotRestorePoints{
 			Data:  []int64{},
 			Start: timestamp,
@@ -89,10 +89,10 @@ func (s *Snapshot) Close() error {
 /*
 Return the path to the snapshot log file for a database.
 */
-func GetSnapshotPath(databaseUuid string, branchUuid string, timestamp int64) string {
+func GetSnapshotPath(databaseId string, branchId string, timestamp int64) string {
 	return fmt.Sprintf(
 		"%s/%d",
-		file.GetDatabaseSnapshotDirectory(databaseUuid, branchUuid),
+		file.GetDatabaseSnapshotDirectory(databaseId, branchId),
 		timestamp,
 	)
 }
@@ -222,14 +222,14 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 func (s *Snapshot) openFile() error {
 openFile:
 	snapshotFile, err := storage.TieredFS().OpenFile(
-		GetSnapshotPath(s.DatabaseUuid, s.BranchUuid, s.Timestamp),
+		GetSnapshotPath(s.DatabaseId, s.BranchId, s.Timestamp),
 		SNAPSHOT_LOG_FLAGS,
 		0644,
 	)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(s.DatabaseUuid, s.BranchUuid)), 0755)
+			err := storage.TieredFS().MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(s.DatabaseId, s.BranchId)), 0755)
 
 			if err != nil {
 				return err

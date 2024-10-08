@@ -11,11 +11,11 @@ const Key = "query_counts"
 
 func Add(
 	timestamp int64,
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 ) *QueryCount {
 	newlyCreated := false
-	key := GetKey(databaseUuid, branchUuid)
+	key := GetKey(databaseId, branchId)
 
 	if _, ok := queryCounts[timestamp]; !ok {
 		queryCounts[timestamp] = map[string]map[int64]*QueryCount{}
@@ -45,8 +45,8 @@ func Get(timestamp int64) map[string]map[int64]*QueryCount {
 	return queryCounts[timestamp]
 }
 
-func Increment(databaseUuid string, branchUuid string) {
-	counter := Add(time.Now().Round(time.Minute).Unix(), databaseUuid, branchUuid)
+func Increment(databaseId string, branchId string) {
+	counter := Add(time.Now().Round(time.Minute).Unix(), databaseId, branchId)
 
 	if counter == nil {
 		return
@@ -58,6 +58,6 @@ func Increment(databaseUuid string, branchUuid string) {
 /*
 Return the key for the query count.
 */
-func GetKey(databaseUuid string, branchUuid string) string {
-	return fmt.Sprintf("%s:%s", databaseUuid, branchUuid)
+func GetKey(databaseId string, branchId string) string {
+	return fmt.Sprintf("%s:%s", databaseId, branchId)
 }

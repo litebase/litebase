@@ -12,9 +12,9 @@ import (
 )
 
 type KeyEncrypter struct {
-	databaseUuid string
-	publicKey    *rsa.PublicKey
-	signature    string
+	databaseId string
+	publicKey  *rsa.PublicKey
+	signature  string
 }
 
 func NewKeyEncrypter(signature string) *KeyEncrypter {
@@ -158,8 +158,8 @@ func (k *KeyEncrypter) Encrypt(data string) (string, error) {
 	return base64.StdEncoding.EncodeToString(jsonEncoded), nil
 }
 
-func (k *KeyEncrypter) ForDatabase(databaseUuid string) *KeyEncrypter {
-	k.databaseUuid = databaseUuid
+func (k *KeyEncrypter) ForDatabase(databaseId string) *KeyEncrypter {
+	k.databaseId = databaseId
 
 	return k
 }
@@ -172,8 +172,8 @@ func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
 	var err error
 
 	if k.publicKey == nil {
-		if k.databaseUuid != "" {
-			k.publicKey, err = GetPublicKeyForDatabase(k.signature, k.databaseUuid)
+		if k.databaseId != "" {
+			k.publicKey, err = GetPublicKeyForDatabase(k.signature, k.databaseId)
 		} else {
 			k.publicKey, err = GetPublicKey(k.signature)
 		}

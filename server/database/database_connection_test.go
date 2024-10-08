@@ -13,13 +13,13 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		connection1, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		connection1, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		connection2, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		connection2, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -89,13 +89,13 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		connection1, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		connection1, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		connection2, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		connection2, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -107,8 +107,8 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, connection1)
-		database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, connection2)
+		database.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection1)
+		database.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection2)
 
 		wg := sync.WaitGroup{}
 
@@ -117,7 +117,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < 500000; i++ {
-				db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+				db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 				if err != nil {
 					t.Error(err)
@@ -136,7 +136,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 					break
 				}
 
-				database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
+				database.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 			}
 		}()
 
@@ -145,7 +145,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < 500000; i++ {
-				db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+				db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 				if err != nil {
 					t.Error(err)
@@ -159,13 +159,13 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 					break
 				}
 
-				database.ConnectionManager().Release(mock.DatabaseUuid, mock.BranchUuid, db)
+				database.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 			}
 		}()
 
 		wg.Wait()
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Error(err)
@@ -179,7 +179,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 		log.Println(resut)
 
-		db, err = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err = database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Error(err)
@@ -193,7 +193,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 		log.Println(resut)
 
-		db, err = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err = database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Error(err)

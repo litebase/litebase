@@ -36,9 +36,9 @@ type RollbackLog struct {
 
 // Open the right rollback log file for the given database and branch. If the
 // file does not exist, it will be created.
-func OpenRollbackLog(databaseUuid, branchUuid string, timestamp int64) (*RollbackLog, error) {
+func OpenRollbackLog(databaseId, branchId string, timestamp int64) (*RollbackLog, error) {
 log:
-	directory := file.GetDatabaseRollbackDirectory(databaseUuid, branchUuid)
+	directory := file.GetDatabaseRollbackDirectory(databaseId, branchId)
 	path := fmt.Sprintf("%s/%d", directory, timestamp)
 	file, err := storage.TieredFS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 

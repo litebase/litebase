@@ -63,28 +63,28 @@ func (accessKey AccessKey) authorized(resource string, action string) bool {
 	return false
 }
 
-func (accessKey AccessKey) authorizedForDatabase(databaseUuid, branchUuid, action string) bool {
-	if accessKey.authorized(fmt.Sprintf("%s:%s", databaseUuid, "*"), action) {
+func (accessKey AccessKey) authorizedForDatabase(databaseId, branchId, action string) bool {
+	if accessKey.authorized(fmt.Sprintf("%s:%s", databaseId, "*"), action) {
 		return true
 	}
 
-	return accessKey.authorized(fmt.Sprintf("%s:%s", databaseUuid, branchUuid), action)
+	return accessKey.authorized(fmt.Sprintf("%s:%s", databaseId, branchId), action)
 }
 
-func (accessKey AccessKey) authorizedForTable(databaseUuid, branchUuid, table, action string) bool {
-	if accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseUuid, "*", table), action) {
+func (accessKey AccessKey) authorizedForTable(databaseId, branchId, table, action string) bool {
+	if accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseId, "*", table), action) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseUuid, branchUuid, "*"), action) {
+	if accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseId, branchId, "*"), action) {
 		return true
 	}
 
-	return accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseUuid, branchUuid, table), action)
+	return accessKey.authorized(fmt.Sprintf("%s:%s:%s", databaseId, branchId, table), action)
 }
 
-func (accessKey AccessKey) CanAccess(databaseUuid, branchUuid string) error {
-	if databaseUuid == "" || branchUuid == "" {
+func (accessKey AccessKey) CanAccess(databaseId, branchId string) error {
+	if databaseId == "" || branchId == "" {
 		return NewDatabaseAccessError()
 	}
 
@@ -93,7 +93,7 @@ func (accessKey AccessKey) CanAccess(databaseUuid, branchUuid string) error {
 			return nil
 		}
 
-		if strings.HasPrefix(permission.Resource, fmt.Sprintf("%s:%s", databaseUuid, branchUuid)) {
+		if strings.HasPrefix(permission.Resource, fmt.Sprintf("%s:%s", databaseId, branchId)) {
 			return nil
 		}
 	}
@@ -102,57 +102,57 @@ func (accessKey AccessKey) CanAccess(databaseUuid, branchUuid string) error {
 
 }
 
-func (accessKey AccessKey) CanAlter(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanAlter(databaseId, branchId string, args []string) (bool, error) {
 	table := args[0]
 
 	if table == "sqlite_master" {
-		passes, _ := accessKey.CanIndex(databaseUuid, branchUuid, []string{table})
+		passes, _ := accessKey.CanIndex(databaseId, branchId, []string{table})
 
 		if passes {
 			return true, nil
 		}
 	}
 
-	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:ALTER") {
+	if accessKey.authorizedForTable(databaseId, branchId, table, "table:ALTER") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("ALTER")
 }
 
-func (accessKey AccessKey) CanCreate(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanCreate(databaseId, branchId string, args []string) (bool, error) {
 	table, _, databaseName := args[0], args[1], args[2]
 
-	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:CREATE") {
+	if accessKey.authorizedForDatabase(databaseId, branchId, "table:CREATE") {
 		return true, nil
 	}
 
 	if table == "sqlite_master" || table == "sqlite_temp_master" {
-		passes, _ := accessKey.CanAlter(databaseUuid, branchUuid, []string{table})
+		passes, _ := accessKey.CanAlter(databaseId, branchId, []string{table})
 
 		if passes {
 			return true, nil
 		}
 
-		passes, _ = accessKey.CanDrop(databaseUuid, branchUuid, []string{table})
+		passes, _ = accessKey.CanDrop(databaseId, branchId, []string{table})
 
 		if passes {
 			return true, nil
 		}
 
 		if databaseName == "main" || databaseName == "temp" {
-			return accessKey.CanTrigger(databaseUuid, branchUuid, []string{table, databaseName})
+			return accessKey.CanTrigger(databaseId, branchId, []string{table, databaseName})
 		}
 	}
 
 	return false, NewDatabasePrivilegeError("CREATE")
 }
 
-func (accessKey AccessKey) CanDelete(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanDelete(databaseId, branchId string, args []string) (bool, error) {
 	table, _, databaseName := args[0], args[1], args[2]
 
 	if databaseName == "main" || databaseName == "temp" {
-		passes, _ := accessKey.CanDrop(databaseUuid, branchUuid, []string{table})
+		passes, _ := accessKey.CanDrop(databaseId, branchId, []string{table})
 
 		if passes {
 			return true, nil
@@ -160,97 +160,97 @@ func (accessKey AccessKey) CanDelete(databaseUuid, branchUuid string, args []str
 	}
 
 	if table == "sqlite_master" || table == "sqlite_temp_master" {
-		passes, _ := accessKey.CanDrop(databaseUuid, branchUuid, []string{table})
+		passes, _ := accessKey.CanDrop(databaseId, branchId, []string{table})
 
 		if passes {
 			return true, nil
 		}
 	}
 
-	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:DELETE") {
+	if accessKey.authorizedForTable(databaseId, branchId, table, "table:DELETE") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("DELETE")
 }
 
-func (accessKey AccessKey) CanDrop(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanDrop(databaseId, branchId string, args []string) (bool, error) {
 	table := args[0]
 
-	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:DROP") {
+	if accessKey.authorizedForTable(databaseId, branchId, table, "table:DROP") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("DROP")
 }
 
-func (accessKey AccessKey) CanIndex(databaseUuid, branchUuid string, args []string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:INDEX") {
+func (accessKey AccessKey) CanIndex(databaseId, branchId string, args []string) (bool, error) {
+	if accessKey.authorizedForDatabase(databaseId, branchId, "table:INDEX") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("INDEX")
 }
 
-func (accessKey AccessKey) CanInsert(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanInsert(databaseId, branchId string, args []string) (bool, error) {
 	table := args[0]
 
 	if table == "sqlite_master" {
-		canCreate, _ := accessKey.CanCreate(databaseUuid, branchUuid, args)
-		canIndex, _ := accessKey.CanIndex(databaseUuid, branchUuid, args)
+		canCreate, _ := accessKey.CanCreate(databaseId, branchId, args)
+		canIndex, _ := accessKey.CanIndex(databaseId, branchId, args)
 
 		if canCreate || canIndex {
 			return true, nil
 		}
 	}
 
-	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:INSERT") {
+	if accessKey.authorizedForTable(databaseId, branchId, table, "table:INSERT") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("INSERT")
 }
 
-func (accessKey AccessKey) CanPragma(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanPragma(databaseId, branchId string, args []string) (bool, error) {
 	// pragma, value := args[0].(string), args[1].(string)
 
-	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:PRAGMA") {
+	if accessKey.authorizedForDatabase(databaseId, branchId, "table:PRAGMA") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("PRAGMA")
 }
 
-func (accessKey AccessKey) CanRead(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanRead(databaseId, branchId string, args []string) (bool, error) {
 	return true, nil
 }
 
-func (accessKey AccessKey) CanSelect(databaseUuid, branchUuid string, args []string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseUuid, branchUuid, "table:SELECT") {
+func (accessKey AccessKey) CanSelect(databaseId, branchId string, args []string) (bool, error) {
+	if accessKey.authorizedForDatabase(databaseId, branchId, "table:SELECT") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("SELECT")
 }
 
-func (accessKey AccessKey) CanTrigger(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanTrigger(databaseId, branchId string, args []string) (bool, error) {
 	_, table := args[0], args[1]
 
-	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:TRIGGER") {
+	if accessKey.authorizedForTable(databaseId, branchId, table, "table:TRIGGER") {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError("TRIGGER")
 }
 
-func (accessKey AccessKey) CanUpdate(databaseUuid, branchUuid string, args []string) (bool, error) {
+func (accessKey AccessKey) CanUpdate(databaseId, branchId string, args []string) (bool, error) {
 	table := args[0]
 
 	if table == "sqlite_master" || table == "sqlite_temp_master" {
 		return true, nil
 	}
 
-	if accessKey.authorizedForTable(databaseUuid, branchUuid, table, "table:UPDATE") {
+	if accessKey.authorizedForTable(databaseId, branchId, table, "table:UPDATE") {
 		return true, nil
 	}
 

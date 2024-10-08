@@ -8,24 +8,24 @@ import (
 )
 
 type RollbackLogger struct {
-	buffers      sync.Pool
-	DatabaseUuid string
-	BranchUuid   string
-	logs         map[int64]*RollbackLog
-	mutex        *sync.Mutex
+	buffers    sync.Pool
+	DatabaseId string
+	BranchId   string
+	logs       map[int64]*RollbackLog
+	mutex      *sync.Mutex
 }
 
-func NewRollbackLogger(databaseUuid, branchUuid string) *RollbackLogger {
+func NewRollbackLogger(databaseId, branchId string) *RollbackLogger {
 	return &RollbackLogger{
 		buffers: sync.Pool{
 			New: func() interface{} {
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
-		DatabaseUuid: databaseUuid,
-		BranchUuid:   branchUuid,
-		logs:         make(map[int64]*RollbackLog),
-		mutex:        &sync.Mutex{},
+		DatabaseId: databaseId,
+		BranchId:   branchId,
+		logs:       make(map[int64]*RollbackLog),
+		mutex:      &sync.Mutex{},
 	}
 }
 
@@ -70,7 +70,7 @@ func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 		return l, nil
 	}
 
-	rollbackLog, err := OpenRollbackLog(rl.DatabaseUuid, rl.BranchUuid, startOfHourTimestamp)
+	rollbackLog, err := OpenRollbackLog(rl.DatabaseId, rl.BranchId, startOfHourTimestamp)
 
 	if err != nil {
 		log.Println("Error opening page log", err)

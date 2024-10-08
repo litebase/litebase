@@ -71,8 +71,8 @@ func (s *SecretsManagerInstance) cache(key string) SecretsStore {
 	return s.secretStore[key]
 }
 
-func (s *SecretsManagerInstance) databaseSettingCacheKey(databaseUuid, branchUuid string) string {
-	return fmt.Sprintf("database_secret:%s:%s", databaseUuid, branchUuid)
+func (s *SecretsManagerInstance) databaseSettingCacheKey(databaseId, branchId string) string {
+	return fmt.Sprintf("database_secret:%s:%s", databaseId, branchId)
 }
 
 func (s *SecretsManagerInstance) Decrypt(signature string, text string) (map[string]string, error) {
@@ -129,8 +129,8 @@ func (s *SecretsManagerInstance) EncryptFor(accessKeyId, text string) (string, e
 	return encrypter.Encrypt(text)
 }
 
-func (s *SecretsManagerInstance) EncryptForRuntime(databaseUuid, signature, text string) (string, error) {
-	return s.Encrypter(EncrypterKey(signature, databaseUuid)).Encrypt(text)
+func (s *SecretsManagerInstance) EncryptForRuntime(databaseId, signature, text string) (string, error) {
+	return s.Encrypter(EncrypterKey(signature, databaseId)).Encrypt(text)
 }
 
 func (s *SecretsManagerInstance) Encrypter(key string) *KeyEncrypter {
@@ -158,9 +158,9 @@ func (s *SecretsManagerInstance) Encrypter(key string) *KeyEncrypter {
 	return encrypter
 }
 
-func EncrypterKey(signature, databaseUuid string) string {
-	if databaseUuid != "" {
-		return fmt.Sprintf("%s:%s", signature, databaseUuid)
+func EncrypterKey(signature, databaseId string) string {
+	if databaseId != "" {
+		return fmt.Sprintf("%s:%s", signature, databaseId)
 	}
 
 	return signature
@@ -178,9 +178,9 @@ func GetDatabaseKeysPath(signature string) string {
 	return fmt.Sprintf("%s/%s", Path(signature), "database_keys")
 }
 
-func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (string, error) {
+func (s *SecretsManagerInstance) GetPublicKey(signature, databaseId string) (string, error) {
 	var publicKey string
-	value := s.cache("map").Get(s.publicKeyCacheKey(signature, databaseUuid), &publicKey)
+	value := s.cache("map").Get(s.publicKeyCacheKey(signature, databaseId), &publicKey)
 
 	if value != nil {
 		publicKey, ok := value.(string)
@@ -190,7 +190,7 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 		}
 	}
 
-	fileValue := s.cache("file").Get(s.publicKeyCacheKey(signature, databaseUuid), &publicKey)
+	fileValue := s.cache("file").Get(s.publicKeyCacheKey(signature, databaseId), &publicKey)
 
 	if fileValue != nil {
 		publicKey, ok := fileValue.(string)
@@ -202,7 +202,7 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 
 	path := s.SecretsPath(
 		config.Get().Signature,
-		fmt.Sprintf("public_keys/%s/public_key", databaseUuid),
+		fmt.Sprintf("public_keys/%s/public_key", databaseId),
 	)
 
 	key, err := storage.ObjectFS().ReadFile(path)
@@ -218,8 +218,8 @@ func (s *SecretsManagerInstance) GetPublicKey(signature, databaseUuid string) (s
 		return "", err
 	}
 
-	s.cache("map").Put(s.publicKeyCacheKey(signature, databaseUuid), decryptedPublicKey["value"], time.Second*60)
-	s.cache("file").Put(s.publicKeyCacheKey(signature, databaseUuid), decryptedPublicKey["value"], time.Second*60)
+	s.cache("map").Put(s.publicKeyCacheKey(signature, databaseId), decryptedPublicKey["value"], time.Second*60)
+	s.cache("file").Put(s.publicKeyCacheKey(signature, databaseId), decryptedPublicKey["value"], time.Second*60)
 
 	return decryptedPublicKey["value"], nil
 }
@@ -274,14 +274,14 @@ func (s *SecretsManagerInstance) Init() {
 	s.PurgeExpiredSecrets()
 }
 
-func (s *SecretsManagerInstance) publicKeyCacheKey(signature, databaseUuid string) string {
-	return fmt.Sprintf("public_key:%s:%s", signature, databaseUuid)
+func (s *SecretsManagerInstance) publicKeyCacheKey(signature, databaseId string) string {
+	return fmt.Sprintf("public_key:%s:%s", signature, databaseId)
 }
 
-func (s *SecretsManagerInstance) PurgeDatabaseSettings(databaseUuid string, branchUuid string) {
-	s.cache("map").Forget(s.databaseSettingCacheKey(databaseUuid, branchUuid))
-	s.cache("transient").Forget(s.databaseSettingCacheKey(databaseUuid, branchUuid))
-	s.cache("file").Forget(s.databaseSettingCacheKey(databaseUuid, branchUuid))
+func (s *SecretsManagerInstance) PurgeDatabaseSettings(databaseId string, branchId string) {
+	s.cache("map").Forget(s.databaseSettingCacheKey(databaseId, branchId))
+	s.cache("transient").Forget(s.databaseSettingCacheKey(databaseId, branchId))
+	s.cache("file").Forget(s.databaseSettingCacheKey(databaseId, branchId))
 }
 
 func (s *SecretsManagerInstance) PurgeExpiredSecrets() {
@@ -385,8 +385,8 @@ func (s *SecretsManagerInstance) StoreAccessKey(accessKey *AccessKey) error {
 
 func (s *SecretsManagerInstance) StoreDatabaseKey(
 	databaseKey string,
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 ) {
 	filePaths := []string{
 		GetDatabaseKeyPath(config.Get().Signature, databaseKey),
@@ -402,9 +402,9 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 		}
 
 		data, _ := json.Marshal(map[string]string{
-			"database_hash": file.DatabaseHash(databaseUuid, branchUuid),
-			"database_uuid": databaseUuid,
-			"branch_uuid":   branchUuid,
+			"database_hash": file.DatabaseHash(databaseId, branchId),
+			"database_uuid": databaseId,
+			"branch_uuid":   branchId,
 		})
 
 		err := storage.ObjectFS().WriteFile(filePath, data, 0666)
@@ -415,13 +415,13 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 	}
 }
 
-func (s *SecretsManagerInstance) StoreDatabasePublicKey(signature, databaseUuid, publicKey string) error {
-	if _, err := storage.ObjectFS().Stat(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseUuid))); os.IsNotExist(err) {
-		storage.ObjectFS().MkdirAll(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseUuid)), 0755)
+func (s *SecretsManagerInstance) StoreDatabasePublicKey(signature, databaseId, publicKey string) error {
+	if _, err := storage.ObjectFS().Stat(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseId))); os.IsNotExist(err) {
+		storage.ObjectFS().MkdirAll(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseId)), 0755)
 	}
 
 	err := storage.ObjectFS().WriteFile(
-		s.SecretsPath(signature, fmt.Sprintf("public_keys/%s/public_key", databaseUuid)),
+		s.SecretsPath(signature, fmt.Sprintf("public_keys/%s/public_key", databaseId)),
 		[]byte(publicKey),
 		0666,
 	)

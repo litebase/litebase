@@ -51,13 +51,13 @@ func DatabaseRestoreController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("target branch '%s' does not exist in target database '%s'", targetBranchUuid, targetDatabaseUuid))
 	}
 
-	snapshotLogger := database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger()
-	sourceDfs := database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem()
+	snapshotLogger := database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger()
+	sourceDfs := database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem()
 	targetDfs := database.Resources(targetDatabaseUuid, targetBranchUuid).FileSystem()
 
 	err = backups.RestoreFromTimestamp(
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
+		databaseKey.DatabaseId,
+		databaseKey.BranchId,
 		targetDatabaseUuid,
 		targetBranchUuid,
 		timestamp,
@@ -65,7 +65,7 @@ func DatabaseRestoreController(request *Request) Response {
 		sourceDfs,
 		targetDfs,
 		func(completed func() error) error {
-			return database.ConnectionManager().Drain(databaseKey.DatabaseUuid, databaseKey.BranchUuid, func() error {
+			return database.ConnectionManager().Drain(databaseKey.DatabaseId, databaseKey.BranchId, func() error {
 				log.Println("Database connections drained")
 				return completed()
 			})

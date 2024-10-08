@@ -23,13 +23,14 @@ import (
 
 type DatabaseConnection struct {
 	accessKey      *auth.AccessKey
-	branchUuid     string
+	branchId       string
 	cancel         context.CancelFunc
 	checkpointer   *Checkpointer
 	committedAt    time.Time
 	context        context.Context
 	databaseHash   string
-	databaseUuid   string
+	databaseId     string
+	distributedWal *storage.DistributedWal
 	id             string
 	fileSystem     *storage.DurableDatabaseFileSystem
 	sqlite3        *sqlite3.Connection
@@ -41,7 +42,7 @@ type DatabaseConnection struct {
 /*
 Create a new database connection instance.
 */
-func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection, error) {
+func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, error) {
 	var (
 		connection *sqlite3.Connection
 		err        error
@@ -50,14 +51,14 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	// if node.Node().IsPrimary() {
-	databaseHash := file.DatabaseHash(databaseUuid, branchUuid)
-	tempFileSystem := Resources(databaseUuid, branchUuid).TempFileSystem()
+	databaseHash := file.DatabaseHash(databaseId, branchId)
+	tempFileSystem := Resources(databaseId, branchId).TempFileSystem()
 	// } else {
-	// 	databaseHash = file.DatabaseHashWithTimestamp(databaseUuid, branchUuid, walTimestamp)
-	// 	tempFileSystem = DatabaseResources().TempFileSystemWithTimestamp(databaseUuid, branchUuid, walTimestamp)
+	// 	databaseHash = file.DatabaseHashWithTimestamp(databaseId, branchId, walTimestamp)
+	// 	tempFileSystem = DatabaseResources().TempFileSystemWithTimestamp(databaseId, branchId, walTimestamp)
 	// }
 
-	checkpointer, err := Resources(databaseUuid, branchUuid).Checkpointer()
+	checkpointer, err := Resources(databaseId, branchId).Checkpointer()
 
 	if err != nil {
 		cancel()
@@ -67,13 +68,14 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 	}
 
 	con := &DatabaseConnection{
-		branchUuid:     branchUuid,
+		branchId:       branchId,
 		cancel:         cancel,
 		checkpointer:   checkpointer,
 		context:        ctx,
 		databaseHash:   databaseHash,
-		databaseUuid:   databaseUuid,
-		fileSystem:     Resources(databaseUuid, branchUuid).FileSystem(),
+		databaseId:     databaseId,
+		distributedWal: Resources(databaseId, branchId).DistributedWal(),
+		fileSystem:     Resources(databaseId, branchId).FileSystem(),
 		id:             uuid.NewString(),
 		statements:     sync.Map{},
 		tempFileSystem: tempFileSystem,
@@ -89,7 +91,7 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 
 	con.setAuthorizer()
 
-	path, err := file.GetDatabaseFileTmpPath(node.Node().Id, databaseUuid, branchUuid)
+	path, err := file.GetDatabaseFileTmpPath(node.Node().Id, databaseId, branchId)
 
 	if err != nil {
 		log.Println("Error Getting Database File Path:", err)
@@ -152,6 +154,11 @@ func NewDatabaseConnection(databaseUuid, branchUuid string) (*DatabaseConnection
 			compression removes data padded with zeros.
 		*/
 		"PRAGMA secure_delete = true",
+		/*
+			PRAGMA temp_store will set the temp store to memory. This will
+			ensure that temporary files created by SQLite are stored in memory
+			and not on disk.
+		*/
 		"PRAGMA temp_store = memory",
 	}
 
@@ -320,9 +327,10 @@ func (con *DatabaseConnection) RegisterVFS() error {
 	err := vfs.RegisterVFS(
 		fmt.Sprintf("litebase:%s", con.databaseHash),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
-		file.GetDatabaseFileDir(con.databaseUuid, con.branchUuid),
+		file.GetDatabaseFileDir(con.databaseId, con.branchId),
 		config.Get().PageSize,
 		con.fileSystem,
+		con.distributedWal,
 	)
 
 	if err != nil {
@@ -396,63 +404,63 @@ func (c *DatabaseConnection) setAuthorizer() {
 		case sqlite3.SQLITE_COPY:
 			allowed = false
 		case sqlite3.SQLITE_CREATE_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_CREATE_TABLE:
-			allowed, err = c.accessKey.CanCreate(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_CREATE_TEMP_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_CREATE_TEMP_TABLE:
-			allowed, err = c.accessKey.CanCreate(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_CREATE_TEMP_TRIGGER:
-			allowed, err = c.accessKey.CanTrigger(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanTrigger(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_CREATE_TEMP_VIEW:
-			allowed, err = c.accessKey.CanCreate(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_CREATE_TRIGGER:
-			allowed, err = c.accessKey.CanTrigger(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanTrigger(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_CREATE_VIEW:
-			allowed, err = c.accessKey.CanCreate(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DELETE:
-			allowed, err = c.accessKey.CanDelete(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanDelete(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_TABLE:
-			allowed, err = c.accessKey.CanDrop(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_TEMP_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_TEMP_TABLE:
-			allowed, err = c.accessKey.CanDrop(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_TEMP_TRIGGER:
-			allowed, err = c.accessKey.CanDrop(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_TEMP_VIEW:
-			allowed, err = c.accessKey.CanDrop(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_TRIGGER:
-			allowed, err = c.accessKey.CanTrigger(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanTrigger(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_VIEW:
-			allowed, err = c.accessKey.CanCreate(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_INSERT:
-			allowed, err = c.accessKey.CanInsert(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanInsert(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_PRAGMA:
-			allowed, err = c.accessKey.CanPragma(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanPragma(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_READ:
-			allowed, err = c.accessKey.CanRead(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanRead(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_SELECT:
-			allowed, err = c.accessKey.CanSelect(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanSelect(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_TRANSACTION:
 			allowed, err = true, nil
 		case sqlite3.SQLITE_UPDATE:
-			allowed, err = c.accessKey.CanUpdate(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanUpdate(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_ATTACH:
 			allowed, err = false, nil
 		case sqlite3.SQLITE_DETACH:
 			allowed, err = false, nil
 		case sqlite3.SQLITE_REINDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_ANALYZE:
 			allowed, err = true, nil
 		case sqlite3.SQLITE_CREATE_VTABLE:
-			allowed, err = c.accessKey.CanCreate(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_DROP_VTABLE:
-			allowed, err = c.accessKey.CanDrop(c.databaseUuid, c.branchUuid, args)
+			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
 		case sqlite3.SQLITE_FUNCTION:
 			allowed, err = true, nil
 		default:
@@ -537,7 +545,7 @@ Return the VFS hash for the connection.
 func (con *DatabaseConnection) VfsHash() string {
 	if con.vfsHash == "" {
 		sha1 := sha1.New()
-		sha1.Write([]byte(fmt.Sprintf("%s:%s:%s", con.databaseUuid, con.branchUuid, con.id)))
+		sha1.Write([]byte(fmt.Sprintf("%s:%s:%s", con.databaseId, con.branchId, con.id)))
 		con.vfsHash = fmt.Sprintf("%x", sha1.Sum(nil))
 	}
 

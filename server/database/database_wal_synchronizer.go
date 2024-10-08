@@ -7,22 +7,22 @@ func NewDatabaseWalSynchronizer() *DatabaseWalSynchronizer {
 }
 
 func (d *DatabaseWalSynchronizer) Sync(
-	databaseUuid, branchUuid string,
+	databaseId, branchId string,
 	data []byte,
 	offset int,
 	length int,
 	walSha256 [32]byte,
 	timestamp int64,
 ) error {
-	// currentTimestamp, err := ConnectionManager().WalTimestamp(databaseUuid, branchUuid)
+	// currentTimestamp, err := ConnectionManager().WalTimestamp(databaseId, branchId)
 
 	// if err != nil {
 	// 	log.Println("Error getting current timestamp", err)
 	// 	return err
 	// }
 
-	// currentPath := WalVersionPath(databaseUuid, branchUuid, currentTimestamp)
-	// newPath := WalVersionPath(databaseUuid, branchUuid, timestamp)
+	// currentPath := WalVersionPath(databaseId, branchId, currentTimestamp)
+	// newPath := WalVersionPath(databaseId, branchId, timestamp)
 
 	// var newWalFileExists bool
 	// fileInfo, err := storage.TmpFS().Stat(newPath)
@@ -95,7 +95,7 @@ func (d *DatabaseWalSynchronizer) Sync(
 	// if walSha256 != newWalFileSha256 {
 	// 	log.Printf("sha256 mismatch when updating the WAL %x | %x", walSha256, newWalFileSha256)
 
-	// 	err = ConnectionManager().UpdateWal(databaseUuid, branchUuid, [32]byte{}, timestamp)
+	// 	err = ConnectionManager().UpdateWal(databaseId, branchId, [32]byte{}, timestamp)
 
 	// 	if err != nil {
 	// 		return err
@@ -104,7 +104,7 @@ func (d *DatabaseWalSynchronizer) Sync(
 	// 	return nil
 	// }
 
-	// err = ConnectionManager().UpdateWal(databaseUuid, branchUuid, walSha256, timestamp)
+	// err = ConnectionManager().UpdateWal(databaseId, branchId, walSha256, timestamp)
 
 	// if err != nil {
 	// 	log.Println("Error syncing WAL", err)
@@ -115,11 +115,11 @@ func (d *DatabaseWalSynchronizer) Sync(
 
 }
 
-func (d *DatabaseWalSynchronizer) WalPath(databaseUuid, branchUuid string) string {
-	return WalPath(databaseUuid, branchUuid)
+func (d *DatabaseWalSynchronizer) WalPath(databaseId, branchId string) string {
+	return WalPath(databaseId, branchId)
 }
 
 // On the primary, this is the timestamp of the last transaction.
-func (d *DatabaseWalSynchronizer) WalTimestamp(databaseUuid, branchUuid string) (int64, error) {
+func (d *DatabaseWalSynchronizer) WalTimestamp(databaseId, branchId string) (int64, error) {
 	return 0, nil
 }

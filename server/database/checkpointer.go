@@ -10,9 +10,9 @@ import (
 )
 
 type Checkpointer struct {
-	branchUuid     string
+	branchId       string
 	Checkpoint     *Checkpoint
-	databaseUuid   string
+	databaseId     string
 	lock           sync.Mutex
 	metadata       *storage.DatabaseMetadata
 	rollbackLogger *backups.RollbackLogger
@@ -32,14 +32,14 @@ var (
 	ErrorNoCheckpointInProgressError      = errors.New("no checkpoint in progress")
 )
 
-func NewCheckpointer(databaseUuid, branchUuid string, dfs *storage.DurableDatabaseFileSystem) (*Checkpointer, error) {
+func NewCheckpointer(databaseId, branchId string, dfs *storage.DurableDatabaseFileSystem) (*Checkpointer, error) {
 	return &Checkpointer{
-		branchUuid:     branchUuid,
-		databaseUuid:   databaseUuid,
+		branchId:       branchId,
+		databaseId:     databaseId,
 		lock:           sync.Mutex{},
 		metadata:       dfs.Metadata(),
-		rollbackLogger: backups.NewRollbackLogger(databaseUuid, branchUuid),
-		snapshotLogger: backups.NewSnapshotLogger(databaseUuid, branchUuid),
+		rollbackLogger: backups.NewRollbackLogger(databaseId, branchId),
+		snapshotLogger: backups.NewSnapshotLogger(databaseId, branchId),
 	}, nil
 }
 

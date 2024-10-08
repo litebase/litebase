@@ -19,8 +19,8 @@ func NewQueryBuilder() *QueryBuilder {
 func (qb *QueryBuilder) Build(
 	accessKeyId string,
 	databaseHash string,
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 	statement string,
 	parameters []interface{},
 	id string,
@@ -32,7 +32,7 @@ func (qb *QueryBuilder) Build(
 	}
 
 	return NewQuery(
-		database.NewDatabaseKey(databaseUuid, branchUuid),
+		database.NewDatabaseKey(databaseId, branchId),
 		accessKey,
 		&QueryInput{
 			Statement:  statement,

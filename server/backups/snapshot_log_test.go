@@ -13,8 +13,8 @@ import (
 func TestSnapGetSnapshotPath(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		expectedPath := fmt.Sprintf("_databases/%s/%s/logs/snapshots/123", mock.DatabaseUuid, mock.BranchUuid)
-		actualPath := backups.GetSnapshotPath(mock.DatabaseUuid, mock.BranchUuid, 123)
+		expectedPath := fmt.Sprintf("_databases/%s/%s/logs/snapshots/123", mock.DatabaseId, mock.BranchId)
+		actualPath := backups.GetSnapshotPath(mock.DatabaseId, mock.BranchId, 123)
 
 		if actualPath != expectedPath {
 			t.Fatalf("Expected path %s, got %s", expectedPath, actualPath)
@@ -26,14 +26,14 @@ func TestNewSnapshot(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		snapshot := backups.NewSnapshot(mock.DatabaseUuid, mock.BranchUuid, time.Now().Unix(), time.Now().Unix())
+		snapshot := backups.NewSnapshot(mock.DatabaseId, mock.BranchId, time.Now().Unix(), time.Now().Unix())
 
-		if snapshot.BranchUuid != mock.BranchUuid {
-			t.Fatalf("Expected branch uuid %s, got %s", mock.BranchUuid, snapshot.BranchUuid)
+		if snapshot.BranchId != mock.BranchId {
+			t.Fatalf("Expected branch uuid %s, got %s", mock.BranchId, snapshot.BranchId)
 		}
 
-		if snapshot.DatabaseUuid != mock.DatabaseUuid {
-			t.Fatalf("Expected database uuid %s, got %s", mock.DatabaseUuid, snapshot.DatabaseUuid)
+		if snapshot.DatabaseId != mock.DatabaseId {
+			t.Fatalf("Expected database uuid %s, got %s", mock.DatabaseId, snapshot.DatabaseId)
 		}
 
 		if snapshot.RestorePoints.Total != 0 {
@@ -50,10 +50,10 @@ func TestSnapshotClose(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		snapshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
+		snapshotLogger := database.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		defer snapshotLogger.Close()
 
-		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
+		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
@@ -78,8 +78,8 @@ func TestSnapshotGetRestorePoints(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		snappshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
-		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
+		snappshotLogger := database.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
+		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
@@ -120,10 +120,10 @@ func TestSnapshotLoad(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		snappshotLogger := database.Resources(mock.DatabaseUuid, mock.BranchUuid).SnapshotLogger()
+		snappshotLogger := database.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		defer snappshotLogger.Close()
 
-		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
+		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
@@ -164,7 +164,7 @@ func TestSnapshotLog(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		snapshotLogger := backups.NewSnapshotLogger(mock.DatabaseUuid, mock.BranchUuid)
+		snapshotLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 		defer snapshotLogger.Close()
 
 		// Simulate writing a snapshot to the file

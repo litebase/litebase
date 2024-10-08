@@ -35,8 +35,8 @@ func QueryLogController(request *Request) Response {
 
 	queryLog := logs.GetQueryLog(
 		request.DatabaseKey().DatabaseHash,
-		request.DatabaseKey().DatabaseUuid,
-		request.DatabaseKey().BranchUuid,
+		request.DatabaseKey().DatabaseId,
+		request.DatabaseKey().BranchId,
 	)
 
 	metrics := queryLog.Read(uint32(startTimestamp), uint32(endTimestamp))

@@ -103,13 +103,13 @@ func TestGoWriteHook(t *testing.T) {
 
 		offsets := make([]int64, 0)
 
-		filesystem := database.Resources(mock.DatabaseUuid, mock.BranchUuid).FileSystem()
+		filesystem := database.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
 
 		filesystem.SetWriteHook(func(offset int64, data []byte) {
 			offsets = append(offsets, offset)
 		})
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -127,7 +127,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -151,7 +151,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		path := file.GetDatabaseFileDir(mock.DatabaseUuid, mock.BranchUuid)
+		path := file.GetDatabaseFileDir(mock.DatabaseId, mock.BranchId)
 
 		var expectedPages int64 = 1024 + 4
 		var expectedSize int64 = 4096 * expectedPages
@@ -260,7 +260,7 @@ func TestVfsVacuum(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)

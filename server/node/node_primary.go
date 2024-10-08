@@ -61,8 +61,8 @@ func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 	query, err := np.node.queryBuilder.Build(
 		message.Data.(QueryMessage).AccessKeyId,
 		message.Data.(QueryMessage).DatabaseHash,
-		message.Data.(QueryMessage).DatabaseUuid,
-		message.Data.(QueryMessage).BranchUuid,
+		message.Data.(QueryMessage).DatabaseId,
+		message.Data.(QueryMessage).BranchId,
 		message.Data.(QueryMessage).Statement,
 		message.Data.(QueryMessage).Parameters,
 		message.Data.(QueryMessage).Id,
@@ -111,13 +111,13 @@ func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 
 func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 	path := Node().databaseWalSynchronizer.WalPath(
-		message.Data.(WALMessage).DatabaseUuid,
-		message.Data.(WALMessage).BranchUuid,
+		message.Data.(WALMessage).DatabaseId,
+		message.Data.(WALMessage).BranchId,
 	)
 
 	timestamp, err := Node().databaseWalSynchronizer.WalTimestamp(
-		message.Data.(WALMessage).DatabaseUuid,
-		message.Data.(WALMessage).BranchUuid,
+		message.Data.(WALMessage).DatabaseId,
+		message.Data.(WALMessage).BranchId,
 	)
 
 	if err != nil {
@@ -139,14 +139,14 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 				Type:        "WALMessageResponse",
 				EndOfStream: true,
 				Data: WALMessageResponse{
-					BranchUuid:   message.Data.(WALMessage).BranchUuid,
-					ChunkNumber:  1,
-					Data:         s2.Encode(nil, []byte{}),
-					DatabaseUuid: message.Data.(WALMessage).DatabaseUuid,
-					LastChunk:    true,
-					Sha256:       [32]byte{},
-					Timestamp:    timestamp,
-					TotalChunks:  1,
+					BranchId:    message.Data.(WALMessage).BranchId,
+					ChunkNumber: 1,
+					Data:        s2.Encode(nil, []byte{}),
+					DatabaseId:  message.Data.(WALMessage).DatabaseId,
+					LastChunk:   true,
+					Sha256:      [32]byte{},
+					Timestamp:   timestamp,
+					TotalChunks: 1,
 				},
 			}
 		}
@@ -195,14 +195,14 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 			Type:        "WALMessageResponse",
 			EndOfStream: true,
 			Data: WALMessageResponse{
-				BranchUuid:   message.Data.(WALMessage).BranchUuid,
-				ChunkNumber:  1,
-				Data:         s2.Encode(nil, data),
-				DatabaseUuid: message.Data.(WALMessage).DatabaseUuid,
-				LastChunk:    true,
-				Sha256:       fileSha256,
-				Timestamp:    timestamp,
-				TotalChunks:  1,
+				BranchId:    message.Data.(WALMessage).BranchId,
+				ChunkNumber: 1,
+				Data:        s2.Encode(nil, data),
+				DatabaseId:  message.Data.(WALMessage).DatabaseId,
+				LastChunk:   true,
+				Sha256:      fileSha256,
+				Timestamp:   timestamp,
+				TotalChunks: 1,
 			},
 		}
 	}
@@ -237,14 +237,14 @@ func (np *NodePrimary) handleWALMessage(message NodeMessage) NodeMessage {
 			Type:        "WALMessageResponse",
 			EndOfStream: lastChunk,
 			Data: WALMessageResponse{
-				BranchUuid:   message.Data.(WALMessage).BranchUuid,
-				ChunkNumber:  readBytes / maxChunkSize,
-				Data:         s2.Encode(nil, chunk),
-				DatabaseUuid: message.Data.(WALMessage).DatabaseUuid,
-				LastChunk:    lastChunk,
-				Sha256:       hashSum,
-				Timestamp:    timestamp,
-				TotalChunks:  totalChunks,
+				BranchId:    message.Data.(WALMessage).BranchId,
+				ChunkNumber: readBytes / maxChunkSize,
+				Data:        s2.Encode(nil, chunk),
+				DatabaseId:  message.Data.(WALMessage).DatabaseId,
+				LastChunk:   lastChunk,
+				Sha256:      hashSum,
+				Timestamp:   timestamp,
+				TotalChunks: totalChunks,
 			},
 		}
 

@@ -19,8 +19,8 @@ import (
 )
 
 type QueryLog struct {
-	branchUuid     string
-	databaseUuid   string
+	branchId       string
+	databaseId     string
 	file           internalStorage.File
 	keyBuffer      *bytes.Buffer
 	mutex          sync.RWMutex
@@ -33,8 +33,8 @@ type QueryLog struct {
 }
 
 type QueryLogEnry struct {
-	DatabaseHash, DatabaseUuid, BranchUuid, AccessKeyId, Statement string
-	Latency                                                        float64
+	DatabaseHash, DatabaseId, BranchId, AccessKeyId, Statement string
+	Latency                                                    float64
 }
 
 var queryLoggers = make(map[string]*QueryLog)
@@ -45,7 +45,7 @@ var queryLogBuffer = sync.Pool{
 	},
 }
 
-func GetQueryLog(databaseHash, databaseUuid, branchUuid string) *QueryLog {
+func GetQueryLog(databaseHash, databaseId, branchId string) *QueryLog {
 	qyeryLogMutex.Lock()
 	defer qyeryLogMutex.Unlock()
 
@@ -56,17 +56,17 @@ func GetQueryLog(databaseHash, databaseUuid, branchUuid string) *QueryLog {
 	timestamp := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 
 	if _, ok := queryLoggers[databaseHash]; !ok {
-		path := fmt.Sprintf("%s/logs/query", file.GetDatabaseFileBaseDir(databaseUuid, branchUuid))
+		path := fmt.Sprintf("%s/logs/query", file.GetDatabaseFileBaseDir(databaseId, branchId))
 
 		queryLoggers[databaseHash] = &QueryLog{
-			branchUuid:   branchUuid,
-			databaseUuid: databaseUuid,
-			keyBuffer:    bytes.NewBuffer(make([]byte, 20)),
-			mutex:        sync.RWMutex{},
-			path:         path,
-			queryHasher:  crc64.New(crc64.MakeTable(crc64.ISO)),
-			queue:        make(map[time.Time]map[uint64]*QueryMetric),
-			timestamp:    timestamp.UTC().Unix(),
+			branchId:    branchId,
+			databaseId:  databaseId,
+			keyBuffer:   bytes.NewBuffer(make([]byte, 20)),
+			mutex:       sync.RWMutex{},
+			path:        path,
+			queryHasher: crc64.New(crc64.MakeTable(crc64.ISO)),
+			queue:       make(map[time.Time]map[uint64]*QueryMetric),
+			timestamp:   timestamp.UTC().Unix(),
 		}
 	}
 
@@ -88,8 +88,8 @@ func GetQueryLog(databaseHash, databaseUuid, branchUuid string) *QueryLog {
 func Query(entry QueryLogEnry) error {
 	log := GetQueryLog(
 		entry.DatabaseHash,
-		entry.DatabaseUuid,
-		entry.BranchUuid,
+		entry.DatabaseId,
+		entry.BranchId,
 	)
 
 	if log == nil {
@@ -193,7 +193,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 	// Get all the directories in the logs directory
 	path := fmt.Sprintf(
 		"%s/logs/query",
-		file.GetDatabaseFileBaseDir(q.databaseUuid, q.branchUuid),
+		file.GetDatabaseFileBaseDir(q.databaseId, q.branchId),
 	)
 
 	dirs, err := storage.TieredFS().ReadDir(path)

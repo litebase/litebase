@@ -57,7 +57,7 @@ func CaptureRequestToken(authorizationHeader string) RequestToken {
 	}
 }
 
-func (requestToken RequestToken) AccessKey(databaseUuid string) *AccessKey {
+func (requestToken RequestToken) AccessKey(databaseId string) *AccessKey {
 	if requestToken.accessKey != nil {
 		return requestToken.accessKey
 	}
@@ -81,8 +81,8 @@ func RequestTokenFromMap(input map[string]string) RequestToken {
 	}
 }
 
-// func (requestToken *RequestToken) GetDatabaseKey(databaseUuid string) (string, error) {
-// 	return SecretsManager().GetDatabaseKey(databaseUuid, requestToken.AccessKeyId)
+// func (requestToken *RequestToken) GetDatabaseKey(databaseId string) (string, error) {
+// 	return SecretsManager().GetDatabaseKey(databaseId, requestToken.AccessKeyId)
 // }
 
 func (requestToken RequestToken) ToMap() map[string]interface{} {

@@ -10,18 +10,18 @@ import (
 )
 
 type DurableDatabaseFileSystem struct {
-	branchUuid   string
-	databaseUuid string
-	dataRanges   map[int64]*DataRange
-	fileSystem   *FileSystem
-	metadata     *DatabaseMetadata
-	mutex        *sync.RWMutex
-	path         string
-	pageSize     int64
-	writeHook    func(offset int64, data []byte)
+	branchId   string
+	databaseId string
+	dataRanges map[int64]*DataRange
+	fileSystem *FileSystem
+	metadata   *DatabaseMetadata
+	mutex      *sync.RWMutex
+	path       string
+	pageSize   int64
+	writeHook  func(offset int64, data []byte)
 }
 
-func NewDurableDatabaseFileSystem(fs *FileSystem, path, databaseUuid, branchUuid string, pageSize int64) *DurableDatabaseFileSystem {
+func NewDurableDatabaseFileSystem(fs *FileSystem, path, databaseId, branchId string, pageSize int64) *DurableDatabaseFileSystem {
 	// Check if the the directory exists
 	if _, err := fs.Stat(path); err != nil {
 		if os.IsNotExist(err) {
@@ -33,16 +33,16 @@ func NewDurableDatabaseFileSystem(fs *FileSystem, path, databaseUuid, branchUuid
 	}
 
 	dfs := &DurableDatabaseFileSystem{
-		branchUuid:   branchUuid,
-		databaseUuid: databaseUuid,
-		dataRanges:   make(map[int64]*DataRange),
-		fileSystem:   fs,
-		mutex:        &sync.RWMutex{},
-		path:         path,
-		pageSize:     pageSize,
+		branchId:   branchId,
+		databaseId: databaseId,
+		dataRanges: make(map[int64]*DataRange),
+		fileSystem: fs,
+		mutex:      &sync.RWMutex{},
+		path:       path,
+		pageSize:   pageSize,
 	}
 
-	metadata, err := NewDatabaseMetadata(dfs, databaseUuid, branchUuid)
+	metadata, err := NewDatabaseMetadata(dfs, databaseId, branchId)
 
 	if err != nil {
 		log.Println("Error creating database metadata", err)
@@ -77,7 +77,7 @@ func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*DataRang
 		return dataRange, nil
 	}
 
-	path := file.GetDatabaseFileDir(dfs.databaseUuid, dfs.branchUuid)
+	path := file.GetDatabaseFileDir(dfs.databaseId, dfs.branchId)
 
 	dataRange, err := NewDataRange(dfs.fileSystem, path, rangeNumber, dfs.pageSize)
 

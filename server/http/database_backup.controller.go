@@ -16,12 +16,12 @@ func DatabaseBackupStoreController(request *Request) Response {
 	}
 
 	backup, err := backups.Run(
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
+		databaseKey.DatabaseId,
+		databaseKey.BranchId,
 		time.Now().Unix(),
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger(),
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).RollbackLogger(),
+		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
+		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
+		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).RollbackLogger(),
 	)
 
 	if err != nil {
@@ -57,10 +57,10 @@ func DatabaseBackupShowController(request *Request) Response {
 	timeInstance := time.Unix(timestamp, 0)
 
 	backup, err := backups.GetBackup(
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger(),
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
+		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
+		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
+		databaseKey.DatabaseId,
+		databaseKey.BranchId,
 		timeInstance.Unix(),
 	)
 
@@ -92,10 +92,10 @@ func DatabaseBackupDestroyController(request *Request) Response {
 	databaseKey := request.DatabaseKey()
 
 	backup, err := backups.GetBackup(
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).SnapshotLogger(),
-		database.Resources(databaseKey.DatabaseUuid, databaseKey.BranchUuid).FileSystem(),
-		databaseKey.DatabaseUuid,
-		databaseKey.BranchUuid,
+		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
+		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
+		databaseKey.DatabaseId,
+		databaseKey.BranchId,
 		timeInstance.Unix(),
 	)
 

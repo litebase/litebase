@@ -6,8 +6,8 @@ import (
 	"litebase/server/storage"
 )
 
-func CreateWalVersion(databaseUuid, branchUuid string, timestamp int64) error {
-	walVersionFile, err := storage.LocalFS().Create(WalVersionPath(databaseUuid, branchUuid, timestamp))
+func CreateWalVersion(databaseId, branchId string, timestamp int64) error {
+	walVersionFile, err := storage.LocalFS().Create(WalVersionPath(databaseId, branchId, timestamp))
 
 	if err != nil {
 		return err
@@ -18,27 +18,27 @@ func CreateWalVersion(databaseUuid, branchUuid string, timestamp int64) error {
 	return nil
 }
 
-func WalPath(databaseUuid, branchUuid string) string {
+func WalPath(databaseId, branchId string) string {
 	return fmt.Sprintf(
 		"%s/%s.db-wal",
-		Resources(databaseUuid, branchUuid).
+		Resources(databaseId, branchId).
 			TempFileSystem().
 			Path(),
-		file.DatabaseHash(databaseUuid, branchUuid),
+		file.DatabaseHash(databaseId, branchId),
 	)
 }
 
-func WalVersionPath(databaseUuid, branchUuid string, timestamp int64) string {
+func WalVersionPath(databaseId, branchId string, timestamp int64) string {
 	if timestamp == 0 {
-		return WalPath(databaseUuid, branchUuid)
+		return WalPath(databaseId, branchId)
 	}
 
 	return fmt.Sprintf(
 		"%s/%s.db-wal_%d",
-		Resources(databaseUuid, branchUuid).
+		Resources(databaseId, branchId).
 			TempFileSystem().
 			Path(),
-		file.DatabaseHash(databaseUuid, branchUuid),
+		file.DatabaseHash(databaseId, branchId),
 		timestamp,
 	)
 }

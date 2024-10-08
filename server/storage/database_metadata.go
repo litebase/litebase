@@ -11,8 +11,8 @@ import (
 )
 
 type DatabaseMetadata struct {
-	BranchUuid         string `json:"branch_uuid"`
-	DatabaseUuid       string `json:"database_uuid"`
+	BranchId           string `json:"branch_uuid"`
+	DatabaseId         string `json:"database_uuid"`
 	databaseFileSystem *DurableDatabaseFileSystem
 	file               internalStorage.File
 	mutext             sync.Mutex
@@ -20,12 +20,12 @@ type DatabaseMetadata struct {
 	PageSize           int64
 }
 
-func NewDatabaseMetadata(dfs *DurableDatabaseFileSystem, databaseUuid, branchUuid string) (*DatabaseMetadata, error) {
+func NewDatabaseMetadata(dfs *DurableDatabaseFileSystem, databaseId, branchId string) (*DatabaseMetadata, error) {
 	var err error
 
 	metadata := &DatabaseMetadata{
-		BranchUuid:         branchUuid,
-		DatabaseUuid:       databaseUuid,
+		BranchId:           branchId,
+		DatabaseId:         databaseId,
 		databaseFileSystem: dfs,
 		mutext:             sync.Mutex{},
 		PageCount:          0,
@@ -64,7 +64,7 @@ func (d *DatabaseMetadata) File() (internalStorage.File, error) {
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				err := d.databaseFileSystem.FileSystem().MkdirAll(file.GetDatabaseFileDir(d.DatabaseUuid, d.BranchUuid), 0755)
+				err := d.databaseFileSystem.FileSystem().MkdirAll(file.GetDatabaseFileDir(d.DatabaseId, d.BranchId), 0755)
 
 				if err != nil {
 					return nil, err
@@ -123,7 +123,7 @@ func (d *DatabaseMetadata) Load() error {
 }
 
 func (d *DatabaseMetadata) Path() string {
-	return fmt.Sprintf("%s/_METADATA", file.GetDatabaseFileDir(d.DatabaseUuid, d.BranchUuid))
+	return fmt.Sprintf("%s/_METADATA", file.GetDatabaseFileDir(d.DatabaseId, d.BranchId))
 }
 
 // Save the database meta data

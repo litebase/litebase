@@ -5,27 +5,27 @@ import (
 )
 
 type ClientConnection struct {
-	accessKey    *auth.AccessKey
-	BranchUuid   string
-	connection   *DatabaseConnection
-	DatabaseUuid string
-	path         string
+	accessKey  *auth.AccessKey
+	BranchId   string
+	connection *DatabaseConnection
+	DatabaseId string
+	path       string
 }
 
 func NewClientConnection(
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 ) (*ClientConnection, error) {
-	connection, err := NewDatabaseConnection(databaseUuid, branchUuid)
+	connection, err := NewDatabaseConnection(databaseId, branchId)
 
 	if connection == nil {
 		return nil, err
 	}
 
 	return &ClientConnection{
-		BranchUuid:   branchUuid,
-		connection:   connection,
-		DatabaseUuid: databaseUuid,
+		BranchId:   branchId,
+		connection: connection,
+		DatabaseId: databaseId,
 	}, nil
 }
 

@@ -244,8 +244,8 @@ func GetPublicKey(signature string) (*rsa.PublicKey, error) {
 	return key.(*rsa.PublicKey), nil
 }
 
-func GetPublicKeyForDatabase(signature, databaseUuid string) (*rsa.PublicKey, error) {
-	publicKey, err := SecretsManager().GetPublicKey(signature, databaseUuid)
+func GetPublicKeyForDatabase(signature, databaseId string) (*rsa.PublicKey, error) {
+	publicKey, err := SecretsManager().GetPublicKey(signature, databaseId)
 	log.Println("publicKey", publicKey)
 	if err != nil {
 		return nil, err

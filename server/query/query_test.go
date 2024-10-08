@@ -12,7 +12,7 @@ func TestNewQuery(t *testing.T) {
 		mock := test.MockDatabase()
 
 		query, err := query.NewQuery(
-			database.NewDatabaseKey(mock.DatabaseUuid, mock.BranchUuid),
+			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
 			&query.QueryInput{
 				Statement:  "SELECT * FROM users LIMIT ?",
@@ -34,13 +34,13 @@ func TestNewQuery(t *testing.T) {
 func TestResolve(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, _ := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
 		queryResponse := &query.QueryResponse{}
 		query, err := query.NewQuery(
-			database.NewDatabaseKey(mock.DatabaseUuid, mock.BranchUuid),
+			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
 			&query.QueryInput{
 				Statement:  "SELECT * FROM users LIMIT ?",
@@ -64,11 +64,11 @@ func TestResolve(t *testing.T) {
 func TestStatement(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, _ := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, _ = database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		query := &query.Query{
 			Input: &query.QueryInput{
@@ -92,11 +92,11 @@ func TestStatement(t *testing.T) {
 // func TestStatementOfBatchQuery(t *testing.T) {
 // 	test.Run(t, func() {
 // 		mock := test.MockDatabase()
-// 		db, _ := database.Get(mock.DatabaseUuid, mock.BranchUuid, nil, false)
+// 		db, _ := database.Get(mock.DatabaseId, mock.BranchId, nil, false)
 
 // 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-// 		db, _ = database.Get(mock.DatabaseUuid, mock.BranchUuid, nil, false)
+// 		db, _ = database.Get(mock.DatabaseId, mock.BranchId, nil, false)
 
 // 		query := &Query{
 // 			Batch: []*Query{{
@@ -122,11 +122,11 @@ func TestStatement(t *testing.T) {
 func TestValidate(t *testing.T) {
 	test.Run(t, func() {
 		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, _ := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock.DatabaseUuid, mock.BranchUuid)
+		db, _ = database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		query := &query.Query{
 			Input: &query.QueryInput{

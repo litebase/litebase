@@ -16,37 +16,37 @@ func DatabaseTmpDirectory() string {
 }
 
 func DatabaseHash(
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 ) string {
 	sha1 := sha1.New()
-	sha1.Write([]byte(databaseUuid))
+	sha1.Write([]byte(databaseId))
 	sha1.Write([]byte(":"))
-	sha1.Write([]byte(branchUuid))
+	sha1.Write([]byte(branchId))
 
 	return fmt.Sprintf("%x", sha1.Sum(nil))
 }
 
 func DatabaseHashWithTimestamp(
-	databaseUuid string,
-	branchUuid string,
+	databaseId string,
+	branchId string,
 	timestamp int64,
 ) string {
 	sha1 := sha1.New()
-	sha1.Write([]byte(fmt.Sprintf("%s:%s:%d", databaseUuid, branchUuid, timestamp)))
+	sha1.Write([]byte(fmt.Sprintf("%s:%s:%d", databaseId, branchId, timestamp)))
 
 	return fmt.Sprintf("%x", sha1.Sum(nil))
 }
 
-func GetDatabaseBackupsDirectory(databaseUuid, branchUuid string) string {
+func GetDatabaseBackupsDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
 		"%s/backups",
-		GetDatabaseFileBaseDir(databaseUuid, branchUuid),
+		GetDatabaseFileBaseDir(databaseId, branchId),
 	)
 }
 
-func GetDatabaseFileBaseDir(databaseUuid string, branchUuid string) string {
-	dir, err := GetDatabaseFilePath(databaseUuid, branchUuid)
+func GetDatabaseFileBaseDir(databaseId string, branchId string) string {
+	dir, err := GetDatabaseFilePath(databaseId, branchId)
 
 	if err != nil {
 		return ""
@@ -55,47 +55,47 @@ func GetDatabaseFileBaseDir(databaseUuid string, branchUuid string) string {
 	return filepath.Dir(dir)
 }
 
-func GetDatabaseFileDir(databaseUuid string, branchUuid string) string {
+func GetDatabaseFileDir(databaseId string, branchId string) string {
 	return fmt.Sprintf(
 		"%s%s/%s/%s",
 		DatabaseDirectory(),
-		databaseUuid,
-		branchUuid,
-		DatabaseHash(databaseUuid, branchUuid),
+		databaseId,
+		branchId,
+		DatabaseHash(databaseId, branchId),
 	)
 }
 
-func GetDatabaseFilePath(databaseUuid string, branchUuid string) (string, error) {
+func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s%s/%s/%s.db",
 		DatabaseDirectory(),
-		databaseUuid,
-		branchUuid,
-		DatabaseHash(databaseUuid, branchUuid),
+		databaseId,
+		branchId,
+		DatabaseHash(databaseId, branchId),
 	), nil
 }
 
-func GetDatabaseFileTmpPath(nodeId, databaseUuid string, branchUuid string) (string, error) {
+func GetDatabaseFileTmpPath(nodeId, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s%s/%s/%s/%s.db",
 		DatabaseTmpDirectory(),
 		nodeId,
-		databaseUuid,
-		branchUuid,
-		DatabaseHash(databaseUuid, branchUuid),
+		databaseId,
+		branchId,
+		DatabaseHash(databaseId, branchId),
 	), nil
 }
 
-func GetDatabaseRollbackDirectory(databaseUuid, branchUuid string) string {
+func GetDatabaseRollbackDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
 		"%s/logs/rollback",
-		GetDatabaseFileBaseDir(databaseUuid, branchUuid),
+		GetDatabaseFileBaseDir(databaseId, branchId),
 	)
 }
 
-func GetDatabaseSnapshotDirectory(databaseUuid, branchUuid string) string {
+func GetDatabaseSnapshotDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
 		"%s/logs/snapshots",
-		GetDatabaseFileBaseDir(databaseUuid, branchUuid),
+		GetDatabaseFileBaseDir(databaseId, branchId),
 	)
 }

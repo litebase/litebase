@@ -6,8 +6,8 @@ type NodeQueryBuilder interface {
 	Build(
 		accessKeyId string,
 		databaseHash string,
-		databaseUuid string,
-		branchUuid string,
+		databaseId string,
+		branchId string,
 		statement string,
 		parameters []interface{},
 		id string,

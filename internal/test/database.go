@@ -14,10 +14,10 @@ import (
 )
 
 type TestDatabase struct {
-	DatabaseUuid string
-	BranchUuid   string
-	DatabaseKey  *database.DatabaseKey
-	AccessKey    *auth.AccessKey
+	DatabaseId  string
+	BranchId    string
+	DatabaseKey *database.DatabaseKey
+	AccessKey   *auth.AccessKey
 }
 
 func ClearDatabase() {
@@ -54,12 +54,12 @@ func MockDatabase() TestDatabase {
 	}
 
 	return TestDatabase{
-		DatabaseUuid: db.Id,
-		BranchUuid:   db.PrimaryBranchId,
+		DatabaseId: db.Id,
+		BranchId:   db.PrimaryBranchId,
 		DatabaseKey: &database.DatabaseKey{
 			DatabaseHash: file.DatabaseHash(db.Id, db.PrimaryBranchId),
-			DatabaseUuid: db.Id,
-			BranchUuid:   db.PrimaryBranchId,
+			DatabaseId:   db.Id,
+			BranchId:     db.PrimaryBranchId,
 		},
 		AccessKey: accessKey,
 	}

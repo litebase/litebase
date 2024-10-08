@@ -65,7 +65,7 @@ func ConnectionManager() *ConnectionManagerInstance {
 	return StaticConnectionManagerInstance
 }
 
-func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, branchUuid string, clientConnection *ClientConnection) bool {
+func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
 	// Skip if the committed at time time stamp for the connection is empty
 	if clientConnection.connection.committedAt.IsZero() {
 		return false
@@ -84,7 +84,7 @@ func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, bra
 	}
 
 	databaseGroup.lockMutex.RLock()
-	lock := databaseGroup.locks[branchUuid]
+	lock := databaseGroup.locks[branchId]
 	databaseGroup.lockMutex.RUnlock()
 
 	lock.Lock()
@@ -112,9 +112,9 @@ func (c *ConnectionManagerInstance) CheckpointAll() {
 	defer c.mutex.Unlock()
 
 	for _, database := range c.databases {
-		for branchUuid, brancheConnections := range database.branches {
+		for branchId, brancheConnections := range database.branches {
 			for _, branchConnection := range brancheConnections {
-				if c.Checkpoint(database, branchUuid, branchConnection.connection) {
+				if c.Checkpoint(database, branchId, branchConnection.connection) {
 					// Only checkpoint once per branch
 					break
 				}
@@ -123,10 +123,10 @@ func (c *ConnectionManagerInstance) CheckpointAll() {
 	}
 }
 
-func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string, drained func() error) error {
+func (c *ConnectionManagerInstance) Drain(databaseId string, branchId string, drained func() error) error {
 	c.mutex.Lock()
 
-	databaseGroup, ok := c.databases[databaseUuid]
+	databaseGroup, ok := c.databases[databaseId]
 
 	if !ok {
 		c.mutex.Unlock()
@@ -138,7 +138,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	// databaseGroup.lockMutex.Lock()
 	// defer databaseGroup.lockMutex.Unlock()
 
-	_, ok = databaseGroup.branches[branchUuid]
+	_, ok = databaseGroup.branches[branchId]
 
 	if !ok {
 		c.mutex.Unlock()
@@ -147,9 +147,9 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	}
 
 	// Close all idle connections
-	// closedChannels := make([]chan bool, len(databaseGroup.branches[branchUuid]))
-	// for i := 0; i < len(databaseGroup.branches[branchUuid]); i++ {
-	// 	branchConnection := databaseGroup.branches[branchUuid][i]
+	// closedChannels := make([]chan bool, len(databaseGroup.branches[branchId]))
+	// for i := 0; i < len(databaseGroup.branches[branchId]); i++ {
+	// 	branchConnection := databaseGroup.branches[branchId][i]
 
 	// 	closedChannels[i] = branchConnection.Unclaimed()
 
@@ -160,7 +160,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 
 	wg := sync.WaitGroup{}
 
-	for i := 0; i < len(databaseGroup.branches[branchUuid]); i++ {
+	for i := 0; i < len(databaseGroup.branches[branchId]); i++ {
 		wg.Add(1)
 		go func(branchConnection *BranchConnection) {
 			defer wg.Done()
@@ -170,15 +170,15 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 				select {
 				case <-branchConnection.Unclaimed():
 					branchConnection.connection.Close()
-					// databaseGroup.branches[branchUuid] = append(databaseGroup.branches[branchUuid][:i], databaseGroup.branches[branchUuid][i+1:]...)
+					// databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId][:i], databaseGroup.branches[branchId][i+1:]...)
 					return
 				case <-timeout:
 					branchConnection.Close()
-					// databaseGroup.branches[branchUuid] = append(databaseGroup.branches[branchUuid][:i], databaseGroup.branches[branchUuid][i+1:]...)
+					// databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId][:i], databaseGroup.branches[branchId][i+1:]...)
 					return
 				}
 			}
-		}(databaseGroup.branches[branchUuid][i])
+		}(databaseGroup.branches[branchId][i])
 	}
 
 	wg.Wait()
@@ -191,20 +191,20 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	// // Wait for all BranchConnection <-Unclaimed() to be true
 	// for {
 	// 	log.Println("retries", retries)
-	// 	if len(databaseGroup.branches[branchUuid]) == 0 || retries > 100 {
+	// 	if len(databaseGroup.branches[branchId]) == 0 || retries > 100 {
 	// 		break
 	// 	}
 
 	// 	time.Sleep(10 * time.Millisecond)
 
 	// 	c.mutex.Lock()
-	// 	for i := 0; i < len(databaseGroup.branches[branchUuid]); {
-	// 		branchConnection := databaseGroup.branches[branchUuid][i]
+	// 	for i := 0; i < len(databaseGroup.branches[branchId]); {
+	// 		branchConnection := databaseGroup.branches[branchId][i]
 
 	// 		if !branchConnection.Claimed() {
 	// 			branchConnection.connection.Close()
 	// 			// Remove the closed connection from the slice
-	// 			databaseGroup.branches[branchUuid] = append(databaseGroup.branches[branchUuid][:i], databaseGroup.branches[branchUuid][i+1:]...)
+	// 			databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId][:i], databaseGroup.branches[branchId][i+1:]...)
 	// 		} else {
 	// 			i++
 	// 		}
@@ -218,7 +218,7 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	// defer c.mutex.Unlock()
 
 	// // Force close all connections
-	// for _, branchConnection := range databaseGroup.branches[branchUuid] {
+	// for _, branchConnection := range databaseGroup.branches[branchId] {
 	// 	branchConnection.connection.Close()
 	// }
 
@@ -229,50 +229,50 @@ func (c *ConnectionManagerInstance) Drain(databaseUuid string, branchUuid string
 	return drained()
 }
 
-// func (c *ConnectionManagerInstance) ensureBranchGroupExists(databaseUuid string) {
-// 	databaseGroup, ok := c.databases[databaseUuid]
+// func (c *ConnectionManagerInstance) ensureBranchGroupExists(databaseId string) {
+// 	databaseGroup, ok := c.databases[databaseId]
 
 // 	if !ok {
-// 		c.databases[databaseUuid] = NewDatabaseGroup()
-// 		c.databases[databaseUuid].lockMutex.Lock()
-// 		defer c.databases[databaseUuid].lockMutex.Unlock()
+// 		c.databases[databaseId] = NewDatabaseGroup()
+// 		c.databases[databaseId].lockMutex.Lock()
+// 		defer c.databases[databaseId].lockMutex.Unlock()
 // 	}
 
 // 	return databaseGroup
 // }
 
-func (c *ConnectionManagerInstance) ensureDatabaseBranchExists(databaseUuid, branchUuid string) {
-	_, ok := c.databases[databaseUuid]
+func (c *ConnectionManagerInstance) ensureDatabaseBranchExists(databaseId, branchId string) {
+	_, ok := c.databases[databaseId]
 
 	if !ok {
-		c.databases[databaseUuid] = NewDatabaseGroup()
-		c.databases[databaseUuid].lockMutex.Lock()
-		defer c.databases[databaseUuid].lockMutex.Unlock()
+		c.databases[databaseId] = NewDatabaseGroup()
+		c.databases[databaseId].lockMutex.Lock()
+		defer c.databases[databaseId].lockMutex.Unlock()
 	}
 
-	if c.databases[databaseUuid].branches[branchUuid] == nil {
-		c.databases[databaseUuid].branches[branchUuid] = []*BranchConnection{}
-		c.databases[databaseUuid].locks[branchUuid] = &sync.RWMutex{}
+	if c.databases[databaseId].branches[branchId] == nil {
+		c.databases[databaseId].branches[branchId] = []*BranchConnection{}
+		c.databases[databaseId].locks[branchId] = &sync.RWMutex{}
 	}
 }
 
-func (c *ConnectionManagerInstance) ForceCheckpoint(databaseUuid string, branchUuid string) error {
-	connection, err := c.Get(databaseUuid, branchUuid)
+func (c *ConnectionManagerInstance) ForceCheckpoint(databaseId string, branchId string) error {
+	connection, err := c.Get(databaseId, branchId)
 
 	if err != nil {
 		return err
 	}
 
-	defer c.Release(databaseUuid, branchUuid, connection)
+	defer c.Release(databaseId, branchId, connection)
 
-	databaseGroup := c.databases[databaseUuid]
+	databaseGroup := c.databases[databaseId]
 
 	if databaseGroup == nil {
 		return fmt.Errorf("database group not found")
 	}
 
 	databaseGroup.lockMutex.RLock()
-	lock := databaseGroup.locks[branchUuid]
+	lock := databaseGroup.locks[branchId]
 	databaseGroup.lockMutex.RUnlock()
 
 	// Lock the branch to allow the checkpoint to complete
@@ -291,7 +291,7 @@ func (c *ConnectionManagerInstance) ForceCheckpoint(databaseUuid string, branchU
 	return nil
 }
 
-func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) (*ClientConnection, error) {
+func (c *ConnectionManagerInstance) Get(databaseId string, branchId string) (*ClientConnection, error) {
 	if err := c.StateError(); err != nil {
 		return nil, err
 	}
@@ -299,15 +299,15 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	// if c.databases[databaseUuid] != nil {
-	// 	c.databases[databaseUuid].lockMutex.Lock()
-	// 	defer c.databases[databaseUuid].lockMutex.Unlock()
+	// if c.databases[databaseId] != nil {
+	// 	c.databases[databaseId].lockMutex.Lock()
+	// 	defer c.databases[databaseId].lockMutex.Unlock()
 	// }
 
-	if c.databases[databaseUuid] != nil &&
-		c.databases[databaseUuid].branches[branchUuid] != nil &&
-		len(c.databases[databaseUuid].branches[branchUuid]) > 0 {
-		for _, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
+	if c.databases[databaseId] != nil &&
+		c.databases[databaseId].branches[branchId] != nil &&
+		len(c.databases[databaseId].branches[branchId]) > 0 {
+		for _, branchConnection := range c.databases[databaseId].branches[branchId] {
 			if !branchConnection.Claimed() {
 				branchConnection.Claim()
 
@@ -316,33 +316,33 @@ func (c *ConnectionManagerInstance) Get(databaseUuid string, branchUuid string) 
 		}
 	}
 
-	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
+	c.ensureDatabaseBranchExists(databaseId, branchId)
 
 	// Create a new client connection, only one connection can be created at a
 	// time to avoid SQL Logic errors on sqlite3_open.
-	con, err := NewClientConnection(databaseUuid, branchUuid)
+	con, err := NewClientConnection(databaseId, branchId)
 
 	if err != nil {
 		return nil, err
 	}
 
-	c.databases[databaseUuid].branches[branchUuid] = append(c.databases[databaseUuid].branches[branchUuid], NewBranchConnection(
-		c.databases[databaseUuid],
+	c.databases[databaseId].branches[branchId] = append(c.databases[databaseId].branches[branchId], NewBranchConnection(
+		c.databases[databaseId],
 		con,
 	))
 
 	return con, nil
 }
 
-func (c *ConnectionManagerInstance) Release(databaseUuid string, branchUuid string, clientConnection *ClientConnection) {
+func (c *ConnectionManagerInstance) Release(databaseId string, branchId string, clientConnection *ClientConnection) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if c.databases[databaseUuid] == nil {
+	if c.databases[databaseId] == nil {
 		return
 	}
 
-	for _, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
+	for _, branchConnection := range c.databases[databaseId].branches[branchId] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
 			branchConnection.Unclaim()
 			branchConnection.lastUsedAt = time.Now()
@@ -353,39 +353,39 @@ func (c *ConnectionManagerInstance) Release(databaseUuid string, branchUuid stri
 
 // Remove a branch connection from the database group. This method is called
 // without the mutex lock, so it should be called from within a mutex lock.
-func (c *ConnectionManagerInstance) remove(databaseUuid string, branchUuid string, clientConnection *ClientConnection) {
+func (c *ConnectionManagerInstance) remove(databaseId string, branchId string, clientConnection *ClientConnection) {
 	// Remove the branch conenction from the database group branch
-	for i, branchConnection := range c.databases[databaseUuid].branches[branchUuid] {
+	for i, branchConnection := range c.databases[databaseId].branches[branchId] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
-			c.databases[databaseUuid].branches[branchUuid] = append(c.databases[databaseUuid].branches[branchUuid][:i], c.databases[databaseUuid].branches[branchUuid][i+1:]...)
+			c.databases[databaseId].branches[branchId] = append(c.databases[databaseId].branches[branchId][:i], c.databases[databaseId].branches[branchId][i+1:]...)
 			break
 		}
 	}
 
 	// If there are no more branches, remove the database
-	if len(c.databases[databaseUuid].branches[branchUuid]) == 0 {
-		delete(c.databases[databaseUuid].branches, branchUuid)
-		Resources(databaseUuid, branchUuid).Remove()
+	if len(c.databases[databaseId].branches[branchId]) == 0 {
+		delete(c.databases[databaseId].branches, branchId)
+		Resources(databaseId, branchId).Remove()
 	}
 
 	clientConnection.Close()
 }
 
-func (c *ConnectionManagerInstance) Remove(databaseUuid string, branchUuid string, clientConnection *ClientConnection) {
+func (c *ConnectionManagerInstance) Remove(databaseId string, branchId string, clientConnection *ClientConnection) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.remove(databaseUuid, branchUuid, clientConnection)
+	c.remove(databaseId, branchId, clientConnection)
 }
 
 func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for databaseUuid, database := range c.databases {
+	for databaseId, database := range c.databases {
 		var activeBranches = len(database.branches)
 
-		for branchUuid, branchConnections := range database.branches {
+		for branchId, branchConnections := range database.branches {
 			var activeConnections = 0
 
 			for i, branchConnection := range branchConnections {
@@ -394,7 +394,7 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 				// connections that require a checkpoint. Not doing so can lead
 				// to database corruption.
 				if !branchConnection.RequiresCheckpoint() && !branchConnection.Claimed() && time.Since(branchConnection.lastUsedAt) > DatabaseIdleTimeout {
-					database.branches[branchUuid] = append(branchConnections[:i], branchConnections[i+1:]...)
+					database.branches[branchId] = append(branchConnections[:i], branchConnections[i+1:]...)
 					branchConnection.connection.Close()
 				} else if branchConnection.RequiresCheckpoint() {
 					activeConnections++
@@ -405,8 +405,8 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 
 			// if the database branch has no more branch connections, remove the database branch
 			if activeConnections == 0 {
-				delete(database.branches, branchUuid)
-				Resources(databaseUuid, branchUuid).Remove()
+				delete(database.branches, branchId)
+				Resources(databaseId, branchId).Remove()
 			}
 
 			if len(database.branches) == 0 {
@@ -416,16 +416,16 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 
 		// if the database has no more branches, remove the database
 		if activeBranches == 0 {
-			delete(c.databases, databaseUuid)
+			delete(c.databases, databaseId)
 		}
 	}
 }
 
 func (c *ConnectionManagerInstance) Shutdown() {
 	// Drain all connections
-	for databaseUuid, database := range c.databases {
-		for branchUuid := range database.branches {
-			c.Drain(databaseUuid, branchUuid, func() error {
+	for databaseId, database := range c.databases {
+		for branchId := range database.branches {
+			c.Drain(databaseId, branchId, func() error {
 				return nil
 			})
 		}
@@ -453,12 +453,12 @@ func (c *ConnectionManagerInstance) StateError() error {
 }
 
 func (c *ConnectionManagerInstance) UpdateWal(
-	databaseUuid, branchUuid string,
+	databaseId, branchId string,
 	fileSha256 [32]byte,
 	timestamp int64,
 ) error {
 	c.mutex.Lock()
-	c.ensureDatabaseBranchExists(databaseUuid, branchUuid)
+	c.ensureDatabaseBranchExists(databaseId, branchId)
 	c.mutex.Unlock()
 
 	return nil

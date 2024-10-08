@@ -16,11 +16,11 @@ func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
 	test.Run(t, func() {
 		source := test.MockDatabase()
 		target := test.MockDatabase()
-		sourceDirectory := file.GetDatabaseFileDir(source.DatabaseUuid, source.BranchUuid)
-		targetDirectory := file.GetDatabaseFileDir(target.DatabaseUuid, target.BranchUuid)
+		sourceDirectory := file.GetDatabaseFileDir(source.DatabaseId, source.BranchId)
+		targetDirectory := file.GetDatabaseFileDir(target.DatabaseId, target.BranchId)
 
-		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
-		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
+		sourceDfs := database.Resources(source.DatabaseId, source.BranchId).FileSystem()
+		targetDfs := database.Resources(target.DatabaseId, target.BranchId).FileSystem()
 
 		for i := 1; i <= 10; i++ {
 			sourceDfs.FileSystem().Create(fmt.Sprintf("%s/%010d", sourceDirectory, i))
@@ -28,10 +28,10 @@ func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
 
 		err := backups.CopySourceDatabaseToTargetDatabase(
 			5*storage.DataRangeMaxPages,
-			source.DatabaseUuid,
-			source.BranchUuid,
-			target.DatabaseUuid,
-			target.BranchUuid,
+			source.DatabaseId,
+			source.BranchId,
+			target.DatabaseId,
+			target.BranchId,
 			sourceDfs,
 			targetDfs,
 		)
@@ -59,17 +59,17 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		source := test.MockDatabase()
 		target := test.MockDatabase()
 
-		snapshotLogger := database.Resources(source.DatabaseUuid, source.BranchUuid).SnapshotLogger()
-		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
-		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
+		snapshotLogger := database.Resources(source.DatabaseId, source.BranchId).SnapshotLogger()
+		sourceDfs := database.Resources(source.DatabaseId, source.BranchId).FileSystem()
+		targetDfs := database.Resources(target.DatabaseId, target.BranchId).FileSystem()
 
-		db, err := database.ConnectionManager().Get(source.DatabaseUuid, source.BranchUuid)
+		db, err := database.ConnectionManager().Get(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		defer database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
+		defer database.ConnectionManager().Release(source.DatabaseId, source.BranchId, db)
 
 		// Create a test table and insert some data
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
@@ -78,7 +78,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -97,7 +97,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
-		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -116,7 +116,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
-		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -150,10 +150,10 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		// Call the RestoreFromTimestamp function
 		err = backups.RestoreFromTimestamp(
-			source.DatabaseUuid,
-			source.BranchUuid,
-			target.DatabaseUuid,
-			target.BranchUuid,
+			source.DatabaseId,
+			source.BranchId,
+			target.DatabaseId,
+			target.BranchId,
 			restorePoint.Timestamp,
 			snapshotLogger,
 			sourceDfs,
@@ -170,13 +170,13 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Error("Expected onComplete to be called")
 		}
 
-		db, err = database.ConnectionManager().Get(target.DatabaseUuid, target.BranchUuid)
+		db, err = database.ConnectionManager().Get(target.DatabaseId, target.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		defer database.ConnectionManager().Release(target.DatabaseUuid, target.BranchUuid, db)
+		defer database.ConnectionManager().Release(target.DatabaseId, target.BranchId, db)
 
 		// Verify the data is restored correctly
 		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
@@ -200,17 +200,17 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		source := test.MockDatabase()
 		target := test.MockDatabase()
 
-		snapshotLogger := database.Resources(source.DatabaseUuid, source.BranchUuid).SnapshotLogger()
-		sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
-		targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
+		snapshotLogger := database.Resources(source.DatabaseId, source.BranchId).SnapshotLogger()
+		sourceDfs := database.Resources(source.DatabaseId, source.BranchId).FileSystem()
+		targetDfs := database.Resources(target.DatabaseId, target.BranchId).FileSystem()
 
-		db, err := database.ConnectionManager().Get(source.DatabaseUuid, source.BranchUuid)
+		db, err := database.ConnectionManager().Get(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		defer database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
+		defer database.ConnectionManager().Release(source.DatabaseId, source.BranchId, db)
 
 		// Create a test table and insert some data
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
@@ -219,7 +219,7 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -238,7 +238,7 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
-		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+		err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -266,10 +266,10 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		err = backups.RestoreFromBackup(
 			restorePoint.Timestamp,
 			"test",
-			source.DatabaseUuid,
-			source.BranchUuid,
-			target.DatabaseUuid,
-			target.BranchUuid,
+			source.DatabaseId,
+			source.BranchId,
+			target.DatabaseId,
+			target.BranchId,
 			sourceDfs,
 			targetDfs,
 		)
@@ -299,17 +299,17 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				source := test.MockDatabase()
 				target := test.MockDatabase()
 
-				snapshotLogger := database.Resources(source.DatabaseUuid, source.BranchUuid).SnapshotLogger()
-				sourceDfs := database.Resources(source.DatabaseUuid, source.BranchUuid).FileSystem()
-				targetDfs := database.Resources(target.DatabaseUuid, target.BranchUuid).FileSystem()
+				snapshotLogger := database.Resources(source.DatabaseId, source.BranchId).SnapshotLogger()
+				sourceDfs := database.Resources(source.DatabaseId, source.BranchId).FileSystem()
+				targetDfs := database.Resources(target.DatabaseId, target.BranchId).FileSystem()
 
-				db, err := database.ConnectionManager().Get(source.DatabaseUuid, source.BranchUuid)
+				db, err := database.ConnectionManager().Get(source.DatabaseId, source.BranchId)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
-				defer database.ConnectionManager().Release(source.DatabaseUuid, source.BranchUuid, db)
+				defer database.ConnectionManager().Release(source.DatabaseId, source.BranchId, db)
 
 				// Create a test table and insert some data
 				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
@@ -318,7 +318,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
-				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -338,7 +338,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				}
 
 				db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
-				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -359,7 +359,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 
 				db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
-				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseUuid, source.BranchUuid)
+				err = database.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -393,10 +393,10 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 
 				// Call the RestoreFromTimestamp function
 				err = backups.RestoreFromTimestamp(
-					source.DatabaseUuid,
-					source.BranchUuid,
-					target.DatabaseUuid,
-					target.BranchUuid,
+					source.DatabaseId,
+					source.BranchId,
+					target.DatabaseId,
+					target.BranchId,
 					restorePoint.Timestamp,
 					snapshotLogger,
 					sourceDfs,
@@ -413,13 +413,13 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					t.Error("Expected onComplete to be called")
 				}
 
-				db, err = database.ConnectionManager().Get(target.DatabaseUuid, target.BranchUuid)
+				db, err = database.ConnectionManager().Get(target.DatabaseId, target.BranchId)
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
-				defer database.ConnectionManager().Release(target.DatabaseUuid, target.BranchUuid, db)
+				defer database.ConnectionManager().Release(target.DatabaseId, target.BranchId, db)
 
 				// Verify the data is restored correctly
 				result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
