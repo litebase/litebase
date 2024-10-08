@@ -395,19 +395,23 @@ func (s *SecretsManagerInstance) StoreDatabaseKey(
 	if config.Get().SignatureNext != "" {
 		filePaths = append(filePaths, GetDatabaseKeyPath(config.Get().SignatureNext, databaseKey))
 	}
-
 	for _, filePath := range filePaths {
 		if _, err := storage.ObjectFS().Stat(filepath.Dir(filePath)); os.IsNotExist(err) {
 			storage.ObjectFS().MkdirAll(filepath.Dir(filePath), 0700)
 		}
 
-		data, _ := json.Marshal(map[string]string{
+		data, err := json.Marshal(map[string]string{
+			"key":           databaseKey,
 			"database_hash": file.DatabaseHash(databaseId, branchId),
 			"database_id":   databaseId,
 			"branch_id":     branchId,
 		})
 
-		err := storage.ObjectFS().WriteFile(filePath, data, 0666)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = storage.ObjectFS().WriteFile(filePath, data, 0644)
 
 		if err != nil {
 			log.Fatal(err)
