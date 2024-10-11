@@ -70,7 +70,6 @@ func NewApp(server *ServerInstance) *App {
 
 	node.Init(
 		query.NewQueryBuilder(),
-		database.NewDatabaseCheckpointer(),
 		database.NewDatabaseWalSynchronizer(),
 	)
 	node.EventsManager().Init()
@@ -88,19 +87,6 @@ func (app *App) IsInitialized() bool {
 	return app.initialized
 }
 
-func (app *App) runTasks() {
-	// ticker := time.NewTicker(1 * time.Second)
-
-	// go func() {
-	// for range ticker.C {
-	// actions.RunAutoScaling()
-	// node.HealthCheck()
-	// }
-	// }()
-}
-
 func (app *App) Run() {
 	http.Router().Server(app.Server.ServeMux)
-
-	go app.runTasks()
 }

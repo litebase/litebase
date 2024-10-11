@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"litebase/server/node"
 	"time"
 )
 
@@ -41,6 +42,14 @@ func (b *BranchConnection) Claimed() bool {
 func (b *BranchConnection) Close() {
 	b.cancel()
 	b.connection.Close()
+}
+
+func (b *BranchConnection) IsValid() bool {
+	if node.Node().IsPrimary() {
+		return true
+	}
+
+	return b.connection.connection.IsUpToDate()
 }
 
 func (b *BranchConnection) RequiresCheckpoint() bool {

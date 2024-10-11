@@ -111,7 +111,6 @@ func writeResponse(
 ) {
 	var dfsResponse storage.DistributedFileSystemResponse
 
-	// log.Println("Handling request:", dfsRequest.Path)
 	dfsResponse = storage.HandleDistributedStorageRequest(
 		dfsRequest,
 		dfsResponse,

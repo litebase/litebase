@@ -16,7 +16,7 @@ func TestRegisterVFS(t *testing.T) {
 	test.Run(t, func() {
 		dataPath := config.Get().DataPath
 
-		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil)
+		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
@@ -55,13 +55,13 @@ func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 	test.Run(t, func() {
 		dataPath := config.Get().DataPath
 
-		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil)
+		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
 		}
 
-		err = vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil)
+		err = vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
@@ -71,25 +71,25 @@ func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 
 func TestNewVfsErrors(t *testing.T) {
 	test.Run(t, func() {
-		err := vfs.RegisterVFS("", "test", "test", 4096, nil)
+		err := vfs.RegisterVFS("", "test", "test", 4096, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")
 		}
 
-		err = vfs.RegisterVFS("test", "", "test", 4096, nil)
+		err = vfs.RegisterVFS("test", "", "test", 4096, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")
 		}
 
-		err = vfs.RegisterVFS("test", "test", "", 4096, nil)
+		err = vfs.RegisterVFS("test", "test", "", 4096, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")
 		}
 
-		err = vfs.RegisterVFS("test", "test", "test", 0, nil)
+		err = vfs.RegisterVFS("test", "test", "test", 0, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")

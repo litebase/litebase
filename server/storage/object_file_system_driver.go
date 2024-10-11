@@ -272,7 +272,6 @@ func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.Fi
 	_, err := fs.s3Client.PutObject(path, compressed)
 
 	if err != nil {
-		log.Println("Error writing file", err)
 		return err
 	}
 

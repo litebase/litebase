@@ -27,17 +27,6 @@ func DatabaseHash(
 	return fmt.Sprintf("%x", sha1.Sum(nil))
 }
 
-func DatabaseHashWithTimestamp(
-	databaseId string,
-	branchId string,
-	timestamp int64,
-) string {
-	sha1 := sha1.New()
-	sha1.Write([]byte(fmt.Sprintf("%s:%s:%d", databaseId, branchId, timestamp)))
-
-	return fmt.Sprintf("%x", sha1.Sum(nil))
-}
-
 func GetDatabaseBackupsDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
 		"%s/backups",

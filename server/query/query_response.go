@@ -39,7 +39,7 @@ func (qr *QueryResponse) Reset() {
 	qr.Latency = 0
 	qr.LastInsertRowId = 0
 	qr.RowCount = 0
-	qr.Rows = nil
+	qr.Rows = [][]sqlite3.Column{}
 }
 
 func (qr *QueryResponse) ToJSON() ([]byte, error) {

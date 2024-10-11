@@ -173,7 +173,10 @@ func (s *Statement) Exec(parameters ...interface{}) (Result, error) {
 		}
 	}
 
-	result := Result{}
+	result := Result{
+		Columns: []string{},
+		Rows:    [][]Column{},
+	}
 
 	if s.text != "COMMIT" && s.text != "ROLLBACK" {
 		result.Columns = s.ColumnNames()

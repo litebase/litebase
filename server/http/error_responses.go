@@ -14,8 +14,22 @@ func JsonStringError(err error) []byte {
 	return jsonData
 }
 
+func JsonStringErrorWithData(err error, data map[string]interface{}) []byte {
+	jsonData, _ := json.Marshal(map[string]interface{}{
+		"status":  "error",
+		"message": fmt.Sprintf("Error: %s", err.Error()),
+		"data":    data,
+	})
+
+	return jsonData
+}
+
 func JsonNewLineError(err error) []byte {
-	return append(JsonStringError(err), '\n')
+	return append(JsonStringError(err), "\n"...)
+}
+
+func JsonNewLineErrorWithData(err error, data map[string]interface{}) []byte {
+	return append(JsonStringErrorWithData(err, data), "\n"...)
 }
 
 func BadRequestResponse(err error) Response {

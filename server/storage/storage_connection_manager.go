@@ -84,6 +84,10 @@ func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection
 Remove the connection from the manager.
 */
 func (s *StorageConnectionManager) removeConnection(index int) {
+	if s.connections[index] == nil {
+		return
+	}
+
 	s.connections[index].Close()
 
 	delete(s.connections, index)

@@ -311,6 +311,13 @@ func (c *ConnectionManagerInstance) Get(databaseId string, branchId string) (*Cl
 			if !branchConnection.Claimed() {
 				branchConnection.Claim()
 
+				// Check if the connection is valid
+				if !branchConnection.IsValid() {
+					log.Println("removing invalid connection")
+					c.remove(databaseId, branchId, branchConnection.connection)
+					continue
+				}
+
 				return branchConnection.connection, nil
 			}
 		}
@@ -450,18 +457,6 @@ func (c *ConnectionManagerInstance) StateError() error {
 	default:
 		return nil
 	}
-}
-
-func (c *ConnectionManagerInstance) UpdateWal(
-	databaseId, branchId string,
-	fileSha256 [32]byte,
-	timestamp int64,
-) error {
-	c.mutex.Lock()
-	c.ensureDatabaseBranchExists(databaseId, branchId)
-	c.mutex.Unlock()
-
-	return nil
 }
 
 func (c *ConnectionManagerInstance) Tick() {

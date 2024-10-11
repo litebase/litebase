@@ -13,12 +13,6 @@ type NodeMessage struct {
 	Error       string
 }
 
-type NodeGossipMessage struct {
-	Action  string
-	Address string
-	Group   string
-}
-
 type QueryMessage struct {
 	AccessKeyId  string
 	BranchId     string
@@ -38,55 +32,34 @@ type QueryMessageResponse struct {
 	Rows            [][]sqlite3.Column
 }
 
-type ReplicaConnection struct {
+type NodeConnectionMessage struct {
 	Address string
 	Id      string
 }
 
-type ReplicaConnectionResponse struct {
-	Id string
-}
-
-type WALMessage struct {
-	BranchId   string
-	DatabaseId string
-}
-
-type WALMessageResponse struct {
-	BranchId    string
-	ChunkNumber int
-	Data        []byte
-	DatabaseId  string
-	LastChunk   bool
-	Sha256      [32]byte
-	Timestamp   int64
-	TotalChunks int
-}
-
-type WALCheckpointMessage struct {
-	BranchId   string
-	DatabaseId string
-	Timestamp  int64
-}
-
-type WALReplicationMessage struct {
+type WALReplicationWriteMessage struct {
 	BranchId   string
 	DatabaseId string
 	Data       []byte
-	Offset     int
-	Length     int
+	Offset     int64
+	Sequence   int64
 	Sha256     [32]byte
 	Timestamp  int64
 }
 
+type WALReplicationTruncateMessage struct {
+	BranchId   string
+	DatabaseId string
+	Size       int64
+	Sequence   int64
+	Timestamp  int64
+}
+
 func registerNodeMessages() {
+	gob.Register(NodeConnectionMessage{})
 	gob.Register(NodeMessage{})
 	gob.Register(QueryMessage{})
 	gob.Register(QueryMessageResponse{})
-	gob.Register(ReplicaConnection{})
-	gob.Register(ReplicaConnectionResponse{})
-	gob.Register(WALMessage{})
-	gob.Register(WALMessageResponse{})
-	gob.Register(WALCheckpointMessage{})
-	gob.Register(WALReplicationMessage{})
+	gob.Register(WALReplicationWriteMessage{})
+	gob.Register(WALReplicationTruncateMessage{})
 }

@@ -13,13 +13,16 @@ import (
 
 type DatabaseResources struct {
 	BranchId       string
+	DatabaseHash   string
 	DatabaseId     string
+	distributedWal *storage.DistributedWal
 	snapshotLogger *backups.SnapshotLogger
 	checkpointer   *Checkpointer
 	fileSystem     *storage.DurableDatabaseFileSystem
 	mutex          *sync.RWMutex
 	rollbackLogger *backups.RollbackLogger
 	tempFileSystem *storage.TempDatabaseFileSystem
+	walFile        *storage.WalFile
 }
 
 var databaseResourceManagerMutex = &sync.RWMutex{}
@@ -44,9 +47,10 @@ func Resources(databaseId, branchId string) *DatabaseResources {
 	defer databaseResourceManagerMutex.Unlock()
 
 	resource := &DatabaseResources{
-		BranchId:   branchId,
-		DatabaseId: databaseId,
-		mutex:      &sync.RWMutex{},
+		BranchId:     branchId,
+		DatabaseId:   databaseId,
+		DatabaseHash: file.DatabaseHash(databaseId, branchId),
+		mutex:        &sync.RWMutex{},
 	}
 
 	resources[file.DatabaseHash(databaseId, branchId)] = resource
@@ -104,6 +108,38 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 	return d.checkpointer, nil
 }
 
+/*
+Return a distributed write-ahead log of the database.
+*/
+func (d *DatabaseResources) DistributedWal() *storage.DistributedWal {
+	d.mutex.RLock()
+
+	if d.distributedWal != nil {
+		d.mutex.RUnlock()
+
+		return d.distributedWal
+	}
+
+	d.mutex.RUnlock()
+
+	d.mutex.Lock()
+
+	if d.distributedWal == nil {
+		d.distributedWal = storage.NewDistributedWal(
+			d.DatabaseId,
+			d.BranchId,
+			node.Node().WalReplicator(),
+		)
+	}
+
+	d.mutex.Unlock()
+
+	return d.distributedWal
+}
+
+/*
+Return the file system for the database.
+*/
 func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 	d.mutex.RLock()
 
@@ -139,20 +175,6 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 			file.PageNumber(offset, pageSize),
 			data,
 		)
-
-		if node.Node().IsPrimary() {
-			// node.Node().Publish(
-			// 	node.NodeMessage{
-			// 		Id:   "broadcast",
-			// 		Type: "WALCheckpointMessage",
-			// 		Data: node.WALCheckpointMessage{
-			// 			DatabaseId: databaseId,
-			// 			BranchId:   branchId,
-			// 			Timestamp:    fileSystem.TransactionTimestamp(),
-			// 		},
-			// 	},
-			// )
-		}
 	})
 
 	d.mutex.Lock()
@@ -166,6 +188,9 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 	return d.fileSystem
 }
 
+/*
+Return the rollback logger for the database.
+*/
 func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 	d.mutex.RLock()
 
@@ -217,6 +242,9 @@ func (d *DatabaseResources) Remove() {
 	d.tempFileSystem = nil
 }
 
+/*
+Return the SnapshotLogger for the database.
+*/
 func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	d.mutex.RLock()
 
@@ -240,6 +268,9 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	return d.snapshotLogger
 }
 
+/*
+Return the temporary file system for the database.
+*/
 func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 	d.mutex.RLock()
 
@@ -264,4 +295,25 @@ func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 	d.mutex.Unlock()
 
 	return d.tempFileSystem
+}
+
+func (d *DatabaseResources) WalFile() (*storage.WalFile, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if d.walFile != nil {
+		return d.walFile, nil
+	}
+
+	path := fmt.Sprintf("%s%s/%s/%s/%s.db-wal", TmpDirectory(), node.Node().Id, d.DatabaseId, d.BranchId, d.DatabaseHash)
+
+	walFile, err := storage.NewWalFile(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	d.walFile = walFile
+
+	return walFile, nil
 }

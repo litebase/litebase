@@ -36,7 +36,9 @@ type DatabaseConnection struct {
 	sqlite3        *sqlite3.Connection
 	statements     sync.Map
 	tempFileSystem *storage.TempDatabaseFileSystem
+	timestamp      int64
 	vfsHash        string
+	wal            *storage.WalFile
 }
 
 /*
@@ -50,13 +52,17 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	// if node.Node().IsPrimary() {
 	databaseHash := file.DatabaseHash(databaseId, branchId)
 	tempFileSystem := Resources(databaseId, branchId).TempFileSystem()
-	// } else {
-	// 	databaseHash = file.DatabaseHashWithTimestamp(databaseId, branchId, walTimestamp)
-	// 	tempFileSystem = DatabaseResources().TempFileSystemWithTimestamp(databaseId, branchId, walTimestamp)
-	// }
+
+	wal, err := Resources(databaseId, branchId).WalFile()
+
+	if err != nil {
+		cancel()
+		log.Println("Error Getting WAL File:", err)
+
+		return nil, err
+	}
 
 	checkpointer, err := Resources(databaseId, branchId).Checkpointer()
 
@@ -79,6 +85,8 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 		id:             uuid.NewString(),
 		statements:     sync.Map{},
 		tempFileSystem: tempFileSystem,
+		timestamp:      time.Now().UnixNano(),
+		wal:            wal,
 	}
 
 	err = con.RegisterVFS()
@@ -145,7 +153,8 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 			The amount of cache that SQLite will use is set to -2000000. This
 			will allow SQLite to use as much memory as it needs for caching.
 		*/
-		"PRAGMA cache_size = -2000000",
+		"PRAGMA cache_size = 0",
+		// "PRAGMA cache_size = -2000000",
 		/*
 			PRAGMA secure_delete will ensure that data is securely deleted from
 			the database. This will prevent data from being recovered from the
@@ -163,6 +172,8 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 	}
 
 	if !node.Node().IsPrimary() {
+		// log.Default().Println("Setting database locking mode to EXCLUSIVE")
+		// configStatements = append(configStatements, "PRAGMA locking_mode = EXCLUSIVE")
 		// configStatements = append(configStatements, "PRAGMA query_only = true")
 	}
 
@@ -172,6 +183,12 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	err = con.sqlite3.PersistWal()
+
+	if err != nil {
+		return nil, err
 	}
 
 	return con, err
@@ -215,6 +232,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 	})
 
 	if err != nil {
+		log.Println("Error checkpointing , ROLLBACK", err)
 		con.checkpointer.Rollback()
 	}
 
@@ -285,6 +303,14 @@ Return the id of the connection.
 */
 func (c *DatabaseConnection) Id() string {
 	return c.id
+}
+
+func (c *DatabaseConnection) IsUpToDate() bool {
+	if c.wal.Timestamp() == 0 {
+		return true
+	}
+
+	return c.timestamp == c.wal.Timestamp()
 }
 
 /*
@@ -498,10 +524,6 @@ func (con *DatabaseConnection) Transaction(
 
 		// Writes should only happen on the primary node. So we can adjust the
 		// wal timestamp on the connection to the current time.
-		// con.walTimestamp = time.Now().UTC().UnixNano()
-
-		// Notify the database file system that a write transaction is happening.
-		// con.fileSystem.SetTransactionTimestamp(time.Now().UTC().UnixNano())
 	} else {
 		err = con.SqliteConnection().BeginDeferred()
 	}

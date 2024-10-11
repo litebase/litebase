@@ -17,8 +17,9 @@ func ClusterReplicaController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {
-			w.Header().Set("Transfer-Encoding", "chunked")
+			w.Header().Set("Connection", "close")
 			w.Header().Set("Content-Type", "application/gob")
+			w.Header().Set("Transfer-Encoding", "chunked")
 
 			defer request.BaseRequest.Body.Close()
 

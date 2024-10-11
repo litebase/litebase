@@ -9,6 +9,9 @@ extern int goXWrite(sqlite3_file *file, const void *buf, int iAmt, sqlite3_int64
 extern int goXTruncate(sqlite3_file *file, sqlite3_int64 size);
 extern int goXFileSize(sqlite3_file *file, sqlite3_int64 *pSize);
 
+extern int goXWalWrite(sqlite3_file *file, int iAmt, sqlite3_int64 iOfst, const void *buf);
+extern int goXWalTruncate(sqlite3_file *file, sqlite3_int64 size);
+
 /*
 ** Method declarations for LitebaseDBFile.
 */
@@ -93,7 +96,17 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    return ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
+    int rc = 0;
+
+    rc = ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
+
+    if (rc != SQLITE_OK)
+    {
+      fprintf(stderr, "Journal file write failed: %d\n", rc);
+      return rc;
+    }
+
+    return goXWalWrite(pFile, iAmt, iOfst, zBuf);
   }
 
   return goXWrite(pFile, zBuf, iAmt, iOfst);
@@ -103,7 +116,17 @@ int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    return ORIGFILE(pFile)->pMethods->xTruncate(ORIGFILE(pFile), size);
+    int rc = 0;
+
+    rc = ORIGFILE(pFile)->pMethods->xTruncate(ORIGFILE(pFile), size);
+
+    if (rc != SQLITE_OK)
+    {
+      fprintf(stderr, "Journal file truncate failed: %d\n", rc);
+      return rc;
+    }
+
+    return goXWalTruncate(pFile, size);
   }
 
   return goXTruncate(pFile, size);

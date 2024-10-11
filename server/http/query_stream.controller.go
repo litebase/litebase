@@ -175,7 +175,9 @@ func scan(databaseKey *database.DatabaseKey,
 	err = decoder.JsonDecoder.Decode(input)
 
 	if err != nil {
-		writeBuffer.Write(JsonNewLineError(err))
+		writeBuffer.Write(JsonNewLineErrorWithData(err, map[string]interface{}{
+			"id": input.Id,
+		}))
 		writer <- writeBuffer
 		return
 	}
@@ -185,7 +187,9 @@ func scan(databaseKey *database.DatabaseKey,
 	err = processInput(databaseKey, accessKey, input, response)
 
 	if err != nil {
-		writeBuffer.Write(JsonNewLineError(err))
+		writeBuffer.Write(JsonNewLineErrorWithData(err, map[string]interface{}{
+			"id": input.Id,
+		}))
 		writer <- writeBuffer
 		return
 	}
@@ -196,10 +200,14 @@ func scan(databaseKey *database.DatabaseKey,
 	encoder := query.JsonEncoderPool().Get()
 	defer query.JsonEncoderPool().Put(encoder)
 
+	encoder.Buffer.Reset()
+
 	err = encoder.JsonEncoder.Encode(jsonResponse)
 
 	if err != nil {
-		writeBuffer.Write(JsonNewLineError(err))
+		writeBuffer.Write(JsonNewLineErrorWithData(err, map[string]interface{}{
+			"id": input.Id,
+		}))
 		writer <- writeBuffer
 		return
 	}
@@ -224,7 +232,13 @@ func writeQueryStream(
 		case <-ctx.Done():
 			return
 		case buffer := <-writer:
-			w.Write(buffer.Bytes())
+			_, err := w.Write(buffer.Bytes())
+
+			if err != nil {
+				log.Println("Error writing buffer to client", err)
+				return
+			}
+
 			w.(http.Flusher).Flush()
 
 			bufferPool.Put(buffer)

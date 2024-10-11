@@ -29,9 +29,10 @@ var VfsMap = make(map[string]*LitebaseVFS)
 var vfsMutex = &sync.RWMutex{}
 
 type LitebaseVFS struct {
-	filename   string
-	fileSystem *storage.DurableDatabaseFileSystem
-	id         string
+	distributedWal *storage.DistributedWal
+	filename       string
+	fileSystem     *storage.DurableDatabaseFileSystem
+	id             string
 }
 
 func RegisterVFS(
@@ -40,6 +41,7 @@ func RegisterVFS(
 	dataPath string,
 	pageSize int64,
 	fileSystem *storage.DurableDatabaseFileSystem,
+	distributedWal *storage.DistributedWal,
 ) error {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
@@ -74,8 +76,9 @@ func RegisterVFS(
 	C.newVfs(cZvfsId, cDataPath, C.int(pageSize))
 
 	l := &LitebaseVFS{
-		fileSystem: fileSystem,
-		id:         vfsId,
+		distributedWal: distributedWal,
+		fileSystem:     fileSystem,
+		id:             vfsId,
 	}
 
 	l.writeHook()
@@ -275,6 +278,42 @@ func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 
 	if err != nil {
 		return C.SQLITE_IOERR_TRUNCATE
+	}
+
+	return C.SQLITE_OK
+}
+
+//export goXWalWrite
+func goXWalWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf unsafe.Pointer) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR
+	}
+
+	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+
+	err = vfs.distributedWal.WriteAt(goBuffer, int64(iOfst))
+
+	if err != nil {
+		return C.SQLITE_IOERR
+	}
+
+	return C.SQLITE_OK
+}
+
+//export goXWalTruncate
+func goXWalTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR
+	}
+
+	err = vfs.distributedWal.Truncate(int64(size))
+
+	if err != nil {
+		return C.SQLITE_IOERR
 	}
 
 	return C.SQLITE_OK

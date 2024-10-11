@@ -21,8 +21,6 @@ import (
 	"time"
 )
 
-var NodeIpAddress string
-var NodeIPv6Address string
 var NodeInstanceSingleton *NodeInstance
 var NodeInstanceSingletonMutex sync.Mutex
 
@@ -35,28 +33,28 @@ const (
 )
 
 type NodeInstance struct {
-	address                 string
-	cancel                  context.CancelFunc
-	context                 context.Context
-	databaseCheckpointer    NodeReplicaCheckpointer
-	databaseWalSynchronizer NodeDatabaseWalSynchronizer
-	joinedClusterAt         time.Time
-	lastActive              time.Time
-	Id                      string
-	LeaseExpiresAt          int64
-	LeaseRenewedAt          time.Time
-	Membership              string
-	mutex                   *sync.Mutex
-	primaryAddress          string
-	primary                 *NodePrimary
-	PrimaryHeartbeat        time.Time
-	replica                 *NodeReplica
-	queryBuilder            NodeQueryBuilder
-	requestTicker           *time.Ticker
-	State                   string
-	standBy                 chan struct{}
-	startedAt               time.Time
-	storedAddressAt         time.Time
+	address          string
+	cancel           context.CancelFunc
+	context          context.Context
+	joinedClusterAt  time.Time
+	lastActive       time.Time
+	Id               string
+	LeaseExpiresAt   int64
+	LeaseRenewedAt   time.Time
+	Membership       string
+	mutex            *sync.Mutex
+	primaryAddress   string
+	primary          *NodePrimary
+	PrimaryHeartbeat time.Time
+	replica          *NodeReplica
+	queryBuilder     NodeQueryBuilder
+	requestTicker    *time.Ticker
+	State            string
+	standBy          chan struct{}
+	startedAt        time.Time
+	storedAddressAt  time.Time
+	walReplicator    *NodeWalReplicator
+	walSynchronizer  NodeWalSynchronizer
 }
 
 func Node() *NodeInstance {
@@ -115,7 +113,11 @@ func (n *NodeInstance) Heartbeat() {
 		if cluster.LEASE_DURATION-time.Since(n.LeaseRenewedAt) < 10*time.Second {
 			n.renewLease()
 		} else {
-			n.Primary().Heartbeat()
+			err := n.Primary().Heartbeat()
+
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		return
@@ -157,7 +159,7 @@ func (n *NodeInstance) IsPrimary() bool {
 }
 
 func (n *NodeInstance) IsReplica() bool {
-	return n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA
+	return n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA && n.replica != nil
 }
 
 func (n *NodeInstance) IsStandBy() bool {
@@ -354,6 +356,20 @@ func (n *NodeInstance) releaseLease() error {
 
 func (n *NodeInstance) Replica() *NodeReplica {
 	return n.replica
+}
+
+/*
+Return the NodeReplicator for the NodeInstance.
+*/
+func (n *NodeInstance) WalReplicator() *NodeWalReplicator {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	if n.walReplicator == nil {
+		n.walReplicator = NewNodeReplicator(n)
+	}
+
+	return n.walReplicator
 }
 
 func (n *NodeInstance) removeAddress() error {
@@ -561,14 +577,6 @@ func (n *NodeInstance) runTicker() {
 	}
 }
 
-func (n *NodeInstance) SetDatabaseCheckpointer(checkpointer NodeReplicaCheckpointer) {
-	n.databaseCheckpointer = checkpointer
-}
-
-func (n *NodeInstance) SetDatabaseWalSchronizer(synchronizer NodeDatabaseWalSynchronizer) {
-	n.databaseWalSynchronizer = synchronizer
-}
-
 func (n *NodeInstance) SetMembership(membership string) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -603,6 +611,10 @@ func (n *NodeInstance) SetMembership(membership string) {
 
 func (n *NodeInstance) SetQueryBuilder(queryBuilder NodeQueryBuilder) {
 	n.queryBuilder = queryBuilder
+}
+
+func (n *NodeInstance) SetWalSchronizer(synchronizer NodeWalSynchronizer) {
+	n.walSynchronizer = synchronizer
 }
 
 func (n *NodeInstance) Shutdown() error {
@@ -735,25 +747,7 @@ func truncateFile(filePath string) error {
 	return storage.ObjectFS().WriteFile(filePath, []byte(""), os.ModePerm)
 }
 
-func FilePath(ipAddress string) string {
-	return fmt.Sprintf("%s%s", cluster.NodePath(), ipAddress)
-}
-
-func Has(ip string) bool {
-	nodes := Node().OtherNodes()
-
-	log.Println("NODES", nodes)
-
-	for _, node := range nodes {
-		if node.String() == ip {
-			return true
-		}
-	}
-
-	return false
-}
-
-func Init(queryBuilder NodeQueryBuilder, checkPointer NodeReplicaCheckpointer, walSynchronizer NodeDatabaseWalSynchronizer) {
+func Init(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer) {
 	registerNodeMessages()
 
 	// Make directory if it doesn't exist
@@ -762,8 +756,7 @@ func Init(queryBuilder NodeQueryBuilder, checkPointer NodeReplicaCheckpointer, w
 	}
 
 	Node().SetQueryBuilder(queryBuilder)
-	Node().SetDatabaseCheckpointer(checkPointer)
-	Node().SetDatabaseWalSchronizer(walSynchronizer)
+	Node().SetWalSchronizer(walSynchronizer)
 }
 
 func (n *NodeInstance) OtherNodes() []*NodeIdentifier {

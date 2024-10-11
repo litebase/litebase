@@ -3,6 +3,7 @@ package node
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -14,62 +15,27 @@ import (
 	"runtime"
 	"sync"
 	"time"
-
-	"github.com/klauspost/compress/s2"
 )
 
 type NodeReplica struct {
-	cancel                  context.CancelFunc
-	context                 context.Context
-	Address                 string
-	databaseCheckpointer    NodeReplicaCheckpointer
-	databaseWalSynchronizer NodeDatabaseWalSynchronizer
-	Id                      string
-	node                    *NodeInstance
-	startMutex              *sync.RWMutex
+	cancel          context.CancelFunc
+	context         context.Context
+	Address         string
+	Id              string
+	node            *NodeInstance
+	startMutex      *sync.RWMutex
+	walSynchronizer NodeWalSynchronizer
 }
 
 func NewNodeReplica(node *NodeInstance) *NodeReplica {
 	context, cancel := context.WithCancel(context.Background())
 
 	replica := &NodeReplica{
-		cancel:                  cancel,
-		context:                 context,
-		databaseCheckpointer:    node.databaseCheckpointer,
-		databaseWalSynchronizer: node.databaseWalSynchronizer,
-		node:                    node,
-		startMutex:              &sync.RWMutex{},
+		cancel:     cancel,
+		context:    context,
+		node:       node,
+		startMutex: &sync.RWMutex{},
 	}
-
-	// if Node().PrimaryAddress() != "" {
-	// 	err := replica.Start()
-
-	// 	if err != nil {
-	// 		log.Println(err)
-	// 	}
-	// }
-
-	// go func() {
-	// 	ticker := time.NewTicker(1000 * time.Millisecond)
-
-	// 	for {
-	// 		select {
-	// 		case <-Node().Context().Done():
-	// 		case <-replica.context.Done():
-	// 			return
-	// 		case <-ticker.C:
-	// 			// if replica.primaryConnection == nil {
-	// 			// 	replica.Start()
-	// 			// 	return
-	// 			// }
-
-	// 			// if !replica.primaryConnection.Connected() {
-	// 			// 	replica.primaryConnection.Close()
-	// 			// 	replica.Start()
-	// 			// }
-	// 		}
-	// 	}
-	// }()
 
 	return replica
 }
@@ -87,44 +53,55 @@ func (nr *NodeReplica) HandleMessage(message NodeMessage) (NodeMessage, error) {
 		return responseMessage, nil
 	}
 
-	return NodeMessage{}, nil
+	switch message.Type {
+	case "NodeConnectionMessage":
+		responseMessage = NodeMessage{
+			Id:   message.Id,
+			Type: "NodeConnectionMessage",
+		}
+	}
+
+	return responseMessage, nil
 }
 
 func (nr *NodeReplica) handleBroadcastMessage(message NodeMessage) error {
 	switch message.Type {
 	case "HeartbeatMessage":
 		Node().PrimaryHeartbeat = time.Now()
-	case "WALCheckpointMessage":
-		err := nr.databaseCheckpointer.CheckpointReplica(
-			message.Data.(WALCheckpointMessage).DatabaseId,
-			message.Data.(WALCheckpointMessage).BranchId,
-			message.Data.(WALCheckpointMessage).Timestamp,
-		)
+	case "WALReplicationWriteMessage":
+		// Verify the integrity of the WAL data
+		sha256Hash := sha256.Sum256(message.Data.(WALReplicationWriteMessage).Data)
 
-		if err != nil {
-			log.Println("Failed to checkpoint WAL: ", err)
-			return err
-		}
-	case "WALReplicationMessage":
-		decompressedData, err := s2.Decode(nil, message.Data.(WALReplicationMessage).Data)
-
-		if err != nil {
-			log.Println("Failed to decode WAL data: ", err)
-			return err
+		if sha256Hash != message.Data.(WALReplicationWriteMessage).Sha256 {
+			log.Println("Failed to verify WAL data integrity")
+			return errors.New("failed to verify WAL data integrity")
 		}
 
-		err = nr.databaseWalSynchronizer.Sync(
-			message.Data.(WALReplicationMessage).DatabaseId,
-			message.Data.(WALReplicationMessage).BranchId,
-			decompressedData,
-			message.Data.(WALReplicationMessage).Offset,
-			message.Data.(WALReplicationMessage).Length,
-			message.Data.(WALReplicationMessage).Sha256,
-			message.Data.(WALReplicationMessage).Timestamp,
+		err := nr.node.walSynchronizer.WriteAt(
+			message.Data.(WALReplicationWriteMessage).DatabaseId,
+			message.Data.(WALReplicationWriteMessage).BranchId,
+			message.Data.(WALReplicationWriteMessage).Data,
+			message.Data.(WALReplicationWriteMessage).Offset,
+			message.Data.(WALReplicationWriteMessage).Sequence,
+			message.Data.(WALReplicationWriteMessage).Timestamp,
 		)
 
 		if err != nil {
 			log.Println("Failed to sync WAL data: ", err)
+			return err
+		}
+
+	case "WALReplicationTruncateMessage":
+		err := nr.node.walSynchronizer.Truncate(
+			message.Data.(WALReplicationTruncateMessage).DatabaseId,
+			message.Data.(WALReplicationTruncateMessage).BranchId,
+			message.Data.(WALReplicationTruncateMessage).Size,
+			message.Data.(WALReplicationTruncateMessage).Sequence,
+			message.Data.(WALReplicationTruncateMessage).Timestamp,
+		)
+
+		if err != nil {
+			log.Println("Failed to sync WAL data truncation: ", err)
 			return err
 		}
 	}
@@ -187,6 +164,10 @@ func (nr *NodeReplica) JoinCluster() error {
 func (nr *NodeReplica) LeaveCluster() error {
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
+	}
+
+	if nr.node == nil {
+		return nil
 	}
 
 	if nr.node.primaryAddress == "" {
