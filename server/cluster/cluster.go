@@ -381,6 +381,9 @@ func (cluster *ClusterInstance) GetMembers(cached bool) ([]string, []string) {
 	return cluster.QueryNodes, cluster.StorageNodes
 }
 
+/*
+Get all the members of the cluster since a certain time.
+*/
 func (cluster *ClusterInstance) GetMembersSince(after time.Time) ([]string, []string) {
 	if cluster.MembersRetrievedAt.After(after) {
 		return cluster.QueryNodes, cluster.StorageNodes
@@ -389,6 +392,9 @@ func (cluster *ClusterInstance) GetMembersSince(after time.Time) ([]string, []st
 	return cluster.GetMembers(false)
 }
 
+/*
+Return a storage node for a given key.
+*/
 func (cluster *ClusterInstance) GetStorageNode(key string) (int, string, error) {
 	cluster.GetMembers(true)
 
