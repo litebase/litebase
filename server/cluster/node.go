@@ -1,4 +1,4 @@
-package node
+package cluster
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"io"
 	"litebase/internal/config"
 	"litebase/server/auth"
-	"litebase/server/cluster"
 	"litebase/server/storage"
 	"log"
 	"net/http"
@@ -65,8 +64,8 @@ func Node() *NodeInstance {
 		NodeInstanceSingleton = &NodeInstance{
 			address:    "",
 			lastActive: time.Time{},
-			Membership: cluster.CLUSTER_MEMBERSHIP_STAND_BY,
-			// Membership: cluster.CLUSTER_MEMBERSHIP_REPLICA,
+			Membership: CLUSTER_MEMBERSHIP_STAND_BY,
+			// Membership: CLUSTER_MEMBERSHIP_REPLICA,
 			mutex:   &sync.Mutex{},
 			standBy: make(chan struct{}),
 			State:   NODE_STATE_ACTIVE,
@@ -101,7 +100,7 @@ func (n *NodeInstance) AddressPath() string {
 	// Replace the colon in the address with an underscore
 	address := strings.ReplaceAll(n.Address(), ":", "_")
 
-	return fmt.Sprintf("%s%s", cluster.NodePath(), address)
+	return fmt.Sprintf("%s%s", NodePath(), address)
 }
 
 func (n *NodeInstance) Context() context.Context {
@@ -110,7 +109,7 @@ func (n *NodeInstance) Context() context.Context {
 
 func (n *NodeInstance) Heartbeat() {
 	if n.IsPrimary() {
-		if cluster.LEASE_DURATION-time.Since(n.LeaseRenewedAt) < 10*time.Second {
+		if LEASE_DURATION-time.Since(n.LeaseRenewedAt) < 10*time.Second {
 			n.renewLease()
 		} else {
 			err := n.Primary().Heartbeat()
@@ -131,7 +130,7 @@ func (n *NodeInstance) Heartbeat() {
 		success := n.runElection()
 
 		if !success {
-			time.Sleep(cluster.ELECTION_RETRY_WAIT)
+			time.Sleep(ELECTION_RETRY_WAIT)
 		}
 	}
 }
@@ -146,12 +145,12 @@ func (n *NodeInstance) IsPrimary() bool {
 		n.Tick()
 	}
 
-	if n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA || n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
+	if n.Membership == CLUSTER_MEMBERSHIP_REPLICA || n.Membership == CLUSTER_MEMBERSHIP_STAND_BY {
 		return false
 	}
 
 	// If the cluster membership is primary and the lease is still valid
-	if n.Membership == cluster.CLUSTER_MEMBERSHIP_PRIMARY && time.Now().Unix() < n.LeaseExpiresAt {
+	if n.Membership == CLUSTER_MEMBERSHIP_PRIMARY && time.Now().Unix() < n.LeaseExpiresAt {
 		return true
 	}
 
@@ -159,11 +158,11 @@ func (n *NodeInstance) IsPrimary() bool {
 }
 
 func (n *NodeInstance) IsReplica() bool {
-	return n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA && n.replica != nil
+	return n.Membership == CLUSTER_MEMBERSHIP_REPLICA && n.replica != nil
 }
 
 func (n *NodeInstance) IsStandBy() bool {
-	return n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY
+	return n.Membership == CLUSTER_MEMBERSHIP_STAND_BY
 }
 
 func (n *NodeInstance) joinCluster() error {
@@ -181,7 +180,7 @@ func (n *NodeInstance) joinCluster() error {
 	}
 
 	// The Node should be added to the cluster map
-	err := cluster.Get().AddMember(config.Get().NodeType, n.Address())
+	err := Get().AddMember(config.Get().NodeType, n.Address())
 
 	if err != nil {
 		log.Println(err)
@@ -242,7 +241,7 @@ func (n *NodeInstance) Primary() *NodePrimary {
 
 func (n *NodeInstance) PrimaryAddress() string {
 	if n.primaryAddress == "" {
-		primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath())
+		primaryData, err := storage.ObjectFS().ReadFile(PrimaryPath())
 
 		if err != nil {
 			log.Printf("Failed to read primary file: %v", err)
@@ -260,7 +259,7 @@ func (n *NodeInstance) primaryLeaseVerification() bool {
 		return true
 	}
 
-	primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath())
+	primaryData, err := storage.ObjectFS().ReadFile(PrimaryPath())
 
 	if err != nil {
 		log.Printf("Failed to read primary file: %v", err)
@@ -273,7 +272,7 @@ func (n *NodeInstance) primaryLeaseVerification() bool {
 	}
 
 	// Check if the primary is still alive
-	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
+	leaseData, err := storage.ObjectFS().ReadFile(LeasePath())
 
 	if err != nil {
 		log.Printf("Failed to read lease file: %v", err)
@@ -293,7 +292,7 @@ func (n *NodeInstance) primaryLeaseVerification() bool {
 
 	if time.Now().Unix() >= leaseTime {
 		n.removePrimaryStatus()
-		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_REPLICA)
+		n.SetMembership(CLUSTER_MEMBERSHIP_REPLICA)
 
 		return false
 	}
@@ -303,7 +302,7 @@ func (n *NodeInstance) primaryLeaseVerification() bool {
 
 func (n *NodeInstance) primaryFileVerification() bool {
 	// Check if the primary file exists and is not empty
-	if primaryData, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
+	if primaryData, err := storage.ObjectFS().ReadFile(PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
 		if err != nil {
 			log.Printf("Error accessing primary file: %v", err)
 		}
@@ -312,7 +311,7 @@ func (n *NodeInstance) primaryFileVerification() bool {
 	}
 
 	// Check if the lease file exists, is not empty, and has a valid future timestamp
-	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
+	leaseData, err := storage.ObjectFS().ReadFile(LeasePath())
 
 	if err != nil || len(leaseData) == 0 {
 		return false
@@ -338,16 +337,16 @@ func (n *NodeInstance) primaryFileVerification() bool {
 func (n *NodeInstance) releaseLease() error {
 	n.LeaseExpiresAt = 0
 
-	if n.Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+	if n.Membership != CLUSTER_MEMBERSHIP_PRIMARY {
 		return fmt.Errorf("node is not a leader")
 	}
 
 	// Refactor to directly truncate files without checking for existence
-	if err := truncateFile(cluster.PrimaryPath()); err != nil {
+	if err := truncateFile(PrimaryPath()); err != nil {
 		return err
 	}
 
-	if err := truncateFile(cluster.LeasePath()); err != nil {
+	if err := truncateFile(LeasePath()); err != nil {
 		return err
 	}
 
@@ -388,7 +387,7 @@ func (n *NodeInstance) removePrimaryStatus() error {
 }
 
 func (n *NodeInstance) renewLease() error {
-	if n.Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+	if n.Membership != CLUSTER_MEMBERSHIP_PRIMARY {
 		return fmt.Errorf("node is not a leader")
 	}
 
@@ -398,14 +397,14 @@ func (n *NodeInstance) renewLease() error {
 	}
 
 	// Verify the primary is stil the current node
-	primaryAddress, err := storage.ObjectFS().ReadFile(cluster.PrimaryPath())
+	primaryAddress, err := storage.ObjectFS().ReadFile(PrimaryPath())
 
 	if err != nil {
 		return err
 	}
 
 	if string(primaryAddress) != n.Address() {
-		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_REPLICA)
+		n.SetMembership(CLUSTER_MEMBERSHIP_REPLICA)
 
 		return fmt.Errorf("primary address verification failed")
 	}
@@ -415,10 +414,10 @@ func (n *NodeInstance) renewLease() error {
 		return err
 	}
 
-	expiresAt := time.Now().Add(cluster.LEASE_DURATION).Unix()
+	expiresAt := time.Now().Add(LEASE_DURATION).Unix()
 	leaseTimestamp := strconv.FormatInt(expiresAt, 10)
 
-	err = storage.ObjectFS().WriteFile(cluster.LeasePath(), []byte(leaseTimestamp), os.ModePerm)
+	err = storage.ObjectFS().WriteFile(LeasePath(), []byte(leaseTimestamp), os.ModePerm)
 
 	if err != nil {
 		log.Printf("Failed to write lease file: %v", err)
@@ -431,7 +430,7 @@ func (n *NodeInstance) renewLease() error {
 	}
 
 	// Verify the Lease file has the written value
-	leaseData, err := storage.ObjectFS().ReadFile(cluster.LeasePath())
+	leaseData, err := storage.ObjectFS().ReadFile(LeasePath())
 
 	if err != nil {
 		log.Printf("Failed to read lease file: %v", err)
@@ -455,7 +454,7 @@ func (n *NodeInstance) runElection() bool {
 	}
 
 	// Attempt to open the nomination file with exclusive lock
-	nominationFile, err := storage.ObjectFS().OpenFile(cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
+	nominationFile, err := storage.ObjectFS().OpenFile(NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		log.Printf("Failed to open nomination file: %v", err)
@@ -525,15 +524,15 @@ func (n *NodeInstance) runElection() bool {
 
 	// Assuming this node is determined to be primary
 	if isPrimaryBasedOnFileContents(nominationData, address, timestamp) {
-		err = storage.ObjectFS().WriteFile(cluster.PrimaryPath(), []byte(address), 0644)
+		err = storage.ObjectFS().WriteFile(PrimaryPath(), []byte(address), 0644)
 
 		if err != nil {
 			log.Printf("Failed to write primary file: %v", err)
 			return false
 		}
 
-		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_PRIMARY)
-		truncateFile(cluster.NominationPath())
+		n.SetMembership(CLUSTER_MEMBERSHIP_PRIMARY)
+		truncateFile(NominationPath())
 
 		err := n.renewLease()
 
@@ -562,7 +561,7 @@ func (n *NodeInstance) runTicker() {
 			}
 
 			// Ensure Replicas are still connected to the primary
-			// if n.Membership == cluster.CLUSTER_MEMBERSHIP_REPLICA && n.primaryConnection == nil && !n.connecting {
+			// if n.Membership == CLUSTER_MEMBERSHIP_REPLICA && n.primaryConnection == nil && !n.connecting {
 			// 	n.connectWithPrimary()
 			// }
 
@@ -572,7 +571,7 @@ func (n *NodeInstance) runTicker() {
 			}
 
 			// Change the cluster membership to stand by
-			// n.SetMembership(cluster.CLUSTER_MEMBERSHIP_STAND_BY)
+			// n.SetMembership(CLUSTER_MEMBERSHIP_STAND_BY)
 		}
 	}
 }
@@ -587,7 +586,7 @@ func (n *NodeInstance) SetMembership(membership string) {
 	// Forget the last known primary address
 	n.primaryAddress = ""
 
-	if membership == cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+	if membership == CLUSTER_MEMBERSHIP_PRIMARY {
 		n.primary = NewNodePrimary(n)
 
 		if n.replica != nil {
@@ -596,7 +595,7 @@ func (n *NodeInstance) SetMembership(membership string) {
 		}
 	}
 
-	if membership == cluster.CLUSTER_MEMBERSHIP_REPLICA && prevMembership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+	if membership == CLUSTER_MEMBERSHIP_REPLICA && prevMembership != CLUSTER_MEMBERSHIP_PRIMARY {
 		n.replica = NewNodeReplica(n)
 
 		if n.primary != nil {
@@ -604,7 +603,7 @@ func (n *NodeInstance) SetMembership(membership string) {
 		}
 	}
 
-	if membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
+	if membership == CLUSTER_MEMBERSHIP_STAND_BY {
 		n.State = NODE_STATE_IDLE
 	}
 }
@@ -679,7 +678,7 @@ func (n *NodeInstance) Tick() {
 	// Check if the is still registered as primary
 	if n.lastActive.IsZero() {
 		if n.primaryFileVerification() {
-			n.SetMembership(cluster.CLUSTER_MEMBERSHIP_PRIMARY)
+			n.SetMembership(CLUSTER_MEMBERSHIP_PRIMARY)
 		}
 	}
 
@@ -691,8 +690,8 @@ func (n *NodeInstance) Tick() {
 
 	// If the node is a standby, and it hasn't won the election at this point,
 	// it should manually become a replica and ensure it has membership.
-	if n.Membership == cluster.CLUSTER_MEMBERSHIP_STAND_BY {
-		n.SetMembership(cluster.CLUSTER_MEMBERSHIP_REPLICA)
+	if n.Membership == CLUSTER_MEMBERSHIP_STAND_BY {
+		n.SetMembership(CLUSTER_MEMBERSHIP_REPLICA)
 		// Join the cluster as a replica
 
 		n.Heartbeat()
@@ -747,12 +746,12 @@ func truncateFile(filePath string) error {
 	return storage.ObjectFS().WriteFile(filePath, []byte(""), os.ModePerm)
 }
 
-func Init(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer) {
+func NodeInit(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer) {
 	registerNodeMessages()
 
 	// Make directory if it doesn't exist
-	if storage.ObjectFS().Stat(cluster.NodePath()); os.IsNotExist(os.ErrNotExist) {
-		storage.ObjectFS().Mkdir(cluster.NodePath(), 0755)
+	if storage.ObjectFS().Stat(NodePath()); os.IsNotExist(os.ErrNotExist) {
+		storage.ObjectFS().Mkdir(NodePath(), 0755)
 	}
 
 	Node().SetQueryBuilder(queryBuilder)
@@ -762,9 +761,9 @@ func Init(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer) {
 func (n *NodeInstance) OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 	address := n.Address()
-	cluster.Get().GetMembers(true)
+	Get().GetMembers(true)
 
-	for _, node := range cluster.Get().QueryNodes {
+	for _, node := range Get().QueryNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],
@@ -773,7 +772,7 @@ func (n *NodeInstance) OtherNodes() []*NodeIdentifier {
 		}
 	}
 
-	for _, node := range cluster.Get().StorageNodes {
+	for _, node := range Get().StorageNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],
@@ -789,7 +788,7 @@ func OtherQueryNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 	address := Node().Address()
 
-	for _, node := range cluster.Get().QueryNodes {
+	for _, node := range Get().QueryNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],
@@ -805,7 +804,7 @@ func OtherStorageNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 	address := Node().Address()
 
-	for _, node := range cluster.Get().StorageNodes {
+	for _, node := range Get().StorageNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],

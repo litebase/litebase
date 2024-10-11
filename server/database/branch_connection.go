@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"litebase/server/node"
+	"litebase/server/cluster"
 	"time"
 )
 
@@ -45,7 +45,7 @@ func (b *BranchConnection) Close() {
 }
 
 func (b *BranchConnection) IsValid() bool {
-	if node.Node().IsPrimary() {
+	if cluster.Node().IsPrimary() {
 		return true
 	}
 

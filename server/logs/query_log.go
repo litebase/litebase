@@ -7,8 +7,8 @@ import (
 	"hash"
 	"hash/crc64"
 	internalStorage "litebase/internal/storage"
+	"litebase/server/cluster"
 	"litebase/server/file"
-	"litebase/server/node"
 	"litebase/server/storage"
 	"log"
 	"os"
@@ -107,7 +107,7 @@ func Query(entry QueryLogEnry) error {
 
 func (q *QueryLog) GetFile() internalStorage.File {
 	if q.file == nil {
-		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, node.Node().Id)
+		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, cluster.Node().Id)
 
 		err := storage.TieredFS().MkdirAll(filepath.Dir(path), 0755)
 
@@ -287,7 +287,7 @@ func (q *QueryLog) Watch() {
 
 		for {
 			select {
-			case <-node.Node().Context().Done():
+			case <-cluster.Node().Context().Done():
 				return
 			case <-ticker.C:
 				q.mutex.RLock()

@@ -1,11 +1,9 @@
 package http
 
-import (
-	"litebase/server/node"
-)
+import "litebase/server/cluster"
 
 func EventStoreController(request *Request) Response {
-	input, err := request.Input(&node.EventMessage{})
+	input, err := request.Input(&cluster.EventMessage{})
 
 	if err != nil {
 		return Response{
@@ -16,7 +14,7 @@ func EventStoreController(request *Request) Response {
 		}
 	}
 
-	node.ReceiveEvent(input.(*node.EventMessage))
+	cluster.ReceiveEvent(input.(*cluster.EventMessage))
 
 	return Response{
 		StatusCode: 200,

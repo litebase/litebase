@@ -2,8 +2,8 @@ package query
 
 import (
 	"litebase/server/auth"
+	"litebase/server/cluster"
 	"litebase/server/database"
-	"litebase/server/node"
 	"strings"
 )
 
@@ -30,7 +30,7 @@ func (query *Query) ResolveQuery(response *QueryResponse) error {
 	return ResolveQuery(query, response)
 }
 
-func (query *Query) Resolve(response node.NodeQueryResponse) error {
+func (query *Query) Resolve(response cluster.NodeQueryResponse) error {
 	return ResolveQuery(query, response.(*QueryResponse))
 }
 

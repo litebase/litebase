@@ -1,11 +1,9 @@
 package http
 
-import (
-	"litebase/server/node"
-)
+import "litebase/server/cluster"
 
 func NodeTick(request *Request) (*Request, Response) {
-	node.Node().Tick()
+	cluster.Node().Tick()
 
 	return request, Response{}
 }

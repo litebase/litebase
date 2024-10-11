@@ -2,14 +2,14 @@ package query
 
 import (
 	"litebase/server/auth"
+	"litebase/server/cluster"
 	"litebase/server/database"
-	"litebase/server/node"
 )
 
 type QueryBuilder struct{}
 
 type QueryType interface {
-	Resolve() (node.NodeQueryResponse, error)
+	Resolve() (cluster.NodeQueryResponse, error)
 }
 
 func NewQueryBuilder() *QueryBuilder {
@@ -24,7 +24,7 @@ func (qb *QueryBuilder) Build(
 	statement string,
 	parameters []interface{},
 	id string,
-) (node.NodeQuery, error) {
+) (cluster.NodeQuery, error) {
 	accessKey, err := auth.AccessKeyManager().Get(accessKeyId)
 
 	if err != nil {

@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"litebase/server/cluster"
 	"litebase/server/database"
-	"litebase/server/node"
 	"litebase/server/storage"
 	"log"
 	"net/http"
@@ -56,7 +56,7 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 		serverHook(s)
 	}
 
-	err := node.Node().Start()
+	err := cluster.Node().Start()
 
 	if err != nil {
 		log.Fatalf("Node start: %v", err)
@@ -86,7 +86,7 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	// Wait for a signal to shutdown the server
 	sig := <-signalChannel
 	log.Println("Received signal", sig)
-	node.Node().Shutdown()
+	cluster.Node().Shutdown()
 
 	s.Shutdown(s.context)
 	// Wait for the server to shutdown

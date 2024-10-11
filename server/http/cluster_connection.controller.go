@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/gob"
 	"io"
-	"litebase/server/node"
+	"litebase/server/cluster"
 	"log"
 	"net/http"
 )
@@ -20,7 +20,7 @@ func ClusterConnectionController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			ctx, cancel := context.WithCancel(node.Node().Context())
+			ctx, cancel := context.WithCancel(cluster.Node().Context())
 
 			go handleClusterConnectionStream(cancel, request.BaseRequest.Body, w)
 
@@ -41,7 +41,7 @@ func handleClusterConnectionStream(
 	scanBuffer := storageStreamBufferPool.Get().(*bytes.Buffer)
 	defer storageStreamBufferPool.Put(scanBuffer)
 
-	var nodeMessage node.NodeMessage
+	var nodeMessage cluster.NodeMessage
 
 	for {
 		decoder := gob.NewDecoder(reader)
@@ -56,12 +56,12 @@ func handleClusterConnectionStream(
 			break
 		}
 
-		var nodeResponseMessage node.NodeMessage
+		var nodeResponseMessage cluster.NodeMessage
 
-		if node.Node().IsPrimary() {
-			nodeResponseMessage, err = node.Node().Primary().HandleMessage(nodeMessage)
+		if cluster.Node().IsPrimary() {
+			nodeResponseMessage, err = cluster.Node().Primary().HandleMessage(nodeMessage)
 		} else {
-			nodeResponseMessage, err = node.Node().Replica().HandleMessage(nodeMessage)
+			nodeResponseMessage, err = cluster.Node().Replica().HandleMessage(nodeMessage)
 		}
 
 		if err != nil {
@@ -80,7 +80,7 @@ Write a response to the client.
 */
 func writeNodeMessageResponse(
 	w http.ResponseWriter,
-	nodeResponseMessage node.NodeMessage,
+	nodeResponseMessage cluster.NodeMessage,
 ) {
 	encoder := gob.NewEncoder(w)
 

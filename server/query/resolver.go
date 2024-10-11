@@ -6,7 +6,6 @@ import (
 	"litebase/server/cluster"
 	"litebase/server/database"
 	"litebase/server/logs"
-	"litebase/server/node"
 	"litebase/server/sqlite3"
 	"log"
 	"time"
@@ -125,11 +124,11 @@ func resolveWithQueue(
 }
 
 func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
-	primaryResponse, err := node.Node().Send(
-		node.NodeMessage{
+	primaryResponse, err := cluster.Node().Send(
+		cluster.NodeMessage{
 			Id:   fmt.Sprintf("query:%s", query.Input.Id),
 			Type: "QueryMessage",
-			Data: node.QueryMessage{
+			Data: cluster.QueryMessage{
 				AccessKeyId: query.AccessKey.AccessKeyId,
 				BranchId:    query.DatabaseKey.BranchId,
 				DatabaseId:  query.DatabaseKey.DatabaseId,
@@ -153,16 +152,16 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 		return fmt.Errorf("unexpected response from primary")
 	}
 
-	response.Changes = primaryResponse.Data.(node.QueryMessageResponse).Changes
-	response.Columns = primaryResponse.Data.(node.QueryMessageResponse).Columns
-	response.Latency = primaryResponse.Data.(node.QueryMessageResponse).Latency
-	response.LastInsertRowId = primaryResponse.Data.(node.QueryMessageResponse).LastInsertRowID
-	response.RowCount = primaryResponse.Data.(node.QueryMessageResponse).RowCount
-	response.Rows = primaryResponse.Data.(node.QueryMessageResponse).Rows
+	response.Changes = primaryResponse.Data.(cluster.QueryMessageResponse).Changes
+	response.Columns = primaryResponse.Data.(cluster.QueryMessageResponse).Columns
+	response.Latency = primaryResponse.Data.(cluster.QueryMessageResponse).Latency
+	response.LastInsertRowId = primaryResponse.Data.(cluster.QueryMessageResponse).LastInsertRowID
+	response.RowCount = primaryResponse.Data.(cluster.QueryMessageResponse).RowCount
+	response.Rows = primaryResponse.Data.(cluster.QueryMessageResponse).Rows
 
 	return nil
 }
 
 func shouldForwardToPrimary(query *Query) bool {
-	return (query.IsPragma() || query.IsDML()) && node.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY
+	return (query.IsPragma() || query.IsDML()) && cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY
 }

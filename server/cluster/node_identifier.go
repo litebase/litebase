@@ -1,4 +1,4 @@
-package node
+package cluster
 
 type NodeIdentifier struct {
 	Address string `json:"address"`

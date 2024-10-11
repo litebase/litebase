@@ -6,7 +6,6 @@ import (
 	"litebase/server/cluster"
 	"litebase/server/database"
 	"litebase/server/http"
-	"litebase/server/node"
 	"litebase/server/query"
 	"litebase/server/storage"
 )
@@ -36,7 +35,7 @@ func NewApp(server *ServerInstance) *App {
 	}
 
 	storage.Init(
-		node.Node().Address(),
+		cluster.Node().Address(),
 		auth.SecretsManager(),
 	)
 
@@ -68,15 +67,15 @@ func NewApp(server *ServerInstance) *App {
 		database.Init()
 	}
 
-	node.Init(
+	cluster.NodeInit(
 		query.NewQueryBuilder(),
 		database.NewDatabaseWalSynchronizer(),
 	)
-	node.EventsManager().Init()
+	cluster.EventsManager().Init()
 
-	auth.Broadcaster(node.EventsManager().Hook())
-	storage.SetStorageContext(node.Node().Context())
-	storage.SetStorageTimestamp(node.Node().Timestamp())
+	auth.Broadcaster(cluster.EventsManager().Hook())
+	storage.SetStorageContext(cluster.Node().Context())
+	storage.SetStorageTimestamp(cluster.Node().Timestamp())
 
 	app.initialized = true
 

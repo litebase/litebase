@@ -3,8 +3,8 @@ package test
 import (
 	"fmt"
 	"litebase/server"
+	"litebase/server/cluster"
 	"litebase/server/database"
-	"litebase/server/node"
 	"litebase/server/storage"
 	"log"
 	"os"
@@ -54,13 +54,13 @@ func Setup(t testing.TB, callbacks ...func()) {
 		t.Fail()
 	}
 
-	node.Node().Start()
+	cluster.Node().Start()
 }
 
 func Teardown(callbacks ...func()) {
 	database.ConnectionManager().Shutdown()
 	database.ShutdownResources()
-	node.Node().Shutdown()
+	cluster.Node().Shutdown()
 	storage.Shutdown()
 
 	os.RemoveAll(envDataPath)

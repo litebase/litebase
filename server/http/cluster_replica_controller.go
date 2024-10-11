@@ -4,13 +4,12 @@ import (
 	"encoding/gob"
 	"errors"
 	"litebase/server/cluster"
-	"litebase/server/node"
 	"log"
 	"net/http"
 )
 
 func ClusterReplicaController(request *Request) Response {
-	if node.Node().Membership != cluster.CLUSTER_MEMBERSHIP_REPLICA {
+	if cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_REPLICA {
 		return ForbiddenResponse(errors.New("not a replica node"))
 	}
 
@@ -23,7 +22,7 @@ func ClusterReplicaController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			var message node.NodeMessage
+			var message cluster.NodeMessage
 			decoder := gob.NewDecoder(request.BaseRequest.Body)
 			err := decoder.Decode(&message)
 
@@ -33,7 +32,7 @@ func ClusterReplicaController(request *Request) Response {
 				return
 			}
 
-			responseMessage, err := node.Node().Replica().HandleMessage(message)
+			responseMessage, err := cluster.Node().Replica().HandleMessage(message)
 
 			if err != nil {
 				log.Println("Failed to handle message: ", err)

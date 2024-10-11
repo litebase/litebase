@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/backups"
+	"litebase/server/cluster"
 	"litebase/server/file"
-	"litebase/server/node"
 	"litebase/server/storage"
 	"log"
 	"sync"
@@ -128,7 +128,7 @@ func (d *DatabaseResources) DistributedWal() *storage.DistributedWal {
 		d.distributedWal = storage.NewDistributedWal(
 			d.DatabaseId,
 			d.BranchId,
-			node.Node().WalReplicator(),
+			cluster.Node().WalReplicator(),
 		)
 	}
 
@@ -282,7 +282,7 @@ func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 
 	d.mutex.RUnlock()
 
-	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), node.Node().Id, d.DatabaseId, d.BranchId)
+	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), cluster.Node().Id, d.DatabaseId, d.BranchId)
 
 	fileSystem := storage.NewTempDatabaseFileSystem(path, d.DatabaseId, d.BranchId)
 
@@ -305,7 +305,7 @@ func (d *DatabaseResources) WalFile() (*storage.WalFile, error) {
 		return d.walFile, nil
 	}
 
-	path := fmt.Sprintf("%s%s/%s/%s/%s.db-wal", TmpDirectory(), node.Node().Id, d.DatabaseId, d.BranchId, d.DatabaseHash)
+	path := fmt.Sprintf("%s%s/%s/%s/%s.db-wal", TmpDirectory(), cluster.Node().Id, d.DatabaseId, d.BranchId, d.DatabaseHash)
 
 	walFile, err := storage.NewWalFile(path)
 

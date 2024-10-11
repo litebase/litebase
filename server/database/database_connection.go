@@ -12,8 +12,8 @@ import (
 
 	"litebase/internal/config"
 	"litebase/server/auth"
+	"litebase/server/cluster"
 	"litebase/server/file"
-	"litebase/server/node"
 	"litebase/server/sqlite3"
 	"litebase/server/storage"
 	"litebase/server/vfs"
@@ -99,7 +99,7 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 
 	con.setAuthorizer()
 
-	path, err := file.GetDatabaseFileTmpPath(node.Node().Id, databaseId, branchId)
+	path, err := file.GetDatabaseFileTmpPath(cluster.Node().Id, databaseId, branchId)
 
 	if err != nil {
 		log.Println("Error Getting Database File Path:", err)
@@ -171,7 +171,7 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 		"PRAGMA temp_store = memory",
 	}
 
-	if !node.Node().IsPrimary() {
+	if !cluster.Node().IsPrimary() {
 		// log.Default().Println("Setting database locking mode to EXCLUSIVE")
 		// configStatements = append(configStatements, "PRAGMA locking_mode = EXCLUSIVE")
 		// configStatements = append(configStatements, "PRAGMA query_only = true")

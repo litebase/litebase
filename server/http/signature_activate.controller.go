@@ -3,7 +3,7 @@ package http
 import (
 	"litebase/internal/config"
 	"litebase/server/auth"
-	"litebase/server/node"
+	"litebase/server/cluster"
 )
 
 type SingatureActivateRequest struct {
@@ -46,7 +46,7 @@ func SingatureActivateController(request *Request) Response {
 
 	auth.StoreSignature(input.(*SingatureActivateRequest).Signature)
 
-	node.Node().Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
+	cluster.Node().Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
 
 	return Response{
 		StatusCode: 200,

@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"litebase/server/node"
+	"litebase/server/cluster"
 	"log"
 	"sync"
 	"time"
@@ -53,7 +53,7 @@ func ConnectionManager() *ConnectionManagerInstance {
 
 			for {
 				select {
-				case <-node.Node().Context().Done():
+				case <-cluster.Node().Context().Done():
 					return
 				case <-StaticConnectionManagerInstance.connectionTicker.C:
 					StaticConnectionManagerInstance.Tick()

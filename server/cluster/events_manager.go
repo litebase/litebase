@@ -1,7 +1,6 @@
-package node
+package cluster
 
 import (
-	"litebase/server/cluster"
 	"litebase/server/storage"
 )
 
@@ -37,7 +36,7 @@ func (s *EventsManagerInstance) Init() {
 	Subscribe("cluster:join", func(message EventMessage) {
 		data := message.Value.(map[string]interface{})
 
-		cluster.Get().AddMember(data["group"].(string), data["address"].(string))
+		Get().AddMember(data["group"].(string), data["address"].(string))
 
 		// Clear disributed file system cache
 		storage.ClearFSFiles()
@@ -46,7 +45,7 @@ func (s *EventsManagerInstance) Init() {
 	Subscribe("cluster:leave", func(message EventMessage) {
 		data := message.Value.(map[string]interface{})
 
-		cluster.Get().RemoveMember(data["address"].(string))
+		Get().RemoveMember(data["address"].(string))
 
 		// Clear disributed file system cache
 		storage.ClearFSFiles()
