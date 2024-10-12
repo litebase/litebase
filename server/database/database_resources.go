@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/backups"
-	"litebase/server/cluster"
 	"litebase/server/file"
 	"litebase/server/storage"
 	"log"
@@ -12,64 +11,18 @@ import (
 )
 
 type DatabaseResources struct {
-	BranchId       string
-	DatabaseHash   string
-	DatabaseId     string
-	distributedWal *storage.DistributedWal
-	snapshotLogger *backups.SnapshotLogger
-	checkpointer   *Checkpointer
-	fileSystem     *storage.DurableDatabaseFileSystem
-	mutex          *sync.RWMutex
-	rollbackLogger *backups.RollbackLogger
-	tempFileSystem *storage.TempDatabaseFileSystem
-	walFile        *storage.WalFile
-}
-
-var databaseResourceManagerMutex = &sync.RWMutex{}
-var resources = map[string]*DatabaseResources{}
-
-/*
-Get the resources for the given database and branch UUIDs. If the resources
-have not been created, create them and store them in the resources map.
-*/
-func Resources(databaseId, branchId string) *DatabaseResources {
-	databaseResourceManagerMutex.RLock()
-
-	if resource, ok := resources[file.DatabaseHash(databaseId, branchId)]; ok {
-		databaseResourceManagerMutex.RUnlock()
-
-		return resource
-	}
-
-	databaseResourceManagerMutex.RUnlock()
-
-	databaseResourceManagerMutex.Lock()
-	defer databaseResourceManagerMutex.Unlock()
-
-	resource := &DatabaseResources{
-		BranchId:     branchId,
-		DatabaseId:   databaseId,
-		DatabaseHash: file.DatabaseHash(databaseId, branchId),
-		mutex:        &sync.RWMutex{},
-	}
-
-	resources[file.DatabaseHash(databaseId, branchId)] = resource
-
-	return resource
-}
-
-/*
-Shutdown all of the database resources that have been created.
-*/
-func ShutdownResources() {
-	databaseResourceManagerMutex.Lock()
-	defer databaseResourceManagerMutex.Unlock()
-
-	for _, resource := range resources {
-		resource.Remove()
-	}
-
-	resources = map[string]*DatabaseResources{}
+	BranchId        string
+	DatabaseHash    string
+	DatabaseId      string
+	databaseManager *DatabaseManager
+	distributedWal  *storage.DistributedWal
+	snapshotLogger  *backups.SnapshotLogger
+	checkpointer    *Checkpointer
+	fileSystem      *storage.DurableDatabaseFileSystem
+	mutex           *sync.RWMutex
+	rollbackLogger  *backups.RollbackLogger
+	tempFileSystem  *storage.TempDatabaseFileSystem
+	walFile         *storage.WalFile
 }
 
 /*
@@ -128,7 +81,7 @@ func (d *DatabaseResources) DistributedWal() *storage.DistributedWal {
 		d.distributedWal = storage.NewDistributedWal(
 			d.DatabaseId,
 			d.BranchId,
-			cluster.Node().WalReplicator(),
+			d.databaseManager.Cluster.Node().WalReplicator(),
 		)
 	}
 
@@ -282,7 +235,13 @@ func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 
 	d.mutex.RUnlock()
 
-	path := fmt.Sprintf("%s%s/%s/%s", TmpDirectory(), cluster.Node().Id, d.DatabaseId, d.BranchId)
+	path := fmt.Sprintf(
+		"%s%s/%s/%s",
+		TmpDirectory(),
+		d.databaseManager.Cluster.Node().Id,
+		d.DatabaseId,
+		d.BranchId,
+	)
 
 	fileSystem := storage.NewTempDatabaseFileSystem(path, d.DatabaseId, d.BranchId)
 
@@ -305,7 +264,14 @@ func (d *DatabaseResources) WalFile() (*storage.WalFile, error) {
 		return d.walFile, nil
 	}
 
-	path := fmt.Sprintf("%s%s/%s/%s/%s.db-wal", TmpDirectory(), cluster.Node().Id, d.DatabaseId, d.BranchId, d.DatabaseHash)
+	path := fmt.Sprintf(
+		"%s%s/%s/%s/%s.db-wal",
+		TmpDirectory(),
+		d.databaseManager.Cluster.Node().Id,
+		d.DatabaseId,
+		d.BranchId,
+		d.DatabaseHash,
+	)
 
 	walFile, err := storage.NewWalFile(path)
 

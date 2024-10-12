@@ -3,13 +3,10 @@ package cluster
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"litebase/internal/config"
-	"litebase/server/auth"
 	"litebase/server/storage"
 	"log"
 	"net/http"
@@ -20,9 +17,6 @@ import (
 	"time"
 )
 
-var NodeInstanceSingleton *NodeInstance
-var NodeInstanceSingletonMutex sync.Mutex
-
 const (
 	NODE_HEARTBEAT_INTERVAL = 1 * time.Second
 	NODE_HEARTBEAT_TIMEOUT  = 1 * time.Second
@@ -31,9 +25,12 @@ const (
 	NODE_STATE_IDLE         = "idle"
 )
 
-type NodeInstance struct {
+var addressProvider func() string
+
+type Node struct {
 	address          string
 	cancel           context.CancelFunc
+	cluster          *Cluster
 	context          context.Context
 	joinedClusterAt  time.Time
 	lastActive       time.Time
@@ -56,38 +53,22 @@ type NodeInstance struct {
 	walSynchronizer  NodeWalSynchronizer
 }
 
-func Node() *NodeInstance {
-	NodeInstanceSingletonMutex.Lock()
-	defer NodeInstanceSingletonMutex.Unlock()
-
-	if NodeInstanceSingleton == nil {
-		NodeInstanceSingleton = &NodeInstance{
-			address:    "",
-			lastActive: time.Time{},
-			Membership: CLUSTER_MEMBERSHIP_STAND_BY,
-			// Membership: CLUSTER_MEMBERSHIP_REPLICA,
-			mutex:   &sync.Mutex{},
-			standBy: make(chan struct{}),
-			State:   NODE_STATE_ACTIVE,
-		}
-
-		hash := sha256.Sum256([]byte(NodeInstanceSingleton.Address()))
-		NodeInstanceSingleton.Id = hex.EncodeToString(hash[:])
-		NodeInstanceSingleton.context, NodeInstanceSingleton.cancel = context.WithCancel(context.Background())
-	}
-
-	return NodeInstanceSingleton
-}
-
-func (n *NodeInstance) Address() string {
+func (n *Node) Address() string {
 	if n.address != "" {
 		return n.address
 	}
 
-	address, err := os.Hostname()
+	var address string
+	var err error
 
-	if err != nil {
-		log.Fatal(err)
+	if addressProvider != nil {
+		address = addressProvider()
+	} else {
+		address, err = os.Hostname()
+
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	n.address = fmt.Sprintf("%s:%s", address, config.Get().Port)
@@ -96,18 +77,18 @@ func (n *NodeInstance) Address() string {
 
 }
 
-func (n *NodeInstance) AddressPath() string {
+func (n *Node) AddressPath() string {
 	// Replace the colon in the address with an underscore
 	address := strings.ReplaceAll(n.Address(), ":", "_")
 
 	return fmt.Sprintf("%s%s", NodePath(), address)
 }
 
-func (n *NodeInstance) Context() context.Context {
+func (n *Node) Context() context.Context {
 	return n.context
 }
 
-func (n *NodeInstance) Heartbeat() {
+func (n *Node) Heartbeat() {
 	if n.IsPrimary() {
 		if LEASE_DURATION-time.Since(n.LeaseRenewedAt) < 10*time.Second {
 			n.renewLease()
@@ -135,11 +116,11 @@ func (n *NodeInstance) Heartbeat() {
 	}
 }
 
-func (n *NodeInstance) IsIdle() bool {
+func (n *Node) IsIdle() bool {
 	return n.State == NODE_STATE_IDLE
 }
 
-func (n *NodeInstance) IsPrimary() bool {
+func (n *Node) IsPrimary() bool {
 	// If the node has not been activatedf, tick it before running these checks
 	if n.lastActive.IsZero() {
 		n.Tick()
@@ -157,15 +138,15 @@ func (n *NodeInstance) IsPrimary() bool {
 	return n.primaryFileVerification()
 }
 
-func (n *NodeInstance) IsReplica() bool {
+func (n *Node) IsReplica() bool {
 	return n.Membership == CLUSTER_MEMBERSHIP_REPLICA && n.replica != nil
 }
 
-func (n *NodeInstance) IsStandBy() bool {
+func (n *Node) IsStandBy() bool {
 	return n.Membership == CLUSTER_MEMBERSHIP_STAND_BY
 }
 
-func (n *NodeInstance) joinCluster() error {
+func (n *Node) joinCluster() error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -180,7 +161,7 @@ func (n *NodeInstance) joinCluster() error {
 	}
 
 	// The Node should be added to the cluster map
-	err := Get().AddMember(config.Get().NodeType, n.Address())
+	err := n.cluster.AddMember(config.Get().NodeType, n.Address())
 
 	if err != nil {
 		log.Println(err)
@@ -213,7 +194,7 @@ func (n *NodeInstance) joinCluster() error {
 	return nil
 }
 
-func (n *NodeInstance) monitorPrimary() {
+func (n *Node) monitorPrimary() {
 	n.Heartbeat()
 
 	ticker := time.NewTicker(NODE_HEARTBEAT_INTERVAL)
@@ -235,11 +216,11 @@ func (n *NodeInstance) monitorPrimary() {
 	}
 }
 
-func (n *NodeInstance) Primary() *NodePrimary {
+func (n *Node) Primary() *NodePrimary {
 	return n.primary
 }
 
-func (n *NodeInstance) PrimaryAddress() string {
+func (n *Node) PrimaryAddress() string {
 	if n.primaryAddress == "" {
 		primaryData, err := storage.ObjectFS().ReadFile(PrimaryPath())
 
@@ -254,7 +235,7 @@ func (n *NodeInstance) PrimaryAddress() string {
 	return n.primaryAddress
 }
 
-func (n *NodeInstance) primaryLeaseVerification() bool {
+func (n *Node) primaryLeaseVerification() bool {
 	if n.IsReplica() && !n.PrimaryHeartbeat.IsZero() && time.Since(n.PrimaryHeartbeat) < 3*time.Second {
 		return true
 	}
@@ -300,7 +281,7 @@ func (n *NodeInstance) primaryLeaseVerification() bool {
 	return true
 }
 
-func (n *NodeInstance) primaryFileVerification() bool {
+func (n *Node) primaryFileVerification() bool {
 	// Check if the primary file exists and is not empty
 	if primaryData, err := storage.ObjectFS().ReadFile(PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != n.Address() {
 		if err != nil {
@@ -334,7 +315,7 @@ func (n *NodeInstance) primaryFileVerification() bool {
 
 // Release the lease and remove the primary status from the node. This should
 // be called before changing the cluster membership to replica.
-func (n *NodeInstance) releaseLease() error {
+func (n *Node) releaseLease() error {
 	n.LeaseExpiresAt = 0
 
 	if n.Membership != CLUSTER_MEMBERSHIP_PRIMARY {
@@ -353,14 +334,14 @@ func (n *NodeInstance) releaseLease() error {
 	return nil
 }
 
-func (n *NodeInstance) Replica() *NodeReplica {
+func (n *Node) Replica() *NodeReplica {
 	return n.replica
 }
 
 /*
-Return the NodeReplicator for the NodeInstance.
+Return the NodeReplicator for the Node.
 */
-func (n *NodeInstance) WalReplicator() *NodeWalReplicator {
+func (n *Node) WalReplicator() *NodeWalReplicator {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -371,11 +352,11 @@ func (n *NodeInstance) WalReplicator() *NodeWalReplicator {
 	return n.walReplicator
 }
 
-func (n *NodeInstance) removeAddress() error {
+func (n *Node) removeAddress() error {
 	return storage.ObjectFS().Remove(n.AddressPath())
 }
 
-func (n *NodeInstance) removePrimaryStatus() error {
+func (n *Node) removePrimaryStatus() error {
 	// Release the lease
 	n.releaseLease()
 
@@ -386,7 +367,7 @@ func (n *NodeInstance) removePrimaryStatus() error {
 	return nil
 }
 
-func (n *NodeInstance) renewLease() error {
+func (n *Node) renewLease() error {
 	if n.Membership != CLUSTER_MEMBERSHIP_PRIMARY {
 		return fmt.Errorf("node is not a leader")
 	}
@@ -447,7 +428,7 @@ func (n *NodeInstance) renewLease() error {
 	return nil
 }
 
-func (n *NodeInstance) runElection() bool {
+func (n *Node) runElection() bool {
 	if n.context.Err() != nil {
 		log.Println("Operation canceled before starting.")
 		return false
@@ -547,7 +528,7 @@ func (n *NodeInstance) runElection() bool {
 	return false
 }
 
-func (n *NodeInstance) runTicker() {
+func (n *Node) runTicker() {
 	n.requestTicker = time.NewTicker(1 * time.Second)
 
 	for {
@@ -576,7 +557,7 @@ func (n *NodeInstance) runTicker() {
 	}
 }
 
-func (n *NodeInstance) SetMembership(membership string) {
+func (n *Node) SetMembership(membership string) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -608,17 +589,17 @@ func (n *NodeInstance) SetMembership(membership string) {
 	}
 }
 
-func (n *NodeInstance) SetQueryBuilder(queryBuilder NodeQueryBuilder) {
+func (n *Node) SetQueryBuilder(queryBuilder NodeQueryBuilder) {
 	n.queryBuilder = queryBuilder
 }
 
-func (n *NodeInstance) SetWalSchronizer(synchronizer NodeWalSynchronizer) {
+func (n *Node) SetWalSchronizer(synchronizer NodeWalSynchronizer) {
 	n.walSynchronizer = synchronizer
 }
 
-func (n *NodeInstance) Shutdown() error {
-	NodeInstanceSingletonMutex.Lock()
-	defer NodeInstanceSingletonMutex.Unlock()
+func (n *Node) Shutdown() error {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 
 	if n.IsPrimary() {
 		n.removePrimaryStatus()
@@ -645,12 +626,10 @@ func (n *NodeInstance) Shutdown() error {
 
 	n.cancel()
 
-	NodeInstanceSingleton = nil
-
 	return nil
 }
 
-func (n *NodeInstance) Start() error {
+func (n *Node) Start() error {
 	n.startedAt = time.Now()
 
 	go n.monitorPrimary()
@@ -660,7 +639,7 @@ func (n *NodeInstance) Start() error {
 	return nil
 }
 
-func (n *NodeInstance) storeAddress() error {
+func (n *Node) storeAddress() error {
 	err := storage.ObjectFS().WriteFile(n.AddressPath(), []byte(n.Address()), 0644)
 
 	if err != nil {
@@ -674,7 +653,7 @@ func (n *NodeInstance) storeAddress() error {
 	return nil
 }
 
-func (n *NodeInstance) Tick() {
+func (n *Node) Tick() {
 	// Check if the is still registered as primary
 	if n.lastActive.IsZero() {
 		if n.primaryFileVerification() {
@@ -746,7 +725,7 @@ func truncateFile(filePath string) error {
 	return storage.ObjectFS().WriteFile(filePath, []byte(""), os.ModePerm)
 }
 
-func NodeInit(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer) {
+func (n *Node) Init(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer) {
 	registerNodeMessages()
 
 	// Make directory if it doesn't exist
@@ -754,16 +733,16 @@ func NodeInit(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer
 		storage.ObjectFS().Mkdir(NodePath(), 0755)
 	}
 
-	Node().SetQueryBuilder(queryBuilder)
-	Node().SetWalSchronizer(walSynchronizer)
+	n.SetQueryBuilder(queryBuilder)
+	n.SetWalSchronizer(walSynchronizer)
 }
 
-func (n *NodeInstance) OtherNodes() []*NodeIdentifier {
+func (n *Node) OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 	address := n.Address()
-	Get().GetMembers(true)
+	n.cluster.GetMembers(true)
 
-	for _, node := range Get().QueryNodes {
+	for _, node := range n.cluster.QueryNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],
@@ -772,7 +751,7 @@ func (n *NodeInstance) OtherNodes() []*NodeIdentifier {
 		}
 	}
 
-	for _, node := range Get().StorageNodes {
+	for _, node := range n.cluster.StorageNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],
@@ -784,11 +763,11 @@ func (n *NodeInstance) OtherNodes() []*NodeIdentifier {
 	return nodes
 }
 
-func OtherQueryNodes() []*NodeIdentifier {
+func (n *Node) OtherQueryNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
-	address := Node().Address()
+	address := n.Address()
 
-	for _, node := range Get().QueryNodes {
+	for _, node := range n.cluster.QueryNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],
@@ -800,11 +779,11 @@ func OtherQueryNodes() []*NodeIdentifier {
 	return nodes
 }
 
-func OtherStorageNodes() []*NodeIdentifier {
+func (n *Node) OtherStorageNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
-	address := Node().Address()
+	address := n.Address()
 
-	for _, node := range Get().StorageNodes {
+	for _, node := range n.cluster.StorageNodes {
 		if node != address {
 			nodes = append(nodes, &NodeIdentifier{
 				Address: strings.Split(node, ":")[0],
@@ -816,42 +795,11 @@ func OtherStorageNodes() []*NodeIdentifier {
 	return nodes
 }
 
-func (n *NodeInstance) Publish(nodeMessage NodeMessage) error {
+func (n *Node) Publish(nodeMessage NodeMessage) error {
 	return n.primary.Publish(nodeMessage)
 }
 
-func PurgeDatabaseSettings(databaseId string) {
-	nodes := Node().OtherNodes()
-
-	for _, node := range nodes {
-		go func(node *NodeIdentifier) {
-			url := fmt.Sprintf("http://%s:%s/databases/%s/settings/purge", node.Address, node.Port, databaseId)
-			req, err := http.NewRequest("POST", url, nil)
-
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			client := &http.Client{}
-
-			res, err := client.Do(req)
-
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			defer res.Body.Close()
-
-			if res.StatusCode != 200 {
-				log.Println(res)
-			}
-		}(node)
-	}
-}
-
-func (n *NodeInstance) SendEvent(node *NodeIdentifier, message NodeEvent) error {
+func (n *Node) SendEvent(node *NodeIdentifier, message NodeEvent) error {
 	url := fmt.Sprintf("http://%s:%s/events", node.Address, node.Port)
 	data, err := json.Marshal(message)
 
@@ -867,7 +815,7 @@ func (n *NodeInstance) SendEvent(node *NodeIdentifier, message NodeEvent) error 
 		return err
 	}
 
-	encryptedHeader, err := auth.SecretsManager().Encrypt(
+	encryptedHeader, err := n.cluster.Auth.SecretsManager().Encrypt(
 		config.Get().Signature,
 		n.Address(),
 	)
@@ -902,14 +850,18 @@ func (n *NodeInstance) SendEvent(node *NodeIdentifier, message NodeEvent) error 
 	return nil
 }
 
-func (n *NodeInstance) Send(nodeMessage NodeMessage) (NodeMessage, error) {
+func (n *Node) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 	return n.replica.Send(nodeMessage)
 }
 
-func (n *NodeInstance) SendWithStreamingResonse(nodeMessage NodeMessage) (chan NodeMessage, error) {
+func (n *Node) SendWithStreamingResonse(nodeMessage NodeMessage) (chan NodeMessage, error) {
 	return n.replica.SendWithStreamingResonse(nodeMessage)
 }
 
-func (n *NodeInstance) Timestamp() time.Time {
+func SetAddressProvider(provider func() string) {
+	addressProvider = provider
+}
+
+func (n *Node) Timestamp() time.Time {
 	return n.startedAt
 }

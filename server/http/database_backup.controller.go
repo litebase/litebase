@@ -19,9 +19,9 @@ func DatabaseBackupStoreController(request *Request) Response {
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 		time.Now().Unix(),
-		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
-		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
-		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).RollbackLogger(),
+		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
+		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
+		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).RollbackLogger(),
 	)
 
 	if err != nil {
@@ -57,8 +57,8 @@ func DatabaseBackupShowController(request *Request) Response {
 	timeInstance := time.Unix(timestamp, 0)
 
 	backup, err := backups.GetBackup(
-		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
-		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
+		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
+		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 		timeInstance.Unix(),
@@ -92,8 +92,8 @@ func DatabaseBackupDestroyController(request *Request) Response {
 	databaseKey := request.DatabaseKey()
 
 	backup, err := backups.GetBackup(
-		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
-		database.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
+		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
+		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 		timeInstance.Unix(),

@@ -36,7 +36,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		var err error
 		var db *database.ClientConnection
 
-		db, err = database.ConnectionManager().Get(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId)
+		db, err = query.databaseManager.ConnectionManager().Get(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId)
 
 		if err != nil {
 			log.Println("Error getting database connection", err)
@@ -44,7 +44,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 			return err
 		}
 
-		defer database.ConnectionManager().Release(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
+		defer query.databaseManager.ConnectionManager().Release(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
 
 		db = db.WithAccessKey(query.AccessKey)
 
@@ -72,7 +72,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		}
 
 		if err != nil {
-			database.ConnectionManager().Remove(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
+			query.databaseManager.ConnectionManager().Remove(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
 			return err
 		}
 
@@ -86,6 +86,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 
 		logs.Query(
 			logs.QueryLogEnry{
+				Cluster:      query.cluster,
 				DatabaseHash: query.DatabaseKey.DatabaseHash,
 				DatabaseId:   query.DatabaseKey.DatabaseId,
 				BranchId:     query.DatabaseKey.BranchId,
@@ -124,7 +125,7 @@ func resolveWithQueue(
 }
 
 func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
-	primaryResponse, err := cluster.Node().Send(
+	primaryResponse, err := query.cluster.Node().Send(
 		cluster.NodeMessage{
 			Id:   fmt.Sprintf("query:%s", query.Input.Id),
 			Type: "QueryMessage",
@@ -163,5 +164,5 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 }
 
 func shouldForwardToPrimary(query *Query) bool {
-	return (query.IsPragma() || query.IsDML()) && cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY
+	return (query.IsPragma() || query.IsDML()) && query.cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY
 }

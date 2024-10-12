@@ -20,9 +20,9 @@ func ClusterConnectionController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			ctx, cancel := context.WithCancel(cluster.Node().Context())
+			ctx, cancel := context.WithCancel(request.cluster.Node().Context())
 
-			go handleClusterConnectionStream(cancel, request.BaseRequest.Body, w)
+			go handleClusterConnectionStream(request, cancel, request.BaseRequest.Body, w)
 
 			<-ctx.Done()
 		},
@@ -34,6 +34,7 @@ Read a stream of messages from the client and write a stream of responses back
 to the client.
 */
 func handleClusterConnectionStream(
+	request *Request,
 	cancel context.CancelFunc,
 	reader io.ReadCloser,
 	w http.ResponseWriter,
@@ -58,10 +59,10 @@ func handleClusterConnectionStream(
 
 		var nodeResponseMessage cluster.NodeMessage
 
-		if cluster.Node().IsPrimary() {
-			nodeResponseMessage, err = cluster.Node().Primary().HandleMessage(nodeMessage)
+		if request.cluster.Node().IsPrimary() {
+			nodeResponseMessage, err = request.cluster.Node().Primary().HandleMessage(nodeMessage)
 		} else {
-			nodeResponseMessage, err = cluster.Node().Replica().HandleMessage(nodeMessage)
+			nodeResponseMessage, err = request.cluster.Node().Replica().HandleMessage(nodeMessage)
 		}
 
 		if err != nil {

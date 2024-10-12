@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/storage"
 	"testing"
 )
 
 func TestNewDataRange(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
@@ -31,7 +32,7 @@ func TestNewDataRange(t *testing.T) {
 }
 
 func TestDataRangeWriteAtAndReadAt(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
 		if err != nil {
@@ -80,7 +81,7 @@ func TestDataRangeWriteAtAndReadAt(t *testing.T) {
 }
 
 func TestDataRangeClose(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
 		if err != nil {
@@ -128,7 +129,7 @@ func TestDataRangeClose(t *testing.T) {
 }
 
 func TestDataRangePageCount(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
 		if err != nil {
@@ -165,7 +166,7 @@ func TestDataRangePageCount(t *testing.T) {
 }
 
 func TestDataRangeRemove(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
 		if err != nil {
@@ -192,7 +193,7 @@ func TestDataRangeRemove(t *testing.T) {
 }
 
 func TestDataRangeSize(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
 		if err != nil {
@@ -237,7 +238,7 @@ func TestDataRangeSize(t *testing.T) {
 }
 
 func TestDataRangeTruncate(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataRange, err := storage.NewDataRange(storage.LocalFS(), "TEST_DATA_RANGE", 1, 4096)
 
 		if err != nil {

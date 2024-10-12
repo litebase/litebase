@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/storage"
 	"testing"
 )
 
 func TestNewLocalFileSystemDriver(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		if driver == nil {
@@ -19,7 +20,7 @@ func TestNewLocalFileSystemDriver(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverCreate(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		file, err := driver.Create("test")
@@ -35,7 +36,7 @@ func TestLocalFileSystemDriverCreate(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverMkdir(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		err := driver.Mkdir("test", 0755)
@@ -47,7 +48,7 @@ func TestLocalFileSystemDriverMkdir(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverMkdirAll(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		err := driver.MkdirAll("test", 0755)
@@ -59,7 +60,7 @@ func TestLocalFileSystemDriverMkdirAll(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverOpen(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		file, err := driver.Open("test.txt")
@@ -92,7 +93,7 @@ func TestLocalFileSystemDriverOpen(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverOpenFile(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		file, err := driver.OpenFile("test.txt", 0, 0755)
@@ -127,7 +128,7 @@ func TestLocalFileSystemDriverOpenFile(t *testing.T) {
 func TestLocalFileSystemDriverPath(t *testing.T) {}
 
 func TestLocalFileSystemDriverReadDir(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Add some files and folders to the directory
@@ -197,7 +198,7 @@ func TestLocalFileSystemDriverReadDir(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverReadFile(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Create a file
@@ -251,7 +252,7 @@ func TestLocalFileSystemDriverReadFile(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverRemove(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Create a file
@@ -282,7 +283,7 @@ func TestLocalFileSystemDriverRemove(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverRemoveAll(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Create a file
@@ -322,7 +323,7 @@ func TestLocalFileSystemDriverRemoveAll(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverRename(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Create a file
@@ -355,7 +356,7 @@ func TestLocalFileSystemDriverRename(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverStat(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Create a file
@@ -379,7 +380,7 @@ func TestLocalFileSystemDriverStat(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverTruncate(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Create a file
@@ -440,7 +441,7 @@ func TestLocalFileSystemDriverTruncate(t *testing.T) {
 }
 
 func TestLocalFileSystemDriverWriteFile(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", config.Get().DataPath, config.STORAGE_MODE_LOCAL))
 
 		// Write some data to a file

@@ -9,7 +9,7 @@ import (
 )
 
 func ClusterPrimaryController(request *Request) Response {
-	if cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+	if request.cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
 		return ForbiddenResponse(errors.New("not a primary node"))
 	}
 
@@ -31,7 +31,7 @@ func ClusterPrimaryController(request *Request) Response {
 				return
 			}
 
-			responseMessage, err := cluster.Node().Primary().HandleMessage(message)
+			responseMessage, err := request.cluster.Node().Primary().HandleMessage(message)
 
 			if err != nil {
 				log.Println("Failed to handle message: ", err)

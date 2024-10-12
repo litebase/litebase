@@ -5,23 +5,27 @@ import (
 	"fmt"
 	"litebase/internal/validation"
 	"litebase/server/auth"
+	"litebase/server/cluster"
 	"litebase/server/database"
 	"net/http"
 	"strings"
 )
 
 type Request struct {
-	BaseRequest  *http.Request
-	Body         map[string]interface{}
-	headers      Headers
-	Method       string
-	QueryParams  map[string]string
-	requestToken auth.RequestToken
-	Route        Route
-	subdomains   []string
+	accessKeyManager *auth.AccessKeyManager
+	BaseRequest      *http.Request
+	Body             map[string]interface{}
+	databaseManager  *database.DatabaseManager
+	cluster          *cluster.Cluster
+	headers          Headers
+	Method           string
+	QueryParams      map[string]string
+	requestToken     auth.RequestToken
+	Route            Route
+	subdomains       []string
 }
 
-func NewRequest(request *http.Request) *Request {
+func NewRequest(cluster *cluster.Cluster, databaseManager *database.DatabaseManager, request *http.Request) *Request {
 	headers := make(map[string]string, len(request.Header))
 
 	for key, value := range request.Header {
@@ -48,12 +52,15 @@ func NewRequest(request *http.Request) *Request {
 	}
 
 	return &Request{
-		BaseRequest: request,
-		Body:        nil,
-		Method:      request.Method,
-		headers:     NewHeaders(headers),
-		QueryParams: queryParams,
-		subdomains:  subdomains,
+		accessKeyManager: cluster.Auth.AccessKeyManager(),
+		BaseRequest:      request,
+		Body:             nil,
+		cluster:          cluster,
+		databaseManager:  databaseManager,
+		Method:           request.Method,
+		headers:          NewHeaders(headers),
+		QueryParams:      queryParams,
+		subdomains:       subdomains,
 	}
 }
 
@@ -125,7 +132,10 @@ func (request *Request) QueryParam(key string, defaultValue ...string) string {
 
 func (request *Request) RequestToken(header string) auth.RequestToken {
 	if !request.requestToken.Valid() {
-		request.requestToken = auth.CaptureRequestToken(request.headers.Get(header))
+		request.requestToken = auth.CaptureRequestToken(
+			request.accessKeyManager,
+			request.headers.Get(header),
+		)
 	}
 
 	return request.requestToken

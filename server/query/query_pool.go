@@ -2,6 +2,7 @@ package query
 
 import (
 	"litebase/server/auth"
+	"litebase/server/cluster"
 	"litebase/server/database"
 	"sync"
 )
@@ -17,6 +18,8 @@ func Pool() *sync.Pool {
 }
 
 func Get(
+	cluster *cluster.Cluster,
+	databaseManager *database.DatabaseManager,
 	databaseKey *database.DatabaseKey,
 	accessKey *auth.AccessKey,
 	input *QueryInput,
@@ -28,6 +31,8 @@ func Get(
 	query.AccessKey = accessKey
 	query.DatabaseKey = databaseKey
 	query.Input = input
+	query.cluster = cluster
+	query.databaseManager = databaseManager
 
 	return query
 }

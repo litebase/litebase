@@ -12,7 +12,6 @@ import (
 
 	"litebase/internal/config"
 	"litebase/server/auth"
-	"litebase/server/cluster"
 	"litebase/server/file"
 	"litebase/server/sqlite3"
 	"litebase/server/storage"
@@ -22,29 +21,30 @@ import (
 )
 
 type DatabaseConnection struct {
-	accessKey      *auth.AccessKey
-	branchId       string
-	cancel         context.CancelFunc
-	checkpointer   *Checkpointer
-	committedAt    time.Time
-	context        context.Context
-	databaseHash   string
-	databaseId     string
-	distributedWal *storage.DistributedWal
-	id             string
-	fileSystem     *storage.DurableDatabaseFileSystem
-	sqlite3        *sqlite3.Connection
-	statements     sync.Map
-	tempFileSystem *storage.TempDatabaseFileSystem
-	timestamp      int64
-	vfsHash        string
-	wal            *storage.WalFile
+	accessKey         *auth.AccessKey
+	branchId          string
+	cancel            context.CancelFunc
+	checkpointer      *Checkpointer
+	committedAt       time.Time
+	connectionManager *ConnectionManager
+	context           context.Context
+	databaseHash      string
+	databaseId        string
+	distributedWal    *storage.DistributedWal
+	id                string
+	fileSystem        *storage.DurableDatabaseFileSystem
+	sqlite3           *sqlite3.Connection
+	statements        sync.Map
+	tempFileSystem    *storage.TempDatabaseFileSystem
+	timestamp         int64
+	vfsHash           string
+	wal               *storage.WalFile
 }
 
 /*
 Create a new database connection instance.
 */
-func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, error) {
+func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, branchId string) (*DatabaseConnection, error) {
 	var (
 		connection *sqlite3.Connection
 		err        error
@@ -53,9 +53,9 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	databaseHash := file.DatabaseHash(databaseId, branchId)
-	tempFileSystem := Resources(databaseId, branchId).TempFileSystem()
+	tempFileSystem := connectionManager.databaseManager.Resources(databaseId, branchId).TempFileSystem()
 
-	wal, err := Resources(databaseId, branchId).WalFile()
+	wal, err := connectionManager.databaseManager.Resources(databaseId, branchId).WalFile()
 
 	if err != nil {
 		cancel()
@@ -64,7 +64,7 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 		return nil, err
 	}
 
-	checkpointer, err := Resources(databaseId, branchId).Checkpointer()
+	checkpointer, err := connectionManager.databaseManager.Resources(databaseId, branchId).Checkpointer()
 
 	if err != nil {
 		cancel()
@@ -74,19 +74,20 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 	}
 
 	con := &DatabaseConnection{
-		branchId:       branchId,
-		cancel:         cancel,
-		checkpointer:   checkpointer,
-		context:        ctx,
-		databaseHash:   databaseHash,
-		databaseId:     databaseId,
-		distributedWal: Resources(databaseId, branchId).DistributedWal(),
-		fileSystem:     Resources(databaseId, branchId).FileSystem(),
-		id:             uuid.NewString(),
-		statements:     sync.Map{},
-		tempFileSystem: tempFileSystem,
-		timestamp:      time.Now().UnixNano(),
-		wal:            wal,
+		branchId:          branchId,
+		cancel:            cancel,
+		checkpointer:      checkpointer,
+		connectionManager: connectionManager,
+		context:           ctx,
+		databaseHash:      databaseHash,
+		databaseId:        databaseId,
+		distributedWal:    connectionManager.databaseManager.Resources(databaseId, branchId).DistributedWal(),
+		fileSystem:        connectionManager.databaseManager.Resources(databaseId, branchId).FileSystem(),
+		id:                uuid.NewString(),
+		statements:        sync.Map{},
+		tempFileSystem:    tempFileSystem,
+		timestamp:         time.Now().UnixNano(),
+		wal:               wal,
 	}
 
 	err = con.RegisterVFS()
@@ -99,7 +100,11 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 
 	con.setAuthorizer()
 
-	path, err := file.GetDatabaseFileTmpPath(cluster.Node().Id, databaseId, branchId)
+	path, err := file.GetDatabaseFileTmpPath(
+		con.connectionManager.cluster.Node().Id,
+		databaseId,
+		branchId,
+	)
 
 	if err != nil {
 		log.Println("Error Getting Database File Path:", err)
@@ -171,7 +176,7 @@ func NewDatabaseConnection(databaseId, branchId string) (*DatabaseConnection, er
 		"PRAGMA temp_store = memory",
 	}
 
-	if !cluster.Node().IsPrimary() {
+	if !con.connectionManager.cluster.Node().IsPrimary() {
 		// log.Default().Println("Setting database locking mode to EXCLUSIVE")
 		// configStatements = append(configStatements, "PRAGMA locking_mode = EXCLUSIVE")
 		// configStatements = append(configStatements, "PRAGMA query_only = true")

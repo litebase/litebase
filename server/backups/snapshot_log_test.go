@@ -4,15 +4,15 @@ import (
 	"encoding/binary"
 	"fmt"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/backups"
-	"litebase/server/database"
 	"testing"
 	"time"
 )
 
 func TestSnapGetSnapshotPath(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 		expectedPath := fmt.Sprintf("_databases/%s/%s/logs/snapshots/123", mock.DatabaseId, mock.BranchId)
 		actualPath := backups.GetSnapshotPath(mock.DatabaseId, mock.BranchId, 123)
 
@@ -23,8 +23,8 @@ func TestSnapGetSnapshotPath(t *testing.T) {
 }
 
 func TestNewSnapshot(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		snapshot := backups.NewSnapshot(mock.DatabaseId, mock.BranchId, time.Now().Unix(), time.Now().Unix())
 
@@ -47,10 +47,10 @@ func TestNewSnapshot(t *testing.T) {
 }
 
 func TestSnapshotClose(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
-		snapshotLogger := database.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
+		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		defer snapshotLogger.Close()
 
 		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
@@ -75,10 +75,10 @@ func TestSnapshotClose(t *testing.T) {
 }
 
 func TestSnapshotGetRestorePoints(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
-		snappshotLogger := database.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
+		snappshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 		defer checkpointerLogger.Close()
 
@@ -117,10 +117,10 @@ func TestSnapshotGetRestorePoints(t *testing.T) {
 }
 
 func TestSnapshotLoad(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
-		snappshotLogger := database.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
+		snappshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		defer snappshotLogger.Close()
 
 		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
@@ -161,8 +161,8 @@ func TestSnapshotLoad(t *testing.T) {
 }
 
 func TestSnapshotLog(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		snapshotLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 		defer snapshotLogger.Close()

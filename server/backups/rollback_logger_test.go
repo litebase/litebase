@@ -2,14 +2,15 @@ package backups_test
 
 import (
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/backups"
 	"testing"
 	"time"
 )
 
 func TestNewRollbackLogger(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(mock.DatabaseId, mock.BranchId)
@@ -31,8 +32,8 @@ func TestNewRollbackLogger(t *testing.T) {
 }
 
 func TestPageLoggerClose(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(mock.DatabaseId, mock.BranchId)
@@ -47,8 +48,8 @@ func TestPageLoggerClose(t *testing.T) {
 }
 
 func TestRollbackLoggerCommit(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(mock.DatabaseId, mock.BranchId)
@@ -75,8 +76,8 @@ func TestRollbackLoggerCommit(t *testing.T) {
 }
 
 func TestPageLoggerGetLog(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		timestamp := time.Now().Unix()
 
@@ -103,8 +104,8 @@ func TestPageLoggerGetLog(t *testing.T) {
 }
 
 func TestRollbackLoggerLog(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(mock.DatabaseId, mock.BranchId)
@@ -133,8 +134,8 @@ func TestRollbackLoggerLog(t *testing.T) {
 }
 
 func TestRollbackLoggerRollback(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(mock.DatabaseId, mock.BranchId)
@@ -164,8 +165,8 @@ func TestRollbackLoggerRollback(t *testing.T) {
 }
 
 func TestRollbackLoggerStartFrame(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(mock.DatabaseId, mock.BranchId)

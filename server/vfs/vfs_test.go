@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
-	"litebase/server/database"
+	"litebase/server"
 	"litebase/server/file"
 	_ "litebase/server/sqlite3"
 	"litebase/server/vfs"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestRegisterVFS(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataPath := config.Get().DataPath
 
 		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
@@ -52,7 +52,7 @@ func TestRegisterVFS(t *testing.T) {
 }
 
 func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		dataPath := config.Get().DataPath
 
 		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
@@ -70,7 +70,7 @@ func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 }
 
 func TestNewVfsErrors(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		err := vfs.RegisterVFS("", "test", "test", 4096, nil, nil)
 
 		if err == nil {
@@ -98,18 +98,18 @@ func TestNewVfsErrors(t *testing.T) {
 }
 
 func TestGoWriteHook(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		offsets := make([]int64, 0)
 
-		filesystem := database.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
+		filesystem := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
 
 		filesystem.SetWriteHook(func(offset int64, data []byte) {
 			offsets = append(offsets, offset)
 		})
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -124,10 +124,10 @@ func TestGoWriteHook(t *testing.T) {
 }
 
 func TestVFSFileSizeAndTruncate(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -257,10 +257,10 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 }
 
 func TestVfsVacuum(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)

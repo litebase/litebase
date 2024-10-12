@@ -2,12 +2,13 @@ package backups_test
 
 import (
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/backups"
 	"testing"
 )
 
 func TestRollbackFrame(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		frame := backups.RollbackLogFrame{
 			Committed: 1,
 			Offset:    100,

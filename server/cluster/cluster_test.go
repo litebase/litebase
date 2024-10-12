@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/cluster"
 	"litebase/server/storage"
 	"os"
@@ -12,35 +13,11 @@ import (
 	"time"
 )
 
-func TestGetClusterNotInitialized(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("The code did not panic")
-		}
-	}()
-
-	c := cluster.Get()
-
-	if c != nil {
-		t.Fatal("Cluster is not nil")
-	}
-}
-
-func TestGetCluster(t *testing.T) {
-	test.Run(t, func() {
-		c := cluster.Get()
-
-		if c == nil {
-			t.Fatal("Cluster is nil")
-		}
-	})
-}
-
 func TestClusterInit(t *testing.T) {
 	os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
 
-	test.Run(t, func() {
-		c, err := cluster.Init()
+	test.Run(t, func(app *server.App) {
+		c, err := cluster.Init(app.Auth)
 
 		if err != nil {
 			t.Fatal(err)
@@ -54,7 +31,7 @@ func TestClusterInit(t *testing.T) {
 			t.Fatal("Cluster ID is not correct")
 		}
 
-		c, err = cluster.Init()
+		c, err = cluster.Init(app.Auth)
 
 		if err != nil {
 			t.Fatal(err)
@@ -81,13 +58,13 @@ func TestClusterInitNoClusterId(t *testing.T) {
 		}
 	}()
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 	})
 }
 
 func TestNewCluster(t *testing.T) {
-	test.Run(t, func() {
-		c, err := cluster.NewCluster("TEST_CLUSTER_002")
+	test.Run(t, func(app *server.App) {
+		c, err := cluster.NewCluster("TEST_CLUSTER_002", app.Auth)
 
 		if err != nil {
 			t.Fatal(err)
@@ -104,7 +81,7 @@ func TestNewCluster(t *testing.T) {
 }
 
 func TestClusterConfigPath(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.ConfigPath()
 
 		if path != "_cluster/config.json" {
@@ -116,7 +93,7 @@ func TestClusterConfigPath(t *testing.T) {
 func TestClusterLeasePathForQueryNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.LeasePath()
 
 		if path != "_cluster/query/LEASE" {
@@ -128,7 +105,7 @@ func TestClusterLeasePathForQueryNode(t *testing.T) {
 func TestClusterLeasePathForStorageNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.LeasePath()
 
 		if path != "_cluster/storage/LEASE" {
@@ -140,7 +117,7 @@ func TestClusterLeasePathForStorageNode(t *testing.T) {
 func TestClusterNodePathForQueryNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.NodePath()
 
 		if path != "_nodes/query/" {
@@ -152,7 +129,7 @@ func TestClusterNodePathForQueryNode(t *testing.T) {
 func TestClusterNodePathForStorageNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.NodePath()
 
 		if path != "_nodes/storage/" {
@@ -162,7 +139,7 @@ func TestClusterNodePathForStorageNode(t *testing.T) {
 }
 
 func TestClusterNodeQueryPath(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.NodeQueryPath()
 
 		if path != "_nodes/query/" {
@@ -172,7 +149,7 @@ func TestClusterNodeQueryPath(t *testing.T) {
 }
 
 func TestClusterNodeStoragePath(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.NodeStoragePath()
 
 		if path != "_nodes/storage/" {
@@ -184,7 +161,7 @@ func TestClusterNodeStoragePath(t *testing.T) {
 func TestClusterNominationPathForQueryNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.NominationPath()
 
 		if path != "_cluster/query/NOMINATION" {
@@ -196,7 +173,7 @@ func TestClusterNominationPathForQueryNode(t *testing.T) {
 func TestClusterNominationPathForStorageNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.NominationPath()
 
 		if path != "_cluster/storage/NOMINATION" {
@@ -208,7 +185,7 @@ func TestClusterNominationPathForStorageNode(t *testing.T) {
 func TestClusterPrimaryPathForQueryNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_QUERY)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.PrimaryPath()
 
 		if path != "_cluster/query/PRIMARY" {
@@ -220,7 +197,7 @@ func TestClusterPrimaryPathForQueryNode(t *testing.T) {
 func TestClusterPrimaryPathForStorageNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NODE_TYPE_STORAGE)
 
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		path := cluster.PrimaryPath()
 
 		if path != "_cluster/storage/PRIMARY" {
@@ -230,8 +207,8 @@ func TestClusterPrimaryPathForStorageNode(t *testing.T) {
 }
 
 func TestClusterSave(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_003")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_003", app.Auth)
 
 		err := c.Save()
 
@@ -261,8 +238,8 @@ func TestClusterSave(t *testing.T) {
 }
 
 func TestClusterGetMembers(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_004")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_004", app.Auth)
 
 		err := c.Save()
 
@@ -279,8 +256,8 @@ func TestClusterGetMembers(t *testing.T) {
 }
 
 func TestClusterGetMembersSince(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005", app.Auth)
 
 		err := c.Save()
 
@@ -295,7 +272,7 @@ func TestClusterGetMembersSince(t *testing.T) {
 		}
 
 		// Add a query node
-		err = cluster.Get().AddMember(
+		err = app.Cluster.AddMember(
 			config.NODE_TYPE_QUERY,
 			"10.0.0.0:8080",
 		)
@@ -338,8 +315,8 @@ func TestClusterGetMembersSince(t *testing.T) {
 }
 
 func TestClusterGetMembersWithNodes(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005", app.Auth)
 
 		err := c.Save()
 
@@ -348,7 +325,7 @@ func TestClusterGetMembersWithNodes(t *testing.T) {
 		}
 
 		// Add a query node
-		err = cluster.Get().AddMember(
+		err = app.Cluster.AddMember(
 			config.NODE_TYPE_QUERY,
 			"10.0.0.0:8080",
 		)
@@ -364,7 +341,7 @@ func TestClusterGetMembersWithNodes(t *testing.T) {
 		}
 
 		// Add a storage node
-		err = cluster.Get().AddMember(
+		err = app.Cluster.AddMember(
 			config.NODE_TYPE_STORAGE,
 			"10.1.0.0:8080",
 		)
@@ -388,8 +365,8 @@ func TestClusterGetMembersWithNodes(t *testing.T) {
 }
 
 func TestClusterGetStorageNodes(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005", app.Auth)
 
 		err := c.Save()
 
@@ -436,8 +413,8 @@ func TestClusterGetStorageNodes(t *testing.T) {
 }
 
 func TestClusterIsMember(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_005")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_005", app.Auth)
 
 		err := c.Save()
 
@@ -462,8 +439,8 @@ func TestClusterIsMember(t *testing.T) {
 }
 
 func TestClusterAddMember(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_006")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_006", app.Auth)
 
 		err := c.Save()
 
@@ -489,8 +466,8 @@ func TestClusterAddMember(t *testing.T) {
 }
 
 func TestClusterRemoveMember(t *testing.T) {
-	test.Run(t, func() {
-		c, _ := cluster.NewCluster("TEST_CLUSTER_007")
+	test.Run(t, func(app *server.App) {
+		c, _ := cluster.NewCluster("TEST_CLUSTER_007", app.Auth)
 
 		err := c.Save()
 

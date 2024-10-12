@@ -8,21 +8,27 @@ import (
 )
 
 type Query struct {
-	AccessKey   *auth.AccessKey
-	DatabaseKey *database.DatabaseKey
-	Input       *QueryInput
-	invalid     bool
+	AccessKey       *auth.AccessKey
+	cluster         *cluster.Cluster
+	databaseManager *database.DatabaseManager
+	DatabaseKey     *database.DatabaseKey
+	Input           *QueryInput
+	invalid         bool
 }
 
 func NewQuery(
+	cluster *cluster.Cluster,
+	databaseManager *database.DatabaseManager,
 	databaseKey *database.DatabaseKey,
 	accessKey *auth.AccessKey,
 	input *QueryInput,
 ) (*Query, error) {
 	return &Query{
-		AccessKey:   accessKey,
-		DatabaseKey: databaseKey,
-		Input:       input,
+		AccessKey:       accessKey,
+		cluster:         cluster,
+		DatabaseKey:     databaseKey,
+		databaseManager: databaseManager,
+		Input:           input,
 	}, nil
 }
 

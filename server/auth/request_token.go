@@ -7,13 +7,14 @@ import (
 )
 
 type RequestToken struct {
-	accessKey     *AccessKey
-	AccessKeyId   string   `json:"access_key_id"`
-	SignedHeaders []string `json:"signed_headers"`
-	Signature     string   `json:"signature"`
+	accessKey        *AccessKey
+	accessKeyManager *AccessKeyManager
+	AccessKeyId      string   `json:"access_key_id"`
+	SignedHeaders    []string `json:"signed_headers"`
+	Signature        string   `json:"signature"`
 }
 
-func CaptureRequestToken(authorizationHeader string) RequestToken {
+func CaptureRequestToken(accessKeyManager *AccessKeyManager, authorizationHeader string) RequestToken {
 	if authorizationHeader == "" {
 		return RequestToken{}
 	}
@@ -51,9 +52,10 @@ func CaptureRequestToken(authorizationHeader string) RequestToken {
 	}
 
 	return RequestToken{
-		AccessKeyId:   token["credential"],
-		SignedHeaders: strings.Split(token["signed_headers"], ","),
-		Signature:     token["signature"],
+		AccessKeyId:      token["credential"],
+		accessKeyManager: accessKeyManager,
+		SignedHeaders:    strings.Split(token["signed_headers"], ","),
+		Signature:        token["signature"],
 	}
 }
 
@@ -62,7 +64,7 @@ func (requestToken RequestToken) AccessKey(databaseId string) *AccessKey {
 		return requestToken.accessKey
 	}
 
-	data, err := AccessKeyManager().Get(requestToken.AccessKeyId)
+	data, err := requestToken.accessKeyManager.Get(requestToken.AccessKeyId)
 
 	if err != nil {
 		return nil
@@ -72,18 +74,6 @@ func (requestToken RequestToken) AccessKey(databaseId string) *AccessKey {
 
 	return requestToken.accessKey
 }
-
-func RequestTokenFromMap(input map[string]string) RequestToken {
-	return RequestToken{
-		AccessKeyId:   input["access_key_id"],
-		SignedHeaders: strings.Split(input["signed_headers"], ","),
-		Signature:     input["signature"],
-	}
-}
-
-// func (requestToken *RequestToken) GetDatabaseKey(databaseId string) (string, error) {
-// 	return SecretsManager().GetDatabaseKey(databaseId, requestToken.AccessKeyId)
-// }
 
 func (requestToken RequestToken) ToMap() map[string]interface{} {
 	return map[string]interface{}{

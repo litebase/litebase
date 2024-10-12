@@ -22,30 +22,32 @@ const (
 )
 
 type Config struct {
-	ClusterId            string
-	DataPath             string
-	DatabaseDirectory    string
-	Debug                bool
-	DefaultBranchName    string
-	Env                  string
-	FileSystemDriver     string
-	NodeType             string
-	PageSize             int64
-	Port                 string
-	Region               string
-	RemoteStorageAddress string
-	RootPassword         string
-	RootUsername         string
-	RouterNodePort       string
-	Signature            string
-	SignatureNext        string
-	StorageBucket        string
-	StorageEndpoint      string
-	StorageRegion        string
-	StorageObjectMode    string
-	StoragePort          string
-	StorageTieredMode    string
-	TmpPath              string
+	ClusterId              string
+	DataPath               string
+	DatabaseDirectory      string
+	Debug                  bool
+	DefaultBranchName      string
+	Env                    string
+	FileSystemDriver       string
+	NodeType               string
+	PageSize               int64
+	Port                   string
+	Region                 string
+	RemoteStorageAddress   string
+	RootPassword           string
+	RootUsername           string
+	RouterNodePort         string
+	Signature              string
+	SignatureNext          string
+	StorageAccessKeyId     string
+	StorageBucket          string
+	StorageEndpoint        string
+	StorageObjectMode      string
+	StorageSecretAccessKey string
+	StoragePort            string
+	StorageRegion          string
+	StorageTieredMode      string
+	TmpPath                string
 }
 
 var ConfigInstance *Config = nil
@@ -66,26 +68,28 @@ func env(key string, defaultValue string) interface{} {
 
 func NewConfig() *Config {
 	ConfigInstance = &Config{
-		ClusterId:            env("LITEBASE_CLUSTER_ID", "").(string),
-		DataPath:             env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
-		DefaultBranchName:    env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
-		Env:                  env("LITEBASE_ENV", "production").(string),
-		Debug:                env("LITEBASE_DEBUG", "false") == "true",
-		NodeType:             env("LITEBASE_NODE_TYPE", NODE_TYPE_QUERY).(string),
-		PageSize:             4096,
-		Port:                 env("LITEBASE_PORT", "8080").(string),
-		Region:               env("LITEBASE_REGION", "").(string),
-		RemoteStorageAddress: env("LITEBASE_REMOTE_STORAGE_ADDRESS", "").(string),
-		RouterNodePort:       env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
-		RootPassword:         env("LITEBASE_ROOT_PASSWORD", "").(string),
-		RootUsername:         env("LITEBASE_ROOT_USERNAME", "root").(string),
-		Signature:            env("LITEBASE_SIGNATURE", "").(string),
-		StorageBucket:        env("LITEBASE_STORAGE_BUCKET", "").(string),
-		StorageEndpoint:      env("LITEBASE_STORAGE_ENDPOINT", "").(string),
-		StorageRegion:        env("LITEBASE_STORAGE_REGION", "").(string),
-		StorageObjectMode:    env("LITEBASE_STORAGE_OBJECT_MODE", "local").(string),
-		StorageTieredMode:    env("LITEBASE_STORAGE_TIERED_MODE", "local").(string),
-		TmpPath:              env("LITEBASE_TMP_PATH", "").(string),
+		ClusterId:              env("LITEBASE_CLUSTER_ID", "").(string),
+		DataPath:               env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
+		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
+		Env:                    env("LITEBASE_ENV", "production").(string),
+		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
+		NodeType:               env("LITEBASE_NODE_TYPE", NODE_TYPE_QUERY).(string),
+		PageSize:               4096,
+		Port:                   env("LITEBASE_PORT", "8080").(string),
+		Region:                 env("LITEBASE_REGION", "").(string),
+		RemoteStorageAddress:   env("LITEBASE_REMOTE_STORAGE_ADDRESS", "").(string),
+		RouterNodePort:         env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
+		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
+		RootUsername:           env("LITEBASE_ROOT_USERNAME", "root").(string),
+		Signature:              env("LITEBASE_SIGNATURE", "").(string),
+		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),
+		StorageBucket:          env("LITEBASE_STORAGE_BUCKET", "").(string),
+		StorageEndpoint:        env("LITEBASE_STORAGE_ENDPOINT", "").(string),
+		StorageRegion:          env("LITEBASE_STORAGE_REGION", "").(string),
+		StorageObjectMode:      env("LITEBASE_STORAGE_OBJECT_MODE", "local").(string),
+		StorageSecretAccessKey: env("LITEBASE_STORAGE_SECRET_ACCESS_KEY", "").(string),
+		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", "local").(string),
+		TmpPath:                env("LITEBASE_TMP_PATH", "").(string),
 	}
 
 	return ConfigInstance

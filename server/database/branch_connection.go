@@ -8,6 +8,7 @@ import (
 
 type BranchConnection struct {
 	cancel        context.CancelFunc
+	cluster       *cluster.Cluster
 	context       context.Context
 	connection    *ClientConnection
 	databaseGroup *DatabaseGroup
@@ -16,6 +17,7 @@ type BranchConnection struct {
 }
 
 func NewBranchConnection(
+	cluster *cluster.Cluster,
 	databaseGroup *DatabaseGroup,
 	connection *ClientConnection,
 ) *BranchConnection {
@@ -23,6 +25,7 @@ func NewBranchConnection(
 
 	return &BranchConnection{
 		cancel:        cancel,
+		cluster:       cluster,
 		connection:    connection,
 		context:       context,
 		databaseGroup: databaseGroup,
@@ -45,7 +48,7 @@ func (b *BranchConnection) Close() {
 }
 
 func (b *BranchConnection) IsValid() bool {
-	if cluster.Node().IsPrimary() {
+	if b.cluster.Node().IsPrimary() {
 		return true
 	}
 

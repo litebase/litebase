@@ -14,7 +14,7 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
 	}
 
-	snapshots, err := database.
+	snapshots, err := request.databaseManager.
 		Resources(databaseKey.DatabaseId, databaseKey.BranchId).
 		SnapshotLogger().
 		GetSnapshots()
@@ -54,7 +54,7 @@ func DatabaseSnapshotShowController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	snapshot, err := database.
+	snapshot, err := request.databaseManager.
 		Resources(databaseKey.DatabaseId, databaseKey.BranchId).
 		SnapshotLogger().
 		GetSnapshot(timestamp)

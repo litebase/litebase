@@ -2,8 +2,6 @@ package http
 
 import (
 	"litebase/internal/config"
-	"litebase/server/auth"
-	"litebase/server/cluster"
 	"log"
 	"time"
 )
@@ -15,7 +13,7 @@ func Internal(request *Request) (*Request, Response) {
 	var nodeIp string
 
 	if nodeHeader != "" {
-		nodeIpDecrypted, err := auth.SecretsManager().Decrypt(
+		nodeIpDecrypted, err := request.cluster.Auth.SecretsManager().Decrypt(
 			config.Get().Signature,
 			nodeHeader,
 		)
@@ -46,7 +44,7 @@ func Internal(request *Request) (*Request, Response) {
 		}
 	}
 
-	if nodeIp == "" || !cluster.Get().IsMember(nodeIp, parsedTimestamp) {
+	if nodeIp == "" || !request.cluster.IsMember(nodeIp, parsedTimestamp) {
 		log.Println("Unauthorized node connection attempt: ", nodeIp)
 
 		return request, Response{

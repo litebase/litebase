@@ -7,13 +7,13 @@ The NodeReplicator is responsible for distributing database WAL changes to other
 nodes in the cluster.
 */
 type NodeWalReplicator struct {
-	node *NodeInstance
+	node *Node
 }
 
 /*
 Create a new instance of a NodeReplicator.
 */
-func NewNodeReplicator(node *NodeInstance) *NodeWalReplicator {
+func NewNodeReplicator(node *Node) *NodeWalReplicator {
 	return &NodeWalReplicator{
 		node: node,
 	}

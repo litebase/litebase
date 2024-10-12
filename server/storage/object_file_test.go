@@ -6,13 +6,14 @@ import (
 	"io"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/storage"
 	"os"
 	"testing"
 )
 
 func TestNewObjectFile(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := 0
@@ -44,7 +45,7 @@ func TestNewObjectFile(t *testing.T) {
 }
 
 func TestObjectFileClose(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		t.Run("no data", func(t *testing.T) {
 			client := storage.NewS3Client(
 				config.Get().StorageBucket,
@@ -102,7 +103,7 @@ func TestObjectFileClose(t *testing.T) {
 }
 
 func TestObjectFileRead(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		t.Run("no data", func(t *testing.T) {
 			client := storage.NewS3Client(
 				config.Get().StorageBucket,
@@ -193,7 +194,7 @@ func TestObjectFileRead(t *testing.T) {
 }
 
 func TestObjectFileReadAt(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		t.Run("no data", func(t *testing.T) {
 			client := storage.NewS3Client(
 				config.Get().StorageBucket,
@@ -273,7 +274,7 @@ func TestObjectFileReadAt(t *testing.T) {
 }
 
 func TestObjectFileSeek(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		t.Run("no data", func(t *testing.T) {
 			client := storage.NewS3Client(
 				config.Get().StorageBucket,
@@ -340,7 +341,7 @@ func TestObjectFileSeek(t *testing.T) {
 }
 
 func TestObjectFileStat(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			config.Get().StorageRegion,
@@ -363,7 +364,7 @@ func TestObjectFileStat(t *testing.T) {
 }
 
 func TestObjectFileSync(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			config.Get().StorageRegion,
@@ -390,7 +391,7 @@ func TestObjectFileSync(t *testing.T) {
 }
 
 func TestObjectFileTruncate(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			config.Get().StorageRegion,
@@ -414,7 +415,7 @@ func TestObjectFileTruncate(t *testing.T) {
 }
 
 func TestObjectFileWithData(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := 0
@@ -429,7 +430,7 @@ func TestObjectFileWithData(t *testing.T) {
 }
 
 func TestObjectFileWrite(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR
@@ -453,7 +454,7 @@ func TestObjectFileWrite(t *testing.T) {
 }
 
 func TestObjectFileWriteAt(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR
@@ -478,7 +479,7 @@ func TestObjectFileWriteAt(t *testing.T) {
 }
 
 func TestObjectFileWriteTo(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR
@@ -504,7 +505,7 @@ func TestObjectFileWriteTo(t *testing.T) {
 }
 
 func TestObjectFileWriteString(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR

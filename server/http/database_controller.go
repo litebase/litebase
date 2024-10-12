@@ -3,7 +3,6 @@ package http
 import (
 	"fmt"
 	"litebase/internal/config"
-	"litebase/server/database"
 	"log"
 )
 
@@ -12,7 +11,7 @@ type DatabaseStoreRequest struct {
 }
 
 func DatabaseIndexController(request *Request) Response {
-	dbs, err := database.All()
+	dbs, err := request.databaseManager.All()
 
 	if err != nil {
 		return ServerErrorResponse(err)
@@ -32,7 +31,7 @@ func DatabaseShowController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("a valid database_id is required"))
 	}
 
-	db, err := database.Get(database_id)
+	db, err := request.databaseManager.Get(database_id)
 
 	if err != nil {
 		log.Println(err)
@@ -66,17 +65,17 @@ func DatabaseStoreController(request *Request) Response {
 	var databaseName = input.(*DatabaseStoreRequest).Name
 
 	// check if the database exists
-	if database.Exists(databaseName) {
+	if request.databaseManager.Exists(databaseName) {
 		return BadRequestResponse(fmt.Errorf("database '%s' already exists", databaseName))
 	}
 
-	db, err := database.Create(databaseName, config.Get().DefaultBranchName)
+	db, err := request.databaseManager.Create(databaseName, config.Get().DefaultBranchName)
 
 	if err != nil {
 		return ServerErrorResponse(err)
 	}
 
-	database.Get(db.Id)
+	request.databaseManager.Get(db.Id)
 
 	return SuccessResponse(
 		"Database created successfully.",
@@ -86,13 +85,13 @@ func DatabaseStoreController(request *Request) Response {
 }
 
 func DatabaseDestroyController(request *Request) Response {
-	db, err := database.Get(request.Param("database_id"))
+	db, err := request.databaseManager.Get(request.Param("database_id"))
 
 	if err != nil {
 		return BadRequestResponse(err)
 	}
 
-	database.Delete(db)
+	request.databaseManager.Delete(db)
 
 	return SuccessResponse(
 		"Database deleted successfully.",

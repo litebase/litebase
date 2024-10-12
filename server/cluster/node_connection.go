@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"litebase/internal/config"
-	"litebase/server/auth"
 	"log"
 	"net/http"
 	"sync"
@@ -42,6 +41,7 @@ type NodeConnection struct {
 	httpClient      *http.Client
 	inactiveTimeout *time.Timer
 	mutex           *sync.Mutex
+	node            *Node
 	open            bool
 	reader          *io.PipeReader
 	response        chan NodeMessage
@@ -49,7 +49,7 @@ type NodeConnection struct {
 	writeBuffer     *bufio.Writer
 }
 
-func NewNodeConnection(address string) *NodeConnection {
+func NewNodeConnection(node *Node, address string) *NodeConnection {
 	return &NodeConnection{
 		Address:         address,
 		connected:       make(chan struct{}),
@@ -118,7 +118,7 @@ func (nc *NodeConnection) connect() error {
 	go nc.handleResponse(response)
 
 	select {
-	case <-Node().Context().Done():
+	case <-nc.node.Context().Done():
 		return errors.New("node context closed")
 	case <-nc.connected:
 	case err := <-nc.errorChan:
@@ -132,7 +132,7 @@ func (nc *NodeConnection) connect() error {
 Create the node connection request and send it to the node.
 */
 func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
-	nc.context, nc.cancel = context.WithCancel(Node().Context())
+	nc.context, nc.cancel = context.WithCancel(nc.node.Context())
 	nc.reader, nc.writer = io.Pipe()
 	nc.writeBuffer = bufio.NewWriterSize(nc.writer, 1024)
 
@@ -147,7 +147,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	encryptedHeader, err := auth.SecretsManager().Encrypt(config.Get().Signature, Node().Address())
+	encryptedHeader, err := nc.node.cluster.Auth.SecretsManager().Encrypt(config.Get().Signature, nc.node.Address())
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt header: %w", err)
@@ -325,7 +325,7 @@ func (nc *NodeConnection) writeConnectionRequest() {
 	err := encoder.Encode(NodeMessage{
 		Type: "NodeConnectionMessage",
 		Data: NodeConnectionMessage{
-			Address: Node().Address(),
+			Address: nc.node.Address(),
 		},
 	})
 

@@ -18,7 +18,7 @@ var channels map[string]EventChannel
 var channelsMutex sync.RWMutex
 
 // Broadcast a message to all of the nodes in the cluster.
-func (n *NodeInstance) Broadcast(key string, value interface{}) error {
+func (n *Node) Broadcast(key string, value interface{}) error {
 	nodes := n.OtherNodes()
 
 	wg := sync.WaitGroup{}
@@ -59,7 +59,7 @@ func ReceiveEvent(message *EventMessage) {
 }
 
 // Subscribe to a message from the cluster.
-func Subscribe(key string, f func(message EventMessage)) {
+func (c *Cluster) Subscribe(key string, f func(message EventMessage)) {
 	channelsMutex.Lock()
 	defer channelsMutex.Unlock()
 
@@ -76,7 +76,7 @@ func Subscribe(key string, f func(message EventMessage)) {
 	go func() {
 		for {
 			select {
-			case <-Node().Context().Done():
+			case <-c.Node().Context().Done():
 				return
 			case message := <-channels[key].Messages:
 

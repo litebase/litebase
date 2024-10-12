@@ -2,12 +2,13 @@ package database_test
 
 import (
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/database"
 	"testing"
 )
 
 func TestNewBranch(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		branch := database.NewBranch("Test Branch", false)
 
 		if branch.Name != "Test Branch" {

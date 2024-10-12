@@ -7,7 +7,6 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"litebase/internal/config"
-	"litebase/server/auth"
 )
 
 func AdminRequestTokenValidator(request *Request) bool {
@@ -15,7 +14,7 @@ func AdminRequestTokenValidator(request *Request) bool {
 		return false
 	}
 
-	decrypted, err := auth.SecretsManager().Decrypt(
+	decrypted, err := request.cluster.Auth.SecretsManager().Decrypt(
 		config.Get().Signature,
 		request.Headers().Get("X-Lbdb-Token"),
 	)

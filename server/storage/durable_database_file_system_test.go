@@ -3,13 +3,14 @@ package storage_test
 import (
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/storage"
 	"testing"
 )
 
 func TestNewDurableDatabaseFileSystem(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -26,8 +27,8 @@ func TestNewDurableDatabaseFileSystem(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemFileSystem(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -50,8 +51,8 @@ func TestDurableDatabaseFileSystemFileSystem(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemGetRangeFile(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -74,8 +75,8 @@ func TestDurableDatabaseFileSystemGetRangeFile(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemMetadata(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -93,8 +94,8 @@ func TestDurableDatabaseFileSystemMetadata(t *testing.T) {
 	})
 }
 func TestDurableDatabaseFileSystemOpen(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -117,8 +118,8 @@ func TestDurableDatabaseFileSystemOpen(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemPageSize(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -137,8 +138,8 @@ func TestDurableDatabaseFileSystemPageSize(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemPath(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -157,8 +158,8 @@ func TestDurableDatabaseFileSystemPath(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemReadAt(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -209,8 +210,8 @@ func TestDurableDatabaseFileSystemReadAt(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemSetWriteHook(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		var offset int64
 		var data []byte
@@ -243,8 +244,8 @@ func TestDurableDatabaseFileSystemSetWriteHook(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemSize(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -267,8 +268,8 @@ func TestDurableDatabaseFileSystemSize(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemShutdown(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -286,8 +287,8 @@ func TestDurableDatabaseFileSystemShutdown(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemTruncate(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -355,8 +356,8 @@ func TestDurableDatabaseFileSystemTruncate(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemWriteAt(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			storage.LocalFS(),
@@ -397,8 +398,8 @@ func TestDurableDatabaseFileSystemWriteAt(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystemWithoutWriteHook(t *testing.T) {
-	test.Run(t, func() {
-		mockDatabase := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
 
 		var hookCalled bool
 

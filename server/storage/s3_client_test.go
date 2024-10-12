@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/storage"
 	"testing"
 )
 
 func TestNewS3Client(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -22,7 +23,7 @@ func TestNewS3Client(t *testing.T) {
 }
 
 func TestS3CopyObject(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -53,7 +54,7 @@ func TestS3CopyObject(t *testing.T) {
 }
 
 func TestS3CreateBucket(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			test.CreateHash(32),
 			"region",
@@ -68,7 +69,7 @@ func TestS3CreateBucket(t *testing.T) {
 }
 
 func TestS3DeleteObject(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -99,7 +100,7 @@ func TestS3DeleteObject(t *testing.T) {
 }
 
 func TestS3DeleteObjects(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -168,7 +169,7 @@ func TestS3DeleteObjects(t *testing.T) {
 }
 
 func TestS3HeadBucket(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -191,7 +192,7 @@ func TestS3HeadBucket(t *testing.T) {
 }
 
 func TestS3HeadObject(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -220,7 +221,7 @@ func TestS3HeadObject(t *testing.T) {
 }
 
 func TestS3GetObjectAndPutObject(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -245,7 +246,7 @@ func TestS3GetObjectAndPutObject(t *testing.T) {
 }
 
 func TestS3ListObjectsV2(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",
@@ -284,7 +285,7 @@ func TestS3ListObjectsV2(t *testing.T) {
 }
 
 func TestS3ListObjectsV2WithPaginator(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewS3Client(
 			config.Get().StorageBucket,
 			"region",

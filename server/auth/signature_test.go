@@ -3,6 +3,7 @@ package auth_test
 import (
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/auth"
 	"litebase/server/storage"
 	"os"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestStoreSignature(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		config.NewConfig()
 		signature := test.CreateHash(64)
 		auth.StoreSignature(signature)

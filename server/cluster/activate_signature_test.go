@@ -3,12 +3,13 @@ package cluster_test
 import (
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/cluster"
 	"testing"
 )
 
 func TestActivateSignatureHandler(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		currentSignature := config.Get().Signature
 
 		if currentSignature == "test" {

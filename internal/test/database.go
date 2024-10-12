@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"litebase/server"
 	"litebase/server/auth"
 	"litebase/server/database"
 	"litebase/server/file"
 	"litebase/server/sqlite3"
-	"litebase/server/storage"
 	"log"
 )
 
@@ -18,11 +18,6 @@ type TestDatabase struct {
 	BranchId    string
 	DatabaseKey *database.DatabaseKey
 	AccessKey   *auth.AccessKey
-}
-
-func ClearDatabase() {
-	database.ConnectionManager().Shutdown()
-	storage.ObjectFS().RemoveAll("./.test")
 }
 
 func CreateHash(length int) string {
@@ -35,7 +30,7 @@ func CreateHash(length int) string {
 	return fmt.Sprintf("%x", hashBytes)[:length]
 }
 
-func MockDatabase() TestDatabase {
+func MockDatabase(app *server.App) TestDatabase {
 	accessKeyId := CreateHash(32)
 
 	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "accessKeySecret")
@@ -45,9 +40,9 @@ func MockDatabase() TestDatabase {
 		AccessKeyId: accessKeyId,
 	}
 
-	auth.SecretsManager().StoreAccessKey(accessKey)
+	app.Auth.SecretsManager().StoreAccessKey(accessKey)
 
-	db, err := database.Create("test-database", "main")
+	db, err := app.DatabaseManager.Create("test-database", "main")
 
 	if err != nil {
 		log.Fatal(err)

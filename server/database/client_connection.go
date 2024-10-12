@@ -13,10 +13,15 @@ type ClientConnection struct {
 }
 
 func NewClientConnection(
+	connectionManager *ConnectionManager,
 	databaseId string,
 	branchId string,
 ) (*ClientConnection, error) {
-	connection, err := NewDatabaseConnection(databaseId, branchId)
+	connection, err := NewDatabaseConnection(
+		connectionManager,
+		databaseId,
+		branchId,
+	)
 
 	if connection == nil {
 		return nil, err

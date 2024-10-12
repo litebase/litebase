@@ -2,13 +2,14 @@ package query_test
 
 import (
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/query"
 	"testing"
 )
 
 func BenchmarkWriteQueue(b *testing.B) {
-	test.Run(b, func() {
-		mock := test.MockDatabase()
+	test.Run(b, func(app *server.App) {
+		mock := test.MockDatabase(app)
 		wq := query.GetWriteQueue(&query.Query{
 			DatabaseKey: mock.DatabaseKey,
 		})

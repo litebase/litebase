@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"litebase/server"
+	"log"
+	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -9,6 +11,8 @@ import (
 )
 
 func NewServeCmd() *cobra.Command {
+	var app *server.App
+
 	return NewCommand(
 		"serve", "Start the Litebase server locally",
 	).WithConfig(func(cmd *cobra.Command) {
@@ -36,8 +40,22 @@ func NewServeCmd() *cobra.Command {
 		cmd.Flags().String("tls-cert", "", "The path to the TLS certificate")
 		cmd.Flags().String("tls-key", "", "The path to the TLS key")
 	}).WithRun(func(cmd *cobra.Command, args []string) {
-		server.NewServer().Start(func(s *server.ServerInstance) {
-			server.NewApp(s).Run()
+		server.NewServer().Start(func(s *http.ServeMux) {
+			app = server.NewApp(s)
+
+			app.Run()
+
+			err := app.Cluster.Node().Start()
+
+			if err != nil {
+				log.Fatalf("Node start: %v", err)
+			}
+		}, func() {
+			if app == nil {
+				return
+			}
+
+			app.Cluster.Node().Shutdown()
 		})
 	}).Build()
 }

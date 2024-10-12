@@ -25,7 +25,7 @@ func QueryController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
 	}
 
-	db, err := database.ConnectionManager().Get(
+	db, err := request.databaseManager.ConnectionManager().Get(
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 	)
@@ -37,6 +37,8 @@ func QueryController(request *Request) Response {
 	}
 
 	requestQuery, err := query.NewQuery(
+		request.cluster,
+		request.databaseManager,
 		databaseKey,
 		accessKey,
 		&query.QueryInput{
@@ -47,7 +49,7 @@ func QueryController(request *Request) Response {
 	)
 
 	if err != nil {
-		database.ConnectionManager().Remove(
+		request.databaseManager.ConnectionManager().Remove(
 			databaseKey.DatabaseId,
 			databaseKey.BranchId,
 			db,
@@ -63,7 +65,7 @@ func QueryController(request *Request) Response {
 	err = query.ResolveQuery(requestQuery, response)
 
 	if err != nil {
-		database.ConnectionManager().Remove(
+		request.databaseManager.ConnectionManager().Remove(
 			databaseKey.DatabaseId,
 			databaseKey.BranchId,
 			db,
@@ -76,7 +78,7 @@ func QueryController(request *Request) Response {
 
 	// defer counter.Increment(databaseKey.DatabaseId, databaseKey.BranchId)
 
-	defer database.ConnectionManager().Release(
+	defer request.databaseManager.ConnectionManager().Release(
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 		db,

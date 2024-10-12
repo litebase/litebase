@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"litebase/server/cluster"
-	"litebase/server/database"
 	"litebase/server/storage"
 	"log"
 	"net/http"
@@ -15,16 +13,17 @@ import (
 	"time"
 )
 
-type ServerInstance struct {
+type Server struct {
 	cancel     context.CancelFunc
 	context    context.Context
 	HttpServer *http.Server
 	ServeMux   *http.ServeMux
 }
 
-func NewServer() *ServerInstance {
+func NewServer() *Server {
 	ctx, cancel := context.WithCancel(context.Background())
-	server := &ServerInstance{
+
+	server := &Server{
 		cancel:  cancel,
 		context: ctx,
 	}
@@ -32,7 +31,7 @@ func NewServer() *ServerInstance {
 	return server
 }
 
-func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
+func (s *Server) Start(startHook func(*http.ServeMux), shutdownHook func()) {
 	// TODO: Add TLS support using autocert or certmagic if this is a query node
 	// TODO: Wait until a primary node is elected before starting the server with TLS
 	// TODO: Ensure only the primary can renew the TLS certificate
@@ -43,23 +42,14 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	s.ServeMux = http.NewServeMux()
 
 	s.HttpServer = &http.Server{
-		Addr: fmt.Sprintf(":%s", port),
-		// ReadTimeout:  3 * time.Second,
-		// WriteTimeout: 3 * time.Second,
-		// IdleTimeout:  60 * time.Second,
+		Addr:    fmt.Sprintf(":%s", port),
 		Handler: s.ServeMux,
 	}
 
 	log.Println("Litebase Server running on port", port)
 
-	if serverHook != nil {
-		serverHook(s)
-	}
-
-	err := cluster.Node().Start()
-
-	if err != nil {
-		log.Fatalf("Node start: %v", err)
+	if startHook != nil {
+		startHook(s.ServeMux)
 	}
 
 	serverDone := make(chan struct{})
@@ -86,21 +76,23 @@ func (s *ServerInstance) Start(serverHook func(*ServerInstance)) {
 	// Wait for a signal to shutdown the server
 	sig := <-signalChannel
 	log.Println("Received signal", sig)
-	cluster.Node().Shutdown()
+
+	if shutdownHook != nil {
+		shutdownHook()
+	}
 
 	s.Shutdown(s.context)
+
 	// Wait for the server to shutdown
 	<-serverDone
 
 	os.Exit(0)
 }
 
-func (s *ServerInstance) Shutdown(ctx context.Context) {
+func (s *Server) Shutdown(ctx context.Context) {
 	fmt.Println("")
-	s.cancel()
 
-	// Shutdown all connections
-	database.ConnectionManager().Shutdown()
+	s.cancel()
 
 	// Shutdown any storage resources
 	storage.Shutdown()

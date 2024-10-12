@@ -2,20 +2,20 @@ package query_test
 
 import (
 	"litebase/internal/test"
-	"litebase/server/database"
+	"litebase/server"
 	"litebase/server/query"
 	"reflect"
 	"testing"
 )
 
 func TestValidateQuery(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		cases := []struct {
 			statement  string

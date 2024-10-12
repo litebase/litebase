@@ -21,51 +21,16 @@ const (
 
 const DatabaseIdleTimeout = 1 * time.Minute
 
-type ConnectionManagerInstance struct {
+type ConnectionManager struct {
+	cluster          *cluster.Cluster
 	connectionTicker *time.Ticker
+	databaseManager  *DatabaseManager
 	databases        map[string]*DatabaseGroup
 	mutex            *sync.RWMutex
 	state            int
 }
 
-var connectionManagerMutex = &sync.RWMutex{}
-var StaticConnectionManagerInstance *ConnectionManagerInstance
-
-func ConnectionManager() *ConnectionManagerInstance {
-	if StaticConnectionManagerInstance != nil {
-		return StaticConnectionManagerInstance
-	}
-
-	connectionManagerMutex.Lock()
-	defer connectionManagerMutex.Unlock()
-
-	if StaticConnectionManagerInstance == nil {
-		StaticConnectionManagerInstance = &ConnectionManagerInstance{
-			mutex:     &sync.RWMutex{},
-			databases: map[string]*DatabaseGroup{},
-			state:     ConnectionManagerStateRunning,
-		}
-
-		// Start the connection ticker
-		go func() {
-			time.Sleep(1 * time.Second)
-			StaticConnectionManagerInstance.connectionTicker = time.NewTicker(1 * time.Second)
-
-			for {
-				select {
-				case <-cluster.Node().Context().Done():
-					return
-				case <-StaticConnectionManagerInstance.connectionTicker.C:
-					StaticConnectionManagerInstance.Tick()
-				}
-			}
-		}()
-	}
-
-	return StaticConnectionManagerInstance
-}
-
-func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
+func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
 	// Skip if the committed at time time stamp for the connection is empty
 	if clientConnection.connection.committedAt.IsZero() {
 		return false
@@ -107,7 +72,7 @@ func (c *ConnectionManagerInstance) Checkpoint(databaseGroup *DatabaseGroup, bra
 	return true
 }
 
-func (c *ConnectionManagerInstance) CheckpointAll() {
+func (c *ConnectionManager) CheckpointAll() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -123,7 +88,7 @@ func (c *ConnectionManagerInstance) CheckpointAll() {
 	}
 }
 
-func (c *ConnectionManagerInstance) Drain(databaseId string, branchId string, drained func() error) error {
+func (c *ConnectionManager) Drain(databaseId string, branchId string, drained func() error) error {
 	c.mutex.Lock()
 
 	databaseGroup, ok := c.databases[databaseId]
@@ -229,7 +194,7 @@ func (c *ConnectionManagerInstance) Drain(databaseId string, branchId string, dr
 	return drained()
 }
 
-// func (c *ConnectionManagerInstance) ensureBranchGroupExists(databaseId string) {
+// func (c *ConnectionManager) ensureBranchGroupExists(databaseId string) {
 // 	databaseGroup, ok := c.databases[databaseId]
 
 // 	if !ok {
@@ -241,7 +206,7 @@ func (c *ConnectionManagerInstance) Drain(databaseId string, branchId string, dr
 // 	return databaseGroup
 // }
 
-func (c *ConnectionManagerInstance) ensureDatabaseBranchExists(databaseId, branchId string) {
+func (c *ConnectionManager) ensureDatabaseBranchExists(databaseId, branchId string) {
 	_, ok := c.databases[databaseId]
 
 	if !ok {
@@ -256,7 +221,7 @@ func (c *ConnectionManagerInstance) ensureDatabaseBranchExists(databaseId, branc
 	}
 }
 
-func (c *ConnectionManagerInstance) ForceCheckpoint(databaseId string, branchId string) error {
+func (c *ConnectionManager) ForceCheckpoint(databaseId string, branchId string) error {
 	connection, err := c.Get(databaseId, branchId)
 
 	if err != nil {
@@ -291,7 +256,7 @@ func (c *ConnectionManagerInstance) ForceCheckpoint(databaseId string, branchId 
 	return nil
 }
 
-func (c *ConnectionManagerInstance) Get(databaseId string, branchId string) (*ClientConnection, error) {
+func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConnection, error) {
 	if err := c.StateError(); err != nil {
 		return nil, err
 	}
@@ -327,13 +292,14 @@ func (c *ConnectionManagerInstance) Get(databaseId string, branchId string) (*Cl
 
 	// Create a new client connection, only one connection can be created at a
 	// time to avoid SQL Logic errors on sqlite3_open.
-	con, err := NewClientConnection(databaseId, branchId)
+	con, err := NewClientConnection(c, databaseId, branchId)
 
 	if err != nil {
 		return nil, err
 	}
 
 	c.databases[databaseId].branches[branchId] = append(c.databases[databaseId].branches[branchId], NewBranchConnection(
+		c.cluster,
 		c.databases[databaseId],
 		con,
 	))
@@ -341,7 +307,7 @@ func (c *ConnectionManagerInstance) Get(databaseId string, branchId string) (*Cl
 	return con, nil
 }
 
-func (c *ConnectionManagerInstance) Release(databaseId string, branchId string, clientConnection *ClientConnection) {
+func (c *ConnectionManager) Release(databaseId string, branchId string, clientConnection *ClientConnection) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -360,7 +326,7 @@ func (c *ConnectionManagerInstance) Release(databaseId string, branchId string, 
 
 // Remove a branch connection from the database group. This method is called
 // without the mutex lock, so it should be called from within a mutex lock.
-func (c *ConnectionManagerInstance) remove(databaseId string, branchId string, clientConnection *ClientConnection) {
+func (c *ConnectionManager) remove(databaseId string, branchId string, clientConnection *ClientConnection) {
 	// Remove the branch conenction from the database group branch
 	for i, branchConnection := range c.databases[databaseId].branches[branchId] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
@@ -372,20 +338,20 @@ func (c *ConnectionManagerInstance) remove(databaseId string, branchId string, c
 	// If there are no more branches, remove the database
 	if len(c.databases[databaseId].branches[branchId]) == 0 {
 		delete(c.databases[databaseId].branches, branchId)
-		Resources(databaseId, branchId).Remove()
+		c.databaseManager.Resources(databaseId, branchId).Remove()
 	}
 
 	clientConnection.Close()
 }
 
-func (c *ConnectionManagerInstance) Remove(databaseId string, branchId string, clientConnection *ClientConnection) {
+func (c *ConnectionManager) Remove(databaseId string, branchId string, clientConnection *ClientConnection) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.remove(databaseId, branchId, clientConnection)
 }
 
-func (c *ConnectionManagerInstance) RemoveIdleConnections() {
+func (c *ConnectionManager) RemoveIdleConnections() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -413,7 +379,7 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 			// if the database branch has no more branch connections, remove the database branch
 			if activeConnections == 0 {
 				delete(database.branches, branchId)
-				Resources(databaseId, branchId).Remove()
+				c.databaseManager.Resources(databaseId, branchId).Remove()
 			}
 
 			if len(database.branches) == 0 {
@@ -428,7 +394,7 @@ func (c *ConnectionManagerInstance) RemoveIdleConnections() {
 	}
 }
 
-func (c *ConnectionManagerInstance) Shutdown() {
+func (c *ConnectionManager) Shutdown() {
 	// Drain all connections
 	for databaseId, database := range c.databases {
 		for branchId := range database.branches {
@@ -448,7 +414,7 @@ func (c *ConnectionManagerInstance) Shutdown() {
 	c.databases = map[string]*DatabaseGroup{}
 }
 
-func (c *ConnectionManagerInstance) StateError() error {
+func (c *ConnectionManager) StateError() error {
 	switch c.state {
 	case ConnectionManagerStateShutdown:
 		return fmt.Errorf(ErrorConnectionManagerShutdown)
@@ -459,7 +425,7 @@ func (c *ConnectionManagerInstance) StateError() error {
 	}
 }
 
-func (c *ConnectionManagerInstance) Tick() {
+func (c *ConnectionManager) Tick() {
 	c.CheckpointAll()
 	c.RemoveIdleConnections()
 }

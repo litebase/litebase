@@ -9,7 +9,7 @@ import (
 )
 
 func ClusterReplicaController(request *Request) Response {
-	if cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_REPLICA {
+	if request.cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_REPLICA {
 		return ForbiddenResponse(errors.New("not a replica node"))
 	}
 
@@ -32,7 +32,7 @@ func ClusterReplicaController(request *Request) Response {
 				return
 			}
 
-			responseMessage, err := cluster.Node().Replica().HandleMessage(message)
+			responseMessage, err := request.cluster.Node().Replica().HandleMessage(message)
 
 			if err != nil {
 				log.Println("Failed to handle message: ", err)

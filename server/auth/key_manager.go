@@ -244,8 +244,8 @@ func GetPublicKey(signature string) (*rsa.PublicKey, error) {
 	return key.(*rsa.PublicKey), nil
 }
 
-func GetPublicKeyForDatabase(signature, databaseId string) (*rsa.PublicKey, error) {
-	publicKey, err := SecretsManager().GetPublicKey(signature, databaseId)
+func GetPublicKeyForDatabase(secretsManager *SecretsManager, signature, databaseId string) (*rsa.PublicKey, error) {
+	publicKey, err := secretsManager.GetPublicKey(signature, databaseId)
 	log.Println("publicKey", publicKey)
 	if err != nil {
 		return nil, err
@@ -278,7 +278,7 @@ func GetRawPublicKey(signature string) ([]byte, error) {
 	return file, nil
 }
 
-func KeyManagerInit() error {
+func KeyManagerInit(secretsManager *SecretsManager) error {
 	// Generate a public key for the signature if one does not exist
 	err := generate()
 
@@ -287,7 +287,7 @@ func KeyManagerInit() error {
 	}
 
 	// Rotate the keys if a new signature is set
-	rotate()
+	rotate(secretsManager)
 
 	return nil
 }
@@ -299,7 +299,7 @@ func KeyPath(keyType string, signature string) string {
 	}, "/")
 }
 
-func NextSignature(signature string) (string, error) {
+func NextSignature(secretsManager *SecretsManager, signature string) (string, error) {
 	if config.Get().Signature == signature {
 		publickey, err := GetRawPublicKey(signature)
 
@@ -316,7 +316,7 @@ func NextSignature(signature string) (string, error) {
 		return "", err
 	}
 
-	err = rotate()
+	err = rotate(secretsManager)
 
 	if err != nil {
 		log.Println(err)
@@ -340,7 +340,7 @@ func Path(signature string) string {
 	}, "/")
 }
 
-func rotate() error {
+func rotate(secretsManager *SecretsManager) error {
 	if config.Get().SignatureNext == "" {
 		return nil
 	}
@@ -370,7 +370,7 @@ func rotate() error {
 	go func() {
 		defer wg.Done()
 
-		err := rotateAccessKeys()
+		err := rotateAccessKeys(secretsManager)
 
 		if err != nil {
 			errors = append(errors, err)
@@ -381,7 +381,7 @@ func rotate() error {
 
 	go func() {
 		defer wg.Done()
-		err := rotateSettings()
+		err := rotateSettings(secretsManager)
 
 		if err != nil {
 			errors = append(errors, err)
@@ -427,7 +427,7 @@ func rotate() error {
 	return nil
 }
 
-func rotateAccessKeys() error {
+func rotateAccessKeys(secretsManager *SecretsManager) error {
 	accessKeyDir := strings.Join([]string{
 		Path(config.Get().Signature),
 		"access_keys",
@@ -458,13 +458,13 @@ func rotateAccessKeys() error {
 			return err
 		}
 
-		decryptedAccessKey, err := SecretsManager().Decrypt(config.Get().Signature, string(accessKeyBytes))
+		decryptedAccessKey, err := secretsManager.Decrypt(config.Get().Signature, string(accessKeyBytes))
 
 		if err != nil {
 			return err
 		}
 
-		encryptedAccessKey, err := SecretsManager().Encrypt(config.Get().SignatureNext, decryptedAccessKey["value"])
+		encryptedAccessKey, err := secretsManager.Encrypt(config.Get().SignatureNext, decryptedAccessKey["value"])
 
 		if err != nil {
 			return err
@@ -523,7 +523,7 @@ func rotateDatabaseKeys() error {
 	return nil
 }
 
-func rotateSettings() error {
+func rotateSettings(secretsManager *SecretsManager) error {
 	var databaseSettings []internalStorage.DirEntry
 
 	settingsDir := strings.Join([]string{
@@ -575,13 +575,13 @@ func rotateSettings() error {
 				return err
 			}
 
-			decryptedSetting, err := SecretsManager().Decrypt(config.Get().Signature, string(databaseSettingBytes))
+			decryptedSetting, err := secretsManager.Decrypt(config.Get().Signature, string(databaseSettingBytes))
 
 			if err != nil {
 				return err
 			}
 
-			encryptedSetting, err := SecretsManager().Encrypt(config.Get().SignatureNext, decryptedSetting["value"])
+			encryptedSetting, err := secretsManager.Encrypt(config.Get().SignatureNext, decryptedSetting["value"])
 
 			if err != nil {
 				return err

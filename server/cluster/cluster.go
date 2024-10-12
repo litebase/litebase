@@ -1,9 +1,13 @@
 package cluster
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"litebase/internal/config"
+	"litebase/server/auth"
 	"litebase/server/storage"
 	"log"
 	"os"
@@ -24,41 +28,26 @@ const (
 	PRIMARY_FILE    = "PRIMARY"
 )
 
-type ClusterInstance struct {
+type Cluster struct {
+	Auth                *auth.Auth
+	AccessKeyManager    *auth.AccessKeyManager
+	eventsManager       *EventsManager
 	Id                  string `json:"id"`
 	QueryPrimary        string
 	QueryNodes          []string
 	MembersRetrievedAt  time.Time
+	mutex               *sync.Mutex
+	node                *Node
 	StorageNodeHashRing *storage.StorageNodeHashRing
 	StorageNodes        []string
 	StoragePrimary      string
 }
 
-var (
-	cluster *ClusterInstance
-	mu      sync.Mutex
-)
-
-/*
-Get the singleton instance of the cluster.
-*/
-func Get() *ClusterInstance {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if cluster == nil {
-		panic("cluster not initialized")
-	}
-
-	return cluster
-}
-
 /*
 Initialize the cluster.
 */
-func Init() (*ClusterInstance, error) {
-	mu.Lock()
-	defer mu.Unlock()
+func Init(Auth *auth.Auth) (*Cluster, error) {
+	var cluster *Cluster
 
 	err := createDirectoriesAndFiles()
 
@@ -71,7 +60,7 @@ func Init() (*ClusterInstance, error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			c, err := createClusterFromEnv()
+			c, err := createClusterFromEnv(Auth)
 
 			if err == nil {
 				cluster = c
@@ -85,7 +74,9 @@ func Init() (*ClusterInstance, error) {
 		return nil, err
 	}
 
-	c := &ClusterInstance{
+	c := &Cluster{
+		Auth:                Auth,
+		mutex:               &sync.Mutex{},
 		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
 	}
 
@@ -103,14 +94,14 @@ func Init() (*ClusterInstance, error) {
 /*
 Create a cluster from the environment variables.
 */
-func createClusterFromEnv() (*ClusterInstance, error) {
+func createClusterFromEnv(Auth *auth.Auth) (*Cluster, error) {
 	clusterId := config.Get().ClusterId
 
 	if clusterId == "" {
 		return nil, fmt.Errorf("LITEBASE_CLUSTER_ID environment variable is not set")
 	}
 
-	return NewCluster(clusterId)
+	return NewCluster(clusterId, Auth)
 }
 
 /*
@@ -195,7 +186,7 @@ func createDirectoriesAndFiles() error {
 /*
 Create a new cluster instance.
 */
-func NewCluster(id string) (*ClusterInstance, error) {
+func NewCluster(id string, Auth *auth.Auth) (*Cluster, error) {
 	// Check if the cluster file already exists
 	_, err := storage.ObjectFS().Stat(ConfigPath())
 
@@ -205,8 +196,10 @@ func NewCluster(id string) (*ClusterInstance, error) {
 		}
 	}
 
-	cluster := &ClusterInstance{
+	cluster := &Cluster{
+		Auth:                Auth,
 		Id:                  id,
+		mutex:               &sync.Mutex{},
 		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
 	}
 
@@ -217,6 +210,30 @@ func NewCluster(id string) (*ClusterInstance, error) {
 	}
 
 	return cluster, nil
+}
+
+func (c *Cluster) Node() *Node {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.node == nil {
+		c.node = &Node{
+			address:    "",
+			cluster:    c,
+			lastActive: time.Time{},
+			Membership: CLUSTER_MEMBERSHIP_STAND_BY,
+			// Membership: CLUSTER_MEMBERSHIP_REPLICA,
+			mutex:   &sync.Mutex{},
+			standBy: make(chan struct{}),
+			State:   NODE_STATE_ACTIVE,
+		}
+
+		hash := sha256.Sum256([]byte(c.node.Address()))
+		c.node.Id = hex.EncodeToString(hash[:])
+		c.node.context, c.node.cancel = context.WithCancel(context.Background())
+	}
+
+	return c.node
 }
 
 /*
@@ -271,7 +288,7 @@ func PrimaryPath() string {
 /*
 Save the cluster configuration.
 */
-func (cluster *ClusterInstance) Save() error {
+func (cluster *Cluster) Save() error {
 	data, err := json.Marshal(cluster)
 
 	if err != nil {
@@ -297,7 +314,7 @@ writefile:
 /*
 Get all the members of the cluster.
 */
-func (cluster *ClusterInstance) GetMembers(cached bool) ([]string, []string) {
+func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 	// Return the known nodes if the last retrieval was less than a minute
 	if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
 		return cluster.QueryNodes, cluster.StorageNodes
@@ -333,7 +350,6 @@ func (cluster *ClusterInstance) GetMembers(cached bool) ([]string, []string) {
 			address := strings.ReplaceAll(file.Name, "_", ":")
 			cluster.QueryNodes = append(cluster.QueryNodes, address)
 		}
-
 	}()
 
 	go func() {
@@ -384,7 +400,7 @@ func (cluster *ClusterInstance) GetMembers(cached bool) ([]string, []string) {
 /*
 Get all the members of the cluster since a certain time.
 */
-func (cluster *ClusterInstance) GetMembersSince(after time.Time) ([]string, []string) {
+func (cluster *Cluster) GetMembersSince(after time.Time) ([]string, []string) {
 	if cluster.MembersRetrievedAt.After(after) {
 		return cluster.QueryNodes, cluster.StorageNodes
 	}
@@ -395,7 +411,7 @@ func (cluster *ClusterInstance) GetMembersSince(after time.Time) ([]string, []st
 /*
 Return a storage node for a given key.
 */
-func (cluster *ClusterInstance) GetStorageNode(key string) (int, string, error) {
+func (cluster *Cluster) GetStorageNode(key string) (int, string, error) {
 	cluster.GetMembers(true)
 
 	index, address, err := cluster.StorageNodeHashRing.GetNode(key)
@@ -414,7 +430,7 @@ func (cluster *ClusterInstance) GetStorageNode(key string) (int, string, error) 
 /*
 Check if the node is a member of the cluster.
 */
-func (cluster *ClusterInstance) IsMember(ip string, since time.Time) bool {
+func (cluster *Cluster) IsMember(ip string, since time.Time) bool {
 	cluster.GetMembersSince(since)
 
 	for _, member := range cluster.QueryNodes {
@@ -435,7 +451,7 @@ func (cluster *ClusterInstance) IsMember(ip string, since time.Time) bool {
 /*
 Add a member to the cluster.
 */
-func (cluster *ClusterInstance) AddMember(group, ip string) error {
+func (cluster *Cluster) AddMember(group, ip string) error {
 	var err error
 	cluster.GetMembers(false)
 
@@ -460,7 +476,7 @@ func (cluster *ClusterInstance) AddMember(group, ip string) error {
 /*
 Remove a member from the cluster.
 */
-func (cluster *ClusterInstance) RemoveMember(ip string) error {
+func (cluster *Cluster) RemoveMember(ip string) error {
 	cluster.GetMembers(true)
 
 	// Clear the cache

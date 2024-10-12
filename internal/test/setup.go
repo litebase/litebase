@@ -3,8 +3,6 @@ package test
 import (
 	"fmt"
 	"litebase/server"
-	"litebase/server/cluster"
-	"litebase/server/database"
 	"litebase/server/storage"
 	"log"
 	"os"
@@ -15,7 +13,7 @@ import (
 
 var envDataPath string
 
-func Setup(t testing.TB, callbacks ...func()) {
+func Setup(t testing.TB, callbacks ...func()) *server.App {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	err := godotenv.Load("./../../.env.test")
@@ -47,20 +45,25 @@ func Setup(t testing.TB, callbacks ...func()) {
 		callback()
 	}
 
-	// config.Get().SignatureNext = CreateHash(32)
-	server.NewApp(server.NewServer())
+	app := server.NewApp(server.NewServer().ServeMux)
 
 	if t != nil && err != nil {
 		t.Fail()
 	}
 
-	cluster.Node().Start()
+	app.Cluster.Node().Start()
+
+	return app
 }
 
-func Teardown(callbacks ...func()) {
-	database.ConnectionManager().Shutdown()
-	database.ShutdownResources()
-	cluster.Node().Shutdown()
+func Teardown(app *server.App, callbacks ...func()) {
+	app.DatabaseManager.ConnectionManager().Shutdown()
+	app.DatabaseManager.ShutdownResources()
+
+	if app != nil {
+		app.Cluster.Node().Shutdown()
+	}
+
 	storage.Shutdown()
 
 	os.RemoveAll(envDataPath)
@@ -70,28 +73,28 @@ func Teardown(callbacks ...func()) {
 	}
 }
 
-func Run(t testing.TB, callback func()) {
+func Run(t testing.TB, callback func(*server.App)) {
 	// Setup the environment
-	Setup(t)
+	app := Setup(t)
 	// Run the test
-	callback()
+	callback(app)
 	// Teardown the environment
-	Teardown()
+	Teardown(app)
 }
 
-func RunWithObjectStorage(t testing.TB, callback func()) {
+func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 	// Setup the environment
-	Setup(t, func() {
+	app := Setup(t, func() {
 		bucketName := CreateHash(32)
 		t.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
 		t.Setenv("LITEBASE_STORAGE_BUCKET", bucketName)
 	})
 
 	// Run the test
-	callback()
+	callback(app)
 
 	// Teardown the environment
-	Teardown(func() {
+	Teardown(app, func() {
 		// Remove the bucket
 		err := os.RemoveAll(
 			fmt.Sprintf("%s/_object_storage/%s",

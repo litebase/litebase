@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/backups"
 	"testing"
 	"time"
 )
 
 func TestNewRollbackLogEntry(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		timestamp := time.Now().Unix()
 		data := []byte("test data")
 
@@ -47,7 +48,7 @@ func TestNewRollbackLogEntry(t *testing.T) {
 }
 
 func TestPageLogEntrySerialize(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		timestamp := time.Now().Unix()
 		data := []byte("test data")
 		entry := backups.NewRollbackLogEntry(1, timestamp, data)

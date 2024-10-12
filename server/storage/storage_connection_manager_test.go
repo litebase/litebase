@@ -3,7 +3,7 @@ package storage_test
 import (
 	"litebase/internal/config"
 	"litebase/internal/test"
-	"litebase/server/cluster"
+	"litebase/server"
 	"litebase/server/storage"
 	"testing"
 
@@ -11,7 +11,7 @@ import (
 )
 
 func TestStorageConnectionManager(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		scm := storage.SCM()
 
 		if scm == nil {
@@ -21,7 +21,7 @@ func TestStorageConnectionManager(t *testing.T) {
 }
 
 func TestStorageConnectionManagerClose(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		scm := storage.SCM()
 
 		if scm == nil {
@@ -37,7 +37,7 @@ func TestStorageConnectionManagerClose(t *testing.T) {
 }
 
 func TestStorageConnectionManagerGetConnection(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		scm := storage.SCM()
 
 		if scm == nil {
@@ -54,7 +54,7 @@ func TestStorageConnectionManagerGetConnection(t *testing.T) {
 			t.Fatalf("Expected connection to be nil, got %v", connection)
 		}
 
-		err = cluster.Get().AddMember(
+		err = app.Cluster.AddMember(
 			config.NODE_TYPE_STORAGE,
 			"10.0.0.0:8080",
 		)
@@ -63,7 +63,7 @@ func TestStorageConnectionManagerGetConnection(t *testing.T) {
 			t.Fatalf("Error adding storage node: %s", err)
 		}
 
-		err = cluster.Get().AddMember(
+		err = app.Cluster.AddMember(
 			config.NODE_TYPE_STORAGE,
 			"10.0.0.1:8080",
 		)
@@ -72,7 +72,7 @@ func TestStorageConnectionManagerGetConnection(t *testing.T) {
 			t.Fatalf("Error adding storage node: %s", err)
 		}
 
-		err = cluster.Get().AddMember(
+		err = app.Cluster.AddMember(
 			config.NODE_TYPE_STORAGE,
 			"10.0.0.2:8080",
 		)
@@ -149,7 +149,7 @@ func TestStorageConnectionManagerGetConnectionWithChangingMembership(t *testing.
 
 	for i := 0; i < len(databaseIds); i++ {
 		t.Run("", func(t *testing.T) {
-			test.Run(t, func() {
+			test.Run(t, func(app *server.App) {
 				testCases := []struct {
 					add    []string
 					remove []string
@@ -196,7 +196,7 @@ func TestStorageConnectionManagerGetConnectionWithChangingMembership(t *testing.
 				for _, tc := range testCases {
 					// log.Println("--------------------")
 
-					_, storageNodes := cluster.Get().GetMembers(true)
+					_, storageNodes := app.Cluster.GetMembers(true)
 
 					if len(storageNodes) != storageNodeCount {
 						t.Fatalf("Expected %d storage nodes, got %d", storageNodeCount, len(storageNodes))
@@ -207,7 +207,7 @@ func TestStorageConnectionManagerGetConnectionWithChangingMembership(t *testing.
 					}
 
 					for _, ip := range tc.add {
-						err := cluster.Get().AddMember(config.NODE_TYPE_STORAGE, ip)
+						err := app.Cluster.AddMember(config.NODE_TYPE_STORAGE, ip)
 
 						if err != nil {
 							t.Fatalf("Error adding storage node: %s", err)
@@ -215,7 +215,7 @@ func TestStorageConnectionManagerGetConnectionWithChangingMembership(t *testing.
 					}
 
 					for _, ip := range tc.remove {
-						err := cluster.Get().RemoveMember(ip)
+						err := app.Cluster.RemoveMember(ip)
 
 						if err != nil {
 							t.Fatalf("Error removing storage node: %s", err)
@@ -224,7 +224,7 @@ func TestStorageConnectionManagerGetConnectionWithChangingMembership(t *testing.
 
 					storageNodeCount = len(tc.add) + storageNodeCount - len(tc.remove)
 
-					_, storageNodes = cluster.Get().GetMembers(true)
+					_, storageNodes = app.Cluster.GetMembers(true)
 
 					if len(storageNodes) != storageNodeCount {
 						t.Fatalf("Expected %d storage nodes, got %d", storageNodeCount, len(storageNodes))

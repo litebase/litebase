@@ -62,7 +62,7 @@ func NewInitCmd() *cobra.Command {
 			return
 		}
 
-		_, err = cluster.Init()
+		_, err = cluster.Init(auth.NewAuth())
 
 		if err != nil {
 			fmt.Print(components.Container(components.ErrorAlert(
@@ -73,7 +73,9 @@ func NewInitCmd() *cobra.Command {
 		}
 
 		// Initialize the key manager
-		err = auth.KeyManagerInit()
+		err = auth.KeyManagerInit(
+			auth.NewAuth().SecretsManager(),
+		)
 
 		if err != nil {
 

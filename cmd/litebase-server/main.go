@@ -6,8 +6,11 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"net/http"
 	_ "net/http/pprof"
 )
+
+var app *server.App
 
 func main() {
 	go func() {
@@ -20,7 +23,29 @@ func main() {
 
 	godotenv.Load(".env")
 
-	server.NewServer().Start(func(s *server.ServerInstance) {
-		server.NewApp(s).Run()
-	})
+	server.NewServer().Start(
+		// Start hook
+		func(s *http.ServeMux) {
+			app = server.NewApp(s)
+
+			app.Run()
+
+			err := app.Cluster.Node().Start()
+
+			if err != nil {
+				log.Fatalf("Node start: %v", err)
+			}
+		},
+		// Shutdown hook
+		func() {
+			if app == nil {
+				return
+			}
+
+			app.Cluster.Node().Shutdown()
+
+			// Shutdown all connections
+			app.DatabaseManager.ConnectionManager().Shutdown()
+		},
+	)
 }

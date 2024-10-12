@@ -12,14 +12,16 @@ import (
 )
 
 type KeyEncrypter struct {
-	databaseId string
-	publicKey  *rsa.PublicKey
-	signature  string
+	databaseId     string
+	publicKey      *rsa.PublicKey
+	secretsManager *SecretsManager
+	signature      string
 }
 
-func NewKeyEncrypter(signature string) *KeyEncrypter {
+func NewKeyEncrypter(secretsManager *SecretsManager, signature string) *KeyEncrypter {
 	return &KeyEncrypter{
-		signature: signature,
+		secretsManager: secretsManager,
+		signature:      signature,
 	}
 }
 
@@ -173,7 +175,7 @@ func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
 
 	if k.publicKey == nil {
 		if k.databaseId != "" {
-			k.publicKey, err = GetPublicKeyForDatabase(k.signature, k.databaseId)
+			k.publicKey, err = GetPublicKeyForDatabase(k.secretsManager, k.signature, k.databaseId)
 		} else {
 			k.publicKey, err = GetPublicKey(k.signature)
 		}

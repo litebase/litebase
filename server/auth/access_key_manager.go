@@ -13,28 +13,34 @@ import (
 	"time"
 )
 
-type AccessKeyManagerInstance struct {
+type AccessKeyManager struct {
+	auth  *Auth
 	mutex *sync.Mutex
 }
 
-var accessKeyManagerInstance *AccessKeyManagerInstance
-
-func AccessKeyManager() *AccessKeyManagerInstance {
-	if accessKeyManagerInstance == nil {
-		accessKeyManagerInstance = &AccessKeyManagerInstance{
+func (a *Auth) AccessKeyManager() *AccessKeyManager {
+	if a.accessKeyManager == nil {
+		a.accessKeyManager = &AccessKeyManager{
+			auth:  a,
 			mutex: &sync.Mutex{},
 		}
 	}
 
-	return accessKeyManagerInstance
+	return a.accessKeyManager
 }
 
-func (akm *AccessKeyManagerInstance) accessKeyCacheKey(accessKeyId string) string {
+func NewAccessKeyManager(secretsManager *SecretsManager) *AccessKeyManager {
+	return &AccessKeyManager{
+		mutex: &sync.Mutex{},
+	}
+}
+
+func (akm *AccessKeyManager) accessKeyCacheKey(accessKeyId string) string {
 	return fmt.Sprintf("access_key:%s", accessKeyId)
 }
 
-func (akm *AccessKeyManagerInstance) AllAccessKeyIds() ([]string, error) {
-	files, err := storage.ObjectFS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys/"))
+func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
+	files, err := storage.ObjectFS().ReadDir(akm.auth.SecretsManager().SecretsPath(config.Get().Signature, "access_keys/"))
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -57,30 +63,31 @@ func (akm *AccessKeyManagerInstance) AllAccessKeyIds() ([]string, error) {
 	return accessKeyIds, nil
 }
 
-func (akm *AccessKeyManagerInstance) Create() (*AccessKey, error) {
+func (akm *AccessKeyManager) Create() (*AccessKey, error) {
 	accessKeyId, err := akm.GenerateAccessKeyId()
 
 	if err != nil {
 		return nil, err
 	}
 
-	accessKey := &AccessKey{
-		AccessKeyId:     accessKeyId,
-		AccessKeySecret: akm.GenerateAccessKeySecret(),
-		Permissions: []*AccessKeyPermission{
+	accessKey := NewAccessKey(
+		akm,
+		accessKeyId,
+		akm.GenerateAccessKeySecret(),
+		[]*AccessKeyPermission{
 			{
 				Resource: "*",
 				Actions:  []string{"*"},
 			},
 		},
-	}
+	)
 
-	SecretsManager().StoreAccessKey(accessKey)
+	akm.auth.SecretsManager().StoreAccessKey(accessKey)
 
 	return accessKey, nil
 }
 
-func (akm *AccessKeyManagerInstance) GenerateAccessKeyId() (string, error) {
+func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 	akm.mutex.Lock()
 	defer akm.mutex.Unlock()
 
@@ -123,7 +130,7 @@ func (akm *AccessKeyManagerInstance) GenerateAccessKeyId() (string, error) {
 	}
 }
 
-func (akm *AccessKeyManagerInstance) GenerateAccessKeySecret() string {
+func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 	prefix := "lbdbaks_"
 
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -137,15 +144,15 @@ func (akm *AccessKeyManagerInstance) GenerateAccessKeySecret() string {
 	return fmt.Sprintf("%s%s", prefix, result)
 }
 
-func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error) {
+func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	var accessKey = &AccessKey{}
-	value := SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
+	value := akm.auth.SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
 
 	if value != nil {
 		return accessKey, nil
 	}
 
-	path := SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
+	path := akm.auth.SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
 
 	fileContents, err := storage.ObjectFS().ReadFile(path)
 
@@ -153,7 +160,7 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error)
 		return nil, err
 	}
 
-	decrypted, err := SecretsManager().Decrypt(config.Get().Signature, string(fileContents))
+	decrypted, err := akm.auth.SecretsManager().Decrypt(config.Get().Signature, string(fileContents))
 
 	if err != nil {
 		return nil, err
@@ -165,32 +172,32 @@ func (akm *AccessKeyManagerInstance) Get(accessKeyId string) (*AccessKey, error)
 		return nil, err
 	}
 
-	SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
-	// SecretsManager().cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
+	akm.auth.SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
+	// akm.secretsManager.cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
 
 	return accessKey, err
 }
 
-func (akm *AccessKeyManagerInstance) Has(databaseKey, accessKeyId string) bool {
+func (akm *AccessKeyManager) Has(databaseKey, accessKeyId string) bool {
 	_, err := akm.Get(accessKeyId)
 
 	return err == nil
 }
 
-func (akm *AccessKeyManagerInstance) Purge(accessKeyId string) {
-	SecretsManager().cache("map").Forget(akm.accessKeyCacheKey(accessKeyId))
-	SecretsManager().cache("transient").Forget(akm.accessKeyCacheKey(accessKeyId))
+func (akm *AccessKeyManager) Purge(accessKeyId string) {
+	akm.auth.SecretsManager().cache("map").Forget(akm.accessKeyCacheKey(accessKeyId))
+	akm.auth.SecretsManager().cache("transient").Forget(akm.accessKeyCacheKey(accessKeyId))
 }
 
-func (akm *AccessKeyManagerInstance) PurgeAll() {
+func (akm *AccessKeyManager) PurgeAll() {
 	// Get all the file names in the access keys directory
-	files, err := storage.ObjectFS().ReadDir(SecretsManager().SecretsPath(config.Get().Signature, "access_keys/"))
+	files, err := storage.ObjectFS().ReadDir(akm.auth.SecretsManager().SecretsPath(config.Get().Signature, "access_keys/"))
 
 	if err != nil {
 		return
 	}
 
 	for _, file := range files {
-		AccessKeyManager().Purge(file.Name)
+		akm.Purge(file.Name)
 	}
 }

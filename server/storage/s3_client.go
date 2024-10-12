@@ -57,7 +57,7 @@ func NewS3Client(bucket string, region string) *S3Client {
 		context:         context.Background(),
 		endpoint:        config.Get().StorageEndpoint,
 		region:          region,
-		secretAccessKey: os.Getenv("LITEBASE_STORAGE_SECRET_ACCESS_KEY"),
+		secretAccessKey: config.Get().StorageSecretAccessKey,
 	}
 
 	client.httpClient = http.Client{}

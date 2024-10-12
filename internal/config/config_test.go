@@ -21,7 +21,7 @@ func TestInit(t *testing.T) {
 		t.Fatalf("The signature file was not created")
 	}
 
-	test.Teardown()
+	test.Teardown(nil)
 }
 
 func TestInitWithNewSignature(t *testing.T) {
@@ -49,7 +49,7 @@ func TestInitWithNewSignature(t *testing.T) {
 		t.Fatalf("The signature was not set")
 	}
 
-	test.Teardown()
+	test.Teardown(nil)
 }
 
 func TestInitWithNoSignature(t *testing.T) {
@@ -61,7 +61,7 @@ func TestInitWithNoSignature(t *testing.T) {
 		t.Fatalf("The error was not nil")
 	}
 
-	test.Teardown()
+	test.Teardown(nil)
 }
 
 func TestNewConfig(t *testing.T) {
@@ -85,7 +85,7 @@ func TestGet(t *testing.T) {
 		t.Fatalf("The signature was not set")
 	}
 
-	test.Teardown()
+	test.Teardown(nil)
 }
 
 func TestSignatureHash(t *testing.T) {
@@ -96,5 +96,5 @@ func TestSignatureHash(t *testing.T) {
 		t.Fatalf("The signature hash was not returned")
 	}
 
-	test.Teardown()
+	test.Teardown(nil)
 }

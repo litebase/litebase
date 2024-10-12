@@ -11,10 +11,11 @@ import (
 )
 
 type AccessKey struct {
-	AccessKeyId     string `json:"access_key_id"`
-	AccessKeySecret string `json:"access_key_secret"`
-	CreatedAt       int64  `json:"created_at"`
-	UpdatedAt       int64  `json:"updated_at"`
+	AccessKeyId      string `json:"access_key_id"`
+	AccessKeySecret  string `json:"access_key_secret"`
+	accessKeyManager *AccessKeyManager
+	CreatedAt        int64 `json:"created_at"`
+	UpdatedAt        int64 `json:"updated_at"`
 	// Privileges      AccessKeyPrivilegeGroups `json:"privileges"`
 	Permissions []*AccessKeyPermission `json:"permissions"`
 }
@@ -29,6 +30,19 @@ type AccessKeyPrivileges []string
 type AccessKeyPermission struct {
 	Resource string   `json:"resource"`
 	Actions  []string `json:"actions"`
+}
+
+func NewAccessKey(
+	accessKeyManager *AccessKeyManager,
+	accessKeyId string,
+	accessKeySecret string,
+	permissions []*AccessKeyPermission,
+) *AccessKey {
+	return &AccessKey{
+		AccessKeyId:     accessKeyId,
+		AccessKeySecret: accessKeySecret,
+		Permissions:     permissions,
+	}
 }
 
 func (accessKey AccessKey) authorized(resource string, action string) bool {
@@ -261,7 +275,7 @@ func (accessKey AccessKey) Delete() error {
 	signatures := _auth.AllSignatures()
 
 	for _, signature := range signatures {
-		path := SecretsManager().SecretsPath(signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId))
+		path := accessKey.accessKeyManager.auth.SecretsManager().SecretsPath(signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId))
 		err := storage.ObjectFS().Remove(path)
 
 		if err != nil {
@@ -270,7 +284,7 @@ func (accessKey AccessKey) Delete() error {
 		}
 	}
 
-	AccessKeyManager().Purge(accessKey.AccessKeyId)
+	accessKey.accessKeyManager.Purge(accessKey.AccessKeyId)
 
 	accessKey = AccessKey{}
 
@@ -287,12 +301,12 @@ func (accessKey AccessKey) Update(
 	}
 
 	storage.ObjectFS().WriteFile(
-		SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
+		accessKey.accessKeyManager.auth.SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
 		jsonValue,
 		0666,
 	)
 
-	AccessKeyManager().Purge(accessKey.AccessKeyId)
+	accessKey.accessKeyManager.Purge(accessKey.AccessKeyId)
 
 	return true
 }

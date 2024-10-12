@@ -34,6 +34,7 @@ func QueryLogController(request *Request) Response {
 	}
 
 	queryLog := logs.GetQueryLog(
+		request.cluster,
 		request.DatabaseKey().DatabaseHash,
 		request.DatabaseKey().DatabaseId,
 		request.DatabaseKey().BranchId,

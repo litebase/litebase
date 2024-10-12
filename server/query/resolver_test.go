@@ -2,16 +2,17 @@ package query_test
 
 import (
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/database"
 	"litebase/server/query"
 	"testing"
 )
 
 func TestHandle(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
-		db, err := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -45,6 +46,8 @@ func TestHandle(t *testing.T) {
 
 		for _, c := range cases {
 			q, err := query.NewQuery(
+				app.Cluster,
+				app.DatabaseManager,
 				database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 				mock.AccessKey,
 				&query.QueryInput{

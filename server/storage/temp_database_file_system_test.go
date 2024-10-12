@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/storage"
 	"testing"
 )
 
 func TestNewTempDatabaseFileSystem(t *testing.T) {
-	test.Run(t, func() {
+	test.Run(t, func(app *server.App) {
 		tmpPath := fmt.Sprintf("%s/%s", config.Get().TmpPath, "test")
 
 		fs := storage.NewTempDatabaseFileSystem(tmpPath, "test", "test")

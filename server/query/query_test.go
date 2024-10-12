@@ -2,16 +2,19 @@ package query_test
 
 import (
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/database"
 	"litebase/server/query"
 	"testing"
 )
 
 func TestNewQuery(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
 		query, err := query.NewQuery(
+			app.Cluster,
+			app.DatabaseManager,
 			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
 			&query.QueryInput{
@@ -32,14 +35,16 @@ func TestNewQuery(t *testing.T) {
 }
 
 func TestResolve(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
 		queryResponse := &query.QueryResponse{}
 		query, err := query.NewQuery(
+			app.Cluster,
+			app.DatabaseManager,
 			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
 			&query.QueryInput{
@@ -62,13 +67,13 @@ func TestResolve(t *testing.T) {
 }
 
 func TestStatement(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		query := &query.Query{
 			Input: &query.QueryInput{
@@ -90,8 +95,8 @@ func TestStatement(t *testing.T) {
 }
 
 // func TestStatementOfBatchQuery(t *testing.T) {
-// 	test.Run(t, func() {
-// 		mock := test.MockDatabase()
+// 	test.Run(t, func(app *server.App) {
+// 		mock := test.MockDatabase(app)
 // 		db, _ := database.Get(mock.DatabaseId, mock.BranchId, nil, false)
 
 // 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
@@ -120,13 +125,13 @@ func TestStatement(t *testing.T) {
 // }
 
 func TestValidate(t *testing.T) {
-	test.Run(t, func() {
-		mock := test.MockDatabase()
-		db, _ := database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+	test.Run(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-		db, _ = database.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		query := &query.Query{
 			Input: &query.QueryInput{

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"litebase/internal/config"
-	"litebase/server/auth"
 	"log"
 	"net/http"
 	"runtime"
@@ -22,12 +21,12 @@ type NodeReplica struct {
 	context         context.Context
 	Address         string
 	Id              string
-	node            *NodeInstance
+	node            *Node
 	startMutex      *sync.RWMutex
 	walSynchronizer NodeWalSynchronizer
 }
 
-func NewNodeReplica(node *NodeInstance) *NodeReplica {
+func NewNodeReplica(node *Node) *NodeReplica {
 	context, cancel := context.WithCancel(context.Background())
 
 	replica := &NodeReplica{
@@ -67,7 +66,7 @@ func (nr *NodeReplica) HandleMessage(message NodeMessage) (NodeMessage, error) {
 func (nr *NodeReplica) handleBroadcastMessage(message NodeMessage) error {
 	switch message.Type {
 	case "HeartbeatMessage":
-		Node().PrimaryHeartbeat = time.Now()
+		nr.node.PrimaryHeartbeat = time.Now()
 	case "WALReplicationWriteMessage":
 		// Verify the integrity of the WAL data
 		sha256Hash := sha256.Sum256(message.Data.(WALReplicationWriteMessage).Data)
@@ -117,7 +116,7 @@ func (nr *NodeReplica) JoinCluster() error {
 	url := fmt.Sprintf("http://%s/cluster/members", nr.node.PrimaryAddress())
 
 	data := map[string]string{
-		"address": Node().Address(),
+		"address": nr.node.Address(),
 		"group":   config.Get().NodeType,
 	}
 
@@ -134,7 +133,7 @@ func (nr *NodeReplica) JoinCluster() error {
 		return err
 	}
 
-	encryptedHeader, err := auth.SecretsManager().Encrypt(
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
 		config.Get().Signature,
 		nr.node.Address(),
 	)
@@ -183,7 +182,7 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return err
 	}
 
-	encryptedHeader, err := auth.SecretsManager().Encrypt(
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
 		config.Get().Signature,
 		nr.node.Address(),
 	)
@@ -223,16 +222,16 @@ func (nr *NodeReplica) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 		Timeout: 3 * time.Second,
 	}
 
-	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/cluster/primary", Node().PrimaryAddress()), data)
+	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
 
 	if err != nil {
 		log.Println("Failed to send message: ", err)
 		return NodeMessage{}, err
 	}
 
-	encryptedHeader, err := auth.SecretsManager().Encrypt(
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
 		config.Get().Signature,
-		Node().Address(),
+		nr.node.Address(),
 	)
 
 	if err != nil {
@@ -273,7 +272,7 @@ func (nr *NodeReplica) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 }
 
 func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage NodeMessage) (chan NodeMessage, error) {
-	if Node().PrimaryAddress() == "" {
+	if nr.node.PrimaryAddress() == "" {
 		return nil, errors.New("Primary address is not set")
 	}
 
@@ -287,16 +286,16 @@ func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage NodeMessage) (chan N
 		return nil, err
 	}
 
-	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/cluster/primary", Node().PrimaryAddress()), data)
+	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
 
 	if err != nil {
 		log.Println("Failed to send message: ", err)
 		return nil, err
 	}
 
-	encryptedHeader, err := auth.SecretsManager().Encrypt(
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
 		config.Get().Signature,
-		Node().Address(),
+		nr.node.Address(),
 	)
 
 	if err != nil {
@@ -347,9 +346,9 @@ func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage NodeMessage) (chan N
 }
 
 // func (nr *NodeReplica) Start() (err error) {
-// 	primaryAddress := Node().PrimaryAddress()
+// 	primaryAddress := nr.node.PrimaryAddress()
 
-// 	if primaryAddress == "" || primaryAddress == Node().Address() {
+// 	if primaryAddress == "" || primaryAddress == nr.node.Address() {
 // 		return nil
 // 	}
 

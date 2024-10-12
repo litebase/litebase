@@ -20,6 +20,7 @@ import (
 
 type QueryLog struct {
 	branchId       string
+	cluster        *cluster.Cluster
 	databaseId     string
 	file           internalStorage.File
 	keyBuffer      *bytes.Buffer
@@ -33,6 +34,7 @@ type QueryLog struct {
 }
 
 type QueryLogEnry struct {
+	Cluster                                                    *cluster.Cluster
 	DatabaseHash, DatabaseId, BranchId, AccessKeyId, Statement string
 	Latency                                                    float64
 }
@@ -45,7 +47,7 @@ var queryLogBuffer = sync.Pool{
 	},
 }
 
-func GetQueryLog(databaseHash, databaseId, branchId string) *QueryLog {
+func GetQueryLog(cluster *cluster.Cluster, databaseHash, databaseId, branchId string) *QueryLog {
 	qyeryLogMutex.Lock()
 	defer qyeryLogMutex.Unlock()
 
@@ -60,6 +62,7 @@ func GetQueryLog(databaseHash, databaseId, branchId string) *QueryLog {
 
 		queryLoggers[databaseHash] = &QueryLog{
 			branchId:    branchId,
+			cluster:     cluster,
 			databaseId:  databaseId,
 			keyBuffer:   bytes.NewBuffer(make([]byte, 20)),
 			mutex:       sync.RWMutex{},
@@ -87,6 +90,7 @@ func GetQueryLog(databaseHash, databaseId, branchId string) *QueryLog {
 
 func Query(entry QueryLogEnry) error {
 	log := GetQueryLog(
+		entry.Cluster,
 		entry.DatabaseHash,
 		entry.DatabaseId,
 		entry.BranchId,
@@ -107,7 +111,7 @@ func Query(entry QueryLogEnry) error {
 
 func (q *QueryLog) GetFile() internalStorage.File {
 	if q.file == nil {
-		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, cluster.Node().Id)
+		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, q.cluster.Node().Id)
 
 		err := storage.TieredFS().MkdirAll(filepath.Dir(path), 0755)
 
@@ -287,7 +291,7 @@ func (q *QueryLog) Watch() {
 
 		for {
 			select {
-			case <-cluster.Node().Context().Done():
+			case <-q.cluster.Node().Context().Done():
 				return
 			case <-ticker.C:
 				q.mutex.RLock()
@@ -308,7 +312,6 @@ func (q *QueryLog) Watch() {
 }
 
 func (q *QueryLog) Write(accessKeyId, statement string, latency float64) {
-
 	timestamp := time.Now().UTC().Truncate(time.Second)
 
 	buffer := queryLogBuffer.Get().(*bytes.Buffer)

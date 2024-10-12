@@ -60,7 +60,7 @@ func QueryStreamController(request *Request) Response {
 			scanner := bufio.NewScanner(request.BaseRequest.Body)
 			writer := make(chan *bytes.Buffer, 1)
 
-			go readQueryStream(cancel, scanner, databaseKey, accessKey, writer)
+			go readQueryStream(cancel, request, scanner, databaseKey, accessKey, writer)
 			go writeQueryStream(ctx, w, writer)
 
 			<-ctx.Done()
@@ -69,12 +69,15 @@ func QueryStreamController(request *Request) Response {
 }
 
 func processInput(
+	request *Request,
 	databaseKey *database.DatabaseKey,
 	accessKey *auth.AccessKey,
 	input *query.QueryInput,
 	response *query.QueryResponse,
 ) error {
 	requestQuery := query.Get(
+		request.cluster,
+		request.databaseManager,
 		databaseKey,
 		accessKey,
 		input,
@@ -94,6 +97,7 @@ func processInput(
 
 func readQueryStream(
 	cancel context.CancelFunc,
+	request *Request,
 	scanner *bufio.Scanner,
 	databaseKey *database.DatabaseKey,
 	accessKey *auth.AccessKey,
@@ -128,7 +132,7 @@ func readQueryStream(
 			scanBuffer.Reset()
 			scanBuffer.Write(scanner.Bytes())
 
-			go scan(databaseKey, accessKey, scanBuffer, writer)
+			go scan(request, databaseKey, accessKey, scanBuffer, writer)
 		} else {
 			break
 		}
@@ -137,7 +141,9 @@ func readQueryStream(
 	cancel()
 }
 
-func scan(databaseKey *database.DatabaseKey,
+func scan(
+	request *Request,
+	databaseKey *database.DatabaseKey,
 	accessKey *auth.AccessKey,
 	scanBuffer *bytes.Buffer,
 	writer chan *bytes.Buffer,
@@ -184,7 +190,7 @@ func scan(databaseKey *database.DatabaseKey,
 
 	response.Reset()
 
-	err = processInput(databaseKey, accessKey, input, response)
+	err = processInput(request, databaseKey, accessKey, input, response)
 
 	if err != nil {
 		writeBuffer.Write(JsonNewLineErrorWithData(err, map[string]interface{}{

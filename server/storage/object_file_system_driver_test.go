@@ -4,13 +4,14 @@ import (
 	"io"
 	"litebase/internal/config"
 	"litebase/internal/test"
+	"litebase/server"
 	"litebase/server/storage"
 	"os"
 	"testing"
 )
 
 func TestObjectFileSystemDriver(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		if driver == nil {
@@ -20,7 +21,7 @@ func TestObjectFileSystemDriver(t *testing.T) {
 }
 
 func TestObectFileSystemDriverCreate(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Test creating a file
@@ -37,7 +38,7 @@ func TestObectFileSystemDriverCreate(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverEnsureBucketExists(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Ensure the bucket exists
@@ -58,7 +59,7 @@ func TestObjectFileSystemDriverEnsureBucketExists(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverMkdir(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Test creating a directory
@@ -71,7 +72,7 @@ func TestObjectFileSystemDriverMkdir(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverMkdirAll(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Test creating a directory and all parent directories
@@ -84,7 +85,7 @@ func TestObjectFileSystemDriverMkdirAll(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverOpen(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Create a file to open
@@ -108,7 +109,7 @@ func TestObjectFileSystemDriverOpen(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverOpenFile(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Create a file to open
@@ -132,7 +133,7 @@ func TestObjectFileSystemDriverOpenFile(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverReadDir(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Test reading a directory
@@ -149,7 +150,7 @@ func TestObjectFileSystemDriverReadDir(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverReadFile(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0644)
@@ -176,7 +177,7 @@ func TestObjectFileSystemDriverReadFile(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverRemove(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Create a file to remove
@@ -196,7 +197,7 @@ func TestObjectFileSystemDriverRemove(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverRemoveAll(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Create a directory to remove
@@ -234,7 +235,7 @@ func TestObjectFileSystemDriverRemoveAll(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverRename(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Create a file to rename
@@ -273,7 +274,7 @@ func TestObjectFileSystemDriverRename(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverStat(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Create a file to stat
@@ -297,7 +298,7 @@ func TestObjectFileSystemDriverStat(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverTruncate(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Create a file to truncate
@@ -317,7 +318,7 @@ func TestObjectFileSystemDriverTruncate(t *testing.T) {
 }
 
 func TestObjectFileSystemDriverWriteFile(t *testing.T) {
-	test.RunWithObjectStorage(t, func() {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver()
 
 		// Test writing to a file

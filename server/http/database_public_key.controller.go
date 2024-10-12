@@ -2,7 +2,6 @@ package http
 
 import (
 	_auth "litebase/internal/auth"
-	"litebase/server/auth"
 )
 
 type DatabasePublicKeyRequest struct {
@@ -47,7 +46,7 @@ func DatabasePublicKeyController(request *Request) Response {
 		}
 	}
 
-	decrypted, err := auth.SecretsManager().Decrypt(
+	decrypted, err := request.cluster.Auth.SecretsManager().Decrypt(
 		signature,
 		input.(*DatabasePublicKeyRequest).PublicKey,
 	)
@@ -61,7 +60,7 @@ func DatabasePublicKeyController(request *Request) Response {
 		}
 	}
 
-	encrypted, err := auth.SecretsManager().Encrypt(
+	encrypted, err := request.cluster.Auth.SecretsManager().Encrypt(
 		input.(*DatabasePublicKeyRequest).Signature,
 		decrypted["value"],
 	)
@@ -75,7 +74,7 @@ func DatabasePublicKeyController(request *Request) Response {
 		}
 	}
 
-	err = auth.SecretsManager().StoreDatabasePublicKey(
+	err = request.cluster.Auth.SecretsManager().StoreDatabasePublicKey(
 		input.(*DatabasePublicKeyRequest).Signature,
 		request.Param("database_id"),
 		encrypted,

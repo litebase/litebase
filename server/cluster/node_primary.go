@@ -8,11 +8,11 @@ import (
 
 type NodePrimary struct {
 	mutex           *sync.RWMutex
-	node            *NodeInstance
+	node            *Node
 	nodeConnections map[string]*NodeConnection
 }
 
-func NewNodePrimary(node *NodeInstance) *NodePrimary {
+func NewNodePrimary(node *Node) *NodePrimary {
 	primary := &NodePrimary{
 		mutex:           &sync.RWMutex{},
 		node:            node,
@@ -112,9 +112,9 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 	var nodes []*NodeIdentifier
 
 	if config.Get().NodeType == config.NODE_TYPE_QUERY {
-		nodes = OtherQueryNodes()
+		nodes = np.node.OtherQueryNodes()
 	} else if config.Get().NodeType == config.NODE_TYPE_STORAGE {
-		nodes = OtherStorageNodes()
+		nodes = np.node.OtherStorageNodes()
 	}
 
 	if len(nodes) == 0 {
@@ -136,7 +136,7 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 
 			if connection, ok = np.nodeConnections[node.String()]; !ok {
 				log.Println("Creating new connection to node: ", node.String())
-				connection = NewNodeConnection(node.String())
+				connection = NewNodeConnection(np.node, node.String())
 				np.nodeConnections[node.String()] = connection
 			}
 

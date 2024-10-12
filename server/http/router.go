@@ -4,6 +4,8 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"litebase/server/cluster"
+	"litebase/server/database"
 	"net/http"
 	"regexp"
 )
@@ -77,18 +79,22 @@ func (router *RouterInstance) request(method string, path string, handler func(r
 	return router.Routes[method][path]
 }
 
-func (router *RouterInstance) Server(serveMux *http.ServeMux) {
+func (router *RouterInstance) Server(
+	cluster *cluster.Cluster,
+	databaseManager *database.DatabaseManager,
+	serveMux *http.ServeMux,
+) {
 	LoadRoutes(router)
 
 	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		response := router.DefaultRoute.Handler(NewRequest(r))
+		response := router.DefaultRoute.Handler(NewRequest(cluster, databaseManager, r))
 		w.WriteHeader(response.StatusCode)
 	})
 
 	for method := range router.Routes {
 		for path, route := range router.Routes[method] {
 			serveMux.HandleFunc(fmt.Sprintf("%s %s", method, path), func(w http.ResponseWriter, r *http.Request) {
-				response := route.Handle(NewRequest(r))
+				response := route.Handle(NewRequest(cluster, databaseManager, r))
 
 				if response.StatusCode == 0 {
 					return

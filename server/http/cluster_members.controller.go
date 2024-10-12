@@ -2,17 +2,15 @@ package http
 
 import (
 	"litebase/internal/config"
-	"litebase/server/auth"
-	"litebase/server/cluster"
 	"log"
 )
 
 func ClusterMemberDestroyController(request *Request) Response {
-	queryNodes, storageNodes := cluster.Get().GetMembers(true)
+	queryNodes, storageNodes := request.cluster.GetMembers(true)
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
 
-	decryptedIp, err := auth.SecretsManager().Decrypt(
+	decryptedIp, err := request.cluster.Auth.SecretsManager().Decrypt(
 		config.Get().Signature,
 		ipAddress,
 	)
@@ -67,7 +65,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 		}
 	}
 
-	cluster.Get().RemoveMember(address)
+	request.cluster.RemoveMember(address)
 
 	return Response{
 		StatusCode: 200,
@@ -76,7 +74,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 }
 
 func ClusterMemberStoreController(request *Request) Response {
-	queryNodes, storageNodes := cluster.Get().GetMembers(false)
+	queryNodes, storageNodes := request.cluster.GetMembers(false)
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
 
@@ -84,7 +82,7 @@ func ClusterMemberStoreController(request *Request) Response {
 		log.Println("Unauthorized node connection attempt: ", ipAddress)
 	}
 
-	decryptedIp, err := auth.SecretsManager().Decrypt(
+	decryptedIp, err := request.cluster.Auth.SecretsManager().Decrypt(
 		config.Get().Signature,
 		ipAddress,
 	)
@@ -124,7 +122,7 @@ func ClusterMemberStoreController(request *Request) Response {
 	group := request.Get("group").(string)
 	address := request.Get("address").(string)
 
-	err = cluster.Get().AddMember(group, address)
+	err = request.cluster.AddMember(group, address)
 
 	if err != nil {
 		log.Println("Failed to add member: ", err)

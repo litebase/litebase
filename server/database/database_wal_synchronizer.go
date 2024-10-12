@@ -4,10 +4,14 @@ import (
 	"log"
 )
 
-type DatabaseWalSynchronizer struct{}
+type DatabaseWalSynchronizer struct {
+	databaseManager *DatabaseManager
+}
 
-func NewDatabaseWalSynchronizer() *DatabaseWalSynchronizer {
-	return &DatabaseWalSynchronizer{}
+func NewDatabaseWalSynchronizer(databaseManager *DatabaseManager) *DatabaseWalSynchronizer {
+	return &DatabaseWalSynchronizer{
+		databaseManager: databaseManager,
+	}
 }
 
 func (d *DatabaseWalSynchronizer) WriteAt(
@@ -15,7 +19,7 @@ func (d *DatabaseWalSynchronizer) WriteAt(
 	p []byte,
 	off, sequence, timestamp int64,
 ) error {
-	wal, err := Resources(databaseId, branchId).WalFile()
+	wal, err := d.databaseManager.Resources(databaseId, branchId).WalFile()
 
 	if err != nil {
 		log.Println(err)
@@ -33,7 +37,7 @@ func (d *DatabaseWalSynchronizer) WriteAt(
 }
 
 func (d *DatabaseWalSynchronizer) Truncate(databaseId, branchId string, size, sequence, timestamp int64) error {
-	wal, err := Resources(databaseId, branchId).WalFile()
+	wal, err := d.databaseManager.Resources(databaseId, branchId).WalFile()
 
 	if err != nil {
 		log.Println(err)

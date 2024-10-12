@@ -2,12 +2,11 @@ package http
 
 import (
 	"fmt"
-	"litebase/server/auth"
 	"log"
 )
 
 func AccessKeyControllerIndex(request *Request) Response {
-	accessKeysIds, err := auth.AccessKeyManager().AllAccessKeyIds()
+	accessKeysIds, err := request.accessKeyManager.AllAccessKeyIds()
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
@@ -32,7 +31,7 @@ func AccessKeyControllerIndex(request *Request) Response {
 }
 
 func AccessKeyControllerStore(request *Request) Response {
-	accessKey, err := auth.AccessKeyManager().Create()
+	accessKey, err := request.accessKeyManager.Create()
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
@@ -55,9 +54,9 @@ func AccessKeyControllerStore(request *Request) Response {
 }
 
 func AccessKeyControllerUpdate(request *Request) Response {
-	auth.SecretsManager().Init()
+	request.cluster.Auth.SecretsManager().Init()
 
-	accessKey, err := auth.AccessKeyManager().Get(request.Get("access_key_id").(string))
+	accessKey, err := request.accessKeyManager.Get(request.Get("access_key_id").(string))
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{
@@ -83,7 +82,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 
 func AccessKeyControllerDestroy(request *Request) Response {
 	log.Println("Destroying access key", request.Param("accessKeyId"))
-	accessKey, err := auth.AccessKeyManager().Get(request.Param("accessKeyId"))
+	accessKey, err := request.accessKeyManager.Get(request.Param("accessKeyId"))
 
 	if err != nil {
 		return JsonResponse(map[string]interface{}{

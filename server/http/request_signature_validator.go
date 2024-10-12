@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebase/internal/utils"
-	"litebase/server/auth"
 	"log"
 	"strings"
 
@@ -98,7 +97,7 @@ func RequestSignatureValidator(
 		string(jsonBody),
 	}, "")
 
-	secret, err := auth.SecretsManager().GetAccessKeySecret(request.RequestToken(header).AccessKeyId)
+	secret, err := request.cluster.Auth.SecretsManager().GetAccessKeySecret(request.RequestToken(header).AccessKeyId)
 
 	if err != nil {
 		return false
