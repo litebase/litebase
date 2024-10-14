@@ -8,7 +8,7 @@ import (
 )
 
 func TestRollbackFrame(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		frame := backups.RollbackLogFrame{
 			Committed: 1,
 			Offset:    100,

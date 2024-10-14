@@ -31,6 +31,7 @@ const (
 type Cluster struct {
 	Auth                *auth.Auth
 	AccessKeyManager    *auth.AccessKeyManager
+	channels            map[string]EventChannel
 	eventsManager       *EventsManager
 	Id                  string `json:"id"`
 	QueryPrimary        string
@@ -76,6 +77,7 @@ func Init(Auth *auth.Auth) (*Cluster, error) {
 
 	c := &Cluster{
 		Auth:                Auth,
+		channels:            map[string]EventChannel{},
 		mutex:               &sync.Mutex{},
 		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
 	}
@@ -198,6 +200,7 @@ func NewCluster(id string, Auth *auth.Auth) (*Cluster, error) {
 
 	cluster := &Cluster{
 		Auth:                Auth,
+		channels:            map[string]EventChannel{},
 		Id:                  id,
 		mutex:               &sync.Mutex{},
 		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
@@ -382,12 +385,12 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 
 	wg.Wait()
 
-	if queryNodesError != nil && queryNodesError != os.ErrNotExist {
+	if queryNodesError != nil && !os.IsNotExist(queryNodesError) {
 		log.Println("Query nodes error: ", queryNodesError)
 		return nil, nil
 	}
 
-	if storageNodesError != nil && storageNodesError != os.ErrNotExist {
+	if storageNodesError != nil && !os.IsNotExist(storageNodesError) {
 		log.Println("Storage nodes error: ", storageNodesError)
 		return nil, nil
 	}

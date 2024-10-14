@@ -45,7 +45,7 @@ func SingatureActivateController(request *Request) Response {
 
 	auth.StoreSignature(input.(*SingatureActivateRequest).Signature)
 
-	request.cluster.Node().Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
+	request.cluster.Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
 
 	return Response{
 		StatusCode: 200,

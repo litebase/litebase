@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 type Snapshot struct {
@@ -63,8 +64,9 @@ Create a new instance of a snapshot.
 */
 func NewSnapshot(databaseId string, branchId string, dayTimestamp, timestamp int64) *Snapshot {
 	return &Snapshot{
-		BranchId:   branchId,
-		DatabaseId: databaseId,
+		BranchId:       branchId,
+		DatabaseId:     databaseId,
+		LastAccessedAt: time.Now().Unix(),
 		RestorePoints: SnapshotRestorePoints{
 			Data:  []int64{},
 			Start: timestamp,

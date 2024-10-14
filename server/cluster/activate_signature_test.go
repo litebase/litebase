@@ -9,7 +9,7 @@ import (
 )
 
 func TestActivateSignatureHandler(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		currentSignature := config.Get().Signature
 
 		if currentSignature == "test" {

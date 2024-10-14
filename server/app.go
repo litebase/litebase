@@ -18,8 +18,7 @@ type App struct {
 	DatabaseManager *database.DatabaseManager
 	Cluster         *cluster.Cluster
 	Config          *config.Config
-	// Server      *Server
-	ServeMux *netHttp.ServeMux
+	ServeMux        *netHttp.ServeMux
 }
 
 func attemptSecretInitialization() bool {

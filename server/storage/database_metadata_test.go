@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewDatabaseMetadata(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
@@ -51,7 +51,7 @@ func TestNewDatabaseMetadata(t *testing.T) {
 }
 
 func TestDatabaseMetadataClose(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
@@ -77,7 +77,7 @@ func TestDatabaseMetadataClose(t *testing.T) {
 }
 
 func TestDatabaseMetadataFile(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
@@ -111,7 +111,7 @@ func TestDatabaseMetadataFile(t *testing.T) {
 }
 
 func TestDatabaseMetadataFileSize(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
@@ -141,7 +141,7 @@ func TestDatabaseMetadataFileSize(t *testing.T) {
 }
 
 func TestDatabaseMetadataLoad(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
@@ -191,7 +191,7 @@ func TestDatabaseMetadataLoad(t *testing.T) {
 }
 
 func TestDatabaseMetadataPath(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
@@ -217,7 +217,7 @@ func TestDatabaseMetadataPath(t *testing.T) {
 }
 
 func TestDatabaseMetadataSave(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
@@ -263,7 +263,7 @@ func TestDatabaseMetadataSave(t *testing.T) {
 }
 
 func TestDatabaseMetadataSetPageCount(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(

@@ -13,7 +13,7 @@ import (
 )
 
 func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		source := test.MockDatabase(app)
 		target := test.MockDatabase(app)
 		sourceDirectory := file.GetDatabaseFileDir(source.DatabaseId, source.BranchId)
@@ -55,7 +55,7 @@ func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
 }
 
 func TestRestoreFromTimestamp(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		source := test.MockDatabase(app)
 		target := test.MockDatabase(app)
 
@@ -196,7 +196,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 }
 
 func TestRestoreFromInvalidBackup(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		source := test.MockDatabase(app)
 		target := test.MockDatabase(app)
 
@@ -295,7 +295,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 
 	for _, timeout := range timeouts {
 		t.Run(fmt.Sprintf("restore with timeout: %s", timeout), func(t *testing.T) {
-			test.Run(t, func(app *server.App) {
+			test.RunWithApp(t, func(app *server.App) {
 				source := test.MockDatabase(app)
 				target := test.MockDatabase(app)
 

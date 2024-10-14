@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// TODO: Cleanup unused log files
 type SnapshotLogger struct {
 	BranchId          string
 	DatabaseId        string

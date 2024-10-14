@@ -126,7 +126,7 @@ func (nr *NodeReplica) JoinCluster() error {
 		return err
 	}
 
-	request, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	request, err := http.NewRequestWithContext(nr.node.context, "POST", url, bytes.NewBuffer(jsonData))
 
 	if err != nil {
 		log.Println("Failed to join cluster: ", err)
@@ -175,7 +175,7 @@ func (nr *NodeReplica) LeaveCluster() error {
 
 	url := fmt.Sprintf("http://%s/cluster/members/%s", nr.node.primaryAddress, nr.node.Address())
 
-	request, err := http.NewRequest("DELETE", url, nil)
+	request, err := http.NewRequestWithContext(nr.node.context, "DELETE", url, nil)
 
 	if err != nil {
 		log.Println("Failed to leave cluster: ", err)
@@ -222,7 +222,7 @@ func (nr *NodeReplica) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 		Timeout: 3 * time.Second,
 	}
 
-	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
+	request, err := http.NewRequestWithContext(nr.node.context, "POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
 
 	if err != nil {
 		log.Println("Failed to send message: ", err)
@@ -286,7 +286,7 @@ func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage NodeMessage) (chan N
 		return nil, err
 	}
 
-	request, err := http.NewRequest("POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
+	request, err := http.NewRequestWithContext(nr.node.context, "POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
 
 	if err != nil {
 		log.Println("Failed to send message: ", err)

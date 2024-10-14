@@ -135,7 +135,6 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 			np.mutex.Lock()
 
 			if connection, ok = np.nodeConnections[node.String()]; !ok {
-				log.Println("Creating new connection to node: ", node.String())
 				connection = NewNodeConnection(np.node, node.String())
 				np.nodeConnections[node.String()] = connection
 			}
@@ -153,4 +152,13 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 	wg.Wait()
 
 	return nil
+}
+
+func (np *NodePrimary) Shutdown() {
+	np.mutex.Lock()
+	defer np.mutex.Unlock()
+
+	for _, connection := range np.nodeConnections {
+		connection.Close()
+	}
 }

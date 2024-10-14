@@ -10,7 +10,7 @@ import (
 )
 
 func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -86,7 +86,7 @@ from in an interleaved manner without issue.
 TODO: Test times out.
 */
 func TestDatabaseConnectionsInterleaved(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)

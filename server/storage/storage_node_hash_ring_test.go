@@ -16,7 +16,7 @@ func TestNewStorageHashRing(t *testing.T) {
 }
 
 func TestStorageHashRingGetNode(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		hashRing := storage.NewStorageNodeHashRing([]string{"node1", "node2", "node3"})
 
 		index, address, err := hashRing.GetNode("key1")
@@ -79,7 +79,7 @@ func TestStorageHashRingGetNodeEmpty(t *testing.T) {
 }
 
 func TestStorageHashRingAddNode(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		hashRing := storage.NewStorageNodeHashRing([]string{"node1"})
 
 		index, address, err := hashRing.GetNode("key1")
@@ -99,7 +99,7 @@ func TestStorageHashRingAddNode(t *testing.T) {
 }
 
 func TestStorageHashRingRemoveNode(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		hashRing := storage.NewStorageNodeHashRing([]string{"node1"})
 
 		index, address, err := hashRing.GetNode("key1")

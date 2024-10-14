@@ -2,6 +2,7 @@ package test
 
 import (
 	"litebase/server"
+	"litebase/server/storage"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +10,10 @@ import (
 )
 
 type TestServer struct {
-	Server *httptest.Server
+	Address string
+	App     *server.App
+	Port    string
+	Server  *httptest.Server
 }
 
 /*
@@ -22,19 +26,27 @@ func NewTestServer(t *testing.T) *TestServer {
 	port := ts.URL[len(ts.URL)-5:]
 
 	log.Println("Litebase Test Server running on port", port)
-	{
 
-		t.Setenv("LITEBASE_PORT", port)
-		app := server.NewApp(serveMux)
-		app.Run()
+	t.Setenv("LITEBASE_PORT", port)
+	app := server.NewApp(serveMux)
+	app.Run()
+
+	err := app.Cluster.Node().Start()
+
+	if err != nil {
+		log.Fatalf("Node start: %v", err)
 	}
 
-	// s := server.NewServer()
+	t.Cleanup(func() {
+		app.Cluster.Node().Shutdown()
+		app.DatabaseManager.ConnectionManager().Shutdown()
+		storage.Shutdown()
+	})
 
-	// s.Start(func(s *server.Server) {
-	// })
-	// ts.Start()
 	return &TestServer{
-		Server: ts,
+		Address: ts.URL,
+		App:     app,
+		Port:    port,
+		Server:  ts,
 	}
 }

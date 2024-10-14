@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidateQuery(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 

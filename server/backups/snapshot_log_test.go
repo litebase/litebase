@@ -11,7 +11,7 @@ import (
 )
 
 func TestSnapGetSnapshotPath(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		expectedPath := fmt.Sprintf("_databases/%s/%s/logs/snapshots/123", mock.DatabaseId, mock.BranchId)
 		actualPath := backups.GetSnapshotPath(mock.DatabaseId, mock.BranchId, 123)
@@ -23,7 +23,7 @@ func TestSnapGetSnapshotPath(t *testing.T) {
 }
 
 func TestNewSnapshot(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		snapshot := backups.NewSnapshot(mock.DatabaseId, mock.BranchId, time.Now().Unix(), time.Now().Unix())
@@ -47,7 +47,7 @@ func TestNewSnapshot(t *testing.T) {
 }
 
 func TestSnapshotClose(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
@@ -75,7 +75,7 @@ func TestSnapshotClose(t *testing.T) {
 }
 
 func TestSnapshotGetRestorePoints(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		snappshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
@@ -117,7 +117,7 @@ func TestSnapshotGetRestorePoints(t *testing.T) {
 }
 
 func TestSnapshotLoad(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		snappshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
@@ -161,7 +161,7 @@ func TestSnapshotLoad(t *testing.T) {
 }
 
 func TestSnapshotLog(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		snapshotLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)

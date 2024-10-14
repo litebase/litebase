@@ -8,7 +8,7 @@ import (
 )
 
 func BenchmarkWriteQueue(b *testing.B) {
-	test.Run(b, func(app *server.App) {
+	test.RunWithApp(b, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		wq := query.GetWriteQueue(&query.Query{
 			DatabaseKey: mock.DatabaseKey,

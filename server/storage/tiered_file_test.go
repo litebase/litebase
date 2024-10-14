@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewTieredFile(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		file, err := storage.LocalFS().Create("text.txt")
 
 		if err != nil {
@@ -56,7 +56,7 @@ func TestNewTieredFile(t *testing.T) {
 }
 
 func TestTieredFileClose(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		// fs := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/local")
 
 		file, err := storage.LocalFS().Create("text.txt")
@@ -84,7 +84,7 @@ func TestTieredFileClose(t *testing.T) {
 }
 
 func TestTieredFileMarkUpdated(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		file, err := storage.LocalFS().Create("text.txt")
 
 		if err != nil {
@@ -112,7 +112,7 @@ func TestTieredFileMarkUpdated(t *testing.T) {
 }
 
 func TestTieredFileRead(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
 			storage.LocalFS(),

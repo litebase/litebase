@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewSnapshotLogger(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		logger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 
@@ -29,7 +29,7 @@ func TestNewSnapshotLogger(t *testing.T) {
 }
 
 func TestSnapshotLoggerClose(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		logger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 
@@ -40,7 +40,7 @@ func TestSnapshotLoggerClose(t *testing.T) {
 }
 
 func TestSnapshotLoggerGetSnapshot(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
@@ -72,7 +72,7 @@ func TestSnapshotLoggerGetSnapshot(t *testing.T) {
 }
 
 func TestSnapshotLoggerGetSnapshots(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		keys := snapshotLogger.Keys()
@@ -106,7 +106,7 @@ func TestSnapshotLoggerGetSnapshots(t *testing.T) {
 }
 
 func TestSnapshotLoggerGetSnapshotsWithRestorePoints(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 
@@ -144,7 +144,7 @@ func TestSnapshotLoggerGetSnapshotsWithRestorePoints(t *testing.T) {
 }
 
 func TestSnapshotLoggerLog(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		logger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
 		timestamps := make([]int64, 0)

@@ -13,7 +13,7 @@ import (
 
 var envDataPath string
 
-func Setup(t testing.TB, callbacks ...func()) *server.App {
+func setupTestEvn(t testing.TB) error {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	err := godotenv.Load("./../../.env.test")
@@ -41,6 +41,12 @@ func Setup(t testing.TB, callbacks ...func()) *server.App {
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)
 	t.Setenv("LITEBASE_SIGNATURE", CreateHash(64))
 
+	return err
+}
+
+func Setup(t testing.TB, callbacks ...func()) *server.App {
+	err := setupTestEvn(t)
+
 	for _, callback := range callbacks {
 		callback()
 	}
@@ -56,11 +62,20 @@ func Setup(t testing.TB, callbacks ...func()) *server.App {
 	return app
 }
 
-func Teardown(app *server.App, callbacks ...func()) {
-	app.DatabaseManager.ConnectionManager().Shutdown()
-	app.DatabaseManager.ShutdownResources()
+func SetupWithoutApp(t testing.TB, callbacks ...func()) error {
+	err := setupTestEvn(t)
 
+	for _, callback := range callbacks {
+		callback()
+	}
+
+	return err
+}
+
+func Teardown(app *server.App, callbacks ...func()) {
 	if app != nil {
+		app.DatabaseManager.ConnectionManager().Shutdown()
+		app.DatabaseManager.ShutdownResources()
 		app.Cluster.Node().Shutdown()
 	}
 
@@ -73,7 +88,18 @@ func Teardown(app *server.App, callbacks ...func()) {
 	}
 }
 
-func Run(t testing.TB, callback func(*server.App)) {
+func Run(t testing.TB, callback func()) {
+	// Setup the environment
+	SetupWithoutApp(t)
+
+	// Run the test
+	callback()
+
+	// Teardown the environment
+	Teardown(nil)
+}
+
+func RunWithApp(t testing.TB, callback func(*server.App)) {
 	// Setup the environment
 	app := Setup(t)
 	// Run the test

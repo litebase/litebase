@@ -11,7 +11,7 @@ import (
 )
 
 func TestStorageConnectionManager(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		scm := storage.SCM()
 
 		if scm == nil {
@@ -21,7 +21,7 @@ func TestStorageConnectionManager(t *testing.T) {
 }
 
 func TestStorageConnectionManagerClose(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		scm := storage.SCM()
 
 		if scm == nil {
@@ -37,7 +37,7 @@ func TestStorageConnectionManagerClose(t *testing.T) {
 }
 
 func TestStorageConnectionManagerGetConnection(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		scm := storage.SCM()
 
 		if scm == nil {
@@ -149,7 +149,7 @@ func TestStorageConnectionManagerGetConnectionWithChangingMembership(t *testing.
 
 	for i := 0; i < len(databaseIds); i++ {
 		t.Run("", func(t *testing.T) {
-			test.Run(t, func(app *server.App) {
+			test.RunWithApp(t, func(app *server.App) {
 				testCases := []struct {
 					add    []string
 					remove []string

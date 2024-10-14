@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewTempDatabaseFileSystem(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		tmpPath := fmt.Sprintf("%s/%s", config.Get().TmpPath, "test")
 
 		fs := storage.NewTempDatabaseFileSystem(tmpPath, "test", "test")

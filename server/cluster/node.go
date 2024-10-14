@@ -147,9 +147,6 @@ func (n *Node) IsStandBy() bool {
 }
 
 func (n *Node) joinCluster() error {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
 	if !n.joinedClusterAt.IsZero() {
 		return nil
 	}
@@ -181,7 +178,7 @@ func (n *Node) joinCluster() error {
 		n.joinedClusterAt = time.Now()
 	}
 
-	err = n.Broadcast("cluster:join", map[string]string{
+	err = n.cluster.Broadcast("cluster:join", map[string]string{
 		"address": n.Address(),
 		"group":   config.Get().NodeType,
 	})
@@ -273,7 +270,7 @@ func (n *Node) primaryLeaseVerification() bool {
 
 	if time.Now().Unix() >= leaseTime {
 		n.removePrimaryStatus()
-		n.SetMembership(CLUSTER_MEMBERSHIP_REPLICA)
+		n.setMembership(CLUSTER_MEMBERSHIP_REPLICA)
 
 		return false
 	}
@@ -339,7 +336,7 @@ func (n *Node) Replica() *NodeReplica {
 }
 
 /*
-Return the NodeReplicator for the Node.
+Return the NodeWalReplicator for the Node.
 */
 func (n *Node) WalReplicator() *NodeWalReplicator {
 	n.mutex.Lock()
@@ -385,7 +382,7 @@ func (n *Node) renewLease() error {
 	}
 
 	if string(primaryAddress) != n.Address() {
-		n.SetMembership(CLUSTER_MEMBERSHIP_REPLICA)
+		n.setMembership(CLUSTER_MEMBERSHIP_REPLICA)
 
 		return fmt.Errorf("primary address verification failed")
 	}
@@ -512,7 +509,7 @@ func (n *Node) runElection() bool {
 			return false
 		}
 
-		n.SetMembership(CLUSTER_MEMBERSHIP_PRIMARY)
+		n.setMembership(CLUSTER_MEMBERSHIP_PRIMARY)
 		truncateFile(NominationPath())
 
 		err := n.renewLease()
@@ -552,15 +549,12 @@ func (n *Node) runTicker() {
 			}
 
 			// Change the cluster membership to stand by
-			// n.SetMembership(CLUSTER_MEMBERSHIP_STAND_BY)
+			// n.setMembership(CLUSTER_MEMBERSHIP_STAND_BY)
 		}
 	}
 }
 
-func (n *Node) SetMembership(membership string) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
+func (n *Node) setMembership(membership string) {
 	prevMembership := n.Membership
 
 	n.Membership = membership
@@ -602,10 +596,11 @@ func (n *Node) Shutdown() error {
 	defer n.mutex.Unlock()
 
 	if n.IsPrimary() {
+		n.Primary().Shutdown()
 		n.removePrimaryStatus()
 	}
 
-	err := n.Broadcast("cluster:leave", map[string]string{
+	err := n.cluster.Broadcast("cluster:leave", map[string]string{
 		"address": n.Address(),
 		"group":   config.Get().NodeType,
 	})
@@ -620,7 +615,7 @@ func (n *Node) Shutdown() error {
 
 	err = n.removeAddress()
 
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		log.Println(err)
 	}
 
@@ -657,7 +652,7 @@ func (n *Node) Tick() {
 	// Check if the is still registered as primary
 	if n.lastActive.IsZero() {
 		if n.primaryFileVerification() {
-			n.SetMembership(CLUSTER_MEMBERSHIP_PRIMARY)
+			n.setMembership(CLUSTER_MEMBERSHIP_PRIMARY)
 		}
 	}
 
@@ -670,7 +665,7 @@ func (n *Node) Tick() {
 	// If the node is a standby, and it hasn't won the election at this point,
 	// it should manually become a replica and ensure it has membership.
 	if n.Membership == CLUSTER_MEMBERSHIP_STAND_BY {
-		n.SetMembership(CLUSTER_MEMBERSHIP_REPLICA)
+		n.setMembership(CLUSTER_MEMBERSHIP_REPLICA)
 		// Join the cluster as a replica
 
 		n.Heartbeat()
@@ -801,6 +796,7 @@ func (n *Node) Publish(nodeMessage NodeMessage) error {
 
 func (n *Node) SendEvent(node *NodeIdentifier, message NodeEvent) error {
 	url := fmt.Sprintf("http://%s:%s/events", node.Address, node.Port)
+
 	data, err := json.Marshal(message)
 
 	if err != nil {
@@ -829,21 +825,18 @@ func (n *Node) SendEvent(node *NodeIdentifier, message NodeEvent) error {
 	req.Header.Set("X-Lbdb-Node-Timestamp", n.startedAt.Format(time.RFC3339))
 
 	client := &http.Client{
-		Timeout: 3 * time.Second,
+		Timeout: 1 * time.Second,
 	}
 
 	res, err := client.Do(req)
 
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		log.Println(res)
-
 		return fmt.Errorf("failed to send message")
 	}
 

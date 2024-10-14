@@ -7,7 +7,7 @@ import (
 )
 
 func TestEventsManager(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		eventsManager := app.Cluster.EventsManager()
 
 		if eventsManager == nil {
@@ -17,7 +17,7 @@ func TestEventsManager(t *testing.T) {
 }
 
 func TestEventsManagerHook(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		eventsManager := app.Cluster.EventsManager()
 
 		hook := eventsManager.Hook()
@@ -29,7 +29,7 @@ func TestEventsManagerHook(t *testing.T) {
 }
 
 func TestEventsManagerInit(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		eventsManager := app.Cluster.EventsManager()
 
 		eventsManager.Init()

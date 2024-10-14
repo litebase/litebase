@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewCheckpointer(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		cp, err := database.NewCheckpointer(
@@ -28,7 +28,7 @@ func TestNewCheckpointer(t *testing.T) {
 }
 
 func TestCheckpointerBegin(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		cp, err := database.NewCheckpointer(
@@ -60,7 +60,7 @@ func TestCheckpointerBegin(t *testing.T) {
 }
 
 func TestCheckpointerCheckpointPage(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseId,
@@ -97,7 +97,7 @@ func TestCheckpointerCheckpointPage(t *testing.T) {
 }
 
 func TestCheckpointerCommit(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		dfs := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
 
@@ -154,7 +154,7 @@ func TestCheckpointerCommit(t *testing.T) {
 }
 
 func TestCheckpointerRollback(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		dfs := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
 
@@ -235,7 +235,7 @@ func TestCheckpointerRollback(t *testing.T) {
 }
 
 func TestCheckpointerSetTimestamp(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		cp, err := database.NewCheckpointer(

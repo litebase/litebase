@@ -2,7 +2,6 @@ package http
 
 import (
 	"litebase/internal/config"
-	"log"
 	"time"
 )
 
@@ -45,8 +44,6 @@ func Internal(request *Request) (*Request, Response) {
 	}
 
 	if nodeIp == "" || !request.cluster.IsMember(nodeIp, parsedTimestamp) {
-		log.Println("Unauthorized node connection attempt: ", nodeIp)
-
 		return request, Response{
 			StatusCode: 401,
 		}

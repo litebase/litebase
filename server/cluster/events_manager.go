@@ -27,7 +27,7 @@ func (c *Cluster) EventsManager() *EventsManager {
 
 func (em *EventsManager) Hook() func(key string, value string) {
 	hook := func(key string, value string) {
-		em.cluster.Node().Broadcast(key, value)
+		em.cluster.Broadcast(key, value)
 	}
 
 	em.hooks = append(em.hooks, hook)
@@ -39,11 +39,11 @@ func (em *EventsManager) Hook() func(key string, value string) {
 Initialize the events manager
 */
 func (em *EventsManager) Init() {
-	em.cluster.Subscribe("activate_signature", func(message EventMessage) {
+	em.cluster.Subscribe("activate_signature", func(message *EventMessage) {
 		ActivateSignatureHandler(message.Value)
 	})
 
-	em.cluster.Subscribe("cluster:join", func(message EventMessage) {
+	em.cluster.Subscribe("cluster:join", func(message *EventMessage) {
 		data := message.Value.(map[string]interface{})
 
 		em.cluster.AddMember(data["group"].(string), data["address"].(string))
@@ -52,7 +52,7 @@ func (em *EventsManager) Init() {
 		storage.ClearFSFiles()
 	})
 
-	em.cluster.Subscribe("cluster:leave", func(message EventMessage) {
+	em.cluster.Subscribe("cluster:leave", func(message *EventMessage) {
 		data := message.Value.(map[string]interface{})
 
 		em.cluster.RemoveMember(data["address"].(string))
@@ -61,7 +61,7 @@ func (em *EventsManager) Init() {
 		storage.ClearFSFiles()
 	})
 
-	em.cluster.Subscribe("next_signature", func(message EventMessage) {
+	em.cluster.Subscribe("next_signature", func(message *EventMessage) {
 		NextSignatureHandler(message.Value)
 	})
 }

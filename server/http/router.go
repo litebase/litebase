@@ -114,7 +114,6 @@ func (router *RouterInstance) Server(
 				if response.Body == nil {
 					w.Write([]byte(""))
 				} else {
-
 					if response.Headers["Content-Encoding"] == "gzip" {
 						gw := gzip.NewWriter(w)
 						defer gw.Close()

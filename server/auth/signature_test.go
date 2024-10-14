@@ -11,7 +11,7 @@ import (
 )
 
 func TestStoreSignature(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		config.NewConfig()
 		signature := test.CreateHash(64)
 		auth.StoreSignature(signature)

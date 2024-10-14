@@ -40,8 +40,6 @@ func ClusterMemberDestroyController(request *Request) Response {
 	}
 
 	if !nodePresent {
-		log.Println("Node is not part of the cluster: ", decryptedIp["value"])
-
 		return Response{
 			StatusCode: 400,
 		}
@@ -88,8 +86,6 @@ func ClusterMemberStoreController(request *Request) Response {
 	)
 
 	if err != nil {
-		log.Println("Unauthorized node connection attempt: ", ipAddress)
-
 		return Response{
 			StatusCode: 401,
 		}

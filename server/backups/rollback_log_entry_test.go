@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewRollbackLogEntry(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		timestamp := time.Now().Unix()
 		data := []byte("test data")
 
@@ -48,7 +48,7 @@ func TestNewRollbackLogEntry(t *testing.T) {
 }
 
 func TestPageLogEntrySerialize(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		timestamp := time.Now().Unix()
 		data := []byte("test data")
 		entry := backups.NewRollbackLogEntry(1, timestamp, data)

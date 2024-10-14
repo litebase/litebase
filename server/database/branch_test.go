@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewBranch(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		branch := database.NewBranch("Test Branch", false)
 
 		if branch.Name != "Test Branch" {

@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	internalStorage "litebase/internal/storage"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -101,7 +100,6 @@ func (f *TieredFile) Close() error {
 
 	f.tieredFileSystemDriver.WithLock(func() {
 		if f.shouldBeWrittenToDurableStorage() {
-			log.Println("flushing file to durable storage", f.Key)
 			f.tieredFileSystemDriver.flushFileToDurableStorage(f, true)
 			f.tieredFileSystemDriver.ReleaseFile(f)
 		}

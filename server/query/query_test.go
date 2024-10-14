@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewQuery(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		query, err := query.NewQuery(
@@ -35,7 +35,7 @@ func TestNewQuery(t *testing.T) {
 }
 
 func TestResolve(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
@@ -67,7 +67,7 @@ func TestResolve(t *testing.T) {
 }
 
 func TestStatement(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
@@ -95,7 +95,7 @@ func TestStatement(t *testing.T) {
 }
 
 // func TestStatementOfBatchQuery(t *testing.T) {
-// 	test.Run(t, func(app *server.App) {
+// 	test.RunWithApp(t, func(app *server.App) {
 // 		mock := test.MockDatabase(app)
 // 		db, _ := database.Get(mock.DatabaseId, mock.BranchId, nil, false)
 
@@ -125,7 +125,7 @@ func TestStatement(t *testing.T) {
 // }
 
 func TestValidate(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 

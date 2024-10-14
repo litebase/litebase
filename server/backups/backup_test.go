@@ -21,7 +21,7 @@ import (
 )
 
 func TestGetBackup(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -72,7 +72,7 @@ func TestGetBackup(t *testing.T) {
 }
 
 func TestGetNextBackup(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -137,7 +137,7 @@ func TestGetNextBackup(t *testing.T) {
 }
 
 func TestBackupDelete(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -195,7 +195,7 @@ func TestBackupDelete(t *testing.T) {
 }
 
 func TestBackupDirectoryPath(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -243,7 +243,7 @@ func TestBackupDirectoryPath(t *testing.T) {
 }
 
 func TestBackupFilePath(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -292,7 +292,7 @@ func TestBackupFilePath(t *testing.T) {
 }
 
 func TestBackGetAndSetMaxPartSize(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -340,7 +340,7 @@ func TestBackGetAndSetMaxPartSize(t *testing.T) {
 }
 
 func TestBackupHash(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -388,7 +388,7 @@ func TestBackupHash(t *testing.T) {
 }
 
 func TestBackupKey(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -439,7 +439,7 @@ func TestBackupKey(t *testing.T) {
 }
 
 func TestBackupRun(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -500,7 +500,7 @@ func TestBackupRun(t *testing.T) {
 }
 
 func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -568,7 +568,7 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 }
 
 func TestBackupRunWithMultipleFiles(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -642,7 +642,7 @@ func TestBackupRunWithMultipleFiles(t *testing.T) {
 }
 
 func TestBackupRunWith1HourRestorePoint(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
@@ -823,7 +823,7 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 }
 
 func TestBackupRunWith3HourRestorePoint(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
@@ -991,7 +991,7 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 }
 
 func TestBackupRunWith24HourRestorePoint(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
@@ -1163,7 +1163,7 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 }
 
 func TestBackupRunWith7DayRestorePoint(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
@@ -1345,7 +1345,7 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 }
 
 func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -1393,7 +1393,7 @@ func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
 }
 
 func TestBackupRunWithInvalidPastRestorePoint(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -1441,7 +1441,7 @@ func TestBackupRunWithInvalidPastRestorePoint(t *testing.T) {
 }
 
 func TestBackupRunWithConcurrentWrites(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
@@ -1609,7 +1609,7 @@ func TestBackupRunWithConcurrentWrites(t *testing.T) {
 }
 
 func TestBackupRunContents(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		dfs := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
@@ -1724,7 +1724,7 @@ func TestBackupRunContents(t *testing.T) {
 }
 
 func TestBackupSize(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -1770,7 +1770,7 @@ func TestBackupSize(t *testing.T) {
 }
 
 func TestBackupToMap(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)

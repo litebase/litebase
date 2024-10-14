@@ -58,6 +58,7 @@ func NewNodeConnection(node *Node, address string) *NodeConnection {
 		httpClient:      &http.Client{},
 		inactiveTimeout: time.NewTimer(NodeConnectionInactiveTimeout),
 		mutex:           &sync.Mutex{},
+		node:            node,
 		open:            false,
 		reader:          nil,
 		response:        make(chan NodeMessage),

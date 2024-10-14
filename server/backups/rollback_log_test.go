@@ -12,7 +12,7 @@ import (
 )
 
 func TestOpenRollbackLog(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
 		timestampAtHour := time.Now().Truncate(time.Hour).Unix()
@@ -36,7 +36,7 @@ func TestOpenRollbackLog(t *testing.T) {
 }
 
 func TestRollbackLogAppendFrame(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		timestamp := time.Now().Unix()
 
@@ -65,7 +65,7 @@ func TestRollbackLogAppendFrame(t *testing.T) {
 }
 
 func TestRollbackLogAppendLog(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		timestamp := time.Now().Unix()
 		pageNumber := int64(1)
@@ -93,7 +93,7 @@ func TestRollbackLogAppendLog(t *testing.T) {
 }
 
 func TestRollbackLogClose(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		timestamp := time.Now().Unix()
 
@@ -112,7 +112,7 @@ func TestRollbackLogClose(t *testing.T) {
 }
 
 func TestRollbackLogCommit(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		timestamp := time.Now().Unix()
 		pageNumber := int64(1)
@@ -170,7 +170,7 @@ func TestRollbackLogCommit(t *testing.T) {
 }
 
 func TestRollbackLogReadAfter(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		startOfHour := time.Now().Truncate(time.Hour)
 
@@ -250,7 +250,7 @@ func TestRollbackLogReadAfter(t *testing.T) {
 }
 
 func TestRollbackLogRollback(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		timestamp := time.Now().Unix()
 		pageNumber := int64(1)

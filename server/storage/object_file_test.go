@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewObjectFile(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := 0
@@ -415,7 +415,7 @@ func TestObjectFileTruncate(t *testing.T) {
 }
 
 func TestObjectFileWithData(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := 0
@@ -430,7 +430,7 @@ func TestObjectFileWithData(t *testing.T) {
 }
 
 func TestObjectFileWrite(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR
@@ -454,7 +454,7 @@ func TestObjectFileWrite(t *testing.T) {
 }
 
 func TestObjectFileWriteAt(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR
@@ -479,7 +479,7 @@ func TestObjectFileWriteAt(t *testing.T) {
 }
 
 func TestObjectFileWriteTo(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR
@@ -505,7 +505,7 @@ func TestObjectFileWriteTo(t *testing.T) {
 }
 
 func TestObjectFileWriteString(t *testing.T) {
-	test.Run(t, func(app *server.App) {
+	test.RunWithApp(t, func(app *server.App) {
 		client := &storage.S3Client{}
 		key := "test.txt"
 		openFlags := os.O_RDWR
