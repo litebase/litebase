@@ -27,11 +27,13 @@ type SecretsManager struct {
 }
 
 func NewSecretsManager(
+	auth *Auth,
 	config *config.Config,
 	objectFS *storage.FileSystem,
 	tmpFS *storage.FileSystem,
 ) *SecretsManager {
 	return &SecretsManager{
+		auth:               auth,
 		config:             config,
 		databaseKeys:       make(map[string]string),
 		encrypterInstances: make(map[string]*KeyEncrypter),

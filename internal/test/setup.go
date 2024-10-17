@@ -87,15 +87,8 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 			callback()
 		}
 
-		// done := make(chan bool)
-		// go func() {
 		time.Sleep(100 * time.Millisecond)
 		os.RemoveAll(dataPath)
-
-		// 	done <- true
-		// }()
-
-		// <-done
 	})
 }
 

@@ -26,6 +26,7 @@ func NewAuth(
 	}
 
 	auth.SecretsManager = NewSecretsManager(
+		auth,
 		c,
 		objectFS,
 		tmpFS,
