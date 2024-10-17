@@ -6,7 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"litebase/internal/config"
 	"litebase/internal/utils"
 	"log"
 	"strings"
@@ -92,7 +91,7 @@ func AdminRequestSignatureValidator(request *Request) bool {
 	}, "")
 
 	requestHash := sha256.New()
-	requestHash.Write([]byte(config.Get().Signature))
+	requestHash.Write([]byte(request.cluster.Config.Signature))
 	secret := fmt.Sprintf("%x", requestHash.Sum(nil))
 
 	signedRequestHash := sha256.New()

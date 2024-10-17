@@ -55,6 +55,12 @@ type DistributedFile struct {
 		Ther permissions that were used to create or open the file.
 	*/
 	Perm fs.FileMode
+
+	/*
+		The storage connection manager that is used to send requests to the
+		distributed storage nodes.
+	*/
+	storageConnectionManager *StorageConnectionManager
 }
 
 /*
@@ -74,6 +80,7 @@ func NewDistributedFile(
 		mutex:                       &sync.Mutex{},
 		Path:                        path,
 		Perm:                        perm,
+		storageConnectionManager:    distributedFileSystemDriver.storageConnectionManager,
 	}
 }
 
@@ -85,7 +92,7 @@ func (df *DistributedFile) Close() error {
 	defer df.mutex.Unlock()
 	defer df.distributedFileSystemDriver.ReleaseFile(df)
 
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: CloseStorageCommand,
 		Path:    df.Path,
 	})
@@ -115,7 +122,7 @@ func (df *DistributedFile) Read(p []byte) (n int, err error) {
 		return df.File.Read(p)
 	}
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: ReadStorageCommand,
 		Flag:    df.Flag,
 		Length:  len(p),
@@ -145,7 +152,7 @@ func (df *DistributedFile) ReadAt(p []byte, off int64) (n int, err error) {
 		return df.File.ReadAt(p, off)
 	}
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: ReadAtStorageCommand,
 		Flag:    df.Flag,
 		Length:  len(p),
@@ -170,7 +177,7 @@ func (df *DistributedFile) Seek(offset int64, whence int) (int64, error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: SeekStorageCommand,
 		Flag:    df.Flag,
 		Offset:  offset,
@@ -204,7 +211,7 @@ func (df *DistributedFile) Stat() (fs.FileInfo, error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: StatFileStorageCommand,
 		Flag:    df.Flag,
 		Path:    df.Path,
@@ -225,7 +232,7 @@ func (df *DistributedFile) Sync() error {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: SyncStorageCommand,
 		Flag:    df.Flag,
 		Path:    df.Path,
@@ -246,7 +253,7 @@ func (df *DistributedFile) Truncate(size int64) error {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: TruncateFileStorageCommand,
 		Flag:    df.Flag,
 		Path:    df.Path,
@@ -280,7 +287,7 @@ func (df *DistributedFile) Write(p []byte) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteStorageCommand,
 		Data:    p,
 		Flag:    df.Flag,
@@ -314,7 +321,7 @@ func (df *DistributedFile) WriteAt(p []byte, off int64) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteAtStorageCommand,
 		Data:    p,
 		Flag:    df.Flag,
@@ -351,7 +358,7 @@ func (df *DistributedFile) WriteTo(w io.Writer) (n int64, err error) {
 
 	panic("Not implemented")
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteToStorageCommand,
 		Path:    df.Path,
 	})
@@ -382,7 +389,7 @@ func (df *DistributedFile) WriteString(s string) (ret int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteStringStorageCommand,
 		Data:    []byte(s),
 		Flag:    df.Flag,

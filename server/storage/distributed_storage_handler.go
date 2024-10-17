@@ -13,6 +13,7 @@ var dfsFiles map[string]internalStorage.File
 Handle a distributed storage request and return the appropriate response.
 */
 func HandleDistributedStorageRequest(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
@@ -26,49 +27,49 @@ func HandleDistributedStorageRequest(
 	case CloseStorageCommand:
 		dfsResponse = handleDFSClose(dfsRequest, dfsResponse)
 	case CreateStorageCommand:
-		dfsResponse = handleDFSCreate(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSCreate(tieredFS, dfsRequest, dfsResponse)
 	case MkdirStorageCommand:
-		dfsResponse = handleDFSMkdir(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSMkdir(tieredFS, dfsRequest, dfsResponse)
 	case MkdirAllStorageCommand:
-		dfsResponse = handleDFSMkdirAll(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSMkdirAll(tieredFS, dfsRequest, dfsResponse)
 	case OpenStorageCommand:
-		dfsResponse = handleDFSOpen(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSOpen(tieredFS, dfsRequest, dfsResponse)
 	case OpenFileStorageCommand:
-		dfsResponse = handleDFSOpenFile(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSOpenFile(tieredFS, dfsRequest, dfsResponse)
 	case ReadStorageCommand:
-		dfsResponse = handleDFSRead(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSRead(tieredFS, dfsRequest, dfsResponse)
 	case ReadAtStorageCommand:
-		dfsResponse = handleDFSReadAt(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSReadAt(tieredFS, dfsRequest, dfsResponse)
 	case ReadDirStorageCommand:
-		dfsResponse = handleDFSReadDir(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSReadDir(tieredFS, dfsRequest, dfsResponse)
 	case ReadFileStorageCommand:
-		dfsResponse = handleDFSReadFile(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSReadFile(tieredFS, dfsRequest, dfsResponse)
 	case RemoveStorageCommand:
-		dfsResponse = handleDFSRemove(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSRemove(tieredFS, dfsRequest, dfsResponse)
 	case RemoveAllStorageCommand:
-		dfsResponse = handleDFSRemoveAll(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSRemoveAll(tieredFS, dfsRequest, dfsResponse)
 	case RenameStorageCommand:
-		dfsResponse = handleDFSRename(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSRename(tieredFS, dfsRequest, dfsResponse)
 	case SeekStorageCommand:
-		dfsResponse = handleDFSSeek(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSSeek(tieredFS, dfsRequest, dfsResponse)
 	case StatStorageCommand:
-		dfsResponse = handleDFSStat(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSStat(tieredFS, dfsRequest, dfsResponse)
 	case StatFileStorageCommand:
-		dfsResponse = handleDFSStatFile(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSStatFile(tieredFS, dfsRequest, dfsResponse)
 	case SyncStorageCommand:
-		dfsResponse = handleDFSSync(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSSync(tieredFS, dfsRequest, dfsResponse)
 	case TruncateStorageCommand:
-		dfsResponse = handleDFSTruncate(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSTruncate(tieredFS, dfsRequest, dfsResponse)
 	case TruncateFileStorageCommand:
-		dfsResponse = handleDFSTruncateFile(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSTruncateFile(tieredFS, dfsRequest, dfsResponse)
 	case WriteStorageCommand:
-		dfsResponse = handleDFSWrite(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSWrite(tieredFS, dfsRequest, dfsResponse)
 	case WriteAtStorageCommand:
-		dfsResponse = handleDFSWriteAt(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSWriteAt(tieredFS, dfsRequest, dfsResponse)
 	case WriteFileStorageCommand:
-		dfsResponse = handleDFSWriteFile(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSWriteFile(tieredFS, dfsRequest, dfsResponse)
 	case WriteStringStorageCommand:
-		dfsResponse = handleDFSWriteString(dfsRequest, dfsResponse)
+		dfsResponse = handleDFSWriteString(tieredFS, dfsRequest, dfsResponse)
 	default:
 		log.Println("Unknown command:", dfsRequest.Command)
 	}
@@ -117,10 +118,11 @@ func handleDFSClose(
 Create a file in the distributed file system.
 */
 func handleDFSCreate(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	file, err := TieredFS().Create(dfsRequest.Path)
+	file, err := tieredFs.Create(dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -137,10 +139,11 @@ func handleDFSCreate(
 Create a directory in the distributed file system.
 */
 func handleDFSMkdir(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	err := TieredFS().Mkdir(dfsRequest.Path, dfsRequest.Perm)
+	err := tieredFs.Mkdir(dfsRequest.Path, dfsRequest.Perm)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -153,10 +156,11 @@ func handleDFSMkdir(
 Create a directory and all parent directories in the distributed file system.
 */
 func handleDFSMkdirAll(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	err := TieredFS().MkdirAll(dfsRequest.Path, dfsRequest.Perm)
+	err := tieredFs.MkdirAll(dfsRequest.Path, dfsRequest.Perm)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -169,10 +173,11 @@ func handleDFSMkdirAll(
 Open a file in the distributed file system.
 */
 func handleDFSOpen(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	file, err := TieredFS().Open(dfsRequest.Path)
+	file, err := tieredFs.Open(dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -197,10 +202,11 @@ func handleDFSOpen(
 Open a file in the distributed file system.
 */
 func handleDFSOpenFile(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	file, err := TieredFS().OpenFile(dfsRequest.Path, dfsRequest.Flag, dfsRequest.Perm)
+	file, err := tieredFs.OpenFile(dfsRequest.Path, dfsRequest.Flag, dfsRequest.Perm)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -227,13 +233,14 @@ func handleDFSOpenFile(
 Read from a file in the distributed file system.
 */
 func handleDFSRead(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -257,13 +264,14 @@ func handleDFSRead(
 Read from a file in the distributed file system at a specific offset.
 */
 func handleDFSReadAt(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -288,10 +296,11 @@ func handleDFSReadAt(
 Read the contents of a directory in the distributed file system.
 */
 func handleDFSReadDir(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	entries, err := TieredFS().ReadDir(dfsRequest.Path)
+	entries, err := tieredFs.ReadDir(dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -306,10 +315,11 @@ func handleDFSReadDir(
 Read the contents of a file in the distributed file system.
 */
 func handleDFSReadFile(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	data, err := TieredFS().ReadFile(dfsRequest.Path)
+	data, err := tieredFs.ReadFile(dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -324,10 +334,11 @@ func handleDFSReadFile(
 Remove a file in the distributed file system.
 */
 func handleDFSRemove(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	err := TieredFS().Remove(dfsRequest.Path)
+	err := tieredFs.Remove(dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -340,10 +351,11 @@ func handleDFSRemove(
 Remove all files in the distributed file system.
 */
 func handleDFSRemoveAll(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	err := TieredFS().RemoveAll(dfsRequest.Path)
+	err := tieredFs.RemoveAll(dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -360,10 +372,11 @@ func handleDFSRemoveAll(
 Rename a file in the distributed file system.
 */
 func handleDFSRename(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	err := TieredFS().Rename(dfsRequest.OldPath, dfsRequest.Path)
+	err := tieredFs.Rename(dfsRequest.OldPath, dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -376,13 +389,14 @@ func handleDFSRename(
 Seek to a specific offset in a file in the distributed file system.
 */
 func handleDFSSeek(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			log.Println(dfsResponse.Error)
@@ -406,10 +420,11 @@ func handleDFSSeek(
 Stat a file in the distributed file system.
 */
 func handleDFSStat(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	info, err := TieredFS().Stat(dfsRequest.Path)
+	info, err := tieredFs.Stat(dfsRequest.Path)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -430,13 +445,14 @@ func handleDFSStat(
 Stat an open file in the distributed file system.
 */
 func handleDFSStatFile(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -461,13 +477,14 @@ func handleDFSStatFile(
 Sync a file in the distributed file system.
 */
 func handleDFSSync(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -487,10 +504,11 @@ func handleDFSSync(
 Truncate a file in the distributed file system.
 */
 func handleDFSTruncate(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	err := TieredFS().Truncate(dfsRequest.Path, dfsRequest.Size)
+	err := tieredFs.Truncate(dfsRequest.Path, dfsRequest.Size)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -503,13 +521,14 @@ func handleDFSTruncate(
 Truncate a file in the distributed file system.
 */
 func handleDFSTruncateFile(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -529,13 +548,14 @@ func handleDFSTruncateFile(
 Write to a file in the distributed file system.
 */
 func handleDFSWrite(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -557,13 +577,14 @@ func handleDFSWrite(
 Write to a file in the distributed file system at a specific offset.
 */
 func handleDFSWriteAt(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -585,10 +606,11 @@ func handleDFSWriteAt(
 Write to a file in the distributed file system.
 */
 func handleDFSWriteFile(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
-	err := TieredFS().WriteFile(dfsRequest.Path, dfsRequest.Data, dfsRequest.Perm)
+	err := tieredFs.WriteFile(dfsRequest.Path, dfsRequest.Data, dfsRequest.Perm)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()
@@ -601,13 +623,14 @@ func handleDFSWriteFile(
 Write a string to a file in the distributed file system.
 */
 func handleDFSWriteString(
+	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) DistributedFileSystemResponse {
 	file, ok := dfsFiles[dfsRequest.Path]
 
 	if !ok {
-		dfsResponse, file = DFSOpenFileForHandler(dfsRequest, dfsResponse)
+		dfsResponse, file = DFSOpenFileForHandler(tieredFS, dfsRequest, dfsResponse)
 
 		if dfsResponse.Error != "" {
 			return dfsResponse
@@ -629,10 +652,11 @@ func handleDFSWriteString(
 Open a file in the distributed file system and return the file.
 */
 func DFSOpenFileForHandler(
+	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
 ) (DistributedFileSystemResponse, internalStorage.File) {
-	file, err := TieredFS().OpenFile(dfsRequest.Path, dfsRequest.Flag, dfsRequest.Perm)
+	file, err := tieredFs.OpenFile(dfsRequest.Path, dfsRequest.Flag, dfsRequest.Perm)
 
 	if err != nil {
 		dfsResponse.Error = err.Error()

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"litebase/internal/config"
 	"sync"
 )
 
@@ -9,29 +10,22 @@ import (
 This manager is a singleton that manages the connections to the storage nodes.
 */
 type StorageConnectionManager struct {
+	config      *config.Config
 	connections map[int]*StorageConnection
 	mutex       *sync.Mutex
 }
-
-/*
-Get the singleton instance of the storage connection manager.
-*/
-var storageConnectionManagerInstance *StorageConnectionManager
 
 var ErrNoStorageNodesAvailable = errors.New("no storage nodes available")
 
 /*
 Helper to get the singleton instance of the storage connection manager or create.
 */
-func SCM() *StorageConnectionManager {
-	if storageConnectionManagerInstance == nil {
-		storageConnectionManagerInstance = &StorageConnectionManager{
-			connections: make(map[int]*StorageConnection),
-			mutex:       &sync.Mutex{},
-		}
+func NewStorageConnectionManager(config *config.Config) *StorageConnectionManager {
+	return &StorageConnectionManager{
+		config:      config,
+		connections: make(map[int]*StorageConnection),
+		mutex:       &sync.Mutex{},
 	}
-
-	return storageConnectionManagerInstance
 }
 
 /*
@@ -58,7 +52,6 @@ func (s *StorageConnectionManager) Close() []error {
 Get the connection to the storage node that should be used for the given key.
 */
 func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection, error) {
-
 	index, address, err := StorageDiscovery.GetStorageNode(key)
 
 	if err != nil {
@@ -70,11 +63,11 @@ func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection
 
 	if s.connections[index] != nil && !s.connections[index].IsOpen() {
 		s.removeConnection(index)
-		s.connections[index] = NewStorageConnection(index, "http://"+address+"/storage")
+		s.connections[index] = NewStorageConnection(s.config, index, address)
 	}
 
 	if s.connections[index] == nil {
-		s.connections[index] = NewStorageConnection(index, "http://"+address+"/storage")
+		s.connections[index] = NewStorageConnection(s.config, index, address)
 	}
 
 	return s.connections[index], nil

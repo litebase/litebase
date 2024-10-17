@@ -1,5 +1,7 @@
 package storage
 
+import "time"
+
 type ListObjectsV2Input struct {
 	ContinuationToken string
 	Delimiter         string
@@ -9,16 +11,24 @@ type ListObjectsV2Input struct {
 }
 
 type ListObjectsV2Paginator struct {
-	delimiter         string
-	continuationToken string
-	isTruncated       bool
-	maxKeys           int
-	prefix            string
-	s3Client          *S3Client
+	ContinuationToken string
+	Delimiter         string
+	IsTruncated       bool
+	MaxKeys           int
+	Prefix            string
+	S3Client          *S3Client
 }
 
 type ListItemContent struct {
-	Key string `xml:"Key"`
+	ETag         string              `xml:"ETag"`
+	Key          string              `xml:"Key"`
+	LastModified ListItemContentTime `xml:"LastModified"`
+	Size         int64               `xml:"Size"`
+	StorageClass string              `xml:"omitempty"`
+}
+
+type ListItemContentTime struct {
+	time.Time
 }
 
 type ListBucketResult struct {
@@ -40,16 +50,16 @@ type ListObjectsV2Response struct {
 
 func NewListObjectsV2Paginator(s3Client *S3Client, input ListObjectsV2Input) *ListObjectsV2Paginator {
 	return &ListObjectsV2Paginator{
-		delimiter:   input.Delimiter,
-		maxKeys:     input.MaxKeys,
-		prefix:      input.Prefix,
-		isTruncated: true,
-		s3Client:    s3Client,
+		Delimiter:   input.Delimiter,
+		MaxKeys:     input.MaxKeys,
+		Prefix:      input.Prefix,
+		IsTruncated: true,
+		S3Client:    s3Client,
 	}
 }
 
 func (p *ListObjectsV2Paginator) HasMorePages() bool {
-	return p.isTruncated
+	return p.IsTruncated
 }
 
 func (p *ListObjectsV2Paginator) NextPage() (ListObjectsV2Response, error) {
@@ -57,12 +67,13 @@ func (p *ListObjectsV2Paginator) NextPage() (ListObjectsV2Response, error) {
 		return ListObjectsV2Response{}, nil
 	}
 
-	resp, err := p.s3Client.ListObjectsV2(
+	resp, err := p.S3Client.ListObjectsV2(
 		ListObjectsV2Input{
-			ContinuationToken: p.continuationToken,
-			Delimiter:         p.delimiter,
-			MaxKeys:           p.maxKeys,
-			Prefix:            p.prefix,
+			ContinuationToken: p.ContinuationToken,
+			Delimiter:         p.Delimiter,
+			MaxKeys:           p.MaxKeys,
+			Prefix:            p.Prefix,
+			StartAfter:        p.ContinuationToken,
 		},
 	)
 
@@ -70,10 +81,10 @@ func (p *ListObjectsV2Paginator) NextPage() (ListObjectsV2Response, error) {
 		return resp, err
 	}
 
-	p.continuationToken = resp.ListBucketResult.NextContinuationToken
+	p.ContinuationToken = resp.ListBucketResult.NextContinuationToken
 
 	if !resp.ListBucketResult.IsTruncated {
-		p.isTruncated = false
+		p.IsTruncated = false
 	}
 
 	return resp, nil

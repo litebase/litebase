@@ -120,25 +120,33 @@ func (o *ObjectFile) Seek(offset int64, whence int) (int64, error) {
 	if len(o.Data) == 0 {
 		return 0, io.EOF
 	}
+
 	switch whence {
 	case io.SeekStart:
 		if offset < 0 || offset > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
+
 		o.readPos = int(offset)
+
 		return offset, nil
 	case io.SeekCurrent:
 		newPos := int64(o.readPos) + offset
+
 		if newPos < 0 || newPos > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
+
 		o.readPos = int(newPos)
+
 		return newPos, nil
 	case io.SeekEnd:
 		newPos := int64(len(o.Data)) + offset
+
 		if newPos < 0 || newPos > int64(len(o.Data)) {
 			return 0, io.EOF
 		}
+
 		o.readPos = int(newPos)
 		return newPos, nil
 	default:
@@ -215,7 +223,7 @@ func (o *ObjectFile) Write(p []byte) (n int, err error) {
 		return 0, os.ErrPermission
 	}
 
-	o.Data = append(o.Data, p...)
+	o.Data = append(o.Data[:o.readPos], p...)
 
 	return len(p), nil
 }
@@ -253,7 +261,12 @@ func (o *ObjectFile) WriteString(s string) (ret int, err error) {
 		return 0, os.ErrPermission
 	}
 
-	o.Data = append(o.Data, []byte(s)...)
+	// If opened in append mode, write to the end of the file
+	if o.OpenFlags&os.O_APPEND != 0 {
+		o.readPos = len(o.Data)
+	}
+
+	o.Data = append(o.Data[:o.readPos], []byte(s)...)
 
 	o.Sha256Checksum = sha256.Sum256(o.Data)
 

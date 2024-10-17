@@ -12,7 +12,11 @@ import (
 func TestNewSnapshotLogger(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		logger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		logger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 
 		if logger == nil {
 			t.Fatal("Expected logger to be created, got nil")
@@ -31,7 +35,11 @@ func TestNewSnapshotLogger(t *testing.T) {
 func TestSnapshotLoggerClose(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		logger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		logger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 
 		if err := logger.Close(); err != nil {
 			t.Fatalf("Expected no error on close, got %v", err)
@@ -44,7 +52,11 @@ func TestSnapshotLoggerGetSnapshot(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
-		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		checkpointerLogger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
@@ -146,7 +158,11 @@ func TestSnapshotLoggerGetSnapshotsWithRestorePoints(t *testing.T) {
 func TestSnapshotLoggerLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		logger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		logger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 		timestamps := make([]int64, 0)
 
 		for i := 0; i < 10; i++ {

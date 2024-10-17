@@ -38,8 +38,8 @@ func NewCheckpointer(databaseId, branchId string, dfs *storage.DurableDatabaseFi
 		databaseId:     databaseId,
 		lock:           sync.Mutex{},
 		metadata:       dfs.Metadata(),
-		rollbackLogger: backups.NewRollbackLogger(databaseId, branchId),
-		snapshotLogger: backups.NewSnapshotLogger(databaseId, branchId),
+		rollbackLogger: backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
+		snapshotLogger: backups.NewSnapshotLogger(dfs.FileSystem(), databaseId, branchId),
 	}, nil
 }
 

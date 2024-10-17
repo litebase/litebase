@@ -34,7 +34,7 @@ func SingatureActivateController(request *Request) Response {
 		}
 	}
 
-	if !config.HasSignature(input.(*SingatureActivateRequest).Signature) {
+	if !config.HasSignature(request.cluster.Config, input.(*SingatureActivateRequest).Signature) {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
@@ -43,7 +43,11 @@ func SingatureActivateController(request *Request) Response {
 		}
 	}
 
-	auth.StoreSignature(input.(*SingatureActivateRequest).Signature)
+	auth.StoreSignature(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
+		input.(*SingatureActivateRequest).Signature,
+	)
 
 	request.cluster.Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
 

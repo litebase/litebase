@@ -52,7 +52,7 @@ func NewRequest(cluster *cluster.Cluster, databaseManager *database.DatabaseMana
 	}
 
 	return &Request{
-		accessKeyManager: cluster.Auth.AccessKeyManager(),
+		accessKeyManager: cluster.Auth.AccessKeyManager,
 		BaseRequest:      request,
 		Body:             nil,
 		cluster:          cluster,
@@ -84,7 +84,11 @@ func (r *Request) DatabaseKey() *database.DatabaseKey {
 		return nil
 	}
 
-	databaseKey, err := database.GetDatabaseKey(key)
+	databaseKey, err := database.GetDatabaseKey(
+		r.cluster.Config,
+		r.cluster.ObjectFS(),
+		key,
+	)
 
 	if err != nil {
 		return nil
@@ -108,7 +112,11 @@ func (request *Request) Input(input any) (interface{}, error) {
 		return nil, err
 	}
 
-	json.Unmarshal(jsonData, &input)
+	err = json.Unmarshal(jsonData, &input)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return input, nil
 }

@@ -6,12 +6,10 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/backups"
 	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"sort"
@@ -46,6 +44,8 @@ func TestGetBackup(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
@@ -111,6 +111,8 @@ func TestGetNextBackup(t *testing.T) {
 		}
 
 		nextBackup, err := backups.GetNextBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
@@ -177,7 +179,7 @@ func TestBackupDelete(t *testing.T) {
 		path := backup.FilePath(1)
 
 		// Check if the backup file exists
-		if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
+		if _, err := app.Cluster.ObjectFS().Stat(path); os.IsNotExist(err) {
 			t.Errorf("expected backup file to exist at %s", path)
 		}
 
@@ -188,7 +190,7 @@ func TestBackupDelete(t *testing.T) {
 		}
 
 		// Check if the backup file was deleted
-		if _, err := storage.ObjectFS().Stat(path); !os.IsNotExist(err) {
+		if _, err := app.Cluster.ObjectFS().Stat(path); !os.IsNotExist(err) {
 			t.Errorf("expected backup file to be deleted at %s", path)
 		}
 	})
@@ -220,6 +222,8 @@ func TestBackupDirectoryPath(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
@@ -268,6 +272,8 @@ func TestBackupFilePath(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
@@ -317,6 +323,8 @@ func TestBackGetAndSetMaxPartSize(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
@@ -365,6 +373,8 @@ func TestBackupHash(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
@@ -413,6 +423,8 @@ func TestBackupKey(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
@@ -1649,7 +1661,7 @@ func TestBackupRunContents(t *testing.T) {
 			for _, page := range testCase.pages {
 				_, err := dfs.WriteAt(
 					[]byte(fmt.Sprintf("page-%d", page)),
-					file.PageOffset(page, config.Get().PageSize),
+					file.PageOffset(page, app.Config.PageSize),
 				)
 
 				if err != nil {
@@ -1795,6 +1807,8 @@ func TestBackupToMap(t *testing.T) {
 		}
 
 		backup, err := backups.GetBackup(
+			app.Config,
+			app.Cluster.ObjectFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,

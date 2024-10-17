@@ -40,7 +40,7 @@ func MockDatabase(app *server.App) TestDatabase {
 		AccessKeyId: accessKeyId,
 	}
 
-	app.Auth.SecretsManager().StoreAccessKey(accessKey)
+	app.Auth.SecretsManager.StoreAccessKey(accessKey)
 
 	db, err := app.DatabaseManager.Create("test-database", "main")
 

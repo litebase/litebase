@@ -4,7 +4,7 @@ import (
 	"litebase/internal/config"
 )
 
-func ActivateSignatureHandler(data interface{}) {
+func ActivateSignatureHandler(c *config.Config, data interface{}) {
 	// TOOD: check if signature is valid by using a struct
-	config.Get().Signature = data.(string)
+	c.Signature = data.(string)
 }

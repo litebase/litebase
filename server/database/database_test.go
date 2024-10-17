@@ -6,7 +6,7 @@ import (
 )
 
 func TestDatabaseCanBeCreated(t *testing.T) {
-	app := test.Setup(t)
+	app, _ := test.Setup(t)
 
 	databaseId := "test"
 	branchId := "test"

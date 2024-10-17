@@ -1,6 +1,7 @@
 package test
 
 import (
+	"litebase/internal/config"
 	"litebase/server"
 	"litebase/server/storage"
 	"log"
@@ -16,6 +17,18 @@ type TestServer struct {
 	Server  *httptest.Server
 }
 
+func NewTestQueryNode(t *testing.T) *TestServer {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
+
+	return NewTestServer(t)
+}
+
+func NewTestStorageNode(t *testing.T) *TestServer {
+	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeStorage)
+
+	return NewTestServer(t)
+}
+
 /*
 NewTestServer creates a new test server, that fully initializes a node and
 encapsulates the state of the node.
@@ -25,10 +38,10 @@ func NewTestServer(t *testing.T) *TestServer {
 	ts := httptest.NewServer(serveMux)
 	port := ts.URL[len(ts.URL)-5:]
 
-	log.Println("Litebase Test Server running on port", port)
-
 	t.Setenv("LITEBASE_PORT", port)
-	app := server.NewApp(serveMux)
+
+	configInstance := config.NewConfig()
+	app := server.NewApp(configInstance, serveMux)
 	app.Run()
 
 	err := app.Cluster.Node().Start()
@@ -37,16 +50,57 @@ func NewTestServer(t *testing.T) *TestServer {
 		log.Fatalf("Node start: %v", err)
 	}
 
-	t.Cleanup(func() {
-		app.Cluster.Node().Shutdown()
-		app.DatabaseManager.ConnectionManager().Shutdown()
-		storage.Shutdown()
-	})
-
-	return &TestServer{
+	server := &TestServer{
 		Address: ts.URL,
 		App:     app,
 		Port:    port,
 		Server:  ts,
 	}
+
+	t.Cleanup(func() {
+		server.Shutdown()
+	})
+
+	return server
+}
+
+/*
+Create a new test server that is not started. This is useful for testing
+scenarios where the server needs to be started in a specific way.
+*/
+func NewUnstartedTestServer(t *testing.T) *TestServer {
+	serveMux := http.NewServeMux()
+	ts := httptest.NewServer(serveMux)
+	port := ts.URL[len(ts.URL)-5:]
+
+	t.Setenv("LITEBASE_PORT", port)
+
+	configInstance := config.NewConfig()
+	app := server.NewApp(configInstance, serveMux)
+	app.Run()
+
+	// err := app.Cluster.Node().Start()
+
+	// if err != nil {
+	// 	log.Fatalf("Node start: %v", err)
+	// }
+
+	server := &TestServer{
+		Address: ts.URL,
+		App:     app,
+		Port:    port,
+		Server:  ts,
+	}
+
+	t.Cleanup(func() {
+		// server.Shutdown()
+	})
+
+	return server
+}
+
+func (ts *TestServer) Shutdown() {
+	ts.App.Cluster.Node().Shutdown()
+	ts.App.DatabaseManager.ConnectionManager().Shutdown()
+	storage.Shutdown(ts.App.Config)
 }

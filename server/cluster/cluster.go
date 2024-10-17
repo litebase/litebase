@@ -1,9 +1,6 @@
 package cluster
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"litebase/internal/config"
@@ -17,165 +14,124 @@ import (
 )
 
 const (
-	CLUSTER_MEMBERSHIP_PRIMARY  = "PRIMARY"
-	CLUSTER_MEMBERSHIP_REPLICA  = "REPLICA"
-	CLUSTER_MEMBERSHIP_STAND_BY = "STAND_BY"
-	ELECTION_RETRY_WAIT         = 1 * time.Second
+	ClusterMembershipPrimary = "PRIMARY"
+	ClusterMembershipReplica = "REPLICA"
+	ClusterMembershipStandBy = "STAND_BY"
+	ElectionRetryWait        = 1 * time.Second
 
-	LEASE_DURATION  = 70 * time.Second
-	LEASE_FILE      = "LEASE"
-	NOMINATION_FILE = "NOMINATION"
-	PRIMARY_FILE    = "PRIMARY"
+	LeaseDuration  = 70 * time.Second
+	LeaseFile      = "LEASE"
+	Nominationfile = "NOMINATION"
+	PrimaryFile    = "PRIMARY"
 )
 
 type Cluster struct {
-	Auth                *auth.Auth
-	AccessKeyManager    *auth.AccessKeyManager
-	channels            map[string]EventChannel
-	eventsManager       *EventsManager
-	Id                  string `json:"id"`
-	QueryPrimary        string
-	QueryNodes          []string
-	MembersRetrievedAt  time.Time
-	mutex               *sync.Mutex
-	node                *Node
-	StorageNodeHashRing *storage.StorageNodeHashRing
-	StorageNodes        []string
-	StoragePrimary      string
-}
+	Auth                     *auth.Auth
+	AccessKeyManager         *auth.AccessKeyManager
+	channels                 map[string]EventChannel
+	Config                   *config.Config
+	eventsManager            *EventsManager
+	fileSystemMutex          *sync.Mutex
+	Id                       string `json:"id"`
+	QueryPrimary             string
+	QueryNodes               []string
+	MembersRetrievedAt       time.Time
+	mutex                    *sync.Mutex
+	node                     *Node
+	StorageConnectionManager *storage.StorageConnectionManager
+	StorageNodeHashRing      *storage.StorageNodeHashRing
+	StorageNodes             []string
+	StoragePrimary           string
 
-/*
-Initialize the cluster.
-*/
-func Init(Auth *auth.Auth) (*Cluster, error) {
-	var cluster *Cluster
-
-	err := createDirectoriesAndFiles()
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Read the cluster file
-	data, err := storage.ObjectFS().ReadFile(ConfigPath())
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			c, err := createClusterFromEnv(Auth)
-
-			if err == nil {
-				cluster = c
-
-				return cluster, nil
-			}
-
-			return nil, err
-		}
-
-		return nil, err
-	}
-
-	c := &Cluster{
-		Auth:                Auth,
-		channels:            map[string]EventChannel{},
-		mutex:               &sync.Mutex{},
-		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
-	}
-
-	err = json.Unmarshal(data, c)
-
-	if err != nil {
-		return nil, err
-	}
-
-	cluster = c
-
-	return cluster, nil
+	localFileSystem  *storage.FileSystem
+	objectFileSystem *storage.FileSystem
+	tieredFileSystem *storage.FileSystem
+	tmpFileSystem    *storage.FileSystem
 }
 
 /*
 Create a cluster from the environment variables.
 */
-func createClusterFromEnv(Auth *auth.Auth) (*Cluster, error) {
-	clusterId := config.Get().ClusterId
+func getClusterIdFromEnv(config *config.Config) (string, error) {
+	clusterId := config.ClusterId
 
 	if clusterId == "" {
-		return nil, fmt.Errorf("LITEBASE_CLUSTER_ID environment variable is not set")
+		return "", fmt.Errorf("LITEBASE_CLUSTER_ID environment variable is not set")
 	}
 
-	return NewCluster(clusterId, Auth)
+	return clusterId, nil
 }
 
 /*
 Create the directories and files for the cluster.
 */
-func createDirectoriesAndFiles() error {
-	err := storage.ObjectFS().MkdirAll("_cluster/query", 0755)
+func (cluster *Cluster) createDirectoriesAndFiles() error {
+	err := cluster.ObjectFS().MkdirAll("_cluster/query", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = storage.ObjectFS().MkdirAll("_cluster/storage", 0755)
+	err = cluster.ObjectFS().MkdirAll("_cluster/storage", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = storage.ObjectFS().MkdirAll("_nodes/query", 0755)
+	err = cluster.ObjectFS().MkdirAll("_nodes/query", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = storage.ObjectFS().MkdirAll("_nodes/storage", 0755)
+	err = cluster.ObjectFS().MkdirAll("_nodes/storage", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", NOMINATION_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", NOMINATION_FILE))
+	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", Nominationfile)); os.IsNotExist(err) {
+		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", Nominationfile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", NOMINATION_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", NOMINATION_FILE))
+	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", Nominationfile)); os.IsNotExist(err) {
+		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", Nominationfile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", LEASE_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", LEASE_FILE))
+	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", LeaseFile)); os.IsNotExist(err) {
+		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", LeaseFile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", LEASE_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", LEASE_FILE))
+	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", LeaseFile)); os.IsNotExist(err) {
+		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", LeaseFile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", PRIMARY_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", PRIMARY_FILE))
+	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", PrimaryFile)); os.IsNotExist(err) {
+		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", PrimaryFile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := storage.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", PRIMARY_FILE)); os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", PRIMARY_FILE))
+	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/storage/%s", PrimaryFile)); os.IsNotExist(err) {
+		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/storage/%s", PrimaryFile))
 
 		if err != nil {
 			return err
@@ -188,130 +144,52 @@ func createDirectoriesAndFiles() error {
 /*
 Create a new cluster instance.
 */
-func NewCluster(id string, Auth *auth.Auth) (*Cluster, error) {
-	// Check if the cluster file already exists
-	_, err := storage.ObjectFS().Stat(ConfigPath())
-
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	}
-
+func NewCluster(config *config.Config) (*Cluster, error) {
 	cluster := &Cluster{
-		Auth:                Auth,
 		channels:            map[string]EventChannel{},
-		Id:                  id,
+		fileSystemMutex:     &sync.Mutex{},
+		Config:              config,
 		mutex:               &sync.Mutex{},
 		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
-	}
-
-	err = cluster.Save()
-
-	if err != nil {
-		return nil, err
 	}
 
 	return cluster, nil
 }
 
-func (c *Cluster) Node() *Node {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+/*
+Add a member to the cluster.
+*/
+func (cluster *Cluster) AddMember(group, ip string) error {
+	defer func() {
+		// Clear the cache
+		cluster.MembersRetrievedAt = time.Time{}
+	}()
 
-	if c.node == nil {
-		c.node = &Node{
-			address:    "",
-			cluster:    c,
-			lastActive: time.Time{},
-			Membership: CLUSTER_MEMBERSHIP_STAND_BY,
-			// Membership: CLUSTER_MEMBERSHIP_REPLICA,
-			mutex:   &sync.Mutex{},
-			standBy: make(chan struct{}),
-			State:   NODE_STATE_ACTIVE,
+	var err error
+	cluster.GetMembers(false)
+
+	// if !cluster.IsMember(ip, time.Now()) {
+	if group == config.NodeTypeQuery {
+		for _, node := range cluster.QueryNodes {
+			if node == ip {
+				return nil
+			}
 		}
 
-		hash := sha256.Sum256([]byte(c.node.Address()))
-		c.node.Id = hex.EncodeToString(hash[:])
-		c.node.context, c.node.cancel = context.WithCancel(context.Background())
-	}
-
-	return c.node
-}
-
-/*
-Return the path to the cluster configuration file.
-*/
-func ConfigPath() string {
-	return "_cluster/config.json"
-}
-
-/*
-Return the path to the lease file for the cluster, in respect to the node type.
-*/
-func LeasePath() string {
-	return fmt.Sprintf("_cluster/%s/%s", config.Get().NodeType, LEASE_FILE)
-}
-
-/*
-Return the path to the current node in repsect to the node type.
-*/
-func NodePath() string {
-	return fmt.Sprintf("_nodes/%s/", config.Get().NodeType)
-}
-
-/*
-Return the path to the query nodes.
-*/
-func NodeQueryPath() string {
-	return fmt.Sprintf("_nodes/%s/", config.NODE_TYPE_QUERY)
-}
-
-/*
-Return the path to the storage nodes.
-*/
-func NodeStoragePath() string {
-	return fmt.Sprintf("_nodes/%s/", config.NODE_TYPE_STORAGE)
-}
-
-/*
-Return the path to the nomination file for the cluster, in respect to the node type.
-*/
-func NominationPath() string {
-	return fmt.Sprintf("_cluster/%s/%s", config.Get().NodeType, NOMINATION_FILE)
-}
-
-/*
-Return the path to the primary file for the cluster, in respect to the node type.
-*/
-func PrimaryPath() string {
-	return fmt.Sprintf("_cluster/%s/%s", config.Get().NodeType, PRIMARY_FILE)
-}
-
-/*
-Save the cluster configuration.
-*/
-func (cluster *Cluster) Save() error {
-	data, err := json.Marshal(cluster)
-
-	if err != nil {
-		return err
-	}
-
-writefile:
-	err = storage.ObjectFS().WriteFile(ConfigPath(), data, 0644)
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			storage.ObjectFS().MkdirAll("", 0755)
-
-			goto writefile
+		cluster.QueryNodes = append(cluster.QueryNodes, ip)
+	} else if group == config.NodeTypeStorage {
+		for _, node := range cluster.StorageNodes {
+			if node == ip {
+				return nil
+			}
 		}
 
-		return err
+		cluster.StorageNodes = append(cluster.StorageNodes, ip)
+		cluster.StorageNodeHashRing.AddNode(ip)
 	}
+	// }
 
-	return storage.ObjectFS().WriteFile(ConfigPath(), data, 0644)
+	return err
 }
 
 /*
@@ -333,13 +211,13 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 	go func() {
 		defer wg.Done()
 
-		if _, err := storage.ObjectFS().Stat(NodePath()); os.IsNotExist(err) {
+		if _, err := cluster.ObjectFS().Stat(cluster.NodePath()); os.IsNotExist(err) {
 			queryNodesError = err
 			return
 		}
 
 		// Read the directory
-		files, err := storage.ObjectFS().ReadDir(NodeQueryPath())
+		files, err := cluster.ObjectFS().ReadDir(cluster.NodeQueryPath())
 
 		if err != nil {
 			queryNodesError = err
@@ -350,7 +228,7 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 		cluster.QueryNodes = []string{}
 
 		for _, file := range files {
-			address := strings.ReplaceAll(file.Name, "_", ":")
+			address := strings.ReplaceAll(file.Name(), "_", ":")
 			cluster.QueryNodes = append(cluster.QueryNodes, address)
 		}
 	}()
@@ -359,13 +237,13 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 		defer wg.Done()
 
 		// Check if the directory exists
-		if _, err := storage.ObjectFS().Stat(NodePath()); os.IsNotExist(err) {
+		if _, err := cluster.ObjectFS().Stat(cluster.NodePath()); os.IsNotExist(err) {
 			storageNodesError = err
 			return
 		}
 
 		// Read the directory
-		files, err := storage.ObjectFS().ReadDir(NodeStoragePath())
+		files, err := cluster.ObjectFS().ReadDir(cluster.NodeStoragePath())
 
 		if err != nil {
 			storageNodesError = err
@@ -377,7 +255,7 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 		cluster.StorageNodeHashRing = storage.NewStorageNodeHashRing([]string{})
 
 		for _, file := range files {
-			address := strings.ReplaceAll(file.Name, "_", ":")
+			address := strings.ReplaceAll(file.Name(), "_", ":")
 			cluster.StorageNodes = append(cluster.StorageNodes, address)
 			cluster.StorageNodeHashRing.AddNode(address)
 		}
@@ -431,6 +309,42 @@ func (cluster *Cluster) GetStorageNode(key string) (int, string, error) {
 }
 
 /*
+Initialize the cluster.
+*/
+func (cluster *Cluster) Init(Auth *auth.Auth) error {
+	// Check if the cluster file already exists
+	_, err := cluster.ObjectFS().Stat(ConfigPath())
+
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		id, err := getClusterIdFromEnv(cluster.Config)
+
+		if err != nil {
+
+			return err
+		}
+
+		cluster.Id = id
+	}
+
+	err = cluster.createDirectoriesAndFiles()
+
+	if err != nil {
+		return err
+	}
+
+	cluster.Auth = Auth
+
+	cluster.StorageConnectionManager = storage.NewStorageConnectionManager(
+		cluster.Config,
+	)
+
+	return nil
+}
+
+/*
 Check if the node is a member of the cluster.
 */
 func (cluster *Cluster) IsMember(ip string, since time.Time) bool {
@@ -451,29 +365,119 @@ func (cluster *Cluster) IsMember(ip string, since time.Time) bool {
 	return false
 }
 
-/*
-Add a member to the cluster.
-*/
-func (cluster *Cluster) AddMember(group, ip string) error {
-	var err error
-	cluster.GetMembers(false)
+func (c *Cluster) Node() *Node {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	if !cluster.IsMember(ip, time.Now()) {
-		if group == config.NODE_TYPE_QUERY {
-			err = storage.ObjectFS().WriteFile(NodeQueryPath()+strings.ReplaceAll(ip, ":", "_"), []byte(ip), 0644)
-		} else {
-			err = storage.ObjectFS().WriteFile(NodeStoragePath()+strings.ReplaceAll(ip, ":", "_"), []byte(ip), 0644)
+	if c.node == nil {
+		c.node = NewNode(c)
+	}
 
-			if err == nil {
-				cluster.StorageNodeHashRing.AddNode(ip)
-			}
+	return c.node
+}
+
+func (c *Cluster) Nodes() []*NodeIdentifier {
+	c.GetMembers(true)
+
+	nodes := []*NodeIdentifier{}
+
+	for _, node := range c.QueryNodes {
+		nodes = append(nodes, NewNodeIdentifier(node, config.NodeTypeQuery))
+	}
+
+	for _, node := range c.StorageNodes {
+		nodes = append(nodes, NewNodeIdentifier(node, config.NodeTypeStorage))
+	}
+
+	return nodes
+}
+
+func (c *Cluster) NodeGroupNodes() []*NodeIdentifier {
+	c.GetMembers(true)
+
+	nodes := []*NodeIdentifier{}
+
+	if c.Config.NodeType == config.NodeTypeQuery {
+		for _, node := range c.QueryNodes {
+			nodes = append(nodes, NewNodeIdentifier(
+				strings.Split(node, ":")[0],
+				strings.Split(node, ":")[1],
+			))
 		}
 	}
 
-	// Clear the cache
-	cluster.MembersRetrievedAt = time.Time{}
+	if c.Config.NodeType == config.NodeTypeStorage {
+		for _, node := range c.StorageNodes {
+			nodes = append(nodes, NewNodeIdentifier(
+				strings.Split(node, ":")[0],
+				strings.Split(node, ":")[1],
+			))
+		}
+	}
 
-	return err
+	return nodes
+}
+
+func (c *Cluster) OtherNodes() []*NodeIdentifier {
+	nodes := []*NodeIdentifier{}
+	address := c.Node().Address()
+	c.GetMembers(true)
+
+	for _, node := range c.QueryNodes {
+		if node != address {
+			nodes = append(nodes, NewNodeIdentifier(
+				strings.Split(node, ":")[0],
+				strings.Split(node, ":")[1],
+			))
+		}
+	}
+
+	for _, node := range c.StorageNodes {
+		if node != address {
+			nodes = append(nodes, NewNodeIdentifier(
+				strings.Split(node, ":")[0],
+				strings.Split(node, ":")[1],
+			))
+		}
+	}
+
+	return nodes
+}
+
+func (c *Cluster) OtherQueryNodes() []*NodeIdentifier {
+	c.GetMembers(true)
+
+	nodes := []*NodeIdentifier{}
+	address := c.Node().Address()
+
+	for _, node := range c.QueryNodes {
+		if node != address {
+			nodes = append(nodes, NewNodeIdentifier(
+				strings.Split(node, ":")[0],
+				strings.Split(node, ":")[1],
+			))
+		}
+	}
+
+	return nodes
+}
+
+func (c *Cluster) OtherStorageNodes() []*NodeIdentifier {
+	c.GetMembers(true)
+
+	nodes := []*NodeIdentifier{}
+	address := c.Node().Address()
+
+	for _, node := range c.StorageNodes {
+		if node != address {
+			nodes = append(nodes, NewNodeIdentifier(
+				strings.Split(node, ":")[0],
+				strings.Split(node, ":")[1],
+			))
+		}
+	}
+
+	return nodes
 }
 
 /*
@@ -492,7 +496,7 @@ func (cluster *Cluster) RemoveMember(ip string) error {
 			cluster.QueryNodes = append(cluster.QueryNodes[:i], cluster.QueryNodes[i+1:]...)
 
 			// Remove the node address file
-			err := storage.ObjectFS().Remove(NodeQueryPath() + strings.ReplaceAll(ip, ":", "_"))
+			err := cluster.ObjectFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll(ip, ":", "_"))
 
 			if err != nil {
 				return err
@@ -506,7 +510,7 @@ func (cluster *Cluster) RemoveMember(ip string) error {
 		if member == ip {
 			cluster.StorageNodes = append(cluster.StorageNodes[:i], cluster.StorageNodes[i+1:]...)
 
-			err := storage.ObjectFS().Remove(NodeStoragePath() + strings.ReplaceAll(ip, ":", "_"))
+			err := cluster.ObjectFS().Remove(cluster.NodeStoragePath() + strings.ReplaceAll(ip, ":", "_"))
 
 			if err != nil {
 				return err
@@ -519,4 +523,79 @@ func (cluster *Cluster) RemoveMember(ip string) error {
 	}
 
 	return nil
+}
+
+/*
+Return the path to the lease file for the cluster, in respect to the node type.
+*/
+func (cluster *Cluster) LeasePath() string {
+	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, LeaseFile)
+}
+
+/*
+Return the path to the current node in repsect to the node type.
+*/
+func (cluster *Cluster) NodePath() string {
+	return fmt.Sprintf("_nodes/%s/", cluster.Config.NodeType)
+}
+
+/*
+Return the path to the nomination file for the cluster, in respect to the node type.
+*/
+func (cluster *Cluster) NominationPath() string {
+	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, Nominationfile)
+}
+
+/*
+Return the path to the query nodes.
+*/
+func (cluster *Cluster) NodeQueryPath() string {
+	return fmt.Sprintf("_nodes/%s/", config.NodeTypeQuery)
+}
+
+/*
+Return the path to the storage nodes.
+*/
+func (cluster *Cluster) NodeStoragePath() string {
+	return fmt.Sprintf("_nodes/%s/", config.NodeTypeStorage)
+}
+
+/*
+Return the path to the primary file for the cluster, in respect to the node type.
+*/
+func (cluster *Cluster) PrimaryPath() string {
+	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, PrimaryFile)
+}
+
+/*
+Save the cluster configuration.
+*/
+func (cluster *Cluster) Save() error {
+	data, err := json.Marshal(cluster)
+
+	if err != nil {
+		return err
+	}
+
+writefile:
+	err = cluster.ObjectFS().WriteFile(ConfigPath(), data, 0644)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			cluster.ObjectFS().MkdirAll("", 0755)
+
+			goto writefile
+		}
+
+		return err
+	}
+
+	return cluster.ObjectFS().WriteFile(ConfigPath(), data, 0644)
+}
+
+/*
+Return the path to the cluster configuration file.
+*/
+func ConfigPath() string {
+	return "_cluster/config.json"
 }

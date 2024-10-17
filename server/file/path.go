@@ -11,8 +11,8 @@ func DatabaseDirectory() string {
 	return "_databases/"
 }
 
-func DatabaseTmpDirectory() string {
-	return fmt.Sprintf("%s/_databases/", config.Get().TmpPath)
+func DatabaseTmpDirectory(c *config.Config) string {
+	return fmt.Sprintf("%s/_databases/", c.TmpPath)
 }
 
 func DatabaseHash(
@@ -64,10 +64,10 @@ func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 	), nil
 }
 
-func GetDatabaseFileTmpPath(nodeId, databaseId string, branchId string) (string, error) {
+func GetDatabaseFileTmpPath(c *config.Config, nodeId, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s%s/%s/%s/%s.db",
-		DatabaseTmpDirectory(),
+		DatabaseTmpDirectory(c),
 		nodeId,
 		databaseId,
 		branchId,

@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"log"
 	"sync"
 )
 
@@ -18,25 +17,25 @@ type EventChannel struct {
 Broadcast a message to all of the nodes in the cluster.
 */
 func (c *Cluster) Broadcast(key string, value interface{}) error {
-	nodes := c.Node().OtherNodes()
+	nodeIdentifiers := c.OtherNodes()
 
 	wg := sync.WaitGroup{}
 
-	for _, node := range nodes {
+	for _, nodeIdentifier := range nodeIdentifiers {
 		wg.Add(1)
 
-		go func(node *NodeIdentifier) {
+		go func(nodeIdentifier *NodeIdentifier) {
 			defer wg.Done()
 
-			err := c.Node().SendEvent(node, NodeEvent{
+			err := c.Node().SendEvent(nodeIdentifier, NodeEvent{
 				Key:   key,
 				Value: value,
 			})
 
 			if err != nil {
-				log.Printf("Error sending event to node %s from node %s: %s", node.String(), c.Node().Address(), err)
+				// log.Printf("Error sending event to node %s from node %s: %s", nodeIdentifier.String(), c.Node().Address(), err)
 			}
-		}(node)
+		}(nodeIdentifier)
 	}
 
 	wg.Wait()
@@ -64,21 +63,20 @@ func (c *Cluster) Subscribe(key string, f func(message *EventMessage)) {
 
 	if _, ok := c.channels[key]; !ok {
 		c.channels[key] = EventChannel{
-			Messages: make(chan *EventMessage),
+			Messages: make(chan *EventMessage, 10),
 		}
 	}
 
 	c.mutex.Unlock()
 
-	go func() {
+	go func(messagesChannel chan *EventMessage) {
 		for {
 			select {
 			case <-c.Node().Context().Done():
 				return
-			case message := <-c.channels[key].Messages:
-
+			case message := <-messagesChannel:
 				f(message)
 			}
 		}
-	}()
+	}(c.channels[key].Messages)
 }

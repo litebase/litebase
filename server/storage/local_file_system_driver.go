@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"io/fs"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -40,7 +41,7 @@ func (fs *LocalFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error {
 
 func (fs *LocalFileSystemDriver) Open(path string) (internalStorage.File, error) {
 	file, err := os.Open(fs.path(path))
-
+	log.Println(file, err)
 	if err != nil {
 		return nil, err
 	}
@@ -79,10 +80,21 @@ func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntr
 	var dirEntries []internalStorage.DirEntry
 
 	for _, entry := range entries {
-		dirEntries = append(dirEntries, internalStorage.DirEntry{
-			Name:  entry.Name(),
-			IsDir: entry.IsDir(),
-		})
+		info, err := entry.Info()
+
+		if err != nil {
+			return nil, err
+		}
+
+		dirEntries = append(dirEntries, internalStorage.NewDirEntry(
+			entry.Name(),
+			entry.IsDir(),
+			NewStaticFileInfo(
+				entry.Name(),
+				info.Size(),
+				info.ModTime(),
+			),
+		))
 	}
 
 	return dirEntries, nil

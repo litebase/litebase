@@ -1,7 +1,6 @@
 package http
 
 import (
-	"litebase/server/auth"
 	"strconv"
 	"time"
 )
@@ -39,7 +38,7 @@ func basicAuth(request *Request) bool {
 	username, password, ok := request.BaseRequest.BasicAuth()
 
 	if ok {
-		return auth.UserManager().Authenticate(username, password)
+		return request.cluster.Auth.UserManager().Authenticate(username, password)
 	}
 
 	return false

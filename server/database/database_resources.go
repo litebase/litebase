@@ -12,6 +12,7 @@ import (
 
 type DatabaseResources struct {
 	BranchId        string
+	config          *config.Config
 	DatabaseHash    string
 	DatabaseId      string
 	databaseManager *DatabaseManager
@@ -22,6 +23,8 @@ type DatabaseResources struct {
 	mutex           *sync.RWMutex
 	rollbackLogger  *backups.RollbackLogger
 	tempFileSystem  *storage.TempDatabaseFileSystem
+	tieredFS        *storage.FileSystem
+	tmpFS           *storage.FileSystem
 	walFile         *storage.WalFile
 }
 
@@ -104,10 +107,10 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 
 	d.mutex.RUnlock()
 
-	pageSize := config.Get().PageSize
+	pageSize := d.config.PageSize
 
 	fileSystem := storage.NewDurableDatabaseFileSystem(
-		storage.TieredFS(),
+		d.tieredFS,
 		fmt.Sprintf("%s%s/%s", Directory(), d.DatabaseId, d.BranchId),
 		d.DatabaseId,
 		d.BranchId,
@@ -155,7 +158,7 @@ func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 
 	d.mutex.RUnlock()
 
-	pageLogger := backups.NewRollbackLogger(d.DatabaseId, d.BranchId)
+	pageLogger := backups.NewRollbackLogger(d.tieredFS, d.DatabaseId, d.BranchId)
 
 	d.mutex.Lock()
 
@@ -213,7 +216,7 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	d.mutex.Lock()
 
 	if d.snapshotLogger == nil {
-		d.snapshotLogger = backups.NewSnapshotLogger(d.DatabaseId, d.BranchId)
+		d.snapshotLogger = backups.NewSnapshotLogger(d.tieredFS, d.DatabaseId, d.BranchId)
 	}
 
 	d.mutex.Unlock()
@@ -243,7 +246,7 @@ func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 		d.BranchId,
 	)
 
-	fileSystem := storage.NewTempDatabaseFileSystem(path, d.DatabaseId, d.BranchId)
+	fileSystem := storage.NewTempDatabaseFileSystem(d.tmpFS, path, d.DatabaseId, d.BranchId)
 
 	d.mutex.Lock()
 
@@ -273,7 +276,7 @@ func (d *DatabaseResources) WalFile() (*storage.WalFile, error) {
 		d.DatabaseHash,
 	)
 
-	walFile, err := storage.NewWalFile(path)
+	walFile, err := storage.NewWalFile(d.tmpFS, path)
 
 	if err != nil {
 		return nil, err

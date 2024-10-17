@@ -11,19 +11,19 @@ This method is used to retrieve the active signature that is based on the signat
 stored in shared file storage. Since this method depends on file i/o, it is not
 recommended to use this method in a loop or in a hot path.
 */
-func ActiveSignature() string {
-	return config.Get().Signature
+func ActiveSignature(c *config.Config) string {
+	return c.Signature
 }
 
-func ActiveSignatureHash() string {
-	return SignatureHash(ActiveSignature())
+func ActiveSignatureHash(c *config.Config) string {
+	return SignatureHash(ActiveSignature(c))
 }
 
-func AllSignatures() map[string]string {
+func AllSignatures(objectFs *storage.FileSystem) map[string]string {
 	var signatures = map[string]string{}
 
 	// TODO: ignore directories that start with an underscore
-	signatureFiles, err := storage.ObjectFS().ReadDir("")
+	signatureFiles, err := objectFs.ReadDir("")
 
 	if err != nil {
 		log.Println("Error reading signatures", err)
@@ -32,24 +32,24 @@ func AllSignatures() map[string]string {
 
 	for _, signatureFile := range signatureFiles {
 		//Ignore paths that start with an underscore
-		if signatureFile.Name[0] == '_' {
+		if signatureFile.Name()[0] == '_' {
 			continue
 		}
 
 		// Ignore non directories
-		if !signatureFile.IsDir {
+		if !signatureFile.IsDir() {
 			continue
 		}
 
-		signatureHash := SignatureHash(signatureFile.Name)
-		signatures[signatureHash] = signatureFile.Name
+		signatureHash := SignatureHash(signatureFile.Name())
+		signatures[signatureHash] = signatureFile.Name()
 	}
 
 	return signatures
 }
 
-func FindSignature(hash string) string {
-	signatures := AllSignatures()
+func FindSignature(objectFs *storage.FileSystem, hash string) string {
+	signatures := AllSignatures(objectFs)
 
 	if _, ok := signatures[hash]; ok {
 		return signatures[hash]

@@ -20,7 +20,7 @@ func ClusterConnectionController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			ctx, cancel := context.WithCancel(request.cluster.Node().Context())
+			ctx, cancel := context.WithCancel(context.Background())
 
 			go handleClusterConnectionStream(request, cancel, request.BaseRequest.Body, w)
 

@@ -167,7 +167,7 @@ func (k *KeyEncrypter) ForDatabase(databaseId string) *KeyEncrypter {
 }
 
 func (k *KeyEncrypter) privateKey() (*rsa.PrivateKey, error) {
-	return GetPrivateKey(k.signature)
+	return GetPrivateKey(k.signature, k.secretsManager.ObjectFS)
 }
 
 func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
@@ -177,8 +177,9 @@ func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
 		if k.databaseId != "" {
 			k.publicKey, err = GetPublicKeyForDatabase(k.secretsManager, k.signature, k.databaseId)
 		} else {
-			k.publicKey, err = GetPublicKey(k.signature)
+			k.publicKey, err = GetPublicKey(k.signature, k.secretsManager.ObjectFS)
 		}
 	}
+
 	return k.publicKey, err
 }

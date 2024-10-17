@@ -1,28 +1,25 @@
 package auth_test
 
 import (
-	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/auth"
-	"litebase/server/storage"
 	"os"
 	"testing"
 )
 
 func TestStoreSignature(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		config.NewConfig()
 		signature := test.CreateHash(64)
-		auth.StoreSignature(signature)
+		auth.StoreSignature(app.Config, app.Cluster.ObjectFS(), signature)
 
 		// check if the signature was stored
-		if _, err := storage.ObjectFS().Stat(".signature"); os.IsNotExist(err) {
+		if _, err := app.Cluster.ObjectFS().Stat(".signature"); os.IsNotExist(err) {
 			t.Fatalf("The signature file was not created")
 		}
 
 		// check if the signature was stored correctly
-		file, err := storage.ObjectFS().Open(".signature")
+		file, err := app.Cluster.ObjectFS().Open(".signature")
 
 		if err != nil {
 			t.Fatalf("Error opening the signature file: %s", err)

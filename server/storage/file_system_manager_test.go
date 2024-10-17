@@ -3,13 +3,12 @@ package storage_test
 import (
 	"litebase/internal/test"
 	"litebase/server"
-	"litebase/server/storage"
 	"testing"
 )
 
 func TestLocalFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		fs := storage.LocalFS()
+		fs := app.Cluster.LocalFS()
 
 		if fs == nil {
 			t.Error("LocalFS() returned nil")
@@ -19,7 +18,7 @@ func TestLocalFS(t *testing.T) {
 
 func TestObjectFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		fs := storage.ObjectFS()
+		fs := app.Cluster.ObjectFS()
 
 		if fs == nil {
 			t.Error("ObjectFS() returned nil")
@@ -29,7 +28,7 @@ func TestObjectFS(t *testing.T) {
 
 func TestTmpFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		fs := storage.TmpFS()
+		fs := app.Cluster.TmpFS()
 
 		if fs == nil {
 			t.Error("TmpFS() returned nil")
@@ -39,7 +38,7 @@ func TestTmpFS(t *testing.T) {
 
 func TestTieredFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		fs := storage.TieredFS()
+		fs := app.Cluster.TieredFS()
 
 		if fs == nil {
 			t.Error("TieredFS() returned nil")

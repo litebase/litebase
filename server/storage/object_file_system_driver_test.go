@@ -2,7 +2,6 @@ package storage_test
 
 import (
 	"io"
-	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/storage"
@@ -12,7 +11,7 @@ import (
 
 func TestObjectFileSystemDriver(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		if driver == nil {
 			t.Fatal("Expected driver to be initialized")
@@ -22,7 +21,7 @@ func TestObjectFileSystemDriver(t *testing.T) {
 
 func TestObectFileSystemDriverCreate(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test creating a file
 		file, err := driver.Create("test.txt")
@@ -39,14 +38,15 @@ func TestObectFileSystemDriverCreate(t *testing.T) {
 
 func TestObjectFileSystemDriverEnsureBucketExists(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Ensure the bucket exists
 		driver.EnsureBucketExists()
 
 		s3Client := storage.NewS3Client(
-			config.Get().StorageBucket,
-			config.Get().StorageRegion,
+			app.Config,
+			app.Config.StorageBucket,
+			app.Config.StorageRegion,
 		)
 
 		// Check if the bucket exists
@@ -60,7 +60,7 @@ func TestObjectFileSystemDriverEnsureBucketExists(t *testing.T) {
 
 func TestObjectFileSystemDriverMkdir(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test creating a directory
 		err := driver.Mkdir("testdir", 0755)
@@ -73,7 +73,7 @@ func TestObjectFileSystemDriverMkdir(t *testing.T) {
 
 func TestObjectFileSystemDriverMkdirAll(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test creating a directory and all parent directories
 		err := driver.MkdirAll("testdir/subdir", 0755)
@@ -86,7 +86,7 @@ func TestObjectFileSystemDriverMkdirAll(t *testing.T) {
 
 func TestObjectFileSystemDriverOpen(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to open
 		_, err := driver.Create("test.txt")
@@ -110,7 +110,7 @@ func TestObjectFileSystemDriverOpen(t *testing.T) {
 
 func TestObjectFileSystemDriverOpenFile(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to open
 		_, err := driver.Create("test.txt")
@@ -134,10 +134,10 @@ func TestObjectFileSystemDriverOpenFile(t *testing.T) {
 
 func TestObjectFileSystemDriverReadDir(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test reading a directory
-		entries, err := driver.ReadDir("")
+		entries, err := driver.ReadDir("/")
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -151,7 +151,7 @@ func TestObjectFileSystemDriverReadDir(t *testing.T) {
 
 func TestObjectFileSystemDriverReadFile(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0644)
 
@@ -178,7 +178,7 @@ func TestObjectFileSystemDriverReadFile(t *testing.T) {
 
 func TestObjectFileSystemDriverRemove(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to remove
 		_, err := driver.Create("test.txt")
@@ -198,7 +198,7 @@ func TestObjectFileSystemDriverRemove(t *testing.T) {
 
 func TestObjectFileSystemDriverRemoveAll(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a directory to remove
 		err := driver.Mkdir("testdir", 0755)
@@ -236,7 +236,7 @@ func TestObjectFileSystemDriverRemoveAll(t *testing.T) {
 
 func TestObjectFileSystemDriverRename(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to rename
 		_, err := driver.Create("test.txt")
@@ -254,8 +254,9 @@ func TestObjectFileSystemDriverRename(t *testing.T) {
 
 		// Check if the old file name no longer exists
 		s3Client := storage.NewS3Client(
-			config.Get().StorageBucket,
-			config.Get().StorageRegion,
+			app.Config,
+			app.Config.StorageBucket,
+			app.Config.StorageRegion,
 		)
 
 		_, err = s3Client.GetObject("test.txt")
@@ -275,7 +276,7 @@ func TestObjectFileSystemDriverRename(t *testing.T) {
 
 func TestObjectFileSystemDriverStat(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to stat
 		_, err := driver.Create("test.txt")
@@ -299,7 +300,7 @@ func TestObjectFileSystemDriverStat(t *testing.T) {
 
 func TestObjectFileSystemDriverTruncate(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to truncate
 		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0644)
@@ -319,7 +320,7 @@ func TestObjectFileSystemDriverTruncate(t *testing.T) {
 
 func TestObjectFileSystemDriverWriteFile(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver()
+		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test writing to a file
 		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0644)

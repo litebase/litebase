@@ -1,6 +1,7 @@
 package main
 
 import (
+	"litebase/internal/config"
 	"litebase/server/storage"
 	"log"
 	"os"
@@ -14,8 +15,15 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	godotenv.Load(".env")
 	os.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
+	config := config.NewConfig()
 
-	storage.StartTestS3Server()
+	objectFS := storage.NewFileSystem(
+		storage.NewObjectFileSystemDriver(
+			config,
+		),
+	)
+
+	storage.StartTestS3Server(config, objectFS)
 
 	signals := make(chan os.Signal, 1)
 

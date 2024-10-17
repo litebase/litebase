@@ -14,24 +14,22 @@ import (
 )
 
 type AccessKeyManager struct {
-	auth  *Auth
-	mutex *sync.Mutex
+	auth     *Auth
+	config   *config.Config
+	mutex    *sync.Mutex
+	objectFS *storage.FileSystem
 }
 
-func (a *Auth) AccessKeyManager() *AccessKeyManager {
-	if a.accessKeyManager == nil {
-		a.accessKeyManager = &AccessKeyManager{
-			auth:  a,
-			mutex: &sync.Mutex{},
-		}
-	}
-
-	return a.accessKeyManager
-}
-
-func NewAccessKeyManager(secretsManager *SecretsManager) *AccessKeyManager {
+func NewAccessKeyManager(
+	auth *Auth,
+	config *config.Config,
+	objectFS *storage.FileSystem,
+) *AccessKeyManager {
 	return &AccessKeyManager{
-		mutex: &sync.Mutex{},
+		auth:     auth,
+		config:   config,
+		mutex:    &sync.Mutex{},
+		objectFS: objectFS,
 	}
 }
 
@@ -40,7 +38,7 @@ func (akm *AccessKeyManager) accessKeyCacheKey(accessKeyId string) string {
 }
 
 func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
-	files, err := storage.ObjectFS().ReadDir(akm.auth.SecretsManager().SecretsPath(config.Get().Signature, "access_keys/"))
+	files, err := akm.objectFS.ReadDir(akm.auth.SecretsManager.SecretsPath(akm.config.Signature, "access_keys/"))
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -53,11 +51,11 @@ func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
 	var accessKeyIds []string
 
 	for _, file := range files {
-		if file.IsDir {
+		if file.IsDir() {
 			continue
 		}
 
-		accessKeyIds = append(accessKeyIds, file.Name)
+		accessKeyIds = append(accessKeyIds, file.Name())
 	}
 
 	return accessKeyIds, nil
@@ -82,7 +80,7 @@ func (akm *AccessKeyManager) Create() (*AccessKey, error) {
 		},
 	)
 
-	akm.auth.SecretsManager().StoreAccessKey(accessKey)
+	akm.auth.SecretsManager.StoreAccessKey(accessKey)
 
 	return accessKey, nil
 }
@@ -146,21 +144,21 @@ func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 
 func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	var accessKey = &AccessKey{}
-	value := akm.auth.SecretsManager().cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
+	value := akm.auth.SecretsManager.cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
 
 	if value != nil {
 		return accessKey, nil
 	}
 
-	path := akm.auth.SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
+	path := akm.auth.SecretsManager.SecretsPath(akm.config.Signature, fmt.Sprintf("access_keys/%s", accessKeyId))
 
-	fileContents, err := storage.ObjectFS().ReadFile(path)
+	fileContents, err := akm.objectFS.ReadFile(path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	decrypted, err := akm.auth.SecretsManager().Decrypt(config.Get().Signature, string(fileContents))
+	decrypted, err := akm.auth.SecretsManager.Decrypt(akm.config.Signature, string(fileContents))
 
 	if err != nil {
 		return nil, err
@@ -172,7 +170,7 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 		return nil, err
 	}
 
-	akm.auth.SecretsManager().cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
+	akm.auth.SecretsManager.cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
 	// akm.secretsManager.cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
 
 	return accessKey, err
@@ -185,19 +183,19 @@ func (akm *AccessKeyManager) Has(databaseKey, accessKeyId string) bool {
 }
 
 func (akm *AccessKeyManager) Purge(accessKeyId string) {
-	akm.auth.SecretsManager().cache("map").Forget(akm.accessKeyCacheKey(accessKeyId))
-	akm.auth.SecretsManager().cache("transient").Forget(akm.accessKeyCacheKey(accessKeyId))
+	akm.auth.SecretsManager.cache("map").Forget(akm.accessKeyCacheKey(accessKeyId))
+	akm.auth.SecretsManager.cache("transient").Forget(akm.accessKeyCacheKey(accessKeyId))
 }
 
 func (akm *AccessKeyManager) PurgeAll() {
 	// Get all the file names in the access keys directory
-	files, err := storage.ObjectFS().ReadDir(akm.auth.SecretsManager().SecretsPath(config.Get().Signature, "access_keys/"))
+	files, err := akm.objectFS.ReadDir(akm.auth.SecretsManager.SecretsPath(akm.config.Signature, "access_keys/"))
 
 	if err != nil {
 		return
 	}
 
 	for _, file := range files {
-		akm.Purge(file.Name)
+		akm.Purge(file.Name())
 	}
 }

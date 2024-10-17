@@ -3,8 +3,6 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/storage"
 )
 
 type Database struct {
@@ -15,13 +13,6 @@ type Database struct {
 	PrimaryBranchId   string           `json:"primary_branch_id"`
 	PrimaryBranchName string           `json:"primary_branch_name"`
 	Settings          DatabaseSettings `json:"settings"`
-}
-
-// var databases map[string]*Database = make(map[string]*Database)
-// var databaseMutex = &sync.Mutex{}
-
-func Init() {
-	storage.ObjectFS().Mkdir(Directory(), 0755)
 }
 
 func Directory() string {
@@ -56,7 +47,7 @@ func (database *Database) Key(branchId string) string {
 }
 
 func (database *Database) save() error {
-	storage.ObjectFS().MkdirAll(fmt.Sprintf("%s%s", Directory(), database.Id), 0755)
+	database.DatabaseManager.Cluster.ObjectFS().MkdirAll(fmt.Sprintf("%s%s", Directory(), database.Id), 0755)
 
 	jsonData, err := json.Marshal(database)
 
@@ -64,7 +55,7 @@ func (database *Database) save() error {
 		return err
 	}
 
-	createError := storage.ObjectFS().WriteFile(fmt.Sprintf("%s%s/settings.json", Directory(), database.Id), jsonData, 0666)
+	createError := database.DatabaseManager.Cluster.ObjectFS().WriteFile(fmt.Sprintf("%s%s/settings.json", Directory(), database.Id), jsonData, 0666)
 
 	database.DatabaseManager.SecretsManager.StoreDatabaseKey(
 		database.Key(database.PrimaryBranchId),
@@ -98,6 +89,6 @@ func (database *Database) Url(branchId string) string {
 		"region",
 		database.DatabaseManager.Cluster.Id,
 		// TODO: Make optional for production
-		config.Get().Port,
+		database.DatabaseManager.Cluster.Config.Port,
 	)
 }

@@ -5,49 +5,56 @@ package storage
 
 import (
 	"fmt"
+	"litebase/internal/config"
 	"log"
-	"net"
 	"net/http/httptest"
 	"os"
 
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3afero"
+	"github.com/johannesboyne/gofakes3/backend/s3mem"
 	"github.com/spf13/afero"
 )
 
 var s3Server *httptest.Server
 
-func StartTestS3Server() {
-	backend, err := s3afero.MultiBucket(
-		afero.NewBasePathFs(
-			afero.NewOsFs(),
-			fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")),
-		),
-	)
+func s3Faker(c *config.Config) *gofakes3.GoFakeS3 {
+	var backend gofakes3.Backend
+	var err error
 
-	if err != nil {
-		log.Fatalf("failed to create test s3 server, %v", err)
+	if c.Env == config.EnvDevelopment {
+		backend, err = s3afero.MultiBucket(
+			afero.NewBasePathFs(
+				afero.NewOsFs(),
+				fmt.Sprintf("%s/_object_storage", os.Getenv("LITEBASE_LOCAL_DATA_PATH")),
+			),
+		)
+
+		if err != nil {
+			log.Fatalf("failed to create test s3 server, %v", err)
+		}
+	} else {
+		backend = s3mem.New()
 	}
 
 	faker := gofakes3.New(backend)
+
+	return faker
+}
+
+func StartTestS3Server(c *config.Config, objectFS *FileSystem) (string, error) {
+	faker := s3Faker(c)
+
 	s3Server = httptest.NewUnstartedServer(faker.Server())
 
-	listener, err := net.Listen("tcp", ":9000")
-
-	if err != nil {
-		log.Printf("failed to create test s3 server, %v", err)
-
-		return
-	}
-
-	s3Server.Listener = listener
-
 	s3Server.Start()
+	c.StorageEndpoint = s3Server.URL
+	objectFS.Driver().(*ObjectFileSystemDriver).S3Client.Endpoint = s3Server.URL
 
 	// Ensure the bucket exists
-	ObjectFS().Driver().(*ObjectFileSystemDriver).EnsureBucketExists()
+	objectFS.Driver().(*ObjectFileSystemDriver).EnsureBucketExists()
 
-	log.Println("Started test s3 server")
+	return s3Server.URL, nil
 }
 
 func StopTestS3Server() {

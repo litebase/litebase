@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"litebase/internal/config"
 	"log"
 	"net/http"
 	"runtime"
@@ -117,7 +116,7 @@ func (nr *NodeReplica) JoinCluster() error {
 
 	data := map[string]string{
 		"address": nr.node.Address(),
-		"group":   config.Get().NodeType,
+		"group":   nr.node.cluster.Config.NodeType,
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -133,8 +132,8 @@ func (nr *NodeReplica) JoinCluster() error {
 		return err
 	}
 
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
-		config.Get().Signature,
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
+		nr.node.cluster.Config.Signature,
 		nr.node.Address(),
 	)
 
@@ -161,6 +160,11 @@ func (nr *NodeReplica) JoinCluster() error {
 }
 
 func (nr *NodeReplica) LeaveCluster() error {
+	// Check if the context is canceled
+	if nr.node.context.Err() != nil {
+		return fmt.Errorf("node context is canceled")
+	}
+
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
 	}
@@ -182,8 +186,8 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return err
 	}
 
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
-		config.Get().Signature,
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
+		nr.node.cluster.Config.Signature,
 		nr.node.Address(),
 	)
 
@@ -229,8 +233,8 @@ func (nr *NodeReplica) Send(nodeMessage NodeMessage) (NodeMessage, error) {
 		return NodeMessage{}, err
 	}
 
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
-		config.Get().Signature,
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
+		nr.node.cluster.Config.Signature,
 		nr.node.Address(),
 	)
 
@@ -293,8 +297,8 @@ func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage NodeMessage) (chan N
 		return nil, err
 	}
 
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager().Encrypt(
-		config.Get().Signature,
+	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
+		nr.node.cluster.Config.Signature,
 		nr.node.Address(),
 	)
 

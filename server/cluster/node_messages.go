@@ -5,6 +5,10 @@ import (
 	"litebase/server/sqlite3"
 )
 
+type ErrorMessage struct {
+	Message string
+}
+
 type NodeMessage struct {
 	Id          string
 	Type        string
@@ -56,6 +60,7 @@ type WALReplicationTruncateMessage struct {
 }
 
 func registerNodeMessages() {
+	gob.Register(ErrorMessage{})
 	gob.Register(NodeConnectionMessage{})
 	gob.Register(NodeMessage{})
 	gob.Register(QueryMessage{})

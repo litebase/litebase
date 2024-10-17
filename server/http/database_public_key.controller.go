@@ -37,7 +37,7 @@ func DatabasePublicKeyController(request *Request) Response {
 
 	var signature string
 
-	if signature = _auth.FindSignature(request.Headers().Get("X-Lbdb-Signature")); signature == "" {
+	if signature = _auth.FindSignature(request.cluster.ObjectFS(), request.Headers().Get("X-Lbdb-Signature")); signature == "" {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
@@ -46,7 +46,7 @@ func DatabasePublicKeyController(request *Request) Response {
 		}
 	}
 
-	decrypted, err := request.cluster.Auth.SecretsManager().Decrypt(
+	decrypted, err := request.cluster.Auth.SecretsManager.Decrypt(
 		signature,
 		input.(*DatabasePublicKeyRequest).PublicKey,
 	)
@@ -60,7 +60,7 @@ func DatabasePublicKeyController(request *Request) Response {
 		}
 	}
 
-	encrypted, err := request.cluster.Auth.SecretsManager().Encrypt(
+	encrypted, err := request.cluster.Auth.SecretsManager.Encrypt(
 		input.(*DatabasePublicKeyRequest).Signature,
 		decrypted["value"],
 	)
@@ -74,7 +74,7 @@ func DatabasePublicKeyController(request *Request) Response {
 		}
 	}
 
-	err = request.cluster.Auth.SecretsManager().StoreDatabasePublicKey(
+	err = request.cluster.Auth.SecretsManager.StoreDatabasePublicKey(
 		input.(*DatabasePublicKeyRequest).Signature,
 		request.Param("database_id"),
 		encrypted,

@@ -1,9 +1,5 @@
 package cluster
 
-import (
-	"litebase/server/storage"
-)
-
 type EventsManager struct {
 	cluster *Cluster
 	hooks   []func(key string, value string)
@@ -40,7 +36,7 @@ Initialize the events manager
 */
 func (em *EventsManager) Init() {
 	em.cluster.Subscribe("activate_signature", func(message *EventMessage) {
-		ActivateSignatureHandler(message.Value)
+		ActivateSignatureHandler(em.cluster.Config, message.Value)
 	})
 
 	em.cluster.Subscribe("cluster:join", func(message *EventMessage) {
@@ -49,7 +45,7 @@ func (em *EventsManager) Init() {
 		em.cluster.AddMember(data["group"].(string), data["address"].(string))
 
 		// Clear disributed file system cache
-		storage.ClearFSFiles()
+		em.cluster.ClearFSFiles()
 	})
 
 	em.cluster.Subscribe("cluster:leave", func(message *EventMessage) {
@@ -58,10 +54,10 @@ func (em *EventsManager) Init() {
 		em.cluster.RemoveMember(data["address"].(string))
 
 		// Clear disributed file system cache
-		storage.ClearFSFiles()
+		em.cluster.ClearFSFiles()
 	})
 
 	em.cluster.Subscribe("next_signature", func(message *EventMessage) {
-		NextSignatureHandler(message.Value)
+		NextSignatureHandler(em.cluster.Config, message.Value)
 	})
 }

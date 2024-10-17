@@ -54,7 +54,7 @@ func AccessKeyControllerStore(request *Request) Response {
 }
 
 func AccessKeyControllerUpdate(request *Request) Response {
-	request.cluster.Auth.SecretsManager().Init()
+	request.cluster.Auth.SecretsManager.Init()
 
 	accessKey, err := request.accessKeyManager.Get(request.Get("access_key_id").(string))
 

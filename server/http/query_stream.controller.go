@@ -29,7 +29,11 @@ var inputPool = &sync.Pool{
 const QueryStreamFlushInterval = 0
 
 func QueryStreamController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+	databaseKey, err := database.GetDatabaseKey(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
+		request.Subdomains()[0],
+	)
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))

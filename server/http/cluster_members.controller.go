@@ -1,7 +1,6 @@
 package http
 
 import (
-	"litebase/internal/config"
 	"log"
 )
 
@@ -10,8 +9,8 @@ func ClusterMemberDestroyController(request *Request) Response {
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
 
-	decryptedIp, err := request.cluster.Auth.SecretsManager().Decrypt(
-		config.Get().Signature,
+	decryptedIp, err := request.cluster.Auth.SecretsManager.Decrypt(
+		request.cluster.Config.Signature,
 		ipAddress,
 	)
 
@@ -80,8 +79,8 @@ func ClusterMemberStoreController(request *Request) Response {
 		log.Println("Unauthorized node connection attempt: ", ipAddress)
 	}
 
-	decryptedIp, err := request.cluster.Auth.SecretsManager().Decrypt(
-		config.Get().Signature,
+	decryptedIp, err := request.cluster.Auth.SecretsManager.Decrypt(
+		request.cluster.Config.Signature,
 		ipAddress,
 	)
 

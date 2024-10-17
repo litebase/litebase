@@ -101,8 +101,9 @@ func (f *TieredFile) Close() error {
 	f.tieredFileSystemDriver.WithLock(func() {
 		if f.shouldBeWrittenToDurableStorage() {
 			f.tieredFileSystemDriver.flushFileToDurableStorage(f, true)
-			f.tieredFileSystemDriver.ReleaseFile(f)
 		}
+
+		f.tieredFileSystemDriver.ReleaseFile(f)
 	})
 
 	return nil
@@ -117,6 +118,10 @@ func (f *TieredFile) closeFile() error {
 
 	return f.File.Close()
 }
+
+// func (f *TieredFile) Lock() error {
+// 	return
+// }
 
 func (f *TieredFile) MarkUpdated() {
 	if f.Closed {

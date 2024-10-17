@@ -7,24 +7,24 @@ import (
 	"os"
 )
 
-func InitSignature() error {
-	signature := config.Get().Signature
+func InitSignature(c *config.Config, objectFS *storage.FileSystem) error {
+	signature := c.Signature
 
-	storedSignature := storedSignature()
+	storedSignature := storedSignature(objectFS)
 
 	if signature != "" && storedSignature == "" {
-		StoreSignature(signature)
+		StoreSignature(c, objectFS, signature)
 		return nil
 	}
 
 	if signature == "" && storedSignature != "" {
-		config.Get().Signature = storedSignature
+		c.Signature = storedSignature
 
 		return nil
 	}
 
 	if signature != storedSignature {
-		config.Get().SignatureNext = storedSignature
+		c.SignatureNext = storedSignature
 
 		return nil
 	}
@@ -36,8 +36,8 @@ func InitSignature() error {
 	return fmt.Errorf("the LITEBASE_SIGNATURE environment variable is not set")
 }
 
-func storedSignature() string {
-	storedSignature, err := storage.ObjectFS().ReadFile(".signature")
+func storedSignature(objectFS *storage.FileSystem) string {
+	storedSignature, err := objectFS.ReadFile(".signature")
 
 	if err != nil {
 		return ""
@@ -46,17 +46,17 @@ func storedSignature() string {
 	return string(storedSignature)
 }
 
-func StoreSignature(signature string) error {
-	config.Get().Signature = signature
+func StoreSignature(c *config.Config, objectFS *storage.FileSystem, signature string) error {
+	c.Signature = signature
 	signaturePath := ".signature"
 
 writeFile:
 
-	err := storage.ObjectFS().WriteFile(signaturePath, []byte(signature), 0644)
+	err := objectFS.WriteFile(signaturePath, []byte(signature), 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = storage.ObjectFS().MkdirAll("", 0755)
+			err = objectFS.MkdirAll("", 0755)
 
 			if err != nil {
 				return err

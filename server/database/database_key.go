@@ -28,7 +28,7 @@ func NewDatabaseKey(databaseId, branchId string) *DatabaseKey {
 	}
 }
 
-func GetDatabaseKey(key string) (*DatabaseKey, error) {
+func GetDatabaseKey(c *config.Config, objectFS *storage.FileSystem, key string) (*DatabaseKey, error) {
 	// Check if the database key is cached
 	databaseKeyMutex.RLock()
 
@@ -43,7 +43,7 @@ func GetDatabaseKey(key string) (*DatabaseKey, error) {
 	defer databaseKeyMutex.Unlock()
 
 	// Read the database key file
-	data, err := storage.ObjectFS().ReadFile(auth.GetDatabaseKeyPath(config.Get().Signature, key))
+	data, err := objectFS.ReadFile(auth.GetDatabaseKeyPath(c.Signature, key))
 
 	if err != nil {
 		return nil, err
@@ -63,9 +63,9 @@ func GetDatabaseKey(key string) (*DatabaseKey, error) {
 	return databaseKey, nil
 }
 
-func GetDatabaseKeyCount() int64 {
+func GetDatabaseKeyCount(c *config.Config, objectFS *storage.FileSystem) int64 {
 	// Read all files in the databases directory
-	entries, err := storage.ObjectFS().ReadDir(auth.GetDatabaseKeysPath(config.Get().Signature) + "/")
+	entries, err := objectFS.ReadDir(auth.GetDatabaseKeysPath(c.Signature) + "/")
 
 	if err != nil {
 		return 0

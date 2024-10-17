@@ -8,7 +8,11 @@ import (
 )
 
 func DatabaseSnapshotIndexController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+	databaseKey, err := database.GetDatabaseKey(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
+		request.Subdomains()[0],
+	)
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
@@ -39,7 +43,11 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 }
 
 func DatabaseSnapshotShowController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+	databaseKey, err := database.GetDatabaseKey(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
+		request.Subdomains()[0],
+	)
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))

@@ -22,6 +22,7 @@ type BackupRangeFile struct {
 }
 
 func ReadBackupRangeFile(
+	c *config.Config,
 	f internalStorage.File,
 	rangeNumber int64,
 	restorePoint RestorePoint,
@@ -74,7 +75,7 @@ func ReadBackupRangeFile(
 	startPageNumber, endPageNumber := file.PageRangeStartAndEndPageNumbers(
 		b.rangeNumber,
 		storage.DataRangeMaxPages,
-		config.Get().PageSize,
+		c.PageSize,
 	)
 
 	// Read the current state of the file
@@ -121,7 +122,7 @@ func ReadBackupRangeFile(
 						continue
 					}
 
-					offset := file.PageRangeOffset(rollbackLogEntry.PageNumber, storage.DataRangeMaxPages, config.Get().PageSize)
+					offset := file.PageRangeOffset(rollbackLogEntry.PageNumber, storage.DataRangeMaxPages, c.PageSize)
 
 					if offset >= int64(len(fileContents)) {
 						log.Println("Offset is greater than the length of the file contents")
@@ -140,7 +141,7 @@ func ReadBackupRangeFile(
 	}
 
 	rangePageCount := b.restorePoint.PageCount % storage.DataRangeMaxPages
-	rangeSize := rangePageCount * config.Get().PageSize
+	rangeSize := rangePageCount * c.PageSize
 
 	// Truncate the file content to the length of the data
 	fileContents = fileContents[:rangeSize]

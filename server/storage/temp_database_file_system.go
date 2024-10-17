@@ -9,14 +9,13 @@ type TempDatabaseFileSystem struct {
 	path string
 }
 
-func NewTempDatabaseFileSystem(path, databaseId, branchId string) *TempDatabaseFileSystem {
-	fs := TmpFS()
+func NewTempDatabaseFileSystem(tmpFS *FileSystem, path, databaseId, branchId string) *TempDatabaseFileSystem {
 
 	// Check if the the directory exists
-	if _, err := fs.Stat(path); err != nil {
+	if _, err := tmpFS.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			// Create the directory
-			if err := fs.MkdirAll(path, 0755); err != nil {
+			if err := tmpFS.MkdirAll(path, 0755); err != nil {
 				log.Fatalln("Error creating temp file system directory", err)
 			}
 		} else {

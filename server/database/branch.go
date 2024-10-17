@@ -1,6 +1,8 @@
 package database
 
 import (
+	"litebase/internal/config"
+	"litebase/server/storage"
 	"math/rand/v2"
 	"time"
 
@@ -15,9 +17,9 @@ type Branch struct {
 	Name      string `json:"name"`
 }
 
-func NewBranch(name string, isPrimary bool) *Branch {
+func NewBranch(c *config.Config, objectFS *storage.FileSystem, name string, isPrimary bool) *Branch {
 	randomFactor := rand.Int64N(100000)
-	keyCount := uint64(GetDatabaseKeyCount() + time.Now().UnixMilli() + randomFactor)
+	keyCount := uint64(GetDatabaseKeyCount(c, objectFS) + time.Now().UnixMilli() + randomFactor)
 
 	s, _ := sqids.New(sqids.Options{
 		Alphabet:  "0123456789abcdefghijklmnopqrstuvwxyz",

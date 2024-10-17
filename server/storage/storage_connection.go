@@ -42,6 +42,7 @@ sent and closed after a period of inactivity.
 type StorageConnection struct {
 	Address         string
 	cancel          context.CancelFunc
+	config          *config.Config
 	connected       chan struct{}
 	connecting      bool
 	context         context.Context
@@ -60,9 +61,10 @@ type StorageConnection struct {
 /*
 Create a new storage connection instance.
 */
-func NewStorageConnection(index int, address string) *StorageConnection {
+func NewStorageConnection(c *config.Config, index int, address string) *StorageConnection {
 	return &StorageConnection{
 		Address:   address,
+		config:    c,
 		connected: make(chan struct{}),
 		errorChan: make(chan error),
 		Index:     index,
@@ -144,20 +146,20 @@ func (sc *StorageConnection) createAndSendRequest() (*http.Response, error) {
 	sc.reader, sc.writer = io.Pipe()
 	sc.writeBuffer = bufio.NewWriterSize(sc.writer, 1024)
 
-	request, err := http.NewRequestWithContext(sc.context, "POST", sc.Address, sc.reader)
+	request, err := http.NewRequestWithContext(sc.context, "POST", fmt.Sprintf("http://%s/storage", sc.Address), sc.reader)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	encryptedHeader, err := StorageEncryption.Encrypt(config.Get().Signature, NodeIPAddress)
+	encryptedHeader, err := StorageEncryption.Encrypt(sc.config.Signature, NodeIPAddress)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt header: %w", err)
 	}
 
 	request.Header.Set("X-Lbdb-Node", encryptedHeader)
-	request.Header.Set("X-Lbdb-Node-Timestamp", time.Now().Format(time.RFC3339))
+	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
 
 	go sc.writeConnectionRequest()
 

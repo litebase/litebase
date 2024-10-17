@@ -150,6 +150,8 @@ func TestRestoreFromTimestamp(t *testing.T) {
 
 		// Call the RestoreFromTimestamp function
 		err = backups.RestoreFromTimestamp(
+			app.Config,
+			app.Cluster.TieredFS(),
 			source.DatabaseId,
 			source.BranchId,
 			target.DatabaseId,
@@ -393,6 +395,8 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 
 				// Call the RestoreFromTimestamp function
 				err = backups.RestoreFromTimestamp(
+					app.Config,
+					app.Cluster.TieredFS(),
 					source.DatabaseId,
 					source.BranchId,
 					target.DatabaseId,

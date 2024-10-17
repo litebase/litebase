@@ -2,7 +2,6 @@ package http
 
 import (
 	"fmt"
-	"litebase/internal/config"
 	"log"
 )
 
@@ -69,7 +68,10 @@ func DatabaseStoreController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("database '%s' already exists", databaseName))
 	}
 
-	db, err := request.databaseManager.Create(databaseName, config.Get().DefaultBranchName)
+	db, err := request.databaseManager.Create(
+		databaseName,
+		request.cluster.Config.DefaultBranchName,
+	)
 
 	if err != nil {
 		return ServerErrorResponse(err)

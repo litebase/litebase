@@ -26,17 +26,17 @@ type QueryIndex struct {
 	path  string
 }
 
-func GetQueryIndex(path, name string, timestamp int64) (*QueryIndex, error) {
+func GetQueryIndex(tieredFS *storage.FileSystem, path, name string, timestamp int64) (*QueryIndex, error) {
 	directoryPath := fmt.Sprintf("%s/%d", path, timestamp)
 	indexPath := fmt.Sprintf("%s/%d/%s", path, timestamp, name)
 
-	err := storage.TieredFS().MkdirAll(directoryPath, 0755)
+	err := tieredFS.MkdirAll(directoryPath, 0755)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	file, err := storage.TieredFS().OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	file, err := tieredFS.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if err != nil {
 		log.Fatalln("Failed to open file", err)

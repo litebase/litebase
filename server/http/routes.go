@@ -1,9 +1,6 @@
 package http
 
 import (
-	"litebase/server/storage"
-	"log"
-	"os"
 	"time"
 )
 
@@ -100,7 +97,6 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Delete(
-		"/databases/{databaseUuid}",
 		"/databases/{databaseId}",
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
@@ -109,7 +105,6 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Post(
-		"/databases/{databaseUuid}/public-key",
 		"/databases/{databaseId}/public-key",
 		DatabasePublicKeyController,
 	).Middleware([]Middleware{
@@ -139,6 +134,20 @@ func LoadRoutes(router *RouterInstance) {
 	router.Post(
 		"/cluster/connection",
 		ClusterConnectionController,
+	).Middleware(
+		[]Middleware{Internal},
+	).Timeout(0)
+
+	router.Post(
+		"/cluster/election",
+		ClusterElectionController,
+	).Middleware(
+		[]Middleware{Internal},
+	).Timeout(0)
+
+	router.Post(
+		"/cluster/election/confirmation",
+		ClusterElectionConfirmationController,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(0)
@@ -176,7 +185,6 @@ func LoadRoutes(router *RouterInstance) {
 	).Timeout(0)
 
 	router.Post(
-		"/databases/{databaseUuid}/{branchUuid}/settings/purge",
 		"/databases/{databaseId}/{branchId}/settings/purge",
 		DatabaseSettingsPurgeController,
 	).Middleware([]Middleware{

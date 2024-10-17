@@ -2,6 +2,7 @@ package backups
 
 import (
 	"bytes"
+	"litebase/server/storage"
 	"log"
 	"sync"
 	"time"
@@ -13,9 +14,10 @@ type RollbackLogger struct {
 	BranchId   string
 	logs       map[int64]*RollbackLog
 	mutex      *sync.Mutex
+	tieredFS   *storage.FileSystem
 }
 
-func NewRollbackLogger(databaseId, branchId string) *RollbackLogger {
+func NewRollbackLogger(tieredFS *storage.FileSystem, databaseId, branchId string) *RollbackLogger {
 	return &RollbackLogger{
 		buffers: sync.Pool{
 			New: func() interface{} {
@@ -26,6 +28,7 @@ func NewRollbackLogger(databaseId, branchId string) *RollbackLogger {
 		BranchId:   branchId,
 		logs:       make(map[int64]*RollbackLog),
 		mutex:      &sync.Mutex{},
+		tieredFS:   tieredFS,
 	}
 }
 
@@ -70,7 +73,12 @@ func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 		return l, nil
 	}
 
-	rollbackLog, err := OpenRollbackLog(rl.DatabaseId, rl.BranchId, startOfHourTimestamp)
+	rollbackLog, err := OpenRollbackLog(
+		rl.tieredFS,
+		rl.DatabaseId,
+		rl.BranchId,
+		startOfHourTimestamp,
+	)
 
 	if err != nil {
 		log.Println("Error opening page log", err)

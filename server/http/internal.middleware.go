@@ -1,7 +1,8 @@
 package http
 
 import (
-	"litebase/internal/config"
+	"log"
+	"strconv"
 	"time"
 )
 
@@ -12,12 +13,13 @@ func Internal(request *Request) (*Request, Response) {
 	var nodeIp string
 
 	if nodeHeader != "" {
-		nodeIpDecrypted, err := request.cluster.Auth.SecretsManager().Decrypt(
-			config.Get().Signature,
+		nodeIpDecrypted, err := request.cluster.Auth.SecretsManager.Decrypt(
+			request.cluster.Config.Signature,
 			nodeHeader,
 		)
 
 		if err != nil {
+			log.Printf("Error decrypting node header: %s - %s", err, request.cluster.Node().Address())
 			return request, Response{
 				StatusCode: 401,
 			}
@@ -32,16 +34,21 @@ func Internal(request *Request) (*Request, Response) {
 		}
 	}
 
-	parsedTimestamp, err := time.Parse(time.RFC3339, nodeTimestamp)
+	// Convert the Unix nano timestamp to int64
+	timestamp, err := strconv.ParseInt(nodeTimestamp, 10, 64)
 
 	if err != nil {
+		log.Println("Error parsing Unix nano timestamp:", err)
 		return request, Response{
-			StatusCode: 500,
+			StatusCode: 400,
 			Body: map[string]interface{}{
-				"message": err.Error(),
+				"message": "Invalid timestamp",
 			},
 		}
 	}
+
+	// Create a time.Time object from the Unix nano timestamp
+	parsedTimestamp := time.Unix(0, timestamp)
 
 	if nodeIp == "" || !request.cluster.IsMember(nodeIp, parsedTimestamp) {
 		return request, Response{

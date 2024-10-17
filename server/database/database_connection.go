@@ -26,6 +26,7 @@ type DatabaseConnection struct {
 	cancel            context.CancelFunc
 	checkpointer      *Checkpointer
 	committedAt       time.Time
+	config            *config.Config
 	connectionManager *ConnectionManager
 	context           context.Context
 	databaseHash      string
@@ -77,6 +78,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		branchId:          branchId,
 		cancel:            cancel,
 		checkpointer:      checkpointer,
+		config:            connectionManager.cluster.Config,
 		connectionManager: connectionManager,
 		context:           ctx,
 		databaseHash:      databaseHash,
@@ -101,6 +103,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	con.setAuthorizer()
 
 	path, err := file.GetDatabaseFileTmpPath(
+		con.config,
 		con.connectionManager.cluster.Node().Id,
 		databaseId,
 		branchId,
@@ -127,7 +130,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	con.sqlite3 = connection
 
 	configStatements := []string{
-		fmt.Sprintf("PRAGMA page_size = %d", config.Get().PageSize),
+		fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize),
 		/*
 			Databbases should always be in WAL mode. This allows for multiple
 			readers and a single writer.
@@ -219,6 +222,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 	if err != nil {
 		return err
 	}
+
 	_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) error {
 		if result.Result != 0 {
 			log.Println("Error checkpointing database", err)
@@ -359,7 +363,7 @@ func (con *DatabaseConnection) RegisterVFS() error {
 		fmt.Sprintf("litebase:%s", con.databaseHash),
 		fmt.Sprintf("litebase:%s", con.VfsHash()),
 		file.GetDatabaseFileDir(con.databaseId, con.branchId),
-		config.Get().PageSize,
+		con.config.PageSize,
 		con.fileSystem,
 		con.distributedWal,
 	)

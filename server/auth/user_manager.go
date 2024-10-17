@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebase/internal/config"
-	"litebase/server/storage"
 	"os"
 	"sync"
 	"time"
@@ -12,10 +11,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserManagerInstance struct {
-	mutex *sync.Mutex
-	path  string
-	users map[string]*User
+type UserManager struct {
+	auth   *Auth
+	config *config.Config
+	mutex  *sync.Mutex
+	path   string
+	users  map[string]*User
 }
 
 type User struct {
@@ -26,21 +27,21 @@ type User struct {
 	UpdatedAt  string   `json:"updated_at"`
 }
 
-var staticUserManager *UserManagerInstance
-
-func UserManager() *UserManagerInstance {
-	if staticUserManager == nil {
-		staticUserManager = &UserManagerInstance{
-			mutex: &sync.Mutex{},
-			path:  "users.json",
-			users: map[string]*User{},
+func (auth *Auth) UserManager() *UserManager {
+	if auth.userManager == nil {
+		auth.userManager = &UserManager{
+			auth:   auth,
+			config: auth.Config,
+			mutex:  &sync.Mutex{},
+			path:   "users.json",
+			users:  map[string]*User{},
 		}
 	}
 
-	return staticUserManager
+	return auth.userManager
 }
 
-func (u *UserManagerInstance) Init() error {
+func (u *UserManager) Init() error {
 	// Get the users
 	users, err := u.allUsers()
 
@@ -53,15 +54,15 @@ func (u *UserManagerInstance) Init() error {
 	u.mutex.Unlock()
 
 	if len(users) == 0 {
-		if config.Get().RootUsername == "" {
+		if u.config.RootUsername == "" {
 			return fmt.Errorf("the LITEBASE_ROOT_USERNAME environment variable is not set")
 		}
 
-		if config.Get().RootPassword == "" {
+		if u.config.RootPassword == "" {
 			return fmt.Errorf("the LITEBASE_ROOT_PASSWORD environment variable is not set")
 		}
 
-		err := u.Add(config.Get().RootUsername, config.Get().RootPassword, []string{"*"})
+		err := u.Add(u.config.RootUsername, u.config.RootPassword, []string{"*"})
 
 		if err != nil {
 			return err
@@ -71,7 +72,7 @@ func (u *UserManagerInstance) Init() error {
 	return nil
 }
 
-func (u *UserManagerInstance) All() []User {
+func (u *UserManager) All() []User {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -90,12 +91,12 @@ func (u *UserManagerInstance) All() []User {
 	return users
 }
 
-func (u *UserManagerInstance) allUsers() (map[string]*User, error) {
+func (u *UserManager) allUsers() (map[string]*User, error) {
 	var users map[string]*User
-	file, err := storage.ObjectFS().ReadFile(u.path)
+	file, err := u.auth.ObjectFS.ReadFile(u.path)
 
 	if err != nil && os.IsNotExist(err) {
-		_, err = storage.ObjectFS().Create(u.path)
+		_, err = u.auth.ObjectFS.Create(u.path)
 
 		if err != nil {
 			return nil, err
@@ -117,7 +118,7 @@ func (u *UserManagerInstance) allUsers() (map[string]*User, error) {
 	return users, err
 }
 
-func (u *UserManagerInstance) Authenticate(username, password string) bool {
+func (u *UserManager) Authenticate(username, password string) bool {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -134,7 +135,7 @@ func (u *UserManagerInstance) Authenticate(username, password string) bool {
 	return true
 }
 
-func (u *UserManagerInstance) Get(username string) *User {
+func (u *UserManager) Get(username string) *User {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -147,7 +148,7 @@ func (u *UserManagerInstance) Get(username string) *User {
 	return nil
 }
 
-func (u *UserManagerInstance) Remove(username string) error {
+func (u *UserManager) Remove(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -156,7 +157,7 @@ func (u *UserManagerInstance) Remove(username string) error {
 	return u.writeFile()
 }
 
-func (u *UserManagerInstance) Add(username, password string, privleges []string) error {
+func (u *UserManager) Add(username, password string, privleges []string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -182,14 +183,14 @@ func (u *UserManagerInstance) Add(username, password string, privleges []string)
 	return u.writeFile()
 }
 
-func (u *UserManagerInstance) writeFile() error {
+func (u *UserManager) writeFile() error {
 	data, err := json.MarshalIndent(u.users, "", "  ")
 
 	if err != nil {
 		return err
 	}
 
-	err = storage.ObjectFS().WriteFile(u.path, data, 0644)
+	err = u.auth.ObjectFS.WriteFile(u.path, data, 0644)
 
 	return err
 }

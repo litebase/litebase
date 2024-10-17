@@ -2,19 +2,17 @@ package vfs_test
 
 import (
 	"fmt"
-	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/file"
 	_ "litebase/server/sqlite3"
 	"litebase/server/vfs"
-	"os"
 	"testing"
 )
 
 func TestRegisterVFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dataPath := config.Get().DataPath
+		dataPath := app.Config.DataPath
 
 		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
 
@@ -53,7 +51,7 @@ func TestRegisterVFS(t *testing.T) {
 
 func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dataPath := config.Get().DataPath
+		dataPath := app.Config.DataPath
 
 		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
 
@@ -136,7 +134,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		// Create a set of tables to force the database to grow. SQLite will
 		// create a new page for each table root page so this is good for our
 		// test of the VFS file size and truncate.
-		for i := 0; i < 3000; i++ {
+		for i := 1; i <= 3000; i++ {
 			// Create the table
 			test.RunQuery(db, fmt.Sprintf("CREATE TABLE users_%d (id INT, name TEXT)", i), []interface{}{})
 
@@ -153,11 +151,13 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 
 		path := file.GetDatabaseFileDir(mock.DatabaseId, mock.BranchId)
 
-		var expectedPages int64 = 1024 + 4
+		var expectedPages int64 = 3068 // Discovered through manual testing
 		var expectedSize int64 = 4096 * expectedPages
 		var directorySize int64
 
-		entries, err := os.ReadDir(path)
+		fileSystemDriver := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem().FileSystem().Driver()
+
+		entries, err := fileSystemDriver.ReadDir(path)
 
 		if err != nil {
 			t.Fatal(err)
@@ -165,21 +165,12 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 
 		// Get the file size of the directory
 		for _, entry := range entries {
-			// Skip directories
-			if entry.IsDir() {
+			// Skip directories or files that start with an underscore
+			if entry.IsDir() || entry.Name()[0] == '_' {
 				continue
 			}
 
-			// Skip filenames that start with an underscore
-			if entry.Name()[0] == '_' {
-				continue
-			}
-
-			info, err := entry.Info()
-
-			if err != nil {
-				t.Fatal(err)
-			}
+			info, _ := fileSystemDriver.Stat(path + "/" + entry.Name())
 
 			directorySize += info.Size()
 		}
@@ -190,11 +181,11 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Check if the directory size is equal to the expected size
-		if directorySize < int64(expectedSize) {
+		if directorySize != int64(expectedSize) {
 			t.Errorf("VFS file size failed, expected %v, got %v", expectedSize, directorySize)
 		}
 
-		for i := 0; i < 2000; i++ {
+		for i := 3000; i > 2000; i-- {
 			// Drop the table
 			test.RunQuery(db, fmt.Sprintf("DROP TABLE users_%d", i), []interface{}{})
 		}
@@ -213,9 +204,17 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 			t.Errorf("VACUUM failed, expected nil, got %v", err)
 		}
 
-		directorySize = 0
+		err = db.Checkpoint()
 
-		entries, err = os.ReadDir(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		directorySize = 0
+		expectedPages = 1023 // Discovered through manual testing
+		expectedSize = 4096 * expectedPages
+
+		entries, err = fileSystemDriver.ReadDir(path)
 
 		if err != nil {
 			t.Fatal(err)
@@ -223,21 +222,12 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 
 		// Get the file size of the directory
 		for _, entry := range entries {
-			// Skip directories
-			if entry.IsDir() {
+			// Skip directories or files that start with an underscore
+			if entry.IsDir() || entry.Name()[0] == '_' {
 				continue
 			}
 
-			// Skip filenames that start with an underscore
-			if entry.Name()[0] == '_' {
-				continue
-			}
-
-			info, err := entry.Info()
-
-			if err != nil {
-				t.Fatal(err)
-			}
+			info, _ := fileSystemDriver.Stat(path + "/" + entry.Name())
 
 			directorySize += info.Size()
 		}
@@ -248,7 +238,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Check if the directory size is equal to the expected size
-		if directorySize != expectedSize {
+		if directorySize != int64(expectedSize) {
 			t.Errorf("VFS file size failed, expected %v, got %v", expectedSize, directorySize)
 		}
 

@@ -20,20 +20,21 @@ import (
 type ObjectFileSystemDriver struct {
 	bucket   string
 	buffers  sync.Pool
-	s3Client *S3Client
+	S3Client *S3Client
 }
 
-func NewObjectFileSystemDriver() *ObjectFileSystemDriver {
+func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
 	driver := &ObjectFileSystemDriver{
-		bucket: config.Get().StorageBucket,
+		bucket: c.StorageBucket,
 		buffers: sync.Pool{
 			New: func() interface{} {
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
-		s3Client: NewS3Client(
-			config.Get().StorageBucket,
-			config.Get().StorageRegion,
+		S3Client: NewS3Client(
+			c,
+			c.StorageBucket,
+			c.StorageRegion,
 		),
 	}
 
@@ -41,25 +42,25 @@ func NewObjectFileSystemDriver() *ObjectFileSystemDriver {
 }
 
 func (fs *ObjectFileSystemDriver) Create(path string) (internalStorage.File, error) {
-	_, err := fs.s3Client.PutObject(path, []byte{})
+	_, err := fs.S3Client.PutObject(path, []byte{})
 
 	if err != nil {
 		log.Println("Error creating file", err)
 		return nil, err
 	}
 
-	return NewObjectFile(fs.s3Client, path, os.O_CREATE), nil
+	return NewObjectFile(fs.S3Client, path, os.O_CREATE), nil
 }
 
 func (fs *ObjectFileSystemDriver) EnsureBucketExists() {
 	// Check if the bucket exists
-	headBucketOutput, _ := fs.s3Client.HeadBucket()
+	headBucketOutput, _ := fs.S3Client.HeadBucket()
 
 	if headBucketOutput != (HeadBucketResponse{}) {
 		return
 	}
 
-	_, err := fs.s3Client.CreateBucket()
+	_, err := fs.S3Client.CreateBucket()
 
 	if err != nil {
 		log.Printf("failed to create bucket, %v", err)
@@ -78,18 +79,22 @@ func (fs *ObjectFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error 
 }
 
 func (fs *ObjectFileSystemDriver) Open(path string) (internalStorage.File, error) {
-	return NewObjectFile(fs.s3Client, path, os.O_RDWR), nil
+	return NewObjectFile(fs.S3Client, path, os.O_RDWR), nil
 }
 
 func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
 	// TODO: Handle the create flag
 	// TODO: Read the data from object storage and place in the file data
-	return NewObjectFile(fs.s3Client, path, flag), nil
+	return NewObjectFile(fs.S3Client, path, flag), nil
 }
 
 // Read the directory using S3
 func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
-	paginator := NewListObjectsV2Paginator(fs.s3Client, ListObjectsV2Input{
+	if path == "" {
+		path = "/"
+	}
+
+	paginator := NewListObjectsV2Paginator(fs.S3Client, ListObjectsV2Input{
 		Delimiter: "/",
 		MaxKeys:   1000,
 		Prefix:    path,
@@ -111,19 +116,25 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 		for _, obj := range response.ListBucketResult.Contents {
 			key := p.Base(obj.Key)
 
-			entries = append(entries, internalStorage.DirEntry{
-				Name:  key,
-				IsDir: false,
-			})
+			entries = append(entries,
+				internalStorage.NewDirEntry(
+					key,
+					false,
+					NewStaticFileInfo(key, obj.Size, obj.LastModified.Time),
+				),
+			)
 		}
 
 		for _, prefix := range response.ListBucketResult.CommonPrefixes {
 			key := p.Base(prefix)
 
-			entries = append(entries, internalStorage.DirEntry{
-				Name:  strings.TrimRight(key, "/"),
-				IsDir: true,
-			})
+			entries = append(entries,
+				internalStorage.NewDirEntry(
+					strings.TrimRight(key, "/"),
+					true,
+					NewStaticFileInfo(key, 0, time.Time{}),
+				),
+			)
 		}
 	}
 
@@ -132,7 +143,7 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 
 func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
 	// Read the file using S3
-	resp, err := fs.s3Client.GetObject(path)
+	resp, err := fs.S3Client.GetObject(path)
 
 	if err != nil {
 		if resp.StatusCode == 404 {
@@ -159,7 +170,7 @@ func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
 }
 
 func (fs *ObjectFileSystemDriver) Remove(path string) error {
-	err := fs.s3Client.DeleteObject(path)
+	err := fs.S3Client.DeleteObject(path)
 
 	if err != nil {
 		return err
@@ -175,7 +186,7 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 		Prefix:    path,
 	}
 
-	paginator := NewListObjectsV2Paginator(fs.s3Client, input)
+	paginator := NewListObjectsV2Paginator(fs.S3Client, input)
 
 	for paginator.HasMorePages() {
 		response, err := paginator.NextPage()
@@ -190,7 +201,7 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 			objectsToDelete[i] = object.Key
 		}
 
-		err = fs.s3Client.DeleteObjects(objectsToDelete)
+		err = fs.S3Client.DeleteObjects(objectsToDelete)
 
 		if err != nil {
 			return err
@@ -206,13 +217,13 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 
 // Perform a copy operation to do a rename
 func (fs *ObjectFileSystemDriver) Rename(oldKey, newKey string) error {
-	err := fs.s3Client.CopyObject(oldKey, newKey)
+	err := fs.S3Client.CopyObject(oldKey, newKey)
 
 	if err != nil {
 		return err
 	}
 
-	err = fs.s3Client.DeleteObject(oldKey)
+	err = fs.S3Client.DeleteObject(oldKey)
 
 	if err != nil {
 		return err
@@ -228,14 +239,13 @@ func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, e
 		return NewStaticFileInfo(path, 0, time.Now()), nil
 	}
 
-	result, err := fs.s3Client.HeadObject(path)
+	result, err := fs.S3Client.HeadObject(path)
 
 	if err != nil {
 		if result.StatusCode == 404 {
 			return nil, os.ErrNotExist
 		}
 
-		log.Println("Error getting file info", err, path)
 		return nil, err
 	}
 
@@ -269,7 +279,7 @@ func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.Fi
 	// Write the encoded data to the buffer
 	compressionBuffer.Write(compressed)
 
-	_, err := fs.s3Client.PutObject(path, compressed)
+	_, err := fs.S3Client.PutObject(path, compressed)
 
 	if err != nil {
 		return err

@@ -3,7 +3,11 @@
 
 package storage
 
+import "litebase/internal/config"
+
 func Init(
+	c *config.Config,
+	objectFS *FileSystem,
 	ipAddress string,
 	encryption StorageEncryptionInterface,
 ) {

@@ -6,7 +6,6 @@ import (
 	"litebase/server/auth"
 	"litebase/server/cluster"
 	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"sync"
@@ -38,7 +37,7 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 	var databases []*Database
 
 	// Read all files in the databases directory
-	entries, err := storage.ObjectFS().ReadDir(Directory())
+	entries, err := d.Cluster.ObjectFS().ReadDir(Directory())
 
 	if err != nil {
 		return nil, err
@@ -46,7 +45,7 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 
 	// TODO: High touch area, consider refactoring
 	for _, entry := range entries {
-		data, err := storage.ObjectFS().ReadFile(fmt.Sprintf("%s%s/settings.json", Directory(), entry.Name))
+		data, err := d.Cluster.ObjectFS().ReadFile(fmt.Sprintf("%s%s/settings.json", Directory(), entry.Name))
 
 		if err != nil {
 			return nil, err
@@ -105,7 +104,7 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 }
 
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
-	branch := NewBranch(branchName, true)
+	branch := NewBranch(d.Cluster.Config, d.Cluster.ObjectFS(), branchName, true)
 
 	database := &Database{
 		DatabaseManager:   d,
@@ -130,7 +129,7 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 		return nil, err
 	}
 
-	err = storage.ObjectFS().MkdirAll(database.BranchDirectory(branch.Id), 0755)
+	err = d.Cluster.ObjectFS().MkdirAll(database.BranchDirectory(branch.Id), 0755)
 
 	if err != nil {
 		log.Println("ERROR", err)
@@ -143,7 +142,7 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 func (d *DatabaseManager) Delete(database *Database) error {
 	path := fmt.Sprintf("%s%s", Directory(), database.Id)
 
-	if _, err := storage.ObjectFS().Stat(path); os.IsNotExist(err) {
+	if _, err := d.Cluster.ObjectFS().Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("database '%s' does not exist", database.Id)
 	}
 
@@ -157,7 +156,7 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	// TODO: Delete all access keys
 	// TODO: Delete all backups and storage
 
-	return storage.ObjectFS().Remove(path)
+	return d.Cluster.ObjectFS().Remove(path)
 }
 
 func (d *DatabaseManager) Exists(name string) bool {
@@ -190,7 +189,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 
 	path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseId)
 
-	file, err := storage.ObjectFS().Open(path)
+	file, err := d.Cluster.ObjectFS().Open(path)
 
 	if err != nil {
 		return nil, fmt.Errorf("database '%s' has not been configured", databaseId)
@@ -223,10 +222,13 @@ func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResour
 
 	resource := &DatabaseResources{
 		BranchId:        branchId,
+		config:          d.Cluster.Config,
 		DatabaseId:      databaseId,
 		databaseManager: d,
 		DatabaseHash:    file.DatabaseHash(databaseId, branchId),
 		mutex:           &sync.RWMutex{},
+		tieredFS:        d.Cluster.TieredFS(),
+		tmpFS:           d.Cluster.TmpFS(),
 	}
 
 	d.resources[file.DatabaseHash(databaseId, branchId)] = resource

@@ -14,7 +14,11 @@ type DatabaseRestoreRequest struct {
 }
 
 func DatabaseRestoreController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+	databaseKey, err := database.GetDatabaseKey(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
+		request.Subdomains()[0],
+	)
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
@@ -56,6 +60,8 @@ func DatabaseRestoreController(request *Request) Response {
 	targetDfs := request.databaseManager.Resources(targetDatabaseUuid, targetBranchUuid).FileSystem()
 
 	err = backups.RestoreFromTimestamp(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 		targetDatabaseUuid,

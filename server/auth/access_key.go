@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	_auth "litebase/internal/auth"
-	"litebase/internal/config"
-	"litebase/server/storage"
 	"log"
 	"strings"
 )
@@ -272,11 +270,13 @@ func (accessKey AccessKey) CanUpdate(databaseId, branchId string, args []string)
 }
 
 func (accessKey AccessKey) Delete() error {
-	signatures := _auth.AllSignatures()
+	signatures := _auth.AllSignatures(
+		accessKey.accessKeyManager.objectFS,
+	)
 
 	for _, signature := range signatures {
-		path := accessKey.accessKeyManager.auth.SecretsManager().SecretsPath(signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId))
-		err := storage.ObjectFS().Remove(path)
+		path := accessKey.accessKeyManager.auth.SecretsManager.SecretsPath(signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId))
+		err := accessKey.accessKeyManager.objectFS.Remove(path)
 
 		if err != nil {
 			log.Println(err)
@@ -300,8 +300,11 @@ func (accessKey AccessKey) Update(
 		log.Fatal(err)
 	}
 
-	storage.ObjectFS().WriteFile(
-		accessKey.accessKeyManager.auth.SecretsManager().SecretsPath(config.Get().Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
+	accessKey.accessKeyManager.objectFS.WriteFile(
+		accessKey.accessKeyManager.auth.SecretsManager.SecretsPath(
+			accessKey.accessKeyManager.config.Signature,
+			fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId),
+		),
 		jsonValue,
 		0666,
 	)

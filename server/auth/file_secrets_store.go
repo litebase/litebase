@@ -15,7 +15,8 @@ Thsese files are stored in a temporary directory and should be deleted when
 the application is closed.
 */
 type FileSecretsStore struct {
-	path string
+	path  string
+	tmpFS *storage.FileSystem
 }
 
 type FileSecret struct {
@@ -24,20 +25,23 @@ type FileSecret struct {
 }
 
 // TODO: This should be using the local file system abstraction
-func NewFileSecretsStore(path string) *FileSecretsStore {
-	return &FileSecretsStore{path}
+func NewFileSecretsStore(path string, tmpFS *storage.FileSystem) *FileSecretsStore {
+	return &FileSecretsStore{
+		path:  path,
+		tmpFS: tmpFS,
+	}
 }
 
 func (store *FileSecretsStore) Flush() {
-	storage.TmpFS().RemoveAll(store.path)
+	store.tmpFS.RemoveAll(store.path)
 }
 
 func (store *FileSecretsStore) Forget(key string) {
-	storage.TmpFS().Remove(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
+	store.tmpFS.Remove(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
 }
 
 func (store *FileSecretsStore) Get(key string, cacheItemType interface{}) interface{} {
-	data, err := storage.TmpFS().ReadFile(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
+	data, err := store.tmpFS.ReadFile(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
 	secret := FileSecret{}
 
 	if err != nil {
@@ -87,7 +91,7 @@ func (store *FileSecretsStore) Put(key string, value any, seconds time.Duration)
 		log.Fatal(err)
 	}
 
-	err = storage.TmpFS().WriteFile(store.path+"/"+store.Key(key), jsonValue, 0666)
+	err = store.tmpFS.WriteFile(store.path+"/"+store.Key(key), jsonValue, 0666)
 
 	return err == nil
 }

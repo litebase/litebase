@@ -9,16 +9,16 @@ import (
 )
 
 const (
-	ENV_DEVELOPMENT = "development"
-	ENV_PRODUCTION  = "production"
-	ENV_TEST        = "test"
+	EnvDevelopment = "development"
+	EnvProduction  = "production"
+	EnvTest        = "test"
 
-	NODE_TYPE_QUERY   = "query"
-	NODE_TYPE_STORAGE = "storage"
+	NodeTypeQuery   = "query"
+	NodeTypeStorage = "storage"
 
-	STORAGE_MODE_DISTRIBUTED = "distributed"
-	STORAGE_MODE_LOCAL       = "local"
-	STORAGE_MODE_OBJECT      = "object"
+	StorageModeDistributed = "distributed"
+	StorageModeLocal       = "local"
+	StorageModeObject      = "object"
 )
 
 type Config struct {
@@ -50,14 +50,6 @@ type Config struct {
 	TmpPath                string
 }
 
-var ConfigInstance *Config = nil
-
-func Init() error {
-	NewConfig()
-
-	return nil
-}
-
 func env(key string, defaultValue string) interface{} {
 	if os.Getenv(key) != "" {
 		return os.Getenv(key)
@@ -67,13 +59,13 @@ func env(key string, defaultValue string) interface{} {
 }
 
 func NewConfig() *Config {
-	ConfigInstance = &Config{
+	return &Config{
 		ClusterId:              env("LITEBASE_CLUSTER_ID", "").(string),
 		DataPath:               env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		Env:                    env("LITEBASE_ENV", "production").(string),
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
-		NodeType:               env("LITEBASE_NODE_TYPE", NODE_TYPE_QUERY).(string),
+		NodeType:               env("LITEBASE_NODE_TYPE", NodeTypeQuery).(string),
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
 		Region:                 env("LITEBASE_REGION", "").(string),
@@ -91,22 +83,11 @@ func NewConfig() *Config {
 		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", "local").(string),
 		TmpPath:                env("LITEBASE_TMP_PATH", "").(string),
 	}
-
-	return ConfigInstance
-}
-
-func Get() *Config {
-	if ConfigInstance == nil {
-		// panic("Config not initialized, initializing now")
-		NewConfig()
-	}
-
-	return ConfigInstance
 }
 
 // Check if the signature directory exists
-func HasSignature(signature string) bool {
-	_, err := os.Stat(fmt.Sprintf("%s/%s", Get().DataPath, SignatureHash(signature)))
+func HasSignature(config *Config, signature string) bool {
+	_, err := os.Stat(fmt.Sprintf("%s/%s", config.DataPath, SignatureHash(signature)))
 
 	return err == nil
 }

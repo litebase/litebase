@@ -30,9 +30,7 @@ type WalWrite struct {
 	Timestamp int64
 }
 
-func NewWalFile(path string) (*WalFile, error) {
-	fs := TmpFS()
-
+func NewWalFile(fs *FileSystem, path string) (*WalFile, error) {
 tryOpen:
 	file, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
 

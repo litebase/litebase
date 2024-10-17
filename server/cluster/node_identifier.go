@@ -5,6 +5,13 @@ type NodeIdentifier struct {
 	Port    string `json:"port"`
 }
 
+func NewNodeIdentifier(address string, port string) *NodeIdentifier {
+	return &NodeIdentifier{
+		Address: address,
+		Port:    port,
+	}
+}
+
 /*
 Returns a string representation of the NodeIdentifier.
 */

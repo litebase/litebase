@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"litebase/internal/config"
 	"log"
 	"net/http"
 	"sync"
@@ -133,7 +132,7 @@ func (nc *NodeConnection) connect() error {
 Create the node connection request and send it to the node.
 */
 func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
-	nc.context, nc.cancel = context.WithCancel(nc.node.Context())
+	nc.context, nc.cancel = context.WithCancel(context.Background())
 	nc.reader, nc.writer = io.Pipe()
 	nc.writeBuffer = bufio.NewWriterSize(nc.writer, 1024)
 
@@ -148,14 +147,17 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	encryptedHeader, err := nc.node.cluster.Auth.SecretsManager().Encrypt(config.Get().Signature, nc.node.Address())
+	encryptedHeader, err := nc.node.cluster.Auth.SecretsManager.Encrypt(
+		nc.node.cluster.Config.Signature,
+		nc.node.Address(),
+	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt header: %w", err)
 	}
 
 	request.Header.Set("X-Lbdb-Node", encryptedHeader)
-	request.Header.Set("X-Lbdb-Node-Timestamp", time.Now().Format(time.RFC3339))
+	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
 
 	nc.createHTTPClient()
 
@@ -217,7 +219,8 @@ readMessages:
 	for {
 		select {
 		case <-nc.inactiveTimeout.C:
-			log.Println("INACTIVE TIMEOUT")
+			break readMessages
+		case <-nc.node.Context().Done():
 			break readMessages
 		case <-nc.context.Done():
 			break readMessages
@@ -302,6 +305,8 @@ func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
 		select {
 		case <-ctx.Done():
 			return NodeMessage{}, errors.New("message send timeout")
+		case <-nc.node.Context().Done():
+			return NodeMessage{}, errors.New("context closed")
 		case <-nc.context.Done():
 			return NodeMessage{}, errors.New("context closed")
 		case err := <-nc.errorChan:

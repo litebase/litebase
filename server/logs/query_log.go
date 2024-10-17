@@ -29,6 +29,7 @@ type QueryLog struct {
 	queryHasher    hash.Hash64
 	queue          map[time.Time]map[uint64]*QueryMetric
 	statementIndex *QueryIndex
+	tieredFS       *storage.FileSystem
 	timestamp      int64
 	watching       bool
 }
@@ -69,6 +70,7 @@ func GetQueryLog(cluster *cluster.Cluster, databaseHash, databaseId, branchId st
 			path:        path,
 			queryHasher: crc64.New(crc64.MakeTable(crc64.ISO)),
 			queue:       make(map[time.Time]map[uint64]*QueryMetric),
+			tieredFS:    cluster.TieredFS(),
 			timestamp:   timestamp.UTC().Unix(),
 		}
 	}
@@ -113,13 +115,13 @@ func (q *QueryLog) GetFile() internalStorage.File {
 	if q.file == nil {
 		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, q.cluster.Node().Id)
 
-		err := storage.TieredFS().MkdirAll(filepath.Dir(path), 0755)
+		err := q.tieredFS.MkdirAll(filepath.Dir(path), 0755)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		file, err := storage.TieredFS().OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+		file, err := q.tieredFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 		if err != nil {
 			log.Fatal(err)
@@ -133,11 +135,16 @@ func (q *QueryLog) GetFile() internalStorage.File {
 
 func (q *QueryLog) GetStatementIndex() *QueryIndex {
 	if q.statementIndex == nil {
-		statementIndex, err := GetQueryIndex(q.path, "STATEMENT_IDX", q.timestamp)
+		statementIndex, err := GetQueryIndex(
+			q.tieredFS,
+			q.path,
+			"STATEMENT_IDX",
+			q.timestamp,
+		)
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				storage.TieredFS().MkdirAll(q.path, 0755)
+				q.tieredFS.MkdirAll(q.path, 0755)
 			} else {
 				log.Fatal(err)
 			}
@@ -200,7 +207,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		file.GetDatabaseFileBaseDir(q.databaseId, q.branchId),
 	)
 
-	dirs, err := storage.TieredFS().ReadDir(path)
+	dirs, err := q.tieredFS.ReadDir(path)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -211,12 +218,12 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 	}
 
 	for directory := range dirs {
-		if !dirs[directory].IsDir {
+		if !dirs[directory].IsDir() {
 			continue
 		}
 
 		// Get the timestamp of the directory
-		directoryTimestamp, err := strconv.ParseInt(dirs[directory].Name, 10, 64)
+		directoryTimestamp, err := strconv.ParseInt(dirs[directory].Name(), 10, 64)
 
 		if err != nil {
 			log.Println(err)
@@ -229,7 +236,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		}
 
 		// Read all the files in the directory
-		files, err := storage.TieredFS().ReadDir(fmt.Sprintf("%s/%d/", path, directoryTimestamp))
+		files, err := q.tieredFS.ReadDir(fmt.Sprintf("%s/%d/", path, directoryTimestamp))
 
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -240,11 +247,11 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		}
 
 		for _, entry := range files {
-			if entry.IsDir {
+			if entry.IsDir() {
 				continue
 			}
 
-			file, err := storage.TieredFS().Open(fmt.Sprintf("%s/%d/%s", path, directoryTimestamp, entry.Name))
+			file, err := q.tieredFS.Open(fmt.Sprintf("%s/%d/%s", path, directoryTimestamp, entry.Name))
 
 			if err != nil {
 				log.Println(err)

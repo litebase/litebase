@@ -40,7 +40,17 @@ func (hr *StorageNodeHashRing) generateHashMap() {
 	hr.hashMap = make(map[uint32]string)
 	hr.sortedKeys = []uint32{}
 
-	virtualNodes := len(hr.nodes) * len(hr.nodes)
+	if len(hr.nodes) == 0 {
+		return
+	}
+
+	currentVirtualNodes := len(hr.nodes)
+
+	// Determine the scaling factor to get as close to 100 as possible
+	scalingFactor := 100 / float64(currentVirtualNodes)
+
+	// Apply the scaling factor
+	virtualNodes := int(float64(len(hr.nodes))*scalingFactor) * len(hr.nodes)
 
 	for _, node := range hr.nodes {
 		for i := 0; i < virtualNodes; i++ {

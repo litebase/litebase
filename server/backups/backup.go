@@ -28,10 +28,12 @@ A Backup is a complete logical snapshot of a database at a given point in time.
 This data is derived from a Snapshot and can be used to restore a database.
 */
 type Backup struct {
+	config         *config.Config
 	dfs            *storage.DurableDatabaseFileSystem
 	BranchId       string
 	DatabaseId     string
 	maxPartSize    int64
+	objectFS       *storage.FileSystem
 	rollbackLogger *RollbackLogger
 	RestorePoint   RestorePoint
 }
@@ -42,6 +44,8 @@ type BackupConfigCallback func(backup *Backup)
 Returns a Backup object for the given database and branch at a timestamp.
 */
 func GetBackup(
+	c *config.Config,
+	objectFS *storage.FileSystem,
 	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseId string,
@@ -65,9 +69,11 @@ func GetBackup(
 	}
 
 	backup := &Backup{
+		config:       c,
 		BranchId:     branchId,
 		DatabaseId:   databaseId,
 		dfs:          dfs,
+		objectFS:     objectFS,
 		RestorePoint: restorePoint,
 	}
 
@@ -79,6 +85,8 @@ Returns next backup for the given database and branch relative to the given
 timestamp provided.
 */
 func GetNextBackup(
+	c *config.Config,
+	objectFS *storage.FileSystem,
 	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
 	databaseId string,
@@ -89,7 +97,7 @@ func GetNextBackup(
 	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseId, branchId), BACKUP_DIR)
 
 	// Get a list of all directories in the directory
-	dirs, err := storage.ObjectFS().ReadDir(backupsDirectory)
+	dirs, err := objectFS.ReadDir(backupsDirectory)
 
 	if err != nil {
 		log.Fatal(err)
@@ -99,11 +107,11 @@ func GetNextBackup(
 	for _, dir := range dirs {
 		// Get the timestamp of the directory
 
-		if !dir.IsDir {
+		if !dir.IsDir() {
 			continue
 		}
 
-		timestamp, err := strconv.ParseInt(dir.Name, 10, 64)
+		timestamp, err := strconv.ParseInt(dir.Name(), 10, 64)
 
 		if err != nil {
 			log.Fatal(err)
@@ -121,7 +129,7 @@ func GetNextBackup(
 	// Loop through the backups
 	for _, b := range backups {
 		if b > snapshotTimestamp {
-			return GetBackup(snapshotLogger, dfs, databaseId, branchId, b)
+			return GetBackup(c, objectFS, snapshotLogger, dfs, databaseId, branchId, b)
 		}
 	}
 
@@ -135,19 +143,19 @@ func (backup *Backup) Delete() error {
 	hash := backup.Hash()
 
 	// Read the directory to find matching file names and part numbers
-	entries, err := storage.ObjectFS().ReadDir(backup.DirectoryPath())
+	entries, err := backup.objectFS.ReadDir(backup.DirectoryPath())
 
 	if err != nil {
 		return err
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir {
+		if entry.IsDir() {
 			continue
 		}
 
-		if strings.HasPrefix(entry.Name, hash) {
-			if err := storage.ObjectFS().Remove(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name)); err != nil {
+		if strings.HasPrefix(entry.Name(), hash) {
+			if err := backup.objectFS.Remove(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name)); err != nil {
 				return err
 			}
 		}
@@ -221,7 +229,7 @@ func (backup *Backup) packageBackup() error {
 	var gzipWriter *gzip.Writer
 	var sourceFile internalStorage.File
 
-	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, config.Get().PageSize)
+	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, backup.config.PageSize)
 	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseId, backup.BranchId)
 
 	// Loop through the files in the source database and copy them to the target database
@@ -233,7 +241,7 @@ func (backup *Backup) packageBackup() error {
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir {
+		if entry.IsDir() {
 			continue
 		}
 
@@ -250,8 +258,8 @@ func (backup *Backup) packageBackup() error {
 		}
 
 		// Ensure we are working on a range file
-		if entry.Name[0] != '_' {
-			rangeNumber, err := strconv.ParseInt(entry.Name, 10, 64)
+		if entry.Name()[0] != '_' {
+			rangeNumber, err := strconv.ParseInt(entry.Name(), 10, 64)
 
 			if err != nil {
 				log.Println("Error parsing entry name:", entry.Name, err)
@@ -282,7 +290,7 @@ func (backup *Backup) packageBackup() error {
 				return err
 			}
 
-			if entry.Name == "_METADATA" {
+			if entry.Name() == "_METADATA" {
 				// Set the first 8 bytes of the metadata file to the page count
 				binary.LittleEndian.PutUint64(data[:8], uint64(backup.RestorePoint.PageCount))
 			}
@@ -314,7 +322,7 @@ func (backup *Backup) packageBackup() error {
 
 		// Create tar header
 		header := &tar.Header{
-			Name:    entry.Name,
+			Name:    entry.Name(),
 			ModTime: info.ModTime(),
 			Mode:    int64(info.Mode()),
 			Size:    int64(len(data)),
@@ -480,19 +488,19 @@ func (backup *Backup) Size() int64 {
 	hash := backup.Hash()
 
 	// Read the directory to find matching file names and part numbers
-	entries, err := storage.ObjectFS().ReadDir(backup.DirectoryPath())
+	entries, err := backup.objectFS.ReadDir(backup.DirectoryPath())
 
 	if err != nil {
 		return 0
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir {
+		if entry.IsDir() {
 			continue
 		}
 
-		if strings.HasPrefix(entry.Name, hash) {
-			stat, err := storage.ObjectFS().Stat(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name))
+		if strings.HasPrefix(entry.Name(), hash) {
+			stat, err := backup.objectFS.Stat(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name))
 
 			if err != nil {
 				log.Println("Error getting file size:", err)
@@ -508,6 +516,7 @@ func (backup *Backup) Size() int64 {
 
 func (backup *Backup) stepApplyRollbackLogs(rangeNumber int64, sourceFile internalStorage.File) ([]byte, error) {
 	return ReadBackupRangeFile(
+		backup.config,
 		sourceFile,
 		rangeNumber,
 		backup.RestorePoint,

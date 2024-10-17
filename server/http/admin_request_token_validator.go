@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
-	"litebase/internal/config"
 )
 
 func AdminRequestTokenValidator(request *Request) bool {
@@ -14,8 +13,8 @@ func AdminRequestTokenValidator(request *Request) bool {
 		return false
 	}
 
-	decrypted, err := request.cluster.Auth.SecretsManager().Decrypt(
-		config.Get().Signature,
+	decrypted, err := request.cluster.Auth.SecretsManager.Decrypt(
+		request.cluster.Config.Signature,
 		request.Headers().Get("X-Lbdb-Token"),
 	)
 
@@ -23,9 +22,9 @@ func AdminRequestTokenValidator(request *Request) bool {
 		return false
 	}
 
-	accessKeyId := sha1.New().Sum([]byte(config.Get().Signature))
-	accessKeySecret := sha256.New().Sum([]byte(config.Get().Signature))
-	token := hmac.New(sha256.New, []byte(fmt.Sprintf("%s:%s", accessKeyId, &accessKeySecret))).Sum([]byte(config.Get().Signature))
+	accessKeyId := sha1.New().Sum([]byte(request.cluster.Config.Signature))
+	accessKeySecret := sha256.New().Sum([]byte(request.cluster.Config.Signature))
+	token := hmac.New(sha256.New, []byte(fmt.Sprintf("%s:%s", accessKeyId, &accessKeySecret))).Sum([]byte(request.cluster.Config.Signature))
 
 	return subtle.ConstantTimeCompare([]byte(decrypted["value"]), []byte(token)) == 1
 }

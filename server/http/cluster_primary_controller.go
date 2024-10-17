@@ -9,7 +9,7 @@ import (
 )
 
 func ClusterPrimaryController(request *Request) Response {
-	if request.cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY {
+	if request.cluster.Node().Membership != cluster.ClusterMembershipPrimary {
 		return ForbiddenResponse(errors.New("not a primary node"))
 	}
 

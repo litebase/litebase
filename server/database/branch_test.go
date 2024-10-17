@@ -9,7 +9,12 @@ import (
 
 func TestNewBranch(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		branch := database.NewBranch("Test Branch", false)
+		branch := database.NewBranch(
+			app.Config,
+			app.Cluster.ObjectFS(),
+			"Test Branch",
+			false,
+		)
 
 		if branch.Name != "Test Branch" {
 			t.Fatal("Branch name is not correct")

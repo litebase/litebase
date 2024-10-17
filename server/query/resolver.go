@@ -164,5 +164,5 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 }
 
 func shouldForwardToPrimary(query *Query) bool {
-	return (query.IsPragma() || query.IsDML()) && query.cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_PRIMARY
+	return (query.IsPragma() || query.IsDML()) && query.cluster.Node().Membership != cluster.ClusterMembershipPrimary
 }

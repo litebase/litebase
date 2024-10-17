@@ -15,7 +15,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,7 +27,7 @@ type S3Client struct {
 	bucket          string
 	buffers         sync.Pool
 	context         context.Context
-	endpoint        string
+	Endpoint        string
 	httpClient      http.Client
 	region          string
 	secretAccessKey string
@@ -45,9 +44,9 @@ type ObjectIdentifier struct {
 	VersionId string `xml:"VersionId,omitempty"`
 }
 
-func NewS3Client(bucket string, region string) *S3Client {
+func NewS3Client(c *config.Config, bucket string, region string) *S3Client {
 	client := &S3Client{
-		accessKeyId: os.Getenv("LITEBASE_STORAGE_ACCESS_KEY_ID"),
+		accessKeyId: c.StorageAccessKeyId,
 		bucket:      bucket,
 		buffers: sync.Pool{
 			New: func() interface{} {
@@ -55,9 +54,9 @@ func NewS3Client(bucket string, region string) *S3Client {
 			},
 		},
 		context:         context.Background(),
-		endpoint:        config.Get().StorageEndpoint,
+		Endpoint:        c.StorageEndpoint,
 		region:          region,
-		secretAccessKey: config.Get().StorageSecretAccessKey,
+		secretAccessKey: c.StorageSecretAccessKey,
 	}
 
 	client.httpClient = http.Client{}
@@ -263,9 +262,9 @@ func (s3 *S3Client) signRequest(request *http.Request, data []byte, additionalHe
 
 func (s3 *S3Client) url(key string) string {
 	var builder strings.Builder
-	builder.Grow(len(s3.endpoint) + len(s3.bucket) + len(key) + 2) // Preallocate memory
+	builder.Grow(len(s3.Endpoint) + len(s3.bucket) + len(key) + 2) // Preallocate memory
 
-	builder.WriteString(s3.endpoint)
+	builder.WriteString(s3.Endpoint)
 	builder.WriteByte('/')
 	builder.WriteString(s3.bucket)
 

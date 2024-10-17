@@ -52,17 +52,23 @@ func NewInitCmd() *cobra.Command {
 		fmt.Println("Initializing Litebase cluster...")
 
 		// Run the initialization steps
-		err := config.Init()
+		configInstance := config.NewConfig()
+
+		cluster, err := cluster.NewCluster(configInstance)
 
 		if err != nil {
 			fmt.Print(components.Container(components.ErrorAlert(
 				fmt.Sprintf("[Litebase Error]: %s", err.Error()),
 			)))
-
-			return
 		}
 
-		_, err = cluster.Init(auth.NewAuth())
+		authInstance := auth.NewAuth(
+			cluster.Config,
+			cluster.ObjectFS(),
+			cluster.TmpFS(),
+		)
+
+		err = cluster.Init(authInstance)
 
 		if err != nil {
 			fmt.Print(components.Container(components.ErrorAlert(
@@ -74,7 +80,8 @@ func NewInitCmd() *cobra.Command {
 
 		// Initialize the key manager
 		err = auth.KeyManagerInit(
-			auth.NewAuth().SecretsManager(),
+			configInstance,
+			authInstance.SecretsManager,
 		)
 
 		if err != nil {
@@ -86,7 +93,7 @@ func NewInitCmd() *cobra.Command {
 			return
 		}
 
-		err = auth.UserManager().Init()
+		err = authInstance.UserManager().Init()
 
 		if err != nil {
 			fmt.Print(components.Container(components.ErrorAlert(

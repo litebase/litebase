@@ -11,7 +11,7 @@ import (
 
 func TestNewTieredFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		file, err := storage.LocalFS().Create("text.txt")
+		file, err := app.Cluster.LocalFS().Create("text.txt")
 
 		if err != nil {
 			t.Error(err)
@@ -19,8 +19,8 @@ func TestNewTieredFile(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.LocalFS(),
-			storage.ObjectFS(),
+			app.Cluster.LocalFS(),
+			app.Cluster.ObjectFS(),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -59,7 +59,7 @@ func TestTieredFileClose(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		// fs := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/local")
 
-		file, err := storage.LocalFS().Create("text.txt")
+		file, err := app.Cluster.LocalFS().Create("text.txt")
 
 		if err != nil {
 			t.Error(err)
@@ -67,8 +67,8 @@ func TestTieredFileClose(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.LocalFS(),
-			storage.ObjectFS(),
+			app.Cluster.LocalFS(),
+			app.Cluster.ObjectFS(),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -85,7 +85,7 @@ func TestTieredFileClose(t *testing.T) {
 
 func TestTieredFileMarkUpdated(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		file, err := storage.LocalFS().Create("text.txt")
+		file, err := app.Cluster.LocalFS().Create("text.txt")
 
 		if err != nil {
 			t.Error(err)
@@ -93,8 +93,8 @@ func TestTieredFileMarkUpdated(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.LocalFS(),
-			storage.ObjectFS(),
+			app.Cluster.LocalFS(),
+			app.Cluster.ObjectFS(),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -115,8 +115,8 @@ func TestTieredFileRead(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.LocalFS(),
-			storage.ObjectFS(),
+			app.Cluster.LocalFS(),
+			app.Cluster.ObjectFS(),
 		)
 
 		tf, err := tfsd.Create("test.txt")

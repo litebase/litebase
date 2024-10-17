@@ -9,7 +9,7 @@ import (
 )
 
 func ClusterReplicaController(request *Request) Response {
-	if request.cluster.Node().Membership != cluster.CLUSTER_MEMBERSHIP_REPLICA {
+	if request.cluster.Node().Membership != cluster.ClusterMembershipReplica {
 		return ForbiddenResponse(errors.New("not a replica node"))
 	}
 

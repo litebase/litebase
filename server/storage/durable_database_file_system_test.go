@@ -13,8 +13,8 @@ func TestNewDurableDatabaseFileSystem(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -31,8 +31,8 @@ func TestDurableDatabaseFileSystemFileSystem(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -44,7 +44,7 @@ func TestDurableDatabaseFileSystemFileSystem(t *testing.T) {
 			t.Error("expected file system, got nil")
 		}
 
-		if fs != storage.LocalFS() {
+		if fs != app.Cluster.LocalFS() {
 			t.Error("expected local file system, got", fs)
 		}
 	})
@@ -55,8 +55,8 @@ func TestDurableDatabaseFileSystemGetRangeFile(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -79,8 +79,8 @@ func TestDurableDatabaseFileSystemMetadata(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -98,8 +98,8 @@ func TestDurableDatabaseFileSystemOpen(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -122,8 +122,8 @@ func TestDurableDatabaseFileSystemPageSize(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -142,8 +142,8 @@ func TestDurableDatabaseFileSystemPath(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -151,7 +151,7 @@ func TestDurableDatabaseFileSystemPath(t *testing.T) {
 
 		path := dfs.Path()
 
-		if path != config.STORAGE_MODE_LOCAL {
+		if path != config.StorageModeLocal {
 			t.Error("expected local, got", path)
 		}
 	})
@@ -162,8 +162,8 @@ func TestDurableDatabaseFileSystemReadAt(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -217,8 +217,8 @@ func TestDurableDatabaseFileSystemSetWriteHook(t *testing.T) {
 		var data []byte
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			0,
@@ -248,8 +248,8 @@ func TestDurableDatabaseFileSystemSize(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -272,8 +272,8 @@ func TestDurableDatabaseFileSystemShutdown(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -291,8 +291,8 @@ func TestDurableDatabaseFileSystemTruncate(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -360,8 +360,8 @@ func TestDurableDatabaseFileSystemWriteAt(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -404,8 +404,8 @@ func TestDurableDatabaseFileSystemWithoutWriteHook(t *testing.T) {
 		var hookCalled bool
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,

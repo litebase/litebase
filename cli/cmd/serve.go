@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"litebase/internal/config"
 	"litebase/server"
 	"log"
 	"net/http"
@@ -40,8 +41,10 @@ func NewServeCmd() *cobra.Command {
 		cmd.Flags().String("tls-cert", "", "The path to the TLS certificate")
 		cmd.Flags().String("tls-key", "", "The path to the TLS key")
 	}).WithRun(func(cmd *cobra.Command, args []string) {
-		server.NewServer().Start(func(s *http.ServeMux) {
-			app = server.NewApp(s)
+		configInstance := config.NewConfig()
+
+		server.NewServer(configInstance).Start(func(s *http.ServeMux) {
+			app = server.NewApp(configInstance, s)
 
 			app.Run()
 

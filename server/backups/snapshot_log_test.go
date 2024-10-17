@@ -26,7 +26,13 @@ func TestNewSnapshot(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		snapshot := backups.NewSnapshot(mock.DatabaseId, mock.BranchId, time.Now().Unix(), time.Now().Unix())
+		snapshot := backups.NewSnapshot(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+			time.Now().Unix(),
+			time.Now().Unix(),
+		)
 
 		if snapshot.BranchId != mock.BranchId {
 			t.Fatalf("Expected branch uuid %s, got %s", mock.BranchId, snapshot.BranchId)
@@ -53,7 +59,11 @@ func TestSnapshotClose(t *testing.T) {
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		defer snapshotLogger.Close()
 
-		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		checkpointerLogger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
@@ -79,7 +89,11 @@ func TestSnapshotGetRestorePoints(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		snappshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
-		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		checkpointerLogger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
@@ -123,7 +137,11 @@ func TestSnapshotLoad(t *testing.T) {
 		snappshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 		defer snappshotLogger.Close()
 
-		checkpointerLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		checkpointerLogger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
@@ -164,7 +182,11 @@ func TestSnapshotLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		snapshotLogger := backups.NewSnapshotLogger(mock.DatabaseId, mock.BranchId)
+		snapshotLogger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
 		defer snapshotLogger.Close()
 
 		// Simulate writing a snapshot to the file

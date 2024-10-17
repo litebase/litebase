@@ -22,12 +22,13 @@ the current server to operate without having to store files locally, and instead
 rely on the storage nodes to handle the file operations by making HTTP requests.
 */
 type DistributedFileSystemDriver struct {
-	FileCount             int
-	FileOrder             *list.List
-	Files                 map[string]*DistributedFile
-	localFileSystemDriver *LocalFileSystemDriver
-	MaxFilesOpened        int
-	mutex                 *sync.Mutex
+	FileCount                int
+	FileOrder                *list.List
+	Files                    map[string]*DistributedFile
+	localFileSystemDriver    *LocalFileSystemDriver
+	MaxFilesOpened           int
+	mutex                    *sync.Mutex
+	storageConnectionManager *StorageConnectionManager
 }
 
 /*
@@ -36,14 +37,16 @@ Create a new instance of the DistributedFileSystemDriver.
 func NewDistributedFileSystemDriver(
 	context context.Context,
 	localFileSystemDriver *LocalFileSystemDriver,
+	storageConnectionManager *StorageConnectionManager,
 ) *DistributedFileSystemDriver {
 	return &DistributedFileSystemDriver{
-		FileCount:             0,
-		FileOrder:             list.New(),
-		Files:                 make(map[string]*DistributedFile),
-		localFileSystemDriver: localFileSystemDriver,
-		MaxFilesOpened:        DistributedFileSystemMaxOpenFiles,
-		mutex:                 &sync.Mutex{},
+		FileCount:                0,
+		FileOrder:                list.New(),
+		Files:                    make(map[string]*DistributedFile),
+		localFileSystemDriver:    localFileSystemDriver,
+		MaxFilesOpened:           DistributedFileSystemMaxOpenFiles,
+		mutex:                    &sync.Mutex{},
+		storageConnectionManager: storageConnectionManager,
 	}
 }
 
@@ -97,7 +100,7 @@ func (fsd *DistributedFileSystemDriver) Create(path string) (internalStorage.Fil
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
 
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: CreateStorageCommand,
 		Path:    path,
 	})
@@ -123,7 +126,7 @@ func (fsd *DistributedFileSystemDriver) GetLocalFile(path string) (*DistributedF
 Create a new directory at the specified path with the specified permissions.
 */
 func (fsd *DistributedFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: MkdirStorageCommand,
 		Path:    path,
 		Perm:    perm,
@@ -141,7 +144,7 @@ Create a new directory and any necessary parents at the specified path with the
 specified permissions.
 */
 func (fsd *DistributedFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error {
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: MkdirAllStorageCommand,
 		Path:    path,
 		Perm:    perm,
@@ -159,7 +162,7 @@ Open the file at the specified path. This will return a DistributedFile instance
 that can be used to read and write to the file.
 */
 func (fsd *DistributedFileSystemDriver) Open(path string) (internalStorage.File, error) {
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: OpenStorageCommand,
 		Path:    path,
 	})
@@ -212,7 +215,7 @@ func (fsd *DistributedFileSystemDriver) OpenFile(path string, flag int, perm fs.
 	// 	log.Println("OPEN", path, time.Since(start))
 	// }()
 
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: OpenFileStorageCommand,
 		Flag:    flag,
 		Path:    path,
@@ -258,7 +261,7 @@ Read the directory at the specified path and return a list of DirEntry instances
 representing the contents of the directory.
 */
 func (fsd *DistributedFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: ReadDirStorageCommand,
 		Path:    path,
 	})
@@ -274,7 +277,7 @@ func (fsd *DistributedFileSystemDriver) ReadDir(path string) ([]internalStorage.
 Read the file at the specified path and return the contents as a byte slice.
 */
 func (fsd *DistributedFileSystemDriver) ReadFile(path string) ([]byte, error) {
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: ReadFileStorageCommand,
 		Path:    path,
 	})
@@ -309,7 +312,7 @@ func (fsd *DistributedFileSystemDriver) ReleaseFile(file *DistributedFile) {
 Remove the file at the specified path.
 */
 func (fsd *DistributedFileSystemDriver) Remove(path string) error {
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: RemoveStorageCommand,
 		Path:    path,
 	})
@@ -342,7 +345,7 @@ func (fsd *DistributedFileSystemDriver) RemoveOldestFile() {
 Remove the directory at the specified path and any children it contains.
 */
 func (fsd *DistributedFileSystemDriver) RemoveAll(path string) error {
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: RemoveAllStorageCommand,
 		Path:    path,
 	})
@@ -358,7 +361,7 @@ func (fsd *DistributedFileSystemDriver) RemoveAll(path string) error {
 Rename the file at the old path to the new path.
 */
 func (fsd *DistributedFileSystemDriver) Rename(oldpath, newPath string) error {
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: RenameStorageCommand,
 		OldPath: oldpath,
 		Path:    newPath,
@@ -375,7 +378,7 @@ func (fsd *DistributedFileSystemDriver) Rename(oldpath, newPath string) error {
 Stat the file at the specified path and return information about the file.
 */
 func (fsd *DistributedFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
-	response, err := SCM().Send(DistributedFileSystemRequest{
+	response, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: StatStorageCommand,
 		Path:    path,
 	})
@@ -391,7 +394,7 @@ func (fsd *DistributedFileSystemDriver) Stat(path string) (internalStorage.FileI
 Truncate the file at the specified path to the specified size.
 */
 func (fsd *DistributedFileSystemDriver) Truncate(path string, size int64) error {
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: TruncateStorageCommand,
 		Path:    path,
 	})
@@ -407,7 +410,7 @@ func (fsd *DistributedFileSystemDriver) Truncate(path string, size int64) error 
 Write the data to the file at the specified path with the specified permissions.
 */
 func (fsd *DistributedFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
-	_, err := SCM().Send(DistributedFileSystemRequest{
+	_, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteFileStorageCommand,
 		Path:    path,
 		Data:    data,

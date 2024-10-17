@@ -33,7 +33,12 @@ func DistributedStorageController(request *Request) Response {
 
 			ctx, cancel := context.WithCancel(context.Background())
 
-			go handleStream(cancel, request.BaseRequest.Body, w)
+			go handleStream(
+				request.cluster.TieredFS(),
+				cancel,
+				request.BaseRequest.Body,
+				w,
+			)
 
 			<-ctx.Done()
 		},
@@ -45,6 +50,7 @@ Read a stream of messages from the client and write a stream of responses back
 to the client.
 */
 func handleStream(
+	tieredFS *storage.FileSystem,
 	cancel context.CancelFunc,
 	reader io.ReadCloser,
 	w http.ResponseWriter,
@@ -95,7 +101,7 @@ func handleStream(
 			break
 		}
 
-		writeResponse(w, dfsRequest, messageLengthBytes)
+		writeResponse(tieredFS, w, dfsRequest, messageLengthBytes)
 	}
 
 	cancel()
@@ -105,6 +111,7 @@ func handleStream(
 Write a response to the client.
 */
 func writeResponse(
+	tieredFS *storage.FileSystem,
 	w http.ResponseWriter,
 	dfsRequest storage.DistributedFileSystemRequest,
 	responsePrefixBytes []byte,
@@ -112,6 +119,7 @@ func writeResponse(
 	var dfsResponse storage.DistributedFileSystemResponse
 
 	dfsResponse = storage.HandleDistributedStorageRequest(
+		tieredFS,
 		dfsRequest,
 		dfsResponse,
 	)

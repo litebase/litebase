@@ -44,18 +44,18 @@ func CopySourceDatabaseToTargetDatabase(
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir {
+		if entry.IsDir() {
 			continue
 		}
 
-		if entry.Name[0] == '_' {
+		if entry.Name()[0] == '_' {
 			continue
 		}
 
-		rangeNumber, err := strconv.ParseInt(entry.Name, 10, 64)
+		rangeNumber, err := strconv.ParseInt(entry.Name(), 10, 64)
 
 		if err != nil {
-			log.Println("Error parsing entry name:", entry.Name, err)
+			log.Println("Error parsing entry name:", entry.Name(), err)
 			return err
 		}
 
@@ -64,7 +64,7 @@ func CopySourceDatabaseToTargetDatabase(
 		}
 
 		// Copy the file from the source to the target
-		sourceFilePath := fmt.Sprintf("%s/%s", sourceDirectory, entry.Name)
+		sourceFilePath := fmt.Sprintf("%s/%s", sourceDirectory, entry.Name())
 		sourceFile, err := sourceFileSystem.FileSystem().Open(sourceFilePath)
 
 		if err != nil {
@@ -72,7 +72,7 @@ func CopySourceDatabaseToTargetDatabase(
 			return err
 		}
 
-		targetFilePath := fmt.Sprintf("%s/%s", targetDirectory, entry.Name)
+		targetFilePath := fmt.Sprintf("%s/%s", targetDirectory, entry.Name())
 
 		targetFile, err := targetFileSystem.FileSystem().Create(targetFilePath)
 
@@ -120,15 +120,15 @@ func RestoreFromBackup(
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir {
+		if entry.IsDir() {
 			continue
 		}
 
-		if !strings.HasPrefix(entry.Name, hash) {
+		if !strings.HasPrefix(entry.Name(), hash) {
 			continue
 		}
 
-		backupParts = append(backupParts, entry.Name)
+		backupParts = append(backupParts, entry.Name())
 	}
 
 	if len(backupParts) == 0 {
@@ -229,6 +229,8 @@ func RestoreFromBackup(
 }
 
 func RestoreFromTimestamp(
+	c *config.Config,
+	tieredFS *storage.FileSystem,
 	sourceDatabaseUuid string,
 	sourceBranchUuid string,
 	targetDatabaseUuid string,
@@ -242,7 +244,7 @@ func RestoreFromTimestamp(
 	// Truncate the timestamp to the start of the hour
 	startOfHourTimestamp := time.Unix(backupTimestamp, 0).UTC().Truncate(time.Hour).Unix()
 
-	rollbackLogger := NewRollbackLogger(sourceDatabaseUuid, sourceBranchUuid)
+	rollbackLogger := NewRollbackLogger(tieredFS, sourceDatabaseUuid, sourceBranchUuid)
 
 	snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
 
@@ -259,7 +261,7 @@ func RestoreFromTimestamp(
 	// Walk the files in the rollback logs directory
 	directory := file.GetDatabaseRollbackDirectory(sourceDatabaseUuid, sourceBranchUuid)
 
-	entries, err := storage.TieredFS().ReadDir(directory)
+	entries, err := tieredFS.ReadDir(directory)
 
 	if err != nil {
 		return err
@@ -268,14 +270,14 @@ func RestoreFromTimestamp(
 	rollbackLogTimestamps := make([]int64, 0)
 
 	for _, entry := range entries {
-		if entry.IsDir {
+		if entry.IsDir() {
 			continue
 		}
 
-		entryTimestamp, err := strconv.ParseInt(entry.Name, 10, 64)
+		entryTimestamp, err := strconv.ParseInt(entry.Name(), 10, 64)
 
 		if err != nil {
-			log.Println("Error parsing entry name:", entry.Name, err)
+			log.Println("Error parsing entry name:", entry.Name(), err)
 			return err
 		}
 
@@ -334,7 +336,7 @@ func RestoreFromTimestamp(
 			case frame := <-rollbackLogEntries:
 				for _, rollbackLogEntry := range frame {
 					_, err = targetFileSystem.WriteWithoutWriteHook(func() (int, error) {
-						return targetFileSystem.WriteAt(rollbackLogEntry.Data, file.PageOffset(rollbackLogEntry.PageNumber, config.Get().PageSize))
+						return targetFileSystem.WriteAt(rollbackLogEntry.Data, file.PageOffset(rollbackLogEntry.PageNumber, c.PageSize))
 					})
 
 					if err != nil {
@@ -347,7 +349,7 @@ func RestoreFromTimestamp(
 	}
 
 	// Truncate the database file
-	err = targetFileSystem.Truncate(int64(restorePoint.PageCount) * config.Get().PageSize)
+	err = targetFileSystem.Truncate(int64(restorePoint.PageCount) * c.PageSize)
 
 	if err != nil {
 		log.Println("Error truncating database file:", err)

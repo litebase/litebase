@@ -26,6 +26,26 @@ func (np *NodePrimary) HandleMessage(message NodeMessage) (NodeMessage, error) {
 	var responseMessage NodeMessage
 
 	switch message.Type {
+	case "HeartbeatMessage":
+		isPrimary := np.node.VerifyPrimaryStatus()
+
+		if !isPrimary {
+			responseMessage = NodeMessage{
+				Id:   message.Id,
+				Type: "ErrorMessage",
+				Data: ErrorMessage{
+					Message: "Node is not primary",
+				},
+			}
+		} else {
+			responseMessage = NodeMessage{
+				Id:   message.Id,
+				Type: "ErrorMessage",
+				Data: ErrorMessage{
+					Message: "Node is the primary",
+				},
+			}
+		}
 	case "NodeConnectionMessage":
 		responseMessage = NodeMessage{
 			Id:   message.Id,
@@ -101,6 +121,9 @@ func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 	}
 }
 
+/*
+Send the heatbeat message to the replica nodes.
+*/
 func (np *NodePrimary) Heartbeat() error {
 	return np.Publish(NodeMessage{
 		Id:   "broadcast",
@@ -111,10 +134,10 @@ func (np *NodePrimary) Heartbeat() error {
 func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 	var nodes []*NodeIdentifier
 
-	if config.Get().NodeType == config.NODE_TYPE_QUERY {
-		nodes = np.node.OtherQueryNodes()
-	} else if config.Get().NodeType == config.NODE_TYPE_STORAGE {
-		nodes = np.node.OtherStorageNodes()
+	if np.node.cluster.Config.NodeType == config.NodeTypeQuery {
+		nodes = np.node.cluster.OtherQueryNodes()
+	} else if np.node.cluster.Config.NodeType == config.NodeTypeStorage {
+		nodes = np.node.cluster.OtherStorageNodes()
 	}
 
 	if len(nodes) == 0 {

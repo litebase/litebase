@@ -1,6 +1,7 @@
 package main
 
 import (
+	"litebase/internal/config"
 	"litebase/server"
 	"log"
 
@@ -23,10 +24,12 @@ func main() {
 
 	godotenv.Load(".env")
 
-	server.NewServer().Start(
+	configInstance := config.NewConfig()
+
+	server.NewServer(configInstance).Start(
 		// Start hook
 		func(s *http.ServeMux) {
-			app = server.NewApp(s)
+			app = server.NewApp(configInstance, s)
 
 			app.Run()
 

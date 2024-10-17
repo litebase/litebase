@@ -1,7 +1,6 @@
 package cluster_test
 
 import (
-	"litebase/internal/config"
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/cluster"
@@ -10,16 +9,16 @@ import (
 
 func TestActivateSignatureHandler(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		currentSignature := config.Get().Signature
+		currentSignature := app.Config.Signature
 
 		if currentSignature == "test" {
 			t.Fatalf("Expected signature to not be 'test'")
 		}
 
-		cluster.ActivateSignatureHandler("test")
+		cluster.ActivateSignatureHandler(app.Config, "test")
 
-		if config.Get().Signature != "test" {
-			t.Errorf("Expected signature to be 'test', got %s", config.Get().Signature)
+		if app.Config.Signature != "test" {
+			t.Errorf("Expected signature to be 'test', got %s", app.Config.Signature)
 		}
 	})
 }

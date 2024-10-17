@@ -371,16 +371,7 @@ func (fsd *TieredFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEn
 		return nil, err
 	}
 
-	dirEntries := make([]internalStorage.DirEntry, len(entries))
-
-	for i, entry := range entries {
-		dirEntries[i] = internalStorage.DirEntry{
-			Name:  entry.Name,
-			IsDir: entry.IsDir,
-		}
-	}
-
-	return dirEntries, nil
+	return entries, nil
 }
 
 /*

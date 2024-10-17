@@ -3,7 +3,6 @@ package storage_test
 import (
 	"context"
 	"io"
-	"litebase/internal/config"
 	internalStorage "litebase/internal/storage"
 	"litebase/internal/test"
 	"litebase/server"
@@ -17,8 +16,8 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		if tieredFileSystemDriver == nil {
@@ -31,8 +30,8 @@ func TestTieredFileSystemDriverCreate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -62,8 +61,8 @@ func TestTieredFileSystemDriverFiles(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -88,8 +87,8 @@ func TestTieredFileSystemDriverMkdir(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		err := tieredFileSystemDriver.Mkdir("test/", 0755)
@@ -115,8 +114,8 @@ func TestTieredFileSystemDriverMkdirAll(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		err := tieredFileSystemDriver.MkdirAll("test/test/test/", 0755)
@@ -142,8 +141,8 @@ func TestTieredFileSystemDriverOpen(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		_, err := tieredFileSystemDriver.Open("test")
@@ -180,8 +179,8 @@ func TestTieredFileSystemDriverOpen(t *testing.T) {
 
 func TestTieredFileSystemDriverOpenDurableFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		lfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/local")
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		lfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
@@ -245,8 +244,8 @@ func TestTieredFileSystemDriverOpenFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		// Test open read only file that does not exist
@@ -388,8 +387,8 @@ func TestTieredFileSystemDriverReadDir(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		_, err := tieredFileSystemDriver.ReadDir("dir/")
@@ -428,11 +427,11 @@ func TestTieredFileSystemDriverReadDir(t *testing.T) {
 
 func TestTieredFileSystemDriverReadFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -474,11 +473,11 @@ func TestTieredFileSystemDriverReadFile(t *testing.T) {
 
 func TestTieredFileSystemDriverRemove(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -510,11 +509,11 @@ func TestTieredFileSystemDriverRemove(t *testing.T) {
 
 func TestTieredFileSystemDriverRemoveAll(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -588,11 +587,11 @@ func TestTieredFileSystemDriverRemoveAll(t *testing.T) {
 
 func TestTieredFileSystemDriverRename(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -634,11 +633,11 @@ func TestTieredFileSystemDriverRename(t *testing.T) {
 
 func TestTieredFileSystemDriverStat(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -676,11 +675,11 @@ func TestTieredFileSystemDriverStat(t *testing.T) {
 
 func TestTieredFileSystemDriverTruncate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -716,11 +715,11 @@ func TestTieredFileSystemDriverTruncate(t *testing.T) {
 
 func TestTieredFileSystemDriverWriteFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -746,8 +745,8 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		now := time.Now()
@@ -811,11 +810,11 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 
 func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
 				tieredFileSystemDriver.WriteInterval = time.Millisecond * 1
@@ -850,11 +849,11 @@ func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 
 func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(config.Get().DataPath + "/object")
+		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
 		)
 
@@ -1233,8 +1232,8 @@ func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
@@ -1263,8 +1262,8 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(config.Get().DataPath+"/object"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
 				tieredFileSystemDriver.MaxFilesOpened = 4
 				tieredFileSystemDriver.WriteInterval = time.Millisecond * 0

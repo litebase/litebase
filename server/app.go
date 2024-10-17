@@ -21,38 +21,52 @@ type App struct {
 	ServeMux        *netHttp.ServeMux
 }
 
-func attemptSecretInitialization() bool {
-	if config.Get().Env == config.ENV_TEST {
+func attemptSecretInitialization(c *config.Config) bool {
+	if c.Env == config.EnvTest {
 		return true
 	}
 
-	return config.Get().NodeType == config.NODE_TYPE_QUERY
+	return c.NodeType == config.NodeTypeQuery
 }
 
-func NewApp(serveMux *netHttp.ServeMux) *App {
-	Auth := auth.NewAuth()
+func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
+	configInstance = config.NewConfig()
 
-	c, err := cluster.Init(Auth)
+	clusterInstance, err := cluster.NewCluster(configInstance)
 
 	if err != nil {
 		panic(err)
 	}
 
+	Auth := auth.NewAuth(
+		configInstance,
+		clusterInstance.ObjectFS(),
+		clusterInstance.TmpFS(),
+	)
+
 	app := &App{
 		Auth:            Auth,
-		Cluster:         c,
-		Config:          config.NewConfig(),
-		DatabaseManager: database.NewDatabaseManager(c, Auth.SecretsManager()),
+		Cluster:         clusterInstance,
+		Config:          configInstance,
+		DatabaseManager: database.NewDatabaseManager(clusterInstance, Auth.SecretsManager),
 		ServeMux:        serveMux,
 	}
 
 	storage.Init(
+		app.Config,
+		app.Cluster.ObjectFS(),
 		app.Cluster.Node().Address(),
-		app.Auth.SecretsManager(),
+		app.Auth.SecretsManager,
 	)
 
-	if attemptSecretInitialization() {
-		err := auth.InitSignature()
+	err = clusterInstance.Init(Auth)
+
+	if err != nil {
+		panic(err)
+	}
+
+	if attemptSecretInitialization(app.Config) {
+		err := auth.InitSignature(app.Config, clusterInstance.ObjectFS())
 
 		if err != nil {
 			panic(err)
@@ -61,20 +75,22 @@ func NewApp(serveMux *netHttp.ServeMux) *App {
 
 	storage.SetDiscoveryProvider(app.Cluster)
 
-	if attemptSecretInitialization() {
-		err = auth.KeyManagerInit(app.Auth.SecretsManager())
+	if attemptSecretInitialization(app.Config) {
+		err = auth.KeyManagerInit(
+			configInstance,
+			app.Auth.SecretsManager,
+		)
 
 		if err != nil {
 			panic(err)
 		}
-
-		app.Auth.SecretsManager().Init()
-		auth.UserManager().Init()
-		database.Init()
 	}
 
+	app.Auth.SecretsManager.Init()
+	app.Auth.UserManager().Init()
+
 	app.Cluster.Node().Init(
-		query.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager(), app.DatabaseManager),
+		query.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager),
 		database.NewDatabaseWalSynchronizer(app.DatabaseManager),
 	)
 	app.Cluster.EventsManager().Init()

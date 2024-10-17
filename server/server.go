@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"litebase/internal/config"
 	"litebase/server/storage"
 	"log"
 	"net/http"
@@ -15,16 +16,18 @@ import (
 
 type Server struct {
 	cancel     context.CancelFunc
+	config     *config.Config
 	context    context.Context
 	HttpServer *http.Server
 	ServeMux   *http.ServeMux
 }
 
-func NewServer() *Server {
+func NewServer(c *config.Config) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	server := &Server{
 		cancel:  cancel,
+		config:  c,
 		context: ctx,
 	}
 
@@ -95,7 +98,7 @@ func (s *Server) Shutdown(ctx context.Context) {
 	s.cancel()
 
 	// Shutdown any storage resources
-	storage.Shutdown()
+	storage.Shutdown(s.config)
 
 	// Create a context with a timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

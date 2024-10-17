@@ -14,14 +14,14 @@ func TestInit(t *testing.T) {
 	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 	os.Setenv("LITEBASE_SIGNATURE", signature)
 
-	config.Init()
+	config.NewConfig()
 
 	// The signature file should be stored
 	if _, err := os.Stat("../../.test/.signature"); os.IsNotExist(err) {
 		t.Fatalf("The signature file was not created")
 	}
 
-	test.Teardown(nil)
+	test.Teardown(t, "../../.test", nil)
 }
 
 func TestInitWithNewSignature(t *testing.T) {
@@ -38,36 +38,32 @@ func TestInitWithNewSignature(t *testing.T) {
 
 	os.Setenv("LITEBASE_SIGNATURE", nextSignature)
 
-	config.Init()
+	c := config.NewConfig()
 
 	// If the signature is not the same as the stored signature, the next signature should be set
-	if config.Get().SignatureNext == "" {
+	if c.SignatureNext == "" {
 		t.Fatalf("The signature next was not set")
 	}
 
-	if config.Get().Signature != nextSignature {
+	if c.Signature != nextSignature {
 		t.Fatalf("The signature was not set")
 	}
 
-	test.Teardown(nil)
+	test.Teardown(t, "../../.test", nil)
 }
 
 func TestInitWithNoSignature(t *testing.T) {
 	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 
-	err := config.Init()
+	config.NewConfig()
 
-	if err != nil {
-		t.Fatalf("The error was not nil")
-	}
-
-	test.Teardown(nil)
+	test.Teardown(t, "../../.test", nil)
 }
 
 func TestNewConfig(t *testing.T) {
-	config.NewConfig()
+	c := config.NewConfig()
 
-	if config.Get() == nil {
+	if c == nil {
 		t.Fatalf("The config instance was not created")
 	}
 }
@@ -75,17 +71,17 @@ func TestNewConfig(t *testing.T) {
 func TestGet(t *testing.T) {
 	signature := test.CreateHash(32)
 	os.Setenv("LITEBASE_SIGNATURE", signature)
-	config.NewConfig()
+	c := config.NewConfig()
 
-	if config.Get() == nil {
+	if c == nil {
 		t.Fatalf("The config instance was not created")
 	}
 
-	if config.Get().Signature != signature {
+	if c.Signature != signature {
 		t.Fatalf("The signature was not set")
 	}
 
-	test.Teardown(nil)
+	test.Teardown(t, "../../.test", nil)
 }
 
 func TestSignatureHash(t *testing.T) {
@@ -96,5 +92,5 @@ func TestSignatureHash(t *testing.T) {
 		t.Fatalf("The signature hash was not returned")
 	}
 
-	test.Teardown(nil)
+	test.Teardown(t, "../../.test", nil)
 }

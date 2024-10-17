@@ -1,9 +1,5 @@
 package http
 
-import (
-	"litebase/server/auth"
-)
-
 type UserControllerStoreRequest struct {
 	Username   string   `json:"username" validate:"required"`
 	Password   string   `json:"password" validate:"required,min=8"`
@@ -11,7 +7,7 @@ type UserControllerStoreRequest struct {
 }
 
 func UserControllerIndex(request *Request) Response {
-	users := auth.UserManager().All()
+	users := request.cluster.Auth.UserManager().All()
 
 	return Response{
 		StatusCode: 200,
@@ -59,7 +55,7 @@ func UserControllerStore(request *Request) Response {
 		}
 	}
 
-	if auth.UserManager().Get(input.(*UserControllerStoreRequest).Username) != nil {
+	if request.cluster.Auth.UserManager().Get(input.(*UserControllerStoreRequest).Username) != nil {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
@@ -70,7 +66,7 @@ func UserControllerStore(request *Request) Response {
 
 	data := input.(*UserControllerStoreRequest)
 
-	auth.UserManager().Add(
+	request.cluster.Auth.UserManager().Add(
 		data.Username,
 		data.Password,
 		data.Privileges,
@@ -96,7 +92,7 @@ func UserControllerDestroy(request *Request) Response {
 		}
 	}
 
-	if auth.UserManager().Get(username) == nil {
+	if request.cluster.Auth.UserManager().Get(username) == nil {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{
@@ -105,7 +101,7 @@ func UserControllerDestroy(request *Request) Response {
 		}
 	}
 
-	err := auth.UserManager().Remove(username)
+	err := request.cluster.Auth.UserManager().Remove(username)
 
 	if err != nil {
 		return Response{

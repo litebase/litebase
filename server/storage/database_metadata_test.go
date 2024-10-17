@@ -15,8 +15,8 @@ func TestNewDatabaseMetadata(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -55,8 +55,8 @@ func TestDatabaseMetadataClose(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -81,8 +81,8 @@ func TestDatabaseMetadataFile(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -115,8 +115,8 @@ func TestDatabaseMetadataFileSize(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -145,8 +145,8 @@ func TestDatabaseMetadataLoad(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -195,8 +195,8 @@ func TestDatabaseMetadataPath(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -221,8 +221,8 @@ func TestDatabaseMetadataSave(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,
@@ -267,8 +267,8 @@ func TestDatabaseMetadataSetPageCount(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
-			storage.LocalFS(),
-			config.STORAGE_MODE_LOCAL,
+			app.Cluster.LocalFS(),
+			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
 			4096,

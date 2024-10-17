@@ -9,7 +9,11 @@ import (
 )
 
 func DatabaseBackupStoreController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+	databaseKey, err := database.GetDatabaseKey(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
+		request.Subdomains()[0],
+	)
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
@@ -39,7 +43,11 @@ func DatabaseBackupStoreController(request *Request) Response {
 }
 
 func DatabaseBackupShowController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(request.Subdomains()[0])
+	databaseKey, err := database.GetDatabaseKey(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
+		request.Subdomains()[0],
+	)
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
@@ -57,6 +65,8 @@ func DatabaseBackupShowController(request *Request) Response {
 	timeInstance := time.Unix(timestamp, 0)
 
 	backup, err := backups.GetBackup(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
 		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
 		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
 		databaseKey.DatabaseId,
@@ -92,6 +102,8 @@ func DatabaseBackupDestroyController(request *Request) Response {
 	databaseKey := request.DatabaseKey()
 
 	backup, err := backups.GetBackup(
+		request.cluster.Config,
+		request.cluster.ObjectFS(),
 		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
 		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
 		databaseKey.DatabaseId,

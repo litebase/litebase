@@ -34,7 +34,8 @@ func SingatureStoreController(request *Request) Response {
 	}
 
 	publicKey, err := auth.NextSignature(
-		request.cluster.Auth.SecretsManager(),
+		request.cluster.Config,
+		request.cluster.Auth.SecretsManager,
 		input.(*SingatureStoreRequest).Signature,
 	)
 
