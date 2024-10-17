@@ -193,7 +193,7 @@ Handle an error that occurred while connecting to the node.
 func (nc *NodeConnection) handleError(err error) {
 	if err != nil {
 		if err != io.ErrUnexpectedEOF {
-			log.Println(err)
+			// log.Println(err)
 		}
 	}
 

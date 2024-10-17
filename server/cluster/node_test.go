@@ -157,17 +157,18 @@ func TestNodeRunElection(t *testing.T) {
 
 				wg.Wait()
 
-				ticker := time.NewTicker(2 * time.Second)
+				ticker := time.NewTicker(1 * time.Second)
 				defer ticker.Stop()
 
 				start := time.Now()
 				// Ensure only one primary node is elected
 
 				for range ticker.C {
-					if time.Since(start) > 3*time.Second {
+					if time.Since(start) > 10*time.Second {
 						t.Fatalf("A primary node was not elected before timeout")
 						break
 					}
+
 					primaryCount := 0
 
 					for i := 0; i < nodeCount; i++ {

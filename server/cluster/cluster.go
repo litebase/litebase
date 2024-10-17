@@ -8,6 +8,7 @@ import (
 	"litebase/server/storage"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -413,6 +414,22 @@ func (c *Cluster) NodeGroupNodes() []*NodeIdentifier {
 				strings.Split(node, ":")[1],
 			))
 		}
+	}
+
+	return nodes
+}
+
+func (c *Cluster) NodeGroupVotingNodes() []*NodeIdentifier {
+	c.GetMembers(false)
+
+	nodes := c.NodeGroupNodes()
+
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].String() < nodes[j].String()
+	})
+
+	if len(c.QueryNodes) > 5 {
+		return nodes[:5]
 	}
 
 	return nodes

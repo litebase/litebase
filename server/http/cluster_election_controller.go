@@ -42,18 +42,6 @@ func ClusterElectionController(request *Request) Response {
 
 	election := request.cluster.Node().Election()
 
-	if election == nil {
-		return Response{
-			StatusCode: 200,
-			Body: map[string]interface{}{
-				"message": "Election not started",
-				"data": map[string]interface{}{
-					"nominee": input.(*ClusterElectionMessage).Address,
-				},
-			},
-		}
-	}
-
 	election.AddCanidate(
 		input.(*ClusterElectionMessage).Address,
 		input.(*ClusterElectionMessage).Seed,
@@ -64,7 +52,6 @@ func ClusterElectionController(request *Request) Response {
 		Body: map[string]interface{}{
 			"message": "Election started",
 			"data": map[string]interface{}{
-
 				"nominee": election.Nominee,
 			},
 		},

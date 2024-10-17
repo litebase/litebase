@@ -36,6 +36,7 @@ type Node struct {
 	context            context.Context
 	electionMoratorium time.Time
 	election           *ClusterElection
+	electionRunning    bool
 	hasNomination      bool
 	initialized        bool
 	joinedClusterAt    time.Time
@@ -125,6 +126,10 @@ func (n *Node) Context() context.Context {
 }
 
 func (n *Node) Election() *ClusterElection {
+	if n.election == nil {
+		n.election = NewClusterElection(n, time.Now())
+	}
+
 	return n.election
 }
 
@@ -132,7 +137,7 @@ func (n *Node) Election() *ClusterElection {
 Trigger the node to perform a heartbeat.
 */
 func (n *Node) Heartbeat() {
-	if n.IsPrimary() {
+	if n.Membership == ClusterMembershipPrimary {
 		if LeaseDuration-time.Since(n.LeaseRenewedAt) < 10*time.Second {
 			n.renewLease()
 		} else {
@@ -504,21 +509,17 @@ func (n *Node) renewLease() error {
 Run an election to determine the primary node in the cluster group.
 */
 func (n *Node) RunElection() bool {
+	if n.electionRunning {
+		return false
+	}
+
 	if !n.electionMoratorium.IsZero() && time.Now().Before(n.electionMoratorium) {
 		return false
 	}
 
-	n.mutex.Lock()
-
-	if n.election == nil {
-		n.election = NewClusterElection(n)
-	}
-
-	n.mutex.Unlock()
-
-	nominated, err := n.election.Run()
-
 	defer func() {
+		n.electionRunning = false
+
 		if n.election == nil {
 			return
 		}
@@ -529,14 +530,29 @@ func (n *Node) RunElection() bool {
 		n.mutex.Unlock()
 	}()
 
-	if err != nil {
-		return false
+	n.electionRunning = true
+
+	n.mutex.Lock()
+
+	if n.election == nil {
+		n.election = NewClusterElection(n, time.Now())
 	}
 
-	if !nominated {
-		return false
+	n.mutex.Unlock()
+
+	for i := 0; i < 3; i++ {
+		nominated, err := n.election.Run()
+
+		if err != nil {
+			return false
+		}
+
+		if !nominated {
+			return false
+		}
 	}
 
+	// Write the current address to the nomination file
 	success, err := n.writeNomination()
 
 	if err != nil {
@@ -550,17 +566,6 @@ func (n *Node) RunElection() bool {
 
 	n.hasNomination = true
 
-	// Verify the nomination
-	verified, err := n.verifyNomination()
-
-	if err != nil {
-		return false
-	}
-
-	if !verified {
-		return false
-	}
-
 	nodeIdentifiers := n.cluster.OtherNodes()
 
 	// Confirm the election
@@ -572,6 +577,27 @@ func (n *Node) RunElection() bool {
 		}
 	}
 
+	// Verify that the nomination file is still valid
+	verified, err := n.verifyNomination()
+
+	if err != nil {
+		return false
+	}
+
+	if !verified {
+		return false
+	}
+
+	// Confirm the election
+	if len(nodeIdentifiers) > 0 {
+		confirmed := n.runElectionConfirmation()
+
+		if !confirmed {
+			return false
+		}
+	}
+
+	// Verify that the nomination file is still valid
 	verified, err = n.verifyNomination()
 
 	if err != nil {
@@ -603,7 +629,7 @@ func (n *Node) RunElection() bool {
 }
 
 func (n *Node) runElectionConfirmation() bool {
-	nodeIdentifiers := n.cluster.NodeGroupNodes()
+	nodeIdentifiers := n.cluster.NodeGroupVotingNodes()
 
 	data := map[string]interface{}{
 		"address":   n.Address(),
@@ -831,7 +857,6 @@ Tick the node to perform the necessary checks and operations for cluster
 membership and state.
 */
 func (n *Node) Tick() {
-	// log.Println("TICKING NODE", n.Address())
 	// Check if the is still registered as primary
 	if n.lastActive.IsZero() {
 		if n.primaryFileVerification() {

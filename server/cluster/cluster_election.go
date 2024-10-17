@@ -25,7 +25,7 @@ type ClusterElection struct {
 	StartedAt  time.Time
 }
 
-func NewClusterElection(node *Node) *ClusterElection {
+func NewClusterElection(node *Node, startTime time.Time) *ClusterElection {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ClusterElection{
@@ -33,10 +33,10 @@ func NewClusterElection(node *Node) *ClusterElection {
 		context:    ctx,
 		Candidates: []string{node.Address()},
 		Group:      node.cluster.Config.NodeType,
-		Nominee:    "",
+		Nominee:    node.Address(),
 		node:       node,
 		Seed:       rand.Int64(),
-		StartedAt:  time.Now().Truncate(time.Second),
+		StartedAt:  startTime.Truncate(time.Second),
 	}
 }
 
@@ -52,6 +52,10 @@ func (c *ClusterElection) AddCanidate(address string, seed int64) {
 }
 
 func (c *ClusterElection) Stop() {
+	if c.cancel == nil {
+		return
+	}
+
 	c.cancel()
 }
 
@@ -66,7 +70,7 @@ func (c *ClusterElection) Run() (bool, error) {
 		c.running = false
 	}()
 
-	nodeIdentifiers := c.node.cluster.NodeGroupNodes()
+	nodeIdentifiers := c.node.cluster.NodeGroupVotingNodes()
 
 	data := map[string]interface{}{
 		"address":   c.node.Address(),
@@ -99,7 +103,7 @@ func (c *ClusterElection) Run() (bool, error) {
 
 			if err != nil {
 				log.Println("Failed to create confirmation election request: ", err)
-				responses <- map[string]interface{}{}
+				responses <- nil
 				return
 			}
 
@@ -109,14 +113,14 @@ func (c *ClusterElection) Run() (bool, error) {
 
 			if err != nil {
 				log.Println("Failed to set internal headers: ", err)
-				responses <- map[string]interface{}{}
+				responses <- nil
 				return
 			}
 
 			resp, err := http.DefaultClient.Do(request)
 
 			if err != nil {
-				responses <- map[string]interface{}{}
+				responses <- nil
 				return
 			}
 
@@ -128,7 +132,7 @@ func (c *ClusterElection) Run() (bool, error) {
 
 			if err != nil {
 				log.Println("Failed to decode election confirmation response: ", err)
-				responses <- map[string]interface{}{}
+				responses <- nil
 				return
 			}
 
@@ -136,13 +140,17 @@ func (c *ClusterElection) Run() (bool, error) {
 		}(nodeIdentifier)
 	}
 
-	timeout := time.NewTimer(5 * time.Second)
+	timeout := time.NewTimer(3 * time.Second)
 	votesReceived := 1
 	votesNeeded := len(nodeIdentifiers)
 
 	for i := 0; i < len(nodeIdentifiers)-1; i++ {
 		select {
 		case response := <-responses:
+			if response == nil {
+				continue
+			}
+
 			if nominee, ok := response["data"].(map[string]interface{})["nominee"].(string); ok {
 				if nominee == c.node.Address() {
 					votesReceived++

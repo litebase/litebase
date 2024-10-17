@@ -53,6 +53,21 @@ func ClusterElectionConfirmationController(request *Request) Response {
 		}
 	}
 
+	// Check the current election to ensure this node is the nominee
+
+	election := request.cluster.Node().Election()
+
+	if election.Nominee != address {
+		return Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"errors": "Invalid nominee",
+			},
+		}
+	}
+
+	defer election.Stop()
+
 	return Response{
 		StatusCode: 200,
 	}
