@@ -23,8 +23,14 @@ func main() {
 		),
 	)
 
-	storage.StartTestS3Server(config, objectFS)
+	url, err := storage.StartTestS3Server(config, objectFS)
 
+	if err != nil {
+		log.Fatalf("Failed to start test s3 server: %v", err)
+	}
+
+	log.Printf("Test S3 server started at %s", url)
+	log.Println("Server started")
 	signals := make(chan os.Signal, 1)
 
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
