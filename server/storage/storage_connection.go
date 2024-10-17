@@ -125,6 +125,11 @@ func (sc *StorageConnection) connect() error {
 		return err
 	}
 
+	if response.StatusCode != 200 {
+		sc.handleError(fmt.Errorf("failed to connect to storage node: %s", response.Status))
+		return errors.New("failed to connect to storage node")
+	}
+
 	go sc.handleResponse(response)
 
 	select {
@@ -205,11 +210,6 @@ Handle the response from the storage node.
 */
 func (sc *StorageConnection) handleResponse(response *http.Response) {
 	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		sc.handleError(fmt.Errorf("failed to connect to storage node: %s", response.Status))
-		return
-	}
 
 	sc.inactiveTimeout = time.NewTimer(StorageConnectionInactiveTimeout)
 

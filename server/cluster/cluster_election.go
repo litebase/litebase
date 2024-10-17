@@ -72,6 +72,10 @@ func (c *ClusterElection) Run() (bool, error) {
 
 	nodeIdentifiers := c.node.cluster.NodeGroupVotingNodes()
 
+	if len(nodeIdentifiers) == 0 {
+		return true, nil
+	}
+
 	data := map[string]interface{}{
 		"address":   c.node.Address(),
 		"group":     c.node.cluster.Config.NodeType,

@@ -90,15 +90,16 @@ func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMo
 
 // Read the directory using S3
 func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
-	if path == "" {
-		path = "/"
+	input := ListObjectsV2Input{
+		MaxKeys: 1000,
+		Prefix:  path,
 	}
 
-	paginator := NewListObjectsV2Paginator(fs.S3Client, ListObjectsV2Input{
-		Delimiter: "/",
-		MaxKeys:   1000,
-		Prefix:    path,
-	})
+	if path != "" {
+		input.Delimiter = "/"
+	}
+
+	paginator := NewListObjectsV2Paginator(fs.S3Client, input)
 
 	entries := make([]internalStorage.DirEntry, 0)
 

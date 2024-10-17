@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"log"
+	"net"
 	"net/http/httptest"
 	"os"
 
@@ -46,6 +47,17 @@ func StartTestS3Server(c *config.Config, objectFS *FileSystem) (string, error) {
 	faker := s3Faker(c)
 
 	s3Server = httptest.NewUnstartedServer(faker.Server())
+
+	if c.Env == config.EnvDevelopment {
+		// Create a new listener on your desired port
+		listener, err := net.Listen("tcp", "127.0.0.1:9000")
+
+		if err != nil {
+			log.Fatalf("failed to create test s3 server, %v", err)
+		}
+
+		s3Server.Listener = listener
+	}
 
 	s3Server.Start()
 	c.StorageEndpoint = s3Server.URL
