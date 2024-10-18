@@ -566,15 +566,11 @@ func (n *Node) RunElection() bool {
 
 	n.hasNomination = true
 
-	nodeIdentifiers := n.cluster.OtherNodes()
-
 	// Confirm the election
-	if len(nodeIdentifiers) > 0 {
-		confirmed := n.runElectionConfirmation()
+	confirmed := n.runElectionConfirmation()
 
-		if !confirmed {
-			return false
-		}
+	if !confirmed {
+		return false
 	}
 
 	// Verify that the nomination file is still valid
@@ -589,12 +585,10 @@ func (n *Node) RunElection() bool {
 	}
 
 	// Confirm the election
-	if len(nodeIdentifiers) > 0 {
-		confirmed := n.runElectionConfirmation()
+	confirmed = n.runElectionConfirmation()
 
-		if !confirmed {
-			return false
-		}
+	if !confirmed {
+		return false
 	}
 
 	// Verify that the nomination file is still valid
@@ -630,6 +624,12 @@ func (n *Node) RunElection() bool {
 
 func (n *Node) runElectionConfirmation() bool {
 	nodeIdentifiers := n.cluster.NodeGroupVotingNodes()
+
+	// If there is only one node in the group, it is the current node and the
+	// election is confirmed.
+	if len(nodeIdentifiers) <= 1 {
+		return true
+	}
 
 	data := map[string]interface{}{
 		"address":   n.Address(),
@@ -1109,12 +1109,17 @@ openNomination:
 
 	// Read the nomination file and check if it is empty or does not contain
 	// this node's address in addition to the timestamp being past 1 second.
-
 	if len(nominationData) == 0 {
 		_, err = nominationFile.WriteString(entry)
 
 		if err != nil {
 			log.Printf("Failed to write to nomination file: %v", err)
+			return false, err
+		}
+
+		err := nominationFile.Close()
+
+		if err != nil {
 			return false, err
 		}
 	} else {
@@ -1150,6 +1155,12 @@ openNomination:
 
 		if err != nil {
 			log.Printf("Failed to write to nomination file: %v", err)
+			return false, err
+		}
+
+		err = nominationFile.Close()
+
+		if err != nil {
 			return false, err
 		}
 	}

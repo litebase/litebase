@@ -212,8 +212,6 @@ func (o *ObjectFile) WithData(data []byte) *ObjectFile {
 		o.Data = append(o.Data, data...)
 	}
 
-	o.Sha256Checksum = sha256.Sum256(o.Data)
-
 	return o
 }
 
@@ -267,8 +265,6 @@ func (o *ObjectFile) WriteString(s string) (ret int, err error) {
 	}
 
 	o.Data = append(o.Data[:o.readPos], []byte(s)...)
-
-	o.Sha256Checksum = sha256.Sum256(o.Data)
 
 	return len(s), nil
 }
