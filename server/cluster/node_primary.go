@@ -144,32 +144,38 @@ func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 		return nil
 	}
 
+	np.mutex.Lock()
+	connections := make([]*NodeConnection, len(nodes))
+
+	for i, node := range nodes {
+		var connection *NodeConnection
+		var ok bool
+
+		if connection, ok = np.nodeConnections[node.String()]; !ok {
+			connection = NewNodeConnection(np.node, node.String())
+			np.nodeConnections[node.String()] = connection
+			connections[i] = np.nodeConnections[node.String()]
+		} else {
+			connections[i] = connection
+		}
+	}
+
+	np.mutex.Unlock()
+
 	wg := sync.WaitGroup{}
 
-	for _, node := range nodes {
-		wg.Add(1)
+	wg.Add(len(connections))
 
-		go func(node *NodeIdentifier) {
+	for _, connection := range connections {
+		go func(node *NodeConnection) {
 			defer wg.Done()
-
-			var connection *NodeConnection
-			var ok bool
-
-			np.mutex.Lock()
-
-			if connection, ok = np.nodeConnections[node.String()]; !ok {
-				connection = NewNodeConnection(np.node, node.String())
-				np.nodeConnections[node.String()] = connection
-			}
-
-			np.mutex.Unlock()
 
 			_, err := connection.Send(nodeMessage)
 
 			if err != nil {
 				log.Println("Failed to send message to node: ", err)
 			}
-		}(node)
+		}(connection)
 	}
 
 	wg.Wait()
