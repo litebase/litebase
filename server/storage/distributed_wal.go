@@ -78,15 +78,7 @@ func (d *DistributedWal) WriteAt(p []byte, off int64) error {
 	d.sequence++
 	d.timestamp = time.Now().UnixNano()
 
-	data := make([]byte, len(p))
-	copy(data, p)
-	go func(p []byte, off, sequence, timestamp int64) {
-		// log.Println("Writing to distributed wal", len(p), off, sequence)
-		d.replicator.WriteAt(d.DatabaseId, d.BranchId, p, off, sequence, timestamp)
-	}(data, off, d.sequence, d.timestamp)
-
-	// log.Println("Writing to distributed wal", len(p), off)
-	// d.replicator.WriteAt(d.DatabaseId, d.BranchId, p, off, d.sequence, d.timestamp)
+	d.replicator.WriteAt(d.DatabaseId, d.BranchId, p, off, d.sequence, d.timestamp)
 
 	return err
 }

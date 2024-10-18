@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"io"
 	internalStorage "litebase/internal/storage"
 	"litebase/server/file"
@@ -10,6 +11,7 @@ import (
 )
 
 type DurableDatabaseFileSystem struct {
+	buffers    *sync.Pool
 	branchId   string
 	databaseId string
 	dataRanges map[int64]*DataRange
@@ -33,7 +35,12 @@ func NewDurableDatabaseFileSystem(fs *FileSystem, path, databaseId, branchId str
 	}
 
 	dfs := &DurableDatabaseFileSystem{
-		branchId:   branchId,
+		branchId: branchId,
+		buffers: &sync.Pool{
+			New: func() interface{} {
+				return bytes.NewBuffer(make([]byte, pageSize))
+			},
+		},
 		databaseId: databaseId,
 		dataRanges: make(map[int64]*DataRange),
 		fileSystem: fs,
@@ -252,7 +259,12 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(data []byte, offset int64) (n int,
 
 	if dfs.writeHook != nil {
 		// Get the current version of the page
-		currentPageData := make([]byte, dfs.pageSize)
+		buffer := dfs.buffers.Get().(*bytes.Buffer)
+		defer dfs.buffers.Put(buffer)
+
+		currentPageData := buffer.Bytes()
+
+		buffer.Reset()
 
 		_, err := rangeFile.ReadAt(currentPageData, pageNumber)
 

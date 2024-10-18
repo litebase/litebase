@@ -153,9 +153,8 @@ func scan(
 	writer chan *bytes.Buffer,
 ) {
 	writeBuffer := bufferPool.Get().(*bytes.Buffer)
-	writeBuffer.Reset()
-
 	defer bufferPool.Put(scanBuffer)
+	writeBuffer.Reset()
 
 	n := scanBuffer.Len()
 

@@ -14,6 +14,7 @@ extern void go_write_hook(uintptr_t vfsHandle, int iAmt, sqlite3_int64 iOfst, vo
 import "C"
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +28,12 @@ import (
 
 var VfsMap = make(map[string]*LitebaseVFS)
 var vfsMutex = &sync.RWMutex{}
+
+var vfsBuffers = &sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 4096))
+	},
+}
 
 type LitebaseVFS struct {
 	distributedWal *storage.DistributedWal
@@ -291,9 +298,18 @@ func goXWalWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf 
 		return C.SQLITE_IOERR
 	}
 
-	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+	buffer := vfsBuffers.Get().(*bytes.Buffer)
+	defer vfsBuffers.Put(buffer)
 
-	err = vfs.distributedWal.WriteAt(goBuffer, int64(iOfst))
+	buffer.Reset()
+
+	if buffer.Len() < int(iAmt) {
+		buffer.Grow(int(iAmt))
+	}
+
+	copy(buffer.Bytes(), (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)])
+
+	err = vfs.distributedWal.WriteAt(buffer.Next(int(iAmt)), int64(iOfst))
 
 	if err != nil {
 		return C.SQLITE_IOERR

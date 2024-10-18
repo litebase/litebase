@@ -243,8 +243,6 @@ func (sc *StorageConnection) read(
 	cancel context.CancelFunc,
 	reader io.Reader,
 ) {
-	scanBuffer := storageConnectionBufferPool.Get().(*bytes.Buffer)
-	defer storageConnectionBufferPool.Put(scanBuffer)
 
 	var dfsResponse DistributedFileSystemResponse = DistributedFileSystemResponse{}
 	messageLengthBytes := make([]byte, 4)
@@ -259,6 +257,7 @@ func (sc *StorageConnection) read(
 		}
 
 		messageLength := int(binary.LittleEndian.Uint32(messageLengthBytes))
+		scanBuffer := storageConnectionBufferPool.Get().(*bytes.Buffer)
 
 		scanBuffer.Reset()
 
@@ -270,6 +269,10 @@ func (sc *StorageConnection) read(
 
 			if messageLength-bytesRead < chunkSize {
 				chunkSize = messageLength - bytesRead
+			}
+
+			if scanBuffer.Len() < chunkSize {
+				scanBuffer.Grow(chunkSize)
 			}
 
 			n, err := io.CopyN(scanBuffer, reader, int64(chunkSize))
@@ -294,6 +297,8 @@ func (sc *StorageConnection) read(
 		sc.inactiveTimeout.Reset(StorageConnectionInactiveTimeout)
 
 		dfsResponse = DecodeDistributedFileSystemResponse(dfsResponse, scanBuffer.Next(messageLength))
+
+		storageConnectionBufferPool.Put(scanBuffer)
 
 		if dfsResponse.Command == ConnectionStorageCommand {
 			sc.open = true
