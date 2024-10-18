@@ -5,6 +5,7 @@ import (
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/file"
+	"litebase/server/sqlite3"
 	_ "litebase/server/sqlite3"
 	"litebase/server/vfs"
 	"testing"
@@ -113,7 +114,7 @@ func TestGoWriteHook(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		if len(offsets) == 0 {
 			t.Errorf("SetWriteHook() failed, expected > 0, got %v", len(offsets))
@@ -136,10 +137,16 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		// test of the VFS file size and truncate.
 		for i := 1; i <= 3000; i++ {
 			// Create the table
-			test.RunQuery(db, fmt.Sprintf("CREATE TABLE users_%d (id INT, name TEXT)", i), []interface{}{})
+			test.RunQuery(db, fmt.Sprintf("CREATE TABLE users_%d (id INT, name TEXT)", i), []sqlite3.StatementParameter{})
 
 			// Insert a row
-			test.RunQuery(db, fmt.Sprintf("INSERT INTO users_%d (id, name) VALUES (?, ?)", i), []interface{}{i, "user"})
+			test.RunQuery(db, fmt.Sprintf("INSERT INTO users_%d (id, name) VALUES (?, ?)", i), []sqlite3.StatementParameter{{
+				Type:  "INTEGER",
+				Value: i,
+			}, {
+				Type:  "TEXT",
+				Value: "user",
+			}})
 		}
 
 		// Force the database to checkpoint so data is written to disk
@@ -187,7 +194,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 
 		for i := 3000; i > 2000; i-- {
 			// Drop the table
-			test.RunQuery(db, fmt.Sprintf("DROP TABLE users_%d", i), []interface{}{})
+			test.RunQuery(db, fmt.Sprintf("DROP TABLE users_%d", i), []sqlite3.StatementParameter{})
 		}
 
 		// Force the database to checkpoint so data is written to disk
@@ -257,21 +264,26 @@ func TestVfsVacuum(t *testing.T) {
 		}
 
 		// Create a table for users
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		// Insert 10000 rows
 		for i := 0; i < 10000; i++ {
-			test.RunQuery(db, "INSERT INTO users (id, name) VALUES (?, ?)", []interface{}{i, "user"})
+			test.RunQuery(db, "INSERT INTO users (id, name) VALUES (?, ?)", []sqlite3.StatementParameter{{
+				Type:  "INTEGER",
+				Value: i}, {
+				Type:  "TEXT",
+				Value: "user",
+			}})
 		}
 
-		result := test.RunQuery(db, "SELECT * FROM users", []interface{}{})
+		result := test.RunQuery(db, "SELECT * FROM users", []sqlite3.StatementParameter{})
 
 		if len(result.Rows) != 10000 {
 			t.Errorf("VACUUM failed, expected 0, got %v", len(result.Rows))
 		}
 
 		// Delete all rows
-		test.RunQuery(db, "DELETE FROM users", []interface{}{})
+		test.RunQuery(db, "DELETE FROM users", []sqlite3.StatementParameter{})
 
 		err = db.GetConnection().SqliteConnection().Vacuum()
 
@@ -280,7 +292,7 @@ func TestVfsVacuum(t *testing.T) {
 		}
 
 		// Check if the database is empty
-		result = test.RunQuery(db, "SELECT * FROM users", []interface{}{})
+		result = test.RunQuery(db, "SELECT * FROM users", []sqlite3.StatementParameter{})
 
 		if len(result.Rows) != 0 {
 			t.Errorf("VACUUM failed, expected 0, got %v", len(result.Rows))
