@@ -321,6 +321,23 @@ func (df *DistributedFile) WriteAt(p []byte, off int64) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
+	localFileError := make(chan error, 1)
+
+	go func() {
+		defer close(localFileError)
+
+		if df.File == nil {
+			localFileError <- nil
+			return
+		}
+
+		_, err := df.File.WriteAt(p, off)
+
+		if err != nil {
+			localFileError <- err
+		}
+	}()
+
 	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteAtStorageCommand,
 		Data:    p,
@@ -337,7 +354,7 @@ func (df *DistributedFile) WriteAt(p []byte, off int64) (n int, err error) {
 	if df.File != nil {
 		df.distributedFileSystemDriver.FileOrder.MoveToBack(df.Element)
 
-		_, err := df.File.WriteAt(p, off)
+		err := <-localFileError
 
 		if err != nil {
 			df.distributedFileSystemDriver.ReleaseFile(df)
