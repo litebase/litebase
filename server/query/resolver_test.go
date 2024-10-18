@@ -5,6 +5,7 @@ import (
 	"litebase/server"
 	"litebase/server/database"
 	"litebase/server/query"
+	"litebase/server/sqlite3"
 	"testing"
 )
 
@@ -18,26 +19,31 @@ func TestHandle(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		cases := []struct {
 			statement  string
-			parameters []interface{}
+			parameters []sqlite3.StatementParameter
 			expected   string
 		}{
 			{
 				"SELECT * FROM users",
-				[]interface{}{},
+				[]sqlite3.StatementParameter{},
 				`success`,
 			},
 			{
 				"SELECT * FROM users LIMIT ?",
-				[]interface{}{1},
+				[]sqlite3.StatementParameter{
+					{
+						Type:  "INTEGER",
+						Value: 1,
+					},
+				},
 				`success`,
 			},
 			{
 				"?SELECT * FROM users",
-				[]interface{}{},
+				[]sqlite3.StatementParameter{},
 				`error`,
 			},
 		}

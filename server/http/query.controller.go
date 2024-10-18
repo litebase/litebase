@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"fmt"
 	"litebase/server/database"
 	"litebase/server/query"
@@ -39,17 +40,28 @@ func QueryController(request *Request) Response {
 			"message": err.Error(),
 		}, 500, nil)
 	}
+	queryInput := &query.QueryInput{}
+
+	err = json.NewDecoder(request.BaseRequest.Body).Decode(queryInput)
+
+	if err != nil {
+		request.databaseManager.ConnectionManager().Remove(
+			databaseKey.DatabaseId,
+			databaseKey.BranchId,
+			db,
+		)
+
+		return JsonResponse(map[string]interface{}{
+			"message": err.Error(),
+		}, 500, nil)
+	}
 
 	requestQuery, err := query.NewQuery(
 		request.cluster,
 		request.databaseManager,
 		databaseKey,
 		accessKey,
-		&query.QueryInput{
-			Statement:  request.Body["statement"].(string),
-			Parameters: request.Body["parameters"].([]interface{}),
-			Id:         request.Body["id"].(string),
-		},
+		queryInput,
 	)
 
 	if err != nil {

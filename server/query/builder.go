@@ -4,6 +4,7 @@ import (
 	"litebase/server/auth"
 	"litebase/server/cluster"
 	"litebase/server/database"
+	"litebase/server/sqlite3"
 )
 
 type QueryBuilder struct {
@@ -34,7 +35,7 @@ func (qb *QueryBuilder) Build(
 	databaseId string,
 	branchId string,
 	statement string,
-	parameters []interface{},
+	parameters []sqlite3.StatementParameter,
 	id string,
 ) (cluster.NodeQuery, error) {
 	accessKey, err := qb.accessKeyManager.Get(accessKeyId)

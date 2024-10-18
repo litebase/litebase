@@ -60,7 +60,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	}
 }
 
-func RunQuery(db *database.ClientConnection, statement string, parameters []interface{}) sqlite3.Result {
+func RunQuery(db *database.ClientConnection, statement string, parameters []sqlite3.StatementParameter) sqlite3.Result {
 	sqliteStatement, err := db.GetConnection().SqliteConnection().Prepare(db.GetConnection().Context(), statement)
 
 	if err != nil {
@@ -69,7 +69,7 @@ func RunQuery(db *database.ClientConnection, statement string, parameters []inte
 
 	result, err := db.GetConnection().Query(
 		sqliteStatement,
-		parameters...,
+		parameters,
 	)
 
 	if err != nil {

@@ -1,6 +1,9 @@
 package cluster
 
-import "io"
+import (
+	"io"
+	"litebase/server/sqlite3"
+)
 
 type NodeQueryBuilder interface {
 	Build(
@@ -9,7 +12,7 @@ type NodeQueryBuilder interface {
 		databaseId string,
 		branchId string,
 		statement string,
-		parameters []interface{},
+		parameters []sqlite3.StatementParameter,
 		id string,
 	) (NodeQuery, error)
 }

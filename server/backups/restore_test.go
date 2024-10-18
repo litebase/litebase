@@ -7,6 +7,7 @@ import (
 	"litebase/server"
 	"litebase/server/backups"
 	"litebase/server/file"
+	"litebase/server/sqlite3"
 	"litebase/server/storage"
 	"testing"
 	"time"
@@ -88,7 +89,14 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
 
 		for i := 0; i < 1000; i++ {
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (value) VALUES (?)", "value")
+			_, err = db.GetConnection().SqliteConnection().Exec(
+				context.Background(),
+				"INSERT INTO test (value) VALUES (?)",
+				sqlite3.StatementParameter{
+					Type:  "TEXT",
+					Value: "value",
+				},
+			)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -107,7 +115,14 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
 
 		for i := 0; i < 1000; i++ {
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (value) VALUES (?)", "value")
+			_, err = db.GetConnection().SqliteConnection().Exec(
+				context.Background(),
+				"INSERT INTO test (value) VALUES (?)",
+				sqlite3.StatementParameter{
+					Type:  "TEXT",
+					Value: "value",
+				},
+			)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -231,7 +246,14 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
 
 		for i := 0; i < 1000; i++ {
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (value) VALUES (?)", "value")
+			_, err = db.GetConnection().SqliteConnection().Exec(
+				context.Background(),
+				"INSERT INTO test (value) VALUES (?)",
+				sqlite3.StatementParameter{
+					Type:  "TEXT",
+					Value: "value",
+				},
+			)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -332,7 +354,14 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
 
 				for i := 0; i < 1000; i++ {
-					_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (value) VALUES (?)", "value")
+					_, err = db.GetConnection().SqliteConnection().Exec(
+						context.Background(),
+						"INSERT INTO test (value) VALUES (?)",
+						sqlite3.StatementParameter{
+							Type:  "TEXT",
+							Value: "value",
+						},
+					)
 
 					if err != nil {
 						t.Errorf("Expected no error, got %v", err)
@@ -352,7 +381,14 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
 
 				for i := 0; i < 1000; i++ {
-					_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (value) VALUES (?)", "value")
+					_, err = db.GetConnection().SqliteConnection().Exec(
+						context.Background(),
+						"INSERT INTO test (value) VALUES (?)",
+						sqlite3.StatementParameter{
+							Type:  "TEXT",
+							Value: "value",
+						},
+					)
 
 					if err != nil {
 						t.Errorf("Expected no error, got %v", err)

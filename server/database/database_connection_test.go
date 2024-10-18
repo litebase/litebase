@@ -4,6 +4,7 @@ import (
 	"context"
 	"litebase/internal/test"
 	"litebase/server"
+	"litebase/server/sqlite3"
 	"log"
 	"sync"
 	"testing"
@@ -38,7 +39,14 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < 100000; i++ {
-				_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", "test")
+				_, err = connection1.GetConnection().SqliteConnection().Exec(
+					context.Background(),
+					"INSERT INTO test (name) VALUES (?)",
+					sqlite3.StatementParameter{
+						Type:  "TEXT",
+						Value: "test",
+					},
+				)
 
 				if err != nil {
 					t.Error(err)
@@ -124,7 +132,14 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 					break
 				}
 
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", "test")
+				_, err = db.GetConnection().SqliteConnection().Exec(
+					context.Background(),
+					"INSERT INTO test (name) VALUES (?)",
+					sqlite3.StatementParameter{
+						Type:  "TEXT",
+						Value: "test",
+					},
+				)
 
 				if err != nil {
 					t.Error(err)

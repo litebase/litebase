@@ -23,7 +23,7 @@ type QueryMessage struct {
 	DatabaseHash string
 	DatabaseId   string
 	Id           string
-	Parameters   []any
+	Parameters   []sqlite3.StatementParameter
 	Statement    string
 }
 

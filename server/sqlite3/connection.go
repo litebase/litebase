@@ -53,7 +53,7 @@ func Open(ctx context.Context, path, vfsId string, flags OpenFlags) (*Connection
 	var cVfs, cName *C.char
 	c := &Connection{
 		committing: false,
-		committed:  make(chan struct{}),
+		committed:  make(chan struct{}, 1),
 		context:    ctx,
 	}
 
@@ -222,7 +222,7 @@ func go_commit_hook(connectionHandle C.uintptr_t) {
 }
 
 // Execute a query
-func (c *Connection) Exec(ctx context.Context, query string, params ...interface{}) (Result, error) {
+func (c *Connection) Exec(ctx context.Context, query string, params ...StatementParameter) (Result, error) {
 	var stmt *Statement
 	var err error
 

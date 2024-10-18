@@ -7,7 +7,7 @@ import (
 type QueryValidator struct {
 }
 
-func ValidateQuery(statement *sqlite3.Statement, parameters ...interface{}) error {
+func ValidateQuery(statement *sqlite3.Statement, parameters ...sqlite3.StatementParameter) error {
 	var errors = map[string][]string{}
 
 	if statement.SQL() == "" {
@@ -25,6 +25,6 @@ func ValidateQuery(statement *sqlite3.Statement, parameters ...interface{}) erro
 	return nil
 }
 
-func numberOfParametersMatchesStatement(statement *sqlite3.Statement, parameters ...interface{}) bool {
+func numberOfParametersMatchesStatement(statement *sqlite3.Statement, parameters ...sqlite3.StatementParameter) bool {
 	return len(parameters) == statement.ParameterCount()
 }

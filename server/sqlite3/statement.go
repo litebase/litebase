@@ -74,7 +74,7 @@ func (s *Statement) Reset() error {
 }
 
 // Bind parameters to statement
-func (s *Statement) Bind(parameters ...interface{}) error {
+func (s *Statement) Bind(parameters ...StatementParameter) error {
 	if s.sqlite3_stmt == nil {
 		return errors.New("sqlite3 statement is nil")
 	}
@@ -83,42 +83,16 @@ func (s *Statement) Bind(parameters ...interface{}) error {
 		index := C.int(i + 1)
 
 		var rc C.int
-
-		switch value := parameter.(type) {
-		case int:
-			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(value))
-		case int8:
-			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(value))
-		case int16:
-			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(value))
-		case int32:
-			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(value))
-		case int64:
-			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(value))
-		case uint:
-			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(value))
-		case uint8:
-			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(value))
-		case uint16:
-			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(value))
-		case uint32:
-			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(value))
-		case uint64:
-			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(value))
-		case float32:
-			rc = C.sqlite3_bind_double(s.sqlite3_stmt, index, C.double(value))
-		case float64:
-			rc = C.sqlite3_bind_double(s.sqlite3_stmt, index, C.double(value))
-		case bool:
-			var boolean int
-			if value {
-				boolean = 1
-			} else {
-				boolean = 0
-			}
-			rc = C.sqlite3_bind_int(s.sqlite3_stmt, index, C.int(boolean))
-		case string:
+		switch parameter.Type {
+		case "INTEGER":
+			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(parameter.Value.(int64)))
+		case "REAL":
+			rc = C.sqlite3_bind_double(s.sqlite3_stmt, index, C.double(parameter.Value.(float64)))
+		case "NULL":
+			rc = C.sqlite3_bind_null(s.sqlite3_stmt, index)
+		case "TEXT":
 			buf := getStatementBuffer()
+			value := parameter.Value.(string)
 
 			// Ensure the buffer is large enough
 			if cap(*buf) < len(value)+1 {
@@ -139,8 +113,9 @@ func (s *Statement) Bind(parameters ...interface{}) error {
 
 			// Return the buffer to the pool
 			putStatementBuffer(buf)
-		case []byte:
+		case "BLOB":
 			var valuePointer unsafe.Pointer
+			value := parameter.Value.([]byte)
 
 			if len(value) > 0 {
 				valuePointer = unsafe.Pointer(&value[0])
@@ -160,7 +135,7 @@ func (s *Statement) Bind(parameters ...interface{}) error {
 }
 
 // Bind the parameteres to the statement and return the results
-func (s *Statement) Exec(parameters ...interface{}) (Result, error) {
+func (s *Statement) Exec(parameters ...StatementParameter) (Result, error) {
 	defer s.Reset()
 
 	if s.sqlite3_stmt == nil {
@@ -211,7 +186,7 @@ func (s *Statement) Exec(parameters ...interface{}) (Result, error) {
 }
 
 // Bind the parameteres to the statement and return the results
-func (s *Statement) ExecStreaming(parameters ...interface{}) (Result, chan [][]Column, error) {
+func (s *Statement) ExecStreaming(parameters ...StatementParameter) (Result, chan [][]Column, error) {
 	defer s.Reset()
 
 	if s.sqlite3_stmt == nil {

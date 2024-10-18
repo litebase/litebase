@@ -5,6 +5,7 @@ import (
 	"litebase/server"
 	"litebase/server/database"
 	"litebase/server/query"
+	"litebase/server/sqlite3"
 	"testing"
 )
 
@@ -18,9 +19,12 @@ func TestNewQuery(t *testing.T) {
 			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
 			&query.QueryInput{
-				Statement:  "SELECT * FROM users LIMIT ?",
-				Parameters: []interface{}{1},
-				Id:         "",
+				Statement: "SELECT * FROM users LIMIT ?",
+				Parameters: []sqlite3.StatementParameter{{
+					Type:  "INTEGER",
+					Value: 1,
+				}},
+				Id: "",
 			},
 		)
 
@@ -39,7 +43,7 @@ func TestResolve(t *testing.T) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		queryResponse := &query.QueryResponse{}
 		query, err := query.NewQuery(
@@ -48,9 +52,12 @@ func TestResolve(t *testing.T) {
 			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
 			&query.QueryInput{
-				Statement:  "SELECT * FROM users LIMIT ?",
-				Parameters: []interface{}{1},
-				Id:         "",
+				Statement: "SELECT * FROM users LIMIT ?",
+				Parameters: []sqlite3.StatementParameter{{
+					Type:  "INTEGER",
+					Value: 1,
+				}},
+				Id: "",
 			},
 		)
 
@@ -71,14 +78,17 @@ func TestStatement(t *testing.T) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		query := &query.Query{
 			Input: &query.QueryInput{
-				Statement:  "SELECT * FROM users LIMIT ?",
-				Parameters: []interface{}{1},
+				Statement: "SELECT * FROM users LIMIT ?",
+				Parameters: []sqlite3.StatementParameter{{
+					Type:  "INTEGER",
+					Value: 1,
+				}},
 			},
 		}
 
@@ -129,14 +139,17 @@ func TestValidate(t *testing.T) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		query := &query.Query{
 			Input: &query.QueryInput{
-				Statement:  "SELECT * FROM users LIMIT ?",
-				Parameters: []interface{}{1},
+				Statement: "SELECT * FROM users LIMIT ?",
+				Parameters: []sqlite3.StatementParameter{{
+					Type:  "INTEGER",
+					Value: 1,
+				}},
 			},
 		}
 

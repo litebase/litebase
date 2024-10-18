@@ -161,8 +161,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 			The amount of cache that SQLite will use is set to -2000000. This
 			will allow SQLite to use as much memory as it needs for caching.
 		*/
-		"PRAGMA cache_size = 0",
-		// "PRAGMA cache_size = -2000000",
+		"PRAGMA cache_size = -2000000",
 		/*
 			PRAGMA secure_delete will ensure that data is securely deleted from
 			the database. This will prevent data from being recovered from the
@@ -341,7 +340,7 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 /*
 Execute a query on the database using a transaction.
 */
-func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters ...any) (sqlite3.Result, error) {
+func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters []sqlite3.StatementParameter) (sqlite3.Result, error) {
 	return con.Transaction(
 		statement.IsReadonly(),
 		func(con *DatabaseConnection) (sqlite3.Result, error) {

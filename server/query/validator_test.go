@@ -4,6 +4,7 @@ import (
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/query"
+	"litebase/server/sqlite3"
 	"reflect"
 	"testing"
 )
@@ -13,28 +14,34 @@ func TestValidateQuery(t *testing.T) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		cases := []struct {
 			statement  string
-			parameters []interface{}
+			parameters []sqlite3.StatementParameter
 			error      *query.QueryValidationError
 		}{
 			{
 				"SELECT * FROM users LIMIT ?",
-				[]interface{}{1},
+				[]sqlite3.StatementParameter{{
+					Type:  "INTEGER",
+					Value: 1,
+				}},
 				nil,
 			},
 			{
 				"",
-				[]interface{}{},
+				[]sqlite3.StatementParameter{{}},
 				&query.QueryValidationError{Errors: map[string][]string{"statement": {"A query statement is required"}}},
 			},
 			{
 				"SELECT * FROM users LIMIT ? OFFSET ?",
-				[]interface{}{1},
+				[]sqlite3.StatementParameter{{
+					Type:  "INTEGER",
+					Value: 1,
+				}},
 				&query.QueryValidationError{Errors: map[string][]string{"parameters": {"Query parameters must match the number of placeholders"}}},
 			},
 		}

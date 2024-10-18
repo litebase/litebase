@@ -142,7 +142,6 @@ func (d *DatabaseMetadata) Save() error {
 	_, err = file.WriteAt(data, 0)
 
 	return err
-
 }
 
 // Update the page count

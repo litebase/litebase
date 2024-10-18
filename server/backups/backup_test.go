@@ -10,6 +10,7 @@ import (
 	"litebase/server"
 	"litebase/server/backups"
 	"litebase/server/file"
+	"litebase/server/sqlite3"
 	"log"
 	"os"
 	"sort"
@@ -696,7 +697,14 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 			}
 
 			for j := 0; j < 1000; j++ {
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", fmt.Sprintf("test-%d", j))
+				_, err = db.GetConnection().SqliteConnection().Exec(
+					context.Background(),
+					"INSERT INTO test (name) VALUES (?)",
+					sqlite3.StatementParameter{
+						Type:  "TEXT",
+						Value: fmt.Sprintf("test-%d", j),
+					},
+				)
 
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -879,7 +887,14 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 			}
 
 			for j := 0; j < 1000; j++ {
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", fmt.Sprintf("test-%d", j))
+				_, err = db.GetConnection().SqliteConnection().Exec(
+					context.Background(),
+					"INSERT INTO test (name) VALUES (?)",
+					sqlite3.StatementParameter{
+						Type:  "TEXT",
+						Value: fmt.Sprintf("test-%d", j),
+					},
+				)
 
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1045,7 +1060,14 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 			}
 
 			for j := 0; j < 1000; j++ {
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", fmt.Sprintf("test-%d", j))
+				_, err = db.GetConnection().SqliteConnection().Exec(
+					context.Background(),
+					"INSERT INTO test (name) VALUES (?)",
+					sqlite3.StatementParameter{
+						Type:  "TEXT",
+						Value: fmt.Sprintf("test-%d", j),
+					},
+				)
 
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1218,7 +1240,14 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 			}
 
 			for j := 0; j < 1000; j++ {
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", fmt.Sprintf("test-%d", j))
+				_, err = db.GetConnection().SqliteConnection().Exec(
+					context.Background(),
+					"INSERT INTO test (name) VALUES (?)",
+					sqlite3.StatementParameter{
+						Type:  "TEXT",
+						Value: fmt.Sprintf("test-%d", j),
+					},
+				)
 
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -1510,7 +1539,14 @@ func TestBackupRunWithConcurrentWrites(t *testing.T) {
 				}
 
 				for j := 0; j < 1000; j++ {
-					_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", fmt.Sprintf("test-%d", j))
+					_, err = db.GetConnection().SqliteConnection().Exec(
+						context.Background(),
+						"INSERT INTO test (name) VALUES (?)",
+						sqlite3.StatementParameter{
+							Type:  "TEXT",
+							Value: fmt.Sprintf("test-%d", j),
+						},
+					)
 
 					if err != nil {
 						t.Errorf("expected no error, got %v", err)

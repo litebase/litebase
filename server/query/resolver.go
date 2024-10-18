@@ -62,7 +62,10 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 				// 	return QueryResponse{}, err
 				// }
 
-				sqlite3Result, err = db.GetConnection().Query(statement.Sqlite3Statement, query.Input.Parameters...)
+				sqlite3Result, err = db.GetConnection().Query(
+					statement.Sqlite3Statement,
+					query.Input.Parameters,
+				)
 
 				if !query.IsDQL() {
 					changes = db.GetConnection().Changes()
