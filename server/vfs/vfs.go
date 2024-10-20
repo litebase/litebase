@@ -40,6 +40,7 @@ type LitebaseVFS struct {
 	filename       string
 	fileSystem     *storage.DurableDatabaseFileSystem
 	id             string
+	vfsIdPtr       uintptr
 }
 
 func RegisterVFS(
@@ -155,18 +156,26 @@ func go_write_hook(vfsHandle C.uintptr_t, iAmt C.int, iOfst C.sqlite3_int64, zBu
 
 func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 	file := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
-	vfsId := C.GoString(file.pVfsId)
+	vfsIdPtr := uintptr(unsafe.Pointer(file.pVfsId))
 
 	vfsMutex.RLock()
 	defer vfsMutex.RUnlock()
 
-	vfs, ok := VfsMap[vfsId]
-
-	if !ok {
-		return nil, fmt.Errorf("vfs not found")
+	for _, vfs := range VfsMap {
+		if vfs.vfsIdPtr == vfsIdPtr {
+			return vfs, nil
+		}
 	}
 
-	return vfs, nil
+	vfsId := C.GoString(file.pVfsId)
+
+	if vfs, ok := VfsMap[vfsId]; ok {
+		vfs.vfsIdPtr = vfsIdPtr
+
+		return vfs, nil
+	}
+
+	return nil, fmt.Errorf("vfs not found")
 }
 
 //export goXOpen
@@ -206,11 +215,6 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 		log.Println("Error getting VFS from file", err)
 		return C.SQLITE_IOERR_READ
 	}
-
-	// Get just the file name from the path
-	vfsFile := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
-	name := C.GoString(vfsFile.pName)
-	name = name[strings.LastIndex(name, "/")+1:]
 
 	n, err := vfs.fileSystem.ReadAt(
 		goBuffer,
