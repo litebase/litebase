@@ -307,6 +307,25 @@ func (df *DistributedFile) Write(p []byte) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
+	localFileError := make(chan error, 1)
+
+	go func() {
+		defer close(localFileError)
+
+		if df.File == nil {
+			if err := df.attachFile(); err != nil {
+				localFileError <- err
+				return
+			}
+		}
+
+		_, err := df.File.Write(p)
+
+		if err != nil {
+			localFileError <- err
+		}
+	}()
+
 	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteStorageCommand,
 		Data:    p,
@@ -319,14 +338,14 @@ func (df *DistributedFile) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 
+	err = <-localFileError
+
 	if df.File != nil {
 		df.distributedFileSystemDriver.FileOrder.MoveToBack(df.Element)
+	}
 
-		_, err := df.File.Write(p)
-
-		if err != nil {
-			df.distributedFileSystemDriver.ReleaseFile(df)
-		}
+	if err != nil {
+		df.distributedFileSystemDriver.ReleaseFile(df)
 	}
 
 	df.Offset += int64(response.BytesProcessed)
@@ -345,8 +364,10 @@ func (df *DistributedFile) WriteAt(p []byte, off int64) (n int, err error) {
 		defer close(localFileError)
 
 		if df.File == nil {
-			localFileError <- nil
-			return
+			if err := df.attachFile(); err != nil {
+				localFileError <- err
+				return
+			}
 		}
 
 		_, err := df.File.WriteAt(p, off)
@@ -369,14 +390,14 @@ func (df *DistributedFile) WriteAt(p []byte, off int64) (n int, err error) {
 		return 0, err
 	}
 
+	err = <-localFileError
+
 	if df.File != nil {
 		df.distributedFileSystemDriver.FileOrder.MoveToBack(df.Element)
+	}
 
-		err := <-localFileError
-
-		if err != nil {
-			df.distributedFileSystemDriver.ReleaseFile(df)
-		}
+	if err != nil {
+		df.distributedFileSystemDriver.ReleaseFile(df)
 	}
 
 	df.Offset += int64(response.BytesProcessed)
@@ -420,6 +441,25 @@ func (df *DistributedFile) WriteString(s string) (ret int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
 
+	localFileError := make(chan error, 1)
+
+	go func() {
+		defer close(localFileError)
+
+		if df.File == nil {
+			if err := df.attachFile(); err != nil {
+				localFileError <- err
+				return
+			}
+		}
+
+		_, err := df.File.WriteString(s)
+
+		if err != nil {
+			localFileError <- err
+		}
+	}()
+
 	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: WriteStringStorageCommand,
 		Data:    []byte(s),
@@ -432,14 +472,14 @@ func (df *DistributedFile) WriteString(s string) (ret int, err error) {
 		return 0, err
 	}
 
+	err = <-localFileError
+
 	if df.File != nil {
 		df.distributedFileSystemDriver.FileOrder.MoveToBack(df.Element)
+	}
 
-		_, err := df.File.WriteString(s)
-
-		if err != nil {
-			df.distributedFileSystemDriver.ReleaseFile(df)
-		}
+	if err != nil {
+		df.distributedFileSystemDriver.ReleaseFile(df)
 	}
 
 	return response.BytesProcessed, nil
