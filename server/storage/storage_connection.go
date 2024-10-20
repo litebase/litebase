@@ -63,13 +63,10 @@ Create a new storage connection instance.
 */
 func NewStorageConnection(c *config.Config, index int, address string) *StorageConnection {
 	return &StorageConnection{
-		Address:   address,
-		config:    c,
-		connected: make(chan struct{}),
-		errorChan: make(chan error),
-		Index:     index,
-		mutex:     &sync.Mutex{},
-		response:  make(chan DistributedFileSystemResponse),
+		Address: address,
+		config:  c,
+		Index:   index,
+		mutex:   &sync.Mutex{},
 	}
 }
 
@@ -112,6 +109,9 @@ Connect to the storage node.
 */
 func (sc *StorageConnection) connect() error {
 	sc.connecting = true
+	sc.connected = make(chan struct{})
+	sc.errorChan = make(chan error)
+	sc.response = make(chan DistributedFileSystemResponse)
 
 	if sc.httpClient == nil {
 		sc.createHTTPClient()
@@ -221,6 +221,7 @@ readMessages:
 		case <-sc.inactiveTimeout.C:
 			break readMessages
 		case <-sc.context.Done():
+			log.Println("context done")
 			break readMessages
 		}
 	}
@@ -243,9 +244,12 @@ func (sc *StorageConnection) read(
 	cancel context.CancelFunc,
 	reader io.Reader,
 ) {
-
 	var dfsResponse DistributedFileSystemResponse = DistributedFileSystemResponse{}
+
 	messageLengthBytes := make([]byte, 4)
+
+	scanBuffer := storageConnectionBufferPool.Get().(*bytes.Buffer)
+	defer storageConnectionBufferPool.Put(scanBuffer)
 
 	for {
 		_, err := reader.Read(messageLengthBytes)
@@ -253,37 +257,38 @@ func (sc *StorageConnection) read(
 		if err != nil {
 			sc.closeConnection()
 			sc.errorChan <- err
-			break
+			return
 		}
 
 		messageLength := int(binary.LittleEndian.Uint32(messageLengthBytes))
-		scanBuffer := storageConnectionBufferPool.Get().(*bytes.Buffer)
 
 		scanBuffer.Reset()
 
 		// Read the message in chunks
 		bytesRead := 0
 
+		if messageLength > scanBuffer.Cap() {
+			scanBuffer.Grow(messageLength)
+		}
+
+		scannerBytes := scanBuffer.Bytes()
+
 		for bytesRead < messageLength {
-			chunkSize := 1024 // Define a chunk size
+			// Determine the size of the next chunk to read
+			chunkSize := messageLength - bytesRead
 
-			if messageLength-bytesRead < chunkSize {
-				chunkSize = messageLength - bytesRead
-			}
-
-			if scanBuffer.Len() < chunkSize {
-				scanBuffer.Grow(chunkSize)
-			}
-
-			n, err := io.CopyN(scanBuffer, reader, int64(chunkSize))
+			// Read the chunk into the chunkBuffer
+			n, err := reader.Read(scannerBytes[:chunkSize])
 
 			if err != nil {
 				log.Println(err)
 				sc.closeConnection()
 				sc.errorChan <- err
-				break
+				return
 			}
 
+			// Write the chunk to the scanBuffer
+			scanBuffer.Write(scannerBytes[:n])
 			bytesRead += int(n)
 		}
 
@@ -291,14 +296,12 @@ func (sc *StorageConnection) read(
 			log.Println("Failed to read the complete message")
 
 			sc.errorChan <- errors.New("failed to read the complete message")
-			break
+			return
 		}
 
 		sc.inactiveTimeout.Reset(StorageConnectionInactiveTimeout)
 
 		dfsResponse = DecodeDistributedFileSystemResponse(dfsResponse, scanBuffer.Next(messageLength))
-
-		storageConnectionBufferPool.Put(scanBuffer)
 
 		if dfsResponse.Command == ConnectionStorageCommand {
 			sc.open = true
@@ -310,14 +313,12 @@ func (sc *StorageConnection) read(
 
 		sc.response <- dfsResponse
 	}
-
-	cancel()
 }
 
 /*
 Send a request to the storage node.
 */
-func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (DistributedFileSystemResponse, error) {
+func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (DistributedFileSystemResponse, error, error) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -325,12 +326,12 @@ func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (Distrib
 		err := sc.connect()
 
 		if err != nil {
-			return DistributedFileSystemResponse{}, err
+			return DistributedFileSystemResponse{}, err, nil
 		}
 	}
 
 	if sc.writer == nil {
-		return DistributedFileSystemResponse{}, errors.New("storage connection closed")
+		return DistributedFileSystemResponse{}, errors.New("storage connection closed"), nil
 	}
 
 	message := request.Encode()
@@ -343,7 +344,7 @@ func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (Distrib
 	if err != nil {
 		log.Println("failed to encode request: ", err)
 		sc.closeConnection()
-		return DistributedFileSystemResponse{}, err
+		return DistributedFileSystemResponse{}, err, nil
 	}
 
 	_, err = sc.writeBuffer.Write(message)
@@ -351,7 +352,7 @@ func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (Distrib
 	if err != nil {
 		log.Println("failed to encode request: ", err)
 		sc.closeConnection()
-		return DistributedFileSystemResponse{}, err
+		return DistributedFileSystemResponse{}, err, nil
 	}
 
 	err = sc.writeBuffer.Flush()
@@ -359,51 +360,51 @@ func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (Distrib
 	if err != nil {
 		log.Println("failed to flush request: ", err)
 		sc.closeConnection()
-		return DistributedFileSystemResponse{}, err
+		return DistributedFileSystemResponse{}, err, nil
 	}
 
-	ctx, cancel := context.WithTimeout(sc.context, 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return DistributedFileSystemResponse{}, errors.New("timeout")
+			return DistributedFileSystemResponse{}, errors.New("timeout"), nil
 		case <-sc.context.Done():
-			return DistributedFileSystemResponse{}, errors.New("context closed")
+			return DistributedFileSystemResponse{}, errors.New("context closed"), nil
 		case err := <-sc.errorChan:
-			return DistributedFileSystemResponse{}, err
+			return DistributedFileSystemResponse{}, err, nil
 		case response := <-sc.response:
 			if response.Error != "" {
 				// Return the proper error for io.EOF
 				if response.Error == "EOF" {
-					return DistributedFileSystemResponse{}, io.EOF
+					return DistributedFileSystemResponse{}, nil, io.EOF
 				}
 
 				// Return the proper error for fs.ErrNotExist
 				if response.Error == "file does not exist" || strings.Contains(response.Error, "no such file or directory") {
-					return DistributedFileSystemResponse{}, fs.ErrNotExist
+					return DistributedFileSystemResponse{}, nil, fs.ErrNotExist
 				}
 
 				// Return the proper error for fs.ErrorClosed
 				if response.Error == "file closed" {
-					return DistributedFileSystemResponse{}, fs.ErrClosed
+					return DistributedFileSystemResponse{}, nil, fs.ErrClosed
 				}
 
 				// Return the proper error for fs.ErrInvalid
 				if response.Error == "invalid argument" {
-					return DistributedFileSystemResponse{}, fs.ErrInvalid
+					return DistributedFileSystemResponse{}, nil, fs.ErrInvalid
 				}
 
 				// Return the proper error for fs.ErrPermission
 				if response.Error == "permission denied" {
-					return DistributedFileSystemResponse{}, fs.ErrPermission
+					return DistributedFileSystemResponse{}, nil, fs.ErrPermission
 				}
 
-				return DistributedFileSystemResponse{}, errors.New(response.Error)
+				return DistributedFileSystemResponse{}, nil, errors.New(response.Error)
 			}
 
-			return response, nil
+			return response, nil, nil
 		default:
 		}
 	}

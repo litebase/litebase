@@ -3,6 +3,7 @@ package storage
 import (
 	"errors"
 	"litebase/internal/config"
+	"log"
 	"sync"
 )
 
@@ -11,7 +12,7 @@ This manager is a singleton that manages the connections to the storage nodes.
 */
 type StorageConnectionManager struct {
 	config      *config.Config
-	connections map[int]*StorageConnection
+	connections map[string]*StorageConnection
 	mutex       *sync.Mutex
 }
 
@@ -23,7 +24,7 @@ Helper to get the singleton instance of the storage connection manager or create
 func NewStorageConnectionManager(config *config.Config) *StorageConnectionManager {
 	return &StorageConnectionManager{
 		config:      config,
-		connections: make(map[int]*StorageConnection),
+		connections: make(map[string]*StorageConnection),
 		mutex:       &sync.Mutex{},
 	}
 }
@@ -61,29 +62,29 @@ func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.connections[index] != nil && !s.connections[index].IsOpen() {
-		s.removeConnection(index)
-		s.connections[index] = NewStorageConnection(s.config, index, address)
+	if s.connections[address] != nil && !s.connections[address].IsOpen() {
+		s.removeConnection(address)
+		s.connections[address] = NewStorageConnection(s.config, index, address)
 	}
 
-	if s.connections[index] == nil {
-		s.connections[index] = NewStorageConnection(s.config, index, address)
+	if s.connections[address] == nil {
+		s.connections[address] = NewStorageConnection(s.config, index, address)
 	}
 
-	return s.connections[index], nil
+	return s.connections[address], nil
 }
 
 /*
 Remove the connection from the manager.
 */
-func (s *StorageConnectionManager) removeConnection(index int) {
-	if s.connections[index] == nil {
+func (s *StorageConnectionManager) removeConnection(address string) {
+	if s.connections[address] == nil {
 		return
 	}
 
-	s.connections[index].Close()
+	s.connections[address].Close()
 
-	delete(s.connections, index)
+	delete(s.connections, address)
 }
 
 /*
@@ -96,12 +97,17 @@ func (s *StorageConnectionManager) Send(request DistributedFileSystemRequest) (D
 		return DistributedFileSystemResponse{}, err
 	}
 
-	response, err := connection.Send(request)
+	response, connectionError, fileError := connection.Send(request)
 
-	if err != nil {
-		s.removeConnection(connection.Index)
+	if connectionError != nil {
+		log.Println("Error sending request to storage node:", connectionError, request)
+		s.removeConnection(connection.Address)
 
-		return DistributedFileSystemResponse{}, err
+		return DistributedFileSystemResponse{}, connectionError
+	}
+
+	if fileError != nil {
+		return DistributedFileSystemResponse{}, fileError
 	}
 
 	return response, nil
