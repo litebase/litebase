@@ -210,7 +210,7 @@ func TestDatabaseMetadataPath(t *testing.T) {
 
 		path := databaseMetadata.Path()
 
-		if path != fmt.Sprintf("%s/_METADATA", file.GetDatabaseFileDir(mockDatabase.DatabaseId, mockDatabase.BranchId)) {
+		if path != fmt.Sprintf("%s_METADATA", file.GetDatabaseFileDir(mockDatabase.DatabaseId, mockDatabase.BranchId)) {
 			t.Errorf("expected path local/_METADATA, got %s", path)
 		}
 	})

@@ -123,7 +123,7 @@ func (d *DatabaseMetadata) Load() error {
 }
 
 func (d *DatabaseMetadata) Path() string {
-	return fmt.Sprintf("%s/_METADATA", file.GetDatabaseFileDir(d.DatabaseId, d.BranchId))
+	return fmt.Sprintf("%s_METADATA", file.GetDatabaseFileDir(d.DatabaseId, d.BranchId))
 }
 
 // Save the database meta data

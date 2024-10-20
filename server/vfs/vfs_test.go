@@ -177,7 +177,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 				continue
 			}
 
-			info, _ := fileSystemDriver.Stat(path + "/" + entry.Name())
+			info, _ := fileSystemDriver.Stat(path + entry.Name())
 
 			directorySize += info.Size()
 		}

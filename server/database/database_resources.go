@@ -111,7 +111,7 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 
 	fileSystem := storage.NewDurableDatabaseFileSystem(
 		d.tieredFS,
-		fmt.Sprintf("%s%s/%s", Directory(), d.DatabaseId, d.BranchId),
+		fmt.Sprintf("%s%s/%s/", Directory(), d.DatabaseId, d.BranchId),
 		d.DatabaseId,
 		d.BranchId,
 		pageSize,

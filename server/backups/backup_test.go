@@ -236,7 +236,7 @@ func TestBackupDirectoryPath(t *testing.T) {
 		}
 
 		expectedPath := fmt.Sprintf(
-			"%s/%d",
+			"%s%d/",
 			file.GetDatabaseBackupsDirectory(backup.DatabaseId, backup.BranchId),
 			backup.RestorePoint.Timestamp,
 		)
@@ -287,7 +287,7 @@ func TestBackupFilePath(t *testing.T) {
 		}
 
 		expectedPath := fmt.Sprintf(
-			"%s/%s",
+			"%s%s",
 			backup.DirectoryPath(),
 			backup.Key(1),
 		)
@@ -611,7 +611,7 @@ func TestBackupRunWithMultipleFiles(t *testing.T) {
 		// Create the test files
 		for i := 1; i <= 10; i++ {
 			err := dfs.FileSystem().WriteFile(
-				fmt.Sprintf("%s/%010d", file.GetDatabaseFileDir(mock.DatabaseId, mock.BranchId), i),
+				fmt.Sprintf("%s%010d", file.GetDatabaseFileDir(mock.DatabaseId, mock.BranchId), i),
 				data,
 				0644,
 			)
@@ -1423,8 +1423,8 @@ func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		if err != backups.BackupErrorNoRestorePoint {
-			t.Fatalf("expected %v, got %v", backups.BackupErrorNoRestorePoint, err)
+		if err != backups.ErrBackupNoRestorePoint {
+			t.Fatalf("expected %v, got %v", backups.ErrBackupNoRestorePoint, err)
 		}
 
 		if backup != nil {
@@ -1471,8 +1471,8 @@ func TestBackupRunWithInvalidPastRestorePoint(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		if err != backups.BackupErrorNoRestorePoint {
-			t.Fatalf("expected %v, got %v", backups.BackupErrorNoRestorePoint, err)
+		if err != backups.ErrBackupNoRestorePoint {
+			t.Fatalf("expected %v, got %v", backups.ErrBackupNoRestorePoint, err)
 		}
 
 		if backup != nil {
@@ -1612,7 +1612,7 @@ func TestBackupRunWithConcurrentWrites(t *testing.T) {
 				)
 
 				if err != nil {
-					if err == backups.BackupErrorNoRestorePoint {
+					if err == backups.ErrBackupNoRestorePoint {
 						continue
 					}
 

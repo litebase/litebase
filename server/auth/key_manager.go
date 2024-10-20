@@ -100,7 +100,7 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 	}
 
 	// Create the signature directory if it does not exist
-	signatureDirectory := Path(signature) + "/"
+	signatureDirectory := Path(signature)
 
 	if _, err := objectFS.Stat(signatureDirectory); os.IsNotExist(err) {
 		if err := objectFS.MkdirAll(signatureDirectory, 0755); err != nil {
@@ -293,10 +293,7 @@ func KeyManagerInit(c *config.Config, secretsManager *SecretsManager) error {
 }
 
 func KeyPath(keyType string, signature string) string {
-	return strings.Join([]string{
-		Path(signature),
-		fmt.Sprintf("%s.key", keyType),
-	}, "/")
+	return Path(signature) + fmt.Sprintf("%s.key", keyType)
 }
 
 func NextSignature(c *config.Config, secretsManager *SecretsManager, signature string) (string, error) {
@@ -335,9 +332,7 @@ func NextSignature(c *config.Config, secretsManager *SecretsManager, signature s
 }
 
 func Path(signature string) string {
-	return strings.Join([]string{
-		config.SignatureHash(signature),
-	}, "/")
+	return config.SignatureHash(signature) + "/"
 }
 
 func rotate(c *config.Config, secretsManager *SecretsManager) error {

@@ -45,7 +45,7 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 
 	// TODO: High touch area, consider refactoring
 	for _, entry := range entries {
-		data, err := d.Cluster.ObjectFS().ReadFile(fmt.Sprintf("%s%s/settings.json", Directory(), entry.Name))
+		data, err := d.Cluster.ObjectFS().ReadFile(fmt.Sprintf("%s%s/settings.json", Directory(), entry.Name()))
 
 		if err != nil {
 			return nil, err

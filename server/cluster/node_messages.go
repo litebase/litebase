@@ -10,11 +10,10 @@ type ErrorMessage struct {
 }
 
 type NodeMessage struct {
-	Id          string
-	Type        string
-	Data        interface{}
-	EndOfStream bool
-	Error       string
+	Id    string
+	Type  string
+	Data  any
+	Error string
 }
 
 type QueryMessage struct {

@@ -65,7 +65,7 @@ func GetDatabaseKey(c *config.Config, objectFS *storage.FileSystem, key string) 
 
 func GetDatabaseKeyCount(c *config.Config, objectFS *storage.FileSystem) int64 {
 	// Read all files in the databases directory
-	entries, err := objectFS.ReadDir(auth.GetDatabaseKeysPath(c.Signature) + "/")
+	entries, err := objectFS.ReadDir(auth.GetDatabaseKeysPath(c.Signature))
 
 	if err != nil {
 		return 0

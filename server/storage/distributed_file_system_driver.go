@@ -209,12 +209,6 @@ This will return a DistributedFile instance that can be used to read and write
 to the file.
 */
 func (fsd *DistributedFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	// start := time.Now()
-
-	// defer func() {
-	// 	log.Println("OPEN", path, time.Since(start))
-	// }()
-
 	response, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: OpenFileStorageCommand,
 		Flag:    flag,
@@ -304,8 +298,6 @@ func (fsd *DistributedFileSystemDriver) ReleaseFile(file *DistributedFile) {
 		delete(fsd.Files, file.Path)
 		fsd.FileCount--
 	}
-
-	// log.Println("release", file.Path)
 }
 
 /*

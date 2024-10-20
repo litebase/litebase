@@ -37,11 +37,11 @@ func (store *FileSecretsStore) Flush() {
 }
 
 func (store *FileSecretsStore) Forget(key string) {
-	store.tmpFS.Remove(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
+	store.tmpFS.Remove(fmt.Sprintf("%s%s", store.path, store.Key(key)))
 }
 
 func (store *FileSecretsStore) Get(key string, cacheItemType interface{}) interface{} {
-	data, err := store.tmpFS.ReadFile(fmt.Sprintf("%s/%s", store.path, store.Key(key)))
+	data, err := store.tmpFS.ReadFile(fmt.Sprintf("%s%s", store.path, store.Key(key)))
 	secret := FileSecret{}
 
 	if err != nil {

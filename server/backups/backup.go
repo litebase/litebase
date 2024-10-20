@@ -21,7 +21,7 @@ import (
 	"log"
 )
 
-var BackupErrorNoRestorePoint = fmt.Errorf("no restore point found")
+var ErrBackupNoRestorePoint = fmt.Errorf("no restore point found")
 
 /*
 A Backup is a complete logical snapshot of a database at a given point in time.
@@ -65,7 +65,7 @@ func GetBackup(
 	}
 
 	if restorePoint == (RestorePoint{}) {
-		return nil, BackupErrorNoRestorePoint
+		return nil, ErrBackupNoRestorePoint
 	}
 
 	backup := &Backup{
@@ -155,7 +155,7 @@ func (backup *Backup) Delete() error {
 		}
 
 		if strings.HasPrefix(entry.Name(), hash) {
-			if err := backup.objectFS.Remove(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name)); err != nil {
+			if err := backup.objectFS.Remove(fmt.Sprintf("%s%s", backup.DirectoryPath(), entry.Name())); err != nil {
 				return err
 			}
 		}
@@ -166,7 +166,7 @@ func (backup *Backup) Delete() error {
 
 func (backup *Backup) DirectoryPath() string {
 	return fmt.Sprintf(
-		"%s/%d",
+		"%s%d/",
 		file.GetDatabaseBackupsDirectory(backup.DatabaseId, backup.BranchId),
 		backup.RestorePoint.Timestamp,
 	)
@@ -177,7 +177,7 @@ Returns the file path for a database backup with the given part number.
 */
 func (backup *Backup) FilePath(partNumber int) string {
 	return fmt.Sprintf(
-		"%s/%s",
+		"%s%s",
 		backup.DirectoryPath(),
 		backup.Key(partNumber),
 	)
@@ -246,7 +246,7 @@ func (backup *Backup) packageBackup() error {
 		}
 
 		// Get the full path of the source file
-		path := fmt.Sprintf("%s/%s", sourceDirectory, entry.Name)
+		path := fmt.Sprintf("%s%s", sourceDirectory, entry.Name())
 
 		var data []byte
 
@@ -262,7 +262,7 @@ func (backup *Backup) packageBackup() error {
 			rangeNumber, err := strconv.ParseInt(entry.Name(), 10, 64)
 
 			if err != nil {
-				log.Println("Error parsing entry name:", entry.Name, err)
+				log.Println("Error parsing entry name:", entry.Name(), err)
 				return err
 			}
 
@@ -309,7 +309,7 @@ func (backup *Backup) packageBackup() error {
 		}
 
 		if err != nil {
-			log.Println("Error opening source file:", entry.Name, err)
+			log.Println("Error opening source file:", entry.Name(), err)
 			return err
 		}
 
@@ -447,7 +447,7 @@ func Run(
 	}
 
 	if restorePoint == (RestorePoint{}) {
-		return nil, BackupErrorNoRestorePoint
+		return nil, ErrBackupNoRestorePoint
 	}
 
 	backup := &Backup{
@@ -500,7 +500,7 @@ func (backup *Backup) Size() int64 {
 		}
 
 		if strings.HasPrefix(entry.Name(), hash) {
-			stat, err := backup.objectFS.Stat(fmt.Sprintf("%s/%s", backup.DirectoryPath(), entry.Name))
+			stat, err := backup.objectFS.Stat(fmt.Sprintf("%s%s", backup.DirectoryPath(), entry.Name()))
 
 			if err != nil {
 				log.Println("Error getting file size:", err)

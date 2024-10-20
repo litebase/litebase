@@ -67,7 +67,7 @@ func (s *SecretsManager) cache(key string) SecretsStore {
 	if key == "file" && !hasFileStore {
 		s.secretStoreMutex.Lock()
 
-		s.secretStore["file"] = NewFileSecretsStore("litebase/cache", s.TmpFS)
+		s.secretStore["file"] = NewFileSecretsStore("litebase/cache/", s.TmpFS)
 
 		s.secretStoreMutex.Unlock()
 	}
@@ -179,11 +179,11 @@ func (s *SecretsManager) FlushTransients() {
 }
 
 func GetDatabaseKeyPath(signature, key string) string {
-	return fmt.Sprintf("%s/%s/%s", Path(signature), "database_keys", key)
+	return fmt.Sprintf("%s%s/%s", Path(signature), "database_keys", key)
 }
 
 func GetDatabaseKeysPath(signature string) string {
-	return fmt.Sprintf("%s/%s", Path(signature), "database_keys")
+	return fmt.Sprintf("%s%s/", Path(signature), "database_keys")
 }
 
 func (s *SecretsManager) GetPublicKey(signature, databaseId string) (string, error) {

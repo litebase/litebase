@@ -24,7 +24,7 @@ func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {
 		targetDfs := app.DatabaseManager.Resources(target.DatabaseId, target.BranchId).FileSystem()
 
 		for i := 1; i <= 10; i++ {
-			sourceDfs.FileSystem().Create(fmt.Sprintf("%s/%010d", sourceDirectory, i))
+			sourceDfs.FileSystem().Create(fmt.Sprintf("%s%010d", sourceDirectory, i))
 		}
 
 		err := backups.CopySourceDatabaseToTargetDatabase(

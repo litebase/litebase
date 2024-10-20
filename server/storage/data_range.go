@@ -106,7 +106,6 @@ func (dr *DataRange) getPath() string {
 	var builder strings.Builder
 	builder.Grow(len(dr.path) + 10) // Preallocate memory
 	builder.WriteString(dr.path)
-	builder.WriteString("/")
 
 	// Create a strings.Builder for efficient string concatenation
 	var pageNumberBuilder strings.Builder

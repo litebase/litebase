@@ -27,8 +27,8 @@ type QueryIndex struct {
 }
 
 func GetQueryIndex(tieredFS *storage.FileSystem, path, name string, timestamp int64) (*QueryIndex, error) {
-	directoryPath := fmt.Sprintf("%s/%d", path, timestamp)
-	indexPath := fmt.Sprintf("%s/%d/%s", path, timestamp, name)
+	directoryPath := fmt.Sprintf("%s%d/", path, timestamp)
+	indexPath := fmt.Sprintf("%s%d/%s", path, timestamp, name)
 
 	err := tieredFS.MkdirAll(directoryPath, 0755)
 

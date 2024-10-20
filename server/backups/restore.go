@@ -64,7 +64,7 @@ func CopySourceDatabaseToTargetDatabase(
 		}
 
 		// Copy the file from the source to the target
-		sourceFilePath := fmt.Sprintf("%s/%s", sourceDirectory, entry.Name())
+		sourceFilePath := fmt.Sprintf("%s%s", sourceDirectory, entry.Name())
 		sourceFile, err := sourceFileSystem.FileSystem().Open(sourceFilePath)
 
 		if err != nil {
@@ -72,7 +72,7 @@ func CopySourceDatabaseToTargetDatabase(
 			return err
 		}
 
-		targetFilePath := fmt.Sprintf("%s/%s", targetDirectory, entry.Name())
+		targetFilePath := fmt.Sprintf("%s%s", targetDirectory, entry.Name())
 
 		targetFile, err := targetFileSystem.FileSystem().Create(targetFilePath)
 
@@ -106,7 +106,7 @@ func RestoreFromBackup(
 ) error {
 	// Check if the souce database file system has the files for the specified timestamp
 	sourceDatabasePath := file.GetDatabaseBackupsDirectory(sourceDatabaseUuid, sourceBranchUuid)
-	timestampPath := fmt.Sprintf("%s/%d", sourceDatabasePath, timestamp)
+	timestampPath := fmt.Sprintf("%s%d", sourceDatabasePath, timestamp)
 	backupParts := []string{}
 
 	entries, err := sourceFileSystem.FileSystem().ReadDir(timestampPath)
@@ -206,7 +206,7 @@ func RestoreFromBackup(
 				}
 
 				err = targetFileSystem.FileSystem().WriteFile(
-					file.GetDatabaseFileDir(targetDatabaseUuid, targetBranchUuid)+"/"+header.Name,
+					file.GetDatabaseFileDir(targetDatabaseUuid, targetBranchUuid)+header.Name,
 					data,
 					0644,
 				)

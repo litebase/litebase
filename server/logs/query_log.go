@@ -251,7 +251,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 				continue
 			}
 
-			file, err := q.tieredFS.Open(fmt.Sprintf("%s/%d/%s", path, directoryTimestamp, entry.Name))
+			file, err := q.tieredFS.Open(fmt.Sprintf("%s/%d/%s", path, directoryTimestamp, entry.Name()))
 
 			if err != nil {
 				log.Println(err)

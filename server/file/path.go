@@ -29,7 +29,7 @@ func DatabaseHash(
 
 func GetDatabaseBackupsDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
-		"%s/backups",
+		"%sbackups/",
 		GetDatabaseFileBaseDir(databaseId, branchId),
 	)
 }
@@ -41,12 +41,12 @@ func GetDatabaseFileBaseDir(databaseId string, branchId string) string {
 		return ""
 	}
 
-	return filepath.Dir(dir)
+	return filepath.Dir(dir) + "/"
 }
 
 func GetDatabaseFileDir(databaseId string, branchId string) string {
 	return fmt.Sprintf(
-		"%s%s/%s/%s",
+		"%s%s/%s/%s/",
 		DatabaseDirectory(),
 		databaseId,
 		branchId,
@@ -77,14 +77,14 @@ func GetDatabaseFileTmpPath(c *config.Config, nodeId, databaseId string, branchI
 
 func GetDatabaseRollbackDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
-		"%s/logs/rollback",
+		"%slogs/rollback",
 		GetDatabaseFileBaseDir(databaseId, branchId),
 	)
 }
 
 func GetDatabaseSnapshotDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
-		"%s/logs/snapshots",
+		"%slogs/snapshots",
 		GetDatabaseFileBaseDir(databaseId, branchId),
 	)
 }
