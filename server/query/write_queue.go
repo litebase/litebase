@@ -108,23 +108,20 @@ func (wq *WriteQueue) isIdle() bool {
 }
 
 func (wq *WriteQueue) processQueue() {
-	for {
-		select {
-		case job := <-wq.jobs:
-			// Process the job immediately
-			err := job.handler(job.f, job.query, job.response)
+	for job := range wq.jobs {
+		// Process the job immediately
+		err := job.handler(job.f, job.query, job.response)
 
-			// Send the result back
-			result := wq.resultPool.Get().(*WriteQueueResult)
-			result.err = err
-			job.result <- result
-			wq.resultPool.Put(result)
-			wq.activeAt = time.Now()
-		default:
-			// Check if we should stop running
-			if !wq.running {
-				return
-			}
+		// Send the result back
+		result := wq.resultPool.Get().(*WriteQueueResult)
+		result.err = err
+		job.result <- result
+		wq.resultPool.Put(result)
+		wq.activeAt = time.Now()
+
+		// Check if we should stop running
+		if !wq.running {
+			return
 		}
 	}
 }
