@@ -84,6 +84,23 @@ func NewDistributedFile(
 	}
 }
 
+func (df *DistributedFile) attachFile() error {
+	file, err := df.distributedFileSystemDriver.OpenFile(
+		df.Path,
+		df.Flag,
+		df.Perm,
+	)
+
+	if err != nil {
+		log.Println("Error attaching file", err)
+		return err
+	}
+
+	df.File = file
+
+	return nil
+}
+
 /*
 Close the file.
 */
@@ -122,6 +139,18 @@ func (df *DistributedFile) Read(p []byte) (n int, err error) {
 		return df.File.Read(p)
 	}
 
+	// The file is now detatched, reading from the storage node is the only
+	// option, but we also should restore the local file if it was closed.
+	if err := df.attachFile(); err != nil {
+		return 0, err
+	}
+
+	if df.File != nil {
+		df.distributedFileSystemDriver.FileOrder.MoveToBack(df.Element)
+
+		return df.File.Read(p)
+	}
+
 	response, err := df.storageConnectionManager.Send(DistributedFileSystemRequest{
 		Command: ReadStorageCommand,
 		Flag:    df.Flag,
@@ -145,6 +174,18 @@ Read from the file at the specified offset.
 func (df *DistributedFile) ReadAt(p []byte, off int64) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
+
+	if df.File != nil {
+		df.distributedFileSystemDriver.FileOrder.MoveToBack(df.Element)
+
+		return df.File.ReadAt(p, off)
+	}
+
+	// The file is now detatched, reading from the storage node is the only
+	// option, but we also should restore the local file if it was closed.
+	if err := df.attachFile(); err != nil {
+		return 0, err
+	}
 
 	if df.File != nil {
 		df.distributedFileSystemDriver.FileOrder.MoveToBack(df.Element)
