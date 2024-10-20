@@ -134,6 +134,10 @@ func (np *NodePrimary) Heartbeat() error {
 func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
 	var nodes []*NodeIdentifier
 
+	if np.node == nil || np.node.cluster == nil {
+		return nil
+	}
+
 	if np.node.cluster.Config.NodeType == config.NodeTypeQuery {
 		nodes = np.node.cluster.OtherQueryNodes()
 	} else if np.node.cluster.Config.NodeType == config.NodeTypeStorage {

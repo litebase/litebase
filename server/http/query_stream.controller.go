@@ -62,7 +62,7 @@ func QueryStreamController(request *Request) Response {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			scanner := bufio.NewScanner(request.BaseRequest.Body)
-			writer := make(chan *bytes.Buffer, 1)
+			writer := make(chan *bytes.Buffer)
 
 			go readQueryStream(cancel, request, scanner, databaseKey, accessKey, writer)
 			go writeQueryStream(ctx, w, writer)
@@ -92,7 +92,6 @@ func processInput(
 	err := requestQuery.ResolveQuery(response)
 
 	if err != nil {
-		log.Println("Error resolving query", err)
 		return err
 	}
 
@@ -242,6 +241,7 @@ func writeQueryStream(
 			return
 		case buffer := <-writer:
 			_, err := w.Write(buffer.Bytes())
+			w.Write([]byte("\n"))
 
 			if err != nil {
 				log.Println("Error writing buffer to client", err)
