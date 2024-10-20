@@ -23,10 +23,8 @@ import (
 
 var ErrBackupNoRestorePoint = fmt.Errorf("no restore point found")
 
-/*
-A Backup is a complete logical snapshot of a database at a given point in time.
-This data is derived from a Snapshot and can be used to restore a database.
-*/
+// A Backup is a complete logical snapshot of a database at a given point in time.
+// This data is derived from a Snapshot and can be used to restore a database.
 type Backup struct {
 	config         *config.Config
 	dfs            *storage.DurableDatabaseFileSystem
@@ -40,9 +38,7 @@ type Backup struct {
 
 type BackupConfigCallback func(backup *Backup)
 
-/*
-Returns a Backup object for the given database and branch at a timestamp.
-*/
+// Returns a Backup object for the given database and branch at a timestamp.
 func GetBackup(
 	c *config.Config,
 	objectFS *storage.FileSystem,
@@ -80,10 +76,8 @@ func GetBackup(
 	return backup, nil
 }
 
-/*
-Returns next backup for the given database and branch relative to the given
-timestamp provided.
-*/
+// Returns next backup for the given database and branch relative to the given
+// timestamp provided.
 func GetNextBackup(
 	c *config.Config,
 	objectFS *storage.FileSystem,
@@ -136,9 +130,7 @@ func GetNextBackup(
 	return nil, fmt.Errorf("no next backup found")
 }
 
-/*
-Remove the backup files from the filesystem.
-*/
+// Remove the backup files from the filesystem.
 func (backup *Backup) Delete() error {
 	hash := backup.Hash()
 
@@ -172,9 +164,7 @@ func (backup *Backup) DirectoryPath() string {
 	)
 }
 
-/*
-Returns the file path for a database backup with the given part number.
-*/
+// Returns the file path for a database backup with the given part number.
 func (backup *Backup) FilePath(partNumber int) string {
 	return fmt.Sprintf(
 		"%s%s",
@@ -183,9 +173,7 @@ func (backup *Backup) FilePath(partNumber int) string {
 	)
 }
 
-/*
-Returns the maximum part size for a backup.
-*/
+// Returns the maximum part size for a backup.
 func (backup *Backup) GetMaxPartSize() int64 {
 	if backup.maxPartSize == 0 {
 		return BACKUP_MAX_PART_SIZE
@@ -194,10 +182,8 @@ func (backup *Backup) GetMaxPartSize() int64 {
 	return backup.maxPartSize
 }
 
-/*
-Returns the hash of the backup which is used to identify the backup. This hash
-consists of the database UUID, branch UUID, and the snapshot timestamp.
-*/
+// Returns the hash of the backup which is used to identify the backup. This hash
+// consists of the database UUID, branch UUID, and the snapshot timestamp.
 func (backup *Backup) Hash() string {
 	hash := sha1.New()
 	hash.Write([]byte(backup.DatabaseId))
@@ -207,19 +193,15 @@ func (backup *Backup) Hash() string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-/*
-Returns the file key for a backup part. This contains the hash of the backup
-and the part number followed by the .tar.gz extension.
-*/
+// Returns the file key for a backup part. This contains the hash of the backup
+// and the part number followed by the .tar.gz extension.
 func (backup *Backup) Key(partNumber int) string {
 	return fmt.Sprintf("%s-%d.tar.gz", backup.Hash(), partNumber)
 }
 
-/*
-Package the backup files into a tarball and compress it using gzip. This will
-create a series of files in the filesystem that can be used to restore the
-database.
-*/
+// Package the backup files into a tarball and compress it using gzip. This will
+// create a series of files in the filesystem that can be used to restore the
+// database.
 func (backup *Backup) packageBackup() error {
 	var err error
 	var fileSize int64
@@ -409,14 +391,12 @@ func (backup *Backup) packageBackup() error {
 	return nil
 }
 
-/*
-Run a backup for the given database and branch. This will create a snapshot of
-the database and store it in the filesystem. The backup will be based on the
-current state of the database at the time of backup. As the backup runs,
-rollback logs will be applied where needed to keep the database in the
-propert state. This will allow the backup to copy all existing files
-while the database is online and in use.
-*/
+// Run a backup for the given database and branch. This will create a snapshot of
+// the database and store it in the filesystem. The backup will be based on the
+// current state of the database at the time of backup. As the backup runs,
+// rollback logs will be applied where needed to keep the database in the
+// propert state. This will allow the backup to copy all existing files
+// while the database is online and in use.
 func Run(
 	databaseId string,
 	branchId string,
@@ -471,18 +451,14 @@ func Run(
 	return backup, nil
 }
 
-/*
-Set the maximum part size for a backup. This is the maximum size of each part
-of the backup. If the backup exceeds this size, then it will be split into
-multiple parts.
-*/
+// Set the maximum part size for a backup. This is the maximum size of each part
+// of the backup. If the backup exceeds this size, then it will be split into
+// multiple parts.
 func (backup *Backup) SetMaxPartSize(size int64) {
 	backup.maxPartSize = size
 }
 
-/*
-Returns the size of the backup in bytes.
-*/
+// Returns the size of the backup in bytes.
 func (backup *Backup) Size() int64 {
 	var size int64
 	hash := backup.Hash()
@@ -524,9 +500,7 @@ func (backup *Backup) stepApplyRollbackLogs(rangeNumber int64, sourceFile intern
 	)
 }
 
-/*
-Create a new file for the backup part.
-*/
+// Create a new file for the backup part.
 func (backup *Backup) stepCreateFile(partNumber int) (outputFile internalStorage.File, err error) {
 createFile:
 	outputFile, err = backup.dfs.FileSystem().Create(backup.FilePath(partNumber))
@@ -550,9 +524,7 @@ createFile:
 	return outputFile, nil
 }
 
-/*
-Returns a map representation of the backup.
-*/
+// Returns a map representation of the backup.
 func (backup *Backup) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		"database_id": backup.DatabaseId,

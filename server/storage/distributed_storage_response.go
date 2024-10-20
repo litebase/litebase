@@ -175,16 +175,12 @@ func (dfr DistributedFileSystemResponse) Encode() []byte {
 	return data
 }
 
-/*
-Check if the response is empty.
-*/
+// Check if the response is empty.
 func (dffr DistributedFileSystemResponse) IsEmpty() bool {
 	return len(dffr.Data) == 0 && dffr.Error == "" && dffr.FileInfo.IsEmpty() && dffr.Path == "" && dffr.BytesProcessed == 0
 }
 
-/*
-Reset the response.
-*/
+// Reset the response.
 func (dffr DistributedFileSystemResponse) Reset() DistributedFileSystemResponse {
 	dffr.BytesProcessed = 0
 	dffr.Command = 0

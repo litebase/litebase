@@ -9,9 +9,7 @@ import (
 // TODO: Create a hash of the file to ensure consistency or ensure permissions are consistent
 var dfsFiles map[string]internalStorage.File
 
-/*
-Handle a distributed storage request and return the appropriate response.
-*/
+// Handle a distributed storage request and return the appropriate response.
 func HandleDistributedStorageRequest(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -80,10 +78,8 @@ func HandleDistributedStorageRequest(
 	return dfsResponse
 }
 
-/*
-No action is taken for a connection request, simply reply to the caller to
-confirm the connection is successfully established.
-*/
+// No action is taken for a connection request, simply reply to the caller to
+// confirm the connection is successfully established.
 func handleDFSConnection(
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
@@ -91,10 +87,8 @@ func handleDFSConnection(
 	return dfsResponse
 }
 
-/*
-Close a file that is open in the distributed file system. If the file is not
-open, no action is taken.
-*/
+// Close a file that is open in the distributed file system. If the file is not
+// open, no action is taken.
 func handleDFSClose(
 	dfsRequest DistributedFileSystemRequest,
 	dfsResponse DistributedFileSystemResponse,
@@ -114,9 +108,7 @@ func handleDFSClose(
 	return dfsResponse
 }
 
-/*
-Create a file in the distributed file system.
-*/
+// Create a file in the distributed file system.
 func handleDFSCreate(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -135,9 +127,7 @@ func handleDFSCreate(
 	return dfsResponse
 }
 
-/*
-Create a directory in the distributed file system.
-*/
+// Create a directory in the distributed file system.
 func handleDFSMkdir(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -152,9 +142,7 @@ func handleDFSMkdir(
 	return dfsResponse
 }
 
-/*
-Create a directory and all parent directories in the distributed file system.
-*/
+// Create a directory and all parent directories in the distributed file system.
 func handleDFSMkdirAll(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -169,9 +157,7 @@ func handleDFSMkdirAll(
 	return dfsResponse
 }
 
-/*
-Open a file in the distributed file system.
-*/
+// Open a file in the distributed file system.
 func handleDFSOpen(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -198,9 +184,7 @@ func handleDFSOpen(
 	return dfsResponse
 }
 
-/*
-Open a file in the distributed file system.
-*/
+// Open a file in the distributed file system.
 func handleDFSOpenFile(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -229,9 +213,7 @@ func handleDFSOpenFile(
 	return dfsResponse
 }
 
-/*
-Read from a file in the distributed file system.
-*/
+// Read from a file in the distributed file system.
 func handleDFSRead(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -260,9 +242,7 @@ func handleDFSRead(
 	return dfsResponse
 }
 
-/*
-Read from a file in the distributed file system at a specific offset.
-*/
+// Read from a file in the distributed file system at a specific offset.
 func handleDFSReadAt(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -292,9 +272,7 @@ func handleDFSReadAt(
 	return dfsResponse
 }
 
-/*
-Read the contents of a directory in the distributed file system.
-*/
+// Read the contents of a directory in the distributed file system.
 func handleDFSReadDir(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -311,9 +289,7 @@ func handleDFSReadDir(
 	return dfsResponse
 }
 
-/*
-Read the contents of a file in the distributed file system.
-*/
+// Read the contents of a file in the distributed file system.
 func handleDFSReadFile(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -330,9 +306,7 @@ func handleDFSReadFile(
 	return dfsResponse
 }
 
-/*
-Remove a file in the distributed file system.
-*/
+// Remove a file in the distributed file system.
 func handleDFSRemove(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -347,9 +321,7 @@ func handleDFSRemove(
 	return dfsResponse
 }
 
-/*
-Remove all files in the distributed file system.
-*/
+// Remove all files in the distributed file system.
 func handleDFSRemoveAll(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -368,9 +340,7 @@ func handleDFSRemoveAll(
 	return dfsResponse
 }
 
-/*
-Rename a file in the distributed file system.
-*/
+// Rename a file in the distributed file system.
 func handleDFSRename(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -385,9 +355,7 @@ func handleDFSRename(
 	return dfsResponse
 }
 
-/*
-Seek to a specific offset in a file in the distributed file system.
-*/
+// Seek to a specific offset in a file in the distributed file system.
 func handleDFSSeek(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -416,9 +384,7 @@ func handleDFSSeek(
 	return dfsResponse
 }
 
-/*
-Stat a file in the distributed file system.
-*/
+// Stat a file in the distributed file system.
 func handleDFSStat(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -441,9 +407,7 @@ func handleDFSStat(
 	return dfsResponse
 }
 
-/*
-Stat an open file in the distributed file system.
-*/
+// Stat an open file in the distributed file system.
 func handleDFSStatFile(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -473,9 +437,7 @@ func handleDFSStatFile(
 	return dfsResponse
 }
 
-/*
-Sync a file in the distributed file system.
-*/
+// Sync a file in the distributed file system.
 func handleDFSSync(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -500,9 +462,7 @@ func handleDFSSync(
 	return dfsResponse
 }
 
-/*
-Truncate a file in the distributed file system.
-*/
+// Truncate a file in the distributed file system.
 func handleDFSTruncate(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -517,9 +477,7 @@ func handleDFSTruncate(
 	return dfsResponse
 }
 
-/*
-Truncate a file in the distributed file system.
-*/
+// Truncate a file in the distributed file system.
 func handleDFSTruncateFile(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -544,9 +502,7 @@ func handleDFSTruncateFile(
 	return dfsResponse
 }
 
-/*
-Write to a file in the distributed file system.
-*/
+// Write to a file in the distributed file system.
 func handleDFSWrite(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -573,9 +529,7 @@ func handleDFSWrite(
 	return dfsResponse
 }
 
-/*
-Write to a file in the distributed file system at a specific offset.
-*/
+// Write to a file in the distributed file system at a specific offset.
 func handleDFSWriteAt(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -602,9 +556,7 @@ func handleDFSWriteAt(
 	return dfsResponse
 }
 
-/*
-Write to a file in the distributed file system.
-*/
+// Write to a file in the distributed file system.
 func handleDFSWriteFile(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -619,9 +571,7 @@ func handleDFSWriteFile(
 	return dfsResponse
 }
 
-/*
-Write a string to a file in the distributed file system.
-*/
+// Write a string to a file in the distributed file system.
 func handleDFSWriteString(
 	tieredFS *FileSystem,
 	dfsRequest DistributedFileSystemRequest,
@@ -648,9 +598,7 @@ func handleDFSWriteString(
 	return dfsResponse
 }
 
-/*
-Open a file in the distributed file system and return the file.
-*/
+// Open a file in the distributed file system and return the file.
 func DFSOpenFileForHandler(
 	tieredFs *FileSystem,
 	dfsRequest DistributedFileSystemRequest,

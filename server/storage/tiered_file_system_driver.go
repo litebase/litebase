@@ -17,11 +17,9 @@ const (
 	DefaultWriteInterval = 10 * time.Second
 )
 
-/*
-Data in this driver is stored locally on disk then eventually pushed up to
-durable storage with S3 compatability. This provides fast read access
-performance with scalable and cost-effective long-term storage.
-*/
+// Data in this driver is stored locally on disk then eventually pushed up to
+// durable storage with S3 compatability. This provides fast read access
+// performance with scalable and cost-effective long-term storage.
 type TieredFileSystemDriver struct {
 	buffers                 sync.Pool
 	context                 context.Context
@@ -43,10 +41,8 @@ const (
 
 type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
 
-/*
-Create a new instance of a tiered file system driver. This driver will manage
-files that are stored on the local file system and durable file system.
-*/
+// Create a new instance of a tiered file system driver. This driver will manage
+// files that are stored on the local file system and durable file system.
 func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver FileSystemDriver, durableFileSystemDriver FileSystemDriver, f ...TieredFileSystemNewFunc) *TieredFileSystemDriver {
 	fsd := &TieredFileSystemDriver{
 		buffers: sync.Pool{
@@ -76,11 +72,9 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 	return fsd
 }
 
-/*
-Adding a file to the driver involves creating a new file durable that will be
-used to manage the file on the local file system. When the file is closed, or
-written to, it will be pushed to the durable file system.
-*/
+// Adding a file to the driver involves creating a new file durable that will be
+// used to manage the file on the local file system. When the file is closed, or
+// written to, it will be pushed to the durable file system.
 func (fsd *TieredFileSystemDriver) AddFile(path string, file internalStorage.File, flag int) *TieredFile {
 	if fsd.FileCount >= fsd.MaxFilesOpened {
 		fsd.RemoveOldestFile()
@@ -100,9 +94,7 @@ func (fsd *TieredFileSystemDriver) AddFile(path string, file internalStorage.Fil
 	return fsd.Files[path]
 }
 
-/*
-CopyFile copies data from src to dst using a buffer pool to minimize memory allocations.
-*/
+// CopyFile copies data from src to dst using a buffer pool to minimize memory allocations.
 func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64, error) {
 	buf := fsd.buffers.Get().(*bytes.Buffer)
 	defer fsd.buffers.Put(buf)
@@ -143,11 +135,9 @@ func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64
 	return totalBytes, nil
 }
 
-/*
-Creating a new file istantiates a new file durable that will be used to manage
-the file on the local file system. When the file is closed, or written to, it
-will be pushed to the durable file system.
-*/
+// Creating a new file istantiates a new file durable that will be used to manage
+// the file on the local file system. When the file is closed, or written to, it
+// will be pushed to the durable file system.
 func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, error) {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -167,10 +157,8 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 	return newFile, nil
 }
 
-/*
-Force flushing all files to durable storage. This operation is typically
-performed when the driver is being closed.
-*/
+// Force flushing all files to durable storage. This operation is typically
+// performed when the driver is being closed.
 func (fsd *TieredFileSystemDriver) flushFiles() error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -182,11 +170,9 @@ func (fsd *TieredFileSystemDriver) flushFiles() error {
 	return nil
 }
 
-/*
-Flushing a file to durable storage involves writing the file to the durable file
-system. This operation is typically performed when the file has been updated
-and has not been written to durable storage in the last minute.
-*/
+// Flushing a file to durable storage involves writing the file to the durable file
+// system. This operation is typically performed when the file has been updated
+// and has not been written to durable storage in the last minute.
 func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, force bool) {
 	if !file.shouldBeWrittenToDurableStorage() && !force {
 		log.Println("File does not need to be written to durable storage", file.Key)
@@ -251,10 +237,8 @@ func (fsd *TieredFileSystemDriver) GetLocalFile(path string) (*TieredFile, bool)
 	return nil, false
 }
 
-/*
-Mkdir creates a new directory on the local file system. This has no effect on
-the durable file system.
-*/
+// Mkdir creates a new directory on the local file system. This has no effect on
+// the durable file system.
 func (fsd *TieredFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
 	err := fsd.localFileSystemDriver.Mkdir(path, perm)
 
@@ -265,10 +249,8 @@ func (fsd *TieredFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
 	return fsd.durableFileSystemDriver.Mkdir(path, perm)
 }
 
-/*
-MkdirAll creates a new directory on the local file system, along with any
-parents directories. This has no effect on the durable file system.
-*/
+// MkdirAll creates a new directory on the local file system, along with any
+// parents directories. This has no effect on the durable file system.
 func (fsd *TieredFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error {
 	err := fsd.localFileSystemDriver.MkdirAll(path, perm)
 
@@ -279,19 +261,15 @@ func (fsd *TieredFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error
 	return fsd.durableFileSystemDriver.MkdirAll(path, perm)
 }
 
-/*
-See OpenFile
-*/
+// See OpenFile
 func (fsd *TieredFileSystemDriver) Open(path string) (internalStorage.File, error) {
 	return fsd.OpenFile(path, os.O_RDWR, 0)
 }
 
-/*
-Opening a file in the tiered file system driver involves reading a file from
-the durable file system. If the file does not exist on the durable file system,
-this operation will create a new file on the local file system and then create
-a new tiered file durable that will be used to manage the file.
-*/
+// Opening a file in the tiered file system driver involves reading a file from
+// the durable file system. If the file does not exist on the durable file system,
+// this operation will create a new file on the local file system and then create
+// a new tiered file durable that will be used to manage the file.
 func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -358,12 +336,10 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	return newFile, nil
 }
 
-/*
-Reading a directory only occurs on the durable file system. This is because the
-local file system is only used for temporary storage and does not contain a
-complete copy of the data. However, the file will be tracked in the driver
-to keep track of its state for future use that may require the file.
-*/
+// Reading a directory only occurs on the durable file system. This is because the
+// local file system is only used for temporary storage and does not contain a
+// complete copy of the data. However, the file will be tracked in the driver
+// to keep track of its state for future use that may require the file.
 func (fsd *TieredFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
 	entries, err := fsd.durableFileSystemDriver.ReadDir(path)
 
@@ -374,13 +350,11 @@ func (fsd *TieredFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEn
 	return entries, nil
 }
 
-/*
-Reading a file in the tiered file system driver involves reading the file from
-the local file system. If the file does not exist on the local file system, the
-operation will be attempted on the durable file system. If the file is found on
-the durable file system, it will be copied to the local file system for future
-use and an entry will be created in the driver to track the file.
-*/
+// Reading a file in the tiered file system driver involves reading the file from
+// the local file system. If the file does not exist on the local file system, the
+// operation will be attempted on the durable file system. If the file is found on
+// the durable file system, it will be copied to the local file system for future
+// use and an entry will be created in the driver to track the file.
 func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -414,20 +388,16 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 	return data, nil
 }
 
-/*
-Releasing a file involves closing the file and removing it from the driver. This
-operation is typically performed when the file is no longer needed.
-*/
+// Releasing a file involves closing the file and removing it from the driver. This
+// operation is typically performed when the file is no longer needed.
 func (fsd *TieredFileSystemDriver) ReleaseFile(file *TieredFile) {
 	file.closeFile()
 	delete(fsd.Files, file.Key)
 	fsd.FileCount--
 }
 
-/*
-Removing a file included removing the file from the local file system and also
-removing the file from the durable file system immediately after.
-*/
+// Removing a file included removing the file from the local file system and also
+// removing the file from the durable file system immediately after.
 func (fsd *TieredFileSystemDriver) Remove(path string) error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -445,11 +415,9 @@ func (fsd *TieredFileSystemDriver) Remove(path string) error {
 	return fsd.durableFileSystemDriver.Remove(path)
 }
 
-/*
-Removing all files from the tiered file system path involves removing all files
-from the local file system and also removing all files from the durable file
-system immediately after.
-*/
+// Removing all files from the tiered file system path involves removing all files
+// from the local file system and also removing all files from the durable file
+// system immediately after.
 func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
 	// Remove any files that are under the path
 	fsd.mutex.Lock()
@@ -505,11 +473,9 @@ func (fsd *TieredFileSystemDriver) RemoveOldestFile() {
 	fsd.ReleaseFile(file)
 }
 
-/*
-Renaming a file in the tiered file system driver involves renaming the file on
-the local file system and then renaming the file on the durable file system
-immediately after.
-*/
+// Renaming a file in the tiered file system driver involves renaming the file on
+// the local file system and then renaming the file on the durable file system
+// immediately after.
 func (fsd *TieredFileSystemDriver) Rename(oldpath, newpath string) error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -528,12 +494,10 @@ func (fsd *TieredFileSystemDriver) Rename(oldpath, newpath string) error {
 	return fsd.durableFileSystemDriver.Rename(oldpath, newpath)
 }
 
-/*
-Statting a file in the tiered file system driver involves statting the file on
-the local file system and then returning the file information. If the file does
-not exist on the local file system, the operation will be attempted on the
-durable file system.
-*/
+// Statting a file in the tiered file system driver involves statting the file on
+// the local file system and then returning the file information. If the file does
+// not exist on the local file system, the operation will be attempted on the
+// durable file system.
 func (fsd *TieredFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -556,11 +520,9 @@ func (fsd *TieredFileSystemDriver) Stat(path string) (internalStorage.FileInfo, 
 	return info, err
 }
 
-/*
-Truncating a file in the tiered file system driver involves truncating the file
-on the local file system and then truncating the file on the durable file system
-immediately after.
-*/
+// Truncating a file in the tiered file system driver involves truncating the file
+// on the local file system and then truncating the file on the durable file system
+// immediately after.
 func (fsd *TieredFileSystemDriver) Truncate(path string, size int64) error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -574,12 +536,10 @@ func (fsd *TieredFileSystemDriver) Truncate(path string, size int64) error {
 	return fsd.durableFileSystemDriver.Truncate(path, size)
 }
 
-/*
-Watching for file changes involves periodically checking the state of all files
-in the driver. If a file has been updated and has not been written to durable
-storage in the last minute, the file will be written to durable storage. If a
-file has been closed, the file will be released.
-*/
+// Watching for file changes involves periodically checking the state of all files
+// in the driver. If a file has been updated and has not been written to durable
+// storage in the last minute, the file will be written to durable storage. If a
+// file has been closed, the file will be released.
 func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 	if fsd.WriteInterval == 0 {
 		return
@@ -622,11 +582,9 @@ func (fsd *TieredFileSystemDriver) WithLock(fn func()) {
 	fn()
 }
 
-/*
-Writing a file in the tiered file system driver involves writing the file on
-the local file system. Writing the file to durable storage will take place
-immmediately after.
-*/
+// Writing a file in the tiered file system driver involves writing the file on
+// the local file system. Writing the file to durable storage will take place
+// immmediately after.
 func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
 	var err error
 	var file *TieredFile

@@ -121,9 +121,7 @@ func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
 	}
 }
 
-/*
-Send the heatbeat message to the replica nodes.
-*/
+// Send the heatbeat message to the replica nodes.
 func (np *NodePrimary) Heartbeat() error {
 	return np.Publish(NodeMessage{
 		Id:   "broadcast",

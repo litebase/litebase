@@ -7,12 +7,10 @@ import (
 	"litebase/internal/config"
 )
 
-/*
-Init initializes the storage package with the given IP address and encryption
-implementation. If the storage mode is local, the function returns immediately.
-If the storage mode is object and the environment is development or test, the
-function starts a test S3 server.
-*/
+// Init initializes the storage package with the given IP address and encryption
+// implementation. If the storage mode is local, the function returns immediately.
+// If the storage mode is object and the environment is development or test, the
+// function starts a test S3 server.
 func Init(
 	c *config.Config,
 	objectFS *FileSystem,
@@ -37,11 +35,10 @@ func Init(
 	}
 }
 
-/*
-Shutdown stops the test S3 server if it is running.
+// Shutdown stops the test S3 server if it is running.
 
-TODO: This needs to be refactored to be included in the application dependency tree
-*/
+// TODO: This needs to be refactored to be included in the application dependency tree
+
 func Shutdown(c *config.Config) {
 	objectMode := c.StorageObjectMode
 	tieredMode := c.StorageTieredMode

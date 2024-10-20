@@ -13,9 +13,7 @@ var QueryCounts = make(map[int64]map[string]map[int64]*QueryCount)
 
 type Counter struct{}
 
-/*
-Add the datbase to the query counter .
-*/
+// Add the datbase to the query counter.
 func AddQueryCount(timestamp int64, databaseId, branchId string) *QueryCount {
 	newlyCreated := false
 	key := Key(databaseId, branchId)
@@ -36,30 +34,22 @@ func AddQueryCount(timestamp int64, databaseId, branchId string) *QueryCount {
 	return QueryCounts[timestamp][key][timestamp]
 }
 
-/*
-Clear the query counts.
-*/
+// Clear the query counts.
 func ClearQueryCounters() {
 	QueryCounts = make(map[int64]map[string]map[int64]*QueryCount)
 }
 
-/*
-Retrieve a map of counts for a given timestamp.
-*/
+// Retrieve a map of counts for a given timestamp.
 func GetQueryCount(timestamp int64, databaseId, branchId string) map[string]map[int64]*QueryCount {
 	return QueryCounts[timestamp]
 }
 
-/*
-Return the key for a database by branch.
-*/
+// Return the key for a database by branch.
 func GetCounterKey(databaseId, branchId string) string {
 	return fmt.Sprintf("%s:%s", databaseId, branchId)
 }
 
-/*
-Increment a database's query counter.
-*/
+// Increment a database's query counter.
 func IncrementQueryCount(databaseId, branchId string, t time.Time) {
 	timeToStartOfMinute := t.Round(time.Minute)
 	timestamp := timeToStartOfMinute.Unix()
@@ -82,12 +72,10 @@ func PurgeTimestamps(minutes int) {
 	}
 }
 
-/*
-Calculate the average requests per second for a database that have occurred
-in the last 3 minutes. The average is calculated by dividing the total
-number of requests by the number of minutes. The counts for each minute
-are weighted by the number of minutes since the last request.
-*/
+// Calculate the average requests per second for a database that have occurred
+// in the last 3 minutes. The average is calculated by dividing the total
+// number of requests by the number of minutes. The counts for each minute
+// are weighted by the number of minutes since the last request.
 func RequestsPerSecond(databaseId, branchId string) int {
 	timestamps := []int64{
 		time.Now().Add(-2 * time.Minute).Round(time.Minute).Unix(),

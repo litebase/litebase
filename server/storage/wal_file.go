@@ -54,10 +54,8 @@ tryOpen:
 	}, nil
 }
 
-/*
-Apply items that were queued to be written to the WAL. These items should be
-only be written if the sequence number is in order.
-*/
+// Apply items that were queued to be written to the WAL. These items should be
+// only be written if the sequence number is in order.
 func (w *WalFile) applyWriteQueue() {
 	sequenceNumbers := []int64{}
 
@@ -112,23 +110,17 @@ func (w *WalFile) applyWriteQueue() {
 	}
 }
 
-/*
-Close the WAL file.
-*/
+// Close the WAL file.
 func (w *WalFile) Close() error {
 	return w.file.Close()
 }
 
-/*
-Return the current timestamp of the WAL file.
-*/
+// Return the current timestamp of the WAL file.
 func (w *WalFile) Timestamp() int64 {
 	return w.timestamp
 }
 
-/*
-Truncate the WAL file to the given size.
-*/
+// Truncate the WAL file to the given size.
 func (w *WalFile) Truncate(size, sequence, timestamp int64) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -145,9 +137,7 @@ func (w *WalFile) Truncate(size, sequence, timestamp int64) error {
 	return w.file.Truncate(size)
 }
 
-/*
-Write to the WAL file at the given offset.
-*/
+// Write to the WAL file at the given offset.
 func (w *WalFile) WriteAt(p []byte, off, sequence, timestamp int64) (n int, err error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()

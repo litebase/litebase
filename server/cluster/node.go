@@ -60,9 +60,7 @@ type Node struct {
 	walSynchronizer    NodeWalSynchronizer
 }
 
-/*
-Create a new instance of a node.
-*/
+// Create a new instance of a node.
 func NewNode(cluster *Cluster) *Node {
 	node := &Node{
 		address:    "",
@@ -81,9 +79,7 @@ func NewNode(cluster *Cluster) *Node {
 	return node
 }
 
-/*
-Get the address of the node.
-*/
+// Get the address of the node.
 func (n *Node) Address() string {
 	if n.address != "" {
 		return n.address
@@ -108,9 +104,7 @@ func (n *Node) Address() string {
 
 }
 
-/*
-Return the path for where the address will be stored.
-*/
+// Return the path for where the address will be stored.
 func (n *Node) AddressPath() string {
 	// Replace the colon in the address with an underscore
 	address := strings.ReplaceAll(n.Address(), ":", "_")
@@ -118,9 +112,7 @@ func (n *Node) AddressPath() string {
 	return fmt.Sprintf("%s%s", n.cluster.NodePath(), address)
 }
 
-/*
-Return the context for the node.
-*/
+// Return the context for the node.
 func (n *Node) Context() context.Context {
 	return n.context
 }
@@ -133,9 +125,7 @@ func (n *Node) Election() *ClusterElection {
 	return n.election
 }
 
-/*
-Trigger the node to perform a heartbeat.
-*/
+// Trigger the node to perform a heartbeat.
 func (n *Node) Heartbeat() {
 	if n.Membership == ClusterMembershipPrimary {
 		if LeaseDuration-time.Since(n.LeaseRenewedAt) < 10*time.Second {
@@ -164,9 +154,7 @@ func (n *Node) Heartbeat() {
 	}
 }
 
-/*
-Initialize the node with the query builder and wal synchronizer.
-*/
+// Initialize the node with the query builder and wal synchronizer.
 func (n *Node) Init(queryBuilder NodeQueryBuilder, walSynchronizer NodeWalSynchronizer) {
 	registerNodeMessages()
 
@@ -374,9 +362,7 @@ func (n *Node) primaryFileVerification() bool {
 	return false
 }
 
-/*
-As the Primary, publish messages to the replicas of the cluster group.
-*/
+// As the Primary, publish messages to the replicas of the cluster group.
 func (n *Node) Publish(nodeMessage NodeMessage) error {
 	return n.primary.Publish(nodeMessage)
 }
@@ -406,9 +392,7 @@ func (n *Node) Replica() *NodeReplica {
 	return n.replica
 }
 
-/*
-Return the NodeWalReplicator for the Node.
-*/
+// Return the NodeWalReplicator for the Node.
 func (n *Node) WalReplicator() *NodeWalReplicator {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -420,9 +404,7 @@ func (n *Node) WalReplicator() *NodeWalReplicator {
 	return n.walReplicator
 }
 
-/*
-Return the query builder of the node.
-*/
+// Return the query builder of the node.
 func (n *Node) QueryBuilder() NodeQueryBuilder {
 	return n.queryBuilder
 }
@@ -505,9 +487,7 @@ func (n *Node) renewLease() error {
 	return nil
 }
 
-/*
-Run an election to determine the primary node in the cluster group.
-*/
+// Run an election to determine the primary node in the cluster group.
 func (n *Node) RunElection() bool {
 	if n.electionRunning {
 		return false
@@ -722,9 +702,7 @@ func (n *Node) runElectionConfirmation() bool {
 	return false
 }
 
-/*
-Run the node ticker to monitor the node state.
-*/
+// Run the node ticker to monitor the node state.
 func (n *Node) runTicker() {
 	n.requestTicker = time.NewTicker(1 * time.Second)
 
@@ -852,10 +830,8 @@ tryStore:
 	return nil
 }
 
-/*
-Tick the node to perform the necessary checks and operations for cluster
-membership and state.
-*/
+// Tick the node to perform the necessary checks and operations for cluster
+// membership and state.
 func (n *Node) Tick() {
 	// Check if the is still registered as primary
 	if n.lastActive.IsZero() {
@@ -1003,11 +979,9 @@ func (n *Node) VerifyElectionConfirmation(address string) (bool, error) {
 	return true, nil
 }
 
-/*
-Read the nomination file and check if the node has already been nominated. This
-means that the node is at the top of the nomination list and the timestamp
-is within the last second.
-*/
+// Read the nomination file and check if the node has already been nominated. This
+// means that the node is at the top of the nomination list and the timestamp
+// is within the last second.
 func (n *Node) verifyNomination() (bool, error) {
 	if n.context.Err() != nil {
 		return false, fmt.Errorf("operation canceled")
@@ -1066,10 +1040,8 @@ func (n *Node) WalSynchronizer() NodeWalSynchronizer {
 	return n.walSynchronizer
 }
 
-/*
-Write the nodes address to the nomination file in attempt to nominate itself
-as the primary node.
-*/
+// Write the nodes address to the nomination file in attempt to nominate itself
+// as the primary node.
 func (n *Node) writeNomination() (bool, error) {
 	if n.context.Err() != nil {
 		return false, fmt.Errorf("operation canceled")

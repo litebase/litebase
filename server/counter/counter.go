@@ -55,9 +55,7 @@ func Increment(databaseId string, branchId string) {
 	counter.Increment()
 }
 
-/*
-Return the key for the query count.
-*/
+// Return the key for the query count.
 func GetKey(databaseId string, branchId string) string {
 	return fmt.Sprintf("%s:%s", databaseId, branchId)
 }

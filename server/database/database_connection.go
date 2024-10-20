@@ -42,9 +42,7 @@ type DatabaseConnection struct {
 	wal               *storage.WalFile
 }
 
-/*
-Create a new database connection instance.
-*/
+// Create a new database connection instance.
 func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, branchId string) (*DatabaseConnection, error) {
 	var (
 		connection *sqlite3.Connection
@@ -131,50 +129,42 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 
 	configStatements := []string{
 		fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize),
-		/*
-			Databbases should always be in WAL mode. This allows for multiple
-			readers and a single writer.
-		*/
-		"PRAGMA journal_mode=wal",
-		/*
-			WAL autocheckpoint should be set to 0. This will prevent the WAL
-			file from being checkpointed automatically. Litebase has its own
-			checkpointing mechanism that will be used to checkpoint the WAL.
 
-			It is very important that this setting remain in place as our the
-			checkpointer is reponsible writing pages to durable storage and
-			properly reporting the page count of the database.
-		*/
+		// Databases should always be in WAL mode. This allows for multiple
+		// readers and a single writer.
+		"PRAGMA journal_mode=wal",
+
+		// WAL autocheckpoint should be set to 0. This will prevent the WAL
+		// file from being checkpointed automatically. Litebase has its own
+		// checkpointing mechanism that will be used to checkpoint the WAL.
+
+		// It is very important that this setting remain in place as our the
+		// checkpointer is reponsible writing pages to durable storage and
+		// properly reporting the page count of the database.
 		"PRAGMA wal_autocheckpoint=0",
-		/*
-			PRAGMA synchronous=NORMAL will ensure that the database is durable
-			by writing to the WAL file before the transaction is committed.
-		*/
+
+		// PRAGMA synchronous=NORMAL will ensure that the database is durable
+		// by writing to the WAL file before the transaction is committed.
 		"PRAGMA synchronous=NORMAL",
-		/*
-			PRAGMA busy_timeout will set the timeout for waiting for a lock
-			to 3 seconds. This will allow clients to wait for a lock to be
-			released before returning an error.
-		*/
+
+		// PRAGMA busy_timeout will set the timeout for waiting for a lock
+		// to 3 seconds. This will allow clients to wait for a lock to be
+		// released before returning an error.
 		"PRAGMA busy_timeout = 5000",
-		/*
-			The amount of cache that SQLite will use is set to -2000000. This
-			will allow SQLite to use as much memory as it needs for caching.
-		*/
+
+		// The amount of cache that SQLite will use is set to -2000000. This
+		// will allow SQLite to use as much memory as it needs for caching.
 		"PRAGMA cache_size = -2000000",
-		/*
-			PRAGMA secure_delete will ensure that data is securely deleted from
-			the database. This will prevent data from being recovered from the
-			database file. The added benefit is that it will also reduce the
-			amount of data that needs to be written to durable storage after
-			compression removes data padded with zeros.
-		*/
+
+		// PRAGMA secure_delete will ensure that data is securely deleted from
+		// the database. This will prevent data from being recovered from the
+		// database file. The added benefit is that it will also reduce the
+		// amount of data that needs to be written to durable storage after
+		// compression removes data padded with zeros.
 		"PRAGMA secure_delete = true",
-		/*
-			PRAGMA temp_store will set the temp store to memory. This will
-			ensure that temporary files created by SQLite are stored in memory
-			and not on disk.
-		*/
+		// PRAGMA temp_store will set the temp store to memory. This will
+		// ensure that temporary files created by SQLite are stored in memory
+		// and not on disk.
 		"PRAGMA temp_store = memory",
 	}
 
@@ -201,16 +191,12 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	return con, err
 }
 
-/*
-Return the number of rows changed by the last statement.
-*/
+// Return the number of rows changed by the last statement.
 func (con *DatabaseConnection) Changes() int64 {
 	return con.sqlite3.Changes()
 }
 
-/*
-Checkpoint changes that have been made to the database.
-*/
+// Checkpoint changes that have been made to the database.
 func (con *DatabaseConnection) Checkpoint() error {
 	if con == nil || con.sqlite3 == nil {
 		return nil
@@ -240,16 +226,13 @@ func (con *DatabaseConnection) Checkpoint() error {
 	})
 
 	if err != nil {
-		log.Println("Error checkpointing , ROLLBACK", err)
 		con.checkpointer.Rollback()
 	}
 
 	return err
 }
 
-/*
-Close the database connection.
-*/
+// Close the database connection.
 func (con *DatabaseConnection) Close() {
 	// Ensure all statements are finalized before closing the connection.
 	con.statements.Range(func(key any, statement any) bool {
@@ -275,16 +258,12 @@ func (con *DatabaseConnection) Close() {
 	con.sqlite3 = nil
 }
 
-/*
-Check if the connection is closed.
-*/
+// Check if the connection is closed.
 func (con *DatabaseConnection) Closed() bool {
 	return con.sqlite3 == nil
 }
 
-/*
-Commit the current transaction.
-*/
+// Commit the current transaction.
 func (con *DatabaseConnection) Commit() error {
 	commitStatemnt, err := con.Statement("COMMIT")
 
@@ -299,16 +278,12 @@ func (con *DatabaseConnection) Commit() error {
 	})
 }
 
-/*
-Return the context of the connection.
-*/
+// Return the context of the connection.
 func (con *DatabaseConnection) Context() context.Context {
 	return con.context
 }
 
-/*
-Return the id of the connection.
-*/
+// Return the id of the connection.
 func (c *DatabaseConnection) Id() string {
 	return c.id
 }
@@ -321,9 +296,7 @@ func (c *DatabaseConnection) IsUpToDate() bool {
 	return c.timestamp == c.wal.Timestamp()
 }
 
-/*
-Prepare a statement for execution.
-*/
+// Prepare a statement for execution.
 func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Statement, error) {
 	statment, err := con.sqlite3.Prepare(ctx, command)
 
@@ -337,9 +310,7 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 	}, nil
 }
 
-/*
-Execute a query on the database using a transaction.
-*/
+// Execute a query on the database using a transaction.
 func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters []sqlite3.StatementParameter) (sqlite3.Result, error) {
 	return con.Transaction(
 		statement.IsReadonly(),
@@ -354,9 +325,7 @@ func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters []
 		})
 }
 
-/*
-Register and instance of the VFS for the database connection.
-*/
+// Register and instance of the VFS for the database connection.
 func (con *DatabaseConnection) RegisterVFS() error {
 	err := vfs.RegisterVFS(
 		fmt.Sprintf("litebase:%s", con.databaseHash),
@@ -374,9 +343,7 @@ func (con *DatabaseConnection) RegisterVFS() error {
 	return nil
 }
 
-/*
-Rollback the current transaction.
-*/
+// Rollback the current transaction.
 func (con *DatabaseConnection) Rollback() error {
 	commitStatemnt, err := con.Statement("ROLLBACK")
 
@@ -389,9 +356,7 @@ func (con *DatabaseConnection) Rollback() error {
 	return err
 }
 
-/*
-Create a statement for a query.
-*/
+// Create a statement for a query.
 func (con *DatabaseConnection) Statement(queryStatement string) (Statement, error) {
 	var err error
 
@@ -413,16 +378,12 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 	return statement.(Statement), err
 }
 
-/*
-Return the underlying sqlite3 connection of the database connection.
-*/
+// Return the underlying sqlite3 connection of the database connection.
 func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 	return con.sqlite3
 }
 
-/*
-Set the authorizer for the database connection.
-*/
+// Set the authorizer for the database connection.
 func (c *DatabaseConnection) setAuthorizer() {
 	if c.accessKey == nil {
 		return
@@ -517,9 +478,7 @@ func (c *DatabaseConnection) setAuthorizer() {
 	})
 }
 
-/*
-Execute a transaction on the database.
-*/
+// Execute a transaction on the database.
 func (con *DatabaseConnection) Transaction(
 	readOnly bool,
 	handler func(con *DatabaseConnection) (sqlite3.Result, error),
@@ -569,9 +528,7 @@ func (con *DatabaseConnection) Transaction(
 	return results, handlerError
 }
 
-/*
-Return the VFS hash for the connection.
-*/
+// Return the VFS hash for the connection.
 func (con *DatabaseConnection) VfsHash() string {
 	if con.vfsHash == "" {
 		sha1 := sha1.New()
@@ -582,9 +539,7 @@ func (con *DatabaseConnection) VfsHash() string {
 	return con.vfsHash
 }
 
-/*
-Set the access key for the database connection.
-*/
+// Set the access key for the database connection.
 func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
 	con.accessKey = accessKey
 

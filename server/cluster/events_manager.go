@@ -5,9 +5,7 @@ type EventsManager struct {
 	hooks   []func(key string, value string)
 }
 
-/*
-Return the static instance of the eventsManager
-*/
+// Return the static instance of the eventsManager
 func (c *Cluster) EventsManager() *EventsManager {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -31,9 +29,7 @@ func (em *EventsManager) Hook() func(key string, value string) {
 	return hook
 }
 
-/*
-Initialize the events manager
-*/
+// Initialize the events manager
 func (em *EventsManager) Init() {
 	em.cluster.Subscribe("activate_signature", func(message *EventMessage) {
 		ActivateSignatureHandler(em.cluster.Config, message.Value)

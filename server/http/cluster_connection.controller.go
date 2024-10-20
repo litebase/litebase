@@ -29,10 +29,8 @@ func ClusterConnectionController(request *Request) Response {
 	}
 }
 
-/*
-Read a stream of messages from the client and write a stream of responses back
-to the client.
-*/
+// Read a stream of messages from the client and write a stream of responses back
+// to the client.
 func handleClusterConnectionStream(
 	request *Request,
 	cancel context.CancelFunc,
@@ -76,9 +74,7 @@ func handleClusterConnectionStream(
 	cancel()
 }
 
-/*
-Write a response to the client.
-*/
+// Write a response to the client.
 func writeNodeMessageResponse(
 	w http.ResponseWriter,
 	nodeResponseMessage cluster.NodeMessage,

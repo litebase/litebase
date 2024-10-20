@@ -5,9 +5,7 @@ import (
 )
 
 func LoadRoutes(router *RouterInstance) {
-	/*
-		Administrative routes.
-	*/
+	// Administrative routes.
 	router.Get(
 		"/cluster/status",
 		ClusterStatusController,
@@ -128,9 +126,7 @@ func LoadRoutes(router *RouterInstance) {
 		QueryNode,
 	})
 
-	/*
-		Internal routes for cluster operations.
-	*/
+	// Internal routes for cluster operations.
 	router.Post(
 		"/cluster/connection",
 		ClusterConnectionController,
@@ -199,9 +195,7 @@ func LoadRoutes(router *RouterInstance) {
 		Internal,
 	})
 
-	/*
-		Database routes.
-	*/
+	// Database routes.
 	router.Post("/backups",
 		DatabaseBackupStoreController,
 	).Middleware([]Middleware{

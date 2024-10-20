@@ -43,6 +43,8 @@ func NewCheckpointer(databaseId, branchId string, dfs *storage.DurableDatabaseFi
 	}, nil
 }
 
+// Begin starts a new checkpoint so that pages from the SQLite WAL file can be
+// captured and written to a rollback log.
 func (c *Checkpointer) Begin() error {
 	var timestamp int64
 

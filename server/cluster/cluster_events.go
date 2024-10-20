@@ -13,9 +13,7 @@ type EventChannel struct {
 	Messages chan *EventMessage
 }
 
-/*
-Broadcast a message to all of the nodes in the cluster.
-*/
+// Broadcast a message to all of the nodes in the cluster.
 func (c *Cluster) Broadcast(key string, value interface{}) error {
 	nodeIdentifiers := c.OtherNodes()
 
@@ -43,9 +41,7 @@ func (c *Cluster) Broadcast(key string, value interface{}) error {
 	return nil
 }
 
-/*
-Receive an event to be passed to subscription channels.
-*/
+// Receive an event to be passed to subscription channels.
 func (c *Cluster) ReceiveEvent(message *EventMessage) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -55,9 +51,7 @@ func (c *Cluster) ReceiveEvent(message *EventMessage) {
 	}
 }
 
-/*
-Subscribe to a message from the cluster.
-*/
+// Subscribe to a message from the cluster.
 func (c *Cluster) Subscribe(key string, f func(message *EventMessage)) {
 	c.mutex.Lock()
 

@@ -77,10 +77,8 @@ func (sl *SnapshotLogger) Close() error {
 	return nil
 }
 
-/*
-Get a single snapshot for a specific timestamp. This method does not include
-All the restore points for the day, just the first one.
-*/
+// Get a single snapshot for a specific timestamp. This method does not include
+// All the restore points for the day, just the first one.
 func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()
@@ -110,10 +108,8 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	return sl.logs[startOfDayTimestamp], nil
 }
 
-/*
-List Snapshots from the snapshots directory. Each file is a log segmented by day.
-We will get the first checkpoint of the day and use it as the snapshot for that day.
-*/
+// List Snapshots from the snapshots directory. Each file is a log segmented by day.
+// We will get the first checkpoint of the day and use it as the snapshot for that day.
 func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()

@@ -87,12 +87,10 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 	})
 }
 
-/*
-This test is useful in ensuring the database can be properly written to and read
-from in an interleaved manner without issue.
+// This test is useful in ensuring the database can be properly written to and read
+// from in an interleaved manner without issue.
 
-TODO: Test times out.
-*/
+// TODO: Test times out.
 func TestDatabaseConnectionsInterleaved(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)

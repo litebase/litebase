@@ -7,10 +7,8 @@ import (
 	"sync"
 )
 
-/*
-A hash ring implementation for storage nodes. This is used to distribute the data
-across the storage nodes in a cluster.
-*/
+// A hash ring implementation for storage nodes. This is used to distribute the data
+// across the storage nodes in a cluster.
 type StorageNodeHashRing struct {
 	nodes      []string
 	hashMap    map[uint32]string
@@ -18,9 +16,7 @@ type StorageNodeHashRing struct {
 	mutex      sync.RWMutex
 }
 
-/*
-Create a new storage node hash ring with the given nodes.
-*/
+// Create a new storage node hash ring with the given nodes.
 func NewStorageNodeHashRing(nodes []string) *StorageNodeHashRing {
 	hr := &StorageNodeHashRing{
 		hashMap: make(map[uint32]string),
@@ -33,9 +29,7 @@ func NewStorageNodeHashRing(nodes []string) *StorageNodeHashRing {
 	return hr
 }
 
-/*
-Generate the hash map for the storage nodes.
-*/
+// Generate the hash map for the storage nodes.
 func (hr *StorageNodeHashRing) generateHashMap() {
 	hr.hashMap = make(map[uint32]string)
 	hr.sortedKeys = []uint32{}
@@ -67,9 +61,7 @@ func (hr *StorageNodeHashRing) generateHashMap() {
 	})
 }
 
-/*
-Get the storage node for the given key.
-*/
+// Get the storage node for the given key.
 func (hr *StorageNodeHashRing) GetNode(key string) (int, string, error) {
 	hr.mutex.RLock()
 	defer hr.mutex.RUnlock()
@@ -97,9 +89,7 @@ func (hr *StorageNodeHashRing) GetNode(key string) (int, string, error) {
 	return idx, hr.hashMap[hr.sortedKeys[idx]], nil
 }
 
-/*
-Add a new storage node to the hash ring.
-*/
+// Add a new storage node to the hash ring.
 func (hr *StorageNodeHashRing) AddNode(node string) {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()
@@ -114,9 +104,7 @@ func (hr *StorageNodeHashRing) AddNode(node string) {
 	hr.generateHashMap()
 }
 
-/*
-Remove a storage node from the hash ring.
-*/
+// Remove a storage node from the hash ring.
 func (hr *StorageNodeHashRing) RemoveNode(node string) {
 	hr.mutex.Lock()
 	defer hr.mutex.Unlock()

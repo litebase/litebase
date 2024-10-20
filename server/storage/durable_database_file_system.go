@@ -167,17 +167,15 @@ func (dfs *DurableDatabaseFileSystem) Shutdown() error {
 	return nil
 }
 
-/*
-Truncate or remove the data ranges based on the number of pages that need to be
-removed. Each range can hold DataRangeMaxPages pages. This routine is typically
-called when the database is being vacuumed so we can remove the pages that are
-no longer needed.
+// Truncate or remove the data ranges based on the number of pages that need to be
+// removed. Each range can hold DataRangeMaxPages pages. This routine is typically
+// called when the database is being vacuumed so we can remove the pages that are
+// no longer needed.
 
-The number of pages that need to be removed is calculated by the difference
-between the current size of the database and the new size of the database.
-Where there is a remainder, we need to remove the last range file and truncate
-the range file that contains the last page that needs to be removed.
-*/
+// The number of pages that need to be removed is calculated by the difference
+// between the current size of the database and the new size of the database.
+// Where there is a remainder, we need to remove the last range file and truncate
+// the range file that contains the last page that needs to be removed.
 func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()

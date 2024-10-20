@@ -1,17 +1,13 @@
 package query
 
-/*
-This struct represents a count of queries for a database at a given time.
-*/
+// This struct represents a count of queries for a database at a given time.
 type QueryCount struct {
 	databaseKey string
 	timestamp   int64
 	Count       int
 }
 
-/*
-Create a new instance of the query count.
-*/
+// Create a new instance of the query count.
 func NewQueryCount(databaseKey string, timestamp int64) *QueryCount {
 	return &QueryCount{
 		databaseKey: databaseKey,
@@ -20,9 +16,7 @@ func NewQueryCount(databaseKey string, timestamp int64) *QueryCount {
 	}
 }
 
-/*
-Increment the query count value.
-*/
+// Increment the query count value.
 func (c *QueryCount) Increment() {
 	c.Count++
 }

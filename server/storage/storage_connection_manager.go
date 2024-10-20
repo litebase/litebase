@@ -7,9 +7,7 @@ import (
 	"sync"
 )
 
-/*
-This manager is a singleton that manages the connections to the storage nodes.
-*/
+// This manager is a singleton that manages the connections to the storage nodes.
 type StorageConnectionManager struct {
 	config      *config.Config
 	connections map[string]*StorageConnection
@@ -18,9 +16,7 @@ type StorageConnectionManager struct {
 
 var ErrNoStorageNodesAvailable = errors.New("no storage nodes available")
 
-/*
-Helper to get the singleton instance of the storage connection manager or create.
-*/
+// Helper to get the singleton instance of the storage connection manager or create.
 func NewStorageConnectionManager(config *config.Config) *StorageConnectionManager {
 	return &StorageConnectionManager{
 		config:      config,
@@ -29,9 +25,7 @@ func NewStorageConnectionManager(config *config.Config) *StorageConnectionManage
 	}
 }
 
-/*
-Close all of the connections to the storage nodes.
-*/
+// Close all of the connections to the storage nodes.
 func (s *StorageConnectionManager) Close() []error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -49,9 +43,7 @@ func (s *StorageConnectionManager) Close() []error {
 	return errors
 }
 
-/*
-Get the connection to the storage node that should be used for the given key.
-*/
+// Get the connection to the storage node that should be used for the given key.
 func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection, error) {
 	index, address, err := StorageDiscovery.GetStorageNode(key)
 
@@ -74,9 +66,7 @@ func (s *StorageConnectionManager) GetConnection(key string) (*StorageConnection
 	return s.connections[address], nil
 }
 
-/*
-Remove the connection from the manager.
-*/
+// Remove the connection from the manager.
 func (s *StorageConnectionManager) removeConnection(address string) {
 	if s.connections[address] == nil {
 		return
@@ -87,9 +77,7 @@ func (s *StorageConnectionManager) removeConnection(address string) {
 	delete(s.connections, address)
 }
 
-/*
-Send a request through the storage manager to the appropriate storage node.
-*/
+// Send a request through the storage manager to the appropriate storage node.
 func (s *StorageConnectionManager) Send(request DistributedFileSystemRequest) (DistributedFileSystemResponse, error) {
 	connection, err := s.GetConnection(request.Path)
 

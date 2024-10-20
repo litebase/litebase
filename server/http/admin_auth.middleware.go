@@ -44,9 +44,7 @@ func basicAuth(request *Request) bool {
 	return false
 }
 
-/*
-Ensure that there is an authorization header
-*/
+// Ensure that there is an authorization header
 func ensureAdminRequestHasAnAuthorizationHeader(request *Request) bool {
 	return request.Headers().Get("Authorization") != ""
 }

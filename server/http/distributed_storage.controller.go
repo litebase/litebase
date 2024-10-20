@@ -17,10 +17,8 @@ var storageStreamBufferPool = sync.Pool{
 	},
 }
 
-/*
-Handle storage requests from query nodes. This function reads a stream of
-messages from the client and writes a stream of responses back to the client.
-*/
+// Handle storage requests from query nodes. This function reads a stream of
+// messages from the client and writes a stream of responses back to the client.
 func DistributedStorageController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
@@ -45,10 +43,8 @@ func DistributedStorageController(request *Request) Response {
 	}
 }
 
-/*
-Read a stream of messages from the client and write a stream of responses back
-to the client.
-*/
+// Read a stream of messages from the client and write a stream of responses back
+// to the client.
 func handleStream(
 	tieredFS *storage.FileSystem,
 	cancel context.CancelFunc,
@@ -107,9 +103,7 @@ func handleStream(
 	cancel()
 }
 
-/*
-Write a response to the client.
-*/
+// Write a response to the client.
 func writeResponse(
 	tieredFS *storage.FileSystem,
 	w http.ResponseWriter,

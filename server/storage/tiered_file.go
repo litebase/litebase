@@ -11,65 +11,53 @@ import (
 )
 
 type TieredFile struct {
-	/*
-		Closed is a boolean value that determines if the File has been Closed
-		by local storage. If the File has been Closed, the File will be marked
-		for release, which means the File will be removed from local storage
-		and the TieredFileSystemDriver will no longer be able to access it.
-	*/
+
+	// Closed is a boolean value that determines if the File has been Closed
+	// by local storage. If the File has been Closed, the File will be marked
+	// for release, which means the File will be removed from local storage
+	// and the TieredFileSystemDriver will no longer be able to access it.
 	Closed bool
-	/*
-		CreatedAt stores the time the TieredFile struct was creeated. This
-		value will be used in correlation with the updatedAt and writtenAt
-		values to determine how long the File has been open.
-	*/
+
+	// CreatedAt stores the time the TieredFile struct was creeated. This
+	// value will be used in correlation with the updatedAt and writtenAt
+	// values to determine how long the File has been open.
 	CreatedAt time.Time
-	/*
-		Element is a pointer to the list.Element that is used to store the File
-		in the LRU cache. The Element is used to determine the position of the
-		File in the LRU cache and to remove the File from the LRU cache.
-	*/
+
+	// Element is a pointer to the list.Element that is used to store the File
+	// in the LRU cache. The Element is used to determine the position of the
+	// File in the LRU cache and to remove the File from the LRU cache.
 	Element *list.Element
-	/*
-		File is the internalStorage.File object that is used to read and write
-		data to the File. The File is a instance of *os.File which points to a
-		local File. If the File is nil, the File has not been opened yet.
-	*/
+
+	// File is the internalStorage.File object that is used to read and write
+	// data to the File. The File is a instance of *os.File which points to a
+	// local File. If the File is nil, the File has not been opened yet.
 	File internalStorage.File
-	/*
-		Flags that defined the file permissions used for access. This value will
-		be used to determine if the File should be written to durable storage.
-	*/
+
+	// Flags that defined the file permissions used for access. This value will
+	// be used to determine if the File should be written to durable storage.
 	Flag int
-	/*
-		Used to identify the File in the durable storage and local storage.
-	*/
+
+	// Used to identify the File in the durable storage and local storage.
 	Key string
 
-	/*
-		Mutex is a pointer to a sync.Mutex that is used to lock the file when
-		reading or writing to the file. This is used to prevent multiple
-		concurrent operations from occurring at the same time.
-	*/
+	// Mutex is a pointer to a sync.Mutex that is used to lock the file when
+	// reading or writing to the file. This is used to prevent multiple
+	// concurrent operations from occurring at the same time.
 	mutex *sync.Mutex
 
-	/*
-		The pointer to the FileSystemDriver that created the File.
-	*/
+	// The pointer to the FileSystemDriver that created the File.
 	tieredFileSystemDriver *TieredFileSystemDriver
-	/*
-		UpdatedAt stores the time the File was last updated. This value will be
-		used in correlation with the CreatedAt and writtenAt values to determine
-		how long the File has been open and if the File should be written to
-		durable storage.
-	*/
+
+	// UpdatedAt stores the time the File was last updated. This value will be
+	// used in correlation with the CreatedAt and writtenAt values to determine
+	// how long the File has been open and if the File should be written to
+	// durable storage.
 	UpdatedAt time.Time
-	/*
-		WrittenAt stores the time the File was last written to durable storage.
-		This value will be used in correlation with the CreatedAt and updatedAt
-		values to determine how long the File has been open and if the File
-		should be written to durable storage.
-	*/
+
+	// WrittenAt stores the time the File was last written to durable storage.
+	// This value will be used in correlation with the CreatedAt and updatedAt
+	// values to determine how long the File has been open and if the File
+	// should be written to durable storage.
 	WrittenAt time.Time
 }
 
@@ -181,11 +169,9 @@ func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 	return f.File.Seek(offset, whence)
 }
 
-/*
-This operation checks if the File should be written to durable storage. The File
-should be written to durable storage if it has been updated and the last write
-to durable storage was more than a minute ago.
-*/
+// This operation checks if the File should be written to durable storage. The File
+// should be written to durable storage if it has been updated and the last write
+// to durable storage was more than a minute ago.
 func (f *TieredFile) shouldBeWrittenToDurableStorage() bool {
 	return f.UpdatedAt.After(f.WrittenAt) && (time.Since(f.WrittenAt) >= f.tieredFileSystemDriver.WriteInterval)
 }

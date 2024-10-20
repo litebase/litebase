@@ -18,27 +18,21 @@ import (
 	"time"
 )
 
-/*
-This buffer pool can be shared between storage connections to reduce memory
-allocations when reading and writing messages.
-*/
+// This buffer pool can be shared between storage connections to reduce memory
+// allocations when reading and writing messages.
 var storageConnectionBufferPool = sync.Pool{
 	New: func() interface{} {
 		return bytes.NewBuffer(make([]byte, 4096))
 	},
 }
 
-/*
-After this amount of time without receiving a message from the storage node,
-the connection will be closed.
-*/
+// After this amount of time without receiving a message from the storage node,
+// the connection will be closed.
 const StorageConnectionInactiveTimeout = 5 * time.Second
 
-/*
-Storage connections are used to read and write files on a storage node in the
-distributed file system. The connection is established when the first request is
-sent and closed after a period of inactivity.
-*/
+// Storage connections are used to read and write files on a storage node in the
+// distributed file system. The connection is established when the first request is
+// sent and closed after a period of inactivity.
 type StorageConnection struct {
 	Address         string
 	cancel          context.CancelFunc
@@ -58,9 +52,7 @@ type StorageConnection struct {
 	writeBuffer     *bufio.Writer
 }
 
-/*
-Create a new storage connection instance.
-*/
+// Create a new storage connection instance.
 func NewStorageConnection(c *config.Config, index int, address string) *StorageConnection {
 	return &StorageConnection{
 		Address: address,
@@ -70,9 +62,7 @@ func NewStorageConnection(c *config.Config, index int, address string) *StorageC
 	}
 }
 
-/*
-Close the connection to the storage node.
-*/
+// Close the connection to the storage node.
 func (sc *StorageConnection) closeConnection() error {
 	if sc.cancel != nil {
 		sc.cancel()
@@ -92,9 +82,7 @@ func (sc *StorageConnection) closeConnection() error {
 	return nil
 }
 
-/*
-Close the connection to the storage node. This method is thread safe.
-*/
+// Close the connection to the storage node. This method is thread safe.
 func (sc *StorageConnection) Close() error {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
@@ -104,9 +92,7 @@ func (sc *StorageConnection) Close() error {
 	return nil
 }
 
-/*
-Connect to the storage node.
-*/
+// Connect to the storage node.
 func (sc *StorageConnection) connect() error {
 	sc.connecting = true
 	sc.connected = make(chan struct{})
@@ -143,9 +129,7 @@ func (sc *StorageConnection) connect() error {
 	return nil
 }
 
-/*
-Create the storage connection request and send it to the storage node.
-*/
+// Create the storage connection request and send it to the storage node.
 func (sc *StorageConnection) createAndSendRequest() (*http.Response, error) {
 	sc.context, sc.cancel = context.WithCancel(storageContext)
 	sc.reader, sc.writer = io.Pipe()
@@ -177,9 +161,7 @@ func (sc *StorageConnection) createAndSendRequest() (*http.Response, error) {
 	return response, nil
 }
 
-/*
-Create the http client for the storage connection.
-*/
+// Create the http client for the storage connection.
 func (sc *StorageConnection) createHTTPClient() {
 	if sc.httpClient != nil {
 		sc.httpClient = nil
@@ -197,17 +179,13 @@ func (sc *StorageConnection) createHTTPClient() {
 	}
 }
 
-/*
-Handle an error that occurred while connecting to the storage node.
-*/
+// Handle an error that occurred while connecting to the storage node.
 func (sc *StorageConnection) handleError(err error) {
 	log.Println(err)
 	sc.closeConnection()
 }
 
-/*
-Handle the response from the storage node.
-*/
+// Handle the response from the storage node.
 func (sc *StorageConnection) handleResponse(response *http.Response) {
 	defer response.Body.Close()
 
@@ -230,16 +208,12 @@ readMessages:
 	sc.closeConnection()
 }
 
-/*
-Check if the storage connection is open.
-*/
+// Check if the storage connection is open.
 func (sc *StorageConnection) IsOpen() bool {
 	return sc.open
 }
 
-/*
-Read messages from the storage node.
-*/
+// Read messages from the storage node.
 func (sc *StorageConnection) read(
 	cancel context.CancelFunc,
 	reader io.Reader,
@@ -315,9 +289,7 @@ func (sc *StorageConnection) read(
 	}
 }
 
-/*
-Send a request to the storage node.
-*/
+// Send a request to the storage node.
 func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (DistributedFileSystemResponse, error, error) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
@@ -410,9 +382,7 @@ func (sc *StorageConnection) Send(request DistributedFileSystemRequest) (Distrib
 	}
 }
 
-/*
-Write the connection request to the storage node to establish the connection.
-*/
+// Write the connection request to the storage node to establish the connection.
 func (sc *StorageConnection) writeConnectionRequest() {
 	if sc.writer == nil {
 		return

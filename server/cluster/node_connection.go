@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/gob"
 	"errors"
@@ -14,20 +13,8 @@ import (
 	"time"
 )
 
-/*
-This buffer pool can be shared between node connections to reduce memory
-allocations when reading and writing messages.
-*/
-var nodeConnectionBufferPool = sync.Pool{
-	New: func() interface{} {
-		return bytes.NewBuffer(make([]byte, 4096))
-	},
-}
-
-/*
-After this amount of time without receiving a message from the node,
-the connection will be closed.
-*/
+// After this amount of time without receiving a message from the node,
+// the connection will be closed.
 const NodeConnectionInactiveTimeout = 5 * time.Second
 
 type NodeConnection struct {
@@ -66,9 +53,7 @@ func NewNodeConnection(node *Node, address string) *NodeConnection {
 	}
 }
 
-/*
-Close the connection to another node.
-*/
+// Close the connection to another node.
 func (nc *NodeConnection) Close() error {
 	nc.mutex.Lock()
 	defer nc.mutex.Unlock()
@@ -78,10 +63,8 @@ func (nc *NodeConnection) Close() error {
 	return nil
 }
 
-/*
-Close the connection to the node. This is done without a mutex lock so it can be
-called from within a mutex lock.
-*/
+// Close the connection to the node. This is done without a mutex lock so it can be
+// called from within a mutex lock.
 func (nc *NodeConnection) closeConnection() {
 	nc.open = false
 	nc.connecting = false
@@ -101,9 +84,7 @@ func (nc *NodeConnection) closeConnection() {
 	}
 }
 
-/*
-Connect to the node.
-*/
+// Connect to the node.
 func (nc *NodeConnection) connect() error {
 	nc.connecting = true
 
@@ -128,9 +109,7 @@ func (nc *NodeConnection) connect() error {
 	return nil
 }
 
-/*
-Create the node connection request and send it to the node.
-*/
+// Create the node connection request and send it to the node.
 func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 	nc.context, nc.cancel = context.WithCancel(context.Background())
 	nc.reader, nc.writer = io.Pipe()
@@ -172,9 +151,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 	return response, nil
 }
 
-/*
-Create the http client for the node connection.
-*/
+// Create the http client for the node connection.
 func (nc *NodeConnection) createHTTPClient() {
 	nc.httpClient = &http.Client{
 		Timeout:   0,
@@ -187,9 +164,7 @@ func (nc *NodeConnection) createHTTPClient() {
 	}
 }
 
-/*
-Handle an error that occurred while connecting to the node.
-*/
+// Handle an error that occurred while connecting to the node.
 func (nc *NodeConnection) handleError(err error) {
 	if err != nil {
 		if err != io.ErrUnexpectedEOF {
@@ -200,9 +175,7 @@ func (nc *NodeConnection) handleError(err error) {
 	nc.closeConnection()
 }
 
-/*
-Handle the response from the node.
-*/
+// Handle the response from the node.
 func (nc *NodeConnection) handleResponse(response *http.Response) {
 	defer response.Body.Close()
 
@@ -262,9 +235,7 @@ func (nc *NodeConnection) read(reader io.Reader) {
 	}
 }
 
-/*
-Send a request to the node.
-*/
+// Send a request to the node.
 func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
 	nc.mutex.Lock()
 	defer nc.mutex.Unlock()
@@ -318,9 +289,7 @@ func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
 	}
 }
 
-/*
-Write the connection request to the node to establish the connection.
-*/
+// Write the connection request to the node to establish the connection.
 func (nc *NodeConnection) writeConnectionRequest() {
 	if nc.writer == nil {
 		return

@@ -9,11 +9,9 @@ import (
 	"time"
 )
 
-/*
-The FileSecretsStore is a secrets store that stores secrets in files on disk.
-Thsese files are stored in a temporary directory and should be deleted when
-the application is closed.
-*/
+// The FileSecretsStore is a secrets store that stores secrets in files on disk.
+// Thsese files are stored in a temporary directory and should be deleted when
+// the application is closed.
 type FileSecretsStore struct {
 	path  string
 	tmpFS *storage.FileSystem

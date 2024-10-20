@@ -255,11 +255,9 @@ func (c *Connection) LastInsertRowID() int64 {
 	return int64(C.sqlite3_last_insert_rowid((*C.sqlite3)(c.sqlite3)))
 }
 
-/*
-Use sqlite3_file_control() to set the SQLITE_FCNTL_PERSIST_WAL file control to
-true to enable the persistent WAL mode. This will cause the WAL file to be
-persisted to disk after the last connection to the database is closed.
-*/
+// Use sqlite3_file_control() to set the SQLITE_FCNTL_PERSIST_WAL file control to
+// true to enable the persistent WAL mode. This will cause the WAL file to be
+// persisted to disk after the last connection to the database is closed.
 func (c *Connection) PersistWal() error {
 	var persist C.int = 1
 
@@ -355,14 +353,12 @@ func go_authorizer(userInfo unsafe.Pointer, action C.int, arg1, arg2, dbName, tr
 	return C.int(0)
 }
 
-/*
-Vacuum the database to remove unused pages and repack the database file.
-
-This operation should be done when the database is not in use as it locks the
-database EXCLUSIVELY. The connection manager should drain any active connections
-and ensure any changes are checkpointed before calling this method. Otherwise,
-the Checkpointer may reference pages that no longer exist in the database file.
-*/
+// Vacuum the database to remove unused pages and repack the database file.
+//
+// This operation should be done when the database is not in use as it locks the
+// database EXCLUSIVELY. The connection manager should drain any active connections
+// and ensure any changes are checkpointed before calling this method. Otherwise,
+// the Checkpointer may reference pages that no longer exist in the database file.
 func (c *Connection) Vacuum() error {
 	sql := (*C.char)(unsafe.Pointer(&[]byte("VACUUM")[0]))
 

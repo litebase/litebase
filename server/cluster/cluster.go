@@ -50,9 +50,7 @@ type Cluster struct {
 	tmpFileSystem    *storage.FileSystem
 }
 
-/*
-Create a cluster from the environment variables.
-*/
+// Create a cluster from the environment variables.
 func getClusterIdFromEnv(config *config.Config) (string, error) {
 	clusterId := config.ClusterId
 
@@ -63,9 +61,7 @@ func getClusterIdFromEnv(config *config.Config) (string, error) {
 	return clusterId, nil
 }
 
-/*
-Create the directories and files for the cluster.
-*/
+// Create the directories and files for the cluster.
 func (cluster *Cluster) createDirectoriesAndFiles() error {
 	err := cluster.ObjectFS().MkdirAll("_cluster/query", 0755)
 
@@ -142,9 +138,7 @@ func (cluster *Cluster) createDirectoriesAndFiles() error {
 	return nil
 }
 
-/*
-Create a new cluster instance.
-*/
+// Create a new cluster instance.
 func NewCluster(config *config.Config) (*Cluster, error) {
 	cluster := &Cluster{
 		channels:            map[string]EventChannel{},
@@ -157,9 +151,7 @@ func NewCluster(config *config.Config) (*Cluster, error) {
 	return cluster, nil
 }
 
-/*
-Add a member to the cluster.
-*/
+// Add a member to the cluster.
 func (cluster *Cluster) AddMember(group, ip string) error {
 	defer func() {
 		// Clear the cache
@@ -193,9 +185,7 @@ func (cluster *Cluster) AddMember(group, ip string) error {
 	return err
 }
 
-/*
-Get all the members of the cluster.
-*/
+// Get all the members of the cluster.
 func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 	// Return the known nodes if the last retrieval was less than a minute
 	if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
@@ -279,9 +269,7 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 	return cluster.QueryNodes, cluster.StorageNodes
 }
 
-/*
-Get all the members of the cluster since a certain time.
-*/
+// Get all the members of the cluster since a certain time.
 func (cluster *Cluster) GetMembersSince(after time.Time) ([]string, []string) {
 	if cluster.MembersRetrievedAt.After(after) {
 		return cluster.QueryNodes, cluster.StorageNodes
@@ -290,9 +278,7 @@ func (cluster *Cluster) GetMembersSince(after time.Time) ([]string, []string) {
 	return cluster.GetMembers(false)
 }
 
-/*
-Return a storage node for a given key.
-*/
+// Return a storage node for a given key.
 func (cluster *Cluster) GetStorageNode(key string) (int, string, error) {
 	cluster.GetMembers(true)
 
@@ -309,9 +295,7 @@ func (cluster *Cluster) GetStorageNode(key string) (int, string, error) {
 	return index, address, nil
 }
 
-/*
-Initialize the cluster.
-*/
+// Initialize the cluster.
 func (cluster *Cluster) Init(Auth *auth.Auth) error {
 	// Check if the cluster file already exists
 	_, err := cluster.ObjectFS().Stat(ConfigPath())
@@ -345,9 +329,7 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 	return nil
 }
 
-/*
-Check if the node is a member of the cluster.
-*/
+// Check if the node is a member of the cluster.
 func (cluster *Cluster) IsMember(ip string, since time.Time) bool {
 	cluster.GetMembersSince(since)
 
@@ -497,9 +479,7 @@ func (c *Cluster) OtherStorageNodes() []*NodeIdentifier {
 	return nodes
 }
 
-/*
-Remove a member from the cluster.
-*/
+// Remove a member from the cluster.
 func (cluster *Cluster) RemoveMember(ip string) error {
 	cluster.GetMembers(true)
 
@@ -542,51 +522,37 @@ func (cluster *Cluster) RemoveMember(ip string) error {
 	return nil
 }
 
-/*
-Return the path to the lease file for the cluster, in respect to the node type.
-*/
+// Return the path to the lease file for the cluster, in respect to the node type.
 func (cluster *Cluster) LeasePath() string {
 	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, LeaseFile)
 }
 
-/*
-Return the path to the current node in repsect to the node type.
-*/
+// Return the path to the current node in repsect to the node type.
 func (cluster *Cluster) NodePath() string {
 	return fmt.Sprintf("_nodes/%s/", cluster.Config.NodeType)
 }
 
-/*
-Return the path to the nomination file for the cluster, in respect to the node type.
-*/
+// Return the path to the nomination file for the cluster, in respect to the node type.
 func (cluster *Cluster) NominationPath() string {
 	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, Nominationfile)
 }
 
-/*
-Return the path to the query nodes.
-*/
+// Return the path to the query nodes.
 func (cluster *Cluster) NodeQueryPath() string {
 	return fmt.Sprintf("_nodes/%s/", config.NodeTypeQuery)
 }
 
-/*
-Return the path to the storage nodes.
-*/
+// Return the path to the storage nodes.
 func (cluster *Cluster) NodeStoragePath() string {
 	return fmt.Sprintf("_nodes/%s/", config.NodeTypeStorage)
 }
 
-/*
-Return the path to the primary file for the cluster, in respect to the node type.
-*/
+// Return the path to the primary file for the cluster, in respect to the node type.
 func (cluster *Cluster) PrimaryPath() string {
 	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, PrimaryFile)
 }
 
-/*
-Save the cluster configuration.
-*/
+// Save the cluster configuration.
 func (cluster *Cluster) Save() error {
 	data, err := json.Marshal(cluster)
 
@@ -610,9 +576,7 @@ writefile:
 	return cluster.ObjectFS().WriteFile(ConfigPath(), data, 0644)
 }
 
-/*
-Return the path to the cluster configuration file.
-*/
+// Return the path to the cluster configuration file.
 func ConfigPath() string {
 	return "_cluster/config.json"
 }

@@ -13,12 +13,9 @@ import (
 	"sync"
 )
 
-/*
-The Query Index stores the queries that have been executed on the database.
-These entries are associated with a hash that associates the query with Query
-Log entries.
-*/
-
+// The Query Index stores the queries that have been executed on the database.
+// These entries are associated with a hash that associates the query with Query
+// Log entries.
 type QueryIndex struct {
 	cache *cache.LFUCache
 	file  internalStorage.File

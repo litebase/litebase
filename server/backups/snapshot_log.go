@@ -14,36 +14,23 @@ import (
 )
 
 type Snapshot struct {
-	/*
-		The UUID of the branch the snapshot is for.
-	*/
+	// The UUID of the branch the snapshot is for.
 	BranchId string
-	/*
-		The UUID of the database the snapshot is for.
-	*/
+
+	// The UUID of the database the snapshot is for.
 	DatabaseId string
-	/*
-		The file to write the snapshot log to.
-	*/
+	// The file to write the snapshot log to.
 	File internalStorage.File
-	/*
-		The last time the snapshot was accessed. This timestamp is used for
-		cleanup purposes.
-	*/
+	// The last time the snapshot was accessed. This timestamp is used for
+	// cleanup purposes.
 	LastAccessedAt int64
-	/*
-		A mutex to lock the snapshot for concurrent access. This is especially
-		necessary when writing to the snapshot log file while backups are being
-		processed at the same time.
-	*/
+	// A mutex to lock the snapshot for concurrent access. This is especially
+	// necessary when writing to the snapshot log file while backups are being
+	// processed at the same time.
 	mutex sync.Mutex
-	/*
-		A list of restore points for the snapshot.
-	*/
+	// A list of restore points for the snapshot.
 	RestorePoints SnapshotRestorePoints `json:"restore_points"`
-	/*
-		The UTC start of the day of the snapshot.
-	*/
+	// The UTC start of the day of the snapshot.
 	Timestamp int64 `json:"timestamp"`
 
 	tieredFS *storage.FileSystem `json:"-"`
@@ -61,9 +48,7 @@ type RestorePoint struct {
 	PageCount int64
 }
 
-/*
-Create a new instance of a snapshot.
-*/
+// Create a new instance of a snapshot.
 func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, branchId string, dayTimestamp, timestamp int64) *Snapshot {
 	return &Snapshot{
 		BranchId:       branchId,
@@ -80,9 +65,7 @@ func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, branchId strin
 	}
 }
 
-/*
-Close the snapshot file.
-*/
+// Close the snapshot file.
 func (s *Snapshot) Close() error {
 	if s.File != nil {
 		return s.File.Close()
@@ -91,9 +74,7 @@ func (s *Snapshot) Close() error {
 	return nil
 }
 
-/*
-Return the path to the snapshot log file for a database.
-*/
+// Return the path to the snapshot log file for a database.
 func GetSnapshotPath(databaseId string, branchId string, timestamp int64) string {
 	return fmt.Sprintf(
 		"%s/%d",
@@ -102,9 +83,7 @@ func GetSnapshotPath(databaseId string, branchId string, timestamp int64) string
 	)
 }
 
-/*
-Get a specific restore point from the snapshot file.
-*/
+// Get a specific restore point from the snapshot file.
 func (s *Snapshot) GetRestorePoint(timestamp int64) (RestorePoint, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -150,9 +129,7 @@ func (s *Snapshot) GetRestorePoint(timestamp int64) (RestorePoint, error) {
 	return restorePoint, nil
 }
 
-/*
-Determine if the snapshot is empty.
-*/
+// Determine if the snapshot is empty.
 func (s *Snapshot) IsEmpty() bool {
 	return s.Timestamp == 0
 }

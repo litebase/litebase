@@ -21,13 +21,11 @@ const (
 	RollbackLogEntryID RollbackLogIdentifier = 0x02
 )
 
-/*
-The RollbackLog is a data structure used to keep track of database page changes
-that occur at given point in time. Each RollbackLog file contains multiple
-RollbackLogEntries which are used to store the state of pages before they are
-modified. In the event of a database restore, the RollbackLog is used to
-retrieve the page version that meets the restore criteria.
-*/
+// The RollbackLog is a data structure used to keep track of database page changes
+// that occur at given point in time. Each RollbackLog file contains multiple
+// RollbackLogEntries which are used to store the state of pages before they are
+// modified. In the event of a database restore, the RollbackLog is used to
+// retrieve the page version that meets the restore criteria.
 type RollbackLog struct {
 	File      internalStorage.File
 	mutex     sync.Mutex

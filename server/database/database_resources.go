@@ -28,9 +28,7 @@ type DatabaseResources struct {
 	walFile         *storage.WalFile
 }
 
-/*
-Return a database checkpointer.
-*/
+// Return a database checkpointer.
 func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 	d.mutex.RLock()
 
@@ -64,9 +62,7 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 	return d.checkpointer, nil
 }
 
-/*
-Return a distributed write-ahead log of the database.
-*/
+// Return a distributed write-ahead log of the database.
 func (d *DatabaseResources) DistributedWal() *storage.DistributedWal {
 	d.mutex.RLock()
 
@@ -93,9 +89,7 @@ func (d *DatabaseResources) DistributedWal() *storage.DistributedWal {
 	return d.distributedWal
 }
 
-/*
-Return the file system for the database.
-*/
+// Return the file system for the database.
 func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 	d.mutex.RLock()
 
@@ -144,9 +138,7 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 	return d.fileSystem
 }
 
-/*
-Return the rollback logger for the database.
-*/
+// Return the rollback logger for the database.
 func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 	d.mutex.RLock()
 
@@ -198,9 +190,7 @@ func (d *DatabaseResources) Remove() {
 	d.tempFileSystem = nil
 }
 
-/*
-Return the SnapshotLogger for the database.
-*/
+// Return the SnapshotLogger for the database.
 func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	d.mutex.RLock()
 
@@ -224,9 +214,7 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	return d.snapshotLogger
 }
 
-/*
-Return the temporary file system for the database.
-*/
+// Return the temporary file system for the database.
 func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 	d.mutex.RLock()
 

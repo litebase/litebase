@@ -208,10 +208,8 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	return database, nil
 }
 
-/*
-Get the resources for the given database and branch UUIDs. If the resources
-have not been created, create them and store them in the resources map.
-*/
+// Get the resources for the given database and branch UUIDs. If the resources
+// have not been created, create them and store them in the resources map.
 func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResources {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -236,9 +234,7 @@ func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResour
 	return resource
 }
 
-/*
-Shutdown all of the database resources that have been created.
-*/
+// Shutdown all of the database resources that have been created.
 func (d *DatabaseManager) ShutdownResources() {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

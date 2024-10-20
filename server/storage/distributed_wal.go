@@ -5,11 +5,9 @@ import (
 	"time"
 )
 
-/*
-A DistributedWal is a write-ahead log that is distributed across multiple nodes.
-The primary database can write to the DistributedWal to replicate changes to
-the database replicas.
-*/
+// A DistributedWal is a write-ahead log that is distributed across multiple nodes.
+// The primary database can write to the DistributedWal to replicate changes to
+// the database replicas.
 type DistributedWal struct {
 	BranchId   string
 	DatabaseId string
@@ -39,9 +37,7 @@ func NewDistributedWal(
 	}
 }
 
-/*
-Close the DistributedWal.
-*/
+// Close the DistributedWal.
 func (d *DistributedWal) Close() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -49,9 +45,7 @@ func (d *DistributedWal) Close() error {
 	return nil
 }
 
-/*
-Truncate the DistributedWal to the given size.
-*/
+// Truncate the DistributedWal to the given size.
 func (d *DistributedWal) Truncate(size int64) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -66,9 +60,7 @@ func (d *DistributedWal) Truncate(size int64) error {
 	return nil
 }
 
-/*
-WriteAt writes len(p) bytes from p to the DistributedWal at the given offset.
-*/
+// WriteAt writes len(p) bytes from p to the DistributedWal at the given offset.
 func (d *DistributedWal) WriteAt(p []byte, off int64) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

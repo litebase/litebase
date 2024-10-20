@@ -9,63 +9,58 @@ import (
 	"sync"
 )
 
-/*
-A DistributedFile represents a file that is opened on a remote storage node.
-This file can be treated as a regular file, but all operations are performed
-remotely on the storage node allowing for the server to operate without storing
-and multiple query nodes to operate on the same file without consensus issues.
-*/
+// A DistributedFile represents a file that is opened on a remote storage node.
+// This file can be treated as a regular file, but all operations are performed
+// remotely on the storage node allowing for the server to operate without storing
+// and multiple query nodes to operate on the same file without consensus issues.
 type DistributedFile struct {
 	distributedFileSystemDriver *DistributedFileSystemDriver
-	/*
-		Element is a pointer to the list.Element that is used to store the File
-		in the LRU cache. The Element is used to determine the position of the
-		File in the LRU cache and to remove the File from the LRU cache.
-	*/
+
+	// Element is a pointer to the list.Element that is used to store the File
+	// in the LRU cache. The Element is used to determine the position of the
+	// File in the LRU cache and to remove the File from the LRU cache.
+
 	Element *list.Element
-	/*
-		File is the internalStorage.File object that is used to read data from
-		the File. The File is a instance of *os.File which points to a local
-		File. If the File is nil, the File has not been opened yet.
-	*/
+
+	// File is the internalStorage.File object that is used to read data from
+	// the File. The File is a instance of *os.File which points to a local
+	// File. If the File is nil, the File has not been opened yet.
+
 	File internalStorage.File
-	/*
-		Flags that defined the file permissions used for access. This value will
-		be used to determine if the File should be written to durable storage.
-	*/
+
+	// Flags that defined the file permissions used for access. This value will
+	// be used to determine if the File should be written to durable storage.
+
 	Flag int
-	/*
-		Offset is the current offset of the file. This value is used to determine
-		where the next read or write operation should occur. In case of a network
-		failure, the offset will be used to determine where the next operation
-		should occur from the last successful operation.
-	*/
+
+	// Offset is the current offset of the file. This value is used to determine
+	// where the next read or write operation should occur. In case of a network
+	// failure, the offset will be used to determine where the next operation
+	// should occur from the last successful operation.
+
 	Offset int64
-	/*
-		Mutex is a pointer to a sync.Mutex that is used to lock the file when
-		reading or writing to the file. This is used to prevent multiple
-		operations from occurring at the same time.
-	*/
+
+	// Mutex is a pointer to a sync.Mutex that is used to lock the file when
+	// reading or writing to the file. This is used to prevent multiple
+	// operations from occurring at the same time.
+
 	mutex *sync.Mutex
-	/*
-		The file path that is used to identify the file on the storage node.
-	*/
+
+	// The file path that is used to identify the file on the storage node.
+
 	Path string
-	/*
-		Ther permissions that were used to create or open the file.
-	*/
+
+	// Ther permissions that were used to create or open the file.
+
 	Perm fs.FileMode
 
-	/*
-		The storage connection manager that is used to send requests to the
-		distributed storage nodes.
-	*/
+	// The storage connection manager that is used to send requests to the
+	// distributed storage nodes.
+
 	storageConnectionManager *StorageConnectionManager
 }
 
-/*
-Create a new instance of the DistributedFile.
-*/
+// Create a new instance of the DistributedFile.
 func NewDistributedFile(
 	distributedFileSystemDriver *DistributedFileSystemDriver,
 	path string,
@@ -101,9 +96,7 @@ func (df *DistributedFile) attachFile() error {
 	return nil
 }
 
-/*
-Close the file.
-*/
+// Close the file.
 func (df *DistributedFile) Close() error {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -126,9 +119,7 @@ func (df *DistributedFile) Close() error {
 	return nil
 }
 
-/*
-Read from the file.
-*/
+// Read from the file.
 func (df *DistributedFile) Read(p []byte) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -168,9 +159,7 @@ func (df *DistributedFile) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-/*
-Read from the file at the specified offset.
-*/
+// Read from the file at the specified offset.
 func (df *DistributedFile) ReadAt(p []byte, off int64) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -211,9 +200,7 @@ func (df *DistributedFile) ReadAt(p []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-/*
-Seek to the specified offset.
-*/
+// Seek to the specified offset.
 func (df *DistributedFile) Seek(offset int64, whence int) (int64, error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -245,9 +232,7 @@ func (df *DistributedFile) Seek(offset int64, whence int) (int64, error) {
 	return response.Offset, nil
 }
 
-/*
-Stat the file.
-*/
+// Stat the file.
 func (df *DistributedFile) Stat() (fs.FileInfo, error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -266,9 +251,7 @@ func (df *DistributedFile) Stat() (fs.FileInfo, error) {
 	return response.FileInfo, nil
 }
 
-/*
-Sync the file.
-*/
+// Sync the file.
 func (df *DistributedFile) Sync() error {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -287,9 +270,7 @@ func (df *DistributedFile) Sync() error {
 	return nil
 }
 
-/*
-Truncate the file to the specified size.
-*/
+// Truncate the file to the specified size.
 func (df *DistributedFile) Truncate(size int64) error {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -321,9 +302,7 @@ func (df *DistributedFile) Truncate(size int64) error {
 	return nil
 }
 
-/*
-Write to the file.
-*/
+// Write to the file.
 func (df *DistributedFile) Write(p []byte) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -355,9 +334,7 @@ func (df *DistributedFile) Write(p []byte) (n int, err error) {
 	return response.BytesProcessed, nil
 }
 
-/*
-Write to the file at the specified offset.
-*/
+// Write to the file at the specified offset.
 func (df *DistributedFile) WriteAt(p []byte, off int64) (n int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -407,9 +384,7 @@ func (df *DistributedFile) WriteAt(p []byte, off int64) (n int, err error) {
 	return response.BytesProcessed, nil
 }
 
-/*
-Write the file to the writer.
-*/
+// Write the file to the writer.
 func (df *DistributedFile) WriteTo(w io.Writer) (n int64, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()
@@ -440,9 +415,7 @@ func (df *DistributedFile) WriteTo(w io.Writer) (n int64, err error) {
 	return int64(response.BytesProcessed), nil
 }
 
-/*
-Write a string to the file.
-*/
+// Write a string to the file.
 func (df *DistributedFile) WriteString(s string) (ret int, err error) {
 	df.mutex.Lock()
 	defer df.mutex.Unlock()

@@ -12,9 +12,7 @@ func NewNodeIdentifier(address string, port string) *NodeIdentifier {
 	}
 }
 
-/*
-Returns a string representation of the NodeIdentifier.
-*/
+// Returns a string representation of the NodeIdentifier.
 func (ni *NodeIdentifier) String() string {
 	return ni.Address + ":" + ni.Port
 }
