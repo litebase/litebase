@@ -85,9 +85,21 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 		var rc C.int
 		switch parameter.Type {
 		case "INTEGER":
-			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(parameter.Value.(int64)))
+			value, ok := parameter.Value.(float64)
+
+			if !ok {
+				return errors.New("parameter value is not an integer")
+			}
+
+			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(value))
 		case "REAL":
-			rc = C.sqlite3_bind_double(s.sqlite3_stmt, index, C.double(parameter.Value.(float64)))
+			value, ok := parameter.Value.(float64)
+
+			if !ok {
+				return errors.New("parameter value is not a real")
+			}
+
+			rc = C.sqlite3_bind_double(s.sqlite3_stmt, index, C.double(value))
 		case "NULL":
 			rc = C.sqlite3_bind_null(s.sqlite3_stmt, index)
 		case "TEXT":
