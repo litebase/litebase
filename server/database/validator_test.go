@@ -1,9 +1,9 @@
-package query_test
+package database_test
 
 import (
 	"litebase/internal/test"
 	"litebase/server"
-	"litebase/server/query"
+	"litebase/server/database"
 	"litebase/server/sqlite3"
 	"reflect"
 	"testing"
@@ -21,7 +21,7 @@ func TestValidateQuery(t *testing.T) {
 		cases := []struct {
 			statement  string
 			parameters []sqlite3.StatementParameter
-			error      *query.QueryValidationError
+			error      *database.QueryValidationError
 		}{
 			{
 				"SELECT * FROM users LIMIT ?",
@@ -34,7 +34,7 @@ func TestValidateQuery(t *testing.T) {
 			{
 				"",
 				[]sqlite3.StatementParameter{{}},
-				&query.QueryValidationError{Errors: map[string][]string{"statement": {"A query statement is required"}}},
+				&database.QueryValidationError{Errors: map[string][]string{"statement": {"A query statement is required"}}},
 			},
 			{
 				"SELECT * FROM users LIMIT ? OFFSET ?",
@@ -42,13 +42,13 @@ func TestValidateQuery(t *testing.T) {
 					Type:  "INTEGER",
 					Value: 1,
 				}},
-				&query.QueryValidationError{Errors: map[string][]string{"parameters": {"Query parameters must match the number of placeholders"}}},
+				&database.QueryValidationError{Errors: map[string][]string{"parameters": {"Query parameters must match the number of placeholders"}}},
 			},
 		}
 
 		for _, c := range cases {
-			q := &query.Query{
-				Input: &query.QueryInput{
+			q := &database.Query{
+				Input: &database.QueryInput{
 					Statement:  c.statement,
 					Parameters: c.parameters,
 				},
@@ -60,7 +60,7 @@ func TestValidateQuery(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = query.ValidateQuery(statement.Sqlite3Statement, q.Input.Parameters...)
+			err = database.ValidateQuery(statement.Sqlite3Statement, q.Input.Parameters...)
 
 			if err != nil && !reflect.DeepEqual(err, c.error) {
 				t.Fatalf(" Expected error to be %v, got %v", c.error, err)

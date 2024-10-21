@@ -26,6 +26,7 @@ type DatabaseResources struct {
 	tieredFS        *storage.FileSystem
 	tmpFS           *storage.FileSystem
 	walFile         *storage.WalFile
+	writeQueue      WriteQueue
 }
 
 // Return a database checkpointer.

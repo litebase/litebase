@@ -1,16 +1,15 @@
-package query
+package database
 
 import (
 	"litebase/server/auth"
 	"litebase/server/cluster"
-	"litebase/server/database"
 	"litebase/server/sqlite3"
 )
 
 type QueryBuilder struct {
 	accessKeyManager *auth.AccessKeyManager
 	cluster          *cluster.Cluster
-	databaseManager  *database.DatabaseManager
+	databaseManager  *DatabaseManager
 }
 
 type QueryType interface {
@@ -20,7 +19,7 @@ type QueryType interface {
 func NewQueryBuilder(
 	cluster *cluster.Cluster,
 	accessKeyManager *auth.AccessKeyManager,
-	databaseManager *database.DatabaseManager,
+	databaseManager *DatabaseManager,
 ) *QueryBuilder {
 	return &QueryBuilder{
 		accessKeyManager: accessKeyManager,
@@ -47,7 +46,7 @@ func (qb *QueryBuilder) Build(
 	return NewQuery(
 		qb.cluster,
 		qb.databaseManager,
-		database.NewDatabaseKey(databaseId, branchId),
+		NewDatabaseKey(databaseId, branchId),
 		accessKey,
 		&QueryInput{
 			Statement:  statement,

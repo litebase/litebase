@@ -1,4 +1,4 @@
-package query
+package database
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 const WriteQueueCapacity = 1000
 
+// The WriteQueue is a queue for handling write queries for a database.
 type WriteQueue struct {
 	activeAt          time.Time
 	branchId          string
@@ -20,6 +21,7 @@ type WriteQueue struct {
 	running           bool
 }
 
+// A WriteQueueJob is a container for a query to be handled by the WriteQueue.
 type WriteQueueJob struct {
 	context  context.Context
 	handler  func(f func(query *Query, response *QueryResponse) error, query *Query, response *QueryResponse) error
@@ -33,38 +35,7 @@ type WriteQueueResult struct {
 	err error
 }
 
-func GetWriteQueue(query *Query) *WriteQueue {
-	ctx := context.TODO()
-
-	if writeQueue, ok := writeQueueManager.queues.Load(query.DatabaseKey.DatabaseHash); ok {
-		return writeQueue.(*WriteQueue)
-	}
-
-	writeQueue := &WriteQueue{
-		branchId:   query.DatabaseKey.BranchId,
-		context:    ctx,
-		databaseId: query.DatabaseKey.DatabaseId,
-		// Setup a buffered channel to hold up to 1000 concurrent jobs
-		jobs:  make(chan WriteQueueJob, WriteQueueCapacity),
-		mutex: sync.Mutex{},
-		resultChannelPool: sync.Pool{
-			New: func() interface{} {
-				return make(chan *WriteQueueResult)
-			},
-		},
-		resultPool: sync.Pool{
-			New: func() interface{} {
-				return &WriteQueueResult{}
-			},
-		},
-		running: false,
-	}
-
-	writeQueueManager.queues.Store(query.DatabaseKey.DatabaseHash, writeQueue)
-
-	return writeQueue
-}
-
+// Handle a query with the WriteQueue.
 func (wq *WriteQueue) Handle(
 	handler func(
 		f func(query *Query, response *QueryResponse) error,
@@ -103,10 +74,12 @@ func (wq *WriteQueue) Handle(
 	return res.err
 }
 
+// Detect if the WriteQueue is idle.
 func (wq *WriteQueue) isIdle() bool {
 	return time.Since(wq.activeAt) > 3*time.Second
 }
 
+// Process the jobs on the queue.
 func (wq *WriteQueue) processQueue() {
 	for job := range wq.jobs {
 		// Process the job immediately
@@ -126,10 +99,12 @@ func (wq *WriteQueue) processQueue() {
 	}
 }
 
+// Get a result channel from the pool.
 func (wq *WriteQueue) resultChannelGet() chan *WriteQueueResult {
 	return wq.resultChannelPool.Get().(chan *WriteQueueResult)
 }
 
+// Put a result channel back into the pool.
 func (wq *WriteQueue) resultChannelPut(resultChannel chan *WriteQueueResult) {
 	select {
 	case <-resultChannel:
@@ -139,11 +114,13 @@ func (wq *WriteQueue) resultChannelPut(resultChannel chan *WriteQueueResult) {
 	wq.resultChannelPool.Put(resultChannel)
 }
 
+// Start the WriteQueue.
 func (wq *WriteQueue) start() {
 	wq.running = true
 	go wq.processQueue()
 }
 
+// Stop the WriteQueue.
 func (wq *WriteQueue) stop() {
 	wq.running = false
 }

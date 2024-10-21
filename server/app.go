@@ -6,7 +6,6 @@ import (
 	"litebase/server/cluster"
 	"litebase/server/database"
 	"litebase/server/http"
-	"litebase/server/query"
 	"litebase/server/storage"
 
 	netHttp "net/http"
@@ -30,8 +29,6 @@ func attemptSecretInitialization(c *config.Config) bool {
 }
 
 func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
-	configInstance = config.NewConfig()
-
 	clusterInstance, err := cluster.NewCluster(configInstance)
 
 	if err != nil {
@@ -90,7 +87,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	app.Auth.UserManager().Init()
 
 	app.Cluster.Node().Init(
-		query.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager),
+		database.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager),
 		database.NewDatabaseWalSynchronizer(app.DatabaseManager),
 	)
 	app.Cluster.EventsManager().Init()
@@ -98,6 +95,8 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	auth.Broadcaster(app.Cluster.EventsManager().Hook())
 	storage.SetStorageContext(app.Cluster.Node().Context())
 	storage.SetStorageTimestamp(app.Cluster.Node().Timestamp())
+
+	go app.DatabaseManager.WriteQueueManager.Run()
 
 	app.initialized = true
 

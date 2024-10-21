@@ -1,4 +1,4 @@
-package query
+package database
 
 // This struct represents a count of queries for a database at a given time.
 type QueryCount struct {

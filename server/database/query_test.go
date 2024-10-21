@@ -1,10 +1,9 @@
-package query_test
+package database_test
 
 import (
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/database"
-	"litebase/server/query"
 	"litebase/server/sqlite3"
 	"testing"
 )
@@ -13,12 +12,12 @@ func TestNewQuery(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		query, err := query.NewQuery(
+		query, err := database.NewQuery(
 			app.Cluster,
 			app.DatabaseManager,
 			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
-			&query.QueryInput{
+			&database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
@@ -45,13 +44,13 @@ func TestResolve(t *testing.T) {
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
-		queryResponse := &query.QueryResponse{}
-		query, err := query.NewQuery(
+		queryResponse := &database.QueryResponse{}
+		query, err := database.NewQuery(
 			app.Cluster,
 			app.DatabaseManager,
 			database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 			mock.AccessKey,
-			&query.QueryInput{
+			&database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
@@ -82,8 +81,8 @@ func TestStatement(t *testing.T) {
 
 		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-		query := &query.Query{
-			Input: &query.QueryInput{
+		query := &database.Query{
+			Input: &database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
@@ -143,8 +142,8 @@ func TestValidate(t *testing.T) {
 
 		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-		query := &query.Query{
-			Input: &query.QueryInput{
+		query := &database.Query{
+			Input: &database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",

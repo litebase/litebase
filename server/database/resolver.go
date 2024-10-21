@@ -1,18 +1,14 @@
-package query
+package database
 
 import (
 	"errors"
 	"fmt"
 	"litebase/server/cluster"
-	"litebase/server/database"
 	"litebase/server/logs"
 	"litebase/server/sqlite3"
 	"log"
 	"time"
 )
-
-type Resolver struct {
-}
 
 func ResolveQuery(query *Query, response *QueryResponse) error {
 	if query.invalid {
@@ -30,11 +26,11 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 	return resolveWithQueue(query, response, func(query *Query, response *QueryResponse) error {
 		start := time.Now()
 		var sqlite3Result sqlite3.Result
-		var statement database.Statement
+		var statement Statement
 		var changes int64
 		var lastInsertRowID int64
 		var err error
-		var db *database.ClientConnection
+		var db *ClientConnection
 
 		db, err = query.databaseManager.ConnectionManager().Get(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId)
 
@@ -109,7 +105,7 @@ func resolveWithQueue(
 	f func(query *Query, response *QueryResponse) error,
 ) error {
 	if query.IsWrite() {
-		queue := GetWriteQueue(query)
+		queue := query.databaseManager.WriteQueueManager.GetWriteQueue(query)
 
 		if queue == nil {
 			return fmt.Errorf("database not found")

@@ -1,10 +1,9 @@
-package query_test
+package database_test
 
 import (
 	"litebase/internal/test"
 	"litebase/server"
 	"litebase/server/database"
-	"litebase/server/query"
 	"litebase/server/sqlite3"
 	"testing"
 )
@@ -48,15 +47,15 @@ func TestHandle(t *testing.T) {
 			},
 		}
 
-		queryResponse := &query.QueryResponse{}
+		queryResponse := &database.QueryResponse{}
 
 		for _, c := range cases {
-			q, err := query.NewQuery(
+			q, err := database.NewQuery(
 				app.Cluster,
 				app.DatabaseManager,
 				database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 				mock.AccessKey,
-				&query.QueryInput{
+				&database.QueryInput{
 					Statement:  c.statement,
 					Parameters: c.parameters,
 					Id:         "",
@@ -69,7 +68,7 @@ func TestHandle(t *testing.T) {
 
 			queryResponse.Reset()
 
-			err = query.ResolveQuery(q, queryResponse)
+			err = q.Resolve(queryResponse)
 
 			if err != nil && c.expected == `success` {
 				t.Fatal(err)

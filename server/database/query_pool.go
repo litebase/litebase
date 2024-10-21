@@ -1,9 +1,8 @@
-package query
+package database
 
 import (
 	"litebase/server/auth"
 	"litebase/server/cluster"
-	"litebase/server/database"
 	"sync"
 )
 
@@ -19,8 +18,8 @@ func Pool() *sync.Pool {
 
 func Get(
 	cluster *cluster.Cluster,
-	databaseManager *database.DatabaseManager,
-	databaseKey *database.DatabaseKey,
+	databaseManager *DatabaseManager,
+	databaseKey *DatabaseKey,
 	accessKey *auth.AccessKey,
 	input *QueryInput,
 ) *Query {

@@ -21,15 +21,17 @@ type DatabaseManager struct {
 	mutex             *sync.Mutex
 	resources         map[string]*DatabaseResources
 	SecretsManager    *auth.SecretsManager
+	WriteQueueManager *WriteQueueManager
 }
 
 func NewDatabaseManager(cluster *cluster.Cluster, secretsManager *auth.SecretsManager) *DatabaseManager {
 	return &DatabaseManager{
-		databases:      make(map[string]*Database),
-		Cluster:        cluster,
-		mutex:          &sync.Mutex{},
-		resources:      make(map[string]*DatabaseResources),
-		SecretsManager: secretsManager,
+		databases:         make(map[string]*Database),
+		Cluster:           cluster,
+		mutex:             &sync.Mutex{},
+		resources:         make(map[string]*DatabaseResources),
+		SecretsManager:    secretsManager,
+		WriteQueueManager: NewWriteQueueManager(),
 	}
 }
 

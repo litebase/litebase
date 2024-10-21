@@ -1,25 +1,24 @@
-package query
+package database
 
 import (
 	"litebase/server/auth"
 	"litebase/server/cluster"
-	"litebase/server/database"
 	"strings"
 )
 
 type Query struct {
 	AccessKey       *auth.AccessKey
 	cluster         *cluster.Cluster
-	databaseManager *database.DatabaseManager
-	DatabaseKey     *database.DatabaseKey
+	databaseManager *DatabaseManager
+	DatabaseKey     *DatabaseKey
 	Input           *QueryInput
 	invalid         bool
 }
 
 func NewQuery(
 	cluster *cluster.Cluster,
-	databaseManager *database.DatabaseManager,
-	databaseKey *database.DatabaseKey,
+	databaseManager *DatabaseManager,
+	databaseKey *DatabaseKey,
 	accessKey *auth.AccessKey,
 	input *QueryInput,
 ) (*Query, error) {
@@ -32,15 +31,11 @@ func NewQuery(
 	}, nil
 }
 
-func (query *Query) ResolveQuery(response *QueryResponse) error {
-	return ResolveQuery(query, response)
-}
-
 func (query *Query) Resolve(response cluster.NodeQueryResponse) error {
 	return ResolveQuery(query, response.(*QueryResponse))
 }
 
-func (q *Query) Validate(statement database.Statement) error {
+func (q *Query) Validate(statement Statement) error {
 	// if q.IsPragma() {
 	// 	// TODO: Validate the types of pragma that are allowed
 	// 	return nil

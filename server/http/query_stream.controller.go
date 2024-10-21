@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"litebase/server/auth"
 	"litebase/server/database"
-	"litebase/server/query"
 	"log"
 	"net/http"
 	"sync"
@@ -22,7 +21,7 @@ var bufferPool = sync.Pool{
 // Define a sync.Pool for reusable Command structs
 var inputPool = &sync.Pool{
 	New: func() interface{} {
-		return &query.QueryInput{}
+		return &database.QueryInput{}
 	},
 }
 
@@ -76,10 +75,10 @@ func processInput(
 	request *Request,
 	databaseKey *database.DatabaseKey,
 	accessKey *auth.AccessKey,
-	input *query.QueryInput,
-	response *query.QueryResponse,
+	input *database.QueryInput,
+	response *database.QueryResponse,
 ) error {
-	requestQuery := query.Get(
+	requestQuery := database.Get(
 		request.cluster,
 		request.databaseManager,
 		databaseKey,
@@ -87,9 +86,9 @@ func processInput(
 		input,
 	)
 
-	defer query.Put(requestQuery)
+	defer database.Put(requestQuery)
 
-	err := requestQuery.ResolveQuery(response)
+	err := requestQuery.Resolve(response)
 
 	if err != nil {
 		return err
@@ -167,16 +166,16 @@ func scan(
 
 	var err error
 
-	response := query.ResponsePool().Get()
-	defer query.ResponsePool().Put(response)
+	response := database.ResponsePool().Get()
+	defer database.ResponsePool().Put(response)
 
-	jsonResponse := &query.QueryJsonResponse{}
+	jsonResponse := &database.QueryJsonResponse{}
 
-	input := inputPool.Get().(*query.QueryInput)
+	input := inputPool.Get().(*database.QueryInput)
 	defer inputPool.Put(input)
 
-	decoder := query.JsonDecoderPool().Get()
-	defer query.JsonDecoderPool().Put(decoder)
+	decoder := database.JsonDecoderPool().Get()
+	defer database.JsonDecoderPool().Put(decoder)
 
 	decoder.Buffer.Write(scanBuffer.Bytes())
 
@@ -205,8 +204,8 @@ func scan(
 	jsonResponse.Status = "success"
 	jsonResponse.Data = response
 
-	encoder := query.JsonEncoderPool().Get()
-	defer query.JsonEncoderPool().Put(encoder)
+	encoder := database.JsonEncoderPool().Get()
+	defer database.JsonEncoderPool().Put(encoder)
 
 	encoder.Buffer.Reset()
 

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"litebase/server/database"
-	"litebase/server/query"
 )
 
 func QueryController(request *Request) Response {
@@ -40,7 +39,7 @@ func QueryController(request *Request) Response {
 			"message": err.Error(),
 		}, 500, nil)
 	}
-	queryInput := &query.QueryInput{}
+	queryInput := &database.QueryInput{}
 
 	err = json.NewDecoder(request.BaseRequest.Body).Decode(queryInput)
 
@@ -56,7 +55,7 @@ func QueryController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	requestQuery, err := query.NewQuery(
+	requestQuery, err := database.NewQuery(
 		request.cluster,
 		request.databaseManager,
 		databaseKey,
@@ -76,9 +75,9 @@ func QueryController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	response := &query.QueryResponse{}
+	response := &database.QueryResponse{}
 
-	err = query.ResolveQuery(requestQuery, response)
+	err = requestQuery.Resolve(response)
 
 	if err != nil {
 		request.databaseManager.ConnectionManager().Remove(
