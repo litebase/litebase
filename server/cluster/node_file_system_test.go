@@ -1,4 +1,4 @@
-package storage_test
+package cluster_test
 
 import (
 	"litebase/internal/test"

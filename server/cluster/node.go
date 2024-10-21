@@ -410,7 +410,6 @@ func (n *Node) QueryBuilder() NodeQueryBuilder {
 }
 
 func (n *Node) removeAddress() error {
-	log.Println("REMOVING ADDRESS", n.Address())
 	return n.cluster.ObjectFS().Remove(n.AddressPath())
 }
 
@@ -536,7 +535,6 @@ func (n *Node) RunElection() bool {
 	success, err := n.writeNomination()
 
 	if err != nil {
-		log.Println(err)
 		return false
 	}
 
@@ -1140,7 +1138,6 @@ openNomination:
 	err = nominationFile.Close()
 
 	if err != nil {
-		log.Printf("Failed to close nomination file: %v", err)
 		return false, err
 	}
 
