@@ -185,7 +185,9 @@ func (s *Statement) Exec(parameters ...StatementParameter) (Result, error) {
 					columns := make([]Column, len(result.Columns))
 
 					for i := range result.Columns {
-						columns[i] = NewColumn(s.ColumnValue(i))
+						columnType := C.sqlite3_column_type(s.sqlite3_stmt, C.int(i))
+						columnTypeInt := ColumnType(columnType)
+						columns[i] = NewColumn(columnTypeInt, s.ColumnValue(columnTypeInt, i))
 					}
 
 					result.Rows = append(result.Rows, columns)
@@ -232,7 +234,9 @@ func (s *Statement) ExecStreaming(parameters ...StatementParameter) (Result, cha
 				columns := make([]Column, len(result.Columns))
 
 				for i := range result.Columns {
-					columns[i] = NewColumn(s.ColumnValue(i))
+					columnType := C.sqlite3_column_type(s.sqlite3_stmt, C.int(i))
+					columnTypeInt := ColumnType(columnType)
+					columns[i] = NewColumn(columnTypeInt, s.ColumnValue(columnTypeInt, i))
 				}
 
 				result.Rows = append(result.Rows, columns)
@@ -364,12 +368,12 @@ func (s *Statement) ColumnNames() []string {
 	return s.columnNames
 }
 
-func (s *Statement) ColumnValue(index int) any {
+func (s *Statement) ColumnValue(columnType ColumnType, index int) any {
 	if s.sqlite3_stmt == nil {
 		return nil
 	}
 
-	switch C.sqlite3_column_type(s.sqlite3_stmt, C.int(index)) {
+	switch columnType {
 	case SQLITE_INTEGER:
 		return int64(C.sqlite3_column_int64(s.sqlite3_stmt, C.int(index)))
 	case SQLITE_FLOAT:
