@@ -14,17 +14,17 @@ func TestValidateQuery(t *testing.T) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
 
 		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
 		cases := []struct {
-			statement  string
+			statement  []byte
 			parameters []sqlite3.StatementParameter
 			error      *database.QueryValidationError
 		}{
 			{
-				"SELECT * FROM users LIMIT ?",
+				[]byte("SELECT * FROM users LIMIT ?"),
 				[]sqlite3.StatementParameter{{
 					Type:  "INTEGER",
 					Value: 1,
@@ -32,12 +32,12 @@ func TestValidateQuery(t *testing.T) {
 				nil,
 			},
 			{
-				"",
+				[]byte(""),
 				[]sqlite3.StatementParameter{{}},
 				&database.QueryValidationError{Errors: map[string][]string{"statement": {"A query statement is required"}}},
 			},
 			{
-				"SELECT * FROM users LIMIT ? OFFSET ?",
+				[]byte("SELECT * FROM users LIMIT ? OFFSET ?"),
 				[]sqlite3.StatementParameter{{
 					Type:  "INTEGER",
 					Value: 1,

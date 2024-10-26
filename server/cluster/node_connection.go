@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
 	"sync"
@@ -30,7 +31,7 @@ type NodeConnection struct {
 	node            *Node
 	open            bool
 	reader          *io.PipeReader
-	response        chan NodeMessage
+	response        chan messages.NodeMessage
 	writer          *io.PipeWriter
 	writeBuffer     *bufio.Writer
 }
@@ -47,7 +48,7 @@ func NewNodeConnection(node *Node, address string) *NodeConnection {
 		node:            node,
 		open:            false,
 		reader:          nil,
-		response:        make(chan NodeMessage),
+		response:        make(chan messages.NodeMessage),
 		writer:          nil,
 		writeBuffer:     nil,
 	}
@@ -212,7 +213,7 @@ func (nc *NodeConnection) read(reader io.Reader) {
 		default:
 			decoder := gob.NewDecoder(reader)
 
-			var response NodeMessage
+			var response messages.NodeMessage
 
 			err := decoder.Decode(&response)
 
@@ -223,7 +224,7 @@ func (nc *NodeConnection) read(reader io.Reader) {
 
 			nc.inactiveTimeout.Reset(NodeConnectionInactiveTimeout)
 
-			if response.Type == "NodeConnectionMessage" {
+			if response.Type() == "NodeConnectionMessage" {
 				nc.open = true
 				nc.connecting = false
 				nc.connected <- struct{}{}
@@ -236,7 +237,7 @@ func (nc *NodeConnection) read(reader io.Reader) {
 }
 
 // Send a request to the node.
-func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
+func (nc *NodeConnection) Send(message messages.NodeMessage) (messages.NodeMessage, error) {
 	nc.mutex.Lock()
 	defer nc.mutex.Unlock()
 
@@ -244,12 +245,12 @@ func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
 		err := nc.connect()
 
 		if err != nil {
-			return NodeMessage{}, err
+			return nil, err
 		}
 	}
 
 	if nc.writer == nil {
-		return NodeMessage{}, errors.New("node connection closed")
+		return nil, errors.New("node connection closed")
 	}
 
 	encoder := gob.NewEncoder(nc.writer)
@@ -258,7 +259,7 @@ func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
 	if err != nil {
 		log.Println("failed to encode message: ", err)
 		nc.closeConnection()
-		return NodeMessage{}, err
+		return nil, err
 	}
 
 	err = nc.writeBuffer.Flush()
@@ -266,7 +267,7 @@ func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
 	if err != nil {
 		log.Println("failed to flush request: ", err)
 		nc.closeConnection()
-		return NodeMessage{}, err
+		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(nc.context, 3*time.Second)
@@ -275,13 +276,13 @@ func (nc *NodeConnection) Send(message NodeMessage) (NodeMessage, error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return NodeMessage{}, errors.New("message send timeout")
+			return nil, errors.New("message send timeout")
 		case <-nc.node.Context().Done():
-			return NodeMessage{}, errors.New("context closed")
+			return nil, errors.New("context closed")
 		case <-nc.context.Done():
-			return NodeMessage{}, errors.New("context closed")
+			return nil, errors.New("context closed")
 		case err := <-nc.errorChan:
-			return NodeMessage{}, err
+			return nil, err
 		case response := <-nc.response:
 			return response, nil
 		default:
@@ -297,11 +298,8 @@ func (nc *NodeConnection) writeConnectionRequest() {
 
 	encoder := gob.NewEncoder(nc.writer)
 
-	err := encoder.Encode(NodeMessage{
-		Type: "NodeConnectionMessage",
-		Data: NodeConnectionMessage{
-			Address: nc.node.Address(),
-		},
+	err := encoder.Encode(messages.NodeConnectionMessage{
+		Address: nc.node.Address(),
 	})
 
 	if err != nil {

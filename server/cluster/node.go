@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
 	"os"
@@ -363,7 +364,7 @@ func (n *Node) primaryFileVerification() bool {
 }
 
 // As the Primary, publish messages to the replicas of the cluster group.
-func (n *Node) Publish(nodeMessage NodeMessage) error {
+func (n *Node) Publish(nodeMessage messages.NodeMessage) error {
 	return n.primary.Publish(nodeMessage)
 }
 
@@ -741,7 +742,7 @@ func (n *Node) setMembership(membership string) {
 		}
 	}
 
-	if membership == ClusterMembershipReplica && prevMembership != ClusterMembershipPrimary {
+	if membership == ClusterMembershipReplica && prevMembership != ClusterMembershipPrimary && n.PrimaryAddress() != "" {
 		n.replica = NewNodeReplica(n)
 
 		if n.primary != nil {
@@ -857,7 +858,7 @@ func (n *Node) Tick() {
 	}
 }
 
-func (n *Node) Send(nodeMessage NodeMessage) (NodeMessage, error) {
+func (n *Node) Send(nodeMessage messages.NodeMessage) (messages.NodeMessage, error) {
 	return n.replica.Send(nodeMessage)
 }
 
@@ -1086,12 +1087,6 @@ openNomination:
 			log.Printf("Failed to write to nomination file: %v", err)
 			return false, err
 		}
-
-		err := nominationFile.Close()
-
-		if err != nil {
-			return false, err
-		}
 	} else {
 		// File is not empty and does not contain this node's address
 		// Implement logic to determine if this node should still become primary based on timestamps or other criteria
@@ -1125,12 +1120,6 @@ openNomination:
 
 		if err != nil {
 			log.Printf("Failed to write to nomination file: %v", err)
-			return false, err
-		}
-
-		err = nominationFile.Close()
-
-		if err != nil {
 			return false, err
 		}
 	}

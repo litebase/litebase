@@ -109,6 +109,10 @@ func (router *RouterInstance) Server(
 					w.Header().Set(key, value)
 				}
 
+				if response.StatusCode >= 400 {
+					w.Header().Set("Connection", "close")
+				}
+
 				w.WriteHeader(response.StatusCode)
 
 				if response.Body == nil {

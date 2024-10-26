@@ -26,7 +26,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
 
 		if err != nil {
 			t.Fatal(err)
@@ -41,7 +41,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			for i := 0; i < 100000; i++ {
 				_, err = connection1.GetConnection().SqliteConnection().Exec(
 					context.Background(),
-					"INSERT INTO test (name) VALUES (?)",
+					[]byte("INSERT INTO test (name) VALUES (?)"),
 					sqlite3.StatementParameter{
 						Type:  "TEXT",
 						Value: "test",
@@ -59,7 +59,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			defer wg.Done()
 
 			for i := 0; i < 10; i++ {
-				_, err := connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+				_, err := connection2.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 				if err != nil {
 					t.Error(err)
@@ -69,7 +69,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 
 		wg.Wait()
 
-		resut, err := connection1.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+		resut, err := connection1.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 		if err != nil {
 			t.Error(err)
@@ -77,7 +77,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 
 		log.Println(resut)
 
-		resut, err = connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+		resut, err = connection2.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 		if err != nil {
 			t.Error(err)
@@ -107,7 +107,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
 
 		if err != nil {
 			t.Fatal(err)
@@ -132,7 +132,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 				_, err = db.GetConnection().SqliteConnection().Exec(
 					context.Background(),
-					"INSERT INTO test (name) VALUES (?)",
+					[]byte("INSERT INTO test (name) VALUES (?)"),
 					sqlite3.StatementParameter{
 						Type:  "TEXT",
 						Value: "test",
@@ -165,7 +165,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 					break
 				}
 
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 				if err != nil {
 					t.Error(err)
@@ -184,7 +184,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Error(err)
 		}
 
-		resut, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+		resut, err := db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 		if err != nil {
 			t.Error(err)
@@ -198,7 +198,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Error(err)
 		}
 
-		resut, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+		resut, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 		if err != nil {
 			t.Error(err)
@@ -212,7 +212,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Error(err)
 		}
 
-		resut, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+		resut, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 		if err != nil {
 			t.Error(err)

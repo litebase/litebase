@@ -5,26 +5,30 @@ import (
 	"encoding/binary"
 	"fmt"
 	"litebase/server/sqlite3"
+	"log"
 	"math"
 	"testing"
 )
 
 func TestNewColumn(t *testing.T) {
+	var columnValueBytes [8]byte
+	binary.LittleEndian.PutUint64(columnValueBytes[:], math.Float64bits(1.0001))
+
 	testCases := []struct {
 		columnType sqlite3.ColumnType
-		value      interface{}
+		value      []byte
 	}{
 		{
 			sqlite3.ColumnTypeInteger,
-			1,
+			[]byte{0, 0, 0, 0, 0, 0, 0, 1},
 		},
 		{
 			sqlite3.ColumnTypeFloat,
-			1.0001,
+			columnValueBytes[:],
 		},
 		{
 			sqlite3.ColumnTypeText,
-			"This is some text",
+			[]byte("This is some text"),
 		},
 		{
 			sqlite3.ColumnTypeBlob,
@@ -48,21 +52,27 @@ func TestNewColumn(t *testing.T) {
 }
 
 func TestColumnEncode(t *testing.T) {
+	var int64ValueBytes [8]byte
+	binary.LittleEndian.PutUint64(int64ValueBytes[:], uint64(1))
+
+	var floatValueBytes [8]byte
+	binary.LittleEndian.PutUint64(floatValueBytes[:], math.Float64bits(1.0001))
+
 	testCases := []struct {
 		columnType sqlite3.ColumnType
-		value      interface{}
+		value      []byte
 	}{
 		{
 			sqlite3.ColumnTypeInteger,
-			1,
+			int64ValueBytes[:],
 		},
 		{
 			sqlite3.ColumnTypeFloat,
-			1.0001,
+			floatValueBytes[:],
 		},
 		{
 			sqlite3.ColumnTypeText,
-			"This is some text",
+			[]byte("This is some text"),
 		},
 		{
 			sqlite3.ColumnTypeBlob,
@@ -80,11 +90,13 @@ func TestColumnEncode(t *testing.T) {
 
 			buffer := new(bytes.Buffer)
 
-			data, err := column.Encode(buffer)
+			err := column.Encode(buffer)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
+			data := buffer.Bytes()
 
 			if data == nil {
 				t.Fatalf("expected data to be not nil")
@@ -105,12 +117,13 @@ func TestColumnEncode(t *testing.T) {
 				t.Fatalf("expected data to be at least 5 bytes long")
 			}
 
-			length := int(data[1]) | int(data[2])<<8 | int(data[3])<<16 | int(data[4])<<24
+			length := int(binary.LittleEndian.Uint32(data[1:5]))
 
-			if length != len(data)-5 {
+			if length != len(data[5:]) {
+				log.Println(data)
 				t.Fatalf(
 					"expected length to be %d, got %d",
-					len(data)-5,
+					len(data[5:]),
 					length,
 				)
 			}
@@ -126,17 +139,19 @@ func TestColumnEncode(t *testing.T) {
 
 			switch testCase.columnType {
 			case sqlite3.ColumnTypeInteger:
-				if length != 4 {
-					t.Fatalf("expected length to be 4, got %d", length)
+				if length != 8 {
+					t.Fatalf("expected length to be 8, got %d", length)
 				}
 
-				value := int(data[5]) | int(data[6])<<8 | int(data[7])<<16 | int(data[8])<<24
+				// value := int(data[5]) | int(data[6])<<8 | int(data[7])<<16 | int(data[8])<<24
+				valueBytes := make([]byte, 8)
+				binary.LittleEndian.PutUint32(valueBytes, uint32(data[5]))
 
-				if value != testCase.value {
+				if !bytes.Equal(valueBytes, testCase.value) {
 					t.Fatalf(
 						"expected value to be %v, got %v",
 						testCase.value,
-						value,
+						valueBytes,
 					)
 				}
 
@@ -145,28 +160,29 @@ func TestColumnEncode(t *testing.T) {
 					t.Fatalf("expected length to be 8, got %d", length)
 				}
 
-				value := math.Float64frombits(binary.LittleEndian.Uint64(data[5:]))
+				valueBytes := make([]byte, 8)
+				binary.LittleEndian.PutUint64(valueBytes, binary.LittleEndian.Uint64(data[5:]))
 
-				if value != testCase.value {
+				if !bytes.Equal(valueBytes, testCase.value) {
 					t.Fatalf(
 						"expected value to be %v, got %v",
 						testCase.value,
-						value,
+						valueBytes,
 					)
 				}
 
 			case sqlite3.ColumnTypeText:
-				if length != len(testCase.value.(string)) {
+				if length != len(testCase.value) {
 					t.Fatalf(
 						"expected length to be %d, got %d",
-						len(testCase.value.(string)),
+						len(testCase.value),
 						length,
 					)
 				}
 
-				value := string(data[5:])
+				value := (data[5:])
 
-				if value != testCase.value {
+				if !bytes.Equal(value, testCase.value) {
 					t.Fatalf(
 						"expected value to be %v, got %v",
 						testCase.value,
@@ -175,16 +191,16 @@ func TestColumnEncode(t *testing.T) {
 				}
 
 			case sqlite3.ColumnTypeBlob:
-				if length != len(testCase.value.([]byte)) {
+				if length != len(testCase.value) {
 					t.Fatalf(
 						"expected length to be %d, got %d",
-						len(testCase.value.([]byte)),
+						len(testCase.value),
 						length,
 					)
 				}
 
 				value := string(data[5:])
-				expectedValue := string(testCase.value.([]byte))
+				expectedValue := string(testCase.value)
 
 				if value != expectedValue {
 					t.Fatalf(

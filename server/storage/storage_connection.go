@@ -191,7 +191,7 @@ func (sc *StorageConnection) handleResponse(response *http.Response) {
 
 	sc.inactiveTimeout = time.NewTimer(StorageConnectionInactiveTimeout)
 
-	go sc.read(sc.cancel, response.Body)
+	go sc.read(response.Body)
 
 readMessages:
 	for {
@@ -215,7 +215,6 @@ func (sc *StorageConnection) IsOpen() bool {
 
 // Read messages from the storage node.
 func (sc *StorageConnection) read(
-	cancel context.CancelFunc,
 	reader io.Reader,
 ) {
 	var dfsResponse DistributedFileSystemResponse = DistributedFileSystemResponse{}

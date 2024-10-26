@@ -11,9 +11,9 @@ type NodeQueryBuilder interface {
 		databaseHash string,
 		databaseId string,
 		branchId string,
-		statement string,
+		statement []byte,
 		parameters []sqlite3.StatementParameter,
-		id string,
+		id []byte,
 	) (NodeQuery, error)
 }
 
@@ -22,6 +22,13 @@ type NodeQuery interface {
 }
 
 type NodeQueryResponse interface {
+	Changes() int64
+	Columns() []string
+	LastInsertRowId() int64
+	Latency() float64
+	RowCount() int
+	Rows() [][]*sqlite3.Column
+
 	ToMap() map[string]interface{}
 	ToJSON() ([]byte, error)
 	WriteJson(w io.Writer) error

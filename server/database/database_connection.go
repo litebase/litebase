@@ -34,6 +34,7 @@ type DatabaseConnection struct {
 	distributedWal    *storage.DistributedWal
 	id                string
 	fileSystem        *storage.DurableDatabaseFileSystem
+	resultPool        *sqlite3.ResultPool
 	sqlite3           *sqlite3.Connection
 	statements        sync.Map
 	tempFileSystem    *storage.TempDatabaseFileSystem
@@ -52,6 +53,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	databaseHash := file.DatabaseHash(databaseId, branchId)
+	resultPool := connectionManager.databaseManager.connectionManager.databaseManager.Resources(databaseId, branchId).ResultPool()
 	tempFileSystem := connectionManager.databaseManager.Resources(databaseId, branchId).TempFileSystem()
 
 	wal, err := connectionManager.databaseManager.Resources(databaseId, branchId).WalFile()
@@ -84,6 +86,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		distributedWal:    connectionManager.databaseManager.Resources(databaseId, branchId).DistributedWal(),
 		fileSystem:        connectionManager.databaseManager.Resources(databaseId, branchId).FileSystem(),
 		id:                uuid.NewString(),
+		resultPool:        resultPool,
 		statements:        sync.Map{},
 		tempFileSystem:    tempFileSystem,
 		timestamp:         time.Now().UnixNano(),
@@ -127,12 +130,12 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 
 	con.sqlite3 = connection
 
-	configStatements := []string{
-		fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize),
+	configStatements := [][]byte{
+		[]byte(fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize)),
 
 		// Databases should always be in WAL mode. This allows for multiple
 		// readers and a single writer.
-		"PRAGMA journal_mode=wal",
+		[]byte("PRAGMA journal_mode=wal"),
 
 		// WAL autocheckpoint should be set to 0. This will prevent the WAL
 		// file from being checkpointed automatically. Litebase has its own
@@ -141,31 +144,32 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// It is very important that this setting remain in place as our the
 		// checkpointer is reponsible writing pages to durable storage and
 		// properly reporting the page count of the database.
-		"PRAGMA wal_autocheckpoint=0",
+		[]byte("PRAGMA wal_autocheckpoint=0"),
 
 		// PRAGMA synchronous=NORMAL will ensure that the database is durable
 		// by writing to the WAL file before the transaction is committed.
-		"PRAGMA synchronous=NORMAL",
+		[]byte("PRAGMA synchronous=NORMAL"),
 
 		// PRAGMA busy_timeout will set the timeout for waiting for a lock
 		// to 3 seconds. This will allow clients to wait for a lock to be
 		// released before returning an error.
-		"PRAGMA busy_timeout = 5000",
+		[]byte("PRAGMA busy_timeout = 5000"),
 
 		// The amount of cache that SQLite will use is set to -2000000. This
 		// will allow SQLite to use as much memory as it needs for caching.
-		"PRAGMA cache_size = -2000000",
+		[]byte("PRAGMA cache_size = -2000000"),
 
 		// PRAGMA secure_delete will ensure that data is securely deleted from
 		// the database. This will prevent data from being recovered from the
 		// database file. The added benefit is that it will also reduce the
 		// amount of data that needs to be written to durable storage after
 		// compression removes data padded with zeros.
-		"PRAGMA secure_delete = true",
+		[]byte("PRAGMA secure_delete = true"),
+
 		// PRAGMA temp_store will set the temp store to memory. This will
 		// ensure that temporary files created by SQLite are stored in memory
 		// and not on disk.
-		"PRAGMA temp_store = memory",
+		[]byte("PRAGMA temp_store = memory"),
 	}
 
 	if !con.connectionManager.cluster.Node().IsPrimary() {
@@ -265,16 +269,14 @@ func (con *DatabaseConnection) Closed() bool {
 
 // Commit the current transaction.
 func (con *DatabaseConnection) Commit() error {
-	commitStatemnt, err := con.Statement("COMMIT")
+	commitStatemnt, err := con.Statement([]byte("COMMIT"))
 
 	if err != nil {
 		return err
 	}
 
 	return con.SqliteConnection().Committing(func() error {
-		_, err = commitStatemnt.Sqlite3Statement.Exec()
-
-		return err
+		return commitStatemnt.Sqlite3Statement.Exec(nil)
 	})
 }
 
@@ -297,7 +299,7 @@ func (c *DatabaseConnection) IsUpToDate() bool {
 }
 
 // Prepare a statement for execution.
-func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Statement, error) {
+func (con *DatabaseConnection) Prepare(ctx context.Context, command []byte) (Statement, error) {
 	statment, err := con.sqlite3.Prepare(ctx, command)
 
 	if err != nil {
@@ -311,17 +313,11 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 }
 
 // Execute a query on the database using a transaction.
-func (con *DatabaseConnection) Query(statement *sqlite3.Statement, parameters []sqlite3.StatementParameter) (sqlite3.Result, error) {
+func (con *DatabaseConnection) Query(result *sqlite3.Result, statement *sqlite3.Statement, parameters []sqlite3.StatementParameter) error {
 	return con.Transaction(
 		statement.IsReadonly(),
-		func(con *DatabaseConnection) (sqlite3.Result, error) {
-			result, err := statement.Exec(parameters...)
-
-			if err != nil {
-				return sqlite3.Result{}, err
-			}
-
-			return result, nil
+		func(con *DatabaseConnection) error {
+			return statement.Exec(result, parameters...)
 		})
 }
 
@@ -343,24 +339,26 @@ func (con *DatabaseConnection) RegisterVFS() error {
 	return nil
 }
 
+func (con *DatabaseConnection) ResultPool() *sqlite3.ResultPool {
+	return con.resultPool
+}
+
 // Rollback the current transaction.
 func (con *DatabaseConnection) Rollback() error {
-	commitStatemnt, err := con.Statement("ROLLBACK")
+	commitStatemnt, err := con.Statement([]byte("ROLLBACK"))
 
 	if err != nil {
 		return err
 	}
 
-	_, err = commitStatemnt.Sqlite3Statement.Exec()
-
-	return err
+	return commitStatemnt.Sqlite3Statement.Exec(nil)
 }
 
 // Create a statement for a query.
-func (con *DatabaseConnection) Statement(queryStatement string) (Statement, error) {
+func (con *DatabaseConnection) Statement(queryStatement []byte) (Statement, error) {
 	var err error
 
-	checksum := crc32.ChecksumIEEE(unsafe.Slice(unsafe.StringData(queryStatement), len(queryStatement)))
+	checksum := crc32.ChecksumIEEE(unsafe.Slice(unsafe.SliceData(queryStatement), len(queryStatement)))
 
 	statement, ok := con.statements.Load(checksum)
 
@@ -481,8 +479,8 @@ func (c *DatabaseConnection) setAuthorizer() {
 // Execute a transaction on the database.
 func (con *DatabaseConnection) Transaction(
 	readOnly bool,
-	handler func(con *DatabaseConnection) (sqlite3.Result, error),
-) (sqlite3.Result, error) {
+	handler func(con *DatabaseConnection) error,
+) error {
 	var err error
 
 	if !readOnly {
@@ -497,10 +495,10 @@ func (con *DatabaseConnection) Transaction(
 
 	if err != nil {
 		log.Println("Transaction Error:", err)
-		return sqlite3.Result{}, err
+		return err
 	}
 
-	results, handlerError := handler(con)
+	handlerError := handler(con)
 
 	if handlerError != nil {
 		log.Println("Transaction Error:", handlerError)
@@ -508,24 +506,24 @@ func (con *DatabaseConnection) Transaction(
 
 		if err != nil {
 			log.Println("Transaction Error:", err)
-			return sqlite3.Result{}, err
+			return err
 		}
 
-		return sqlite3.Result{}, handlerError
+		return handlerError
 	}
 
 	err = con.Commit()
 
 	if err != nil {
 		log.Println("Transaction Error:", err)
-		return sqlite3.Result{}, err
+		return err
 	}
 
 	if !readOnly {
 		con.committedAt = time.Now()
 	}
 
-	return results, handlerError
+	return handlerError
 }
 
 // Return the VFS hash for the connection.

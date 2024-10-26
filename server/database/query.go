@@ -1,9 +1,10 @@
 package database
 
 import (
+	"bytes"
 	"litebase/server/auth"
 	"litebase/server/cluster"
-	"strings"
+	"log"
 )
 
 type Query struct {
@@ -22,6 +23,7 @@ func NewQuery(
 	accessKey *auth.AccessKey,
 	input *QueryInput,
 ) (*Query, error) {
+	log.Println("NewQuery", input)
 	return &Query{
 		AccessKey:       accessKey,
 		cluster:         cluster,
@@ -46,24 +48,24 @@ func (q *Query) Validate(statement Statement) error {
 
 func (query *Query) IsDDL() bool {
 	return (len(query.Input.Statement) >= 6 &&
-		(strings.HasPrefix(query.Input.Statement, "create") || strings.HasPrefix(query.Input.Statement, "CREATE") ||
-			strings.HasPrefix(query.Input.Statement, "alter") || strings.HasPrefix(query.Input.Statement, "ALTER") ||
-			strings.HasPrefix(query.Input.Statement, "drop") || strings.HasPrefix(query.Input.Statement, "DROP")))
+		(bytes.HasPrefix(query.Input.Statement, []byte("create")) || bytes.HasPrefix(query.Input.Statement, []byte("CREATE")) ||
+			bytes.HasPrefix(query.Input.Statement, []byte("alter")) || bytes.HasPrefix(query.Input.Statement, []byte("ALTER")) ||
+			bytes.HasPrefix(query.Input.Statement, []byte("drop")) || bytes.HasPrefix(query.Input.Statement, []byte("DROP"))))
 }
 
 func (query *Query) IsDML() bool {
 	return (len(query.Input.Statement) >= 6 &&
-		(strings.HasPrefix(query.Input.Statement, "insert") || strings.HasPrefix(query.Input.Statement, "INSERT") ||
-			strings.HasPrefix(query.Input.Statement, "update") || strings.HasPrefix(query.Input.Statement, "UPDATE") ||
-			strings.HasPrefix(query.Input.Statement, "delete") || strings.HasPrefix(query.Input.Statement, "DELETE")))
+		(bytes.HasPrefix(query.Input.Statement, []byte("insert")) || bytes.HasPrefix(query.Input.Statement, []byte("INSERT")) ||
+			bytes.HasPrefix(query.Input.Statement, []byte("update")) || bytes.HasPrefix(query.Input.Statement, []byte("UPDATE")) ||
+			bytes.HasPrefix(query.Input.Statement, []byte("delete")) || bytes.HasPrefix(query.Input.Statement, []byte("DELETE"))))
 }
 
 func (query *Query) IsDQL() bool {
-	return len(query.Input.Statement) >= 6 && (strings.HasPrefix(query.Input.Statement, "select") || strings.HasPrefix(query.Input.Statement, "SELECT"))
+	return len(query.Input.Statement) >= 6 && (bytes.HasPrefix(query.Input.Statement, []byte("select")) || bytes.HasPrefix(query.Input.Statement, []byte("SELECT")))
 }
 
 func (query *Query) IsPragma() bool {
-	return len(query.Input.Statement) >= 6 && (strings.HasPrefix(query.Input.Statement, "pragma") || strings.HasPrefix(query.Input.Statement, "PRAGMA"))
+	return len(query.Input.Statement) >= 6 && (bytes.HasPrefix(query.Input.Statement, []byte("pragma")) || bytes.HasPrefix(query.Input.Statement, []byte("PRAGMA")))
 }
 
 func (query *Query) IsRead() bool {

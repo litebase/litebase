@@ -12,6 +12,7 @@ func Authorization(request *Request) (*Request, Response) {
 			},
 		}
 	}
+
 	databaseKey := request.DatabaseKey()
 
 	if databaseKey == nil {

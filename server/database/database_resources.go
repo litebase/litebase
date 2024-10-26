@@ -5,6 +5,7 @@ import (
 	"litebase/internal/config"
 	"litebase/server/backups"
 	"litebase/server/file"
+	"litebase/server/sqlite3"
 	"litebase/server/storage"
 	"log"
 	"sync"
@@ -21,6 +22,7 @@ type DatabaseResources struct {
 	checkpointer    *Checkpointer
 	fileSystem      *storage.DurableDatabaseFileSystem
 	mutex           *sync.RWMutex
+	resultPool      *sqlite3.ResultPool
 	rollbackLogger  *backups.RollbackLogger
 	tempFileSystem  *storage.TempDatabaseFileSystem
 	tieredFS        *storage.FileSystem
@@ -187,8 +189,34 @@ func (d *DatabaseResources) Remove() {
 	d.snapshotLogger = nil
 	d.checkpointer = nil
 	d.fileSystem = nil
+	d.resultPool = nil
 	d.rollbackLogger = nil
 	d.tempFileSystem = nil
+}
+
+// Return the result pool for the database.
+func (d *DatabaseResources) ResultPool() *sqlite3.ResultPool {
+	d.mutex.RLock()
+
+	if d.resultPool != nil {
+		d.mutex.RUnlock()
+
+		return d.resultPool
+	}
+
+	d.mutex.RUnlock()
+
+	pool := sqlite3.NewResultPool()
+
+	d.mutex.Lock()
+
+	if d.resultPool == nil {
+		d.resultPool = pool
+	}
+
+	d.mutex.Unlock()
+
+	return d.resultPool
 }
 
 // Return the SnapshotLogger for the database.

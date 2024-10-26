@@ -73,7 +73,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseId, source.BranchId, db)
 
 		// Create a test table and insert some data
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)"))
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -86,12 +86,12 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		}
 
 		// Insert some test data
-		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
+		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte([]byte("BEGIN")))
 
 		for i := 0; i < 1000; i++ {
 			_, err = db.GetConnection().SqliteConnection().Exec(
 				context.Background(),
-				"INSERT INTO test (value) VALUES (?)",
+				[]byte("INSERT INTO test (value) VALUES (?)"),
 				sqlite3.StatementParameter{
 					Type:  "TEXT",
 					Value: "value",
@@ -103,7 +103,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			}
 		}
 
-		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
+		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("COMMIT"))
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
@@ -112,12 +112,12 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		}
 
 		// Insert some test data
-		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
+		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("BEGIN"))
 
 		for i := 0; i < 1000; i++ {
 			_, err = db.GetConnection().SqliteConnection().Exec(
 				context.Background(),
-				"INSERT INTO test (value) VALUES (?)",
+				[]byte("INSERT INTO test (value) VALUES (?)"),
 				sqlite3.StatementParameter{
 					Type:  "TEXT",
 					Value: "value",
@@ -129,7 +129,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			}
 		}
 
-		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
+		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("COMMIT"))
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
@@ -196,7 +196,7 @@ func TestRestoreFromTimestamp(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(target.DatabaseId, target.BranchId, db)
 
 		// Verify the data is restored correctly
-		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
+		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT * FROM test"))
 
 		if err == nil || err.Error() != "SQLite3 Error[1]: no such table: test" {
 			t.Errorf("Expected an error indicating the table does not exist, got %v", err)
@@ -230,7 +230,7 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseId, source.BranchId, db)
 
 		// Create a test table and insert some data
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)"))
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -243,12 +243,12 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		}
 
 		// Insert some test data
-		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
+		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("BEGIN"))
 
 		for i := 0; i < 1000; i++ {
 			_, err = db.GetConnection().SqliteConnection().Exec(
 				context.Background(),
-				"INSERT INTO test (value) VALUES (?)",
+				[]byte("INSERT INTO test (value) VALUES (?)"),
 				sqlite3.StatementParameter{
 					Type:  "TEXT",
 					Value: "value",
@@ -260,7 +260,7 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 			}
 		}
 
-		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
+		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("COMMIT"))
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
@@ -336,7 +336,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseId, source.BranchId, db)
 
 				// Create a test table and insert some data
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
+				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)"))
 
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
@@ -351,12 +351,12 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				time.Sleep(timeout) // Ensure a different timestamp
 
 				// Insert some test data
-				db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
+				db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("BEGIN"))
 
 				for i := 0; i < 1000; i++ {
 					_, err = db.GetConnection().SqliteConnection().Exec(
 						context.Background(),
-						"INSERT INTO test (value) VALUES (?)",
+						[]byte("INSERT INTO test (value) VALUES (?)"),
 						sqlite3.StatementParameter{
 							Type:  "TEXT",
 							Value: "value",
@@ -368,7 +368,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					}
 				}
 
-				db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
+				db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("COMMIT"))
 				err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 				if err != nil {
@@ -378,12 +378,12 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				time.Sleep(timeout) // Ensure a different timestamp
 
 				// Insert some test data
-				db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
+				db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("BEGIN"))
 
 				for i := 0; i < 1000; i++ {
 					_, err = db.GetConnection().SqliteConnection().Exec(
 						context.Background(),
-						"INSERT INTO test (value) VALUES (?)",
+						[]byte("INSERT INTO test (value) VALUES (?)"),
 						sqlite3.StatementParameter{
 							Type:  "TEXT",
 							Value: "value",
@@ -395,7 +395,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 					}
 				}
 
-				db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
+				db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("COMMIT"))
 
 				err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
@@ -462,7 +462,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				defer app.DatabaseManager.ConnectionManager().Release(target.DatabaseId, target.BranchId, db)
 
 				// Verify the data is restored correctly
-				result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
+				result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT * FROM test"))
 
 				if err == nil || err.Error() != "SQLite3 Error[1]: no such table: test" {
 					t.Errorf("Expected an error indicating the table does not exist, got %v", err)

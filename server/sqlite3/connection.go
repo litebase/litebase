@@ -222,12 +222,12 @@ func go_commit_hook(connectionHandle C.uintptr_t) {
 }
 
 // Execute a query
-func (c *Connection) Exec(ctx context.Context, query string, params ...StatementParameter) (Result, error) {
+func (c *Connection) Exec(ctx context.Context, query []byte, params ...StatementParameter) (*Result, error) {
 	var stmt *Statement
 	var err error
 
 	if stmt, err = c.Prepare(ctx, query); err != nil {
-		return Result{}, err
+		return nil, err
 	}
 
 	defer func() {
@@ -238,7 +238,11 @@ func (c *Connection) Exec(ctx context.Context, query string, params ...Statement
 		}
 	}()
 
-	return stmt.Exec(params...)
+	result := NewResult()
+
+	stmt.Exec(result, params...)
+
+	return result, nil
 }
 
 // Interrupt all queries for connection

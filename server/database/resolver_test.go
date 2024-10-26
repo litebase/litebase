@@ -18,20 +18,20 @@ func TestHandle(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
 
 		cases := []struct {
-			statement  string
+			statement  []byte
 			parameters []sqlite3.StatementParameter
 			expected   string
 		}{
 			{
-				"SELECT * FROM users",
+				[]byte("SELECT * FROM users"),
 				[]sqlite3.StatementParameter{},
 				`success`,
 			},
 			{
-				"SELECT * FROM users LIMIT ?",
+				[]byte("SELECT * FROM users LIMIT ?"),
 				[]sqlite3.StatementParameter{
 					{
 						Type:  "INTEGER",
@@ -41,7 +41,7 @@ func TestHandle(t *testing.T) {
 				`success`,
 			},
 			{
-				"?SELECT * FROM users",
+				[]byte("?SELECT * FROM users"),
 				[]sqlite3.StatementParameter{},
 				`error`,
 			},
@@ -58,7 +58,7 @@ func TestHandle(t *testing.T) {
 				&database.QueryInput{
 					Statement:  c.statement,
 					Parameters: c.parameters,
-					Id:         "",
+					Id:         []byte(""),
 				},
 			)
 

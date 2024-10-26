@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"litebase/server/sqlite3"
+	"math"
 	"sync"
 )
 
@@ -42,11 +43,11 @@ type Row interface {
 type QueryResponse struct {
 	changes         int64
 	columns         []string
-	id              string
+	id              []byte
 	latency         float64
 	lastInsertRowId int64
 	rowCount        int
-	rows            [][]sqlite3.Column
+	rows            [][]*sqlite3.Column
 }
 
 type QueryJsonResponse struct {
@@ -57,10 +58,10 @@ type QueryJsonResponse struct {
 func NewQueryResponse(
 	changes int64,
 	columns []string,
-	id string,
+	id []byte,
 	latency float64,
 	lastInsertRowId int64,
-	rows [][]sqlite3.Column,
+	rows [][]*sqlite3.Column,
 ) *QueryResponse {
 	return &QueryResponse{
 		changes:         changes,
@@ -81,70 +82,87 @@ func (qr *QueryResponse) Columns() []string {
 	return qr.columns
 }
 
-func (qr *QueryResponse) Encode(buffer *bytes.Buffer) ([]byte, error) {
-	buffer.Reset()
+func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes.Buffer) ([]byte, error) {
+	responseBuffer.Reset()
 	// Version
-	binary.Write(buffer, binary.LittleEndian, uint32(1))
+	responseBuffer.WriteByte(uint8(1))
 	// Changes
-	binary.Write(buffer, binary.LittleEndian, uint32(qr.changes))
+	var changesBytes [4]byte
+	binary.LittleEndian.PutUint32(changesBytes[:], uint32(qr.changes))
+	responseBuffer.Write(changesBytes[:])
 	// Latency
-	binary.Write(buffer, binary.LittleEndian, qr.latency)
+	var latencyBytes [8]byte
+	binary.LittleEndian.PutUint64(latencyBytes[:], math.Float64bits(qr.latency))
+	responseBuffer.Write(latencyBytes[:])
 	// Column count
-	binary.Write(buffer, binary.LittleEndian, uint32(len(qr.columns)))
+	var columnCountBytes [4]byte
+	binary.LittleEndian.PutUint32(columnCountBytes[:], uint32(len(qr.columns)))
+	responseBuffer.Write(columnCountBytes[:])
 	// Row count
-	binary.Write(buffer, binary.LittleEndian, uint32(qr.rowCount))
+	var rowCountBytes [4]byte
+	binary.LittleEndian.PutUint32(rowCountBytes[:], uint32(qr.rowCount))
+	responseBuffer.Write(rowCountBytes[:])
 	// Last insert row ID
-	binary.Write(buffer, binary.LittleEndian, uint32(qr.lastInsertRowId))
+	var lastInsertRowIdBytes [4]byte
+	binary.LittleEndian.PutUint32(lastInsertRowIdBytes[:], uint32(qr.lastInsertRowId))
+	responseBuffer.Write(lastInsertRowIdBytes[:])
 	// ID length
-	binary.Write(buffer, binary.LittleEndian, uint32(len(qr.id)))
+	var idLengthBytes [4]byte
+	binary.LittleEndian.PutUint32(idLengthBytes[:], uint32(len(qr.id)))
+	responseBuffer.Write(idLengthBytes[:])
 	// ID
-	buffer.Write([]byte(qr.id))
+	responseBuffer.Write([]byte(qr.id))
 
-	// Encode the columns
-	var columnsData bytes.Buffer
+	// Calculate the length of the columns data to be written and write it
+	// to the response buffer before writing the columns data.
+	columnDataLength := 0
 
 	for _, column := range qr.columns {
-		// Column length
-		binary.Write(&columnsData, binary.LittleEndian, uint32(len(column)))
-		// Column
-		columnsData.Write([]byte(column))
+		columnDataLength = columnDataLength + 4 + len(column)
 	}
 
 	// Columns length
-	binary.Write(buffer, binary.LittleEndian, uint32(columnsData.Len()))
+	var columnsLengthBytes [4]byte
+	binary.LittleEndian.PutUint32(columnsLengthBytes[:], uint32(columnDataLength))
+	responseBuffer.Write(columnsLengthBytes[:])
 
-	// Columns Data
-	buffer.Write(columnsData.Bytes())
+	// Encode the columns
+	var columnLengthBytes [4]byte
+
+	for _, column := range qr.columns {
+		// Column length
+		binary.LittleEndian.PutUint32(columnLengthBytes[:], uint32(len(column)))
+		responseBuffer.Write(columnLengthBytes[:])
+
+		// Column
+		responseBuffer.Write([]byte(column))
+	}
 
 	// Rows
-	var rowsData bytes.Buffer
-	var columnBuffer bytes.Buffer
-
 	for _, row := range qr.rows {
-		rowData := make([]byte, 0)
+		rowsBuffer.Reset()
 
 		// Encode each row in the column
 		for _, column := range row {
-			columnData, err := column.Encode(&columnBuffer)
+			err := column.Encode(columnsBuffer)
 
 			if err != nil {
 				return nil, err
 			}
 
-			rowData = append(rowData, columnData...)
+			rowsBuffer.Write(columnsBuffer.Bytes())
 		}
 
 		// Write the row length
-		binary.Write(&rowsData, binary.LittleEndian, uint32(len(rowData)))
+		var rowLengthBytes [4]byte
+		binary.LittleEndian.PutUint32(rowLengthBytes[:], uint32(rowsBuffer.Len()))
+		responseBuffer.Write(rowLengthBytes[:])
 
 		// Write the row data
-		rowsData.Write(rowData)
+		responseBuffer.Write(rowsBuffer.Bytes())
 	}
 
-	// Write the rows data
-	buffer.Write(rowsData.Bytes())
-
-	return buffer.Bytes(), nil
+	return responseBuffer.Bytes(), nil
 }
 
 func (qr *QueryResponse) JsonResponse() QueryJsonResponse {
@@ -154,7 +172,7 @@ func (qr *QueryResponse) JsonResponse() QueryJsonResponse {
 	}
 }
 
-func (qr *QueryResponse) Id() string {
+func (qr *QueryResponse) Id() []byte {
 	return qr.id
 }
 
@@ -176,13 +194,13 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 
 	err := encoder.Encode(&struct {
 		*Alias
-		Changes         int64              `json:"changes"`
-		Columns         []string           `json:"columns"`
-		ID              string             `json:"id"`
-		Latency         float64            `json:"latency"`
-		LastInsertRowID int64              `json:"lastInsertRowID"`
-		RowCount        int                `json:"rowCount"`
-		Rows            [][]sqlite3.Column `json:"rows"`
+		Changes         int64               `json:"changes"`
+		Columns         []string            `json:"columns"`
+		ID              []byte              `json:"id"`
+		Latency         float64             `json:"latency"`
+		LastInsertRowID int64               `json:"lastInsertRowID"`
+		RowCount        int                 `json:"rowCount"`
+		Rows            [][]*sqlite3.Column `json:"rows"`
 	}{
 		Alias:           (*Alias)(qr),
 		Changes:         qr.changes,
@@ -204,7 +222,7 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 func (qr *QueryResponse) Reset() {
 	qr.changes = 0
 	qr.columns = qr.columns[:0]
-	qr.id = ""
+	qr.id = []byte{}
 	qr.latency = 0
 	qr.lastInsertRowId = 0
 	qr.rowCount = 0
@@ -215,7 +233,7 @@ func (qr *QueryResponse) RowCount() int {
 	return qr.rowCount
 }
 
-func (qr *QueryResponse) Rows() [][]sqlite3.Column {
+func (qr *QueryResponse) Rows() [][]*sqlite3.Column {
 	return qr.rows
 }
 
@@ -235,7 +253,7 @@ func (qr *QueryResponse) SetColumns(columns []string) {
 	copy(qr.columns, columns)
 }
 
-func (qr *QueryResponse) SetId(id string) {
+func (qr *QueryResponse) SetId(id []byte) {
 	qr.id = id
 }
 
@@ -251,13 +269,13 @@ func (qr *QueryResponse) SetRowCount(rowCount int) {
 	qr.rowCount = rowCount
 }
 
-func (qr *QueryResponse) SetRows(rows [][]sqlite3.Column) {
+func (qr *QueryResponse) SetRows(rows [][]*sqlite3.Column) {
 	if cap(qr.rows) >= len(rows) {
 		// Reuse the existing slice's capacity
 		qr.rows = qr.rows[:len(rows)]
 	} else {
 		// Allocate a new slice with the required capacity
-		qr.rows = make([][]sqlite3.Column, len(rows))
+		qr.rows = make([][]*sqlite3.Column, len(rows))
 	}
 
 	for i, row := range rows {
@@ -266,7 +284,7 @@ func (qr *QueryResponse) SetRows(rows [][]sqlite3.Column) {
 			qr.rows[i] = qr.rows[i][:len(row)]
 		} else {
 			// Allocate a new slice with the required capacity
-			qr.rows[i] = make([]sqlite3.Column, len(row))
+			qr.rows[i] = make([]*sqlite3.Column, len(row))
 		}
 
 		copy(qr.rows[i], row)

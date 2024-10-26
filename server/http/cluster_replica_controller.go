@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"litebase/server/cluster"
+	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
 )
@@ -22,7 +23,7 @@ func ClusterReplicaController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			var message cluster.NodeMessage
+			var message messages.NodeMessage
 			decoder := gob.NewDecoder(request.BaseRequest.Body)
 			err := decoder.Decode(&message)
 

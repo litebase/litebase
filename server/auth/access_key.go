@@ -111,7 +111,6 @@ func (accessKey AccessKey) CanAccess(databaseId, branchId string) error {
 	}
 
 	return NewDatabaseAccessError()
-
 }
 
 func (accessKey AccessKey) CanAlter(databaseId, branchId string, args []string) (bool, error) {

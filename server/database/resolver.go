@@ -3,7 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
-	"litebase/server/cluster"
+	"litebase/server/cluster/messages"
 	"litebase/server/logs"
 	"litebase/server/sqlite3"
 	"log"
@@ -25,7 +25,7 @@ func ResolveQuery(query *Query, response *QueryResponse) error {
 func resolveQueryLocally(query *Query, response *QueryResponse) error {
 	return resolveWithQueue(query, response, func(query *Query, response *QueryResponse) error {
 		start := time.Now()
-		var sqlite3Result sqlite3.Result
+		var sqlite3Result *sqlite3.Result
 		var statement Statement
 		var changes int64
 		var lastInsertRowID int64
@@ -45,7 +45,6 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		db = db.WithAccessKey(query.AccessKey)
 
 		if query.IsPragma() {
-			log.Println("Executing pragma query")
 			sqlite3Result, err = db.GetConnection().SqliteConnection().Exec(db.GetConnection().Context(), query.Input.Statement)
 			changes = db.GetConnection().Changes()
 		} else {
@@ -58,7 +57,13 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 				// 	return QueryResponse{}, err
 				// }
 
-				sqlite3Result, err = db.GetConnection().Query(
+				sqlite3Result = db.GetConnection().ResultPool().Get()
+				defer db.GetConnection().ResultPool().Put(sqlite3Result)
+
+				sqlite3Result.Reset()
+
+				err = db.GetConnection().Query(
+					sqlite3Result,
 					statement.Sqlite3Statement,
 					query.Input.Parameters,
 				)
@@ -75,13 +80,13 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 			return err
 		}
 
-		response.Changes = changes
-		response.Columns = sqlite3Result.Columns
-		response.Id = query.Input.Id
-		response.LastInsertRowId = lastInsertRowID
-		response.Latency = float64(time.Since(start)) / float64(time.Millisecond)
-		response.Rows = sqlite3Result.Rows
-		response.RowCount = len(sqlite3Result.Rows)
+		response.SetChanges(changes)
+		response.SetColumns(sqlite3Result.Columns)
+		response.SetId(query.Input.Id)
+		response.SetLastInsertRowId(lastInsertRowID)
+		response.SetLatency(float64(time.Since(start)) / float64(time.Millisecond))
+		response.SetRows(sqlite3Result.Rows)
+		response.SetRowCount(len(sqlite3Result.Rows))
 
 		logs.Query(
 			logs.QueryLogEnry{
@@ -91,7 +96,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 				BranchId:     query.DatabaseKey.BranchId,
 				AccessKeyId:  query.AccessKey.AccessKeyId,
 				Statement:    query.Input.Statement,
-				Latency:      response.Latency,
+				Latency:      response.Latency(),
 			},
 		)
 
@@ -125,17 +130,13 @@ func resolveWithQueue(
 
 func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 	primaryResponse, err := query.cluster.Node().Send(
-		cluster.NodeMessage{
-			Id:   fmt.Sprintf("query:%s", query.Input.Id),
-			Type: "QueryMessage",
-			Data: cluster.QueryMessage{
-				AccessKeyId: query.AccessKey.AccessKeyId,
-				BranchId:    query.DatabaseKey.BranchId,
-				DatabaseId:  query.DatabaseKey.DatabaseId,
-				Id:          query.Input.Id,
-				Statement:   query.Input.Statement,
-				Parameters:  query.Input.Parameters,
-			},
+		messages.QueryMessage{
+			AccessKeyId: query.AccessKey.AccessKeyId,
+			BranchId:    query.DatabaseKey.BranchId,
+			DatabaseId:  query.DatabaseKey.DatabaseId,
+			ID:          query.Input.Id,
+			Statement:   query.Input.Statement,
+			Parameters:  query.Input.Parameters,
 		},
 	)
 
@@ -144,24 +145,25 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 		return errors.New("error forwarding query to primary")
 	}
 
-	if primaryResponse.Type == "Error" {
-		return fmt.Errorf(primaryResponse.Error)
+	if primaryResponse.Type() == "Error" {
+		return fmt.Errorf(primaryResponse.Error())
 	}
 
-	if primaryResponse.Type != "QueryMessageResponse" {
+	if primaryResponse.Type() != "QueryMessageResponse" {
 		return fmt.Errorf("unexpected response from primary")
 	}
 
-	response.Changes = primaryResponse.Data.(cluster.QueryMessageResponse).Changes
-	response.Columns = primaryResponse.Data.(cluster.QueryMessageResponse).Columns
-	response.Latency = primaryResponse.Data.(cluster.QueryMessageResponse).Latency
-	response.LastInsertRowId = primaryResponse.Data.(cluster.QueryMessageResponse).LastInsertRowID
-	response.RowCount = primaryResponse.Data.(cluster.QueryMessageResponse).RowCount
-	response.Rows = primaryResponse.Data.(cluster.QueryMessageResponse).Rows
+	response.SetChanges(primaryResponse.(messages.QueryMessageResponse).Changes)
+	response.SetColumns(primaryResponse.(messages.QueryMessageResponse).Columns)
+	response.SetLatency(primaryResponse.(messages.QueryMessageResponse).Latency)
+	response.SetLastInsertRowId(primaryResponse.(messages.QueryMessageResponse).LastInsertRowID)
+	response.SetRowCount(primaryResponse.(messages.QueryMessageResponse).RowCount)
+	response.SetRows(primaryResponse.(messages.QueryMessageResponse).Rows)
 
 	return nil
 }
 
 func shouldForwardToPrimary(query *Query) bool {
-	return (query.IsPragma() || query.IsDML()) && query.cluster.Node().Membership != cluster.ClusterMembershipPrimary
+	return !query.cluster.Node().IsPrimary() &&
+		(query.IsPragma() || query.IsDML())
 }

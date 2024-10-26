@@ -35,9 +35,10 @@ type QueryLog struct {
 }
 
 type QueryLogEnry struct {
-	Cluster                                                    *cluster.Cluster
-	DatabaseHash, DatabaseId, BranchId, AccessKeyId, Statement string
-	Latency                                                    float64
+	Cluster                                         *cluster.Cluster
+	DatabaseHash, DatabaseId, BranchId, AccessKeyId string
+	Statement                                       []byte
+	Latency                                         float64
 }
 
 var queryLoggers = make(map[string]*QueryLog)
@@ -318,7 +319,7 @@ func (q *QueryLog) Watch() {
 	}()
 }
 
-func (q *QueryLog) Write(accessKeyId, statement string, latency float64) {
+func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) {
 	timestamp := time.Now().UTC().Truncate(time.Second)
 
 	buffer := queryLogBuffer.Get().(*bytes.Buffer)

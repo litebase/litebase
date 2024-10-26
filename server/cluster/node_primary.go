@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"litebase/internal/config"
+	"litebase/server/cluster/messages"
 	"log"
 	"sync"
 )
@@ -22,114 +23,96 @@ func NewNodePrimary(node *Node) *NodePrimary {
 	return primary
 }
 
-func (np *NodePrimary) HandleMessage(message NodeMessage) (NodeMessage, error) {
-	var responseMessage NodeMessage
+func (np *NodePrimary) HandleMessage(message messages.NodeMessage) (messages.NodeMessage, error) {
+	var responseMessage messages.NodeMessage
 
-	switch message.Type {
+	switch message.Type() {
 	case "HeartbeatMessage":
 		isPrimary := np.node.VerifyPrimaryStatus()
 
 		if !isPrimary {
-			responseMessage = NodeMessage{
-				Id:   message.Id,
-				Type: "ErrorMessage",
-				Data: ErrorMessage{
-					Message: "Node is not primary",
-				},
+			responseMessage = messages.ErrorMessage{
+				ID:      message.Id(),
+				Message: "Node is not primary",
 			}
 		} else {
-			responseMessage = NodeMessage{
-				Id:   message.Id,
-				Type: "ErrorMessage",
-				Data: ErrorMessage{
-					Message: "Node is the primary",
-				},
+			responseMessage = messages.ErrorMessage{
+				ID:      message.Id(),
+				Message: "Node is the primary",
 			}
 		}
 	case "NodeConnectionMessage":
-		responseMessage = NodeMessage{
-			Id:   message.Id,
-			Type: "NodeConnectionMessage",
+		responseMessage = messages.NodeConnectionMessage{
+			ID: message.Id(),
 		}
 	case "QueryMessage":
 		responseMessage = np.handleQueryMessage(message)
 	default:
 		log.Println("Invalid message type: ", message.Type)
-		responseMessage = NodeMessage{
-			Error: "invalid message type",
-			Id:    message.Id,
-			Type:  "Error",
+		responseMessage = messages.ErrorMessage{
+			ID:      message.Id(),
+			Message: "invalid message type",
 		}
 	}
 
-	if responseMessage != (NodeMessage{}) {
+	if responseMessage != nil {
 		return responseMessage, nil
 	}
 
-	return NodeMessage{}, nil
+	return nil, nil
 }
 
-func (np *NodePrimary) handleQueryMessage(message NodeMessage) NodeMessage {
+func (np *NodePrimary) handleQueryMessage(message messages.NodeMessage) messages.NodeMessage {
 	query, err := np.node.queryBuilder.Build(
-		message.Data.(QueryMessage).AccessKeyId,
-		message.Data.(QueryMessage).DatabaseHash,
-		message.Data.(QueryMessage).DatabaseId,
-		message.Data.(QueryMessage).BranchId,
-		message.Data.(QueryMessage).Statement,
-		message.Data.(QueryMessage).Parameters,
-		message.Data.(QueryMessage).Id,
+		message.(messages.QueryMessage).AccessKeyId,
+		message.(messages.QueryMessage).DatabaseHash,
+		message.(messages.QueryMessage).DatabaseId,
+		message.(messages.QueryMessage).BranchId,
+		message.(messages.QueryMessage).Statement,
+		message.(messages.QueryMessage).Parameters,
+		message.(messages.QueryMessage).Id(),
 	)
 
 	if err != nil {
 		log.Println("Failed to build query: ", err)
 
-		return NodeMessage{
-			Error: err.Error(),
-			Id:    message.Id,
-			Type:  "Error",
+		return messages.ErrorMessage{
+			Message: err.Error(),
+			ID:      message.Id(),
 		}
 	}
 
-	// TODO: Implement this, needs to be an instance of query.QueryResponse
 	var response NodeQueryResponse
 
 	err = query.Resolve(response)
 
 	if err != nil {
 		log.Println("Failed to process query message: ", err)
-		return NodeMessage{
-			Error: err.Error(),
-			Id:    message.Id,
-			Type:  "Error",
+		return messages.ErrorMessage{
+			Message: err.Error(),
+			ID:      message.Id(),
 		}
 	}
 
-	jsonData, _ := response.ToJSON()
-
-	return NodeMessage{
-		Id:   message.Id,
-		Type: "QueryMessageResponse",
-		Data: jsonData,
-		// Data: QueryMessageResponse{
-		// 	Changes:         response.Changes,
-		// 	Columns:         response.Columns(),
-		// 	Latency:   response.Latency(),
-		// 	LastInsertRowID: response.LastInsertRowId(),
-		// 	RowCount:        response.RowCount(),
-		// 	Rows:            response.Rows(),
-		// },
+	return messages.QueryMessageResponse{
+		Changes:         response.Changes(),
+		Columns:         response.Columns(),
+		ID:              message.Id(),
+		LastInsertRowID: response.LastInsertRowId(),
+		Latency:         response.Latency(),
+		RowCount:        response.RowCount(),
+		Rows:            response.Rows(),
 	}
 }
 
 // Send the heatbeat message to the replica nodes.
 func (np *NodePrimary) Heartbeat() error {
-	return np.Publish(NodeMessage{
-		Id:   "broadcast",
-		Type: "HeartbeatMessage",
+	return np.Publish(messages.HeartbeatMessage{
+		ID: []byte("broadcast"),
 	})
 }
 
-func (np *NodePrimary) Publish(nodeMessage NodeMessage) error {
+func (np *NodePrimary) Publish(nodeMessage messages.NodeMessage) error {
 	var nodes []*NodeIdentifier
 
 	if np.node == nil || np.node.cluster == nil {

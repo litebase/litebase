@@ -33,11 +33,17 @@ func CreateHash(length int) string {
 func MockDatabase(app *server.App) TestDatabase {
 	accessKeyId := CreateHash(32)
 
-	// accessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "accessKeySecret")
-	// serverAccessKeySecret, _ := auth.SecretsManager().Encrypt(config.Get().Signature, "serverAccessKeySecret")
+	accessKeySecret, _ := app.Auth.SecretsManager.Encrypt(app.Config.Signature, "accessKeySecret")
 
 	accessKey := &auth.AccessKey{
-		AccessKeyId: accessKeyId,
+		AccessKeyId:     accessKeyId,
+		AccessKeySecret: accessKeySecret,
+		Permissions: []*auth.AccessKeyPermission{
+			{
+				Resource: "*",
+				Actions:  []string{"*"},
+			},
+		},
 	}
 
 	app.Auth.SecretsManager.StoreAccessKey(accessKey)
@@ -55,19 +61,24 @@ func MockDatabase(app *server.App) TestDatabase {
 			DatabaseHash: file.DatabaseHash(db.Id, db.PrimaryBranchId),
 			DatabaseId:   db.Id,
 			BranchId:     db.PrimaryBranchId,
+			Key:          db.Key(db.PrimaryBranchId),
 		},
 		AccessKey: accessKey,
 	}
 }
 
-func RunQuery(db *database.ClientConnection, statement string, parameters []sqlite3.StatementParameter) sqlite3.Result {
+func RunQuery(db *database.ClientConnection, statement []byte, parameters []sqlite3.StatementParameter) sqlite3.Result {
 	sqliteStatement, err := db.GetConnection().SqliteConnection().Prepare(db.GetConnection().Context(), statement)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	result, err := db.GetConnection().Query(
+	result := db.GetConnection().ResultPool().Get()
+	defer db.GetConnection().ResultPool().Put(result)
+
+	err = db.GetConnection().Query(
+		result,
 		sqliteStatement,
 		parameters,
 	)
@@ -76,5 +87,5 @@ func RunQuery(db *database.ClientConnection, statement string, parameters []sqli
 		log.Fatal(err)
 	}
 
-	return result
+	return *result
 }
