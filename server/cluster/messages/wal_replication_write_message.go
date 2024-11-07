@@ -10,15 +10,3 @@ type WALReplicationWriteMessage struct {
 	Sha256     [32]byte
 	Timestamp  int64
 }
-
-func (w WALReplicationWriteMessage) Error() string {
-	return ""
-}
-
-func (w WALReplicationWriteMessage) Id() []byte {
-	return w.ID
-}
-
-func (w WALReplicationWriteMessage) Type() string {
-	return "WALReplicationWriteMessage"
-}

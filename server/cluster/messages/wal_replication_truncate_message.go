@@ -8,15 +8,3 @@ type WALReplicationTruncateMessage struct {
 	Sequence   int64
 	Timestamp  int64
 }
-
-func (w WALReplicationTruncateMessage) Error() string {
-	return ""
-}
-
-func (w WALReplicationTruncateMessage) Id() []byte {
-	return w.ID
-}
-
-func (w WALReplicationTruncateMessage) Type() string {
-	return "WALReplicationTruncateMessage"
-}
