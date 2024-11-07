@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"litebase/server/cluster/messages"
@@ -31,34 +32,35 @@ const (
 var addressProvider func() string
 
 type Node struct {
-	address            string
-	cancel             context.CancelFunc
-	cluster            *Cluster
-	context            context.Context
-	electionMoratorium time.Time
-	election           *ClusterElection
-	electionRunning    bool
-	hasNomination      bool
-	initialized        bool
-	joinedClusterAt    time.Time
-	lastActive         time.Time
-	Id                 string
-	LeaseExpiresAt     int64
-	LeaseRenewedAt     time.Time
-	Membership         string
-	mutex              *sync.Mutex
-	primaryAddress     string
-	primary            *NodePrimary
-	PrimaryHeartbeat   time.Time
-	replica            *NodeReplica
-	queryBuilder       NodeQueryBuilder
-	requestTicker      *time.Ticker
-	State              string
-	standBy            chan struct{}
-	startedAt          time.Time
-	storedAddressAt    time.Time
-	walReplicator      *NodeWalReplicator
-	walSynchronizer    NodeWalSynchronizer
+	address                 string
+	cancel                  context.CancelFunc
+	cluster                 *Cluster
+	context                 context.Context
+	electionMoratorium      time.Time
+	election                *ClusterElection
+	electionRunning         bool
+	hasNomination           bool
+	initialized             bool
+	joinedClusterAt         time.Time
+	lastActive              time.Time
+	Id                      string
+	LeaseExpiresAt          int64
+	LeaseRenewedAt          time.Time
+	Membership              string
+	mutex                   *sync.Mutex
+	primaryAddress          string
+	primary                 *NodePrimary
+	PrimaryHeartbeat        time.Time
+	replica                 *NodeReplica
+	queryBuilder            NodeQueryBuilder
+	ReplicationGroupManager *NodeReplicationGroupManager
+	requestTicker           *time.Ticker
+	State                   string
+	standBy                 chan struct{}
+	startedAt               time.Time
+	storedAddressAt         time.Time
+	walReplicator           *NodeWalReplicator
+	walSynchronizer         NodeWalSynchronizer
 }
 
 // Create a new instance of a node.
@@ -72,6 +74,8 @@ func NewNode(cluster *Cluster) *Node {
 		standBy:    make(chan struct{}),
 		State:      NodeStateActive,
 	}
+
+	node.ReplicationGroupManager = NewNodeReplicationGroupManager(node)
 
 	hash := sha256.Sum256([]byte(node.Address()))
 	node.Id = hex.EncodeToString(hash[:])
@@ -364,8 +368,12 @@ func (n *Node) primaryFileVerification() bool {
 }
 
 // As the Primary, publish messages to the replicas of the cluster group.
-func (n *Node) Publish(nodeMessage messages.NodeMessage) error {
-	return n.primary.Publish(nodeMessage)
+func (n *Node) Publish(message messages.NodeMessage) error {
+	if n.primary == nil {
+		return errors.New("node is not the primary")
+	}
+
+	return n.primary.Publish(message)
 }
 
 // Release the lease and remove the primary status from the node. This should
@@ -415,7 +423,6 @@ func (n *Node) removeAddress() error {
 }
 
 func (n *Node) removePrimaryStatus() error {
-	log.Println("REMOVING PRIMARY STATUS", n.Address())
 	// Release the lease
 	n.releaseLease()
 
@@ -767,6 +774,8 @@ func (n *Node) Shutdown() error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
+	n.cluster.ShutdownStorage()
+
 	if n.IsPrimary() {
 		n.Primary().Shutdown()
 		n.removePrimaryStatus()
@@ -858,8 +867,8 @@ func (n *Node) Tick() {
 	}
 }
 
-func (n *Node) Send(nodeMessage messages.NodeMessage) (messages.NodeMessage, error) {
-	return n.replica.Send(nodeMessage)
+func (n *Node) Send(message interface{}) (interface{}, error) {
+	return n.replica.Send(message)
 }
 
 func (n *Node) SendEvent(node *NodeIdentifier, message NodeEvent) error {

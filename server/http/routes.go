@@ -174,13 +174,6 @@ func LoadRoutes(router *RouterInstance) {
 	).Timeout(0)
 
 	router.Post(
-		"/cluster/replica",
-		ClusterReplicaController,
-	).Middleware(
-		[]Middleware{Internal},
-	).Timeout(0)
-
-	router.Post(
 		"/databases/{databaseId}/{branchId}/settings/purge",
 		DatabaseSettingsPurgeController,
 	).Middleware([]Middleware{

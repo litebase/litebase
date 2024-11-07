@@ -31,7 +31,7 @@ type NodeConnection struct {
 	node            *Node
 	open            bool
 	reader          *io.PipeReader
-	response        chan messages.NodeMessage
+	response        chan interface{}
 	writer          *io.PipeWriter
 	writeBuffer     *bufio.Writer
 }
@@ -48,7 +48,7 @@ func NewNodeConnection(node *Node, address string) *NodeConnection {
 		node:            node,
 		open:            false,
 		reader:          nil,
-		response:        make(chan messages.NodeMessage),
+		response:        make(chan interface{}),
 		writer:          nil,
 		writeBuffer:     nil,
 	}
@@ -102,6 +102,8 @@ func (nc *NodeConnection) connect() error {
 	select {
 	case <-nc.node.Context().Done():
 		return errors.New("node context closed")
+	case <-nc.context.Done():
+		return errors.New("connection context closed")
 	case <-nc.connected:
 	case err := <-nc.errorChan:
 		return err
@@ -224,7 +226,11 @@ func (nc *NodeConnection) read(reader io.Reader) {
 
 			nc.inactiveTimeout.Reset(NodeConnectionInactiveTimeout)
 
-			if response.Type() == "NodeConnectionMessage" {
+			switch message := response.Data.(type) {
+			case messages.ErrorMessage:
+				nc.errorChan <- errors.New(message.Message)
+				return
+			case messages.NodeConnectionMessage:
 				nc.open = true
 				nc.connecting = false
 				nc.connected <- struct{}{}
@@ -237,7 +243,7 @@ func (nc *NodeConnection) read(reader io.Reader) {
 }
 
 // Send a request to the node.
-func (nc *NodeConnection) Send(message messages.NodeMessage) (messages.NodeMessage, error) {
+func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error) {
 	nc.mutex.Lock()
 	defer nc.mutex.Unlock()
 
@@ -254,7 +260,7 @@ func (nc *NodeConnection) Send(message messages.NodeMessage) (messages.NodeMessa
 	}
 
 	encoder := gob.NewEncoder(nc.writer)
-	err := encoder.Encode(message)
+	err := encoder.Encode(&message)
 
 	if err != nil {
 		log.Println("failed to encode message: ", err)
@@ -298,8 +304,10 @@ func (nc *NodeConnection) writeConnectionRequest() {
 
 	encoder := gob.NewEncoder(nc.writer)
 
-	err := encoder.Encode(messages.NodeConnectionMessage{
-		Address: nc.node.Address(),
+	err := encoder.Encode(messages.NodeMessage{
+		Data: messages.NodeConnectionMessage{
+			Address: nc.node.Address(),
+		},
 	})
 
 	if err != nil {

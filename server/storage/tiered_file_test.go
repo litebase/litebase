@@ -5,6 +5,7 @@ import (
 	"io"
 	"litebase/internal/test"
 	"litebase/server"
+	"litebase/server/cluster"
 	"litebase/server/storage"
 	"testing"
 )
@@ -21,6 +22,7 @@ func TestNewTieredFile(t *testing.T) {
 			context.Background(),
 			app.Cluster.LocalFS(),
 			app.Cluster.ObjectFS(),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -69,6 +71,7 @@ func TestTieredFileClose(t *testing.T) {
 			context.Background(),
 			app.Cluster.LocalFS(),
 			app.Cluster.ObjectFS(),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -95,6 +98,7 @@ func TestTieredFileMarkUpdated(t *testing.T) {
 			context.Background(),
 			app.Cluster.LocalFS(),
 			app.Cluster.ObjectFS(),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -117,6 +121,7 @@ func TestTieredFileRead(t *testing.T) {
 			context.Background(),
 			app.Cluster.LocalFS(),
 			app.Cluster.ObjectFS(),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		tf, err := tfsd.Create("test.txt")

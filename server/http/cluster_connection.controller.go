@@ -20,11 +20,15 @@ func ClusterConnectionController(request *Request) Response {
 
 			defer request.BaseRequest.Body.Close()
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(request.BaseRequest.Context())
 
 			go handleClusterConnectionStream(request, cancel, request.BaseRequest.Body, w)
 
 			<-ctx.Done()
+
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
 		},
 	}
 }
@@ -40,12 +44,12 @@ func handleClusterConnectionStream(
 	scanBuffer := storageStreamBufferPool.Get().(*bytes.Buffer)
 	defer storageStreamBufferPool.Put(scanBuffer)
 
-	var nodeMessage messages.NodeMessage
+	var decodedMessage messages.NodeMessage
 
 	for {
 		decoder := gob.NewDecoder(reader)
 
-		err := decoder.Decode(&nodeMessage)
+		err := decoder.Decode(&decodedMessage)
 
 		if err != nil {
 			if err != io.ErrUnexpectedEOF {
@@ -55,13 +59,7 @@ func handleClusterConnectionStream(
 			break
 		}
 
-		var nodeResponseMessage messages.NodeMessage
-
-		if request.cluster.Node().IsPrimary() {
-			nodeResponseMessage, err = request.cluster.Node().Primary().HandleMessage(nodeMessage)
-		} else {
-			nodeResponseMessage, err = request.cluster.Node().Replica().HandleMessage(nodeMessage)
-		}
+		nodeResponseMessage, err := request.cluster.Node().HandleMessage(decodedMessage)
 
 		if err != nil {
 			log.Println(err)
@@ -77,7 +75,7 @@ func handleClusterConnectionStream(
 // Write a response to the client.
 func writeNodeMessageResponse(
 	w http.ResponseWriter,
-	nodeResponseMessage messages.NodeMessage,
+	nodeResponseMessage interface{},
 ) {
 	encoder := gob.NewEncoder(w)
 

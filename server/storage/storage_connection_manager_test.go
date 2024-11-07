@@ -122,6 +122,7 @@ func TestStorageConnectionManagerGetConnectionWithChangingMembership(t *testing.
 	for i := 0; i < len(databaseIds); i++ {
 		t.Run("", func(t *testing.T) {
 			var storageNodeServers []*test.TestServer
+
 			test.Run(t, func() {
 				queryNode := test.NewTestQueryNode(t)
 

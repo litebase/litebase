@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"container/list"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"io"
 	"io/fs"
 	internalStorage "litebase/internal/storage"
@@ -30,6 +33,8 @@ type TieredFileSystemDriver struct {
 	localFileSystemDriver   FileSystemDriver
 	MaxFilesOpened          int
 	mutex                   *sync.RWMutex
+	shuttingDown            bool
+	storageReplicationGroup StorageReplicationGroup
 	WriteInterval           time.Duration
 	watchTicker             *time.Ticker
 }
@@ -43,7 +48,13 @@ type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
 
 // Create a new instance of a tiered file system driver. This driver will manage
 // files that are stored on the local file system and durable file system.
-func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver FileSystemDriver, durableFileSystemDriver FileSystemDriver, f ...TieredFileSystemNewFunc) *TieredFileSystemDriver {
+func NewTieredFileSystemDriver(
+	context context.Context,
+	localFileSystemDriver FileSystemDriver,
+	durableFileSystemDriver FileSystemDriver,
+	storageReplicationGroup StorageReplicationGroup,
+	f ...TieredFileSystemNewFunc,
+) *TieredFileSystemDriver {
 	fsd := &TieredFileSystemDriver{
 		buffers: sync.Pool{
 			New: func() interface{} {
@@ -58,6 +69,7 @@ func NewTieredFileSystemDriver(context context.Context, localFileSystemDriver Fi
 		MaxFilesOpened:          TieredFileSystemMaxOpenFiles,
 		mutex:                   &sync.RWMutex{},
 		durableFileSystemDriver: durableFileSystemDriver,
+		storageReplicationGroup: storageReplicationGroup,
 		WriteInterval:           DefaultWriteInterval,
 	}
 
@@ -202,11 +214,24 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 		return
 	}
 
+	sha25Bytes := sha256.Sum256(buffer.Bytes())
+	sha256Hash := hex.EncodeToString(sha25Bytes[:])
+
+	if err := fsd.storageReplicationGroup.Prepare(file.Key, sha256Hash); err != nil {
+		log.Println("Error preparing file for replication commit", err)
+		return
+	}
+
 	err = fsd.durableFileSystemDriver.WriteFile(file.Key, buffer.Bytes(), 0644)
 
 	if err != nil {
 		// Handle error (retry, log, etc.)
-		// log.Println("Error writing file to durable storage", err)
+		log.Println("Error writing file to durable storage", err)
+		return
+	}
+
+	if err := fsd.storageReplicationGroup.Commit(file.Key, sha256Hash); err != nil {
+		log.Println("Error committing file for replication", err)
 		return
 	}
 
@@ -494,6 +519,20 @@ func (fsd *TieredFileSystemDriver) Rename(oldpath, newpath string) error {
 	return fsd.durableFileSystemDriver.Rename(oldpath, newpath)
 }
 
+// Shutting down the tiered file system driver involves stopping the watch ticker
+// and flushing all files to durable storage.
+func (fsd *TieredFileSystemDriver) Shutdown() error {
+	if fsd.shuttingDown {
+		return nil
+	}
+
+	fsd.shuttingDown = true
+
+	fsd.watchTicker.Stop()
+
+	return fsd.flushFiles()
+}
+
 // Statting a file in the tiered file system driver involves statting the file on
 // the local file system and then returning the file information. If the file does
 // not exist on the local file system, the operation will be attempted on the
@@ -555,11 +594,7 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 		select {
 		case <-fsd.context.Done():
 			// Force flush all files to durable storage
-			err := fsd.flushFiles()
-
-			if err != nil {
-				log.Println("Error flushing files to durable storage", err)
-			}
+			fsd.Shutdown()
 			return
 		case <-fsd.watchTicker.C:
 			fsd.mutex.Lock()
@@ -593,7 +628,7 @@ func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.F
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
 
-	// If the file is already open, mark it as updated
+	// If the file is not found, create a new file on the local file system
 	if file, ok = fsd.GetLocalFile(path); !ok {
 		f, err := fsd.localFileSystemDriver.Create(path)
 
@@ -610,15 +645,56 @@ func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.F
 		return err
 	}
 
+	// Write the data to the file
 	_, err = file.Write(data)
 
 	if err != nil {
 		return err
 	}
 
+	err = fsd.writeReplication(file)
+
+	if err != nil {
+		return err
+	}
+
+	// Mark the file as updated
 	file.MarkUpdated()
 
 	fsd.flushFileToDurableStorage(fsd.Files[path], true)
 
 	return nil
+}
+
+func (fsd *TieredFileSystemDriver) writeReplication(file *TieredFile) error {
+	if file == nil {
+		return errors.New("file cannot be replciated, file is nil")
+	}
+
+	// Write the file data to the local file system
+	_, err := file.File.Seek(0, io.SeekStart)
+
+	if err != nil {
+		log.Println("Error seeking to start of file", err)
+		return err
+	}
+
+	buffer := fsd.buffers.Get().(*bytes.Buffer)
+
+	buffer.Reset()
+
+	defer fsd.buffers.Put(buffer)
+
+	_, err = buffer.ReadFrom(file.File)
+
+	if err != nil {
+		// Handle error (retry, log, etc.)
+		log.Println("Error reading file from local storage", err)
+		return err
+	}
+
+	return fsd.storageReplicationGroup.Write(
+		file.Key,
+		buffer.Bytes(),
+	)
 }

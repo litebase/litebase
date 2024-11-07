@@ -3,12 +3,10 @@ package cluster
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
 	"runtime"
@@ -37,74 +35,6 @@ func NewNodeReplica(node *Node) *NodeReplica {
 	}
 
 	return replica
-}
-
-func (nr *NodeReplica) HandleMessage(message messages.NodeMessage) (messages.NodeMessage, error) {
-	var responseMessage messages.NodeMessage
-
-	if bytes.Equal(message.Id(), []byte("broadcast")) {
-		err := nr.handleBroadcastMessage(message)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return responseMessage, nil
-	}
-
-	switch message.Type() {
-	case "NodeConnectionMessage":
-		responseMessage = messages.NodeConnectionMessage{
-			ID: message.Id(),
-		}
-	}
-
-	return responseMessage, nil
-}
-
-func (nr *NodeReplica) handleBroadcastMessage(message messages.NodeMessage) error {
-	switch message.Type() {
-	case "HeartbeatMessage":
-		nr.node.PrimaryHeartbeat = time.Now()
-	case "WALReplicationWriteMessage":
-		// Verify the integrity of the WAL data
-		sha256Hash := sha256.Sum256(message.(messages.WALReplicationWriteMessage).Data)
-
-		if sha256Hash != message.(messages.WALReplicationWriteMessage).Sha256 {
-			log.Println("Failed to verify WAL data integrity")
-			return errors.New("failed to verify WAL data integrity")
-		}
-
-		err := nr.node.walSynchronizer.WriteAt(
-			message.(messages.WALReplicationWriteMessage).DatabaseId,
-			message.(messages.WALReplicationWriteMessage).BranchId,
-			message.(messages.WALReplicationWriteMessage).Data,
-			message.(messages.WALReplicationWriteMessage).Offset,
-			message.(messages.WALReplicationWriteMessage).Sequence,
-			message.(messages.WALReplicationWriteMessage).Timestamp,
-		)
-
-		if err != nil {
-			log.Println("Failed to sync WAL data: ", err)
-			return err
-		}
-
-	case "WALReplicationTruncateMessage":
-		err := nr.node.walSynchronizer.Truncate(
-			message.(messages.WALReplicationTruncateMessage).DatabaseId,
-			message.(messages.WALReplicationTruncateMessage).BranchId,
-			message.(messages.WALReplicationTruncateMessage).Size,
-			message.(messages.WALReplicationTruncateMessage).Sequence,
-			message.(messages.WALReplicationTruncateMessage).Timestamp,
-		)
-
-		if err != nil {
-			log.Println("Failed to sync WAL data truncation: ", err)
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (nr *NodeReplica) JoinCluster() error {
@@ -208,11 +138,11 @@ func (nr *NodeReplica) LeaveCluster() error {
 	return nil
 }
 
-func (nr *NodeReplica) Send(nodeMessage messages.NodeMessage) (messages.NodeMessage, error) {
+func (nr *NodeReplica) Send(message interface{}) (interface{}, error) {
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)
 
-	err := encoder.Encode(nodeMessage)
+	err := encoder.Encode(message)
 
 	if err != nil {
 		log.Println("Failed to encode message: ", err)
@@ -260,7 +190,7 @@ func (nr *NodeReplica) Send(nodeMessage messages.NodeMessage) (messages.NodeMess
 
 	decoder := gob.NewDecoder(response.Body)
 
-	var responseMessage messages.NodeMessage
+	var responseMessage interface{}
 
 	err = decoder.Decode(&responseMessage)
 
@@ -272,7 +202,7 @@ func (nr *NodeReplica) Send(nodeMessage messages.NodeMessage) (messages.NodeMess
 	return responseMessage, nil
 }
 
-func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage messages.NodeMessage) (chan messages.NodeMessage, error) {
+func (nr *NodeReplica) SendWithStreamingResonse(message interface{}) (chan interface{}, error) {
 	if nr.node.PrimaryAddress() == "" {
 		return nil, errors.New("Primary address is not set")
 	}
@@ -280,7 +210,7 @@ func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage messages.NodeMessage
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)
 
-	err := encoder.Encode(nodeMessage)
+	err := encoder.Encode(message)
 
 	if err != nil {
 		log.Println("Failed to encode message: ", err)
@@ -306,7 +236,7 @@ func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage messages.NodeMessage
 
 	request.Header.Set("X-Lbdb-Node", encryptedHeader)
 
-	responses := make(chan messages.NodeMessage)
+	responses := make(chan interface{})
 
 	client := &http.Client{
 		Timeout: 0,
@@ -328,7 +258,7 @@ func (nr *NodeReplica) SendWithStreamingResonse(nodeMessage messages.NodeMessage
 		for {
 			decoder := gob.NewDecoder(response.Body)
 
-			var responseMessage messages.NodeMessage
+			var responseMessage interface{}
 
 			err = decoder.Decode(&responseMessage)
 

@@ -59,6 +59,24 @@ func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 	return cluster.objectFileSystem
 }
 
+func (cluster *Cluster) ShutdownStorage() {
+	if cluster.localFileSystem != nil {
+		cluster.localFileSystem.Shutdown()
+	}
+
+	if cluster.objectFileSystem != nil {
+		cluster.objectFileSystem.Shutdown()
+	}
+
+	if cluster.tieredFileSystem != nil {
+		cluster.tieredFileSystem.Shutdown()
+	}
+
+	if cluster.tmpFileSystem != nil {
+		cluster.tmpFileSystem.Shutdown()
+	}
+}
+
 func (cluster *Cluster) TmpFS() *storage.FileSystem {
 	cluster.fileSystemMutex.Lock()
 	defer cluster.fileSystemMutex.Unlock()
@@ -77,9 +95,9 @@ func (cluster *Cluster) TmpFS() *storage.FileSystem {
 // The tiered file system is used to read and write files to a local file system
 // and an object storage system. The local file system is used as a cache for the
 // object storage system. The tiered file system will read files from the local
-// // file system if they exist, otherwise it will read them from the object storage
-// // system. When writing files, the tiered file system will write to both the local
-// // file system and the object storage system.
+// file system if they exist, otherwise it will read them from the object storage
+// system. When writing files, the tiered file system will write to both the local
+// file system and the object storage system.
 func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	cluster.fileSystemMutex.Lock()
 	defer cluster.fileSystemMutex.Unlock()
@@ -90,17 +108,8 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 				storage.NewTieredFileSystemDriver(
 					storage.GetStorageContext(),
 					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, "tiered")),
-					storage.NewObjectFileSystemDriver(
-						cluster.Config,
-					),
-				),
-			)
-		} else if cluster.Config.StorageTieredMode == config.StorageModeDistributed {
-			cluster.tieredFileSystem = storage.NewFileSystem(
-				storage.NewDistributedFileSystemDriver(
-					storage.GetStorageContext(),
-					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, "distributed_cache")),
-					cluster.StorageConnectionManager,
+					storage.NewObjectFileSystemDriver(cluster.Config),
+					cluster.Node().ReplicationGroupManager.WriterGroup(),
 				),
 			)
 		} else if cluster.Config.StorageTieredMode == config.StorageModeLocal {
@@ -109,6 +118,15 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 					storage.GetStorageContext(),
 					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, "tiered")),
 					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
+					cluster.Node().ReplicationGroupManager.WriterGroup(),
+				),
+			)
+		} else if cluster.Config.StorageTieredMode == config.StorageModeDistributed {
+			cluster.tieredFileSystem = storage.NewFileSystem(
+				storage.NewDistributedFileSystemDriver(
+					storage.GetStorageContext(),
+					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, "distributed_cache")),
+					cluster.StorageConnectionManager,
 				),
 			)
 		}

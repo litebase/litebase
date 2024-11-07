@@ -129,7 +129,7 @@ func resolveWithQueue(
 }
 
 func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
-	primaryResponse, err := query.cluster.Node().Send(
+	responseMessage, err := query.cluster.Node().Send(
 		messages.QueryMessage{
 			AccessKeyId: query.AccessKey.AccessKeyId,
 			BranchId:    query.DatabaseKey.BranchId,
@@ -145,20 +145,20 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 		return errors.New("error forwarding query to primary")
 	}
 
-	if primaryResponse.Type() == "Error" {
-		return fmt.Errorf(primaryResponse.Error())
-	}
+	switch primaryResponse := responseMessage.(type) {
+	case messages.ErrorMessage:
+		return fmt.Errorf(primaryResponse.Message)
+	case messages.QueryMessageResponse:
+		response.SetChanges(primaryResponse.Changes)
+		response.SetColumns(primaryResponse.Columns)
+		response.SetLatency(primaryResponse.Latency)
+		response.SetLastInsertRowId(primaryResponse.LastInsertRowID)
+		response.SetRowCount(primaryResponse.RowCount)
+		response.SetRows(primaryResponse.Rows)
 
-	if primaryResponse.Type() != "QueryMessageResponse" {
+	default:
 		return fmt.Errorf("unexpected response from primary")
 	}
-
-	response.SetChanges(primaryResponse.(messages.QueryMessageResponse).Changes)
-	response.SetColumns(primaryResponse.(messages.QueryMessageResponse).Columns)
-	response.SetLatency(primaryResponse.(messages.QueryMessageResponse).Latency)
-	response.SetLastInsertRowId(primaryResponse.(messages.QueryMessageResponse).LastInsertRowID)
-	response.SetRowCount(primaryResponse.(messages.QueryMessageResponse).RowCount)
-	response.SetRows(primaryResponse.(messages.QueryMessageResponse).Rows)
 
 	return nil
 }

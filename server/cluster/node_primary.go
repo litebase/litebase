@@ -23,96 +23,18 @@ func NewNodePrimary(node *Node) *NodePrimary {
 	return primary
 }
 
-func (np *NodePrimary) HandleMessage(message messages.NodeMessage) (messages.NodeMessage, error) {
-	var responseMessage messages.NodeMessage
-
-	switch message.Type() {
-	case "HeartbeatMessage":
-		isPrimary := np.node.VerifyPrimaryStatus()
-
-		if !isPrimary {
-			responseMessage = messages.ErrorMessage{
-				ID:      message.Id(),
-				Message: "Node is not primary",
-			}
-		} else {
-			responseMessage = messages.ErrorMessage{
-				ID:      message.Id(),
-				Message: "Node is the primary",
-			}
-		}
-	case "NodeConnectionMessage":
-		responseMessage = messages.NodeConnectionMessage{
-			ID: message.Id(),
-		}
-	case "QueryMessage":
-		responseMessage = np.handleQueryMessage(message)
-	default:
-		log.Println("Invalid message type: ", message.Type)
-		responseMessage = messages.ErrorMessage{
-			ID:      message.Id(),
-			Message: "invalid message type",
-		}
-	}
-
-	if responseMessage != nil {
-		return responseMessage, nil
-	}
-
-	return nil, nil
-}
-
-func (np *NodePrimary) handleQueryMessage(message messages.NodeMessage) messages.NodeMessage {
-	query, err := np.node.queryBuilder.Build(
-		message.(messages.QueryMessage).AccessKeyId,
-		message.(messages.QueryMessage).DatabaseHash,
-		message.(messages.QueryMessage).DatabaseId,
-		message.(messages.QueryMessage).BranchId,
-		message.(messages.QueryMessage).Statement,
-		message.(messages.QueryMessage).Parameters,
-		message.(messages.QueryMessage).Id(),
-	)
-
-	if err != nil {
-		log.Println("Failed to build query: ", err)
-
-		return messages.ErrorMessage{
-			Message: err.Error(),
-			ID:      message.Id(),
-		}
-	}
-
-	var response NodeQueryResponse
-
-	err = query.Resolve(response)
-
-	if err != nil {
-		log.Println("Failed to process query message: ", err)
-		return messages.ErrorMessage{
-			Message: err.Error(),
-			ID:      message.Id(),
-		}
-	}
-
-	return messages.QueryMessageResponse{
-		Changes:         response.Changes(),
-		Columns:         response.Columns(),
-		ID:              message.Id(),
-		LastInsertRowID: response.LastInsertRowId(),
-		Latency:         response.Latency(),
-		RowCount:        response.RowCount(),
-		Rows:            response.Rows(),
-	}
-}
-
 // Send the heatbeat message to the replica nodes.
 func (np *NodePrimary) Heartbeat() error {
-	return np.Publish(messages.HeartbeatMessage{
-		ID: []byte("broadcast"),
+	return np.Publish(messages.NodeMessage{
+		Data: messages.HeartbeatMessage{
+			Address: np.node.Address(),
+			ID:      []byte("broadcast"),
+		},
 	})
 }
 
-func (np *NodePrimary) Publish(nodeMessage messages.NodeMessage) error {
+// Publish a message to the replica nodes.
+func (np *NodePrimary) Publish(message messages.NodeMessage) error {
 	var nodes []*NodeIdentifier
 
 	if np.node == nil || np.node.cluster == nil {
@@ -155,7 +77,7 @@ func (np *NodePrimary) Publish(nodeMessage messages.NodeMessage) error {
 		go func(node *NodeConnection) {
 			defer wg.Done()
 
-			_, err := connection.Send(nodeMessage)
+			_, err := connection.Send(message)
 
 			if err != nil {
 				log.Println("Failed to send message to node: ", err)
@@ -168,6 +90,7 @@ func (np *NodePrimary) Publish(nodeMessage messages.NodeMessage) error {
 	return nil
 }
 
+// Shutdown the primary node.
 func (np *NodePrimary) Shutdown() {
 	np.mutex.Lock()
 	defer np.mutex.Unlock()

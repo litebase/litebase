@@ -122,6 +122,10 @@ func (fs *LocalFileSystemDriver) Rename(oldpath, newpath string) error {
 	return os.Rename(fs.path(oldpath), fs.path(newpath))
 }
 
+func (fs *LocalFileSystemDriver) Shutdown() error {
+	return nil
+}
+
 func (fs *LocalFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	info, err := os.Stat(fs.path(path))
 

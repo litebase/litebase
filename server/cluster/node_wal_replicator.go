@@ -28,13 +28,15 @@ func (nr *NodeWalReplicator) Truncate(
 		return nil
 	}
 
-	return nr.node.Primary().Publish(messages.WALReplicationTruncateMessage{
-		BranchId:   branchId,
-		DatabaseId: databaseId,
-		ID:         []byte("broadcast"),
-		Sequence:   sequence,
-		Size:       size,
-		Timestamp:  timestamp,
+	return nr.node.Primary().Publish(messages.NodeMessage{
+		Data: messages.WALReplicationTruncateMessage{
+			BranchId:   branchId,
+			DatabaseId: databaseId,
+			ID:         []byte("broadcast"),
+			Sequence:   sequence,
+			Size:       size,
+			Timestamp:  timestamp,
+		},
 	})
 }
 
@@ -46,14 +48,16 @@ func (nr *NodeWalReplicator) WriteAt(databaseId, branchId string, p []byte, off,
 
 	sha256Hash := sha256.Sum256(p)
 
-	return nr.node.Primary().Publish(messages.WALReplicationWriteMessage{
-		BranchId:   branchId,
-		DatabaseId: databaseId,
-		Data:       p,
-		ID:         []byte("broadcast"),
-		Offset:     off,
-		Sequence:   sequence,
-		Sha256:     sha256Hash,
-		Timestamp:  timestamp,
+	return nr.node.Primary().Publish(messages.NodeMessage{
+		Data: messages.WALReplicationWriteMessage{
+			BranchId:   branchId,
+			DatabaseId: databaseId,
+			Data:       p,
+			ID:         []byte("broadcast"),
+			Offset:     off,
+			Sequence:   sequence,
+			Sha256:     sha256Hash,
+			Timestamp:  timestamp,
+		},
 	})
 }

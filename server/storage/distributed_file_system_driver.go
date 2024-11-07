@@ -340,6 +340,13 @@ func (fsd *DistributedFileSystemDriver) Rename(oldpath, newPath string) error {
 	return nil
 }
 
+// Shutdown the driver and release any resources that are being used.
+func (fsd *DistributedFileSystemDriver) Shutdown() error {
+	fsd.ClearFiles()
+
+	return nil
+}
+
 // Stat the file at the specified path and return information about the file.
 func (fsd *DistributedFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	response, err := fsd.storageConnectionManager.Send(DistributedFileSystemRequest{

@@ -6,6 +6,7 @@ import (
 	internalStorage "litebase/internal/storage"
 	"litebase/internal/test"
 	"litebase/server"
+	"litebase/server/cluster"
 	"litebase/server/storage"
 	"os"
 	"testing"
@@ -18,6 +19,7 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		if tieredFileSystemDriver == nil {
@@ -32,6 +34,7 @@ func TestTieredFileSystemDriverCreate(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -63,6 +66,7 @@ func TestTieredFileSystemDriverFiles(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -89,6 +93,7 @@ func TestTieredFileSystemDriverMkdir(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		err := tieredFileSystemDriver.Mkdir("test/", 0755)
@@ -116,6 +121,7 @@ func TestTieredFileSystemDriverMkdirAll(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		err := tieredFileSystemDriver.MkdirAll("test/test/test/", 0755)
@@ -143,6 +149,7 @@ func TestTieredFileSystemDriverOpen(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		_, err := tieredFileSystemDriver.Open("test")
@@ -186,6 +193,7 @@ func TestTieredFileSystemDriverOpenDurableFile(t *testing.T) {
 			context.Background(),
 			lfsd,
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		// If the file is not found in local storage or durable storage, the
@@ -246,6 +254,7 @@ func TestTieredFileSystemDriverOpenFile(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		// Test open read only file that does not exist
@@ -389,6 +398,7 @@ func TestTieredFileSystemDriverReadDir(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		_, err := tieredFileSystemDriver.ReadDir("dir/")
@@ -433,6 +443,7 @@ func TestTieredFileSystemDriverReadFile(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		_, err := tieredFileSystemDriver.ReadFile("test")
@@ -479,6 +490,7 @@ func TestTieredFileSystemDriverRemove(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		err := tieredFileSystemDriver.Remove("test")
@@ -515,6 +527,7 @@ func TestTieredFileSystemDriverRemoveAll(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		err := tieredFileSystemDriver.RemoveAll("dir/")
@@ -593,6 +606,7 @@ func TestTieredFileSystemDriverRename(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		err := tieredFileSystemDriver.Rename("test", "'test2")
@@ -639,6 +653,7 @@ func TestTieredFileSystemDriverStat(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		_, err := tieredFileSystemDriver.Stat("test")
@@ -681,6 +696,7 @@ func TestTieredFileSystemDriverTruncate(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		err := tieredFileSystemDriver.Truncate("test", 4)
@@ -721,6 +737,7 @@ func TestTieredFileSystemDriverWriteFile(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		err := tieredFileSystemDriver.WriteFile("test.txt", []byte("test"), 0644)
@@ -741,12 +758,68 @@ func TestTieredFileSystemDriverWriteFile(t *testing.T) {
 	})
 }
 
+func TestTieredFileSystemDriverMultiNodeWriteFile(t *testing.T) {
+	testCases := []struct {
+		storageNodeCount int
+	}{
+		{storageNodeCount: 1},
+		{storageNodeCount: 2},
+		{storageNodeCount: 3},
+		{storageNodeCount: 4},
+		{storageNodeCount: 5},
+		{storageNodeCount: 6},
+	}
+
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			test.Run(t, func() {
+				servers := make([]*test.TestServer, tc.storageNodeCount)
+
+				for i := 0; i < tc.storageNodeCount; i++ {
+					servers[i] = test.NewTestStorageNode(t)
+				}
+
+				app := servers[0].App
+
+				err := app.Cluster.TieredFS().WriteFile("test.txt", []byte("test"), 0644)
+
+				if err != nil {
+					t.Error(err)
+				}
+
+				data, err := app.Cluster.TieredFS().ReadFile("test.txt")
+
+				if err != nil {
+					t.Error(err)
+				}
+
+				if string(data) != "test" {
+					t.Errorf("TieredFileSystemDriver.WriteFile returned incorrect data, got %s", data)
+				}
+
+				for _, server := range servers {
+					replicationGroup := server.App.Cluster.Node().ReplicationGroupManager.WriterGroup()
+
+					if replicationGroup == nil {
+						t.Fatal("Replication group is nil")
+					}
+
+					if tc.storageNodeCount >= 3 && len(replicationGroup.Members) != 3 {
+						t.Errorf("Replication group should have 3 addresses, got %d", len(replicationGroup.Members))
+					}
+				}
+			})
+		})
+	}
+}
+
 func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		now := time.Now()
@@ -816,6 +889,7 @@ func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
 				tieredFileSystemDriver.WriteInterval = time.Millisecond * 1
 			},
@@ -855,6 +929,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			dfsd,
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		// Test open read only file that does not exist
@@ -1234,6 +1309,7 @@ func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
@@ -1264,6 +1340,7 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			cluster.NewNodeReplicationGroup(app.Cluster),
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
 				tieredFileSystemDriver.MaxFilesOpened = 4
 				tieredFileSystemDriver.WriteInterval = time.Millisecond * 0

@@ -234,6 +234,10 @@ func (fs *ObjectFileSystemDriver) Rename(oldKey, newKey string) error {
 
 }
 
+func (fs *ObjectFileSystemDriver) Shutdown() error {
+	return nil
+}
+
 func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	// If the paths ends with a slash, it's a directory
 	if strings.HasSuffix(path, "/") {

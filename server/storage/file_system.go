@@ -27,6 +27,7 @@ type FileSystemDriver interface {
 	Remove(path string) error
 	RemoveAll(path string) error
 	Rename(oldpath, newPath string) error
+	Shutdown() error
 	Stat(path string) (internalStorage.FileInfo, error)
 	Truncate(path string, size int64) error
 	WriteFile(path string, data []byte, perm fs.FileMode) error
@@ -102,6 +103,10 @@ func (fs *FileSystem) RemoveAll(path string) error {
 
 func (fs *FileSystem) Rename(oldpath, newpath string) error {
 	return fs.driver.Rename(oldpath, newpath)
+}
+
+func (fs *FileSystem) Shutdown() error {
+	return fs.driver.Shutdown()
 }
 
 func (fs *FileSystem) Stat(path string) (internalStorage.FileInfo, error) {

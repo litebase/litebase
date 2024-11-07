@@ -36,9 +36,6 @@ func Init(
 }
 
 // Shutdown stops the test S3 server if it is running.
-
-// TODO: This needs to be refactored to be included in the application dependency tree
-
 func Shutdown(c *config.Config) {
 	objectMode := c.StorageObjectMode
 	tieredMode := c.StorageTieredMode

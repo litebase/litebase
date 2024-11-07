@@ -32,7 +32,7 @@ func ClusterPrimaryController(request *Request) Response {
 				return
 			}
 
-			responseMessage, err := request.cluster.Node().Primary().HandleMessage(message)
+			responseMessage, err := request.cluster.Node().HandleMessage(message)
 
 			if err != nil {
 				log.Println("Failed to handle message: ", err)

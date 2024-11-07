@@ -34,14 +34,15 @@ type Cluster struct {
 	eventsManager            *EventsManager
 	fileSystemMutex          *sync.Mutex
 	Id                       string `json:"id"`
+	nodeMap                  map[string]map[string]struct{}
 	QueryPrimary             string
-	QueryNodes               []string
+	queryNodes               []string
 	MembersRetrievedAt       time.Time
 	mutex                    *sync.Mutex
 	node                     *Node
 	StorageConnectionManager *storage.StorageConnectionManager
 	StorageNodeHashRing      *storage.StorageNodeHashRing
-	StorageNodes             []string
+	storageNodes             []string
 	StoragePrimary           string
 
 	localFileSystem  *storage.FileSystem
@@ -145,6 +146,7 @@ func NewCluster(config *config.Config) (*Cluster, error) {
 		fileSystemMutex:     &sync.Mutex{},
 		Config:              config,
 		mutex:               &sync.Mutex{},
+		nodeMap:             map[string]map[string]struct{}{},
 		StorageNodeHashRing: storage.NewStorageNodeHashRing([]string{}),
 	}
 
@@ -153,43 +155,81 @@ func NewCluster(config *config.Config) (*Cluster, error) {
 
 // Add a member to the cluster.
 func (cluster *Cluster) AddMember(group, ip string) error {
+	var err error
+	cluster.GetMembers(false)
+
+	cluster.mutex.Lock()
+
 	defer func() {
+		cluster.mutex.Unlock()
 		// Clear the cache
 		cluster.MembersRetrievedAt = time.Time{}
 	}()
 
-	var err error
-	cluster.GetMembers(false)
-
-	// if !cluster.IsMember(ip, time.Now()) {
 	if group == config.NodeTypeQuery {
-		for _, node := range cluster.QueryNodes {
+		for _, node := range cluster.queryNodes {
 			if node == ip {
 				return nil
 			}
 		}
-
-		cluster.QueryNodes = append(cluster.QueryNodes, ip)
+		cluster.nodeMap[config.NodeTypeQuery][ip] = struct{}{}
 	} else if group == config.NodeTypeStorage {
-		for _, node := range cluster.StorageNodes {
+		for _, node := range cluster.storageNodes {
 			if node == ip {
 				return nil
 			}
 		}
 
-		cluster.StorageNodes = append(cluster.StorageNodes, ip)
+		cluster.nodeMap[config.NodeTypeStorage][ip] = struct{}{}
 		cluster.StorageNodeHashRing.AddNode(ip)
 	}
-	// }
 
 	return err
 }
 
+func (cluster *Cluster) AllQueryNodes() []*NodeIdentifier {
+	cluster.GetMembers(true)
+
+	identifiers := make([]*NodeIdentifier, len(cluster.queryNodes))
+
+	for i, node := range cluster.storageNodes {
+		identifiers[i] = NewNodeIdentifier(
+			strings.Split(node, ":")[0],
+			strings.Split(node, ":")[1],
+		)
+	}
+
+	return identifiers
+}
+
+func (cluster *Cluster) AllStorageNodes() []*NodeIdentifier {
+	cluster.GetMembers(true)
+
+	identifiers := make([]*NodeIdentifier, len(cluster.storageNodes))
+
+	for i, node := range cluster.storageNodes {
+		identifiers[i] = NewNodeIdentifier(
+			strings.Split(node, ":")[0],
+			strings.Split(node, ":")[1],
+		)
+	}
+
+	return identifiers
+}
+
 // Get all the members of the cluster.
 func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
+	cluster.mutex.Lock()
+	defer cluster.mutex.Unlock()
+
 	// Return the known nodes if the last retrieval was less than a minute
 	if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
-		return cluster.QueryNodes, cluster.StorageNodes
+		return cluster.queryNodes, cluster.storageNodes
+	}
+
+	cluster.nodeMap = map[string]map[string]struct{}{
+		config.NodeTypeQuery:   {},
+		config.NodeTypeStorage: {},
 	}
 
 	var queryNodesError, storageNodesError error
@@ -215,12 +255,10 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 			return
 		}
 
-		// Loop through the files
-		cluster.QueryNodes = []string{}
-
+		// Loop through the files and store the node addresses
 		for _, file := range files {
 			address := strings.ReplaceAll(file.Name(), "_", ":")
-			cluster.QueryNodes = append(cluster.QueryNodes, address)
+			cluster.nodeMap[config.NodeTypeQuery][address] = struct{}{}
 		}
 	}()
 
@@ -241,13 +279,13 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 			return
 		}
 
-		// Loop through the files
-		cluster.StorageNodes = []string{}
+		// Initialize the storage node hash ring
 		cluster.StorageNodeHashRing = storage.NewStorageNodeHashRing([]string{})
 
+		// Loop through the files and store the node addresses
 		for _, file := range files {
 			address := strings.ReplaceAll(file.Name(), "_", ":")
-			cluster.StorageNodes = append(cluster.StorageNodes, address)
+			cluster.nodeMap[config.NodeTypeStorage][address] = struct{}{}
 			cluster.StorageNodeHashRing.AddNode(address)
 		}
 	}()
@@ -264,15 +302,26 @@ func (cluster *Cluster) GetMembers(cached bool) ([]string, []string) {
 		return nil, nil
 	}
 
+	cluster.queryNodes = []string{}
+	cluster.storageNodes = []string{}
+
+	for node := range cluster.nodeMap[config.NodeTypeQuery] {
+		cluster.queryNodes = append(cluster.queryNodes, node)
+	}
+
+	for node := range cluster.nodeMap[config.NodeTypeStorage] {
+		cluster.storageNodes = append(cluster.storageNodes, node)
+	}
+
 	cluster.MembersRetrievedAt = time.Now()
 
-	return cluster.QueryNodes, cluster.StorageNodes
+	return cluster.queryNodes, cluster.storageNodes
 }
 
 // Get all the members of the cluster since a certain time.
 func (cluster *Cluster) GetMembersSince(after time.Time) ([]string, []string) {
 	if cluster.MembersRetrievedAt.After(after) {
-		return cluster.QueryNodes, cluster.StorageNodes
+		return cluster.queryNodes, cluster.storageNodes
 	}
 
 	return cluster.GetMembers(false)
@@ -333,13 +382,13 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 func (cluster *Cluster) IsMember(ip string, since time.Time) bool {
 	cluster.GetMembersSince(since)
 
-	for _, member := range cluster.QueryNodes {
+	for _, member := range cluster.queryNodes {
 		if member == ip {
 			return true
 		}
 	}
 
-	for _, member := range cluster.StorageNodes {
+	for _, member := range cluster.storageNodes {
 		if member == ip {
 			return true
 		}
@@ -364,11 +413,11 @@ func (c *Cluster) Nodes() []*NodeIdentifier {
 
 	nodes := []*NodeIdentifier{}
 
-	for _, node := range c.QueryNodes {
+	for _, node := range c.queryNodes {
 		nodes = append(nodes, NewNodeIdentifier(node, config.NodeTypeQuery))
 	}
 
-	for _, node := range c.StorageNodes {
+	for _, node := range c.storageNodes {
 		nodes = append(nodes, NewNodeIdentifier(node, config.NodeTypeStorage))
 	}
 
@@ -381,7 +430,7 @@ func (c *Cluster) NodeGroupNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 
 	if c.Config.NodeType == config.NodeTypeQuery {
-		for _, node := range c.QueryNodes {
+		for _, node := range c.queryNodes {
 			nodes = append(nodes, NewNodeIdentifier(
 				strings.Split(node, ":")[0],
 				strings.Split(node, ":")[1],
@@ -390,7 +439,7 @@ func (c *Cluster) NodeGroupNodes() []*NodeIdentifier {
 	}
 
 	if c.Config.NodeType == config.NodeTypeStorage {
-		for _, node := range c.StorageNodes {
+		for _, node := range c.storageNodes {
 			nodes = append(nodes, NewNodeIdentifier(
 				strings.Split(node, ":")[0],
 				strings.Split(node, ":")[1],
@@ -410,7 +459,7 @@ func (c *Cluster) NodeGroupVotingNodes() []*NodeIdentifier {
 		return nodes[i].String() < nodes[j].String()
 	})
 
-	if len(c.QueryNodes) > 5 {
+	if len(c.queryNodes) > 5 {
 		return nodes[:5]
 	}
 
@@ -422,7 +471,7 @@ func (c *Cluster) OtherNodes() []*NodeIdentifier {
 	address := c.Node().Address()
 	c.GetMembers(true)
 
-	for _, node := range c.QueryNodes {
+	for _, node := range c.queryNodes {
 		if node != address {
 			nodes = append(nodes, NewNodeIdentifier(
 				strings.Split(node, ":")[0],
@@ -431,7 +480,7 @@ func (c *Cluster) OtherNodes() []*NodeIdentifier {
 		}
 	}
 
-	for _, node := range c.StorageNodes {
+	for _, node := range c.storageNodes {
 		if node != address {
 			nodes = append(nodes, NewNodeIdentifier(
 				strings.Split(node, ":")[0],
@@ -449,7 +498,7 @@ func (c *Cluster) OtherQueryNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 	address := c.Node().Address()
 
-	for _, node := range c.QueryNodes {
+	for _, node := range c.queryNodes {
 		if node != address {
 			nodes = append(nodes, NewNodeIdentifier(
 				strings.Split(node, ":")[0],
@@ -467,7 +516,7 @@ func (c *Cluster) OtherStorageNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 	address := c.Node().Address()
 
-	for _, node := range c.StorageNodes {
+	for _, node := range c.storageNodes {
 		if node != address {
 			nodes = append(nodes, NewNodeIdentifier(
 				strings.Split(node, ":")[0],
@@ -482,15 +531,17 @@ func (c *Cluster) OtherStorageNodes() []*NodeIdentifier {
 // Remove a member from the cluster.
 func (cluster *Cluster) RemoveMember(ip string) error {
 	cluster.GetMembers(true)
+	cluster.mutex.Lock()
 
 	// Clear the cache
 	defer func() {
+		cluster.mutex.Unlock()
 		cluster.MembersRetrievedAt = time.Time{}
 	}()
 
-	for i, member := range cluster.QueryNodes {
+	for _, member := range cluster.queryNodes {
 		if member == ip {
-			cluster.QueryNodes = append(cluster.QueryNodes[:i], cluster.QueryNodes[i+1:]...)
+			delete(cluster.nodeMap[config.NodeTypeQuery], ip)
 
 			// Remove the node address file
 			err := cluster.ObjectFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll(ip, ":", "_"))
@@ -503,9 +554,9 @@ func (cluster *Cluster) RemoveMember(ip string) error {
 		}
 	}
 
-	for i, member := range cluster.StorageNodes {
+	for i, member := range cluster.storageNodes {
 		if member == ip {
-			cluster.StorageNodes = append(cluster.StorageNodes[:i], cluster.StorageNodes[i+1:]...)
+			cluster.storageNodes = append(cluster.storageNodes[:i], cluster.storageNodes[i+1:]...)
 
 			err := cluster.ObjectFS().Remove(cluster.NodeStoragePath() + strings.ReplaceAll(ip, ":", "_"))
 
