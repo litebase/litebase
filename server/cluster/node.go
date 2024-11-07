@@ -14,7 +14,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,7 +38,6 @@ type Node struct {
 	electionMoratorium      time.Time
 	election                *ClusterElection
 	electionRunning         bool
-	hasNomination           bool
 	initialized             bool
 	joinedClusterAt         time.Time
 	lastActive              time.Time
@@ -204,7 +202,7 @@ func (n *Node) IsStandBy() bool {
 	return n.Membership == ClusterMembershipStandBy
 }
 
-func (n *Node) joinCluster() error {
+func (n *Node) JoinCluster() error {
 	if !n.joinedClusterAt.IsZero() {
 		return nil
 	}
@@ -527,77 +525,17 @@ func (n *Node) RunElection() bool {
 
 	n.mutex.Unlock()
 
-	for i := 0; i < 3; i++ {
-		nominated, err := n.election.Run()
-
-		if err != nil {
-			return false
-		}
-
-		if !nominated {
-			return false
-		}
-	}
-
-	// Write the current address to the nomination file
-	success, err := n.writeNomination()
+	// for i := 0; i < 3; i++ {
+	elected, err := n.election.Run()
 
 	if err != nil {
 		return false
 	}
 
-	if !success {
-		return false
+	if !elected {
+		return elected
 	}
-
-	n.hasNomination = true
-
-	// Confirm the election
-	confirmed := n.runElectionConfirmation()
-
-	if !confirmed {
-		return false
-	}
-
-	// Verify that the nomination file is still valid
-	verified, err := n.verifyNomination()
-
-	if err != nil {
-		return false
-	}
-
-	if !verified {
-		return false
-	}
-
-	// Confirm the election
-	confirmed = n.runElectionConfirmation()
-
-	if !confirmed {
-		return false
-	}
-
-	// Verify that the nomination file is still valid
-	verified, err = n.verifyNomination()
-
-	if err != nil {
-		return false
-	}
-
-	if !verified {
-		return false
-	}
-
-	err = n.cluster.ObjectFS().WriteFile(
-		n.cluster.PrimaryPath(),
-		[]byte(n.Address()),
-		0644,
-	)
-
-	if err != nil {
-		log.Printf("Failed to write primary file: %v", err)
-		return false
-	}
+	// }
 
 	n.setMembership(ClusterMembershipPrimary)
 	n.truncateFile(n.cluster.NominationPath())
@@ -606,106 +544,6 @@ func (n *Node) RunElection() bool {
 
 	return err == nil
 
-}
-
-func (n *Node) runElectionConfirmation() bool {
-	nodeIdentifiers := n.cluster.NodeGroupVotingNodes()
-
-	// If there is only one node in the group, it is the current node and the
-	// election is confirmed.
-	if len(nodeIdentifiers) <= 1 {
-		return true
-	}
-
-	data := map[string]interface{}{
-		"address":   n.Address(),
-		"group":     n.cluster.Config.NodeType,
-		"timestamp": n.election.StartedAt.UnixNano(),
-	}
-
-	jsonData, err := json.Marshal(data)
-
-	if err != nil {
-		log.Println("Failed to marshal election data: ", err)
-		return false
-	}
-
-	votes := make(chan bool, len(nodeIdentifiers)-1)
-
-	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == n.Address() {
-			continue
-		}
-
-		go func(nodeIdentifier *NodeIdentifier) {
-			request, err := http.NewRequestWithContext(
-				n.context,
-				"POST",
-				fmt.Sprintf("http://%s/cluster/election/confirmation", nodeIdentifier.String()),
-				bytes.NewBuffer(jsonData),
-			)
-
-			if err != nil {
-				log.Println("Failed to create confirmation election request: ", err)
-				votes <- false
-				return
-			}
-
-			request.Header.Set("Content-Type", "application/json")
-
-			err = n.setInternalHeaders(request)
-
-			if err != nil {
-				log.Println("Failed to set internal headers: ", err)
-				votes <- false
-				return
-			}
-
-			resp, err := http.DefaultClient.Do(request)
-
-			if err != nil {
-				log.Printf(
-					"Error sending election confirmation request to node %s from node %s: %s",
-					nodeIdentifier.String(),
-					n.Address(),
-					err,
-				)
-			}
-
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusOK {
-				votes <- true
-			} else {
-				votes <- false
-			}
-		}(nodeIdentifier)
-	}
-
-	// Wait for a response from each node in the group
-	votesReceived := 1
-	votesNeeded := len(nodeIdentifiers)/2 + 1
-	timeout := time.After(3 * time.Second) // Set a timeout duration
-
-	for i := 0; i < len(nodeIdentifiers)-1; i++ {
-		select {
-		case <-timeout:
-			return false
-		case <-n.context.Done():
-			return false
-		case vote := <-votes:
-
-			if vote {
-				votesReceived++
-			}
-
-			if votesReceived >= votesNeeded {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // Run the node ticker to monitor the node state.
@@ -849,7 +687,7 @@ func (n *Node) Tick() {
 	}
 
 	if n.joinedClusterAt.IsZero() {
-		n.joinCluster()
+		n.JoinCluster()
 	}
 
 	n.lastActive = time.Now()
@@ -987,157 +825,10 @@ func (n *Node) VerifyElectionConfirmation(address string) (bool, error) {
 	return true, nil
 }
 
-// Read the nomination file and check if the node has already been nominated. This
-// means that the node is at the top of the nomination list and the timestamp
-// is within the last second.
-func (n *Node) verifyNomination() (bool, error) {
-	if n.context.Err() != nil {
-		return false, fmt.Errorf("operation canceled")
-	}
-
-	if !n.hasNomination {
-		return false, nil
-	}
-
-	// Reopen the file to read the contents
-	nominationFile, err := n.cluster.ObjectFS().OpenFile(n.cluster.NominationPath(), os.O_RDONLY, 0644)
-
-	if err != nil {
-		log.Printf("Failed to reopen nomination file: %v", err)
-		return false, err
-	}
-
-	defer nominationFile.Close()
-
-	nominationData, err := io.ReadAll(nominationFile)
-
-	if err != nil {
-		return false, err
-	}
-
-	scanner := bufio.NewScanner(bytes.NewReader(nominationData))
-
-	// Check if the node has already been nominated
-	if scanner.Scan() {
-		firstLine := scanner.Text()
-
-		if strings.HasPrefix(firstLine, n.Address()) {
-			timestamp := strings.Split(firstLine, " ")[1]
-
-			timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
-
-			if err != nil {
-				return false, err
-			}
-
-			// Parse the timestamp
-			if time.Now().UnixNano()-timestampInt < time.Second.Nanoseconds() {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 func (n *Node) VerifyPrimaryStatus() bool {
 	return n.primaryFileVerification()
 }
 
 func (n *Node) WalSynchronizer() NodeWalSynchronizer {
 	return n.walSynchronizer
-}
-
-// Write the nodes address to the nomination file in attempt to nominate itself
-// as the primary node.
-func (n *Node) writeNomination() (bool, error) {
-	if n.context.Err() != nil {
-		return false, fmt.Errorf("operation canceled")
-	}
-
-	// Attempt to open the nomination file with exclusive lock
-openNomination:
-	nominationFile, err := n.cluster.ObjectFS().OpenFile(n.cluster.NominationPath(), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("Failed to open nomination file: %v", err)
-			return false, err
-		}
-
-		// Retry if the file does not exist
-		err = n.cluster.ObjectFS().MkdirAll(filepath.Dir(n.cluster.NominationPath()), 0755)
-
-		if err != nil {
-			log.Printf("Failed to create nomination directory: %v", err)
-			return false, err
-		}
-
-		goto openNomination
-	}
-
-	nominationData, err := io.ReadAll(nominationFile)
-
-	if err != nil {
-		log.Printf("Failed to read nomination file: %v", err)
-		return false, err
-	}
-
-	address := n.Address()
-	timestamp := time.Now().UnixNano()
-	entry := fmt.Sprintf("%s %d\n", address, timestamp)
-
-	// Read the nomination file and check if it is empty or does not contain
-	// this node's address in addition to the timestamp being past 1 second.
-	if len(nominationData) == 0 {
-		_, err = nominationFile.WriteString(entry)
-
-		if err != nil {
-			log.Printf("Failed to write to nomination file: %v", err)
-			return false, err
-		}
-	} else {
-		// File is not empty and does not contain this node's address
-		// Implement logic to determine if this node should still become primary based on timestamps or other criteria
-		scanner := bufio.NewScanner(bytes.NewReader(nominationData))
-
-		// Check if the node has already been nominated
-		if scanner.Scan() {
-			firstLine := scanner.Text()
-
-			timestamp := strings.Split(firstLine, " ")[1]
-
-			timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
-
-			if err != nil {
-				return false, err
-			}
-
-			if time.Now().UnixNano()-timestampInt < time.Second.Nanoseconds() {
-				return false, nil
-			}
-		}
-
-		err := nominationFile.Truncate(0)
-
-		if err != nil {
-			log.Printf("Failed to truncate nomination file: %v", err)
-			return false, err
-		}
-
-		_, err = nominationFile.WriteString(entry)
-
-		if err != nil {
-			log.Printf("Failed to write to nomination file: %v", err)
-			return false, err
-		}
-	}
-
-	err = nominationFile.Close()
-
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
 }

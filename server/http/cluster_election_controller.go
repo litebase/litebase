@@ -30,8 +30,19 @@ func ClusterElectionController(request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
+	message, ok := input.(*ClusterElectionMessage)
+
+	if !ok {
+		return Response{
+			StatusCode: 400,
+			Body: map[string]interface{}{
+				"errors": "Invalid input",
+			},
+		}
+	}
+
 	// Check that the group is the same as the node type
-	if input.(*ClusterElectionMessage).Group != request.cluster.Config.NodeType {
+	if message.Group != request.cluster.Config.NodeType {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]interface{}{

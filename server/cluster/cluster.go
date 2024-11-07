@@ -459,8 +459,16 @@ func (c *Cluster) NodeGroupVotingNodes() []*NodeIdentifier {
 		return nodes[i].String() < nodes[j].String()
 	})
 
-	if len(c.queryNodes) > 5 {
+	// Ensure an odd number of nodes for majority voting
+	if len(nodes) > 5 {
+		if len(nodes[:5])%2 == 0 {
+			return nodes[:5+1]
+		}
 		return nodes[:5]
+	}
+
+	if len(nodes)%2 == 0 && len(nodes) > 1 {
+		return nodes[:len(nodes)-1]
 	}
 
 	return nodes
