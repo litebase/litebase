@@ -49,7 +49,7 @@ func NewClusterElection(node *Node, startTime time.Time) *ClusterElection {
 }
 
 // Add a candidate to the election along with the seed value.
-func (c *ClusterElection) AddCanidate(address string, seed int64) {
+func (c *ClusterElection) AddCandidate(address string, seed int64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -148,105 +148,6 @@ func (c *ClusterElection) Run() (bool, error) {
 	}
 
 	return true, nil
-}
-func (n *Node) runElectionConfirmation() bool {
-	nodeIdentifiers := n.cluster.NodeGroupVotingNodes()
-
-	// If there is only one node in the group, it is the current node and the
-	// election is confirmed.
-	if len(nodeIdentifiers) <= 1 {
-		return true
-	}
-
-	data := map[string]interface{}{
-		"address":   n.Address(),
-		"group":     n.cluster.Config.NodeType,
-		"timestamp": n.election.StartedAt.UnixNano(),
-	}
-
-	jsonData, err := json.Marshal(data)
-
-	if err != nil {
-		log.Println("Failed to marshal election data: ", err)
-		return false
-	}
-
-	votes := make(chan bool, len(nodeIdentifiers)-1)
-
-	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == n.Address() {
-			continue
-		}
-
-		go func(nodeIdentifier *NodeIdentifier) {
-			request, err := http.NewRequestWithContext(
-				n.context,
-				"POST",
-				fmt.Sprintf("http://%s/cluster/election/confirmation", nodeIdentifier.String()),
-				bytes.NewBuffer(jsonData),
-			)
-
-			if err != nil {
-				log.Println("Failed to create confirmation election request: ", err)
-				votes <- false
-				return
-			}
-
-			request.Header.Set("Content-Type", "application/json")
-
-			err = n.setInternalHeaders(request)
-
-			if err != nil {
-				log.Println("Failed to set internal headers: ", err)
-				votes <- false
-				return
-			}
-
-			resp, err := http.DefaultClient.Do(request)
-
-			if err != nil {
-				log.Printf(
-					"Error sending election confirmation request to node %s from node %s: %s",
-					nodeIdentifier.String(),
-					n.Address(),
-					err,
-				)
-			}
-
-			defer resp.Body.Close()
-
-			if resp.StatusCode == http.StatusOK {
-				votes <- true
-			} else {
-				votes <- false
-			}
-		}(nodeIdentifier)
-	}
-
-	// Wait for a response from each node in the group
-	votesReceived := 1
-	votesNeeded := len(nodeIdentifiers)/2 + 1
-	timeout := time.After(3 * time.Second) // Set a timeout duration
-
-	for i := 0; i < len(nodeIdentifiers)-1; i++ {
-		select {
-		case <-timeout:
-			return false
-		case <-n.context.Done():
-			return false
-		case vote := <-votes:
-
-			if vote {
-				votesReceived++
-			}
-
-			if votesReceived >= votesNeeded {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 func (c *ClusterElection) runElectionConfirmation() bool {
@@ -347,15 +248,6 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 	}
 
 	return false
-}
-
-// Stop the election.
-func (c *ClusterElection) Stop() {
-	if c.cancel == nil {
-		return
-	}
-
-	c.cancel()
 }
 
 func (c *ClusterElection) seekNomination() (bool, error) {
@@ -479,6 +371,15 @@ func (c *ClusterElection) seekNomination() (bool, error) {
 	}
 
 	return votesReceived >= votesNeeded, nil
+}
+
+// Stop the election.
+func (c *ClusterElection) Stop() {
+	if c.cancel == nil {
+		return
+	}
+
+	c.cancel()
 }
 
 // Read the nomination file and check if the node has already been nominated. This

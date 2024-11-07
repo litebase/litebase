@@ -53,7 +53,7 @@ func ClusterElectionController(request *Request) Response {
 
 	election := request.cluster.Node().Election()
 
-	election.AddCanidate(
+	election.AddCandidate(
 		input.(*ClusterElectionMessage).Address,
 		input.(*ClusterElectionMessage).Seed,
 	)

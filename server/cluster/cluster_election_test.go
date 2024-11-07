@@ -19,11 +19,11 @@ func TestNewClusterElection(t *testing.T) {
 	})
 }
 
-func TestClusterElectionAddCanidate(t *testing.T) {
+func TestClusterElectionAddCandidate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
 
-		clusterElection.AddCanidate("test", clusterElection.Seed+1)
+		clusterElection.AddCandidate("test", clusterElection.Seed+1)
 
 		if len(clusterElection.Candidates) != 2 {
 			t.Fatalf("Expected 2 candidates, got %d", len(clusterElection.Candidates))
@@ -41,18 +41,6 @@ func TestClusterElectionContext(t *testing.T) {
 
 		if clusterElection.Context() == nil {
 			t.Fatalf("Expected context to not be nil")
-		}
-	})
-}
-
-func TestClusterElectionStop(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
-
-		clusterElection.Stop()
-
-		if clusterElection.Context().Err() == nil {
-			t.Fatalf("Expected context error, got nil")
 		}
 	})
 }
@@ -109,7 +97,7 @@ func TestClusterElectionRunWithMultipleNodes(t *testing.T) {
 						}
 
 						seed := rand.Int64()
-						clusterElection.AddCanidate(servers[j].App.Cluster.Node().Address(), seed)
+						clusterElection.AddCandidate(servers[j].App.Cluster.Node().Address(), seed)
 					}
 
 					elected, err := clusterElection.Run()
@@ -129,5 +117,16 @@ func TestClusterElectionRunWithMultipleNodes(t *testing.T) {
 			})
 		})
 	}
+}
 
+func TestClusterElectionStop(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
+
+		clusterElection.Stop()
+
+		if clusterElection.Context().Err() == nil {
+			t.Fatalf("Expected context error, got nil")
+		}
+	})
 }
