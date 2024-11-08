@@ -89,13 +89,14 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 		}
 
 		time.Sleep(100 * time.Millisecond)
+
 		os.RemoveAll(dataPath)
 	})
 }
 
 func Run(t testing.TB, callback func()) {
 	cluster.SetAddressProvider(func() string {
-		return "localhost"
+		return "127.0.0.1"
 	})
 
 	// Setup the environment

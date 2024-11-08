@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"litebase/server/auth"
 	"litebase/server/cluster"
-	"log"
 )
 
 type Query struct {
@@ -23,7 +22,6 @@ func NewQuery(
 	accessKey *auth.AccessKey,
 	input *QueryInput,
 ) (*Query, error) {
-	log.Println("NewQuery", input)
 	return &Query{
 		AccessKey:       accessKey,
 		cluster:         cluster,
@@ -33,7 +31,7 @@ func NewQuery(
 	}, nil
 }
 
-func (query *Query) Resolve(response cluster.NodeQueryResponse) error {
+func (query *Query) Resolve(response cluster.NodeQueryResponse) (cluster.NodeQueryResponse, error) {
 	return ResolveQuery(query, response.(*QueryResponse))
 }
 

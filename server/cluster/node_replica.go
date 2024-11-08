@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
 	"runtime"
@@ -16,7 +17,7 @@ import (
 
 type NodeReplica struct {
 	cancel          context.CancelFunc
-	context         context.Context
+	Context         context.Context
 	Address         string
 	Id              string
 	node            *Node
@@ -24,12 +25,13 @@ type NodeReplica struct {
 	walSynchronizer NodeWalSynchronizer
 }
 
+// Create a new instance of a NodeReplica
 func NewNodeReplica(node *Node) *NodeReplica {
 	context, cancel := context.WithCancel(context.Background())
 
 	replica := &NodeReplica{
 		cancel:     cancel,
-		context:    context,
+		Context:    context,
 		node:       node,
 		startMutex: &sync.RWMutex{},
 	}
@@ -37,6 +39,7 @@ func NewNodeReplica(node *Node) *NodeReplica {
 	return replica
 }
 
+// Join the cluster by informing the primary node
 func (nr *NodeReplica) JoinCluster() error {
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
@@ -89,6 +92,7 @@ func (nr *NodeReplica) JoinCluster() error {
 	return nil
 }
 
+// Leave the cluster by informing the primary node
 func (nr *NodeReplica) LeaveCluster() error {
 	// Check if the context is canceled
 	if nr.node.context.Err() != nil {
@@ -138,7 +142,8 @@ func (nr *NodeReplica) LeaveCluster() error {
 	return nil
 }
 
-func (nr *NodeReplica) Send(message interface{}) (interface{}, error) {
+// Send a message from the replica to the primary node
+func (nr *NodeReplica) Send(message messages.NodeMessage) (interface{}, error) {
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)
 
@@ -153,7 +158,11 @@ func (nr *NodeReplica) Send(message interface{}) (interface{}, error) {
 		Timeout: 3 * time.Second,
 	}
 
-	request, err := http.NewRequestWithContext(nr.node.context, "POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
+	request, err := http.NewRequestWithContext(
+		nr.node.context, "POST",
+		fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()),
+		data,
+	)
 
 	if err != nil {
 		log.Println("Failed to send message: ", err)
@@ -171,6 +180,7 @@ func (nr *NodeReplica) Send(message interface{}) (interface{}, error) {
 	}
 
 	request.Header.Set("X-Lbdb-Node", encryptedHeader)
+	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
 	request.Header.Set("Content-Type", "application/gob")
 
 	response, err := client.Do(request)
@@ -190,7 +200,7 @@ func (nr *NodeReplica) Send(message interface{}) (interface{}, error) {
 
 	decoder := gob.NewDecoder(response.Body)
 
-	var responseMessage interface{}
+	var responseMessage messages.NodeMessage
 
 	err = decoder.Decode(&responseMessage)
 
@@ -202,107 +212,8 @@ func (nr *NodeReplica) Send(message interface{}) (interface{}, error) {
 	return responseMessage, nil
 }
 
-func (nr *NodeReplica) SendWithStreamingResonse(message interface{}) (chan interface{}, error) {
-	if nr.node.PrimaryAddress() == "" {
-		return nil, errors.New("Primary address is not set")
-	}
-
-	data := bytes.NewBuffer(nil)
-	encoder := gob.NewEncoder(data)
-
-	err := encoder.Encode(message)
-
-	if err != nil {
-		log.Println("Failed to encode message: ", err)
-		return nil, err
-	}
-
-	request, err := http.NewRequestWithContext(nr.node.context, "POST", fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()), data)
-
-	if err != nil {
-		log.Println("Failed to send message: ", err)
-		return nil, err
-	}
-
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
-		nr.node.cluster.Config.Signature,
-		nr.node.Address(),
-	)
-
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	request.Header.Set("X-Lbdb-Node", encryptedHeader)
-
-	responses := make(chan interface{})
-
-	client := &http.Client{
-		Timeout: 0,
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-		},
-	}
-
-	response, err := client.Do(request)
-
-	if err != nil {
-		log.Println("Failed to send message: ", err)
-		return nil, err
-	}
-
-	go func() {
-		defer response.Body.Close()
-
-		for {
-			decoder := gob.NewDecoder(response.Body)
-
-			var responseMessage interface{}
-
-			err = decoder.Decode(&responseMessage)
-
-			if err != nil {
-				close(responses)
-				return
-			}
-
-			// log.Println("[RECEIVED]:", responseMessage.Type)
-
-			responses <- responseMessage
-		}
-	}()
-
-	return responses, nil
-}
-
-// func (nr *NodeReplica) Start() (err error) {
-// 	primaryAddress := nr.node.PrimaryAddress()
-
-// 	if primaryAddress == "" || primaryAddress == nr.node.Address() {
-// 		return nil
-// 	}
-
-// 	nr.primaryConnection = NewNodePrimaryConnection(
-// 		primaryAddress,
-// 		nr.databaseCheckpointer,
-// 		nr.databaseWalSynchronizer,
-// 	)
-
-// 	go nr.primaryConnection.Open()
-
-// 	return nil
-// }
-
+// Stop the replica context
 func (nr *NodeReplica) Stop() error {
-	// if nr.primaryConnection != nil {
-	// 	err := nr.primaryConnection.Close()
-
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	nr.cancel()
 
 	return nil

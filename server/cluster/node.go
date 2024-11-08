@@ -89,16 +89,11 @@ func (n *Node) Address() string {
 	}
 
 	var address string
-	var err error
 
 	if addressProvider != nil {
 		address = addressProvider()
 	} else {
-		address, err = os.Hostname()
-
-		if err != nil {
-			log.Fatal(err)
-		}
+		address = "127.0.0.1"
 	}
 
 	n.address = fmt.Sprintf("%s:%s", address, n.cluster.Config.Port)
@@ -208,7 +203,7 @@ func (n *Node) JoinCluster() error {
 	}
 
 	if n.storedAddressAt.IsZero() {
-		if err := n.storeAddress(); err != nil {
+		if err := n.StoreAddress(); err != nil {
 			return err
 		}
 	}
@@ -325,7 +320,7 @@ func (n *Node) primaryLeaseVerification() bool {
 
 	if time.Now().Unix() >= leaseTime {
 		n.removePrimaryStatus()
-		n.setMembership(ClusterMembershipReplica)
+		n.SetMembership(ClusterMembershipReplica)
 
 		return false
 	}
@@ -449,7 +444,7 @@ func (n *Node) renewLease() error {
 	}
 
 	if string(primaryAddress) != n.Address() {
-		n.setMembership(ClusterMembershipReplica)
+		n.SetMembership(ClusterMembershipReplica)
 
 		return fmt.Errorf("primary address verification failed")
 	}
@@ -537,7 +532,7 @@ func (n *Node) RunElection() bool {
 	}
 	// }
 
-	n.setMembership(ClusterMembershipPrimary)
+	n.SetMembership(ClusterMembershipPrimary)
 	n.truncateFile(n.cluster.NominationPath())
 
 	err = n.renewLease()
@@ -566,12 +561,12 @@ func (n *Node) runTicker() {
 			}
 
 			// Change the cluster membership to stand by
-			// n.setMembership(ClusterMembershipStandBy)
+			// n.SetMembership(ClusterMembershipStandBy)
 		}
 	}
 }
 
-func (n *Node) setMembership(membership string) {
+func (n *Node) SetMembership(membership string) {
 	prevMembership := n.Membership
 
 	n.Membership = membership
@@ -653,7 +648,7 @@ func (n *Node) Start() error {
 	return nil
 }
 
-func (n *Node) storeAddress() error {
+func (n *Node) StoreAddress() error {
 tryStore:
 	err := n.cluster.ObjectFS().WriteFile(n.AddressPath(), []byte(n.Address()), 0644)
 
@@ -682,7 +677,7 @@ func (n *Node) Tick() {
 	// Check if the is still registered as primary
 	if n.lastActive.IsZero() {
 		if n.primaryFileVerification() {
-			n.setMembership(ClusterMembershipPrimary)
+			n.SetMembership(ClusterMembershipPrimary)
 		}
 	}
 
@@ -699,13 +694,13 @@ func (n *Node) Tick() {
 	// If the node is a standby, and it hasn't won the election at this point,
 	// it should manually become a replica and ensure it has membership.
 	if n.Membership == ClusterMembershipStandBy {
-		n.setMembership(ClusterMembershipReplica)
+		n.SetMembership(ClusterMembershipReplica)
 
 		n.Heartbeat()
 	}
 }
 
-func (n *Node) Send(message interface{}) (interface{}, error) {
+func (n *Node) Send(message messages.NodeMessage) (interface{}, error) {
 	return n.replica.Send(message)
 }
 

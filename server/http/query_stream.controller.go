@@ -95,7 +95,7 @@ func processInput(
 
 	defer database.Put(requestQuery)
 
-	err := requestQuery.Resolve(response)
+	_, err := requestQuery.Resolve(response)
 
 	if err != nil {
 		return err

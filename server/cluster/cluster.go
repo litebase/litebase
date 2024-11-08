@@ -172,6 +172,7 @@ func (cluster *Cluster) AddMember(group, ip string) error {
 				return nil
 			}
 		}
+
 		cluster.nodeMap[config.NodeTypeQuery][ip] = struct{}{}
 	} else if group == config.NodeTypeStorage {
 		for _, node := range cluster.storageNodes {
@@ -204,6 +205,20 @@ func (cluster *Cluster) AllQueryNodes() []*NodeIdentifier {
 
 func (cluster *Cluster) AllStorageNodes() []*NodeIdentifier {
 	cluster.GetMembers(true)
+
+	if cluster.Config.NodeType == config.NodeTypeQuery &&
+		cluster.Config.StorageTieredMode != config.StorageModeDistributed {
+		identifiers := make([]*NodeIdentifier, len(cluster.queryNodes))
+
+		for i, node := range cluster.queryNodes {
+			identifiers[i] = NewNodeIdentifier(
+				strings.Split(node, ":")[0],
+				strings.Split(node, ":")[1],
+			)
+		}
+
+		return identifiers
+	}
 
 	identifiers := make([]*NodeIdentifier, len(cluster.storageNodes))
 

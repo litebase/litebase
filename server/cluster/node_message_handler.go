@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Handle a message from a node in the cluster.
 func (n *Node) HandleMessage(message messages.NodeMessage) (messages.NodeMessage, error) {
 	var responseMessage interface{}
 
@@ -57,6 +58,8 @@ func (n *Node) handleBroadcastMessage(message interface{}) error {
 		if err := n.handleWALReplicationTruncateMessage(message); err != nil {
 			return err
 		}
+	default:
+		return errors.New("unknown message type")
 	}
 
 	return nil
@@ -106,15 +109,20 @@ func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 			Message: err.Error(),
 		}
 	}
-
 	var response NodeQueryResponse
 
-	err = query.Resolve(response)
+	response, err = query.Resolve(response)
 
 	if err != nil {
 		log.Println("Failed to process query message: ", err)
 		return messages.ErrorMessage{
 			Message: err.Error(),
+		}
+	}
+
+	if response == nil {
+		return messages.ErrorMessage{
+			Message: "Failed to process query message: response is empty",
 		}
 	}
 

@@ -68,7 +68,7 @@ func TestHandle(t *testing.T) {
 
 			queryResponse.Reset()
 
-			err = q.Resolve(queryResponse)
+			_, err = q.Resolve(queryResponse)
 
 			if err != nil && c.expected == `success` {
 				t.Fatal(err)

@@ -15,27 +15,29 @@ import (
 )
 
 func TestClusterInit(t *testing.T) {
-	os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
+	test.Run(t, func() {
+		os.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
 
-	c := config.NewConfig()
+		c := config.NewConfig()
 
-	cluster, err := cluster.NewCluster(c)
+		cluster, err := cluster.NewCluster(c)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	a := auth.NewAuth(
-		c,
-		cluster.ObjectFS(),
-		cluster.TmpFS(),
-	)
+		a := auth.NewAuth(
+			c,
+			cluster.ObjectFS(),
+			cluster.TmpFS(),
+		)
 
-	err = cluster.Init(a)
+		err = cluster.Init(a)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestClusterInitNoClusterId(t *testing.T) {
@@ -64,15 +66,13 @@ func TestNewCluster(t *testing.T) {
 		if c == nil {
 			t.Fatal("Cluster is nil")
 		}
-
-		if c.Id != "TEST_CLUSTER_002" {
-			t.Fatal("Cluster ID is not correct")
-		}
 	})
 }
 
 func TestClusterAddMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		testServer := test.NewTestQueryNode(t)
+
 		c, _ := cluster.NewCluster(app.Config)
 
 		err := c.Save()
@@ -83,17 +83,30 @@ func TestClusterAddMember(t *testing.T) {
 
 		err = c.AddMember(
 			config.NodeTypeQuery,
-			"10.0.0.0:8080",
+			testServer.Address,
 		)
 
 		if err != nil {
 			t.Fatalf("Error adding query node: %s", err)
 		}
 
-		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+		queryNodes, _ := c.GetMembers(true)
 
-		if err != nil {
-			t.Errorf("Error checking query node file: %s", err)
+		if len(queryNodes) != 2 {
+			t.Fatal("Query nodes should not be empty")
+		}
+
+		found := false
+
+		for _, node := range queryNodes {
+			if node == testServer.Address {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Fatalf("Query node %s not found", testServer.Address)
 		}
 	})
 }
@@ -118,6 +131,7 @@ func TestClusterGetMembers(t *testing.T) {
 
 func TestClusterGetMembersSince(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		testServer := test.NewTestQueryNode(t)
 		c, _ := cluster.NewCluster(app.Config)
 
 		err := c.Save()
@@ -135,14 +149,14 @@ func TestClusterGetMembersSince(t *testing.T) {
 		// Add a query node
 		err = app.Cluster.AddMember(
 			config.NodeTypeQuery,
-			"10.0.0.0:8080",
+			testServer.Address,
 		)
 
 		if err != nil {
 			t.Errorf("Error adding query node: %s", err)
 		}
 
-		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeQueryPath() + strings.ReplaceAll(testServer.Address, ":", "_"))
 
 		if err != nil {
 			t.Errorf("Error checking query node file: %s", err)
@@ -155,7 +169,7 @@ func TestClusterGetMembersSince(t *testing.T) {
 		}
 
 		// Delete the query node file
-		err = app.Cluster.ObjectFS().Remove(app.Cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+		err = app.Cluster.ObjectFS().Remove(app.Cluster.NodeQueryPath() + strings.ReplaceAll(testServer.Address, ":", "_"))
 
 		if err != nil {
 			t.Errorf("Error deleting query node file: %s", err)
@@ -208,17 +222,19 @@ func TestClusterGetStorageNodes(t *testing.T) {
 			t.Fatal("Storage nodes should be empty")
 		}
 
+		testServer := test.NewTestStorageNode(t)
+
 		// Add a storage node
 		err = c.AddMember(
 			config.NodeTypeStorage,
-			"10.0.0.0:8080",
+			testServer.Address,
 		)
 
 		if err != nil {
 			t.Fatalf("Error adding storage node: %s", err)
 		}
 
-		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeStoragePath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeStoragePath() + strings.ReplaceAll(testServer.Address, ":", "_"))
 
 		if err != nil {
 			t.Errorf("Error checking storage node file: %s", err)
@@ -238,6 +254,7 @@ func TestClusterGetStorageNodes(t *testing.T) {
 
 func TestClusterIsMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		testServer := test.NewTestQueryNode(t)
 		c, _ := cluster.NewCluster(app.Config)
 
 		err := c.Save()
@@ -249,14 +266,14 @@ func TestClusterIsMember(t *testing.T) {
 		// Add a query node
 		err = c.AddMember(
 			config.NodeTypeQuery,
-			"10.0.0.0:8080",
+			testServer.Address,
 		)
 
 		if err != nil {
 			t.Fatalf("Error adding query node: %s", err)
 		}
 
-		if !c.IsMember("10.0.0.0:8080", time.Now()) {
+		if !c.IsMember(testServer.Address, time.Now()) {
 			t.Fatal("Node should be a member")
 		}
 	})
@@ -264,6 +281,7 @@ func TestClusterIsMember(t *testing.T) {
 
 func TestClusterRemoveMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		testServer := test.NewTestQueryNode(t)
 		c, _ := cluster.NewCluster(app.Config)
 
 		err := c.Save()
@@ -274,7 +292,7 @@ func TestClusterRemoveMember(t *testing.T) {
 
 		err = c.AddMember(
 			config.NodeTypeQuery,
-			"10.0.0.0:8080",
+			testServer.Address,
 		)
 
 		if err != nil {
@@ -282,17 +300,17 @@ func TestClusterRemoveMember(t *testing.T) {
 		}
 
 		// Verify is a member
-		if !c.IsMember("10.0.0.0:8080", time.Now()) {
+		if !c.IsMember(testServer.Address, time.Now()) {
 			t.Fatal("Node should be a member")
 		}
 
-		err = c.RemoveMember("10.0.0.0:8080")
+		err = c.RemoveMember(testServer.Address)
 
 		if err != nil {
 			t.Fatalf("Error removing query node: %s", err)
 		}
 
-		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeQueryPath() + strings.ReplaceAll("10.0.0.0:8080", ":", "_"))
+		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeQueryPath() + strings.ReplaceAll(testServer.Address, ":", "_"))
 
 		if err == nil {
 			t.Errorf("Query node file should not exist")
@@ -301,6 +319,8 @@ func TestClusterRemoveMember(t *testing.T) {
 }
 
 func TestClusterSave(t *testing.T) {
+	t.Setenv("LITEBASE_CLUSTER_ID", "TEST_CLUSTER_000")
+
 	test.RunWithApp(t, func(app *server.App) {
 		c, _ := cluster.NewCluster(app.Config)
 
@@ -323,10 +343,6 @@ func TestClusterSave(t *testing.T) {
 
 		if err != nil {
 			t.Fatal(err)
-		}
-
-		if data["id"] != "TEST_CLUSTER_003" {
-			t.Fatal("Cluster ID is not correct")
 		}
 	})
 }

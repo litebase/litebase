@@ -21,7 +21,7 @@ func TestNewQuery(t *testing.T) {
 				Statement: []byte("SELECT * FROM users LIMIT ?"),
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
-					Value: 1,
+					Value: int64(1),
 				}},
 				Id: []byte(""),
 			},
@@ -54,7 +54,7 @@ func TestResolve(t *testing.T) {
 				Statement: []byte("SELECT * FROM users LIMIT ?"),
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
-					Value: 1,
+					Value: int64(1),
 				}},
 				Id: []byte(""),
 			},
@@ -64,7 +64,7 @@ func TestResolve(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = query.Resolve(queryResponse)
+		_, err = query.Resolve(queryResponse)
 
 		if err != nil {
 			t.Fatal(err)
@@ -86,7 +86,7 @@ func TestStatement(t *testing.T) {
 				Statement: []byte("SELECT * FROM users LIMIT ?"),
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
-					Value: 1,
+					Value: int64(1),
 				}},
 			},
 		}
@@ -147,7 +147,7 @@ func TestValidate(t *testing.T) {
 				Statement: []byte("SELECT * FROM users LIMIT ?"),
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
-					Value: 1,
+					Value: int64(1),
 				}},
 			},
 		}

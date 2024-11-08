@@ -24,8 +24,8 @@ type WriteQueue struct {
 // A WriteQueueJob is a container for a query to be handled by the WriteQueue.
 type WriteQueueJob struct {
 	context  context.Context
-	handler  func(f func(query *Query, response *QueryResponse) error, query *Query, response *QueryResponse) error
-	f        func(query *Query, response *QueryResponse) error
+	handler  func(f func(query *Query, response *QueryResponse) (*QueryResponse, error), query *Query, response *QueryResponse) (*QueryResponse, error)
+	f        func(query *Query, response *QueryResponse) (*QueryResponse, error)
 	query    *Query
 	response *QueryResponse
 	result   chan *WriteQueueResult
@@ -38,14 +38,14 @@ type WriteQueueResult struct {
 // Handle a query with the WriteQueue.
 func (wq *WriteQueue) Handle(
 	handler func(
-		f func(query *Query, response *QueryResponse) error,
+		f func(query *Query, response *QueryResponse) (*QueryResponse, error),
 		query *Query,
 		response *QueryResponse,
-	) error,
-	f func(query *Query, response *QueryResponse) error,
+	) (*QueryResponse, error),
+	f func(query *Query, response *QueryResponse) (*QueryResponse, error),
 	query *Query,
 	response *QueryResponse,
-) error {
+) (*QueryResponse, error) {
 	if !wq.running {
 		wq.mutex.Lock()
 		shouldStart := !wq.running
@@ -71,7 +71,7 @@ func (wq *WriteQueue) Handle(
 
 	res := <-resultChannel
 
-	return res.err
+	return response, res.err
 }
 
 // Detect if the WriteQueue is idle.
@@ -83,7 +83,7 @@ func (wq *WriteQueue) isIdle() bool {
 func (wq *WriteQueue) processQueue() {
 	for job := range wq.jobs {
 		// Process the job immediately
-		err := job.handler(job.f, job.query, job.response)
+		_, err := job.handler(job.f, job.query, job.response)
 
 		// Send the result back
 		result := wq.resultPool.Get().(*WriteQueueResult)

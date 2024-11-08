@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-func ResolveQuery(query *Query, response *QueryResponse) error {
+func ResolveQuery(query *Query, response *QueryResponse) (*QueryResponse, error) {
 	if query.invalid {
-		return fmt.Errorf("invalid or malformed query")
+		return nil, fmt.Errorf("invalid or malformed query")
 	}
 
 	if shouldForwardToPrimary(query) {
@@ -22,8 +22,8 @@ func ResolveQuery(query *Query, response *QueryResponse) error {
 	return resolveQueryLocally(query, response)
 }
 
-func resolveQueryLocally(query *Query, response *QueryResponse) error {
-	return resolveWithQueue(query, response, func(query *Query, response *QueryResponse) error {
+func resolveQueryLocally(query *Query, response *QueryResponse) (*QueryResponse, error) {
+	return resolveWithQueue(query, response, func(query *Query, response *QueryResponse) (*QueryResponse, error) {
 		start := time.Now()
 		var sqlite3Result *sqlite3.Result
 		var statement Statement
@@ -37,7 +37,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 		if err != nil {
 			log.Println("Error getting database connection", err)
 
-			return err
+			return response, err
 		}
 
 		defer query.databaseManager.ConnectionManager().Release(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
@@ -77,7 +77,7 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 
 		if err != nil {
 			query.databaseManager.ConnectionManager().Remove(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
-			return err
+			return response, err
 		}
 
 		response.SetChanges(changes)
@@ -100,27 +100,27 @@ func resolveQueryLocally(query *Query, response *QueryResponse) error {
 			},
 		)
 
-		return err
+		return response, err
 	})
 }
 
 func resolveWithQueue(
 	query *Query,
 	response *QueryResponse,
-	f func(query *Query, response *QueryResponse) error,
-) error {
+	f func(query *Query, response *QueryResponse) (*QueryResponse, error),
+) (*QueryResponse, error) {
 	if query.IsWrite() {
 		queue := query.databaseManager.WriteQueueManager.GetWriteQueue(query)
 
 		if queue == nil {
-			return fmt.Errorf("database not found")
+			return nil, fmt.Errorf("database not found")
 		}
 
 		return queue.Handle(
-			func(f func(query *Query, response *QueryResponse) error,
+			func(f func(query *Query, response *QueryResponse) (*QueryResponse, error),
 				query *Query,
 				response *QueryResponse,
-			) error {
+			) (*QueryResponse, error) {
 				return f(query, response)
 			}, f, query, response)
 	}
@@ -128,26 +128,28 @@ func resolveWithQueue(
 	return f(query, response)
 }
 
-func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
+func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryResponse, error) {
 	responseMessage, err := query.cluster.Node().Send(
-		messages.QueryMessage{
-			AccessKeyId: query.AccessKey.AccessKeyId,
-			BranchId:    query.DatabaseKey.BranchId,
-			DatabaseId:  query.DatabaseKey.DatabaseId,
-			ID:          query.Input.Id,
-			Statement:   query.Input.Statement,
-			Parameters:  query.Input.Parameters,
+		messages.NodeMessage{
+			Data: messages.QueryMessage{
+				AccessKeyId: query.AccessKey.AccessKeyId,
+				BranchId:    query.DatabaseKey.BranchId,
+				DatabaseId:  query.DatabaseKey.DatabaseId,
+				ID:          query.Input.Id,
+				Statement:   query.Input.Statement,
+				Parameters:  query.Input.Parameters,
+			},
 		},
 	)
 
 	if err != nil {
 		log.Println("Error forwarding query to primary", err)
-		return errors.New("error forwarding query to primary")
+		return nil, errors.New("error forwarding query to primary")
 	}
 
 	switch primaryResponse := responseMessage.(type) {
 	case messages.ErrorMessage:
-		return fmt.Errorf(primaryResponse.Message)
+		return nil, fmt.Errorf(primaryResponse.Message)
 	case messages.QueryMessageResponse:
 		response.SetChanges(primaryResponse.Changes)
 		response.SetColumns(primaryResponse.Columns)
@@ -157,10 +159,10 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) error {
 		response.SetRows(primaryResponse.Rows)
 
 	default:
-		return fmt.Errorf("unexpected response from primary")
+		return nil, fmt.Errorf("unexpected response from primary")
 	}
 
-	return nil
+	return nil, nil
 }
 
 func shouldForwardToPrimary(query *Query) bool {

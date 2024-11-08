@@ -106,6 +106,16 @@ func (fsd *TieredFileSystemDriver) AddFile(path string, file internalStorage.Fil
 	return fsd.Files[path]
 }
 
+func (fsd *TieredFileSystemDriver) ClearFiles() {
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	for path, file := range fsd.Files {
+		fsd.ReleaseFile(file)
+		delete(fsd.Files, path)
+	}
+}
+
 // CopyFile copies data from src to dst using a buffer pool to minimize memory allocations.
 func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64, error) {
 	buf := fsd.buffers.Get().(*bytes.Buffer)
@@ -416,9 +426,21 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 // Releasing a file involves closing the file and removing it from the driver. This
 // operation is typically performed when the file is no longer needed.
 func (fsd *TieredFileSystemDriver) ReleaseFile(file *TieredFile) {
-	file.closeFile()
-	delete(fsd.Files, file.Key)
-	fsd.FileCount--
+	if file.File != nil {
+		file.File.Close()
+		err := fsd.localFileSystemDriver.Remove(file.Key)
+
+		if err != nil {
+			log.Println("Error removing file from local file system", err)
+		}
+
+		file.File = nil
+	}
+
+	if _, ok := fsd.Files[file.Key]; ok {
+		delete(fsd.Files, file.Key)
+		fsd.FileCount--
+	}
 }
 
 // Removing a file included removing the file from the local file system and also
@@ -528,7 +550,9 @@ func (fsd *TieredFileSystemDriver) Shutdown() error {
 
 	fsd.shuttingDown = true
 
-	fsd.watchTicker.Stop()
+	if fsd.watchTicker != nil {
+		fsd.watchTicker.Stop()
+	}
 
 	return fsd.flushFiles()
 }

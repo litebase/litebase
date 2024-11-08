@@ -77,7 +77,7 @@ func QueryController(request *Request) Response {
 
 	response := &database.QueryResponse{}
 
-	err = requestQuery.Resolve(response)
+	_, err = requestQuery.Resolve(response)
 
 	if err != nil {
 		request.databaseManager.ConnectionManager().Remove(

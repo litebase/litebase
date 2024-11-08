@@ -10,6 +10,10 @@ func (cluster *Cluster) ClearFSFiles() {
 	if cluster.Config.StorageTieredMode == config.StorageModeDistributed && cluster.tieredFileSystem != nil {
 		cluster.tieredFileSystem.Driver().(*storage.DistributedFileSystemDriver).ClearFiles()
 	}
+
+	if cluster.Config.StorageTieredMode == config.NewConfig().StorageTieredMode && cluster.tieredFileSystem != nil {
+		cluster.tieredFileSystem.Driver().(*storage.TieredFileSystemDriver).ClearFiles()
+	}
 }
 
 func (cluster *Cluster) LocalFS() *storage.FileSystem {

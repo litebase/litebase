@@ -269,8 +269,13 @@ func (fsd *DistributedFileSystemDriver) ReadFile(path string) ([]byte, error) {
 // operation is typically performed when the file is no longer needed.
 func (fsd *DistributedFileSystemDriver) ReleaseFile(file *DistributedFile) {
 	if file.File != nil {
-		file.File.Truncate(0)
 		file.File.Close()
+		err := fsd.localFileSystemDriver.Remove(file.Path)
+
+		if err != nil {
+			log.Println("Error removing file from local file system", err)
+		}
+
 		file.File = nil
 	}
 

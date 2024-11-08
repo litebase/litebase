@@ -19,44 +19,36 @@ type DistributedFile struct {
 	// Element is a pointer to the list.Element that is used to store the File
 	// in the LRU cache. The Element is used to determine the position of the
 	// File in the LRU cache and to remove the File from the LRU cache.
-
 	Element *list.Element
 
 	// File is the internalStorage.File object that is used to read data from
 	// the File. The File is a instance of *os.File which points to a local
 	// File. If the File is nil, the File has not been opened yet.
-
 	File internalStorage.File
 
 	// Flags that defined the file permissions used for access. This value will
 	// be used to determine if the File should be written to durable storage.
-
 	Flag int
 
 	// Offset is the current offset of the file. This value is used to determine
 	// where the next read or write operation should occur. In case of a network
 	// failure, the offset will be used to determine where the next operation
 	// should occur from the last successful operation.
-
 	Offset int64
 
 	// Mutex is a pointer to a sync.Mutex that is used to lock the file when
 	// reading or writing to the file. This is used to prevent multiple
 	// operations from occurring at the same time.
-
 	mutex *sync.Mutex
 
 	// The file path that is used to identify the file on the storage node.
-
 	Path string
 
 	// Ther permissions that were used to create or open the file.
-
 	Perm fs.FileMode
 
 	// The storage connection manager that is used to send requests to the
 	// distributed storage nodes.
-
 	storageConnectionManager *StorageConnectionManager
 }
 
