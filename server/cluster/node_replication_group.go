@@ -38,8 +38,8 @@ type NodeReplicationGroup struct {
 	Members          []NodeReplicationGroupMember
 	mutex            *sync.RWMutex
 	nodeConnections  map[string]*NodeConnection
-	pendingWrites    map[string]messages.ReplicationGroupWriteMessage
-	replicatedWrites map[string]*ReplicationGroupReplicatedWrite
+	PendingWrites    map[string]messages.ReplicationGroupWriteMessage
+	ReplicatedWrites map[string]*ReplicationGroupReplicatedWrite
 	quorumReached    chan struct{}
 	quorumReachedAt  time.Time
 	writeGroup       bool
@@ -50,14 +50,15 @@ func NewNodeReplicationGroup(cluster *Cluster) *NodeReplicationGroup {
 	return &NodeReplicationGroup{
 		cluster:          cluster,
 		mutex:            &sync.RWMutex{},
-		pendingWrites:    make(map[string]messages.ReplicationGroupWriteMessage),
+		PendingWrites:    make(map[string]messages.ReplicationGroupWriteMessage),
 		Members:          make([]NodeReplicationGroupMember, 0),
 		nodeConnections:  make(map[string]*NodeConnection),
-		replicatedWrites: make(map[string]*ReplicationGroupReplicatedWrite),
+		ReplicatedWrites: make(map[string]*ReplicationGroupReplicatedWrite),
 		quorumReached:    make(chan struct{}, 3),
 	}
 }
 
+// Aknowledge a commit message from another node in the replication group.
 func (rg *NodeReplicationGroup) AknowledgeCommit(message messages.ReplicationGroupWriteCommitMessage) error {
 	err := rg.waitForQuorum()
 
@@ -68,7 +69,11 @@ func (rg *NodeReplicationGroup) AknowledgeCommit(message messages.ReplicationGro
 	rg.mutex.Lock()
 	defer rg.mutex.Unlock()
 
-	if rg.replicatedWrites[message.Key].Key == "" {
+	if _, ok := rg.ReplicatedWrites[message.Key]; !ok {
+		return errors.New("no write found for key")
+	}
+
+	if rg.ReplicatedWrites[message.Key].Key == "" {
 		return errors.New("no write found for key")
 	}
 
@@ -78,16 +83,16 @@ func (rg *NodeReplicationGroup) AknowledgeCommit(message messages.ReplicationGro
 	}
 
 	// Ensure the proposer matches the original proposer
-	if message.Proposer != rg.replicatedWrites[message.Key].Proposer {
+	if message.Proposer != rg.ReplicatedWrites[message.Key].Proposer {
 		return errors.New("proposer does not match")
 	}
 
 	// Ensure the SHA256 matches
-	if message.SHA256 != rg.replicatedWrites[message.Key].SHA256 {
+	if message.SHA256 != rg.ReplicatedWrites[message.Key].SHA256 {
 		return errors.New("SHA256 does not match")
 	}
 
-	delete(rg.replicatedWrites, message.Key)
+	delete(rg.ReplicatedWrites, message.Key)
 
 	return nil
 }
@@ -105,7 +110,7 @@ func (rg *NodeReplicationGroup) AknowledgePrepare(message messages.ReplicationGr
 	var replicatedWrite *ReplicationGroupReplicatedWrite
 	var ok bool
 
-	if replicatedWrite, ok = rg.replicatedWrites[message.Key]; !ok {
+	if replicatedWrite, ok = rg.ReplicatedWrites[message.Key]; !ok {
 		return errors.New("no write found for key")
 	}
 
@@ -140,11 +145,11 @@ func (rg *NodeReplicationGroup) AknowledgeWrite(message messages.ReplicationGrou
 	rg.mutex.Lock()
 	defer rg.mutex.Unlock()
 
-	if _, ok := rg.replicatedWrites[message.Key]; ok {
+	if _, ok := rg.ReplicatedWrites[message.Key]; ok {
 		return errors.New("write already replicated")
 	}
 
-	rg.replicatedWrites[message.Key] = &ReplicationGroupReplicatedWrite{
+	rg.ReplicatedWrites[message.Key] = &ReplicationGroupReplicatedWrite{
 		Addresses:    message.Addresses,
 		Data:         message.Data,
 		Deadline:     message.Deadline,
@@ -425,7 +430,7 @@ func (rg *NodeReplicationGroup) Write(key string, data []byte) error {
 		SHA256:    hex.EncodeToString(sha256Hash[:]),
 	}
 
-	rg.pendingWrites[key] = replicationMessage
+	rg.PendingWrites[key] = replicationMessage
 
 	err = rg.send(messages.NodeMessage{
 		Data: replicationMessage,

@@ -197,7 +197,15 @@ func (n *Node) handleReplicationGroupPrepareMessage(message messages.Replication
 		}
 	}
 
-	resplicationGroup.AknowledgePrepare(message)
+	err = resplicationGroup.AknowledgePrepare(message)
+
+	if err != nil {
+		log.Println("Failed to acknowledge prepare to replication group: ", err)
+
+		return messages.ErrorMessage{
+			Message: err.Error(),
+		}
+	}
 
 	return messages.ReplicationGroupWritePrepareResponse{
 		Key: message.Key,
