@@ -47,7 +47,7 @@ func (n *Node) HandleMessage(message messages.NodeMessage) (messages.NodeMessage
 func (n *Node) handleBroadcastMessage(message interface{}) error {
 	switch message := message.(type) {
 	case messages.ReplicationGroupAssignmentMessage:
-		if err := n.ReplicationGroupManager.HandledReplcationGroupAssignmentMessage(message); err != nil {
+		if err := n.ReplicationGroupManager.HandleReplcationGroupAssignmentMessage(message); err != nil {
 			return err
 		}
 	case messages.WALReplicationWriteMessage:

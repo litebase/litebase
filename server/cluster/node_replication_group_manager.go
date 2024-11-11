@@ -8,17 +8,18 @@ import (
 )
 
 type NodeReplicationGroupMember struct {
-	address string
-	role    NodeReplicationGroupRole
+	Address string
+	Role    NodeReplicationGroupRole
 }
 
 type NodeReplicationGroupManager struct {
-	assignments       [][]NodeReplicationGroupMember
+	Assignments       [][]NodeReplicationGroupMember
 	node              *Node
 	mutex             *sync.RWMutex
 	ReplicationGroups []*NodeReplicationGroup
 }
 
+// Create a new instance of the NodeReplicationGroupManager.
 func NewNodeReplicationGroupManager(node *Node) *NodeReplicationGroupManager {
 	return &NodeReplicationGroupManager{
 		node:  node,
@@ -26,7 +27,12 @@ func NewNodeReplicationGroupManager(node *Node) *NodeReplicationGroupManager {
 	}
 }
 
+// Assign replication groups to all storage nodes in the cluster.
 func (nrgm *NodeReplicationGroupManager) AssignReplicationGroups() error {
+	if !nrgm.node.IsPrimary() {
+		return errors.New("node replicatication group manager node is not primary, cannot assign replication groups")
+	}
+
 	allNodes := nrgm.node.cluster.AllStorageNodes()
 
 	if len(allNodes) == 0 {
@@ -35,30 +41,31 @@ func (nrgm *NodeReplicationGroupManager) AssignReplicationGroups() error {
 
 	// Divide the nodes into replication groups of three nodes each.
 	groupIndex := 0
-	nrgm.assignments = make([][]NodeReplicationGroupMember, 0)
+	nrgm.Assignments = make([][]NodeReplicationGroupMember, 0)
 
 	if len(allNodes) > 0 {
-		nrgm.assignments = append(nrgm.assignments, []NodeReplicationGroupMember{})
+		nrgm.Assignments = append(nrgm.Assignments, []NodeReplicationGroupMember{})
 	}
 
 	for _, node := range allNodes {
-		if len(nrgm.assignments) == 0 || len(nrgm.assignments[groupIndex]) == 3 {
-			nrgm.assignments = append(nrgm.assignments, []NodeReplicationGroupMember{})
+		if len(nrgm.Assignments) == 0 || len(nrgm.Assignments[groupIndex]) == 3 {
+			nrgm.Assignments = append(nrgm.Assignments, []NodeReplicationGroupMember{})
 			groupIndex++
 		}
 
-		nrgm.assignments[groupIndex] = append(nrgm.assignments[groupIndex], NodeReplicationGroupMember{
-			role:    NodeReplicationGroupWriter,
-			address: node.String(),
+		nrgm.Assignments[groupIndex] = append(nrgm.Assignments[groupIndex], NodeReplicationGroupMember{
+			Address: node.String(),
+			Role:    NodeReplicationGroupWriter,
 		})
 	}
 
 	nrgm.borrowMembersToCompleteGroups()
 
-	for _, group := range nrgm.assignments {
+	// Assign the members for the current node
+	for _, group := range nrgm.Assignments {
 		for _, member := range group {
-			if member.address == nrgm.node.Address() {
-				if member.role == NodeReplicationGroupWriter {
+			if member.Address == nrgm.node.Address() {
+				if member.Role == NodeReplicationGroupWriter {
 					nrgm.node.ReplicationGroupManager.WriterGroup().SetMembers(group)
 				} else {
 					replicationGroup := NewNodeReplicationGroup(nrgm.node.cluster)
@@ -69,16 +76,16 @@ func (nrgm *NodeReplicationGroupManager) AssignReplicationGroups() error {
 		}
 	}
 
-	// Send assignments to all storage nodes
+	// Prepare assignments to be sent to all storage nodes
 	var assignments [][]messages.ReplicationGroupAssignment
 
-	for _, group := range nrgm.assignments {
+	for _, group := range nrgm.Assignments {
 		var assignment []messages.ReplicationGroupAssignment
 
 		for _, member := range group {
 			assignment = append(assignment, messages.ReplicationGroupAssignment{
-				Address: member.address,
-				Role:    string(member.role),
+				Address: member.Address,
+				Role:    string(member.Role),
 			})
 		}
 
@@ -100,12 +107,13 @@ func (nrgm *NodeReplicationGroupManager) AssignReplicationGroups() error {
 	return nil
 }
 
+// Borrow members from the first replication group to form a complete group.
 func (nrgm *NodeReplicationGroupManager) borrowMembersToCompleteGroups() {
-	if len(nrgm.assignments) <= 1 {
+	if len(nrgm.Assignments) <= 1 {
 		return
 	}
 
-	for i, group := range nrgm.assignments {
+	for i, group := range nrgm.Assignments {
 		if i == 0 || len(group) == 3 {
 			continue
 		}
@@ -113,30 +121,32 @@ func (nrgm *NodeReplicationGroupManager) borrowMembersToCompleteGroups() {
 		borrowedIndex := 0
 
 		for len(group) < 3 {
-			borrowedMember := nrgm.assignments[0][borrowedIndex]
+			borrowedMember := nrgm.Assignments[0][borrowedIndex]
 
 			group = append(group, NodeReplicationGroupMember{
-				address: borrowedMember.address,
-				role:    NodeReplicationGroupObserver,
+				Address: borrowedMember.Address,
+				Role:    NodeReplicationGroupObserver,
 			})
 
 			borrowedIndex++
 		}
 
-		nrgm.assignments[i] = group
+		nrgm.Assignments[i] = group
 	}
 }
 
+// Clear replication groups that are not writing groups.
 func (nrgm *NodeReplicationGroupManager) clearNonWritingGroups() {
 	for i, group := range nrgm.ReplicationGroups {
 		for _, member := range group.Members {
-			if member.address == nrgm.node.Address() && member.role != NodeReplicationGroupWriter {
+			if member.Address == nrgm.node.Address() && member.Role != NodeReplicationGroupWriter {
 				nrgm.ReplicationGroups = append(nrgm.ReplicationGroups[:i], nrgm.ReplicationGroups[i+1:]...)
 			}
 		}
 	}
 }
 
+// Find the replication group for the given addresses.
 func (nrgm *NodeReplicationGroupManager) FindForAddresses(addresses []string) (*NodeReplicationGroup, error) {
 	nrgm.mutex.RLock()
 	defer nrgm.mutex.RUnlock()
@@ -151,7 +161,7 @@ func (nrgm *NodeReplicationGroupManager) FindForAddresses(addresses []string) (*
 }
 
 // Handle the replication group assignment message from the primary node.
-func (nrgm *NodeReplicationGroupManager) HandledReplcationGroupAssignmentMessage(message messages.ReplicationGroupAssignmentMessage) error {
+func (nrgm *NodeReplicationGroupManager) HandleReplcationGroupAssignmentMessage(message messages.ReplicationGroupAssignmentMessage) error {
 	nrgm.clearNonWritingGroups()
 
 	var assignmentGroups []struct {
@@ -178,13 +188,13 @@ func (nrgm *NodeReplicationGroupManager) HandledReplcationGroupAssignmentMessage
 	for _, groupAssignment := range assignmentGroups {
 		for _, assignment := range message.Assignments[groupAssignment.groupIndex] {
 			members = append(members, NodeReplicationGroupMember{
-				address: assignment.Address,
-				role:    NodeReplicationGroupRole(assignment.Role),
+				Address: assignment.Address,
+				Role:    NodeReplicationGroupRole(assignment.Role),
 			})
 		}
 
 		if len(members) != 0 && groupAssignment.role == NodeReplicationGroupWriter {
-			nrgm.node.ReplicationGroupManager.WriterGroup().SetMembers(members)
+			nrgm.WriterGroup().SetMembers(members)
 		} else {
 			replicationGroup := NewNodeReplicationGroup(nrgm.node.cluster)
 			replicationGroup.Members = members
@@ -195,6 +205,7 @@ func (nrgm *NodeReplicationGroupManager) HandledReplcationGroupAssignmentMessage
 	return nil
 }
 
+// Get the writer group for the node or create a new one.
 func (nrgm *NodeReplicationGroupManager) WriterGroup() *NodeReplicationGroup {
 	nrgm.mutex.Lock()
 	defer nrgm.mutex.Unlock()

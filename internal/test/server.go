@@ -51,15 +51,15 @@ func NewTestServer(t *testing.T) *TestServer {
 	}
 
 	server := &TestServer{
-		Address: ts.URL,
+		Address: ts.URL[7:],
 		App:     app,
 		Port:    port,
 		Server:  ts,
 	}
 
-	t.Cleanup(func() {
-		server.Shutdown()
-	})
+	// t.Cleanup(func() {
+	// 	server.Shutdown()
+	// })
 
 	return server
 }

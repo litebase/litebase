@@ -173,7 +173,7 @@ func (rg *NodeReplicationGroup) Commit(key string, sha256Hash string) error {
 	addresses := make([]string, 0, len(rg.Members))
 
 	for _, member := range rg.Members {
-		addresses = append(addresses, member.address)
+		addresses = append(addresses, member.Address)
 	}
 
 	err = rg.send(messages.NodeMessage{
@@ -197,7 +197,7 @@ func (rg *NodeReplicationGroup) ContainsAddresses(addresses []string) bool {
 		found := false
 
 		for _, member := range rg.Members {
-			if member.address == address {
+			if member.Address == address {
 				found = true
 				break
 			}
@@ -213,8 +213,8 @@ func (rg *NodeReplicationGroup) ContainsAddresses(addresses []string) bool {
 
 func (rg *NodeReplicationGroup) IsObserver() bool {
 	for _, member := range rg.Members {
-		if member.address == rg.cluster.node.Address() &&
-			member.role == NodeReplicationGroupObserver {
+		if member.Address == rg.cluster.node.Address() &&
+			member.Role == NodeReplicationGroupObserver {
 			return true
 		}
 	}
@@ -224,8 +224,8 @@ func (rg *NodeReplicationGroup) IsObserver() bool {
 
 func (rg *NodeReplicationGroup) IsWriter() bool {
 	for _, member := range rg.Members {
-		if member.address == rg.cluster.node.Address() &&
-			member.role == NodeReplicationGroupWriter {
+		if member.Address == rg.cluster.node.Address() &&
+			member.Role == NodeReplicationGroupWriter {
 			return true
 		}
 	}
@@ -247,7 +247,7 @@ func (rg *NodeReplicationGroup) Prepare(key string, sha256Hash string) error {
 	addresses := make([]string, 0, len(rg.Members))
 
 	for _, member := range rg.Members {
-		addresses = append(addresses, member.address)
+		addresses = append(addresses, member.Address)
 	}
 
 	err = rg.send(messages.NodeMessage{
@@ -277,16 +277,16 @@ func (rg *NodeReplicationGroup) send(message messages.NodeMessage) error {
 	connections := make([]*NodeConnection, 0, len(rg.Members)-1)
 
 	for _, member := range rg.Members {
-		if member.address == rg.cluster.node.Address() {
+		if member.Address == rg.cluster.node.Address() {
 			continue
 		}
 
 		var connection *NodeConnection
 		var ok bool
 
-		if connection, ok = rg.nodeConnections[member.address]; !ok {
-			connection = NewNodeConnection(rg.cluster.node, member.address)
-			rg.nodeConnections[member.address] = connection
+		if connection, ok = rg.nodeConnections[member.Address]; !ok {
+			connection = NewNodeConnection(rg.cluster.node, member.Address)
+			rg.nodeConnections[member.Address] = connection
 		}
 
 		connections = append(connections, connection)
@@ -413,7 +413,7 @@ func (rg *NodeReplicationGroup) Write(key string, data []byte) error {
 	addresses := make([]string, 0, len(rg.Members))
 
 	for _, member := range rg.Members {
-		addresses = append(addresses, member.address)
+		addresses = append(addresses, member.Address)
 	}
 
 	replicationMessage := messages.ReplicationGroupWriteMessage{
