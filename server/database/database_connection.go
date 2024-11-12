@@ -40,7 +40,7 @@ type DatabaseConnection struct {
 	tempFileSystem    *storage.TempDatabaseFileSystem
 	timestamp         int64
 	vfsHash           string
-	wal               *storage.WalFile
+	wal               *storage.WALFile
 }
 
 // Create a new database connection instance.
@@ -56,7 +56,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	resultPool := connectionManager.databaseManager.connectionManager.databaseManager.Resources(databaseId, branchId).ResultPool()
 	tempFileSystem := connectionManager.databaseManager.Resources(databaseId, branchId).TempFileSystem()
 
-	wal, err := connectionManager.databaseManager.Resources(databaseId, branchId).WalFile()
+	wal, err := connectionManager.databaseManager.Resources(databaseId, branchId).WALFile()
 
 	if err != nil {
 		cancel()

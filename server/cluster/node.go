@@ -57,7 +57,7 @@ type Node struct {
 	standBy                 chan struct{}
 	startedAt               time.Time
 	storedAddressAt         time.Time
-	walReplicator           *NodeWalReplicator
+	walReplicator           *NodeWALReplicator
 	walSynchronizer         NodeWalSynchronizer
 }
 
@@ -394,13 +394,13 @@ func (n *Node) Replica() *NodeReplica {
 	return n.replica
 }
 
-// Return the NodeWalReplicator for the Node.
-func (n *Node) WalReplicator() *NodeWalReplicator {
+// Return the NodeWALReplicator for the Node.
+func (n *Node) WalReplicator() *NodeWALReplicator {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
 	if n.walReplicator == nil {
-		n.walReplicator = NewNodeReplicator(n)
+		n.walReplicator = NewNodeWALReplicator(n)
 	}
 
 	return n.walReplicator

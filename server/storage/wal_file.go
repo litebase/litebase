@@ -15,48 +15,47 @@ var (
 	ErrWalSequenceMismatch = errors.New("wal sequence mismatch")
 )
 
-type WalFile struct {
+type WALFile struct {
 	file       internalStorage.File
 	mutex      *sync.Mutex
 	sequence   int64
 	timestamp  int64
-	writeQueue []WalWrite
+	writeQueue []WALWrite
 }
 
-type WalWrite struct {
+type WALWrite struct {
 	Data      []byte
 	Offset    int64
 	Sequence  int64
 	Timestamp int64
 }
 
-func NewWalFile(fs *FileSystem, path string) (*WalFile, error) {
+func NewWALFile(fs *FileSystem, path string) (*WALFile, error) {
 tryOpen:
-	file, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
+	file, err := fs.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 
 	if os.IsNotExist(err) {
-		if err := fs.MkdirAll(filepath.Base(path), 0755); err != nil {
+		if err := fs.MkdirAll(filepath.Dir(path), 0755); err != nil {
 			return nil, err
 		}
 
 		goto tryOpen
-
 	} else {
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &WalFile{
+	return &WALFile{
 		file:       file,
 		mutex:      &sync.Mutex{},
-		writeQueue: []WalWrite{},
+		writeQueue: []WALWrite{},
 	}, nil
 }
 
 // Apply items that were queued to be written to the WAL. These items should be
 // only be written if the sequence number is in order.
-func (w *WalFile) applyWriteQueue() {
+func (w *WALFile) applyWriteQueue() {
 	sequenceNumbers := []int64{}
 
 	if len(w.writeQueue) == 0 {
@@ -111,17 +110,17 @@ func (w *WalFile) applyWriteQueue() {
 }
 
 // Close the WAL file.
-func (w *WalFile) Close() error {
+func (w *WALFile) Close() error {
 	return w.file.Close()
 }
 
 // Return the current timestamp of the WAL file.
-func (w *WalFile) Timestamp() int64 {
+func (w *WALFile) Timestamp() int64 {
 	return w.timestamp
 }
 
 // Truncate the WAL file to the given size.
-func (w *WalFile) Truncate(size, sequence, timestamp int64) error {
+func (w *WALFile) Truncate(size, sequence, timestamp int64) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -130,7 +129,7 @@ func (w *WalFile) Truncate(size, sequence, timestamp int64) error {
 
 	w.sequence = sequence
 	w.timestamp = timestamp
-	w.writeQueue = []WalWrite{}
+	w.writeQueue = []WALWrite{}
 
 	// TODO: Signal to database connections to use SQLITE_FCNTL_RESET_CACHE?
 
@@ -138,7 +137,7 @@ func (w *WalFile) Truncate(size, sequence, timestamp int64) error {
 }
 
 // Write to the WAL file at the given offset.
-func (w *WalFile) WriteAt(p []byte, off, sequence, timestamp int64) (n int, err error) {
+func (w *WALFile) WriteAt(p []byte, off, sequence, timestamp int64) (n int, err error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -153,7 +152,7 @@ func (w *WalFile) WriteAt(p []byte, off, sequence, timestamp int64) (n int, err 
 
 	// Handle writes that that should be queued to be written later
 	if w.sequence != 0 && sequence > w.sequence+1 {
-		w.writeQueue = append(w.writeQueue, WalWrite{
+		w.writeQueue = append(w.writeQueue, WALWrite{
 			Data:      p,
 			Offset:    off,
 			Sequence:  sequence,

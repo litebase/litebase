@@ -70,6 +70,7 @@ func (np *NodePrimary) Publish(message messages.NodeMessage) error {
 	np.mutex.Unlock()
 
 	wg := sync.WaitGroup{}
+	errors := make([]error, 0)
 
 	wg.Add(len(connections))
 
@@ -82,10 +83,18 @@ func (np *NodePrimary) Publish(message messages.NodeMessage) error {
 			if err != nil {
 				log.Println("Failed to send message to node: ", err)
 			}
+
+			errors = append(errors, err)
 		}(connection)
 	}
 
 	wg.Wait()
+
+	for _, err := range errors {
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

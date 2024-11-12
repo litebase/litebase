@@ -27,7 +27,7 @@ type DatabaseResources struct {
 	tempFileSystem  *storage.TempDatabaseFileSystem
 	tieredFS        *storage.FileSystem
 	tmpFS           *storage.FileSystem
-	walFile         *storage.WalFile
+	walFile         *storage.WALFile
 	writeQueue      WriteQueue
 }
 
@@ -276,10 +276,9 @@ func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
 	return d.tempFileSystem
 }
 
-func (d *DatabaseResources) WalFile() (*storage.WalFile, error) {
+func (d *DatabaseResources) WALFile() (*storage.WALFile, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
 	if d.walFile != nil {
 		return d.walFile, nil
 	}
@@ -293,7 +292,7 @@ func (d *DatabaseResources) WalFile() (*storage.WalFile, error) {
 		d.DatabaseHash,
 	)
 
-	walFile, err := storage.NewWalFile(d.tmpFS, path)
+	walFile, err := storage.NewWALFile(d.tmpFS, path)
 
 	if err != nil {
 		return nil, err

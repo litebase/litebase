@@ -2,30 +2,31 @@ package cluster
 
 import (
 	"crypto/sha256"
+	"errors"
 	"litebase/server/cluster/messages"
 )
 
 // The NodeReplicator is responsible for distributing database WAL changes to other
 // nodes in the cluster.
-type NodeWalReplicator struct {
+type NodeWALReplicator struct {
 	node *Node
 }
 
 // Create a new instance of a NodeReplicator.
-func NewNodeReplicator(node *Node) *NodeWalReplicator {
-	return &NodeWalReplicator{
+func NewNodeWALReplicator(node *Node) *NodeWALReplicator {
+	return &NodeWALReplicator{
 		node: node,
 	}
 }
 
 // Replicate a truncation of the WAL to all of the other nodes in the cluster.
-func (nr *NodeWalReplicator) Truncate(
+func (nr *NodeWALReplicator) Truncate(
 	databaseId,
 	branchId string,
 	size, sequence, timestamp int64,
 ) error {
 	if !nr.node.IsPrimary() {
-		return nil
+		return errors.New("node is not primary")
 	}
 
 	return nr.node.Primary().Publish(messages.NodeMessage{
@@ -41,9 +42,9 @@ func (nr *NodeWalReplicator) Truncate(
 }
 
 // Replicate a write to the WAL to all of the other nodes in the cluster.
-func (nr *NodeWalReplicator) WriteAt(databaseId, branchId string, p []byte, off, sequence, timestamp int64) error {
+func (nr *NodeWALReplicator) WriteAt(databaseId, branchId string, p []byte, off, sequence, timestamp int64) error {
 	if !nr.node.IsPrimary() {
-		return nil
+		return errors.New("node is not primary")
 	}
 
 	sha256Hash := sha256.Sum256(p)
