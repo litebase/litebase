@@ -20,6 +20,7 @@ type AccessKeyManager struct {
 	objectFS *storage.FileSystem
 }
 
+// Create a New Access Key Manager
 func NewAccessKeyManager(
 	auth *Auth,
 	config *config.Config,
@@ -33,10 +34,12 @@ func NewAccessKeyManager(
 	}
 }
 
+// Return an access key cache key
 func (akm *AccessKeyManager) accessKeyCacheKey(accessKeyId string) string {
 	return fmt.Sprintf("access_key:%s", accessKeyId)
 }
 
+// Return all access key ids
 func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
 	files, err := akm.objectFS.ReadDir(akm.auth.SecretsManager.SecretsPath(akm.config.Signature, "access_keys/"))
 
@@ -61,6 +64,7 @@ func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
 	return accessKeyIds, nil
 }
 
+// Create a new access key
 func (akm *AccessKeyManager) Create() (*AccessKey, error) {
 	accessKeyId, err := akm.GenerateAccessKeyId()
 
@@ -85,6 +89,7 @@ func (akm *AccessKeyManager) Create() (*AccessKey, error) {
 	return accessKey, nil
 }
 
+// Generate an access key id
 func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 	akm.mutex.Lock()
 	defer akm.mutex.Unlock()
@@ -128,6 +133,7 @@ func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 	}
 }
 
+// Generate an access key secret
 func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 	prefix := "lbdbaks_"
 
@@ -142,6 +148,7 @@ func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 	return fmt.Sprintf("%s%s", prefix, result)
 }
 
+// Get an access key
 func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	var accessKey = &AccessKey{}
 	value := akm.auth.SecretsManager.cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
@@ -176,26 +183,30 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	return accessKey, err
 }
 
-func (akm *AccessKeyManager) Has(databaseKey, accessKeyId string) bool {
-	_, err := akm.Get(accessKeyId)
-
-	return err == nil
-}
-
-func (akm *AccessKeyManager) Purge(accessKeyId string) {
+// Purge an access key from the cache
+func (akm *AccessKeyManager) Purge(accessKeyId string) error {
 	akm.auth.SecretsManager.cache("map").Forget(akm.accessKeyCacheKey(accessKeyId))
 	akm.auth.SecretsManager.cache("transient").Forget(akm.accessKeyCacheKey(accessKeyId))
+
+	return nil
 }
 
-func (akm *AccessKeyManager) PurgeAll() {
+// Purge all access keys
+func (akm *AccessKeyManager) PurgeAll() error {
 	// Get all the file names in the access keys directory
 	files, err := akm.objectFS.ReadDir(akm.auth.SecretsManager.SecretsPath(akm.config.Signature, "access_keys/"))
 
 	if err != nil {
-		return
+		return err
 	}
 
 	for _, file := range files {
-		akm.Purge(file.Name())
+		err := akm.Purge(file.Name())
+
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
