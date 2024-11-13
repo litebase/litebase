@@ -25,14 +25,14 @@ func ClusterMemberDestroyController(request *Request) Response {
 	nodePresent := false
 
 	for _, node := range queryNodes {
-		if node == decryptedIp["value"] {
+		if node == decryptedIp.Value {
 			nodePresent = true
 			break
 		}
 	}
 
 	for _, node := range storageNodes {
-		if node == decryptedIp["value"] {
+		if node == decryptedIp.Value {
 			nodePresent = true
 			break
 		}
@@ -54,8 +54,8 @@ func ClusterMemberDestroyController(request *Request) Response {
 		}
 	}
 
-	if address != decryptedIp["value"] {
-		log.Println("Unauthorized node connection attempt: ", decryptedIp["value"])
+	if address != decryptedIp.Value {
+		log.Println("Unauthorized node connection attempt: ", decryptedIp.Value)
 
 		return Response{
 			StatusCode: 401,
@@ -93,21 +93,21 @@ func ClusterMemberStoreController(request *Request) Response {
 	nodePresent := false
 
 	for _, node := range queryNodes {
-		if node == decryptedIp["value"] {
+		if node == decryptedIp.Value {
 			nodePresent = true
 			break
 		}
 	}
 
 	for _, node := range storageNodes {
-		if node == decryptedIp["value"] {
+		if node == decryptedIp.Value {
 			nodePresent = true
 			break
 		}
 	}
 
 	if !nodePresent {
-		log.Println("Node is not eligible to join the cluster: ", decryptedIp["value"])
+		log.Println("Node is not eligible to join the cluster: ", decryptedIp.Value)
 
 		return Response{
 			StatusCode: 400,

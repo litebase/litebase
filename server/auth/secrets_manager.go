@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -26,6 +25,12 @@ type SecretsManager struct {
 	TmpFS              *storage.FileSystem
 }
 
+type DecryptedSecret struct {
+	Key   string
+	Value string
+}
+
+// Create a new instance of the SecretsManager
 func NewSecretsManager(
 	auth *Auth,
 	config *config.Config,
@@ -45,6 +50,8 @@ func NewSecretsManager(
 	}
 }
 
+// Get the cache store for the given key. The SecretsManager uses multiple cache
+// stores to provide different levels of caching based on performance.
 func (s *SecretsManager) cache(key string) SecretsStore {
 	s.secretStoreMutex.RLock()
 	_, hasFileStore := s.secretStore["file"]
@@ -78,31 +85,35 @@ func (s *SecretsManager) cache(key string) SecretsStore {
 	return s.secretStore[key]
 }
 
+// Return the cache key for the database settings
 func (s *SecretsManager) databaseSettingCacheKey(databaseId, branchId string) string {
 	return fmt.Sprintf("database_secret:%s:%s", databaseId, branchId)
 }
 
-func (s *SecretsManager) Decrypt(signature string, text string) (map[string]string, error) {
+// Decrypt the given text using the given signature
+func (s *SecretsManager) Decrypt(signature string, text string) (DecryptedSecret, error) {
 	return s.Encrypter(signature).Decrypt(text)
 }
 
-func (s *SecretsManager) DecryptFor(accessKeyId, text, secret string) (string, error) {
+// Decrypt the given text using the given access key id and secret
+func (s *SecretsManager) DecryptFor(accessKeyId, accessKeySecret, text string) (DecryptedSecret, error) {
 	var err error
 
-	if secret == "" {
-		secret, err = s.GetAccessKeySecret(accessKeyId)
+	if accessKeySecret == "" {
+		accessKeySecret, err = s.GetAccessKeySecret(accessKeyId)
 
 		if err != nil {
-			return "", err
+			return DecryptedSecret{}, err
 		}
 	}
 
-	encrypter := NewEncrypter([]byte(secret))
+	encrypter := NewEncrypter([]byte(accessKeySecret))
 
 	return encrypter.Decrypt(text)
 }
 
-func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) {
+// Delete a database key from the SecretsManager.
+func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 	filePaths := []string{
 		GetDatabaseKeyPath(s.config.Signature, databaseKey),
 	}
@@ -116,14 +127,20 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) {
 
 		if err != nil {
 			log.Println(err)
+
+			return err
 		}
 	}
+
+	return nil
 }
 
+// Encrypt the given text using the given signature
 func (s *SecretsManager) Encrypt(signature string, text string) (string, error) {
-	return s.Encrypter(EncrypterKey(signature, "")).Encrypt(text)
+	return s.Encrypter(signature).Encrypt(text)
 }
 
+// Encrypt the given text using the given access key id
 func (s *SecretsManager) EncryptFor(accessKeyId, text string) (string, error) {
 	secret, err := s.GetAccessKeySecret(accessKeyId)
 
@@ -136,29 +153,18 @@ func (s *SecretsManager) EncryptFor(accessKeyId, text string) (string, error) {
 	return encrypter.Encrypt(text)
 }
 
-func (s *SecretsManager) EncryptForRuntime(databaseId, signature, text string) (string, error) {
-	return s.Encrypter(EncrypterKey(signature, databaseId)).Encrypt(text)
-}
-
-func (s *SecretsManager) Encrypter(key string) *KeyEncrypter {
+// Get the KeyEncrypter for the given key
+func (s *SecretsManager) Encrypter(signature string) *KeyEncrypter {
 	var encrypter *KeyEncrypter
 
 	s.mutex.RLock()
-	encrypter, ok := s.encrypterInstances[key]
+	encrypter, ok := s.encrypterInstances[signature]
 	s.mutex.RUnlock()
 
 	if !ok {
 		s.mutex.Lock()
-		params := strings.Split(key, ":")
-		signature := params[0]
-
-		if len(params) > 1 {
-			s.encrypterInstances[key] = NewKeyEncrypter(s, signature).ForDatabase(params[1])
-		} else {
-			s.encrypterInstances[key] = NewKeyEncrypter(s, signature)
-		}
-
-		encrypter = s.encrypterInstances[key]
+		s.encrypterInstances[signature] = NewKeyEncrypter(s, signature)
+		encrypter = s.encrypterInstances[signature]
 
 		s.mutex.Unlock()
 	}
@@ -166,72 +172,12 @@ func (s *SecretsManager) Encrypter(key string) *KeyEncrypter {
 	return encrypter
 }
 
-func EncrypterKey(signature, databaseId string) string {
-	if databaseId != "" {
-		return fmt.Sprintf("%s:%s", signature, databaseId)
-	}
-
-	return signature
+// Flush the transient cache
+func (s *SecretsManager) FlushTransients() error {
+	return s.cache("transient").Flush()
 }
 
-func (s *SecretsManager) FlushTransients() {
-	s.cache("transient").Flush()
-}
-
-func GetDatabaseKeyPath(signature, key string) string {
-	return fmt.Sprintf("%s%s/%s", Path(signature), "database_keys", key)
-}
-
-func GetDatabaseKeysPath(signature string) string {
-	return fmt.Sprintf("%s%s/", Path(signature), "database_keys")
-}
-
-func (s *SecretsManager) GetPublicKey(signature, databaseId string) (string, error) {
-	var publicKey string
-	value := s.cache("map").Get(s.publicKeyCacheKey(signature, databaseId), &publicKey)
-
-	if value != nil {
-		publicKey, ok := value.(string)
-
-		if ok {
-			return publicKey, nil
-		}
-	}
-
-	fileValue := s.cache("file").Get(s.publicKeyCacheKey(signature, databaseId), &publicKey)
-
-	if fileValue != nil {
-		publicKey, ok := fileValue.(string)
-
-		if ok {
-			return publicKey, nil
-		}
-	}
-
-	path := s.SecretsPath(
-		s.config.Signature,
-		fmt.Sprintf("public_keys/%s/public_key", databaseId),
-	)
-
-	key, err := s.ObjectFS.ReadFile(path)
-
-	if err != nil {
-		log.Println(err)
-		return "", err
-	}
-
-	decryptedPublicKey, err := s.Decrypt(signature, string(key))
-
-	if err != nil {
-		return "", err
-	}
-
-	s.cache("map").Put(s.publicKeyCacheKey(signature, databaseId), decryptedPublicKey["value"], time.Second*60)
-	s.cache("file").Put(s.publicKeyCacheKey(signature, databaseId), decryptedPublicKey["value"], time.Second*60)
-
-	return decryptedPublicKey["value"], nil
-}
-
+// Get the access key secret for the given access key id
 func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) {
 	var secret string
 	value := s.cache("transient").Get(fmt.Sprintf("%s:access_key_secret", accessKeyId), &secret)
@@ -251,13 +197,14 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 	return accessKey.AccessKeySecret, nil
 }
 
-func (s *SecretsManager) Init() {
+// Initialize the SecretsManager
+func (s *SecretsManager) Init() error {
 	// Ensure the secrets path exists
 	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.Signature, "")); os.IsNotExist(err) {
 		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, ""), 0755)
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 
@@ -266,7 +213,7 @@ func (s *SecretsManager) Init() {
 		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "access_keys/"), 0755)
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 
@@ -275,36 +222,43 @@ func (s *SecretsManager) Init() {
 		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "settings/"), 0755)
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 
 	s.PurgeExpiredSecrets()
+
+	return nil
 }
 
+// Get the public key cache key for the given signature and database id
 func (s *SecretsManager) publicKeyCacheKey(signature, databaseId string) string {
 	return fmt.Sprintf("public_key:%s:%s", signature, databaseId)
 }
 
-func (s *SecretsManager) PurgeDatabaseSettings(databaseId string, branchId string) {
+// Purge database settings for the given database id and branch id from cache
+func (s *SecretsManager) PurgeDatabaseSettings(databaseId string, branchId string) error {
 	s.cache("map").Forget(s.databaseSettingCacheKey(databaseId, branchId))
 	s.cache("transient").Forget(s.databaseSettingCacheKey(databaseId, branchId))
 	s.cache("file").Forget(s.databaseSettingCacheKey(databaseId, branchId))
+
+	return nil
 }
 
-func (s *SecretsManager) PurgeExpiredSecrets() {
+// Purge expired database settings from cache
+func (s *SecretsManager) PurgeExpiredSecrets() error {
 	// Get all the file names in the litebase directory
 	directories, err := s.ObjectFS.ReadDir("")
 
 	if err != nil {
 		log.Println(err)
 
-		return
+		return err
 	}
 
 	// TODO: ignore directories that start with an underscore
 	if len(directories) <= 2 {
-		return
+		return nil
 	}
 
 	for _, directory := range directories {
@@ -314,7 +268,7 @@ func (s *SecretsManager) PurgeExpiredSecrets() {
 		}
 
 		// Check if there is a manifest file
-		manifestPath := fmt.Sprintf("%s/manifest.json", directory.Name)
+		manifestPath := fmt.Sprintf("%s/manifest.json", directory.Name())
 
 		if _, err := s.ObjectFS.Stat(manifestPath); os.IsNotExist(err) {
 			continue
@@ -348,12 +302,15 @@ func (s *SecretsManager) PurgeExpiredSecrets() {
 			err := s.ObjectFS.RemoveAll(directory.Name())
 
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
+// Get the path for the given signature and key
 func (s *SecretsManager) SecretsPath(signature, key string) string {
 	return fmt.Sprintf(
 		"%s/%s",
@@ -362,6 +319,7 @@ func (s *SecretsManager) SecretsPath(signature, key string) string {
 	)
 }
 
+// Store the given access key in the SecretsManager
 func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	jsonValue, err := json.Marshal(accessKey)
 
@@ -391,11 +349,12 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	return nil
 }
 
+// Store the given database settings in the SecretsManager
 func (s *SecretsManager) StoreDatabaseKey(
 	databaseKey string,
 	databaseId string,
 	branchId string,
-) {
+) error {
 	filePaths := []string{
 		GetDatabaseKeyPath(s.config.Signature, databaseKey),
 	}
@@ -403,6 +362,7 @@ func (s *SecretsManager) StoreDatabaseKey(
 	if s.config.SignatureNext != "" {
 		filePaths = append(filePaths, GetDatabaseKeyPath(s.config.SignatureNext, databaseKey))
 	}
+
 	for _, filePath := range filePaths {
 		if _, err := s.ObjectFS.Stat(filepath.Dir(filePath)); os.IsNotExist(err) {
 			s.ObjectFS.MkdirAll(filepath.Dir(filePath), 0700)
@@ -422,24 +382,8 @@ func (s *SecretsManager) StoreDatabaseKey(
 		err = s.ObjectFS.WriteFile(filePath, data, 0644)
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-	}
-}
-
-func (s *SecretsManager) StoreDatabasePublicKey(signature, databaseId, publicKey string) error {
-	if _, err := s.ObjectFS.Stat(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseId))); os.IsNotExist(err) {
-		s.ObjectFS.MkdirAll(s.SecretsPath(signature, fmt.Sprintf("public_keys/%s", databaseId)), 0755)
-	}
-
-	err := s.ObjectFS.WriteFile(
-		s.SecretsPath(signature, fmt.Sprintf("public_keys/%s/public_key", databaseId)),
-		[]byte(publicKey),
-		0666,
-	)
-
-	if err != nil {
-		return err
 	}
 
 	return nil

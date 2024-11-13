@@ -26,11 +26,11 @@ func NewEncrypter(key []byte) *Encrypter {
 	}
 }
 
-func (encrypter *Encrypter) Decrypt(text string) (string, error) {
+func (encrypter *Encrypter) Decrypt(text string) (DecryptedSecret, error) {
 	encrypted, err := base64.StdEncoding.DecodeString(text)
 
 	if err != nil {
-		return "", err
+		return DecryptedSecret{}, err
 	}
 
 	block, err := aes.NewCipher(encrypter.key)
@@ -52,10 +52,13 @@ func (encrypter *Encrypter) Decrypt(text string) (string, error) {
 	plaintext, err := aead.Open(nil, iv, ciphertext, nil)
 
 	if err != nil {
-		return "", err
+		return DecryptedSecret{}, err
 	}
 
-	return string(plaintext), nil
+	return DecryptedSecret{
+		Key:   base64.StdEncoding.EncodeToString(encrypter.key),
+		Value: string(plaintext),
+	}, nil
 }
 
 func (encrypter *Encrypter) Encrypt(plaintext string) (string, error) {

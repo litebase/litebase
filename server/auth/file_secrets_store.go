@@ -30,8 +30,8 @@ func NewFileSecretsStore(path string, tmpFS *storage.FileSystem) *FileSecretsSto
 	}
 }
 
-func (store *FileSecretsStore) Flush() {
-	store.tmpFS.RemoveAll(store.path)
+func (store *FileSecretsStore) Flush() error {
+	return store.tmpFS.RemoveAll(store.path)
 }
 
 func (store *FileSecretsStore) Forget(key string) {

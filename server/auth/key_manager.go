@@ -244,28 +244,6 @@ func GetPublicKey(signature string, objectFS *storage.FileSystem) (*rsa.PublicKe
 	return key.(*rsa.PublicKey), nil
 }
 
-func GetPublicKeyForDatabase(secretsManager *SecretsManager, signature, databaseId string) (*rsa.PublicKey, error) {
-	publicKey, err := secretsManager.GetPublicKey(signature, databaseId)
-	log.Println("publicKey", publicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode([]byte(publicKey))
-
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block containing the key")
-	}
-
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return key.(*rsa.PublicKey), nil
-}
-
 func GetRawPublicKey(signature string, objectFS *storage.FileSystem) ([]byte, error) {
 	path := KeyPath("public", signature)
 
@@ -329,10 +307,6 @@ func NextSignature(c *config.Config, secretsManager *SecretsManager, signature s
 	}
 
 	return EncryptKey(signature, string(publicKey))
-}
-
-func Path(signature string) string {
-	return config.SignatureHash(signature) + "/"
 }
 
 func rotate(c *config.Config, secretsManager *SecretsManager) error {
@@ -459,7 +433,7 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 			return err
 		}
 
-		encryptedAccessKey, err := secretsManager.Encrypt(c.SignatureNext, decryptedAccessKey["value"])
+		encryptedAccessKey, err := secretsManager.Encrypt(c.SignatureNext, decryptedAccessKey.Value)
 
 		if err != nil {
 			return err
@@ -576,7 +550,7 @@ func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 				return err
 			}
 
-			encryptedSetting, err := secretsManager.Encrypt(c.SignatureNext, decryptedSetting["value"])
+			encryptedSetting, err := secretsManager.Encrypt(c.SignatureNext, decryptedSetting.Value)
 
 			if err != nil {
 				return err

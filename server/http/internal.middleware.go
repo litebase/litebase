@@ -25,7 +25,7 @@ func Internal(request *Request) (*Request, Response) {
 			}
 		}
 
-		nodeIp = nodeIpDecrypted["value"]
+		nodeIp = nodeIpDecrypted.Value
 	}
 
 	if nodeTimestamp == "" {

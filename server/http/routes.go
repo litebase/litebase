@@ -103,14 +103,6 @@ func LoadRoutes(router *RouterInstance) {
 	})
 
 	router.Post(
-		"/databases/{databaseId}/public-key",
-		DatabasePublicKeyController,
-	).Middleware([]Middleware{
-		AdminAuth,
-		QueryNode,
-	})
-
-	router.Post(
 		"/signature",
 		SingatureStoreController,
 	).Middleware([]Middleware{

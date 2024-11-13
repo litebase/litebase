@@ -171,7 +171,7 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 		return nil, err
 	}
 
-	err = json.NewDecoder(bytes.NewReader([]byte(decrypted["value"]))).Decode(accessKey)
+	err = json.NewDecoder(bytes.NewReader([]byte(decrypted.Value))).Decode(accessKey)
 
 	if err != nil {
 		return nil, err

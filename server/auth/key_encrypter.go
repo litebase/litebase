@@ -12,7 +12,6 @@ import (
 )
 
 type KeyEncrypter struct {
-	databaseId     string
 	publicKey      *rsa.PublicKey
 	secretsManager *SecretsManager
 	signature      string
@@ -25,11 +24,11 @@ func NewKeyEncrypter(secretsManager *SecretsManager, signature string) *KeyEncry
 	}
 }
 
-func (k *KeyEncrypter) Decrypt(data string) (map[string]string, error) {
+func (k *KeyEncrypter) Decrypt(data string) (DecryptedSecret, error) {
 	payload, err := base64.StdEncoding.DecodeString(data)
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	var decoded map[string]string
@@ -37,19 +36,19 @@ func (k *KeyEncrypter) Decrypt(data string) (map[string]string, error) {
 	err = json.Unmarshal(payload, &decoded)
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	privateKey, err := k.privateKey()
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	encryptedSecretKey, err := base64.StdEncoding.DecodeString(decoded["key"])
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	decryptedKey, err := rsa.DecryptPKCS1v15(
@@ -59,25 +58,25 @@ func (k *KeyEncrypter) Decrypt(data string) (map[string]string, error) {
 	)
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	block, err := aes.NewCipher(decryptedKey)
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	aead, err := cipher.NewGCM(block)
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	encrypted, err := base64.StdEncoding.DecodeString(decoded["value"])
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
 	iv := encrypted[:aead.NonceSize()]
@@ -87,12 +86,12 @@ func (k *KeyEncrypter) Decrypt(data string) (map[string]string, error) {
 	decrypted, err := aead.Open(nil, iv, ciphertext, nil)
 
 	if err != nil {
-		return nil, err
+		return DecryptedSecret{}, err
 	}
 
-	return map[string]string{
-		"key":   base64.StdEncoding.EncodeToString(decryptedKey),
-		"value": string(decrypted),
+	return DecryptedSecret{
+		Key:   base64.StdEncoding.EncodeToString(decryptedKey),
+		Value: string(decrypted),
 	}, nil
 }
 
@@ -160,26 +159,10 @@ func (k *KeyEncrypter) Encrypt(data string) (string, error) {
 	return base64.StdEncoding.EncodeToString(jsonEncoded), nil
 }
 
-func (k *KeyEncrypter) ForDatabase(databaseId string) *KeyEncrypter {
-	k.databaseId = databaseId
-
-	return k
-}
-
 func (k *KeyEncrypter) privateKey() (*rsa.PrivateKey, error) {
 	return GetPrivateKey(k.signature, k.secretsManager.ObjectFS)
 }
 
 func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
-	var err error
-
-	if k.publicKey == nil {
-		if k.databaseId != "" {
-			k.publicKey, err = GetPublicKeyForDatabase(k.secretsManager, k.signature, k.databaseId)
-		} else {
-			k.publicKey, err = GetPublicKey(k.signature, k.secretsManager.ObjectFS)
-		}
-	}
-
-	return k.publicKey, err
+	return GetPublicKey(k.signature, k.secretsManager.ObjectFS)
 }

@@ -23,11 +23,13 @@ func NewMapSecretsStore() *MapSecretsStore {
 	}
 }
 
-func (store *MapSecretsStore) Flush() {
+func (store *MapSecretsStore) Flush() error {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 
 	store.data = make(map[string]MapSecret)
+
+	return nil
 }
 
 func (store *MapSecretsStore) Forget(key string) {

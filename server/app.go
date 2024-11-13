@@ -83,7 +83,12 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		}
 	}
 
-	app.Auth.SecretsManager.Init()
+	err = app.Auth.SecretsManager.Init()
+
+	if err != nil {
+		panic(err)
+	}
+
 	app.Auth.UserManager().Init()
 
 	app.Cluster.Node().Init(

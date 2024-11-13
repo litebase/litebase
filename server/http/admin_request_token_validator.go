@@ -26,5 +26,5 @@ func AdminRequestTokenValidator(request *Request) bool {
 	accessKeySecret := sha256.New().Sum([]byte(request.cluster.Config.Signature))
 	token := hmac.New(sha256.New, []byte(fmt.Sprintf("%s:%s", accessKeyId, &accessKeySecret))).Sum([]byte(request.cluster.Config.Signature))
 
-	return subtle.ConstantTimeCompare([]byte(decrypted["value"]), []byte(token)) == 1
+	return subtle.ConstantTimeCompare([]byte(decrypted.Value), []byte(token)) == 1
 }
