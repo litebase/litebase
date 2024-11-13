@@ -91,8 +91,6 @@ func QueryController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	// defer counter.Increment(databaseKey.DatabaseId, databaseKey.BranchId)
-
 	defer request.databaseManager.ConnectionManager().Release(
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
