@@ -433,7 +433,7 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 			return err
 		}
 
-		encryptedAccessKey, err := secretsManager.Encrypt(c.SignatureNext, decryptedAccessKey.Value)
+		encryptedAccessKey, err := secretsManager.Encrypt(c.SignatureNext, []byte(decryptedAccessKey.Value))
 
 		if err != nil {
 			return err
@@ -550,7 +550,7 @@ func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 				return err
 			}
 
-			encryptedSetting, err := secretsManager.Encrypt(c.SignatureNext, decryptedSetting.Value)
+			encryptedSetting, err := secretsManager.Encrypt(c.SignatureNext, []byte(decryptedSetting.Value))
 
 			if err != nil {
 				return err

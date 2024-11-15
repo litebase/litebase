@@ -23,7 +23,7 @@ func TestSecretsManagerDecrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		str := "test"
 
-		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.Signature, str)
+		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.Signature, []byte(str))
 
 		if err != nil {
 			t.Error("Expected Encrypt to return a non-nil error")
@@ -89,7 +89,7 @@ func TestSecretsManagerEncrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		str := "test"
 
-		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.Signature, str)
+		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.Signature, []byte(str))
 
 		if err != nil {
 			t.Error("Expected Encrypt to return a non-nil error")

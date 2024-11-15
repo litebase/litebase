@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -12,7 +13,6 @@ import (
 )
 
 type KeyEncrypter struct {
-	publicKey      *rsa.PublicKey
 	secretsManager *SecretsManager
 	signature      string
 }
@@ -35,7 +35,7 @@ func (k *KeyEncrypter) Decrypt(data []byte) (DecryptedSecret, error) {
 
 	var decoded map[string]string
 
-	err = json.Unmarshal(payload, &decoded)
+	err = json.Unmarshal(bytes.Trim(payload, "\x00"), &decoded)
 
 	if err != nil {
 		return DecryptedSecret{}, err
@@ -47,7 +47,7 @@ func (k *KeyEncrypter) Decrypt(data []byte) (DecryptedSecret, error) {
 		return DecryptedSecret{}, err
 	}
 
-	encryptedSecretKey, err := base64.StdEncoding.DecodeString(decoded["key"])
+	enryptedKey, err := base64.StdEncoding.DecodeString(decoded["key"])
 
 	if err != nil {
 		return DecryptedSecret{}, err
@@ -56,7 +56,7 @@ func (k *KeyEncrypter) Decrypt(data []byte) (DecryptedSecret, error) {
 	decryptedKey, err := rsa.DecryptPKCS1v15(
 		rand.Reader,
 		privateKey,
-		encryptedSecretKey,
+		enryptedKey,
 	)
 
 	if err != nil {
@@ -97,7 +97,7 @@ func (k *KeyEncrypter) Decrypt(data []byte) (DecryptedSecret, error) {
 	}, nil
 }
 
-func (k *KeyEncrypter) Encrypt(data string) ([]byte, error) {
+func (k *KeyEncrypter) Encrypt(data []byte) ([]byte, error) {
 	secretKey := make([]byte, 32)
 	_, err := rand.Read(secretKey)
 

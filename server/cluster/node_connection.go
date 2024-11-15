@@ -131,7 +131,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 
 	encryptedHeader, err := nc.node.cluster.Auth.SecretsManager.Encrypt(
 		nc.node.cluster.Config.Signature,
-		nc.node.Address(),
+		[]byte(nc.node.Address()),
 	)
 
 	if err != nil {

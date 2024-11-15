@@ -72,7 +72,7 @@ func (accessKey *AccessKey) Update(
 
 	encryptedAccessKey, err := accessKey.accessKeyManager.auth.SecretsManager.Encrypt(
 		accessKey.accessKeyManager.config.Signature,
-		string(jsonValue),
+		jsonValue,
 	)
 
 	if err != nil {

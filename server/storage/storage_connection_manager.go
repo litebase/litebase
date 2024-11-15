@@ -3,7 +3,6 @@ package storage
 import (
 	"errors"
 	"litebase/internal/config"
-	"log"
 	"sync"
 )
 
@@ -88,7 +87,6 @@ func (s *StorageConnectionManager) Send(request DistributedFileSystemRequest) (D
 	response, connectionError, fileError := connection.Send(request)
 
 	if connectionError != nil {
-		log.Println("Error sending request to storage node:", connectionError, request)
 		s.removeConnection(connection.Address)
 
 		return DistributedFileSystemResponse{}, connectionError

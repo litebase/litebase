@@ -763,7 +763,7 @@ func (n *Node) SetElectionMoratorium() {
 func (n *Node) setInternalHeaders(req *http.Request) error {
 	encryptedHeader, err := n.cluster.Auth.SecretsManager.Encrypt(
 		n.cluster.Config.Signature,
-		n.Address(),
+		[]byte(n.Address()),
 	)
 
 	if err != nil {

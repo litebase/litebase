@@ -141,7 +141,7 @@ func (sc *StorageConnection) createAndSendRequest() (*http.Response, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	encryptedHeader, err := StorageEncryption.Encrypt(sc.config.Signature, NodeIPAddress)
+	encryptedHeader, err := StorageEncryption.Encrypt(sc.config.Signature, []byte(NodeIPAddress))
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt header: %w", err)
@@ -199,7 +199,6 @@ readMessages:
 		case <-sc.inactiveTimeout.C:
 			break readMessages
 		case <-sc.context.Done():
-			log.Println("context done")
 			break readMessages
 		}
 	}

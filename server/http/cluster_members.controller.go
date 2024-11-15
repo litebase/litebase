@@ -15,7 +15,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 	)
 
 	if err != nil {
-		log.Println("Unauthorized node connection attempt: ", ipAddress)
+		log.Println("Unauthorized node connection attempt:", err)
 
 		return Response{
 			StatusCode: 401,

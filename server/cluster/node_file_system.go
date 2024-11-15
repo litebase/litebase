@@ -11,7 +11,7 @@ func (cluster *Cluster) ClearFSFiles() {
 		cluster.tieredFileSystem.Driver().(*storage.DistributedFileSystemDriver).ClearFiles()
 	}
 
-	if cluster.Config.StorageTieredMode == config.NewConfig().StorageTieredMode && cluster.tieredFileSystem != nil {
+	if cluster.Config.StorageTieredMode == config.StorageModeObject && cluster.tieredFileSystem != nil {
 		cluster.tieredFileSystem.Driver().(*storage.TieredFileSystemDriver).ClearFiles()
 	}
 }

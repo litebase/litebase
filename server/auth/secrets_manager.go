@@ -136,7 +136,7 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 }
 
 // Encrypt the given text using the given signature
-func (s *SecretsManager) Encrypt(signature string, text string) ([]byte, error) {
+func (s *SecretsManager) Encrypt(signature string, text []byte) ([]byte, error) {
 	return s.Encrypter(signature).Encrypt(text)
 }
 
@@ -330,7 +330,7 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 
 	encryptedAccessKey, err := s.Encrypt(
 		s.config.Signature,
-		string(jsonValue),
+		jsonValue,
 	)
 
 	if err != nil {
