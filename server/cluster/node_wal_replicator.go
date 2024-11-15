@@ -29,7 +29,7 @@ func (nr *NodeWALReplicator) Truncate(
 		return errors.New("node is not primary")
 	}
 
-	return nr.node.Primary().Publish(messages.NodeMessage{
+	errorMap := nr.node.Primary().Publish(messages.NodeMessage{
 		Data: messages.WALReplicationTruncateMessage{
 			BranchId:   branchId,
 			DatabaseId: databaseId,
@@ -39,6 +39,14 @@ func (nr *NodeWALReplicator) Truncate(
 			Timestamp:  timestamp,
 		},
 	})
+
+	for _, err := range errorMap {
+		if err != nil {
+			return errors.New("failed to truncate WAL")
+		}
+	}
+
+	return nil
 }
 
 // Replicate a write to the WAL to all of the other nodes in the cluster.
@@ -49,7 +57,7 @@ func (nr *NodeWALReplicator) WriteAt(databaseId, branchId string, p []byte, off,
 
 	sha256Hash := sha256.Sum256(p)
 
-	return nr.node.Primary().Publish(messages.NodeMessage{
+	errorMap := nr.node.Primary().Publish(messages.NodeMessage{
 		Data: messages.WALReplicationWriteMessage{
 			BranchId:   branchId,
 			DatabaseId: databaseId,
@@ -61,4 +69,12 @@ func (nr *NodeWALReplicator) WriteAt(databaseId, branchId string, p []byte, off,
 			Timestamp:  timestamp,
 		},
 	})
+
+	for _, err := range errorMap {
+		if err != nil {
+			return errors.New("failed to write to WAL")
+		}
+	}
+
+	return nil
 }

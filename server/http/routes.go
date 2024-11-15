@@ -180,6 +180,13 @@ func LoadRoutes(router *RouterInstance) {
 		Internal,
 	})
 
+	router.Get(
+		"/health",
+		HealthCheckController,
+	).Middleware([]Middleware{
+		Internal,
+	})
+
 	// Database routes.
 	router.Post("/backups",
 		DatabaseBackupStoreController,

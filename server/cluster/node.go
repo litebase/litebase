@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"litebase/server/cluster/messages"
@@ -360,15 +360,6 @@ func (n *Node) primaryFileVerification() bool {
 	return false
 }
 
-// As the Primary, publish messages to the replicas of the cluster group.
-func (n *Node) Publish(message messages.NodeMessage) error {
-	if n.primary == nil {
-		return errors.New("node is not the primary")
-	}
-
-	return n.primary.Publish(message)
-}
-
 // Release the lease and remove the primary status from the node. This should
 // be called before changing the cluster membership to replica.
 
@@ -650,7 +641,9 @@ func (n *Node) Start() error {
 
 func (n *Node) StoreAddress() error {
 tryStore:
-	err := n.cluster.ObjectFS().WriteFile(n.AddressPath(), []byte(n.Address()), 0644)
+	timeBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(timeBytes, uint64(time.Now().Unix()))
+	err := n.cluster.ObjectFS().WriteFile(n.AddressPath(), timeBytes, 0644)
 
 	if err != nil {
 		if !os.IsNotExist(err) {

@@ -92,16 +92,18 @@ func (nrgm *NodeReplicationGroupManager) AssignReplicationGroups() error {
 		assignments = append(assignments, assignment)
 	}
 
-	err := nrgm.node.Primary().Publish(messages.NodeMessage{
+	errMap := nrgm.node.Primary().Publish(messages.NodeMessage{
 		Data: messages.ReplicationGroupAssignmentMessage{
 			ID:          []byte("broadcast"),
 			Assignments: assignments,
 		},
 	})
 
-	if err != nil {
-		log.Println("Failed to publish replication group assignments: ", err)
-		return err
+	for _, err := range errMap {
+		if err != nil {
+			log.Println("Failed to publish replication group assignments: ", err)
+			return err
+		}
 	}
 
 	return nil

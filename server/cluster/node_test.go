@@ -128,8 +128,6 @@ func TestNodePrimary(t *testing.T) {}
 
 func TestNodePrimaryAddress(t *testing.T) {}
 
-func TestNodePublish(t *testing.T) {}
-
 func TestNodeReplica(t *testing.T) {}
 
 func TestNodeWalReplicator(t *testing.T) {}

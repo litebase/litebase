@@ -9,6 +9,7 @@ import (
 	"io"
 	"litebase/server/cluster/messages"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -92,7 +93,6 @@ func (nc *NodeConnection) connect() error {
 	response, err := nc.createAndSendRequest()
 
 	if err != nil {
-		log.Println("failed to connect to node: ", err)
 		nc.handleError(err)
 		return err
 	}
@@ -157,12 +157,12 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 // Create the http client for the node connection.
 func (nc *NodeConnection) createHTTPClient() {
 	nc.httpClient = &http.Client{
-		Timeout:   0,
+		Timeout: 0,
 		Transport: &http.Transport{
-			// DisableKeepAlives: true,
-			// DialContext: (&net.Dialer{
-			// 	Timeout: 3 * time.Second, // Timeout for establishing a connection
-			// }).DialContext,
+			DisableKeepAlives: true,
+			DialContext: (&net.Dialer{
+				Timeout: 1 * time.Second, // Timeout for establishing a connection
+			}).DialContext,
 		},
 	}
 }
@@ -258,7 +258,7 @@ func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error
 	if nc.writer == nil {
 		return nil, errors.New("node connection closed")
 	}
-
+	log.Println("sending message")
 	encoder := gob.NewEncoder(nc.writer)
 	err := encoder.Encode(&message)
 
