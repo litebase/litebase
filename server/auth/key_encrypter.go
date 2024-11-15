@@ -24,8 +24,10 @@ func NewKeyEncrypter(secretsManager *SecretsManager, signature string) *KeyEncry
 	}
 }
 
-func (k *KeyEncrypter) Decrypt(data string) (DecryptedSecret, error) {
-	payload, err := base64.StdEncoding.DecodeString(data)
+func (k *KeyEncrypter) Decrypt(data []byte) (DecryptedSecret, error) {
+	payload := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
+
+	_, err := base64.StdEncoding.Decode(payload, data)
 
 	if err != nil {
 		return DecryptedSecret{}, err
@@ -95,12 +97,12 @@ func (k *KeyEncrypter) Decrypt(data string) (DecryptedSecret, error) {
 	}, nil
 }
 
-func (k *KeyEncrypter) Encrypt(data string) (string, error) {
+func (k *KeyEncrypter) Encrypt(data string) ([]byte, error) {
 	secretKey := make([]byte, 32)
 	_, err := rand.Read(secretKey)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	hash := sha256.New()
@@ -111,7 +113,7 @@ func (k *KeyEncrypter) Encrypt(data string) (string, error) {
 	publicKey, err := k.PublicKey()
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	encryptedSecretKey, err := rsa.EncryptPKCS1v15(
@@ -121,25 +123,25 @@ func (k *KeyEncrypter) Encrypt(data string) (string, error) {
 	)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	block, err := aes.NewCipher(key)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	aead, err := cipher.NewGCM(block)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	iv := make([]byte, aead.NonceSize())
 
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ciphertext := aead.Seal(nil, iv, []byte(data), nil)
@@ -153,10 +155,14 @@ func (k *KeyEncrypter) Encrypt(data string) (string, error) {
 	})
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return base64.StdEncoding.EncodeToString(jsonEncoded), nil
+	dst := make([]byte, base64.StdEncoding.EncodedLen(len(jsonEncoded)))
+
+	base64.StdEncoding.Encode(dst, jsonEncoded)
+
+	return dst, nil
 }
 
 func (k *KeyEncrypter) privateKey() (*rsa.PrivateKey, error) {

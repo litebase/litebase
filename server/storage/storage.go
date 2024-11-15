@@ -9,7 +9,7 @@ type StorageDiscoveryInterface interface {
 }
 
 type StorageEncryptionInterface interface {
-	Encrypt(signature string, text string) (string, error)
+	Encrypt(signature string, text string) ([]byte, error)
 }
 
 var StorageDiscovery StorageDiscoveryInterface

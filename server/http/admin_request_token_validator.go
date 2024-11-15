@@ -15,7 +15,7 @@ func AdminRequestTokenValidator(request *Request) bool {
 
 	decrypted, err := request.cluster.Auth.SecretsManager.Decrypt(
 		request.cluster.Config.Signature,
-		request.Headers().Get("X-Lbdb-Token"),
+		[]byte(request.Headers().Get("X-Lbdb-Token")),
 	)
 
 	if err != nil {

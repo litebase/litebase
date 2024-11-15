@@ -95,11 +95,11 @@ func TestSecretsManagerEncrypt(t *testing.T) {
 			t.Error("Expected Encrypt to return a non-nil error")
 		}
 
-		if encrypted == "" {
+		if encrypted == nil {
 			t.Error("Expected Encrypt to not return an empty string")
 		}
 
-		if encrypted == str {
+		if string(encrypted) == str {
 			t.Error("Expected Encrypt to return a different string")
 		}
 	})

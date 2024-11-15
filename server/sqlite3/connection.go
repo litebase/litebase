@@ -13,7 +13,7 @@ import (
 #include "./sqlite3.h"
 #include <stdlib.h>
 
-extern int go_authorizer(void* pArg, int actionCode, char* arg1, char* arg2, char* arg3, char* arg4);
+extern int go_authorizer(uintptr_t connectionHandle, int actionCode, char* arg1, char* arg2, char* arg3, char* arg4);
 extern void go_commit_hook(uintptr_t connectionHandle);
 extern int go_progress_handler(uintptr_t connectionHandle);
 */
@@ -27,17 +27,15 @@ var (
 
 type OpenFlags C.int
 type Connection struct {
-	authorizer Authorizer
-	committing bool
-	committed  chan struct{}
-	context    context.Context
-	sqlite3    *C.sqlite3
+	authorizer         Authorizer
+	authorizationError error
+	committing         bool
+	committed          chan struct{}
+	context            context.Context
+	sqlite3            *C.sqlite3
 }
 
 type Authorizer func(action int, arg1, arg2, dbName, triggerOrView string) (allow int)
-
-// TODO: These singletons need to be attached to the connection instead of being global
-var authorizerCallback Authorizer
 
 func init() {
 	if err := C.sqlite3_initialize(); err != SQLITE_OK {
@@ -225,8 +223,13 @@ func go_commit_hook(connectionHandle C.uintptr_t) {
 func (c *Connection) Exec(ctx context.Context, query []byte, params ...StatementParameter) (*Result, error) {
 	var stmt *Statement
 	var err error
+	var errCode int
 
-	if stmt, err = c.Prepare(ctx, query); err != nil {
+	if stmt, errCode, err = c.Prepare(ctx, query); errCode != 0 {
+		if errCode == SQLITE_AUTH {
+			return nil, c.authorizationError
+		}
+
 		return nil, err
 	}
 
@@ -334,6 +337,10 @@ func (c *Connection) Rollback() error {
 	return nil
 }
 
+func (c *Connection) SetAuthorizationError(err error) {
+	c.authorizationError = err
+}
+
 // Set last insert id
 func (c *Connection) SetLastInsertId(v int64) {
 	C.sqlite3_set_last_insert_rowid((*C.sqlite3)(c.sqlite3), C.sqlite3_int64(v))
@@ -342,17 +349,34 @@ func (c *Connection) SetLastInsertId(v int64) {
 // Register a Go function as an authorizer callback function.
 // https://www.sqlite.org/c3ref/set_authorizer.html
 func (c *Connection) Authorizer(authorizer Authorizer) {
-	authorizerCallback = authorizer
+	c.authorizer = authorizer
 
-	// TODO: We need to ensure that our authorizer of the struct is called by cgo
-	C.sqlite3_set_authorizer((*C.sqlite3)(c.sqlite3), (*[0]byte)(C.go_authorizer), nil)
+	connectionHandle := cgo.NewHandle(c)
+
+	C.sqlite3_set_authorizer(
+		(*C.sqlite3)(c.sqlite3),
+		(*[0]byte)(C.go_authorizer),
+		unsafe.Pointer(connectionHandle),
+	)
 }
 
 //export go_authorizer
-func go_authorizer(userInfo unsafe.Pointer, action C.int, arg1, arg2, dbName, triggerOrView *C.char) C.int {
-	// if authorizerCallback != nil {
-	// 	return C.int(authorizerCallback(int(action), C.GoString(arg1), C.GoString(arg2), C.GoString(dbName), C.GoString(triggerOrView)))
-	// }
+func go_authorizer(connectionHandle C.uintptr_t, action C.int, arg1, arg2, dbName, triggerOrView *C.char) C.int {
+	handle := cgo.Handle(connectionHandle)
+
+	c := handle.Value().(*Connection)
+
+	if c.authorizer != nil {
+		return C.int(
+			c.authorizer(
+				int(action),
+				C.GoString(arg1),
+				C.GoString(arg2),
+				C.GoString(dbName),
+				C.GoString(triggerOrView),
+			),
+		)
+	}
 
 	return C.int(0)
 }

@@ -33,11 +33,9 @@ func CreateHash(length int) string {
 func MockDatabase(app *server.App) TestDatabase {
 	accessKeyId := CreateHash(32)
 
-	accessKeySecret, _ := app.Auth.SecretsManager.Encrypt(app.Config.Signature, "accessKeySecret")
-
 	accessKey := &auth.AccessKey{
 		AccessKeyId:     accessKeyId,
-		AccessKeySecret: accessKeySecret,
+		AccessKeySecret: "accessKeySecret",
 		Permissions: []*auth.AccessKeyPermission{
 			{
 				Resource: "*",
@@ -68,7 +66,7 @@ func MockDatabase(app *server.App) TestDatabase {
 }
 
 func RunQuery(db *database.ClientConnection, statement []byte, parameters []sqlite3.StatementParameter) sqlite3.Result {
-	sqliteStatement, err := db.GetConnection().SqliteConnection().Prepare(db.GetConnection().Context(), statement)
+	sqliteStatement, _, err := db.GetConnection().SqliteConnection().Prepare(db.GetConnection().Context(), statement)
 
 	if err != nil {
 		log.Fatal(err)

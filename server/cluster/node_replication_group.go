@@ -374,7 +374,6 @@ func (rg *NodeReplicationGroup) waitForQuorum() error {
 		case <-ctx.Done():
 			return errors.New("timeout waiting for replication group quorum")
 		case <-rg.quorumReached:
-			log.Println("Quorum reached")
 			return nil
 		default:
 			if !rg.cluster.node.IsPrimary() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"litebase/internal/config"
 	"litebase/server/storage"
+	"log"
 	"math/rand"
 	"os"
 	"slices"
@@ -150,7 +151,10 @@ func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 
 // Get an access key
 func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
-	var accessKey = &AccessKey{}
+	var accessKey = &AccessKey{
+		accessKeyManager: akm,
+	}
+
 	value := akm.auth.SecretsManager.cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
 
 	if value != nil {
@@ -165,9 +169,10 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 		return nil, err
 	}
 
-	decrypted, err := akm.auth.SecretsManager.Decrypt(akm.config.Signature, string(fileContents))
+	decrypted, err := akm.auth.SecretsManager.Decrypt(akm.config.Signature, fileContents)
 
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
 

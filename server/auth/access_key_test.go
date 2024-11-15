@@ -1,0 +1,116 @@
+package auth_test
+
+import (
+	"litebase/internal/test"
+	"litebase/server"
+	"litebase/server/auth"
+	"testing"
+)
+
+func TestNewAccessKey(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		accessKey := auth.NewAccessKey(
+			app.Auth.AccessKeyManager,
+			"accessKeyId",
+			"accessKeySecret",
+			[]*auth.AccessKeyPermission{},
+		)
+
+		if accessKey == nil {
+			t.Fatal("Expected accessKey to be non-nil")
+		}
+
+		if accessKey.AccessKeyId != "accessKeyId" {
+			t.Errorf("Expected accessKeyId to be 'accessKeyId', got %s", accessKey.AccessKeyId)
+		}
+
+		if accessKey.AccessKeySecret != "accessKeySecret" {
+			t.Errorf("Expected accessKeySecret to be 'accessKeySecret', got %s", accessKey.AccessKeySecret)
+		}
+	})
+}
+
+func TestAccessKeyDelete(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		accessKey := auth.NewAccessKey(
+			app.Auth.AccessKeyManager,
+			"accessKeyId",
+			"accessSecret",
+			[]*auth.AccessKeyPermission{},
+		)
+
+		err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if err := accessKey.Delete(); err != nil {
+			t.Error(err)
+		}
+
+		accessKey, err = app.Auth.AccessKeyManager.Get("accessKeyId")
+
+		if err == nil {
+			t.Error("Expected accessKey to be nil")
+		}
+
+		if accessKey != nil {
+			t.Errorf("Expected accessKey to be nil, got %v", accessKey)
+		}
+	})
+}
+
+func TestAccessKeyUpdate(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		accessKey := auth.NewAccessKey(
+			app.Auth.AccessKeyManager,
+			"accessKeyId",
+			"accessSecret",
+			[]*auth.AccessKeyPermission{},
+		)
+
+		err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		permissions := []*auth.AccessKeyPermission{
+			{
+				Resource: "*",
+				Actions:  []string{"*"},
+			},
+		}
+
+		if err := accessKey.Update(permissions); err != nil {
+			t.Error(err)
+		}
+
+		accessKey, err = app.Auth.AccessKeyManager.Get("accessKeyId")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if accessKey == nil {
+			t.Fatal("Expected accessKey to be non-nil")
+		}
+
+		if len(accessKey.Permissions) != 1 {
+			t.Errorf("Expected permissions to have length 1, got %d", len(accessKey.Permissions))
+		}
+
+		if accessKey.Permissions[0].Resource != "*" {
+			t.Errorf("Expected resource to be '*', got %s", accessKey.Permissions[0].Resource)
+		}
+
+		if len(accessKey.Permissions[0].Actions) != 1 {
+			t.Errorf("Expected actions to have length 1, got %d", len(accessKey.Permissions[0].Actions))
+		}
+
+		if accessKey.Permissions[0].Actions[0] != "*" {
+			t.Errorf("Expected action to be '*', got %s", accessKey.Permissions[0].Actions[0])
+		}
+	})
+}

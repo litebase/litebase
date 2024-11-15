@@ -11,7 +11,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 
 	decryptedIp, err := request.cluster.Auth.SecretsManager.Decrypt(
 		request.cluster.Config.Signature,
-		ipAddress,
+		[]byte(ipAddress),
 	)
 
 	if err != nil {
@@ -81,7 +81,7 @@ func ClusterMemberStoreController(request *Request) Response {
 
 	decryptedIp, err := request.cluster.Auth.SecretsManager.Decrypt(
 		request.cluster.Config.Signature,
-		ipAddress,
+		[]byte(ipAddress),
 	)
 
 	if err != nil {

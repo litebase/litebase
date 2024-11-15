@@ -27,7 +27,7 @@ func Authorization(request *Request) (*Request, Response) {
 
 	databaseId := request.DatabaseKey().DatabaseId
 	branchId := request.DatabaseKey().BranchId
-	err := accessKey.CanAccess(databaseId, branchId)
+	err := accessKey.CanAccessDatabase(databaseId, branchId)
 
 	if err != nil {
 		return request, Response{

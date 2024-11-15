@@ -43,7 +43,7 @@ const (
 )
 
 // Prepare query
-func (c *Connection) Prepare(ctx context.Context, query []byte) (*Statement, error) {
+func (c *Connection) Prepare(ctx context.Context, query []byte) (*Statement, int, error) {
 	var cQuery, cExtra *C.char
 	var s *C.sqlite3_stmt
 
@@ -52,7 +52,7 @@ func (c *Connection) Prepare(ctx context.Context, query []byte) (*Statement, err
 	defer C.free(unsafe.Pointer(cQuery))
 
 	if err := C.sqlite3_prepare_v3((*C.sqlite3)(c.sqlite3), cQuery, -1, C.SQLITE_PREPARE_PERSISTENT, &s, &cExtra); err != SQLITE_OK {
-		return nil, c.Error(int(err))
+		return nil, int(err), c.Error(int(err))
 	}
 
 	// Return prepared statement and extra string
@@ -64,7 +64,7 @@ func (c *Connection) Prepare(ctx context.Context, query []byte) (*Statement, err
 		sqlite3_stmt: s,
 		extra:        cExtra,
 		text:         query,
-	}, nil
+	}, 0, nil
 }
 
 func (s *Statement) Reset() error {

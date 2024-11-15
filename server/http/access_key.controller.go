@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"litebase/server/auth"
 	"log"
 )
 
@@ -65,12 +66,12 @@ func AccessKeyControllerUpdate(request *Request) Response {
 		}, 404, nil)
 	}
 
-	updated := accessKey.Update(request.Get("privileges"))
+	err = accessKey.Update(request.Get("permissions").([]*auth.AccessKeyPermission))
 
-	if !updated {
+	if err != nil {
 		return JsonResponse(map[string]interface{}{
 			"status":  "error",
-			"message": "Access could not be updated",
+			"message": "Access key could not be updated",
 		}, 500, nil)
 	}
 

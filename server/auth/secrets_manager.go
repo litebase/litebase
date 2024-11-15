@@ -91,8 +91,8 @@ func (s *SecretsManager) databaseSettingCacheKey(databaseId, branchId string) st
 }
 
 // Decrypt the given text using the given signature
-func (s *SecretsManager) Decrypt(signature string, text string) (DecryptedSecret, error) {
-	return s.Encrypter(signature).Decrypt(text)
+func (s *SecretsManager) Decrypt(signature string, data []byte) (DecryptedSecret, error) {
+	return s.Encrypter(signature).Decrypt(data)
 }
 
 // Decrypt the given text using the given access key id and secret
@@ -136,7 +136,7 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 }
 
 // Encrypt the given text using the given signature
-func (s *SecretsManager) Encrypt(signature string, text string) (string, error) {
+func (s *SecretsManager) Encrypt(signature string, text string) ([]byte, error) {
 	return s.Encrypter(signature).Encrypt(text)
 }
 
@@ -324,7 +324,8 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	jsonValue, err := json.Marshal(accessKey)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return err
 	}
 
 	encryptedAccessKey, err := s.Encrypt(
@@ -333,13 +334,13 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	err = s.ObjectFS.WriteFile(
 		s.SecretsPath(s.config.Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
 		[]byte(encryptedAccessKey),
-		0666,
+		0644,
 	)
 
 	if err != nil {

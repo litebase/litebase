@@ -31,13 +31,13 @@ func AllSignatures(objectFs *storage.FileSystem) map[string]string {
 	}
 
 	for _, signatureFile := range signatureFiles {
-		//Ignore paths that start with an underscore
-		if signatureFile.Name()[0] == '_' {
+		// Ignore non directories
+		if !signatureFile.IsDir() {
 			continue
 		}
 
-		// Ignore non directories
-		if !signatureFile.IsDir() {
+		//Ignore paths that start with an underscore
+		if signatureFile.Name()[0] == '_' {
 			continue
 		}
 

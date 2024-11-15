@@ -771,7 +771,7 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 		return err
 	}
 
-	req.Header.Set("X-Lbdb-Node", encryptedHeader)
+	req.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 	req.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", n.startedAt.UnixNano()))
 
 	return nil

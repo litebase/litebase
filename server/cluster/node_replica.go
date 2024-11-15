@@ -75,7 +75,7 @@ func (nr *NodeReplica) JoinCluster() error {
 		return err
 	}
 
-	request.Header.Set("X-Lbdb-Node", encryptedHeader)
+	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := httpClient.Do(request)
@@ -130,7 +130,7 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return err
 	}
 
-	request.Header.Set("X-Lbdb-Node", encryptedHeader)
+	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 
 	_, err = httpClient.Do(request)
 
@@ -179,7 +179,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (interface{}, error) {
 		return nil, err
 	}
 
-	request.Header.Set("X-Lbdb-Node", encryptedHeader)
+	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
 	request.Header.Set("Content-Type", "application/gob")
 

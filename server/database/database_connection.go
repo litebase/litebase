@@ -101,8 +101,6 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		return nil, err
 	}
 
-	con.setAuthorizer()
-
 	path, err := file.GetDatabaseFileTmpPath(
 		con.config,
 		con.connectionManager.cluster.Node().Id,
@@ -129,6 +127,8 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	}
 
 	con.sqlite3 = connection
+
+	con.SetAuthorizer()
 
 	configStatements := [][]byte{
 		[]byte(fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize)),
@@ -300,7 +300,7 @@ func (c *DatabaseConnection) IsUpToDate() bool {
 
 // Prepare a statement for execution.
 func (con *DatabaseConnection) Prepare(ctx context.Context, command []byte) (Statement, error) {
-	statment, err := con.sqlite3.Prepare(ctx, command)
+	statment, _, err := con.sqlite3.Prepare(ctx, command)
 
 	if err != nil {
 		return Statement{}, err
@@ -382,85 +382,93 @@ func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 }
 
 // Set the authorizer for the database connection.
-func (c *DatabaseConnection) setAuthorizer() {
-	if c.accessKey == nil {
-		return
-	}
-
+func (c *DatabaseConnection) SetAuthorizer() {
 	c.sqlite3.Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int {
+		if c.accessKey == nil {
+			return sqlite3.SQLITE_OK
+		}
+
+		// log.Printf("(%s), (%s), (%s), (%s), (%s)\n", sqlite3.AuthorizerCodeName(actionCode), arg1, arg2, arg3, arg4)
+
 		allowed := true
 		var err error
 
-		args := []string{arg1, arg2, arg3, arg4}
-
 		switch actionCode {
+		case sqlite3.SQLITE_ANALYZE:
+			allowed, err = c.accessKey.CanAnalyze(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_ATTACH:
+			allowed, err = c.accessKey.CanAttach(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_ALTER_TABLE:
+			allowed, err = c.accessKey.CanAlterTable(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_COPY:
 			allowed = false
 		case sqlite3.SQLITE_CREATE_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TABLE:
-			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateTempIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TABLE:
-			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateTempTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TRIGGER:
-			allowed, err = c.accessKey.CanTrigger(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateTempTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_VIEW:
-			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateTempView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TRIGGER:
-			allowed, err = c.accessKey.CanTrigger(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_VIEW:
-			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DELETE:
-			allowed, err = c.accessKey.CanDelete(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_TABLE:
-			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_TEMP_INDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_TEMP_TABLE:
-			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_TEMP_TRIGGER:
-			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_TEMP_VIEW:
-			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_TRIGGER:
-			allowed, err = c.accessKey.CanTrigger(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_DROP_VIEW:
-			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_INSERT:
-			allowed, err = c.accessKey.CanInsert(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_PRAGMA:
-			allowed, err = c.accessKey.CanPragma(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_READ:
-			allowed, err = c.accessKey.CanRead(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_SELECT:
-			allowed, err = c.accessKey.CanSelect(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_TRANSACTION:
-			allowed, err = true, nil
-		case sqlite3.SQLITE_UPDATE:
-			allowed, err = c.accessKey.CanUpdate(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_ATTACH:
-			allowed, err = false, nil
-		case sqlite3.SQLITE_DETACH:
-			allowed, err = false, nil
-		case sqlite3.SQLITE_REINDEX:
-			allowed, err = c.accessKey.CanIndex(c.databaseId, c.branchId, args)
-		case sqlite3.SQLITE_ANALYZE:
-			allowed, err = true, nil
+			allowed, err = c.accessKey.CanCreateView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_VTABLE:
-			allowed, err = c.accessKey.CanCreate(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanCreateVTable(c.databaseId, c.branchId, arg2, arg1)
+		case sqlite3.SQLITE_DELETE:
+			allowed, err = c.accessKey.CanDelete(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_DETACH:
+			allowed, err = c.accessKey.CanDetach(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_DROP_INDEX:
+			allowed, err = c.accessKey.CanDropIndex(c.databaseId, c.branchId, arg2, arg1)
+		case sqlite3.SQLITE_DROP_TABLE:
+			allowed, err = c.accessKey.CanDropTable(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_DROP_TEMP_INDEX:
+			allowed, err = c.accessKey.CanDropTempIndex(c.databaseId, c.branchId, arg2, arg1)
+		case sqlite3.SQLITE_DROP_TEMP_TABLE:
+			allowed, err = c.accessKey.CanDropTempTable(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_DROP_TEMP_TRIGGER:
+			allowed, err = c.accessKey.CanDropTempTrigger(c.databaseId, c.branchId, arg2, arg1)
+		case sqlite3.SQLITE_DROP_TEMP_VIEW:
+			allowed, err = c.accessKey.CanDropTempView(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_DROP_TRIGGER:
+			allowed, err = c.accessKey.CanDropTrigger(c.databaseId, c.branchId, arg2, arg1)
+		case sqlite3.SQLITE_DROP_VIEW:
+			allowed, err = c.accessKey.CanDropView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_VTABLE:
-			allowed, err = c.accessKey.CanDrop(c.databaseId, c.branchId, args)
+			allowed, err = c.accessKey.CanDropVTable(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_FUNCTION:
-			allowed, err = true, nil
+			allowed, err = c.accessKey.CanFunction(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_INSERT:
+			allowed, err = c.accessKey.CanInsert(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_PRAGMA:
+			allowed, err = c.accessKey.CanPragma(c.databaseId, c.branchId, arg1, arg2)
+		case sqlite3.SQLITE_READ:
+			allowed, err = c.accessKey.CanRead(c.databaseId, c.branchId, arg3, arg4)
+		case sqlite3.SQLITE_RECURSIVE:
+			allowed, err = c.accessKey.CanRecursive(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_REINDEX:
+			allowed, err = c.accessKey.CanReindex(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_SAVEPOINT:
+			allowed, err = c.accessKey.CanSavepoint(c.databaseId, c.branchId, arg1, arg2)
+		case sqlite3.SQLITE_SELECT:
+			allowed, err = c.accessKey.CanSelect(c.databaseId, c.branchId)
+		case sqlite3.SQLITE_TRANSACTION:
+			allowed, err = c.accessKey.CanTransaction(c.databaseId, c.branchId, arg1)
+		case sqlite3.SQLITE_UPDATE:
+			allowed, err = c.accessKey.CanUpdate(c.databaseId, c.branchId, arg3, arg4)
 		default:
 			allowed, err = false, nil
 		}
 
 		if err != nil {
+			c.SqliteConnection().SetAuthorizationError(err)
+
 			return sqlite3.SQLITE_DENY
 		}
 
