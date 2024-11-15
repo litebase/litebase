@@ -607,13 +607,6 @@ func (n *Node) Shutdown() error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	n.cluster.ShutdownStorage()
-
-	if n.IsPrimary() {
-		n.Primary().Shutdown()
-		n.removePrimaryStatus()
-	}
-
 	err := n.cluster.Broadcast("cluster:leave", map[string]string{
 		"address": n.Address(),
 		"group":   n.cluster.Config.NodeType,
@@ -621,6 +614,13 @@ func (n *Node) Shutdown() error {
 
 	if err != nil {
 		log.Println(err)
+	}
+
+	n.cluster.ShutdownStorage()
+
+	if n.IsPrimary() {
+		n.Primary().Shutdown()
+		n.removePrimaryStatus()
 	}
 
 	if n.IsReplica() {
