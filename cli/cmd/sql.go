@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"litebase/cli/models/sql"
 	"strings"
+
+	"github.com/litebase/litebase/cli/models/sql"
 
 	tea "github.com/charmbracelet/bubbletea"
 

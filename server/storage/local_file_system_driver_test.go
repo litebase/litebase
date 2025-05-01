@@ -2,11 +2,15 @@ package storage_test
 
 import (
 	"fmt"
-	"litebase/internal/config"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/storage"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewLocalFileSystemDriver(t *testing.T) {

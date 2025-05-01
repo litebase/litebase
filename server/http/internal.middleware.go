@@ -12,6 +12,15 @@ func Internal(request *Request) (*Request, Response) {
 
 	var nodeIp string
 
+	address, err := request.cluster.Node().Address()
+
+	if err != nil {
+		log.Printf("Error getting node address: %s - %s", err, address)
+		return request, Response{
+			StatusCode: 500,
+		}
+	}
+
 	if nodeHeader != "" {
 		nodeIpDecrypted, err := request.cluster.Auth.SecretsManager.Decrypt(
 			request.cluster.Config.Signature,
@@ -19,7 +28,7 @@ func Internal(request *Request) (*Request, Response) {
 		)
 
 		if err != nil {
-			log.Printf("Error decrypting node header: %s - %s", err, request.cluster.Node().Address())
+			log.Printf("Error decrypting node header: %s - %s", err, address)
 			return request, Response{
 				StatusCode: 401,
 			}
@@ -49,6 +58,12 @@ func Internal(request *Request) (*Request, Response) {
 
 	// Create a time.Time object from the Unix nano timestamp
 	parsedTimestamp := time.Unix(0, timestamp)
+
+	if !request.cluster.Initialized || !request.cluster.Node().Initialized {
+		return request, Response{
+			StatusCode: 504,
+		}
+	}
 
 	if nodeIp == "" || !request.cluster.IsMember(nodeIp, parsedTimestamp) {
 		return request, Response{

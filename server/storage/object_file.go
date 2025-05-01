@@ -23,8 +23,8 @@ type ObjectFile struct {
 	Sha256Checksum [32]byte
 }
 
-func NewObjectFile(client *S3Client, key string, openFlags int) *ObjectFile {
-	return &ObjectFile{
+func NewObjectFile(client *S3Client, key string, openFlags int, preExists bool) (*ObjectFile, error) {
+	file := &ObjectFile{
 		client: client,
 		Data:   nil,
 		FileInfo: StaticFileInfo{
@@ -36,6 +36,59 @@ func NewObjectFile(client *S3Client, key string, openFlags int) *ObjectFile {
 		OpenFlags:      openFlags,
 		Sha256Checksum: sha256.Sum256([]byte{}),
 	}
+
+	fileExists := false
+
+	if (openFlags&os.O_CREATE != 0) && preExists {
+		fileExists = true
+	} else if openFlags&os.O_CREATE != 0 {
+		response, err := client.HeadObject(key)
+
+		if err != nil {
+			if response.StatusCode != 404 {
+				log.Println("Error checking file existence", err)
+				return nil, err
+			}
+		}
+
+		if response.StatusCode == 200 {
+			fileExists = true
+		}
+
+		if !fileExists {
+			_, err = client.PutObject(key, []byte{})
+
+			if err != nil {
+				log.Println("Error creating file", err)
+				return nil, err
+			}
+		}
+	}
+
+	if openFlags&os.O_RDONLY != 0 || openFlags&os.O_RDWR != 0 {
+		response, err := client.GetObject(key)
+
+		if err != nil {
+
+			if response.StatusCode != 404 {
+				return nil, err
+			}
+		}
+
+		if len(response.Data) != 0 {
+			file.Data, err = s2.Decode(nil, response.Data)
+
+			if err != nil {
+				log.Println("Error decoding object", err)
+				return nil, err
+			}
+
+			file.Sha256Checksum = sha256.Sum256(file.Data)
+			file.FileInfo.StaticSize = int64(len(file.Data))
+		}
+	}
+
+	return file, nil
 }
 
 // If changes have been made to the file, this will upload the changes to the
@@ -148,6 +201,7 @@ func (o *ObjectFile) Seek(offset int64, whence int) (int64, error) {
 		}
 
 		o.readPos = int(newPos)
+
 		return newPos, nil
 	default:
 		return 0, fmt.Errorf("invalid whence: %d", whence)
@@ -223,6 +277,8 @@ func (o *ObjectFile) Write(p []byte) (n int, err error) {
 
 	o.Data = append(o.Data[:o.readPos], p...)
 
+	o.readPos += len(p)
+
 	return len(p), nil
 }
 
@@ -250,6 +306,8 @@ func (o *ObjectFile) WriteTo(w io.Writer) (n int64, err error) {
 	if err != nil {
 		return 0, err
 	}
+
+	o.readPos += bytesWritten
 
 	return int64(bytesWritten), nil
 }

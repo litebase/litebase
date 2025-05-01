@@ -7,22 +7,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 type NodeReplica struct {
-	cancel          context.CancelFunc
-	Context         context.Context
-	Address         string
-	Id              string
-	node            *Node
-	startMutex      *sync.RWMutex
-	walSynchronizer NodeWalSynchronizer
+	cancel     context.CancelFunc
+	Context    context.Context
+	Address    string
+	Id         string
+	node       *Node
+	startMutex *sync.RWMutex
 }
 
 // Create a new instance of a NodeReplica
@@ -47,9 +47,15 @@ func (nr *NodeReplica) JoinCluster() error {
 
 	url := fmt.Sprintf("http://%s/cluster/members", nr.node.PrimaryAddress())
 
+	address, err := nr.node.Address()
+
+	if err != nil {
+		return fmt.Errorf("failed to get node address: %w", err)
+	}
+
 	data := map[string]string{
-		"address": nr.node.Address(),
-		"group":   nr.node.cluster.Config.NodeType,
+		"address": address,
+		"group":   nr.node.Cluster.Config.NodeType,
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -65,9 +71,9 @@ func (nr *NodeReplica) JoinCluster() error {
 		return err
 	}
 
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
-		nr.node.cluster.Config.Signature,
-		[]byte(nr.node.Address()),
+	encryptedHeader, err := nr.node.Cluster.Auth.SecretsManager.Encrypt(
+		nr.node.Cluster.Config.Signature,
+		[]byte(address),
 	)
 
 	if err != nil {
@@ -111,7 +117,13 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return nil
 	}
 
-	url := fmt.Sprintf("http://%s/cluster/members/%s", nr.node.primaryAddress, nr.node.Address())
+	address, err := nr.node.Address()
+
+	if err != nil {
+		return fmt.Errorf("failed to get node address: %w", err)
+	}
+
+	url := fmt.Sprintf("http://%s/cluster/members/%s", nr.node.primaryAddress, address)
 
 	request, err := http.NewRequestWithContext(nr.node.context, "DELETE", url, nil)
 
@@ -120,9 +132,9 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return err
 	}
 
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
-		nr.node.cluster.Config.Signature,
-		[]byte(nr.node.Address()),
+	encryptedHeader, err := nr.node.Cluster.Auth.SecretsManager.Encrypt(
+		nr.node.Cluster.Config.Signature,
+		[]byte(address),
 	)
 
 	if err != nil {
@@ -143,15 +155,16 @@ func (nr *NodeReplica) LeaveCluster() error {
 }
 
 // Send a message from the replica to the primary node
-func (nr *NodeReplica) Send(message messages.NodeMessage) (interface{}, error) {
+func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage, error) {
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)
+	address, _ := nr.node.Address()
 
 	err := encoder.Encode(message)
 
 	if err != nil {
 		log.Println("Failed to encode message: ", err)
-		return nil, err
+		return messages.NodeMessage{}, err
 	}
 
 	client := &http.Client{
@@ -166,17 +179,17 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (interface{}, error) {
 
 	if err != nil {
 		log.Println("Failed to send message: ", err)
-		return nil, err
+		return messages.NodeMessage{}, err
 	}
 
-	encryptedHeader, err := nr.node.cluster.Auth.SecretsManager.Encrypt(
-		nr.node.cluster.Config.Signature,
-		[]byte(nr.node.Address()),
+	encryptedHeader, err := nr.node.Cluster.Auth.SecretsManager.Encrypt(
+		nr.node.Cluster.Config.Signature,
+		[]byte(address),
 	)
 
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return messages.NodeMessage{}, err
 	}
 
 	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
@@ -187,7 +200,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (interface{}, error) {
 
 	if err != nil {
 		log.Println("Failed to send message: ", err)
-		return nil, err
+		return messages.NodeMessage{}, err
 	}
 
 	defer response.Body.Close()
@@ -195,7 +208,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (interface{}, error) {
 	if response.StatusCode >= 400 {
 		log.Println("Failed to send message: ", response.Status)
 		runtime.Stack(nil, true)
-		return nil, errors.New("failed to send message")
+		return messages.NodeMessage{}, errors.New("failed to send message")
 	}
 
 	decoder := gob.NewDecoder(response.Body)
@@ -206,7 +219,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (interface{}, error) {
 
 	if err != nil {
 		log.Println("Failed to decode response: ", err)
-		return nil, err
+		return messages.NodeMessage{}, err
 	}
 
 	return responseMessage, nil

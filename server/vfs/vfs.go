@@ -8,8 +8,6 @@ package vfs
 #include <stdio.h>
 #include <string.h>
 #include <vfs.h>
-
-extern void go_write_hook(uintptr_t vfsHandle, int iAmt, sqlite3_int64 iOfst, void* zBuf);
 */
 import "C"
 
@@ -18,140 +16,185 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"litebase/server/storage"
 	"log"
-	"runtime/cgo"
 	"strings"
 	"sync"
 	"unsafe"
+
+	"github.com/litebase/litebase/server/storage"
 )
 
-var VfsMap = make(map[string]*LitebaseVFS)
 var vfsMutex = &sync.RWMutex{}
+var VfsMap = make(map[string]*LitebaseVFS)
 
 var vfsBuffers = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return bytes.NewBuffer(make([]byte, 4096))
 	},
 }
 
 type LitebaseVFS struct {
-	distributedWal *storage.DistributedWal
-	filename       string
-	fileSystem     *storage.DurableDatabaseFileSystem
-	id             string
-	vfsIdPtr       uintptr
+	filename   string
+	fileSystem *storage.DurableDatabaseFileSystem
+	id         string
+	timestamp  int64
+	vfsIdPtr   uintptr
+	wal        WAL
+	walHash    string
+	shm        *ShmMemory
 }
 
 func RegisterVFS(
-	connectionId string,
-	vfsId string,
-	dataPath string,
+	vfsHash string,
+	vfsDatabaseHash string,
 	pageSize int64,
 	fileSystem *storage.DurableDatabaseFileSystem,
-	distributedWal *storage.DistributedWal,
-) error {
+	wal WAL,
+) (*LitebaseVFS, error) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
-	if connectionId == "" {
-		return errors.New("connectionId cannot be empty")
-	}
-
-	if vfsId == "" {
-		return errors.New("vfsId cannot be empty")
-	}
-
-	if dataPath == "" {
-		return errors.New("dataPath cannot be empty")
+	if vfsHash == "" {
+		return nil, errors.New("vfsHash cannot be empty")
 	}
 
 	if pageSize < 512 {
-		return errors.New("pageSize must be at least 512")
+		return nil, errors.New("pageSize must be at least 512")
 	}
 
 	// Only register the VFS if it doesn't already exist
-	if _, ok := VfsMap[vfsId]; ok {
-		return nil
+	if lVfs, ok := VfsMap[vfsHash]; ok {
+		return lVfs, nil
 	}
 
-	cZvfsId := C.CString(vfsId)
+	cZvfsId := C.CString(vfsHash)
 	defer C.free(unsafe.Pointer(cZvfsId))
 
-	cDataPath := C.CString(dataPath)
-	defer C.free(unsafe.Pointer(cDataPath))
+	C.newVfs(cZvfsId, C.int(pageSize))
 
-	C.newVfs(cZvfsId, cDataPath, C.int(pageSize))
-
-	l := &LitebaseVFS{
-		distributedWal: distributedWal,
-		fileSystem:     fileSystem,
-		id:             vfsId,
+	// Check if the WAL is already registered
+	if VfsShmMap[vfsDatabaseHash] == nil {
+		VfsShmMap[vfsDatabaseHash] = &ShmMemory{
+			locks:   make(map[int]int),
+			mutex:   &sync.Mutex{},
+			regions: make([]*ShmRegion, 0),
+		}
 	}
 
-	l.writeHook()
+	l := &LitebaseVFS{
+		fileSystem: fileSystem,
+		id:         vfsHash,
+		wal:        wal,
+		shm:        VfsShmMap[vfsDatabaseHash],
+	}
 
-	// log.Println("Registered VFS", vfsId)
-	VfsMap[vfsId] = l
+	VfsMap[vfsHash] = l
 
-	return nil
+	return l, nil
 }
 
-func UnregisterVFS(conId, vfsId string) error {
+func UnregisterVFS(vfsId string) error {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
-	vfs := VfsMap[vfsId]
+	vfs, ok := VfsMap[vfsId]
+	var walHash string
 
-	if vfs != nil {
-		cvfsId := C.CString(vfsId)
-		defer C.free(unsafe.Pointer(cvfsId))
-
-		C.unregisterVfs(cvfsId)
+	if !ok {
+		return errors.New("vfsId not found")
 	}
 
+	cvfsId := C.CString(vfsId)
+	defer C.free(unsafe.Pointer(cvfsId))
+
+	C.unregisterVfs(cvfsId)
+
+	walHash = vfs.walHash
+
 	delete(VfsMap, vfsId)
+
+	var found bool
+
+	for _, vfs := range VfsMap {
+		if vfs.walHash == walHash {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		delete(VfsShmMap, vfs.walHash)
+	}
 
 	return nil
 }
 
 func VFSIsRegistered(vfsId string) bool {
-	cVfsId := C.CString(vfsId)
-	defer C.free(unsafe.Pointer(cVfsId))
-
 	vfsPointer := C.sqlite3_vfs_find(C.CString(vfsId))
 
 	return vfsPointer != nil
 }
 
-// Setup the write hook for the VFS to receive write events from SQLite.
-func (l *LitebaseVFS) writeHook() error {
-	vfsHandle := cgo.NewHandle(l)
+func (vfs *LitebaseVFS) GetWALShmRegions() []*ShmRegion {
+	vfsMutex.RLock()
+	defer vfsMutex.RUnlock()
 
-	cVfsId := C.CString(l.id)
-	defer C.free(unsafe.Pointer(cVfsId))
-
-	rc := C.litebase_vfs_write_hook(
-		cVfsId,
-		(*[0]byte)(C.go_write_hook),
-		unsafe.Pointer(vfsHandle),
-	)
-
-	if rc != C.SQLITE_OK {
-		return fmt.Errorf("failed to set write hook: %d", rc)
-	}
-
-	return nil
+	return vfs.shm.regions
 }
 
-//export go_write_hook
-func go_write_hook(vfsHandle C.uintptr_t, iAmt C.int, iOfst C.sqlite3_int64, zBuf unsafe.Pointer) {
-	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+func (vfs *LitebaseVFS) SetTimestamp(timestamp int64) {
+	vfsMutex.Lock()
+	defer vfsMutex.Unlock()
 
-	handle := cgo.Handle(vfsHandle)
-	l := handle.Value().(*LitebaseVFS)
+	vfs.timestamp = timestamp
+}
 
-	l.fileSystem.WriteHook(int64(iOfst), goBuffer)
+func (vfs *LitebaseVFS) SetWALShmRegions(regions []*ShmRegion) {
+	vfsMutex.Lock()
+	defer vfsMutex.Unlock()
+
+	// Update existing regions, add new regions, and remove unused regions
+	newRegions := make([]*ShmRegion, len(regions))
+
+	for i, region := range regions {
+		var existingMemory *ShmRegion
+
+		for _, existingRegion := range vfs.shm.regions {
+			if existingRegion.id == region.id {
+				existingMemory = existingRegion
+			}
+		}
+
+		if existingMemory != nil {
+			C.memcpy(existingMemory.pData, region.pData, region.size)
+		} else {
+			// Add new region
+			newRegion := &ShmRegion{
+				id:    region.id,
+				pData: C.malloc(region.size),
+				size:  region.size,
+			}
+
+			C.memcpy(newRegion.pData, region.pData, region.size)
+
+			vfs.shm.regions = append(vfs.shm.regions, newRegion)
+		}
+
+		newRegions[i] = region
+	}
+
+	// Remove unused regions
+	if len(vfs.shm.regions) > len(regions) {
+		for _, unusedRegion := range vfs.shm.regions[len(regions):] {
+			C.free(unusedRegion.pData)
+		}
+
+		vfs.shm.regions = vfs.shm.regions[:len(regions)]
+	}
+}
+
+func (vfs *LitebaseVFS) Timestamp() int64 {
+	return vfs.timestamp
 }
 
 func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
@@ -192,31 +235,25 @@ func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.
 		return C.SQLITE_IOERR
 	}
 
-	// fileType := getFileType(name)
-
-	// switch fileType {
-	// case "journal", "wal":
-	// 	vfs.tempStorage.Open(filename)
-	// default:
 	vfs.fileSystem.Open(filename)
 	vfs.filename = filename
-	// }
 
 	return C.SQLITE_OK
 }
 
 //export goXRead
 func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
+	var err error
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
 	vfs, err := getVfsFromFile(pFile)
 
 	if err != nil {
-		log.Println("Error getting VFS from file", err)
 		return C.SQLITE_IOERR_READ
 	}
 
-	n, err := vfs.fileSystem.ReadAt(
+	_, err = vfs.fileSystem.ReadAt(
+		vfs.timestamp,
 		goBuffer,
 		int64(iOfst),
 		int64(iAmt),
@@ -224,15 +261,6 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 
 	if err != nil && err != io.EOF {
 		return C.SQLITE_IOERR_READ
-	}
-
-	if n < len(goBuffer) && err == io.EOF {
-		for i := n; i < len(goBuffer); i++ {
-			goBuffer[i] = 0
-		}
-
-		log.Println("Short read", n, len(goBuffer))
-		// return errToC(IOErrorShortRead)
 	}
 
 	return C.SQLITE_OK
@@ -248,7 +276,7 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.fileSystem.WriteAt(goBuffer, int64(iOfst))
+	_, err = vfs.fileSystem.WriteAt(vfs.timestamp, goBuffer, int64(iOfst))
 
 	if err != nil {
 		return C.SQLITE_IOERR_WRITE
@@ -277,6 +305,150 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 	return C.SQLITE_OK
 }
 
+//export goXShmMap
+func goXShmMap(pFile *C.sqlite3_file, iPage C.int, pgsz C.int, bExtend C.int, pp *unsafe.Pointer) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_SHMMAP
+	}
+
+	vfs.shm.mutex.Lock()
+	defer vfs.shm.mutex.Unlock()
+
+	// Check if the shared memory region already exists
+	for _, region := range vfs.shm.regions {
+		if region.id == int(iPage) {
+			*pp = region.pData
+
+			return C.SQLITE_OK
+		}
+	}
+
+	// Allocate new shared memory region
+	newRegion := &ShmRegion{
+		id:    int(iPage),
+		pData: C.malloc(C.size_t(pgsz)),
+		size:  C.size_t(pgsz),
+	}
+
+	if newRegion.pData == nil {
+		log.Printf("goXShmMap: Failed to allocate shared memory region %d\n", iPage)
+		return C.SQLITE_NOMEM
+	}
+
+	vfs.shm.regions = append(vfs.shm.regions, newRegion)
+	*pp = newRegion.pData
+
+	return C.SQLITE_OK
+}
+
+//export goXShmLock
+func goXShmLock(pFile *C.sqlite3_file, offset C.int, n C.int, flags C.int) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		return C.SQLITE_IOERR_SHMLOCK
+	}
+
+	vfs.shm.mutex.Lock()
+	defer vfs.shm.mutex.Unlock()
+
+	// If an exclusive lock is requested, check if the WAL is the latest version,
+	// otherwise, return ErrSnapshotConflict meaning that the lock cannot be
+	// acquired since the WAL is not the latest version and cannot be updated.
+	// if flags&C.SQLITE_SHM_EXCLUSIVE != 0 && !vfs.wal.IsLatestVersion() {
+	// 	return C.int(constants.ErrSnapshotConflict)
+	// }
+
+	// Validate inputs
+	if offset < 0 || int(offset)+int(n) > C.SQLITE_SHM_NLOCK || n < 1 ||
+		(flags != (C.SQLITE_SHM_LOCK|C.SQLITE_SHM_SHARED) &&
+			flags != (C.SQLITE_SHM_LOCK|C.SQLITE_SHM_EXCLUSIVE) &&
+			flags != (C.SQLITE_SHM_UNLOCK|C.SQLITE_SHM_SHARED) &&
+			flags != (C.SQLITE_SHM_UNLOCK|C.SQLITE_SHM_EXCLUSIVE)) {
+		return C.SQLITE_IOERR_SHMLOCK
+	}
+
+	var rc C.int = C.SQLITE_OK
+
+	// Check for unlock
+	if flags&C.SQLITE_SHM_UNLOCK != 0 {
+		// Unlock logic
+		if flags&C.SQLITE_SHM_SHARED != 0 {
+			if vfs.shm.locks[int(offset)] > 1 {
+				vfs.shm.locks[int(offset)]--
+			} else {
+				vfs.shm.locks[int(offset)] = 0
+			}
+		} else {
+			for i := int(offset); i < int(offset+n); i++ {
+				vfs.shm.locks[i] = 0
+			}
+		}
+	} else if flags&C.SQLITE_SHM_SHARED != 0 {
+		// Shared lock logic
+		if vfs.shm.locks[int(offset)] < 0 {
+			rc = C.SQLITE_BUSY // Exclusive lock already held
+		} else {
+			vfs.shm.locks[int(offset)]++
+		}
+	} else {
+		// Exclusive lock logic
+		for i := int(offset); i < int(offset+n); i++ {
+			if vfs.shm.locks[i] != 0 {
+				rc = C.SQLITE_BUSY // Lock already held
+				break
+			}
+		}
+
+		if rc == C.SQLITE_OK {
+			for i := int(offset); i < int(offset+n); i++ {
+				vfs.shm.locks[i] = -1
+			}
+		}
+	}
+
+	return rc
+}
+
+//export goXShmUnmap
+func goXShmUnmap(pFile *C.sqlite3_file, deleteFlag C.int) C.int {
+	vfs, err := getVfsFromFile(pFile)
+	if err != nil {
+		return C.SQLITE_IOERR_SHMMAP
+	}
+
+	vfsMutex.Lock()
+	defer vfsMutex.Unlock()
+
+	vfs.shm.mutex.Lock()
+	defer vfs.shm.mutex.Unlock()
+
+	var found int
+
+	for _, vfsEntry := range VfsMap {
+		if vfsEntry.id != vfs.id && vfsEntry.walHash == vfs.shm.walHash {
+			found++
+		}
+	}
+
+	if found < 1 {
+		for _, region := range vfs.shm.regions {
+			C.free(region.pData)
+		}
+	}
+
+	vfs.shm.regions = make([]*ShmRegion, 0)
+
+	return C.SQLITE_OK
+}
+
+//export goXShmBarrier
+func goXShmBarrier(pFile *C.sqlite3_file) {
+	// Implement barrier logic here
+}
+
 //export goXTruncate
 func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 	vfs, err := getVfsFromFile(pFile)
@@ -294,54 +466,117 @@ func goXTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 	return C.SQLITE_OK
 }
 
-//export goXWalWrite
-func goXWalWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf unsafe.Pointer) C.int {
+//export goXWALFileSize
+func goXWALFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 	vfs, err := getVfsFromFile(pFile)
 
 	if err != nil {
+		log.Println("Error getting VFS from file", err)
 		return C.SQLITE_IOERR
 	}
 
-	buffer := vfsBuffers.Get().(*bytes.Buffer)
-	defer vfsBuffers.Put(buffer)
-
-	buffer.Reset()
-
-	if buffer.Len() < int(iAmt) {
-		buffer.Grow(int(iAmt))
+	if vfs.wal == nil {
+		log.Println("WAL is nil")
+		return C.SQLITE_IOERR
 	}
 
-	copy(buffer.Bytes(), (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)])
-
-	err = vfs.distributedWal.WriteAt(buffer.Next(int(iAmt)), int64(iOfst))
+	size, err := vfs.wal.Size(vfs.timestamp)
 
 	if err != nil {
+		log.Println("Error getting WAL file size", err)
+		return C.SQLITE_IOERR
+	}
+
+	*pSize = C.sqlite3_int64(size)
+
+	return C.SQLITE_OK
+}
+
+//export goXWALRead
+func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		log.Println("Error getting VFS from file", err)
+		return C.SQLITE_IOERR
+	}
+
+	if vfs.wal == nil {
+		log.Println("WAL is nil")
+		return C.SQLITE_IOERR
+	}
+
+	// buffer := vfsBuffers.Get().(*bytes.Buffer)
+	// defer vfsBuffers.Put(buffer)
+
+	// buffer.Reset()
+
+	// if buffer.Len() < int(iAmt) {
+	// 	buffer.Grow(int(iAmt))
+	// }
+
+	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+
+	n, err := vfs.wal.ReadAt(vfs.timestamp, goBuffer, int64(iOfst))
+
+	if err != nil {
+		if err == io.EOF {
+			return C.SQLITE_OK
+		}
+
+		log.Println("Error reading WAL file", err)
+		return C.SQLITE_IOERR
+	}
+
+	if err != nil {
+		log.Println("Error reading WAL file", err, n)
+	}
+	// if n < len(goBuffer) && err == io.EOF {
+	// 	for i := n; i < len(goBuffer); i++ {
+	// 		goBuffer[i] = 0
+	// 	}
+
+	// }
+
+	return C.SQLITE_OK
+}
+
+//export goXWALWrite
+func goXWALWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf unsafe.Pointer) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		log.Println("Error getting VFS from file", err)
+		return C.SQLITE_IOERR
+	}
+
+	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
+
+	_, err = vfs.wal.WriteAt(vfs.timestamp, goBuffer, int64(iOfst))
+
+	if err != nil {
+		log.Println("Error writing to WAL file", err)
 		return C.SQLITE_IOERR
 	}
 
 	return C.SQLITE_OK
 }
 
-//export goXWalTruncate
-func goXWalTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
+//export goXWALTruncate
+func goXWALTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 	vfs, err := getVfsFromFile(pFile)
 
 	if err != nil {
+		log.Println("Error getting VFS from file", err)
 		return C.SQLITE_IOERR
 	}
 
-	err = vfs.distributedWal.Truncate(int64(size))
+	err = vfs.wal.Truncate(vfs.timestamp, int64(size))
 
 	if err != nil {
+		log.Println("Error truncating WAL file", err)
 		return C.SQLITE_IOERR
 	}
 
 	return C.SQLITE_OK
-}
-
-func errToC(err error) C.int {
-	if e, ok := err.(sqliteError); ok {
-		return C.int(e.code)
-	}
-	return C.int(GenericError.code)
 }

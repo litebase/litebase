@@ -1,10 +1,10 @@
 package main
 
 import (
-	"litebase/router"
 	"log"
 
 	"github.com/joho/godotenv"
+	"github.com/litebase/litebase/router"
 )
 
 func main() {

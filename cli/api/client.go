@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"litebase/cli/config"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/litebase/litebase/cli/config"
 )
 
 type Client struct {
@@ -44,7 +45,7 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Request(method, path string, data map[string]interface{}) (map[string]interface{}, Errors, error) {
+func (c *Client) Request(method, path string, data map[string]any) (map[string]any, Errors, error) {
 	url := fmt.Sprintf("%s/%s", c.BaseUrl, strings.TrimLeft(path, "/"))
 
 	jsonData, err := json.Marshal(data)
@@ -52,7 +53,7 @@ func (c *Client) Request(method, path string, data map[string]interface{}) (map[
 	if err != nil {
 		return nil, nil, err
 	}
-
+	// log.Fatalln("Request", method, url, string(jsonData))
 	req, err := http.NewRequest(method, url, strings.NewReader(string(jsonData)))
 
 	if err != nil {
@@ -77,7 +78,7 @@ func (c *Client) Request(method, path string, data map[string]interface{}) (map[
 		return nil, nil, err
 	}
 
-	responseData := make(map[string]interface{})
+	responseData := make(map[string]any)
 
 	if len(body) != 0 {
 		err = json.Unmarshal(body, &responseData)
@@ -95,10 +96,10 @@ func (c *Client) Request(method, path string, data map[string]interface{}) (map[
 		if responseData["errors"] != nil {
 			var errors = make(map[string][]string)
 
-			for key, value := range responseData["errors"].(map[string]interface{}) {
+			for key, value := range responseData["errors"].(map[string]any) {
 
 				errors[key] = []string{}
-				for _, v := range value.([]interface{}) {
+				for _, v := range value.([]any) {
 					errors[key] = append(errors[key], v.(string))
 				}
 			}

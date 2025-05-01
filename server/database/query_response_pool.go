@@ -1,6 +1,10 @@
 package database
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/litebase/litebase/server/cluster"
+)
 
 var staticQueryResponsePool *QueryResponsePool
 
@@ -22,13 +26,13 @@ func ResponsePool() *QueryResponsePool {
 	return staticQueryResponsePool
 }
 
-func (qrp *QueryResponsePool) Get() *QueryResponse {
+func (qrp *QueryResponsePool) Get() cluster.NodeQueryResponse {
 	response := qrp.Pool.Get().(*QueryResponse)
 	response.Reset()
 
 	return response
 }
 
-func (qrp *QueryResponsePool) Put(response *QueryResponse) {
+func (qrp *QueryResponsePool) Put(response cluster.NodeQueryResponse) {
 	qrp.Pool.Put(response)
 }

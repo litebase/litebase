@@ -1,10 +1,13 @@
 package cluster_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server/cluster"
-	"litebase/server/cluster/messages"
 	"testing"
+
+	"github.com/litebase/litebase/server/cluster/messages"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 func TestNewNodeReplica(t *testing.T) {
@@ -29,7 +32,7 @@ func TestNodeReplicaJoinCluster(t *testing.T) {
 			t.Fatalf("Node should be primary")
 		}
 
-		queryNodes, _ := testServer1.App.Cluster.GetMembers(true)
+		queryNodes := testServer1.App.Cluster.GetMembers(true)
 
 		if len(queryNodes) != 1 {
 			t.Errorf("Expected 1 nodes, got %d", len(queryNodes))
@@ -54,7 +57,7 @@ func TestNodeReplicaJoinCluster(t *testing.T) {
 			t.Error("JoinCluster should not return an error")
 		}
 
-		queryNodes, _ = testServer1.App.Cluster.GetMembers(true)
+		queryNodes = testServer1.App.Cluster.GetMembers(true)
 
 		if len(queryNodes) != 2 {
 			t.Errorf("Expected 2 nodes, got %d", len(queryNodes))
@@ -70,7 +73,7 @@ func TestNodeReplicaLeaveCluster(t *testing.T) {
 			t.Fatalf("Node should be primary")
 		}
 
-		queryNodes, _ := testServer1.App.Cluster.GetMembers(true)
+		queryNodes := testServer1.App.Cluster.GetMembers(true)
 
 		if len(queryNodes) != 1 {
 			t.Errorf("Expected 1 nodes, got %d", len(queryNodes))
@@ -78,7 +81,7 @@ func TestNodeReplicaLeaveCluster(t *testing.T) {
 
 		testServer2 := test.NewTestServer(t)
 
-		queryNodes, _ = testServer1.App.Cluster.GetMembers(true)
+		queryNodes = testServer1.App.Cluster.GetMembers(true)
 
 		if len(queryNodes) != 2 {
 			t.Errorf("Expected 2 nodes, got %d", len(queryNodes))
@@ -90,7 +93,7 @@ func TestNodeReplicaLeaveCluster(t *testing.T) {
 			t.Error("LeaveCluster should not return an error")
 		}
 
-		queryNodes, _ = testServer1.App.Cluster.GetMembers(true)
+		queryNodes = testServer1.App.Cluster.GetMembers(true)
 
 		if len(queryNodes) != 1 {
 			t.Errorf("Expected 1 nodes, got %d", len(queryNodes))
@@ -116,7 +119,7 @@ func TestNodeReplicaSend(t *testing.T) {
 			t.Error("Send should not return an error")
 		}
 
-		if resp == nil {
+		if resp == (messages.NodeMessage{}) {
 			t.Error("Send should return a response")
 		}
 	})

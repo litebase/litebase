@@ -4,10 +4,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/file"
 	"os"
 	"sync"
+
+	"github.com/litebase/litebase/server/file"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
 )
 
 type DatabaseMetadata struct {

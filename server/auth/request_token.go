@@ -75,7 +75,7 @@ func (requestToken RequestToken) AccessKey(databaseId string) *AccessKey {
 	return requestToken.accessKey
 }
 
-func (requestToken RequestToken) ToMap() map[string]interface{} {
+func (requestToken RequestToken) ToMap() map[string]any {
 	return map[string]interface{}{
 		"access_key_id":  requestToken.AccessKeyId,
 		"signed_headers": requestToken.SignedHeaders,

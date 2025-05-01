@@ -1,10 +1,12 @@
 package database_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/database"
 	"testing"
+	"time"
+
+	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/database"
 )
 
 func TestNewCheckpointer(t *testing.T) {
@@ -15,6 +17,8 @@ func TestNewCheckpointer(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
+			app.Cluster.RemoteFS(),
+			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
 		if err != nil {
@@ -27,7 +31,7 @@ func TestNewCheckpointer(t *testing.T) {
 	})
 }
 
-func TestCheckpointerBegin(t *testing.T) {
+func TestCheckpointer_Begin(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
@@ -35,13 +39,15 @@ func TestCheckpointerBegin(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
+			app.Cluster.RemoteFS(),
+			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cp.Begin()
+		err = cp.Begin(0)
 
 		if err != nil {
 			t.Fatal(err)
@@ -51,7 +57,7 @@ func TestCheckpointerBegin(t *testing.T) {
 			t.Fatal("Checkpoint is nil after Begin")
 		}
 
-		err = cp.Begin()
+		err = cp.Begin(0)
 
 		if err != database.ErrorCheckpointAlreadyInProgressError {
 			t.Fatal("Expected CheckpointAlreadyInProgressError")
@@ -59,13 +65,15 @@ func TestCheckpointerBegin(t *testing.T) {
 	})
 }
 
-func TestCheckpointerCheckpointPage(t *testing.T) {
+func TestCheckpointer_CheckpointPage(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
+			app.Cluster.RemoteFS(),
+			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
 		if err != nil {
@@ -78,13 +86,13 @@ func TestCheckpointerCheckpointPage(t *testing.T) {
 			t.Fatal("Expected NoCheckpointInProgressError")
 		}
 
-		err = cp.Begin()
+		err = cp.Begin(0)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cp.CheckpointPage(1, []byte("test data"))
+		err = cp.CheckpointPage(1, make([]byte, 4096))
 
 		if err != nil {
 			t.Fatal(err)
@@ -96,7 +104,7 @@ func TestCheckpointerCheckpointPage(t *testing.T) {
 	})
 }
 
-func TestCheckpointerCommit(t *testing.T) {
+func TestCheckpointer_Commit(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		dfs := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
@@ -111,6 +119,8 @@ func TestCheckpointerCommit(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
+			app.Cluster.RemoteFS(),
+			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
 		if err != nil {
@@ -123,13 +133,13 @@ func TestCheckpointerCommit(t *testing.T) {
 			t.Fatal("Expected NoCheckpointInProgressError")
 		}
 
-		err = cp.Begin()
+		err = cp.Begin(0)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cp.CheckpointPage(1, []byte("test data"))
+		err = cp.CheckpointPage(1, make([]byte, 4096))
 
 		if err != nil {
 			t.Fatal(err)
@@ -153,7 +163,7 @@ func TestCheckpointerCommit(t *testing.T) {
 	})
 }
 
-func TestCheckpointerRollback(t *testing.T) {
+func TestCheckpointer_Rollback(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		dfs := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
@@ -164,23 +174,29 @@ func TestCheckpointerRollback(t *testing.T) {
 			t.Fatal("Expected initial page count to be 0")
 		}
 
+		fileSystem := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
+
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseId,
 			mock.BranchId,
-			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
+			fileSystem,
+			app.Cluster.RemoteFS(),
+			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cp.Begin()
+		err = cp.Begin(time.Now().UnixMicro())
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cp.CheckpointPage(1, []byte("test data"))
+		data := make([]byte, 4096)
+
+		err = cp.CheckpointPage(1, data)
 
 		if err != nil {
 			t.Fatal(err)
@@ -204,13 +220,13 @@ func TestCheckpointerRollback(t *testing.T) {
 			t.Fatal("Expected NoCheckpointInProgressError")
 		}
 
-		err = cp.Begin()
+		err = cp.Begin(0)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cp.CheckpointPage(2, []byte("test data"))
+		err = cp.CheckpointPage(2, data)
 
 		if err != nil {
 			t.Fatal(err)
@@ -234,24 +250,63 @@ func TestCheckpointerRollback(t *testing.T) {
 	})
 }
 
-func TestCheckpointerSetTimestamp(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
+	databaseId := "database"
+	branchId := "branch"
 
+	test.RunWithApp(t, func(app *server.App) {
 		cp, err := database.NewCheckpointer(
-			mock.DatabaseId,
-			mock.BranchId,
-			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
+			databaseId,
+			branchId,
+			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
+			app.Cluster.RemoteFS(),
+			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
 		)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		cp.SetTimestamp(1)
+		err = cp.Begin(1234567890)
 
-		if cp.Timestamp != 1 {
-			t.Fatal("Timestamp was not set")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = database.NewCheckpointer(
+			databaseId,
+			branchId,
+			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
+			app.Cluster.RemoteFS(),
+			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
+		)
+
+		if err != nil {
+			t.Fatal(err)
 		}
 	})
 }
+
+// func TestCheckpointer_SetTimestamp(t *testing.T) {
+// 	test.RunWithApp(t, func(app *server.App) {
+// 		mock := test.MockDatabase(app)
+
+// 		cp, err := database.NewCheckpointer(
+// 			mock.DatabaseId,
+// 			mock.BranchId,
+// 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
+// 			app.Cluster.RemoteFS(),
+// 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
+// 		)
+
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+
+// 		// cp.SetTimestamp(1)
+
+// 		// if cp.Timestamp != 1 {
+// 		// 	t.Fatal("Timestamp was not set")
+// 		// }
+// 	})
+// }

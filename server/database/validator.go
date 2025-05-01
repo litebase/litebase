@@ -1,7 +1,7 @@
 package database
 
 import (
-	"litebase/server/sqlite3"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 type QueryValidator struct {

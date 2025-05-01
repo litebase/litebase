@@ -1,7 +1,7 @@
 package http
 
 import (
-	"litebase/server/auth"
+	"github.com/litebase/litebase/server/auth"
 )
 
 type SingatureStoreRequest struct {
@@ -14,7 +14,7 @@ func SingatureStoreController(request *Request) Response {
 	if err != nil {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": err,
 			},
 		}
@@ -27,7 +27,7 @@ func SingatureStoreController(request *Request) Response {
 	if validationErrors != nil {
 		return Response{
 			StatusCode: 422,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": validationErrors,
 			},
 		}
@@ -42,7 +42,7 @@ func SingatureStoreController(request *Request) Response {
 	if err != nil {
 		return Response{
 			StatusCode: 500,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"error": err.Error(),
 			},
 		}
@@ -50,8 +50,8 @@ func SingatureStoreController(request *Request) Response {
 
 	return Response{
 		StatusCode: 200,
-		Body: map[string]interface{}{
-			"data": map[string]interface{}{
+		Body: map[string]any{
+			"data": map[string]any{
 				"public_key": publicKey,
 			},
 		},

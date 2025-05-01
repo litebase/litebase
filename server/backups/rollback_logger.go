@@ -2,10 +2,11 @@ package backups
 
 import (
 	"bytes"
-	"litebase/server/storage"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/storage"
 )
 
 type RollbackLogger struct {
@@ -20,7 +21,7 @@ type RollbackLogger struct {
 func NewRollbackLogger(tieredFS *storage.FileSystem, databaseId, branchId string) *RollbackLogger {
 	return &RollbackLogger{
 		buffers: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
@@ -65,8 +66,14 @@ func (rl *RollbackLogger) Commit(timestamp, offset, size int64) error {
 func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 	rl.mutex.Lock()
 	defer rl.mutex.Unlock()
+	var startOfHour time.Time
 
-	startOfHour := time.Unix(int64(timestamp), 0)
+	if timestamp > 1e15 {
+		startOfHour = time.UnixMicro(timestamp)
+	} else {
+		startOfHour = time.Unix(timestamp, 0)
+	}
+
 	startOfHourTimestamp := startOfHour.Truncate(time.Hour).Unix()
 
 	if l, ok := rl.logs[startOfHourTimestamp]; ok {

@@ -2,25 +2,27 @@ package cluster
 
 import (
 	"encoding/gob"
-	"litebase/server/cluster/messages"
+
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 func registerNodeMessages() {
 	gob.Register(messages.NodeMessage{})
+	gob.Register(messages.RangeReplicationTruncateMessage{})
+	gob.Register(messages.RangeReplicationWriteMessage{})
 	gob.Register(messages.ErrorMessage{})
 	gob.Register(messages.HeartbeatMessage{})
 	gob.Register(messages.NodeConnectionMessage{})
+
 	gob.Register(messages.QueryMessage{})
 	gob.Register(messages.QueryMessageResponse{})
-	gob.Register(messages.ReplicationGroupAssignment{})
-	gob.Register(messages.ReplicationGroupAssignmentMessage{})
-	gob.Register(messages.ReplicationGroupWriteMessage{})
-	gob.Register(messages.ReplicationGroupWriteResponse{})
-	gob.Register(messages.ReplicationGroupWritePrepareMessage{})
-	gob.Register(messages.ReplicationGroupWritePrepareResponse{})
-	gob.Register(messages.ReplicationGroupWriteCommitMessage{})
-	gob.Register(messages.ReplicationGroupWriteCommitResponse{})
 
+	// WAL messages
+	gob.Register(messages.WALIndexMessage{})
+	gob.Register(messages.WALIndexHeaderMessage{})
+	gob.Register(messages.WALIndexTimestampMessage{})
 	gob.Register(messages.WALReplicationWriteMessage{})
 	gob.Register(messages.WALReplicationTruncateMessage{})
+	gob.Register(messages.WALVersionUsageRequest{})
+	gob.Register(messages.WALVersionUsageResponse{})
 }

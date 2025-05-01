@@ -1,13 +1,17 @@
 package auth_test
 
 import (
-	"litebase/internal/config"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/auth"
-	"litebase/server/database"
-	"litebase/server/storage"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewSecretsManager(t *testing.T) {
@@ -265,7 +269,7 @@ func TestSecretsManagerStoreDatabaseKey(t *testing.T) {
 			t.Error("Expected StoreDatabaseKey to return a non-nil error")
 		}
 
-		databaseKey, err := database.GetDatabaseKey(app.Config, app.Auth.ObjectFS, "databaseKey")
+		databaseKey, err := app.Auth.SecretsManager.GetDatabaseKey("databaseKey")
 
 		if err != nil {
 			t.Error("Expected GetDatabaseKey to return a non-nil error")

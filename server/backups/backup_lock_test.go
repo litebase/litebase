@@ -1,8 +1,9 @@
 package backups_test
 
 import (
-	"litebase/server/backups"
 	"testing"
+
+	"github.com/litebase/litebase/server/backups"
 )
 
 func TestBackupLock(t *testing.T) {

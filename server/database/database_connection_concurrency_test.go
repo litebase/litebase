@@ -1,0 +1,153 @@
+package database_test
+
+import (
+	"context"
+	"sync"
+	"testing"
+
+	"github.com/litebase/litebase/server/database"
+
+	"github.com/litebase/litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
+)
+
+func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+
+		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (name TEXT)"))
+
+		app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
+
+		wg := sync.WaitGroup{}
+
+		for i := 0; i < 100; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				connection, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+
+				defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
+
+				statement, _ := connection.GetConnection().Statement([]byte("INSERT INTO test (name) VALUES (?)"))
+				result := connection.GetConnection().ResultPool().Get()
+				for i := 0; i < 10; i++ {
+					result.Reset()
+					connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
+							Type:  "TEXT",
+							Value: []byte("test"),
+						})
+
+						return err
+					})
+
+					if err != nil {
+						t.Error(err)
+					}
+				}
+			}()
+		}
+
+		wg.Wait()
+
+		connection, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Check integrity of the database
+		result, err := connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if result.Rows[0][0].Int64() != 1000 {
+			t.Errorf("Expected 1000 rows, got %d", result.Rows[0][0].Int64())
+		}
+
+		app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
+	})
+}
+
+func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+
+		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (name TEXT)"))
+
+		app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
+
+		for round := 0; round < 10; round++ {
+			wg := sync.WaitGroup{}
+
+			for i := 0; i < 100; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					connection, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+
+					defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
+
+					statement, _ := connection.GetConnection().Statement([]byte("INSERT INTO test (name) VALUES (?)"))
+					result := connection.GetConnection().ResultPool().Get()
+					for i := 0; i < 10; i++ {
+						result.Reset()
+						connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+							err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
+								Type:  "TEXT",
+								Value: []byte("test"),
+							})
+
+							return err
+						})
+
+						if err != nil {
+							t.Error(err)
+						}
+					}
+				}()
+			}
+
+			wg.Wait()
+
+			connection, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Check integrity of the database
+			result, err := connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			if result.Rows[0][0].Int64() != (1000 * int64(round+1)) {
+				t.Errorf("Expected %d rows, got %d", 1000*int64(round+1), result.Rows[0][0].Int64())
+			}
+
+			app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
+		}
+	})
+}

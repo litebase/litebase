@@ -1,11 +1,14 @@
 package auth_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/auth"
 	"os"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestStoreSignature(t *testing.T) {

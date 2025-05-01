@@ -3,9 +3,10 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	_auth "litebase/internal/auth"
 	"log"
 	"os"
+
+	_auth "github.com/litebase/litebase/common/auth"
 )
 
 type AccessKey struct {

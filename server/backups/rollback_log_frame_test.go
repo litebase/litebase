@@ -1,10 +1,13 @@
 package backups_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/backups"
 	"testing"
+
+	"github.com/litebase/litebase/server/backups"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestRollbackFrame(t *testing.T) {

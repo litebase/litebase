@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"litebase/server/database"
-	"litebase/server/sqlite3"
 	"math"
 	"testing"
+
+	"github.com/litebase/litebase/server/database"
+
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 func TestNewQueryResponse(t *testing.T) {
@@ -226,6 +228,10 @@ func TestQueryResponseEncoding(t *testing.T) {
 		t.Fatalf("expected column 2 in row 2 to be of type text")
 	}
 
+}
+
+func TestQueryResponseWaitForReplication(t *testing.T) {
+	t.Skip("TODO")
 }
 
 func BenchmarkQueryResponseJsonEncoding(b *testing.B) {

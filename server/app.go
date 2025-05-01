@@ -1,12 +1,13 @@
 package server
 
 import (
-	"litebase/internal/config"
-	"litebase/server/auth"
-	"litebase/server/cluster"
-	"litebase/server/database"
-	"litebase/server/http"
-	"litebase/server/storage"
+	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/server/http"
+	"github.com/litebase/litebase/server/logs"
+	"github.com/litebase/litebase/server/storage"
 
 	netHttp "net/http"
 )
@@ -14,9 +15,10 @@ import (
 type App struct {
 	initialized     bool
 	Auth            *auth.Auth
-	DatabaseManager *database.DatabaseManager
 	Cluster         *cluster.Cluster
 	Config          *config.Config
+	DatabaseManager *database.DatabaseManager
+	LogManager      *logs.LogManager
 	ServeMux        *netHttp.ServeMux
 }
 
@@ -49,11 +51,13 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		ServeMux:        serveMux,
 	}
 
+	app.LogManager = logs.NewLogManager(app.Cluster.Node().Context())
+	address, _ := app.Cluster.Node().Address()
+
 	storage.Init(
 		app.Config,
 		app.Cluster.ObjectFS(),
-		app.Cluster.Node().Address(),
-		app.Auth.SecretsManager,
+		address,
 	)
 
 	err = clusterInstance.Init(Auth)
@@ -69,8 +73,6 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 			panic(err)
 		}
 	}
-
-	storage.SetDiscoveryProvider(app.Cluster)
 
 	if attemptSecretInitialization(app.Config) {
 		err = auth.KeyManagerInit(
@@ -92,16 +94,15 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	app.Auth.UserManager().Init()
 
 	app.Cluster.Node().Init(
-		database.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager),
+		database.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager, app.LogManager),
+		database.ResponsePool(),
 		database.NewDatabaseWALSynchronizer(app.DatabaseManager),
 	)
 	app.Cluster.EventsManager().Init()
-
 	auth.Broadcaster(app.Cluster.EventsManager().Hook())
-	storage.SetStorageContext(app.Cluster.Node().Context())
-	storage.SetStorageTimestamp(app.Cluster.Node().Timestamp())
 
 	go app.DatabaseManager.WriteQueueManager.Run()
+	go app.LogManager.Run()
 
 	app.initialized = true
 
@@ -113,5 +114,5 @@ func (app *App) IsInitialized() bool {
 }
 
 func (app *App) Run() {
-	http.Router().Server(app.Cluster, app.DatabaseManager, app.ServeMux)
+	http.Router().Server(app.Cluster, app.DatabaseManager, app.LogManager, app.ServeMux)
 }

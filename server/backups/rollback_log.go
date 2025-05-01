@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"slices"
 	"sort"
 	"sync"
+
+	"github.com/litebase/litebase/server/file"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/server/storage"
 )
 
 type RollbackLogIdentifier uint32
@@ -113,9 +116,9 @@ func (r *RollbackLog) AppendLog(compressionBuffer *bytes.Buffer, entry *Rollback
 		return 0, err
 	}
 
-	_, err = r.File.Write(serialized)
+	n, err := r.File.Write(serialized)
 
-	return int64(len(serialized)), err
+	return int64(n), err
 }
 
 // Close the rollback log and the underlying file.
@@ -138,29 +141,24 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 	// Read the frame entry
 	data := make([]byte, RollbackFrameHeaderSize)
 
-	// _, err := r.File.Seek(offset, io.SeekStart)
-
-	// if err != nil {
-	// 	return err
-	// }
-
-	// _, err = r.File.Read(data)
 	_, err := r.File.ReadAt(data, offset)
 
 	if err != nil {
 		log.Println("Error reading frame entry:", err)
+
 		return err
 	}
 
 	frame, err := DeserializeRollbackLogFrame(data)
 
 	if err != nil {
-		log.Println("Error deserializing frame entry:", len(data))
+		log.Println("Error deserializing frame entry:", err)
 		// If we are unable to deserialize the frame entry, we should not
 		// continue with the commit operation. In fact the whole program should
 		// panic because this is a critical error. The rollback log is corrupted
 		// and we cannot continue.
-		log.Fatalln("Error deserializing frame entry:", err)
+		return err
+
 	}
 
 	// Update the frame entry with the new offset
@@ -180,13 +178,14 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 	}
 
 	// _, err = r.File.Write(data)
+	// log.Println("Writing frame entry at offset", offset, "with size", size)
 	_, err = r.File.WriteAt(data, offset)
 
 	return err
 }
 
 // Read the rollback log entries that occurred at or after the specified
-// timestamp and return them in a channel.
+// timestamp and return them on a channel.
 func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 	rollbackLogEntriesChannel chan []*RollbackLogEntry,
 	doneChannel chan struct{},

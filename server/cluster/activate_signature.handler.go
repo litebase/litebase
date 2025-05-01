@@ -2,7 +2,8 @@ package cluster
 
 import (
 	"errors"
-	"litebase/internal/config"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 func ActivateSignatureHandler(c *config.Config, data interface{}) error {

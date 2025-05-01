@@ -4,6 +4,6 @@ import "sync"
 
 var QueryInputPool = &sync.Pool{
 	New: func() interface{} {
-		return NewQueryInput(nil, nil, nil)
+		return NewQueryInput(nil, nil, nil, nil)
 	},
 }

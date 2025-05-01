@@ -3,9 +3,10 @@ package cluster
 import (
 	"crypto/sha256"
 	"errors"
-	"litebase/server/cluster/messages"
 	"log"
 	"time"
+
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 // Handle a message from a node in the cluster.
@@ -19,23 +20,16 @@ func (n *Node) HandleMessage(message messages.NodeMessage) (messages.NodeMessage
 		responseMessage = messages.NodeConnectionMessage{
 			ID: message.ID,
 		}
-	case messages.ReplicationGroupWriteCommitMessage:
-		responseMessage = n.handleReplicationGroupWriteCommitMessage(message)
-	case messages.ReplicationGroupWritePrepareMessage:
-		responseMessage = n.handleReplicationGroupPrepareMessage(message)
 	case messages.QueryMessage:
 		responseMessage = n.handleQueryMessage(message)
-	case messages.ReplicationGroupWriteMessage:
-		responseMessage = n.handleReplicationGroupWriteMessage(message)
 	default:
-		err := n.handleBroadcastMessage(message)
+		var err error
+		responseMessage, err = n.handleBroadcastMessage(message)
 
 		if err != nil {
 			responseMessage = messages.ErrorMessage{
 				Message: err.Error(),
 			}
-		} else {
-			responseMessage = messages.NodeMessage{}
 		}
 	}
 
@@ -44,23 +38,60 @@ func (n *Node) HandleMessage(message messages.NodeMessage) (messages.NodeMessage
 	}, nil
 }
 
-func (n *Node) handleBroadcastMessage(message interface{}) error {
+func (n *Node) handleBroadcastMessage(message interface{}) (interface{}, error) {
+	var responseMessage interface{}
+	var err error
+
 	switch message := message.(type) {
-	case messages.ReplicationGroupAssignmentMessage:
-		if err := n.ReplicationGroupManager.HandleReplcationGroupAssignmentMessage(message); err != nil {
-			return err
-		}
+	case messages.RangeReplicationTruncateMessage:
+		log.Println("Received range replication truncate message")
+	case messages.RangeReplicationWriteMessage:
+		err = n.handleRangeReplicationWriteMessage(message)
+	case messages.WALIndexHeaderMessage:
+		err = n.walSynchronizer.SetWALIndexHeader(
+			message.DatabaseId,
+			message.BranchId,
+			message.Header,
+		)
+	case messages.WALIndexTimestampMessage:
+		log.Println("Received WAL index timestamp message")
+		// n.walSynchronizer.SetCurrentTimestamp(
+		// 	message.DatabaseId,
+		// 	message.BranchId,
+		// 	message.Timestamp,
+		// )
+	case messages.WALVersionUsageRequest:
+		responseMessage, err = n.handleWALVersionUsageRequest(message)
 	case messages.WALReplicationWriteMessage:
-		if err := n.handleWALReplicationWriteMessage(message); err != nil {
-			return err
-		}
+		err = n.handleWALReplicationWriteMessage(message)
 	case messages.WALReplicationTruncateMessage:
-		if err := n.handleWALReplicationTruncateMessage(message); err != nil {
-			return err
-		}
+		err = n.handleWALReplicationTruncateMessage(message)
 	default:
-		return errors.New("unknown message type")
+		err = errors.New("unknown message type")
 	}
+
+	return responseMessage, err
+}
+
+func (n *Node) handleRangeReplicationWriteMessage(message messages.RangeReplicationWriteMessage) error {
+	log.Println("Received range replication write message")
+
+	// Verify the integrity of the data
+	sha256Hash := sha256.Sum256(message.Data)
+
+	if sha256Hash != message.Sha256 {
+		log.Println("Failed to verify data integrity")
+		return errors.New("failed to verify data integrity")
+	}
+
+	// return n.RangeSynchronizer().WriteAt(
+	// 	message.DatabaseId,
+	// 	message.BranchId,
+	// 	message.Data,
+	// 	message.Offset,
+	// 	message.Sequence,
+	// 	message.Timestamp,
+	// )
 
 	return nil
 }
@@ -109,7 +140,12 @@ func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 			Message: err.Error(),
 		}
 	}
-	var response NodeQueryResponse
+
+	response := n.queryResponsePool.Get()
+	defer n.queryResponsePool.Put(response)
+
+	// Get the wal sequence number
+	// Get the wal timestamp
 
 	response, err = query.Resolve(response)
 
@@ -129,86 +165,15 @@ func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 	return messages.QueryMessageResponse{
 		Changes:         response.Changes(),
 		Columns:         response.Columns(),
+		Error:           response.Error(),
 		ID:              message.ID,
 		LastInsertRowID: response.LastInsertRowId(),
 		Latency:         response.Latency(),
 		RowCount:        response.RowCount(),
 		Rows:            response.Rows(),
-	}
-}
-
-func (n *Node) handleReplicationGroupWriteCommitMessage(message messages.ReplicationGroupWriteCommitMessage) interface{} {
-	replicationGroup, err := n.ReplicationGroupManager.FindForAddresses(message.Addresses)
-
-	if err != nil {
-		log.Println("Failed to find replication group for addresses: ", err)
-		return messages.ErrorMessage{
-			Message: err.Error(),
-		}
-	}
-
-	err = replicationGroup.AknowledgeCommit(message)
-
-	if err != nil {
-		log.Println("Failed to acknowledge commit to replication group: ", err)
-
-		return messages.ErrorMessage{
-			Message: err.Error(),
-		}
-	}
-
-	return messages.ReplicationGroupWriteCommitResponse{
-		Key: message.Key,
-	}
-}
-
-func (n *Node) handleReplicationGroupWriteMessage(message messages.ReplicationGroupWriteMessage) interface{} {
-	replicationGroup, err := n.ReplicationGroupManager.FindForAddresses(message.Addresses)
-
-	if err != nil {
-		log.Println("Failed to find replication group for addresses: ", err)
-		return messages.ErrorMessage{
-			Message: err.Error(),
-		}
-	}
-
-	err = replicationGroup.AknowledgeWrite(message)
-
-	if err != nil {
-		log.Println("Failed to acknowledge write to replication group: ", err)
-
-		return messages.ErrorMessage{
-			Message: err.Error(),
-		}
-	}
-
-	return messages.ReplicationGroupWriteResponse{
-		Key: message.Key,
-	}
-}
-
-func (n *Node) handleReplicationGroupPrepareMessage(message messages.ReplicationGroupWritePrepareMessage) interface{} {
-	resplicationGroup, err := n.ReplicationGroupManager.FindForAddresses(message.Addresses)
-
-	if err != nil {
-		log.Println("Failed to find replication group for addresses: ", err)
-		return messages.ErrorMessage{
-			Message: err.Error(),
-		}
-	}
-
-	err = resplicationGroup.AknowledgePrepare(message)
-
-	if err != nil {
-		log.Println("Failed to acknowledge prepare to replication group: ", err)
-
-		return messages.ErrorMessage{
-			Message: err.Error(),
-		}
-	}
-
-	return messages.ReplicationGroupWritePrepareResponse{
-		Key: message.Key,
+		TransactionID:   response.TransactionId(),
+		WALSequence:     response.WALSequence(),
+		WALTimestamp:    response.WALTimestamp(),
 	}
 }
 
@@ -221,36 +186,54 @@ func (n *Node) handleWALReplicationWriteMessage(message messages.WALReplicationW
 		return errors.New("failed to verify WAL data integrity")
 	}
 
-	err := n.walSynchronizer.WriteAt(
-		message.DatabaseId,
-		message.BranchId,
-		message.Data,
-		message.Offset,
-		message.Sequence,
-		message.Timestamp,
-	)
+	// err := n.walSynchronizer.WriteAt(
+	// 	message.DatabaseId,
+	// 	message.BranchId,
+	// 	message.Data,
+	// 	message.Offset,
+	// 	message.Sequence,
+	// 	message.Timestamp,
+	// )
 
-	if err != nil {
-		log.Println("Failed to sync WAL data: ", err)
-		return err
-	}
+	// if err != nil {
+	// 	log.Println("Failed to sync WAL data: ", err)
+	// 	return err
+	// }
 
 	return nil
 }
 
 func (n *Node) handleWALReplicationTruncateMessage(message messages.WALReplicationTruncateMessage) error {
-	err := n.walSynchronizer.Truncate(
+	// err := n.walSynchronizer.Truncate(
+	// 	message.DatabaseId,
+	// 	message.BranchId,
+	// 	message.Size,
+	// 	message.Sequence,
+	// 	message.Timestamp,
+	// )
+
+	// if err != nil {
+	// 	log.Println("Failed to sync WAL data truncation: ", err)
+	// 	return err
+	// }
+
+	return nil
+}
+
+func (n *Node) handleWALVersionUsageRequest(message messages.WALVersionUsageRequest) (interface{}, error) {
+	versions, err := n.walSynchronizer.GetActiveWALVersions(
 		message.DatabaseId,
 		message.BranchId,
-		message.Size,
-		message.Sequence,
-		message.Timestamp,
 	)
 
 	if err != nil {
-		log.Println("Failed to sync WAL data truncation: ", err)
-		return err
+		log.Println("Failed to get WAL versions: ", err)
+		return nil, err
 	}
 
-	return nil
+	return messages.WALVersionUsageResponse{
+		BranchId:   message.BranchId,
+		DatabaseId: message.DatabaseId,
+		Versions:   versions,
+	}, nil
 }

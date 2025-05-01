@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/backups"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/backups"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestOpenRollbackLog(t *testing.T) {
@@ -164,7 +167,7 @@ func TestRollbackLogCommit(t *testing.T) {
 			t.Fatalf("Failed to append RollbackLogEntry: %v", err)
 		}
 
-		size += s
+		size += int64(s)
 
 		err = rollbackLog.Commit(offset, size)
 
@@ -229,7 +232,7 @@ func TestRollbackLogReadAfter(t *testing.T) {
 					t.Fatalf("Failed to append RollbackLogEntry: %v", err)
 				}
 
-				size += s
+				size += int64(s)
 			}
 
 			err = backupLogger.Commit(tc.timestamp, offset, size)
@@ -316,7 +319,7 @@ func TestRollbackLogRollback(t *testing.T) {
 			t.Fatalf("Failed to append RollbackLogEntry: %v", err)
 		}
 
-		size += s
+		size += int64(s)
 
 		err = rollbackLog.Rollback(offset, size)
 

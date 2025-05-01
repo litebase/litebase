@@ -6,19 +6,27 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"litebase/internal/config"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/litebase/litebase/server/file"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 var ErrorRestoreBackupNotFound = errors.New("restore backup not found")
 
+// OPTIMIZE: Use copy commands instead of reading and writing files
+// Copying the source database to the target database requires the following:
+// 1. Copy all of the range files
+// 2. Copy the _METADATA file
+// 3. Copy any page logs and their indexes
 func CopySourceDatabaseToTargetDatabase(
 	maxPageNumber int64,
 	sourceDatabaseUuid,
@@ -28,7 +36,116 @@ func CopySourceDatabaseToTargetDatabase(
 	sourceFileSystem *storage.DurableDatabaseFileSystem,
 	targetFileSystem *storage.DurableDatabaseFileSystem,
 ) error {
-	maxRangeNumber := file.PageRange(maxPageNumber, storage.DataRangeMaxPages)
+	err := copySourceDatabaseRangeFilesToTargetDatabase(
+		maxPageNumber,
+		sourceDatabaseUuid,
+		sourceBranchUuid,
+		targetDatabaseUuid,
+		targetBranchUuid,
+		sourceFileSystem,
+		targetFileSystem,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	err = copySourceDatabasePageLogsToTargetDatabase(
+		sourceDatabaseUuid,
+		sourceBranchUuid,
+		targetDatabaseUuid,
+		targetBranchUuid,
+		sourceFileSystem,
+		targetFileSystem,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	err = targetFileSystem.Compact()
+
+	if err != nil {
+		log.Println("Error compacting target database:", err)
+
+		return err
+	}
+
+	return nil
+}
+
+func copySourceDatabasePageLogsToTargetDatabase(
+	sourceDatabaseUuid,
+	sourceBranchUuid,
+	targetDatabaseUuid,
+	targetBranchUuid string,
+	sourceFileSystem *storage.DurableDatabaseFileSystem,
+	targetFileSystem *storage.DurableDatabaseFileSystem,
+) error {
+	sourceDirectory := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(sourceDatabaseUuid, sourceBranchUuid))
+	targetDirectory := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(targetDatabaseUuid, targetBranchUuid))
+
+	// Loop through the files in the source database and copy them to the target database
+	entries, err := sourceFileSystem.PageLogger.FileSystem.ReadDir(sourceDirectory)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ErrorRestoreBackupNotFound
+		}
+
+		return err
+	}
+
+	for _, entry := range entries {
+		sourceFilePath := fmt.Sprintf("%s%s", sourceDirectory, entry.Name())
+		sourceFile, err := sourceFileSystem.PageLogger.FileSystem.Open(sourceFilePath)
+
+		if err != nil {
+			log.Println("Error opening source file:", sourceFilePath, err)
+			return err
+		}
+
+		err = targetFileSystem.PageLogger.FileSystem.MkdirAll(targetDirectory, 0755)
+
+		if err != nil {
+			log.Println("Error creating target directory:", targetDirectory, err)
+
+			return err
+		}
+
+		targetFilePath := fmt.Sprintf("%s%s", targetDirectory, entry.Name())
+
+		targetFile, err := targetFileSystem.PageLogger.FileSystem.Create(targetFilePath)
+
+		if err != nil {
+			log.Println("Error writing file:", entry.Name(), err)
+			return err
+		}
+
+		_, err = io.Copy(targetFile, sourceFile)
+
+		if err != nil {
+			log.Println("Error copying page:", entry.Name(), err)
+			return err
+		}
+
+		targetFile.Close()
+		sourceFile.Close()
+	}
+
+	return nil
+}
+
+func copySourceDatabaseRangeFilesToTargetDatabase(
+	maxPageNumber int64,
+	sourceDatabaseUuid,
+	sourceBranchUuid,
+	targetDatabaseUuid,
+	targetBranchUuid string,
+	sourceFileSystem *storage.DurableDatabaseFileSystem,
+	targetFileSystem *storage.DurableDatabaseFileSystem,
+) error {
+	maxRangeNumber := file.PageRange(maxPageNumber, storage.RangeMaxPages)
 	sourceDirectory := file.GetDatabaseFileDir(sourceDatabaseUuid, sourceBranchUuid)
 	targetDirectory := file.GetDatabaseFileDir(targetDatabaseUuid, targetBranchUuid)
 
@@ -65,6 +182,7 @@ func CopySourceDatabaseToTargetDatabase(
 
 		// Copy the file from the source to the target
 		sourceFilePath := fmt.Sprintf("%s%s", sourceDirectory, entry.Name())
+
 		sourceFile, err := sourceFileSystem.FileSystem().Open(sourceFilePath)
 
 		if err != nil {
@@ -89,6 +207,7 @@ func CopySourceDatabaseToTargetDatabase(
 		}
 
 		targetFile.Close()
+		sourceFile.Close()
 	}
 
 	return nil
@@ -160,7 +279,7 @@ func RestoreFromBackup(
 		return getSuffix(backupParts[i]) < getSuffix(backupParts[j])
 	})
 
-	// TODO: We can do this with parallelism
+	// OPTIMIZE: We can do this with parallelism
 	// Open each tar.gz backup part and write it to the target database
 	for _, backupPart := range backupParts {
 		backupPartPath := fmt.Sprintf("%s/%s", timestampPath, backupPart)
@@ -243,7 +362,6 @@ func RestoreFromTimestamp(
 ) error {
 	// Truncate the timestamp to the start of the hour
 	startOfHourTimestamp := time.Unix(backupTimestamp, 0).UTC().Truncate(time.Hour).Unix()
-
 	rollbackLogger := NewRollbackLogger(tieredFS, sourceDatabaseUuid, sourceBranchUuid)
 
 	snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
@@ -335,9 +453,29 @@ func RestoreFromTimestamp(
 				return err
 			case frame := <-rollbackLogEntries:
 				for _, rollbackLogEntry := range frame {
-					_, err = targetFileSystem.WriteWithoutWriteHook(func() (int, error) {
-						return targetFileSystem.WriteAt(rollbackLogEntry.Data, file.PageOffset(rollbackLogEntry.PageNumber, c.PageSize))
-					})
+					// _, err = targetFileSystem.WriteWithoutWriteHook(func() (int, error) {
+					// 	return targetFileSystem.WriteAt(
+					// 		int64(0),
+					// 		rollbackLogEntry.Data,
+					// 		file.PageOffset(rollbackLogEntry.PageNumber, c.PageSize),
+					// 	)
+					// })
+
+					// _, err = targetFileSystem.WriteAt(
+					// 	int64(0),
+					// 	rollbackLogEntry.Data,
+					// 	file.PageOffset(rollbackLogEntry.PageNumber, c.PageSize),
+					// )
+
+					// if err != nil {
+					// 	log.Println("Error writing page:", rollbackLogEntry.PageNumber, err)
+					// 	return err
+					// }
+
+					err := targetFileSystem.WriteToRange(
+						rollbackLogEntry.PageNumber,
+						rollbackLogEntry.Data,
+					)
 
 					if err != nil {
 						log.Println("Error writing page:", rollbackLogEntry.PageNumber, err)
@@ -365,8 +503,6 @@ func RestoreFromTimestamp(
 
 	// Wrap things up after running this callback
 	return onComplete(func() error {
-		// Re-key the target database to the source database key
-
 		return nil
 	})
 }

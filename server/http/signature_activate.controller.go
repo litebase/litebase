@@ -1,8 +1,9 @@
 package http
 
 import (
-	"litebase/internal/config"
-	"litebase/server/auth"
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 type SingatureActivateRequest struct {
@@ -53,8 +54,8 @@ func SingatureActivateController(request *Request) Response {
 
 	return Response{
 		StatusCode: 200,
-		Body: map[string]interface{}{
-			"data": map[string]interface{}{},
+		Body: map[string]any{
+			"data": map[string]any{},
 		},
 	}
 }

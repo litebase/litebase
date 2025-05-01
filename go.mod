@@ -1,6 +1,6 @@
-module litebase
+module github.com/litebase/litebase
 
-go 1.22
+go 1.24
 
 require (
 	github.com/go-playground/validator v9.31.0+incompatible

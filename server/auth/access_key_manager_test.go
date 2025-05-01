@@ -1,12 +1,17 @@
 package auth_test
 
 import (
-	"litebase/internal/config"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/auth"
-	"litebase/server/storage"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewAccessKeyManager(t *testing.T) {

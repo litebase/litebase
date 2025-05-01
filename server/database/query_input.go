@@ -3,39 +3,56 @@ package database
 import (
 	"bytes"
 	"encoding/binary"
-	"litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 /*
 QueryInput is a struct that represents the input of a query.
 
-| Offset      | Length | Description                           |
-|-------------|--------|---------------------------------------|
-| 0           | 4      | The length of the id                  |
-| 4           | n      | The unique identifier for the query   |
-| 4 + n       | 4      | The length of the statement           |
-| 8 + n       | m      | The statement to execute              |
-| 8 + n + m   | 4      | The length of the parameters array    |
-| 12 + n + m  | p      | The parameters to bind to the statement |
+| Offset          | Length | Description                           |
+|-----------------|--------|---------------------------------------|
+| 0               | 4      | The length of the id                  |
+| 4               | n      | The unique identifier for the query   |
+| 4 + n           | 4      | The length of the statement           |
+| 8 + n           | m      | The statement to execute              |
+| 8 + n + m       | 4      | The length of the parameters array    |
+| 12 + n + m      | p      | The parameters to bind to the statement |
+| 12 + n + m + p  | 4      | The length of the transaction id       |
+| 16 + n + m + p  | q      | The transaction id                    |
 */
 type QueryInput struct {
-	Id         []byte                       `json:"id"`
-	Statement  []byte                       `json:"statement"`
-	Parameters []sqlite3.StatementParameter `json:"parameters"`
+	Id            []byte                       `json:"id"`
+	Parameters    []sqlite3.StatementParameter `json:"parameters"`
+	Statement     []byte                       `json:"statement"`
+	TransactionId []byte                       `json:"transaction_id"`
 }
 
-func NewQueryInput(id []byte, statement []byte, parameters []sqlite3.StatementParameter) *QueryInput {
+func NewQueryInput(
+	id []byte,
+	statement []byte,
+	parameters []sqlite3.StatementParameter,
+	transactionId []byte,
+) *QueryInput {
 	return &QueryInput{
-		Id:         id,
-		Statement:  statement,
-		Parameters: parameters,
+		Id:            id,
+		Statement:     statement,
+		Parameters:    parameters,
+		TransactionId: transactionId,
 	}
 }
 
-func (q *QueryInput) Decode(buffer *bytes.Buffer) error {
+func (q *QueryInput) Decode(buffer, parametersBuffer *bytes.Buffer) error {
 	// Read the length of the id
 	idLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
 	q.Id = buffer.Next(idLength)
+
+	// Read the length of the transaction id
+	transactionIdLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
+
+	if transactionIdLength > 0 {
+		q.TransactionId = buffer.Next(transactionIdLength)
+	}
 
 	// Read the length of the statement
 	statementLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
@@ -45,7 +62,9 @@ func (q *QueryInput) Decode(buffer *bytes.Buffer) error {
 	parametersLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
 
 	// Parameters Buffer
-	parametersBuffer := bytes.NewBuffer(buffer.Next(parametersLength))
+	parametersBuffer.Write(buffer.Next(parametersLength))
+
+	parameterIndex := 0
 
 	// Read the parameters
 	for parametersBuffer.Len() > 0 {
@@ -55,7 +74,49 @@ func (q *QueryInput) Decode(buffer *bytes.Buffer) error {
 			return err
 		}
 
-		q.Parameters = append(q.Parameters, parameter)
+		if parameterIndex >= len(q.Parameters) {
+			q.Parameters = append(q.Parameters, parameter)
+		} else {
+			q.Parameters[parameterIndex] = parameter
+		}
+
+		parameterIndex++
+	}
+
+	return nil
+}
+
+func (q *QueryInput) DecodeFromMap(data map[string]interface{}) error {
+	if data["id"] != nil {
+		q.Id = []byte(data["id"].(string))
+	}
+
+	if data["transaction_id"] != nil {
+		q.TransactionId = []byte(data["transaction_id"].(string))
+	}
+
+	if data["statement"] != nil {
+		q.Statement = []byte(data["statement"].(string))
+	}
+
+	if data["parameters"] != nil {
+		parameters := data["parameters"].([]interface{})
+
+		for _, parameter := range parameters {
+			if parameter.(map[string]interface{})["type"] == "TEXT" {
+				parameter.(map[string]interface{})["value"] = []byte(parameter.(map[string]interface{})["value"].(string))
+			}
+
+			// Handle INTEGER values that may be in scientific notation
+			if parameter.(map[string]interface{})["type"] == "INTEGER" {
+				parameter.(map[string]interface{})["value"] = int64(parameter.(map[string]interface{})["value"].(float64))
+			}
+
+			q.Parameters = append(q.Parameters, sqlite3.StatementParameter{
+				Type:  parameter.(map[string]interface{})["type"].(string),
+				Value: parameter.(map[string]interface{})["value"],
+			})
+		}
 	}
 
 	return nil
@@ -71,6 +132,21 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 
 	// Write the id
 	buffer.Write([]byte(q.Id))
+
+	if q.TransactionId != nil {
+		// Write the length of the transaction id
+		var transactionIdLengthBytes [4]byte
+		binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], uint32(len(q.TransactionId)))
+		buffer.Write(transactionIdLengthBytes[:])
+
+		// Write the transaction id
+		buffer.Write(q.TransactionId)
+	} else {
+		// Write the length of the transaction id
+		var transactionIdLengthBytes [4]byte
+		binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], uint32(0))
+		buffer.Write(transactionIdLengthBytes[:])
+	}
 
 	// Write the length of the statement
 	var statementLengthBytes [4]byte
@@ -101,5 +177,6 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 func (q *QueryInput) Reset() {
 	q.Id = nil
 	q.Statement = nil
-	q.Parameters = nil
+	q.Parameters = q.Parameters[:0]
+	q.TransactionId = nil
 }

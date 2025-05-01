@@ -6,11 +6,11 @@ import (
 )
 
 func Authentication(request *Request) (*Request, Response) {
-	if !ensureReuestHasAnAuthorizationHeader(request) ||
+	if !ensureRequestHasAnAuthorizationHeader(request) ||
 		!ensureRequestIsProperlySigned(request) {
 		return request, Response{
 			StatusCode: 401,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"status":  "error",
 				"message": "Unauthorized",
 			},
@@ -20,7 +20,7 @@ func Authentication(request *Request) (*Request, Response) {
 	if !ensureRequestIsNotExpired(request) {
 		return request, Response{
 			StatusCode: 401,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"status":  "error",
 				"message": "Unauthorized",
 			},
@@ -30,7 +30,7 @@ func Authentication(request *Request) (*Request, Response) {
 	return request, Response{}
 }
 
-func ensureReuestHasAnAuthorizationHeader(request *Request) bool {
+func ensureRequestHasAnAuthorizationHeader(request *Request) bool {
 	return request.Headers().Has("Authorization")
 }
 

@@ -2,9 +2,11 @@ package auth
 
 import (
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/storage"
 	"os"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 func InitSignature(c *config.Config, objectFS *storage.FileSystem) error {

@@ -1,8 +1,9 @@
 package main
 
 import (
-	"litebase/cli/cmd"
 	"log"
+
+	"github.com/litebase/litebase/cli/cmd"
 )
 
 func main() {

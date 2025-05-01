@@ -6,23 +6,20 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"litebase/server/auth"
-	"litebase/server/database"
 	"log"
 	"net/http"
 	"sync"
+
+	"github.com/litebase/litebase/server/database"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 var bufferPool = sync.Pool{
 	New: func() interface{} {
 		return bytes.NewBuffer(make([]byte, 1024))
-	},
-}
-
-// Define a sync.Pool for reusable Command structs
-var inputPool = &sync.Pool{
-	New: func() interface{} {
-		return &database.QueryInput{}
 	},
 }
 
@@ -39,14 +36,10 @@ const (
 )
 
 func QueryStreamController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(
-		request.cluster.Config,
-		request.cluster.ObjectFS(),
-		request.Subdomains()[0],
-	)
+	databaseKey := request.DatabaseKey()
 
-	if err != nil {
-		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	if databaseKey == nil {
+		return ErrValidDatabaseKeyRequiredResponse
 	}
 
 	requestToken := request.RequestToken("Authorization")
@@ -80,35 +73,54 @@ func QueryStreamController(request *Request) Response {
 
 func processInput(
 	request *Request,
-	databaseKey *database.DatabaseKey,
+	databaseKey *auth.DatabaseKey,
 	accessKey *auth.AccessKey,
 	input *database.QueryInput,
-	response *database.QueryResponse,
+	response cluster.NodeQueryResponse,
 ) error {
-	requestQuery := database.Get(
+	var err error
+	var transaction *database.Transaction
+
+	requestQuery := database.GetQuery(
 		request.cluster,
 		request.databaseManager,
+		request.logManager,
 		databaseKey,
 		accessKey,
 		input,
 	)
 
-	defer database.Put(requestQuery)
+	defer database.PutQuery(requestQuery)
 
-	_, err := requestQuery.Resolve(response)
+	if requestQuery.Input.TransactionId != nil &&
+		!requestQuery.IsTransactionEnd() &&
+		!requestQuery.IsTransactionRollback() {
+		transaction, err = request.databaseManager.Resources(
+			databaseKey.DatabaseId,
+			databaseKey.BranchId,
+		).TransactionManager().Get(string(requestQuery.Input.TransactionId))
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		if accessKey.AccessKeyId != transaction.AccessKey.AccessKeyId {
+			return fmt.Errorf("invalid access key")
+		}
+
+		err = transaction.ResolveQuery(requestQuery, response.(*database.QueryResponse))
+	} else {
+		_, err = requestQuery.Resolve(response)
 	}
 
-	return nil
+	return err
 }
 
 func readQueryStream(
 	cancel context.CancelFunc,
 	request *Request,
 	w http.ResponseWriter,
-	databaseKey *database.DatabaseKey,
+	databaseKey *auth.DatabaseKey,
 	accessKey *auth.AccessKey,
 ) {
 	defer cancel()
@@ -130,17 +142,16 @@ func readQueryStream(
 			break
 		}
 
+		messageType := int(messageHeaderBytes[0])
+
+		// Read the message length
 		messageLength := int(binary.LittleEndian.Uint32(messageHeaderBytes[1:]))
 
 		// Read the message in chunks
 		bytesRead := 0
 
 		for bytesRead < messageLength {
-			chunkSize := 1024 // Define a chunk size
-
-			if messageLength-bytesRead < chunkSize {
-				chunkSize = messageLength - bytesRead
-			}
+			chunkSize := min(messageLength-bytesRead, 1024)
 
 			n, err := io.CopyN(scanBuffer, request.BaseRequest.Body, int64(chunkSize))
 
@@ -152,12 +163,9 @@ func readQueryStream(
 			bytesRead += int(n)
 		}
 
-		// Convert the message type to an integer
-		messageType := int(messageHeaderBytes[0])
-
 		switch QueryStreamMessageType(messageType) {
 		case QueryStreamOpenConnection:
-			err := handleQueryStreamConnection(w, streamMutex, scanBuffer.Next(messageLength))
+			err := handleQueryStreamConnection(w, streamMutex)
 
 			if err != nil {
 				log.Println(err)
@@ -166,16 +174,12 @@ func readQueryStream(
 
 			// continue
 		case QueryStreamCloseConnection:
-			log.Println("Closing connection")
 			cancel()
 			return
 		case QueryStreamFrame:
 			queryStreamFrameBuffer := bufferPool.Get().(*bytes.Buffer)
 			queryStreamFrameBuffer.Reset()
-
-			// Copy the message to the query input buffer
-			queryStreamFrameBuffer.Write(scanBuffer.Next(messageLength))
-			handleQueryStreamFrame(request, w, streamMutex, queryStreamFrameBuffer, databaseKey, accessKey)
+			handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, accessKey)
 			bufferPool.Put(queryStreamFrameBuffer)
 		default:
 			log.Println("Unknown message type", messageType)
@@ -186,9 +190,10 @@ func readQueryStream(
 
 func handleQueryStreamRequest(
 	request *Request,
-	databaseKey *database.DatabaseKey,
+	databaseKey *auth.DatabaseKey,
 	accessKey *auth.AccessKey,
 	queryData *bytes.Buffer,
+	queryParameters *bytes.Buffer,
 ) ([]byte, error) {
 	responseBuffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(responseBuffer)
@@ -210,30 +215,25 @@ func handleQueryStreamRequest(
 
 	queryInput.Reset()
 
-	err := queryInput.Decode(queryData)
+	err := queryInput.Decode(queryData, queryParameters)
 
 	if err != nil {
 		return nil, err
 	}
-
-	response.Reset()
 
 	err = processInput(request, databaseKey, accessKey, queryInput, response)
+	responseBytes, _ := response.Encode(responseBuffer, rowsBuffer, columnsBuffer)
 
-	if err != nil {
-		return nil, err
-	}
-
-	return response.Encode(responseBuffer, rowsBuffer, columnsBuffer)
+	return responseBytes, err
 }
 
-func handleQueryStreamConnection(w http.ResponseWriter, streamMutex *sync.Mutex, read []byte) error {
+func handleQueryStreamConnection(w http.ResponseWriter, streamMutex *sync.Mutex) error {
 	message := []byte("connected")
 	data := bytes.NewBuffer(make([]byte, 0))
 	data.WriteByte(uint8(QueryStreamOpenConnection))
-	var messageLengthbytes [4]byte
-	binary.LittleEndian.PutUint32(messageLengthbytes[:], uint32(len(message)))
-	data.Write(messageLengthbytes[:])
+	var messageLengthBytes [4]byte
+	binary.LittleEndian.PutUint32(messageLengthBytes[:], uint32(len(message)))
+	data.Write(messageLengthBytes[:])
 	data.Write(message)
 
 	return writeQueryStreamData(w, streamMutex, data.Bytes())
@@ -244,13 +244,15 @@ func handleQueryStreamFrame(
 	w http.ResponseWriter,
 	streamMutex *sync.Mutex,
 	framesBuffer *bytes.Buffer,
-	databaseKey *database.DatabaseKey,
+	databaseKey *auth.DatabaseKey,
 	accessKey *auth.AccessKey,
 ) error {
+	// The responseBuffer contains multiple frames
 	responseBuffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(responseBuffer)
 	responseBuffer.Reset()
 
+	// The responseFramesBuffer contains multiple frame entries
 	responseFramesBuffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(responseFramesBuffer)
 	responseFramesBuffer.Reset()
@@ -258,32 +260,39 @@ func handleQueryStreamFrame(
 	queryBuffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(queryBuffer)
 
+	queryParamsBuffer := bufferPool.Get().(*bytes.Buffer)
+	defer bufferPool.Put(queryParamsBuffer)
+
 	for framesBuffer.Len() > 0 {
 		queryBuffer.Reset()
+		queryParamsBuffer.Reset()
 
 		queryLength := int(binary.LittleEndian.Uint32(framesBuffer.Next(4)))
-
 		queryBuffer.Write(framesBuffer.Next(queryLength))
 
-		responseBytes, err := handleQueryStreamRequest(request, databaseKey, accessKey, queryBuffer)
+		responseBytes, err := handleQueryStreamRequest(request, databaseKey, accessKey, queryBuffer, queryParamsBuffer)
 
 		if err != nil {
-			responseFramesBuffer.Write([]byte{byte(QueryStreamError)})
-			var errLengthBytes [4]byte
-			binary.LittleEndian.PutUint32(errLengthBytes[:], uint32(len(err.Error())))
-			responseFramesBuffer.Write(errLengthBytes[:])
-			responseFramesBuffer.Write([]byte(err.Error()))
+			// Write the type of message
+			responseFramesBuffer.WriteByte(uint8(QueryStreamError))
 		} else {
-			responseFramesBuffer.Write([]byte{byte(QueryStreamFrameEntry)})
-			var responseLengthBytes [4]byte
-			binary.LittleEndian.PutUint32(responseLengthBytes[:], uint32(len(responseBytes)))
-			responseFramesBuffer.Write(responseLengthBytes[:])
-			responseFramesBuffer.Write(responseBytes)
+			// Write the type of message
+			responseFramesBuffer.WriteByte(uint8(QueryStreamFrameEntry))
 		}
+
+		// Write the length of the response
+		var responseLengthBytes [4]byte
+
+		binary.LittleEndian.PutUint32(responseLengthBytes[:], uint32(len(responseBytes)))
+
+		// Write the length of the response
+		responseFramesBuffer.Write(responseLengthBytes[:])
+		// Write the response
+		responseFramesBuffer.Write(responseBytes)
 	}
 
+	// Write the type of message
 	responseBuffer.WriteByte(uint8(QueryStreamFrame))
-
 	// Write the length of the response
 	var responseLengthBytes [4]byte
 	binary.LittleEndian.PutUint32(responseLengthBytes[:], uint32(responseFramesBuffer.Len()))
@@ -321,35 +330,4 @@ func writeQueryStreamData(w http.ResponseWriter, mutex *sync.Mutex, data []byte)
 	flusher.Flush()
 
 	return nil
-}
-
-// TODO: Implement a write function to handle writing responses to the client
-// So that we can buffer more than one response before sending it to the client
-func writeQueryStream(
-	ctx context.Context,
-	w http.ResponseWriter,
-	writer chan *bytes.Buffer,
-) {
-	// TODO: detect the different client connections that have inflight requests
-	// and do a best effort to buffer the writes to send as many as possible at
-	// once instead of sending one at a time.
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case buffer := <-writer:
-			_, err := w.Write(buffer.Bytes())
-			w.Write([]byte("\n"))
-
-			if err != nil {
-				log.Println("Error writing buffer to client", err)
-				return
-			}
-
-			w.(http.Flusher).Flush()
-
-			bufferPool.Put(buffer)
-
-		}
-	}
 }

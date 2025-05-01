@@ -3,10 +3,11 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"litebase/internal/config"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/common/config"
 
 	"golang.org/x/crypto/bcrypt"
 )

@@ -1,10 +1,13 @@
 package cluster_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/cluster"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/cluster"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNextSignatureHandler(t *testing.T) {

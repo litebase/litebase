@@ -7,12 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"litebase/server/cluster/messages"
 	"log"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 // After this amount of time without receiving a message from the node,
@@ -129,9 +130,11 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	encryptedHeader, err := nc.node.cluster.Auth.SecretsManager.Encrypt(
-		nc.node.cluster.Config.Signature,
-		[]byte(nc.node.Address()),
+	address, _ := nc.node.Address()
+
+	encryptedHeader, err := nc.node.Cluster.Auth.SecretsManager.Encrypt(
+		nc.node.Cluster.Config.Signature,
+		[]byte(address),
 	)
 
 	if err != nil {
@@ -258,7 +261,7 @@ func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error
 	if nc.writer == nil {
 		return nil, errors.New("node connection closed")
 	}
-	log.Println("sending message")
+
 	encoder := gob.NewEncoder(nc.writer)
 	err := encoder.Encode(&message)
 
@@ -291,7 +294,6 @@ func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error
 			return nil, err
 		case response := <-nc.response:
 			return response, nil
-		default:
 		}
 	}
 }
@@ -302,11 +304,13 @@ func (nc *NodeConnection) writeConnectionRequest() {
 		return
 	}
 
+	address, _ := nc.node.Address()
+
 	encoder := gob.NewEncoder(nc.writer)
 
 	err := encoder.Encode(messages.NodeMessage{
 		Data: messages.NodeConnectionMessage{
-			Address: nc.node.Address(),
+			Address: address,
 		},
 	})
 

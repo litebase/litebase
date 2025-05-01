@@ -5,7 +5,7 @@ func RequireHost(host string) Middleware {
 		if request.Headers().Get("Host") != host {
 			return request, Response{
 				StatusCode: 403,
-				Body: map[string]interface{}{
+				Body: map[string]any{
 					"status":  "error",
 					"message": "Forbidden",
 				},

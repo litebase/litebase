@@ -4,9 +4,10 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"litebase/server/storage"
 	"log"
 	"time"
+
+	"github.com/litebase/litebase/server/storage"
 )
 
 // The FileSecretsStore is a secrets store that stores secrets in files on disk.
@@ -22,7 +23,6 @@ type FileSecret struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// TODO: This should be using the local file system abstraction
 func NewFileSecretsStore(path string, tmpFS *storage.FileSystem) *FileSecretsStore {
 	return &FileSecretsStore{
 		path:  path,

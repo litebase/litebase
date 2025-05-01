@@ -1,6 +1,6 @@
 package http
 
-import "litebase/server/cluster"
+import "github.com/litebase/litebase/server/cluster"
 
 func EventStoreController(request *Request) Response {
 	input, err := request.Input(&cluster.EventMessage{})

@@ -5,10 +5,18 @@ import (
 	"context"
 	"encoding/gob"
 	"io"
-	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
+	"sync"
+
+	"github.com/litebase/litebase/server/cluster/messages"
 )
+
+var clusterConnectionBufferPool = sync.Pool{
+	New: func() interface{} {
+		return &bytes.Buffer{}
+	},
+}
 
 func ClusterConnectionController(request *Request) Response {
 	return Response{
@@ -41,8 +49,8 @@ func handleClusterConnectionStream(
 	reader io.ReadCloser,
 	w http.ResponseWriter,
 ) {
-	scanBuffer := storageStreamBufferPool.Get().(*bytes.Buffer)
-	defer storageStreamBufferPool.Put(scanBuffer)
+	scanBuffer := clusterConnectionBufferPool.Get().(*bytes.Buffer)
+	defer clusterConnectionBufferPool.Put(scanBuffer)
 
 	var decodedMessage messages.NodeMessage
 

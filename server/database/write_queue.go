@@ -116,6 +116,10 @@ func (wq *WriteQueue) resultChannelPut(resultChannel chan *WriteQueueResult) {
 
 // Start the WriteQueue.
 func (wq *WriteQueue) start() {
+	if wq.running {
+		return
+	}
+
 	wq.running = true
 	go wq.processQueue()
 }

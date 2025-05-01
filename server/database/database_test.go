@@ -1,8 +1,9 @@
 package database_test
 
 import (
-	"litebase/internal/test"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
 )
 
 func TestDatabaseCanBeCreated(t *testing.T) {

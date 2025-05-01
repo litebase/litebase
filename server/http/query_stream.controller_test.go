@@ -8,15 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"litebase/internal/test"
-	"litebase/server/auth"
-	"litebase/server/database"
-	"litebase/server/sqlite3"
 	"log"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/database"
+
+	"github.com/litebase/litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/auth"
 
 	"github.com/google/uuid"
 )
@@ -298,8 +302,7 @@ func TestQueryStreamController(t *testing.T) {
 				case <-ctx.Done():
 					log.Println("Context done")
 					return
-				case buffer := <-outputChannel:
-					t.Log(string(buffer))
+				case <-outputChannel:
 					break responseLoop
 				case err := <-errorChannel:
 					t.Fatal(err)

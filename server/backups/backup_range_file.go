@@ -3,13 +3,17 @@ package backups
 import (
 	"errors"
 	"io"
-	"litebase/internal/config"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"sort"
 	"time"
+
+	"github.com/litebase/litebase/server/file"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 var ErrorBackupRangeFileEmpty = errors.New("backup range file is empty")
@@ -74,7 +78,7 @@ func ReadBackupRangeFile(
 
 	startPageNumber, endPageNumber := file.PageRangeStartAndEndPageNumbers(
 		b.rangeNumber,
-		storage.DataRangeMaxPages,
+		storage.RangeMaxPages,
 		c.PageSize,
 	)
 
@@ -122,7 +126,7 @@ func ReadBackupRangeFile(
 						continue
 					}
 
-					offset := file.PageRangeOffset(rollbackLogEntry.PageNumber, storage.DataRangeMaxPages, c.PageSize)
+					offset := file.PageRangeOffset(rollbackLogEntry.PageNumber, storage.RangeMaxPages, c.PageSize)
 
 					if offset >= int64(len(fileContents)) {
 						log.Println("Offset is greater than the length of the file contents")
@@ -140,7 +144,7 @@ func ReadBackupRangeFile(
 		return fileContents, nil
 	}
 
-	rangePageCount := b.restorePoint.PageCount % storage.DataRangeMaxPages
+	rangePageCount := b.restorePoint.PageCount % storage.RangeMaxPages
 	rangeSize := rangePageCount * c.PageSize
 
 	// Truncate the file content to the length of the data

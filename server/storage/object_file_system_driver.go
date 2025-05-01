@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"litebase/internal/config"
-	internalStorage "litebase/internal/storage"
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/common/config"
 
 	"github.com/klauspost/compress/s2"
 )
@@ -27,7 +28,7 @@ func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
 	driver := &ObjectFileSystemDriver{
 		bucket: c.StorageBucket,
 		buffers: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
@@ -49,7 +50,7 @@ func (fs *ObjectFileSystemDriver) Create(path string) (internalStorage.File, err
 		return nil, err
 	}
 
-	return NewObjectFile(fs.S3Client, path, os.O_CREATE), nil
+	return NewObjectFile(fs.S3Client, path, os.O_CREATE, true)
 }
 
 func (fs *ObjectFileSystemDriver) EnsureBucketExists() {
@@ -67,6 +68,11 @@ func (fs *ObjectFileSystemDriver) EnsureBucketExists() {
 	}
 }
 
+func (fs *ObjectFileSystemDriver) Flush() error {
+	// No-op
+	return nil
+}
+
 func (fs *ObjectFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
 	// This is a no-op since we can't create directories in S3
 	return nil
@@ -79,13 +85,11 @@ func (fs *ObjectFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error 
 }
 
 func (fs *ObjectFileSystemDriver) Open(path string) (internalStorage.File, error) {
-	return NewObjectFile(fs.S3Client, path, os.O_RDWR), nil
+	return NewObjectFile(fs.S3Client, path, os.O_RDWR, false)
 }
 
 func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	// TODO: Handle the create flag
-	// TODO: Read the data from object storage and place in the file data
-	return NewObjectFile(fs.S3Client, path, flag), nil
+	return NewObjectFile(fs.S3Client, path, flag, false)
 }
 
 // Read the directory using S3

@@ -5,7 +5,7 @@ import (
 )
 
 func RequireSubdomain(request *Request) (*Request, Response) {
-	if len(request.Subdomains()) < 2 {
+	if len(request.Subdomains()) < 3 {
 		return request, BadRequestResponse(fmt.Errorf("this request is not valid"))
 	}
 

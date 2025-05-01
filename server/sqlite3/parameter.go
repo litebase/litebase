@@ -7,9 +7,17 @@ import (
 	"sync"
 )
 
+const (
+	ParameterTypeText    = "TEXT"
+	ParameterTypeInteger = "INTEGER"
+	ParameterTypeFloat   = "FLOAT"
+	ParameterTypeBlob    = "BLOB"
+	ParameterTypeNull    = "NULL"
+)
+
 type RawParameter struct {
-	Type  string      `json:"type"`
-	Value interface{} `json:"value"`
+	Type  string `json:"type"`
+	Value any    `json:"value"`
 }
 
 var rawParameterPool = sync.Pool{
@@ -21,8 +29,8 @@ var rawParameterPool = sync.Pool{
 var jsonParameterDecoderPool = JsonParameterDecoderPool()
 
 type StatementParameter struct {
-	Type  string      `json:"type"`
-	Value interface{} `json:"value"`
+	Type  string `json:"type"`
+	Value any    `json:"value"`
 }
 
 func (sp StatementParameter) Encode(buffer *bytes.Buffer) []byte {

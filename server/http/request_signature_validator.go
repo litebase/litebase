@@ -6,9 +6,10 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"litebase/internal/utils"
 	"log"
 	"strings"
+
+	"github.com/litebase/litebase/internal/utils"
 
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -22,7 +23,7 @@ func RequestSignatureValidator(
 		return false
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 
 	// Check the length of the content length header to determine if we should
 	// attempt to read the body. Otherwise, this may preemptively read the body

@@ -1,9 +1,11 @@
 package cluster_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestEventsManager(t *testing.T) {

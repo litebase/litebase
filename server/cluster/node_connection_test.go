@@ -1,11 +1,12 @@
 package cluster_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/cluster"
-	"litebase/server/cluster/messages"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 func TestNewNodeConnection(t *testing.T) {
@@ -26,8 +27,8 @@ func TestNodeConnectionClose(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
 		server2 := test.NewTestServer(t)
-
-		connection := cluster.NewNodeConnection(server1.App.Cluster.Node(), server2.App.Cluster.Node().Address())
+		address2, _ := server2.App.Cluster.Node().Address()
+		connection := cluster.NewNodeConnection(server1.App.Cluster.Node(), address2)
 
 		err := connection.Close()
 
@@ -41,8 +42,9 @@ func TestNodeConnectionSend(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
 		server2 := test.NewTestServer(t)
+		address2, _ := server2.App.Cluster.Node().Address()
 
-		connection := cluster.NewNodeConnection(server1.App.Cluster.Node(), server2.App.Cluster.Node().Address())
+		connection := cluster.NewNodeConnection(server1.App.Cluster.Node(), address2)
 
 		_, err := connection.Send(messages.NodeMessage{
 			Data: "hello",

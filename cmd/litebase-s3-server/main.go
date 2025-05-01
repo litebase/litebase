@@ -1,12 +1,13 @@
 package main
 
 import (
-	"litebase/internal/config"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/storage"
 
 	"github.com/joho/godotenv"
 )

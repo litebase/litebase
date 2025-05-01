@@ -10,18 +10,19 @@ import (
 	"time"
 	"unsafe"
 
-	"litebase/internal/config"
-	"litebase/server/auth"
-	"litebase/server/file"
-	"litebase/server/sqlite3"
-	"litebase/server/storage"
-	"litebase/server/vfs"
+	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/server/constants"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/sqlite3"
+	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/server/vfs"
 
 	"github.com/google/uuid"
 )
 
 type DatabaseConnection struct {
-	accessKey         *auth.AccessKey
+	AccessKey         *auth.AccessKey
 	branchId          string
 	cancel            context.CancelFunc
 	checkpointer      *Checkpointer
@@ -31,16 +32,18 @@ type DatabaseConnection struct {
 	context           context.Context
 	databaseHash      string
 	databaseId        string
-	distributedWal    *storage.DistributedWal
 	id                string
 	fileSystem        *storage.DurableDatabaseFileSystem
+	mutex             *sync.Mutex
+	nodeId            string
+	pageLogger        *storage.PageLogger
 	resultPool        *sqlite3.ResultPool
 	sqlite3           *sqlite3.Connection
 	statements        sync.Map
-	tempFileSystem    *storage.TempDatabaseFileSystem
 	timestamp         int64
+	vfs               *vfs.LitebaseVFS
 	vfsHash           string
-	wal               *storage.WALFile
+	walManager        *DatabaseWALManager
 }
 
 // Create a new database connection instance.
@@ -50,26 +53,25 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		err        error
 	)
 
-	ctx, cancel := context.WithCancel(context.TODO())
-
+	ctx, cancel := context.WithCancel(context.Background())
+	resources := connectionManager.databaseManager.Resources(databaseId, branchId)
+	// Get the database hash for the connection.
 	databaseHash := file.DatabaseHash(databaseId, branchId)
-	resultPool := connectionManager.databaseManager.connectionManager.databaseManager.Resources(databaseId, branchId).ResultPool()
-	tempFileSystem := connectionManager.databaseManager.Resources(databaseId, branchId).TempFileSystem()
-
-	wal, err := connectionManager.databaseManager.Resources(databaseId, branchId).WALFile()
-
-	if err != nil {
-		cancel()
-		log.Println("Error Getting WAL File:", err)
-
-		return nil, err
-	}
-
-	checkpointer, err := connectionManager.databaseManager.Resources(databaseId, branchId).Checkpointer()
+	resultPool := resources.ResultPool()
+	checkpointer, err := resources.Checkpointer()
 
 	if err != nil {
 		cancel()
 		log.Println("Error Getting Checkpointer:", err)
+
+		return nil, err
+	}
+
+	walManager, err := resources.DatabaseWALManager()
+
+	if err != nil {
+		log.Println("Error Getting WAL Manager:", err)
+		cancel()
 
 		return nil, err
 	}
@@ -83,17 +85,18 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		context:           ctx,
 		databaseHash:      databaseHash,
 		databaseId:        databaseId,
-		distributedWal:    connectionManager.databaseManager.Resources(databaseId, branchId).DistributedWal(),
 		fileSystem:        connectionManager.databaseManager.Resources(databaseId, branchId).FileSystem(),
 		id:                uuid.NewString(),
+		mutex:             &sync.Mutex{},
+		nodeId:            connectionManager.cluster.Node().Id,
+		pageLogger:        connectionManager.databaseManager.Resources(databaseId, branchId).PageLogger(),
 		resultPool:        resultPool,
 		statements:        sync.Map{},
-		tempFileSystem:    tempFileSystem,
-		timestamp:         time.Now().UnixNano(),
-		wal:               wal,
+		timestamp:         time.Now().UnixMicro(),
+		walManager:        walManager,
 	}
 
-	err = con.RegisterVFS()
+	err = con.registerVFS()
 
 	if err != nil {
 		log.Println("Error Registering VFS:", err)
@@ -101,9 +104,8 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		return nil, err
 	}
 
-	path, err := file.GetDatabaseFileTmpPath(
+	path, err := file.GetDatabaseFileRemotePath(
 		con.config,
-		con.connectionManager.cluster.Node().Id,
 		databaseId,
 		branchId,
 	)
@@ -114,10 +116,18 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		return nil, err
 	}
 
+	err = file.EnsureDirectoryExists(path)
+
+	if err != nil {
+		log.Println("Error Ensuring Directory Exists:", err)
+
+		return nil, err
+	}
+
 	connection, err = sqlite3.Open(
 		con.context,
 		path,
-		fmt.Sprintf("litebase:%s", con.VfsHash()),
+		con.VFSHash(),
 		sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE,
 	)
 
@@ -157,7 +167,9 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 
 		// The amount of cache that SQLite will use is set to -2000000. This
 		// will allow SQLite to use as much memory as it needs for caching.
-		[]byte("PRAGMA cache_size = -2000000"),
+		[]byte("PRAGMA cache_size = 0"),
+		// []byte("PRAGMA cache_size = -2000"),
+		// []byte("PRAGMA cache_size = 20000000"),
 
 		// PRAGMA secure_delete will ensure that data is securely deleted from
 		// the database. This will prevent data from being recovered from the
@@ -169,14 +181,15 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// PRAGMA temp_store will set the temp store to memory. This will
 		// ensure that temporary files created by SQLite are stored in memory
 		// and not on disk.
-		[]byte("PRAGMA temp_store = memory"),
+		// []byte("PRAGMA temp_store = memory"),
 	}
 
 	if !con.connectionManager.cluster.Node().IsPrimary() {
 		// log.Default().Println("Setting database locking mode to EXCLUSIVE")
-		// configStatements = append(configStatements, "PRAGMA locking_mode = EXCLUSIVE")
 		// configStatements = append(configStatements, "PRAGMA query_only = true")
 	}
+
+	con.setTimestamp()
 
 	for _, statement := range configStatements {
 		_, err = con.sqlite3.Exec(ctx, statement)
@@ -186,11 +199,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		}
 	}
 
-	err = con.sqlite3.PersistWal()
-
-	if err != nil {
-		return nil, err
-	}
+	con.releaseTimestamp()
 
 	return con, err
 }
@@ -202,48 +211,91 @@ func (con *DatabaseConnection) Changes() int64 {
 
 // Checkpoint changes that have been made to the database.
 func (con *DatabaseConnection) Checkpoint() error {
+	start := time.Now()
+	defer func() {
+		log.Println("Checkpoint took", time.Since(start))
+	}()
+
 	if con == nil || con.sqlite3 == nil {
 		return nil
 	}
-
-	err := con.checkpointer.Begin()
-
+	// Get the latest WAL for the database.
+	wal, err := con.walManager.Get(time.Now().UnixMicro())
 	if err != nil {
 		return err
 	}
 
-	_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) error {
-		if result.Result != 0 {
-			log.Println("Error checkpointing database", err)
+	return con.walManager.Checkpoint(wal, func() error {
+		// Ensure the timestamp for the checkpoint is acquired on the page logger.
+		con.pageLogger.Acquire(wal.timestamp)
+
+		// Ensure the timestamp for the checkpoint is set on the VFS, this will
+		// ensure the VFS writes changes from the WAL to the page logger with
+		// the correct timestamp. This is crucial for the checkpoint process,
+		// as it ensures that the pages are written to the correct location and
+		// in the event of a failure, the pages can be tombstoned correctly.
+		con.vfs.SetTimestamp(wal.timestamp)
+
+		defer func() {
+			con.pageLogger.Release(wal.timestamp)
+		}()
+
+		// Begin the checkpoint process using the WAL timestamp.
+		err = con.checkpointer.Begin(wal.timestamp)
+
+		if err != nil {
+			log.Println("Error beginning checkpoint:", err)
+			return err
+		}
+
+		_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) error {
+			if result.Result != 0 {
+				log.Println("Error checkpointing database", err)
+			} else {
+				err = con.checkpointer.Commit()
+
+				if err != nil {
+					log.Println("Error checkpointing database", err)
+					return err
+				} else {
+					// log.Println("Successful database checkpoint")
+				}
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			con.checkpointer.Rollback()
 		} else {
-			err = con.checkpointer.Commit()
+			// Update the WAL Index
+			err = con.walManager.Refresh()
 
 			if err != nil {
-				log.Println("Error checkpointing database", err)
+				log.Println("Error creating new WAL version:", err)
 				return err
-			} else {
-				// log.Println("Successful database checkpoint")
 			}
 		}
 
-		return nil
+		return err
 	})
-
-	if err != nil {
-		con.checkpointer.Rollback()
-	}
-
-	return err
 }
 
 // Close the database connection.
-func (con *DatabaseConnection) Close() {
+func (con *DatabaseConnection) Close() error {
+	var err error
 	// Ensure all statements are finalized before closing the connection.
 	con.statements.Range(func(key any, statement any) bool {
-		statement.(Statement).Sqlite3Statement.Finalize()
+		err = statement.(Statement).Sqlite3Statement.Finalize()
 
 		return true
 	})
+
+	if err != nil {
+		log.Println("Error finalizing statement:", err)
+
+		return err
+	}
 
 	// Cancel the context of the connection.
 	con.cancel()
@@ -251,15 +303,20 @@ func (con *DatabaseConnection) Close() {
 	con.statements = sync.Map{}
 
 	if con.sqlite3 != nil {
-		con.sqlite3.Close()
+		err = con.sqlite3.Close()
+
+		if err != nil {
+			return err
+		}
 	}
 
-	vfs.UnregisterVFS(
-		fmt.Sprintf("litebase:%s", con.databaseHash),
-		fmt.Sprintf("litebase:%s", con.VfsHash()),
-	)
+	con.release()
+
+	err = vfs.UnregisterVFS(con.VFSHash())
 
 	con.sqlite3 = nil
+
+	return err
 }
 
 // Check if the connection is closed.
@@ -267,35 +324,31 @@ func (con *DatabaseConnection) Closed() bool {
 	return con.sqlite3 == nil
 }
 
-// Commit the current transaction.
-func (con *DatabaseConnection) Commit() error {
-	commitStatemnt, err := con.Statement([]byte("COMMIT"))
-
-	if err != nil {
-		return err
-	}
-
-	return con.SqliteConnection().Committing(func() error {
-		return commitStatemnt.Sqlite3Statement.Exec(nil)
-	})
-}
-
 // Return the context of the connection.
 func (con *DatabaseConnection) Context() context.Context {
 	return con.context
 }
 
+func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementParameter) (result *sqlite3.Result, err error) {
+	result = &sqlite3.Result{}
+	statement, _, err := con.SqliteConnection().Prepare(con.context, []byte(sql))
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = statement.Exec(result, parameters...)
+
+	return result, err
+}
+
+func (con *DatabaseConnection) FileSystem() *storage.DurableDatabaseFileSystem {
+	return con.fileSystem
+}
+
 // Return the id of the connection.
 func (c *DatabaseConnection) Id() string {
 	return c.id
-}
-
-func (c *DatabaseConnection) IsUpToDate() bool {
-	if c.wal.Timestamp() == 0 {
-		return true
-	}
-
-	return c.timestamp == c.wal.Timestamp()
 }
 
 // Prepare a statement for execution.
@@ -314,154 +367,132 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command []byte) (Sta
 
 // Execute a query on the database using a transaction.
 func (con *DatabaseConnection) Query(result *sqlite3.Result, statement *sqlite3.Statement, parameters []sqlite3.StatementParameter) error {
-	return con.Transaction(
-		statement.IsReadonly(),
-		func(con *DatabaseConnection) error {
-			return statement.Exec(result, parameters...)
-		})
+	err := con.Transaction(statement.IsReadonly(), func(con *DatabaseConnection) error {
+		return statement.Exec(result, parameters...)
+	})
+
+	if err != nil {
+		log.Println("Error executing query:", err, err == constants.ServerErrors[constants.ErrSnapshotConflict])
+	}
+
+	return err
 }
 
 // Register and instance of the VFS for the database connection.
-func (con *DatabaseConnection) RegisterVFS() error {
-	err := vfs.RegisterVFS(
-		fmt.Sprintf("litebase:%s", con.databaseHash),
-		fmt.Sprintf("litebase:%s", con.VfsHash()),
-		file.GetDatabaseFileDir(con.databaseId, con.branchId),
+func (con *DatabaseConnection) registerVFS() error {
+	vfs, err := vfs.RegisterVFS(
+		con.VFSHash(),
+		con.VFSDatabaseHash(),
 		con.config.PageSize,
 		con.fileSystem,
-		con.distributedWal,
+		con.walManager,
 	)
 
 	if err != nil {
 		return err
 	}
 
+	con.vfs = vfs
+
 	return nil
+}
+
+// Release the connection.
+func (con *DatabaseConnection) release() {
+	if con.timestamp > 0 {
+		// con.walManager.Release(con.timestamp)
+	}
+}
+
+func (con *DatabaseConnection) releaseTimestamp() {
+	con.walManager.Release(con.timestamp)
+	con.pageLogger.Release(con.timestamp)
 }
 
 func (con *DatabaseConnection) ResultPool() *sqlite3.ResultPool {
 	return con.resultPool
 }
 
-// Rollback the current transaction.
-func (con *DatabaseConnection) Rollback() error {
-	commitStatemnt, err := con.Statement([]byte("ROLLBACK"))
-
-	if err != nil {
-		return err
-	}
-
-	return commitStatemnt.Sqlite3Statement.Exec(nil)
-}
-
-// Create a statement for a query.
-func (con *DatabaseConnection) Statement(queryStatement []byte) (Statement, error) {
-	var err error
-
-	checksum := crc32.ChecksumIEEE(unsafe.Slice(unsafe.SliceData(queryStatement), len(queryStatement)))
-
-	statement, ok := con.statements.Load(checksum)
-
-	if !ok {
-		statement, err = con.Prepare(con.context, queryStatement)
-
-		if err == nil {
-			// TODO: If the schema changes, the statement will be invalid.
-			// We should track if a Query performs DDL and invalidate the
-			// statement cache for each connection.
-			con.statements.Store(checksum, statement)
-		}
-	}
-
-	return statement.(Statement), err
-}
-
-// Return the underlying sqlite3 connection of the database connection.
-func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
-	return con.sqlite3
-}
-
 // Set the authorizer for the database connection.
 func (c *DatabaseConnection) SetAuthorizer() {
 	c.sqlite3.Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int {
-		if c.accessKey == nil {
+		// log.Println("Authorizer Action Code:", actionCode)
+		if c.AccessKey == nil {
 			return sqlite3.SQLITE_OK
 		}
-
-		// log.Printf("(%s), (%s), (%s), (%s), (%s)\n", sqlite3.AuthorizerCodeName(actionCode), arg1, arg2, arg3, arg4)
 
 		allowed := true
 		var err error
 
 		switch actionCode {
 		case sqlite3.SQLITE_ANALYZE:
-			allowed, err = c.accessKey.CanAnalyze(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanAnalyze(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_ATTACH:
-			allowed, err = c.accessKey.CanAttach(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanAttach(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_ALTER_TABLE:
-			allowed, err = c.accessKey.CanAlterTable(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.AccessKey.CanAlterTable(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_COPY:
 			allowed = false
 		case sqlite3.SQLITE_CREATE_INDEX:
-			allowed, err = c.accessKey.CanCreateIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanCreateIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TABLE:
-			allowed, err = c.accessKey.CanCreateTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanCreateTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_INDEX:
-			allowed, err = c.accessKey.CanCreateTempIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanCreateTempIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TABLE:
-			allowed, err = c.accessKey.CanCreateTempTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanCreateTempTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TRIGGER:
-			allowed, err = c.accessKey.CanCreateTempTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanCreateTempTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_VIEW:
-			allowed, err = c.accessKey.CanCreateTempView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanCreateTempView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TRIGGER:
-			allowed, err = c.accessKey.CanCreateTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanCreateTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_VIEW:
-			allowed, err = c.accessKey.CanCreateView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanCreateView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_VTABLE:
-			allowed, err = c.accessKey.CanCreateVTable(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanCreateVTable(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DELETE:
-			allowed, err = c.accessKey.CanDelete(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanDelete(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DETACH:
-			allowed, err = c.accessKey.CanDetach(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanDetach(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_INDEX:
-			allowed, err = c.accessKey.CanDropIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanDropIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_TABLE:
-			allowed, err = c.accessKey.CanDropTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanDropTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_TEMP_INDEX:
-			allowed, err = c.accessKey.CanDropTempIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanDropTempIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_TEMP_TABLE:
-			allowed, err = c.accessKey.CanDropTempTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanDropTempTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_TEMP_TRIGGER:
-			allowed, err = c.accessKey.CanDropTempTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanDropTempTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_TEMP_VIEW:
-			allowed, err = c.accessKey.CanDropTempView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanDropTempView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_TRIGGER:
-			allowed, err = c.accessKey.CanDropTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanDropTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_VIEW:
-			allowed, err = c.accessKey.CanDropView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanDropView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_VTABLE:
-			allowed, err = c.accessKey.CanDropVTable(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.AccessKey.CanDropVTable(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_FUNCTION:
-			allowed, err = c.accessKey.CanFunction(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanFunction(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_INSERT:
-			allowed, err = c.accessKey.CanInsert(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanInsert(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_PRAGMA:
-			allowed, err = c.accessKey.CanPragma(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.AccessKey.CanPragma(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_READ:
-			allowed, err = c.accessKey.CanRead(c.databaseId, c.branchId, arg3, arg4)
+			allowed, err = c.AccessKey.CanRead(c.databaseId, c.branchId, arg3, arg4)
 		case sqlite3.SQLITE_RECURSIVE:
-			allowed, err = c.accessKey.CanRecursive(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanRecursive(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_REINDEX:
-			allowed, err = c.accessKey.CanReindex(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanReindex(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_SAVEPOINT:
-			allowed, err = c.accessKey.CanSavepoint(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.AccessKey.CanSavepoint(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_SELECT:
-			allowed, err = c.accessKey.CanSelect(c.databaseId, c.branchId)
+			allowed, err = c.AccessKey.CanSelect(c.databaseId, c.branchId)
 		case sqlite3.SQLITE_TRANSACTION:
-			allowed, err = c.accessKey.CanTransaction(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanTransaction(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_UPDATE:
-			allowed, err = c.accessKey.CanUpdate(c.databaseId, c.branchId, arg3, arg4)
+			allowed, err = c.AccessKey.CanUpdate(c.databaseId, c.branchId, arg3, arg4)
 		default:
 			allowed, err = false, nil
 		}
@@ -484,6 +515,47 @@ func (c *DatabaseConnection) SetAuthorizer() {
 	})
 }
 
+func (con *DatabaseConnection) setTimestamp() {
+	wal, err := con.walManager.Get(time.Now().UnixMicro())
+
+	if err != nil {
+		log.Println("Error acquiring WAL timestamp:", err)
+		return
+	}
+
+	con.timestamp = wal.timestamp
+	con.pageLogger.Acquire(con.timestamp)
+	con.vfs.SetTimestamp(con.timestamp)
+}
+
+// Return the underlying sqlite3 connection of the database connection.
+func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
+	return con.sqlite3
+}
+
+// Create a statement for a query.
+func (con *DatabaseConnection) Statement(queryStatement []byte) (Statement, error) {
+	var err error
+
+	checksum := crc32.ChecksumIEEE(unsafe.Slice(unsafe.SliceData(queryStatement), len(queryStatement)))
+
+	statement, ok := con.statements.Load(checksum)
+
+	if !ok {
+		statement, err = con.Prepare(con.context, queryStatement)
+
+		if err == nil {
+			con.statements.Store(checksum, statement)
+		}
+	}
+
+	return statement.(Statement), err
+}
+
+func (con *DatabaseConnection) Timestamp() int64 {
+	return con.timestamp
+}
+
 // Execute a transaction on the database.
 func (con *DatabaseConnection) Transaction(
 	readOnly bool,
@@ -491,63 +563,73 @@ func (con *DatabaseConnection) Transaction(
 ) error {
 	var err error
 
-	if !readOnly {
-		// Start the transaction with a write lock.
-		err = con.SqliteConnection().BeginImmediate()
+	return con.walManager.CheckpointBarrier(func() error {
+		// Set connection timestamp before starting the transaction. This ensures we
+		// have a consistent timestamp for the transaction and the vfs reads from
+		// the proper WAL file and Page Log.
+		con.setTimestamp()
 
-		// Writes should only happen on the primary node. So we can adjust the
-		// wal timestamp on the connection to the current time.
-	} else {
-		err = con.SqliteConnection().BeginDeferred()
-	}
+		defer func() {
+			con.releaseTimestamp()
+		}()
 
-	if err != nil {
-		log.Println("Transaction Error:", err)
-		return err
-	}
+		if !readOnly {
+			// Start the transaction with a write lock.
+			err = con.SqliteConnection().BeginImmediate()
+		} else {
+			err = con.SqliteConnection().BeginDeferred()
+		}
 
-	handlerError := handler(con)
+		if err != nil {
+			return err
+		}
 
-	if handlerError != nil {
-		log.Println("Transaction Error:", handlerError)
-		err = con.Rollback()
+		handlerError := handler(con)
+
+		if handlerError != nil {
+			err = con.SqliteConnection().Rollback()
+
+			if err != nil {
+				log.Println("Transaction Error:", err)
+			}
+
+			return handlerError
+		}
+
+		err = con.SqliteConnection().Commit()
 
 		if err != nil {
 			log.Println("Transaction Error:", err)
 			return err
 		}
 
+		if !readOnly {
+			con.committedAt = time.Now()
+		}
+
 		return handlerError
-	}
+	})
+}
 
-	err = con.Commit()
-
-	if err != nil {
-		log.Println("Transaction Error:", err)
-		return err
-	}
-
-	if !readOnly {
-		con.committedAt = time.Now()
-	}
-
-	return handlerError
+func (con *DatabaseConnection) VFSDatabaseHash() string {
+	return fmt.Sprintf("%s:%s", con.nodeId, con.databaseHash)
 }
 
 // Return the VFS hash for the connection.
-func (con *DatabaseConnection) VfsHash() string {
+func (con *DatabaseConnection) VFSHash() string {
 	if con.vfsHash == "" {
 		sha1 := sha1.New()
-		sha1.Write([]byte(fmt.Sprintf("%s:%s:%s", con.databaseId, con.branchId, con.id)))
-		con.vfsHash = fmt.Sprintf("%x", sha1.Sum(nil))
+		sha1.Write(fmt.Appendf(nil, "%s:%s:%s", con.databaseId, con.branchId, con.id))
+		con.vfsHash = fmt.Sprintf("litebase:%x", sha1.Sum(nil))
 	}
 
 	return con.vfsHash
+
 }
 
 // Set the access key for the database connection.
 func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
-	con.accessKey = accessKey
+	con.AccessKey = accessKey
 
 	return con
 }

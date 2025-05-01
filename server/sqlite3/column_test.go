@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"litebase/server/sqlite3"
 	"log"
 	"math"
 	"testing"
+
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 func TestNewColumn(t *testing.T) {

@@ -21,7 +21,7 @@ func JsonDecoderPool() *DecoderPool {
 	if staticDecoderPool == nil {
 		staticDecoderPool = &DecoderPool{
 			decoders: &sync.Pool{
-				New: func() interface{} {
+				New: func() any {
 					buffer := bytes.NewBuffer(make([]byte, 1024))
 
 					return &Decoder{

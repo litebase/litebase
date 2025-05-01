@@ -1,7 +1,7 @@
 package http
 
 import (
-	"litebase/internal/config"
+	"github.com/litebase/litebase/common/config"
 )
 
 // This middleware function checks if the node is a query node.

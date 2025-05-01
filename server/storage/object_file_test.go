@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"io"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/storage"
 	"os"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewObjectFile(t *testing.T) {
@@ -17,7 +20,15 @@ func TestNewObjectFile(t *testing.T) {
 		key := "test.txt"
 		openFlags := 0
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		if of == nil {
 			t.Error("ObjectFile is nil")
@@ -54,9 +65,13 @@ func TestObjectFileClose(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
 
-			err := of.Close()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			err = of.Close()
 
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -72,11 +87,16 @@ func TestObjectFileClose(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
 			of.Data = []byte("test data")
 			of.Sha256Checksum = sha256.Sum256(of.Data)
 
-			err := of.Close()
+			err = of.Close()
 
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -92,10 +112,15 @@ func TestObjectFileClose(t *testing.T) {
 			key := "test.txt"
 			openFlags := os.O_RDWR
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
 			of.Data = []byte("test data")
 
-			err := of.Close()
+			err = of.Close()
 
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -121,7 +146,11 @@ func TestObjectFileRead(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			buf := make([]byte, 10)
 			n, err := of.Read(buf)
@@ -150,7 +179,11 @@ func TestObjectFileRead(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			buf := make([]byte, 10)
 			n, err := of.Read(buf)
@@ -177,7 +210,12 @@ func TestObjectFileRead(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
 			of.Data = []byte("test data")
 
 			buf := make([]byte, 20)
@@ -209,7 +247,11 @@ func TestObjectFileReadAt(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			buf := make([]byte, 10)
 			n, err := of.ReadAt(buf, 0)
@@ -232,7 +274,12 @@ func TestObjectFileReadAt(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
 			of.Data = []byte("test data")
 
 			buf := make([]byte, 10)
@@ -260,7 +307,12 @@ func TestObjectFileReadAt(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
 			of.Data = []byte("test data")
 
 			buf := make([]byte, 20)
@@ -292,7 +344,11 @@ func TestObjectFileSeek(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			offset, err := of.Seek(0, io.SeekStart)
 
@@ -314,7 +370,12 @@ func TestObjectFileSeek(t *testing.T) {
 			key := "test.txt"
 			openFlags := 0
 
-			of := storage.NewObjectFile(client, key, openFlags)
+			of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
 			of.Data = []byte("test data")
 
 			offset, err := of.Seek(0, io.SeekStart)
@@ -360,7 +421,11 @@ func TestObjectFileStat(t *testing.T) {
 		key := "test.txt"
 		openFlags := 0
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		fi, err := of.Stat()
 
@@ -384,9 +449,13 @@ func TestObjectFileSync(t *testing.T) {
 		key := "test.txt"
 		openFlags := os.O_RDONLY
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
 
-		err := of.Sync()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		err = of.Sync()
 
 		if err != os.ErrPermission {
 			t.Errorf("unexpected error: %v", err)
@@ -412,10 +481,15 @@ func TestObjectFileTruncate(t *testing.T) {
 		key := "test.txt"
 		openFlags := os.O_RDWR
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
 		of.Data = []byte("Hello World! Here we are...")
 
-		err := of.Truncate(10)
+		err = of.Truncate(10)
 
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -429,11 +503,20 @@ func TestObjectFileTruncate(t *testing.T) {
 
 func TestObjectFileWithData(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		client := &storage.S3Client{}
+		client := storage.NewS3Client(
+			app.Config,
+			app.Config.StorageBucket,
+			app.Config.StorageRegion,
+		)
 		key := "test.txt"
 		openFlags := 0
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
 		of.WithData([]byte("test data"))
 
 		if !bytes.Equal(of.Data, []byte("test data")) {
@@ -443,12 +526,20 @@ func TestObjectFileWithData(t *testing.T) {
 }
 
 func TestObjectFileWrite(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		client := &storage.S3Client{}
+	test.RunWithObjectStorage(t, func(app *server.App) {
+		client := storage.NewS3Client(
+			app.Config,
+			app.Config.StorageBucket,
+			app.Config.StorageRegion,
+		)
 		key := "test.txt"
 		openFlags := os.O_RDWR
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		n, err := of.Write([]byte("Hello World!"))
 
@@ -463,16 +554,39 @@ func TestObjectFileWrite(t *testing.T) {
 		if string(of.Data) != "Hello World!" {
 			t.Errorf("unexpected data: %v", string(of.Data))
 		}
+
+		n, err = of.Write([]byte("Hello World!"))
+
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		if n != len("Hello World!") {
+			t.Errorf("unexpected number of bytes written: %v", n)
+		}
+
+		if string(of.Data) != "Hello World!Hello World!" {
+			t.Errorf("unexpected data: %v", string(of.Data))
+		}
 	})
 }
 
 func TestObjectFileWriteAt(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		client := &storage.S3Client{}
+	test.RunWithObjectStorage(t, func(app *server.App) {
+		client := storage.NewS3Client(
+			app.Config,
+			app.Config.StorageBucket,
+			app.Config.StorageRegion,
+		)
 		key := "test.txt"
 		openFlags := os.O_RDWR
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
 		of.Data = []byte("Hello World!")
 
 		n, err := of.WriteAt([]byte("Friend!"), 6)
@@ -492,12 +606,21 @@ func TestObjectFileWriteAt(t *testing.T) {
 }
 
 func TestObjectFileWriteTo(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		client := &storage.S3Client{}
+	test.RunWithObjectStorage(t, func(app *server.App) {
+		client := storage.NewS3Client(
+			app.Config,
+			app.Config.StorageBucket,
+			app.Config.StorageRegion,
+		)
 		key := "test.txt"
 		openFlags := os.O_RDWR
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
 		of.Data = []byte("Hello World!")
 
 		buf := new(bytes.Buffer)
@@ -518,12 +641,20 @@ func TestObjectFileWriteTo(t *testing.T) {
 }
 
 func TestObjectFileWriteString(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		client := &storage.S3Client{}
+	test.RunWithObjectStorage(t, func(app *server.App) {
+		client := storage.NewS3Client(
+			app.Config,
+			app.Config.StorageBucket,
+			app.Config.StorageRegion,
+		)
 		key := "test.txt"
 		openFlags := os.O_RDWR
 
-		of := storage.NewObjectFile(client, key, openFlags)
+		of, err := storage.NewObjectFile(client, key, openFlags, false)
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		n, err := of.WriteString("Hello World!")
 

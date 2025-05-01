@@ -3,16 +3,13 @@ package file
 import (
 	"crypto/sha1"
 	"fmt"
-	"litebase/internal/config"
 	"path/filepath"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 func DatabaseDirectory() string {
 	return "_databases/"
-}
-
-func DatabaseTmpDirectory(c *config.Config) string {
-	return fmt.Sprintf("%s/_databases/", c.TmpPath)
 }
 
 func DatabaseHash(
@@ -54,6 +51,14 @@ func GetDatabaseFileDir(databaseId string, branchId string) string {
 	)
 }
 
+func GetDatabaseRootDir(databaseId string) string {
+	return fmt.Sprintf(
+		"%s%s/",
+		DatabaseDirectory(),
+		databaseId,
+	)
+}
+
 func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s%s/%s/%s.db",
@@ -64,14 +69,43 @@ func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 	), nil
 }
 
+func GetDatabaseFileRemotePath(c *config.Config, databaseId string, branchId string) (string, error) {
+	return fmt.Sprintf(
+		"%s/_databases/%s/%s/%s.db",
+		c.RemotePath,
+		databaseId,
+		branchId,
+		DatabaseHash(databaseId, branchId),
+	), nil
+}
+
+func GetDatabaseFileRemoteWALPath(c *config.Config, databaseId string, branchId string, timestamp int64) (string, error) {
+	return fmt.Sprintf(
+		"%s/_databases/%s/%s/wal/%d",
+		c.RemotePath,
+		databaseId,
+		branchId,
+		timestamp,
+	), nil
+}
+
 func GetDatabaseFileTmpPath(c *config.Config, nodeId, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
-		"%s%s/%s/%s/%s.db",
-		DatabaseTmpDirectory(c),
+		"%s/%s/_databases/%s/%s/%s.db",
+		c.TmpPath,
 		nodeId,
 		databaseId,
 		branchId,
 		DatabaseHash(databaseId, branchId),
+	), nil
+}
+
+func GetDatabaseFileTmpWALPath(c *config.Config, nodeId, databaseId string, branchId string) (string, error) {
+	return fmt.Sprintf(
+		"%s/%s/%s",
+		c.TmpPath,
+		nodeId,
+		WALPath(databaseId, branchId),
 	), nil
 }
 
@@ -86,5 +120,14 @@ func GetDatabaseSnapshotDirectory(databaseId, branchId string) string {
 	return fmt.Sprintf(
 		"%slogs/snapshots",
 		GetDatabaseFileBaseDir(databaseId, branchId),
+	)
+}
+func WALPath(databaseId, branchId string) string {
+	return fmt.Sprintf(
+		"%s%s/%s/%s.db-wal",
+		DatabaseDirectory(),
+		databaseId,
+		branchId,
+		DatabaseHash(databaseId, branchId),
 	)
 }

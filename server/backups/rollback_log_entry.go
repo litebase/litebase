@@ -17,7 +17,7 @@ page number, the timestamp of the entry, and the version of the entry.
 
 When serialized, the RollbackLogEntry data is stored with a header followed by a
 compressed data frame. The header is 100 bytes and header contains:
-| offset | size | description |
+| offset | size | description                       |
 |--------|------|-----------------------------------|
 | 0      | 4    | The identifier if the entry       |
 | 8      | 4    | The version number of the entry   |

@@ -4,13 +4,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/file"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/server/storage"
 )
 
 type Snapshot struct {
@@ -53,7 +56,7 @@ func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, branchId strin
 	return &Snapshot{
 		BranchId:       branchId,
 		DatabaseId:     databaseId,
-		LastAccessedAt: time.Now().Unix(),
+		LastAccessedAt: time.Now().UnixMicro(),
 		RestorePoints: SnapshotRestorePoints{
 			Data:  []int64{},
 			Start: timestamp,

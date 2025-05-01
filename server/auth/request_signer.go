@@ -6,9 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"litebase/internal/utils"
 	"log"
 	"strings"
+
+	"github.com/litebase/litebase/internal/utils"
 
 	"golang.org/x/exp/slices"
 )
@@ -19,7 +20,7 @@ func SignRequest(
 	method string,
 	path string,
 	headers map[string]string,
-	data map[string]interface{},
+	data map[string]any,
 	queryParams map[string]string,
 ) string {
 	for key, value := range headers {

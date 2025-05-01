@@ -10,7 +10,6 @@ type TempDatabaseFileSystem struct {
 }
 
 func NewTempDatabaseFileSystem(tmpFS *FileSystem, path, databaseId, branchId string) *TempDatabaseFileSystem {
-
 	// Check if the the directory exists
 	if _, err := tmpFS.Stat(path); err != nil {
 		if os.IsNotExist(err) {

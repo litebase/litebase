@@ -1,9 +1,10 @@
 package storage_test
 
 import (
-	"litebase/server/storage"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/storage"
 )
 
 func TestNewStaticFileInfo(t *testing.T) {

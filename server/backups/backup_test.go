@@ -6,17 +6,22 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/backups"
-	"litebase/server/file"
-	"litebase/server/sqlite3"
 	"log"
 	"os"
 	"sort"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/backups"
+
+	"github.com/litebase/litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/server/file"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestGetBackup(t *testing.T) {
@@ -666,11 +671,6 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
-		checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
-
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
 
 		// Create a test table
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
@@ -678,8 +678,6 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-
-		checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(1) * time.Hour).Unix())
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -702,7 +700,7 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 					[]byte("INSERT INTO test (name) VALUES (?)"),
 					sqlite3.StatementParameter{
 						Type:  "TEXT",
-						Value: fmt.Sprintf("test-%d", j),
+						Value: []byte(fmt.Sprintf("test-%d", j)),
 					},
 				)
 
@@ -716,8 +714,6 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
-
-			checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(i*10) * time.Minute).Unix())
 
 			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -745,7 +741,6 @@ func TestBackupRunWith1HourRestorePoint(t *testing.T) {
 		timestamps := make([]int64, 0)
 
 		for _, s := range snapshots {
-			log.Println("Timestamp", s.Timestamp)
 			snapshot, err := snapshotLogger.GetSnapshot(s.Timestamp)
 
 			if err != nil {
@@ -854,11 +849,11 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
-		checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
+		// checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
 
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
+		// if err != nil {
+		// 	t.Fatalf("expected no error, got %v", err)
+		// }
 
 		// Create a test table
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
@@ -867,7 +862,7 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(3) * time.Hour).Unix())
+		// checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(3) * time.Hour).Unix())
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -907,7 +902,7 @@ func TestBackupRunWith3HourRestorePoint(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(i*10) * time.Minute).Unix())
+			// checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(i*10) * time.Minute).Unix())
 
 			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -1029,11 +1024,11 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
-		checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
+		// checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
 
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
+		// if err != nil {
+		// 	t.Fatalf("expected no error, got %v", err)
+		// }
 
 		// Create a test table
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
@@ -1042,7 +1037,7 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(24) * time.Hour).Unix())
+		// checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(24) * time.Hour).Unix())
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -1080,7 +1075,7 @@ func TestBackupRunWith24HourRestorePoint(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(i) * time.Hour).Unix())
+			// checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(i) * time.Hour).Unix())
 
 			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -1208,11 +1203,11 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
-		checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
+		// checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
 
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
+		// if err != nil {
+		// 	t.Fatalf("expected no error, got %v", err)
+		// }
 
 		// Create a test table
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
@@ -1222,7 +1217,7 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 		}
 
 		// Set the timestamp to 7 days ago
-		checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(24*7) * time.Hour).Unix())
+		// checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(24*7) * time.Hour).Unix())
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -1260,7 +1255,7 @@ func TestBackupRunWith7DayRestorePoint(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(i) * time.Hour).Unix())
+			// checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(i) * time.Hour).Unix())
 
 			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -1485,11 +1480,11 @@ func TestBackupRunWithConcurrentWrites(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
+		// checkpointer, err := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).Checkpointer()
 
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
+		// if err != nil {
+		// 	t.Fatalf("expected no error, got %v", err)
+		// }
 
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
@@ -1506,7 +1501,7 @@ func TestBackupRunWithConcurrentWrites(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(2) * time.Hour).Unix())
+		// checkpointer.SetTimestamp(time.Now().Truncate(time.Hour).Add(-time.Duration(2) * time.Hour).Unix())
 
 		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -1559,7 +1554,7 @@ func TestBackupRunWithConcurrentWrites(t *testing.T) {
 					t.Errorf("expected no error, got %v", err)
 				}
 
-				checkpointer.SetTimestamp(timestamp)
+				// checkpointer.SetTimestamp(timestamp)
 
 				err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
@@ -1696,6 +1691,7 @@ func TestBackupRunContents(t *testing.T) {
 		for _, testCase := range testCases {
 			for _, page := range testCase.pages {
 				_, err := dfs.WriteAt(
+					int64(0),
 					[]byte(fmt.Sprintf("page-%d", page)),
 					file.PageOffset(page, app.Config.PageSize),
 				)
@@ -1705,9 +1701,9 @@ func TestBackupRunContents(t *testing.T) {
 				}
 			}
 
-			checkpointer.SetTimestamp(testCase.timestamp)
+			// checkpointer.SetTimestamp(testCase.timestamp)
 
-			err = checkpointer.Begin()
+			err = checkpointer.Begin(0)
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)

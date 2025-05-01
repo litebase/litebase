@@ -2,11 +2,14 @@ package storage_test
 
 import (
 	"io"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/storage"
 	"os"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestObjectFileSystemDriver(t *testing.T) {
@@ -19,7 +22,7 @@ func TestObjectFileSystemDriver(t *testing.T) {
 	})
 }
 
-func TestObectFileSystemDriverCreate(t *testing.T) {
+func TestObectFileSystemDriver_Create(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
@@ -36,7 +39,7 @@ func TestObectFileSystemDriverCreate(t *testing.T) {
 	})
 }
 
-func TestObjectFileSystemDriverEnsureBucketExists(t *testing.T) {
+func TestObjectFileSystemDriver_EnsureBucketExists(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
@@ -58,7 +61,7 @@ func TestObjectFileSystemDriverEnsureBucketExists(t *testing.T) {
 	})
 }
 
-func TestObjectFileSystemDriverMkdir(t *testing.T) {
+func TestObjectFileSystemDriver_Mkdir(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
@@ -71,7 +74,7 @@ func TestObjectFileSystemDriverMkdir(t *testing.T) {
 	})
 }
 
-func TestObjectFileSystemDriverMkdirAll(t *testing.T) {
+func TestObjectFileSystemDriver_MkdirAll(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
@@ -84,7 +87,7 @@ func TestObjectFileSystemDriverMkdirAll(t *testing.T) {
 	})
 }
 
-func TestObjectFileSystemDriverOpen(t *testing.T) {
+func TestObjectFileSystemDriver_Open(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
@@ -108,19 +111,32 @@ func TestObjectFileSystemDriverOpen(t *testing.T) {
 	})
 }
 
-func TestObjectFileSystemDriverOpenFile(t *testing.T) {
+func TestObjectFileSystemDriver_OpenFile(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to open
-		_, err := driver.Create("test.txt")
+		file, err := driver.Create("test.txt")
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		_, err = file.WriteString("Hello, World!")
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Close the file
+		err = file.Close()
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		// Test opening the file
-		file, err := driver.OpenFile("test.txt", os.O_RDONLY, 0644)
+		file, err = driver.OpenFile("test.txt", os.O_CREATE|os.O_RDONLY, 0644)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -128,6 +144,23 @@ func TestObjectFileSystemDriverOpenFile(t *testing.T) {
 
 		if file == nil {
 			t.Fatal("Expected file to be opened")
+		}
+
+		// Read the file content
+		data := make([]byte, 13)
+
+		n, err := file.Read(data)
+
+		if err != nil && err != io.EOF {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if n != 13 {
+			t.Fatalf("Expected to read 13 bytes, got %d", n)
+		}
+
+		if string(data) != "Hello, World!" {
+			t.Fatalf("Expected file content to be 'Hello, World!', got '%s'", string(data))
 		}
 	})
 }

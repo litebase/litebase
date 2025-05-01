@@ -1,13 +1,16 @@
 package test
 
 import (
-	"litebase/internal/config"
-	"litebase/server"
-	"litebase/server/storage"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 )
 
 type TestServer struct {
@@ -19,12 +22,6 @@ type TestServer struct {
 
 func NewTestQueryNode(t *testing.T) *TestServer {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
-
-	return NewTestServer(t)
-}
-
-func NewTestStorageNode(t *testing.T) *TestServer {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeStorage)
 
 	return NewTestServer(t)
 }
@@ -78,12 +75,6 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 	configInstance := config.NewConfig()
 	app := server.NewApp(configInstance, serveMux)
 	app.Run()
-
-	// err := app.Cluster.Node().Start()
-
-	// if err != nil {
-	// 	log.Fatalf("Node start: %v", err)
-	// }
 
 	server := &TestServer{
 		Address: ts.URL,

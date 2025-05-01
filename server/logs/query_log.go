@@ -2,112 +2,90 @@ package logs
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"hash"
-	"hash/crc64"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/cluster"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/file"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
+var QueryLogFlushInterval = time.Second * 1
+var QueryLogFlushThreshold = time.Second
+
+var queryLogBuffer = sync.Pool{
+	New: func() any {
+		return bytes.NewBuffer(make([]byte, 1024))
+	},
+}
+
 type QueryLog struct {
+	cancel         context.CancelFunc
 	branchId       string
+	context        context.Context
 	cluster        *cluster.Cluster
+	databaseHash   string
 	databaseId     string
 	file           internalStorage.File
 	keyBuffer      *bytes.Buffer
+	lastLoggedTime time.Time
 	mutex          sync.RWMutex
 	path           string
 	queryHasher    hash.Hash64
 	queue          map[time.Time]map[uint64]*QueryMetric
-	statementIndex *QueryIndex
+	statementIndex *QueryStatementIndex
 	tieredFS       *storage.FileSystem
 	timestamp      int64
 	watching       bool
 }
 
-type QueryLogEnry struct {
+type QueryLogEntry struct {
 	Cluster                                         *cluster.Cluster
 	DatabaseHash, DatabaseId, BranchId, AccessKeyId string
 	Statement                                       []byte
 	Latency                                         float64
 }
 
-var queryLoggers = make(map[string]*QueryLog)
-var qyeryLogMutex = sync.Mutex{}
-var queryLogBuffer = sync.Pool{
-	New: func() interface{} {
-		return bytes.NewBuffer(make([]byte, 1024))
-	},
-}
+func (q *QueryLog) Close() error {
+	// Flush before closing to avoid deadlock
+	q.Flush(true)
 
-func GetQueryLog(cluster *cluster.Cluster, databaseHash, databaseId, branchId string) *QueryLog {
-	qyeryLogMutex.Lock()
-	defer qyeryLogMutex.Unlock()
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 
-	// Get the current time un UTC
-	t := time.Now().UTC()
+	q.cancel()
 
-	// Set the timestamp to the start of the day
-	timestamp := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	if q.file != nil {
+		err := q.file.Close()
 
-	if _, ok := queryLoggers[databaseHash]; !ok {
-		path := fmt.Sprintf("%s/logs/query", file.GetDatabaseFileBaseDir(databaseId, branchId))
-
-		queryLoggers[databaseHash] = &QueryLog{
-			branchId:    branchId,
-			cluster:     cluster,
-			databaseId:  databaseId,
-			keyBuffer:   bytes.NewBuffer(make([]byte, 20)),
-			mutex:       sync.RWMutex{},
-			path:        path,
-			queryHasher: crc64.New(crc64.MakeTable(crc64.ISO)),
-			queue:       make(map[time.Time]map[uint64]*QueryMetric),
-			tieredFS:    cluster.TieredFS(),
-			timestamp:   timestamp.UTC().Unix(),
+		if err != nil {
+			return err
 		}
+
+		q.file = nil
 	}
 
-	// If the date has changed, close the current log file and set the timestamp
-	// to the current date.
-	if queryLoggers[databaseHash].timestamp != timestamp.UTC().Unix() {
-		queryLoggers[databaseHash].timestamp = timestamp.UTC().Unix()
+	if q.statementIndex != nil {
+		err := q.statementIndex.Close()
 
-		queryLoggers[databaseHash].file.Close()
-		queryLoggers[databaseHash].file = nil
+		if err != nil {
+			return err
+		}
 
-		queryLoggers[databaseHash].statementIndex.Close()
-		queryLoggers[databaseHash].statementIndex = nil
+		q.statementIndex = nil
 	}
-
-	return queryLoggers[databaseHash]
-}
-
-func Query(entry QueryLogEnry) error {
-	log := GetQueryLog(
-		entry.Cluster,
-		entry.DatabaseHash,
-		entry.DatabaseId,
-		entry.BranchId,
-	)
-
-	if log == nil {
-		return nil
-	}
-
-	log.Write(
-		entry.AccessKeyId,
-		entry.Statement,
-		entry.Latency,
-	)
 
 	return nil
 }
@@ -134,12 +112,12 @@ func (q *QueryLog) GetFile() internalStorage.File {
 	return q.file
 }
 
-func (q *QueryLog) GetStatementIndex() *QueryIndex {
+func (q *QueryLog) GetStatementIndex() *QueryStatementIndex {
 	if q.statementIndex == nil {
-		statementIndex, err := GetQueryIndex(
+		statementIndex, err := GetQueryStatementIndex(
 			q.tieredFS,
 			q.path,
-			"STATEMENT_IDX",
+			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", q.cluster.Node().Id),
 			q.timestamp,
 		)
 
@@ -157,7 +135,7 @@ func (q *QueryLog) GetStatementIndex() *QueryIndex {
 	return q.statementIndex
 }
 
-func (q *QueryLog) Flush() {
+func (q *QueryLog) Flush(force bool) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
@@ -167,7 +145,7 @@ func (q *QueryLog) Flush() {
 	defer queryLogBuffer.Put(data)
 
 	for timestamp, metrics := range q.queue {
-		if !timestamp.Before(time.Now().UTC().Truncate(time.Second)) {
+		if !force && !timestamp.Before(time.Now().UTC().Truncate(QueryLogFlushThreshold)) {
 			continue
 		}
 
@@ -204,7 +182,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 
 	// Get all the directories in the logs directory
 	path := fmt.Sprintf(
-		"%s/logs/query",
+		"%slogs/query",
 		file.GetDatabaseFileBaseDir(q.databaseId, q.branchId),
 	)
 
@@ -231,7 +209,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 			break
 		}
 
-		// If the timestamp is not in the range, skip it
+		// If the timestamp is not in the r, skip it
 		if uint32(directoryTimestamp) < startOfDay || uint32(directoryTimestamp) > end {
 			continue
 		}
@@ -273,7 +251,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 
 				queryMetric := QueryMetricFromBytes(fileBuffer)
 
-				// if the timstamp is not in the range continue
+				// if the timestamp is not in the range continue
 				if queryMetric.Timestamp < start || queryMetric.Timestamp > end {
 					continue
 				}
@@ -287,7 +265,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 	return queryMetrics
 }
 
-func (q *QueryLog) Watch() {
+func (q *QueryLog) watch() {
 	if q.watching {
 		return
 	}
@@ -295,31 +273,40 @@ func (q *QueryLog) Watch() {
 	q.watching = true
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(QueryLogFlushInterval)
 
 		for {
 			select {
 			case <-q.cluster.Node().Context().Done():
 				return
+			case <-q.context.Done():
+				return
 			case <-ticker.C:
 				q.mutex.RLock()
-
-				if len(q.queue) == 0 {
-					q.mutex.RUnlock()
-					q.watching = false
-					ticker.Stop()
-					return
-				}
-
+				queueLen := len(q.queue)
 				q.mutex.RUnlock()
 
-				q.Flush()
+				if queueLen == 0 {
+					q.mutex.Lock()
+
+					if len(q.queue) == 0 {
+						q.watching = false
+						q.mutex.Unlock()
+						ticker.Stop()
+						return
+					}
+
+					q.mutex.Unlock()
+				} else {
+					q.Flush(false)
+				}
 			}
 		}
 	}()
 }
 
-func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) {
+func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) error {
+	q.lastLoggedTime = time.Now()
 	timestamp := time.Now().UTC().Truncate(time.Second)
 
 	buffer := queryLogBuffer.Get().(*bytes.Buffer)
@@ -333,7 +320,7 @@ func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) 
 	// Lowercase the statement
 	statementBytes := []byte(statement)
 
-	for i := 0; i < len(statement); i++ {
+	for i := range statement {
 		char := statementBytes[i]
 		if char >= 'A' && char <= 'Z' {
 			char += 'a' - 'A'
@@ -348,7 +335,6 @@ func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) 
 	checksum := q.queryHasher.Sum64()
 	// Convert the checksum to a hexadecimal
 	q.keyBuffer.Reset()
-	// key := strconv.FormatUint(checksum, 16)
 
 	q.keyBuffer.Write(strconv.AppendUint(q.keyBuffer.Bytes()[:0], checksum, 16))
 
@@ -357,7 +343,8 @@ func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) 
 		err := q.GetStatementIndex().Set(q.keyBuffer.String(), string(logData))
 
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			return err
 		}
 	}
 
@@ -366,7 +353,7 @@ func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) 
 		shouldWatch := !q.watching
 
 		if shouldWatch {
-			q.Watch()
+			q.watch()
 		}
 
 		q.mutex.Unlock()
@@ -385,8 +372,10 @@ func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) 
 		q.queue[timestamp][checksum] = NewQueryMetric(timestamp.UTC().Unix(), checksum)
 		q.queue[timestamp][checksum].AddLatency(latency)
 
-		return
+		return nil
 	}
 
 	metric.AddLatency(latency)
+
+	return nil
 }

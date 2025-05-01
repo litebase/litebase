@@ -2,11 +2,14 @@ package backups_test
 
 import (
 	"encoding/binary"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/backups"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/backups"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewSnapshotLogger(t *testing.T) {
@@ -77,8 +80,8 @@ func TestSnapshotLoggerGetSnapshot(t *testing.T) {
 			t.Fatalf("Expected a valid timestamp, got 0")
 		}
 
-		if snapshot.RestorePoints.Total != 0 {
-			t.Fatalf("Expected 0 restore points, got %d", snapshot.RestorePoints.Total)
+		if snapshot.RestorePoints.Total != 1 {
+			t.Fatalf("Expected 1 restore point, got %d", snapshot.RestorePoints.Total)
 		}
 	})
 }

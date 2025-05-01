@@ -1,21 +1,16 @@
 package http
 
 import (
-	"fmt"
-	"litebase/server/backups"
-	"litebase/server/database"
 	"strconv"
+
+	"github.com/litebase/litebase/server/backups"
 )
 
 func DatabaseSnapshotIndexController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(
-		request.cluster.Config,
-		request.cluster.ObjectFS(),
-		request.Subdomains()[0],
-	)
+	databaseKey := request.DatabaseKey()
 
-	if err != nil {
-		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	if databaseKey == nil {
+		return ErrValidDatabaseKeyRequiredResponse
 	}
 
 	snapshots, err := request.databaseManager.
@@ -43,14 +38,10 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 }
 
 func DatabaseSnapshotShowController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(
-		request.cluster.Config,
-		request.cluster.ObjectFS(),
-		request.Subdomains()[0],
-	)
+	databaseKey := request.DatabaseKey()
 
-	if err != nil {
-		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	if databaseKey == nil {
+		return ErrValidDatabaseKeyRequiredResponse
 	}
 
 	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)

@@ -12,14 +12,14 @@ func ClusterElectionConfirmationController(request *Request) Response {
 	if err != nil {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": err,
 			},
 		}
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"address.requried":   "The address field is required",
+		"address.required":   "The address field is required",
 		"group.required":     "The group field is required",
 		"timestamp.required": "The timestamp field is required",
 	})
@@ -31,7 +31,7 @@ func ClusterElectionConfirmationController(request *Request) Response {
 	if input.(*ClusterElectionConfirmationMessage).Group != request.cluster.Config.NodeType {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": "Invalid group",
 			},
 		}
@@ -47,26 +47,11 @@ func ClusterElectionConfirmationController(request *Request) Response {
 	if !confirmed {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": "Invalid confirmation",
 			},
 		}
 	}
-
-	// Check the current election to ensure this node is the nominee
-
-	election := request.cluster.Node().Election()
-
-	if election.Nominee != address {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]interface{}{
-				"errors": "Invalid nominee",
-			},
-		}
-	}
-
-	defer election.Stop()
 
 	return Response{
 		StatusCode: 200,

@@ -1,6 +1,6 @@
 package storage
 
-import internalStorage "litebase/internal/storage"
+import internalStorage "github.com/litebase/litebase/internal/storage"
 
 type DatabaseFileSystem interface {
 	FileSystem() *FileSystem

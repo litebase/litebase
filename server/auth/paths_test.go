@@ -2,10 +2,13 @@ package auth_test
 
 import (
 	"fmt"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/auth"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestGetDatabaseKeyPath(t *testing.T) {

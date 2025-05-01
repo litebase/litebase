@@ -22,7 +22,7 @@ The binary representation of a Column is:
 
 // Buffer pool for reusing buffers
 var columnJsonBufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(bytes.Buffer)
 	},
 }
@@ -201,9 +201,24 @@ func (c *Column) MarshalJSON() ([]byte, error) {
 
 	encoder := json.NewEncoder(buffer)
 
-	if err := encoder.Encode(c.ColumnValue); err != nil {
-		return nil, err
+	switch c.ColumnType {
+	case ColumnTypeInteger:
+		encoder.Encode(c.Int64())
+	case ColumnTypeFloat:
+		encoder.Encode(c.Float64())
+	case ColumnTypeText:
+		encoder.Encode(string(c.ColumnValue))
+	case ColumnTypeBlob:
+		encoder.Encode(string(c.ColumnValue))
+	case ColumnTypeNull:
+		encoder.Encode(nil)
+	default:
+		return nil, ErrInvalidColumnValue
 	}
+
+	// if err := encoder.Encode(c.ColumnValue); err != nil {
+	// 	return nil, err
+	// }
 
 	return buffer.Bytes(), nil
 }

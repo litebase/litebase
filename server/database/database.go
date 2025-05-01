@@ -82,13 +82,18 @@ func (database *Database) BranchDirectory(branchId string) string {
 }
 
 func (database *Database) Url(branchId string) string {
+	port := ""
+
+	if database.DatabaseManager.Cluster.Config.Port != "80" {
+		port = fmt.Sprintf(":%s", database.DatabaseManager.Cluster.Config.Port)
+	}
+
 	return fmt.Sprintf(
-		"http://%s.%s.%s.litebase.test:%s",
+		"http://%s.%s.%s.%s%s",
 		database.Key(database.PrimaryBranchId),
-		// TODO: Get the region
-		"region",
 		database.DatabaseManager.Cluster.Id,
-		// TODO: Make optional for production
-		database.DatabaseManager.Cluster.Config.Port,
+		database.DatabaseManager.Cluster.Config.Region,
+		database.DatabaseManager.Cluster.Config.DomainName,
+		port,
 	)
 }

@@ -1,7 +1,7 @@
 #include "./vfs.h"
 #include "./log.h"
 
-extern int goXOpen(sqlite3_vfs *pVfs, const char *zName, int flags, int *pOutFlags);
+extern int goXOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags);
 
 extern int goXClose(sqlite3_file *file);
 extern int goXRead(sqlite3_file *file, void *buf, int iAmt, sqlite3_int64 iOfst);
@@ -9,8 +9,15 @@ extern int goXWrite(sqlite3_file *file, const void *buf, int iAmt, sqlite3_int64
 extern int goXTruncate(sqlite3_file *file, sqlite3_int64 size);
 extern int goXFileSize(sqlite3_file *file, sqlite3_int64 *pSize);
 
-extern int goXWalWrite(sqlite3_file *file, int iAmt, sqlite3_int64 iOfst, const void *buf);
-extern int goXWalTruncate(sqlite3_file *file, sqlite3_int64 size);
+extern int goXWALFileSize(sqlite3_file *file, sqlite3_int64 *pSize);
+extern int goXWALRead(sqlite3_file *file, const void *buf, int iAmt, sqlite3_int64 iOfst);
+extern int goXWALWrite(sqlite3_file *file, int iAmt, sqlite3_int64 iOfst, const void *buf);
+extern int goXWALTruncate(sqlite3_file *file, sqlite3_int64 size);
+
+extern int goXShmMap(sqlite3_file *file, int iPg, int pgSize, int bExtend, void volatile **pp);
+extern int goXShmLock(sqlite3_file *file, int offset, int n, int flags);
+extern int goXShmUnmap(sqlite3_file *file, int deleteFlag);
+extern void goXShmBarrier(sqlite3_file *file);
 
 /*
 ** Method declarations for LitebaseDBFile.
@@ -43,70 +50,38 @@ static int xUnfetch(sqlite3_file *, sqlite3_int64 iOfst, void *p);
 static int vfsInstancesSize = 0;
 static LitebaseVFS **vfsInstances = NULL;
 
-int pageNumber(sqlite3_int64 offset, int pageSize)
-{
-  assert(pageSize > 0);
-  assert(offset >= 0);
-
-  return (offset / pageSize) + 1;
-}
-
-LitebaseVFS *vfsFromFile(sqlite3_file *pFile)
-{
-  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
-
-  for (int i = 0; i < vfsInstancesSize; i++)
-  {
-    if (strcmp(vfsInstances[i]->vfsId, p->pVfsId) == 0)
-    {
-      return vfsInstances[i];
-    }
-  }
-
-  return NULL;
-}
-
 int xClose(sqlite3_file *pFile)
 {
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
+  int rc = ORIGFILE(pFile)->pMethods->xClose(ORIGFILE(pFile));
   // Free the memory allocated for the VFS ID
   free(p->pVfsId);
 
-  return ORIGFILE(pFile)->pMethods->xClose(ORIGFILE(pFile));
+  p->pVfsId = NULL;
+
+  return rc;
 }
 
 int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
-  int rc = SQLITE_OK;
-
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    return ORIGFILE(pFile)->pMethods->xRead(ORIGFILE(pFile), zBuf, iAmt, iOfst);
-  }
-  else
-  {
-    rc = goXRead(pFile, zBuf, iAmt, iOfst);
+    // return ORIGFILE(pFile)->pMethods->xRead(ORIGFILE(pFile), zBuf, iAmt, iOfst);
+
+    return goXWALRead(pFile, zBuf, iAmt, iOfst);
   }
 
-  return rc;
+  return goXRead(pFile, zBuf, iAmt, iOfst);
 }
 
 int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    int rc = 0;
+    // return ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
 
-    rc = ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
-
-    if (rc != SQLITE_OK)
-    {
-      fprintf(stderr, "Journal file write failed: %d\n", rc);
-      return rc;
-    }
-
-    return goXWalWrite(pFile, iAmt, iOfst, zBuf);
+    return goXWALWrite(pFile, iAmt, iOfst, zBuf);
   }
 
   return goXWrite(pFile, zBuf, iAmt, iOfst);
@@ -114,19 +89,13 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 
 int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
+  int rc = SQLITE_OK;
+
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    int rc = 0;
+    // return ORIGFILE(pFile)->pMethods->xTruncate(ORIGFILE(pFile), size);
 
-    rc = ORIGFILE(pFile)->pMethods->xTruncate(ORIGFILE(pFile), size);
-
-    if (rc != SQLITE_OK)
-    {
-      fprintf(stderr, "Journal file truncate failed: %d\n", rc);
-      return rc;
-    }
-
-    return goXWalTruncate(pFile, size);
+    return goXWALTruncate(pFile, size);
   }
 
   return goXTruncate(pFile, size);
@@ -134,6 +103,9 @@ int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 
 int xSync(sqlite3_file *pFile, int flags)
 {
+
+  // TODO: We need to account for this?
+
   return ORIGFILE(pFile)->pMethods->xSync(ORIGFILE(pFile), flags);
 }
 
@@ -143,7 +115,9 @@ int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    return ORIGFILE(pFile)->pMethods->xFileSize(ORIGFILE(pFile), pSize);
+    // return ORIGFILE(pFile)->pMethods->xFileSize(ORIGFILE(pFile), pSize);
+
+    return goXWALFileSize(pFile, pSize);
   }
 
   return goXFileSize(pFile, pSize);
@@ -179,24 +153,36 @@ int xDeviceCharacteristics(sqlite3_file *pFile)
   return ORIGFILE(pFile)->pMethods->xDeviceCharacteristics(ORIGFILE(pFile));
 }
 
-int xShmMap(sqlite3_file *pFile, int iPg, int pgsz, int bExtend, void volatile **pp)
+int xShmMap(sqlite3_file *pFile, int iPg, int pgSize, int bExtend, void volatile **pp)
 {
-  return ORIGFILE(pFile)->pMethods->xShmMap(ORIGFILE(pFile), iPg, pgsz, bExtend, pp);
-}
+  // vfs_log("xShmMap");
+  int rc = goXShmMap(pFile, iPg, pgSize, bExtend, (void volatile **)pp);
+  // int rc = ORIGFILE(pFile)->pMethods->xShmMap(ORIGFILE(pFile), iPg, pgSize, bExtend, (void volatile **)pp);
 
-int xShmLock(sqlite3_file *pFile, int offset, int n, int flags)
-{
-  return ORIGFILE(pFile)->pMethods->xShmLock(ORIGFILE(pFile), offset, n, flags);
-}
-
-void xShmBarrier(sqlite3_file *pFile)
-{
-  ORIGFILE(pFile)->pMethods->xShmBarrier(ORIGFILE(pFile));
+  return rc;
 }
 
 int xShmUnmap(sqlite3_file *pFile, int deleteFlag)
 {
-  return ORIGFILE(pFile)->pMethods->xShmUnmap(ORIGFILE(pFile), deleteFlag);
+  // vfs_log("xShmUnmap");
+  int rc = goXShmUnmap(pFile, deleteFlag);
+  // int rc = ORIGFILE(pFile)->pMethods->xShmUnmap(ORIGFILE(pFile), deleteFlag);
+
+  return rc;
+}
+
+int xShmLock(sqlite3_file *pFile, int offset, int n, int flags)
+{
+  // vfs_log("xShmLock");
+  return goXShmLock(pFile, offset, n, flags);
+  // return ORIGFILE(pFile)->pMethods->xShmLock(ORIGFILE(pFile), offset, n, flags);
+}
+
+void xShmBarrier(sqlite3_file *pFile)
+{
+  // vfs_log("xShmBarrier");
+  goXShmBarrier(pFile);
+  // ORIGFILE(pFile)->pMethods->xShmBarrier(ORIGFILE(pFile));
 }
 
 static int xFetch(sqlite3_file *pFile, sqlite3_int64 iOfst, int iAmt, void **pp)
@@ -223,7 +209,7 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
 
   if (p->isJournal == 0)
   {
-    rc = goXOpen(pVfs, zName, flags, pOutFlags);
+    rc = goXOpen(pVfs, zName, pFile, flags, pOutFlags);
   }
 
   rc = ORIGVFS(pVfs)->xOpen(ORIGVFS(pVfs), zName, ORIGFILE(pFile), flags, pOutFlags);
@@ -297,7 +283,7 @@ static LitebaseVFS litebase_vfs = {
     {
         2,                 /* iVersion */
         0,                 /* szOsFile */
-        1024,              /* mxPathname */
+        2048,              /* mxPathname */
         0,                 /* pNext */
         "litebase",        /* zName */
         0,                 /* pAppData */
@@ -340,15 +326,10 @@ const sqlite3_io_methods x_io_methods = {
     xUnfetch                /* xUnfetch */
 };
 
-int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
+int register_litebase_vfs(char *vfsId, int pageSize)
 {
-  // vfs_log("Registering Litebase VFS");
-
   char *pVfsId = malloc(strlen(vfsId) + 1);
   strcpy(pVfsId, vfsId);
-
-  char *pDataPath = malloc(strlen(dataPath) + 1);
-  strcpy(pDataPath, dataPath);
 
   // Get a reference to the default VFS
   sqlite3_vfs *pOrig = sqlite3_vfs_find(0);
@@ -357,7 +338,6 @@ int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
 
   litebase_vfs.pVfs = pOrig;
   litebase_vfs.vfsId = pVfsId;
-  litebase_vfs.dataPath = pDataPath;
   litebase_vfs.pageSize = pageSize;
 
   if (litebase_vfs.pVfs == 0)
@@ -383,8 +363,6 @@ int register_litebase_vfs(char *vfsId, char *dataPath, int pageSize)
 
 void unregisterVfs(char *vfsId)
 {
-  // vfs_log("Unregistering Litebase VFS");
-
   for (int i = 0; i < vfsInstancesSize; i++)
   {
     if (strcmp(vfsInstances[i]->vfsId, vfsId) == 0)
@@ -398,12 +376,7 @@ void unregisterVfs(char *vfsId)
         return;
       }
 
-      // Free the memory allocated for the VFS ID
-      // free(pVfs->pAppData);
-
       LitebaseVFS *vfs = (LitebaseVFS *)pVfs;
-
-      free(vfs->dataPath);
 
       int rc = sqlite3_vfs_unregister(pVfs);
 
@@ -412,6 +385,9 @@ void unregisterVfs(char *vfsId)
         printf("Failed to unregister the VFS: %d\n", rc);
         return;
       }
+
+      // Free the memory allocated for vfs->vfsId
+      free(vfs->vfsId);
 
       // Free the memory allocated for vfsInstances[i]
       free(vfsInstances[i]);
@@ -448,34 +424,92 @@ int litebase_is_journal_file(sqlite3_file *pFile)
   return len >= 4 && (strcmp(p->pName + len - 4, "-wal") == 0 || strcmp(p->pName + len - 8, "-journal") == 0);
 }
 
-int litebase_vfs_write_hook(char *vfsId, int (*callback)(void *, int, sqlite3_int64, const void *), void *handle)
-{
-  for (int i = 0; i < vfsInstancesSize; i++)
-  {
-    if (strcmp(vfsInstances[i]->vfsId, vfsId) == 0)
-    {
-      vfsInstances[i]->goVfsPointer = handle;
-      vfsInstances[i]->writeHook = callback;
-
-      return SQLITE_OK;
-    }
-  }
-
-  return SQLITE_ERROR;
-}
-
 void logCallback(void *pArg, int iErrCode, const char *zMsg)
 {
   fprintf(stderr, "SQLITE_LOG: (%d) %s\n", iErrCode, zMsg);
 }
 
-int newVfs(char *vfsId, char *dataPath, int pageSize)
+int newVfs(char *vfsId, int pageSize)
 {
   assert(vfsId != NULL);
-  assert(dataPath != NULL);
   assert(pageSize >= 512);
 
   sqlite3_config(SQLITE_CONFIG_LOG, logCallback, NULL);
 
-  return register_litebase_vfs(vfsId, dataPath, pageSize);
+  return register_litebase_vfs(vfsId, pageSize);
+}
+
+int litebase_get_shm(sqlite3_file *pFile, void *pp)
+{
+  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
+  LitebaseShm *pShm;
+
+  if (p->pShm == NULL)
+  {
+    return SQLITE_IOERR_SHMLOCK;
+  }
+
+  sqlite3_mutex_enter(p->pShm->mutex);
+
+  if (p->pShm->nRegion == 0)
+  {
+    sqlite3_mutex_leave(p->pShm->mutex);
+    return SQLITE_OK;
+  }
+
+  for (int i = 0; i < p->pShm->nRegion; i++)
+  {
+    if (p->pShm->pRegions[i]->id == 0)
+    {
+      memcpy(pp, p->pShm->pRegions[i]->pData, 136);
+      sqlite3_mutex_leave(p->pShm->mutex);
+      return SQLITE_OK;
+    }
+  }
+
+  sqlite3_mutex_leave(p->pShm->mutex);
+
+  return SQLITE_OK;
+}
+
+int litebase_write_shm(sqlite3_file *pFile, void *headerData, int dataSize)
+{
+  LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
+  LitebaseShm *pShm;
+  int *aLock;
+
+  if (p->pShm == NULL)
+  {
+    return SQLITE_IOERR_SHMLOCK;
+  }
+
+  pShm = p->pShm;
+  aLock = pShm->aLock;
+
+  sqlite3_mutex_enter(pShm->mutex);
+
+  // Check if any locks are held that would prevent writing the header
+  for (int i = 0; i < SQLITE_SHM_NLOCK; i++)
+  {
+    if (aLock[i] != 0)
+    {
+      sqlite3_mutex_leave(pShm->mutex);
+
+      return SQLITE_BUSY;
+    }
+  }
+
+  for (int i = 0; i < pShm->nRegion; i++)
+  {
+    if (pShm->pRegions[i]->id == 0)
+    {
+      memcpy(pShm->pRegions[i]->pData, headerData, dataSize);
+      sqlite3_mutex_leave(pShm->mutex);
+      return SQLITE_OK;
+    }
+  }
+
+  sqlite3_mutex_leave(pShm->mutex);
+
+  return SQLITE_OK;
 }

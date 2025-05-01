@@ -1,9 +1,10 @@
 package components
 
 import (
-	"litebase/cli/api"
 	"log"
 	"os"
+
+	"github.com/litebase/litebase/cli/api"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"

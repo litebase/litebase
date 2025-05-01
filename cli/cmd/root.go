@@ -3,8 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"litebase/cli/components"
-	"litebase/cli/config"
+
+	"github.com/litebase/litebase/cli/components"
+	"github.com/litebase/litebase/cli/config"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"

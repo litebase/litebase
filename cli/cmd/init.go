@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"litebase/cli/components"
-	"litebase/internal/config"
-	"litebase/server/auth"
-	"litebase/server/cluster"
 	"os"
+
+	"github.com/litebase/litebase/cli/components"
+	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/server/cluster"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"

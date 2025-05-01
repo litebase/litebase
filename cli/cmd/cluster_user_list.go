@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"litebase/cli/api"
-	"litebase/cli/components"
-	"litebase/server/auth"
 	"strings"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/cli/api"
+	"github.com/litebase/litebase/cli/components"
 
 	"github.com/spf13/cobra"
 )

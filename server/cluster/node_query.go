@@ -1,8 +1,7 @@
 package cluster
 
 import (
-	"io"
-	"litebase/server/sqlite3"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 type NodeQueryBuilder interface {
@@ -19,17 +18,4 @@ type NodeQueryBuilder interface {
 
 type NodeQuery interface {
 	Resolve(response NodeQueryResponse) (NodeQueryResponse, error)
-}
-
-type NodeQueryResponse interface {
-	Changes() int64
-	Columns() []string
-	LastInsertRowId() int64
-	Latency() float64
-	RowCount() int
-	Rows() [][]*sqlite3.Column
-
-	ToMap() map[string]interface{}
-	ToJSON() ([]byte, error)
-	WriteJson(w io.Writer) error
 }

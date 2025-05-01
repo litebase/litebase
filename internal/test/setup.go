@@ -2,14 +2,17 @@ package test
 
 import (
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server"
-	"litebase/server/cluster"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"testing"
-	"time"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server/cluster"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 
 	"github.com/joho/godotenv"
 )
@@ -18,18 +21,24 @@ var envDataPath string
 
 func setupTestEnv(t testing.TB) (string, error) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	rootDirectory := "./../../"
 
-	err := godotenv.Load("./../../.env.test")
+	if os.Getenv("LITEBASE_ROOT_DIRECTORY") != "" {
+		rootDirectory = os.Getenv("LITEBASE_ROOT_DIRECTORY")
+	}
+
+	err := godotenv.Load(fmt.Sprintf("%s.env.test", rootDirectory))
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if envDataPath == "" {
-		envDataPath = os.Getenv("LITEBASE_LOCAL_DATA_PATH")
+		envDataPath = fmt.Sprintf("%s%s", rootDirectory, os.Getenv("LITEBASE_LOCAL_DATA_PATH"))
 	}
 
 	dataPath := fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
+	remotePath := fmt.Sprintf("%s/_remote", dataPath)
 	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
 
 	os.MkdirAll(dataPath, 0755)
@@ -38,7 +47,9 @@ func setupTestEnv(t testing.TB) (string, error) {
 	os.MkdirAll(dataPath+"/object", 0755)
 	os.MkdirAll(dataPath+"/tiered", 0755)
 
+	t.Setenv("LITEBASE_DOMAIN_NAME", "litebase.test")
 	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
+	t.Setenv("LITEBASE_REMOTE_PATH", remotePath)
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)
 	t.Setenv("LITEBASE_SIGNATURE", CreateHash(64))
 
@@ -88,8 +99,9 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 			callback()
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		// time.Sleep(100 * time.Millisecond)
 
+		// Remove the data path
 		os.RemoveAll(dataPath)
 	})
 }
@@ -106,22 +118,22 @@ func Run(t testing.TB, callback func()) {
 		t.Fail()
 	}
 
-	// Run the test
-	callback()
-
 	// Teardown the environment
 	Teardown(t, dataPath, nil)
+
+	// Run the test
+	callback()
 }
 
 func RunWithApp(t testing.TB, callback func(*server.App)) {
 	// Setup the environment
 	app, dataPath := Setup(t)
 
-	// Run the test
-	callback(app)
-
 	// Teardown the environment
 	Teardown(t, dataPath, app)
+
+	// Run the test
+	callback(app)
 }
 
 func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
@@ -132,9 +144,6 @@ func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 	// Setup the environment
 	app, dataPath := Setup(t, func() {
 	})
-
-	// Run the test
-	callback(app)
 
 	// Teardown the environment
 	Teardown(t, dataPath, app, func() {
@@ -149,4 +158,7 @@ func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 			log.Fatal(err)
 		}
 	})
+
+	// Run the test
+	callback(app)
 }

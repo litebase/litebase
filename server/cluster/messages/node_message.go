@@ -1,5 +1,5 @@
 package messages
 
 type NodeMessage struct {
-	Data interface{}
+	Data any
 }

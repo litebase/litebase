@@ -12,7 +12,7 @@ import (
 // A query metric is a snapshot of the query performance at a given time. These
 // statistics can be stored on disk and only take 64 bytes of space.
 type QueryMetric struct {
-	id           uint64
+	Checksum     uint64
 	Count        uint32 `json:"count"`
 	latencies    []float64
 	latencyIndex int
@@ -27,9 +27,9 @@ type QueryMetric struct {
 
 const LatencyBufferSize = 128
 
-func NewQueryMetric(timestamp int64, id uint64) *QueryMetric {
+func NewQueryMetric(timestamp int64, checksum uint64) *QueryMetric {
 	return &QueryMetric{
-		id:           id,
+		Checksum:     checksum,
 		Count:        1,
 		latencyIndex: 0,
 		latencies:    make([]float64, LatencyBufferSize),
@@ -51,7 +51,7 @@ func (q *QueryMetric) Bytes(buf *bytes.Buffer) []byte {
 	q.Count = uint32(len(q.latencies))
 	q.calculateLatencies()
 
-	binary.Write(buf, binary.LittleEndian, q.id)
+	binary.Write(buf, binary.LittleEndian, q.Checksum)
 	binary.Write(buf, binary.LittleEndian, q.Count)
 	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyAvg))
 	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyMin))
@@ -120,7 +120,7 @@ func (q QueryMetric) Combine(other QueryMetric) QueryMetric {
 
 func (qm QueryMetric) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]interface{}{
-		strconv.FormatUint(qm.id, 16),
+		strconv.FormatUint(qm.Checksum, 16),
 		qm.Count,
 		qm.LatencyAvg,
 		qm.LatencyMin,
@@ -136,7 +136,7 @@ func QueryMetricFromBytes(data []byte) QueryMetric {
 	q := QueryMetric{}
 	buf := bytes.NewReader(data)
 
-	binary.Read(buf, binary.LittleEndian, &q.id)
+	binary.Read(buf, binary.LittleEndian, &q.Checksum)
 	binary.Read(buf, binary.LittleEndian, &q.Count)
 	binary.Read(buf, binary.LittleEndian, &q.LatencyAvg)
 	binary.Read(buf, binary.LittleEndian, &q.LatencyMin)

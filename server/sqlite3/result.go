@@ -6,13 +6,13 @@ import (
 )
 
 var resultBufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return bytes.NewBuffer(make([]byte, 0, 1024))
 	},
 }
 
 var resultColumnPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &Column{}
 	},
 }
@@ -20,7 +20,6 @@ var resultColumnPool = &sync.Pool{
 type Result struct {
 	buffers []*bytes.Buffer
 	columns []*Column
-	Changes int64
 	Columns []string
 	Rows    [][]*Column
 }
@@ -50,18 +49,6 @@ func (r *Result) GetColumn() *Column {
 	r.columns = append(r.columns, column)
 
 	return column
-}
-
-// Next
-func (r *Result) Next() []*Column {
-	if len(r.Rows) == 0 {
-		return nil
-	}
-
-	row := r.Rows[0]
-	r.Rows = r.Rows[1:]
-
-	return row
 }
 
 func (r *Result) PutBuffer(buffer *bytes.Buffer) {
@@ -104,9 +91,20 @@ func (r *Result) Reset() {
 	r.ReleaseBuffers()
 	r.ReleaseColumns()
 
-	r.Changes = 0
 	r.Columns = r.Columns[:0]
 	r.Rows = r.Rows[:0]
+}
+
+func (r *Result) Row(index int) []*Column {
+	if index < 0 || index >= len(r.Rows) {
+		return nil
+	}
+
+	return r.Rows[index]
+}
+
+func (r *Result) RowCount() int {
+	return len(r.Rows)
 }
 
 func (r *Result) SetColumns(columns []string) {

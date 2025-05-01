@@ -1,8 +1,9 @@
 package components
 
 import (
-	"litebase/cli/styles"
 	"time"
+
+	"github.com/litebase/litebase/cli/styles"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"

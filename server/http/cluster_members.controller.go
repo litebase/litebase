@@ -5,7 +5,7 @@ import (
 )
 
 func ClusterMemberDestroyController(request *Request) Response {
-	queryNodes, storageNodes := request.cluster.GetMembers(true)
+	queryNodes := request.cluster.GetMembers(true)
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
 
@@ -25,13 +25,6 @@ func ClusterMemberDestroyController(request *Request) Response {
 	nodePresent := false
 
 	for _, node := range queryNodes {
-		if node == decryptedIp.Value {
-			nodePresent = true
-			break
-		}
-	}
-
-	for _, node := range storageNodes {
 		if node == decryptedIp.Value {
 			nodePresent = true
 			break
@@ -71,7 +64,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 }
 
 func ClusterMemberStoreController(request *Request) Response {
-	queryNodes, storageNodes := request.cluster.GetMembers(false)
+	queryNodes := request.cluster.GetMembers(false)
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
 
@@ -93,13 +86,6 @@ func ClusterMemberStoreController(request *Request) Response {
 	nodePresent := false
 
 	for _, node := range queryNodes {
-		if node == decryptedIp.Value {
-			nodePresent = true
-			break
-		}
-	}
-
-	for _, node := range storageNodes {
 		if node == decryptedIp.Value {
 			nodePresent = true
 			break

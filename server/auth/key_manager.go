@@ -13,14 +13,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"litebase/internal/config"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/storage"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 var privateKeys = map[string]*rsa.PrivateKey{}
@@ -109,27 +111,6 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 		}
 	}
 
-	// // Get the lock file
-	// lockFile, err = objectFS.OpenFile(lockPath(signature), os.O_CREATE|os.O_RDWR, 0644)
-
-	// if err != nil {
-	// 	log.Println(err)
-	// 	return nil, err
-	// }
-
-	// defer lockFile.Close()
-
-	// // Attempt to get an exclusive lock on the file
-	// err = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-
-	// if err != nil {
-	// 	log.Println(err)
-	// 	return nil, err
-	// }
-
-	// // Unlock the file when we're done
-	// defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN|syscall.LOCK_NB)
-
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 
 	if err != nil {
@@ -199,6 +180,7 @@ func GetPrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Private
 		privateKey, err := objectFS.ReadFile(KeyPath("private", signature))
 
 		if err != nil {
+			log.Println("ERROR", err)
 			return nil, err
 		}
 
@@ -264,9 +246,6 @@ func KeyManagerInit(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	// Rotate the keys if a new signature is set
-	rotate(c, secretsManager)
-
 	return nil
 }
 
@@ -314,11 +293,11 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		return nil
 	}
 
-	if _, err := secretsManager.ObjectFS.Stat(Path(fmt.Sprintf("%s/%s", c.SignatureNext, ".rotate-lock"))); err == nil {
+	if _, err := secretsManager.ObjectFS.Stat(Path(c.SignatureNext) + ".rotate-lock"); err == nil {
 		return nil
 	}
 
-	if _, err := secretsManager.ObjectFS.Stat(Path(fmt.Sprintf("%s/%s", c.SignatureNext, "manifest.json"))); err == nil {
+	if _, err := secretsManager.ObjectFS.Stat(Path(c.SignatureNext) + "manifest.json"); err == nil {
 		return nil
 	}
 
@@ -327,7 +306,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.WriteFile(Path(fmt.Sprintf("%s/%s", c.SignatureNext, ".rotate-lock")), []byte{}, 0666); err != nil {
+	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+".rotate-lock", []byte{}, 0666); err != nil {
 		return err
 	}
 
@@ -350,6 +329,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 
 	go func() {
 		defer wg.Done()
+
 		err := rotateSettings(c, secretsManager)
 
 		if err != nil {
@@ -361,6 +341,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 
 	go func() {
 		defer wg.Done()
+
 		err := rotateDatabaseKeys(c, secretsManager)
 
 		if err != nil {
@@ -374,8 +355,8 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	manifest := map[string]interface{}{
-		"signature":  c.Signature,
+	manifest := map[string]any{
+		"signature":  c.SignatureNext,
 		"rotated_at": time.Now().Unix(),
 	}
 
@@ -385,11 +366,12 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext+"/manifest.json"), manifestBytes, 0666); err != nil {
+	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+"manifest.json", manifestBytes, 0666); err != nil {
+
 		return err
 	}
 
-	if err := os.Remove(Path(fmt.Sprintf("%s/%s", c.SignatureNext, ".rotate-lock"))); err != nil {
+	if err := secretsManager.ObjectFS.Remove(Path(c.SignatureNext) + ".rotate-lock"); err != nil {
 		return err
 	}
 
@@ -397,15 +379,8 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 }
 
 func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
-	accessKeyDir := strings.Join([]string{
-		Path(c.Signature),
-		"access_keys",
-	}, "/")
-
-	newAccessKeyDir := strings.Join([]string{
-		Path(c.SignatureNext),
-		"access_keys/",
-	}, "/")
+	accessKeyDir := Path(c.Signature) + "access_keys/"
+	newAccessKeyDir := Path(c.SignatureNext) + "access_keys/"
 
 	accessKeys, err := secretsManager.ObjectFS.ReadDir(accessKeyDir)
 
@@ -418,10 +393,9 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 	}
 
 	for _, accessKey := range accessKeys {
-		accessKeyBytes, err := secretsManager.ObjectFS.ReadFile(strings.Join([]string{
-			accessKeyDir,
-			accessKey.Name(),
-		}, "/"))
+		accessKeyBytes, err := secretsManager.ObjectFS.ReadFile(
+			accessKeyDir + accessKey.Name(),
+		)
 
 		if err != nil {
 			return err
@@ -439,10 +413,11 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 			return err
 		}
 
-		if err := secretsManager.ObjectFS.WriteFile(strings.Join([]string{
-			newAccessKeyDir,
-			accessKey.Name(),
-		}, "/"), []byte(encryptedAccessKey), 0666); err != nil {
+		if err := secretsManager.ObjectFS.WriteFile(
+			newAccessKeyDir+accessKey.Name(),
+			[]byte(encryptedAccessKey),
+			0666,
+		); err != nil {
 			return err
 		}
 	}
@@ -451,19 +426,16 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 }
 
 func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error {
-	keysDir := strings.Join([]string{
-		Path(c.Signature),
-		"database_keys",
-	}, "/")
-
-	newKeysDir := strings.Join([]string{
-		Path(c.SignatureNext),
-		"database_keys/",
-	}, "/")
+	keysDir := Path(c.Signature) + "database_keys/"
+	newKeysDir := Path(c.SignatureNext) + "database_keys/"
 
 	keys, err := secretsManager.ObjectFS.ReadDir(keysDir)
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -472,19 +444,19 @@ func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error 
 	}
 
 	for _, key := range keys {
-		databaseKeyBytes, err := secretsManager.ObjectFS.ReadFile(strings.Join([]string{
-			keysDir,
-			key.Name(),
-		}, "/"))
+		databaseKeyBytes, err := secretsManager.ObjectFS.ReadFile(
+			keysDir + key.Name(),
+		)
 
 		if err != nil {
 			return err
 		}
 
-		if err := secretsManager.ObjectFS.WriteFile(strings.Join([]string{
-			newKeysDir,
-			key.Name(),
-		}, "/"), databaseKeyBytes, 0666); err != nil {
+		if err := secretsManager.ObjectFS.WriteFile(
+			newKeysDir+key.Name(),
+			databaseKeyBytes,
+			0666,
+		); err != nil {
 			return err
 		}
 	}
@@ -495,19 +467,16 @@ func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error 
 func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 	var databaseSettings []internalStorage.DirEntry
 
-	settingsDir := strings.Join([]string{
-		Path(c.Signature),
-		"settings",
-	}, "/")
-
-	newSettingsDir := strings.Join([]string{
-		Path(c.SignatureNext),
-		"settings/",
-	}, "/")
+	settingsDir := Path(c.Signature) + "settings/"
+	newSettingsDir := Path(c.SignatureNext) + "settings/"
 
 	settings, err := secretsManager.ObjectFS.ReadDir(settingsDir)
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -516,29 +485,25 @@ func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 	}
 
 	for _, setting := range settings {
-		if err := secretsManager.ObjectFS.MkdirAll(strings.Join([]string{
-			newSettingsDir,
-			setting.Name(),
-		}, "/"), 0755); err != nil {
+		if err := secretsManager.ObjectFS.MkdirAll(
+			newSettingsDir+setting.Name()+"/",
+			0755,
+		); err != nil {
 			return err
 		}
 
-		databaseSettings, err = secretsManager.ObjectFS.ReadDir(strings.Join([]string{
-			settingsDir,
-			setting.Name(),
-			"/",
-		}, "/"))
+		databaseSettings, err = secretsManager.ObjectFS.ReadDir(
+			settingsDir + setting.Name() + "/",
+		)
 
 		if err != nil {
 			return err
 		}
 
 		for _, databaseSetting := range databaseSettings {
-			databaseSettingBytes, err := secretsManager.ObjectFS.ReadFile(strings.Join([]string{
-				settingsDir,
-				setting.Name(),
-				databaseSetting.Name(),
-			}, "/"))
+			databaseSettingBytes, err := secretsManager.ObjectFS.ReadFile(
+				settingsDir + setting.Name() + "/" + databaseSetting.Name(),
+			)
 
 			if err != nil {
 				return err
@@ -556,11 +521,11 @@ func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 				return err
 			}
 
-			if err := secretsManager.ObjectFS.WriteFile(strings.Join([]string{
-				newSettingsDir,
-				setting.Name(),
-				databaseSetting.Name(),
-			}, "/"), []byte(encryptedSetting), 0666); err != nil {
+			if err := secretsManager.ObjectFS.WriteFile(
+				newSettingsDir+setting.Name()+"/"+databaseSetting.Name(),
+				[]byte(encryptedSetting),
+				0666,
+			); err != nil {
 				return err
 			}
 		}

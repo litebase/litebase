@@ -7,19 +7,21 @@ import (
 )
 
 type WriteQueueManager struct {
-	queues sync.Map
+	context context.Context
+	queues  *sync.Map
 }
 
 // NewWriteQueueManager creates a new write queue manager instance.
-func NewWriteQueueManager() *WriteQueueManager {
+func NewWriteQueueManager(context context.Context) *WriteQueueManager {
 	return &WriteQueueManager{
-		queues: sync.Map{},
+		context: context,
+		queues:  &sync.Map{},
 	}
 }
 
 // GetWriteQueue returns the write queue that matches the database of the query.
 func (wqm *WriteQueueManager) GetWriteQueue(query *Query) *WriteQueue {
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	if writeQueue, ok := wqm.queues.Load(query.DatabaseKey.DatabaseHash); ok {
 		return writeQueue.(*WriteQueue)
@@ -30,10 +32,10 @@ func (wqm *WriteQueueManager) GetWriteQueue(query *Query) *WriteQueue {
 		context:    ctx,
 		databaseId: query.DatabaseKey.DatabaseId,
 		// Setup a buffered channel to hold up to 1000 concurrent jobs
-		jobs:  make(chan WriteQueueJob, WriteQueueCapacity),
+		jobs:  make(chan WriteQueueJob, 1),
 		mutex: sync.Mutex{},
 		resultChannelPool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return make(chan *WriteQueueResult)
 			},
 		},
@@ -55,18 +57,23 @@ func (wqm *WriteQueueManager) GetWriteQueue(query *Query) *WriteQueue {
 func (wqm *WriteQueueManager) Run() {
 	ticker := time.NewTicker(1 * time.Second)
 
-	for range ticker.C {
-		wqm.queues.Range(func(key, value interface{}) bool {
-			// Stop the write queue if it is not running
-			if !value.(*WriteQueue).running {
+	for {
+		select {
+		case <-wqm.context.Done():
+			return
+		case <-ticker.C:
+			wqm.queues.Range(func(key, value interface{}) bool {
+				// Stop the write queue if it is not running
+				if !value.(*WriteQueue).running {
+					return true
+				}
+
+				if value.(*WriteQueue).isIdle() {
+					value.(*WriteQueue).stop()
+				}
+
 				return true
-			}
-
-			if value.(*WriteQueue).isIdle() {
-				value.(*WriteQueue).stop()
-			}
-
-			return true
-		})
+			})
+		}
 	}
 }

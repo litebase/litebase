@@ -1,11 +1,14 @@
 package database_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/database"
-	"litebase/server/sqlite3"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 func TestHandle(t *testing.T) {
@@ -53,7 +56,8 @@ func TestHandle(t *testing.T) {
 			q, err := database.NewQuery(
 				app.Cluster,
 				app.DatabaseManager,
-				database.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
+				app.LogManager,
+				auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
 				mock.AccessKey,
 				&database.QueryInput{
 					Statement:  c.statement,

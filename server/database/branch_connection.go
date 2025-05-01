@@ -2,8 +2,9 @@ package database
 
 import (
 	"context"
-	"litebase/server/cluster"
 	"time"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 type BranchConnection struct {
@@ -47,21 +48,15 @@ func (b *BranchConnection) Close() {
 	b.connection.Close()
 }
 
-func (b *BranchConnection) IsValid() bool {
-	if b.cluster.Node().IsPrimary() {
-		return true
-	}
+func (b *BranchConnection) Release() {
+	b.inUse = false
 
-	return b.connection.connection.IsUpToDate()
+	b.connection.Release()
 }
 
 func (b *BranchConnection) RequiresCheckpoint() bool {
 	return (b.databaseGroup.checkpointedAt.IsZero() && !b.connection.connection.committedAt.IsZero()) ||
 		(b.connection.connection.committedAt.After(b.databaseGroup.checkpointedAt))
-}
-
-func (b *BranchConnection) Unclaim() {
-	b.inUse = false
 }
 
 func (b *BranchConnection) Unclaimed() chan bool {
@@ -75,6 +70,7 @@ func (b *BranchConnection) Unclaimed() chan bool {
 			default:
 				if !b.inUse {
 					c <- true
+					return
 				}
 			}
 		}

@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"litebase/cli/api"
-	"litebase/cli/components"
+
+	"github.com/litebase/litebase/cli/api"
+	"github.com/litebase/litebase/cli/components"
 
 	"github.com/spf13/cobra"
 )
@@ -14,7 +15,7 @@ func NewDatabaseCreateCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Short: "Create a new database",
 		Run: func(cmd *cobra.Command, args []string) {
-			res, _, err := api.Post("/databases", map[string]interface{}{"name": args[0]})
+			res, _, err := api.Post("/databases", map[string]any{"name": args[0]})
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
@@ -24,7 +25,7 @@ func NewDatabaseCreateCmd() *cobra.Command {
 			fmt.Print(
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
-					components.DatabaseCard(res["data"].(map[string]interface{})),
+					components.DatabaseCard(res["data"].(map[string]any)),
 				),
 			)
 		},

@@ -2,8 +2,9 @@ package storage
 
 import (
 	"io/fs"
-	internalStorage "litebase/internal/storage"
 	"sync"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
 )
 
 // The FileSystem struct is used to abstract the underlying file system
@@ -18,6 +19,7 @@ type FileSystem struct {
 // by a file system driver.
 type FileSystemDriver interface {
 	Create(path string) (internalStorage.File, error)
+	Flush() error // Flush any buffered data to the underlying storage
 	Mkdir(path string, perm fs.FileMode) error
 	MkdirAll(path string, perm fs.FileMode) error
 	Open(path string) (internalStorage.File, error)
@@ -49,6 +51,13 @@ func (fs *FileSystem) Create(path string) (internalStorage.File, error) {
 
 func (fs *FileSystem) Driver() FileSystemDriver {
 	return fs.driver
+}
+
+func (fs *FileSystem) Flush() error {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
+
+	return fs.driver.Flush()
 }
 
 func (fs *FileSystem) Mkdir(path string, perm fs.FileMode) error {

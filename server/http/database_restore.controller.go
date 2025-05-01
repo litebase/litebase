@@ -2,9 +2,9 @@ package http
 
 import (
 	"fmt"
-	"litebase/server/backups"
-	"litebase/server/database"
 	"log"
+
+	"github.com/litebase/litebase/server/backups"
 )
 
 type DatabaseRestoreRequest struct {
@@ -14,14 +14,10 @@ type DatabaseRestoreRequest struct {
 }
 
 func DatabaseRestoreController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(
-		request.cluster.Config,
-		request.cluster.ObjectFS(),
-		request.Subdomains()[0],
-	)
+	databaseKey := request.DatabaseKey()
 
-	if err != nil {
-		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	if databaseKey == nil {
+		return ErrValidDatabaseKeyRequiredResponse
 	}
 
 	input, err := request.Input(&DatabaseRestoreRequest{})

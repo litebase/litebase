@@ -2,15 +2,13 @@ package cluster
 
 import (
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/storage"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 func (cluster *Cluster) ClearFSFiles() {
-	if cluster.Config.StorageTieredMode == config.StorageModeDistributed && cluster.tieredFileSystem != nil {
-		cluster.tieredFileSystem.Driver().(*storage.DistributedFileSystemDriver).ClearFiles()
-	}
-
 	if cluster.Config.StorageTieredMode == config.StorageModeObject && cluster.tieredFileSystem != nil {
 		cluster.tieredFileSystem.Driver().(*storage.TieredFileSystemDriver).ClearFiles()
 	}
@@ -63,6 +61,21 @@ func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 	return cluster.objectFileSystem
 }
 
+func (cluster *Cluster) RemoteFS() *storage.FileSystem {
+	cluster.fileSystemMutex.Lock()
+	defer cluster.fileSystemMutex.Unlock()
+
+	if cluster.remoteFileSystem == nil {
+		cluster.remoteFileSystem = storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(
+				cluster.Config.RemotePath,
+			),
+		)
+	}
+
+	return cluster.remoteFileSystem
+}
+
 func (cluster *Cluster) ShutdownStorage() {
 	if cluster.localFileSystem != nil {
 		cluster.localFileSystem.Shutdown()
@@ -70,6 +83,10 @@ func (cluster *Cluster) ShutdownStorage() {
 
 	if cluster.objectFileSystem != nil {
 		cluster.objectFileSystem.Shutdown()
+	}
+
+	if cluster.remoteFileSystem != nil {
+		cluster.remoteFileSystem.Shutdown()
 	}
 
 	if cluster.tieredFileSystem != nil {
@@ -88,7 +105,7 @@ func (cluster *Cluster) TmpFS() *storage.FileSystem {
 	if cluster.tmpFileSystem == nil {
 		cluster.tmpFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
-				cluster.Config.TmpPath,
+				fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().Id),
 			),
 		)
 	}
@@ -110,27 +127,17 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 		if cluster.Config.StorageTieredMode == config.StorageModeObject {
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
-					storage.GetStorageContext(),
-					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, "tiered")),
+					cluster.Node().Context(),
+					storage.NewLocalFileSystemDriver(cluster.Config.RemotePath),
 					storage.NewObjectFileSystemDriver(cluster.Config),
-					cluster.Node().ReplicationGroupManager.WriterGroup(),
 				),
 			)
 		} else if cluster.Config.StorageTieredMode == config.StorageModeLocal {
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
-					storage.GetStorageContext(),
-					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, "tiered")),
+					cluster.Node().Context(),
+					storage.NewLocalFileSystemDriver(cluster.Config.RemotePath),
 					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
-					cluster.Node().ReplicationGroupManager.WriterGroup(),
-				),
-			)
-		} else if cluster.Config.StorageTieredMode == config.StorageModeDistributed {
-			cluster.tieredFileSystem = storage.NewFileSystem(
-				storage.NewDistributedFileSystemDriver(
-					storage.GetStorageContext(),
-					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, "distributed_cache")),
-					cluster.StorageConnectionManager,
 				),
 			)
 		}

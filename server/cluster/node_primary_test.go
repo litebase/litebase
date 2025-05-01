@@ -2,11 +2,14 @@ package cluster_test
 
 import (
 	"fmt"
-	"litebase/internal/test"
-	"litebase/server/cluster"
-	"litebase/server/cluster/messages"
 	"strings"
 	"testing"
+
+	"github.com/litebase/litebase/server/cluster/messages"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 func TestNewNodePrimary(t *testing.T) {
@@ -68,12 +71,11 @@ func TestNodePrimaryHeartbeatWithDisconnectedNode(t *testing.T) {
 			t.Error("Heartbeat should return an error")
 		}
 
-		queryNodes, _ := testServer1.App.Cluster.GetMembers(false)
+		queryNodes := testServer1.App.Cluster.GetMembers(false)
 
 		if len(queryNodes) != 1 {
 			t.Errorf("Query nodes should be 1, got %d", len(queryNodes))
 		}
-
 	})
 }
 
@@ -82,14 +84,15 @@ func TestNodePrimaryPublish(t *testing.T) {
 		testServer1 := test.NewTestServer(t)
 		test.NewTestServer(t)
 		test.NewTestServer(t)
+		address, _ := testServer1.App.Cluster.Node().Address()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
 			t.Fatalf("Node should be primary")
 		}
 
-		err := testServer1.App.Cluster.Node().Primary().Publish(messages.NodeMessage{
+		_, err := testServer1.App.Cluster.Node().Primary().Publish(messages.NodeMessage{
 			Data: messages.HeartbeatMessage{
-				Address: testServer1.App.Cluster.Node().Address(),
+				Address: address,
 				ID:      []byte("broadcast"),
 			},
 		})

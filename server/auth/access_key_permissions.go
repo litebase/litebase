@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"fmt"
 	"log"
 	"strings"
 )
@@ -13,6 +12,10 @@ import (
 type AccessKeyPermission struct {
 	Resource string   `json:"resource"`
 	Actions  []string `json:"actions"`
+}
+
+func (accessKey *AccessKey) authorizationKey(strs ...string) string {
+	return strings.Join(strs, ":")
 }
 
 // Determine if an Access Key is authorized to perform an action on a resource.
@@ -49,83 +52,83 @@ func (accessKey AccessKey) authorized(resource string, privilige DatabasePrivile
 }
 
 func (accessKey *AccessKey) authorizedForColumn(databaseId, branchId, table, column string, privilege DatabasePrivilege) bool {
-	if accessKey.authorized(fmt.Sprintf("database:%s:*", databaseId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:*", databaseId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:*", databaseId, branchId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:table:*", databaseId, branchId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:table:%s:column:*", databaseId, branchId, table), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:table:%s:column:%s", databaseId, branchId, table, column), privilege)
+	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", column), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a database.
 func (accessKey *AccessKey) authorizedForDatabase(databaseId, branchId string, privilege DatabasePrivilege) bool {
-	if accessKey.authorized(fmt.Sprintf("database:%s:*", databaseId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:*", databaseId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(fmt.Sprintf("database:%s:branch:%s", databaseId, branchId), privilege)
+	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a table.
 func (accessKey *AccessKey) authorizedForTable(databaseId, branchId, table string, privilege DatabasePrivilege) bool {
-	if accessKey.authorized(fmt.Sprintf("database:%s:*", databaseId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:*", databaseId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:*", databaseId, branchId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:table:*", databaseId, branchId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:table:%s", databaseId, branchId, table), privilege)
+	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a module.
 func (accessKey *AccessKey) authorizedForVTable(databaseId, branchId, module, vtable string, privilege DatabasePrivilege) bool {
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:*", databaseId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:*", databaseId, branchId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:module:*", databaseId, branchId), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:module:%s:*", databaseId, branchId, module), privilege) {
+	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(fmt.Sprintf("database:%s:branch:%s:module:%s:vtable:%s", databaseId, branchId, module, vtable), privilege)
+	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", vtable), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a branch.
@@ -139,7 +142,7 @@ func (accessKey *AccessKey) CanAccessDatabase(databaseId, branchId string) error
 			return nil
 		}
 
-		if strings.HasPrefix(permission.Resource, fmt.Sprintf("%s:%s", databaseId, branchId)) {
+		if strings.HasPrefix(permission.Resource, accessKey.authorizationKey(databaseId, branchId)) {
 			return nil
 		}
 	}

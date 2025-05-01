@@ -37,6 +37,7 @@ type FrameCompleted struct {
 type SetFrameQuery struct {
 	Query string
 }
+
 type RunQuery struct {
 	Query string
 }

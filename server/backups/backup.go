@@ -9,14 +9,18 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"litebase/internal/config"
-	internalStorage "litebase/internal/storage"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/litebase/litebase/server/file"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 
 	"log"
 )

@@ -126,7 +126,7 @@ func SwitchProfile(name string) error {
 }
 
 func SetUrl(url string) {
-	configuration.url = url
+	configuration.url = strings.TrimRight(url, "/")
 }
 
 func SetPassword(password string) {

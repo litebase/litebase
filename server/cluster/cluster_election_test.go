@@ -1,12 +1,16 @@
 package cluster_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/cluster"
-	"math/rand/v2"
+	"slices"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/cluster"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewClusterElection(t *testing.T) {
@@ -71,6 +75,8 @@ func TestClusterElectionRunWithMultipleNodes(t *testing.T) {
 		{nodeCount: 4},
 		{nodeCount: 5},
 		{nodeCount: 6},
+		{nodeCount: 7},
+		{nodeCount: 8},
 	}
 
 	for _, tc := range testCases {
@@ -78,32 +84,23 @@ func TestClusterElectionRunWithMultipleNodes(t *testing.T) {
 			test.Run(t, func() {
 				servers := make([]*test.TestServer, tc.nodeCount)
 
-				for i := 0; i < tc.nodeCount; i++ {
+				for i := range tc.nodeCount {
 					servers[i] = test.NewUnstartedTestServer(t)
 				}
 
 				var electedCount int
 
-				for i := 0; i < tc.nodeCount; i++ {
-					servers[i].App.Cluster.Node().JoinCluster()
+				for _, server := range servers {
+					server.App.Cluster.Node().JoinCluster()
 				}
 
-				for i := 0; i < tc.nodeCount; i++ {
-					clusterElection := servers[i].App.Cluster.Node().Election()
-
-					for j := 0; j < tc.nodeCount; j++ {
-						if i == j {
-							continue
-						}
-
-						seed := rand.Int64()
-						clusterElection.AddCandidate(servers[j].App.Cluster.Node().Address(), seed)
-					}
+				for _, server := range servers {
+					clusterElection := server.App.Cluster.Node().Election()
 
 					elected, err := clusterElection.Run()
 
 					if err != nil {
-						t.Errorf("Expected error, got nil")
+						t.Fatalf("run election error: %v", err)
 					}
 
 					if elected {
@@ -114,6 +111,162 @@ func TestClusterElectionRunWithMultipleNodes(t *testing.T) {
 				if electedCount != 1 {
 					t.Fatalf("Expected 1 elected, got %d", electedCount)
 				}
+
+				for _, server := range servers {
+					server.Shutdown()
+				}
+			})
+		})
+	}
+}
+
+func TestClusterElectionRunWithMultipleNodesAsync(t *testing.T) {
+	testCases := []struct {
+		nodeCount int
+	}{
+		{nodeCount: 1},
+		{nodeCount: 2},
+		{nodeCount: 3},
+		{nodeCount: 4},
+		{nodeCount: 5},
+		{nodeCount: 6},
+		{nodeCount: 7},
+		{nodeCount: 8},
+	}
+
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			test.Run(t, func() {
+				servers := make([]*test.TestServer, tc.nodeCount)
+
+				for i := range tc.nodeCount {
+					servers[i] = test.NewUnstartedTestServer(t)
+				}
+
+				var electedCount int
+
+				for _, server := range servers {
+					server.App.Cluster.Node().JoinCluster()
+				}
+
+				wg := sync.WaitGroup{}
+				wg.Add(tc.nodeCount)
+
+				var electionErrors []error
+
+				for i, server := range servers {
+					go func(server *test.TestServer, i int) {
+						defer wg.Done()
+
+						clusterElection := server.App.Cluster.Node().Election()
+
+						elected, err := clusterElection.Run()
+
+						if err != nil {
+							electionErrors = append(electionErrors, err)
+
+							return
+						}
+
+						if elected {
+							electedCount++
+						}
+					}(server, i)
+				}
+
+				wg.Wait()
+
+				if len(electionErrors) > 0 {
+					t.Fatalf("run election error: %v", electionErrors)
+				}
+
+				if electedCount != 1 {
+					t.Fatalf("Expected 1 elected, got %d", electedCount)
+				}
+
+				for _, server := range servers {
+					server.Shutdown()
+				}
+			})
+		})
+	}
+}
+
+func TestClusterElectionRunWithMultipleNodesAsyncWithFailure(t *testing.T) {
+	testCases := []struct {
+		nodeCount int
+	}{
+		{nodeCount: 2},
+		{nodeCount: 3},
+		{nodeCount: 4},
+		{nodeCount: 5},
+		{nodeCount: 6},
+		{nodeCount: 7},
+		{nodeCount: 8},
+	}
+
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			test.Run(t, func() {
+				servers := make([]*test.TestServer, tc.nodeCount)
+
+				for i := range tc.nodeCount {
+					servers[i] = test.NewUnstartedTestServer(t)
+				}
+
+				var electedCount int
+
+				for _, server := range servers {
+					server.App.Cluster.Node().JoinCluster()
+				}
+
+				for len(servers) > 1 {
+					wg := sync.WaitGroup{}
+					wg.Add(len(servers))
+
+					var electionErrors []error
+					var electedIndex int
+
+					for i, server := range servers {
+						go func(server *test.TestServer, i int) {
+							defer wg.Done()
+
+							clusterElection := server.App.Cluster.Node().Election()
+
+							elected, err := clusterElection.Run()
+
+							if err != nil {
+								electionErrors = append(electionErrors, err)
+
+								return
+							}
+
+							if elected {
+								electedCount++
+								electedIndex = i
+							}
+						}(server, i)
+					}
+
+					wg.Wait()
+
+					if len(electionErrors) > 0 {
+						t.Fatalf("run election error: %v", electionErrors)
+					}
+
+					if electedCount != 1 {
+						t.Fatalf("Expected 1 elected, got %d", electedCount)
+						break
+					}
+
+					servers[electedIndex].Shutdown()
+					servers = slices.Delete(servers, electedIndex, electedIndex+1)
+					electedCount = 0
+				}
+
+				for _, server := range servers {
+					server.Shutdown()
+				}
 			})
 		})
 	}
@@ -123,9 +276,16 @@ func TestClusterElectionStop(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
 
+		clusterElection.Run()
 		clusterElection.Stop()
 
-		if clusterElection.Context().Err() == nil {
+		ctx := clusterElection.Context()
+
+		if ctx == nil {
+			t.Fatalf("Expected context to not be nil")
+		}
+
+		if ctx.Err() == nil {
 			t.Fatalf("Expected context error, got nil")
 		}
 	})

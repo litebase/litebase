@@ -2,12 +2,17 @@ package storage_test
 
 import (
 	"fmt"
-	"litebase/internal/config"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"testing"
+
+	"github.com/litebase/litebase/server/file"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewDatabaseMetadata(t *testing.T) {
@@ -16,6 +21,8 @@ func TestNewDatabaseMetadata(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
@@ -50,12 +57,14 @@ func TestNewDatabaseMetadata(t *testing.T) {
 	})
 }
 
-func TestDatabaseMetadataClose(t *testing.T) {
+func TestDatabaseMetadata_Close(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
@@ -82,6 +91,8 @@ func TestDatabaseMetadataFile(t *testing.T) {
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
@@ -110,12 +121,14 @@ func TestDatabaseMetadataFile(t *testing.T) {
 	})
 }
 
-func TestDatabaseMetadataFileSize(t *testing.T) {
+func TestDatabaseMetadata_FileSize(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
@@ -140,12 +153,14 @@ func TestDatabaseMetadataFileSize(t *testing.T) {
 	})
 }
 
-func TestDatabaseMetadataLoad(t *testing.T) {
+func TestDatabaseMetadata_Load(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
@@ -190,12 +205,14 @@ func TestDatabaseMetadataLoad(t *testing.T) {
 	})
 }
 
-func TestDatabaseMetadataPath(t *testing.T) {
+func TestDatabaseMetadata_Path(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
@@ -216,12 +233,14 @@ func TestDatabaseMetadataPath(t *testing.T) {
 	})
 }
 
-func TestDatabaseMetadataSave(t *testing.T) {
+func TestDatabaseMetadata_Save(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,
@@ -262,12 +281,14 @@ func TestDatabaseMetadataSave(t *testing.T) {
 	})
 }
 
-func TestDatabaseMetadataSetPageCount(t *testing.T) {
+func TestDatabaseMetadata_SetPageCount(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
 		localDatabaseFileSystem := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
+			app.Cluster.LocalFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseId, mockDatabase.BranchId, app.Cluster.LocalFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseId,
 			mockDatabase.BranchId,

@@ -3,49 +3,76 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"litebase/server/auth"
-	"litebase/server/cluster"
-	"litebase/server/file"
 	"log"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/litebase/litebase/server/file"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/server/cluster"
+
 	"github.com/google/uuid"
 )
 
 type DatabaseManager struct {
-	databases         map[string]*Database
 	Cluster           *cluster.Cluster
+	databases         map[string]*Database
 	connectionManager *ConnectionManager
 	mutex             *sync.Mutex
+	pageLogManager    *storage.PageLogManager
 	resources         map[string]*DatabaseResources
 	SecretsManager    *auth.SecretsManager
 	WriteQueueManager *WriteQueueManager
 }
 
-func NewDatabaseManager(cluster *cluster.Cluster, secretsManager *auth.SecretsManager) *DatabaseManager {
-	return &DatabaseManager{
-		databases:         make(map[string]*Database),
+func NewDatabaseManager(
+	cluster *cluster.Cluster,
+	secretsManager *auth.SecretsManager,
+) *DatabaseManager {
+	dbm := &DatabaseManager{
 		Cluster:           cluster,
+		databases:         make(map[string]*Database),
 		mutex:             &sync.Mutex{},
 		resources:         make(map[string]*DatabaseResources),
 		SecretsManager:    secretsManager,
-		WriteQueueManager: NewWriteQueueManager(),
+		WriteQueueManager: NewWriteQueueManager(cluster.Node().Context()),
 	}
+
+	dbm.pageLogManager = storage.NewPageLogManager(
+		dbm.Cluster.Node().Context(),
+	)
+
+	dbm.pageLogManager.SetCompactionFn(dbm.compaction)
+
+	return dbm
 }
 
 func (d *DatabaseManager) All() ([]*Database, error) {
 	var databases []*Database
 
 	// Read all files in the databases directory
+tryRead:
 	entries, err := d.Cluster.ObjectFS().ReadDir(Directory())
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			err := d.Cluster.ObjectFS().MkdirAll(Directory(), 0755)
+
+			if err != nil {
+				return nil, err
+			}
+
+			goto tryRead
+		}
+
 		return nil, err
 	}
 
-	// TODO: High touch area, consider refactoring
 	for _, entry := range entries {
 		data, err := d.Cluster.ObjectFS().ReadFile(fmt.Sprintf("%s%s/settings.json", Directory(), entry.Name()))
 
@@ -69,38 +96,71 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 	return databases, nil
 }
 
+// When the page log manager needs to compact the page logs, it will call this
+// function. The database manager will call the compact function on each open
+// database file system, while coordinating with the check pointer to ensure
+// that pages are not being written to while the compaction is happening.
+func (d *DatabaseManager) compaction() {
+	for _, resource := range d.resources {
+		walmanager, err := resource.DatabaseWALManager()
+
+		if err != nil {
+			log.Println("Error getting WAL manager:", err)
+			continue
+		}
+
+		err = walmanager.CheckpointBarrier(func() error {
+			checkpointer, err := resource.Checkpointer()
+
+			if err != nil {
+				log.Println("Error getting checkpointer:", err)
+				return err
+			}
+
+			checkpointer.WithLock(func() {
+				resource.FileSystem().Compact()
+			})
+
+			return nil
+		})
+
+		if err != nil {
+			log.Println("Error creating checkpoint barrier:", err)
+			continue
+		}
+	}
+}
+
 func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if d.connectionManager != nil {
 		return d.connectionManager
 	}
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	if d.connectionManager == nil {
-		d.connectionManager = &ConnectionManager{
-			cluster:         d.Cluster,
-			databaseManager: d,
-			databases:       map[string]*DatabaseGroup{},
-			mutex:           &sync.RWMutex{},
-			state:           ConnectionManagerStateRunning,
-		}
-
-		// Start the connection ticker
-		go func() {
-			time.Sleep(1 * time.Second)
-			d.connectionManager.connectionTicker = time.NewTicker(1 * time.Second)
-
-			for {
-				select {
-				case <-d.Cluster.Node().Context().Done():
-					return
-				case <-d.connectionManager.connectionTicker.C:
-					d.connectionManager.Tick()
-				}
-			}
-		}()
+	d.connectionManager = &ConnectionManager{
+		cluster:         d.Cluster,
+		databaseManager: d,
+		databases:       map[string]*DatabaseGroup{},
+		mutex:           &sync.RWMutex{},
+		state:           ConnectionManagerStateRunning,
 	}
+
+	// Start the connection ticker
+	go func() {
+		time.Sleep(1 * time.Second)
+		d.connectionManager.connectionTicker = time.NewTicker(1 * time.Second)
+
+		for {
+			select {
+			case <-d.Cluster.Node().Context().Done():
+				return
+			case <-d.connectionManager.connectionTicker.C:
+				d.connectionManager.Tick()
+			}
+		}
+	}()
 
 	return d.connectionManager
 }
@@ -143,22 +203,34 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 
 func (d *DatabaseManager) Delete(database *Database) error {
 	path := fmt.Sprintf("%s%s", Directory(), database.Id)
+	fileSystem := d.Resources(database.Id, database.PrimaryBranchId).FileSystem()
 
 	if _, err := d.Cluster.ObjectFS().Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("database '%s' does not exist", database.Id)
 	}
 
+	// Delete the database keys
 	for _, branch := range database.Branches {
 		database.DatabaseManager.SecretsManager.DeleteDatabaseKey(
 			database.Key(branch.Id),
 		)
 	}
 
-	// TODO: Delete all branches
-	// TODO: Delete all access keys
-	// TODO: Delete all backups and storage
+	// TODO: Removing all database storage may require the removal of a lot of files.
+	// How is this going to work with tiered storage? We also need to test that
+	// removing a database stops any opertaions to the database.
+	err := fileSystem.FileSystem().RemoveAll(
+		file.GetDatabaseRootDir(
+			database.Id,
+		),
+	)
 
-	return d.Cluster.ObjectFS().Remove(path)
+	if err != nil {
+		log.Println("Error deleting database storage", err)
+		return err
+	}
+
+	return nil
 }
 
 func (d *DatabaseManager) Exists(name string) bool {
@@ -197,6 +269,8 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 		return nil, fmt.Errorf("database '%s' has not been configured", databaseId)
 	}
 
+	defer file.Close()
+
 	database := &Database{}
 
 	err = json.NewDecoder(file).Decode(database)
@@ -210,13 +284,19 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	return database, nil
 }
 
+func (d *DatabaseManager) PageLogManager() *storage.PageLogManager {
+	return d.pageLogManager
+}
+
 // Get the resources for the given database and branch UUIDs. If the resources
 // have not been created, create them and store them in the resources map.
 func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResources {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if resource, ok := d.resources[file.DatabaseHash(databaseId, branchId)]; ok {
+	hash := file.DatabaseHash(databaseId, branchId)
+
+	if resource, ok := d.resources[hash]; ok {
 		return resource
 	}
 
@@ -226,18 +306,18 @@ func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResour
 		DatabaseId:      databaseId,
 		databaseManager: d,
 		DatabaseHash:    file.DatabaseHash(databaseId, branchId),
-		mutex:           &sync.RWMutex{},
+		mutex:           &sync.Mutex{},
 		tieredFS:        d.Cluster.TieredFS(),
 		tmpFS:           d.Cluster.TmpFS(),
 	}
 
-	d.resources[file.DatabaseHash(databaseId, branchId)] = resource
+	d.resources[hash] = resource
 
-	return resource
+	return d.resources[hash]
 }
 
 // Shutdown all of the database resources that have been created.
-func (d *DatabaseManager) ShutdownResources() {
+func (d *DatabaseManager) ShutdownResources() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -246,4 +326,6 @@ func (d *DatabaseManager) ShutdownResources() {
 	}
 
 	d.resources = map[string]*DatabaseResources{}
+
+	return nil
 }

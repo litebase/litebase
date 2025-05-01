@@ -1,22 +1,28 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/file"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 type SecretsManager struct {
 	auth               *Auth
 	config             *config.Config
-	databaseKeys       map[string]string
+	databaseKeyMutex   sync.RWMutex
+	databaseKeys       map[string]*DatabaseKey
 	secretStore        map[string]SecretsStore
 	secretStoreMutex   sync.RWMutex
 	encrypterInstances map[string]*KeyEncrypter
@@ -40,7 +46,8 @@ func NewSecretsManager(
 	return &SecretsManager{
 		auth:               auth,
 		config:             config,
-		databaseKeys:       make(map[string]string),
+		databaseKeyMutex:   sync.RWMutex{},
+		databaseKeys:       make(map[string]*DatabaseKey),
 		encrypterInstances: make(map[string]*KeyEncrypter),
 		mutex:              sync.RWMutex{},
 		ObjectFS:           objectFS,
@@ -114,6 +121,13 @@ func (s *SecretsManager) DecryptFor(accessKeyId, accessKeySecret, text string) (
 
 // Delete a database key from the SecretsManager.
 func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
+	s.databaseKeyMutex.Lock()
+	defer s.databaseKeyMutex.Unlock()
+
+	if _, ok := s.databaseKeys[databaseKey]; ok {
+		delete(s.databaseKeys, databaseKey)
+	}
+
 	filePaths := []string{
 		GetDatabaseKeyPath(s.config.Signature, databaseKey),
 	}
@@ -135,13 +149,13 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 	return nil
 }
 
-// Encrypt the given text using the given signature
-func (s *SecretsManager) Encrypt(signature string, text []byte) ([]byte, error) {
-	return s.Encrypter(signature).Encrypt(text)
+// Encrypt the given data using the given signature
+func (s *SecretsManager) Encrypt(signature string, data []byte) ([]byte, error) {
+	return s.Encrypter(signature).Encrypt(data)
 }
 
-// Encrypt the given text using the given access key id
-func (s *SecretsManager) EncryptFor(accessKeyId, text string) (string, error) {
+// Encrypt the given data using the given access key id
+func (s *SecretsManager) EncryptFor(accessKeyId, data string) (string, error) {
 	secret, err := s.GetAccessKeySecret(accessKeyId)
 
 	if err != nil {
@@ -150,7 +164,7 @@ func (s *SecretsManager) EncryptFor(accessKeyId, text string) (string, error) {
 
 	encrypter := NewEncrypter([]byte(secret))
 
-	return encrypter.Encrypt(text)
+	return encrypter.Encrypt(data)
 }
 
 // Get the KeyEncrypter for the given key
@@ -197,6 +211,41 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 	return accessKey.AccessKeySecret, nil
 }
 
+func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
+	// Check if the database key is cached
+	s.databaseKeyMutex.RLock()
+
+	if databaseKey, ok := s.databaseKeys[key]; ok {
+		s.databaseKeyMutex.RUnlock()
+		return databaseKey, nil
+	}
+
+	s.databaseKeyMutex.RUnlock()
+
+	s.databaseKeyMutex.Lock()
+	defer s.databaseKeyMutex.Unlock()
+
+	// Read the database key file
+	data, err := s.ObjectFS.ReadFile(GetDatabaseKeyPath(s.config.Signature, key))
+
+	if err != nil {
+		return nil, err
+	}
+
+	databaseKey := &DatabaseKey{}
+
+	err = json.NewDecoder(bytes.NewReader(data)).Decode(&databaseKey)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the database key
+	s.databaseKeys[key] = databaseKey
+
+	return databaseKey, nil
+}
+
 // Initialize the SecretsManager
 func (s *SecretsManager) Init() error {
 	// Ensure the secrets path exists
@@ -231,11 +280,6 @@ func (s *SecretsManager) Init() error {
 	return nil
 }
 
-// Get the public key cache key for the given signature and database id
-func (s *SecretsManager) publicKeyCacheKey(signature, databaseId string) string {
-	return fmt.Sprintf("public_key:%s:%s", signature, databaseId)
-}
-
 // Purge database settings for the given database id and branch id from cache
 func (s *SecretsManager) PurgeDatabaseSettings(databaseId string, branchId string) error {
 	s.cache("map").Forget(s.databaseSettingCacheKey(databaseId, branchId))
@@ -256,7 +300,6 @@ func (s *SecretsManager) PurgeExpiredSecrets() error {
 		return err
 	}
 
-	// TODO: ignore directories that start with an underscore
 	if len(directories) <= 2 {
 		return nil
 	}
@@ -264,6 +307,11 @@ func (s *SecretsManager) PurgeExpiredSecrets() error {
 	for _, directory := range directories {
 		// check if the entry is a directory
 		if !directory.IsDir() {
+			continue
+		}
+
+		// Ignore directories that start with "_"
+		if strings.HasPrefix(directory.Name(), "_") {
 			continue
 		}
 
@@ -334,6 +382,7 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	)
 
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 

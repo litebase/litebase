@@ -1,11 +1,14 @@
 package database
 
 import (
+	"errors"
 	"fmt"
-	"litebase/server/cluster"
 	"log"
+	"slices"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 const (
@@ -14,14 +17,18 @@ const (
 	ConnectionManagerStateShutdown
 )
 
-const (
-	ErrorConnectionManagerShutdown = "new database connections cannot be created after shutdown"
-	ErrorConnectionManagerDraining = "new database connections cannot be created while shutting down"
+var (
+	ErrorConnectionManagerShutdown = errors.New("new database connections cannot be created after shutdown")
+	ErrorConnectionManagerDraining = errors.New("new Xdatabase connections cannot be created while shutting down")
 )
 
 const DatabaseIdleTimeout = 1 * time.Minute
 
+// const DatabaseIdleTimeout = 2 * time.Second
+const DatabaseCheckpointThreshold = 1 * time.Second
+
 type ConnectionManager struct {
+	checkpointing    bool
 	cluster          *cluster.Cluster
 	connectionTicker *time.Ticker
 	databaseManager  *DatabaseManager
@@ -32,19 +39,19 @@ type ConnectionManager struct {
 
 func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
 	// Skip if the committed at time time stamp for the connection is empty
-	if clientConnection.connection.committedAt.IsZero() {
-		return false
-	}
+	// if clientConnection.connection.committedAt.IsZero() {
+	// 	return false
+	// }
 
 	// Skip if the committed at time stamp of the connection is before the last
 	// checkpoint of the database group
-	if clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
-		return false
-	}
+	// if clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
+	// 	return false
+	// }
 
 	// Skip if the last checkpoint for the database group was performed less
-	// than a second
-	if time.Since(databaseGroup.checkpointedAt) <= 1*time.Second {
+	// than the checkpoint threshold.
+	if time.Since(databaseGroup.checkpointedAt) <= DatabaseCheckpointThreshold {
 		return false
 	}
 
@@ -54,7 +61,6 @@ func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId st
 
 	lock.Lock()
 	defer lock.Unlock()
-
 	// Attempt to checkpoint the database. In cases where there are multiple
 	// connections attempting to write to the database, the checkpoint will
 	// fail and return SQLITE_BUSY. This is expected and we will just try
@@ -73,18 +79,63 @@ func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId st
 }
 
 func (c *ConnectionManager) CheckpointAll() {
+	if c.cluster.Node().IsReplica() {
+		return
+	}
+
+	if c.checkpointing {
+		return
+	}
+
+	c.checkpointing = true
+
+	defer func() {
+		c.checkpointing = false
+	}()
+
+	for databaseId, databaseGroup := range c.databases {
+		for branchId := range databaseGroup.branches {
+			for _, branchConnection := range databaseGroup.branches[branchId] {
+				// Skip if the committed at time time stamp for the connection is empty
+				if branchConnection.connection.connection.committedAt.IsZero() {
+					continue
+				}
+
+				// Skip if the committed at time stamp of the connection is before the last
+				// checkpoint of the database group
+				if branchConnection.connection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
+					continue
+				}
+
+				connection, err := c.Get(databaseId, branchId)
+
+				if err != nil {
+					log.Println("Error getting connection", err)
+
+					continue
+				}
+
+				go func(databaseGroup *DatabaseGroup, cc *ClientConnection) {
+					c.Checkpoint(databaseGroup, branchId, cc)
+					c.Release(cc.connection.databaseId, cc.connection.branchId, cc)
+				}(databaseGroup, connection)
+
+				break
+			}
+		}
+	}
+}
+
+func (c *ConnectionManager) ClearCaches(databaseId string, branchId string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for _, database := range c.databases {
-		for branchId, brancheConnections := range database.branches {
-			for _, branchConnection := range brancheConnections {
-				if c.Checkpoint(database, branchId, branchConnection.connection) {
-					// Only checkpoint once per branch
-					break
-				}
-			}
-		}
+	if c.databases[databaseId] == nil {
+		return
+	}
+
+	for _, branchConnection := range c.databases[databaseId].branches[branchId] {
+		branchConnection.connection.GetConnection().SqliteConnection().ClearCache()
 	}
 }
 
@@ -98,10 +149,6 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 
 		return drained()
 	}
-
-	// TODO: This is causing a deadlock
-	// databaseGroup.lockMutex.Lock()
-	// defer databaseGroup.lockMutex.Unlock()
 
 	_, ok = databaseGroup.branches[branchId]
 
@@ -125,7 +172,7 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 
 	wg := sync.WaitGroup{}
 
-	for i := 0; i < len(databaseGroup.branches[branchId]); i++ {
+	for i := range databaseGroup.branches[branchId] {
 		wg.Add(1)
 		go func(branchConnection *BranchConnection) {
 			defer wg.Done()
@@ -242,7 +289,6 @@ func (c *ConnectionManager) ForceCheckpoint(databaseId string, branchId string) 
 
 	// Lock the branch to allow the checkpoint to complete
 	lock.Lock()
-
 	defer lock.Unlock()
 
 	err = connection.connection.Checkpoint()
@@ -264,25 +310,12 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	// if c.databases[databaseId] != nil {
-	// 	c.databases[databaseId].lockMutex.Lock()
-	// 	defer c.databases[databaseId].lockMutex.Unlock()
-	// }
-
 	if c.databases[databaseId] != nil &&
 		c.databases[databaseId].branches[branchId] != nil &&
 		len(c.databases[databaseId].branches[branchId]) > 0 {
 		for _, branchConnection := range c.databases[databaseId].branches[branchId] {
 			if !branchConnection.Claimed() {
 				branchConnection.Claim()
-
-				// Check if the connection is valid
-				if !branchConnection.IsValid() {
-					log.Println("removing invalid connection")
-					c.remove(databaseId, branchId, branchConnection.connection)
-					continue
-				}
-
 				return branchConnection.connection, nil
 			}
 		}
@@ -317,7 +350,7 @@ func (c *ConnectionManager) Release(databaseId string, branchId string, clientCo
 
 	for _, branchConnection := range c.databases[databaseId].branches[branchId] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
-			branchConnection.Unclaim()
+			branchConnection.Release()
 			branchConnection.lastUsedAt = time.Now()
 			break
 		}
@@ -327,10 +360,10 @@ func (c *ConnectionManager) Release(databaseId string, branchId string, clientCo
 // Remove a branch connection from the database group. This method is called
 // without the mutex lock, so it should be called from within a mutex lock.
 func (c *ConnectionManager) remove(databaseId string, branchId string, clientConnection *ClientConnection) {
-	// Remove the branch conenction from the database group branch
+	// Remove the branch connection from the database group branch
 	for i, branchConnection := range c.databases[databaseId].branches[branchId] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
-			c.databases[databaseId].branches[branchId] = append(c.databases[databaseId].branches[branchId][:i], c.databases[databaseId].branches[branchId][i+1:]...)
+			c.databases[databaseId].branches[branchId] = slices.Delete(c.databases[databaseId].branches[branchId], i, i+1)
 			break
 		}
 	}
@@ -359,27 +392,20 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 		var activeBranches = len(database.branches)
 
 		for branchId, branchConnections := range database.branches {
-			var activeConnections = 0
+			removeableBranches := []*BranchConnection{}
 
-			for i, branchConnection := range branchConnections {
+			for _, branchConnection := range branchConnections {
 				// Close the connection if it is not in use and has been idle
 				// for more than a minute. We need to also avoid removing
 				// connections that require a checkpoint. Not doing so can lead
 				// to database corruption.
 				if !branchConnection.RequiresCheckpoint() && !branchConnection.Claimed() && time.Since(branchConnection.lastUsedAt) > DatabaseIdleTimeout {
-					database.branches[branchId] = append(branchConnections[:i], branchConnections[i+1:]...)
-					branchConnection.connection.Close()
-				} else if branchConnection.RequiresCheckpoint() {
-					activeConnections++
-				} else {
-					activeConnections++
+					removeableBranches = append(removeableBranches, branchConnection)
 				}
 			}
 
-			// if the database branch has no more branch connections, remove the database branch
-			if activeConnections == 0 {
-				delete(database.branches, branchId)
-				c.databaseManager.Resources(databaseId, branchId).Remove()
+			for _, branchConnection := range removeableBranches {
+				c.remove(databaseId, branchId, branchConnection.connection)
 			}
 
 			if len(database.branches) == 0 {
@@ -406,6 +432,7 @@ func (c *ConnectionManager) Shutdown() {
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
 	// Stop connection ticker
 	if c.connectionTicker != nil {
 		c.connectionTicker.Stop()
@@ -417,9 +444,9 @@ func (c *ConnectionManager) Shutdown() {
 func (c *ConnectionManager) StateError() error {
 	switch c.state {
 	case ConnectionManagerStateShutdown:
-		return fmt.Errorf(ErrorConnectionManagerShutdown)
+		return ErrorConnectionManagerShutdown
 	case ConnectionManagerStateDraining:
-		return fmt.Errorf(ErrorConnectionManagerDraining)
+		return ErrorConnectionManagerDraining
 	default:
 		return nil
 	}

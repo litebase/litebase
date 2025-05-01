@@ -2,29 +2,30 @@ package http
 
 import (
 	"fmt"
-	"litebase/server/auth"
 	"log"
+
+	"github.com/litebase/litebase/server/auth"
 )
 
 func AccessKeyControllerIndex(request *Request) Response {
 	accessKeysIds, err := request.accessKeyManager.AllAccessKeyIds()
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Access keys could not be retrieved",
 		}, 500, nil)
 	}
 
-	accessKeys := []map[string]interface{}{}
+	accessKeys := []map[string]any{}
 
 	for _, accessKeyId := range accessKeysIds {
-		accessKeys = append(accessKeys, map[string]interface{}{
+		accessKeys = append(accessKeys, map[string]any{
 			"access_key_id": accessKeyId,
 		})
 	}
 
-	return JsonResponse(map[string]interface{}{
+	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": "Access keys retrieved successfully",
 		"data":    accessKeys,
@@ -35,7 +36,7 @@ func AccessKeyControllerStore(request *Request) Response {
 	accessKey, err := request.accessKeyManager.Create()
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": fmt.Sprintf("Access key could not be created: %s", err.Error()),
 		}, 500, nil)
@@ -43,10 +44,10 @@ func AccessKeyControllerStore(request *Request) Response {
 
 	return Response{
 		StatusCode: 200,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"status":  "success",
 			"message": "Access key created successfully",
-			"data": map[string]interface{}{
+			"data": map[string]any{
 				"access_key_id":     accessKey.AccessKeyId,
 				"access_key_secret": accessKey.AccessKeySecret,
 			},
@@ -60,7 +61,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 	accessKey, err := request.accessKeyManager.Get(request.Get("access_key_id").(string))
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Access key could not be found",
 		}, 404, nil)
@@ -69,13 +70,13 @@ func AccessKeyControllerUpdate(request *Request) Response {
 	err = accessKey.Update(request.Get("permissions").([]*auth.AccessKeyPermission))
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Access key could not be updated",
 		}, 500, nil)
 	}
 
-	return JsonResponse(map[string]interface{}{
+	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": "Access key updated successfully.",
 	}, 200, nil)
@@ -86,7 +87,7 @@ func AccessKeyControllerDestroy(request *Request) Response {
 	accessKey, err := request.accessKeyManager.Get(request.Param("accessKeyId"))
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Access key could not be found",
 		}, 404, nil)
@@ -95,13 +96,13 @@ func AccessKeyControllerDestroy(request *Request) Response {
 	err = accessKey.Delete()
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Access key could not be deleted",
 		}, 500, nil)
 	}
 
-	return JsonResponse(map[string]interface{}{
+	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": "Access key deleted successfully.",
 	}, 200, nil)

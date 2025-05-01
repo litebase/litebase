@@ -1,7 +1,7 @@
 package database
 
 import (
-	"litebase/server/auth"
+	"github.com/litebase/litebase/server/auth"
 )
 
 type ClientConnection struct {
@@ -54,12 +54,14 @@ func (d *ClientConnection) Path() string {
 	return d.path
 }
 
+func (d *ClientConnection) Release() {
+	d.connection.release()
+}
+
 func (d *ClientConnection) WithAccessKey(accessKey *auth.AccessKey) *ClientConnection {
 	d.accessKey = accessKey
 
 	d.connection.WithAccessKey(accessKey)
-	// TODO: This needs to be implemented
-	// d.connection.setAuthorizer()
 
 	return d
 }

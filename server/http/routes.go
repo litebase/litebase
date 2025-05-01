@@ -216,6 +216,14 @@ func LoadRoutes(router *RouterInstance) {
 		NodeTick,
 	}).Timeout(1 * time.Second)
 
+	router.Get("/ping",
+		PingController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		Authentication,
+		QueryNode,
+	})
+
 	router.Post("/query",
 		QueryController,
 	).Middleware([]Middleware{
@@ -263,13 +271,6 @@ func LoadRoutes(router *RouterInstance) {
 		QueryNode,
 	})
 
-	router.Post("/storage",
-		DistributedStorageController,
-	).Middleware([]Middleware{
-		Internal,
-		StorageNode,
-	})
-
 	router.Post("/transactions",
 		TrasactionControllerStore,
 	).Middleware([]Middleware{
@@ -279,17 +280,8 @@ func LoadRoutes(router *RouterInstance) {
 		QueryNode,
 	})
 
-	router.Delete("/transactions/{id}/",
-		TrasactionControllerDestroy,
-	).Middleware([]Middleware{
-		RequireSubdomain,
-		Authentication,
-		Authorization,
-		QueryNode,
-	})
-
-	router.Post("/transactions/{id}/",
-		TrasactionControllerUpdate,
+	router.Delete("/transactions/{id}",
+		TransactionControllerDestroy,
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
@@ -312,6 +304,4 @@ func LoadRoutes(router *RouterInstance) {
 			Body:       nil,
 		}
 	})
-
-	// TODO: Implement router.Error() for 500 errors.
 }

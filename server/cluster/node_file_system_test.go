@@ -2,10 +2,12 @@ package cluster_test
 
 import (
 	"fmt"
-	"litebase/internal/test"
-	"litebase/server"
 	"os"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestClearFSFiles(t *testing.T) {

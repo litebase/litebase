@@ -3,15 +3,16 @@ package server
 import (
 	"context"
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/storage"
 	"log"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 type Server struct {
@@ -38,7 +39,7 @@ func (s *Server) Start(startHook func(*http.ServeMux), shutdownHook func()) {
 	// TODO: Add TLS support using autocert or certmagic if this is a query node
 	// TODO: Wait until a primary node is elected before starting the server with TLS
 	// TODO: Ensure only the primary can renew the TLS certificate
-	port := os.Getenv("LITEBASE_PORT")
+	port := s.config.Port
 	tlsCertPath := os.Getenv("LITEBASE_TLS_CERT_PATH")
 	tlsKeyPath := os.Getenv("LITEBASE_TLS_KEY_PATH")
 
@@ -49,12 +50,11 @@ func (s *Server) Start(startHook func(*http.ServeMux), shutdownHook func()) {
 		Handler: s.ServeMux,
 	}
 
-	log.Println("Litebase Server running on port", port)
-
 	if startHook != nil {
 		startHook(s.ServeMux)
 	}
 
+	log.Println("Litebase Server running on port", port)
 	serverDone := make(chan struct{})
 
 	go func() {

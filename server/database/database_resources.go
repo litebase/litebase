@@ -2,119 +2,130 @@ package database
 
 import (
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/backups"
-	"litebase/server/file"
-	"litebase/server/sqlite3"
-	"litebase/server/storage"
 	"log"
 	"sync"
+
+	"github.com/litebase/litebase/server/backups"
+
+	"github.com/litebase/litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/server/file"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 type DatabaseResources struct {
-	BranchId        string
-	config          *config.Config
-	DatabaseHash    string
-	DatabaseId      string
-	databaseManager *DatabaseManager
-	distributedWal  *storage.DistributedWal
-	snapshotLogger  *backups.SnapshotLogger
-	checkpointer    *Checkpointer
-	fileSystem      *storage.DurableDatabaseFileSystem
-	mutex           *sync.RWMutex
-	resultPool      *sqlite3.ResultPool
-	rollbackLogger  *backups.RollbackLogger
-	tempFileSystem  *storage.TempDatabaseFileSystem
-	tieredFS        *storage.FileSystem
-	tmpFS           *storage.FileSystem
-	walFile         *storage.WALFile
-	writeQueue      WriteQueue
+	BranchId           string
+	checkpointer       *Checkpointer
+	config             *config.Config
+	DatabaseHash       string
+	DatabaseId         string
+	databaseManager    *DatabaseManager
+	snapshotLogger     *backups.SnapshotLogger
+	fileSystem         *storage.DurableDatabaseFileSystem
+	mutex              *sync.Mutex
+	pageLogger         *storage.PageLogger
+	resultPool         *sqlite3.ResultPool
+	rollbackLogger     *backups.RollbackLogger
+	tempFileSystem     *storage.TempDatabaseFileSystem
+	tieredFS           *storage.FileSystem
+	transactionManager *TransactionManager
+	tmpFS              *storage.FileSystem
+	walManager         *DatabaseWALManager
 }
 
 // Return a database checkpointer.
 func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
-	d.mutex.RLock()
+	var err error
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if d.checkpointer != nil {
-		d.mutex.RUnlock()
 		return d.checkpointer, nil
 	}
 
 	// Always unlock the mutex before creating a new checkpointer to avoid a
 	// deadlock when getting the FileSystem.
-	d.mutex.RUnlock()
+	if d.fileSystem == nil {
+		d.fileSystem, err = d.createFileSystem()
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Avoid lock contention
+	if d.fileSystem == nil {
+		d.fileSystem, err = d.createFileSystem()
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if d.pageLogger == nil {
+		d.pageLogger = d.createPageLogger()
+	}
 
 	checkpointer, err := NewCheckpointer(
 		d.DatabaseId,
 		d.BranchId,
-		d.FileSystem(),
+		d.fileSystem,
+		d.databaseManager.Cluster.RemoteFS(),
+		d.pageLogger,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	d.mutex.Lock()
-
-	if d.checkpointer == nil {
-		d.checkpointer = checkpointer
-	}
-
-	d.mutex.Unlock()
+	d.checkpointer = checkpointer
 
 	return d.checkpointer, nil
 }
 
-// Return a distributed write-ahead log of the database.
-func (d *DatabaseResources) DistributedWal() *storage.DistributedWal {
-	d.mutex.RLock()
-
-	if d.distributedWal != nil {
-		d.mutex.RUnlock()
-
-		return d.distributedWal
-	}
-
-	d.mutex.RUnlock()
-
+func (d *DatabaseResources) DatabaseWALManager() (*DatabaseWALManager, error) {
 	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
-	if d.distributedWal == nil {
-		d.distributedWal = storage.NewDistributedWal(
-			d.DatabaseId,
-			d.BranchId,
-			d.databaseManager.Cluster.Node().WalReplicator(),
-		)
+	if d.walManager != nil {
+		return d.walManager, nil
 	}
 
-	d.mutex.Unlock()
+	var err error
 
-	return d.distributedWal
+	d.walManager, err = NewDatabaseWALManager(
+		d.databaseManager.Cluster.Node(),
+		d.databaseManager.ConnectionManager(),
+		d.DatabaseId,
+		d.BranchId,
+		d.databaseManager.Cluster.RemoteFS(),
+	)
+
+	return d.walManager, err
 }
 
-// Return the file system for the database.
-func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
-	d.mutex.RLock()
-
-	if d.fileSystem != nil {
-		d.mutex.RUnlock()
-
-		return d.fileSystem
+func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSystem, error) {
+	if d.pageLogger == nil {
+		d.pageLogger = d.createPageLogger()
 	}
-
-	d.mutex.RUnlock()
 
 	pageSize := d.config.PageSize
 
-	fileSystem := storage.NewDurableDatabaseFileSystem(
-		d.tieredFS,
+	d.fileSystem = storage.NewDurableDatabaseFileSystem(
+		d.databaseManager.Cluster.TieredFS(),
+		d.databaseManager.Cluster.RemoteFS(),
+		d.pageLogger,
 		fmt.Sprintf("%s%s/%s/", Directory(), d.DatabaseId, d.BranchId),
 		d.DatabaseId,
 		d.BranchId,
 		pageSize,
 	)
 
-	fileSystem = fileSystem.SetWriteHook(func(offset int64, data []byte) {
+	d.fileSystem.SetWriteHook(func(offset int64, data []byte) {
 		checkpointer, err := d.Checkpointer()
 
 		if err != nil {
@@ -130,47 +141,79 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 		)
 	})
 
-	d.mutex.Lock()
+	return d.fileSystem, nil
+}
 
-	if d.fileSystem == nil {
-		d.fileSystem = fileSystem
+func (d *DatabaseResources) createPageLogger() *storage.PageLogger {
+	return d.databaseManager.PageLogManager().Get(
+		d.DatabaseId,
+		d.BranchId,
+		d.databaseManager.Cluster.RemoteFS(),
+	)
+}
+
+// Return the file system for the database.
+func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
+	var err error
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if d.fileSystem != nil {
+		return d.fileSystem
 	}
 
-	d.mutex.Unlock()
+	d.fileSystem, err = d.createFileSystem()
+
+	if err != nil {
+		log.Println("Error creating file system", err)
+
+		return nil
+	}
 
 	return d.fileSystem
 }
 
+func (d *DatabaseResources) PageLogger() *storage.PageLogger {
+	if d.pageLogger != nil {
+		return d.pageLogger
+	}
+
+	d.pageLogger = d.createPageLogger()
+
+	return d.pageLogger
+}
+
 // Return the rollback logger for the database.
 func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
-	d.mutex.RLock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if d.rollbackLogger != nil {
-		d.mutex.RUnlock()
-
 		return d.rollbackLogger
 	}
 
-	d.mutex.RUnlock()
-
-	pageLogger := backups.NewRollbackLogger(d.tieredFS, d.DatabaseId, d.BranchId)
-
-	d.mutex.Lock()
-
 	if d.rollbackLogger == nil {
-		d.rollbackLogger = pageLogger
+		d.rollbackLogger = backups.NewRollbackLogger(d.tieredFS, d.DatabaseId, d.BranchId)
 	}
-
-	d.mutex.Unlock()
 
 	return d.rollbackLogger
 }
 
 // TODO: Need to investigate how this works separatley from the connections and backups.
 // Will the ConnectionManager steal a resource away outside the context of a connection.
+// TODO: Need to investigate how this impacts long running transactions
 func (d *DatabaseResources) Remove() {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
+	if d.transactionManager != nil {
+		d.transactionManager.Shutdown()
+	}
+
+	if d.walManager != nil {
+		d.walManager.Shutdown()
+	}
 
 	if d.rollbackLogger != nil {
 		d.rollbackLogger.Close()
@@ -179,6 +222,10 @@ func (d *DatabaseResources) Remove() {
 	// Perform any shutdown logic for the checkpoint logger
 	if d.snapshotLogger != nil {
 		d.snapshotLogger.Close()
+	}
+
+	if d.pageLogger != nil {
+		d.databaseManager.PageLogManager().Release(d.DatabaseId, d.BranchId)
 	}
 
 	// Perform any shutdown logic for the file system
@@ -192,113 +239,75 @@ func (d *DatabaseResources) Remove() {
 	d.resultPool = nil
 	d.rollbackLogger = nil
 	d.tempFileSystem = nil
+	d.walManager = nil
+	d.pageLogger = nil
 }
 
 // Return the result pool for the database.
 func (d *DatabaseResources) ResultPool() *sqlite3.ResultPool {
-	d.mutex.RLock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if d.resultPool != nil {
-		d.mutex.RUnlock()
-
 		return d.resultPool
 	}
 
-	d.mutex.RUnlock()
-
 	pool := sqlite3.NewResultPool()
-
-	d.mutex.Lock()
 
 	if d.resultPool == nil {
 		d.resultPool = pool
 	}
-
-	d.mutex.Unlock()
 
 	return d.resultPool
 }
 
 // Return the SnapshotLogger for the database.
 func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
-	d.mutex.RLock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if d.snapshotLogger != nil {
-		d.mutex.RUnlock()
-
 		return d.snapshotLogger
-
 	}
 
-	d.mutex.RUnlock()
-
-	d.mutex.Lock()
-
-	if d.snapshotLogger == nil {
-		d.snapshotLogger = backups.NewSnapshotLogger(d.tieredFS, d.DatabaseId, d.BranchId)
-	}
-
-	d.mutex.Unlock()
+	d.snapshotLogger = backups.NewSnapshotLogger(d.tieredFS, d.DatabaseId, d.BranchId)
 
 	return d.snapshotLogger
 }
 
 // Return the temporary file system for the database.
 func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
-	d.mutex.RLock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if d.tempFileSystem != nil {
-		d.mutex.RUnlock()
-
 		return d.tempFileSystem
 	}
 
-	d.mutex.RUnlock()
-
 	path := fmt.Sprintf(
-		"%s%s/%s/%s",
+		"%s%s/%s",
 		TmpDirectory(),
-		d.databaseManager.Cluster.Node().Id,
 		d.DatabaseId,
 		d.BranchId,
 	)
 
-	fileSystem := storage.NewTempDatabaseFileSystem(d.tmpFS, path, d.DatabaseId, d.BranchId)
-
-	d.mutex.Lock()
-
-	if d.tempFileSystem == nil {
-		d.tempFileSystem = fileSystem
-	}
-
-	d.mutex.Unlock()
+	d.tempFileSystem = storage.NewTempDatabaseFileSystem(d.tmpFS, path, d.DatabaseId, d.BranchId)
 
 	return d.tempFileSystem
 }
 
-func (d *DatabaseResources) WALFile() (*storage.WALFile, error) {
+func (d *DatabaseResources) TransactionManager() *TransactionManager {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	if d.walFile != nil {
-		return d.walFile, nil
+
+	if d.transactionManager != nil {
+		return d.transactionManager
 	}
 
-	path := fmt.Sprintf(
-		"%s%s/%s/%s/%s.db-wal",
-		TmpDirectory(),
-		d.databaseManager.Cluster.Node().Id,
+	d.transactionManager = NewTransactionManager(
 		d.DatabaseId,
 		d.BranchId,
-		d.DatabaseHash,
 	)
 
-	walFile, err := storage.NewWALFile(d.tmpFS, path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	d.walFile = walFile
-
-	return walFile, nil
+	return d.transactionManager
 }

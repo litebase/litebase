@@ -1,10 +1,11 @@
 package database_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/database"
 	"testing"
+
+	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/database"
 )
 
 func BenchmarkWriteQueue(b *testing.B) {

@@ -3,11 +3,14 @@ package backups_test
 import (
 	"encoding/binary"
 	"fmt"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/backups"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/backups"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestSnapGetSnapshotPath(t *testing.T) {
@@ -30,8 +33,8 @@ func TestNewSnapshot(t *testing.T) {
 			app.Cluster.TieredFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().Unix(),
-			time.Now().Unix(),
+			time.Now().UnixMicro(),
+			time.Now().UnixMicro(),
 		)
 
 		if snapshot.BranchId != mock.BranchId {

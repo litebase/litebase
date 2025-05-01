@@ -5,19 +5,25 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"litebase/server"
-	"litebase/server/auth"
-	"litebase/server/database"
-	"litebase/server/file"
-	"litebase/server/sqlite3"
 	"log"
+
+	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 type TestDatabase struct {
 	DatabaseId  string
 	BranchId    string
-	DatabaseKey *database.DatabaseKey
+	DatabaseKey *auth.DatabaseKey
 	AccessKey   *auth.AccessKey
+}
+
+type TestDatabaseAuthorizationCommand struct {
+	SQL         string
+	ExpectError bool
 }
 
 func CreateHash(length int) string {
@@ -55,7 +61,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	return TestDatabase{
 		DatabaseId: db.Id,
 		BranchId:   db.PrimaryBranchId,
-		DatabaseKey: &database.DatabaseKey{
+		DatabaseKey: &auth.DatabaseKey{
 			DatabaseHash: file.DatabaseHash(db.Id, db.PrimaryBranchId),
 			DatabaseId:   db.Id,
 			BranchId:     db.PrimaryBranchId,

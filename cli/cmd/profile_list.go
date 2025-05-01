@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"litebase/cli/components"
-	"litebase/cli/config"
+	"github.com/litebase/litebase/cli/components"
+	"github.com/litebase/litebase/cli/config"
 
 	"github.com/spf13/cobra"
 )

@@ -1,13 +1,16 @@
 package backups
 
 import (
-	internalStorage "litebase/internal/storage"
-	"litebase/server/file"
-	"litebase/server/storage"
 	"log"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/file"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
+
+	"github.com/litebase/litebase/server/storage"
 )
 
 type SnapshotLogger struct {
@@ -20,6 +23,8 @@ type SnapshotLogger struct {
 	mutex             *sync.Mutex
 	tieredFS          *storage.FileSystem
 }
+
+// TODO: When is memory cleanup needed automatically?
 
 // The SnapshotLogger is responsible for logging Snapshots to a file when the
 // database is Snapshotted. Each log entry contains a timestamp and the number
@@ -83,8 +88,14 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()
 
-	// Get the start of the day of the timestamp
-	snapshotStartOfDay := time.Unix(timestamp, 0).UTC()
+	var snapshotStartOfDay time.Time
+
+	if timestamp > 1e15 { // Check if the timestamp is in microseconds
+		snapshotStartOfDay = time.UnixMicro(timestamp)
+	} else {
+		snapshotStartOfDay = time.Unix(timestamp, 0)
+	}
+
 	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
 	startOfDayTimestamp := snapshotStartOfDay.Unix()
 
@@ -133,9 +144,9 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 			return nil, err
 		}
 
-		if _, ok := sl.logs[timestamp]; ok {
-			continue
-		}
+		// if _, ok := sl.logs[timestamp]; ok {
+		// 	continue
+		// }
 
 		sl.logs[timestamp] = NewSnapshot(
 			sl.tieredFS,
@@ -174,7 +185,14 @@ func (sl *SnapshotLogger) GetSnapshotsWithRestorePoints() (map[int64]*Snapshot, 
 // Write a snapshot log entry to the snapshot log file.
 func (sl *SnapshotLogger) Log(timestamp, pageCount int64) error {
 	// Get the start of the day of the timestamp
-	snapshotStartOfDay := time.Unix(timestamp, 0).UTC()
+	var snapshotStartOfDay time.Time
+
+	if timestamp > 1e15 { // Check if the timestamp is in microseconds
+		snapshotStartOfDay = time.UnixMicro(timestamp)
+	} else {
+		snapshotStartOfDay = time.Unix(timestamp, 0)
+	}
+
 	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
 	startOfDayTimestamp := snapshotStartOfDay.Unix()
 

@@ -3,10 +3,12 @@ package http
 import (
 	"encoding/gob"
 	"errors"
-	"litebase/server/cluster"
-	"litebase/server/cluster/messages"
 	"log"
 	"net/http"
+
+	"github.com/litebase/litebase/server/cluster/messages"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 func ClusterPrimaryController(request *Request) Response {
@@ -33,7 +35,7 @@ func ClusterPrimaryController(request *Request) Response {
 			}
 
 			responseMessage, err := request.cluster.Node().HandleMessage(message)
-
+			log.Println("Response message: ", responseMessage, err)
 			if err != nil {
 				log.Println("Failed to handle message: ", err)
 				return

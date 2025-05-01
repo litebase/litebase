@@ -13,7 +13,7 @@ func ClusterElectionController(request *Request) Response {
 	if err != nil {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": err,
 			},
 		}
@@ -35,7 +35,7 @@ func ClusterElectionController(request *Request) Response {
 	if !ok {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": "Invalid input",
 			},
 		}
@@ -45,7 +45,7 @@ func ClusterElectionController(request *Request) Response {
 	if message.Group != request.cluster.Config.NodeType {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": "Invalid group",
 			},
 		}
@@ -60,9 +60,9 @@ func ClusterElectionController(request *Request) Response {
 
 	return Response{
 		StatusCode: 200,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"message": "Election started",
-			"data": map[string]interface{}{
+			"data": map[string]any{
 				"nominee": election.Nominee,
 			},
 		},

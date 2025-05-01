@@ -47,54 +47,54 @@ var (
 	IOErrorWrite     = sqliteError{778, "IO Error Write"}
 )
 
-var errMap = map[int]sqliteError{
-	1:  GenericError,
-	2:  InternalError,
-	3:  PermError,
-	4:  AbortError,
-	5:  BusyError,
-	6:  LockedError,
-	7:  NoMemError,
-	8:  ReadOnlyError,
-	9:  InterruptError,
-	10: IOError,
-	11: CorruptError,
-	12: NotFoundError,
-	13: FullError,
-	14: CantOpenError,
-	15: ProtocolError,
-	16: EmptyError,
-	17: SchemaError,
-	18: TooBigError,
-	19: ConstraintError,
-	20: MismatchError,
-	21: MisuseError,
-	22: NoLFSError,
-	23: AuthError,
-	24: FormatError,
-	25: RangeError,
-	26: NotaDBError,
-	27: NoticeError,
-	28: WarningError,
+// var errMap = map[int]sqliteError{
+// 	1:  GenericError,
+// 	2:  InternalError,
+// 	3:  PermError,
+// 	4:  AbortError,
+// 	5:  BusyError,
+// 	6:  LockedError,
+// 	7:  NoMemError,
+// 	8:  ReadOnlyError,
+// 	9:  InterruptError,
+// 	10: IOError,
+// 	11: CorruptError,
+// 	12: NotFoundError,
+// 	13: FullError,
+// 	14: CantOpenError,
+// 	15: ProtocolError,
+// 	16: EmptyError,
+// 	17: SchemaError,
+// 	18: TooBigError,
+// 	19: ConstraintError,
+// 	20: MismatchError,
+// 	21: MisuseError,
+// 	22: NoLFSError,
+// 	23: AuthError,
+// 	24: FormatError,
+// 	25: RangeError,
+// 	26: NotaDBError,
+// 	27: NoticeError,
+// 	28: WarningError,
 
-	266: IOErrorRead,
-	522: IOErrorShortRead,
-	778: IOErrorWrite,
-}
+// 	266: IOErrorRead,
+// 	522: IOErrorShortRead,
+// 	778: IOErrorWrite,
+// }
 
-func errFromCode(code int) error {
-	if code == 0 {
-		return nil
-	}
+// func errFromCode(code int) error {
+// 	if code == 0 {
+// 		return nil
+// 	}
 
-	err, ok := errMap[code]
+// 	err, ok := errMap[code]
 
-	if ok {
-		return err
-	}
+// 	if ok {
+// 		return err
+// 	}
 
-	return sqliteError{
-		code: code,
-		text: "unknown err code",
-	}
-}
+// 	return sqliteError{
+// 		code: code,
+// 		text: "unknown err code",
+// 	}
+// }

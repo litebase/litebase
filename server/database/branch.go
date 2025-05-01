@@ -1,10 +1,14 @@
 package database
 
 import (
-	"litebase/internal/config"
-	"litebase/server/storage"
 	"math/rand/v2"
 	"time"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/common/config"
 
 	"github.com/google/uuid"
 	"github.com/sqids/sqids-go"
@@ -19,7 +23,7 @@ type Branch struct {
 
 func NewBranch(c *config.Config, objectFS *storage.FileSystem, name string, isPrimary bool) *Branch {
 	randomFactor := rand.Int64N(100000)
-	keyCount := uint64(GetDatabaseKeyCount(c, objectFS) + time.Now().UnixMilli() + randomFactor)
+	keyCount := uint64(auth.GetDatabaseKeyCount(c, objectFS) + time.Now().UnixMilli() + randomFactor)
 
 	s, _ := sqids.New(sqids.Options{
 		Alphabet:  "0123456789abcdefghijklmnopqrstuvwxyz",

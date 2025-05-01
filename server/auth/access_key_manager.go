@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/storage"
 	"log"
 	"math/rand"
 	"os"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/storage"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 type AccessKeyManager struct {
@@ -85,7 +87,12 @@ func (akm *AccessKeyManager) Create() (*AccessKey, error) {
 		},
 	)
 
-	akm.auth.SecretsManager.StoreAccessKey(accessKey)
+	err = akm.auth.SecretsManager.StoreAccessKey(accessKey)
+
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
 
 	return accessKey, nil
 }

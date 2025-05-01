@@ -3,13 +3,15 @@ package cluster
 import (
 	"errors"
 	"fmt"
-	"litebase/internal/config"
-	"litebase/server/cluster/messages"
 	"log"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/server/cluster/messages"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 type NodePrimary struct {
@@ -30,9 +32,15 @@ func NewNodePrimary(node *Node) *NodePrimary {
 
 // Send the heatbeat message to the replica nodes.
 func (np *NodePrimary) Heartbeat() error {
-	errorMap := np.Publish(messages.NodeMessage{
+	address, err := np.node.Address()
+
+	if err != nil {
+		return fmt.Errorf("failed to get node address: %w", err)
+	}
+
+	_, errorMap := np.Publish(messages.NodeMessage{
 		Data: messages.HeartbeatMessage{
-			Address: np.node.Address(),
+			Address: address,
 			ID:      []byte("broadcast"),
 		},
 	})
@@ -57,21 +65,19 @@ func (np *NodePrimary) Heartbeat() error {
 }
 
 // Publish a message to the replica nodes.
-func (np *NodePrimary) Publish(message messages.NodeMessage) map[string]error {
+func (np *NodePrimary) Publish(message messages.NodeMessage) (map[string]any, map[string]error) {
 	var nodes []*NodeIdentifier
 
-	if np.node == nil || np.node.cluster == nil {
-		return nil
+	if np.node == nil || np.node.Cluster == nil {
+		return nil, nil
 	}
 
-	if np.node.cluster.Config.NodeType == config.NodeTypeQuery {
-		nodes = np.node.cluster.OtherQueryNodes()
-	} else if np.node.cluster.Config.NodeType == config.NodeTypeStorage {
-		nodes = np.node.cluster.OtherStorageNodes()
+	if np.node.Cluster.Config.NodeType == config.NodeTypeQuery {
+		nodes = np.node.Cluster.OtherQueryNodes()
 	}
 
 	if len(nodes) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	np.mutex.Lock()
@@ -93,8 +99,9 @@ func (np *NodePrimary) Publish(message messages.NodeMessage) map[string]error {
 	np.mutex.Unlock()
 
 	wg := sync.WaitGroup{}
+	responseMap := map[string]any{}
 	errorMap := map[string]error{}
-	errorsMutex := sync.Mutex{}
+	responseMutex := sync.Mutex{}
 
 	wg.Add(len(connections))
 
@@ -102,21 +109,24 @@ func (np *NodePrimary) Publish(message messages.NodeMessage) map[string]error {
 		go func(node *NodeConnection) {
 			defer wg.Done()
 
-			_, err := connection.Send(message)
+			response, err := connection.Send(message)
+
+			responseMutex.Lock()
 
 			if err != nil {
-				log.Println("Failed to send message to node: ", err)
+				errorMap[connection.Address] = err
+				return
 			}
 
-			errorsMutex.Lock()
-			errorMap[connection.Address] = err
-			errorsMutex.Unlock()
+			responseMap[connection.Address] = response
+
+			responseMutex.Unlock()
 		}(connection)
 	}
 
 	wg.Wait()
 
-	return errorMap
+	return responseMap, errorMap
 }
 
 // Shutdown the primary node.
@@ -160,7 +170,7 @@ func (np *NodePrimary) ValidateReplica(address string) error {
 		return nil
 	}
 
-	if err := np.node.cluster.RemoveMember(address); err != nil {
+	if err := np.node.Cluster.RemoveMember(address); err != nil {
 		log.Println("Failed to remove replica: ", err)
 
 		return err

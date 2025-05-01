@@ -4,7 +4,7 @@
 package storage
 
 import (
-	"litebase/internal/config"
+	"github.com/litebase/litebase/common/config"
 )
 
 // Init initializes the storage package with the given IP address and encryption
@@ -15,11 +15,7 @@ func Init(
 	c *config.Config,
 	objectFS *FileSystem,
 	ipAddress string,
-	encryption StorageEncryptionInterface,
 ) {
-	NodeIPAddress = ipAddress
-	StorageEncryption = encryption
-
 	objectMode := c.StorageObjectMode
 	tieredMode := c.StorageTieredMode
 

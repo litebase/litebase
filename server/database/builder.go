@@ -1,15 +1,20 @@
 package database
 
 import (
-	"litebase/server/auth"
-	"litebase/server/cluster"
-	"litebase/server/sqlite3"
+	"github.com/litebase/litebase/server/logs"
+
+	"github.com/litebase/litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 type QueryBuilder struct {
 	accessKeyManager *auth.AccessKeyManager
 	cluster          *cluster.Cluster
 	databaseManager  *DatabaseManager
+	logManager       *logs.LogManager
 }
 
 type QueryType interface {
@@ -20,11 +25,13 @@ func NewQueryBuilder(
 	cluster *cluster.Cluster,
 	accessKeyManager *auth.AccessKeyManager,
 	databaseManager *DatabaseManager,
+	logManager *logs.LogManager,
 ) *QueryBuilder {
 	return &QueryBuilder{
 		accessKeyManager: accessKeyManager,
 		cluster:          cluster,
 		databaseManager:  databaseManager,
+		logManager:       logManager,
 	}
 }
 
@@ -46,12 +53,13 @@ func (qb *QueryBuilder) Build(
 	return NewQuery(
 		qb.cluster,
 		qb.databaseManager,
-		NewDatabaseKey(databaseId, branchId),
+		qb.logManager,
+		auth.NewDatabaseKey(databaseId, branchId),
 		accessKey,
 		&QueryInput{
-			Statement:  statement,
-			Parameters: parameters,
 			Id:         id,
+			Parameters: parameters,
+			Statement:  statement,
 		},
 	)
 }

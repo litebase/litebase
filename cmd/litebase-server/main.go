@@ -1,9 +1,11 @@
 package main
 
 import (
-	"litebase/internal/config"
-	"litebase/server"
 	"log"
+	"runtime"
+
+	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server"
 
 	"github.com/joho/godotenv"
 
@@ -15,9 +17,9 @@ var app *server.App
 
 func main() {
 	go func() {
-		// runtime.SetBlockProfileRate(1)
-
-		// log.Println(http.ListenAndServe("localhost:6060", nil))
+		runtime.SetBlockProfileRate(1)
+		runtime.SetMutexProfileFraction(1)
+		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -26,19 +28,17 @@ func main() {
 
 	configInstance := config.NewConfig()
 
-	server.NewServer(configInstance).Start(
-		// Start hook
-		func(s *http.ServeMux) {
-			app = server.NewApp(configInstance, s)
+	server.NewServer(configInstance).Start(func(s *http.ServeMux) {
+		app = server.NewApp(configInstance, s)
 
-			app.Run()
+		app.Run()
 
-			err := app.Cluster.Node().Start()
+		err := app.Cluster.Node().Start()
 
-			if err != nil {
-				log.Fatalf("Node start: %v", err)
-			}
-		},
+		if err != nil {
+			log.Fatalf("Node start: %v", err)
+		}
+	},
 		// Shutdown hook
 		func() {
 			if app == nil {

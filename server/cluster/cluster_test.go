@@ -2,16 +2,20 @@ package cluster_test
 
 import (
 	"encoding/json"
-	"litebase/internal/config"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/auth"
-	"litebase/server/cluster"
-	"litebase/server/storage"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/auth"
+
+	"github.com/litebase/litebase/server/cluster"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestClusterInit(t *testing.T) {
@@ -90,7 +94,7 @@ func TestClusterAddMember(t *testing.T) {
 			t.Fatalf("Error adding query node: %s", err)
 		}
 
-		queryNodes, _ := c.GetMembers(true)
+		queryNodes := c.GetMembers(true)
 
 		if len(queryNodes) != 2 {
 			t.Fatal("Query nodes should not be empty")
@@ -121,9 +125,9 @@ func TestClusterGetMembers(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		queryNodes, storageNodes := c.GetMembers(true)
+		queryNodes := c.GetMembers(true)
 
-		if len(queryNodes) != 0 && len(storageNodes) != 0 {
+		if len(queryNodes) != 0 {
 			t.Fatal("Members should be empty")
 		}
 	})
@@ -140,9 +144,9 @@ func TestClusterGetMembersSince(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		queryNodes, storageNodes := c.GetMembersSince(time.Now())
+		queryNodes := c.GetMembersSince(time.Now())
 
-		if len(queryNodes) != 0 && len(storageNodes) != 0 {
+		if len(queryNodes) != 0 {
 			t.Fatal("Members should be empty")
 		}
 
@@ -162,9 +166,9 @@ func TestClusterGetMembersSince(t *testing.T) {
 			t.Errorf("Error checking query node file: %s", err)
 		}
 
-		queryNodes, storageNodes = c.GetMembersSince(time.Now())
+		queryNodes = c.GetMembersSince(time.Now())
 
-		if len(queryNodes) != 1 && len(storageNodes) != 0 {
+		if len(queryNodes) != 1 {
 			t.Fatal("Members should not be empty")
 		}
 
@@ -175,15 +179,15 @@ func TestClusterGetMembersSince(t *testing.T) {
 			t.Errorf("Error deleting query node file: %s", err)
 		}
 
-		queryNodes, storageNodes = c.GetMembers(true)
+		queryNodes = c.GetMembers(true)
 
-		if len(queryNodes) != 1 && len(storageNodes) != 0 {
+		if len(queryNodes) != 1 {
 			t.Fatal("Members should not be empty")
 		}
 
-		queryNodes, storageNodes = c.GetMembersSince(time.Now())
+		queryNodes = c.GetMembersSince(time.Now())
 
-		if len(queryNodes) != 0 && len(storageNodes) != 0 {
+		if len(queryNodes) != 0 {
 			t.Fatal("Members should be empty")
 		}
 	})
@@ -193,61 +197,10 @@ func TestClusterGetMembersWithNodes(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestQueryNode(t)
 
-		test.NewTestStorageNode(t)
+		queryNodes := server1.App.Cluster.GetMembers(true)
 
-		queryNodes, storageNodes := server1.App.Cluster.GetMembers(true)
-
-		if len(queryNodes) != 1 && len(storageNodes) != 1 {
+		if len(queryNodes) != 1 {
 			t.Fatal("Members should not be empty")
-		}
-	})
-}
-
-func TestClusterGetStorageNodes(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		c, _ := cluster.NewCluster(app.Config)
-		err := c.Save()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		_, address, err := c.GetStorageNode("test")
-
-		if err != storage.ErrNoStorageNodesAvailable {
-			t.Fatalf("Expected error %v, got %v", storage.ErrNoStorageNodesAvailable, err)
-		}
-
-		if address != "" {
-			t.Fatal("Storage nodes should be empty")
-		}
-
-		testServer := test.NewTestStorageNode(t)
-
-		// Add a storage node
-		err = c.AddMember(
-			config.NodeTypeStorage,
-			testServer.Address,
-		)
-
-		if err != nil {
-			t.Fatalf("Error adding storage node: %s", err)
-		}
-
-		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeStoragePath() + strings.ReplaceAll(testServer.Address, ":", "_"))
-
-		if err != nil {
-			t.Errorf("Error checking storage node file: %s", err)
-		}
-
-		_, address, err = c.GetStorageNode("test")
-
-		if err != nil {
-			t.Fatalf("Error getting storage node: %s", err)
-		}
-
-		if address == "" {
-			t.Fatal("Storage nodes should not be empty")
 		}
 	})
 }
@@ -369,18 +322,6 @@ func TestClusterLeasePathForQueryNode(t *testing.T) {
 	})
 }
 
-func TestClusterLeasePathForStorageNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeStorage)
-
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.LeasePath()
-
-		if path != "_cluster/storage/LEASE" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
 func TestClusterNodePathForQueryNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
 
@@ -393,33 +334,11 @@ func TestClusterNodePathForQueryNode(t *testing.T) {
 	})
 }
 
-func TestClusterNodePathForStorageNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeStorage)
-
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.NodePath()
-
-		if path != "_nodes/storage/" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
 func TestClusterNodeQueryPath(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		path := app.Cluster.NodeQueryPath()
 
 		if path != "_nodes/query/" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
-func TestClusterNodeStoragePath(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.NodeStoragePath()
-
-		if path != "_nodes/storage/" {
 			t.Fatalf("Path is not correct: %s", path)
 		}
 	})
@@ -437,18 +356,6 @@ func TestClusterNominationPathForQueryNode(t *testing.T) {
 	})
 }
 
-func TestClusterNominationPathForStorageNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeStorage)
-
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.NominationPath()
-
-		if path != "_cluster/storage/NOMINATION" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
 func TestClusterPrimaryPathForQueryNode(t *testing.T) {
 	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
 
@@ -456,18 +363,6 @@ func TestClusterPrimaryPathForQueryNode(t *testing.T) {
 		path := app.Cluster.PrimaryPath()
 
 		if path != "_cluster/query/PRIMARY" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
-func TestClusterPrimaryPathForStorageNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeStorage)
-
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.PrimaryPath()
-
-		if path != "_cluster/storage/PRIMARY" {
 			t.Fatalf("Path is not correct: %s", path)
 		}
 	})

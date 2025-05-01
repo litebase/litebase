@@ -1,11 +1,14 @@
 package cluster_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/cluster/messages"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/cluster/messages"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestHandleMessage(t *testing.T) {

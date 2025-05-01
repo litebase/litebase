@@ -36,20 +36,20 @@ func (em *EventsManager) Init() {
 	})
 
 	em.cluster.Subscribe("cluster:join", func(message *EventMessage) {
-		data := message.Value.(map[string]interface{})
+		data := message.Value.(map[string]any)
 
 		em.cluster.AddMember(data["group"].(string), data["address"].(string))
 
-		// Clear disributed file system cache
+		// Clear distributed file system cache
 		em.cluster.ClearFSFiles()
 	})
 
 	em.cluster.Subscribe("cluster:leave", func(message *EventMessage) {
-		data := message.Value.(map[string]interface{})
+		data := message.Value.(map[string]any)
 
 		em.cluster.RemoveMember(data["address"].(string))
 
-		// Clear disributed file system cache
+		// Clear distributed file system cache
 		em.cluster.ClearFSFiles()
 	})
 

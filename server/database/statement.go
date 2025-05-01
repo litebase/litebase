@@ -2,7 +2,8 @@ package database
 
 import (
 	"context"
-	"litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 type Statement struct {

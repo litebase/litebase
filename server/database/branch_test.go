@@ -1,10 +1,13 @@
 package database_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/database"
 	"testing"
+
+	"github.com/litebase/litebase/server/database"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewBranch(t *testing.T) {

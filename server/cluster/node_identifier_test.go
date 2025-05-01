@@ -1,8 +1,9 @@
 package cluster_test
 
 import (
-	"litebase/server/cluster"
 	"testing"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 func TestNewNodeIdentifier(t *testing.T) {

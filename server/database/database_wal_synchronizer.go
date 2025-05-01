@@ -1,8 +1,11 @@
 package database
 
 import (
+	"errors"
 	"log"
 )
+
+var ErrDatabaseWALNotFound = errors.New("Database WAL not found")
 
 type DatabaseWalSynchronizer struct {
 	databaseManager *DatabaseManager
@@ -15,43 +18,61 @@ func NewDatabaseWALSynchronizer(databaseManager *DatabaseManager) *DatabaseWalSy
 	}
 }
 
-func (d *DatabaseWalSynchronizer) Truncate(databaseId, branchId string, size, sequence, timestamp int64) error {
-	wal, err := d.databaseManager.Resources(databaseId, branchId).WALFile()
+func (d *DatabaseWalSynchronizer) GetActiveWALVersions(databaseId, branchId string) ([]int64, error) {
+	databaseWALManager, err := d.databaseManager.Resources(databaseId, branchId).DatabaseWALManager()
 
 	if err != nil {
 		log.Println(err)
-		return err
+
+		return nil, err
 	}
 
-	err = wal.Truncate(size, sequence, timestamp)
+	if databaseWALManager == nil {
+		log.Println(ErrDatabaseWALNotFound)
+		return nil, ErrDatabaseWALNotFound
+	}
+
+	return databaseWALManager.InUseVersions(), nil
+}
+func (d *DatabaseWalSynchronizer) SetCurrentTimestamp(
+	databaseId, branchId string,
+	timestamp int64,
+) error {
+	databaseWALManager, err := d.databaseManager.Resources(databaseId, branchId).DatabaseWALManager()
 
 	if err != nil {
 		log.Println(err)
+
 		return err
 	}
+
+	if databaseWALManager == nil {
+		log.Println(ErrDatabaseWALNotFound)
+		return ErrDatabaseWALNotFound
+	}
+
+	// databaseWal.Index().SetCurrentTimestamp(timestamp)
 
 	return nil
 }
 
-// Write a slice of bytes to the WAL file at the specified offset.
-func (d *DatabaseWalSynchronizer) WriteAt(
+func (d *DatabaseWalSynchronizer) SetWALIndexHeader(
 	databaseId, branchId string,
-	p []byte,
-	off, sequence, timestamp int64,
+	header []byte,
 ) error {
-	wal, err := d.databaseManager.Resources(databaseId, branchId).WALFile()
+	databaseWALManager, err := d.databaseManager.Resources(databaseId, branchId).DatabaseWALManager()
 
 	if err != nil {
 		log.Println(err)
+
 		return err
 	}
 
-	_, err = wal.WriteAt(p, off, sequence, timestamp)
-
-	if err != nil {
-		log.Println(err)
-		return err
+	if databaseWALManager == nil {
+		log.Println(ErrDatabaseWALNotFound)
+		return ErrDatabaseWALNotFound
 	}
 
+	// return databaseWALManager.SetWALIndexHeader(header)
 	return nil
 }

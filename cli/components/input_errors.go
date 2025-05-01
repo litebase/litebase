@@ -2,8 +2,9 @@ package components
 
 import (
 	"fmt"
-	"litebase/cli/styles"
 	"strings"
+
+	"github.com/litebase/litebase/cli/styles"
 )
 
 var InputErrorsStyle = styles.AlertDangerStyle.

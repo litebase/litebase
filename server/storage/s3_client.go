@@ -11,7 +11,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"litebase/internal/config"
 	"log"
 	"net/http"
 	"net/url"
@@ -20,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/common/config"
 )
 
 type S3Client struct {
@@ -49,7 +50,7 @@ func NewS3Client(c *config.Config, bucket string, region string) *S3Client {
 		accessKeyId: c.StorageAccessKeyId,
 		bucket:      bucket,
 		buffers: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return bytes.NewBuffer(make([]byte, 256))
 			},
 		},
@@ -224,6 +225,10 @@ func (s3 *S3Client) signRequest(request *http.Request, data []byte, additionalHe
 	payloadHash := "UNSIGNED-PAYLOAD"
 
 	if request.Method == "PUT" || request.Method == "POST" {
+		if len(data) == 0 {
+			payloadHash = ""
+		}
+
 		hash := sha256.New()
 		hash.Write(data)
 		payloadHash = hex.EncodeToString(hash.Sum(nil))
@@ -520,7 +525,7 @@ func (s3 *S3Client) ListObjectsV2(input ListObjectsV2Input) (ListObjectsV2Respon
 		url += "&prefix=" + input.Prefix
 
 		if input.Delimiter != "" {
-			url += "&delimiter=" + input.Delimiter
+			url += "&delimiter=\\" + input.Delimiter
 		}
 	} else {
 		url += "&prefix=/"
@@ -581,6 +586,7 @@ func (s3 *S3Client) PutObject(key string, data []byte) (PutObjectResponse, error
 	request, err := http.NewRequestWithContext(s3.context, "PUT", s3.url(key)+"?x-id=PutObject", bytes.NewReader(data))
 
 	if err != nil {
+		log.Println(err)
 		return PutObjectResponse{}, err
 	}
 
@@ -589,10 +595,15 @@ func (s3 *S3Client) PutObject(key string, data []byte) (PutObjectResponse, error
 	resp, err := s3.httpClient.Do(request)
 
 	if err != nil {
+		log.Println(err)
 		return PutObjectResponse{}, err
 	}
 
 	if resp.StatusCode != 200 {
+		data, _ := io.ReadAll(resp.Body)
+
+		defer resp.Body.Close()
+		log.Println("Error uploading file", resp.StatusCode, string(data))
 		return PutObjectResponse{
 			StatusCode: resp.StatusCode,
 		}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)

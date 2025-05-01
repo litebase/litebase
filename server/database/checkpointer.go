@@ -2,29 +2,27 @@ package database
 
 import (
 	"errors"
-	"litebase/server/backups"
-	"litebase/server/storage"
+	"fmt"
 	"log"
+	"os"
 	"sync"
-	"time"
+
+	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/storage"
 )
 
 type Checkpointer struct {
-	branchId       string
-	Checkpoint     *Checkpoint
-	databaseId     string
-	lock           sync.Mutex
-	metadata       *storage.DatabaseMetadata
-	rollbackLogger *backups.RollbackLogger
-	snapshotLogger *backups.SnapshotLogger
-	Timestamp      int64
-}
-
-type Checkpoint struct {
-	Offset            int64
-	LargestPageNumber int64
-	Size              int64
-	Timestamp         int64
+	branchId              string
+	Checkpoint            *Checkpoint
+	databaseId            string
+	distributedFileSystem *storage.FileSystem
+	lock                  sync.Mutex
+	metadata              *storage.DatabaseMetadata
+	pageLogger            *storage.PageLogger
+	rollbackLogger        *backups.RollbackLogger
+	snapshotLogger        *backups.SnapshotLogger
+	// Timestamp             int64
 }
 
 var (
@@ -32,33 +30,38 @@ var (
 	ErrorNoCheckpointInProgressError      = errors.New("no checkpoint in progress")
 )
 
-func NewCheckpointer(databaseId, branchId string, dfs *storage.DurableDatabaseFileSystem) (*Checkpointer, error) {
-	return &Checkpointer{
-		branchId:       branchId,
-		databaseId:     databaseId,
-		lock:           sync.Mutex{},
-		metadata:       dfs.Metadata(),
-		rollbackLogger: backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
-		snapshotLogger: backups.NewSnapshotLogger(dfs.FileSystem(), databaseId, branchId),
-	}, nil
+// Create a new instance of the checkpointer.
+func NewCheckpointer(
+	databaseId,
+	branchId string,
+	dfs *storage.DurableDatabaseFileSystem,
+	distributedFileSystem *storage.FileSystem,
+	pageLogger *storage.PageLogger,
+) (*Checkpointer, error) {
+	cp := &Checkpointer{
+		branchId:              branchId,
+		databaseId:            databaseId,
+		distributedFileSystem: distributedFileSystem,
+		lock:                  sync.Mutex{},
+		metadata:              dfs.Metadata(),
+		rollbackLogger:        backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
+		snapshotLogger:        backups.NewSnapshotLogger(dfs.FileSystem(), databaseId, branchId),
+		pageLogger:            pageLogger,
+	}
+
+	cp.init()
+
+	return cp, nil
 }
 
 // Begin starts a new checkpoint so that pages from the SQLite WAL file can be
 // captured and written to a rollback log.
-func (c *Checkpointer) Begin() error {
-	var timestamp int64
-
+func (c *Checkpointer) Begin(timestamp int64) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	if c.Checkpoint != nil {
 		return ErrorCheckpointAlreadyInProgressError
-	}
-
-	if c.Timestamp == 0 {
-		timestamp = time.Now().Unix()
-	} else {
-		timestamp = c.Timestamp
 	}
 
 	offset, size, err := c.rollbackLogger.StartFrame(timestamp)
@@ -68,14 +71,27 @@ func (c *Checkpointer) Begin() error {
 	}
 
 	c.Checkpoint = &Checkpoint{
-		Offset:    offset,
-		Size:      size,
-		Timestamp: timestamp,
+		BeginPageCount: c.metadata.PageCount,
+		Offset:         offset,
+		Size:           size,
+		Timestamp:      timestamp,
+	}
+
+	err = c.storeCheckpointFile()
+
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
+// Get the path for the checkpoint file.
+func (c *Checkpointer) checkPointFilePath() string {
+	return fmt.Sprintf("%slogs/CHECKPOINT", file.GetDatabaseFileBaseDir(c.databaseId, c.branchId))
+}
+
+// Add a page to the checkpoint.
 func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -94,44 +110,114 @@ func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
 		return err
 	}
 
-	c.Checkpoint.Size += size
+	// This is absolutely wrong! We should not be writing to the page log here.
+	// Need to remove it and also find a way to tombstone the pages that are
+	// are added during this checkpoint.
+	// _, err = c.pageLogger.Write(pageNumber, c.Checkpoint.Timestamp, data)
+
+	// if err != nil {
+	// 	return err
+	// }
+
+	c.Checkpoint.Size += int64(size)
 
 	return nil
 }
 
+// Commit the checkpoint and remove the checkpoint file from the distributed
+// file system.
 func (c *Checkpointer) Commit() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	wg := sync.WaitGroup{}
 
 	if c.Checkpoint == nil {
 		return ErrorNoCheckpointInProgressError
 	}
+	var errors []error
 
-	err := c.rollbackLogger.Commit(c.Checkpoint.Timestamp, c.Checkpoint.Offset, c.Checkpoint.Size)
+	// Commit the rollback log that was created at the beginning of the process
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := c.rollbackLogger.Commit(c.Checkpoint.Timestamp, c.Checkpoint.Offset, c.Checkpoint.Size)
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			log.Println("Error committing checkpoint", err)
+			errors = append(errors, err)
+		}
+	}()
 
 	pageCount := c.metadata.PageCount
 	largestPageNumber := c.Checkpoint.LargestPageNumber
 
+	// Update the page count in the database metadata if necessary
 	if pageCount < largestPageNumber {
-		c.metadata.SetPageCount(int64(largestPageNumber))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.metadata.SetPageCount(int64(largestPageNumber))
+		}()
 	}
 
-	err = c.snapshotLogger.Log(c.Checkpoint.Timestamp, pageCount)
+	// Record a new snapshot of the database
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := c.snapshotLogger.Log(c.Checkpoint.Timestamp, pageCount)
 
-	if err != nil {
-		log.Println("Error logging checkpoint", err)
+		if err != nil {
+			log.Println("Error logging checkpoint", err)
+			errors = append(errors, err)
+		}
+	}()
+
+	wg.Wait()
+
+	if len(errors) > 0 {
+		return fmt.Errorf("error committing checkpoint: %v", errors)
+	}
+
+	defer func() {
+		c.Checkpoint = nil
+	}()
+
+	return c.removeCheckpointFile()
+}
+
+// When creating a new instance of the Checkpointer, we need to ensure there
+// wasn't a checkpoint in progress when the database was last closed. If there
+// was, we need to rollback the checkpoint since it didn't complete.
+func (c *Checkpointer) init() error {
+	// Check if the checkpoint file exists
+	_, err := c.distributedFileSystem.Stat(c.checkPointFilePath())
+
+	if err != nil && !os.IsNotExist(err) {
+		if !os.IsNotExist(err) {
+			return nil
+		}
+
 		return err
 	}
 
-	c.Checkpoint = nil
+	// If the checkpoint file exists, read it and set the checkpoint
+	data, err := c.distributedFileSystem.ReadFile(c.checkPointFilePath())
 
-	return nil
+	if err != nil {
+		return err
+	}
+
+	c.Checkpoint = DecodeCheckpoint(data)
+
+	return c.Rollback()
 }
 
+// Remove the checkpoint file from the distributed file system.
+func (c *Checkpointer) removeCheckpointFile() error {
+	return c.distributedFileSystem.Remove(c.checkPointFilePath())
+}
+
+// Rollback the Checkpointer.
 func (c *Checkpointer) Rollback() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -139,6 +225,10 @@ func (c *Checkpointer) Rollback() error {
 	if c.Checkpoint == nil {
 		return ErrorNoCheckpointInProgressError
 	}
+
+	defer func() {
+		c.Checkpoint = nil
+	}()
 
 	err := c.rollbackLogger.Rollback(
 		c.Checkpoint.Timestamp,
@@ -150,11 +240,33 @@ func (c *Checkpointer) Rollback() error {
 		return err
 	}
 
-	c.Checkpoint = nil
+	// Mark the logged pages for the checkpoint as tombstoned
+	err = c.pageLogger.Tombstone(c.Checkpoint.Timestamp)
 
-	return nil
+	if err != nil {
+		return err
+	}
+
+	c.metadata.SetPageCount(c.Checkpoint.BeginPageCount)
+
+	return c.removeCheckpointFile()
 }
 
-func (c *Checkpointer) SetTimestamp(timestamp int64) {
-	c.Timestamp = timestamp
+// Store the checkpoint file in the distributed file system.
+func (c *Checkpointer) storeCheckpointFile() error {
+	data := c.Checkpoint.Encode()
+
+	return c.distributedFileSystem.WriteFile(
+		c.checkPointFilePath(),
+		data,
+		0644,
+	)
+}
+
+// Run a function with the Checkpointer lock held.
+func (c *Checkpointer) WithLock(fn func()) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	fn()
 }

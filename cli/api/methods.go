@@ -1,6 +1,6 @@
 package api
 
-func Get(path string) (map[string]interface{}, error) {
+func Get(path string) (map[string]any, error) {
 	client, err := NewClient()
 
 	if err != nil {
@@ -12,7 +12,7 @@ func Get(path string) (map[string]interface{}, error) {
 	return data, err
 }
 
-func Post(path string, body map[string]interface{}) (map[string]interface{}, Errors, error) {
+func Post(path string, body map[string]any) (map[string]any, Errors, error) {
 	client, err := NewClient()
 
 	if err != nil {
@@ -22,7 +22,7 @@ func Post(path string, body map[string]interface{}) (map[string]interface{}, Err
 	return client.Request("POST", path, body)
 }
 
-func Delete(path string) (map[string]interface{}, Errors, error) {
+func Delete(path string) (map[string]any, Errors, error) {
 	client, err := NewClient()
 
 	if err != nil {

@@ -1,32 +1,26 @@
 package http
 
 import (
-	"encoding/json"
-	"fmt"
-	"litebase/server/database"
+	"github.com/litebase/litebase/server/database"
 )
 
 func QueryController(request *Request) Response {
-	databaseKey, err := database.GetDatabaseKey(
-		request.cluster.Config,
-		request.cluster.ObjectFS(),
-		request.Subdomains()[0],
-	)
+	databaseKey := request.DatabaseKey()
 
-	if err != nil {
-		return BadRequestResponse(fmt.Errorf("a valid database is required to make this request"))
+	if databaseKey == nil {
+		return ErrValidDatabaseKeyRequiredResponse
 	}
 
 	requestToken := request.RequestToken("Authorization")
 
 	if !requestToken.Valid() {
-		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
+		return ErrInvalidAccessKeyResponse
 	}
 
 	accessKey := requestToken.AccessKey(databaseKey.DatabaseId)
 
 	if accessKey.AccessKeyId == "" {
-		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
+		return ErrInvalidAccessKeyResponse
 	}
 
 	db, err := request.databaseManager.ConnectionManager().Get(
@@ -39,63 +33,72 @@ func QueryController(request *Request) Response {
 			"message": err.Error(),
 		}, 500, nil)
 	}
-	queryInput := &database.QueryInput{}
-
-	err = json.NewDecoder(request.BaseRequest.Body).Decode(queryInput)
-
-	if err != nil {
-		request.databaseManager.ConnectionManager().Remove(
-			databaseKey.DatabaseId,
-			databaseKey.BranchId,
-			db,
-		)
-
-		return JsonResponse(map[string]interface{}{
-			"message": err.Error(),
-		}, 500, nil)
-	}
-
-	requestQuery, err := database.NewQuery(
-		request.cluster,
-		request.databaseManager,
-		databaseKey,
-		accessKey,
-		queryInput,
-	)
-
-	if err != nil {
-		request.databaseManager.ConnectionManager().Remove(
-			databaseKey.DatabaseId,
-			databaseKey.BranchId,
-			db,
-		)
-
-		return JsonResponse(map[string]interface{}{
-			"message": err.Error(),
-		}, 500, nil)
-	}
-
-	response := &database.QueryResponse{}
-
-	_, err = requestQuery.Resolve(response)
-
-	if err != nil {
-		request.databaseManager.ConnectionManager().Remove(
-			databaseKey.DatabaseId,
-			databaseKey.BranchId,
-			db,
-		)
-
-		return JsonResponse(map[string]interface{}{
-			"message": err.Error(),
-		}, 500, nil)
-	}
 
 	defer request.databaseManager.ConnectionManager().Release(
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 		db,
 	)
+
+	queryInput := &database.QueryInput{}
+
+	err = queryInput.DecodeFromMap(request.All())
+
+	if err != nil {
+		return JsonResponse(map[string]interface{}{
+			"message": err.Error(),
+		}, 500, nil)
+	}
+
+	requestQuery := database.GetQuery(
+		request.cluster,
+		request.databaseManager,
+		request.logManager,
+		databaseKey,
+		accessKey,
+		queryInput,
+	)
+
+	defer database.PutQuery(requestQuery)
+
+	response := &database.QueryResponse{}
+
+	if requestQuery.Input.TransactionId != nil &&
+		!requestQuery.IsTransactionEnd() &&
+		!requestQuery.IsTransactionRollback() {
+		transaction, err := request.databaseManager.Resources(
+			databaseKey.DatabaseId,
+			databaseKey.BranchId,
+		).TransactionManager().Get(string(requestQuery.Input.TransactionId))
+
+		if err != nil {
+			return JsonResponse(map[string]interface{}{
+				"message": err.Error(),
+			}, 500, nil,
+			)
+		}
+
+		if accessKey.AccessKeyId != transaction.AccessKey.AccessKeyId {
+			return ErrInvalidAccessKeyResponse
+		}
+
+		err = transaction.ResolveQuery(requestQuery, response)
+
+		if err != nil {
+			return JsonResponse(map[string]interface{}{
+				"message": err.Error(),
+			}, 500, nil,
+			)
+		}
+	} else {
+		_, err = requestQuery.Resolve(response)
+
+		if err != nil {
+			return JsonResponse(map[string]interface{}{
+				"message": err.Error(),
+			}, 500, nil)
+		}
+	}
 
 	return Response{
 		StatusCode: 200,

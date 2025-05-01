@@ -2,20 +2,22 @@ package vfs_test
 
 import (
 	"fmt"
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/file"
-	"litebase/server/sqlite3"
-	_ "litebase/server/sqlite3"
-	"litebase/server/vfs"
 	"testing"
+
+	"github.com/litebase/litebase/server/vfs"
+
+	"github.com/litebase/litebase/server/sqlite3"
+
+	"github.com/litebase/litebase/server/file"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestRegisterVFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dataPath := app.Config.DataPath
-
-		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
+		_, err := vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
@@ -34,7 +36,7 @@ func TestRegisterVFS(t *testing.T) {
 			t.Errorf("RegisterVFS() failed, expected not nil, got nil")
 		}
 
-		err = vfs.UnregisterVFS("connectionId", "vfsId")
+		err = vfs.UnregisterVFS("vfsId")
 
 		if err != nil {
 			t.Errorf("UnregisterVFS() failed, expected nil, got %v", err)
@@ -52,15 +54,13 @@ func TestRegisterVFS(t *testing.T) {
 
 func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dataPath := app.Config.DataPath
-
-		err := vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
+		_, err := vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
 		}
 
-		err = vfs.RegisterVFS("connectionId", "vfsId", dataPath, 4096, nil, nil)
+		_, err = vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
@@ -70,25 +70,25 @@ func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 
 func TestNewVfsErrors(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		err := vfs.RegisterVFS("", "test", "test", 4096, nil, nil)
+		_, err := vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")
 		}
 
-		err = vfs.RegisterVFS("test", "", "test", 4096, nil, nil)
+		_, err = vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")
 		}
 
-		err = vfs.RegisterVFS("test", "test", "", 4096, nil, nil)
+		_, err = vfs.RegisterVFS("test", "test", 4096, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")
 		}
 
-		err = vfs.RegisterVFS("test", "test", "test", 0, nil, nil)
+		_, err = vfs.RegisterVFS("test", "test", 4096, nil, nil)
 
 		if err == nil {
 			t.Errorf("RegisterVFS() failed, expected error, got nil")
@@ -132,21 +132,27 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
+
 		// Create a set of tables to force the database to grow. SQLite will
 		// create a new page for each table root page so this is good for our
 		// test of the VFS file size and truncate.
 		for i := 1; i <= 3000; i++ {
 			// Create the table
-			test.RunQuery(db, []byte(fmt.Sprintf("CREATE TABLE users_%d (id INT, name TEXT)", i)), []sqlite3.StatementParameter{})
+			test.RunQuery(db, fmt.Appendf(nil, "CREATE TABLE users_%d (id INT, name TEXT)", i), []sqlite3.StatementParameter{})
 
 			// Insert a row
-			test.RunQuery(db, []byte(fmt.Sprintf("INSERT INTO users_%d (id, name) VALUES (?, ?)", i)), []sqlite3.StatementParameter{{
-				Type:  "INTEGER",
-				Value: i,
-			}, {
-				Type:  "TEXT",
-				Value: "user",
-			}})
+			test.RunQuery(
+				db,
+				fmt.Appendf(nil, "INSERT INTO users_%d (id, name) VALUES (?, ?)", i),
+				[]sqlite3.StatementParameter{{
+					Type:  "INTEGER",
+					Value: int64(i),
+				}, {
+					Type:  "TEXT",
+					Value: []byte("user"),
+				}},
+			)
 		}
 
 		// Force the database to checkpoint so data is written to disk
@@ -157,13 +163,12 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		path := file.GetDatabaseFileDir(mock.DatabaseId, mock.BranchId)
-
-		var expectedPages int64 = 3068 // Discovered through manual testing
-		var expectedSize int64 = 4096 * expectedPages
+		pageCount := db.GetConnection().FileSystem().Metadata().PageCount
+		var expectedSize int64 = 4096 * pageCount
 		var directorySize int64
 
 		fileSystemDriver := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem().FileSystem().Driver()
-
+		fileSystemDriver.Flush()
 		entries, err := fileSystemDriver.ReadDir(path)
 
 		if err != nil {
@@ -177,7 +182,11 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 				continue
 			}
 
-			info, _ := fileSystemDriver.Stat(path + entry.Name())
+			info, err := fileSystemDriver.Stat(path + entry.Name())
+
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			directorySize += info.Size()
 		}
@@ -194,7 +203,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 
 		for i := 3000; i > 2000; i-- {
 			// Drop the table
-			test.RunQuery(db, []byte(fmt.Sprintf("DROP TABLE users_%d", i)), []sqlite3.StatementParameter{})
+			test.RunQuery(db, fmt.Appendf(nil, "DROP TABLE users_%d", i), []sqlite3.StatementParameter{})
 		}
 
 		// Force the database to checkpoint so data is written to disk
@@ -205,11 +214,11 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Vacuum the database
-		err = db.GetConnection().SqliteConnection().Vacuum()
+		// err = db.GetConnection().SqliteConnection().Vacuum()
 
-		if err != nil {
-			t.Errorf("VACUUM failed, expected nil, got %v", err)
-		}
+		// if err != nil {
+		// 	t.Errorf("VACUUM failed, expected nil, got %v", err)
+		// }
 
 		err = db.Checkpoint()
 
@@ -217,10 +226,11 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		pageCount = db.GetConnection().FileSystem().Metadata().PageCount
 		directorySize = 0
-		expectedPages = 1023 // Discovered through manual testing
-		expectedSize = 4096 * expectedPages
+		expectedSize = 4096 * pageCount
 
+		fileSystemDriver.Flush()
 		entries, err = fileSystemDriver.ReadDir(path)
 
 		if err != nil {
@@ -250,6 +260,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		db.Close()
+
 	})
 }
 

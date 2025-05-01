@@ -1,11 +1,13 @@
 package cmd
 
 import (
-	"litebase/internal/config"
-	"litebase/server"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/litebase/litebase/common/config"
+
+	"github.com/litebase/litebase/server"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"

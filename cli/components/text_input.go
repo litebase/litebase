@@ -2,7 +2,8 @@ package components
 
 import (
 	"fmt"
-	"litebase/cli/styles"
+
+	"github.com/litebase/litebase/cli/styles"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"

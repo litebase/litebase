@@ -1,10 +1,12 @@
 package cluster_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server/cluster"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server/cluster"
 )
 
 func TestBroadcast(t *testing.T) {

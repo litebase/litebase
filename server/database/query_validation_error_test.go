@@ -1,8 +1,9 @@
 package database_test
 
 import (
-	"litebase/server/database"
 	"testing"
+
+	"github.com/litebase/litebase/server/database"
 )
 
 func TestQueryValidationError(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	// _ "net/http/pprof"
 )
 
 type Router struct {
@@ -22,10 +21,6 @@ func NewRouter() *Router {
 }
 
 func (router *Router) Start() {
-	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
-
 	port := os.Getenv("LITEBASE_ROUTER_NODE_PORT")
 	ctx := context.Background()
 	router.Context, router.Cancel = context.WithCancel(ctx)

@@ -1,11 +1,14 @@
 package backups_test
 
 import (
-	"litebase/internal/test"
-	"litebase/server"
-	"litebase/server/backups"
 	"testing"
 	"time"
+
+	"github.com/litebase/litebase/server/backups"
+
+	"github.com/litebase/litebase/internal/test"
+
+	"github.com/litebase/litebase/server"
 )
 
 func TestNewRollbackLogger(t *testing.T) {
@@ -108,7 +111,7 @@ func TestPageLoggerGetLog(t *testing.T) {
 		}
 
 		if rollbackLog == nil {
-			t.Error("Expected rollback log to be not nil")
+			t.Fatal("Expected rollback log to be not nil")
 		}
 
 		startOfHourTimestamp := time.Now().Truncate(time.Hour).Unix()

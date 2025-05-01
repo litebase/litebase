@@ -34,16 +34,13 @@ type ClusterElection struct {
 
 // Create a new instance of a ClusterElection.
 func NewClusterElection(node *Node, startTime time.Time) *ClusterElection {
-	ctx, cancel := context.WithCancel(context.Background())
+	address, _ := node.Address()
 
 	return &ClusterElection{
-		cancel:     cancel,
-		context:    ctx,
-		Candidates: []string{node.Address()},
-		Group:      node.cluster.Config.NodeType,
-		Nominee:    node.Address(),
+		Candidates: []string{address},
+		Group:      node.Cluster.Config.NodeType,
+		Nominee:    address,
 		node:       node,
-		Seed:       rand.Int64(),
 		StartedAt:  startTime.Truncate(time.Second),
 	}
 }
@@ -57,6 +54,10 @@ func (c *ClusterElection) AddCandidate(address string, seed int64) {
 
 	if seed > c.Seed {
 		c.Nominee = address
+
+		if c.running {
+			c.Stop()
+		}
 	}
 }
 
@@ -77,9 +78,13 @@ func (c *ClusterElection) Run() (bool, error) {
 		c.running = false
 	}()
 
+	c.context, c.cancel = context.WithCancel(context.Background())
+	c.Seed = rand.Int64()
+
 	nominated, err := c.seekNomination()
 
 	if err != nil {
+		log.Printf("Failed to seek nomination: %v", err)
 		return false, err
 	}
 
@@ -91,19 +96,29 @@ func (c *ClusterElection) Run() (bool, error) {
 	success, err := c.writeNomination()
 
 	if err != nil {
+		log.Printf("Failed to write nomination: %v", err)
 		return false, err
 	}
 
+	// log.Println("Wrote nomination: ", success)
 	if !success {
 		return false, nil
 	}
 
 	c.hasNomination = true
 
+	if !c.running {
+		return false, nil
+	}
+
 	// Confirm the election
 	confirmed := c.runElectionConfirmation()
 
 	if !confirmed {
+		return false, nil
+	}
+
+	if !c.running {
 		return false, nil
 	}
 
@@ -114,14 +129,14 @@ func (c *ClusterElection) Run() (bool, error) {
 		return false, err
 	}
 
-	if !verified {
+	if !verified || !c.running {
 		return false, nil
 	}
 
 	// Confirm the election
 	confirmed = c.runElectionConfirmation()
 
-	if !confirmed {
+	if !confirmed || !c.running {
 		return false, nil
 	}
 
@@ -136,9 +151,11 @@ func (c *ClusterElection) Run() (bool, error) {
 		return false, nil
 	}
 
-	err = c.node.cluster.ObjectFS().WriteFile(
-		c.node.cluster.PrimaryPath(),
-		[]byte(c.node.Address()),
+	address, _ := c.node.Address()
+
+	err = c.node.Cluster.ObjectFS().WriteFile(
+		c.node.Cluster.PrimaryPath(),
+		[]byte(address),
 		0644,
 	)
 
@@ -151,7 +168,13 @@ func (c *ClusterElection) Run() (bool, error) {
 }
 
 func (c *ClusterElection) runElectionConfirmation() bool {
-	nodeIdentifiers := c.node.cluster.NodeGroupVotingNodes()
+	if c.context.Err() != nil {
+		return false
+	}
+
+	address, _ := c.node.Address()
+
+	nodeIdentifiers := c.node.Cluster.NodeGroupVotingNodes()
 
 	// If there is only one node in the group, it is the current node and the
 	// election is confirmed.
@@ -159,9 +182,9 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 		return true
 	}
 
-	data := map[string]interface{}{
-		"address":   c.node.Address(),
-		"group":     c.node.cluster.Config.NodeType,
+	data := map[string]any{
+		"address":   address,
+		"group":     c.node.Cluster.Config.NodeType,
 		"timestamp": c.node.election.StartedAt.UnixNano(),
 	}
 
@@ -175,7 +198,7 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 	votes := make(chan bool, len(nodeIdentifiers)-1)
 
 	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == c.node.Address() {
+		if nodeIdentifier.String() == address {
 			continue
 		}
 
@@ -206,15 +229,22 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 			resp, err := http.DefaultClient.Do(request)
 
 			if err != nil {
-				log.Printf(
-					"Error sending election confirmation request to node %s from node %s: %s",
-					nodeIdentifier.String(),
-					c.node.Address(),
-					err,
-				)
+				// log.Printf(
+				// 	"Error sending election confirmation request to node %s from node %s: %s",
+				// 	nodeIdentifier.String(),
+				// 	c.node.Address(),
+				// 	err,
+				// )
 			}
 
-			defer resp.Body.Close()
+			if resp == nil {
+				votes <- false
+				return
+			}
+
+			if resp.Body != nil {
+				defer resp.Body.Close()
+			}
 
 			if resp.StatusCode == http.StatusOK {
 				votes <- true
@@ -229,7 +259,7 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 	votesNeeded := len(nodeIdentifiers)/2 + 1
 	timeout := time.After(3 * time.Second) // Set a timeout duration
 
-	for i := 0; i < len(nodeIdentifiers)-1; i++ {
+	for range len(nodeIdentifiers) - 1 {
 		select {
 		case <-timeout:
 			return false
@@ -251,7 +281,13 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 }
 
 func (c *ClusterElection) seekNomination() (bool, error) {
-	nodeIdentifiers := c.node.cluster.NodeGroupVotingNodes()
+	if c.context.Err() != nil {
+		return false, fmt.Errorf("operation canceled")
+	}
+
+	address, _ := c.node.Address()
+
+	nodeIdentifiers := c.node.Cluster.NodeGroupVotingNodes()
 
 	if len(nodeIdentifiers) == 0 {
 		return true, nil
@@ -261,7 +297,7 @@ func (c *ClusterElection) seekNomination() (bool, error) {
 	var inVotingGroup bool
 
 	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == c.node.Address() {
+		if nodeIdentifier.String() == address {
 			inVotingGroup = true
 			break
 		}
@@ -271,9 +307,9 @@ func (c *ClusterElection) seekNomination() (bool, error) {
 		return false, nil
 	}
 
-	data := map[string]interface{}{
-		"address":   c.node.Address(),
-		"group":     c.node.cluster.Config.NodeType,
+	data := map[string]any{
+		"address":   address,
+		"group":     c.node.Cluster.Config.NodeType,
 		"seed":      c.Seed,
 		"timestamp": c.StartedAt.Unix(),
 	}
@@ -285,10 +321,10 @@ func (c *ClusterElection) seekNomination() (bool, error) {
 		return false, err
 	}
 
-	responses := make(chan map[string]interface{}, len(nodeIdentifiers)-1)
+	responses := make(chan map[string]any, len(nodeIdentifiers)-1)
 
 	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == c.node.Address() {
+		if nodeIdentifier.String() == address {
 			continue
 		}
 
@@ -326,7 +362,7 @@ func (c *ClusterElection) seekNomination() (bool, error) {
 
 			defer resp.Body.Close()
 
-			var response map[string]interface{}
+			var response map[string]any
 
 			err = json.NewDecoder(resp.Body).Decode(&response)
 
@@ -344,22 +380,22 @@ func (c *ClusterElection) seekNomination() (bool, error) {
 	votesReceived := 1
 	votesNeeded := len(nodeIdentifiers)
 
-	for i := 0; i < len(nodeIdentifiers)-1; i++ {
+	for range len(nodeIdentifiers) - 1 {
 		select {
 		case response := <-responses:
 			if response == nil {
 				continue
 			}
 
-			var data map[string]interface{}
+			var data map[string]any
 			var ok bool
 
-			if data, ok = response["data"].(map[string]interface{}); !ok {
+			if data, ok = response["data"].(map[string]any); !ok {
 				continue
 			}
 
 			if nominee, ok := data["nominee"].(string); ok {
-				if nominee == c.node.Address() {
+				if nominee == address {
 					votesReceived++
 				}
 			}
@@ -379,6 +415,8 @@ func (c *ClusterElection) Stop() {
 		return
 	}
 
+	c.running = false
+
 	c.cancel()
 }
 
@@ -394,8 +432,10 @@ func (c *ClusterElection) verifyNomination() (bool, error) {
 		return false, nil
 	}
 
+	address, _ := c.node.Address()
+
 	// Reopen the file to read the contents
-	nominationFile, err := c.node.cluster.ObjectFS().OpenFile(c.node.cluster.NominationPath(), os.O_RDONLY, 0644)
+	nominationFile, err := c.node.Cluster.ObjectFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDONLY, 0644)
 
 	if err != nil {
 		log.Printf("Failed to reopen nomination file: %v", err)
@@ -416,7 +456,7 @@ func (c *ClusterElection) verifyNomination() (bool, error) {
 	if scanner.Scan() {
 		firstLine := scanner.Text()
 
-		if strings.HasPrefix(firstLine, c.node.Address()) {
+		if strings.HasPrefix(firstLine, address) {
 			timestamp := strings.Split(firstLine, " ")[1]
 
 			timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
@@ -442,9 +482,8 @@ func (c *ClusterElection) writeNomination() (bool, error) {
 		return false, fmt.Errorf("operation canceled")
 	}
 
-	// Attempt to open the nomination file with exclusive lock
 openNomination:
-	nominationFile, err := c.node.cluster.ObjectFS().OpenFile(c.node.cluster.NominationPath(), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	nominationFile, err := c.node.Cluster.ObjectFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -453,7 +492,7 @@ openNomination:
 		}
 
 		// Retry if the file does not exist
-		err = c.node.cluster.ObjectFS().MkdirAll(filepath.Dir(c.node.cluster.NominationPath()), 0755)
+		err = c.node.Cluster.ObjectFS().MkdirAll(filepath.Dir(c.node.Cluster.NominationPath()), 0755)
 
 		if err != nil {
 			log.Printf("Failed to create nomination directory: %v", err)
@@ -470,9 +509,9 @@ openNomination:
 		return false, err
 	}
 
-	address := c.node.Address()
+	nodeAddress, _ := c.node.Address()
 	timestamp := time.Now().UnixNano()
-	entry := fmt.Sprintf("%s %d\n", address, timestamp)
+	entry := fmt.Sprintf("%s %d\n", nodeAddress, timestamp)
 
 	// Read the nomination file and check if it is empty or does not contain
 	// this node's address in addition to the timestamp being past 1 second.
@@ -491,16 +530,22 @@ openNomination:
 		// Check if the node has already been nominated
 		if scanner.Scan() {
 			firstLine := scanner.Text()
+			parts := strings.Split(firstLine, " ")
 
-			timestamp := strings.Split(firstLine, " ")[1]
+			address := parts[0]
+			// Check if the address is the same as this node's address
+			timestamp := parts[1]
 
 			timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
 
 			if err != nil {
+				log.Println("Failed to parse timestamp: ", err)
 				return false, err
 			}
 
-			if time.Now().UnixNano()-timestampInt < time.Second.Nanoseconds() {
+			if nodeAddress != address &&
+				time.Now().UnixNano()-timestampInt < time.Millisecond.Nanoseconds() {
+				log.Println("Node already nominated: ", address, address)
 				return false, nil
 			}
 		}
@@ -509,6 +554,13 @@ openNomination:
 
 		if err != nil {
 			log.Printf("Failed to truncate nomination file: %v", err)
+			return false, err
+		}
+
+		_, err = nominationFile.Seek(0, io.SeekStart)
+
+		if err != nil {
+			log.Printf("Failed to seek nomination file: %v", err)
 			return false, err
 		}
 
@@ -523,6 +575,7 @@ openNomination:
 	err = nominationFile.Close()
 
 	if err != nil {
+		log.Println("Failed to close nomination file: ", err)
 		return false, err
 	}
 

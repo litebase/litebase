@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"io"
-	"litebase/server/sqlite3"
 	"math"
 	"sync"
+
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 /*
@@ -43,11 +44,15 @@ type Row interface {
 type QueryResponse struct {
 	changes         int64
 	columns         []string
+	err             string
 	id              []byte
 	latency         float64
 	lastInsertRowId int64
 	rowCount        int
 	rows            [][]*sqlite3.Column
+	transactionId   []byte
+	walSequence     int64
+	walTimestamp    int64
 }
 
 type QueryJsonResponse struct {
@@ -66,6 +71,7 @@ func NewQueryResponse(
 	return &QueryResponse{
 		changes:         changes,
 		columns:         columns,
+		err:             "",
 		id:              id,
 		lastInsertRowId: lastInsertRowId,
 		latency:         latency,
@@ -86,83 +92,107 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 	responseBuffer.Reset()
 	// Version
 	responseBuffer.WriteByte(uint8(1))
-	// Changes
-	var changesBytes [4]byte
-	binary.LittleEndian.PutUint32(changesBytes[:], uint32(qr.changes))
-	responseBuffer.Write(changesBytes[:])
-	// Latency
-	var latencyBytes [8]byte
-	binary.LittleEndian.PutUint64(latencyBytes[:], math.Float64bits(qr.latency))
-	responseBuffer.Write(latencyBytes[:])
-	// Column count
-	var columnCountBytes [4]byte
-	binary.LittleEndian.PutUint32(columnCountBytes[:], uint32(len(qr.columns)))
-	responseBuffer.Write(columnCountBytes[:])
-	// Row count
-	var rowCountBytes [4]byte
-	binary.LittleEndian.PutUint32(rowCountBytes[:], uint32(qr.rowCount))
-	responseBuffer.Write(rowCountBytes[:])
-	// Last insert row ID
-	var lastInsertRowIdBytes [4]byte
-	binary.LittleEndian.PutUint32(lastInsertRowIdBytes[:], uint32(qr.lastInsertRowId))
-	responseBuffer.Write(lastInsertRowIdBytes[:])
 	// ID length
 	var idLengthBytes [4]byte
 	binary.LittleEndian.PutUint32(idLengthBytes[:], uint32(len(qr.id)))
 	responseBuffer.Write(idLengthBytes[:])
 	// ID
 	responseBuffer.Write([]byte(qr.id))
+	// Transaction ID length
+	var transactionIdLengthBytes [4]byte
+	binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], uint32(len(qr.transactionId)))
+	responseBuffer.Write(transactionIdLengthBytes[:])
 
-	// Calculate the length of the columns data to be written and write it
-	// to the response buffer before writing the columns data.
-	columnDataLength := 0
+	// Transaction ID
+	responseBuffer.Write(qr.transactionId)
 
-	for _, column := range qr.columns {
-		columnDataLength = columnDataLength + 4 + len(column)
-	}
+	if len(qr.err) > 0 {
+		// Error length
+		var errorLengthBytes [4]byte
+		binary.LittleEndian.PutUint32(errorLengthBytes[:], uint32(len(qr.err)))
 
-	// Columns length
-	var columnsLengthBytes [4]byte
-	binary.LittleEndian.PutUint32(columnsLengthBytes[:], uint32(columnDataLength))
-	responseBuffer.Write(columnsLengthBytes[:])
+		// Write the error length
+		responseBuffer.Write(errorLengthBytes[:])
 
-	// Encode the columns
-	var columnLengthBytes [4]byte
+		// Write the error
+		responseBuffer.Write([]byte(qr.err))
+	} else {
+		// Changes
+		var changesBytes [4]byte
+		binary.LittleEndian.PutUint32(changesBytes[:], uint32(qr.changes))
+		responseBuffer.Write(changesBytes[:])
+		// Latency
+		var latencyBytes [8]byte
+		binary.LittleEndian.PutUint64(latencyBytes[:], math.Float64bits(qr.latency))
+		responseBuffer.Write(latencyBytes[:])
+		// Column count
+		var columnCountBytes [4]byte
+		binary.LittleEndian.PutUint32(columnCountBytes[:], uint32(len(qr.columns)))
+		responseBuffer.Write(columnCountBytes[:])
+		// Row count
+		var rowCountBytes [4]byte
+		binary.LittleEndian.PutUint32(rowCountBytes[:], uint32(qr.rowCount))
+		responseBuffer.Write(rowCountBytes[:])
+		// Last insert row ID
+		var lastInsertRowIdBytes [4]byte
+		binary.LittleEndian.PutUint32(lastInsertRowIdBytes[:], uint32(qr.lastInsertRowId))
+		responseBuffer.Write(lastInsertRowIdBytes[:])
 
-	for _, column := range qr.columns {
-		// Column length
-		binary.LittleEndian.PutUint32(columnLengthBytes[:], uint32(len(column)))
-		responseBuffer.Write(columnLengthBytes[:])
+		// Calculate the length of the columns data to be written and write it
+		// to the response buffer before writing the columns data.
+		columnDataLength := 0
 
-		// Column
-		responseBuffer.Write([]byte(column))
-	}
-
-	// Rows
-	for _, row := range qr.rows {
-		rowsBuffer.Reset()
-
-		// Encode each row in the column
-		for _, column := range row {
-			err := column.Encode(columnsBuffer)
-
-			if err != nil {
-				return nil, err
-			}
-
-			rowsBuffer.Write(columnsBuffer.Bytes())
+		for _, column := range qr.columns {
+			columnDataLength = columnDataLength + 4 + len(column)
 		}
 
-		// Write the row length
-		var rowLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(rowLengthBytes[:], uint32(rowsBuffer.Len()))
-		responseBuffer.Write(rowLengthBytes[:])
+		// Columns length
+		var columnsLengthBytes [4]byte
+		binary.LittleEndian.PutUint32(columnsLengthBytes[:], uint32(columnDataLength))
+		responseBuffer.Write(columnsLengthBytes[:])
 
-		// Write the row data
-		responseBuffer.Write(rowsBuffer.Bytes())
+		// Encode the columns
+		var columnLengthBytes [4]byte
+
+		for _, column := range qr.columns {
+			// Column length
+			binary.LittleEndian.PutUint32(columnLengthBytes[:], uint32(len(column)))
+			responseBuffer.Write(columnLengthBytes[:])
+
+			// Column
+			responseBuffer.Write([]byte(column))
+		}
+
+		// Rows
+		for _, row := range qr.rows {
+			rowsBuffer.Reset()
+
+			// Encode each row in the column
+			for _, column := range row {
+				err := column.Encode(columnsBuffer)
+
+				if err != nil {
+					return nil, err
+				}
+
+				rowsBuffer.Write(columnsBuffer.Bytes())
+			}
+
+			// Write the row length
+			var rowLengthBytes [4]byte
+			binary.LittleEndian.PutUint32(rowLengthBytes[:], uint32(rowsBuffer.Len()))
+			responseBuffer.Write(rowLengthBytes[:])
+
+			// Write the row data
+			responseBuffer.Write(rowsBuffer.Bytes())
+		}
 	}
 
 	return responseBuffer.Bytes(), nil
+}
+
+func (qr *QueryResponse) Error() string {
+	return qr.err
 }
 
 func (qr *QueryResponse) JsonResponse() QueryJsonResponse {
@@ -198,9 +228,10 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 		Columns         []string            `json:"columns"`
 		ID              []byte              `json:"id"`
 		Latency         float64             `json:"latency"`
-		LastInsertRowID int64               `json:"lastInsertRowID"`
-		RowCount        int                 `json:"rowCount"`
+		LastInsertRowID int64               `json:"last_insert_row_id"`
+		RowCount        int                 `json:"row_count"`
 		Rows            [][]*sqlite3.Column `json:"rows"`
+		TransactionID   []byte              `json:"transaction_id"`
 	}{
 		Alias:           (*Alias)(qr),
 		Changes:         qr.changes,
@@ -210,6 +241,7 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 		LastInsertRowID: qr.lastInsertRowId,
 		RowCount:        qr.rowCount,
 		Rows:            qr.rows,
+		TransactionID:   qr.transactionId,
 	})
 
 	if err != nil {
@@ -222,11 +254,13 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 func (qr *QueryResponse) Reset() {
 	qr.changes = 0
 	qr.columns = qr.columns[:0]
+	qr.err = ""
 	qr.id = []byte{}
 	qr.latency = 0
 	qr.lastInsertRowId = 0
 	qr.rowCount = 0
 	qr.rows = qr.rows[:0]
+	qr.transactionId = []byte{}
 }
 
 func (qr *QueryResponse) RowCount() int {
@@ -251,6 +285,10 @@ func (qr *QueryResponse) SetColumns(columns []string) {
 	}
 
 	copy(qr.columns, columns)
+}
+
+func (qr *QueryResponse) SetError(err string) {
+	qr.err = err
 }
 
 func (qr *QueryResponse) SetId(id []byte) {
@@ -291,6 +329,18 @@ func (qr *QueryResponse) SetRows(rows [][]*sqlite3.Column) {
 	}
 }
 
+func (qr *QueryResponse) SetTransactionId(transactionId []byte) {
+	qr.transactionId = transactionId
+}
+
+func (qr *QueryResponse) SetWALSequence(sequence int64) {
+	qr.walSequence = sequence
+}
+
+func (qr *QueryResponse) SetWALTimestamp(timestamp int64) {
+	qr.walTimestamp = timestamp
+}
+
 func (qr *QueryResponse) ToJSON() ([]byte, error) {
 	return json.Marshal(QueryJsonResponse{
 		Status: "success",
@@ -302,15 +352,28 @@ func (qr QueryResponse) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		"status": "success",
 		"data": map[string]interface{}{
-			"changes":         qr.changes,
-			"id":              qr.id,
-			"latency":         qr.latency,
-			"lastInsertRowID": qr.lastInsertRowId,
-			"columns":         qr.columns,
-			"rows":            qr.rows,
-			"rowCount":        qr.rowCount,
+			"changes":            qr.changes,
+			"id":                 string(qr.id),
+			"latency":            qr.latency,
+			"last_insert_row_id": qr.lastInsertRowId,
+			"columns":            qr.columns,
+			"rows":               qr.rows,
+			"row_count":          qr.rowCount,
+			"transaction_id":     string(qr.transactionId),
 		},
 	}
+}
+
+func (qr *QueryResponse) TransactionId() []byte {
+	return qr.transactionId
+}
+
+func (qr *QueryResponse) WALSequence() int64 {
+	return qr.walSequence
+}
+
+func (qr *QueryResponse) WALTimestamp() int64 {
+	return qr.walTimestamp
 }
 
 func (qr *QueryResponse) WriteJson(w io.Writer) error {

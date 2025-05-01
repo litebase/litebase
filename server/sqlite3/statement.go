@@ -1,9 +1,9 @@
 package sqlite3
 
 /*
- #include <stdlib.h>
- #include <stdio.h>
- #include "./sqlite3.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "./sqlite3.h"
 */
 import "C"
 import (
@@ -42,20 +42,21 @@ const (
 	StatementReadonlyFalse StatementReadonly = "false"
 )
 
-// Prepare query
-func (c *Connection) Prepare(ctx context.Context, query []byte) (*Statement, int, error) {
+func NewStatement(
+	ctx context.Context,
+	c *Connection,
+	query []byte,
+) (*Statement, int, error) {
 	var cQuery, cExtra *C.char
 	var s *C.sqlite3_stmt
 
-	goString := string(query)
-	cQuery = C.CString(goString)
+	cQuery = C.CString(string(query))
 	defer C.free(unsafe.Pointer(cQuery))
 
 	if err := C.sqlite3_prepare_v3((*C.sqlite3)(c.sqlite3), cQuery, -1, C.SQLITE_PREPARE_PERSISTENT, &s, &cExtra); err != SQLITE_OK {
 		return nil, int(err), c.Error(int(err))
 	}
 
-	// Return prepared statement and extra string
 	return &Statement{
 		columnCount:  0,
 		columnNames:  []string{},
@@ -65,16 +66,6 @@ func (c *Connection) Prepare(ctx context.Context, query []byte) (*Statement, int
 		extra:        cExtra,
 		text:         query,
 	}, 0, nil
-}
-
-func (s *Statement) Reset() error {
-	err := C.sqlite3_reset(s.sqlite3_stmt)
-
-	if err != SQLITE_OK {
-		return s.Connection.Error(int(err))
-	} else {
-		return nil
-	}
 }
 
 // Bind parameters to statement
@@ -136,6 +127,93 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 	return nil
 }
 
+// Clear the bindings of the statement
+func (s *Statement) ClearBindings() error {
+	if s.sqlite3_stmt == nil {
+		return errors.New("sqlite3 statement is nil")
+	}
+
+	if rc := C.sqlite3_clear_bindings(s.sqlite3_stmt); rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
+	} else {
+		return nil
+	}
+}
+
+// Get the column count of the statement
+func (s *Statement) ColumnCount() int {
+	if s.sqlite3_stmt == nil {
+		return 0
+	}
+
+	if s.columnCount == 0 {
+		s.columnCount = int(C.sqlite3_column_count(s.sqlite3_stmt))
+	}
+
+	return s.columnCount
+}
+
+// Get the name of a column by index
+func (s *Statement) ColumnName(index int) string {
+	if s.sqlite3_stmt == nil {
+		return ""
+	}
+
+	return C.GoString(C.sqlite3_column_name(s.sqlite3_stmt, C.int(index)))
+}
+
+// Get the names of all columns
+func (s *Statement) ColumnNames() []string {
+	if s.sqlite3_stmt == nil {
+		return []string{}
+	}
+
+	if len(s.columnNames) == 0 {
+		columnCount := s.ColumnCount()
+		s.columnNames = make([]string, 0, columnCount)
+
+		for i := 0; i < columnCount; i++ {
+			s.columnNames = append(s.columnNames, s.ColumnName(i))
+		}
+	}
+
+	return s.columnNames
+}
+
+// Get the value of a column by index
+func (s *Statement) ColumnValue(buffer *bytes.Buffer, columnType ColumnType, index int) []byte {
+	if s.sqlite3_stmt == nil {
+		return nil
+	}
+
+	switch columnType {
+	case SQLITE_INTEGER:
+		var columnValueBytes [8]byte
+		binary.LittleEndian.PutUint64(columnValueBytes[:], uint64(int64(C.sqlite3_column_int64(s.sqlite3_stmt, C.int(index)))))
+		buffer.Write(columnValueBytes[:])
+
+		return buffer.Bytes()
+	case SQLITE_FLOAT:
+		var columnValueBytes [8]byte
+		binary.LittleEndian.PutUint64(columnValueBytes[:], math.Float64bits(float64(C.sqlite3_column_double(s.sqlite3_stmt, C.int(index)))))
+		buffer.Write(columnValueBytes[:])
+
+		return buffer.Bytes()
+	case SQLITE_TEXT:
+		buffer.Write(s.getTextData(buffer, index))
+
+		return buffer.Bytes()
+	case SQLITE_BLOB:
+		buffer.Write(s.getBlobData(index))
+
+		return buffer.Bytes()
+	case SQLITE_NULL:
+		return nil
+	default:
+		return nil
+	}
+}
+
 // Bind the parameteres to the statement and return the results
 func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error {
 	defer s.Reset()
@@ -150,14 +228,11 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 		}
 	}
 
-	var newRow []*Column
-
 	if result != nil &&
 		!bytes.Equal(s.text, []byte("COMMIT")) &&
 		!bytes.Equal(s.text, []byte("ROLLBACK")) {
 		result.Reset()
 		result.SetColumns(s.ColumnNames())
-		newRow = make([]*Column, len(result.Columns))
 	}
 
 	rowIndex := -1
@@ -170,11 +245,6 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 			rc := s.Step()
 
 			if rc == SQLITE_DONE {
-				if rowIndex >= 0 {
-
-					result.Rows = result.Rows[:rowIndex]
-				}
-
 				return nil
 			} else if rc == SQLITE_BUSY {
 				continue
@@ -192,17 +262,21 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 
 				if len(result.Columns) >= 0 {
 					for rowIndex >= len(result.Rows) {
+						result.Rows = append(result.Rows, make([]*Column, len(result.Columns)))
+
 						// Initialize the columns slice if there are no existing rows
 						for i := range result.Columns {
-							newRow[i] = result.GetColumn()
+							result.Rows[rowIndex][i] = result.GetColumn()
 						}
-
-						result.Rows = append(result.Rows, newRow)
 					}
 
 					for i := range result.Columns {
 						result.Rows[rowIndex][i].ColumnType = s.columnTypes[i]
-						result.Rows[rowIndex][i].ColumnValue = s.ColumnValue(result.GetBuffer(), s.columnTypes[i], i)
+						result.Rows[rowIndex][i].ColumnValue = s.ColumnValue(
+							result.GetBuffer(),
+							s.columnTypes[i],
+							i,
+						)
 					}
 				}
 			} else {
@@ -212,60 +286,7 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 	}
 }
 
-// Bind the parameteres to the statement and return the results
-func (s *Statement) ExecStreaming(result *Result, parameters ...StatementParameter) (chan [][]Column, error) {
-	defer s.Reset()
-
-	if s.sqlite3_stmt == nil {
-		return nil, errors.New("sqlite3 statement is nil")
-	}
-
-	if len(parameters) > 0 {
-		if err := s.Bind(parameters...); err != nil {
-			return nil, err
-		}
-	}
-
-	if !bytes.Equal(s.text, []byte("COMMIT")) &&
-		!bytes.Equal(s.text, []byte("ROLLBACK")) {
-		result.Reset()
-		result.SetColumns(s.ColumnNames())
-	}
-
-	for {
-		select {
-		case <-s.context.Done():
-			return nil, errors.New("context done")
-		default:
-			rc := s.Step()
-
-			if rc == SQLITE_DONE {
-				return nil, nil
-			} else if rc == SQLITE_BUSY {
-				continue
-			} else if rc == SQLITE_ROW {
-				columns := make([]*Column, len(result.Columns))
-
-				buffer := result.GetBuffer()
-
-				for i := range result.Columns {
-					if i < len(s.columnTypes) || s.columnTypes[i] == 0 {
-						s.columnTypes[i] = ColumnType(C.sqlite3_column_type(s.sqlite3_stmt, C.int(i)))
-					}
-
-					columns[i] = NewColumn(s.columnTypes[i], s.ColumnValue(result.GetBuffer(), s.columnTypes[i], i))
-				}
-
-				result.PutBuffer(buffer)
-
-				result.Rows = append(result.Rows, columns)
-			} else {
-				return nil, s.Connection.Error(rc)
-			}
-		}
-	}
-}
-
+// Finalize the statement
 // https://www.sqlite.org/c3ref/finalize.html
 func (s *Statement) Finalize() error {
 	if s.sqlite3_stmt == nil {
@@ -278,9 +299,12 @@ func (s *Statement) Finalize() error {
 		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
 	}
 
+	s.sqlite3_stmt = nil
+
 	return nil
 }
 
+// Get the blob data
 func (s *Statement) getBlobData(index int) []byte {
 	buf := statementBufferPool.Get().(*bytes.Buffer)
 	defer statementBufferPool.Put(buf)
@@ -339,98 +363,7 @@ func (s *Statement) getTextData(buf *bytes.Buffer, index int) []byte {
 	return byteSlice
 }
 
-func (s *Statement) IsBusy() bool {
-	if s.sqlite3_stmt == nil {
-		return false
-	}
-
-	result := int(C.sqlite3_stmt_busy(s.sqlite3_stmt))
-
-	return result != 0
-}
-
-func (s *Statement) ColumnCount() int {
-	if s.sqlite3_stmt == nil {
-		return 0
-	}
-
-	if s.columnCount == 0 {
-		s.columnCount = int(C.sqlite3_column_count(s.sqlite3_stmt))
-	}
-
-	return s.columnCount
-}
-
-func (s *Statement) ColumnName(index int) string {
-	if s.sqlite3_stmt == nil {
-		return ""
-	}
-
-	return C.GoString(C.sqlite3_column_name(s.sqlite3_stmt, C.int(index)))
-}
-
-func (s *Statement) ColumnNames() []string {
-	if s.sqlite3_stmt == nil {
-		return []string{}
-	}
-
-	if len(s.columnNames) == 0 {
-		columnCount := s.ColumnCount()
-		s.columnNames = make([]string, 0, columnCount)
-
-		for i := 0; i < columnCount; i++ {
-			s.columnNames = append(s.columnNames, s.ColumnName(i))
-		}
-	}
-
-	return s.columnNames
-}
-
-func (s *Statement) ColumnValue(buffer *bytes.Buffer, columnType ColumnType, index int) []byte {
-	if s.sqlite3_stmt == nil {
-		return nil
-	}
-
-	switch columnType {
-	case SQLITE_INTEGER:
-		var columnValueBytes [8]byte
-		binary.LittleEndian.PutUint64(columnValueBytes[:], uint64(int64(C.sqlite3_column_int64(s.sqlite3_stmt, C.int(index)))))
-		buffer.Write(columnValueBytes[:])
-
-		return buffer.Bytes()
-	case SQLITE_FLOAT:
-		var columnValueBytes [8]byte
-		binary.LittleEndian.PutUint64(columnValueBytes[:], math.Float64bits(float64(C.sqlite3_column_double(s.sqlite3_stmt, C.int(index)))))
-		buffer.Write(columnValueBytes[:])
-
-		return buffer.Bytes()
-	case SQLITE_TEXT:
-		buffer.Write(s.getTextData(buffer, index))
-
-		return buffer.Bytes()
-	case SQLITE_BLOB:
-		buffer.Write(s.getBlobData(index))
-
-		return buffer.Bytes()
-	case SQLITE_NULL:
-		return nil
-	default:
-		return nil
-	}
-}
-
-func (s *Statement) ClearBindings() error {
-	if s.sqlite3_stmt == nil {
-		return errors.New("sqlite3 statement is nil")
-	}
-
-	if rc := C.sqlite3_clear_bindings(s.sqlite3_stmt); rc != SQLITE_OK {
-		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
-	} else {
-		return nil
-	}
-}
-
+// Determine if the statement is read-only
 func (s *Statement) IsReadonly() bool {
 	if s.sqlite3_stmt == nil {
 		return false
@@ -451,14 +384,7 @@ func (s *Statement) IsReadonly() bool {
 	return readonly
 }
 
-func (s *Statement) SQL() string {
-	if s.sqlite3_stmt == nil {
-		return ""
-	}
-
-	return C.GoString(C.sqlite3_sql(s.sqlite3_stmt))
-}
-
+// Get the number of parameters in the statement
 func (s *Statement) ParameterCount() int {
 	if s.sqlite3_stmt == nil {
 		return 0
@@ -467,6 +393,7 @@ func (s *Statement) ParameterCount() int {
 	return int(C.sqlite3_bind_parameter_count(s.sqlite3_stmt))
 }
 
+// Get the index of a parameter by name
 func (s *Statement) ParameterIndex(parameter string) int {
 	if s.sqlite3_stmt == nil {
 		return 0
@@ -478,6 +405,7 @@ func (s *Statement) ParameterIndex(parameter string) int {
 	return int(C.sqlite3_bind_parameter_index(s.sqlite3_stmt, cString))
 }
 
+// Get the name of a parameter by index
 func (s *Statement) ParameterName(index int) string {
 	if s.sqlite3_stmt == nil {
 		return ""
@@ -486,6 +414,31 @@ func (s *Statement) ParameterName(index int) string {
 	return C.GoString(C.sqlite3_bind_parameter_name(s.sqlite3_stmt, C.int(index)))
 }
 
+// Reset the statement
+func (s *Statement) Reset() error {
+	if s.sqlite3_stmt == nil {
+		return errors.New("sqlite3 statement is nil")
+	}
+
+	err := C.sqlite3_reset(s.sqlite3_stmt)
+
+	if err != SQLITE_OK {
+		return s.Connection.Error(int(err))
+	} else {
+		return nil
+	}
+}
+
+// Return the SQL of the satement
+func (s *Statement) SQL() string {
+	if s.sqlite3_stmt == nil {
+		return ""
+	}
+
+	return C.GoString(C.sqlite3_sql(s.sqlite3_stmt))
+}
+
+// Set the column types of the statement result
 func (s *Statement) setColumnTypes(result *Result) {
 	for i := range result.Columns {
 		if i >= len(s.columnTypes) {
@@ -502,6 +455,11 @@ func (s *Statement) setColumnTypes(result *Result) {
 	}
 }
 
+// Step the statement
 func (s *Statement) Step() int {
+	if s.sqlite3_stmt == nil {
+		return int(SQLITE_ERROR)
+	}
+
 	return int(C.sqlite3_step(s.sqlite3_stmt))
 }
