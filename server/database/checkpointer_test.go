@@ -17,7 +17,7 @@ func TestNewCheckpointer(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
@@ -39,7 +39,7 @@ func TestCheckpointer_Begin(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
@@ -72,7 +72,7 @@ func TestCheckpointer_CheckpointPage(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
@@ -119,7 +119,7 @@ func TestCheckpointer_Commit(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
@@ -180,7 +180,7 @@ func TestCheckpointer_Rollback(t *testing.T) {
 			mock.DatabaseId,
 			mock.BranchId,
 			fileSystem,
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 		)
 
@@ -259,7 +259,7 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 			databaseId,
 			branchId,
 			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
 		)
 
@@ -277,7 +277,7 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 			databaseId,
 			branchId,
 			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
 		)
 
@@ -295,7 +295,7 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 // 			mock.DatabaseId,
 // 			mock.BranchId,
 // 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
-// 			app.Cluster.RemoteFS(),
+// 			app.Cluster.SharedFS(),
 // 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).PageLogger(),
 // 		)
 

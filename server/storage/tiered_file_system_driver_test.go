@@ -8,12 +8,9 @@ import (
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
-
 	"github.com/litebase/litebase/internal/test"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/storage"
 )
 
 func TestNewTieredFileSystemDriver(t *testing.T) {
@@ -471,58 +468,6 @@ func TestTieredFileSystemDriver_ReadFile(t *testing.T) {
 
 		if string(data) != "test" {
 			t.Errorf("TieredFileSystemDriver.ReadFile returned incorrect data, got %s", data)
-		}
-	})
-}
-
-func TestTieredFileSystemDriver_ReleaseFile(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
-
-		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
-			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
-		)
-
-		tieredFile, _ := tieredFileSystemDriver.OpenFile("test", os.O_RDWR|os.O_CREATE, 0644)
-
-		err := tieredFileSystemDriver.ReleaseFile(tieredFile.(*storage.TieredFile))
-
-		if err != nil {
-			t.Fatalf("TieredFileSystemDriver.ReleaseFile should return nil, got %v", err)
-		}
-
-		tieredFile, _ = tieredFileSystemDriver.OpenFile("test", os.O_RDWR|os.O_CREATE, 0644)
-
-		_, err = tieredFile.Write([]byte("test"))
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		err = tieredFileSystemDriver.ReleaseFile(tieredFile.(*storage.TieredFile))
-
-		if err == nil || err != storage.ErrTieredFileCannotBeReleased {
-			t.Fatalf("TieredFileSystemDriver.ReleaseFile should return ErrTieredFileCannotBeReleased, got %v", err)
-		}
-
-		tieredFileSystemDriver.Flush()
-
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test", os.O_RDWR|os.O_CREATE, 0644)
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		err = tieredFileSystemDriver.ReleaseFile(tieredFile.(*storage.TieredFile))
-
-		if err != nil {
-			t.Fatalf("TieredFileSystemDriver.ReleaseFile should return nil, got %v", err)
-		}
-
-		if tieredFile.(*storage.TieredFile).File != nil {
-			t.Fatalf("TieredFileSystemDriver.ReleaseFile should return nil, got %v", tieredFile.(*storage.TieredFile))
 		}
 	})
 }
@@ -990,7 +935,7 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				tieredFileSystemDriver.Files = tt.files
 
-				file, ok := tieredFileSystemDriver.GetDistributedFile(tt.path)
+				file, ok := tieredFileSystemDriver.GetSharedFile(tt.path)
 
 				if (file == nil && tt.expected != nil) || (file != nil && tt.expected == nil) || (file != nil && tt.expected != nil && (*file != *tt.expected)) || ok != tt.ok {
 					t.Errorf("expected (%v, %v), got (%v, %v)", tt.expected, tt.ok, file, ok)

@@ -4,19 +4,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/litebase/litebase/internal/test"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
-
+	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/storage"
 )
 
 func TestNewFileSystem(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver("test")
-
 		fs := storage.NewFileSystem(driver)
 
 		if fs == nil {

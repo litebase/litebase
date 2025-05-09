@@ -98,8 +98,9 @@ func (pl *PageLog) Close() error {
 
 // Compact the page log contents into the durable file system.
 func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem) error {
-	// TODO: Does the page log need to be durably marked as compacted to avoid
-	// overwrites?
+	// TODO: The page log needs to be durably marked as compacted to avoid
+	// overwrites. This also will allow us to retry compaction if it fails due
+	// to a crash or other error.
 	if !pl.compactedAt.IsZero() {
 		return nil
 	}

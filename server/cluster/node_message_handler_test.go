@@ -4,11 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster/messages"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 func TestHandleMessage(t *testing.T) {

@@ -3,11 +3,9 @@ package database
 import (
 	"sync"
 
-	"github.com/litebase/litebase/server/logs"
-
 	"github.com/litebase/litebase/server/auth"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/logs"
 )
 
 var queryPool = &sync.Pool{

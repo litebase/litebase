@@ -3,11 +3,9 @@ package logs_test
 import (
 	"testing"
 
-	"github.com/litebase/litebase/server/logs"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/logs"
 )
 
 func TestNewLogManager(t *testing.T) {

@@ -68,7 +68,7 @@ func (w *WALIndex) File() (internalStorage.File, error) {
 	path := fmt.Sprintf("%slogs/wal/WAL_INDEX", file.GetDatabaseFileBaseDir(w.DatabaseId, w.BranchId))
 
 tryOpen:
-	file, err := w.fileSystem.OpenFile(
+	file, err := w.fileSystem.OpenFileDirect(
 		path,
 		os.O_CREATE|os.O_RDWR,
 		0644,
@@ -83,7 +83,6 @@ tryOpen:
 				return nil, err
 			}
 
-			log.Println("Creating WAL index file", path)
 			goto tryOpen
 		}
 
@@ -167,6 +166,8 @@ func (w *WALIndex) load() error {
 		index += 8
 	}
 
+	slices.Sort(w.versions)
+
 	w.versions = versions
 
 	return nil
@@ -225,6 +226,8 @@ func (w *WALIndex) RemoveVersionsFrom(timestamp int64) ([]int64, error) {
 		}
 	}
 
+	slices.Sort(versions)
+
 	w.versions = versions
 
 	return removed, w.persist()
@@ -233,6 +236,8 @@ func (w *WALIndex) RemoveVersionsFrom(timestamp int64) ([]int64, error) {
 func (w *WALIndex) SetVersions(versions []int64) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
+
+	slices.Sort(versions)
 
 	w.versions = versions
 
@@ -251,6 +256,8 @@ func (w *WALIndex) Truncate() error {
 			w.versions = slices.Delete(w.versions, i, i+1)
 		}
 	}
+
+	slices.Sort(w.versions)
 
 	w.persist()
 

@@ -4,11 +4,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/litebase/litebase/server/vfs"
-
-	"github.com/litebase/litebase/server/sqlite3"
-
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/server/sqlite3"
+	"github.com/litebase/litebase/server/vfs"
 )
 
 func TestVFSShareMemoryCanBeCopiedFromOneInstanceAndAppliedToAnother(t *testing.T) {

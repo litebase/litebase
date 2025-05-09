@@ -7,11 +7,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/litebase/litebase/server/auth"
-
-	"github.com/litebase/litebase/server/cluster"
-
 	"github.com/google/uuid"
+	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/server/cluster"
 )
 
 var ErrInvalidTransactionResponse = errors.New("invalid transaction response")

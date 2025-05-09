@@ -69,20 +69,20 @@ func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 	), nil
 }
 
-func GetDatabaseFileRemotePath(c *config.Config, databaseId string, branchId string) (string, error) {
+func GetDatabaseFileSharedPath(c *config.Config, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s/_databases/%s/%s/%s.db",
-		c.RemotePath,
+		c.SharedPath,
 		databaseId,
 		branchId,
 		DatabaseHash(databaseId, branchId),
 	), nil
 }
 
-func GetDatabaseFileRemoteWALPath(c *config.Config, databaseId string, branchId string, timestamp int64) (string, error) {
+func GetDatabaseFileSharedWALPath(c *config.Config, databaseId string, branchId string, timestamp int64) (string, error) {
 	return fmt.Sprintf(
 		"%s/_databases/%s/%s/wal/%d",
-		c.RemotePath,
+		c.SharedPath,
 		databaseId,
 		branchId,
 		timestamp,

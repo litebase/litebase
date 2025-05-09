@@ -10,15 +10,13 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/litebase/litebase/server/database"
-
 	"github.com/litebase/litebase/server/auth"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/database"
 )
 
 var bufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return bytes.NewBuffer(make([]byte, 1024))
 	},
 }

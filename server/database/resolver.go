@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/server/cluster/messages"
-
 	"github.com/litebase/litebase/server/logs"
-
 	"github.com/litebase/litebase/server/sqlite3"
 )
 
@@ -163,8 +161,6 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			response.SetRows(sqlite3Result.Rows)
 			response.SetRowCount(len(sqlite3Result.Rows))
 		}
-		// response.SetWALSequence(db.GetConnection().distributedWal.Sequence)
-		// response.SetWALTimestamp(db.GetConnection().distributedWal.Timestamp)
 
 		logManager.Query(
 			logs.QueryLogEntry{

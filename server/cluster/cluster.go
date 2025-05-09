@@ -6,18 +6,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/storage"
-
-	"github.com/litebase/litebase/server/auth"
-
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/server/storage"
 )
 
 const (
@@ -50,7 +47,7 @@ type Cluster struct {
 
 	localFileSystem  *storage.FileSystem
 	objectFileSystem *storage.FileSystem
-	remoteFileSystem *storage.FileSystem
+	sharedFileSystem *storage.FileSystem
 	tieredFileSystem *storage.FileSystem
 	tmpFileSystem    *storage.FileSystem
 }
@@ -68,42 +65,42 @@ func getClusterIdFromEnv(config *config.Config) (string, error) {
 
 // Create the directories and files for the cluster.
 func (cluster *Cluster) createDirectoriesAndFiles() error {
-	err := cluster.ObjectFS().MkdirAll("_cluster/query", 0755)
+	err := cluster.SharedFS().MkdirAll("_cluster/query", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = cluster.ObjectFS().MkdirAll(cluster.NodePath(), 0755)
+	err = cluster.SharedFS().MkdirAll(cluster.NodePath(), 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = cluster.ObjectFS().MkdirAll(cluster.NodeQueryPath(), 0755)
+	err = cluster.SharedFS().MkdirAll(cluster.NodeQueryPath(), 0755)
 
 	if err != nil {
 		return err
 	}
 
-	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", Nominationfile)); os.IsNotExist(err) {
-		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", Nominationfile))
+	if _, err := cluster.SharedFS().Stat(fmt.Sprintf("_cluster/query/%s", Nominationfile)); os.IsNotExist(err) {
+		_, err = cluster.SharedFS().Create(fmt.Sprintf("_cluster/query/%s", Nominationfile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", LeaseFile)); os.IsNotExist(err) {
-		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", LeaseFile))
+	if _, err := cluster.SharedFS().Stat(fmt.Sprintf("_cluster/query/%s", LeaseFile)); os.IsNotExist(err) {
+		_, err = cluster.SharedFS().Create(fmt.Sprintf("_cluster/query/%s", LeaseFile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := cluster.ObjectFS().Stat(fmt.Sprintf("_cluster/query/%s", PrimaryFile)); os.IsNotExist(err) {
-		_, err = cluster.ObjectFS().Create(fmt.Sprintf("_cluster/query/%s", PrimaryFile))
+	if _, err := cluster.SharedFS().Stat(fmt.Sprintf("_cluster/query/%s", PrimaryFile)); os.IsNotExist(err) {
+		_, err = cluster.SharedFS().Create(fmt.Sprintf("_cluster/query/%s", PrimaryFile))
 
 		if err != nil {
 			return err
@@ -183,15 +180,22 @@ func (cluster *Cluster) GetMembers(cached bool) []string {
 	// 	return nil
 	// }
 
-	if _, err := cluster.ObjectFS().Stat(cluster.NodePath()); os.IsNotExist(err) {
+	_, err := cluster.SharedFS().Stat(cluster.NodePath())
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		log.Println("Error reading cluster nodes: ", err, cluster.NodePath())
 		return nil
 	}
 
 	// Read the directory
-	files, err := cluster.ObjectFS().ReadDir(cluster.NodeQueryPath())
+	files, err := cluster.SharedFS().ReadDir(cluster.NodeQueryPath())
 
 	if err != nil {
-		log.Fatalln("Error reading query nodes: ", err, string(debug.Stack()))
+		log.Println("Error reading query nodes: ", err)
 		return nil
 	}
 
@@ -242,6 +246,12 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 		}
 
 		cluster.Id = id
+
+		err = cluster.Save()
+
+		if err != nil {
+			return err
+		}
 	}
 
 	clusterFile, err := cluster.ObjectFS().ReadFile(ConfigPath())
@@ -394,7 +404,7 @@ func (cluster *Cluster) RemoveMember(address string) error {
 			delete(cluster.nodeMap[config.NodeTypeQuery], address)
 
 			// Remove the node address file
-			err := cluster.ObjectFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll(address, ":", "_"))
+			err := cluster.SharedFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll(address, ":", "_"))
 
 			if err != nil {
 				return err

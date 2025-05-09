@@ -238,6 +238,7 @@ func LoadRoutes(router *RouterInstance) {
 		QueryStreamController,
 	).Middleware([]Middleware{
 		RequireSubdomain,
+		PreloadDatabaseKey,
 		Authentication,
 		Authorization,
 		QueryNode,

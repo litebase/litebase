@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"runtime"
 	"sync"
 	"time"
 
@@ -158,12 +157,15 @@ func (nr *NodeReplica) LeaveCluster() error {
 func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage, error) {
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)
-	address, _ := nr.node.Address()
-
-	err := encoder.Encode(message)
+	address, err := nr.node.Address()
 
 	if err != nil {
-		log.Println("Failed to encode message: ", err)
+		return messages.NodeMessage{}, fmt.Errorf("failed to get node address: %w", err)
+	}
+
+	err = encoder.Encode(message)
+
+	if err != nil {
 		return messages.NodeMessage{}, err
 	}
 
@@ -207,7 +209,6 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 
 	if response.StatusCode >= 400 {
 		log.Println("Failed to send message: ", response.Status)
-		runtime.Stack(nil, true)
 		return messages.NodeMessage{}, errors.New("failed to send message")
 	}
 

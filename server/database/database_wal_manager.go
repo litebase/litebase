@@ -8,11 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster/messages"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/server/storage"
 )
 
 type DatabaseWALManager struct {
@@ -294,6 +292,10 @@ func (w *DatabaseWALManager) IsLatestVersion(timestamp int64) bool {
 }
 
 func (w *DatabaseWALManager) ReadAt(timestamp int64, p []byte, off int64) (n int, err error) {
+	// start := time.Now()
+	// defer func() {
+	// 	log.Println("ReadAt took", time.Since(start))
+	// }()
 	w.mutext.RLock()
 	defer w.mutext.RUnlock()
 
@@ -507,6 +509,23 @@ func (w *DatabaseWALManager) Size(timestamp int64) (int64, error) {
 	return wal.Size()
 }
 
+func (w *DatabaseWALManager) Sync(timestamp int64) error {
+	start := time.Now()
+
+	w.mutext.RLock()
+	defer w.mutext.RUnlock()
+
+	wal, err := w.Get(timestamp)
+
+	if err != nil {
+		return err
+	}
+	defer func() {
+		log.Println("Sync took", time.Since(start))
+	}()
+	return wal.Sync()
+}
+
 func (w *DatabaseWALManager) Truncate(timestamp, size int64) error {
 	w.mutext.RLock()
 	defer w.mutext.RUnlock()
@@ -539,6 +558,10 @@ func (w *DatabaseWALManager) WaitForCheckpointing() {
 }
 
 func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n int, err error) {
+	// start := time.Now()
+	// defer func() {
+	// 	log.Println("WriteAt took", time.Since(start))
+	// }()
 	w.mutext.RLock()
 	defer w.mutext.RUnlock()
 

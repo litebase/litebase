@@ -8,10 +8,8 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/storage"
 )
 
 func TestNewTieredFile(t *testing.T) {
@@ -528,7 +526,7 @@ func TestTieredFile_WriteAt(t *testing.T) {
 		buf := make([]byte, 20)
 		tf.Seek(0, io.SeekStart)
 
-		n, err = tf.Read(buf)
+		_, err = tf.Read(buf)
 
 		if err != nil {
 			t.Error(err)

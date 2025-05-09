@@ -6,9 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/litebase/litebase/server/cluster/messages"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 func ClusterPrimaryController(request *Request) Response {

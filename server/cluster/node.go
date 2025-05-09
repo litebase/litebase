@@ -195,8 +195,8 @@ func (n *Node) Init(
 	registerNodeMessages()
 
 	// Make directory if it doesn't exist
-	if n.Cluster.ObjectFS().Stat(n.Cluster.NodePath()); os.IsNotExist(os.ErrNotExist) {
-		n.Cluster.ObjectFS().Mkdir(n.Cluster.NodePath(), 0755)
+	if n.Cluster.SharedFS().Stat(n.Cluster.NodePath()); os.IsNotExist(os.ErrNotExist) {
+		n.Cluster.SharedFS().Mkdir(n.Cluster.NodePath(), 0755)
 	}
 
 	n.SetQueryBuilder(queryBuilder)
@@ -310,7 +310,7 @@ func (n *Node) Primary() *NodePrimary {
 
 func (n *Node) PrimaryAddress() string {
 	if n.primaryAddress == "" {
-		primaryData, err := n.Cluster.ObjectFS().ReadFile(n.Cluster.PrimaryPath())
+		primaryData, err := n.Cluster.SharedFS().ReadFile(n.Cluster.PrimaryPath())
 
 		if err != nil {
 			return ""
@@ -327,7 +327,7 @@ func (n *Node) primaryLeaseVerification() bool {
 		return true
 	}
 
-	primaryData, err := n.Cluster.ObjectFS().ReadFile(n.Cluster.PrimaryPath())
+	primaryData, err := n.Cluster.SharedFS().ReadFile(n.Cluster.PrimaryPath())
 
 	if err != nil {
 		// log.Printf("Failed to read primary file: %v", err)
@@ -340,7 +340,7 @@ func (n *Node) primaryLeaseVerification() bool {
 	}
 
 	// Check if the primary is still alive
-	leaseData, err := n.Cluster.ObjectFS().ReadFile(n.Cluster.LeasePath())
+	leaseData, err := n.Cluster.SharedFS().ReadFile(n.Cluster.LeasePath())
 
 	if err != nil {
 		log.Printf("Failed to read lease file: %v", err)
@@ -372,7 +372,7 @@ func (n *Node) primaryFileVerification() bool {
 	address, _ := n.Address()
 
 	// Check if the primary file exists and is not empty
-	if primaryData, err := n.Cluster.ObjectFS().ReadFile(n.Cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != address {
+	if primaryData, err := n.Cluster.SharedFS().ReadFile(n.Cluster.PrimaryPath()); err != nil || len(primaryData) == 0 || string(primaryData) != address {
 		if err != nil && !os.IsNotExist(err) {
 			log.Printf("Error accessing primary file: %v", err)
 		}
@@ -381,7 +381,7 @@ func (n *Node) primaryFileVerification() bool {
 	}
 
 	// Check if the lease file exists, is not empty, and has a valid future timestamp
-	leaseData, err := n.Cluster.ObjectFS().ReadFile(n.Cluster.LeasePath())
+	leaseData, err := n.Cluster.SharedFS().ReadFile(n.Cluster.LeasePath())
 
 	if err != nil || len(leaseData) == 0 {
 		return false
@@ -442,7 +442,7 @@ func (n *Node) QueryResponsePool() NodeQueryResponsePool {
 }
 
 func (n *Node) removeAddress() error {
-	return n.Cluster.ObjectFS().Remove(n.AddressPath())
+	return n.Cluster.SharedFS().Remove(n.AddressPath())
 }
 
 func (n *Node) removePrimaryStatus() error {
@@ -469,7 +469,7 @@ func (n *Node) renewLease() error {
 	}
 
 	// Verify the primary is stil the current node
-	primaryAddress, err := n.Cluster.ObjectFS().ReadFile(n.Cluster.PrimaryPath())
+	primaryAddress, err := n.Cluster.SharedFS().ReadFile(n.Cluster.PrimaryPath())
 
 	if err != nil {
 		return err
@@ -489,7 +489,7 @@ func (n *Node) renewLease() error {
 	expiresAt := time.Now().Add(LeaseDuration).Unix()
 	leaseTimestamp := strconv.FormatInt(expiresAt, 10)
 
-	err = n.Cluster.ObjectFS().WriteFile(n.Cluster.LeasePath(), []byte(leaseTimestamp), os.ModePerm)
+	err = n.Cluster.SharedFS().WriteFile(n.Cluster.LeasePath(), []byte(leaseTimestamp), os.ModePerm)
 
 	if err != nil {
 		log.Printf("Failed to write lease file: %v", err)
@@ -502,7 +502,7 @@ func (n *Node) renewLease() error {
 	}
 
 	// Verify the Lease file has the written value
-	leaseData, err := n.Cluster.ObjectFS().ReadFile(n.Cluster.LeasePath())
+	leaseData, err := n.Cluster.SharedFS().ReadFile(n.Cluster.LeasePath())
 
 	if err != nil {
 		log.Printf("Failed to read lease file: %v", err)
@@ -784,14 +784,14 @@ func (n *Node) StoreAddress() error {
 tryStore:
 	timeBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(timeBytes, uint64(time.Now().Unix()))
-	err := n.Cluster.ObjectFS().WriteFile(n.AddressPath(), timeBytes, 0644)
+	err := n.Cluster.SharedFS().WriteFile(n.AddressPath(), timeBytes, 0644)
 
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return err
 		}
 
-		err = n.Cluster.ObjectFS().MkdirAll(n.Cluster.NodePath(), 0755)
+		err = n.Cluster.SharedFS().MkdirAll(n.Cluster.NodePath(), 0755)
 
 		if err != nil {
 			return err
@@ -842,7 +842,7 @@ func (n *Node) Timestamp() time.Time {
 
 // truncateFile truncates the specified file. It creates the file if it does not exist.
 func (n *Node) truncateFile(filePath string) error {
-	return n.Cluster.ObjectFS().WriteFile(filePath, []byte(""), os.ModePerm)
+	return n.Cluster.SharedFS().WriteFile(filePath, []byte(""), os.ModePerm)
 }
 
 func (n *Node) VerifyElectionConfirmation(address string) (bool, error) {
@@ -851,7 +851,7 @@ func (n *Node) VerifyElectionConfirmation(address string) (bool, error) {
 		return false, fmt.Errorf("operation canceled")
 	}
 
-	nominationFile, err := n.Cluster.ObjectFS().OpenFile(n.Cluster.NominationPath(), os.O_RDONLY, 0644)
+	nominationFile, err := n.Cluster.SharedFS().OpenFile(n.Cluster.NominationPath(), os.O_RDONLY, 0644)
 
 	if err != nil {
 		log.Printf("Failed to open nomination file: %v", err)

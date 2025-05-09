@@ -1,11 +1,9 @@
 package auth
 
 import (
-	"github.com/litebase/litebase/server/file"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/storage"
 )
 
 type DatabaseKey struct {

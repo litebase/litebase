@@ -13,16 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/file"
-
 	internalStorage "github.com/litebase/litebase/internal/storage"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/storage"
 )
 
-var QueryLogFlushInterval = time.Second * 1
+var QueryLogFlushInterval = time.Second * 5
 var QueryLogFlushThreshold = time.Second
 
 var queryLogBuffer = sync.Pool{
@@ -94,16 +91,21 @@ func (q *QueryLog) GetFile() internalStorage.File {
 	if q.file == nil {
 		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, q.cluster.Node().Id)
 
-		err := q.tieredFS.MkdirAll(filepath.Dir(path), 0755)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
+	tryOpen:
 		file, err := q.tieredFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 		if err != nil {
-			log.Fatal(err)
+			if os.IsNotExist(err) {
+				err := q.tieredFS.MkdirAll(filepath.Dir(path), 0755)
+
+				if err != nil {
+					log.Println(err)
+				}
+
+				goto tryOpen
+			}
+
+			log.Println(err)
 		}
 
 		q.file = file

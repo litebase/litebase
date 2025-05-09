@@ -1,13 +1,10 @@
 package database
 
 import (
-	"github.com/litebase/litebase/server/logs"
-
-	"github.com/litebase/litebase/server/sqlite3"
-
 	"github.com/litebase/litebase/server/auth"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/logs"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 type QueryBuilder struct {

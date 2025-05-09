@@ -5,13 +5,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/litebase/litebase/server/database"
-
-	"github.com/litebase/litebase/server/sqlite3"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {

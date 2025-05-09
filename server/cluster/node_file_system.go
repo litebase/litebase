@@ -3,9 +3,8 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/storage"
 )
 
 func (cluster *Cluster) ClearFSFiles() {
@@ -61,19 +60,19 @@ func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 	return cluster.objectFileSystem
 }
 
-func (cluster *Cluster) RemoteFS() *storage.FileSystem {
+func (cluster *Cluster) SharedFS() *storage.FileSystem {
 	cluster.fileSystemMutex.Lock()
 	defer cluster.fileSystemMutex.Unlock()
 
-	if cluster.remoteFileSystem == nil {
-		cluster.remoteFileSystem = storage.NewFileSystem(
+	if cluster.sharedFileSystem == nil {
+		cluster.sharedFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
-				cluster.Config.RemotePath,
+				cluster.Config.SharedPath,
 			),
 		)
 	}
 
-	return cluster.remoteFileSystem
+	return cluster.sharedFileSystem
 }
 
 func (cluster *Cluster) ShutdownStorage() {
@@ -85,8 +84,8 @@ func (cluster *Cluster) ShutdownStorage() {
 		cluster.objectFileSystem.Shutdown()
 	}
 
-	if cluster.remoteFileSystem != nil {
-		cluster.remoteFileSystem.Shutdown()
+	if cluster.sharedFileSystem != nil {
+		cluster.sharedFileSystem.Shutdown()
 	}
 
 	if cluster.tieredFileSystem != nil {
@@ -128,7 +127,7 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
 					cluster.Node().Context(),
-					storage.NewLocalFileSystemDriver(cluster.Config.RemotePath),
+					storage.NewLocalFileSystemDriver(cluster.Config.SharedPath),
 					storage.NewObjectFileSystemDriver(cluster.Config),
 				),
 			)
@@ -136,7 +135,7 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
 					cluster.Node().Context(),
-					storage.NewLocalFileSystemDriver(cluster.Config.RemotePath),
+					storage.NewLocalFileSystemDriver(cluster.Config.SharedPath),
 					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
 				),
 			)

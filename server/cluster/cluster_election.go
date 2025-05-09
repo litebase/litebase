@@ -153,7 +153,7 @@ func (c *ClusterElection) Run() (bool, error) {
 
 	address, _ := c.node.Address()
 
-	err = c.node.Cluster.ObjectFS().WriteFile(
+	err = c.node.Cluster.SharedFS().WriteFile(
 		c.node.Cluster.PrimaryPath(),
 		[]byte(address),
 		0644,
@@ -435,7 +435,7 @@ func (c *ClusterElection) verifyNomination() (bool, error) {
 	address, _ := c.node.Address()
 
 	// Reopen the file to read the contents
-	nominationFile, err := c.node.Cluster.ObjectFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDONLY, 0644)
+	nominationFile, err := c.node.Cluster.SharedFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDONLY, 0644)
 
 	if err != nil {
 		log.Printf("Failed to reopen nomination file: %v", err)
@@ -483,7 +483,7 @@ func (c *ClusterElection) writeNomination() (bool, error) {
 	}
 
 openNomination:
-	nominationFile, err := c.node.Cluster.ObjectFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
+	nominationFile, err := c.node.Cluster.SharedFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -492,7 +492,7 @@ openNomination:
 		}
 
 		// Retry if the file does not exist
-		err = c.node.Cluster.ObjectFS().MkdirAll(filepath.Dir(c.node.Cluster.NominationPath()), 0755)
+		err = c.node.Cluster.SharedFS().MkdirAll(filepath.Dir(c.node.Cluster.NominationPath()), 0755)
 
 		if err != nil {
 			log.Printf("Failed to create nomination directory: %v", err)

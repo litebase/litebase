@@ -2,7 +2,11 @@ package cache
 
 import (
 	"container/heap"
+	"errors"
+	"slices"
 )
+
+var ErrLFUCacheFull = errors.New("LFU cache is full")
 
 type CacheItem struct {
 	key       string
@@ -28,19 +32,20 @@ func (pq PriorityQueue) Swap(i, j int) {
 	pq[j].index = j
 }
 
-func (pq *PriorityQueue) Push(x interface{}) {
+func (pq *PriorityQueue) Push(x any) {
 	n := len(*pq)
 	item := x.(*CacheItem)
 	item.index = n
 	*pq = append(*pq, item)
 }
 
-func (pq *PriorityQueue) Pop() interface{} {
+func (pq *PriorityQueue) Pop() any {
 	old := *pq
 	n := len(old)
 	item := old[n-1]
 	item.index = -1 // For safety
 	*pq = old[0 : n-1]
+
 	return item
 }
 
@@ -71,17 +76,22 @@ func (c *LFUCache) Get(key string) ([]byte, bool) {
 }
 
 // Put adds an item to the cache.
-func (c *LFUCache) Put(key string, value []byte) {
-	if c.capacity == 0 {
-		return
-	}
+func (c *LFUCache) Put(key string, value []byte) error {
+	item, found := c.items[key]
 
-	if item, found := c.items[key]; found {
-		item.value = value
+	// if !found && c.capacity == 0 {
+	// 	return ErrLFUCacheFull
+	// }
+
+	// Create a copy of the value to avoid unintended modifications
+	valueCopy := slices.Clone(value)
+
+	if found {
+		item.value = valueCopy
 		item.frequency++
 		heap.Fix(&c.pq, item.index)
 
-		return
+		return nil
 	}
 
 	if len(c.items) >= c.capacity {
@@ -93,11 +103,13 @@ func (c *LFUCache) Put(key string, value []byte) {
 	// Add the new item.
 	newItem := &CacheItem{
 		key:       key,
-		value:     value,
+		value:     valueCopy,
 		frequency: 1,
 	}
 
 	heap.Push(&c.pq, newItem)
 
 	c.items[key] = newItem
+
+	return nil
 }

@@ -38,16 +38,6 @@ type ConnectionManager struct {
 }
 
 func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
-	// Skip if the committed at time time stamp for the connection is empty
-	// if clientConnection.connection.committedAt.IsZero() {
-	// 	return false
-	// }
-
-	// Skip if the committed at time stamp of the connection is before the last
-	// checkpoint of the database group
-	// if clientConnection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
-	// 	return false
-	// }
 
 	// Skip if the last checkpoint for the database group was performed less
 	// than the checkpoint threshold.
@@ -61,6 +51,7 @@ func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId st
 
 	lock.Lock()
 	defer lock.Unlock()
+
 	// Attempt to checkpoint the database. In cases where there are multiple
 	// connections attempting to write to the database, the checkpoint will
 	// fail and return SQLITE_BUSY. This is expected and we will just try

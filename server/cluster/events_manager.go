@@ -40,7 +40,7 @@ func (em *EventsManager) Init() {
 
 		em.cluster.AddMember(data["group"].(string), data["address"].(string))
 
-		// Clear distributed file system cache
+		// Clear shared file system cache
 		em.cluster.ClearFSFiles()
 	})
 
@@ -49,7 +49,7 @@ func (em *EventsManager) Init() {
 
 		em.cluster.RemoveMember(data["address"].(string))
 
-		// Clear distributed file system cache
+		// Clear shared file system cache
 		em.cluster.ClearFSFiles()
 	})
 

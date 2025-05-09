@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"io"
 	"log"
-	"os"
 	"sync"
+	"time"
 
 	"github.com/litebase/litebase/server/file"
 
@@ -30,21 +30,11 @@ type DurableDatabaseFileSystem struct {
 
 func NewDurableDatabaseFileSystem(
 	fs *FileSystem,
-	distributedFS *FileSystem,
+	sharedFS *FileSystem,
 	pageLogger *PageLogger,
 	path, databaseId, branchId string,
 	pageSize int64,
 ) *DurableDatabaseFileSystem {
-	// Check if the directory exists
-	if _, err := fs.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			// Create the directory
-			if err := fs.MkdirAll(path, 0755); err != nil {
-				log.Fatalln("Error creating temp file system directory", err)
-			}
-		}
-	}
-
 	dfs := &DurableDatabaseFileSystem{
 		branchId: branchId,
 		buffers: &sync.Pool{
@@ -61,15 +51,12 @@ func NewDurableDatabaseFileSystem(
 		pageSize:   pageSize,
 	}
 
-	metadata, err := NewDatabaseMetadata(dfs, databaseId, branchId)
+	err := dfs.init()
 
 	if err != nil {
-		log.Println("Error creating database metadata", err)
-
+		log.Println("Error initializing database file system", err)
 		return nil
 	}
-
-	dfs.metadata = metadata
 
 	return dfs
 }
@@ -121,6 +108,56 @@ func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*Range, e
 	return r, nil
 }
 
+// Initialize the database file system by loading the metadata and the first
+// range file.
+func (dfs *DurableDatabaseFileSystem) init() error {
+	wg := sync.WaitGroup{}
+
+	var initErrors []error
+
+	// Load the metadata for the database
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		metadata, err := NewDatabaseMetadata(dfs, dfs.databaseId, dfs.branchId)
+
+		if err != nil {
+			log.Println("Error creating database metadata", err)
+
+			initErrors = append(initErrors, err)
+			return
+		}
+
+		dfs.metadata = metadata
+	}()
+
+	// Load the first range file
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err := dfs.GetRangeFile(1)
+
+		if err != nil {
+			log.Println("Error creating range file", err)
+			initErrors = append(initErrors, err)
+			return
+		}
+	}()
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	if len(initErrors) > 0 {
+		for _, err := range initErrors {
+			log.Println("Error initializing database file system", err)
+		}
+
+		return initErrors[0]
+	}
+
+	return nil
+}
+
 func (dfs *DurableDatabaseFileSystem) Metadata() *DatabaseMetadata {
 	return dfs.metadata
 }
@@ -140,6 +177,11 @@ func (dfs *DurableDatabaseFileSystem) Path() string {
 }
 
 func (dfs *DurableDatabaseFileSystem) ReadAt(timestamp int64, data []byte, offset, length int64) (int, error) {
+	start := time.Now()
+	defer func() {
+		log.Printf("DFS ReadAt took %s for", time.Since(start))
+	}()
+
 	dfs.mutex.RLock()
 	defer dfs.mutex.RUnlock()
 
@@ -284,6 +326,11 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 
 // Write to the DurableDatabaseFileSystem at the specified offset at a timestamp.
 func (dfs *DurableDatabaseFileSystem) WriteAt(timestamp int64, data []byte, offset int64) (n int, err error) {
+	start := time.Now()
+	defer func() {
+		log.Printf("DFS WriteAt took %s", time.Since(start))
+	}()
+
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/server/database"
-
 	"github.com/litebase/litebase/server/sqlite3"
 )
 

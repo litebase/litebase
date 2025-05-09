@@ -8,17 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster/messages"
-
-	"github.com/litebase/litebase/server/database"
-
-	"github.com/litebase/litebase/internal/test"
-
-	"github.com/litebase/litebase/server/cluster"
-
 	"github.com/litebase/litebase/common/config"
-
+	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/server/database"
 )
 
 func TestNewNode(t *testing.T) {
@@ -212,7 +207,7 @@ func TestNodeIsReplica(t *testing.T) {
 
 		server1.Shutdown()
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 
 		server2.App.Cluster.Node().Membership = cluster.ClusterMembershipReplica
 
@@ -343,6 +338,10 @@ func TestNode_Send(t *testing.T) {
 		test.NewTestServer(t)
 		server2 := test.NewTestServer(t)
 		address, _ := server2.App.Cluster.Node().Address()
+
+		if !server2.App.Cluster.Node().IsReplica() {
+			t.Fatal("Node should not be replica")
+		}
 
 		_, err := server2.App.Cluster.Node().Send(
 			messages.NodeMessage{

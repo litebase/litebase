@@ -13,15 +13,15 @@ import (
 )
 
 type Checkpointer struct {
-	branchId              string
-	Checkpoint            *Checkpoint
-	databaseId            string
-	distributedFileSystem *storage.FileSystem
-	lock                  sync.Mutex
-	metadata              *storage.DatabaseMetadata
-	pageLogger            *storage.PageLogger
-	rollbackLogger        *backups.RollbackLogger
-	snapshotLogger        *backups.SnapshotLogger
+	branchId         string
+	Checkpoint       *Checkpoint
+	databaseId       string
+	dfs              *storage.DurableDatabaseFileSystem
+	sharedFileSystem *storage.FileSystem
+	lock             sync.Mutex
+	pageLogger       *storage.PageLogger
+	rollbackLogger   *backups.RollbackLogger
+	snapshotLogger   *backups.SnapshotLogger
 	// Timestamp             int64
 }
 
@@ -35,18 +35,18 @@ func NewCheckpointer(
 	databaseId,
 	branchId string,
 	dfs *storage.DurableDatabaseFileSystem,
-	distributedFileSystem *storage.FileSystem,
+	sharedFileSystem *storage.FileSystem,
 	pageLogger *storage.PageLogger,
 ) (*Checkpointer, error) {
 	cp := &Checkpointer{
-		branchId:              branchId,
-		databaseId:            databaseId,
-		distributedFileSystem: distributedFileSystem,
-		lock:                  sync.Mutex{},
-		metadata:              dfs.Metadata(),
-		rollbackLogger:        backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
-		snapshotLogger:        backups.NewSnapshotLogger(dfs.FileSystem(), databaseId, branchId),
-		pageLogger:            pageLogger,
+		branchId:         branchId,
+		databaseId:       databaseId,
+		dfs:              dfs,
+		sharedFileSystem: sharedFileSystem,
+		lock:             sync.Mutex{},
+		rollbackLogger:   backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
+		snapshotLogger:   backups.NewSnapshotLogger(dfs.FileSystem(), databaseId, branchId),
+		pageLogger:       pageLogger,
 	}
 
 	cp.init()
@@ -71,7 +71,7 @@ func (c *Checkpointer) Begin(timestamp int64) error {
 	}
 
 	c.Checkpoint = &Checkpoint{
-		BeginPageCount: c.metadata.PageCount,
+		BeginPageCount: c.dfs.Metadata().PageCount,
 		Offset:         offset,
 		Size:           size,
 		Timestamp:      timestamp,
@@ -124,7 +124,7 @@ func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
 	return nil
 }
 
-// Commit the checkpoint and remove the checkpoint file from the distributed
+// Commit the checkpoint and remove the checkpoint file from the shared
 // file system.
 func (c *Checkpointer) Commit() error {
 	c.lock.Lock()
@@ -148,7 +148,7 @@ func (c *Checkpointer) Commit() error {
 		}
 	}()
 
-	pageCount := c.metadata.PageCount
+	pageCount := c.dfs.Metadata().PageCount
 	largestPageNumber := c.Checkpoint.LargestPageNumber
 
 	// Update the page count in the database metadata if necessary
@@ -156,7 +156,7 @@ func (c *Checkpointer) Commit() error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			c.metadata.SetPageCount(int64(largestPageNumber))
+			c.dfs.Metadata().SetPageCount(int64(largestPageNumber))
 		}()
 	}
 
@@ -190,7 +190,7 @@ func (c *Checkpointer) Commit() error {
 // was, we need to rollback the checkpoint since it didn't complete.
 func (c *Checkpointer) init() error {
 	// Check if the checkpoint file exists
-	_, err := c.distributedFileSystem.Stat(c.checkPointFilePath())
+	_, err := c.sharedFileSystem.Stat(c.checkPointFilePath())
 
 	if err != nil && !os.IsNotExist(err) {
 		if !os.IsNotExist(err) {
@@ -201,7 +201,7 @@ func (c *Checkpointer) init() error {
 	}
 
 	// If the checkpoint file exists, read it and set the checkpoint
-	data, err := c.distributedFileSystem.ReadFile(c.checkPointFilePath())
+	data, err := c.sharedFileSystem.ReadFile(c.checkPointFilePath())
 
 	if err != nil {
 		return err
@@ -212,9 +212,9 @@ func (c *Checkpointer) init() error {
 	return c.Rollback()
 }
 
-// Remove the checkpoint file from the distributed file system.
+// Remove the checkpoint file from the shared file system.
 func (c *Checkpointer) removeCheckpointFile() error {
-	return c.distributedFileSystem.Remove(c.checkPointFilePath())
+	return c.sharedFileSystem.Remove(c.checkPointFilePath())
 }
 
 // Rollback the Checkpointer.
@@ -247,16 +247,16 @@ func (c *Checkpointer) Rollback() error {
 		return err
 	}
 
-	c.metadata.SetPageCount(c.Checkpoint.BeginPageCount)
+	c.dfs.Metadata().SetPageCount(c.Checkpoint.BeginPageCount)
 
 	return c.removeCheckpointFile()
 }
 
-// Store the checkpoint file in the distributed file system.
+// Store the checkpoint file in the shared file system.
 func (c *Checkpointer) storeCheckpointFile() error {
 	data := c.Checkpoint.Encode()
 
-	return c.distributedFileSystem.WriteFile(
+	return c.sharedFileSystem.WriteFile(
 		c.checkPointFilePath(),
 		data,
 		0644,

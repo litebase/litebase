@@ -41,6 +41,7 @@ type DatabaseConnection struct {
 	sqlite3           *sqlite3.Connection
 	statements        sync.Map
 	timestamp         int64
+	tmpFileSystem     *storage.FileSystem
 	vfs               *vfs.LitebaseVFS
 	vfsHash           string
 	walManager        *DatabaseWALManager
@@ -93,6 +94,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		resultPool:        resultPool,
 		statements:        sync.Map{},
 		timestamp:         time.Now().UnixMicro(),
+		tmpFileSystem:     connectionManager.cluster.TmpFS(),
 		walManager:        walManager,
 	}
 
@@ -104,8 +106,9 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		return nil, err
 	}
 
-	path, err := file.GetDatabaseFileRemotePath(
+	path, err := file.GetDatabaseFileTmpPath(
 		con.config,
+		con.nodeId,
 		databaseId,
 		branchId,
 	)
@@ -219,9 +222,12 @@ func (con *DatabaseConnection) Checkpoint() error {
 	if con == nil || con.sqlite3 == nil {
 		return nil
 	}
+
 	// Get the latest WAL for the database.
 	wal, err := con.walManager.Get(time.Now().UnixMicro())
+
 	if err != nil {
+		log.Println("Error acquiring WAL :", err)
 		return err
 	}
 

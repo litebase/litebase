@@ -18,11 +18,9 @@ import (
 	"sync"
 	"time"
 
-	internalStorage "github.com/litebase/litebase/internal/storage"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
+	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/server/storage"
 )
 
 var privateKeys = map[string]*rsa.PrivateKey{}
@@ -241,6 +239,12 @@ func GetRawPublicKey(signature string, objectFS *storage.FileSystem) ([]byte, er
 func KeyManagerInit(c *config.Config, secretsManager *SecretsManager) error {
 	// Generate a public key for the signature if one does not exist
 	err := generate(c, secretsManager.ObjectFS)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = GetPrivateKey(c.Signature, secretsManager.ObjectFS)
 
 	if err != nil {
 		return err

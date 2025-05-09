@@ -27,17 +27,17 @@ type Config struct {
 	DefaultBranchName      string
 	DomainName             string
 	Env                    string
+	FakeObjectStorage      bool
 	FileSystemDriver       string
 	NodeAddressProvider    string
 	NodeType               string
 	PageSize               int64
 	Port                   string
 	Region                 string
-	RemotePath             string
-	RemoteStorageAddress   string
 	RootPassword           string
 	RootUsername           string
 	RouterNodePort         string
+	SharedPath             string
 	Signature              string
 	SignatureNext          string
 	StorageAccessKeyId     string
@@ -65,15 +65,15 @@ func NewConfig() *Config {
 		DataPath:               env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		DomainName:             env("LITEBASE_DOMAIN_NAME", "litebase.com").(string),
-		Env:                    env("LITEBASE_ENV", "production").(string),
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
+		Env:                    env("LITEBASE_ENV", "production").(string),
+		FakeObjectStorage:      env("LITEBASE_FAKE_OBJECT_STORAGE", "false") == "true",
 		NodeAddressProvider:    env("LITEBASE_NODE_ADDRESS_PROVIDER", "").(string),
 		NodeType:               env("LITEBASE_NODE_TYPE", NodeTypeQuery).(string),
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
 		Region:                 env("LITEBASE_REGION", "").(string),
-		RemotePath:             env("LITEBASE_REMOTE_PATH", "").(string),
-		RemoteStorageAddress:   env("LITEBASE_REMOTE_STORAGE_ADDRESS", "").(string),
+		SharedPath:             env("LITEBASE_SHARED_PATH", "").(string),
 		RouterNodePort:         env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:           env("LITEBASE_ROOT_USERNAME", "root").(string),

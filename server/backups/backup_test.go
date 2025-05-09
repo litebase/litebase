@@ -13,15 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/server/backups"
-
-	"github.com/litebase/litebase/server/sqlite3"
-
-	"github.com/litebase/litebase/server/file"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 func TestGetBackup(t *testing.T) {

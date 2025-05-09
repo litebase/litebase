@@ -8,13 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/file"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/server/auth"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/storage"
 
 	"github.com/google/uuid"
 )

@@ -3,11 +3,9 @@ package database_test
 import (
 	"testing"
 
-	"github.com/litebase/litebase/server/database"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/database"
 )
 
 func TestNewDatabaseWALSynchronizer(t *testing.T) {

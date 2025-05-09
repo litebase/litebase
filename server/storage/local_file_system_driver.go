@@ -17,7 +17,7 @@ type LocalFileSystemDriver struct {
 
 func NewLocalFileSystemDriver(basePath string) *LocalFileSystemDriver {
 	return &LocalFileSystemDriver{
-		basePath: basePath,
+		basePath: strings.TrimRight(basePath, "/"),
 		buffers: sync.Pool{
 			New: func() any {
 				return bytes.NewBuffer(make([]byte, 1024))
@@ -27,6 +27,7 @@ func NewLocalFileSystemDriver(basePath string) *LocalFileSystemDriver {
 }
 
 func (fs *LocalFileSystemDriver) Create(path string) (internalStorage.File, error) {
+	// log.Println("Create", fs.Path(path))
 	return os.Create(fs.Path(path))
 }
 
@@ -35,14 +36,17 @@ func (fs *LocalFileSystemDriver) Flush() error {
 }
 
 func (fs *LocalFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
+	// log.Println("Mkdir", fs.Path(path))
 	return os.Mkdir(fs.Path(path), perm)
 }
 
 func (fs *LocalFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error {
+	// log.Println("MkdirAll", fs.Path(path))
 	return os.MkdirAll(fs.Path(path), perm)
 }
 
 func (fs *LocalFileSystemDriver) Open(path string) (internalStorage.File, error) {
+	// log.Println("Open", fs.Path(path))
 	file, err := os.Open(fs.Path(path))
 
 	if err != nil {
@@ -53,6 +57,7 @@ func (fs *LocalFileSystemDriver) Open(path string) (internalStorage.File, error)
 }
 
 func (fs *LocalFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
+	// log.Println("OpenFile", fs.Path(path))
 	file, err := os.OpenFile(fs.Path(path), flag, perm)
 
 	if err != nil {
@@ -62,18 +67,23 @@ func (fs *LocalFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMod
 	return file, nil
 }
 
+func (fs *LocalFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
+	return openFileDirect(fs.Path(path), flag, perm)
+}
+
 func (fs *LocalFileSystemDriver) Path(path string) string {
 	var builder strings.Builder
 
 	builder.Grow(len(fs.basePath) + 1 + len(path)) // Preallocate memory
 	builder.WriteString(fs.basePath)
 	builder.WriteString("/")
-	builder.WriteString(path)
+	builder.WriteString(strings.TrimLeft(path, "/"))
 
 	return builder.String()
 }
 
 func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
+	// log.Println("ReadDir", fs.Path(path))
 	entries, err := os.ReadDir(fs.Path(path))
 
 	if err != nil {
@@ -82,6 +92,7 @@ func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntr
 
 	var dirEntries []internalStorage.DirEntry
 
+	// INVESTIGATE: N+1 problem?
 	for _, entry := range entries {
 		info, err := entry.Info()
 
@@ -104,6 +115,7 @@ func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntr
 }
 
 func (fs *LocalFileSystemDriver) ReadFile(path string) ([]byte, error) {
+	// log.Println("ReadFile", fs.Path(path))
 	data, err := os.ReadFile(fs.Path(path))
 
 	if err != nil {
@@ -114,14 +126,17 @@ func (fs *LocalFileSystemDriver) ReadFile(path string) ([]byte, error) {
 }
 
 func (fs *LocalFileSystemDriver) Remove(path string) error {
+	// log.Println("Remove", fs.Path(path))
 	return os.Remove(fs.Path(path))
 }
 
 func (fs *LocalFileSystemDriver) RemoveAll(path string) error {
+	// log.Println("RemoveAll", fs.Path(path))
 	return os.RemoveAll(fs.Path(path))
 }
 
 func (fs *LocalFileSystemDriver) Rename(oldpath, newpath string) error {
+	// log.Println("Rename", fs.Path(oldpath), fs.Path(newpath))
 	return os.Rename(fs.Path(oldpath), fs.Path(newpath))
 }
 
@@ -130,6 +145,7 @@ func (fs *LocalFileSystemDriver) Shutdown() error {
 }
 
 func (fs *LocalFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
+	// log.Println("Stat", fs.Path(path))
 	info, err := os.Stat(fs.Path(path))
 
 	if err != nil {
@@ -140,9 +156,11 @@ func (fs *LocalFileSystemDriver) Stat(path string) (internalStorage.FileInfo, er
 }
 
 func (fs *LocalFileSystemDriver) Truncate(path string, size int64) error {
+	// log.Println("Truncate", fs.Path(path), size)
 	return os.Truncate(fs.Path(path), size)
 }
 
 func (fs *LocalFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
+	// log.Println("WriteFile", fs.Path(path))
 	return os.WriteFile(fs.Path(path), data, perm)
 }

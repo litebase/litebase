@@ -18,6 +18,7 @@ type Request struct {
 	accessKeyManager *auth.AccessKeyManager
 	BaseRequest      *http.Request
 	Body             map[string]any
+	databaseKey      *auth.DatabaseKey
 	databaseManager  *database.DatabaseManager
 	logManager       *logs.LogManager
 	cluster          *cluster.Cluster
@@ -93,6 +94,10 @@ func (r *Request) ClusterId() string {
 }
 
 func (r *Request) DatabaseKey() *auth.DatabaseKey {
+	if r.databaseKey != nil {
+		return r.databaseKey
+	}
+
 	// Get the database key from the subdomain
 	key := r.Subdomains()[0]
 
@@ -110,7 +115,9 @@ func (r *Request) DatabaseKey() *auth.DatabaseKey {
 		return nil
 	}
 
-	return databaseKey
+	r.databaseKey = databaseKey
+
+	return r.databaseKey
 }
 
 func (r *Request) Get(key string) any {
@@ -135,6 +142,12 @@ func (request *Request) Input(input any) (any, error) {
 	}
 
 	return input, nil
+}
+
+func (request *Request) loadDatabaseKey() {
+	if request.databaseKey == nil {
+		go request.DatabaseKey()
+	}
 }
 
 func (request *Request) Param(key string) string {

@@ -194,15 +194,6 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 				continue
 			}
 
-			// Exclude logs that equal to the same second as the current time to
-			// avoid compacting logs that were just created and may be active.
-			// pageGroupVersionTime := time.UnixMicro(int64(pageGroupVersion)).Truncate(time.Second).Unix()
-			// currentTime := time.Now().Truncate(time.Second).Unix()
-
-			// if pageGroupVersionTime >= currentTime {
-			// 	continue
-			// }
-
 			// Skip empty logs
 			if pageLog.index.Empty() {
 				continue
@@ -236,6 +227,10 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 }
 
 func (pl *PageLogger) load() error {
+	start := time.Now()
+	defer func() {
+		log.Printf("Page logger load took %s", time.Since(start))
+	}()
 	// Reinitialize the logs map
 	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
 

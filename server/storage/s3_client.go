@@ -409,6 +409,7 @@ type GetObjectResponse struct {
 }
 
 func (s3 *S3Client) GetObject(key string) (GetObjectResponse, error) {
+	// log.Println("Downloading file", key)
 	request, err := http.NewRequestWithContext(s3.context, "GET", s3.url(key)+"?x-id=GetObject", nil)
 
 	if err != nil {
@@ -583,6 +584,7 @@ type PutObjectResponse struct {
 }
 
 func (s3 *S3Client) PutObject(key string, data []byte) (PutObjectResponse, error) {
+	// log.Println("Uploading file", key, len(data))
 	request, err := http.NewRequestWithContext(s3.context, "PUT", s3.url(key)+"?x-id=PutObject", bytes.NewReader(data))
 
 	if err != nil {

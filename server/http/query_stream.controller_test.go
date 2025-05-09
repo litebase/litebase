@@ -14,15 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/server/database"
-
-	"github.com/litebase/litebase/server/sqlite3"
+	"github.com/google/uuid"
 
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server/auth"
-
-	"github.com/google/uuid"
+	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/server/sqlite3"
 )
 
 func openQueryStreamConnection(

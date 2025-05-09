@@ -6,11 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/server/logs"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/logs"
 )
 
 func TestQueryLog_Close(t *testing.T) {

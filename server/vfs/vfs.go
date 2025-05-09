@@ -235,7 +235,6 @@ func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.
 		return C.SQLITE_IOERR
 	}
 
-	vfs.fileSystem.Open(filename)
 	vfs.filename = filename
 
 	return C.SQLITE_OK
@@ -304,6 +303,24 @@ func goXFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 
 	return C.SQLITE_OK
 }
+
+//export goXSync
+// func goXSync(pFile *C.sqlite3_file, flags C.int) C.int {
+// 	vfs, err := getVfsFromFile(pFile)
+
+// 	if err != nil {
+// 		return C.SQLITE_IOERR_FSYNC
+// 	}
+
+// 	err = vfs.fileSystem.Sync()
+
+// 	if err != nil {
+// 		log.Println("Error syncing file", err)
+// 		return C.SQLITE_IOERR_FSYNC
+// 	}
+
+// 	return C.SQLITE_OK
+// }
 
 //export goXShmMap
 func goXShmMap(pFile *C.sqlite3_file, iPage C.int, pgsz C.int, bExtend C.int, pp *unsafe.Pointer) C.int {
@@ -517,7 +534,7 @@ func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	n, err := vfs.wal.ReadAt(vfs.timestamp, goBuffer, int64(iOfst))
+	_, err = vfs.wal.ReadAt(vfs.timestamp, goBuffer, int64(iOfst))
 
 	if err != nil {
 		if err == io.EOF {
@@ -528,9 +545,6 @@ func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.
 		return C.SQLITE_IOERR
 	}
 
-	if err != nil {
-		log.Println("Error reading WAL file", err, n)
-	}
 	// if n < len(goBuffer) && err == io.EOF {
 	// 	for i := n; i < len(goBuffer); i++ {
 	// 		goBuffer[i] = 0
@@ -556,6 +570,25 @@ func goXWALWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf 
 
 	if err != nil {
 		log.Println("Error writing to WAL file", err)
+		return C.SQLITE_IOERR
+	}
+
+	return C.SQLITE_OK
+}
+
+//export goXWALSync
+func goXWALSync(pFile *C.sqlite3_file, flags C.int) C.int {
+	vfs, err := getVfsFromFile(pFile)
+
+	if err != nil {
+		log.Println("Error getting VFS from file", err)
+		return C.SQLITE_IOERR
+	}
+
+	err = vfs.wal.Sync(vfs.timestamp)
+
+	if err != nil {
+		log.Println("Error syncing WAL file", err)
 		return C.SQLITE_IOERR
 	}
 

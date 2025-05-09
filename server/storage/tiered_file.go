@@ -13,7 +13,7 @@ import (
 
 // The TieredFile stores a reference of a single File that is stored durably in
 // two different locations for the purpose of latency and cost. The File is
-// stored on a distributed file system and eventually stored durably to
+// stored on a shared file system and eventually stored durably to
 // another file system, typically object storage.
 type TieredFile struct {
 
@@ -23,7 +23,7 @@ type TieredFile struct {
 	// and the TieredFileSystemDriver will no longer be able to access it.
 	Closed bool
 
-	// CreatedAt stores the time the TieredFile struct was creeated. This
+	// CreatedAt stores the time the TieredFile struct was created. This
 	// value will be used in correlation with the updatedAt and writtenAt
 	// values to determine how long the File has been open.
 	CreatedAt time.Time
@@ -93,13 +93,11 @@ func (f *TieredFile) Close() error {
 
 	f.Closed = true
 
-	f.TieredFileSystemDriver.WithLock(func() {
-		if f.shouldBeWrittenToDurableStorage() {
-			f.TieredFileSystemDriver.flushFileToDurableStorage(f, true)
-		}
+	if f.shouldBeWrittenToDurableStorage() {
+		f.TieredFileSystemDriver.flushFileToDurableStorage(f, true)
+	}
 
-		f.TieredFileSystemDriver.ReleaseFile(f)
-	})
+	f.TieredFileSystemDriver.releaseFile(f)
 
 	return nil
 }
@@ -199,6 +197,10 @@ func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 // should be written to durable storage if it has been updated and the last write
 // to durable storage was more than a minute ago.
 func (f *TieredFile) shouldBeWrittenToDurableStorage() bool {
+	if f.UpdatedAt.IsZero() {
+		return false
+	}
+
 	return f.UpdatedAt.After(f.WrittenAt) &&
 		(time.Since(f.WrittenAt) >= f.TieredFileSystemDriver.WriteInterval)
 }
@@ -227,7 +229,7 @@ func (f *TieredFile) Stat() (fs.FileInfo, error) {
 // Sync flushes the File's contents to the underlying storage. It is important
 // to note that this does not guarantee that the File is written to the
 // durable file system. However, the File will still be synced to the
-// distributed file system and eventually synced to the durable
+// shared file system and eventually synced to the durable
 // file system.
 func (f *TieredFile) Sync() error {
 	f.mutex.Lock()
@@ -291,7 +293,7 @@ func (f *TieredFile) Truncate(size int64) error {
 //
 // It is important to note that this does not guarantee that the File is
 // written to the durable file system. However, the File will still be
-// written to the distributed file system and eventually written to
+// written to the shared file system and eventually written to
 // the durable file system.
 //
 // It is important that consumers of this function Seek to the appropriate place

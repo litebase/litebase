@@ -10,9 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/storage"
 )
 
 type Server struct {

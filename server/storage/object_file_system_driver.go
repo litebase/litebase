@@ -2,29 +2,91 @@ package storage
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	p "path"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/klauspost/compress/s2"
+	"github.com/litebase/litebase/common/config"
 	internalStorage "github.com/litebase/litebase/internal/storage"
 
-	"github.com/litebase/litebase/common/config"
-
-	"github.com/klauspost/compress/s2"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 type ObjectFileSystemDriver struct {
 	bucket   string
 	buffers  sync.Pool
-	S3Client *S3Client
+	S3Client *s3.Client
+	context  context.Context
 }
 
 func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
+	ctx := context.Background()
+
+	sdkConfig, err := awsConfig.LoadDefaultConfig(ctx,
+		awsConfig.WithRegion(c.StorageRegion),
+		awsConfig.WithBaseEndpoint(c.StorageEndpoint),
+		awsConfig.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(
+				c.StorageAccessKeyId,
+				c.StorageSecretAccessKey,
+				"",
+			),
+		),
+		func(o *awsConfig.LoadOptions) error {
+			if !c.FakeObjectStorage {
+				return nil
+			}
+
+			o.HTTPClient = &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+					// Override the dial address because the SDK uses the bucket name as a subdomain.
+					DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+						dialer := net.Dialer{
+							Timeout:   30 * time.Second,
+							KeepAlive: 30 * time.Second,
+						}
+						s3URL, _ := url.Parse(s3Server.URL)
+						log.Println("Dialing", network, s3URL.Host)
+						return dialer.DialContext(ctx, network, s3URL.Host)
+					},
+				},
+			}
+
+			return nil
+		},
+	)
+
+	if err != nil {
+		fmt.Println("Couldn't load default configuration. Have you set up your AWS account?")
+		fmt.Println(err)
+		return nil
+	}
+
+	s3Client := s3.NewFromConfig(sdkConfig, func(o *s3.Options) {
+		if c.FakeObjectStorage {
+			o.UsePathStyle = true
+			o.BaseEndpoint = aws.String(c.StorageEndpoint)
+		}
+	})
+
 	driver := &ObjectFileSystemDriver{
 		bucket: c.StorageBucket,
 		buffers: sync.Pool{
@@ -32,39 +94,45 @@ func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
-		S3Client: NewS3Client(
-			c,
-			c.StorageBucket,
-			c.StorageRegion,
-		),
+		context:  context.Background(),
+		S3Client: s3Client,
 	}
 
 	return driver
 }
 
 func (fs *ObjectFileSystemDriver) Create(path string) (internalStorage.File, error) {
-	_, err := fs.S3Client.PutObject(path, []byte{})
+	_, err := fs.S3Client.PutObject(fs.context, &s3.PutObjectInput{
+		Bucket: &fs.bucket,
+		Key:    &path,
+		Body:   bytes.NewReader([]byte{}),
+	})
 
 	if err != nil {
 		log.Println("Error creating file", err)
 		return nil, err
 	}
 
-	return NewObjectFile(fs.S3Client, path, os.O_CREATE, true)
+	return NewObjectFile(fs, path, os.O_CREATE, true)
 }
 
 func (fs *ObjectFileSystemDriver) EnsureBucketExists() {
 	// Check if the bucket exists
-	headBucketOutput, _ := fs.S3Client.HeadBucket()
+	headBucketOutput, err := fs.S3Client.HeadBucket(fs.context, &s3.HeadBucketInput{
+		Bucket: aws.String(fs.bucket),
+	})
 
-	if headBucketOutput != (HeadBucketResponse{}) {
+	if err == nil && headBucketOutput != nil {
+		log.Printf("Bucket %s already exists", fs.bucket)
 		return
 	}
 
-	_, err := fs.S3Client.CreateBucket()
+	_, err = fs.S3Client.CreateBucket(fs.context, &s3.CreateBucketInput{
+		Bucket: aws.String(fs.bucket),
+	})
 
 	if err != nil {
-		log.Printf("failed to create bucket, %v", err)
+		log.Fatalf("failed to create bucket, %v", err)
 	}
 }
 
@@ -85,53 +153,61 @@ func (fs *ObjectFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error 
 }
 
 func (fs *ObjectFileSystemDriver) Open(path string) (internalStorage.File, error) {
-	return NewObjectFile(fs.S3Client, path, os.O_RDWR, false)
+	return NewObjectFile(fs, path, os.O_RDWR, false)
 }
 
 func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	return NewObjectFile(fs.S3Client, path, flag, false)
+	return NewObjectFile(fs, path, flag, false)
+}
+
+func (fs *ObjectFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
+	return fs.OpenFile(path, flag, perm)
 }
 
 // Read the directory using S3
 func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
-	input := ListObjectsV2Input{
-		MaxKeys: 1000,
-		Prefix:  path,
+	input := &s3.ListObjectsV2Input{
+		Bucket:  aws.String(fs.bucket),
+		MaxKeys: aws.Int32(1000),
+		Prefix:  aws.String(path),
 	}
 
 	if path != "" {
-		input.Delimiter = "/"
+		input.Delimiter = aws.String("/")
 	}
 
-	paginator := NewListObjectsV2Paginator(fs.S3Client, input)
+	paginator := s3.NewListObjectsV2Paginator(fs.S3Client, input)
 
 	entries := make([]internalStorage.DirEntry, 0)
 
 	for paginator.HasMorePages() {
-		response, err := paginator.NextPage()
+		response, err := paginator.NextPage(fs.context)
 
 		if err != nil {
-			if response.StatusCode == 404 {
+			var noKey *s3types.NoSuchKey
+			var notFound *s3types.NotFound
+
+			if errors.As(err, &notFound) || errors.As(err, &noKey) {
 				return nil, os.ErrNotExist
 			}
 
 			return nil, err
 		}
 
-		for _, obj := range response.ListBucketResult.Contents {
-			key := p.Base(obj.Key)
+		for _, obj := range response.Contents {
+			key := p.Base(*obj.Key)
 
 			entries = append(entries,
 				internalStorage.NewDirEntry(
 					key,
 					false,
-					NewStaticFileInfo(key, obj.Size, obj.LastModified.Time),
+					NewStaticFileInfo(key, *obj.Size, *obj.LastModified),
 				),
 			)
 		}
 
-		for _, prefix := range response.ListBucketResult.CommonPrefixes {
-			key := p.Base(prefix)
+		for _, prefix := range response.CommonPrefixes {
+			key := p.Base(*prefix.Prefix)
 
 			entries = append(entries,
 				internalStorage.NewDirEntry(
@@ -147,11 +223,21 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 }
 
 func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
+	startTime := time.Now()
+	defer func() {
+		log.Printf("ReadFile took %s for %s", time.Since(startTime), path)
+	}()
 	// Read the file using S3
-	resp, err := fs.S3Client.GetObject(path)
+	output, err := fs.S3Client.GetObject(fs.context, &s3.GetObjectInput{
+		Bucket: aws.String(fs.bucket),
+		Key:    aws.String(path),
+	})
 
 	if err != nil {
-		if resp.StatusCode == 404 {
+		var noKey *s3types.NoSuchKey
+		var notFound *s3types.NotFound
+
+		if errors.As(err, &notFound) || errors.As(err, &noKey) {
 			return nil, os.ErrNotExist
 		}
 
@@ -160,14 +246,23 @@ func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	if len(resp.Data) == 0 {
+	if *output.ContentLength == 0 {
 		return nil, nil
 	}
 
-	decompressed, err := s2.Decode(nil, resp.Data)
+	body, err := io.ReadAll(output.Body)
 
 	if err != nil {
-		log.Println("Error decompressing file", err, len(resp.Data))
+		log.Println("Error reading file body", err)
+		return nil, err
+	}
+
+	defer output.Body.Close()
+
+	decompressed, err := s2.Decode(nil, body)
+
+	if err != nil {
+		log.Println("Error decompressing file", err, len(body))
 		return nil, err
 	}
 
@@ -175,7 +270,10 @@ func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
 }
 
 func (fs *ObjectFileSystemDriver) Remove(path string) error {
-	err := fs.S3Client.DeleteObject(path)
+	_, err := fs.S3Client.DeleteObject(fs.context, &s3.DeleteObjectInput{
+		Bucket: aws.String(fs.bucket),
+		Key:    aws.String(path),
+	})
 
 	if err != nil {
 		return err
@@ -185,34 +283,40 @@ func (fs *ObjectFileSystemDriver) Remove(path string) error {
 }
 
 func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
-	input := ListObjectsV2Input{
-		Delimiter: "/",
-		MaxKeys:   1000,
-		Prefix:    path,
+	input := &s3.ListObjectsV2Input{
+		Bucket:    aws.String(fs.bucket),
+		Delimiter: aws.String("/"),
+		MaxKeys:   aws.Int32(1000),
+		Prefix:    aws.String(path),
 	}
 
-	paginator := NewListObjectsV2Paginator(fs.S3Client, input)
+	paginator := s3.NewListObjectsV2Paginator(fs.S3Client, input)
 
 	for paginator.HasMorePages() {
-		response, err := paginator.NextPage()
+		response, err := paginator.NextPage(fs.context)
 
 		if err != nil {
 			return err
 		}
 
-		objectsToDelete := make([]string, len(response.ListBucketResult.Contents))
+		objectsToDelete := make([]string, len(response.Contents))
 
-		for i, object := range response.ListBucketResult.Contents {
-			objectsToDelete[i] = object.Key
+		for i, object := range response.Contents {
+			objectsToDelete[i] = *object.Key
 		}
 
-		err = fs.S3Client.DeleteObjects(objectsToDelete)
+		_, err = fs.S3Client.DeleteObjects(fs.context, &s3.DeleteObjectsInput{
+			Bucket: aws.String(fs.bucket),
+			Delete: &s3types.Delete{
+				Objects: make([]s3types.ObjectIdentifier, len(objectsToDelete)),
+			},
+		})
 
 		if err != nil {
 			return err
 		}
 
-		if len(response.ListBucketResult.Contents) == 0 {
+		if len(response.Contents) == 0 {
 			break
 		}
 	}
@@ -222,13 +326,20 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 
 // Perform a copy operation to do a rename
 func (fs *ObjectFileSystemDriver) Rename(oldKey, newKey string) error {
-	err := fs.S3Client.CopyObject(oldKey, newKey)
+	_, err := fs.S3Client.CopyObject(fs.context, &s3.CopyObjectInput{
+		CopySource: aws.String(oldKey),
+		Bucket:     aws.String(fs.bucket),
+		Key:        aws.String(newKey),
+	})
 
 	if err != nil {
 		return err
 	}
 
-	err = fs.S3Client.DeleteObject(oldKey)
+	_, err = fs.S3Client.DeleteObject(fs.context, &s3.DeleteObjectInput{
+		Bucket: aws.String(fs.bucket),
+		Key:    aws.String(oldKey),
+	})
 
 	if err != nil {
 		return err
@@ -248,17 +359,23 @@ func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, e
 		return NewStaticFileInfo(path, 0, time.Now()), nil
 	}
 
-	result, err := fs.S3Client.HeadObject(path)
+	output, err := fs.S3Client.HeadObject(fs.context, &s3.HeadObjectInput{
+		Bucket: aws.String(fs.bucket),
+		Key:    aws.String(path),
+	})
 
 	if err != nil {
-		if result.StatusCode == 404 {
+		var noKey *s3types.NoSuchKey
+		var notFound *s3types.NotFound
+
+		if errors.As(err, &notFound) || errors.As(err, &noKey) {
 			return nil, os.ErrNotExist
 		}
 
 		return nil, err
 	}
 
-	return NewStaticFileInfo(path, result.ContentLength, result.LastModified), nil
+	return NewStaticFileInfo(path, *output.ContentLength, *output.LastModified), nil
 }
 
 func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
@@ -268,6 +385,11 @@ func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
 }
 
 func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
+	start := time.Now()
+	defer func() {
+		log.Printf("WriteFile took %s for %s", time.Since(start), path)
+	}()
+
 	compressionBuffer := fs.buffers.Get().(*bytes.Buffer)
 	defer fs.buffers.Put(compressionBuffer)
 
@@ -288,7 +410,12 @@ func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.Fi
 	// Write the encoded data to the buffer
 	compressionBuffer.Write(compressed)
 
-	_, err := fs.S3Client.PutObject(path, compressed)
+	_, err := fs.S3Client.PutObject(fs.context, &s3.PutObjectInput{
+		Body:        bytes.NewReader(compressionBuffer.Bytes()),
+		Bucket:      aws.String(fs.bucket),
+		Key:         aws.String(path),
+		ContentType: aws.String("application/octet-stream"),
+	})
 
 	if err != nil {
 		return err

@@ -1,9 +1,8 @@
 package auth
 
 import (
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/storage"
 )
 
 type Auth struct {

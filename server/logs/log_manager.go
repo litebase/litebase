@@ -8,9 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/file"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/file"
 )
 
 var QueryLogManagerTickInterval = time.Second * 1
@@ -55,18 +54,18 @@ func (lm *LogManager) Close() error {
 }
 
 func (lm *LogManager) GetQueryLog(cluster *cluster.Cluster, databaseHash, databaseId, branchId string) *QueryLog {
-	lm.mutex.Lock()
-	defer lm.mutex.Unlock()
-
 	// Get the current time un UTC
 	t := time.Now().UTC()
 
 	// Set the timestamp to the start of the day
 	timestamp := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 
+	lm.mutex.Lock()
+	defer lm.mutex.Unlock()
+
 	// If the date has changed, close the current log file and remove to reopen.
-	if _, ok := lm.queryLogs[databaseHash]; ok && lm.queryLogs[databaseHash].timestamp != timestamp.UTC().Unix() {
-		lm.queryLogs[databaseHash].Close()
+	if log, ok := lm.queryLogs[databaseHash]; ok && lm.queryLogs[databaseHash].timestamp != timestamp.UTC().Unix() {
+		go log.Close()
 		delete(lm.queryLogs, databaseHash)
 	}
 
@@ -107,11 +106,13 @@ func (lm *LogManager) Query(entry QueryLogEntry) error {
 		return nil
 	}
 
-	return l.Write(
+	go l.Write(
 		entry.AccessKeyId,
 		entry.Statement,
 		entry.Latency,
 	)
+
+	return nil
 }
 
 func (lm *LogManager) Run() {

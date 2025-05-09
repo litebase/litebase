@@ -5,15 +5,11 @@ import (
 	"log"
 	"sync"
 
-	"github.com/litebase/litebase/server/backups"
-
-	"github.com/litebase/litebase/server/sqlite3"
-
-	"github.com/litebase/litebase/server/file"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/server/sqlite3"
+	"github.com/litebase/litebase/server/storage"
 )
 
 type DatabaseResources struct {
@@ -74,7 +70,7 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 		d.DatabaseId,
 		d.BranchId,
 		d.fileSystem,
-		d.databaseManager.Cluster.RemoteFS(),
+		d.databaseManager.Cluster.SharedFS(),
 		d.pageLogger,
 	)
 
@@ -102,7 +98,7 @@ func (d *DatabaseResources) DatabaseWALManager() (*DatabaseWALManager, error) {
 		d.databaseManager.ConnectionManager(),
 		d.DatabaseId,
 		d.BranchId,
-		d.databaseManager.Cluster.RemoteFS(),
+		d.databaseManager.Cluster.SharedFS(),
 	)
 
 	return d.walManager, err
@@ -117,7 +113,7 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 
 	d.fileSystem = storage.NewDurableDatabaseFileSystem(
 		d.databaseManager.Cluster.TieredFS(),
-		d.databaseManager.Cluster.RemoteFS(),
+		d.databaseManager.Cluster.SharedFS(),
 		d.pageLogger,
 		fmt.Sprintf("%s%s/%s/", Directory(), d.DatabaseId, d.BranchId),
 		d.DatabaseId,
@@ -148,7 +144,7 @@ func (d *DatabaseResources) createPageLogger() *storage.PageLogger {
 	return d.databaseManager.PageLogManager().Get(
 		d.DatabaseId,
 		d.BranchId,
-		d.databaseManager.Cluster.RemoteFS(),
+		d.databaseManager.Cluster.SharedFS(),
 	)
 }
 

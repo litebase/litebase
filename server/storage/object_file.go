@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -10,28 +12,31 @@ import (
 	"slices"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/klauspost/compress/s2"
 )
 
 type ObjectFile struct {
-	client         *S3Client
 	Data           []byte
 	FileInfo       StaticFileInfo
+	fs             *ObjectFileSystemDriver
 	Key            string
 	OpenFlags      int
 	readPos        int
 	Sha256Checksum [32]byte
 }
 
-func NewObjectFile(client *S3Client, key string, openFlags int, preExists bool) (*ObjectFile, error) {
+func NewObjectFile(fs *ObjectFileSystemDriver, key string, openFlags int, preExists bool) (*ObjectFile, error) {
 	file := &ObjectFile{
-		client: client,
-		Data:   nil,
+		Data: nil,
 		FileInfo: StaticFileInfo{
 			StaticName:    key,
 			StaticSize:    0,
 			StaticModTime: time.Now(),
 		},
+		fs:             fs,
 		Key:            key,
 		OpenFlags:      openFlags,
 		Sha256Checksum: sha256.Sum256([]byte{}),
@@ -42,41 +47,68 @@ func NewObjectFile(client *S3Client, key string, openFlags int, preExists bool) 
 	if (openFlags&os.O_CREATE != 0) && preExists {
 		fileExists = true
 	} else if openFlags&os.O_CREATE != 0 {
-		response, err := client.HeadObject(key)
+		output, err := fs.S3Client.HeadObject(file.fs.context, &s3.HeadObjectInput{
+			Bucket: aws.String(file.fs.bucket),
+			Key:    aws.String(key),
+		})
 
 		if err != nil {
-			if response.StatusCode != 404 {
+			var noKey *s3types.NoSuchKey
+			var notFound *s3types.NotFound
+
+			if !errors.As(err, &notFound) && !errors.As(err, &noKey) {
 				log.Println("Error checking file existence", err)
 				return nil, err
 			}
 		}
 
-		if response.StatusCode == 200 {
+		if output != nil {
 			fileExists = true
 		}
 
 		if !fileExists {
-			_, err = client.PutObject(key, []byte{})
+			// INVESTIGATE: Do we really need to create an empty file here?
+			// _, err = file.fs.S3Client.PutObject(file.fs.context, &s3.PutObjectInput{
+			// 	Bucket: aws.String(file.fs.bucket),
+			// 	Key:    aws.String(key),
+			// 	Body:   bytes.NewReader([]byte{}),
+			// })
 
-			if err != nil {
-				log.Println("Error creating file", err)
-				return nil, err
-			}
+			// if err != nil {
+			// 	log.Println("Error creating file", err)
+			// 	return nil, err
+			// }
 		}
 	}
 
 	if openFlags&os.O_RDONLY != 0 || openFlags&os.O_RDWR != 0 {
-		response, err := client.GetObject(key)
+		output, err := file.fs.S3Client.GetObject(file.fs.context, &s3.GetObjectInput{
+			Bucket: aws.String(file.fs.bucket),
+			Key:    aws.String(key),
+		})
 
 		if err != nil {
+			var noKey *s3types.NoSuchKey
+			var notFound *s3types.NotFound
 
-			if response.StatusCode != 404 {
-				return nil, err
+			if errors.As(err, &notFound) || errors.As(err, &noKey) {
+				return nil, os.ErrNotExist
 			}
+
+			return nil, err
 		}
 
-		if len(response.Data) != 0 {
-			file.Data, err = s2.Decode(nil, response.Data)
+		if *output.ContentLength != 0 {
+			body, err := io.ReadAll(output.Body)
+
+			if err != nil {
+				log.Println("Error reading file body", err)
+				return nil, err
+			}
+
+			defer output.Body.Close()
+
+			file.Data, err = s2.Decode(nil, body)
 
 			if err != nil {
 				log.Println("Error decoding object", err)
@@ -93,23 +125,27 @@ func NewObjectFile(client *S3Client, key string, openFlags int, preExists bool) 
 
 // If changes have been made to the file, this will upload the changes to the
 // object store upon closing the file.
-func (o *ObjectFile) Close() error {
-	if len(o.Data) == 0 {
+func (file *ObjectFile) Close() error {
+	if len(file.Data) == 0 {
 		return nil
 	}
 
-	if o.Sha256Checksum == sha256.Sum256(o.Data) {
+	if file.Sha256Checksum == sha256.Sum256(file.Data) {
 		return nil
 	}
 
 	// Fail silently if the file is read-only
-	if o.OpenFlags == os.O_RDONLY {
+	if file.OpenFlags == os.O_RDONLY {
 		return nil
 	}
 
-	compressed := s2.Encode(nil, o.Data)
+	compressed := s2.Encode(nil, file.Data)
 
-	_, err := o.client.PutObject(o.Key, compressed)
+	_, err := file.fs.S3Client.PutObject(file.fs.context, &s3.PutObjectInput{
+		Bucket: aws.String(file.fs.bucket),
+		Key:    aws.String(file.Key),
+		Body:   bytes.NewReader(compressed),
+	})
 
 	if err != nil {
 		log.Println("Error closing file", err)
@@ -120,19 +156,31 @@ func (o *ObjectFile) Close() error {
 }
 
 // Read bytes from the file.
-func (o *ObjectFile) Read(p []byte) (n int, err error) {
-	if o.Data == nil {
-		response, err := o.client.GetObject(o.Key)
+func (file *ObjectFile) Read(p []byte) (n int, err error) {
+	if file.Data == nil {
+		output, err := file.fs.S3Client.GetObject(file.fs.context, &s3.GetObjectInput{
+			Bucket: aws.String(file.fs.bucket),
+			Key:    aws.String(file.Key),
+		})
 
 		if err != nil {
 			return 0, err
 		}
 
-		if len(response.Data) == 0 {
+		if *output.ContentLength == 0 {
 			return 0, io.EOF
 		}
 
-		o.Data, err = s2.Decode(nil, response.Data)
+		body, err := io.ReadAll(output.Body)
+
+		if err != nil {
+			log.Println("Error reading file body", err)
+			return 0, err
+		}
+
+		defer output.Body.Close()
+
+		file.Data, err = s2.Decode(nil, body)
 
 		if err != nil {
 			log.Println("Error decoding file", err)
@@ -140,14 +188,14 @@ func (o *ObjectFile) Read(p []byte) (n int, err error) {
 		}
 
 		// Reset read position after fetching new data
-		o.readPos = 0
+		file.readPos = 0
 	}
 
-	n = copy(p, o.Data[o.readPos:])
+	n = copy(p, file.Data[file.readPos:])
 
-	o.readPos += n
+	file.readPos += n
 
-	if o.readPos >= len(o.Data) {
+	if file.readPos >= len(file.Data) {
 		err = io.EOF
 	}
 
@@ -155,52 +203,52 @@ func (o *ObjectFile) Read(p []byte) (n int, err error) {
 }
 
 // Read bytes from the file at a specific offset.
-func (o *ObjectFile) ReadAt(p []byte, off int64) (n int, err error) {
-	if len(o.Data) == 0 {
+func (file *ObjectFile) ReadAt(p []byte, off int64) (n int, err error) {
+	if len(file.Data) == 0 {
 		return 0, io.EOF
 	}
 
-	if off > int64(len(o.Data)) {
+	if off > int64(len(file.Data)) {
 		return 0, io.EOF
 	}
 
-	n = copy(p, o.Data[off:])
+	n = copy(p, file.Data[off:])
 
 	return n, nil
 }
 
-func (o *ObjectFile) Seek(offset int64, whence int) (int64, error) {
-	if len(o.Data) == 0 {
+func (file *ObjectFile) Seek(offset int64, whence int) (int64, error) {
+	if len(file.Data) == 0 {
 		return 0, io.EOF
 	}
 
 	switch whence {
 	case io.SeekStart:
-		if offset < 0 || offset > int64(len(o.Data)) {
+		if offset < 0 || offset > int64(len(file.Data)) {
 			return 0, io.EOF
 		}
 
-		o.readPos = int(offset)
+		file.readPos = int(offset)
 
 		return offset, nil
 	case io.SeekCurrent:
-		newPos := int64(o.readPos) + offset
+		newPos := int64(file.readPos) + offset
 
-		if newPos < 0 || newPos > int64(len(o.Data)) {
+		if newPos < 0 || newPos > int64(len(file.Data)) {
 			return 0, io.EOF
 		}
 
-		o.readPos = int(newPos)
+		file.readPos = int(newPos)
 
 		return newPos, nil
 	case io.SeekEnd:
-		newPos := int64(len(o.Data)) + offset
+		newPos := int64(len(file.Data)) + offset
 
-		if newPos < 0 || newPos > int64(len(o.Data)) {
+		if newPos < 0 || newPos > int64(len(file.Data)) {
 			return 0, io.EOF
 		}
 
-		o.readPos = int(newPos)
+		file.readPos = int(newPos)
 
 		return newPos, nil
 	default:
@@ -209,19 +257,23 @@ func (o *ObjectFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 // Return stats about the file.
-func (o *ObjectFile) Stat() (fs.FileInfo, error) {
-	return o.FileInfo, nil
+func (file *ObjectFile) Stat() (fs.FileInfo, error) {
+	return file.FileInfo, nil
 }
 
 // Sync the file with the object store.
-func (o *ObjectFile) Sync() error {
-	if o.OpenFlags == os.O_RDONLY {
+func (file *ObjectFile) Sync() error {
+	if file.OpenFlags == os.O_RDONLY {
 		return os.ErrPermission
 	}
 
-	compressed := s2.Encode(nil, o.Data)
+	compressed := s2.Encode(nil, file.Data)
 
-	_, err := o.client.PutObject(o.Key, compressed)
+	_, err := file.fs.S3Client.PutObject(file.fs.context, &s3.PutObjectInput{
+		Body:   bytes.NewReader(compressed),
+		Bucket: aws.String(file.fs.bucket),
+		Key:    aws.String(file.Key),
+	})
 
 	if err != nil {
 		log.Println("Error syncing file", err)
@@ -251,7 +303,11 @@ func (o *ObjectFile) Truncate(size int64) error {
 
 	compressed := s2.Encode(nil, o.Data)
 
-	_, err := o.client.PutObject(o.Key, compressed)
+	_, err := o.fs.S3Client.PutObject(o.fs.context, &s3.PutObjectInput{
+		Bucket: aws.String(o.fs.bucket),
+		Key:    aws.String(o.Key),
+		Body:   bytes.NewReader(compressed),
+	})
 
 	if err != nil {
 		log.Println("Error truncating file", err)

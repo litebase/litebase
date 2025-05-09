@@ -8,11 +8,13 @@ extern int goXRead(sqlite3_file *file, void *buf, int iAmt, sqlite3_int64 iOfst)
 extern int goXWrite(sqlite3_file *file, const void *buf, int iAmt, sqlite3_int64 iOfst);
 extern int goXTruncate(sqlite3_file *file, sqlite3_int64 size);
 extern int goXFileSize(sqlite3_file *file, sqlite3_int64 *pSize);
+// extern int goXSync(sqlite3_file *file, int flags);
 
 extern int goXWALFileSize(sqlite3_file *file, sqlite3_int64 *pSize);
 extern int goXWALRead(sqlite3_file *file, const void *buf, int iAmt, sqlite3_int64 iOfst);
 extern int goXWALWrite(sqlite3_file *file, int iAmt, sqlite3_int64 iOfst, const void *buf);
 extern int goXWALTruncate(sqlite3_file *file, sqlite3_int64 size);
+extern int goXWALSync(sqlite3_file *file, int flags);
 
 extern int goXShmMap(sqlite3_file *file, int iPg, int pgSize, int bExtend, void volatile **pp);
 extern int goXShmLock(sqlite3_file *file, int offset, int n, int flags);
@@ -55,6 +57,7 @@ int xClose(sqlite3_file *pFile)
   LitebaseVFSFile *p = (LitebaseVFSFile *)pFile;
 
   int rc = ORIGFILE(pFile)->pMethods->xClose(ORIGFILE(pFile));
+
   // Free the memory allocated for the VFS ID
   free(p->pVfsId);
 
@@ -67,8 +70,6 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    // return ORIGFILE(pFile)->pMethods->xRead(ORIGFILE(pFile), zBuf, iAmt, iOfst);
-
     return goXWALRead(pFile, zBuf, iAmt, iOfst);
   }
 
@@ -79,8 +80,6 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   if (((LitebaseVFSFile *)pFile)->isJournal)
   {
-    // return ORIGFILE(pFile)->pMethods->xWrite(ORIGFILE(pFile), zBuf, iAmt, iOfst);
-
     return goXWALWrite(pFile, iAmt, iOfst, zBuf);
   }
 
@@ -104,9 +103,15 @@ int xTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 int xSync(sqlite3_file *pFile, int flags)
 {
 
-  // TODO: We need to account for this?
+  if (((LitebaseVFSFile *)pFile)->isJournal)
+  {
+    // vfs_log("WAL- xSync");
+    return goXWALSync(pFile, flags);
+  }
 
-  return ORIGFILE(pFile)->pMethods->xSync(ORIGFILE(pFile), flags);
+  // vfs_log("xSync");
+  // This is a no-op for the main file.
+  return SQLITE_OK;
 }
 
 int xFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
@@ -385,9 +390,6 @@ void unregisterVfs(char *vfsId)
         printf("Failed to unregister the VFS: %d\n", rc);
         return;
       }
-
-      // Free the memory allocated for vfs->vfsId
-      free(vfs->vfsId);
 
       // Free the memory allocated for vfsInstances[i]
       free(vfsInstances[i]);

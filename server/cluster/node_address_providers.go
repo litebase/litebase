@@ -3,6 +3,7 @@ package cluster
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 )
@@ -26,7 +27,9 @@ func AWSECSAddressProvider() (string, error) {
 		return "", errors.New("ECS_CONTAINER_METADATA_URI_V4 not set")
 	}
 
-	res, err := http.Get(metaDataUri)
+	taskUri := fmt.Sprintf("%s/task", metaDataUri)
+
+	res, err := http.Get(taskUri)
 
 	if err != nil {
 		return "", err

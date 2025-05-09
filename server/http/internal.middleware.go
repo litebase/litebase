@@ -36,7 +36,6 @@ func Internal(request *Request) (*Request, Response) {
 
 		nodeIp = nodeIpDecrypted.Value
 	}
-
 	if nodeTimestamp == "" {
 		return request, Response{
 			StatusCode: 401,

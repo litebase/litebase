@@ -3,11 +3,9 @@ package cluster_test
 import (
 	"testing"
 
-	"github.com/litebase/litebase/server/cluster/messages"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/cluster/messages"
 )
 
 func TestNewNodeReplica(t *testing.T) {

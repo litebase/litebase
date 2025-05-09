@@ -8,10 +8,8 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
-
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/storage"
 )
 
 func TestNewPageLogger(t *testing.T) {

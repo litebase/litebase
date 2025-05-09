@@ -9,7 +9,9 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
@@ -30,18 +32,19 @@ var (
 // durable storage with S3 compatability. This provides fast read access
 // performance with scalable and cost-effective long-term storage.
 type TieredFileSystemDriver struct {
-	buffers                     sync.Pool
-	context                     context.Context
-	durableFileSystemDriver     FileSystemDriver
-	FileCount                   int
-	FileOrder                   *list.List
-	Files                       map[string]*TieredFile
-	distributedFileSystemDriver FileSystemDriver
-	MaxFilesOpened              int
-	mutex                       *sync.RWMutex
-	shuttingDown                bool
-	WriteInterval               time.Duration
-	watchTicker                 *time.Ticker
+	buffers                 sync.Pool
+	context                 context.Context
+	durableFileSystemDriver FileSystemDriver
+	FileCount               int
+	FileOrder               *list.List
+	Files                   map[string]*TieredFile
+	sharedFileSystemDriver  FileSystemDriver
+	MaxFilesOpened          int
+	mutex                   *sync.RWMutex
+	releasingOldestFile     atomic.Bool
+	shuttingDown            bool
+	WriteInterval           time.Duration
+	watchTicker             *time.Ticker
 }
 
 type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
@@ -50,7 +53,7 @@ type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
 // files that are stored on the local file system and durable file system.
 func NewTieredFileSystemDriver(
 	context context.Context,
-	distributedFileSystemDriver FileSystemDriver,
+	sharedFileSystemDriver FileSystemDriver,
 	durableFileSystemDriver FileSystemDriver,
 	f ...TieredFileSystemNewFunc,
 ) *TieredFileSystemDriver {
@@ -60,15 +63,15 @@ func NewTieredFileSystemDriver(
 				return bytes.NewBuffer(make([]byte, 0, 1024))
 			},
 		},
-		context:                     context,
-		FileCount:                   0,
-		FileOrder:                   list.New(),
-		Files:                       map[string]*TieredFile{},
-		distributedFileSystemDriver: distributedFileSystemDriver,
-		MaxFilesOpened:              TieredFileSystemMaxOpenFiles,
-		mutex:                       &sync.RWMutex{},
-		durableFileSystemDriver:     durableFileSystemDriver,
-		WriteInterval:               DefaultWriteInterval,
+		context:                 context,
+		FileCount:               0,
+		FileOrder:               list.New(),
+		Files:                   map[string]*TieredFile{},
+		sharedFileSystemDriver:  sharedFileSystemDriver,
+		MaxFilesOpened:          TieredFileSystemMaxOpenFiles,
+		mutex:                   &sync.RWMutex{},
+		durableFileSystemDriver: durableFileSystemDriver,
+		WriteInterval:           DefaultWriteInterval,
 	}
 
 	if len(f) > 0 {
@@ -83,9 +86,9 @@ func NewTieredFileSystemDriver(
 }
 
 // Adding a file to the driver involves creating a new file that will be used
-// to manage the state of the file on the local file system. When the file is
+// to manage the state of the file on the shared file system. When the file is
 // written to it will be marked to be flushed to the durable file system.
-func (fsd *TieredFileSystemDriver) AddFile(path string, file internalStorage.File, flag int) *TieredFile {
+func (fsd *TieredFileSystemDriver) addFile(path string, file internalStorage.File, flag int) *TieredFile {
 	if fsd.FileCount >= fsd.MaxFilesOpened {
 		fsd.ReleaseOldestFile()
 	}
@@ -109,8 +112,13 @@ func (fsd *TieredFileSystemDriver) ClearFiles() {
 	defer fsd.mutex.Unlock()
 
 	for path, file := range fsd.Files {
-		fsd.ReleaseFile(file)
-		delete(fsd.Files, path)
+		err := fsd.releaseFile(file)
+
+		if err != nil {
+			log.Println("Error releasing file", err)
+		} else {
+			delete(fsd.Files, path)
+		}
 	}
 }
 
@@ -151,25 +159,26 @@ func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64
 // the file on the local file system. When the file is closed, or written to, it
 // will be pushed to the durable file system.
 func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, error) {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
-	file, err := fsd.distributedFileSystemDriver.Create(path)
+	file, err := fsd.durableFileSystemDriver.Create(path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	newFile := fsd.AddFile(path, file, os.O_CREATE|os.O_RDWR)
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	newFile := fsd.addFile(path, file, os.O_CREATE|os.O_RDWR)
 
 	newFile.MarkUpdated()
-
-	fsd.flushFileToDurableStorage(newFile, false)
 
 	return newFile, nil
 }
 
 func (fsd *TieredFileSystemDriver) Flush() error {
+	// fsd.mutex.Lock()
+	// defer fsd.mutex.Unlock()
+
 	// Flush all files to durable storage
 	return fsd.flushFiles()
 }
@@ -177,11 +186,8 @@ func (fsd *TieredFileSystemDriver) Flush() error {
 // Force flushing all files to durable storage. This operation is typically
 // performed when the driver is being closed.
 func (fsd *TieredFileSystemDriver) flushFiles() error {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
 	for _, file := range fsd.Files {
-		fsd.flushFileToDurableStorage(file, true)
+		fsd.flushFileToDurableStorage(file, false)
 	}
 
 	return nil
@@ -192,12 +198,11 @@ func (fsd *TieredFileSystemDriver) flushFiles() error {
 // and has not been written to durable storage in the last minute.
 func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, force bool) {
 	if !file.shouldBeWrittenToDurableStorage() && !force {
-		log.Println("File does not need to be written to durable storage", file.Key)
 		return
 	}
 
-	file.mutex.Lock()
-	defer file.mutex.Unlock()
+	// file.mutex.Lock()
+	// defer file.mutex.Unlock()
 
 	_, err := file.File.Seek(0, io.SeekStart)
 
@@ -238,17 +243,20 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 	file.WrittenAt = time.Now()
 }
 
-func (fsd *TieredFileSystemDriver) GetDistributedFile(path string) (*TieredFile, bool) {
+func (fsd *TieredFileSystemDriver) GetSharedFile(path string) (*TieredFile, bool) {
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
 	if file, ok := fsd.Files[path]; ok {
 		if file.Closed {
-			fsd.ReleaseFile(file)
+			fsd.releaseFile(file)
 			return nil, false
 		}
 
 		// Do not return the file if it is stale
 		if file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now()) ||
 			(file.UpdatedAt == (time.Time{}) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now())) {
-			fsd.ReleaseFile(file)
+			fsd.releaseFile(file)
 
 			return nil, false
 		}
@@ -262,7 +270,7 @@ func (fsd *TieredFileSystemDriver) GetDistributedFile(path string) (*TieredFile,
 // Mkdir creates a new directory on the local file system. This has no effect on
 // the durable file system.
 func (fsd *TieredFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
-	err := fsd.distributedFileSystemDriver.Mkdir(path, perm)
+	err := fsd.sharedFileSystemDriver.Mkdir(path, perm)
 
 	if err != nil {
 		return err
@@ -274,7 +282,7 @@ func (fsd *TieredFileSystemDriver) Mkdir(path string, perm fs.FileMode) error {
 // MkdirAll creates a new directory on the local file system, along with any
 // parents directories. This has no effect on the durable file system.
 func (fsd *TieredFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error {
-	err := fsd.distributedFileSystemDriver.MkdirAll(path, perm)
+	err := fsd.sharedFileSystemDriver.MkdirAll(path, perm)
 
 	if err != nil {
 		return err
@@ -293,10 +301,12 @@ func (fsd *TieredFileSystemDriver) Open(path string) (internalStorage.File, erro
 // this operation will create a new file on the local file system and then create
 // a new tiered file durable that will be used to manage the file.
 func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
+	start := time.Now()
+	defer func() {
+		log.Printf("OpenFile %s took %s", strings.Split(path, "/")[len(strings.Split(path, "/"))-1], time.Since(start))
+	}()
 
-	if file, ok := fsd.GetDistributedFile(path); ok {
+	if file, ok := fsd.GetSharedFile(path); ok {
 		// Compare the flags to ensure they match
 		if file.Flag&flag == flag {
 			_, err := file.Seek(0, io.SeekStart)
@@ -310,7 +320,7 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 			return file, nil
 		}
 
-		fsd.ReleaseFile(file)
+		fsd.releaseFile(file)
 	}
 
 	// If the file is write only, we need to add file flags to durable storage
@@ -329,7 +339,7 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 		return nil, err
 	}
 
-	file, err := fsd.distributedFileSystemDriver.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
+	file, err := fsd.sharedFileSystemDriver.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		return nil, err
@@ -342,7 +352,67 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 		return nil, err
 	}
 
-	newFile := fsd.AddFile(path, file, flag)
+	newFile := fsd.addFile(path, file, flag)
+
+	// // Write the file data to the local file system
+	// _, err = file.Seek(0, io.SeekStart)
+
+	// if err != nil {
+	// 	log.Println("Error seeking to start of file", err)
+	// 	return nil, err
+	// }
+
+	return newFile, nil
+}
+
+func (fsd *TieredFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
+	if file, ok := fsd.GetSharedFile(path); ok {
+		// Compare the flags to ensure they match
+		if file.Flag&flag == flag {
+			_, err := file.Seek(0, io.SeekStart)
+
+			if err != nil {
+				log.Println("Error seeking to start of file", err)
+
+				return nil, err
+			}
+
+			return file, nil
+		}
+
+		fsd.releaseFile(file)
+	}
+
+	// If the file is write only, we need to add file flags to durable storage
+	// that allow the file to be created and read.
+	durableFlag := flag
+
+	if flag&os.O_WRONLY == os.O_WRONLY {
+		durableFlag &= ^os.O_WRONLY
+		durableFlag |= os.O_RDWR
+	}
+
+	// To open a file, we need to first try and read the file from the durable storage
+	f, err := fsd.durableFileSystemDriver.OpenFileDirect(path, durableFlag, perm)
+
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := fsd.sharedFileSystemDriver.OpenFileDirect(path, os.O_RDWR|os.O_CREATE, 0644)
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = fsd.CopyFile(file, f)
+
+	if err != nil {
+		log.Println("Error writing to local file", err)
+		return nil, err
+	}
+
+	newFile := fsd.addFile(path, file, flag)
 
 	// // Write the file data to the local file system
 	// _, err = file.Seek(0, io.SeekStart)
@@ -375,10 +445,7 @@ func (fsd *TieredFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEn
 // the durable file system, it will be copied to the local file system for future
 // use and an entry will be created in the driver to track the file.
 func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
-	if file, ok := fsd.GetDistributedFile(path); ok && file.File != nil {
+	if file, ok := fsd.GetSharedFile(path); ok && file.File != nil {
 		file.Seek(0, io.SeekStart)
 
 		return io.ReadAll(file)
@@ -390,7 +457,7 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	file, err := fsd.distributedFileSystemDriver.Create(path)
+	file, err := fsd.sharedFileSystemDriver.Create(path)
 
 	if err != nil {
 		return nil, err
@@ -402,14 +469,14 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	fsd.AddFile(path, file, os.O_RDONLY)
+	fsd.addFile(path, file, os.O_RDONLY)
 
 	return data, nil
 }
 
 // Releasing a file involves closing the file and removing it from the driver.
 // This operation is typically performed when the file is no longer needed.
-func (fsd *TieredFileSystemDriver) ReleaseFile(file *TieredFile) error {
+func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 	// Files should not be released if their changes are pending to be written
 	if file.shouldBeWrittenToDurableStorage() {
 		return ErrTieredFileCannotBeReleased
@@ -423,7 +490,7 @@ func (fsd *TieredFileSystemDriver) ReleaseFile(file *TieredFile) error {
 			return err
 		}
 
-		err = fsd.distributedFileSystemDriver.Remove(file.Key)
+		err = fsd.sharedFileSystemDriver.Remove(file.Key)
 
 		if err != nil {
 			log.Println("Error removing file from local file system", err)
@@ -444,14 +511,13 @@ func (fsd *TieredFileSystemDriver) ReleaseFile(file *TieredFile) error {
 // Removing a file included removing the file from the local file system and also
 // removing the file from the durable file system immediately after.
 func (fsd *TieredFileSystemDriver) Remove(path string) error {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
-	if file, ok := fsd.GetDistributedFile(path); ok {
-		fsd.ReleaseFile(file)
+	if file, ok := fsd.GetSharedFile(path); ok {
+		fsd.mutex.Lock()
+		fsd.releaseFile(file)
+		fsd.mutex.Unlock()
 	}
 
-	err := fsd.distributedFileSystemDriver.Remove(path)
+	err := fsd.sharedFileSystemDriver.Remove(path)
 
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -466,17 +532,18 @@ func (fsd *TieredFileSystemDriver) Remove(path string) error {
 func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
 	// Remove any files that are under the path
 	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
 
 	for key, file := range fsd.Files {
 		if key == path || key[:len(path)] == path {
-			file.closeFile()
+			go file.closeFile()
 			delete(fsd.Files, key)
 			fsd.FileCount--
 		}
 	}
 
-	err := fsd.distributedFileSystemDriver.RemoveAll(path)
+	fsd.mutex.Unlock()
+
+	err := fsd.sharedFileSystemDriver.RemoveAll(path)
 
 	if err != nil {
 		return err
@@ -489,6 +556,16 @@ func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
 // remove the oldest file from the driver and close the file. If the TieredFile
 // is still open, it will reopen the file resource.
 func (fsd *TieredFileSystemDriver) ReleaseOldestFile() error {
+	if fsd.releasingOldestFile.Load() {
+		return nil
+	}
+
+	fsd.releasingOldestFile.Store(true)
+	defer fsd.releasingOldestFile.Store(false)
+
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
 	element := fsd.FileOrder.Front()
 
 	if element == nil {
@@ -513,24 +590,24 @@ func (fsd *TieredFileSystemDriver) ReleaseOldestFile() error {
 
 	fsd.FileOrder.Remove(element)
 
-	return fsd.ReleaseFile(file)
+	return fsd.releaseFile(file)
 }
 
 // Renaming a file in the tiered file system driver involves renaming the file on
 // the local file system and then renaming the file on the durable file system
 // immediately after.
 func (fsd *TieredFileSystemDriver) Rename(oldpath, newpath string) error {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
 
-	if file, ok := fsd.GetDistributedFile(oldpath); ok {
-		fsd.ReleaseFile(file)
+	if file, ok := fsd.GetSharedFile(oldpath); ok {
+		fsd.mutex.Lock()
+		fsd.releaseFile(file)
+		fsd.mutex.Unlock()
 	}
 
-	err := fsd.distributedFileSystemDriver.Rename(oldpath, newpath)
+	err := fsd.sharedFileSystemDriver.Rename(oldpath, newpath)
 
 	if err != nil && !os.IsNotExist(err) {
-		log.Println("Error renaming file on distributed file system", err)
+		log.Println("Error renaming file on shared file system", err)
 		return err
 	}
 
@@ -550,23 +627,20 @@ func (fsd *TieredFileSystemDriver) Shutdown() error {
 		fsd.watchTicker.Stop()
 	}
 
-	return fsd.flushFiles()
+	return fsd.Flush()
 }
 
 // Statting a file in the tiered file system driver involves statting the file on
-// distributed local file system and then returning the file information. If the file does
-// not exist on the distributed file system, the operation will be attempted on the
+// shared file system and then returning the file information. If the file does
+// not exist on the shared file system, the operation will be attempted on the
 // durable file system.
 func (fsd *TieredFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
 	isDir := path[len(path)-1] == '/'
 
 	// Path ends with a slash, so it is a directory
 	if isDir {
 		return fsd.durableFileSystemDriver.Stat(path)
-	} else if file, ok := fsd.GetDistributedFile(path); ok {
+	} else if file, ok := fsd.GetSharedFile(path); ok {
 		return file.Stat()
 	}
 
@@ -580,13 +654,10 @@ func (fsd *TieredFileSystemDriver) Stat(path string) (internalStorage.FileInfo, 
 }
 
 // Truncating a file in the tiered file system driver involves truncating the file
-// on the distributed file system and then truncating the file on the durable file system
+// on the shared file system and then truncating the file on the durable file system
 // immediately after.
 func (fsd *TieredFileSystemDriver) Truncate(path string, size int64) error {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
-	err := fsd.distributedFileSystemDriver.Truncate(path, size)
+	err := fsd.sharedFileSystemDriver.Truncate(path, size)
 
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -617,24 +688,32 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 			fsd.Shutdown()
 			return
 		case <-fsd.watchTicker.C:
-			fsd.mutex.Lock()
+			fsd.mutex.RLock()
 
-			var wg sync.WaitGroup
 			// Use a semaphore to limit concurrency to 10
 			semaphore := make(chan struct{}, 10)
+			filesToFlush := make([]*TieredFile, 0)
 
-			// Process files concurrently
 			for _, file := range fsd.Files {
 				if file.shouldBeWrittenToDurableStorage() {
-					wg.Add(1)
-					semaphore <- struct{}{} // Acquire semaphore slot
-
-					go func(f *TieredFile) {
-						defer wg.Done()
-						defer func() { <-semaphore }() // Release semaphore slot
-						fsd.flushFileToDurableStorage(f, false)
-					}(file)
+					filesToFlush = append(filesToFlush, file)
 				}
+			}
+
+			fsd.mutex.RUnlock()
+
+			var wg sync.WaitGroup
+
+			// Process files concurrently
+			for _, file := range filesToFlush {
+				wg.Add(1)
+				semaphore <- struct{}{} // Acquire semaphore slot
+
+				go func(f *TieredFile) {
+					defer wg.Done()
+					defer func() { <-semaphore }() // Release semaphore slot
+					fsd.flushFileToDurableStorage(f, false)
+				}(file)
 			}
 
 			// Wait for all active flush operations to finish
@@ -651,8 +730,6 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 				}
 
 			}
-
-			fsd.mutex.Unlock()
 		default:
 			if fsd.context.Err() != nil {
 				return
@@ -661,33 +738,25 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 	}
 }
 
-func (fsd *TieredFileSystemDriver) WithLock(fn func()) {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
-	fn()
-}
-
 // Writing a file in the tiered file system driver involves writing the file on
-// the distributed file system. Writing the file to durable storage will take place
+// the shared file system. Writing the file to durable storage will take place
 // immmediately after.
 func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
 	var err error
 	var file *TieredFile
 	var ok bool
 
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
-	// If the file is not found, create a new file on the distributed file system
-	if file, ok = fsd.GetDistributedFile(path); !ok {
-		f, err := fsd.distributedFileSystemDriver.Create(path)
+	// If the file is not found, create a new file on the shared file system
+	if file, ok = fsd.GetSharedFile(path); !ok {
+		f, err := fsd.sharedFileSystemDriver.Create(path)
 
 		if err != nil {
 			return err
 		}
 
-		file = fsd.AddFile(path, f, os.O_CREATE|os.O_RDWR)
+		fsd.mutex.Lock()
+		file = fsd.addFile(path, f, os.O_CREATE|os.O_RDWR)
+		fsd.mutex.Unlock()
 	} else {
 		err = file.Truncate(0)
 	}
@@ -705,6 +774,9 @@ func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.F
 
 	// Mark the file as updated
 	file.MarkUpdated()
+
+	fsd.mutex.RLock()
+	defer fsd.mutex.RUnlock()
 
 	fsd.flushFileToDurableStorage(fsd.Files[path], true)
 

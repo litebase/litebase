@@ -6,15 +6,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/litebase/litebase/server/storage"
-
-	"github.com/litebase/litebase/server/cluster"
-
-	"github.com/litebase/litebase/common/config"
-
-	"github.com/litebase/litebase/server"
-
 	"github.com/joho/godotenv"
+	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/storage"
 )
 
 var envDataPath string
@@ -38,7 +34,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 	}
 
 	dataPath := fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
-	remotePath := fmt.Sprintf("%s/_remote", dataPath)
+	sharedPath := fmt.Sprintf("%s/_shared", dataPath)
 	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
 
 	os.MkdirAll(dataPath, 0755)
@@ -49,7 +45,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 
 	t.Setenv("LITEBASE_DOMAIN_NAME", "litebase.test")
 	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
-	t.Setenv("LITEBASE_REMOTE_PATH", remotePath)
+	t.Setenv("LITEBASE_SHARED_PATH", sharedPath)
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)
 	t.Setenv("LITEBASE_SIGNATURE", CreateHash(64))
 
@@ -137,9 +133,9 @@ func RunWithApp(t testing.TB, callback func(*server.App)) {
 }
 
 func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
+	t.Setenv("LITEBASE_FAKE_OBJECT_STORAGE", "true")
 	t.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
-	bucketName := CreateHash(32)
-	t.Setenv("LITEBASE_STORAGE_BUCKET", bucketName)
+	t.Setenv("LITEBASE_STORAGE_BUCKET", CreateHash(32))
 
 	// Setup the environment
 	app, dataPath := Setup(t, func() {

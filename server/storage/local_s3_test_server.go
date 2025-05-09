@@ -62,7 +62,6 @@ func StartTestS3Server(c *config.Config, objectFS *FileSystem) (string, error) {
 
 	s3Server.Start()
 	c.StorageEndpoint = s3Server.URL
-	objectFS.Driver().(*ObjectFileSystemDriver).S3Client.Endpoint = s3Server.URL
 
 	// Ensure the bucket exists
 	objectFS.Driver().(*ObjectFileSystemDriver).EnsureBucketExists()

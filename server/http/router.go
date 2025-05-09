@@ -7,11 +7,9 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/litebase/litebase/server/logs"
-
-	"github.com/litebase/litebase/server/database"
-
 	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/server/logs"
 )
 
 type RouterInstance struct {

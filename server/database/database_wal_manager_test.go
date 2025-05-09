@@ -5,11 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/server/database"
-
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/database"
 )
 
 func TestNewDatabaseWAlManager(t *testing.T) {
@@ -19,7 +17,7 @@ func TestNewDatabaseWAlManager(t *testing.T) {
 			app.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 		)
 
 		if walm == nil {
@@ -39,7 +37,7 @@ func TestDatabaseWALManager_Create(t *testing.T) {
 			app.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -68,7 +66,7 @@ func TestDatabaseWALManager_CreateFailsOnReplica(t *testing.T) {
 			replica.App.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			replica.App.Cluster.RemoteFS(),
+			replica.App.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -90,7 +88,7 @@ func TestDatabaseWALManager_Get(t *testing.T) {
 			app.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -130,7 +128,7 @@ func TestDatabaseWALManager_InUse(t *testing.T) {
 			app.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -167,7 +165,7 @@ func TestDatabaseWALManager_InUseVersions(t *testing.T) {
 			app.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -215,7 +213,7 @@ func TestDatabaseWALManager_Release(t *testing.T) {
 			app.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -255,7 +253,7 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 			app.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			app.Cluster.RemoteFS(),
+			app.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -293,7 +291,7 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 		}
 
 		for i := range 5 {
-			_, err := app.Cluster.RemoteFS().Stat(walVersions[i].Path)
+			_, err := app.Cluster.SharedFS().Stat(walVersions[i].Path)
 
 			if i == 0 {
 				if err == nil {
@@ -319,7 +317,7 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 				continue
 			}
 
-			_, err := app.Cluster.RemoteFS().Stat(walVersions[i].Path)
+			_, err := app.Cluster.SharedFS().Stat(walVersions[i].Path)
 
 			if err == nil {
 				t.Error("File should not exist")
@@ -338,7 +336,7 @@ func TestDatabaseWALManager_RunGarbageCollectionFailsOnReplica(t *testing.T) {
 			replica.App.DatabaseManager.ConnectionManager(),
 			"databaseId",
 			"branchId",
-			replica.App.Cluster.RemoteFS(),
+			replica.App.Cluster.SharedFS(),
 		)
 
 		if err != nil {
@@ -415,7 +413,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 		}
 
 		for i := 0; i < 3; i++ {
-			_, err := primary.App.Cluster.RemoteFS().Stat(walVersions[i].Path)
+			_, err := primary.App.Cluster.SharedFS().Stat(walVersions[i].Path)
 
 			if err != nil {
 				t.Error("File should exist")
