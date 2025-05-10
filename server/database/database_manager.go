@@ -313,6 +313,18 @@ func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResour
 	return d.resources[hash]
 }
 
+func (d *DatabaseManager) Remove(databaseId, branchId string) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	hash := file.DatabaseHash(databaseId, branchId)
+
+	if resource, ok := d.resources[hash]; ok {
+		resource.Remove()
+		delete(d.resources, hash)
+	}
+}
+
 // Shutdown all of the database resources that have been created.
 func (d *DatabaseManager) ShutdownResources() error {
 	d.mutex.Lock()

@@ -23,8 +23,6 @@ var (
 )
 
 const DatabaseIdleTimeout = 1 * time.Minute
-
-// const DatabaseIdleTimeout = 2 * time.Second
 const DatabaseCheckpointThreshold = 1 * time.Second
 
 type ConnectionManager struct {
@@ -362,7 +360,7 @@ func (c *ConnectionManager) remove(databaseId string, branchId string, clientCon
 	// If there are no more branches, remove the database
 	if len(c.databases[databaseId].branches[branchId]) == 0 {
 		delete(c.databases[databaseId].branches, branchId)
-		c.databaseManager.Resources(databaseId, branchId).Remove()
+		c.databaseManager.Remove(databaseId, branchId)
 	}
 
 	clientConnection.Close()

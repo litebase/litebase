@@ -68,20 +68,22 @@ func NewObjectFile(fs *ObjectFileSystemDriver, key string, openFlags int, preExi
 
 		if !fileExists {
 			// INVESTIGATE: Do we really need to create an empty file here?
-			// _, err = file.fs.S3Client.PutObject(file.fs.context, &s3.PutObjectInput{
-			// 	Bucket: aws.String(file.fs.bucket),
-			// 	Key:    aws.String(key),
-			// 	Body:   bytes.NewReader([]byte{}),
-			// })
+			_, err := file.fs.S3Client.PutObject(file.fs.context, &s3.PutObjectInput{
+				Bucket: aws.String(file.fs.bucket),
+				Key:    aws.String(key),
+				Body:   bytes.NewReader([]byte{}),
+			})
 
-			// if err != nil {
-			// 	log.Println("Error creating file", err)
-			// 	return nil, err
-			// }
+			if err != nil {
+				log.Println("Error creating file", err)
+				return nil, err
+			}
+
+			file.Data = []byte{}
 		}
 	}
 
-	if openFlags&os.O_RDONLY != 0 || openFlags&os.O_RDWR != 0 {
+	if file.Data == nil && (openFlags&os.O_RDONLY != 0 || openFlags&os.O_RDWR != 0) {
 		output, err := file.fs.S3Client.GetObject(file.fs.context, &s3.GetObjectInput{
 			Bucket: aws.String(file.fs.bucket),
 			Key:    aws.String(key),

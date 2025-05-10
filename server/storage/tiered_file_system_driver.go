@@ -336,6 +336,7 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	f, err := fsd.durableFileSystemDriver.OpenFile(path, durableFlag, perm)
 
 	if err != nil {
+		log.Println("Error opening file on durable file system", err)
 		return nil, err
 	}
 

@@ -37,7 +37,7 @@ func GetQueryStatementIndex(tieredFS *storage.FileSystem, path, name string, tim
 	file, err := tieredFS.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if err != nil {
-		log.Fatalln("Failed to open file", err)
+		log.Println("Failed to open file", err)
 		return nil, err
 	}
 
