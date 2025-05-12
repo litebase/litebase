@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/litebase/litebase/server/file"
 
@@ -177,10 +176,10 @@ func (dfs *DurableDatabaseFileSystem) Path() string {
 }
 
 func (dfs *DurableDatabaseFileSystem) ReadAt(timestamp int64, data []byte, offset, length int64) (int, error) {
-	start := time.Now()
-	defer func() {
-		log.Printf("DFS ReadAt took %s for", time.Since(start))
-	}()
+	// start := time.Now()
+	// defer func() {
+	// 	log.Printf("DFS ReadAt took %s for", time.Since(start))
+	// }()
 
 	dfs.mutex.RLock()
 	defer dfs.mutex.RUnlock()
@@ -326,10 +325,10 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 
 // Write to the DurableDatabaseFileSystem at the specified offset at a timestamp.
 func (dfs *DurableDatabaseFileSystem) WriteAt(timestamp int64, data []byte, offset int64) (n int, err error) {
-	start := time.Now()
-	defer func() {
-		log.Printf("DFS WriteAt took %s", time.Since(start))
-	}()
+	// start := time.Now()
+	// defer func() {
+	// 	log.Printf("DFS WriteAt took %s", time.Since(start))
+	// }()
 
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()

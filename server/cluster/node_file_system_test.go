@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
 )
 
@@ -80,6 +79,16 @@ func TestTmpFS(t *testing.T) {
 
 		if fs == nil {
 			t.Error("TmpFS() returned nil")
+		}
+	})
+}
+
+func TestTmpTieredFS(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		fs := app.Cluster.TmpTieredFS()
+
+		if fs == nil {
+			t.Error("TmpTieredFS() returned nil")
 		}
 	})
 }

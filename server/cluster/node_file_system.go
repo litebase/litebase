@@ -97,26 +97,11 @@ func (cluster *Cluster) ShutdownStorage() {
 	}
 }
 
-func (cluster *Cluster) TmpFS() *storage.FileSystem {
-	cluster.fileSystemMutex.Lock()
-	defer cluster.fileSystemMutex.Unlock()
-
-	if cluster.tmpFileSystem == nil {
-		cluster.tmpFileSystem = storage.NewFileSystem(
-			storage.NewLocalFileSystemDriver(
-				fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().Id),
-			),
-		)
-	}
-
-	return cluster.tmpFileSystem
-}
-
-// The tiered file system is used to read and write files to a local file system
-// and an object storage system. The local file system is used as a cache for the
-// object storage system. The tiered file system will read files from the local
+// The tiered file system is used to read and write files to a shared file system
+// and an object storage system. The shared file system is used as a cache for the
+// object storage system. The tiered file system will read files from the shared
 // file system if they exist, otherwise it will read them from the object storage
-// system. When writing files, the tiered file system will write to both the local
+// system. When writing files, the tiered file system will write to both the shared
 // file system and the object storage system.
 func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	cluster.fileSystemMutex.Lock()
@@ -143,4 +128,53 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	}
 
 	return cluster.tieredFileSystem
+}
+
+func (cluster *Cluster) TmpFS() *storage.FileSystem {
+	cluster.fileSystemMutex.Lock()
+	defer cluster.fileSystemMutex.Unlock()
+
+	if cluster.tmpFileSystem == nil {
+		cluster.tmpFileSystem = storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(
+				fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().Id),
+			),
+		)
+	}
+
+	return cluster.tmpFileSystem
+}
+
+// The tmp tiered file system is used to read and write files to a local file
+// system and an object storage system. The local file system is used as a cache
+// for the object storage system. The tmp tiered file system will read files from
+// the local file system if they exist, otherwise it will read them from the object
+// storage system. When writing files, the tmp tiered file system will write to
+// both the local file system and the object storage system.
+func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
+	cluster.fileSystemMutex.Lock()
+	defer cluster.fileSystemMutex.Unlock()
+
+	if cluster.tmpTieredFileSystem != nil {
+		return cluster.tmpTieredFileSystem
+	}
+	if cluster.Config.StorageTieredMode == config.StorageModeObject {
+		cluster.tmpTieredFileSystem = storage.NewFileSystem(
+			storage.NewTieredFileSystemDriver(
+				cluster.Node().Context(),
+				storage.NewLocalFileSystemDriver(cluster.Config.TmpPath),
+				storage.NewObjectFileSystemDriver(cluster.Config),
+			),
+		)
+	} else if cluster.Config.StorageTieredMode == config.StorageModeLocal {
+		cluster.tmpTieredFileSystem = storage.NewFileSystem(
+			storage.NewTieredFileSystemDriver(
+				cluster.Node().Context(),
+				storage.NewLocalFileSystemDriver(cluster.Config.SharedPath),
+				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
+			),
+		)
+	}
+
+	return cluster.tmpTieredFileSystem
 }

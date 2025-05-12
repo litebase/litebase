@@ -86,7 +86,7 @@ func (lm *LogManager) GetQueryLog(cluster *cluster.Cluster, databaseHash, databa
 			path:         path,
 			queryHasher:  crc64.New(crc64.MakeTable(crc64.ISO)),
 			queue:        make(map[time.Time]map[uint64]*QueryMetric),
-			tieredFS:     cluster.TieredFS(),
+			tieredFS:     cluster.TmpTieredFS(),
 			timestamp:    timestamp.UTC().Unix(),
 		}
 	}

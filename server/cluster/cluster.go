@@ -45,11 +45,12 @@ type Cluster struct {
 	mutex              *sync.Mutex
 	node               *Node
 
-	localFileSystem  *storage.FileSystem
-	objectFileSystem *storage.FileSystem
-	sharedFileSystem *storage.FileSystem
-	tieredFileSystem *storage.FileSystem
-	tmpFileSystem    *storage.FileSystem
+	localFileSystem     *storage.FileSystem
+	objectFileSystem    *storage.FileSystem
+	sharedFileSystem    *storage.FileSystem
+	tieredFileSystem    *storage.FileSystem
+	tmpFileSystem       *storage.FileSystem
+	tmpTieredFileSystem *storage.FileSystem
 }
 
 // Create a cluster from the environment variables.
