@@ -1,12 +1,11 @@
 package auth
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -17,16 +16,16 @@ import (
 )
 
 type SecretsManager struct {
-	auth               *Auth
-	config             *config.Config
-	databaseKeyMutex   sync.RWMutex
-	databaseKeys       map[string]*DatabaseKey
-	secretStore        map[string]SecretsStore
-	secretStoreMutex   sync.RWMutex
-	encrypterInstances map[string]*KeyEncrypter
-	mutex              sync.RWMutex
-	ObjectFS           *storage.FileSystem
-	TmpFS              *storage.FileSystem
+	auth                  *Auth
+	config                *config.Config
+	databaseKeyStoreMutex sync.RWMutex
+	databaseKeyStores     map[string]*DatabaseKeyStore
+	secretStore           map[string]SecretsStore
+	secretStoreMutex      sync.RWMutex
+	encrypterInstances    map[string]*KeyEncrypter
+	mutex                 sync.RWMutex
+	ObjectFS              *storage.FileSystem
+	TmpFS                 *storage.FileSystem
 }
 
 type DecryptedSecret struct {
@@ -41,11 +40,19 @@ func NewSecretsManager(
 	objectFS *storage.FileSystem,
 	tmpFS *storage.FileSystem,
 ) *SecretsManager {
+	dks, err := NewDatabaseKeyStore(tmpFS, GetDatabaseKeysPath(config.Signature))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &SecretsManager{
-		auth:               auth,
-		config:             config,
-		databaseKeyMutex:   sync.RWMutex{},
-		databaseKeys:       make(map[string]*DatabaseKey),
+		auth:                  auth,
+		config:                config,
+		databaseKeyStoreMutex: sync.RWMutex{},
+		databaseKeyStores: map[string]*DatabaseKeyStore{
+			config.Signature: dks,
+		},
 		encrypterInstances: make(map[string]*KeyEncrypter),
 		mutex:              sync.RWMutex{},
 		ObjectFS:           objectFS,
@@ -95,6 +102,34 @@ func (s *SecretsManager) databaseSettingCacheKey(databaseId, branchId string) st
 	return fmt.Sprintf("database_secret:%s:%s", databaseId, branchId)
 }
 
+func (s *SecretsManager) databaseKeyStore(signature string) (*DatabaseKeyStore, error) {
+	s.databaseKeyStoreMutex.RLock()
+	_, ok := s.databaseKeyStores[signature]
+	s.databaseKeyStoreMutex.RUnlock()
+
+	if !ok {
+		s.databaseKeyStoreMutex.Lock()
+		defer s.databaseKeyStoreMutex.Unlock()
+
+		if signature != s.config.Signature && signature != s.config.SignatureNext {
+			return nil, errors.New("invalid signature")
+		}
+
+		databaseKeyStore, err := NewDatabaseKeyStore(
+			s.TmpFS,
+			GetDatabaseKeysPath(signature),
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		s.databaseKeyStores[signature] = databaseKeyStore
+	}
+
+	return s.databaseKeyStores[signature], nil
+}
+
 // Decrypt the given text using the given signature
 func (s *SecretsManager) Decrypt(signature string, data []byte) (DecryptedSecret, error) {
 	return s.Encrypter(signature).Decrypt(data)
@@ -119,27 +154,33 @@ func (s *SecretsManager) DecryptFor(accessKeyId, accessKeySecret, text string) (
 
 // Delete a database key from the SecretsManager.
 func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
-	s.databaseKeyMutex.Lock()
-	defer s.databaseKeyMutex.Unlock()
+	dks, err := s.databaseKeyStore(s.config.Signature)
 
-	if _, ok := s.databaseKeys[databaseKey]; ok {
-		delete(s.databaseKeys, databaseKey)
+	if err != nil {
+		log.Println(err)
+
+		return err
 	}
 
-	filePaths := []string{
-		GetDatabaseKeyPath(s.config.Signature, databaseKey),
+	err = dks.Delete(databaseKey)
+
+	if err != nil {
+		log.Println(err)
+		return err
 	}
 
 	if s.config.SignatureNext != "" {
-		filePaths = append(filePaths, GetDatabaseKeyPath(s.config.SignatureNext, databaseKey))
-	}
-
-	for _, filePath := range filePaths {
-		err := s.ObjectFS.Remove(filePath)
+		dks, err = s.databaseKeyStore(s.config.SignatureNext)
 
 		if err != nil {
 			log.Println(err)
+			return err
+		}
 
+		err = dks.Delete(databaseKey)
+
+		if err != nil {
+			log.Println(err)
 			return err
 		}
 	}
@@ -210,36 +251,17 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 }
 
 func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
-	// Check if the database key is cached
-	s.databaseKeyMutex.RLock()
-
-	if databaseKey, ok := s.databaseKeys[key]; ok {
-		s.databaseKeyMutex.RUnlock()
-		return databaseKey, nil
-	}
-
-	s.databaseKeyMutex.RUnlock()
-
-	s.databaseKeyMutex.Lock()
-	defer s.databaseKeyMutex.Unlock()
-
-	// Read the database key file
-	data, err := s.ObjectFS.ReadFile(GetDatabaseKeyPath(s.config.Signature, key))
+	dks, err := s.databaseKeyStore(s.config.Signature)
 
 	if err != nil {
 		return nil, err
 	}
 
-	databaseKey := &DatabaseKey{}
-
-	err = json.NewDecoder(bytes.NewReader(data)).Decode(&databaseKey)
+	databaseKey, err := dks.Get(key)
 
 	if err != nil {
 		return nil, err
 	}
-
-	// Cache the database key
-	s.databaseKeys[key] = databaseKey
 
 	return databaseKey, nil
 }
@@ -403,31 +425,36 @@ func (s *SecretsManager) StoreDatabaseKey(
 	databaseId string,
 	branchId string,
 ) error {
-	filePaths := []string{
-		GetDatabaseKeyPath(s.config.Signature, databaseKey),
+	// TODO: Need to store for the next signature as well
+	dk := &DatabaseKey{
+		DatabaseHash: file.DatabaseHash(databaseId, branchId),
+		DatabaseId:   databaseId,
+		BranchId:     branchId,
+		Key:          databaseKey,
+	}
+
+	dks, err := s.databaseKeyStore(s.config.Signature)
+
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	err = dks.Put(dk)
+
+	if err != nil {
+		return err
 	}
 
 	if s.config.SignatureNext != "" {
-		filePaths = append(filePaths, GetDatabaseKeyPath(s.config.SignatureNext, databaseKey))
-	}
-
-	for _, filePath := range filePaths {
-		if _, err := s.ObjectFS.Stat(filepath.Dir(filePath)); os.IsNotExist(err) {
-			s.ObjectFS.MkdirAll(filepath.Dir(filePath), 0700)
-		}
-
-		data, err := json.Marshal(map[string]string{
-			"key":           databaseKey,
-			"database_hash": file.DatabaseHash(databaseId, branchId),
-			"database_id":   databaseId,
-			"branch_id":     branchId,
-		})
+		dks, err = s.databaseKeyStore(s.config.SignatureNext)
 
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			return err
 		}
 
-		err = s.ObjectFS.WriteFile(filePath, data, 0644)
+		err = dks.Put(dk)
 
 		if err != nil {
 			return err

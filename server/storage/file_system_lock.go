@@ -13,12 +13,12 @@ type FileSystemLockEntry struct {
 }
 
 type FileSystemLock struct {
-	lock sync.Map // map[string]*FileSystemLockEntry
+	lock *sync.Map // map[string]*FileSystemLockEntry
 }
 
 func NewFileSystemLock() *FileSystemLock {
 	return &FileSystemLock{
-		lock: sync.Map{},
+		lock: &sync.Map{},
 	}
 }
 

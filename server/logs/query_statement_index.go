@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 	"sync"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
@@ -63,7 +64,7 @@ func (q *QueryStatementIndex) Get(key string) ([]byte, bool) {
 	entry, ok := q.cache.Get(key)
 
 	if ok {
-		return entry, true
+		return entry.([]byte), true
 	}
 
 	// Reset the file pointer to the beginning
@@ -100,7 +101,7 @@ func (q *QueryStatementIndex) Get(key string) ([]byte, bool) {
 		return nil, false
 	}
 
-	q.cache.Put(key, value)
+	q.cache.Put(key, slices.Clone(value))
 
 	return value, true
 }

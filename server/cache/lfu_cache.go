@@ -3,14 +3,13 @@ package cache
 import (
 	"container/heap"
 	"errors"
-	"slices"
 )
 
 var ErrLFUCacheFull = errors.New("LFU cache is full")
 
 type CacheItem struct {
 	key       string
-	value     []byte
+	value     any
 	frequency int
 	index     int
 }
@@ -64,8 +63,15 @@ func NewLFUCache(capacity int) *LFUCache {
 	}
 }
 
+func (c *LFUCache) Delete(key string) {
+	if item, found := c.items[key]; found {
+		heap.Remove(&c.pq, item.index)
+		delete(c.items, key)
+	}
+}
+
 // Get retrieves an item from the cache.
-func (c *LFUCache) Get(key string) ([]byte, bool) {
+func (c *LFUCache) Get(key string) (any, bool) {
 	if item, found := c.items[key]; found {
 		item.frequency++
 		heap.Fix(&c.pq, item.index)
@@ -76,18 +82,15 @@ func (c *LFUCache) Get(key string) ([]byte, bool) {
 }
 
 // Put adds an item to the cache.
-func (c *LFUCache) Put(key string, value []byte) error {
+func (c *LFUCache) Put(key string, value any) error {
 	item, found := c.items[key]
 
 	// if !found && c.capacity == 0 {
 	// 	return ErrLFUCacheFull
 	// }
 
-	// Create a copy of the value to avoid unintended modifications
-	valueCopy := slices.Clone(value)
-
 	if found {
-		item.value = valueCopy
+		item.value = value
 		item.frequency++
 		heap.Fix(&c.pq, item.index)
 
@@ -103,7 +106,7 @@ func (c *LFUCache) Put(key string, value []byte) error {
 	// Add the new item.
 	newItem := &CacheItem{
 		key:       key,
-		value:     valueCopy,
+		value:     value,
 		frequency: 1,
 	}
 

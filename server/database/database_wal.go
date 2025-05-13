@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -256,11 +257,11 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 
 	cacheKey := fmt.Sprintf("%d", off)
 
-	if data, found := wal.cache.Get(cacheKey); found && len(data) == len(p) {
+	if data, found := wal.cache.Get(cacheKey); found && len(data.([]byte)) == len(p) {
 		// defer func() {
 		// 	log.Println("WAL file read", off, time.Since(start))
 		// }()
-		return copy(p, data), nil
+		return copy(p, data.([]byte)), nil
 	}
 
 	// Check if the data is in the write buffer
@@ -294,7 +295,7 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 
 	// Cache the read data
 	// if n == int(wal.walManager.connectionManager.cluster.Config.PageSize) {
-	wal.cache.Put(cacheKey, p)
+	wal.cache.Put(cacheKey, slices.Clone(p))
 	// }
 
 	return n, nil
@@ -450,7 +451,7 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	// if n == int(wal.walManager.connectionManager.cluster.Config.PageSize) {
 	// }
-	err = wal.cache.Put(cacheKey, p)
+	err = wal.cache.Put(cacheKey, slices.Clone(p))
 
 	if err != nil && err != cache.ErrLFUCacheFull {
 		log.Println(err)

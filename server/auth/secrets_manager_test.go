@@ -7,16 +7,17 @@ import (
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/server"
 	"github.com/litebase/litebase/server/auth"
-	"github.com/litebase/litebase/server/storage"
 )
 
 func TestNewSecretsManager(t *testing.T) {
-	a := auth.NewAuth(&config.Config{}, &storage.FileSystem{}, &storage.FileSystem{})
-	sm := auth.NewSecretsManager(a, a.Config, a.ObjectFS, a.TmpFS)
+	test.RunWithApp(t, func(app *server.App) {
+		a := auth.NewAuth(&config.Config{}, app.Cluster.ObjectFS(), app.Cluster.TmpFS())
+		sm := auth.NewSecretsManager(a, a.Config, a.ObjectFS, a.TmpFS)
 
-	if sm == nil {
-		t.Error("Expected NewSecretsManager to return a non-nil SecretsManager")
-	}
+		if sm == nil {
+			t.Error("Expected NewSecretsManager to return a non-nil SecretsManager")
+		}
+	})
 }
 
 func TestSecretsManagerDecrypt(t *testing.T) {

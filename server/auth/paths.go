@@ -6,12 +6,8 @@ import (
 	"github.com/litebase/litebase/common/config"
 )
 
-func GetDatabaseKeyPath(signature, key string) string {
-	return fmt.Sprintf("%s%s/%s", Path(signature), "database_keys", key)
-}
-
 func GetDatabaseKeysPath(signature string) string {
-	return fmt.Sprintf("%s%s/", Path(signature), "database_keys")
+	return fmt.Sprintf("%s%s", Path(signature), "DATABASE_KEYS")
 }
 
 func Path(signature string) string {

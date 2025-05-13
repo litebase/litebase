@@ -28,6 +28,8 @@ func NewBranch(c *config.Config, objectFS *storage.FileSystem, name string, isPr
 		MinLength: 12,
 	})
 
+	// TODO: ensure that the key is unique in the database key store
+
 	key, _ := s.Encode([]uint64{keyCount})
 
 	return &Branch{
