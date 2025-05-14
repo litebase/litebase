@@ -104,7 +104,11 @@ func TestDatabaseManager_Exists(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		exists := dm.Exists("nonexistent")
+		exists, err := dm.Exists("nonexistent")
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if exists {
 			t.Errorf("Expected false, got true")
@@ -116,7 +120,11 @@ func TestDatabaseManager_Exists(t *testing.T) {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		exists = dm.Exists(database.Name)
+		exists, err = dm.Exists(database.Name)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if !exists {
 			t.Errorf("Expected true, got false")

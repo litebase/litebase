@@ -54,7 +54,7 @@ func (fsl *FileSystemLock) acquireAccessLocks(path string) []*FileSystemLockEntr
 }
 
 func (fsl *FileSystemLock) acquireDeleteLocks(path string) []*FileSystemLockEntry {
-	parts := strings.Split(path, "/")
+	parts := strings.Split(strings.TrimRight(path, "/"), "/")
 	var acquired []*FileSystemLockEntry
 	currentPath := ""
 

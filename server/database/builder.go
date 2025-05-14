@@ -34,7 +34,7 @@ func NewQueryBuilder(
 
 func (qb *QueryBuilder) Build(
 	accessKeyId string,
-	databaseHash string,
+	databaseKey string,
 	databaseId string,
 	branchId string,
 	statement []byte,
@@ -51,7 +51,7 @@ func (qb *QueryBuilder) Build(
 		qb.cluster,
 		qb.databaseManager,
 		qb.logManager,
-		auth.NewDatabaseKey(databaseId, branchId),
+		auth.NewDatabaseKey(databaseId, branchId, databaseKey),
 		accessKey,
 		&QueryInput{
 			Id:         id,

@@ -18,7 +18,7 @@ func TestNewQuery(t *testing.T) {
 			app.Cluster,
 			app.DatabaseManager,
 			app.LogManager,
-			auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
+			auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId, mock.DatabaseKey.Key),
 			mock.AccessKey,
 			&database.QueryInput{
 				Statement: []byte("SELECT * FROM users LIMIT ?"),
@@ -52,7 +52,7 @@ func TestResolve(t *testing.T) {
 			app.Cluster,
 			app.DatabaseManager,
 			app.LogManager,
-			auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
+			auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId, mock.DatabaseKey.Key),
 			mock.AccessKey,
 			&database.QueryInput{
 				Statement: []byte("SELECT * FROM users LIMIT ?"),

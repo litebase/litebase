@@ -6,7 +6,6 @@ import (
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/server/auth"
-	"github.com/litebase/litebase/server/storage"
 
 	"github.com/google/uuid"
 	"github.com/sqids/sqids-go"
@@ -19,9 +18,9 @@ type Branch struct {
 	Name      string `json:"name"`
 }
 
-func NewBranch(c *config.Config, objectFS *storage.FileSystem, name string, isPrimary bool) *Branch {
+func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrimary bool) *Branch {
 	randomFactor := rand.Int64N(100000)
-	keyCount := uint64(auth.GetDatabaseKeyCount(c, objectFS) + time.Now().UnixMilli() + randomFactor)
+	keyCount := uint64(int64(dks.Len()) + time.Now().UnixMilli() + randomFactor)
 
 	s, _ := sqids.New(sqids.Options{
 		Alphabet:  "0123456789abcdefghijklmnopqrstuvwxyz",

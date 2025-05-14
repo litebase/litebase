@@ -163,7 +163,13 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 }
 
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
-	branch := NewBranch(d.Cluster.Config, d.Cluster.ObjectFS(), branchName, true)
+	dks, err := d.SecretsManager.DatabaseKeyStore(d.Cluster.Config.Signature)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database key store: %w", err)
+	}
+
+	branch := NewBranch(d.Cluster.Config, dks, branchName, true)
 
 	database := &Database{
 		DatabaseManager:   d,
@@ -182,7 +188,7 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 		},
 	}
 
-	err := database.save()
+	err = database.save()
 
 	if err != nil {
 		return nil, err
@@ -199,16 +205,17 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 }
 
 func (d *DatabaseManager) Delete(database *Database) error {
-	path := fmt.Sprintf("%s%s", Directory(), database.Id)
+	// path := fmt.Sprintf("%s%s", Directory(), database.Id)
 	fileSystem := d.Resources(database.Id, database.PrimaryBranchId).FileSystem()
 
-	if _, err := d.Cluster.ObjectFS().Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("database '%s' does not exist", database.Id)
-	}
+	// if _, err := d.Cluster.ObjectFS().Stat(path); os.IsNotExist(err) {
+	// 	log.Println("Database does not exist", path)
+	// 	return fmt.Errorf("database '%s' does not exist", database.Id)
+	// }
 
 	// Delete the database keys
 	for _, branch := range database.Branches {
-		database.DatabaseManager.SecretsManager.DeleteDatabaseKey(
+		d.SecretsManager.DeleteDatabaseKey(
 			database.Key(branch.Id),
 		)
 	}
@@ -230,24 +237,24 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	return nil
 }
 
-func (d *DatabaseManager) Exists(name string) bool {
+func (d *DatabaseManager) Exists(name string) (bool, error) {
 	databases, err := d.All()
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return false
+			return false, nil
 		}
 
-		log.Fatal(err)
+		return false, fmt.Errorf("failed to list databases: %w", err)
 	}
 
 	for _, database := range databases {
 		if database.Name == name {
-			return true
+			return true, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 func (d *DatabaseManager) Get(databaseId string) (*Database, error) {

@@ -1,10 +1,13 @@
 package storage_test
 
 import (
+	"context"
 	"io"
 	"os"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/server"
 	"github.com/litebase/litebase/server/storage"
@@ -44,14 +47,15 @@ func TestObjectFileSystemDriver_EnsureBucketExists(t *testing.T) {
 		// Ensure the bucket exists
 		driver.EnsureBucketExists()
 
-		s3Client := storage.NewS3Client(
-			app.Config,
-			app.Config.StorageBucket,
-			app.Config.StorageRegion,
-		)
+		s3Client := driver.S3Client
 
 		// Check if the bucket exists
-		_, err := s3Client.HeadBucket()
+		_, err := s3Client.HeadBucket(
+			context.TODO(),
+			&s3.HeadBucketInput{
+				Bucket: &app.Config.StorageBucket,
+			},
+		)
 
 		if err != nil {
 			t.Fatalf("Expected bucket to exist, got error: %v", err)
@@ -174,8 +178,20 @@ func TestObjectFileSystemDriverReadDir(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
+		if len(entries) != 0 {
+			t.Fatal("Expected not entries to be returned")
+		}
+
+		driver.Create("/test.txt")
+
+		entries, err = driver.ReadDir("/")
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
 		if len(entries) == 0 {
-			t.Fatal("Expected entries to be returned")
+			t.Fatal("Expected some entries to be returned")
 		}
 	})
 }
@@ -284,20 +300,24 @@ func TestObjectFileSystemDriverRename(t *testing.T) {
 		}
 
 		// Check if the old file name no longer exists
-		s3Client := storage.NewS3Client(
-			app.Config,
-			app.Config.StorageBucket,
-			app.Config.StorageRegion,
+		_, err = driver.S3Client.GetObject(context.TODO(),
+			&s3.GetObjectInput{
+				Bucket: &app.Config.StorageBucket,
+				Key:    aws.String("test.txt"),
+			},
 		)
-
-		_, err = s3Client.GetObject("test.txt")
 
 		if err == nil {
 			t.Fatal("Expected error when accessing renamed file")
 		}
 
 		// Check if the new file name exists
-		_, err = s3Client.GetObject("test_renamed.txt")
+		_, err = driver.S3Client.GetObject(context.TODO(),
+			&s3.GetObjectInput{
+				Bucket: &app.Config.StorageBucket,
+				Key:    aws.String("test_renamed.txt"),
+			},
+		)
 
 		if err != nil {
 			t.Fatal("Expected renamed file to exist")

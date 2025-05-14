@@ -27,12 +27,13 @@ func Authorization(request *Request) (*Request, Response) {
 
 	databaseId := request.DatabaseKey().DatabaseId
 	branchId := request.DatabaseKey().BranchId
+
 	err := accessKey.CanAccessDatabase(databaseId, branchId)
 
 	if err != nil {
 		return request, Response{
 			StatusCode: 401,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"status":  "error",
 				"message": err.Error(),
 			},

@@ -30,6 +30,7 @@ func TestClusterInit(t *testing.T) {
 			c,
 			cluster.ObjectFS(),
 			cluster.TmpFS(),
+			cluster.TmpTieredFS(),
 		)
 
 		err = cluster.Init(a)

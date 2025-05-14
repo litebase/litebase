@@ -63,9 +63,16 @@ func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
 							Timeout:   30 * time.Second,
 							KeepAlive: 30 * time.Second,
 						}
-						s3URL, _ := url.Parse(s3Server.URL)
-						log.Println("Dialing", network, s3URL.Host)
-						return dialer.DialContext(ctx, network, s3URL.Host)
+
+						var s3ServerUrl *url.URL
+
+						if s3Server != nil {
+							s3ServerUrl, _ = url.Parse(s3Server.URL)
+						} else {
+							s3ServerUrl, _ = url.Parse(c.StorageEndpoint)
+						}
+
+						return dialer.DialContext(ctx, network, s3ServerUrl.Host)
 					},
 				},
 			}
@@ -172,9 +179,9 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 		Prefix:  aws.String(path),
 	}
 
-	if path != "" {
-		input.Delimiter = aws.String("/")
-	}
+	// if path != "" {
+	// 	input.Delimiter = aws.String("/")
+	// }
 
 	paginator := s3.NewListObjectsV2Paginator(fs.S3Client, input)
 
@@ -223,10 +230,10 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 }
 
 func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
-	startTime := time.Now()
-	defer func() {
-		log.Printf("ReadFile took %s for %s", time.Since(startTime), path)
-	}()
+	// startTime := time.Now()
+	// defer func() {
+	// 	log.Printf("ReadFile took %s for %s", time.Since(startTime), path)
+	// }()
 	// Read the file using S3
 	output, err := fs.S3Client.GetObject(fs.context, &s3.GetObjectInput{
 		Bucket: aws.String(fs.bucket),
@@ -284,10 +291,10 @@ func (fs *ObjectFileSystemDriver) Remove(path string) error {
 
 func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 	input := &s3.ListObjectsV2Input{
-		Bucket:    aws.String(fs.bucket),
-		Delimiter: aws.String("/"),
-		MaxKeys:   aws.Int32(1000),
-		Prefix:    aws.String(path),
+		Bucket: aws.String(fs.bucket),
+		// Delimiter: aws.String("/"),
+		MaxKeys: aws.Int32(1000),
+		Prefix:  aws.String(path),
 	}
 
 	paginator := s3.NewListObjectsV2Paginator(fs.S3Client, input)
@@ -299,16 +306,16 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 			return err
 		}
 
-		objectsToDelete := make([]string, len(response.Contents))
+		objectsToDelete := make([]s3types.ObjectIdentifier, len(response.Contents))
 
 		for i, object := range response.Contents {
-			objectsToDelete[i] = *object.Key
+			objectsToDelete[i] = s3types.ObjectIdentifier{Key: object.Key}
 		}
 
 		_, err = fs.S3Client.DeleteObjects(fs.context, &s3.DeleteObjectsInput{
 			Bucket: aws.String(fs.bucket),
 			Delete: &s3types.Delete{
-				Objects: make([]s3types.ObjectIdentifier, len(objectsToDelete)),
+				Objects: objectsToDelete,
 			},
 		})
 
@@ -327,12 +334,13 @@ func (fs *ObjectFileSystemDriver) RemoveAll(path string) error {
 // Perform a copy operation to do a rename
 func (fs *ObjectFileSystemDriver) Rename(oldKey, newKey string) error {
 	_, err := fs.S3Client.CopyObject(fs.context, &s3.CopyObjectInput{
-		CopySource: aws.String(oldKey),
 		Bucket:     aws.String(fs.bucket),
+		CopySource: aws.String(fmt.Sprintf("%s/%s", fs.bucket, oldKey)),
 		Key:        aws.String(newKey),
 	})
 
 	if err != nil {
+		log.Println("Error copying object", err)
 		return err
 	}
 
@@ -385,10 +393,10 @@ func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
 }
 
 func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
-	start := time.Now()
-	defer func() {
-		log.Printf("WriteFile took %s for %s", time.Since(start), path)
-	}()
+	// start := time.Now()
+	// defer func() {
+	// 	log.Printf("WriteFile took %s for %s", time.Since(start), path)
+	// }()
 
 	compressionBuffer := fs.buffers.Get().(*bytes.Buffer)
 	defer fs.buffers.Put(compressionBuffer)

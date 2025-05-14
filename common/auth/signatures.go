@@ -25,7 +25,7 @@ func AllSignatures(objectFs *storage.FileSystem) map[string]string {
 	var signatures = map[string]string{}
 
 	// TODO: ignore directories that start with an underscore
-	signatureFiles, err := objectFs.ReadDir("")
+	signatureFiles, err := objectFs.ReadDir("/")
 
 	if err != nil {
 		log.Println("Error reading signatures", err)

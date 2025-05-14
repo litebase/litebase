@@ -41,6 +41,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		configInstance,
 		clusterInstance.ObjectFS(),
 		clusterInstance.TmpFS(),
+		clusterInstance.TmpTieredFS(),
 	)
 
 	app := &App{

@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
@@ -95,8 +94,6 @@ func (d *DatabaseKeyStore) create(header []byte) error {
 	binary.LittleEndian.PutUint32(header[0:4], uint32(DatabaseKeyStoreVersion)) // version
 	binary.LittleEndian.PutUint32(header[4:8], uint32(0))                       // number of keys
 	binary.LittleEndian.PutUint32(header[12:16], uint32(DatabaseKeySize))       // size of the keys
-	binary.LittleEndian.PutUint32(header[16:20], uint32(DatabaseHashSize))      // size of the database hash
-	binary.LittleEndian.PutUint32(header[20:24], uint32(24))                    // offset of the first free entry
 
 	_, err := d.file.WriteAt(header, 0)
 
@@ -114,7 +111,8 @@ func (d *DatabaseKeyStore) Delete(key string) error {
 	d.cache.Delete(key)
 
 	offset := int64(DatabaseKeyStoreHeaderSize)
-	encodedKey := make([]byte, DatabaseKeySize+DatabaseHashSize)
+	encodedKey := make([]byte, DatabaseKeySize)
+	var readKey *DatabaseKey
 
 	for {
 		n, err := d.file.ReadAt(encodedKey, offset)
@@ -128,13 +126,15 @@ func (d *DatabaseKeyStore) Delete(key string) error {
 			return err
 		}
 
-		if len(encodedKey) != DatabaseKeySize+DatabaseHashSize {
+		if len(encodedKey) != DatabaseKeySize {
 			break
 		}
 
-		if strings.TrimRight(string(encodedKey[:DatabaseKeySize]), "\x00") == key {
+		readKey = DecodeDatbaseKey(encodedKey)
+
+		if readKey.Key == key {
 			// Mark the entry as deleted by writing zeros
-			zeroKey := make([]byte, DatabaseKeySize+DatabaseHashSize)
+			zeroKey := make([]byte, DatabaseKeySize)
 
 			_, err := d.file.WriteAt(zeroKey, offset)
 
@@ -168,7 +168,7 @@ func (d *DatabaseKeyStore) Get(key string) (*DatabaseKey, error) {
 	}
 
 	var offset int64 = DatabaseKeyStoreHeaderSize
-	encodedKey := make([]byte, DatabaseKeySize+DatabaseHashSize)
+	encodedKey := make([]byte, DatabaseKeySize)
 
 	for {
 		n, err := d.file.ReadAt(encodedKey, offset)
@@ -182,13 +182,11 @@ func (d *DatabaseKeyStore) Get(key string) (*DatabaseKey, error) {
 		}
 
 		if n != len(encodedKey) {
+			log.Println("Unexpected key length:", n, "expected:", len(encodedKey))
 			break
 		}
 
-		databaseKey := &DatabaseKey{
-			Key:          string(encodedKey[:DatabaseKeySize]),
-			DatabaseHash: string(encodedKey[DatabaseKeySize : DatabaseKeySize+DatabaseHashSize]),
-		}
+		databaseKey := DecodeDatbaseKey(encodedKey)
 
 		if databaseKey.Key == key {
 			d.cache.Put(key, databaseKey)
@@ -261,7 +259,7 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 
 	var offset int64 = DatabaseKeyStoreHeaderSize
 	var databaseKey *DatabaseKey = &DatabaseKey{}
-	encodedKey := make([]byte, DatabaseKeySize+DatabaseHashSize)
+	encodedKey := make([]byte, DatabaseKeySize)
 
 	for {
 		n, err := d.file.ReadAt(encodedKey, offset)
@@ -279,8 +277,8 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 			break
 		}
 
-		databaseKey.Key = string(encodedKey[:DatabaseKeySize])
-		databaseKey.DatabaseHash = string(encodedKey[DatabaseKeySize : DatabaseKeySize+DatabaseHashSize])
+		databaseKey.Key = string(encodedKey[:DatabaseKeyKeySize])
+		databaseKey.DatabaseHash = string(encodedKey[DatabaseKeyKeySize : DatabaseKeyKeySize+DatabaseKeyHashSize])
 
 		if databaseKey.Key == key.Key {
 			d.cache.Put(key.Key, key)
@@ -288,8 +286,13 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 		}
 
 		if databaseKey.Key == "" && databaseKey.DatabaseHash == "" {
-			log.Println("found free space", offset)
-			_, err := d.file.WriteAt(key.Encode(), offset)
+			encodedData, err := key.Encode()
+
+			if err != nil {
+				return err
+			}
+
+			_, err = d.file.WriteAt(encodedData, offset)
 
 			if err != nil {
 				return err
@@ -303,10 +306,14 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 		offset += int64(len(encodedKey))
 	}
 
-	encodedKey = key.Encode()
+	encodedKey, err := key.Encode()
+
+	if err != nil {
+		return err
+	}
 
 	// Write the key to the file
-	_, err := d.file.WriteAt(encodedKey, offset)
+	_, err = d.file.WriteAt(encodedKey, offset)
 
 	if err != nil {
 		return err
@@ -331,7 +338,6 @@ func (d *DatabaseKeyStore) writeHeader() error {
 	binary.LittleEndian.PutUint32(header[0:4], uint32(DatabaseKeyStoreVersion)) // version
 	binary.LittleEndian.PutUint32(header[4:8], uint32(d.keyCount))              // number of keys
 	binary.LittleEndian.PutUint32(header[12:16], uint32(DatabaseKeySize))       // size of the keys
-	binary.LittleEndian.PutUint32(header[16:20], uint32(DatabaseHashSize))      // size of the database hash        // offset of the first free entry
 
 	_, err := d.file.WriteAt(header, 0)
 

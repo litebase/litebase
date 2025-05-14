@@ -64,7 +64,14 @@ func DatabaseStoreController(request *Request) Response {
 	var databaseName = input.(*DatabaseStoreRequest).Name
 
 	// check if the database exists
-	if request.databaseManager.Exists(databaseName) {
+	exists, err := request.databaseManager.Exists(databaseName)
+
+	if err != nil {
+		log.Println(err)
+		return ServerErrorResponse(err)
+	}
+
+	if exists {
 		return BadRequestResponse(fmt.Errorf("database '%s' already exists", databaseName))
 	}
 
@@ -87,17 +94,22 @@ func DatabaseStoreController(request *Request) Response {
 }
 
 func DatabaseDestroyController(request *Request) Response {
-	db, err := request.databaseManager.Get(request.Param("database_id"))
+	db, err := request.databaseManager.Get(request.Param("databaseId"))
 
 	if err != nil {
 		return BadRequestResponse(err)
 	}
 
-	request.databaseManager.Delete(db)
+	err = request.databaseManager.Delete(db)
+
+	if err != nil {
+		log.Println(err)
+		return ServerErrorResponse(err)
+	}
 
 	return SuccessResponse(
 		"Database deleted successfully.",
-		map[string]interface{}{},
+		map[string]any{},
 		200,
 	)
 }

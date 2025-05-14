@@ -125,7 +125,7 @@ func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) interfa
 func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 	query, err := n.queryBuilder.Build(
 		message.AccessKeyId,
-		message.DatabaseHash,
+		message.DatabaseKey,
 		message.DatabaseId,
 		message.BranchId,
 		message.Statement,

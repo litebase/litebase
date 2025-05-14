@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -301,10 +300,10 @@ func (fsd *TieredFileSystemDriver) Open(path string) (internalStorage.File, erro
 // this operation will create a new file on the local file system and then create
 // a new tiered file durable that will be used to manage the file.
 func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	start := time.Now()
-	defer func() {
-		log.Printf("OpenFile %s took %s", strings.Split(path, "/")[len(strings.Split(path, "/"))-1], time.Since(start))
-	}()
+	// start := time.Now()
+	// defer func() {
+	// 	log.Printf("OpenFile %s took %s", strings.Split(path, "/")[len(strings.Split(path, "/"))-1], time.Since(start))
+	// }()
 
 	if file, ok := fsd.GetSharedFile(path); ok {
 		// Compare the flags to ensure they match
@@ -336,7 +335,6 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	f, err := fsd.durableFileSystemDriver.OpenFile(path, durableFlag, perm)
 
 	if err != nil {
-		log.Println("Error opening file on durable file system", err)
 		return nil, err
 	}
 

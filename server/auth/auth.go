@@ -18,6 +18,7 @@ func NewAuth(
 	c *config.Config,
 	objectFS *storage.FileSystem,
 	tmpFS *storage.FileSystem,
+	tmpTieredFS *storage.FileSystem,
 ) *Auth {
 	auth := &Auth{
 		Config:   c,
@@ -30,6 +31,7 @@ func NewAuth(
 		c,
 		objectFS,
 		tmpFS,
+		tmpTieredFS,
 	)
 
 	auth.AccessKeyManager = NewAccessKeyManager(auth, auth.Config, objectFS)

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/common/config"
-	"github.com/litebase/litebase/server/file"
 	"github.com/litebase/litebase/server/storage"
 )
 
@@ -39,8 +38,9 @@ func NewSecretsManager(
 	config *config.Config,
 	objectFS *storage.FileSystem,
 	tmpFS *storage.FileSystem,
+	tmpTieredFS *storage.FileSystem,
 ) *SecretsManager {
-	dks, err := NewDatabaseKeyStore(tmpFS, GetDatabaseKeysPath(config.Signature))
+	dks, err := NewDatabaseKeyStore(tmpTieredFS, GetDatabaseKeysPath(config.Signature))
 
 	if err != nil {
 		log.Fatal(err)
@@ -102,7 +102,7 @@ func (s *SecretsManager) databaseSettingCacheKey(databaseId, branchId string) st
 	return fmt.Sprintf("database_secret:%s:%s", databaseId, branchId)
 }
 
-func (s *SecretsManager) databaseKeyStore(signature string) (*DatabaseKeyStore, error) {
+func (s *SecretsManager) DatabaseKeyStore(signature string) (*DatabaseKeyStore, error) {
 	s.databaseKeyStoreMutex.RLock()
 	_, ok := s.databaseKeyStores[signature]
 	s.databaseKeyStoreMutex.RUnlock()
@@ -154,7 +154,7 @@ func (s *SecretsManager) DecryptFor(accessKeyId, accessKeySecret, text string) (
 
 // Delete a database key from the SecretsManager.
 func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
-	dks, err := s.databaseKeyStore(s.config.Signature)
+	dks, err := s.DatabaseKeyStore(s.config.Signature)
 
 	if err != nil {
 		log.Println(err)
@@ -170,7 +170,7 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 	}
 
 	if s.config.SignatureNext != "" {
-		dks, err = s.databaseKeyStore(s.config.SignatureNext)
+		dks, err = s.DatabaseKeyStore(s.config.SignatureNext)
 
 		if err != nil {
 			log.Println(err)
@@ -251,7 +251,7 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 }
 
 func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
-	dks, err := s.databaseKeyStore(s.config.Signature)
+	dks, err := s.DatabaseKeyStore(s.config.Signature)
 
 	if err != nil {
 		return nil, err
@@ -312,7 +312,7 @@ func (s *SecretsManager) PurgeDatabaseSettings(databaseId string, branchId strin
 // Purge expired database settings from cache
 func (s *SecretsManager) PurgeExpiredSecrets() error {
 	// Get all the file names in the litebase directory
-	directories, err := s.ObjectFS.ReadDir("")
+	directories, err := s.ObjectFS.ReadDir("/")
 
 	if err != nil {
 		log.Println(err)
@@ -413,6 +413,7 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	)
 
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -425,15 +426,13 @@ func (s *SecretsManager) StoreDatabaseKey(
 	databaseId string,
 	branchId string,
 ) error {
-	// TODO: Need to store for the next signature as well
-	dk := &DatabaseKey{
-		DatabaseHash: file.DatabaseHash(databaseId, branchId),
-		DatabaseId:   databaseId,
-		BranchId:     branchId,
-		Key:          databaseKey,
-	}
+	dk := NewDatabaseKey(
+		databaseId,
+		branchId,
+		databaseKey,
+	)
 
-	dks, err := s.databaseKeyStore(s.config.Signature)
+	dks, err := s.DatabaseKeyStore(s.config.Signature)
 
 	if err != nil {
 		log.Println(err)
@@ -447,7 +446,7 @@ func (s *SecretsManager) StoreDatabaseKey(
 	}
 
 	if s.config.SignatureNext != "" {
-		dks, err = s.databaseKeyStore(s.config.SignatureNext)
+		dks, err = s.DatabaseKeyStore(s.config.SignatureNext)
 
 		if err != nil {
 			log.Println(err)

@@ -57,7 +57,7 @@ func TestHandle(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				app.LogManager,
-				auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId),
+				auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId, mock.DatabaseKey.Key),
 				mock.AccessKey,
 				&database.QueryInput{
 					Statement:  c.statement,

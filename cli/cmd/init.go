@@ -67,6 +67,7 @@ func NewInitCmd() *cobra.Command {
 			cluster.Config,
 			cluster.ObjectFS(),
 			cluster.TmpFS(),
+			cluster.TmpTieredFS(),
 		)
 
 		err = cluster.Init(authInstance)
