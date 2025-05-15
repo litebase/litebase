@@ -1469,7 +1469,7 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
 				tieredFileSystemDriver.MaxFilesOpened = 4
-				tieredFileSystemDriver.WriteInterval = time.Millisecond * 500
+				tieredFileSystemDriver.WriteInterval = time.Millisecond * 5
 			},
 		)
 
@@ -1495,6 +1495,8 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 			if tieredFiles[i] == nil {
 				t.Error("TieredFileSystemDriver.Create returned nil")
 			}
+
+			time.Sleep(time.Millisecond * 5)
 		}
 
 		if tieredFileSystemDriver.FileCount != 4 {

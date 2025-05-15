@@ -503,7 +503,7 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 
 		err = fsd.highTierFileSystemDriver.Remove(file.Key)
 
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			log.Println("Error removing file from high tier file system", err)
 			return err
 		}
@@ -573,9 +573,6 @@ func (fsd *TieredFileSystemDriver) ReleaseOldestFile() error {
 
 	fsd.releasingOldestFile.Store(true)
 	defer fsd.releasingOldestFile.Store(false)
-
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
 
 	element := fsd.FileOrder.Front()
 
