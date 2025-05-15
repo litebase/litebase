@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/server/storage"
@@ -93,7 +94,18 @@ func (cluster *Cluster) ShutdownStorage() {
 	}
 
 	if cluster.tmpFileSystem != nil {
+		cluster.tmpFileSystem.ClearFiles()
 		cluster.tmpFileSystem.Shutdown()
+	}
+
+	if cluster.tmpTieredFileSystem != nil {
+		err := cluster.tmpTieredFileSystem.ClearFiles()
+
+		if err != nil {
+			log.Println("Clearing tmp tiered file system", err)
+		}
+
+		cluster.tmpTieredFileSystem.Shutdown()
 	}
 }
 

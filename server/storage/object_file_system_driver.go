@@ -32,8 +32,8 @@ import (
 type ObjectFileSystemDriver struct {
 	bucket   string
 	buffers  sync.Pool
-	S3Client *s3.Client
 	context  context.Context
+	S3Client *s3.Client
 }
 
 func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
@@ -108,6 +108,31 @@ func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
 	return driver
 }
 
+func (fs *ObjectFileSystemDriver) ClearFiles() error {
+	entries, err := fs.ReadDir("")
+
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			err = fs.RemoveAll(entry.Name())
+
+			if err != nil {
+				return err
+			}
+		} else {
+			err = fs.Remove(entry.Name())
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (fs *ObjectFileSystemDriver) Create(path string) (internalStorage.File, error) {
 	_, err := fs.S3Client.PutObject(fs.context, &s3.PutObjectInput{
 		Bucket: &fs.bucket,
@@ -179,9 +204,9 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 		Prefix:  aws.String(path),
 	}
 
-	// if path != "" {
-	// 	input.Delimiter = aws.String("/")
-	// }
+	if path != "/" {
+		input.Delimiter = aws.String("/")
+	}
 
 	paginator := s3.NewListObjectsV2Paginator(fs.S3Client, input)
 

@@ -23,6 +23,37 @@ func TestObjectFileSystemDriver(t *testing.T) {
 	})
 }
 
+func TestObjectFileSystemDriver_ClearFiles(t *testing.T) {
+	test.RunWithObjectStorage(t, func(app *server.App) {
+		driver := storage.NewObjectFileSystemDriver(app.Config)
+
+		// Test clearing files
+		err := driver.ClearFiles()
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Check if the bucket is empty
+		resp, err := driver.S3Client.ListObjectsV2(
+			context.TODO(),
+			&s3.ListObjectsV2Input{
+				Bucket:    &app.Config.StorageBucket,
+				Delimiter: aws.String("/"),
+				Prefix:    aws.String(""),
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if len(resp.Contents) != 0 {
+			t.Fatal("Expected bucket to be empty")
+		}
+	})
+}
+
 func TestObectFileSystemDriver_Create(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
@@ -172,19 +203,19 @@ func TestObjectFileSystemDriverReadDir(t *testing.T) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test reading a directory
-		entries, err := driver.ReadDir("/")
+		entries, err := driver.ReadDir("/test")
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		if len(entries) != 0 {
-			t.Fatal("Expected not entries to be returned")
+			t.Fatal("Expected no entries to be returned")
 		}
 
-		driver.Create("/test.txt")
+		driver.Create("/test/test.txt")
 
-		entries, err = driver.ReadDir("/")
+		entries, err = driver.ReadDir("/test")
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -193,6 +224,7 @@ func TestObjectFileSystemDriverReadDir(t *testing.T) {
 		if len(entries) == 0 {
 			t.Fatal("Expected some entries to be returned")
 		}
+
 	})
 }
 

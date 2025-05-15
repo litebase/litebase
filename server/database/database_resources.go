@@ -25,7 +25,6 @@ type DatabaseResources struct {
 	pageLogger         *storage.PageLogger
 	resultPool         *sqlite3.ResultPool
 	rollbackLogger     *backups.RollbackLogger
-	tempFileSystem     *storage.TempDatabaseFileSystem
 	tieredFS           *storage.FileSystem
 	transactionManager *TransactionManager
 	tmpFS              *storage.FileSystem
@@ -234,7 +233,6 @@ func (d *DatabaseResources) Remove() {
 	d.fileSystem = nil
 	d.resultPool = nil
 	d.rollbackLogger = nil
-	d.tempFileSystem = nil
 	d.walManager = nil
 	d.pageLogger = nil
 }

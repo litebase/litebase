@@ -10,6 +10,7 @@ import (
 // The FileSystemDriver interface defines the methods that must be implemented
 // by a file system driver.
 type FileSystemDriver interface {
+	ClearFiles() error
 	Create(path string) (internalStorage.File, error)
 	Flush() error // Flush any buffered data to the underlying storage
 	Mkdir(path string, perm fs.FileMode) error
@@ -43,6 +44,19 @@ func NewFileSystem(fsd FileSystemDriver) *FileSystem {
 		lock:   NewFileSystemLock(),
 		mutex:  sync.Mutex{},
 	}
+}
+
+func (fs *FileSystem) ClearFiles() error {
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
+
+	accessLocks := fs.lock.acquireAccessLocks("/")
+	defer fs.lock.releaseAccessLocks(accessLocks)
+
+	pathLock := fs.lock.acquirePathWriteLock("/")
+	defer fs.lock.releasePathWriteLock(pathLock)
+
+	return fs.driver.ClearFiles()
 }
 
 func (fs *FileSystem) Create(path string) (internalStorage.File, error) {

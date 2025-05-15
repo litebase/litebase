@@ -27,6 +27,72 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 	})
 }
 
+func TestTieredFileSystem_ClearFiles(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+		)
+
+		err := os.WriteFile(app.Config.DataPath+"/local/test_1", []byte("test"), 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		err = tieredFileSystemDriver.ClearFiles()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if _, err := os.Stat(app.Config.DataPath + "/local/test_1"); !os.IsNotExist(err) {
+			t.Fatal("TieredFileSystem.ClearFiles did not remove the file")
+		}
+
+		if len(tieredFileSystemDriver.Files) != 0 {
+			t.Errorf("TieredFileSystem.ClearFiles returned incorrect number of files, got %d", len(tieredFileSystemDriver.Files))
+		}
+
+		// Create a new file
+		err = tieredFileSystemDriver.WriteFile("test_2", []byte("test"), 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Clear the files again
+		err = tieredFileSystemDriver.ClearFiles()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if len(tieredFileSystemDriver.Files) != 0 {
+			t.Errorf("TieredFileSystem.ClearFiles returned incorrect number of files, got %d", len(tieredFileSystemDriver.Files))
+		}
+
+		// Create a new file
+		err = tieredFileSystemDriver.WriteFile("test_3", []byte("test"), 0644)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Clear the files again
+		err = tieredFileSystemDriver.ClearFiles()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if len(tieredFileSystemDriver.Files) != 0 {
+			t.Errorf("TieredFileSystem.ClearFiles returned incorrect number of files, got %d", len(tieredFileSystemDriver.Files))
+		}
+	})
+}
+
 func TestTieredFileSystemDriver_Create(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
@@ -935,7 +1001,7 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				tieredFileSystemDriver.Files = tt.files
 
-				file, ok := tieredFileSystemDriver.GetSharedFile(tt.path)
+				file, ok := tieredFileSystemDriver.GetTieredFile(tt.path)
 
 				if (file == nil && tt.expected != nil) || (file != nil && tt.expected == nil) || (file != nil && tt.expected != nil && (*file != *tt.expected)) || ok != tt.ok {
 					t.Errorf("expected (%v, %v), got (%v, %v)", tt.expected, tt.ok, file, ok)

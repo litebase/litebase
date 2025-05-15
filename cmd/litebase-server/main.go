@@ -45,10 +45,10 @@ func main() {
 				return
 			}
 
-			app.Cluster.Node().Shutdown()
-
 			// Shutdown all connections
 			app.DatabaseManager.ConnectionManager().Shutdown()
+
+			app.Cluster.Node().Shutdown()
 		},
 	)
 }
