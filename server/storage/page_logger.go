@@ -31,7 +31,7 @@ type PageLogger struct {
 	BranchId    string
 	CompactedAt time.Time
 	DatabaseId  string
-	FileSystem  *FileSystem
+	NetworkFS   *FileSystem
 	index       *PageLoggerIndex
 	logs        map[PageGroup]map[PageGroupVersion]*PageLog
 	logUsage    map[int64]int64
@@ -47,10 +47,10 @@ type PageLogEntry struct {
 func NewPageLogger(
 	databaseId string,
 	branchId string,
-	fileSystem *FileSystem,
+	networkFS *FileSystem,
 ) (*PageLogger, error) {
 	path := file.GetDatabaseFileBaseDir(databaseId, branchId)
-	pli, err := NewPageLoggerIndex(fileSystem, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
+	pli, err := NewPageLoggerIndex(networkFS, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
 
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func NewPageLogger(
 	pl := &PageLogger{
 		BranchId:   branchId,
 		DatabaseId: databaseId,
-		FileSystem: fileSystem,
+		NetworkFS:  networkFS,
 		index:      pli,
 		logs:       make(map[PageGroup]map[PageGroupVersion]*PageLog),
 		logUsage:   make(map[int64]int64),
@@ -162,7 +162,7 @@ func (pl *PageLogger) Compact(
 
 func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGroupVersion) (*PageLog, error) {
 	return NewPageLog(
-		pl.FileSystem,
+		pl.NetworkFS,
 		fmt.Sprintf(
 			"%slogs/page/PAGE_LOG_%d_%d",
 			file.GetDatabaseFileBaseDir(pl.DatabaseId, pl.BranchId),
@@ -231,13 +231,14 @@ func (pl *PageLogger) load() error {
 	defer func() {
 		log.Printf("Page logger load took %s", time.Since(start))
 	}()
+
 	// Reinitialize the logs map
 	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
 
 	// Scan the log directory
 	logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(pl.DatabaseId, pl.BranchId))
 
-	files, err := pl.FileSystem.ReadDir(logDir)
+	files, err := pl.NetworkFS.ReadDir(logDir)
 
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ type DurableDatabaseFileSystem struct {
 	buffers    *sync.Pool
 	branchId   string
 	databaseId string
-	fileSystem *FileSystem
+	tieredFS   *FileSystem
 	ranges     map[int64]*Range
 	metadata   *DatabaseMetadata
 	mutex      *sync.RWMutex
@@ -28,8 +28,8 @@ type DurableDatabaseFileSystem struct {
 }
 
 func NewDurableDatabaseFileSystem(
-	fs *FileSystem,
-	sharedFS *FileSystem,
+	tieredFS *FileSystem,
+	networkFS *FileSystem,
 	pageLogger *PageLogger,
 	path, databaseId, branchId string,
 	pageSize int64,
@@ -43,7 +43,7 @@ func NewDurableDatabaseFileSystem(
 		},
 		databaseId: databaseId,
 		ranges:     make(map[int64]*Range),
-		fileSystem: fs,
+		tieredFS:   tieredFS,
 		mutex:      &sync.RWMutex{},
 		PageLogger: pageLogger,
 		path:       path,
@@ -72,13 +72,13 @@ func (dfs *DurableDatabaseFileSystem) Delete(path string) error {
 }
 
 func (dfs *DurableDatabaseFileSystem) Exists() bool {
-	_, err := dfs.fileSystem.Stat(dfs.path)
+	_, err := dfs.tieredFS.Stat(dfs.path)
 
 	return err == nil
 }
 
 func (dfs *DurableDatabaseFileSystem) FileSystem() *FileSystem {
-	return dfs.fileSystem
+	return dfs.tieredFS
 }
 
 func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*Range, error) {
@@ -91,7 +91,7 @@ func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*Range, e
 	r, err := NewRange(
 		dfs.databaseId,
 		dfs.branchId,
-		dfs.fileSystem,
+		dfs.tieredFS,
 		path,
 		rangeNumber,
 		dfs.pageSize,

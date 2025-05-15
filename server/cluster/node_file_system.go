@@ -60,7 +60,7 @@ func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 	return cluster.objectFileSystem
 }
 
-func (cluster *Cluster) SharedFS() *storage.FileSystem {
+func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 	cluster.fileSystemMutex.Lock()
 	defer cluster.fileSystemMutex.Unlock()
 
@@ -162,7 +162,9 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 		cluster.tmpTieredFileSystem = storage.NewFileSystem(
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
-				storage.NewLocalFileSystemDriver(cluster.Config.TmpPath),
+				storage.NewLocalFileSystemDriver(
+					fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().Id),
+				),
 				storage.NewObjectFileSystemDriver(cluster.Config),
 			),
 		)
@@ -170,7 +172,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 		cluster.tmpTieredFileSystem = storage.NewFileSystem(
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
-				storage.NewLocalFileSystemDriver(cluster.Config.SharedPath),
+				storage.NewLocalFileSystemDriver(cluster.Config.TmpPath),
 				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
 			),
 		)

@@ -70,7 +70,7 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 		d.DatabaseId,
 		d.BranchId,
 		d.fileSystem,
-		d.databaseManager.Cluster.SharedFS(),
+		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
 	)
 
@@ -98,7 +98,7 @@ func (d *DatabaseResources) DatabaseWALManager() (*DatabaseWALManager, error) {
 		d.databaseManager.ConnectionManager(),
 		d.DatabaseId,
 		d.BranchId,
-		d.databaseManager.Cluster.SharedFS(),
+		d.databaseManager.Cluster.NetworkFS(),
 	)
 
 	return d.walManager, err
@@ -113,7 +113,7 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 
 	d.fileSystem = storage.NewDurableDatabaseFileSystem(
 		d.databaseManager.Cluster.TieredFS(),
-		d.databaseManager.Cluster.SharedFS(),
+		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
 		fmt.Sprintf("%s%s/%s/", Directory(), d.DatabaseId, d.BranchId),
 		d.DatabaseId,
@@ -144,7 +144,7 @@ func (d *DatabaseResources) createPageLogger() *storage.PageLogger {
 	return d.databaseManager.PageLogManager().Get(
 		d.DatabaseId,
 		d.BranchId,
-		d.databaseManager.Cluster.SharedFS(),
+		d.databaseManager.Cluster.NetworkFS(),
 	)
 }
 
@@ -269,27 +269,6 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	d.snapshotLogger = backups.NewSnapshotLogger(d.tieredFS, d.DatabaseId, d.BranchId)
 
 	return d.snapshotLogger
-}
-
-// Return the temporary file system for the database.
-func (d *DatabaseResources) TempFileSystem() *storage.TempDatabaseFileSystem {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	if d.tempFileSystem != nil {
-		return d.tempFileSystem
-	}
-
-	path := fmt.Sprintf(
-		"%s%s/%s",
-		TmpDirectory(),
-		d.DatabaseId,
-		d.BranchId,
-	)
-
-	d.tempFileSystem = storage.NewTempDatabaseFileSystem(d.tmpFS, path, d.DatabaseId, d.BranchId)
-
-	return d.tempFileSystem
 }
 
 func (d *DatabaseResources) TransactionManager() *TransactionManager {

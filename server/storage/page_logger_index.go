@@ -33,7 +33,7 @@ type PageLoggerIndex struct {
 	boundary   PageGroupVersion
 	mutex      *sync.Mutex
 	file       storage.File
-	fileSystem *FileSystem
+	networkFS  *FileSystem
 	path       string
 	pageGroups map[PageGroup]map[PageGroupVersion][]PageNumber
 }
@@ -43,11 +43,11 @@ type PageGroupVersionByTimestamp struct {
 	pageGroupVersion PageGroupVersion
 }
 
-func NewPageLoggerIndex(fileSystem *FileSystem, path string) (*PageLoggerIndex, error) {
+func NewPageLoggerIndex(networkFS *FileSystem, path string) (*PageLoggerIndex, error) {
 	pli := &PageLoggerIndex{
 		boundary:   PageGroupVersion(0),
 		mutex:      &sync.Mutex{},
-		fileSystem: fileSystem,
+		networkFS:  networkFS,
 		path:       path,
 		pageGroups: make(map[PageGroup]map[PageGroupVersion][]PageNumber),
 	}
@@ -83,11 +83,11 @@ func (pli *PageLoggerIndex) File() storage.File {
 		var err error
 
 	tryOpen:
-		pli.file, err = pli.fileSystem.OpenFile(pli.path, os.O_RDWR|os.O_CREATE, 0644)
+		pli.file, err = pli.networkFS.OpenFile(pli.path, os.O_RDWR|os.O_CREATE, 0644)
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				err = pli.fileSystem.MkdirAll(filepath.Dir(pli.path), 0755)
+				err = pli.networkFS.MkdirAll(filepath.Dir(pli.path), 0755)
 
 				if err != nil {
 					return nil

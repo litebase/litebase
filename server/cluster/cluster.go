@@ -66,42 +66,42 @@ func getClusterIdFromEnv(config *config.Config) (string, error) {
 
 // Create the directories and files for the cluster.
 func (cluster *Cluster) createDirectoriesAndFiles() error {
-	err := cluster.SharedFS().MkdirAll("_cluster/query", 0755)
+	err := cluster.NetworkFS().MkdirAll("_cluster/query", 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = cluster.SharedFS().MkdirAll(cluster.NodePath(), 0755)
+	err = cluster.NetworkFS().MkdirAll(cluster.NodePath(), 0755)
 
 	if err != nil {
 		return err
 	}
 
-	err = cluster.SharedFS().MkdirAll(cluster.NodeQueryPath(), 0755)
+	err = cluster.NetworkFS().MkdirAll(cluster.NodeQueryPath(), 0755)
 
 	if err != nil {
 		return err
 	}
 
-	if _, err := cluster.SharedFS().Stat(fmt.Sprintf("_cluster/query/%s", Nominationfile)); os.IsNotExist(err) {
-		_, err = cluster.SharedFS().Create(fmt.Sprintf("_cluster/query/%s", Nominationfile))
+	if _, err := cluster.NetworkFS().Stat(fmt.Sprintf("_cluster/query/%s", Nominationfile)); os.IsNotExist(err) {
+		_, err = cluster.NetworkFS().Create(fmt.Sprintf("_cluster/query/%s", Nominationfile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := cluster.SharedFS().Stat(fmt.Sprintf("_cluster/query/%s", LeaseFile)); os.IsNotExist(err) {
-		_, err = cluster.SharedFS().Create(fmt.Sprintf("_cluster/query/%s", LeaseFile))
+	if _, err := cluster.NetworkFS().Stat(fmt.Sprintf("_cluster/query/%s", LeaseFile)); os.IsNotExist(err) {
+		_, err = cluster.NetworkFS().Create(fmt.Sprintf("_cluster/query/%s", LeaseFile))
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := cluster.SharedFS().Stat(fmt.Sprintf("_cluster/query/%s", PrimaryFile)); os.IsNotExist(err) {
-		_, err = cluster.SharedFS().Create(fmt.Sprintf("_cluster/query/%s", PrimaryFile))
+	if _, err := cluster.NetworkFS().Stat(fmt.Sprintf("_cluster/query/%s", PrimaryFile)); os.IsNotExist(err) {
+		_, err = cluster.NetworkFS().Create(fmt.Sprintf("_cluster/query/%s", PrimaryFile))
 
 		if err != nil {
 			return err
@@ -181,7 +181,7 @@ func (cluster *Cluster) GetMembers(cached bool) []string {
 	// 	return nil
 	// }
 
-	_, err := cluster.SharedFS().Stat(cluster.NodePath())
+	_, err := cluster.NetworkFS().Stat(cluster.NodePath())
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -193,7 +193,7 @@ func (cluster *Cluster) GetMembers(cached bool) []string {
 	}
 
 	// Read the directory
-	files, err := cluster.SharedFS().ReadDir(cluster.NodeQueryPath())
+	files, err := cluster.NetworkFS().ReadDir(cluster.NodeQueryPath())
 
 	if err != nil {
 		log.Println("Error reading query nodes: ", err)
@@ -405,7 +405,7 @@ func (cluster *Cluster) RemoveMember(address string) error {
 			delete(cluster.nodeMap[config.NodeTypeQuery], address)
 
 			// Remove the node address file
-			err := cluster.SharedFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll(address, ":", "_"))
+			err := cluster.NetworkFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll(address, ":", "_"))
 
 			if err != nil {
 				return err

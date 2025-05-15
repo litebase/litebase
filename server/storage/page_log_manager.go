@@ -68,7 +68,7 @@ func (plm *PageLogManager) Close() error {
 func (plm *PageLogManager) Get(
 	databaseId string,
 	branchId string,
-	fileSystem *FileSystem,
+	networkFS *FileSystem,
 ) *PageLogger {
 	plm.mutex.Lock()
 	defer plm.mutex.Unlock()
@@ -79,7 +79,7 @@ func (plm *PageLogManager) Get(
 		return logger
 	}
 
-	logger, err := NewPageLogger(databaseId, branchId, fileSystem)
+	logger, err := NewPageLogger(databaseId, branchId, networkFS)
 
 	if err != nil {
 		log.Println("Error creating page logger", err)

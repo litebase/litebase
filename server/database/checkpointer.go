@@ -182,7 +182,15 @@ func (c *Checkpointer) Commit() error {
 		c.Checkpoint = nil
 	}()
 
-	return c.removeCheckpointFile()
+	go func() {
+		err := c.removeCheckpointFile()
+
+		if err != nil {
+			log.Println("Error removing checkpoint file", err)
+		}
+	}()
+
+	return nil
 }
 
 // When creating a new instance of the Checkpointer, we need to ensure there

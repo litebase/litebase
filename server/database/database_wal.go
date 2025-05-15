@@ -136,6 +136,11 @@ func (wal *DatabaseWAL) File() (internalStorage.File, error) {
 	}
 
 tryOpen:
+	start := time.Now()
+	defer func() {
+		log.Println("WAL file open took", time.Since(start))
+	}()
+
 	file, err := wal.fileSystem.OpenFileDirect(
 		wal.Path,
 		os.O_CREATE|os.O_RDWR,

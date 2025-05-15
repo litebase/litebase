@@ -163,20 +163,12 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 	frame.Committed = 1
 	frame.Size = size
 
-	// _, err = r.File.Seek(offset, io.SeekStart)
-
-	// if err != nil {
-	// 	return err
-	// }
-
 	data, err = frame.Serialize()
 
 	if err != nil {
 		return err
 	}
 
-	// _, err = r.File.Write(data)
-	// log.Println("Writing frame entry at offset", offset, "with size", size)
 	_, err = r.File.WriteAt(data, offset)
 
 	return err

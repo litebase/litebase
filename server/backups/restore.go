@@ -84,7 +84,7 @@ func copySourceDatabasePageLogsToTargetDatabase(
 	targetDirectory := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(targetDatabaseUuid, targetBranchUuid))
 
 	// Loop through the files in the source database and copy them to the target database
-	entries, err := sourceFileSystem.PageLogger.FileSystem.ReadDir(sourceDirectory)
+	entries, err := sourceFileSystem.PageLogger.NetworkFS.ReadDir(sourceDirectory)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -96,14 +96,14 @@ func copySourceDatabasePageLogsToTargetDatabase(
 
 	for _, entry := range entries {
 		sourceFilePath := fmt.Sprintf("%s%s", sourceDirectory, entry.Name())
-		sourceFile, err := sourceFileSystem.PageLogger.FileSystem.Open(sourceFilePath)
+		sourceFile, err := sourceFileSystem.PageLogger.NetworkFS.Open(sourceFilePath)
 
 		if err != nil {
 			log.Println("Error opening source file:", sourceFilePath, err)
 			return err
 		}
 
-		err = targetFileSystem.PageLogger.FileSystem.MkdirAll(targetDirectory, 0755)
+		err = targetFileSystem.PageLogger.NetworkFS.MkdirAll(targetDirectory, 0755)
 
 		if err != nil {
 			log.Println("Error creating target directory:", targetDirectory, err)
@@ -113,7 +113,7 @@ func copySourceDatabasePageLogsToTargetDatabase(
 
 		targetFilePath := fmt.Sprintf("%s%s", targetDirectory, entry.Name())
 
-		targetFile, err := targetFileSystem.PageLogger.FileSystem.Create(targetFilePath)
+		targetFile, err := targetFileSystem.PageLogger.NetworkFS.Create(targetFilePath)
 
 		if err != nil {
 			log.Println("Error writing file:", entry.Name(), err)
