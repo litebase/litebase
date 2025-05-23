@@ -19,7 +19,7 @@ type DatabaseWALManager struct {
 	checkpointMutex         *sync.Mutex
 	connectionManager       *ConnectionManager
 	DatabaseId              string
-	fileSystem              *storage.FileSystem
+	networkFileSystem       *storage.FileSystem
 	garbargeCollectionMutex *sync.RWMutex
 	lastCheckpointedVersion int64
 	mutext                  *sync.RWMutex
@@ -40,7 +40,7 @@ func NewDatabaseWALManager(
 	connectionManager *ConnectionManager,
 	databaseId,
 	branchId string,
-	fileSystem *storage.FileSystem,
+	networkFileSystem *storage.FileSystem,
 ) (*DatabaseWALManager, error) {
 	walManager := &DatabaseWALManager{
 		BranchId:                branchId,
@@ -49,13 +49,13 @@ func NewDatabaseWALManager(
 		connectionManager:       connectionManager,
 		DatabaseId:              databaseId,
 		garbargeCollectionMutex: &sync.RWMutex{},
-		fileSystem:              fileSystem,
+		networkFileSystem:       networkFileSystem,
 		mutext:                  &sync.RWMutex{},
 		node:                    node,
 		walIndex: storage.NewWALIndex(
 			databaseId,
 			branchId,
-			fileSystem,
+			networkFileSystem,
 		),
 		walUsage:    make(map[int64]int64),
 		walVersions: make(map[int64]*DatabaseWAL),
@@ -146,7 +146,7 @@ func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
 		w.connectionManager,
 		w.DatabaseId,
 		w.BranchId,
-		w.fileSystem,
+		w.networkFileSystem,
 		w,
 		timestamp,
 	)
@@ -224,7 +224,7 @@ func (w *DatabaseWALManager) init() error {
 			w.connectionManager,
 			w.DatabaseId,
 			w.BranchId,
-			w.fileSystem,
+			w.networkFileSystem,
 			w,
 			version,
 		)
