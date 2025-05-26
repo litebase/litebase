@@ -29,6 +29,7 @@ type Config struct {
 	Env                    string
 	FakeObjectStorage      bool
 	FileSystemDriver       string
+	NetworkStoragePath     string
 	NodeAddressProvider    string
 	NodeType               string
 	PageSize               int64
@@ -37,7 +38,6 @@ type Config struct {
 	RootPassword           string
 	RootUsername           string
 	RouterNodePort         string
-	SharedPath             string
 	Signature              string
 	SignatureNext          string
 	StorageAccessKeyId     string
@@ -73,7 +73,7 @@ func NewConfig() *Config {
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
 		Region:                 env("LITEBASE_REGION", "").(string),
-		SharedPath:             env("LITEBASE_SHARED_PATH", "").(string),
+		NetworkStoragePath:     env("LITEBASE_NETWORK_STORAGE_PATH", "").(string),
 		RouterNodePort:         env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:           env("LITEBASE_ROOT_USERNAME", "root").(string),

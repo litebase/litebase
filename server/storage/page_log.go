@@ -30,10 +30,34 @@ type PageLog struct {
 func NewPageLog(fileSystem *FileSystem, path string) (*PageLog, error) {
 	pl := &PageLog{
 		fileSystem: fileSystem,
-		index:      NewPageLogIndex(fileSystem, fmt.Sprintf("%s_INDEX", path)),
 		mutex:      &sync.Mutex{},
 		Path:       path,
 	}
+
+	var pli *PageLogIndex
+	var err error
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+
+		pli = NewPageLogIndex(fileSystem, fmt.Sprintf("%s_INDEX", path))
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		err = pl.openFile()
+
+	}()
+	wg.Wait()
+
+	if err != nil {
+		return nil, err
+	}
+
+	pl.index = pli
 
 	return pl, nil
 }
@@ -157,22 +181,10 @@ func (pl *PageLog) File() storage.File {
 	}
 
 	if pl.file == nil {
-		var err error
-
-	tryOpen:
-		pl.file, err = pl.fileSystem.OpenFile(pl.Path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+		err := pl.openFile()
 
 		if err != nil {
-			if os.IsNotExist(err) {
-				err = pl.fileSystem.MkdirAll(filepath.Dir(pl.Path), 0755)
-
-				if err != nil {
-					return nil
-				}
-				log.Println("Error opening page log:", err)
-				goto tryOpen
-			}
-
+			log.Println("Error opening page log:", err)
 			return nil
 		}
 	}
@@ -210,6 +222,29 @@ func (pl *PageLog) Get(page PageNumber, version PageVersion, data []byte) (bool,
 	}
 
 	return true, foundVersion, nil
+}
+
+func (pl *PageLog) openFile() error {
+	var err error
+
+tryOpen:
+	pl.file, err = pl.fileSystem.OpenFile(pl.Path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = pl.fileSystem.MkdirAll(filepath.Dir(pl.Path), 0755)
+
+			if err != nil {
+				return err
+			}
+
+			goto tryOpen
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // Mark all pages of a specific version as tombstoned.

@@ -11,8 +11,21 @@ import (
 
 func TestNewSecretsManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		a := auth.NewAuth(&config.Config{}, app.Cluster.ObjectFS(), app.Cluster.TmpFS(), app.Cluster.TmpTieredFS())
-		sm := auth.NewSecretsManager(a, a.Config, a.ObjectFS, a.TmpFS, app.Cluster.TmpTieredFS())
+		a := auth.NewAuth(
+			&config.Config{},
+			app.Cluster.NetworkFS(),
+			app.Cluster.ObjectFS(),
+			app.Cluster.TmpFS(),
+			app.Cluster.TmpTieredFS(),
+		)
+
+		sm := auth.NewSecretsManager(
+			a, a.Config,
+			a.SecretsManager.NetworkFS,
+			a.ObjectFS,
+			a.TmpFS,
+			app.Cluster.TmpTieredFS(),
+		)
 
 		if sm == nil {
 			t.Error("Expected NewSecretsManager to return a non-nil SecretsManager")

@@ -198,6 +198,19 @@ func TestObjectFileSystemDriver_OpenFile(t *testing.T) {
 	})
 }
 
+func TestObjectFileSystemDriver_Path(t *testing.T) {
+	test.RunWithObjectStorage(t, func(app *server.App) {
+		driver := storage.NewObjectFileSystemDriver(app.Config)
+
+		// Test getting the path
+		path := driver.Path("test")
+
+		if path == "" {
+			t.Error("Path() returned an empty string")
+		}
+	})
+}
+
 func TestObjectFileSystemDriverReadDir(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)

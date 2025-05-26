@@ -39,6 +39,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 
 	Auth := auth.NewAuth(
 		configInstance,
+		clusterInstance.NetworkFS(),
 		clusterInstance.ObjectFS(),
 		clusterInstance.TmpFS(),
 		clusterInstance.TmpTieredFS(),

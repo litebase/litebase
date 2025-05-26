@@ -10,7 +10,13 @@ import (
 
 func TestNewAccessKeyManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		a := auth.NewAuth(app.Config, app.Cluster.ObjectFS(), app.Cluster.TmpFS(), app.Cluster.TmpTieredFS())
+		a := auth.NewAuth(
+			app.Config,
+			app.Cluster.NetworkFS(),
+			app.Cluster.ObjectFS(),
+			app.Cluster.TmpFS(),
+			app.Cluster.TmpTieredFS(),
+		)
 
 		akm := auth.NewAccessKeyManager(a, a.Config, a.ObjectFS)
 

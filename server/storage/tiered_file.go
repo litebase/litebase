@@ -45,6 +45,9 @@ type TieredFile struct {
 	// Used to identify the File in the durable storage and local storage.
 	Key string
 
+	// The tiered files system log that was used to capture file modifications.
+	LogKey int64
+
 	// Mutex is a pointer to a sync.Mutex that is used to lock the file when
 	// reading or writing to the file. This is used to prevent multiple
 	// concurrent operations from occurring at the same time.
@@ -122,9 +125,7 @@ func (f *TieredFile) MarkUpdated() {
 
 	f.UpdatedAt = time.Now()
 
-	if f.Element != nil {
-		f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
-	}
+	f.TieredFileSystemDriver.MarkFileUpdated(f)
 }
 
 // Read reads up to len(b) bytes from the File and stores them in b.

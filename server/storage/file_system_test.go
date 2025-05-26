@@ -137,6 +137,20 @@ func TestFileSystemOpenFile(t *testing.T) {
 	})
 }
 
+func TestFileSystem_Path(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))
+
+		fs := storage.NewFileSystem(driver)
+
+		path := fs.Path("test")
+
+		if path == "" {
+			t.Error("Path() returned an empty string")
+		}
+	})
+}
+
 func TestFileSystemReadDir(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))

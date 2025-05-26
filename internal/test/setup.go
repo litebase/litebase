@@ -33,8 +33,15 @@ func setupTestEnv(t testing.TB) (string, error) {
 		envDataPath = fmt.Sprintf("%s%s", rootDirectory, os.Getenv("LITEBASE_LOCAL_DATA_PATH"))
 	}
 
-	dataPath := fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
-	sharedPath := fmt.Sprintf("%s/_shared", dataPath)
+	var dataPath string
+
+	if os.Getenv("LITEBASE_TEST_DATA_PATH") != "" {
+		dataPath = os.Getenv("LITEBASE_TEST_DATA_PATH")
+	} else {
+		dataPath = fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
+	}
+
+	networkStoragePath := fmt.Sprintf("%s/_network_storage", dataPath)
 	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
 
 	os.MkdirAll(dataPath, 0755)
@@ -45,9 +52,17 @@ func setupTestEnv(t testing.TB) (string, error) {
 
 	t.Setenv("LITEBASE_DOMAIN_NAME", "litebase.test")
 	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
-	t.Setenv("LITEBASE_SHARED_PATH", sharedPath)
+	t.Setenv("LITEBASE_NETWORK_STORAGE_PATH", networkStoragePath)
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)
-	t.Setenv("LITEBASE_SIGNATURE", CreateHash(64))
+
+	var signature string
+	if os.Getenv("LITEBASE_TEST_SIGNATURE") != "" {
+		signature = os.Getenv("LITEBASE_TEST_SIGNATURE")
+	} else {
+		signature = CreateHash(64)
+	}
+
+	t.Setenv("LITEBASE_SIGNATURE", signature)
 
 	return dataPath, err
 }

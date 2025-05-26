@@ -28,6 +28,7 @@ func TestClusterInit(t *testing.T) {
 
 		a := auth.NewAuth(
 			c,
+			cluster.NetworkFS(),
 			cluster.ObjectFS(),
 			cluster.TmpFS(),
 			cluster.TmpTieredFS(),

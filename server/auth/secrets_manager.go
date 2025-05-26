@@ -19,6 +19,7 @@ type SecretsManager struct {
 	config                *config.Config
 	databaseKeyStoreMutex sync.RWMutex
 	databaseKeyStores     map[string]*DatabaseKeyStore
+	NetworkFS             *storage.FileSystem
 	secretStore           map[string]SecretsStore
 	secretStoreMutex      sync.RWMutex
 	encrypterInstances    map[string]*KeyEncrypter
@@ -36,6 +37,7 @@ type DecryptedSecret struct {
 func NewSecretsManager(
 	auth *Auth,
 	config *config.Config,
+	networkFS *storage.FileSystem,
 	objectFS *storage.FileSystem,
 	tmpFS *storage.FileSystem,
 	tmpTieredFS *storage.FileSystem,

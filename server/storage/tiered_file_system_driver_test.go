@@ -2,8 +2,10 @@ package storage_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -146,6 +148,36 @@ func TestTieredFileSystemDriver_Files(t *testing.T) {
 
 		if len(files) != 1 {
 			t.Errorf("TieredFileSystemDriver.Files returned incorrect number of files, got %d", len(files))
+		}
+	})
+}
+
+func TestTieredFileSystemMarkFileUpdated(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+		)
+
+		if tieredFileSystemDriver == nil {
+			t.Fatal("NewTieredFileSystemDriver returned nil")
+		}
+
+		file, err := tieredFileSystemDriver.Create("test")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if len(tieredFileSystemDriver.Files) != 1 {
+			t.Errorf("TieredFileSystemDriver.Files returned incorrect number of files, got %d", len(tieredFileSystemDriver.Files))
+		}
+
+		err = tieredFileSystemDriver.MarkFileUpdated(file.(*storage.TieredFile))
+
+		if err != nil {
+			t.Error(err)
 		}
 	})
 }
@@ -446,6 +478,22 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 
 		if n != 4 {
 			t.Errorf("TieredFileSystemDriver.Write returned incorrect number of bytes, got %d", n)
+		}
+	})
+}
+
+func TestTieredFileSystemDriver_Path(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+		)
+
+		path := tieredFileSystemDriver.Path("test")
+
+		if path == "" {
+			t.Error("TieredFileSystemDriver.Path returned empty string")
 		}
 	})
 }
@@ -864,6 +912,76 @@ func TestTieredFileSystemDriver_Stat(t *testing.T) {
 
 		if info.Size() != 4 {
 			t.Errorf("TieredFileSystemDriver.Stat returned incorrect size, got %d", info.Size())
+		}
+	})
+}
+
+func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
+	if os.Getenv("TEST_RUN") == "1" {
+		test.RunWithApp(t, func(app *server.App) {
+			tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+				context.Background(),
+				storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+				storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+					fsd.CanSyncDirtyFiles = func() bool {
+						return true
+					}
+				},
+			)
+
+			_, err := tieredFileSystemDriver.Create("test")
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			os.Exit(1)
+		})
+	}
+
+	test.RunWithApp(t, func(app *server.App) {
+		if os.Getenv("TEST_RUN") == "" {
+			cmd := exec.Command("go", "test", "-run", "TestTieredFileSystemDriver_SyncDirtyFiles")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Env = append(os.Environ(), "TEST_RUN=1", fmt.Sprintf("LITEBASE_TEST_DATA_PATH=%s", app.Config.DataPath), fmt.Sprintf("LITEBASE_TEST_SIGNATURE=%s", app.Config.Signature))
+			err := cmd.Run()
+
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				if !exitErr.Success() {
+					return
+				}
+			}
+
+			t.Fatal("Test did not crash")
+		}
+
+		fsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+
+		// Verify the file was not synced due to the crash.
+		_, err := fsd.Stat("test.txt")
+
+		if err != nil && !os.IsNotExist(err) {
+			t.Errorf("TieredFileSystemDriver.Stat should return os.IsNotExist error, got %v", err)
+		}
+
+		storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			fsd,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
+		)
+
+		// Verify the file was synced.
+		_, err = fsd.Stat("test.txt")
+
+		if err != nil {
+			t.Errorf("TieredFileSystemDriver.Stat should return nil, got %v", err)
 		}
 	})
 }

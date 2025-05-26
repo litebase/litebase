@@ -34,7 +34,9 @@ var (
 // performance with scalable and cost-effective long-term storage.
 type TieredFileSystemDriver struct {
 	buffers                  sync.Pool
+	CanSyncDirtyFiles        func() bool // Function to check if dirty files can be synced
 	context                  context.Context
+	logger                   *TieredFileSystemLogger
 	lowTierFileSystemDriver  FileSystemDriver
 	FileCount                int
 	FileOrder                *list.List
@@ -69,8 +71,9 @@ func NewTieredFileSystemDriver(
 		FileOrder:                list.New(),
 		Files:                    map[string]*TieredFile{},
 		highTierFileSystemDriver: highTierFileSystemDriver,
-		MaxFilesOpened:           TieredFileSystemMaxOpenFiles,
 		lowTierFileSystemDriver:  lowTierFileSystemDriver,
+		logger:                   nil,
+		MaxFilesOpened:           TieredFileSystemMaxOpenFiles,
 		mutex:                    &sync.RWMutex{},
 		WriteInterval:            DefaultWriteInterval,
 	}
@@ -78,6 +81,26 @@ func NewTieredFileSystemDriver(
 	if len(f) > 0 {
 		for _, fn := range f {
 			fn(context, fsd)
+		}
+	}
+
+	logger, err := NewTieredFileSystemLogger(
+		highTierFileSystemDriver.Path("/_fslogs/tiered-files"),
+	)
+
+	if err != nil {
+		log.Println("Error creating logger", err)
+		return nil
+	}
+
+	fsd.logger = logger
+
+	if fsd.CanSyncDirtyFiles != nil && fsd.CanSyncDirtyFiles() {
+		err = fsd.SyncDirtyFiles()
+
+		if err != nil {
+			log.Println("Error syncing dirty files", err)
+			return nil
 		}
 	}
 
@@ -148,7 +171,7 @@ func (fsd *TieredFileSystemDriver) ClearFiles() error {
 		}
 	}
 
-	return nil
+	return fsd.logger.Restart()
 }
 
 // CopyFile copies data from src to dst using a buffer pool to minimize memory allocations.
@@ -184,7 +207,7 @@ func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64
 	return totalBytes, nil
 }
 
-// Creating a new file istantiates a new file durable that will be used to manage
+// Creating a new file instantiates a new file that will be used to manage
 // the file on the high tier file system. When the file is closed, or written
 // to, it will be pushed down to the low tier file system.
 func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, error) {
@@ -207,7 +230,6 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 func (fsd *TieredFileSystemDriver) Flush() error {
 	// fsd.mutex.Lock()
 	// defer fsd.mutex.Unlock()
-
 	// Flush all files to durable storage
 	return fsd.flushFiles()
 }
@@ -229,9 +251,6 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 	if !file.shouldBeWrittenToDurableStorage() && !force {
 		return
 	}
-
-	// file.mutex.Lock()
-	// defer file.mutex.Unlock()
 
 	_, err := file.File.Seek(0, io.SeekStart)
 
@@ -315,6 +334,30 @@ func (fsd *TieredFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error
 	}
 
 	return fsd.lowTierFileSystemDriver.MkdirAll(path, perm)
+}
+
+// Mark a file as updated. This operation is typically performed when the
+// file has been modified and needs to be flushed to durable storage. This will
+// move the file to the back of the file order list and write the change to
+// the log file. The log file is used to track changes to the file system so
+// that in the event of a crash, updated files can be flushed to durable
+// storage once a primary node assumes control of the cluster.
+func (fsd *TieredFileSystemDriver) MarkFileUpdated(f *TieredFile) error {
+	if f.Element != nil {
+		fsd.FileOrder.MoveToBack(f.Element)
+	}
+
+	logKey, err := fsd.logger.Put(f.Key)
+
+	if err != nil {
+		log.Println("Error writing to log file", err)
+
+		return err
+	}
+
+	f.LogKey = logKey
+
+	return nil
 }
 
 // See OpenFile
@@ -435,6 +478,10 @@ func (fsd *TieredFileSystemDriver) OpenFileDirect(path string, flag int, perm fs
 	return newFile, nil
 }
 
+func (fsd *TieredFileSystemDriver) Path(path string) string {
+	return fsd.highTierFileSystemDriver.Path(path)
+}
+
 // Reading a directory only occurs on the low tier file system. This is because
 // the high tier file system is only used for temporary storage and does not
 // contain a complete copy of the data. However, the file will be tracked in
@@ -528,6 +575,7 @@ func (fsd *TieredFileSystemDriver) Remove(path string) error {
 		fsd.mutex.Unlock()
 	}
 
+	// OPTIMIZE: Run concurrently
 	err := fsd.highTierFileSystemDriver.Remove(path)
 
 	if err != nil && !os.IsNotExist(err) {
@@ -554,6 +602,7 @@ func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
 
 	fsd.mutex.Unlock()
 
+	// OPTIMIZE: Run concurrently
 	err := fsd.highTierFileSystemDriver.RemoveAll(path)
 
 	if err != nil {
@@ -658,6 +707,36 @@ func (fsd *TieredFileSystemDriver) Stat(path string) (internalStorage.FileInfo, 
 	}
 
 	return info, err
+}
+
+// SyncDirtyFiles checks if there are any dirty files in the logger and
+// flushes them to durable storage. This operation is typically performed
+// when the driver is initially opened and there may be files that have not
+// been flushed to durable storage due to a crash or other error.
+func (fsd *TieredFileSystemDriver) SyncDirtyFiles() error {
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	if fsd.logger.HasDirtyLogs() {
+		for key := range fsd.logger.DirtyKeys() {
+			if file, ok := fsd.Files[key]; ok {
+				fsd.flushFileToDurableStorage(file, true)
+			} else {
+				file, err := fsd.highTierFileSystemDriver.OpenFile(key, os.O_RDWR|os.O_CREATE, 0644)
+
+				if err != nil {
+					log.Println("Error opening file on high tier file system", err)
+					return err
+				}
+
+				tieredFile := fsd.addFile(key, file, os.O_RDWR)
+
+				fsd.flushFileToDurableStorage(tieredFile, true)
+			}
+		}
+	}
+
+	return nil
 }
 
 // Truncating a file in the tiered file system driver involves truncating the file

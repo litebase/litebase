@@ -16,6 +16,7 @@ type Auth struct {
 
 func NewAuth(
 	c *config.Config,
+	networkFS *storage.FileSystem,
 	objectFS *storage.FileSystem,
 	tmpFS *storage.FileSystem,
 	tmpTieredFS *storage.FileSystem,
@@ -29,6 +30,7 @@ func NewAuth(
 	auth.SecretsManager = NewSecretsManager(
 		auth,
 		c,
+		networkFS,
 		objectFS,
 		tmpFS,
 		tmpTieredFS,

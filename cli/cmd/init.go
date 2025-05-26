@@ -65,6 +65,7 @@ func NewInitCmd() *cobra.Command {
 
 		authInstance := auth.NewAuth(
 			cluster.Config,
+			cluster.NetworkFS(),
 			cluster.ObjectFS(),
 			cluster.TmpFS(),
 			cluster.TmpTieredFS(),

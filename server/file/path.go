@@ -69,26 +69,6 @@ func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 	), nil
 }
 
-func GetDatabaseFileSharedPath(c *config.Config, databaseId string, branchId string) (string, error) {
-	return fmt.Sprintf(
-		"%s/_databases/%s/%s/%s.db",
-		c.SharedPath,
-		databaseId,
-		branchId,
-		DatabaseHash(databaseId, branchId),
-	), nil
-}
-
-func GetDatabaseFileSharedWALPath(c *config.Config, databaseId string, branchId string, timestamp int64) (string, error) {
-	return fmt.Sprintf(
-		"%s/_databases/%s/%s/wal/%d",
-		c.SharedPath,
-		databaseId,
-		branchId,
-		timestamp,
-	), nil
-}
-
 func GetDatabaseFileTmpPath(c *config.Config, nodeId, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s/%s/_databases/%s/%s/%s.db",

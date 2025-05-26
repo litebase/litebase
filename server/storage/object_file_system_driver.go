@@ -196,6 +196,10 @@ func (fs *ObjectFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.
 	return fs.OpenFile(path, flag, perm)
 }
 
+func (fs *ObjectFileSystemDriver) Path(path string) string {
+	return path
+}
+
 // Read the directory using S3
 func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntry, error) {
 	input := &s3.ListObjectsV2Input{

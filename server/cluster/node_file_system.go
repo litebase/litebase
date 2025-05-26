@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -68,7 +69,7 @@ func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 	if cluster.sharedFileSystem == nil {
 		cluster.sharedFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
-				cluster.Config.SharedPath,
+				cluster.Config.NetworkStoragePath,
 			),
 		)
 	}
@@ -119,21 +120,29 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	cluster.fileSystemMutex.Lock()
 	defer cluster.fileSystemMutex.Unlock()
 
+	fileSyncEligibilityFn := func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+		fsd.CanSyncDirtyFiles = func() bool {
+			return cluster.Node().Membership == ClusterMembershipPrimary
+		}
+	}
+
 	if cluster.tieredFileSystem == nil {
 		if cluster.Config.StorageTieredMode == config.StorageModeObject {
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
 					cluster.Node().Context(),
-					storage.NewLocalFileSystemDriver(cluster.Config.SharedPath),
+					storage.NewLocalFileSystemDriver(cluster.Config.NetworkStoragePath),
 					storage.NewObjectFileSystemDriver(cluster.Config),
+					fileSyncEligibilityFn,
 				),
 			)
 		} else if cluster.Config.StorageTieredMode == config.StorageModeLocal {
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
 					cluster.Node().Context(),
-					storage.NewLocalFileSystemDriver(cluster.Config.SharedPath),
+					storage.NewLocalFileSystemDriver(cluster.Config.NetworkStoragePath),
 					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
+					fileSyncEligibilityFn,
 				),
 			)
 		}
@@ -170,6 +179,13 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 	if cluster.tmpTieredFileSystem != nil {
 		return cluster.tmpTieredFileSystem
 	}
+
+	fileSyncEligibilityFn := func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+		fsd.CanSyncDirtyFiles = func() bool {
+			return cluster.Node().Membership == ClusterMembershipPrimary
+		}
+	}
+
 	if cluster.Config.StorageTieredMode == config.StorageModeObject {
 		cluster.tmpTieredFileSystem = storage.NewFileSystem(
 			storage.NewTieredFileSystemDriver(
@@ -178,6 +194,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 					fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().Id),
 				),
 				storage.NewObjectFileSystemDriver(cluster.Config),
+				fileSyncEligibilityFn,
 			),
 		)
 	} else if cluster.Config.StorageTieredMode == config.StorageModeLocal {
@@ -186,6 +203,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 				cluster.Node().Context(),
 				storage.NewLocalFileSystemDriver(cluster.Config.TmpPath),
 				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
+				fileSyncEligibilityFn,
 			),
 		)
 	}

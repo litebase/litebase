@@ -18,6 +18,7 @@ type FileSystemDriver interface {
 	Open(path string) (internalStorage.File, error)
 	OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error)
 	OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error)
+	Path(string) string
 	ReadDir(path string) ([]internalStorage.DirEntry, error)
 	ReadFile(path string) ([]byte, error)
 	Remove(path string) error
@@ -122,6 +123,10 @@ func (fs *FileSystem) OpenFileDirect(path string, flag int, perm fs.FileMode) (i
 	defer fs.lock.releasePathWriteLock(pathLock)
 
 	return fs.driver.OpenFileDirect(path, flag, perm)
+}
+
+func (fs *FileSystem) Path(path string) string {
+	return fs.driver.Path(path)
 }
 
 func (fs *FileSystem) ReadDir(path string) ([]internalStorage.DirEntry, error) {
