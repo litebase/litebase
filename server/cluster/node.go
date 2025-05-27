@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/server/storage"
 )
 
 const (
@@ -705,6 +706,12 @@ func (n *Node) SetMembership(membership string) {
 		if n.replica != nil {
 			n.replica.Stop()
 			n.replica = nil
+		}
+
+		// Ensure the primary checks for dirty files that need to be synced from
+		// tiered storage.
+		if driver, ok := n.Cluster.TieredFS().Driver().(*storage.TieredFileSystemDriver); ok {
+			driver.SyncDirtyFiles()
 		}
 	}
 
