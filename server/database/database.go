@@ -67,7 +67,7 @@ func (database *Database) save() error {
 }
 
 func (database *Database) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
+	return json.Marshal(map[string]any{
 		"name":              database.Name,
 		"branches":          database.Branches,
 		"id":                database.Id,

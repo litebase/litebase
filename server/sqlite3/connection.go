@@ -231,9 +231,9 @@ func (c *Connection) Exec(ctx context.Context, query []byte, params ...Statement
 
 	result := NewResult()
 
-	stmt.Exec(result, params...)
+	err = stmt.Exec(result, params...)
 
-	return result, nil
+	return result, err
 }
 
 // Interrupt all queries for connection

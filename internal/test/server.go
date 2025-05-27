@@ -91,7 +91,7 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 }
 
 func (ts *TestServer) Shutdown() {
-	ts.App.Cluster.Node().Shutdown()
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
+	ts.App.Cluster.Node().Shutdown()
 	storage.Shutdown(ts.App.Config)
 }

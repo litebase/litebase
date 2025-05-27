@@ -39,7 +39,6 @@ type DatabaseWAL struct {
 	fileSystem       *storage.FileSystem
 	hash             string
 	lastKnownSize    int64
-	lastOffset       int64
 	lastSyncTime     time.Time
 	lastWriteTime    time.Time
 	mutex            *sync.RWMutex
@@ -136,11 +135,6 @@ func (wal *DatabaseWAL) File() (internalStorage.File, error) {
 	}
 
 tryOpen:
-	start := time.Now()
-	defer func() {
-		log.Println("WAL file open took", time.Since(start))
-	}()
-
 	file, err := wal.fileSystem.OpenFileDirect(
 		wal.Path,
 		os.O_CREATE|os.O_RDWR,
@@ -175,7 +169,12 @@ func (wal *DatabaseWAL) flushBuffer() error {
 		return err
 	}
 
-	file.Seek(0, io.SeekEnd)
+	_, err = file.Seek(0, io.SeekEnd)
+
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
 	// Write the buffer contents to the file
 	_, err = file.Write(wal.writeBuffer.Bytes())
@@ -187,7 +186,6 @@ func (wal *DatabaseWAL) flushBuffer() error {
 
 	// Reset the buffer
 	wal.writeBuffer.Reset()
-	wal.writeBufferIndex = make(map[int64]WriteBufferEntry)
 
 	return nil
 }
@@ -394,20 +392,6 @@ func (wal *DatabaseWAL) Sync() error {
 		return err
 	}
 
-	file, err := wal.File()
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	err = file.Sync()
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
 	return nil
 }
 
@@ -427,7 +411,6 @@ func (wal *DatabaseWAL) Truncate(size int64) error {
 	return nil
 }
 
-// TODO: Fix issue with writing from a buffer
 func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 	if wal.node.IsReplica() {
 		return 0, errors.New("cannot write to WAL file on replica node")
@@ -435,8 +418,6 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	wal.mutex.Lock()
 	defer wal.mutex.Unlock()
-
-	wal.lastOffset = off
 
 	writeBufferStartIndex := wal.writeBuffer.Len()
 	writeBufferEndIndex := writeBufferStartIndex + len(p)
@@ -454,8 +435,6 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	cacheKey := fmt.Sprintf("%d", off)
 
-	// if n == int(wal.walManager.connectionManager.cluster.Config.PageSize) {
-	// }
 	err = wal.cache.Put(cacheKey, slices.Clone(p))
 
 	if err != nil && err != cache.ErrLFUCacheFull {
@@ -467,7 +446,6 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	// If the buffer exceeds the size limit, flush and sync
 	if wal.writeBuffer.Len() >= DatabaseWALBufferSizeLimit {
-		log.Println("WAL buffer size limit exceeded, flushing to file")
 		err = wal.flushBuffer()
 
 		if err != nil {
@@ -475,20 +453,6 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 			return n, err
 		}
 	}
-
-	// file, err := wal.File()
-
-	// if err != nil {
-	// 	log.Println(err)
-	// 	return 0, err
-	// }
-
-	// n, err = file.WriteAt(p, off)
-
-	// if err != nil {
-	// 	log.Println(err)
-	// 	return n, err
-	// }
 
 	if wal.shouldSync() {
 		wal.performAsynchronousSync()

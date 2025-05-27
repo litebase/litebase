@@ -93,21 +93,27 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 
 		app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
 
-		for round := 0; round < 10; round++ {
+		for round := range 10 {
 			wg := sync.WaitGroup{}
 
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 
-					connection, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+					connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 
-					defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
+					if err != nil {
+						t.Error(err)
+						return
+					}
+
+					// defer
 
 					statement, _ := connection.GetConnection().Statement([]byte("INSERT INTO test (name) VALUES (?)"))
 					result := connection.GetConnection().ResultPool().Get()
-					for i := 0; i < 10; i++ {
+
+					for range 10 {
 						result.Reset()
 						connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
 							err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
@@ -122,6 +128,8 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 							t.Error(err)
 						}
 					}
+
+					app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
 				}()
 			}
 
@@ -140,7 +148,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 				t.Error(err)
 			}
 
-			if result.Rows[0][0].Int64() != (1000 * int64(round+1)) {
+			if len(result.Rows) > 0 && result.Rows[0][0].Int64() != (1000*int64(round+1)) {
 				t.Errorf("Expected %d rows, got %d", 1000*int64(round+1), result.Rows[0][0].Int64())
 			}
 

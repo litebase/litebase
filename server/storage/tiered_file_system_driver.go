@@ -100,7 +100,6 @@ func NewTieredFileSystemDriver(
 
 		if err != nil {
 			log.Println("Error syncing dirty files", err)
-			return nil
 		}
 	}
 

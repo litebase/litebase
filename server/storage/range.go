@@ -48,7 +48,8 @@ func NewRange(databaseId, branchId string, fs *FileSystem, path string, rangeNum
 		number:     rangeNumber,
 	}
 
-	file, err := fs.OpenFile(dr.getPath(), os.O_CREATE|os.O_RDWR, 0644)
+tryOpen:
+	file, err := fs.OpenFileDirect(dr.getPath(), os.O_CREATE|os.O_RDWR, 0644)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -59,12 +60,7 @@ func NewRange(databaseId, branchId string, fs *FileSystem, path string, rangeNum
 				return nil, err
 			}
 
-			file, err = fs.OpenFile(dr.getPath(), os.O_CREATE|os.O_RDWR, 0644)
-
-			if err != nil {
-				log.Println("Error creating range file", err)
-				return nil, err
-			}
+			goto tryOpen
 		} else {
 			log.Println("Error opening range file", err)
 			return nil, err

@@ -206,12 +206,9 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 
 func (d *DatabaseManager) Delete(database *Database) error {
 	// path := fmt.Sprintf("%s%s", Directory(), database.Id)
-	fileSystem := d.Resources(database.Id, database.PrimaryBranchId).FileSystem()
+	resources := d.Resources(database.Id, database.PrimaryBranchId)
 
-	// if _, err := d.Cluster.ObjectFS().Stat(path); os.IsNotExist(err) {
-	// 	log.Println("Database does not exist", path)
-	// 	return fmt.Errorf("database '%s' does not exist", database.Id)
-	// }
+	fileSystem := resources.FileSystem()
 
 	// Delete the database keys
 	for _, branch := range database.Branches {
@@ -233,6 +230,8 @@ func (d *DatabaseManager) Delete(database *Database) error {
 		log.Println("Error deleting database storage", err)
 		return err
 	}
+
+	resources.Remove()
 
 	return nil
 }

@@ -150,12 +150,12 @@ func (fs *ObjectFileSystemDriver) Create(path string) (internalStorage.File, err
 
 func (fs *ObjectFileSystemDriver) EnsureBucketExists() {
 	// Check if the bucket exists
-	headBucketOutput, err := fs.S3Client.HeadBucket(fs.context, &s3.HeadBucketInput{
+	_, err := fs.S3Client.HeadBucket(fs.context, &s3.HeadBucketInput{
 		Bucket: aws.String(fs.bucket),
 	})
 
-	if err == nil && headBucketOutput != nil {
-		log.Printf("Bucket %s already exists", fs.bucket)
+	if err == nil {
+		log.Println("Bucket already exists:", fs.bucket)
 		return
 	}
 

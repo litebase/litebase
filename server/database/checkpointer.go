@@ -134,6 +134,7 @@ func (c *Checkpointer) Commit() error {
 	if c.Checkpoint == nil {
 		return ErrorNoCheckpointInProgressError
 	}
+
 	var errors []error
 
 	// Commit the rollback log that was created at the beginning of the process

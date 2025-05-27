@@ -62,7 +62,8 @@ func (d *DatabaseMetadata) File() (internalStorage.File, error) {
 	defer d.mutext.Unlock()
 
 	if d.file == nil {
-		d.file, err = d.databaseFileSystem.FileSystem().OpenFile(d.Path(), os.O_CREATE|os.O_RDWR, 0644)
+	tryOpen:
+		d.file, err = d.databaseFileSystem.FileSystem().OpenFileDirect(d.Path(), os.O_CREATE|os.O_RDWR, 0644)
 
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -72,11 +73,7 @@ func (d *DatabaseMetadata) File() (internalStorage.File, error) {
 					return nil, err
 				}
 
-				d.file, err = d.databaseFileSystem.FileSystem().OpenFile(d.Path(), os.O_CREATE|os.O_RDWR, 0644)
-
-				if err != nil {
-					return nil, err
-				}
+				goto tryOpen
 			} else {
 				return nil, err
 			}

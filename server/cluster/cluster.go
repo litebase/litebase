@@ -47,7 +47,7 @@ type Cluster struct {
 
 	localFileSystem     *storage.FileSystem
 	objectFileSystem    *storage.FileSystem
-	sharedFileSystem    *storage.FileSystem
+	networkFileSystem   *storage.FileSystem
 	tieredFileSystem    *storage.FileSystem
 	tmpFileSystem       *storage.FileSystem
 	tmpTieredFileSystem *storage.FileSystem

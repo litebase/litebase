@@ -82,7 +82,7 @@ func (pli *PageLogIndex) File() storage.File {
 	if pli.file == nil {
 		var err error
 	tryOpen:
-		pli.file, err = pli.fileSystem.OpenFile(pli.path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+		pli.file, err = pli.fileSystem.OpenFileDirect(pli.path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
 		if err != nil {
 			if os.IsNotExist(err) {

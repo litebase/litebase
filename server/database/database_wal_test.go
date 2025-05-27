@@ -611,11 +611,11 @@ func TestDatabaseWAL_HeavyWrite(t *testing.T) {
 			}
 		}
 
-		// err := databaseWAL.Sync()
+		err := databaseWAL.Sync()
 
-		// if err != nil {
-		// 	t.Fatalf("Expected no error, got %v", err)
-		// }
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		for i := range numberOfWrites {
 			n, err := databaseWAL.ReadAt(readBytes, int64(i*sizeOfWrite))
@@ -629,7 +629,6 @@ func TestDatabaseWAL_HeavyWrite(t *testing.T) {
 			}
 
 			if !bytes.Equal(writes[i], readBytes) {
-				log.Println("Expected", writes[i], "got", readBytes)
 				t.Fatalf("Expected data to be equal for iteration %d", i)
 			}
 		}

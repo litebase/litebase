@@ -156,7 +156,6 @@ func (r *RollbackLog) Commit(offset int64, size int64) error {
 		// panic because this is a critical error. The rollback log is corrupted
 		// and we cannot continue.
 		return err
-
 	}
 
 	// Update the frame entry with the new offset

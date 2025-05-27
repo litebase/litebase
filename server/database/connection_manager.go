@@ -333,7 +333,15 @@ func (c *ConnectionManager) Release(databaseId string, branchId string, clientCo
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	if clientConnection == nil {
+		return
+	}
+
 	if c.databases[databaseId] == nil {
+		return
+	}
+
+	if c.databases[databaseId].branches[branchId] == nil {
 		return
 	}
 

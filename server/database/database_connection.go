@@ -290,6 +290,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 // Close the database connection.
 func (con *DatabaseConnection) Close() error {
 	var err error
+
 	// Ensure all statements are finalized before closing the connection.
 	con.statements.Range(func(key any, statement any) bool {
 		err = statement.(Statement).Sqlite3Statement.Finalize()

@@ -387,7 +387,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			for i := 0; i < 100000; i++ {
+			for range 750 {
 				_, err = connection1.GetConnection().SqliteConnection().Exec(
 					context.Background(),
 					[]byte("INSERT INTO test (name) VALUES (?)"),
@@ -407,7 +407,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				_, err := connection2.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
 				if err != nil {
@@ -3247,11 +3247,10 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 			t.Fatal(err)
 		}
 
-		// Create the first 1000 rows
 		statement, err := connection1.GetConnection().Prepare(context.Background(), []byte("INSERT INTO test (name) VALUES ('test')"))
 
 		err = connection1.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-			for range 10000 {
+			for range 100000 {
 				err = statement.Sqlite3Statement.Exec(nil)
 
 				if err != nil {

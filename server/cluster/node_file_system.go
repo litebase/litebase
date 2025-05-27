@@ -66,15 +66,15 @@ func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 	cluster.fileSystemMutex.Lock()
 	defer cluster.fileSystemMutex.Unlock()
 
-	if cluster.sharedFileSystem == nil {
-		cluster.sharedFileSystem = storage.NewFileSystem(
+	if cluster.networkFileSystem == nil {
+		cluster.networkFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
 				cluster.Config.NetworkStoragePath,
 			),
 		)
 	}
 
-	return cluster.sharedFileSystem
+	return cluster.networkFileSystem
 }
 
 func (cluster *Cluster) ShutdownStorage() {
@@ -86,8 +86,8 @@ func (cluster *Cluster) ShutdownStorage() {
 		cluster.objectFileSystem.Shutdown()
 	}
 
-	if cluster.sharedFileSystem != nil {
-		cluster.sharedFileSystem.Shutdown()
+	if cluster.networkFileSystem != nil {
+		cluster.networkFileSystem.Shutdown()
 	}
 
 	if cluster.tieredFileSystem != nil {
