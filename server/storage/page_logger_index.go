@@ -63,8 +63,8 @@ func NewPageLoggerIndex(networkFS *FileSystem, path string) (*PageLoggerIndex, e
 }
 
 func (pli *PageLoggerIndex) Close() error {
-	// pli.mutex.Lock()
-	// defer pli.mutex.Unlock()
+	pli.mutex.Lock()
+	defer pli.mutex.Unlock()
 
 	if pli.file != nil {
 		defer func() {
@@ -107,14 +107,6 @@ func (pli *PageLoggerIndex) Find(pageGroup PageGroup, pageNumber PageNumber, ver
 	pli.mutex.Lock()
 	defer pli.mutex.Unlock()
 
-	// if len(pli.pageGroups) == 0 {
-	// 	err := pli.load()
-
-	// 	if err != nil {
-	// 		log.Println("Error loading page logger index:", err)
-	// 		return 0, false, err
-	// 	}
-	// }
 	if _, ok := pli.pageGroups[pageGroup]; ok {
 		pageGroupVersions := make([]PageGroupVersion, 0)
 
@@ -263,16 +255,8 @@ func (pli *PageLoggerIndex) load() error {
 }
 
 func (pli *PageLoggerIndex) Push(pageGroup PageGroup, pageNumber PageNumber, version PageGroupVersion) error {
-	// pli.mutex.Lock()
-	// defer pli.mutex.Unlock()
-
-	// if len(pli.pageGroups) == 0 {
-	// 	err := pli.load()
-
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	pli.mutex.Lock()
+	defer pli.mutex.Unlock()
 
 	if pli.pageGroups[pageGroup] == nil {
 		pli.pageGroups[pageGroup] = make(map[PageGroupVersion][]PageNumber)
@@ -293,14 +277,6 @@ func (pli *PageLoggerIndex) Push(pageGroup PageGroup, pageNumber PageNumber, ver
 }
 
 func (pli *PageLoggerIndex) removePageLogs(pageLogEntries []PageLogEntry) error {
-	// if len(pli.pageGroups) == 0 {
-	// 	err := pli.load()
-
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	for _, entry := range pageLogEntries {
 		if pli.pageGroups[entry.pageGroup] == nil {
 			continue
