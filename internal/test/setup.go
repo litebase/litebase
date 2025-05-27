@@ -110,8 +110,6 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 			callback()
 		}
 
-		// time.Sleep(100 * time.Millisecond)
-
 		// Remove the data path
 		os.RemoveAll(dataPath)
 	})

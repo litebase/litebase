@@ -227,11 +227,6 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 }
 
 func (pl *PageLogger) load() error {
-	start := time.Now()
-	defer func() {
-		log.Printf("Page logger load took %s", time.Since(start))
-	}()
-
 	// Reinitialize the logs map
 	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
 

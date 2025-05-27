@@ -13,26 +13,18 @@ type FileSystemLockEntry struct {
 }
 
 type FileSystemLock struct {
-	lock *sync.Map // map[string]*FileSystemLockEntry
+	lock *sync.Map
 }
 
+// Create a new FileSystemLock instance.
 func NewFileSystemLock() *FileSystemLock {
 	return &FileSystemLock{
 		lock: &sync.Map{},
 	}
 }
 
-func (fsl *FileSystemLock) deleteLockIfUnused(path string) {
-	if entry, ok := fsl.lock.Load(path); ok {
-		lock := entry.(*FileSystemLockEntry)
-
-		if lock.count == 0 {
-			fsl.lock.Delete(path)
-		}
-	}
-}
-
-func (fsl *FileSystemLock) acquireAccessLocks(path string) []*FileSystemLockEntry {
+// Acquire a access locks for the specified path.
+func (fsl *FileSystemLock) AcquireAccessLocks(path string) []*FileSystemLockEntry {
 	parts := strings.Split(path, "/")
 
 	var acquired []*FileSystemLockEntry
@@ -44,7 +36,7 @@ func (fsl *FileSystemLock) acquireAccessLocks(path string) []*FileSystemLockEntr
 		}
 
 		currentPath += part
-		entry := fsl.getLockEntry(currentPath)
+		entry := fsl.GetLockEntry(currentPath)
 		entry.mutex.RLock()
 		entry.count++
 		acquired = append(acquired, entry)
@@ -53,7 +45,8 @@ func (fsl *FileSystemLock) acquireAccessLocks(path string) []*FileSystemLockEntr
 	return acquired
 }
 
-func (fsl *FileSystemLock) acquireDeleteLocks(path string) []*FileSystemLockEntry {
+// Acquire a locks for deleting a path and all its parent directories.
+func (fsl *FileSystemLock) AcquireDeleteLocks(path string) []*FileSystemLockEntry {
 	parts := strings.Split(strings.TrimRight(path, "/"), "/")
 	var acquired []*FileSystemLockEntry
 	currentPath := ""
@@ -64,7 +57,7 @@ func (fsl *FileSystemLock) acquireDeleteLocks(path string) []*FileSystemLockEntr
 		}
 
 		currentPath += part
-		entry := fsl.getLockEntry(currentPath)
+		entry := fsl.GetLockEntry(currentPath)
 		entry.mutex.Lock()
 		entry.count++
 		acquired = append(acquired, entry)
@@ -73,8 +66,9 @@ func (fsl *FileSystemLock) acquireDeleteLocks(path string) []*FileSystemLockEntr
 	return acquired
 }
 
-func (fsl *FileSystemLock) acquirePathReadLock(path string) *FileSystemLockEntry {
-	lock := fsl.getLockEntry(path)
+// Acquire a read lock for the specified path.
+func (fsl *FileSystemLock) AcquirePathReadLock(path string) *FileSystemLockEntry {
+	lock := fsl.GetLockEntry(path)
 
 	lock.mutex.RLock()
 	lock.count++
@@ -82,8 +76,9 @@ func (fsl *FileSystemLock) acquirePathReadLock(path string) *FileSystemLockEntry
 	return lock
 }
 
-func (fsl *FileSystemLock) acquirePathWriteLock(path string) *FileSystemLockEntry {
-	lock := fsl.getLockEntry(path)
+// Acquire a write lock for the specified path.
+func (fsl *FileSystemLock) AcquirePathWriteLock(path string) *FileSystemLockEntry {
+	lock := fsl.GetLockEntry(path)
 
 	lock.mutex.Lock()
 	lock.count++
@@ -91,7 +86,19 @@ func (fsl *FileSystemLock) acquirePathWriteLock(path string) *FileSystemLockEntr
 	return lock
 }
 
-func (fsl *FileSystemLock) getLockEntry(path string) *FileSystemLockEntry {
+// Remove a lock entry if it is not in use anymore.
+func (fsl *FileSystemLock) DeleteLockIfUnused(path string) {
+	if entry, ok := fsl.lock.Load(path); ok {
+		lock := entry.(*FileSystemLockEntry)
+
+		if lock.count == 0 {
+			fsl.lock.Delete(path)
+		}
+	}
+}
+
+// Get the lock entry for the specified path, creating it if it does not exist.
+func (fsl *FileSystemLock) GetLockEntry(path string) *FileSystemLockEntry {
 	entry, _ := fsl.lock.LoadOrStore(path, &FileSystemLockEntry{
 		path: path,
 	})
@@ -99,32 +106,36 @@ func (fsl *FileSystemLock) getLockEntry(path string) *FileSystemLockEntry {
 	return entry.(*FileSystemLockEntry)
 }
 
-func (fsl *FileSystemLock) releaseAccessLocks(locks []*FileSystemLockEntry) {
+// Release the access locks acquired for the specified path.
+func (fsl *FileSystemLock) ReleaseAccessLocks(locks []*FileSystemLockEntry) {
 	for _, lock := range locks {
 		lock.mutex.RUnlock()
 		lock.count--
 
-		go fsl.deleteLockIfUnused(lock.path)
+		go fsl.DeleteLockIfUnused(lock.path)
 	}
 }
 
-func (fsl *FileSystemLock) releaseDeleteLocks(locks []*FileSystemLockEntry) {
+// Release the delete locks acquired for the specified path and its parents.
+func (fsl *FileSystemLock) ReleaseDeleteLocks(locks []*FileSystemLockEntry) {
 	for _, lock := range locks {
 		lock.mutex.Unlock()
 		lock.count--
 
-		go fsl.deleteLockIfUnused(lock.path)
+		go fsl.DeleteLockIfUnused(lock.path)
 	}
 }
 
-func (fsl *FileSystemLock) releasePathReadLock(lock *FileSystemLockEntry) {
+// Release the read or write lock for the specified path.
+func (fsl *FileSystemLock) ReleasePathReadLock(lock *FileSystemLockEntry) {
 	lock.mutex.RUnlock()
 	lock.count--
-	go fsl.deleteLockIfUnused(lock.path)
+	go fsl.DeleteLockIfUnused(lock.path)
 }
 
-func (fsl *FileSystemLock) releasePathWriteLock(lock *FileSystemLockEntry) {
+// Release the write lock for the specified path.
+func (fsl *FileSystemLock) ReleasePathWriteLock(lock *FileSystemLockEntry) {
 	lock.mutex.Unlock()
 	lock.count--
-	go fsl.deleteLockIfUnused(lock.path)
+	go fsl.DeleteLockIfUnused(lock.path)
 }

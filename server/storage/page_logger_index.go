@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
-	"time"
 
 	"github.com/litebase/litebase/internal/storage"
 )
@@ -160,10 +159,6 @@ func (pli *PageLoggerIndex) getPageGroupByTimestamp(pageVersion PageVersion) []P
 
 // Load the index data from binary data.
 func (pli *PageLoggerIndex) load() error {
-	start := time.Now()
-	defer func() {
-		log.Printf("PageLoggerIndex load took %s", time.Since(start))
-	}()
 	file := pli.File()
 
 	if file == nil {
