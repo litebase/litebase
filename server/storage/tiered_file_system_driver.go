@@ -281,7 +281,6 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 			return
 		}
 
-		log.Println("Error writing file to durable storage", err)
 		return
 	}
 

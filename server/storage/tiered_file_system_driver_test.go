@@ -943,8 +943,6 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		if os.Getenv("TEST_RUN") == "" {
 			cmd := exec.Command("go", "test", "-run", "TestTieredFileSystemDriver_SyncDirtyFiles")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
 			cmd.Env = append(os.Environ(), "TEST_RUN=1", fmt.Sprintf("LITEBASE_TEST_DATA_PATH=%s", app.Config.DataPath), fmt.Sprintf("LITEBASE_TEST_SIGNATURE=%s", app.Config.Signature))
 			err := cmd.Run()
 
