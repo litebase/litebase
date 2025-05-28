@@ -185,8 +185,8 @@ func TestTieredFile_Read(t *testing.T) {
 			t.Error(err)
 		}
 
-		if string(buf[:n]) == "Hello, World!" {
-			t.Error("Read content should be empty since has not been synced")
+		if string(buf[:n]) != "Hello, World!" {
+			t.Error("Read content is unexpected after reopening: " + string(buf[:n]))
 		}
 	})
 }
