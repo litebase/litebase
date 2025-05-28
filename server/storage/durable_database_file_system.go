@@ -325,11 +325,6 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 
 // Write to the DurableDatabaseFileSystem at the specified offset at a timestamp.
 func (dfs *DurableDatabaseFileSystem) WriteAt(timestamp int64, data []byte, offset int64) (n int, err error) {
-	// start := time.Now()
-	// defer func() {
-	// 	log.Printf("DFS WriteAt took %s", time.Since(start))
-	// }()
-
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 

@@ -36,6 +36,11 @@ func TestDurableDatabaseFileSystem_Compact(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
+		storage.PageLoggerCompactInterval = 0
+		defer func() {
+			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
+		}()
+
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
 			app.Cluster.LocalFS(),
@@ -377,6 +382,11 @@ func TestDurableDatabaseFileSystemShutdown(t *testing.T) {
 func TestDurableDatabaseFileSystemTruncate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
+
+		storage.PageLoggerCompactInterval = 0
+		defer func() {
+			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
+		}()
 
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.LocalFS(),
