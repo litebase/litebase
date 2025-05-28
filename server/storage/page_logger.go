@@ -116,9 +116,9 @@ func (pl *PageLogger) Compact(
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
 
-	// if PageLoggerCompactInterval != 0 && (!pl.CompactedAt.IsZero() || pl.CompactedAt.Before(time.Now().Add(-PageLoggerCompactInterval))) {
-	// 	return nil
-	// }
+	if PageLoggerCompactInterval != 0 && (!pl.CompactedAt.IsZero() || pl.CompactedAt.Before(time.Now().Add(-PageLoggerCompactInterval))) {
+		return nil
+	}
 
 	if len(pl.logs) == 0 {
 		return nil

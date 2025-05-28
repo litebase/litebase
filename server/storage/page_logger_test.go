@@ -236,7 +236,69 @@ func TestPageLogger_Read(t *testing.T) {
 	})
 }
 
-func TestPageLogger_Read_WhileCompacting(t *testing.T) {
+func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		storage.PageLoggerCompactInterval = 0
+		defer func() {
+			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
+		}()
+
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseId,
+			db.BranchId,
+			app.Cluster.LocalFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		if pageLogger == nil {
+			t.Fatal("Expected page logger to be created, but got nil")
+		}
+
+		write := make([]byte, 4096)
+		read := make([]byte, 4096)
+		rand.Read(write)
+
+		for _, version := range []int64{1, 2, 3} {
+			for i := range 8192 {
+				_, err := pageLogger.Write(int64(i+1), version, write)
+
+				if err != nil {
+					t.Fatalf("Failed to write page: %v", err)
+				}
+			}
+		}
+
+		// Compaction will run since the compaction interval has passed
+		err = pageLogger.Compact(
+			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to compact page logger: %v", err)
+		}
+
+		for _, version := range []int64{1, 2, 3} {
+			for i := range 8192 {
+				found, _, err := pageLogger.Read(int64(i+1), version, read)
+
+				if err != nil {
+					t.Fatalf("Failed to read page: %v", err)
+				}
+
+				if found {
+					t.Fatalf("Expected no to find page data. Page: %d, Version: %d", int64(i+1), version)
+				}
+			}
+		}
+	})
+}
+
+func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
 
@@ -268,6 +330,7 @@ func TestPageLogger_Read_WhileCompacting(t *testing.T) {
 			}
 		}
 
+		// Compaction will not run because of the compaction interval has not passed
 		err = pageLogger.Compact(
 			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
 		)
