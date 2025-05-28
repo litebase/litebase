@@ -13,14 +13,13 @@ import (
 )
 
 func TestNewObjectFile(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewObjectFileSystemDriver(
 			app.Config,
 		)
 		key := "test.txt"
-		openFlags := 0
 
-		of, err := storage.NewObjectFile(client, key, openFlags, false)
+		of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -42,7 +41,7 @@ func TestNewObjectFile(t *testing.T) {
 			t.Error("FileInfo is nil")
 		}
 
-		if of.OpenFlags != openFlags {
+		if of.OpenFlags != os.O_CREATE|os.O_RDWR {
 			t.Errorf("OpenFlags is unexpected: %v", of.OpenFlags)
 		}
 
@@ -61,9 +60,8 @@ func TestObjectFileClose(t *testing.T) {
 				app.Config,
 			)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -77,13 +75,10 @@ func TestObjectFileClose(t *testing.T) {
 		})
 
 		t.Run("data unchanged", func(t *testing.T) {
-			client := storage.NewObjectFileSystemDriver(
-				app.Config,
-			)
+			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -100,13 +95,10 @@ func TestObjectFileClose(t *testing.T) {
 		})
 
 		t.Run("data changed", func(t *testing.T) {
-			client := storage.NewObjectFileSystemDriver(
-				app.Config,
-			)
+			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
-			openFlags := os.O_RDWR
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -126,11 +118,8 @@ func TestObjectFileClose(t *testing.T) {
 func TestObjectFileRead(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		t.Run("no data", func(t *testing.T) {
-			client := storage.NewObjectFileSystemDriver(
-				app.Config,
-			)
+			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
-			openFlags := 0
 
 			err := app.Cluster.ObjectFS().WriteFile(key, []byte{}, 0644)
 
@@ -138,7 +127,7 @@ func TestObjectFileRead(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -157,11 +146,8 @@ func TestObjectFileRead(t *testing.T) {
 		})
 
 		t.Run("with data", func(t *testing.T) {
-			client := storage.NewObjectFileSystemDriver(
-				app.Config,
-			)
+			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
-			openFlags := 0644
 
 			err := app.Cluster.ObjectFS().WriteFile(key, []byte("test data"), 0644)
 
@@ -169,7 +155,7 @@ func TestObjectFileRead(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -192,13 +178,10 @@ func TestObjectFileRead(t *testing.T) {
 		})
 
 		t.Run("read beyond data", func(t *testing.T) {
-			client := storage.NewObjectFileSystemDriver(
-				app.Config,
-			)
+			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -231,9 +214,8 @@ func TestObjectFileReadAt(t *testing.T) {
 				app.Config,
 			)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -252,13 +234,10 @@ func TestObjectFileReadAt(t *testing.T) {
 		})
 
 		t.Run("with data", func(t *testing.T) {
-			client := storage.NewObjectFileSystemDriver(
-				app.Config,
-			)
+			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -287,9 +266,8 @@ func TestObjectFileReadAt(t *testing.T) {
 				app.Config,
 			)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -322,9 +300,8 @@ func TestObjectFileSeek(t *testing.T) {
 				app.Config,
 			)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -342,13 +319,10 @@ func TestObjectFileSeek(t *testing.T) {
 		})
 
 		t.Run("with data", func(t *testing.T) {
-			client := storage.NewObjectFileSystemDriver(
-				app.Config,
-			)
+			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
-			openFlags := 0
 
-			of, err := storage.NewObjectFile(client, key, openFlags, false)
+			of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -391,13 +365,10 @@ func TestObjectFileSeek(t *testing.T) {
 
 func TestObjectFileStat(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		client := storage.NewObjectFileSystemDriver(
-			app.Config,
-		)
+		client := storage.NewObjectFileSystemDriver(app.Config)
 		key := "test.txt"
-		openFlags := 0
 
-		of, err := storage.NewObjectFile(client, key, openFlags, false)
+		of, err := storage.NewObjectFile(client, key, os.O_CREATE|os.O_RDWR, false)
 
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -473,7 +444,7 @@ func TestObjectFileTruncate(t *testing.T) {
 }
 
 func TestObjectFileWithData(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
+	test.RunWithObjectStorage(t, func(app *server.App) {
 		client := storage.NewObjectFileSystemDriver(
 			app.Config,
 		)
