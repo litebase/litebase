@@ -72,18 +72,17 @@ func MockDatabase(app *server.App) TestDatabase {
 }
 
 func RunQuery(db *database.ClientConnection, statement []byte, parameters []sqlite3.StatementParameter) sqlite3.Result {
-	sqliteStatement, _, err := db.GetConnection().SqliteConnection().Prepare(db.GetConnection().Context(), statement)
+	s, err := db.GetConnection().Prepare(db.GetConnection().Context(), statement)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	result := db.GetConnection().ResultPool().Get()
-	defer db.GetConnection().ResultPool().Put(result)
+	result := sqlite3.NewResult()
 
 	err = db.GetConnection().Query(
 		result,
-		sqliteStatement,
+		s.Sqlite3Statement,
 		parameters,
 	)
 

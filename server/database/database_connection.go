@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"hash/crc32"
 	"log"
+	"log/slog"
 	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/server/auth"
-	"github.com/litebase/litebase/server/constants"
 	"github.com/litebase/litebase/server/file"
 	"github.com/litebase/litebase/server/sqlite3"
 	"github.com/litebase/litebase/server/storage"
@@ -159,8 +159,9 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// properly reporting the page count of the database.
 		[]byte("PRAGMA wal_autocheckpoint=0"),
 
-		// PRAGMA synchronous=NORMAL will ensure that the database is durable
-		// by writing to the WAL file before the transaction is committed.
+		// PRAGMA synchronous=NORMAL will ensure that writes to the the database
+		// WAL are durable by flushing writes to storage at critical points
+		// during database operations.
 		[]byte("PRAGMA synchronous=NORMAL"),
 
 		// PRAGMA busy_timeout will set the timeout for waiting for a lock
@@ -379,7 +380,7 @@ func (con *DatabaseConnection) Query(result *sqlite3.Result, statement *sqlite3.
 	})
 
 	if err != nil {
-		log.Println("Error executing query:", err, err == constants.ServerErrors[constants.ErrSnapshotConflict])
+		slog.Error("Error executing query", "error", err)
 	}
 
 	return err
@@ -619,7 +620,7 @@ func (con *DatabaseConnection) Transaction(
 }
 
 func (con *DatabaseConnection) VFSDatabaseHash() string {
-	return fmt.Sprintf("%s:%s", con.nodeId, con.databaseHash)
+	return fmt.Sprintf("%d:%s", con.nodeId, con.databaseHash)
 }
 
 // Return the VFS hash for the connection.

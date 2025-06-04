@@ -1,12 +1,10 @@
 package database
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -22,33 +20,28 @@ import (
 )
 
 var (
-	DatabaseWALBufferSizeLimit = 1024 * 1024 // 1MB
-	DatabaseWALSyncInterval    = 100 * time.Millisecond
+	DatabaseWALSyncInterval = 100 * time.Millisecond
 )
 
-type WriteBufferEntry [2]int64
-
 type DatabaseWAL struct {
-	BranchId         string
-	cache            *cache.LFUCache
-	createdAt        time.Time
-	DatabaseId       string
-	checkpointedAt   time.Time
-	checkpointing    bool
-	file             internalStorage.File
-	fileSystem       *storage.FileSystem
-	hash             string
-	lastKnownSize    int64
-	lastSyncTime     time.Time
-	lastWriteTime    time.Time
-	mutex            *sync.RWMutex
-	node             *cluster.Node
-	Path             string
-	syncMutex        *sync.Mutex
-	timestamp        int64
-	walManager       *DatabaseWALManager
-	writeBuffer      *bytes.Buffer
-	writeBufferIndex map[int64]WriteBufferEntry
+	BranchId       string
+	cache          *cache.LFUCache
+	createdAt      time.Time
+	DatabaseId     string
+	checkpointedAt time.Time
+	checkpointing  bool
+	file           internalStorage.File
+	fileSystem     *storage.FileSystem
+	hash           string
+	lastKnownSize  int64
+	lastSyncTime   time.Time
+	lastWriteTime  time.Time
+	mutex          *sync.RWMutex
+	node           *cluster.Node
+	Path           string
+	syncMutex      *sync.Mutex
+	timestamp      int64
+	walManager     *DatabaseWALManager
 }
 
 func NewDatabaseWAL(
@@ -61,21 +54,19 @@ func NewDatabaseWAL(
 	timestamp int64,
 ) *DatabaseWAL {
 	return &DatabaseWAL{
-		BranchId:         branchId,
-		cache:            cache.NewLFUCache(1000),
-		createdAt:        time.Now(),
-		DatabaseId:       databaseId,
-		fileSystem:       fileSystem,
-		lastKnownSize:    -1,
-		lastSyncTime:     time.Time{},
-		mutex:            &sync.RWMutex{},
-		node:             node,
-		Path:             fmt.Sprintf("%slogs/wal/WAL_%d", file.GetDatabaseFileBaseDir(databaseId, branchId), timestamp),
-		syncMutex:        &sync.Mutex{},
-		timestamp:        timestamp,
-		walManager:       walManager,
-		writeBuffer:      &bytes.Buffer{},
-		writeBufferIndex: make(map[int64]WriteBufferEntry),
+		BranchId:      branchId,
+		cache:         cache.NewLFUCache(1000),
+		createdAt:     time.Now(),
+		DatabaseId:    databaseId,
+		fileSystem:    fileSystem,
+		lastKnownSize: -1,
+		lastSyncTime:  time.Time{},
+		mutex:         &sync.RWMutex{},
+		node:          node,
+		Path:          fmt.Sprintf("%slogs/wal/WAL_%d", file.GetDatabaseFileBaseDir(databaseId, branchId), timestamp),
+		syncMutex:     &sync.Mutex{},
+		timestamp:     timestamp,
+		walManager:    walManager,
 	}
 }
 
@@ -160,36 +151,6 @@ tryOpen:
 	return wal.file, nil
 }
 
-// Flush the buffer to the file
-func (wal *DatabaseWAL) flushBuffer() error {
-	file, err := wal.File()
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	_, err = file.Seek(0, io.SeekEnd)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	// Write the buffer contents to the file
-	_, err = file.Write(wal.writeBuffer.Bytes())
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	// Reset the buffer
-	wal.writeBuffer.Reset()
-
-	return nil
-}
-
 func (wal *DatabaseWAL) Hash() string {
 	if wal.hash != "" {
 		return wal.hash
@@ -227,8 +188,6 @@ func (wal *DatabaseWAL) performAsynchronousSync() {
 
 		wal.mutex.Lock()
 
-		wal.flushBuffer()
-
 		defer func() {
 			wal.mutex.Unlock()
 			log.Println("Async WAL file sync took", time.Since(start))
@@ -265,14 +224,6 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 		// 	log.Println("WAL file read", off, time.Since(start))
 		// }()
 		return copy(p, data.([]byte)), nil
-	}
-
-	// Check if the data is in the write buffer
-	if wal.writeBuffer.Len() > 0 {
-		if entry, ok := wal.writeBufferIndex[off]; ok {
-			// Read from the write buffer
-			return copy(p, wal.writeBuffer.Bytes()[entry[0]:entry[1]]), nil
-		}
 	}
 
 	file, err := wal.File()
@@ -331,10 +282,6 @@ func (wal *DatabaseWAL) shouldSync() bool {
 		return false
 	}
 
-	if wal.writeBuffer.Len() >= DatabaseWALBufferSizeLimit {
-		return true
-	}
-
 	if time.Since(wal.createdAt) < DatabaseWALSyncInterval {
 		return false
 	}
@@ -374,25 +321,20 @@ func (wal *DatabaseWAL) Sync() error {
 		return errors.New("cannot sync WAL file on replica node")
 	}
 
-	// Only sync if the file has been written to after the last sync, or if the buffer is not empty
-	if wal.lastWriteTime.IsZero() || wal.lastSyncTime.After(wal.lastWriteTime) || wal.writeBuffer.Len() == 0 {
-		log.Println("WAL file has not been written to since last sync, skipping sync")
-		return nil
-	}
-
 	wal.syncMutex.Lock()
 	defer wal.syncMutex.Unlock()
 
 	wal.mutex.Lock()
 	defer wal.mutex.Unlock()
 
-	err := wal.flushBuffer()
+	file, err := wal.File()
 
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
-	return nil
+	return file.Sync()
 }
 
 func (wal *DatabaseWAL) Timestamp() int64 {
@@ -419,33 +361,20 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 	wal.mutex.Lock()
 	defer wal.mutex.Unlock()
 
-	writeBufferStartIndex := wal.writeBuffer.Len()
-	writeBufferEndIndex := writeBufferStartIndex + len(p)
-
-	n, err = wal.writeBuffer.Write(p)
-
-	if err != nil {
-		log.Println(err)
-		return n, err
-	}
-
-	wal.writeBufferIndex[off] = WriteBufferEntry{int64(writeBufferStartIndex), int64(writeBufferEndIndex)}
-
 	wal.lastWriteTime = time.Now()
 
 	cacheKey := fmt.Sprintf("%d", off)
 
 	err = wal.cache.Put(cacheKey, slices.Clone(p))
 
-	// If the buffer exceeds the size limit, flush and sync
-	if wal.writeBuffer.Len() >= DatabaseWALBufferSizeLimit {
-		err = wal.flushBuffer()
+	file, err := wal.File()
 
-		if err != nil {
-			log.Println(err)
-			return n, err
-		}
+	if err != nil {
+		log.Println(err)
+		return 0, err
 	}
+
+	n, err = file.WriteAt(p, off)
 
 	if wal.shouldSync() {
 		wal.performAsynchronousSync()

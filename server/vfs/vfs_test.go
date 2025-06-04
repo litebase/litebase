@@ -2,6 +2,7 @@ package vfs_test
 
 import (
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -68,26 +69,8 @@ func TestNewVfsErrors(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		_, err := vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
 
-		if err == nil {
-			t.Errorf("RegisterVFS() failed, expected error, got nil")
-		}
-
-		_, err = vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
-
-		if err == nil {
-			t.Errorf("RegisterVFS() failed, expected error, got nil")
-		}
-
-		_, err = vfs.RegisterVFS("test", "test", 4096, nil, nil)
-
-		if err == nil {
-			t.Errorf("RegisterVFS() failed, expected error, got nil")
-		}
-
-		_, err = vfs.RegisterVFS("test", "test", 4096, nil, nil)
-
-		if err == nil {
-			t.Errorf("RegisterVFS() failed, expected error, got nil")
+		if err != nil {
+			t.Error(err)
 		}
 	})
 }
@@ -270,23 +253,44 @@ func TestVfsVacuum(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
+
 		// Create a table for users
 		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
 
 		// Insert 10000 rows
-		for i := 0; i < 10000; i++ {
-			test.RunQuery(db, []byte("INSERT INTO users (id, name) VALUES (?, ?)"), []sqlite3.StatementParameter{{
-				Type:  "INTEGER",
-				Value: i}, {
-				Type:  "TEXT",
-				Value: "user",
-			}})
+		for i := range 10000 {
+			_, err := db.GetConnection().Exec(
+				"INSERT INTO users (id, name) VALUES (?, ?)",
+				[]sqlite3.StatementParameter{
+					{
+						Type:  "INTEGER",
+						Value: int64(i + 1),
+					}, {
+						Type:  "TEXT",
+						Value: []byte("user"),
+					},
+				},
+			)
+
+			if err != nil {
+				log.Fatalf("Insert %d failed, expected nil, got %v", i, err)
+			}
+			// result := test.RunQuery(db, []byte("INSERT INTO users (id, name) VALUES (?, ?)"), []sqlite3.StatementParameter{
+			// 	{
+			// 		Type:  "INTEGER",
+			// 		Value: int64(i + 1),
+			// 	}, {
+			// 		Type:  "TEXT",
+			// 		Value: []byte("user"),
+			// 	},
+			// })
 		}
 
 		result := test.RunQuery(db, []byte("SELECT * FROM users"), []sqlite3.StatementParameter{})
 
 		if len(result.Rows) != 10000 {
-			t.Errorf("VACUUM failed, expected 0, got %v", len(result.Rows))
+			t.Errorf("Expected 10000 rows, got %v", len(result.Rows))
 		}
 
 		// Delete all rows

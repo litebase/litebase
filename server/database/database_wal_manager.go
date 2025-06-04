@@ -135,7 +135,6 @@ func (w *DatabaseWALManager) Create() (*DatabaseWAL, error) {
 
 // Create a new WAL version
 func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
-	// TODO: This may fail if the node election is in progress (think about solution)
 	if w.node.IsReplica() {
 		return nil, ErrCreateWALVersionOnReplica
 	}
@@ -287,15 +286,10 @@ func (w *DatabaseWALManager) IsLatestVersion(timestamp int64) bool {
 		}
 	}
 
-	// log.Println("latestVersion", latestVersion, "timestamp", timestamp, latestVersion == timestamp)
 	return latestVersion == timestamp
 }
 
 func (w *DatabaseWALManager) ReadAt(timestamp int64, p []byte, off int64) (n int, err error) {
-	// start := time.Now()
-	// defer func() {
-	// 	log.Println("ReadAt took", time.Since(start))
-	// }()
 	w.mutext.RLock()
 	defer w.mutext.RUnlock()
 
@@ -510,8 +504,6 @@ func (w *DatabaseWALManager) Size(timestamp int64) (int64, error) {
 }
 
 func (w *DatabaseWALManager) Sync(timestamp int64) error {
-	start := time.Now()
-
 	w.mutext.RLock()
 	defer w.mutext.RUnlock()
 
@@ -520,9 +512,7 @@ func (w *DatabaseWALManager) Sync(timestamp int64) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		log.Println("Sync took", time.Since(start))
-	}()
+
 	return wal.Sync()
 }
 
@@ -558,10 +548,6 @@ func (w *DatabaseWALManager) WaitForCheckpointing() {
 }
 
 func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n int, err error) {
-	// start := time.Now()
-	// defer func() {
-	// 	log.Println("WriteAt took", time.Since(start))
-	// }()
 	w.mutext.RLock()
 	defer w.mutext.RUnlock()
 

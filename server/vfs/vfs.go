@@ -44,6 +44,7 @@ type LitebaseVFS struct {
 	shm        *ShmMemory
 }
 
+// Register a new VFS instance for a database connection.
 func RegisterVFS(
 	vfsHash string,
 	vfsDatabaseHash string,
@@ -93,6 +94,7 @@ func RegisterVFS(
 	return l, nil
 }
 
+// Remove a VFS instance from the registry by its ID.
 func UnregisterVFS(vfsId string) error {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
@@ -129,19 +131,23 @@ func UnregisterVFS(vfsId string) error {
 	return nil
 }
 
+// Check if a VFS is registered by its ID.
 func VFSIsRegistered(vfsId string) bool {
 	vfsPointer := C.sqlite3_vfs_find(C.CString(vfsId))
 
 	return vfsPointer != nil
 }
 
-func (vfs *LitebaseVFS) GetWALShmRegions() []*ShmRegion {
+// TOOD: Do we need this?
+func (vfs *LitebaseVFS) getWALShmRegions() []*ShmRegion {
 	vfsMutex.RLock()
 	defer vfsMutex.RUnlock()
 
 	return vfs.shm.regions
 }
 
+// Set the timestamp for the VFS instance. This timestamp is used to
+// consistently interact with the file system and WAL.
 func (vfs *LitebaseVFS) SetTimestamp(timestamp int64) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
@@ -149,7 +155,8 @@ func (vfs *LitebaseVFS) SetTimestamp(timestamp int64) {
 	vfs.timestamp = timestamp
 }
 
-func (vfs *LitebaseVFS) SetWALShmRegions(regions []*ShmRegion) {
+// TODO: Do we need this?
+func (vfs *LitebaseVFS) setWALShmRegions(regions []*ShmRegion) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
