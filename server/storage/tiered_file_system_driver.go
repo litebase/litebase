@@ -226,10 +226,11 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 	return newFile, nil
 }
 
+// Flush all files to the low tier file system
 func (fsd *TieredFileSystemDriver) Flush() error {
-	// fsd.mutex.Lock()
-	// defer fsd.mutex.Unlock()
-	// Flush all files to durable storage
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
 	return fsd.flushFiles()
 }
 

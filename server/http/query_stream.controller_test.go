@@ -126,7 +126,7 @@ func openQueryStreamConnection(
 
 				var messageLengthBytes [4]byte
 				binary.LittleEndian.PutUint32(messageLengthBytes[:], uint32(len(buffer)))
-				writer.Write(messageLengthBytes[:])
+				_, err = writer.Write(messageLengthBytes[:])
 
 				if err != nil {
 					log.Println("Error writing buffer to writer", err)
@@ -229,7 +229,7 @@ func openQueryStreamConnection(
 
 func TestQueryStreamController(t *testing.T) {
 	test.Run(t, func() {
-		testServer := test.NewTestQueryNode(t)
+		testServer := test.NewTestServer(t)
 		testDatabase := test.MockDatabase(testServer.App)
 
 		testCases := []*database.QueryInput{

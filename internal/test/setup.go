@@ -3,11 +3,11 @@ package test
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"testing"
 
 	"github.com/joho/godotenv"
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/server"
 	"github.com/litebase/litebase/server/cluster"
 	"github.com/litebase/litebase/server/storage"
@@ -64,6 +64,8 @@ func setupTestEnv(t testing.TB) (string, error) {
 
 	t.Setenv("LITEBASE_SIGNATURE", signature)
 
+	slog.SetLogLoggerLevel(slog.LevelError)
+
 	return dataPath, err
 }
 
@@ -74,17 +76,13 @@ func Setup(t testing.TB, callbacks ...func()) (*server.App, string) {
 		callback()
 	}
 
-	configInstance := config.NewConfig()
-
-	app := server.NewApp(configInstance, server.NewServer(configInstance).ServeMux)
+	s := NewTestServer(t.(*testing.T))
 
 	if t != nil && err != nil {
 		t.Fail()
 	}
 
-	app.Cluster.Node().Start()
-
-	return app, dataPath
+	return s.App, dataPath
 }
 
 func SetupWithoutApp(t testing.TB, callbacks ...func()) (string, error) {
@@ -100,16 +98,17 @@ func SetupWithoutApp(t testing.TB, callbacks ...func()) (string, error) {
 func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func()) {
 	t.Cleanup(func() {
 		if app != nil {
-			app.Cluster.Node().Shutdown()
 			app.DatabaseManager.ConnectionManager().Shutdown()
 			app.DatabaseManager.ShutdownResources()
 			storage.Shutdown(app.Config)
+			app.Cluster.Node().Shutdown()
 		}
 
 		for _, callback := range callbacks {
 			callback()
 		}
 
+		// time.Sleep(1000 * time.Millisecond) // Give some time for the shutdown to complete
 		// Remove the data path
 		os.RemoveAll(dataPath)
 	})

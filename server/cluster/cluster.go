@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,28 +19,25 @@ import (
 const (
 	ClusterMembershipPrimary = "PRIMARY"
 	ClusterMembershipReplica = "REPLICA"
-	ClusterMembershipStandBy = "STAND_BY"
-	ElectionRetryWait        = 1 * time.Second
 
-	LeaseDuration  = 70 * time.Second
-	LeaseFile      = "LEASE"
-	Nominationfile = "NOMINATION"
-	PrimaryFile    = "PRIMARY"
+	LeaseDuration = 70 * time.Second
+	LeaseFile     = "LEASE"
+	PrimaryFile   = "PRIMARY"
 )
 
 type Cluster struct {
-	Auth               *auth.Auth
-	AccessKeyManager   *auth.AccessKeyManager
-	channels           map[string]EventChannel
-	Config             *config.Config
+	Auth               *auth.Auth             `json:"-"`
+	AccessKeyManager   *auth.AccessKeyManager `json:"-"`
+	channels           map[string][]func(message *EventMessage)
+	Config             *config.Config `json:"-"`
+	eventsChannel      chan *EventMessage
 	eventsManager      *EventsManager
 	fileSystemMutex    *sync.Mutex
-	Initialized        bool
+	Initialized        bool   `json:"-"`
 	Id                 string `json:"id"`
-	nodeMap            map[string]map[string]struct{}
-	QueryPrimary       string
-	queryNodes         []string
-	MembersRetrievedAt time.Time
+	QueryPrimary       string `json:"-"`
+	nodes              []*NodeIdentifier
+	MembersRetrievedAt time.Time `json:"-"`
 	mutex              *sync.Mutex
 	node               *Node
 
@@ -66,7 +62,7 @@ func getClusterIdFromEnv(config *config.Config) (string, error) {
 
 // Create the directories and files for the cluster.
 func (cluster *Cluster) createDirectoriesAndFiles() error {
-	err := cluster.NetworkFS().MkdirAll("_cluster/query", 0755)
+	err := cluster.NetworkFS().MkdirAll("_cluster/", 0755)
 
 	if err != nil {
 		return err
@@ -78,30 +74,22 @@ func (cluster *Cluster) createDirectoriesAndFiles() error {
 		return err
 	}
 
-	err = cluster.NetworkFS().MkdirAll(cluster.NodeQueryPath(), 0755)
+	err = cluster.NetworkFS().MkdirAll(cluster.NodePath(), 0755)
 
 	if err != nil {
 		return err
 	}
 
-	if _, err := cluster.NetworkFS().Stat(fmt.Sprintf("_cluster/query/%s", Nominationfile)); os.IsNotExist(err) {
-		_, err = cluster.NetworkFS().Create(fmt.Sprintf("_cluster/query/%s", Nominationfile))
+	if _, err := cluster.NetworkFS().Stat(cluster.LeasePath()); os.IsNotExist(err) {
+		_, err = cluster.NetworkFS().Create(cluster.LeasePath())
 
 		if err != nil {
 			return err
 		}
 	}
 
-	if _, err := cluster.NetworkFS().Stat(fmt.Sprintf("_cluster/query/%s", LeaseFile)); os.IsNotExist(err) {
-		_, err = cluster.NetworkFS().Create(fmt.Sprintf("_cluster/query/%s", LeaseFile))
-
-		if err != nil {
-			return err
-		}
-	}
-
-	if _, err := cluster.NetworkFS().Stat(fmt.Sprintf("_cluster/query/%s", PrimaryFile)); os.IsNotExist(err) {
-		_, err = cluster.NetworkFS().Create(fmt.Sprintf("_cluster/query/%s", PrimaryFile))
+	if _, err := cluster.NetworkFS().Stat(cluster.PrimaryPath()); os.IsNotExist(err) {
+		_, err = cluster.NetworkFS().Create(cluster.PrimaryPath())
 
 		if err != nil {
 			return err
@@ -114,19 +102,20 @@ func (cluster *Cluster) createDirectoriesAndFiles() error {
 // Create a new cluster instance.
 func NewCluster(config *config.Config) (*Cluster, error) {
 	cluster := &Cluster{
-		channels:        map[string]EventChannel{},
+		channels:        map[string][]func(message *EventMessage){},
+		eventsChannel:   make(chan *EventMessage, 1000),
 		fileSystemMutex: &sync.Mutex{},
 		Config:          config,
 		mutex:           &sync.Mutex{},
-		nodeMap:         map[string]map[string]struct{}{},
 	}
+
+	cluster.runEventLoop()
 
 	return cluster, nil
 }
 
 // Add a member to the cluster.
-func (cluster *Cluster) AddMember(group, ip string) error {
-	var err error
+func (cluster *Cluster) AddMember(id uint64, address string) error {
 	cluster.GetMembers(false)
 
 	cluster.mutex.Lock()
@@ -137,49 +126,26 @@ func (cluster *Cluster) AddMember(group, ip string) error {
 		cluster.MembersRetrievedAt = time.Time{}
 	}()
 
-	if group == config.NodeTypeQuery {
-		if slices.Contains(cluster.queryNodes, ip) {
-			return nil
-		}
-
-		cluster.nodeMap[config.NodeTypeQuery][ip] = struct{}{}
+	if slices.ContainsFunc(cluster.nodes, func(n *NodeIdentifier) bool {
+		return n.Address == address
+	}) {
+		return nil
 	}
 
-	return err
-}
+	cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, id))
 
-func (cluster *Cluster) AllQueryNodes() []*NodeIdentifier {
-	cluster.GetMembers(true)
-
-	identifiers := make([]*NodeIdentifier, len(cluster.queryNodes))
-
-	for i, node := range cluster.queryNodes {
-		identifiers[i] = NewNodeIdentifier(
-			strings.Split(node, ":")[0],
-			strings.Split(node, ":")[1],
-		)
-	}
-
-	return identifiers
+	return nil
 }
 
 // Get all the members of the cluster.
-func (cluster *Cluster) GetMembers(cached bool) []string {
+func (cluster *Cluster) GetMembers(cached bool) []*NodeIdentifier {
 	cluster.mutex.Lock()
 	defer cluster.mutex.Unlock()
 
 	// Return the known nodes if the last retrieval was less than a minute
 	if cached && time.Since(cluster.MembersRetrievedAt) < 1*time.Minute {
-		return cluster.queryNodes
+		return cluster.nodes
 	}
-
-	cluster.nodeMap = map[string]map[string]struct{}{
-		config.NodeTypeQuery: {},
-	}
-
-	// if !cluster.Initialized || !cluster.node.initialized {
-	// 	return nil
-	// }
 
 	_, err := cluster.NetworkFS().Stat(cluster.NodePath())
 
@@ -193,34 +159,30 @@ func (cluster *Cluster) GetMembers(cached bool) []string {
 	}
 
 	// Read the directory
-	files, err := cluster.NetworkFS().ReadDir(cluster.NodeQueryPath())
+	files, err := cluster.NetworkFS().ReadDir(cluster.NodePath())
 
 	if err != nil {
-		log.Println("Error reading query nodes: ", err)
+		log.Println("Error reading query nodes: ", err, cluster.NodePath())
 		return nil
 	}
+
+	cluster.nodes = []*NodeIdentifier{}
 
 	// Loop through the files and store the node addresses
 	for _, file := range files {
 		address := strings.ReplaceAll(file.Name(), "_", ":")
-		cluster.nodeMap[config.NodeTypeQuery][address] = struct{}{}
-	}
-
-	cluster.queryNodes = []string{}
-
-	for node := range cluster.nodeMap[config.NodeTypeQuery] {
-		cluster.queryNodes = append(cluster.queryNodes, node)
+		cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, 0))
 	}
 
 	cluster.MembersRetrievedAt = time.Now()
 
-	return cluster.queryNodes
+	return cluster.nodes
 }
 
 // Get all the members of the cluster since a certain time.
-func (cluster *Cluster) GetMembersSince(after time.Time) []string {
+func (cluster *Cluster) GetMembersSince(after time.Time) []*NodeIdentifier {
 	if cluster.MembersRetrievedAt.After(after) {
-		return cluster.queryNodes
+		return cluster.GetMembers(true)
 	}
 
 	return cluster.GetMembers(false)
@@ -243,6 +205,7 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 		id, err := getClusterIdFromEnv(cluster.Config)
 
 		if err != nil {
+			log.Println("Error getting cluster ID from environment: ", err)
 			return err
 		}
 
@@ -265,6 +228,7 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 		err = json.Unmarshal(clusterFile, cluster)
 
 		if err != nil {
+			log.Println("Error unmarshalling cluster configuration: ", err, string(clusterFile))
 			return err
 		}
 	}
@@ -283,10 +247,12 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 }
 
 // Check if the node is a member of the cluster.
-func (cluster *Cluster) IsMember(ip string, since time.Time) bool {
+func (cluster *Cluster) IsMember(address string, since time.Time) bool {
 	cluster.GetMembersSince(since)
 
-	return slices.Contains(cluster.queryNodes, ip)
+	return slices.ContainsFunc(cluster.GetMembers(false), func(n *NodeIdentifier) bool {
+		return n.Address == address
+	})
 }
 
 func (c *Cluster) Node() *Node {
@@ -303,86 +269,28 @@ func (c *Cluster) Node() *Node {
 func (c *Cluster) Nodes() []*NodeIdentifier {
 	c.GetMembers(true)
 
-	nodes := []*NodeIdentifier{}
-
-	for _, node := range c.queryNodes {
-		nodes = append(nodes, NewNodeIdentifier(node, config.NodeTypeQuery))
-	}
-
-	return nodes
+	return c.nodes
 }
 
-func (c *Cluster) NodeGroupNodes() []*NodeIdentifier {
-	c.GetMembers(true)
+func (c *Cluster) NodeByID(id uint64) *NodeIdentifier {
+	for _, node := range c.Nodes() {
 
-	nodes := []*NodeIdentifier{}
-
-	if c.Config.NodeType == config.NodeTypeQuery {
-		for _, node := range c.queryNodes {
-			nodes = append(nodes, NewNodeIdentifier(
-				strings.Split(node, ":")[0],
-				strings.Split(node, ":")[1],
-			))
+		if node.ID == id {
+			return node
 		}
 	}
 
-	return nodes
-}
-
-func (c *Cluster) NodeGroupVotingNodes() []*NodeIdentifier {
-	c.GetMembers(false)
-
-	nodes := c.NodeGroupNodes()
-
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].String() < nodes[j].String()
-	})
-
-	// Ensure an odd number of nodes for majority voting
-	if len(nodes) > 5 {
-		if len(nodes[:5])%2 == 0 {
-			return nodes[:5+1]
-		}
-
-		return nodes[:5]
-	}
-
-	if len(nodes)%2 == 0 && len(nodes) > 1 {
-		return nodes[:len(nodes)-1]
-	}
-
-	return nodes
+	return nil
 }
 
 func (c *Cluster) OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
-	address, _ := c.Node().Address()
-	c.GetMembers(true)
 
-	for _, node := range c.queryNodes {
-		if node != address {
-			nodes = append(nodes, NewNodeIdentifier(
-				strings.Split(node, ":")[0],
-				strings.Split(node, ":")[1],
-			))
-		}
-	}
+	c.GetMembers(false)
 
-	return nodes
-}
-
-func (c *Cluster) OtherQueryNodes() []*NodeIdentifier {
-	c.GetMembers(true)
-
-	nodes := []*NodeIdentifier{}
-	address, _ := c.Node().Address()
-
-	for _, node := range c.queryNodes {
-		if node != address {
-			nodes = append(nodes, NewNodeIdentifier(
-				strings.Split(node, ":")[0],
-				strings.Split(node, ":")[1],
-			))
+	for _, node := range c.nodes {
+		if node.Address != c.node.address {
+			nodes = append(nodes, node)
 		}
 	}
 
@@ -396,16 +304,24 @@ func (cluster *Cluster) RemoveMember(address string) error {
 
 	// Clear the cache
 	defer func() {
-		cluster.mutex.Unlock()
 		cluster.MembersRetrievedAt = time.Time{}
 	}()
 
-	for _, member := range cluster.queryNodes {
-		if member == address {
-			delete(cluster.nodeMap[config.NodeTypeQuery], address)
+	if cluster.node.primaryAddress == address {
+		cluster.node.PrimaryHeartbeat = time.Time{}
+	}
+
+	// Release the lock before using cluster.Nodes() to avoid deadlock
+	cluster.mutex.Unlock()
+
+	for _, member := range cluster.Nodes() {
+		if member.Address == address {
+			cluster.nodes = slices.DeleteFunc(cluster.nodes, func(node *NodeIdentifier) bool {
+				return node.Address == address
+			})
 
 			// Remove the node address file
-			err := cluster.NetworkFS().Remove(cluster.NodeQueryPath() + strings.ReplaceAll(address, ":", "_"))
+			err := cluster.NetworkFS().Remove(cluster.NodePath() + strings.ReplaceAll(address, ":", "_"))
 
 			if err != nil {
 				return err
@@ -420,27 +336,17 @@ func (cluster *Cluster) RemoveMember(address string) error {
 
 // Return the path to the lease file for the cluster, in respect to the node type.
 func (cluster *Cluster) LeasePath() string {
-	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, LeaseFile)
+	return fmt.Sprintf("_cluster/%s", LeaseFile)
 }
 
 // Return the path to the current node in repsect to the node type.
 func (cluster *Cluster) NodePath() string {
-	return fmt.Sprintf("_nodes/%s/", cluster.Config.NodeType)
-}
-
-// Return the path to the nomination file for the cluster, in respect to the node type.
-func (cluster *Cluster) NominationPath() string {
-	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, Nominationfile)
-}
-
-// Return the path to the query nodes.
-func (cluster *Cluster) NodeQueryPath() string {
-	return fmt.Sprintf("_nodes/%s/", config.NodeTypeQuery)
+	return "_nodes/"
 }
 
 // Return the path to the primary file for the cluster, in respect to the node type.
 func (cluster *Cluster) PrimaryPath() string {
-	return fmt.Sprintf("_cluster/%s/%s", cluster.Config.NodeType, PrimaryFile)
+	return fmt.Sprintf("_cluster/%s", PrimaryFile)
 }
 
 // Save the cluster configuration.
@@ -464,7 +370,7 @@ writefile:
 		return err
 	}
 
-	return cluster.ObjectFS().WriteFile(ConfigPath(), data, 0644)
+	return nil
 }
 
 // Return the path to the cluster configuration file.

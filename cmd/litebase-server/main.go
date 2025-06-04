@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"runtime"
 
 	"github.com/litebase/litebase/common/config"
@@ -22,11 +23,16 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	godotenv.Load(".env")
 
 	configInstance := config.NewConfig()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	if configInstance.Debug {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	} else {
+		slog.SetLogLoggerLevel(slog.LevelWarn)
+	}
 
 	server.NewServer(configInstance).Start(func(s *http.ServeMux) {
 		app = server.NewApp(configInstance, s)

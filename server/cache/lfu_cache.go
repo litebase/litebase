@@ -2,10 +2,7 @@ package cache
 
 import (
 	"container/heap"
-	"errors"
 )
-
-var ErrLFUCacheFull = errors.New("LFU cache is full")
 
 type CacheItem struct {
 	key       string
@@ -26,6 +23,10 @@ func (pq PriorityQueue) Less(i, j int) bool {
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
+	if len(pq) == 0 || i >= len(pq) || j >= len(pq) {
+		return
+	}
+
 	pq[i], pq[j] = pq[j], pq[i]
 	pq[i].index = i
 	pq[j].index = j
@@ -41,6 +42,9 @@ func (pq *PriorityQueue) Push(x any) {
 func (pq *PriorityQueue) Pop() any {
 	old := *pq
 	n := len(old)
+	if n == 0 {
+		return nil
+	}
 	item := old[n-1]
 	item.index = -1 // For safety
 	*pq = old[0 : n-1]
@@ -85,10 +89,6 @@ func (c *LFUCache) Get(key string) (any, bool) {
 func (c *LFUCache) Put(key string, value any) error {
 	item, found := c.items[key]
 
-	// if !found && c.capacity == 0 {
-	// 	return ErrLFUCacheFull
-	// }
-
 	if found {
 		item.value = value
 		item.frequency++
@@ -99,8 +99,9 @@ func (c *LFUCache) Put(key string, value any) error {
 
 	if len(c.items) >= c.capacity {
 		// Remove the least frequently used item.
-		lfuItem := heap.Pop(&c.pq).(*CacheItem)
-		delete(c.items, lfuItem.key)
+		if lfuItem, ok := heap.Pop(&c.pq).(*CacheItem); ok {
+			delete(c.items, lfuItem.key)
+		}
 	}
 
 	// Add the new item.

@@ -20,13 +20,19 @@ func TestClearFSFiles(t *testing.T) {
 			t.Error("TieredFS() returned nil")
 		}
 
-		_, err := fs.Create("test.txt")
+		file, err := fs.Create("test.txt")
 
 		if err != nil {
 			t.Error(err)
 		}
 
-		_, err = os.Stat(fmt.Sprintf("%s/%s/test.txt", app.Config.DataPath, "tiered"))
+		err = file.Close()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		_, err = fs.Stat("test.txt")
 
 		if err != nil {
 			t.Error(err)
@@ -38,7 +44,7 @@ func TestClearFSFiles(t *testing.T) {
 			t.Error(err)
 		}
 
-		_, err = os.Stat(fmt.Sprintf("%s/%s/test.txt", app.Config.DataPath, "tiered"))
+		_, err = app.Cluster.LocalFS().Stat("test.txt")
 
 		if err == nil {
 			t.Error("tiered file system files were not cleared")

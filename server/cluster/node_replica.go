@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -54,7 +55,7 @@ func (nr *NodeReplica) JoinCluster() error {
 
 	data := map[string]string{
 		"address": address,
-		"group":   nr.node.Cluster.Config.NodeType,
+		"id":      strconv.FormatUint(nr.node.ID, 10),
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -112,7 +113,7 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return nil
 	}
 
-	if nr.node.primaryAddress == "" {
+	if nr.node.PrimaryAddress() == "" {
 		return nil
 	}
 
@@ -122,7 +123,7 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return fmt.Errorf("failed to get node address: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s/cluster/members/%s", nr.node.primaryAddress, address)
+	url := fmt.Sprintf("http://%s/cluster/members/%s", nr.node.PrimaryAddress(), address)
 
 	request, err := http.NewRequestWithContext(nr.node.context, "DELETE", url, nil)
 

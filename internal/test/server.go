@@ -1,15 +1,11 @@
 package test
 
 import (
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/litebase/litebase/server/storage"
-
 	"github.com/litebase/litebase/common/config"
-
 	"github.com/litebase/litebase/server"
 )
 
@@ -18,12 +14,7 @@ type TestServer struct {
 	App     *server.App
 	Port    string
 	Server  *httptest.Server
-}
-
-func NewTestQueryNode(t *testing.T) *TestServer {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
-
-	return NewTestServer(t)
+	Started chan bool
 }
 
 /*
@@ -41,17 +32,12 @@ func NewTestServer(t *testing.T) *TestServer {
 	app := server.NewApp(configInstance, serveMux)
 	app.Run()
 
-	err := app.Cluster.Node().Start()
-
-	if err != nil {
-		log.Fatalf("Node start: %v", err)
-	}
-
 	server := &TestServer{
 		Address: ts.URL[7:],
 		App:     app,
 		Port:    port,
 		Server:  ts,
+		Started: app.Cluster.Node().Start(),
 	}
 
 	// t.Cleanup(func() {
@@ -93,5 +79,6 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 func (ts *TestServer) Shutdown() {
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
 	ts.App.Cluster.Node().Shutdown()
-	storage.Shutdown(ts.App.Config)
+	// This may not be neccesary since this will be used in side of test.Run()
+	// storage.Shutdown(ts.App.Config)
 }

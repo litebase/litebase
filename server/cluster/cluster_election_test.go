@@ -1,10 +1,11 @@
 package cluster_test
 
 import (
-	"slices"
 	"sync"
 	"testing"
 	"time"
+
+	"slices"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/server"
@@ -12,69 +13,98 @@ import (
 )
 
 func TestNewClusterElection(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
+	test.RunWithApp(t, func(server *server.App) {
+		election := cluster.NewClusterElection(
+			server.Cluster.Node(),
+		)
 
-		if clusterElection == nil {
-			t.Fatalf("Expected clusterElection to not be nil")
+		if election == nil {
+			t.Fatal("Expected NewClusterElection to return a non-nil value")
 		}
 	})
 }
 
-func TestClusterElectionAddCandidate(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
+func TestClusterElection_Expired(t *testing.T) {
+	test.RunWithApp(t, func(server *server.App) {
+		election := cluster.NewClusterElection(
+			server.Cluster.Node(),
+		)
 
-		clusterElection.AddCandidate("test", clusterElection.Seed+1)
+		election.EndsAt = time.Now().Add(-time.Second) // Set the election to expired
 
-		if len(clusterElection.Candidates) != 2 {
-			t.Fatalf("Expected 2 candidates, got %d", len(clusterElection.Candidates))
-		}
-
-		if clusterElection.Nominee != "test" {
-			t.Errorf("Expected nominee to be 'test', got %s", clusterElection.Nominee)
+		if !election.Expired() {
+			t.Fatal("Expected election to be expired")
 		}
 	})
 }
 
-func TestClusterElectionContext(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
+func TestClusterElection_Running(t *testing.T) {
+	test.RunWithApp(t, func(server *server.App) {
+		election := cluster.NewClusterElection(
+			server.Cluster.Node(),
+		)
 
-		if clusterElection.Context() == nil {
-			t.Fatalf("Expected context to not be nil")
+		if !election.Running() {
+			t.Fatal("Expected election to be running")
+		}
+
+		election.StoppedAt = time.Now().Add(-10 * time.Second)
+
+		if election.Running() {
+			t.Fatal("Expected election to not be running")
 		}
 	})
 }
 
-func TestClusterElectionRun(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
+func TestClusterElection_Stop(t *testing.T) {
+	test.RunWithApp(t, func(server *server.App) {
+		election := cluster.NewClusterElection(
+			server.Cluster.Node(),
+		)
 
-		elected, err := clusterElection.Run()
-
-		if err != nil {
-			t.Fatalf("Expected error, got nil")
+		if !election.Running() {
+			t.Fatal("Expected election to be running before stopping")
 		}
 
-		if !elected {
-			t.Fatalf("Expected elected to be true")
+		election.Stop()
+
+		if election.Running() {
+			t.Fatal("Expected election to not be running after stopping")
 		}
 	})
 }
 
-func TestClusterElectionRunWithMultipleNodes(t *testing.T) {
+func TestClusterElection_Stopped(t *testing.T) {
+	test.RunWithApp(t, func(server *server.App) {
+		election := cluster.NewClusterElection(
+			server.Cluster.Node(),
+		)
+
+		if election.Stopped() {
+			t.Fatal("Expected election to not be stopped before stopping")
+		}
+
+		election.Stop()
+
+		if !election.Stopped() {
+			t.Fatal("Expected election to be stopped after stopping")
+		}
+	})
+}
+
+func TestClusterElectionRunWithMultipleNodesSynchronous(t *testing.T) {
 	testCases := []struct {
 		nodeCount int
 	}{
 		{nodeCount: 1},
-		{nodeCount: 3},
 		{nodeCount: 2},
+		{nodeCount: 3},
 		{nodeCount: 4},
 		{nodeCount: 5},
 		{nodeCount: 6},
 		{nodeCount: 7},
 		{nodeCount: 8},
+		{nodeCount: 9},
 	}
 
 	for _, tc := range testCases {
@@ -83,31 +113,46 @@ func TestClusterElectionRunWithMultipleNodes(t *testing.T) {
 				servers := make([]*test.TestServer, tc.nodeCount)
 
 				for i := range tc.nodeCount {
-					servers[i] = test.NewUnstartedTestServer(t)
+					servers[i] = test.NewTestServer(t)
+					<-servers[i].Started
 				}
 
-				var electedCount int
+				timeout := time.After(3 * time.Second)
 
-				for _, server := range servers {
-					server.App.Cluster.Node().JoinCluster()
-				}
+			outerLoop:
+				for {
+					select {
+					case <-timeout:
+						t.Fatalf("Election timed out after 3 seconds")
+					default:
+						var electedCount int
+						var primaryAddress string
+						var allObservedPrimary bool = true
 
-				for _, server := range servers {
-					clusterElection := server.App.Cluster.Node().Election()
+						for _, server := range servers {
+							if server.App.Cluster.Node().Membership == cluster.ClusterMembershipPrimary {
+								electedCount++
+								primaryAddress = server.App.Cluster.Node().PrimaryAddress()
+							}
+						}
 
-					elected, err := clusterElection.Run()
+						if electedCount == 1 && primaryAddress != "" {
+							for _, server := range servers {
+								if server.App.Cluster.Node().Membership != cluster.ClusterMembershipPrimary {
+									if server.App.Cluster.Node().PrimaryAddress() != primaryAddress {
+										allObservedPrimary = false
+										break
+									}
+								}
+							}
 
-					if err != nil {
-						t.Fatalf("run election error: %v", err)
+							if allObservedPrimary {
+								break outerLoop
+							}
+						}
+
+						time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
 					}
-
-					if elected {
-						electedCount++
-					}
-				}
-
-				if electedCount != 1 {
-					t.Fatalf("Expected 1 elected, got %d", electedCount)
 				}
 
 				for _, server := range servers {
@@ -130,56 +175,77 @@ func TestClusterElectionRunWithMultipleNodesAsync(t *testing.T) {
 		{nodeCount: 6},
 		{nodeCount: 7},
 		{nodeCount: 8},
+		{nodeCount: 9},
 	}
 
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
 			test.Run(t, func() {
-				servers := make([]*test.TestServer, tc.nodeCount)
+				servers := make(map[int]*test.TestServer, tc.nodeCount)
+				serversMutex := sync.Mutex{}
 
-				for i := range tc.nodeCount {
-					servers[i] = test.NewUnstartedTestServer(t)
-				}
-
-				var electedCount int
-
-				for _, server := range servers {
-					server.App.Cluster.Node().JoinCluster()
-				}
+				// Start the first server to initialize the cluster
+				server := test.NewTestServer(t)
+				<-server.Started
+				server.Shutdown()
 
 				wg := sync.WaitGroup{}
 				wg.Add(tc.nodeCount)
 
-				var electionErrors []error
-
-				for i, server := range servers {
-					go func(server *test.TestServer, i int) {
+				for i := range tc.nodeCount {
+					go func(i int) {
 						defer wg.Done()
 
-						clusterElection := server.App.Cluster.Node().Election()
+						serversMutex.Lock()
+						server := test.NewTestServer(t)
+						servers[i] = server
+						serversMutex.Unlock()
 
-						elected, err := clusterElection.Run()
-
-						if err != nil {
-							electionErrors = append(electionErrors, err)
-
-							return
-						}
-
-						if elected {
-							electedCount++
-						}
-					}(server, i)
+						<-server.Started
+					}(i)
 				}
 
 				wg.Wait()
 
-				if len(electionErrors) > 0 {
-					t.Fatalf("run election error: %v", electionErrors)
-				}
+				timeout := time.After(3 * time.Second)
 
-				if electedCount != 1 {
-					t.Fatalf("Expected 1 elected, got %d", electedCount)
+			outerLoop:
+				for {
+					select {
+					case <-timeout:
+						t.Fatalf("Election timed out after 3 seconds")
+					default:
+						var electedCount int
+						var primaryAddress string
+						var allObservedPrimary bool = true
+
+						for _, server := range servers {
+							if server.App.Cluster.Node().IsPrimary() {
+								electedCount++
+								primaryAddress = server.App.Cluster.Node().PrimaryAddress()
+
+								if primaryAddress == "" {
+									t.Fatal("Primary address is empty")
+								}
+							}
+						}
+
+						if electedCount == 1 && primaryAddress != "" {
+							for _, server := range servers {
+								nodePrimaryAddress := server.App.Cluster.Node().PrimaryAddress()
+								if nodePrimaryAddress != primaryAddress {
+									allObservedPrimary = false
+									break
+								}
+							}
+
+							if allObservedPrimary {
+								break outerLoop
+							}
+						}
+
+						time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
+					}
 				}
 
 				for _, server := range servers {
@@ -190,7 +256,7 @@ func TestClusterElectionRunWithMultipleNodesAsync(t *testing.T) {
 	}
 }
 
-func TestClusterElectionRunWithMultipleNodesAsyncWithFailure(t *testing.T) {
+func TestClusterElectionRunWithMultipleNodesAsyncWithStoppingServers(t *testing.T) {
 	testCases := []struct {
 		nodeCount int
 	}{
@@ -207,59 +273,85 @@ func TestClusterElectionRunWithMultipleNodesAsyncWithFailure(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			test.Run(t, func() {
 				servers := make([]*test.TestServer, tc.nodeCount)
+				serversMutex := sync.Mutex{}
+
+				// Start the first server to initialize the cluster
+				server := test.NewTestServer(t)
+				<-server.Started
+				server.Shutdown()
+
+				wg := sync.WaitGroup{}
+				wg.Add(tc.nodeCount)
 
 				for i := range tc.nodeCount {
-					servers[i] = test.NewUnstartedTestServer(t)
+					go func(i int) {
+						defer wg.Done()
+
+						serversMutex.Lock()
+						server := test.NewTestServer(t)
+						servers[i] = server
+						serversMutex.Unlock()
+
+						<-server.Started
+					}(i)
 				}
 
-				var electedCount int
+				wg.Wait()
 
-				for _, server := range servers {
-					server.App.Cluster.Node().JoinCluster()
-				}
+				// Continue looping until we have 1 server left, removing the
+				// primary server each time.
+				for {
+					timeout := time.After(10 * time.Second)
+					var electedIndex int = -1
 
-				for len(servers) > 1 {
-					wg := sync.WaitGroup{}
-					wg.Add(len(servers))
+				outerLoop:
+					for {
+						select {
+						case <-timeout:
+							t.Fatalf("Election timed out after 5 seconds")
+						default:
+							var electedCount int
+							var primaryAddress string
+							var allObservedPrimary bool = true
 
-					var electionErrors []error
-					var electedIndex int
+							for i, server := range servers {
+								if server.App.Cluster.Node().IsPrimary() {
+									electedCount++
+									electedIndex = i
+									primaryAddress = server.App.Cluster.Node().PrimaryAddress()
 
-					for i, server := range servers {
-						go func(server *test.TestServer, i int) {
-							defer wg.Done()
-
-							clusterElection := server.App.Cluster.Node().Election()
-
-							elected, err := clusterElection.Run()
-
-							if err != nil {
-								electionErrors = append(electionErrors, err)
-
-								return
+									if primaryAddress == "" {
+										t.Fatal("Primary address is empty")
+									}
+								}
 							}
 
-							if elected {
-								electedCount++
-								electedIndex = i
+							if electedCount == 1 && primaryAddress != "" {
+								for _, server := range servers {
+									nodePrimaryAddress := server.App.Cluster.Node().PrimaryAddress()
+									if nodePrimaryAddress != primaryAddress {
+										allObservedPrimary = false
+										break
+									}
+								}
+
+								if allObservedPrimary {
+									break outerLoop
+								}
 							}
-						}(server, i)
+
+							time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
+						}
 					}
 
-					wg.Wait()
-
-					if len(electionErrors) > 0 {
-						t.Fatalf("run election error: %v", electionErrors)
+					if electedIndex >= 0 {
+						servers[electedIndex].Shutdown()
+						servers = slices.Delete(servers, electedIndex, electedIndex+1)
 					}
 
-					if electedCount != 1 {
-						t.Fatalf("Expected 1 elected, got %d", electedCount)
+					if len(servers) == 1 {
 						break
 					}
-
-					servers[electedIndex].Shutdown()
-					servers = slices.Delete(servers, electedIndex, electedIndex+1)
-					electedCount = 0
 				}
 
 				for _, server := range servers {
@@ -268,23 +360,4 @@ func TestClusterElectionRunWithMultipleNodesAsyncWithFailure(t *testing.T) {
 			})
 		})
 	}
-}
-
-func TestClusterElectionStop(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		clusterElection := cluster.NewClusterElection(app.Cluster.Node(), time.Now())
-
-		clusterElection.Run()
-		clusterElection.Stop()
-
-		ctx := clusterElection.Context()
-
-		if ctx == nil {
-			t.Fatalf("Expected context to not be nil")
-		}
-
-		if ctx.Err() == nil {
-			t.Fatalf("Expected context error, got nil")
-		}
-	})
 }

@@ -69,9 +69,9 @@ func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 	), nil
 }
 
-func GetDatabaseFileTmpPath(c *config.Config, nodeId, databaseId string, branchId string) (string, error) {
+func GetDatabaseFileTmpPath(c *config.Config, nodeId uint64, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
-		"%s/%s/_databases/%s/%s/%s.db",
+		"%s/%d/_databases/%s/%s/%s.db",
 		c.TmpPath,
 		nodeId,
 		databaseId,

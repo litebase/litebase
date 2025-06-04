@@ -73,7 +73,7 @@ func TestNewCluster(t *testing.T) {
 
 func TestClusterAddMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		testServer := test.NewTestQueryNode(t)
+		testServer := test.NewTestServer(t)
 
 		c, _ := cluster.NewCluster(app.Config)
 
@@ -84,7 +84,7 @@ func TestClusterAddMember(t *testing.T) {
 		}
 
 		err = c.AddMember(
-			config.NodeTypeQuery,
+			uint64(1), // Using a dummy raft ID for the test
 			testServer.Address,
 		)
 
@@ -92,23 +92,23 @@ func TestClusterAddMember(t *testing.T) {
 			t.Fatalf("Error adding query node: %s", err)
 		}
 
-		queryNodes := c.GetMembers(true)
+		members := c.GetMembers(true)
 
-		if len(queryNodes) != 2 {
-			t.Fatal("Query nodes should not be empty")
+		if len(members) != 2 {
+			t.Fatal("Members should not be empty")
 		}
 
 		found := false
 
-		for _, node := range queryNodes {
-			if node == testServer.Address {
+		for _, node := range members {
+			if node.Address == testServer.Address {
 				found = true
 				break
 			}
 		}
 
 		if !found {
-			t.Fatalf("Query node %s not found", testServer.Address)
+			t.Fatalf("Member %s not found", testServer.Address)
 		}
 	})
 }
@@ -123,81 +123,21 @@ func TestClusterGetMembers(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		queryNodes := c.GetMembers(true)
+		members := c.GetMembers(true)
 
-		if len(queryNodes) != 0 {
-			t.Fatal("Members should be empty")
-		}
-	})
-}
-
-func TestClusterGetMembersSince(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		testServer := test.NewTestQueryNode(t)
-		c, _ := cluster.NewCluster(app.Config)
-
-		err := c.Save()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		queryNodes := c.GetMembersSince(time.Now())
-
-		if len(queryNodes) != 0 {
-			t.Fatal("Members should be empty")
-		}
-
-		// Add a query node
-		err = app.Cluster.AddMember(
-			config.NodeTypeQuery,
-			testServer.Address,
-		)
-
-		if err != nil {
-			t.Errorf("Error adding query node: %s", err)
-		}
-
-		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeQueryPath() + strings.ReplaceAll(testServer.Address, ":", "_"))
-
-		if err != nil {
-			t.Errorf("Error checking query node file: %s", err)
-		}
-
-		queryNodes = c.GetMembersSince(time.Now())
-
-		if len(queryNodes) != 1 {
-			t.Fatal("Members should not be empty")
-		}
-
-		// Delete the query node file
-		err = app.Cluster.ObjectFS().Remove(app.Cluster.NodeQueryPath() + strings.ReplaceAll(testServer.Address, ":", "_"))
-
-		if err != nil {
-			t.Errorf("Error deleting query node file: %s", err)
-		}
-
-		queryNodes = c.GetMembers(true)
-
-		if len(queryNodes) != 1 {
-			t.Fatal("Members should not be empty")
-		}
-
-		queryNodes = c.GetMembersSince(time.Now())
-
-		if len(queryNodes) != 0 {
-			t.Fatal("Members should be empty")
+		if len(members) != 1 {
+			t.Fatal("Members should be 1")
 		}
 	})
 }
 
 func TestClusterGetMembersWithNodes(t *testing.T) {
 	test.Run(t, func() {
-		server1 := test.NewTestQueryNode(t)
+		server1 := test.NewTestServer(t)
 
-		queryNodes := server1.App.Cluster.GetMembers(true)
+		members := server1.App.Cluster.GetMembers(true)
 
-		if len(queryNodes) != 1 {
+		if len(members) != 1 {
 			t.Fatal("Members should not be empty")
 		}
 	})
@@ -205,18 +145,11 @@ func TestClusterGetMembersWithNodes(t *testing.T) {
 
 func TestClusterIsMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		testServer := test.NewTestQueryNode(t)
-		c, _ := cluster.NewCluster(app.Config)
-
-		err := c.Save()
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		testServer := test.NewTestServer(t)
 
 		// Add a query node
-		err = c.AddMember(
-			config.NodeTypeQuery,
+		err := app.Cluster.AddMember(
+			uint64(1), // Using a dummy raft ID for the test
 			testServer.Address,
 		)
 
@@ -224,7 +157,7 @@ func TestClusterIsMember(t *testing.T) {
 			t.Fatalf("Error adding query node: %s", err)
 		}
 
-		if !c.IsMember(testServer.Address, time.Now()) {
+		if !app.Cluster.IsMember(testServer.Address, time.Now()) {
 			t.Fatal("Node should be a member")
 		}
 	})
@@ -232,17 +165,10 @@ func TestClusterIsMember(t *testing.T) {
 
 func TestClusterRemoveMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		testServer := test.NewTestQueryNode(t)
-		c, _ := cluster.NewCluster(app.Config)
+		testServer := test.NewTestServer(t)
 
-		err := c.Save()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = c.AddMember(
-			config.NodeTypeQuery,
+		err := app.Cluster.AddMember(
+			uint64(1),
 			testServer.Address,
 		)
 
@@ -251,17 +177,17 @@ func TestClusterRemoveMember(t *testing.T) {
 		}
 
 		// Verify is a member
-		if !c.IsMember(testServer.Address, time.Now()) {
+		if !app.Cluster.IsMember(testServer.Address, time.Now()) {
 			t.Fatal("Node should be a member")
 		}
 
-		err = c.RemoveMember(testServer.Address)
+		err = app.Cluster.RemoveMember(testServer.Address)
 
 		if err != nil {
 			t.Fatalf("Error removing query node: %s", err)
 		}
 
-		_, err = app.Cluster.ObjectFS().Stat(app.Cluster.NodeQueryPath() + strings.ReplaceAll(testServer.Address, ":", "_"))
+		_, err = app.Cluster.NetworkFS().Stat(app.Cluster.NodePath() + strings.ReplaceAll(testServer.Address, ":", "_"))
 
 		if err == nil {
 			t.Errorf("Query node file should not exist")
@@ -288,7 +214,7 @@ func TestClusterSave(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data := map[string]interface{}{}
+		data := map[string]any{}
 
 		err = json.Unmarshal(dataBytes, &data)
 
@@ -308,55 +234,17 @@ func TestClusterConfigPath(t *testing.T) {
 	})
 }
 
-func TestClusterLeasePathForQueryNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
-
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.LeasePath()
-
-		if path != "_cluster/query/LEASE" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
-func TestClusterNodePathForQueryNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
-
+func TestClusterNodePath(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		path := app.Cluster.NodePath()
 
-		if path != "_nodes/query/" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
-func TestClusterNodeQueryPath(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.NodeQueryPath()
-
-		if path != "_nodes/query/" {
-			t.Fatalf("Path is not correct: %s", path)
-		}
-	})
-}
-
-func TestClusterNominationPathForQueryNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
-
-	test.RunWithApp(t, func(app *server.App) {
-		path := app.Cluster.NominationPath()
-
-		if path != "_cluster/query/NOMINATION" {
+		if path != "_nodes/" {
 			t.Fatalf("Path is not correct: %s", path)
 		}
 	})
 }
 
 func TestClusterPrimaryPathForQueryNode(t *testing.T) {
-	t.Setenv("LITEBASE_NODE_TYPE", config.NodeTypeQuery)
-
 	test.RunWithApp(t, func(app *server.App) {
 		path := app.Cluster.PrimaryPath()
 

@@ -152,7 +152,7 @@ func TestNode_Context(t *testing.T) {
 func TestNode_Init(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		// Ensure the directory exists
-		_, err := app.Cluster.ObjectFS().Stat(app.Cluster.NodePath())
+		_, err := app.Cluster.NetworkFS().Stat(app.Cluster.NodePath())
 
 		if err != nil {
 			t.Error(err)
@@ -213,22 +213,6 @@ func TestNodeIsReplica(t *testing.T) {
 
 		if server2.App.Cluster.Node().IsReplica() {
 			t.Error("Node should not be replica")
-		}
-	})
-}
-
-func TestNodeIsStandBy(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServer(t)
-
-		if server.App.Cluster.Node().IsStandBy() {
-			t.Error("Node should not be standby")
-		}
-
-		server.App.Cluster.Node().Membership = cluster.ClusterMembershipStandBy
-
-		if !server.App.Cluster.Node().IsStandBy() {
-			t.Error("Node should be standby")
 		}
 	})
 }
@@ -347,7 +331,7 @@ func TestNode_Send(t *testing.T) {
 			messages.NodeMessage{
 				Data: messages.HeartbeatMessage{
 					Address: address,
-					ID:      []byte(server2.App.Cluster.Node().Id),
+					ID:      fmt.Appendf(nil, "%d", server2.App.Cluster.Node().ID),
 					Time:    time.Now().Unix(),
 				},
 			},
@@ -376,9 +360,9 @@ func TestNodeSetMembership(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 
-		server.App.Cluster.Node().SetMembership(cluster.ClusterMembershipStandBy)
+		server.App.Cluster.Node().SetMembership(cluster.ClusterMembershipReplica)
 
-		if server.App.Cluster.Node().Membership != cluster.ClusterMembershipStandBy {
+		if server.App.Cluster.Node().Membership != cluster.ClusterMembershipReplica {
 			t.Error("Node membership not set")
 		}
 	})
@@ -479,44 +463,6 @@ func TestNode_Timestamp(t *testing.T) {
 
 		if timestamp.IsZero() {
 			t.Error("Node timestamp not set")
-		}
-	})
-}
-
-func TestNode_VerifyElectionConfirmation(t *testing.T) {
-	test.Run(t, func() {
-		server1 := test.NewTestServer(t)
-		server2 := test.NewTestServer(t)
-		address, _ := server1.App.Cluster.Node().Address()
-
-		confirmed, err := server2.App.Cluster.Node().VerifyElectionConfirmation(
-			address,
-		)
-
-		if err != nil {
-			t.Error("Failed to verify election confirmation: ", err)
-		}
-
-		if !confirmed {
-			t.Error("Election confirmation not confirmed")
-		}
-	})
-}
-
-func TestNode_VerifyPrimaryStatus(t *testing.T) {
-	test.Run(t, func() {
-		server1 := test.NewTestServer(t)
-		server2 := test.NewTestServer(t)
-
-		server1IsPrimary := server1.App.Cluster.Node().VerifyPrimaryStatus()
-		server2IsPrimary := server2.App.Cluster.Node().VerifyPrimaryStatus()
-
-		if !server1IsPrimary {
-			t.Error("Server 1 should not be primary")
-		}
-
-		if server2IsPrimary {
-			t.Error("Server 2 should not be primary")
 		}
 	})
 }

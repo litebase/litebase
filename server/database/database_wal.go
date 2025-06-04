@@ -437,13 +437,6 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	err = wal.cache.Put(cacheKey, slices.Clone(p))
 
-	if err != nil && err != cache.ErrLFUCacheFull {
-		log.Println(err)
-		return n, err
-	} else if err == cache.ErrLFUCacheFull {
-		log.Println("WAL cache is full, unable to cache data")
-	}
-
 	// If the buffer exceeds the size limit, flush and sync
 	if wal.writeBuffer.Len() >= DatabaseWALBufferSizeLimit {
 		err = wal.flushBuffer()

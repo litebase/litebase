@@ -1,212 +1,105 @@
 package cluster
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"log"
+	"log/slog"
 	"math/rand/v2"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"sync"
+	"syscall"
 	"time"
 )
 
+const (
+	ElectionDeadline  = 3 * time.Second
+	ElectionRetryWait = 1 * time.Second
+)
+
+var (
+	ErrElectionAlreadyRunning     = errors.New("election already running")
+	ErrMustWaitBeforeNextElection = errors.New("must wait before starting the next election")
+)
+
 type ClusterElection struct {
-	cancel        context.CancelFunc
-	context       context.Context
-	Group         string
-	hasNomination bool
-	mutex         sync.Mutex
-	Candidates    []string
-	node          *Node
-	Nominee       string
-	running       bool
-	Seed          int64
-	StartedAt     time.Time
+	cancel    context.CancelFunc
+	Candidate uint64
+	EndsAt    time.Time
+	context   context.Context
+	node      *Node
+	Seed      int64
+	StartedAt time.Time
+	StoppedAt time.Time
 }
 
-// Create a new instance of a ClusterElection.
-func NewClusterElection(node *Node, startTime time.Time) *ClusterElection {
-	address, _ := node.Address()
+// Create a new ClusterElection instance for the given node.
+func NewClusterElection(node *Node) *ClusterElection {
+	ctx, cancel := context.WithCancel(node.Context())
+	startedAt := time.Now()
 
 	return &ClusterElection{
-		Candidates: []string{address},
-		Group:      node.Cluster.Config.NodeType,
-		Nominee:    address,
-		node:       node,
-		StartedAt:  startTime.Truncate(time.Second),
+		cancel:    cancel,
+		Candidate: node.ID,
+		context:   ctx,
+		EndsAt:    startedAt.Add(ElectionDeadline),
+		node:      node,
+		Seed:      rand.Int64(),
+		StartedAt: startedAt,
 	}
 }
 
-// Add a candidate to the election along with the seed value.
-func (c *ClusterElection) AddCandidate(address string, seed int64) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.Candidates = append(c.Candidates, address)
-
-	if seed > c.Seed {
-		c.Nominee = address
-
-		if c.running {
-			c.Stop()
-		}
-	}
+// Expired checks if the election has expired based on the current time.
+func (ce *ClusterElection) Expired() bool {
+	return time.Now().After(ce.EndsAt)
 }
 
-// Get the context of the election.
-func (c *ClusterElection) Context() context.Context {
-	return c.context
-}
-
-// Run the election.
-func (c *ClusterElection) Run() (bool, error) {
-	if c.running {
-		return false, fmt.Errorf("election already running")
-	}
-
-	c.running = true
-
-	defer func() {
-		c.running = false
-	}()
-
-	c.context, c.cancel = context.WithCancel(context.Background())
-	c.Seed = rand.Int64()
-
-	nominated, err := c.seekNomination()
-
-	if err != nil {
-		log.Printf("Failed to seek nomination: %v", err)
-		return false, err
-	}
-
-	if !nominated {
-		return false, nil
-	}
-
-	// Write the current address to the nomination file
-	success, err := c.writeNomination()
-
-	if err != nil {
-		log.Printf("Failed to write nomination: %v", err)
-		return false, err
-	}
-
-	// log.Println("Wrote nomination: ", success)
-	if !success {
-		return false, nil
-	}
-
-	c.hasNomination = true
-
-	if !c.running {
-		return false, nil
-	}
-
-	// Confirm the election
-	confirmed := c.runElectionConfirmation()
-
-	if !confirmed {
-		return false, nil
-	}
-
-	if !c.running {
-		return false, nil
-	}
-
-	// Verify that the nomination file is still valid
-	verified, err := c.verifyNomination()
-
-	if err != nil {
-		return false, err
-	}
-
-	if !verified || !c.running {
-		return false, nil
-	}
-
-	// Confirm the election
-	confirmed = c.runElectionConfirmation()
-
-	if !confirmed || !c.running {
-		return false, nil
-	}
-
-	// Verify that the nomination file is still valid
-	verified, err = c.verifyNomination()
-
-	if err != nil {
-		return false, err
-	}
-
-	if !verified {
-		return false, nil
-	}
-
-	address, _ := c.node.Address()
-
-	err = c.node.Cluster.NetworkFS().WriteFile(
-		c.node.Cluster.PrimaryPath(),
-		[]byte(address),
-		0644,
-	)
-
-	if err != nil {
-		log.Printf("Failed to write primary file: %v", err)
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (c *ClusterElection) runElectionConfirmation() bool {
-	if c.context.Err() != nil {
+// Send requests to other nodes to get their votes for the current node to
+// become the cluster leader.
+func (ce *ClusterElection) proposeLeadership() bool {
+	if ce.context == nil || ce.context.Err() != nil {
 		return false
 	}
 
-	address, _ := c.node.Address()
+	votingNodes := ce.node.Cluster.Nodes()
 
-	nodeIdentifiers := c.node.Cluster.NodeGroupVotingNodes()
-
-	// If there is only one node in the group, it is the current node and the
-	// election is confirmed.
-	if len(nodeIdentifiers) <= 1 {
+	if len(votingNodes) == 1 && votingNodes[0].Address == ce.node.address {
 		return true
 	}
 
 	data := map[string]any{
-		"address":   address,
-		"group":     c.node.Cluster.Config.NodeType,
-		"timestamp": c.node.election.StartedAt.UnixNano(),
+		"candidate":  ce.node.ID,
+		"seed":       ce.Seed,
+		"started_at": ce.StartedAt.UnixNano(),
 	}
 
 	jsonData, err := json.Marshal(data)
 
 	if err != nil {
-		log.Println("Failed to marshal election data: ", err)
+		slog.Debug("Failed to marshal election data", "error", err)
 		return false
 	}
 
-	votes := make(chan bool, len(nodeIdentifiers)-1)
+	votesNeeded := len(votingNodes) - 1
+	voteResponses := votesNeeded
+	votes := make(chan bool, voteResponses) // -1 because we don't vote for ourselves
+	votesReceived := 1
 
-	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == address {
+	for _, nodeAddress := range votingNodes {
+		if nodeAddress.Address == ce.node.address {
 			continue
 		}
+		go func(nodeAddress string) {
+			requestCtx, cancel := context.WithTimeout(ce.node.context, 3*time.Second)
+			defer cancel()
 
-		go func(nodeIdentifier *NodeIdentifier) {
 			request, err := http.NewRequestWithContext(
-				c.node.context,
+				requestCtx,
 				"POST",
-				fmt.Sprintf("http://%s/cluster/election/confirmation", nodeIdentifier.String()),
+				fmt.Sprintf("http://%s/cluster/election", nodeAddress),
 				bytes.NewBuffer(jsonData),
 			)
 
@@ -218,7 +111,7 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 
 			request.Header.Set("Content-Type", "application/json")
 
-			err = c.node.setInternalHeaders(request)
+			err = ce.node.setInternalHeaders(request)
 
 			if err != nil {
 				log.Println("Failed to set internal headers: ", err)
@@ -229,15 +122,15 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 			resp, err := http.DefaultClient.Do(request)
 
 			if err != nil {
-				// log.Printf(
-				// 	"Error sending election confirmation request to node %s from node %s: %s",
-				// 	nodeIdentifier.String(),
-				// 	c.node.Address(),
-				// 	err,
-				// )
+				log.Printf(
+					"Error sending election request to node %s from node: %s",
+					nodeAddress,
+					err,
+				)
 			}
 
 			if resp == nil {
+				log.Printf("No response from node %s during election", nodeAddress)
 				votes <- false
 				return
 			}
@@ -246,32 +139,39 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 				defer resp.Body.Close()
 			}
 
+			jsonData := make(map[string]any)
+
+			err = json.NewDecoder(resp.Body).Decode(&jsonData)
+
+			if err != nil {
+				log.Printf("Error decoding response from node %s: %v", nodeAddress, err)
+				votes <- false
+				return
+			}
+
 			if resp.StatusCode == http.StatusOK {
 				votes <- true
 			} else {
 				votes <- false
 			}
-		}(nodeIdentifier)
+		}(nodeAddress.Address)
 	}
 
-	// Wait for a response from each node in the group
-	votesReceived := 1
-	votesNeeded := len(nodeIdentifiers)/2 + 1
+	// Wait for a response from each node in the voting group
 	timeout := time.After(3 * time.Second) // Set a timeout duration
 
-	for range len(nodeIdentifiers) - 1 {
+	for voteResponses > 0 {
 		select {
 		case <-timeout:
 			return false
-		case <-c.node.context.Done():
-			return false
 		case vote := <-votes:
+			voteResponses--
 
 			if vote {
 				votesReceived++
 			}
 
-			if votesReceived >= votesNeeded {
+			if votesReceived == votesNeeded {
 				return true
 			}
 		}
@@ -280,304 +180,86 @@ func (c *ClusterElection) runElectionConfirmation() bool {
 	return false
 }
 
-func (c *ClusterElection) seekNomination() (bool, error) {
-	if c.context.Err() != nil {
-		return false, fmt.Errorf("operation canceled")
+// Run the election process. Lock the primary files, send a leadership proposal
+// to other nodes in the cluster. If successful, the current node becomes leader.
+func (ce *ClusterElection) run() (bool, error) {
+	defer ce.Stop()
+
+	// Add a random sleep to avoid simultaneous elections
+	sleepDuration := time.Duration(100+rand.IntN(901)) * time.Millisecond
+	time.Sleep(sleepDuration)
+
+	if ce.node.Context().Err() != nil {
+		return false, ce.node.Context().Err()
 	}
 
-	address, _ := c.node.Address()
+	// Try to lock the primary file
+	primaryFile, err := ce.node.Cluster.NetworkFS().Open(ce.node.Cluster.PrimaryPath())
 
-	nodeIdentifiers := c.node.Cluster.NodeGroupVotingNodes()
-
-	if len(nodeIdentifiers) == 0 {
-		return true, nil
+	if err != nil {
+		log.Printf("Failed to open primary file: %v", err)
+		return false, err
 	}
 
-	// If the current node is not a voting node, return true
-	var inVotingGroup bool
+	// Attempt to lock the primary file using syscall.Flock
+	file := primaryFile.(*os.File)
 
-	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == address {
-			inVotingGroup = true
-			break
+	locked := false
+
+	defer func() {
+		if locked {
+			syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
 		}
+		primaryFile.Close()
+	}()
+
+	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+
+	if err != nil {
+		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+			log.Printf("Primary file is locked by another process: %v", err)
+			return false, nil // Not an error, just not elected
+		}
+
+		return false, err
 	}
 
-	if !inVotingGroup {
+	locked = true
+
+	// Propose leadership to other nodes. If other nodes accept, continue
+	elected := ce.proposeLeadership()
+
+	if !elected {
 		return false, nil
 	}
 
-	data := map[string]any{
-		"address":   address,
-		"group":     c.node.Cluster.Config.NodeType,
-		"seed":      c.Seed,
-		"timestamp": c.StartedAt.Unix(),
-	}
-
-	jsonData, err := json.Marshal(data)
+	// Write the current node's address to the primary file
+	err = ce.node.Cluster.NetworkFS().WriteFile(
+		ce.node.Cluster.PrimaryPath(),
+		[]byte(ce.node.address),
+		0644,
+	)
 
 	if err != nil {
-		log.Println("Failed to marshal election data: ", err)
-		return false, err
-	}
-
-	responses := make(chan map[string]any, len(nodeIdentifiers)-1)
-
-	for _, nodeIdentifier := range nodeIdentifiers {
-		if nodeIdentifier.String() == address {
-			continue
-		}
-
-		// Conduct election with other voting nodes.
-		go func(nodeIdentifier *NodeIdentifier) {
-			request, err := http.NewRequestWithContext(
-				c.context,
-				"POST",
-				fmt.Sprintf("http://%s/cluster/election", nodeIdentifier.String()),
-				bytes.NewBuffer(jsonData),
-			)
-
-			if err != nil {
-				log.Println("Failed to create election request: ", err)
-				responses <- nil
-				return
-			}
-
-			request.Header.Set("Content-Type", "application/json")
-
-			err = c.node.setInternalHeaders(request)
-
-			if err != nil {
-				log.Println("Failed to set internal headers: ", err)
-				responses <- nil
-				return
-			}
-
-			resp, err := http.DefaultClient.Do(request)
-
-			if err != nil {
-				responses <- nil
-				return
-			}
-
-			defer resp.Body.Close()
-
-			var response map[string]any
-
-			err = json.NewDecoder(resp.Body).Decode(&response)
-
-			if err != nil {
-				log.Println("Failed to decode election confirmation response: ", err)
-				responses <- nil
-				return
-			}
-
-			responses <- response
-		}(nodeIdentifier)
-	}
-
-	timeout := time.NewTimer(3 * time.Second)
-	votesReceived := 1
-	votesNeeded := len(nodeIdentifiers)
-
-	for range len(nodeIdentifiers) - 1 {
-		select {
-		case response := <-responses:
-			if response == nil {
-				continue
-			}
-
-			var data map[string]any
-			var ok bool
-
-			if data, ok = response["data"].(map[string]any); !ok {
-				continue
-			}
-
-			if nominee, ok := data["nominee"].(string); ok {
-				if nominee == address {
-					votesReceived++
-				}
-			}
-		case <-c.context.Done():
-			return false, nil
-		case <-timeout.C:
-			return false, fmt.Errorf("election confirmation timeout")
-		}
-	}
-
-	return votesReceived >= votesNeeded, nil
-}
-
-// Stop the election.
-func (c *ClusterElection) Stop() {
-	if c.cancel == nil {
-		return
-	}
-
-	c.running = false
-
-	c.cancel()
-}
-
-// Read the nomination file and check if the node has already been nominated. This
-// means that the node is at the top of the nomination list and the timestamp
-// is within the last second.
-func (c *ClusterElection) verifyNomination() (bool, error) {
-	if c.context.Err() != nil {
-		return false, fmt.Errorf("operation canceled")
-	}
-
-	if !c.hasNomination {
-		return false, nil
-	}
-
-	address, _ := c.node.Address()
-
-	// Reopen the file to read the contents
-	nominationFile, err := c.node.Cluster.NetworkFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDONLY, 0644)
-
-	if err != nil {
-		log.Printf("Failed to reopen nomination file: %v", err)
-		return false, err
-	}
-
-	defer nominationFile.Close()
-
-	nominationData, err := io.ReadAll(nominationFile)
-
-	if err != nil {
-		return false, err
-	}
-
-	scanner := bufio.NewScanner(bytes.NewReader(nominationData))
-
-	// Check if the node has already been nominated
-	if scanner.Scan() {
-		firstLine := scanner.Text()
-
-		if strings.HasPrefix(firstLine, address) {
-			timestamp := strings.Split(firstLine, " ")[1]
-
-			timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
-
-			if err != nil {
-				return false, err
-			}
-
-			// Parse the timestamp
-			if time.Now().UnixNano()-timestampInt < time.Second.Nanoseconds() {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
-// Write the nodes address to the nomination file in attempt to nominate itself
-// as the primary node.
-func (c *ClusterElection) writeNomination() (bool, error) {
-	if c.context.Err() != nil {
-		return false, fmt.Errorf("operation canceled")
-	}
-
-openNomination:
-	nominationFile, err := c.node.Cluster.NetworkFS().OpenFile(c.node.Cluster.NominationPath(), os.O_RDWR|os.O_CREATE, 0644)
-
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("Failed to open nomination file: %v", err)
-			return false, err
-		}
-
-		// Retry if the file does not exist
-		err = c.node.Cluster.NetworkFS().MkdirAll(filepath.Dir(c.node.Cluster.NominationPath()), 0755)
-
-		if err != nil {
-			log.Printf("Failed to create nomination directory: %v", err)
-			return false, err
-		}
-
-		goto openNomination
-	}
-
-	nominationData, err := io.ReadAll(nominationFile)
-
-	if err != nil {
-		log.Printf("Failed to read nomination file: %v", err)
-		return false, err
-	}
-
-	nodeAddress, _ := c.node.Address()
-	timestamp := time.Now().UnixNano()
-	entry := fmt.Sprintf("%s %d\n", nodeAddress, timestamp)
-
-	// Read the nomination file and check if it is empty or does not contain
-	// this node's address in addition to the timestamp being past 1 second.
-	if len(nominationData) == 0 {
-		_, err = nominationFile.WriteString(entry)
-
-		if err != nil {
-			log.Printf("Failed to write to nomination file: %v", err)
-			return false, err
-		}
-	} else {
-		// File is not empty and does not contain this node's address
-		// Implement logic to determine if this node should still become primary based on timestamps or other criteria
-		scanner := bufio.NewScanner(bytes.NewReader(nominationData))
-
-		// Check if the node has already been nominated
-		if scanner.Scan() {
-			firstLine := scanner.Text()
-			parts := strings.Split(firstLine, " ")
-
-			address := parts[0]
-			// Check if the address is the same as this node's address
-			timestamp := parts[1]
-
-			timestampInt, err := strconv.ParseInt(timestamp, 10, 64)
-
-			if err != nil {
-				log.Println("Failed to parse timestamp: ", err)
-				return false, err
-			}
-
-			if nodeAddress != address &&
-				time.Now().UnixNano()-timestampInt < time.Millisecond.Nanoseconds() {
-				log.Println("Node already nominated: ", address, address)
-				return false, nil
-			}
-		}
-
-		err := nominationFile.Truncate(0)
-
-		if err != nil {
-			log.Printf("Failed to truncate nomination file: %v", err)
-			return false, err
-		}
-
-		_, err = nominationFile.Seek(0, io.SeekStart)
-
-		if err != nil {
-			log.Printf("Failed to seek nomination file: %v", err)
-			return false, err
-		}
-
-		_, err = nominationFile.WriteString(entry)
-
-		if err != nil {
-			log.Printf("Failed to write to nomination file: %v", err)
-			return false, err
-		}
-	}
-
-	err = nominationFile.Close()
-
-	if err != nil {
-		log.Println("Failed to close nomination file: ", err)
+		log.Printf("Failed to write primary file: %v", err)
 		return false, err
 	}
 
 	return true, nil
+}
+
+// Check if the election is running.
+func (ce *ClusterElection) Running() bool {
+	return ce.context.Err() == nil && ce.StoppedAt.IsZero()
+}
+
+// Stop the election process and mark the time it was stopped.
+func (ce *ClusterElection) Stop() {
+	ce.cancel()
+	ce.StoppedAt = time.Now()
+}
+
+// Check if the election has been stopped.
+func (ce *ClusterElection) Stopped() bool {
+	return !ce.StoppedAt.IsZero()
 }

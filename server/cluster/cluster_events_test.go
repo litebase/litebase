@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server/cluster"
 )
 
@@ -18,6 +17,9 @@ func TestBroadcast(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
 		server2 := test.NewTestServer(t)
+
+		defer server1.Shutdown()
+		defer server2.Shutdown()
 
 		var receivedMessage *cluster.EventMessage
 
@@ -32,7 +34,7 @@ func TestBroadcast(t *testing.T) {
 		}
 
 		if receivedMessage == nil {
-			t.Error("Message not received")
+			t.Fatal("Message not received")
 		}
 
 		if receivedMessage.Key != "test" {
@@ -48,6 +50,7 @@ func TestBroadcast(t *testing.T) {
 func TestReceiveEvent(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
 		var receivedMessage *cluster.EventMessage
 
@@ -79,6 +82,7 @@ func TestReceiveEvent(t *testing.T) {
 func TestSubscribe(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
 		var receivedMessage *cluster.EventMessage
 

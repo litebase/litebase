@@ -64,8 +64,6 @@ func (n *Node) handleBroadcastMessage(message interface{}) (interface{}, error) 
 		responseMessage, err = n.handleWALVersionUsageRequest(message)
 	case messages.WALReplicationWriteMessage:
 		err = n.handleWALReplicationWriteMessage(message)
-	case messages.WALReplicationTruncateMessage:
-		err = n.handleWALReplicationTruncateMessage(message)
 	default:
 		err = errors.New("unknown message type")
 	}
@@ -100,19 +98,7 @@ func (n *Node) handleRangeReplicationWriteMessage(message messages.RangeReplicat
 func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) interface{} {
 	var responseMessage interface{}
 
-	if n.IsPrimary() {
-		isPrimary := n.VerifyPrimaryStatus()
-
-		if !isPrimary {
-			responseMessage = messages.ErrorMessage{
-				Message: "Node is not primary",
-			}
-		} else {
-			// responseMessage = messages.ErrorMessage{
-			// 	Message: "Node is the primary",
-			// }
-		}
-	} else {
+	if !n.IsPrimary() {
 		if message.Time > n.PrimaryHeartbeat.Unix() {
 			n.PrimaryHeartbeat = time.Unix(message.Time, 0)
 		}
@@ -197,23 +183,6 @@ func (n *Node) handleWALReplicationWriteMessage(message messages.WALReplicationW
 
 	// if err != nil {
 	// 	log.Println("Failed to sync WAL data: ", err)
-	// 	return err
-	// }
-
-	return nil
-}
-
-func (n *Node) handleWALReplicationTruncateMessage(message messages.WALReplicationTruncateMessage) error {
-	// err := n.walSynchronizer.Truncate(
-	// 	message.DatabaseId,
-	// 	message.BranchId,
-	// 	message.Size,
-	// 	message.Sequence,
-	// 	message.Timestamp,
-	// )
-
-	// if err != nil {
-	// 	log.Println("Failed to sync WAL data truncation: ", err)
 	// 	return err
 	// }
 

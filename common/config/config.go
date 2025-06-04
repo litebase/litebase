@@ -13,8 +13,6 @@ const (
 	EnvProduction  = "production"
 	EnvTest        = "test"
 
-	NodeTypeQuery = "query"
-
 	StorageModeLocal  = "local"
 	StorageModeObject = "object"
 )
@@ -31,7 +29,6 @@ type Config struct {
 	FileSystemDriver       string
 	NetworkStoragePath     string
 	NodeAddressProvider    string
-	NodeType               string
 	PageSize               int64
 	Port                   string
 	Region                 string
@@ -51,7 +48,7 @@ type Config struct {
 	TmpPath                string
 }
 
-func env(key string, defaultValue string) interface{} {
+func env(key string, defaultValue string) any {
 	if os.Getenv(key) != "" {
 		return os.Getenv(key)
 	}
@@ -69,7 +66,6 @@ func NewConfig() *Config {
 		Env:                    env("LITEBASE_ENV", "production").(string),
 		FakeObjectStorage:      env("LITEBASE_FAKE_OBJECT_STORAGE", "false") == "true",
 		NodeAddressProvider:    env("LITEBASE_NODE_ADDRESS_PROVIDER", "").(string),
-		NodeType:               env("LITEBASE_NODE_TYPE", NodeTypeQuery).(string),
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
 		Region:                 env("LITEBASE_REGION", "").(string),
@@ -78,6 +74,7 @@ func NewConfig() *Config {
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:           env("LITEBASE_ROOT_USERNAME", "root").(string),
 		Signature:              env("LITEBASE_SIGNATURE", "").(string),
+		SignatureNext:          env("LITEBASE_SIGNATURE_NEXT", "").(string),
 		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),
 		StorageBucket:          env("LITEBASE_STORAGE_BUCKET", "").(string),
 		StorageEndpoint:        env("LITEBASE_STORAGE_ENDPOINT", "").(string),

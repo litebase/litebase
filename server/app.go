@@ -22,14 +22,6 @@ type App struct {
 	ServeMux        *netHttp.ServeMux
 }
 
-func attemptSecretInitialization(c *config.Config) bool {
-	if c.Env == config.EnvTest {
-		return true
-	}
-
-	return c.NodeType == config.NodeTypeQuery
-}
-
 func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	clusterInstance, err := cluster.NewCluster(configInstance)
 
@@ -68,23 +60,19 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		panic(err)
 	}
 
-	if attemptSecretInitialization(app.Config) {
-		err := auth.InitSignature(app.Config, clusterInstance.ObjectFS())
+	err = auth.InitSignature(app.Config, clusterInstance.ObjectFS())
 
-		if err != nil {
-			panic(err)
-		}
+	if err != nil {
+		panic(err)
 	}
 
-	if attemptSecretInitialization(app.Config) {
-		err = auth.KeyManagerInit(
-			configInstance,
-			app.Auth.SecretsManager,
-		)
+	err = auth.KeyManagerInit(
+		configInstance,
+		app.Auth.SecretsManager,
+	)
 
-		if err != nil {
-			panic(err)
-		}
+	if err != nil {
+		panic(err)
 	}
 
 	err = app.Auth.SecretsManager.Init()
@@ -116,5 +104,5 @@ func (app *App) IsInitialized() bool {
 }
 
 func (app *App) Run() {
-	http.Router().Server(app.Cluster, app.DatabaseManager, app.LogManager, app.ServeMux)
+	http.NewRouter().Server(app.Cluster, app.DatabaseManager, app.LogManager, app.ServeMux)
 }

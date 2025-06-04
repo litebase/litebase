@@ -4,14 +4,13 @@ import (
 	"time"
 )
 
-func LoadRoutes(router *RouterInstance) {
+func LoadRoutes(router *Router) {
 	// Administrative routes.
 	router.Get(
 		"/cluster/status",
 		ClusterStatusController,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Get(
@@ -19,7 +18,6 @@ func LoadRoutes(router *RouterInstance) {
 		UserControllerIndex,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Post(
@@ -27,7 +25,6 @@ func LoadRoutes(router *RouterInstance) {
 		UserControllerStore,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Delete(
@@ -35,7 +32,6 @@ func LoadRoutes(router *RouterInstance) {
 		UserControllerDestroy,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Get(
@@ -43,7 +39,6 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyControllerIndex,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Post(
@@ -51,7 +46,6 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyControllerStore,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Delete(
@@ -59,7 +53,6 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Post(
@@ -67,7 +60,6 @@ func LoadRoutes(router *RouterInstance) {
 		AccessKeyPurgeController,
 	).Middleware([]Middleware{
 		Internal,
-		QueryNode,
 	})
 
 	router.Get(
@@ -75,7 +67,6 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseIndexController,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Get(
@@ -83,7 +74,6 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseShowController,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Post(
@@ -91,7 +81,6 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseStoreController,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Delete(
@@ -99,7 +88,6 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Post(
@@ -107,7 +95,6 @@ func LoadRoutes(router *RouterInstance) {
 		SingatureStoreController,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	router.Post(
@@ -115,7 +102,6 @@ func LoadRoutes(router *RouterInstance) {
 		SingatureActivateController,
 	).Middleware([]Middleware{
 		AdminAuth,
-		QueryNode,
 	})
 
 	// Internal routes for cluster operations.
@@ -131,14 +117,7 @@ func LoadRoutes(router *RouterInstance) {
 		ClusterElectionController,
 	).Middleware(
 		[]Middleware{Internal},
-	).Timeout(0)
-
-	router.Post(
-		"/cluster/election/confirmation",
-		ClusterElectionConfirmationController,
-	).Middleware(
-		[]Middleware{Internal},
-	).Timeout(0)
+	).Timeout(3 * time.Second)
 
 	router.Post(
 		"/cluster/members",
@@ -170,7 +149,6 @@ func LoadRoutes(router *RouterInstance) {
 		DatabaseSettingsPurgeController,
 	).Middleware([]Middleware{
 		Internal,
-		QueryNode,
 	})
 
 	router.Post(
@@ -194,7 +172,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Get("/backups/{timestamp}",
@@ -203,7 +180,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Get("/metrics/query",
@@ -212,7 +188,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 		NodeTick,
 	}).Timeout(1 * time.Second)
 
@@ -221,7 +196,6 @@ func LoadRoutes(router *RouterInstance) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		QueryNode,
 	})
 
 	router.Post("/query",
@@ -230,7 +204,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
@@ -241,7 +214,6 @@ func LoadRoutes(router *RouterInstance) {
 		PreloadDatabaseKey,
 		Authentication,
 		Authorization,
-		QueryNode,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
@@ -251,7 +223,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Get("/snapshots/",
@@ -260,7 +231,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Get("/snapshots/{timestamp}",
@@ -269,16 +239,14 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Post("/transactions",
-		TrasactionControllerStore,
+		TransactionControllerStore,
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Delete("/transactions/{id}",
@@ -287,7 +255,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Post("/transactions/{id}/commit",
@@ -296,7 +263,6 @@ func LoadRoutes(router *RouterInstance) {
 		RequireSubdomain,
 		Authentication,
 		Authorization,
-		QueryNode,
 	})
 
 	router.Fallback(func(request *Request) Response {

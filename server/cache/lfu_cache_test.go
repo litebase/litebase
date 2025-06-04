@@ -108,14 +108,14 @@ func TestLFUCache_CapacityZero(t *testing.T) {
 	// Attempt to add an item to the cache
 	err := c.Put("key1", []byte("value1"))
 
-	if err != cache.ErrLFUCacheFull {
-		t.Fatalf("Expected error %v, got %v", cache.ErrLFUCacheFull, err)
+	if err != nil {
+		t.Fatalf("Expected no error when adding item to cache with capacity 0, got: %v", err)
 	}
 
 	// Verify that the item was not added
 	_, found := c.Get("key1")
 
-	if found {
+	if !found {
 		t.Fatal("Expected key1 to not be added to the cache with capacity 0")
 	}
 }

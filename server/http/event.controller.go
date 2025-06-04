@@ -1,6 +1,8 @@
 package http
 
-import "github.com/litebase/litebase/server/cluster"
+import (
+	"github.com/litebase/litebase/server/cluster"
+)
 
 func EventStoreController(request *Request) Response {
 	input, err := request.Input(&cluster.EventMessage{})
@@ -8,7 +10,7 @@ func EventStoreController(request *Request) Response {
 	if err != nil {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": err,
 			},
 		}

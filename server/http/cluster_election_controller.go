@@ -1,10 +1,15 @@
 package http
 
+import (
+	"time"
+
+	"github.com/litebase/litebase/server/cluster"
+)
+
 type ClusterElectionMessage struct {
-	Address   string `json:"address" validate:"required"`
-	Group     string `json:"group" validate:"required"`
+	Candidate uint64 `json:"candidate" validate:"required"`
 	Seed      int64  `json:"seed" validate:"required"`
-	Timestamp int64  `json:"timestamp" validate:"required"`
+	StartedAt int64  `json:"started_at" validate:"required"`
 }
 
 func ClusterElectionController(request *Request) Response {
@@ -14,14 +19,14 @@ func ClusterElectionController(request *Request) Response {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]any{
-				"errors": err,
+				"message": err,
 			},
 		}
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"address.requried":   "The address field is required",
-		"group.required":     "The group field is required",
+		"address.required":   "The address field is required",
+		"id.required":        "The id field is required",
 		"seed.required":      "The seed field is required",
 		"timestamp.required": "The timestamp field is required",
 	})
@@ -36,34 +41,64 @@ func ClusterElectionController(request *Request) Response {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]any{
-				"errors": "Invalid input",
+				"message": "Invalid input",
 			},
 		}
 	}
 
-	// Check that the group is the same as the node type
-	if message.Group != request.cluster.Config.NodeType {
+	// If the current node is the primary, the lease is up to date return error
+	if request.cluster.Node().IsPrimary() &&
+		request.cluster.Node().Lease().IsUpToDate() {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]any{
-				"errors": "Invalid group",
+				"message": "Cannot start election, current node is primary and lease is up to date",
 			},
 		}
 	}
 
-	election := request.cluster.Node().Election()
+	// Check if the node has running elections in progress
+	if request.cluster.Node().Election != nil && request.cluster.Node().Election.Running() {
+		if request.cluster.Node().Election.Seed > message.Seed {
+			return Response{
+				StatusCode: 400,
+				Body: map[string]any{
+					"message": "Election with a higher seed is already running",
+				},
+			}
+		} else {
+			// Stop the current election and start a new one
+			request.cluster.Node().Election.Stop()
+		}
+	}
 
-	election.AddCandidate(
-		input.(*ClusterElectionMessage).Address,
-		input.(*ClusterElectionMessage).Seed,
-	)
+	// Check for peer elections that are running
+	if request.cluster.Node().HasPeerElectionRunning() {
+		hasRunningPeerElection := len(request.cluster.Node().PeerElections()) > 0
+
+		if hasRunningPeerElection {
+			return Response{
+				StatusCode: 400,
+				Body: map[string]any{
+					"message": "A peer election is already running",
+				},
+			}
+		}
+	}
+
+	request.cluster.Node().AddPeerElection(&cluster.ClusterElection{
+		Candidate: message.Candidate,
+		Seed:      message.Seed,
+		StartedAt: time.Unix(0, message.StartedAt),
+	})
 
 	return Response{
 		StatusCode: 200,
 		Body: map[string]any{
-			"message": "Election started",
+			"message": "Election acknowledged",
 			"data": map[string]any{
-				"nominee": election.Nominee,
+				"candidate": message.Candidate,
+				"voted_at":  time.Now().Unix(),
 			},
 		},
 	}

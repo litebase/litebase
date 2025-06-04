@@ -47,7 +47,7 @@ func TestNodePrimaryHeartbeatWithDisconnectedNode(t *testing.T) {
 		testServer1 := test.NewTestServer(t)
 		stoppedAddress := "10.0.0.0:9876"
 
-		err := testServer1.App.Cluster.ObjectFS().WriteFile(
+		err := testServer1.App.Cluster.NetworkFS().WriteFile(
 			fmt.Sprintf("%s%s", testServer1.App.Cluster.NodePath(), strings.ReplaceAll(stoppedAddress, ":", "_")),
 			[]byte(stoppedAddress),
 			0644,
@@ -95,8 +95,8 @@ func TestNodePrimaryPublish(t *testing.T) {
 			},
 		})
 
-		if err != nil {
-			t.Error("Publish should not return an error")
+		if len(err) > 0 {
+			t.Errorf("Publish should not return an error: %v", err)
 		}
 	})
 }

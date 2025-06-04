@@ -35,7 +35,7 @@ type DatabaseConnection struct {
 	id                string
 	fileSystem        *storage.DurableDatabaseFileSystem
 	mutex             *sync.Mutex
-	nodeId            string
+	nodeId            uint64
 	pageLogger        *storage.PageLogger
 	resultPool        *sqlite3.ResultPool
 	sqlite3           *sqlite3.Connection
@@ -89,7 +89,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		fileSystem:        connectionManager.databaseManager.Resources(databaseId, branchId).FileSystem(),
 		id:                uuid.NewString(),
 		mutex:             &sync.Mutex{},
-		nodeId:            connectionManager.cluster.Node().Id,
+		nodeId:            connectionManager.cluster.Node().ID,
 		pageLogger:        connectionManager.databaseManager.Resources(databaseId, branchId).PageLogger(),
 		resultPool:        resultPool,
 		statements:        sync.Map{},

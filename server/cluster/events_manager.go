@@ -1,5 +1,10 @@
 package cluster
 
+import (
+	"log/slog"
+	"strconv"
+)
+
 type EventsManager struct {
 	cluster *Cluster
 	hooks   []func(key string, value string)
@@ -37,20 +42,32 @@ func (em *EventsManager) Init() {
 
 	em.cluster.Subscribe("cluster:join", func(message *EventMessage) {
 		data := message.Value.(map[string]any)
+		ID, err := strconv.ParseUint(data["ID"].(string), 10, 64)
 
-		em.cluster.AddMember(data["group"].(string), data["address"].(string))
+		if err != nil {
+			slog.Error("Failed to parse ID:", "error", err)
+			return
+		}
 
-		// Clear shared file system cache
-		em.cluster.ClearFSFiles()
+		em.cluster.AddMember(ID, data["address"].(string))
 	})
 
 	em.cluster.Subscribe("cluster:leave", func(message *EventMessage) {
 		data := message.Value.(map[string]any)
 
-		em.cluster.RemoveMember(data["address"].(string))
+		if _, ok := message.Value.(map[string]any); !ok {
+			slog.Error("Cluster leave event missing data")
+			return
+		}
 
-		// Clear shared file system cache
-		em.cluster.ClearFSFiles()
+		if _, ok := data["address"]; ok {
+			slog.Error("Cluster leave event missing address")
+			return
+		}
+
+		if address, ok := data["address"].(string); ok {
+			em.cluster.RemoveMember(address)
+		}
 	})
 
 	em.cluster.Subscribe("next_signature", func(message *EventMessage) {

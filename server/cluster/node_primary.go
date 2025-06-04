@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/server/cluster/messages"
-
-	"github.com/litebase/litebase/common/config"
 )
 
 type NodePrimary struct {
@@ -66,15 +64,11 @@ func (np *NodePrimary) Heartbeat() error {
 
 // Publish a message to the replica nodes.
 func (np *NodePrimary) Publish(message messages.NodeMessage) (map[string]any, map[string]error) {
-	var nodes []*NodeIdentifier
-
 	if np.node == nil || np.node.Cluster == nil {
 		return nil, nil
 	}
 
-	if np.node.Cluster.Config.NodeType == config.NodeTypeQuery {
-		nodes = np.node.Cluster.OtherQueryNodes()
-	}
+	nodes := np.node.Cluster.OtherNodes()
 
 	if len(nodes) == 0 {
 		return nil, nil
@@ -87,10 +81,10 @@ func (np *NodePrimary) Publish(message messages.NodeMessage) (map[string]any, ma
 		var connection *NodeConnection
 		var ok bool
 
-		if connection, ok = np.nodeConnections[node.String()]; !ok {
-			connection = NewNodeConnection(np.node, node.String())
-			np.nodeConnections[node.String()] = connection
-			connections[i] = np.nodeConnections[node.String()]
+		if connection, ok = np.nodeConnections[node.Address]; !ok {
+			connection = NewNodeConnection(np.node, node.Address)
+			np.nodeConnections[node.Address] = connection
+			connections[i] = np.nodeConnections[node.Address]
 		} else {
 			connections[i] = connection
 		}

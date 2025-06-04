@@ -1,8 +1,8 @@
 package http
 
-// TrasactionControllerStore creates a new transaction. This is effectively a
+// TransactionControllerStore creates a new transaction. This is effectively a
 // call to begin a transaction.
-func TrasactionControllerStore(request *Request) Response {
+func TransactionControllerStore(request *Request) Response {
 	databaseKey := request.DatabaseKey()
 
 	if databaseKey == nil {

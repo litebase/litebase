@@ -12,7 +12,7 @@ import (
 	"github.com/litebase/litebase/server/logs"
 )
 
-type RouterInstance struct {
+type Router struct {
 	DefaultRoute Route
 	HttpServer   *http.Server
 	Routes       map[string]map[string]*Route
@@ -23,55 +23,49 @@ type RouteKey struct {
 	Regex *regexp.Regexp
 }
 
-var StaticRouter *RouterInstance
-
-func Router() *RouterInstance {
-	if StaticRouter == nil {
-		StaticRouter = &RouterInstance{
-			Routes: map[string]map[string]*Route{
-				"GET":    nil,
-				"POST":   nil,
-				"PUT":    nil,
-				"PATCH":  nil,
-				"DELETE": nil,
-			},
-		}
+func NewRouter() *Router {
+	return &Router{
+		Routes: map[string]map[string]*Route{
+			"GET":    nil,
+			"POST":   nil,
+			"PUT":    nil,
+			"PATCH":  nil,
+			"DELETE": nil,
+		},
 	}
-
-	return StaticRouter
 }
 
-func (router *RouterInstance) Delete(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Delete(path string, handler func(request *Request) Response) *Route {
 	return router.request("DELETE", path, handler)
 }
 
-func (router *RouterInstance) Fallback(callback func(request *Request) Response) {
+func (router *Router) Fallback(callback func(request *Request) Response) {
 	router.DefaultRoute = Route{
 		Handler: callback,
 	}
 }
 
-func (router *RouterInstance) Get(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Get(path string, handler func(request *Request) Response) *Route {
 	return router.request("GET", path, handler)
 }
 
-func (router *RouterInstance) Path(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Path(path string, handler func(request *Request) Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Post(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Post(path string, handler func(request *Request) Response) *Route {
 	return router.request("POST", path, handler)
 }
 
-func (router *RouterInstance) Patch(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Patch(path string, handler func(request *Request) Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
-func (router *RouterInstance) Put(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Put(path string, handler func(request *Request) Response) *Route {
 	return router.request("PUT", path, handler)
 }
 
-func (router *RouterInstance) request(method string, path string, handler func(request *Request) Response) *Route {
+func (router *Router) request(method string, path string, handler func(request *Request) Response) *Route {
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
 	}
@@ -81,7 +75,7 @@ func (router *RouterInstance) request(method string, path string, handler func(r
 	return router.Routes[method][path]
 }
 
-func (router *RouterInstance) Server(
+func (router *Router) Server(
 	cluster *cluster.Cluster,
 	databaseManager *database.DatabaseManager,
 	logManager *logs.LogManager,

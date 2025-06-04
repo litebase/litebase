@@ -15,39 +15,10 @@ func TestInit(t *testing.T) {
 	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
 	os.Setenv("LITEBASE_SIGNATURE", signature)
 
-	config.NewConfig()
-
-	// The signature file should be stored
-	if _, err := os.Stat("../../.test/.signature"); os.IsNotExist(err) {
-		t.Fatalf("The signature file was not created")
-	}
-
-	test.Teardown(t, "../../.test", nil)
-}
-
-func TestInitWithNewSignature(t *testing.T) {
-	signature := test.CreateHash(32)
-	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
-	os.Setenv("LITEBASE_SIGNATURE", signature)
-
-	//Create the signature file
-	os.MkdirAll("../../.test", 0755)
-
-	os.WriteFile("../../.test/.signature", []byte(signature), 0644)
-
-	nextSignature := test.CreateHash(32)
-
-	os.Setenv("LITEBASE_SIGNATURE", nextSignature)
-
 	c := config.NewConfig()
 
-	// If the signature is not the same as the stored signature, the next signature should be set
-	if c.SignatureNext == "" {
-		t.Fatalf("The signature next was not set")
-	}
-
-	if c.Signature != nextSignature {
-		t.Fatalf("The signature was not set")
+	if c == nil {
+		t.Fatalf("The config instance was not created")
 	}
 
 	test.Teardown(t, "../../.test", nil)

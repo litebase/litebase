@@ -89,7 +89,7 @@ func (q *QueryLog) Close() error {
 
 func (q *QueryLog) GetFile() internalStorage.File {
 	if q.file == nil {
-		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, q.cluster.Node().Id)
+		path := fmt.Sprintf("%s/%d/QUERY_LOG_%d", q.path, q.timestamp, q.cluster.Node().ID)
 
 	tryOpen:
 		file, err := q.tieredFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
@@ -119,7 +119,7 @@ func (q *QueryLog) GetStatementIndex() *QueryStatementIndex {
 		statementIndex, err := GetQueryStatementIndex(
 			q.tieredFS,
 			q.path,
-			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", q.cluster.Node().Id),
+			fmt.Sprintf("QUERY_STATEMENT_INDEX_%d", q.cluster.Node().ID),
 			q.timestamp,
 		)
 

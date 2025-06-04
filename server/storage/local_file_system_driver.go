@@ -94,7 +94,7 @@ func (fs *LocalFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.F
 
 func (fs *LocalFileSystemDriver) Path(path string) string {
 	var builder strings.Builder
-
+	path = strings.TrimRight(path, "/")
 	builder.Grow(len(fs.basePath) + 1 + len(path)) // Preallocate memory
 	builder.WriteString(fs.basePath)
 	builder.WriteString("/")
@@ -117,7 +117,7 @@ func (fs *LocalFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEntr
 		info, err := entry.Info()
 
 		if err != nil {
-			return nil, err
+			continue // Skip this entry if we can't read its info
 		}
 
 		dirEntries = append(dirEntries, internalStorage.NewDirEntry(

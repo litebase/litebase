@@ -2,6 +2,7 @@ package http
 
 import (
 	"log"
+	"strconv"
 )
 
 func ClusterMemberDestroyController(request *Request) Response {
@@ -25,7 +26,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 	nodePresent := false
 
 	for _, node := range queryNodes {
-		if node == decryptedIp.Value {
+		if node.Address == decryptedIp.Value {
 			nodePresent = true
 			break
 		}
@@ -86,7 +87,7 @@ func ClusterMemberStoreController(request *Request) Response {
 	nodePresent := false
 
 	for _, node := range queryNodes {
-		if node == decryptedIp.Value {
+		if node.Address == decryptedIp.Value {
 			nodePresent = true
 			break
 		}
@@ -100,10 +101,18 @@ func ClusterMemberStoreController(request *Request) Response {
 		}
 	}
 
-	group := request.Get("group").(string)
+	IDUint64, err := strconv.ParseUint(request.Get("ID").(string), 10, 64)
+
+	if err != nil {
+		log.Println("Failed to parse ID: ", err)
+		return Response{
+			StatusCode: 400,
+		}
+	}
+
 	address := request.Get("address").(string)
 
-	err = request.cluster.AddMember(group, address)
+	err = request.cluster.AddMember(IDUint64, address)
 
 	if err != nil {
 		log.Println("Failed to add member: ", err)

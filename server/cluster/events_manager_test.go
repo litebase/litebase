@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
-
 	"github.com/litebase/litebase/server"
 )
 

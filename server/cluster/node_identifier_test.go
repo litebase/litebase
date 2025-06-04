@@ -7,17 +7,13 @@ import (
 )
 
 func TestNewNodeIdentifier(t *testing.T) {
-	identifier := cluster.NewNodeIdentifier("127.0.0.1", "8080")
+	identifier := cluster.NewNodeIdentifier("127.0.0.1:8080", 1)
 
 	if identifier.Address != "127.0.0.1" {
 		t.Error("Address not set correctly")
 	}
 
-	if identifier.Port != "8080" {
-		t.Error("Port not set correctly")
-	}
-
-	if identifier.String() != "127.0.0.1:8080" {
-		t.Error("String() not returning expected value")
+	if identifier.ID != 1 {
+		t.Error("ID not set correctly")
 	}
 }
