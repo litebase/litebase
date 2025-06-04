@@ -108,7 +108,6 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 			callback()
 		}
 
-		// time.Sleep(1000 * time.Millisecond) // Give some time for the shutdown to complete
 		// Remove the data path
 		os.RemoveAll(dataPath)
 	})
@@ -128,6 +127,25 @@ func Run(t testing.TB, callback func()) {
 
 	// Teardown the environment
 	Teardown(t, dataPath, nil)
+
+	// Run the test
+	callback()
+}
+
+func RunWithTearDown(t testing.TB, callback func(), callbacks ...func()) {
+	cluster.SetAddressProvider(func() string {
+		return "127.0.0.1"
+	})
+
+	// Setup the environment
+	dataPath, err := SetupWithoutApp(t)
+
+	if err != nil {
+		t.Fail()
+	}
+
+	// Teardown the environment
+	Teardown(t, dataPath, nil, callbacks...)
 
 	// Run the test
 	callback()

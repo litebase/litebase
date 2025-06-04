@@ -95,12 +95,13 @@ func (n *Node) handleRangeReplicationWriteMessage(message messages.RangeReplicat
 }
 
 // Handle a heartbeat message from a primary or replica node.
-func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) interface{} {
-	var responseMessage interface{}
+func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) any {
+	var responseMessage = messages.HeartbeatResponseMessage{}
 
 	if !n.IsPrimary() {
 		if message.Time > n.PrimaryHeartbeat.Unix() {
 			n.PrimaryHeartbeat = time.Unix(message.Time, 0)
+			responseMessage.Time = n.PrimaryHeartbeat.Unix()
 		}
 	}
 

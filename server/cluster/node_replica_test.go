@@ -25,6 +25,7 @@ func TestNewNodeReplica(t *testing.T) {
 func TestNodeReplicaJoinCluster(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
+		defer testServer1.Shutdown()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
 			t.Fatalf("Node should be primary")
@@ -66,6 +67,7 @@ func TestNodeReplicaJoinCluster(t *testing.T) {
 func TestNodeReplicaLeaveCluster(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
+		defer testServer1.Shutdown()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
 			t.Fatalf("Node should be primary")
@@ -78,6 +80,7 @@ func TestNodeReplicaLeaveCluster(t *testing.T) {
 		}
 
 		testServer2 := test.NewTestServer(t)
+		defer testServer2.Shutdown()
 
 		queryNodes = testServer1.App.Cluster.GetMembers(true)
 
@@ -102,12 +105,14 @@ func TestNodeReplicaLeaveCluster(t *testing.T) {
 func TestNodeReplicaSend(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
+		defer testServer1.Shutdown()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
 			t.Fatalf("Node should be primary")
 		}
 
 		testServer2 := test.NewTestServer(t)
+		defer testServer2.Shutdown()
 
 		resp, err := testServer2.App.Cluster.Node().Replica().Send(messages.NodeMessage{
 			Data: messages.HeartbeatMessage{},
@@ -118,7 +123,7 @@ func TestNodeReplicaSend(t *testing.T) {
 		}
 
 		if resp == (messages.NodeMessage{}) {
-			t.Error("Send should return a response")
+			t.Errorf("Send should return a response,")
 		}
 	})
 }
@@ -126,12 +131,14 @@ func TestNodeReplicaSend(t *testing.T) {
 func TestNodeReplicaStop(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
+		defer testServer1.Shutdown()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
 			t.Fatalf("Node should be primary")
 		}
 
 		testServer2 := test.NewTestServer(t)
+		defer testServer2.Shutdown()
 
 		err := testServer2.App.Cluster.Node().Replica().Stop()
 

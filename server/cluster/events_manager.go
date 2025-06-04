@@ -42,6 +42,22 @@ func (em *EventsManager) Init() {
 
 	em.cluster.Subscribe("cluster:join", func(message *EventMessage) {
 		data := message.Value.(map[string]any)
+
+		if _, ok := message.Value.(map[string]any); !ok {
+			slog.Error("Cluster join event missing data")
+			return
+		}
+
+		if _, ok := data["address"]; !ok {
+			slog.Error("Cluster join event missing address")
+			return
+		}
+
+		if _, ok := data["ID"]; !ok {
+			slog.Error("Cluster join event missing ID")
+			return
+		}
+
 		ID, err := strconv.ParseUint(data["ID"].(string), 10, 64)
 
 		if err != nil {
@@ -60,13 +76,13 @@ func (em *EventsManager) Init() {
 			return
 		}
 
-		if _, ok := data["address"]; ok {
+		if _, ok := data["address"]; !ok {
 			slog.Error("Cluster leave event missing address")
 			return
 		}
 
 		if address, ok := data["address"].(string); ok {
-			em.cluster.RemoveMember(address)
+			em.cluster.RemoveMember(address, false)
 		}
 	})
 

@@ -56,7 +56,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 		}
 	}
 
-	request.cluster.RemoveMember(address)
+	request.cluster.RemoveMember(address, false)
 
 	return Response{
 		StatusCode: 200,
@@ -101,7 +101,7 @@ func ClusterMemberStoreController(request *Request) Response {
 		}
 	}
 
-	IDUint64, err := strconv.ParseUint(request.Get("ID").(string), 10, 64)
+	IDUint64, err := strconv.ParseUint(request.Get("id").(string), 10, 64)
 
 	if err != nil {
 		log.Println("Failed to parse ID: ", err)

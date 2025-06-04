@@ -40,10 +40,6 @@ func NewTestServer(t *testing.T) *TestServer {
 		Started: app.Cluster.Node().Start(),
 	}
 
-	// t.Cleanup(func() {
-	// 	server.Shutdown()
-	// })
-
 	return server
 }
 
@@ -81,4 +77,7 @@ func (ts *TestServer) Shutdown() {
 	ts.App.Cluster.Node().Shutdown()
 	// This may not be neccesary since this will be used in side of test.Run()
 	// storage.Shutdown(ts.App.Config)
+
+	ts.Server.CloseClientConnections()
+	ts.Server.Close()
 }

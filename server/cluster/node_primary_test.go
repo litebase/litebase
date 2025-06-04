@@ -27,8 +27,11 @@ func TestNewNodePrimary(t *testing.T) {
 func TestNodePrimaryHeartbeat(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
-		test.NewTestServer(t)
-		test.NewTestServer(t)
+		defer testServer1.Shutdown()
+		testServer2 := test.NewTestServer(t)
+		defer testServer2.Shutdown()
+		testServer3 := test.NewTestServer(t)
+		defer testServer3.Shutdown()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
 			t.Fatalf("Node should be primary")
@@ -45,6 +48,7 @@ func TestNodePrimaryHeartbeat(t *testing.T) {
 func TestNodePrimaryHeartbeatWithDisconnectedNode(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
+		defer testServer1.Shutdown()
 		stoppedAddress := "10.0.0.0:9876"
 
 		err := testServer1.App.Cluster.NetworkFS().WriteFile(
@@ -80,8 +84,11 @@ func TestNodePrimaryHeartbeatWithDisconnectedNode(t *testing.T) {
 func TestNodePrimaryPublish(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
-		test.NewTestServer(t)
-		test.NewTestServer(t)
+		defer testServer1.Shutdown()
+		testServer2 := test.NewTestServer(t)
+		defer testServer2.Shutdown()
+		testServer3 := test.NewTestServer(t)
+		defer testServer3.Shutdown()
 		address, _ := testServer1.App.Cluster.Node().Address()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
@@ -104,8 +111,11 @@ func TestNodePrimaryPublish(t *testing.T) {
 func TestNodePrimaryShutdown(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
-		test.NewTestServer(t)
-		test.NewTestServer(t)
+		defer testServer1.Shutdown()
+		testServer2 := test.NewTestServer(t)
+		defer testServer2.Shutdown()
+		testServer3 := test.NewTestServer(t)
+		defer testServer3.Shutdown()
 
 		if !testServer1.App.Cluster.Node().IsPrimary() {
 			t.Fatalf("Node should be primary")

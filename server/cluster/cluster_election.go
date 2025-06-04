@@ -52,6 +52,10 @@ func NewClusterElection(node *Node) *ClusterElection {
 	}
 }
 
+func (ce *ClusterElection) Context() context.Context {
+	return ce.context
+}
+
 // Expired checks if the election has expired based on the current time.
 func (ce *ClusterElection) Expired() bool {
 	return time.Now().After(ce.EndsAt)
@@ -63,6 +67,8 @@ func (ce *ClusterElection) proposeLeadership() bool {
 	if ce.context == nil || ce.context.Err() != nil {
 		return false
 	}
+	// Refresh the cluster members to ensure we have the latest information
+	ce.node.Cluster.GetMembers(false)
 
 	votingNodes := ce.node.Cluster.Nodes()
 
@@ -122,15 +128,14 @@ func (ce *ClusterElection) proposeLeadership() bool {
 			resp, err := http.DefaultClient.Do(request)
 
 			if err != nil {
-				log.Printf(
-					"Error sending election request to node %s from node: %s",
-					nodeAddress,
-					err,
+				slog.Debug(
+					"Error sending election request",
+					"address", nodeAddress,
+					"error", err,
 				)
 			}
 
 			if resp == nil {
-				log.Printf("No response from node %s during election", nodeAddress)
 				votes <- false
 				return
 			}
@@ -144,7 +149,7 @@ func (ce *ClusterElection) proposeLeadership() bool {
 			err = json.NewDecoder(resp.Body).Decode(&jsonData)
 
 			if err != nil {
-				log.Printf("Error decoding response from node %s: %v", nodeAddress, err)
+				slog.Debug("Error decoding response from node", "address", nodeAddress, "error", err)
 				votes <- false
 				return
 			}
@@ -185,9 +190,11 @@ func (ce *ClusterElection) proposeLeadership() bool {
 func (ce *ClusterElection) run() (bool, error) {
 	defer ce.Stop()
 
-	// Add a random sleep to avoid simultaneous elections
-	sleepDuration := time.Duration(100+rand.IntN(901)) * time.Millisecond
-	time.Sleep(sleepDuration)
+	if !ce.node.Cluster.IsSingleNodeCluster() {
+		// Add a random sleep to avoid simultaneous elections
+		sleepDuration := time.Duration(100+rand.IntN(901)) * time.Millisecond
+		time.Sleep(sleepDuration)
+	}
 
 	if ce.node.Context().Err() != nil {
 		return false, ce.node.Context().Err()
@@ -197,7 +204,7 @@ func (ce *ClusterElection) run() (bool, error) {
 	primaryFile, err := ce.node.Cluster.NetworkFS().Open(ce.node.Cluster.PrimaryPath())
 
 	if err != nil {
-		log.Printf("Failed to open primary file: %v", err)
+		slog.Debug("Failed to open primary file", "error", err)
 		return false, err
 	}
 
@@ -217,7 +224,7 @@ func (ce *ClusterElection) run() (bool, error) {
 
 	if err != nil {
 		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
-			log.Printf("Primary file is locked by another process: %v", err)
+			slog.Debug("Primary file is locked by another process", "error", err)
 			return false, nil // Not an error, just not elected
 		}
 

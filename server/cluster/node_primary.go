@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"sync"
@@ -157,15 +158,15 @@ func (np *NodePrimary) ValidateReplica(address string) error {
 	response, err := client.Do(request)
 
 	if err != nil {
-		log.Println("Failed to validate replica: ", err)
+		slog.Debug("Failed to validate replica", "error", err)
 	}
 
 	if response != nil && response.StatusCode == http.StatusOK {
 		return nil
 	}
 
-	if err := np.node.Cluster.RemoveMember(address); err != nil {
-		log.Println("Failed to remove replica: ", err)
+	if err := np.node.Cluster.RemoveMember(address, true); err != nil {
+		slog.Error("Failed to remove replica", "error", err)
 
 		return err
 	}

@@ -22,7 +22,6 @@ import (
 
 const (
 	NodeHeartbeatInterval = 1 * time.Second
-	NodeHeartbeatTimeout  = 1 * time.Second
 	NodeIdleTimeout       = 60 * time.Second
 	NodeStateActive       = "active"
 	NodeStateIdle         = "idle"
@@ -140,6 +139,29 @@ func (n *Node) Context() context.Context {
 	return n.context
 }
 
+// Check if the node address is stored and if not, store it.
+func (n *Node) ensureNodeAddressStored() error {
+	if n.storedAddressAt.IsZero() || time.Since(n.storedAddressAt) > 1*time.Minute {
+		// Check if the address is already stored
+		if _, err := n.Cluster.NetworkFS().Stat(n.AddressPath()); err == nil {
+			n.storedAddressAt = time.Now()
+			return nil
+		}
+
+		// If the address is not stored, the node needs to rejoin the cluster
+		n.joinedClusterAt = time.Time{}
+
+		err := n.JoinCluster()
+
+		if err != nil {
+			slog.Error("Failed to join cluster", "error", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (n *Node) HasPeerElectionRunning() bool {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -152,6 +174,8 @@ func (n *Node) HasPeerElectionRunning() bool {
 // Trigger the node to perform a heartbeat.
 func (n *Node) heartbeat() {
 	n.mutex.Lock()
+
+	n.ensureNodeAddressStored()
 
 	if n.Membership == ClusterMembershipPrimary {
 		n.mutex.Unlock()
@@ -189,7 +213,7 @@ func (n *Node) heartbeat() {
 		success, err := n.runElection()
 
 		if err != nil {
-			slog.Info("Failed to run election", "error", err)
+			slog.Debug("Failed to run election", "error", err)
 		}
 
 		if !success {
@@ -224,6 +248,15 @@ func (n *Node) IsIdle() bool {
 }
 
 func (n *Node) IsPrimary() bool {
+	// If an election is running, wait for it to finish
+	if n.Election != nil && n.Election.Running() {
+		select {
+		case <-n.Election.Context().Done():
+		default:
+			break
+		}
+	}
+
 	// If the node has not been activated, tick it before running these checks
 	if n.LastActive.IsZero() || time.Since(n.LastActive) > 5*time.Minute {
 		n.Tick()
@@ -244,6 +277,15 @@ func (n *Node) IsPrimary() bool {
 }
 
 func (n *Node) IsReplica() bool {
+	// If an election is running, wait for it to finish
+	if n.Election != nil && n.Election.Running() {
+		select {
+		case <-n.Election.Context().Done():
+		default:
+			break
+		}
+	}
+
 	return n.Membership == ClusterMembershipReplica && n.replica != nil
 }
 
@@ -291,10 +333,12 @@ func (n *Node) JoinCluster() error {
 	return nil
 }
 
+// Return the lease of the node
 func (n *Node) Lease() *Lease {
 	return n.lease
 }
 
+// Monitor the primary node and perform heartbeat checks at regular intervals.
 func (n *Node) monitorPrimary() {
 	ticker := time.NewTicker(NodeHeartbeatInterval)
 	defer ticker.Stop()
@@ -306,7 +350,12 @@ func (n *Node) monitorPrimary() {
 				continue
 			}
 
+			if n.context.Err() != nil {
+				return
+			}
+
 			n.heartbeat()
+
 		case <-n.context.Done():
 			return
 		}
@@ -689,9 +738,10 @@ func (n *Node) Shutdown() error {
 
 func (n *Node) Start() chan bool {
 	n.startedAt = time.Now()
+	n.replica = NewNodeReplica(n)
 
+	n.heartbeat()
 	n.Tick()
-
 	go n.monitorPrimary()
 	go n.runTicker()
 

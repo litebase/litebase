@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
@@ -181,7 +182,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 	)
 
 	if err != nil {
-		log.Println("Failed to send message: ", err)
+		slog.Error("Failed to send message", "error", err)
 		return messages.NodeMessage{}, err
 	}
 
@@ -191,7 +192,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 	)
 
 	if err != nil {
-		log.Println(err)
+		slog.Error("Failed to encrypt header", "error", err)
 		return messages.NodeMessage{}, err
 	}
 
@@ -202,14 +203,14 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 	response, err := client.Do(request)
 
 	if err != nil {
-		log.Println("Failed to send message: ", err)
+		slog.Error("Failed to send message", "error", err)
 		return messages.NodeMessage{}, err
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode >= 400 {
-		log.Println("Failed to send message: ", response.Status)
+		slog.Error("Failed to send message", "status", response.Status)
 		return messages.NodeMessage{}, errors.New("failed to send message")
 	}
 
@@ -220,7 +221,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 	err = decoder.Decode(&responseMessage)
 
 	if err != nil {
-		log.Println("Failed to decode response: ", err)
+		slog.Error("Failed to decode response", "error", err)
 		return messages.NodeMessage{}, err
 	}
 

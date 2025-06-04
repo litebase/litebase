@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
@@ -167,6 +166,7 @@ func TestNode_Init(t *testing.T) {
 func TestNodeIsIdle(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
 		if server.App.Cluster.Node().IsIdle() {
 			t.Error("Node should not be idle")
@@ -182,16 +182,17 @@ func TestNodeIsIdle(t *testing.T) {
 
 func TestNodeIsPrimary(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServer(t)
+		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
+		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
 
-		if !server.App.Cluster.Node().IsPrimary() {
-			t.Error("Node should not be primary")
+		if !server1.App.Cluster.Node().IsPrimary() {
+			t.Error("Node should be primary")
 		}
 
-		server.App.Cluster.Node().Membership = cluster.ClusterMembershipReplica
-
-		if server.App.Cluster.Node().IsPrimary() {
-			t.Error("Node should be primary")
+		if server2.App.Cluster.Node().IsPrimary() {
+			t.Error("Node should not be primary")
 		}
 	})
 }
@@ -199,7 +200,13 @@ func TestNodeIsPrimary(t *testing.T) {
 func TestNodeIsReplica(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
+
+		if !server1.App.Cluster.Node().IsPrimary() {
+			t.Error("Node should be primary")
+		}
+
 		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
 
 		if !server2.App.Cluster.Node().IsReplica() {
 			t.Error("Node should be replica")
@@ -207,9 +214,7 @@ func TestNodeIsReplica(t *testing.T) {
 
 		server1.Shutdown()
 
-		time.Sleep(3 * time.Second)
-
-		server2.App.Cluster.Node().Membership = cluster.ClusterMembershipReplica
+		time.Sleep(100 * time.Millisecond) // Wait for the node to be marked as replica
 
 		if server2.App.Cluster.Node().IsReplica() {
 			t.Error("Node should not be replica")
@@ -220,6 +225,7 @@ func TestNodeIsReplica(t *testing.T) {
 func TestNode_Primary(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
 		if server.App.Cluster.Node().Primary() == nil {
 			t.Error("Node primary not set")
@@ -230,6 +236,7 @@ func TestNode_Primary(t *testing.T) {
 func TestNode_PrimaryAddress(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
 		if server.App.Cluster.Node().PrimaryAddress() == "" {
 			t.Error("Node primary address not set")
@@ -246,8 +253,10 @@ func TestNode_PrimaryAddress(t *testing.T) {
 
 func TestNode_Replica(t *testing.T) {
 	test.Run(t, func() {
-		test.NewTestServer(t)
+		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
 		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
 
 		if server2.App.Cluster.Node().Replica() == nil {
 			t.Error("Node replica not set")
@@ -255,72 +264,12 @@ func TestNode_Replica(t *testing.T) {
 	})
 }
 
-func TestNode_RunElection(t *testing.T) {
-	for i := 1; i < 12; i++ {
-		t.Run(fmt.Sprintf("%d Node Election", i), func(t *testing.T) {
-			test.Run(t, func() {
-				serverCount := i
-				servers := make([]*test.TestServer, serverCount)
-
-				for i := range servers {
-					servers[i] = test.NewUnstartedTestServer(t)
-				}
-
-				wg := sync.WaitGroup{}
-				wg.Add(serverCount)
-
-				for i := range servers {
-					go func(server *test.TestServer) {
-						defer wg.Done()
-
-						server.App.Cluster.Node().Start()
-					}(servers[i])
-				}
-
-				wg.Wait()
-
-				ticker := time.NewTicker(1 * time.Second)
-				defer ticker.Stop()
-
-				start := time.Now()
-
-				// Ensure only one primary node is elected
-				for range ticker.C {
-					if time.Since(start) > 10*time.Second {
-						t.Fatalf("A primary node was not elected before timeout")
-						break
-					}
-
-					primaryCount := 0
-
-					for _, server := range servers {
-						if server.App.Cluster.Node().IsPrimary() {
-							primaryCount++
-						}
-					}
-
-					if primaryCount > 1 {
-						t.Fatalf("Invalid primary count: %d expected 1", primaryCount)
-						break
-					}
-
-					if primaryCount == 1 {
-						break
-					}
-				}
-
-				for _, server := range servers {
-					server.Shutdown()
-				}
-			})
-		})
-	}
-}
-
 func TestNode_Send(t *testing.T) {
 	test.Run(t, func() {
-		test.NewTestServer(t)
+		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
 		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
 		address, _ := server2.App.Cluster.Node().Address()
 
 		if !server2.App.Cluster.Node().IsReplica() {
@@ -346,7 +295,9 @@ func TestNode_Send(t *testing.T) {
 func TestNode_SendEvent(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
-		test.NewTestServer(t)
+		defer server1.Shutdown()
+		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
 
 		err := server1.App.Cluster.Broadcast("test", "test")
 
@@ -359,6 +310,7 @@ func TestNode_SendEvent(t *testing.T) {
 func TestNodeSetMembership(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
 		server.App.Cluster.Node().SetMembership(cluster.ClusterMembershipReplica)
 
@@ -371,6 +323,8 @@ func TestNodeSetMembership(t *testing.T) {
 func TestNode_SetQueryBuilder(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
 		queryBuilder := database.NewQueryBuilder(
 			server.App.Cluster,
 			server.App.Auth.AccessKeyManager,
@@ -389,6 +343,8 @@ func TestNode_SetQueryBuilder(t *testing.T) {
 func TestNode_SetQueryResponsePool(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
 		queryResponsePool := database.ResponsePool()
 		server.App.Cluster.Node().SetQueryResponsePool(queryResponsePool)
 
@@ -401,6 +357,8 @@ func TestNode_SetQueryResponsePool(t *testing.T) {
 func TestNode_SetWALSynchronizer(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
 		walSynchronizer := database.NewDatabaseWALSynchronizer(server.App.DatabaseManager)
 		server.App.Cluster.Node().SetWALSynchronizer(walSynchronizer)
 
@@ -413,6 +371,8 @@ func TestNode_SetWALSynchronizer(t *testing.T) {
 func TestNode_Shutdown(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
 		err := server.App.Cluster.Node().Shutdown()
 
 		if err != nil {
@@ -423,12 +383,18 @@ func TestNode_Shutdown(t *testing.T) {
 
 func TestNode_Start(t *testing.T) {
 	test.Run(t, func() {
-		node := cluster.NewNode(test.NewTestServer(t).App.Cluster)
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
-		err := node.Start()
+		node := cluster.NewNode(server.App.Cluster)
 
-		if err != nil {
-			t.Error("Failed to start node: ", err)
+		timeout := time.After(1 * time.Second)
+
+		select {
+		case <-timeout:
+			t.Error("Node start timed out")
+		case <-node.Start():
+			break
 		}
 	})
 }
@@ -436,6 +402,8 @@ func TestNode_Start(t *testing.T) {
 func TestNode_StoreAddress(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
 		err := server.App.Cluster.Node().StoreAddress()
 
 		if err != nil {
@@ -447,6 +415,8 @@ func TestNode_StoreAddress(t *testing.T) {
 func TestNode_Tick(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
 		lastActive := server.App.Cluster.Node().LastActive
 		server.App.Cluster.Node().Tick()
 
@@ -459,6 +429,8 @@ func TestNode_Tick(t *testing.T) {
 func TestNode_Timestamp(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
 		timestamp := server.App.Cluster.Node().Timestamp()
 
 		if timestamp.IsZero() {

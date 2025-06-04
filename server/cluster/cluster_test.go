@@ -74,6 +74,7 @@ func TestNewCluster(t *testing.T) {
 func TestClusterAddMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		testServer := test.NewTestServer(t)
+		defer testServer.Shutdown()
 
 		c, _ := cluster.NewCluster(app.Config)
 
@@ -134,6 +135,7 @@ func TestClusterGetMembers(t *testing.T) {
 func TestClusterGetMembersWithNodes(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
 
 		members := server1.App.Cluster.GetMembers(true)
 
@@ -146,6 +148,7 @@ func TestClusterGetMembersWithNodes(t *testing.T) {
 func TestClusterIsMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		testServer := test.NewTestServer(t)
+		defer testServer.Shutdown()
 
 		// Add a query node
 		err := app.Cluster.AddMember(
@@ -166,6 +169,7 @@ func TestClusterIsMember(t *testing.T) {
 func TestClusterRemoveMember(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		testServer := test.NewTestServer(t)
+		defer testServer.Shutdown()
 
 		err := app.Cluster.AddMember(
 			uint64(1),
@@ -181,7 +185,40 @@ func TestClusterRemoveMember(t *testing.T) {
 			t.Fatal("Node should be a member")
 		}
 
-		err = app.Cluster.RemoveMember(testServer.Address)
+		err = app.Cluster.RemoveMember(testServer.Address, false)
+
+		if err != nil {
+			t.Fatalf("Error removing query node: %s", err)
+		}
+
+		_, err = app.Cluster.NetworkFS().Stat(app.Cluster.NodePath() + strings.ReplaceAll(testServer.Address, ":", "_"))
+
+		if err != nil {
+			t.Error("Query node file should still exist, but got error:", err)
+		}
+	})
+}
+
+func TestClusterRemoveMember_HardState(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		testServer := test.NewTestServer(t)
+		defer testServer.Shutdown()
+
+		err := app.Cluster.AddMember(
+			uint64(1),
+			testServer.Address,
+		)
+
+		if err != nil {
+			t.Fatalf("Error adding query node: %s", err)
+		}
+
+		// Verify is a member
+		if !app.Cluster.IsMember(testServer.Address, time.Now()) {
+			t.Fatal("Node should be a member")
+		}
+
+		err = app.Cluster.RemoveMember(testServer.Address, true)
 
 		if err != nil {
 			t.Fatalf("Error removing query node: %s", err)
@@ -190,7 +227,7 @@ func TestClusterRemoveMember(t *testing.T) {
 		_, err = app.Cluster.NetworkFS().Stat(app.Cluster.NodePath() + strings.ReplaceAll(testServer.Address, ":", "_"))
 
 		if err == nil {
-			t.Errorf("Query node file should not exist")
+			t.Error("Query node file should not exist")
 		}
 	})
 }
@@ -244,11 +281,11 @@ func TestClusterNodePath(t *testing.T) {
 	})
 }
 
-func TestClusterPrimaryPathForQueryNode(t *testing.T) {
+func TestClusterPrimaryPathForNode(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		path := app.Cluster.PrimaryPath()
 
-		if path != "_cluster/query/PRIMARY" {
+		if path != "_cluster/PRIMARY" {
 			t.Fatalf("Path is not correct: %s", path)
 		}
 	})

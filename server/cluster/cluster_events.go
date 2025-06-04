@@ -21,7 +21,6 @@ func (c *Cluster) Broadcast(key string, value any) error {
 	nodeIdentifiers := c.OtherNodes()
 
 	var errors []error
-
 	if len(nodeIdentifiers) == 0 {
 		return nil
 	}
@@ -140,15 +139,12 @@ func (c *Cluster) Subscribe(key string, f func(message *EventMessage)) {
 }
 
 func (c *Cluster) runEventLoop() {
-
 	go func() {
 		defer close(c.eventsChannel)
 
 		for {
 			select {
 			case <-c.Node().Context().Done():
-				// close(c.eventsChannel)
-				// c.channels = make(map[string][]func(message *EventMessage))
 				return
 			case message := <-c.eventsChannel:
 				if handlers, ok := c.channels[message.Key]; ok {
@@ -156,9 +152,6 @@ func (c *Cluster) runEventLoop() {
 						handler(message)
 					}
 				}
-			default:
-				// No message received, continue the loop
-				time.Sleep(100 * time.Millisecond) // Sleep to prevent busy waiting
 			}
 		}
 	}()

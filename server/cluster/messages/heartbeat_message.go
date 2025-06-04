@@ -5,3 +5,7 @@ type HeartbeatMessage struct {
 	ID      []byte
 	Time    int64
 }
+
+type HeartbeatResponseMessage struct {
+	Time int64
+}

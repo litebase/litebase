@@ -109,9 +109,8 @@ func TestClusterElectionRunWithMultipleNodesSynchronous(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
-			test.Run(t, func() {
-				servers := make([]*test.TestServer, tc.nodeCount)
-
+			servers := make([]*test.TestServer, tc.nodeCount)
+			test.RunWithTearDown(t, func() {
 				for i := range tc.nodeCount {
 					servers[i] = test.NewTestServer(t)
 					<-servers[i].Started
@@ -154,7 +153,7 @@ func TestClusterElectionRunWithMultipleNodesSynchronous(t *testing.T) {
 						time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
 					}
 				}
-
+			}, func() {
 				for _, server := range servers {
 					server.Shutdown()
 				}
@@ -180,8 +179,9 @@ func TestClusterElectionRunWithMultipleNodesAsync(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
-			test.Run(t, func() {
-				servers := make(map[int]*test.TestServer, tc.nodeCount)
+			servers := make(map[int]*test.TestServer, tc.nodeCount)
+
+			test.RunWithTearDown(t, func() {
 				serversMutex := sync.Mutex{}
 
 				// Start the first server to initialize the cluster
@@ -247,7 +247,7 @@ func TestClusterElectionRunWithMultipleNodesAsync(t *testing.T) {
 						time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
 					}
 				}
-
+			}, func() {
 				for _, server := range servers {
 					server.Shutdown()
 				}
@@ -271,8 +271,9 @@ func TestClusterElectionRunWithMultipleNodesAsyncWithStoppingServers(t *testing.
 
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
-			test.Run(t, func() {
-				servers := make([]*test.TestServer, tc.nodeCount)
+			servers := make([]*test.TestServer, tc.nodeCount)
+
+			test.RunWithTearDown(t, func() {
 				serversMutex := sync.Mutex{}
 
 				// Start the first server to initialize the cluster
@@ -308,7 +309,7 @@ func TestClusterElectionRunWithMultipleNodesAsyncWithStoppingServers(t *testing.
 					for {
 						select {
 						case <-timeout:
-							t.Fatalf("Election timed out after 5 seconds")
+							t.Fatalf("Election timed out after 10 seconds")
 						default:
 							var electedCount int
 							var primaryAddress string
@@ -353,7 +354,7 @@ func TestClusterElectionRunWithMultipleNodesAsyncWithStoppingServers(t *testing.
 						break
 					}
 				}
-
+			}, func() {
 				for _, server := range servers {
 					server.Shutdown()
 				}

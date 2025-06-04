@@ -1,9 +1,12 @@
 package cluster
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -122,8 +125,7 @@ func (cluster *Cluster) AddMember(id uint64, address string) error {
 
 	defer func() {
 		cluster.mutex.Unlock()
-		// Clear the cache
-		cluster.MembersRetrievedAt = time.Time{}
+		cluster.MembersRetrievedAt = time.Time{} // Clear the cache
 	}()
 
 	if slices.ContainsFunc(cluster.nodes, func(n *NodeIdentifier) bool {
@@ -154,7 +156,7 @@ func (cluster *Cluster) GetMembers(cached bool) []*NodeIdentifier {
 			return nil
 		}
 
-		log.Println("Error reading cluster nodes: ", err, cluster.NodePath())
+		slog.Error("Error reading cluster nodes", "error", err, "path", cluster.NodePath())
 		return nil
 	}
 
@@ -162,7 +164,7 @@ func (cluster *Cluster) GetMembers(cached bool) []*NodeIdentifier {
 	files, err := cluster.NetworkFS().ReadDir(cluster.NodePath())
 
 	if err != nil {
-		log.Println("Error reading query nodes: ", err, cluster.NodePath())
+		slog.Error("Error reading query nodes", "error", err, "path", cluster.NodePath())
 		return nil
 	}
 
@@ -171,7 +173,9 @@ func (cluster *Cluster) GetMembers(cached bool) []*NodeIdentifier {
 	// Loop through the files and store the node addresses
 	for _, file := range files {
 		address := strings.ReplaceAll(file.Name(), "_", ":")
-		cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, 0))
+		hash := sha256.Sum256([]byte(address))
+		ID := binary.BigEndian.Uint64(hash[:])
+		cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, ID))
 	}
 
 	cluster.MembersRetrievedAt = time.Now()
@@ -255,6 +259,12 @@ func (cluster *Cluster) IsMember(address string, since time.Time) bool {
 	})
 }
 
+func (cluster *Cluster) IsSingleNodeCluster() bool {
+	cluster.GetMembers(true)
+
+	return len(cluster.nodes) == 1 && cluster.nodes[0].Address == cluster.node.address
+}
+
 func (c *Cluster) Node() *Node {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -274,7 +284,6 @@ func (c *Cluster) Nodes() []*NodeIdentifier {
 
 func (c *Cluster) NodeByID(id uint64) *NodeIdentifier {
 	for _, node := range c.Nodes() {
-
 		if node.ID == id {
 			return node
 		}
@@ -285,34 +294,32 @@ func (c *Cluster) NodeByID(id uint64) *NodeIdentifier {
 
 func (c *Cluster) OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
+	address, _ := c.node.Address()
 
-	c.GetMembers(false)
+	c.GetMembers(true)
 
 	for _, node := range c.nodes {
-		if node.Address != c.node.address {
-			nodes = append(nodes, node)
+		if node.Address == address {
+			continue
 		}
+
+		nodes = append(nodes, node)
 	}
 
 	return nodes
 }
 
 // Remove a member from the cluster.
-func (cluster *Cluster) RemoveMember(address string) error {
+func (cluster *Cluster) RemoveMember(address string, removeHardState bool) error {
 	cluster.GetMembers(true)
-	cluster.mutex.Lock()
 
 	// Clear the cache
-	defer func() {
-		cluster.MembersRetrievedAt = time.Time{}
-	}()
+	cluster.MembersRetrievedAt = time.Time{}
 
 	if cluster.node.primaryAddress == address {
 		cluster.node.PrimaryHeartbeat = time.Time{}
+		cluster.node.heartbeat()
 	}
-
-	// Release the lock before using cluster.Nodes() to avoid deadlock
-	cluster.mutex.Unlock()
 
 	for _, member := range cluster.Nodes() {
 		if member.Address == address {
@@ -320,11 +327,13 @@ func (cluster *Cluster) RemoveMember(address string) error {
 				return node.Address == address
 			})
 
-			// Remove the node address file
-			err := cluster.NetworkFS().Remove(cluster.NodePath() + strings.ReplaceAll(address, ":", "_"))
+			if removeHardState {
+				// Remove the node address file
+				err := cluster.NetworkFS().Remove(cluster.NodePath() + strings.ReplaceAll(address, ":", "_"))
 
-			if err != nil {
-				return err
+				if err != nil {
+					return err
+				}
 			}
 
 			break

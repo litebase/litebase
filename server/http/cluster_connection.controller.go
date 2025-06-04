@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"sync"
 
@@ -61,7 +62,7 @@ func handleClusterConnectionStream(
 
 		if err != nil {
 			if err != io.ErrUnexpectedEOF {
-				log.Println(err)
+				slog.Debug("Error decoding message", "error", err)
 			}
 
 			break

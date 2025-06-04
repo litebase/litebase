@@ -12,6 +12,7 @@ func registerNodeMessages() {
 	gob.Register(messages.RangeReplicationWriteMessage{})
 	gob.Register(messages.ErrorMessage{})
 	gob.Register(messages.HeartbeatMessage{})
+	gob.Register(messages.HeartbeatResponseMessage{})
 	gob.Register(messages.NodeConnectionMessage{})
 
 	gob.Register(messages.QueryMessage{})
