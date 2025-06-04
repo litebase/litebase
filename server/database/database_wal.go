@@ -184,13 +184,11 @@ func (wal *DatabaseWAL) performAsynchronousSync() {
 		}
 
 		defer wal.syncMutex.Unlock()
-		start := time.Now()
 
 		wal.mutex.Lock()
 
 		defer func() {
 			wal.mutex.Unlock()
-			log.Println("Async WAL file sync took", time.Since(start))
 		}()
 
 		file, err := wal.File()
@@ -376,9 +374,9 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	n, err = file.WriteAt(p, off)
 
-	if wal.shouldSync() {
-		wal.performAsynchronousSync()
-	}
+	// if wal.shouldSync() {
+	// 	wal.performAsynchronousSync()
+	// }
 
 	wal.lastWriteTime = time.Now()
 

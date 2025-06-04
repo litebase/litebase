@@ -37,8 +37,6 @@ func TestPageLogger_Acquire(t *testing.T) {
 		db := test.MockDatabase(app)
 		storage.PageLoggerCompactInterval = 0
 
-		storage.PageLoggerCompactInterval = 0
-
 		defer func() {
 			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
 		}()

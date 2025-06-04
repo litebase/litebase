@@ -215,11 +215,6 @@ func (con *DatabaseConnection) Changes() int64 {
 
 // Checkpoint changes that have been made to the database.
 func (con *DatabaseConnection) Checkpoint() error {
-	start := time.Now()
-	defer func() {
-		log.Println("Checkpoint took", time.Since(start))
-	}()
-
 	if con == nil || con.sqlite3 == nil {
 		return nil
 	}
