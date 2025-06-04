@@ -4,6 +4,7 @@ import (
 	"log"
 	"log/slog"
 	"runtime"
+	"time"
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/server"
@@ -39,10 +40,12 @@ func main() {
 
 		app.Run()
 
-		err := app.Cluster.Node().Start()
+		start := app.Cluster.Node().Start()
 
-		if err != nil {
-			log.Fatalf("Node start: %v", err)
+		select {
+		case <-start:
+		case <-time.After(1 * time.Second):
+			log.Fatal("Cluster node failed to start within 1 second")
 		}
 	},
 		// Shutdown hook
