@@ -21,7 +21,7 @@ func JsonEncoderPool() *EncoderPool {
 	if staticEncoderPool == nil {
 		staticEncoderPool = &EncoderPool{
 			encoders: &sync.Pool{
-				New: func() interface{} {
+				New: func() any {
 					buffer := bytes.NewBuffer(make([]byte, 1024))
 
 					return &Encoder{

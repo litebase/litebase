@@ -142,6 +142,8 @@ func TestDatabaseWALManager_InUse(t *testing.T) {
 			t.Errorf("Error creating new WAL version: %v", err)
 		}
 
+		walm.Acquire(walVersion.Timestamp())
+
 		if walVersion == nil {
 			t.Fatal()
 		}
@@ -174,12 +176,14 @@ func TestDatabaseWALManager_InUseVersions(t *testing.T) {
 
 		walVersions := make([]*database.DatabaseWAL, 4)
 
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			walVersion, err := walm.Create()
 
 			if err != nil {
 				t.Errorf("Error creating new WAL version: %v", err)
 			}
+
+			walm.Acquire(walVersion.Timestamp())
 
 			walVersions[i] = walVersion
 		}
@@ -371,7 +375,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 
 		walVersions := make([]*database.DatabaseWAL, 3)
 
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			walVersion, err := walm.Create()
 
 			if err != nil {
@@ -379,6 +383,8 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 			}
 
 			walVersion.Size()
+
+			walm.Acquire(walVersion.Timestamp())
 
 			walVersions[i] = walVersion
 		}
@@ -412,7 +418,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 			t.Fatalf("Error running garbage collection: %v", err)
 		}
 
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			_, err := primary.App.Cluster.NetworkFS().Stat(walVersions[i].Path)
 
 			if err != nil {

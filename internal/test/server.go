@@ -21,7 +21,7 @@ type TestServer struct {
 NewTestServer creates a new test server, that fully initializes a node and
 encapsulates the state of the node.
 */
-func NewTestServer(t *testing.T) *TestServer {
+func NewTestServer(t testing.TB) *TestServer {
 	serveMux := http.NewServeMux()
 	ts := httptest.NewServer(serveMux)
 	port := ts.URL[len(ts.URL)-5:]

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -114,7 +115,7 @@ func (q *QueryLog) GetFile() internalStorage.File {
 	return q.file
 }
 
-func (q *QueryLog) GetStatementIndex() *QueryStatementIndex {
+func (q *QueryLog) GetStatementIndex() (*QueryStatementIndex, error) {
 	if q.statementIndex == nil {
 		statementIndex, err := GetQueryStatementIndex(
 			q.tieredFS,
@@ -134,7 +135,7 @@ func (q *QueryLog) GetStatementIndex() *QueryStatementIndex {
 		q.statementIndex = statementIndex
 	}
 
-	return q.statementIndex
+	return q.statementIndex, nil
 }
 
 func (q *QueryLog) Flush(force bool) {
@@ -339,10 +340,16 @@ func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) 
 	q.keyBuffer.Reset()
 
 	q.keyBuffer.Write(strconv.AppendUint(q.keyBuffer.Bytes()[:0], checksum, 16))
+	statementIndex, err := q.GetStatementIndex()
+
+	if err != nil {
+		slog.Error("error getting statement index", "error", err)
+		return err
+	}
 
 	// Check if the statement is already in the dictionary
-	if _, ok := q.GetStatementIndex().Get(q.keyBuffer.String()); !ok {
-		err := q.GetStatementIndex().Set(q.keyBuffer.String(), string(logData))
+	if _, ok := statementIndex.Get(q.keyBuffer.String()); !ok {
+		err := statementIndex.Set(q.keyBuffer.String(), string(logData))
 
 		if err != nil {
 			log.Println(err)

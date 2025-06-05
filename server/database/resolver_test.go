@@ -11,7 +11,7 @@ import (
 	"github.com/litebase/litebase/server/sqlite3"
 )
 
-func TestHandle(t *testing.T) {
+func TestQueryResolver_Handle(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
@@ -20,6 +20,8 @@ func TestHandle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
 		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
 
@@ -31,22 +33,22 @@ func TestHandle(t *testing.T) {
 			{
 				[]byte("SELECT * FROM users"),
 				[]sqlite3.StatementParameter{},
-				`success`,
+				"success",
 			},
 			{
 				[]byte("SELECT * FROM users LIMIT ?"),
 				[]sqlite3.StatementParameter{
 					{
 						Type:  "INTEGER",
-						Value: 1,
+						Value: int64(1),
 					},
 				},
-				`success`,
+				"success",
 			},
 			{
 				[]byte("?SELECT * FROM users"),
 				[]sqlite3.StatementParameter{},
-				`error`,
+				"error",
 			},
 		}
 

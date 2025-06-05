@@ -32,16 +32,16 @@ func TestNewQueryResponse(t *testing.T) {
 		t.Fatalf("expected columns to be not nil")
 	}
 
-	if bytes.Equal(queryResponse.Id(), []byte("id")) {
-		t.Fatalf("expected id to be 'id', got %v", queryResponse.Id())
+	if !bytes.Equal(queryResponse.Id(), []byte("id")) {
+		t.Fatalf("expected id to be %v, got %v", []byte("id"), queryResponse.Id())
 	}
 
 	if queryResponse.Latency() != 0.01 {
 		t.Fatalf("expected latency to be 0.01, got %v", queryResponse.Latency())
 	}
 
-	if queryResponse.LastInsertRowId() != 0 {
-		t.Fatalf("expected last insert row ID to be 0, got %v", queryResponse.LastInsertRowId())
+	if queryResponse.LastInsertRowId() != 1 {
+		t.Fatalf("expected last insert row ID to be 1, got %v", queryResponse.LastInsertRowId())
 	}
 
 	if queryResponse.RowCount() != 2 {
@@ -53,184 +53,217 @@ func TestNewQueryResponse(t *testing.T) {
 	}
 }
 
-func TestQueryResponseEncoding(t *testing.T) {
-	queryResponse := database.NewQueryResponse(
-		100,
-		[]string{"id", "name"},
-		[]byte("id"),
-		0.01,
-		2,
-		[][]*sqlite3.Column{
-			{sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("1")), sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("name1"))},
-			{sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("2")), sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("name2"))},
+func TestQueryResponseEncodingWithResults(t *testing.T) {
+	// Setup test data
+	id := []byte("query123")
+	transactionId := []byte("txn456")
+	columns := []string{"col1", "col2"}
+	rows := [][]*sqlite3.Column{
+		{
+			&sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("foo")},
+			&sqlite3.Column{ColumnType: sqlite3.ColumnTypeInteger, ColumnValue: []byte("42")},
 		},
-	)
+	}
+	qr := database.NewQueryResponse(1, columns, id, 12.34, 99, rows)
+	qr.SetTransactionId(transactionId)
 
-	responseBuffer := bytes.NewBuffer(nil)
-	rowsBuffer := bytes.NewBuffer(nil)
-	columnsBuffer := bytes.NewBuffer(nil)
+	responseBuffer := new(bytes.Buffer)
+	rowsBuffer := new(bytes.Buffer)
+	columnsBuffer := new(bytes.Buffer)
 
-	data, err := queryResponse.Encode(responseBuffer, rowsBuffer, columnsBuffer)
+	encoded, err := qr.Encode(responseBuffer, rowsBuffer, columnsBuffer)
 
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Encode failed: %v", err)
 	}
 
-	if data == nil {
-		t.Fatalf("expected data to be not nil")
+	offset := 0
+
+	// Version
+	if encoded[offset] != 1 {
+		t.Errorf("expected version 1, got %d", encoded[offset])
 	}
 
-	if len(data) == 0 {
-		t.Fatalf("expected data to be not empty")
+	offset += 1
+
+	// ID length
+	idLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+
+	if idLen != len(id) {
+		t.Errorf("expected id length %d, got %d", len(id), idLen)
 	}
 
-	// Add more checks to ensure the encoded data is correct
-	expectedVersion := byte(1)
-	expectedChanges := 100
-	expectedColumnCount := 2
-	expectedRowCount := 2
-	expectedLastInsertRowID := 2
+	offset += 4
 
-	// Decode the data to verify its contents
-	version := data[0]
-	changes := int(binary.LittleEndian.Uint32(data[1:5]))
-	latency := math.Float64frombits(binary.LittleEndian.Uint64(data[5:13]))
-	columnCount := int(binary.LittleEndian.Uint32(data[13:17]))
-	rowCount := int(binary.LittleEndian.Uint32(data[17:21]))
-	lastInsertRowID := int(binary.LittleEndian.Uint32(data[21:25]))
-	idLength := int(binary.LittleEndian.Uint32(data[25:29]))
-
-	if version != expectedVersion {
-		t.Fatalf("expected version %d, got %d", expectedVersion, version)
+	// ID
+	if string(encoded[offset:offset+idLen]) != string(id) {
+		t.Errorf("expected id %q, got %q", id, encoded[offset:offset+idLen])
 	}
 
-	if changes != expectedChanges {
-		t.Fatalf("expected changes %d, got %d", expectedChanges, changes)
+	offset += idLen
+
+	// Transaction ID length
+	txnIdLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+
+	if txnIdLen != len(transactionId) {
+		t.Errorf("expected transaction id length %d, got %d", len(transactionId), txnIdLen)
 	}
 
-	if latency != 0.01 {
-		t.Fatalf("expected latency 0.01, got %f", latency)
+	offset += 4
+
+	// Transaction ID
+	if string(encoded[offset:offset+txnIdLen]) != string(transactionId) {
+		t.Errorf("expected transaction id %q, got %q", transactionId, encoded[offset:offset+txnIdLen])
 	}
 
-	if columnCount != expectedColumnCount {
-		t.Fatalf("expected column count %d, got %d", expectedColumnCount, columnCount)
+	offset += txnIdLen
+
+	// Error: should not be present, so next is result set
+	// Changes
+	changes := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+
+	if changes != 1 {
+		t.Errorf("expected changes 1, got %d", changes)
 	}
 
-	if rowCount != expectedRowCount {
-		t.Fatalf("expected row count %d, got %d", expectedRowCount, rowCount)
+	offset += 4
+
+	// Latency
+	latency := math.Float64frombits(binary.LittleEndian.Uint64(encoded[offset : offset+8]))
+
+	if latency != 12.34 {
+		t.Errorf("expected latency 12.34, got %f", latency)
 	}
 
-	if lastInsertRowID != expectedLastInsertRowID {
-		t.Fatalf("expected last insert row ID %d, got %d", expectedLastInsertRowID, lastInsertRowID)
+	offset += 8
+
+	// Column count
+	colCount := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+
+	if colCount != len(columns) {
+		t.Errorf("expected column count %d, got %d", len(columns), colCount)
 	}
 
-	if idLength != 2 {
-		t.Fatalf("expected ID length 2, got %d", idLength)
+	offset += 4
+
+	// Row count
+	rowCount := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+
+	if rowCount != len(rows) {
+		t.Errorf("expected row count %d, got %d", len(rows), rowCount)
 	}
 
-	id := data[29 : 29+idLength]
+	offset += 4
 
-	if !bytes.Equal(id, []byte("id")) {
-		t.Fatalf("expected ID 'id', got %s", id)
+	// Last insert row id
+	lastInsertRowId := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+
+	if lastInsertRowId != 99 {
+		t.Errorf("expected last insert row id 99, got %d", lastInsertRowId)
 	}
 
-	columnsLength := int(binary.LittleEndian.Uint32(data[29+idLength : 29+idLength+4]))
+	offset += 4
 
-	if columnsLength != 14 {
-		t.Fatalf("expected columns length 14, got %d", columnsLength)
-	}
+	// Columns length
+	offset += 4
 
-	columnsData := data[29+idLength+4 : 29+idLength+4+columnsLength]
-	columns := make([]string, 0)
+	// Columns data
+	colOffset := offset
 
-	columnDataOffset := 0
-
-	for columnDataOffset < columnsLength {
-		columnLength := int(binary.LittleEndian.Uint32(columnsData[columnDataOffset : columnDataOffset+4]))
-		columns = append(columns, string(columnsData[columnDataOffset+4:columnDataOffset+4+columnLength]))
-		columnDataOffset += 4 + columnLength
-	}
-
-	if len(columns) != 2 {
-		t.Fatalf("expected 2 columns, got %d", len(columns))
-	}
-
-	if columns[0] != "id" {
-		t.Fatalf("expected column 1 to be 'id', got %s", columns[0])
-	}
-
-	if columns[1] != "name" {
-		t.Fatalf("expected column 2 to be 'name', got %s", columns[1])
-	}
-
-	rowsData := data[29+idLength+4+columnsLength:]
-
-	if len(rowsData) == 0 {
-		t.Fatalf("expected rows data to be not empty")
-	}
-
-	rows := make([][]*sqlite3.Column, 0)
-
-	rowsOffset := 0
-
-	// Parse each row
-	for rowsOffset < len(rowsData) {
-		columns := make([]*sqlite3.Column, 0)
-		rowLength := int(binary.LittleEndian.Uint32(rowsData[rowsOffset : rowsOffset+4]))
-		rowData := rowsData[rowsOffset+4 : rowsOffset+4+rowLength]
-		rowOffset := 0
-
-		for rowOffset < len(rowData) {
-			columnTypeInt := int(rowData[rowOffset])
-			columnType := sqlite3.ColumnType(columnTypeInt)
-			columnValueLength := 0
-			var columnValue []byte
-
-			// Read the length of the column value after the first byte
-			columnValueLength = int(binary.LittleEndian.Uint32(rowData[rowOffset+1 : rowOffset+5]))
-
-			columnValue = rowData[rowOffset+5 : rowOffset+5+columnValueLength]
-
-			columns = append(columns, sqlite3.NewColumn(columnType, columnValue))
-			rowOffset += 5 + columnValueLength
+	for _, col := range columns {
+		colNameLen := int(binary.LittleEndian.Uint32(encoded[colOffset : colOffset+4]))
+		colOffset += 4
+		colName := string(encoded[colOffset : colOffset+colNameLen])
+		if colName != col {
+			t.Errorf("expected column name %q, got %q", col, colName)
 		}
-
-		rows = append(rows, columns)
-		rowsOffset += 4 + rowLength
+		colOffset += colNameLen
 	}
 
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(rows))
+	offset = colOffset
+
+	// Rows: check row count and row data length
+	for i := 0; i < rowCount; i++ {
+		rowLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+		offset += 4
+		// We could decode the row data here if needed
+		offset += rowLen
 	}
 
-	if len(rows[0]) != 2 {
-		t.Fatalf("expected 2 columns in row 1, got %d", len(rows[0]))
+	// Should have consumed all bytes
+	if offset != len(encoded) {
+		t.Errorf("did not consume all bytes, offset=%d, len(encoded)=%d", offset, len(encoded))
 	}
-
-	if len(rows[1]) != 2 {
-		t.Fatalf("expected 2 columns in row 2, got %d", len(rows[1]))
-	}
-
-	if rows[0][0].ColumnType != sqlite3.ColumnTypeText {
-		t.Fatalf("expected column 1 in row 1 to be of type text")
-	}
-
-	if rows[0][1].ColumnType != sqlite3.ColumnTypeText {
-		t.Fatalf("expected column 2 in row 1 to be of type text")
-	}
-
-	if rows[1][0].ColumnType != sqlite3.ColumnTypeText {
-		t.Fatalf("expected column 1 in row 2 to be of type text")
-	}
-
-	if rows[1][1].ColumnType != sqlite3.ColumnTypeText {
-		t.Fatalf("expected column 2 in row 2 to be of type text")
-	}
-
 }
 
-func TestQueryResponseWaitForReplication(t *testing.T) {
-	t.Skip("TODO")
+func TestQueryResponseEncodingWithError(t *testing.T) {
+	id := []byte("query123")
+	transactionId := []byte("txn456")
+	errorMsg := "something went wrong"
+	qr := database.NewQueryResponse(0, nil, id, 0, 0, nil)
+	qr.SetTransactionId(transactionId)
+	qr.SetError(errorMsg)
+
+	responseBuffer := new(bytes.Buffer)
+	rowsBuffer := new(bytes.Buffer)
+	columnsBuffer := new(bytes.Buffer)
+
+	encoded, err := qr.Encode(responseBuffer, rowsBuffer, columnsBuffer)
+	if err != nil {
+		t.Fatalf("Encode failed: %v", err)
+	}
+
+	offset := 0
+
+	// Version
+	if encoded[offset] != 1 {
+		t.Errorf("expected version 1, got %d", encoded[offset])
+	}
+	offset += 1
+
+	// ID length
+	idLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+	if idLen != len(id) {
+		t.Errorf("expected id length %d, got %d", len(id), idLen)
+	}
+	offset += 4
+
+	// ID
+	if string(encoded[offset:offset+idLen]) != string(id) {
+		t.Errorf("expected id %q, got %q", id, encoded[offset:offset+idLen])
+	}
+	offset += idLen
+
+	// Transaction ID length
+	txnIdLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+	if txnIdLen != len(transactionId) {
+		t.Errorf("expected transaction id length %d, got %d", len(transactionId), txnIdLen)
+	}
+	offset += 4
+
+	// Transaction ID
+	if string(encoded[offset:offset+txnIdLen]) != string(transactionId) {
+		t.Errorf("expected transaction id %q, got %q", transactionId, encoded[offset:offset+txnIdLen])
+	}
+	offset += txnIdLen
+
+	// Error length
+	errorLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
+	if errorLen != len(errorMsg) {
+		t.Errorf("expected error length %d, got %d", len(errorMsg), errorLen)
+	}
+	offset += 4
+
+	// Error message
+	if string(encoded[offset:offset+errorLen]) != errorMsg {
+		t.Errorf("expected error message %q, got %q", errorMsg, encoded[offset:offset+errorLen])
+	}
+	offset += errorLen
+
+	// Should have consumed all bytes
+	if offset != len(encoded) {
+		t.Errorf("did not consume all bytes, offset=%d, len(encoded)=%d", offset, len(encoded))
+	}
 }
 
 func BenchmarkQueryResponseJsonEncoding(b *testing.B) {

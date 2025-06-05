@@ -60,7 +60,11 @@ func TestQueryLog_GetStatementIndex(t *testing.T) {
 			db.BranchId,
 		)
 
-		index := l.GetStatementIndex()
+		index, err := l.GetStatementIndex()
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if index == nil {
 			t.Fatal("Statement index is nil")

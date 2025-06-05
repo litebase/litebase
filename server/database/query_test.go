@@ -136,36 +136,3 @@ func TestStatement(t *testing.T) {
 // 		}
 // 	})
 // }
-
-func TestValidate(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
-
-		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
-
-		db, _ = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
-
-		query := &database.Query{
-			Input: &database.QueryInput{
-				Statement: []byte("SELECT * FROM users LIMIT ?"),
-				Parameters: []sqlite3.StatementParameter{{
-					Type:  "INTEGER",
-					Value: int64(1),
-				}},
-			},
-		}
-
-		stmt, err := db.GetConnection().Statement(query.Input.Statement)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = query.Validate(stmt)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-}

@@ -76,7 +76,7 @@ func Setup(t testing.TB, callbacks ...func()) (*server.App, string) {
 		callback()
 	}
 
-	s := NewTestServer(t.(*testing.T))
+	s := NewTestServer(t)
 
 	if t != nil && err != nil {
 		t.Fail()

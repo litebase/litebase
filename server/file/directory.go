@@ -1,6 +1,7 @@
 package file
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -12,9 +13,9 @@ func EnsureDirectoryExists(path string) error {
 
 	if os.IsNotExist(err) {
 		if err := os.MkdirAll(directory, 0755); err != nil {
+			log.Println("Failed to create directory:", directory, "Error:", err)
 			return err
 		}
-
 	} else if err != nil {
 		return err
 	}

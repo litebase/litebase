@@ -103,12 +103,6 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				statement, err = db.GetConnection().Statement(query.Input.Statement)
 
 				if err == nil {
-					// err = query.Validate(statement)
-
-					// if err != nil {
-					// 	return QueryResponse{}, err
-					// }
-
 					sqlite3Result = db.GetConnection().ResultPool().Get()
 					defer db.GetConnection().ResultPool().Put(sqlite3Result)
 

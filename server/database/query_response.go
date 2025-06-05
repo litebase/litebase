@@ -13,21 +13,38 @@ import (
 
 /*
 A Query Response is a data structure that represents the result of a query to a
-database.
+database. Each response will start with the following data:
 
-| Offset     | Length | Name                | Description                                           |
-|------------|--------|---------------------|-------------------------------------------------------|
-| 0          | 4      | version             | The version of the query response.                    |
-| 4          | 4      | changes             | The number of changes in the query.                   |
-| 8          | 8      | latency             | The latency of the query in milliseconds.             |
-| 16         | 4      | column_count        | The number of columns in the result set.              |
-| 20         | 4      | row_count           | The number of rows in the result set.                 |
-| 24         | 4      | last_insert_row_id  | The row ID of the last row inserted into the database.|
-| 28         | 4      | id_length           | The length of the query ID.                           |
-| 32         | n      | id                  | The unique identifier for the query.                  |
-| 32 + n     | 4      | columns_length      | The length of the columns array.                      |
-| 36 + n     | m      | columns             | The names of the columns in the result set.           |
-| 40 + n + m | p      | rows                | The rows in the result set.                           |                       |
+| Offset      | Length | Name                  | Description                                         |
+|-------------|--------|-----------------------|-----------------------------------------------------|
+| 0           | 1      | version               | The version of the query response.                  |
+| 1           | 4      | id_length             | The length of the query ID.                         |
+| 5           | n      | id                    | The unique identifier for the query.                |
+| 5 + n       | 4      | transaction_id_length | The length of the transaction ID.                   |
+| 9 + n       | m      | transaction_id        | The unique identifier for the transaction.          |
+
+Following the transaction ID, the response will contain either an error or a
+result set.
+
+For an error response, the format is:
+
+| Offset        | Length | Name         | Description                        |
+|---------------|--------|--------------|------------------------------------|
+| 13 + n + m    | 4      | error_length | The length of the error message.   |
+| 17 + n + m    | k      | error        | The error message, if any.         |
+
+For a result set response, the format is:
+
+| Offset          | Length | Name                | Description                                           |
+|-----------------|--------|---------------------|-------------------------------------------------------|
+| 13 + n + m      | 4      | changes             | The number of changes in the query.                   |
+| 17 + n + m      | 8      | latency             | The latency of the query in milliseconds.             |
+| 25 + n + m      | 4      | column_count        | The number of columns in the result set.              |
+| 29 + n + m      | 4      | row_count           | The number of rows in the result set.                 |
+| 33 + n + m      | 4      | last_insert_row_id  | The row ID of the last row inserted into the database.|
+| 37 + n + m      | 4      | columns_length      | The length of the columns array.                      |
+| 41 + n + m      | p      | columns             | The names of the columns in the result set.           |
+| 41 + n + m + p  | q      | rows                | The rows in the result set.                           |
 */
 
 // Buffer pool for reusing buffers
