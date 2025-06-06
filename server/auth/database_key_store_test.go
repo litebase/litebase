@@ -25,6 +25,55 @@ func TestNewDatabaseKeyStore(t *testing.T) {
 	})
 }
 
+func TestDatabaseKeyStore_All(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		databaseKeyStore, err := auth.NewDatabaseKeyStore(
+			app.Cluster.TmpTieredFS(),
+			"test-database-key-store",
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var keys []*auth.DatabaseKey
+
+		for i := range 4 {
+			mock := test.MockDatabase(app)
+
+			err = databaseKeyStore.Put(mock.DatabaseKey)
+
+			if err != nil {
+				t.Fatalf("failed to put key %d: %v", i, err)
+			}
+
+			keys = append(keys, mock.DatabaseKey)
+		}
+
+		var allKeys []*auth.DatabaseKey
+
+		for key := range databaseKeyStore.All() {
+			allKeys = append(allKeys, key)
+		}
+
+		if len(allKeys) != 4 {
+			t.Fatalf("expected 4 keys, got %d", len(allKeys))
+		}
+
+		keyMap := make(map[string]bool)
+
+		for _, k := range allKeys {
+			keyMap[k.Key] = true
+		}
+
+		for _, k := range keys {
+			if !keyMap[k.Key] {
+				t.Fatalf("key %s not found in allKeys", k.Key)
+			}
+		}
+	})
+}
+
 func TestDatabaseKeyStore_Close(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		databaseKeyStore, err := auth.NewDatabaseKeyStore(

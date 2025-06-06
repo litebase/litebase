@@ -189,12 +189,10 @@ func TestKeyPath(t *testing.T) {
 }
 
 func TestNextSignature(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewUnstartedTestServer(t)
-
+	test.RunWithApp(t, func(app *server.App) {
 		err := auth.KeyManagerInit(
-			server.App.Config,
-			server.App.Auth.SecretsManager,
+			app.Config,
+			app.Auth.SecretsManager,
 		)
 
 		if err != nil {
@@ -202,8 +200,8 @@ func TestNextSignature(t *testing.T) {
 		}
 
 		publicKey, err := auth.NextSignature(
-			server.App.Config,
-			server.App.Auth.SecretsManager,
+			app.Config,
+			app.Auth.SecretsManager,
 			"test",
 		)
 

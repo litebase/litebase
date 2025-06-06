@@ -286,6 +286,7 @@ func NextSignature(c *config.Config, secretsManager *SecretsManager, signature s
 	publicKey, err := GetRawPublicKey(signature, secretsManager.ObjectFS)
 
 	if err != nil {
+		log.Println("test", err)
 		return "", err
 	}
 
@@ -430,39 +431,20 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 }
 
 func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error {
-	keysDir := Path(c.Signature) + "database_keys/"
-	newKeysDir := Path(c.SignatureNext) + "database_keys/"
-
-	keys, err := secretsManager.ObjectFS.ReadDir(keysDir)
+	currentDks, err := secretsManager.DatabaseKeyStore(c.Signature)
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.MkdirAll(newKeysDir, 0755); err != nil {
+	newDks, err := secretsManager.DatabaseKeyStore(c.SignatureNext)
+
+	if err != nil {
 		return err
 	}
 
-	for _, key := range keys {
-		databaseKeyBytes, err := secretsManager.ObjectFS.ReadFile(
-			keysDir + key.Name(),
-		)
-
-		if err != nil {
-			return err
-		}
-
-		if err := secretsManager.ObjectFS.WriteFile(
-			newKeysDir+key.Name(),
-			databaseKeyBytes,
-			0666,
-		); err != nil {
-			return err
-		}
+	for databaseKey := range currentDks.All() {
+		newDks.Put(databaseKey)
 	}
 
 	return nil

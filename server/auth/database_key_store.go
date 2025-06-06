@@ -4,7 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"iter"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -45,6 +47,7 @@ type DatabaseKeyStore struct {
 	version    int
 }
 
+// Create a new instance of DatabaseKeyStore
 func NewDatabaseKeyStore(
 	tmpTieredFileSystem *storage.FileSystem,
 	path string,
@@ -66,6 +69,39 @@ func NewDatabaseKeyStore(
 	return dks, nil
 }
 
+// Return all of the database keys in the store
+func (d *DatabaseKeyStore) All() iter.Seq[*DatabaseKey] {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	return func(yield func(*DatabaseKey) bool) {
+		offset := int64(DatabaseKeyStoreHeaderSize)
+		encodedKey := make([]byte, DatabaseKeySize)
+
+		for {
+			n, err := d.file.ReadAt(encodedKey, offset)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+
+				slog.Error("Failed to read database key:", "error", err)
+				return
+			}
+
+			if n != len(encodedKey) {
+				slog.Error("Unexpected key length:", "actual", n, "expected", len(encodedKey))
+				break
+			}
+
+			yield(DecodeDatbaseKey(encodedKey))
+
+			offset += int64(len(encodedKey))
+		}
+	}
+}
+
+// Close the store
 func (d *DatabaseKeyStore) Close() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -89,6 +125,7 @@ func (d *DatabaseKeyStore) Close() error {
 	return nil
 }
 
+// Create the database key store file
 func (d *DatabaseKeyStore) create(header []byte) error {
 	// Write the database key store header
 	binary.LittleEndian.PutUint32(header[0:4], uint32(DatabaseKeyStoreVersion)) // version
@@ -104,6 +141,7 @@ func (d *DatabaseKeyStore) create(header []byte) error {
 	return nil
 }
 
+// Delete a key in the store
 func (d *DatabaseKeyStore) Delete(key string) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -159,6 +197,7 @@ func (d *DatabaseKeyStore) Delete(key string) error {
 	return nil
 }
 
+// Get a key from the store
 func (d *DatabaseKeyStore) Get(key string) (*DatabaseKey, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -199,6 +238,7 @@ func (d *DatabaseKeyStore) Get(key string) (*DatabaseKey, error) {
 	return nil, errors.New("database key not found")
 }
 
+// Get the number of keys in the store.
 func (d *DatabaseKeyStore) Len() int {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -206,6 +246,7 @@ func (d *DatabaseKeyStore) Len() int {
 	return d.keyCount
 }
 
+// Load the database key store from the file system.
 func (d *DatabaseKeyStore) load() error {
 tryOpen:
 	file, err := d.fileSystem.OpenFile(d.path, os.O_RDWR|os.O_CREATE, 0644)
@@ -253,6 +294,7 @@ tryOpen:
 	return nil
 }
 
+// Put a key in the store
 func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -331,6 +373,7 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 	return nil
 }
 
+// Write the header of the store to the file.
 func (d *DatabaseKeyStore) writeHeader() error {
 	header := make([]byte, DatabaseKeyStoreHeaderSize)
 
