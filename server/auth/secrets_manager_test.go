@@ -3,6 +3,7 @@ package auth_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/server"
@@ -85,10 +86,14 @@ func TestSecretsManagerDecryptFor(t *testing.T) {
 
 func TestSecretsManagerDeleteDatabaseAccessKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		err := app.Auth.SecretsManager.StoreDatabaseKey("databaseKey", "databaseId", "branchId")
+		err := app.Auth.SecretsManager.StoreDatabaseKey(
+			"databaseKey",
+			uuid.NewString(),
+			uuid.NewString(),
+		)
 
 		if err != nil {
-			t.Error("Expected StoreDatabaseKey to return a non-nil error")
+			t.Errorf("Expected StoreDatabaseKey to return a non-nil error, got %v", err)
 		}
 
 		err = app.Auth.SecretsManager.DeleteDatabaseKey("databaseKey")
@@ -157,7 +162,11 @@ func TestSecretsManagerEncrypter(t *testing.T) {
 
 func TestSecretsManagerFlushTransients(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		err := app.Auth.SecretsManager.StoreDatabaseKey("databaseKey", "databaseId", "branchId")
+		err := app.Auth.SecretsManager.StoreDatabaseKey(
+			"databaseKey",
+			uuid.NewString(),
+			uuid.NewString(),
+		)
 
 		if err != nil {
 			t.Error("Expected StoreDatabaseKey to return a non-nil error")
@@ -207,7 +216,11 @@ func TestSecretsManagerInit(t *testing.T) {
 
 func TestSecretsManagerPurgeDatabaseSettings(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		err := app.Auth.SecretsManager.StoreDatabaseKey("databaseKey", "databaseId", "branchId")
+		err := app.Auth.SecretsManager.StoreDatabaseKey(
+			"databaseKey",
+			uuid.NewString(),
+			uuid.NewString(),
+		)
 
 		if err != nil {
 			t.Error("Expected StoreDatabaseKey to return a non-nil error")
@@ -273,7 +286,14 @@ func TestSecretsManagerStoreAccessKey(t *testing.T) {
 
 func TestSecretsManagerStoreDatabaseKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		err := app.Auth.SecretsManager.StoreDatabaseKey("databaseKey", "databaseId", "branchId")
+		databaseUUID := uuid.NewString()
+		branchUUID := uuid.NewString()
+
+		err := app.Auth.SecretsManager.StoreDatabaseKey(
+			"databaseKey",
+			databaseUUID,
+			branchUUID,
+		)
 
 		if err != nil {
 			t.Error("Expected StoreDatabaseKey to return a non-nil error")
@@ -289,7 +309,7 @@ func TestSecretsManagerStoreDatabaseKey(t *testing.T) {
 			t.Fatal("Expected GetDatabaseKey to return a non-nil database key")
 		}
 
-		if databaseKey.DatabaseId != "databaseId" {
+		if databaseKey.DatabaseId != databaseUUID {
 			t.Error("Expected DatabaseId to match")
 		}
 	})

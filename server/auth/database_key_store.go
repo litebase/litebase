@@ -157,7 +157,6 @@ func (d *DatabaseKeyStore) Delete(key string) error {
 
 		if err != nil {
 			if err == io.EOF {
-				log.Println("EOF")
 				break
 			}
 
