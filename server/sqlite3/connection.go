@@ -310,7 +310,7 @@ func (c *Connection) Authorizer(authorizer Authorizer) {
 }
 
 //export go_authorizer
-func go_authorizer(connectionHandle C.uintptr_t, action C.int, arg1, arg2, dbName, triggerOrView *C.char) C.int {
+func go_authorizer(connectionHandle C.uintptr_t, action C.int, arg3, arg4, arg5, arg6 *C.char) C.int {
 	handle := cgo.Handle(connectionHandle)
 
 	c := handle.Value().(*Connection)
@@ -319,10 +319,10 @@ func go_authorizer(connectionHandle C.uintptr_t, action C.int, arg1, arg2, dbNam
 		return C.int(
 			c.authorizer(
 				int(action),
-				C.GoString(arg1),
-				C.GoString(arg2),
-				C.GoString(dbName),
-				C.GoString(triggerOrView),
+				C.GoString(arg3),
+				C.GoString(arg4),
+				C.GoString(arg5),
+				C.GoString(arg6),
 			),
 		)
 	}

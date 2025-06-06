@@ -129,5 +129,9 @@ func (l *Lease) Renew() error {
 
 // Determine if the lease should be renewed based on the remaining time.
 func (l *Lease) ShouldRenew() bool {
+	if l.IsExpired() {
+		return false
+	}
+
 	return (LeaseDuration - time.Since(l.RenewedAt)) < 10*time.Second
 }

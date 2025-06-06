@@ -2,6 +2,7 @@ package cache
 
 import (
 	"container/heap"
+	"sync"
 )
 
 type CacheItem struct {
@@ -56,6 +57,7 @@ func (pq *PriorityQueue) Pop() any {
 type LFUCache struct {
 	capacity int
 	items    map[string]*CacheItem
+	mutex    sync.Mutex
 	pq       PriorityQueue
 }
 
@@ -68,6 +70,9 @@ func NewLFUCache(capacity int) *LFUCache {
 }
 
 func (c *LFUCache) Delete(key string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	if item, found := c.items[key]; found {
 		heap.Remove(&c.pq, item.index)
 		delete(c.items, key)
@@ -76,6 +81,9 @@ func (c *LFUCache) Delete(key string) {
 
 // Get retrieves an item from the cache.
 func (c *LFUCache) Get(key string) (any, bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	if item, found := c.items[key]; found {
 		item.frequency++
 		heap.Fix(&c.pq, item.index)
@@ -87,6 +95,9 @@ func (c *LFUCache) Get(key string) (any, bool) {
 
 // Put adds an item to the cache.
 func (c *LFUCache) Put(key string, value any) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	item, found := c.items[key]
 
 	if found {

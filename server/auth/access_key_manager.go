@@ -78,7 +78,7 @@ func (akm *AccessKeyManager) Create() (*AccessKey, error) {
 		akm,
 		accessKeyId,
 		akm.GenerateAccessKeySecret(),
-		[]*AccessKeyPermission{
+		[]*AccessKeyStatement{
 			{
 				Resource: "*",
 				Actions:  []string{"*"},

@@ -472,6 +472,9 @@ func (fsd *TieredFileSystemDriver) OpenFileDirect(path string, flag int, perm fs
 		return nil, err
 	}
 
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
 	newFile := fsd.addFile(path, file, flag)
 
 	return newFile, nil
@@ -814,10 +817,6 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 					break
 				}
 
-			}
-		default:
-			if fsd.context.Err() != nil {
-				return
 			}
 		}
 	}

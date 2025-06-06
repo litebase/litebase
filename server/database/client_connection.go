@@ -60,7 +60,6 @@ func (d *ClientConnection) Release() {
 
 func (d *ClientConnection) WithAccessKey(accessKey *auth.AccessKey) *ClientConnection {
 	d.accessKey = accessKey
-
 	d.connection.WithAccessKey(accessKey)
 
 	return d

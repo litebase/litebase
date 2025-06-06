@@ -1,15 +1,41 @@
 package auth
 
 import (
-	"log"
+	"slices"
 	"strings"
 )
 
-//	Access Key Permissions are a list of resources and actions that can be performed on those resources.
-//
-// A "*" for the resource means all resources. A single action of "*" means all actions.
-// Resources are databases, branches, and tables.
-type AccessKeyPermission struct {
+/*
+Access Key Permissions are a list of resources and statements that can be
+performed on those resources.
+
+When an Access Key has a rule with the resource defined as "*", this indicates
+that the access key rule is scoped to all resources. Rules can also be scoped to
+a specific resource, such as a database, branch, or table.
+
+| Scope                                | Example                                                                     |
+|--------------------------------------|-----------------------------------------------------------------------------|
+| All resources                        | `*`                                                                         |
+| All database resources               | `database:*`                                                                |
+| A specific database                  | `database:DATABASE_ID`                                                      |
+| All resources of a specific database | `database:DATABASE_ID:*`                                                    |
+| All branch resources of a database   | `database:DATABASE_ID:branch:*`                                             |
+| A specific branch of a database      | `database:DATABASE_ID:branch:BRANCH_ID`                                     |
+| All resources of a specific branch   | `database:DATABASE_ID:branch:BRANCH_ID:*`                                   |
+| All table resources of a branch      | `database:DATABASE_ID:branch:BRANCH_ID:table:*`                             |
+| A specific table of a branch         | `database:DATABASE_ID:branch:BRANCH_ID:table:TABLE_NAME`                    |
+| All resources of a table             | `database:DATABASE_ID:branch:BRANCH_ID:table:TABLE_NAME:*`                  |
+| All column resources of a table      | `database:DATABASE_ID:branch:BRANCH_ID:table:TABLE_NAME:column:*`           |
+| A specific column of a table         | `database:DATABASE_ID:branch:BRANCH_ID:table:TABLE_NAME:column:COLUMN_NAME` |
+
+When an Access Key has a rule with Actions defined as "*", this indicates that
+the access key rule is scoped to all actions. Actions can also be scoped to
+specific actions, such as `ANALYZE`, `ATTACH`, `ALTER_TABLE`, `CREATE_INDEX`, etc.
+
+See the full list of DatabasePrivileges in `server/auth/database_privileges.go`.
+*/
+type AccessKeyStatement struct {
+	Effect   string   `json:"effect"` // "allow" or "deny"
 	Resource string   `json:"resource"`
 	Actions  []string `json:"actions"`
 }
@@ -19,116 +45,185 @@ func (accessKey *AccessKey) authorizationKey(strs ...string) string {
 }
 
 // Determine if an Access Key is authorized to perform an action on a resource.
-func (accessKey AccessKey) authorized(resource string, privilige DatabasePrivilege) bool {
-	var accessKeyPermission *AccessKeyPermission
+func (accessKey AccessKey) Authorized(resource string, privilege DatabasePrivilege) bool {
+	// Order the statements in descending order based on the number of
+	// segmentations in the resource (most specific first)
+	slices.SortFunc(accessKey.Statements, func(a, b *AccessKeyStatement) int {
+		return strings.Count(b.Resource, ":") - strings.Count(a.Resource, ":")
+	})
 
-	for _, permission := range accessKey.Permissions {
-		if permission.Resource == "*" {
-			accessKeyPermission = permission
-			break
+	var allowFound bool
+
+	for _, statement := range accessKey.Statements {
+		// Check if the statement resource matches the requested resource, or is a wildcard
+		if statement.Resource != "*" && statement.Resource != resource {
+			continue
 		}
 
-		if permission.Resource == resource {
-			accessKeyPermission = permission
-			break
+		// Check if the statement allows all actions
+		if len(statement.Actions) == 1 && statement.Actions[0] == "*" {
+			if strings.ToLower(statement.Effect) == "deny" {
+				return false // Deny always takes precedence
+			}
+
+			if strings.ToLower(statement.Effect) == "allow" {
+				allowFound = true
+			}
+
+			continue
+		}
+
+		// Check if the statement allows the specific privilege
+		if slices.Contains(statement.Actions, string(privilege)) {
+			if strings.ToLower(statement.Effect) == "deny" {
+				return false // Deny always takes precedence
+			}
+
+			if strings.ToLower(statement.Effect) == "allow" {
+				allowFound = true
+			}
 		}
 	}
 
-	if accessKeyPermission == nil {
-		return false
+	if allowFound {
+		return true
 	}
 
-	for _, a := range accessKeyPermission.Actions {
-		if a == "*" {
-			return true
-		}
-
-		if DatabasePrivilege(a) == privilige {
-			return true
-		}
-	}
-
+	// Deny by default if no statement matches
 	return false
 }
 
+func (accessKey *AccessKey) authorizedForBranch(databaseId, branchId string, privilege DatabasePrivilege) bool {
+	// Any resource
+	if accessKey.Authorized(accessKey.authorizationKey("*"), privilege) {
+		return true
+	}
+
+	// Any resource of the database
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
+		return true
+	}
+
+	// Any branch resource of the database
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
+		return true
+	}
+
+	// Any resource of the specific branch of the database
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
+		return true
+	}
+
+	// A specific branch of a specific database
+	return accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId), privilege)
+}
+
 func (accessKey *AccessKey) authorizedForColumn(databaseId, branchId, table, column string, privilege DatabasePrivilege) bool {
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
+	// Any resource
+	if accessKey.Authorized(accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
+	// Any resource of the database
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
+	// Any resources of the branch
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table"), privilege) {
+	// Any resource of the table
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", "*"), privilege) {
+	// Any column resource of the table
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", column), privilege)
+	// A specific column of a specific table of a specific database
+	return accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", column), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a database.
-func (accessKey *AccessKey) authorizedForDatabase(databaseId, branchId string, privilege DatabasePrivilege) bool {
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
+func (accessKey *AccessKey) authorizedForDatabase(databaseId string, privilege DatabasePrivilege) bool {
+	// Any resource
+	if accessKey.Authorized(accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
+	// Any database resource
+	if accessKey.Authorized(accessKey.authorizationKey("database", "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId), privilege)
+	// A specific database
+	return accessKey.Authorized(accessKey.authorizationKey("database", databaseId), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a table.
 func (accessKey *AccessKey) authorizedForTable(databaseId, branchId, table string, privilege DatabasePrivilege) bool {
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
+	// Any resource
+	if accessKey.Authorized(accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
+	// Any resource of the specific database
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
+	// Any resource of the specific database and branch
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", "*"), privilege) {
+	// Any table resource of the specific branch
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table), privilege)
+	// A specific table of a specific database
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table), privilege) {
+		return true
+	}
+
+	// Any resource of the specific table
+	return accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "*"), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a module.
 func (accessKey *AccessKey) authorizedForVTable(databaseId, branchId, module, vtable string, privilege DatabasePrivilege) bool {
-
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
+	// Any resource
+	if accessKey.Authorized(accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
+	// Any resource of the specific database
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", "*"), privilege) {
+	// Any resource of the specific database and branch
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
-	if accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "*"), privilege) {
+	// Any module resource of the specific branch
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", "*"), privilege) {
 		return true
 	}
 
-	return accessKey.authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", vtable), privilege)
+	// Any vtable resource of the specific module
+	if accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", "*"), privilege) {
+		return true
+	}
+
+	// A specific vtable of a specific module of a specific database
+	return accessKey.Authorized(accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", vtable), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a branch.
@@ -137,12 +232,12 @@ func (accessKey *AccessKey) CanAccessDatabase(databaseId, branchId string) error
 		return NewDatabaseAccessError()
 	}
 
-	for _, permission := range accessKey.Permissions {
-		if permission.Resource == "*" {
+	for _, statement := range accessKey.Statements {
+		if statement.Resource == "*" {
 			return nil
 		}
 
-		if strings.HasPrefix(permission.Resource, accessKey.authorizationKey(databaseId, branchId)) {
+		if strings.HasPrefix(statement.Resource, accessKey.authorizationKey(databaseId, branchId)) {
 			return nil
 		}
 	}
@@ -161,10 +256,6 @@ func (accessKey *AccessKey) CanAnalyze(databaseId, branchId, table string) (bool
 
 // Determine if an Access Key is authorized to perform an attach on a database.
 func (accessKey *AccessKey) CanAttach(databaseId, branchId, database string) (bool, error) {
-	// if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeAttach) {
-	// 	return true, nil
-	// }
-
 	return false, NewDatabasePrivilegeError(DatabasePrivilegeAttach)
 }
 
@@ -188,25 +279,16 @@ func (accessKey *AccessKey) CanCreateIndex(databaseId, branchId, tableName, inde
 
 // Determine if an Access Key is authorized to perform a create table on a database.
 func (accessKey *AccessKey) CanCreateTable(databaseId, branchId, table string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeCreateTable) {
+	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeCreateTable) {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError(DatabasePrivilegeCreateTable)
 }
 
-// Determine if an Access Key is authorized to perform a create temp index on a database.
-func (accessKey *AccessKey) CanCreateTempIndex(databaseId, branchId, tableName, indexName string) (bool, error) {
-	if accessKey.authorizedForTable(databaseId, branchId, tableName, DatabasePrivilegeCreateTempIndex) {
-		return true, nil
-	}
-
-	return false, NewDatabasePrivilegeError(DatabasePrivilegeCreateTempIndex)
-}
-
 // Determine if an Access Key is authorized to perform a create temp table on a database.
 func (accessKey *AccessKey) CanCreateTempTable(databaseId, branchId, table string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeCreateTempTable) {
+	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeCreateTempTable) {
 		return true, nil
 	}
 
@@ -224,7 +306,7 @@ func (accessKey *AccessKey) CanCreateTempTrigger(databaseId, branchId, tableName
 
 // Determine if an Access Key is authorized to perform a create temp view on a database.
 func (accessKey *AccessKey) CanCreateTempView(databaseId, branchId, table string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeCreateTempView) {
+	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeCreateTempView) {
 		return true, nil
 	}
 
@@ -242,7 +324,7 @@ func (accessKey *AccessKey) CanCreateTrigger(databaseId, branchId, tableName, tr
 
 // Determine if an Access Key is authorized to perform a create view on a database.
 func (accessKey *AccessKey) CanCreateView(databaseId, branchId, view string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeCreateView) {
+	if accessKey.authorizedForTable(databaseId, branchId, view, DatabasePrivilegeCreateView) {
 		return true, nil
 	}
 
@@ -269,10 +351,6 @@ func (accessKey *AccessKey) CanDelete(databaseId, branchId string, table string)
 
 // Determine if an Access Key is authorized to perform a detach on a database.
 func (accessKey *AccessKey) CanDetach(databaseId, branchId, database string) (bool, error) {
-	// if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeDetach) {
-	// 	return true, nil
-	// }
-
 	return false, NewDatabasePrivilegeError(DatabasePrivilegeAttach)
 }
 
@@ -294,42 +372,6 @@ func (accessKey *AccessKey) CanDropTable(databaseId, branchId, table string) (bo
 	return false, NewDatabasePrivilegeError(DatabasePrivilegeDropTable)
 }
 
-// Determine if an Access Key is authorized to perform a drop temp index on a database.
-func (accessKey *AccessKey) CanDropTempIndex(databaseId, branchId, table, index string) (bool, error) {
-	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeDropTempIndex) {
-		return true, nil
-	}
-
-	return false, NewDatabasePrivilegeError(DatabasePrivilegeDropTempIndex)
-}
-
-// Determine if an Access Key is authorized to perform a drop temp table on a database.
-func (accessKey *AccessKey) CanDropTempTable(databaseId, branchId, table string) (bool, error) {
-	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeDropTempTable) {
-		return true, nil
-	}
-
-	return false, NewDatabasePrivilegeError(DatabasePrivilegeDropTempTable)
-}
-
-// Determine if an Access Key is authorized to perform a drop temp trigger on a database.
-func (accessKey *AccessKey) CanDropTempTrigger(databaseId, branchId, table, trigger string) (bool, error) {
-	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeDropTempTrigger) {
-		return true, nil
-	}
-
-	return false, NewDatabasePrivilegeError(DatabasePrivilegeDropTempTrigger)
-}
-
-// Determine if an Access Key is authorized to perform a drop temp view on a database.
-func (accessKey *AccessKey) CanDropTempView(databaseId, branchId, view string) (bool, error) {
-	if accessKey.authorizedForTable(databaseId, branchId, view, DatabasePrivilegeDropTempView) {
-		return true, nil
-	}
-
-	return false, NewDatabasePrivilegeError(DatabasePrivilegeDropTempView)
-}
-
 // Determine if an Access Key is authorized to perform a drop trigger on a database.
 func (accessKey *AccessKey) CanDropTrigger(databaseId, branchId, table, trigger string) (bool, error) {
 	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeDropTrigger) {
@@ -348,44 +390,17 @@ func (accessKey *AccessKey) CanDropView(databaseId, branchId, view string) (bool
 	return false, NewDatabasePrivilegeError(DatabasePrivilegeDropView)
 }
 
-// Determine if an Access Key is authorized to perform a drop vtable on a database.
-func (accessKey *AccessKey) CanDropVTable(databaseId, branchId, module, vtable string) (bool, error) {
-	if accessKey.authorizedForVTable(databaseId, branchId, module, vtable, DatabasePrivilegeDropVTable) {
-		return true, nil
-	}
-
-	return false, NewDatabasePrivilegeError(DatabasePrivilegeDropVTable)
-}
-
 // Determine if an Access Key is authorized to perform a function on a database.
 func (accessKey *AccessKey) CanFunction(databaseId, branchId, function string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeFunction) {
+	if accessKey.authorizedForBranch(databaseId, branchId, DatabasePrivilegeFunction) {
 		return true, nil
 	}
 
 	return false, NewDatabasePrivilegeError(DatabasePrivilegeFunction)
 }
 
-func (accessKey *AccessKey) CanIndex(databaseId, branchId string, args []string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, "table:INDEX") {
-		return true, nil
-	}
-
-	return false, NewDatabasePrivilegeError("INDEX")
-}
-
 // Determine if an Access Key is authorized to perform a function on a database.
 func (accessKey *AccessKey) CanInsert(databaseId, branchId, table string) (bool, error) {
-	// log.Println("CanInsert", databaseId, branchId, table)
-	if table == "sqlite_master" {
-		// canCreate, _ := accessKey.CanCreateTable(databaseId, branchId, table)
-		// canIndex, _ := accessKey.CanCreateIndex(databaseId, branchId, table)
-
-		// if canCreate || canIndex {
-		return true, nil
-		// }
-	}
-
 	if accessKey.authorizedForTable(databaseId, branchId, table, DatabasePrivilegeInsert) {
 		return true, nil
 	}
@@ -408,7 +423,7 @@ func (accessKey *AccessKey) CanPragma(databaseId, branchId, pragma, value string
 		return false, NewDatabasePrivilegeError(DatabasePrivilegePragma)
 	}
 
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegePragma) {
+	if accessKey.authorizedForBranch(databaseId, branchId, DatabasePrivilegePragma) {
 		return true, nil
 	}
 
@@ -425,8 +440,8 @@ func (accessKey *AccessKey) CanRead(databaseId, branchId, table, column string) 
 }
 
 // Determine if an Access Key is authorized to perform a recursive on a database.
-func (accessKey *AccessKey) CanRecursive(databaseId, branchId, operation string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeRecursive) {
+func (accessKey *AccessKey) CanRecursive(databaseId, branchId string) (bool, error) {
+	if accessKey.authorizedForBranch(databaseId, branchId, DatabasePrivilegeRecursive) {
 		return true, nil
 	}
 
@@ -444,8 +459,7 @@ func (accessKey *AccessKey) CanReindex(databaseId, branchId, index string) (bool
 
 // Determine if an Access Key is authorized to perform a savepoint on a database.
 func (accessKey *AccessKey) CanSavepoint(databaseId, branchId, operation, savepoint string) (bool, error) {
-	log.Println("CanSavepoint", databaseId, branchId, operation, savepoint)
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeSavepoint) {
+	if accessKey.authorizedForBranch(databaseId, branchId, DatabasePrivilegeSavepoint) {
 		return true, nil
 	}
 
@@ -454,7 +468,7 @@ func (accessKey *AccessKey) CanSavepoint(databaseId, branchId, operation, savepo
 
 // Determine if an Access Key is authorized to perform a select on a database.
 func (accessKey *AccessKey) CanSelect(databaseId, branchId string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeSelect) {
+	if accessKey.authorizedForBranch(databaseId, branchId, DatabasePrivilegeSelect) {
 		return true, nil
 	}
 
@@ -463,7 +477,7 @@ func (accessKey *AccessKey) CanSelect(databaseId, branchId string) (bool, error)
 
 // Determine if an Access Key is authorized to perform a transaction on a database.
 func (accessKey *AccessKey) CanTransaction(databaseId, branchId, operation string) (bool, error) {
-	if accessKey.authorizedForDatabase(databaseId, branchId, DatabasePrivilegeTransaction) {
+	if accessKey.authorizedForBranch(databaseId, branchId, DatabasePrivilegeTransaction) {
 		return true, nil
 	}
 
@@ -472,11 +486,6 @@ func (accessKey *AccessKey) CanTransaction(databaseId, branchId, operation strin
 
 // Determine if an Access Key is authorized to perform an update on a database.
 func (accessKey *AccessKey) CanUpdate(databaseId, branchId, table, column string) (bool, error) {
-
-	// if table == "sqlite_master" || table == "sqlite_temp_master" {
-	// 	return true, nil
-	// }
-
 	if accessKey.authorizedForColumn(databaseId, branchId, table, column, DatabasePrivilegeUpdate) {
 		return true, nil
 	}

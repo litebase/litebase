@@ -178,7 +178,6 @@ int xShmUnmap(sqlite3_file *pFile, int deleteFlag)
 
 int xShmLock(sqlite3_file *pFile, int offset, int n, int flags)
 {
-  // vfs_log("xShmLock");
   return goXShmLock(pFile, offset, n, flags);
   // return ORIGFILE(pFile)->pMethods->xShmLock(ORIGFILE(pFile), offset, n, flags);
 }

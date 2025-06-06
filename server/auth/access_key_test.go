@@ -14,7 +14,7 @@ func TestNewAccessKey(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessKeySecret",
-			[]*auth.AccessKeyPermission{},
+			[]*auth.AccessKeyStatement{},
 		)
 
 		if accessKey == nil {
@@ -37,7 +37,7 @@ func TestAccessKeyDelete(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessSecret",
-			[]*auth.AccessKeyPermission{},
+			[]*auth.AccessKeyStatement{},
 		)
 
 		err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
@@ -68,7 +68,7 @@ func TestAccessKeyUpdate(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessSecret",
-			[]*auth.AccessKeyPermission{},
+			[]*auth.AccessKeyStatement{},
 		)
 
 		err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
@@ -77,14 +77,14 @@ func TestAccessKeyUpdate(t *testing.T) {
 			t.Error(err)
 		}
 
-		permissions := []*auth.AccessKeyPermission{
+		statements := []*auth.AccessKeyStatement{
 			{
 				Resource: "*",
 				Actions:  []string{"*"},
 			},
 		}
 
-		if err := accessKey.Update(permissions); err != nil {
+		if err := accessKey.Update(statements); err != nil {
 			t.Error(err)
 		}
 
@@ -98,20 +98,20 @@ func TestAccessKeyUpdate(t *testing.T) {
 			t.Fatal("Expected accessKey to be non-nil")
 		}
 
-		if len(accessKey.Permissions) != 1 {
-			t.Errorf("Expected permissions to have length 1, got %d", len(accessKey.Permissions))
+		if len(accessKey.Statements) != 1 {
+			t.Errorf("Expected statements to have length 1, got %d", len(accessKey.Statements))
 		}
 
-		if accessKey.Permissions[0].Resource != "*" {
-			t.Errorf("Expected resource to be '*', got %s", accessKey.Permissions[0].Resource)
+		if accessKey.Statements[0].Resource != "*" {
+			t.Errorf("Expected resource to be '*', got %s", accessKey.Statements[0].Resource)
 		}
 
-		if len(accessKey.Permissions[0].Actions) != 1 {
-			t.Errorf("Expected actions to have length 1, got %d", len(accessKey.Permissions[0].Actions))
+		if len(accessKey.Statements[0].Actions) != 1 {
+			t.Errorf("Expected actions to have length 1, got %d", len(accessKey.Statements[0].Actions))
 		}
 
-		if accessKey.Permissions[0].Actions[0] != "*" {
-			t.Errorf("Expected action to be '*', got %s", accessKey.Permissions[0].Actions[0])
+		if accessKey.Statements[0].Actions[0] != "*" {
+			t.Errorf("Expected action to be '*', got %s", accessKey.Statements[0].Actions[0])
 		}
 	})
 }

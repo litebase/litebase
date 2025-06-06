@@ -23,6 +23,15 @@ var (
 	DatabaseWALSyncInterval = 100 * time.Millisecond
 )
 
+// A Write Ahead Log provides crash recovery for a database. In this application
+// the WAL also servers as an immediate buffer of changes to be written to the
+// the database. These data changes are synced quite frequently as the WAL is
+// checkpointed to durable storage.
+//
+// This WAL uses a LFU cache to store recently read/written data pages to avoid
+// excessive file i/o. Note to determine the max size of the cache, we must
+// consider the number of cached items which may be 24 bytes for a SQLITE WAL
+// Frame header and 4KB for the contents of the page.
 type DatabaseWAL struct {
 	BranchId       string
 	cache          *cache.LFUCache
@@ -55,7 +64,7 @@ func NewDatabaseWAL(
 ) *DatabaseWAL {
 	return &DatabaseWAL{
 		BranchId:      branchId,
-		cache:         cache.NewLFUCache(1000),
+		cache:         cache.NewLFUCache(16000), // ~33MB
 		createdAt:     time.Now(),
 		DatabaseId:    databaseId,
 		fileSystem:    fileSystem,
@@ -210,17 +219,12 @@ func (wal *DatabaseWAL) performAsynchronousSync() {
 }
 
 func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
-	// start := time.Now()
-
-	wal.mutex.Lock()
-	defer wal.mutex.Unlock()
+	wal.mutex.RLock()
+	defer wal.mutex.RUnlock()
 
 	cacheKey := fmt.Sprintf("%d", off)
 
 	if data, found := wal.cache.Get(cacheKey); found && len(data.([]byte)) == len(p) {
-		// defer func() {
-		// 	log.Println("WAL file read", off, time.Since(start))
-		// }()
 		return copy(p, data.([]byte)), nil
 	}
 
@@ -244,11 +248,8 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 	if err != nil {
 		return n, err
 	}
-
 	// Cache the read data
-	// if n == int(wal.walManager.connectionManager.cluster.Config.PageSize) {
 	wal.cache.Put(cacheKey, slices.Clone(p))
-	// }
 
 	return n, nil
 }
@@ -374,9 +375,9 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	n, err = file.WriteAt(p, off)
 
-	// if wal.shouldSync() {
-	// 	wal.performAsynchronousSync()
-	// }
+	if wal.shouldSync() {
+		wal.performAsynchronousSync()
+	}
 
 	wal.lastWriteTime = time.Now()
 

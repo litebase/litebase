@@ -42,7 +42,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	accessKey := &auth.AccessKey{
 		AccessKeyId:     accessKeyId,
 		AccessKeySecret: "accessKeySecret",
-		Permissions: []*auth.AccessKeyPermission{
+		Statements: []*auth.AccessKeyStatement{
 			{
 				Resource: "*",
 				Actions:  []string{"*"},

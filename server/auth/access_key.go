@@ -13,9 +13,11 @@ type AccessKey struct {
 	AccessKeyId      string `json:"access_key_id"`
 	AccessKeySecret  string `json:"access_key_secret"`
 	accessKeyManager *AccessKeyManager
-	CreatedAt        int64                  `json:"created_at"`
-	UpdatedAt        int64                  `json:"updated_at"`
-	Permissions      []*AccessKeyPermission `json:"permissions"`
+	CreatedAt        int64                 `json:"created_at"`
+	UpdatedAt        int64                 `json:"updated_at"`
+	Statements       []*AccessKeyStatement `json:"statements"`
+
+	operations []int
 }
 
 // Create a new AccessKey instance.
@@ -23,14 +25,18 @@ func NewAccessKey(
 	accessKeyManager *AccessKeyManager,
 	accessKeyId string,
 	accessKeySecret string,
-	permissions []*AccessKeyPermission,
+	statements []*AccessKeyStatement,
 ) *AccessKey {
 	return &AccessKey{
 		accessKeyManager: accessKeyManager,
 		AccessKeyId:      accessKeyId,
 		AccessKeySecret:  accessKeySecret,
-		Permissions:      permissions,
+		Statements:       statements,
 	}
+}
+
+func (accessKey *AccessKey) AddOperation(operation int) {
+	accessKey.operations = append(accessKey.operations, operation)
 }
 
 // Delete the AccessKey from the filesystem.
@@ -58,11 +64,15 @@ func (accessKey *AccessKey) Delete() error {
 	return nil
 }
 
-// Update the AccessKey permissions.
+func (accessKey *AccessKey) ResetOperations() {
+	accessKey.operations = []int{}
+}
+
+// Update the AccessKey statements.
 func (accessKey *AccessKey) Update(
-	permissions []*AccessKeyPermission,
+	statements []*AccessKeyStatement,
 ) error {
-	accessKey.Permissions = permissions
+	accessKey.Statements = statements
 
 	jsonValue, err := json.Marshal(accessKey)
 

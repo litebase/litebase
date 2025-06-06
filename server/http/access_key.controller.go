@@ -67,7 +67,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 		}, 404, nil)
 	}
 
-	err = accessKey.Update(request.Get("permissions").([]*auth.AccessKeyPermission))
+	err = accessKey.Update(request.Get("statements").([]*auth.AccessKeyStatement))
 
 	if err != nil {
 		return JsonResponse(map[string]any{

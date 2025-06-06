@@ -169,11 +169,9 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// released before returning an error.
 		[]byte("PRAGMA busy_timeout = 5000"),
 
-		// The amount of cache that SQLite will use is set to -2000000. This
-		// will allow SQLite to use as much memory as it needs for caching.
+		// PRAGMA cache_size will set the size of the cache to 0. This will
+		// disable caching and force SQLite to read from storage for every query.
 		[]byte("PRAGMA cache_size = 0"),
-		// []byte("PRAGMA cache_size = -2000"),
-		// []byte("PRAGMA cache_size = 20000000"),
 
 		// PRAGMA secure_delete will ensure that data is securely deleted from
 		// the database. This will prevent data from being recovered from the
@@ -185,7 +183,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// PRAGMA temp_store will set the temp store to memory. This will
 		// ensure that temporary files created by SQLite are stored in memory
 		// and not on disk.
-		// []byte("PRAGMA temp_store = memory"),
+		[]byte("PRAGMA temp_store = memory"),
 	}
 
 	if !con.connectionManager.cluster.Node().IsPrimary() {
@@ -333,7 +331,20 @@ func (con *DatabaseConnection) Context() context.Context {
 }
 
 func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementParameter) (result *sqlite3.Result, err error) {
-	result = &sqlite3.Result{}
+	resources := con.connectionManager.databaseManager.Resources(con.databaseId, con.branchId)
+	// Get the database hash for the connection.
+	// databaseHash := file.DatabaseHash(con.databaseId, con.branchId)
+	resultPool := resources.ResultPool()
+
+	// Get a new result from the pool.
+	result = resultPool.Get()
+
+	defer func() {
+		if err != nil {
+			resultPool.Put(result)
+		}
+	}()
+
 	statement, _, err := con.SqliteConnection().Prepare(con.context, []byte(sql))
 
 	if err != nil {
@@ -420,9 +431,12 @@ func (con *DatabaseConnection) ResultPool() *sqlite3.ResultPool {
 func (c *DatabaseConnection) SetAuthorizer() {
 	c.sqlite3.Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int {
 		// log.Println("Authorizer Action Code:", actionCode)
+		// log.Println("arg1:", arg1, "arg2:", arg2, "arg3:", arg3, "arg4:", arg4)
 		if c.AccessKey == nil {
 			return sqlite3.SQLITE_OK
 		}
+
+		c.AccessKey.AddOperation(actionCode)
 
 		allowed := true
 		var err error
@@ -440,8 +454,6 @@ func (c *DatabaseConnection) SetAuthorizer() {
 			allowed, err = c.AccessKey.CanCreateIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TABLE:
 			allowed, err = c.AccessKey.CanCreateTable(c.databaseId, c.branchId, arg1)
-		case sqlite3.SQLITE_CREATE_TEMP_INDEX:
-			allowed, err = c.AccessKey.CanCreateTempIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TABLE:
 			allowed, err = c.AccessKey.CanCreateTempTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TRIGGER:
@@ -462,20 +474,10 @@ func (c *DatabaseConnection) SetAuthorizer() {
 			allowed, err = c.AccessKey.CanDropIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_TABLE:
 			allowed, err = c.AccessKey.CanDropTable(c.databaseId, c.branchId, arg1)
-		case sqlite3.SQLITE_DROP_TEMP_INDEX:
-			allowed, err = c.AccessKey.CanDropTempIndex(c.databaseId, c.branchId, arg2, arg1)
-		case sqlite3.SQLITE_DROP_TEMP_TABLE:
-			allowed, err = c.AccessKey.CanDropTempTable(c.databaseId, c.branchId, arg1)
-		case sqlite3.SQLITE_DROP_TEMP_TRIGGER:
-			allowed, err = c.AccessKey.CanDropTempTrigger(c.databaseId, c.branchId, arg2, arg1)
-		case sqlite3.SQLITE_DROP_TEMP_VIEW:
-			allowed, err = c.AccessKey.CanDropTempView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_TRIGGER:
 			allowed, err = c.AccessKey.CanDropTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_VIEW:
 			allowed, err = c.AccessKey.CanDropView(c.databaseId, c.branchId, arg1)
-		case sqlite3.SQLITE_DROP_VTABLE:
-			allowed, err = c.AccessKey.CanDropVTable(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_FUNCTION:
 			allowed, err = c.AccessKey.CanFunction(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_INSERT:
@@ -483,9 +485,9 @@ func (c *DatabaseConnection) SetAuthorizer() {
 		case sqlite3.SQLITE_PRAGMA:
 			allowed, err = c.AccessKey.CanPragma(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_READ:
-			allowed, err = c.AccessKey.CanRead(c.databaseId, c.branchId, arg3, arg4)
+			allowed, err = c.AccessKey.CanRead(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_RECURSIVE:
-			allowed, err = c.AccessKey.CanRecursive(c.databaseId, c.branchId, arg1)
+			allowed, err = c.AccessKey.CanRecursive(c.databaseId, c.branchId)
 		case sqlite3.SQLITE_REINDEX:
 			allowed, err = c.AccessKey.CanReindex(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_SAVEPOINT:
@@ -495,7 +497,7 @@ func (c *DatabaseConnection) SetAuthorizer() {
 		case sqlite3.SQLITE_TRANSACTION:
 			allowed, err = c.AccessKey.CanTransaction(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_UPDATE:
-			allowed, err = c.AccessKey.CanUpdate(c.databaseId, c.branchId, arg3, arg4)
+			allowed, err = c.AccessKey.CanUpdate(c.databaseId, c.branchId, arg1, arg2)
 		default:
 			allowed, err = false, nil
 		}
@@ -504,10 +506,6 @@ func (c *DatabaseConnection) SetAuthorizer() {
 			c.SqliteConnection().SetAuthorizationError(err)
 
 			return sqlite3.SQLITE_DENY
-		}
-
-		if actionCode == sqlite3.SQLITE_SELECT && !allowed {
-			return sqlite3.SQLITE_IGNORE
 		}
 
 		if allowed {
@@ -632,6 +630,12 @@ func (con *DatabaseConnection) VFSHash() string {
 
 // Set the access key for the database connection.
 func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
+	// Reset the operations on the Access Key to ensure the scope of operations
+	// is limited to the current usage of the connection.
+	if accessKey != nil {
+		accessKey.ResetOperations()
+	}
+
 	con.AccessKey = accessKey
 
 	return con
