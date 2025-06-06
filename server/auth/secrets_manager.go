@@ -42,11 +42,7 @@ func NewSecretsManager(
 	tmpFS *storage.FileSystem,
 	tmpTieredFS *storage.FileSystem,
 ) *SecretsManager {
-	dks, err := NewDatabaseKeyStore(tmpTieredFS, GetDatabaseKeysPath(config.Signature))
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	dks, _ := NewDatabaseKeyStore(tmpTieredFS, GetDatabaseKeysPath(config.Signature))
 
 	return &SecretsManager{
 		auth:                  auth,
@@ -68,7 +64,6 @@ func NewSecretsManager(
 // stores to provide different levels of caching based on performance.
 func (s *SecretsManager) cache(key string) SecretsStore {
 	s.secretStoreMutex.RLock()
-	_, hasFileStore := s.secretStore["file"]
 	_, hasMapStore := s.secretStore["map"]
 	_, hasTransientStore := s.secretStore["transient"]
 	s.secretStoreMutex.RUnlock()
@@ -82,14 +77,6 @@ func (s *SecretsManager) cache(key string) SecretsStore {
 	if key == "transient" && !hasTransientStore {
 		s.secretStoreMutex.Lock()
 		s.secretStore["transient"] = NewMapSecretsStore()
-		s.secretStoreMutex.Unlock()
-	}
-
-	if key == "file" && !hasFileStore {
-		s.secretStoreMutex.Lock()
-
-		s.secretStore["file"] = NewFileSecretsStore("litebase/cache/", s.TmpFS)
-
 		s.secretStoreMutex.Unlock()
 	}
 
@@ -117,16 +104,10 @@ func (s *SecretsManager) DatabaseKeyStore(signature string) (*DatabaseKeyStore, 
 			return nil, errors.New("invalid signature")
 		}
 
-		databaseKeyStore, err := NewDatabaseKeyStore(
+		s.databaseKeyStores[signature], _ = NewDatabaseKeyStore(
 			s.TmpFS,
 			GetDatabaseKeysPath(signature),
 		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		s.databaseKeyStores[signature] = databaseKeyStore
 	}
 
 	return s.databaseKeyStores[signature], nil
@@ -137,52 +118,22 @@ func (s *SecretsManager) Decrypt(signature string, data []byte) (DecryptedSecret
 	return s.Encrypter(signature).Decrypt(data)
 }
 
-// Decrypt the given text using the given access key id and secret
-func (s *SecretsManager) DecryptFor(accessKeyId, accessKeySecret, text string) (DecryptedSecret, error) {
-	var err error
-
-	if accessKeySecret == "" {
-		accessKeySecret, err = s.GetAccessKeySecret(accessKeyId)
-
-		if err != nil {
-			return DecryptedSecret{}, err
-		}
-	}
-
-	encrypter := NewEncrypter([]byte(accessKeySecret))
-
-	return encrypter.Decrypt(text)
-}
-
 // Delete a database key from the SecretsManager.
 func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
-	dks, err := s.DatabaseKeyStore(s.config.Signature)
+	dks, _ := s.DatabaseKeyStore(s.config.Signature)
+
+	err := dks.Delete(databaseKey)
 
 	if err != nil {
-		log.Println(err)
-
-		return err
-	}
-
-	err = dks.Delete(databaseKey)
-
-	if err != nil {
-		log.Println(err)
 		return err
 	}
 
 	if s.config.SignatureNext != "" {
-		dks, err = s.DatabaseKeyStore(s.config.SignatureNext)
-
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+		dks, _ = s.DatabaseKeyStore(s.config.SignatureNext)
 
 		err = dks.Delete(databaseKey)
 
 		if err != nil {
-			log.Println(err)
 			return err
 		}
 	}
@@ -193,19 +144,6 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 // Encrypt the given data using the given signature
 func (s *SecretsManager) Encrypt(signature string, data []byte) ([]byte, error) {
 	return s.Encrypter(signature).Encrypt(data)
-}
-
-// Encrypt the given data using the given access key id
-func (s *SecretsManager) EncryptFor(accessKeyId, data string) (string, error) {
-	secret, err := s.GetAccessKeySecret(accessKeyId)
-
-	if err != nil {
-		return "", err
-	}
-
-	encrypter := NewEncrypter([]byte(secret))
-
-	return encrypter.Encrypt(data)
 }
 
 // Get the KeyEncrypter for the given key
@@ -238,7 +176,7 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 	value := s.cache("transient").Get(fmt.Sprintf("%s:access_key_secret", accessKeyId), &secret)
 
 	if value != nil {
-		return value.(string), nil
+		return secret, nil
 	}
 
 	accessKey, err := s.auth.AccessKeyManager.Get(accessKeyId)
@@ -247,17 +185,14 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 		return "", err
 	}
 
+	s.cache("transient").Put(fmt.Sprintf("%s:access_key_secret", accessKeyId), accessKey.AccessKeySecret, time.Second*1)
 	s.cache("transient").Put(fmt.Sprintf("%s:server_secret", accessKeyId), accessKey.AccessKeySecret, time.Second*1)
 
 	return accessKey.AccessKeySecret, nil
 }
 
 func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
-	dks, err := s.DatabaseKeyStore(s.config.Signature)
-
-	if err != nil {
-		return nil, err
-	}
+	dks, _ := s.DatabaseKeyStore(s.config.Signature)
 
 	databaseKey, err := dks.Get(key)
 
@@ -306,7 +241,6 @@ func (s *SecretsManager) Init() error {
 func (s *SecretsManager) PurgeDatabaseSettings(databaseId string, branchId string) error {
 	s.cache("map").Forget(s.databaseSettingCacheKey(databaseId, branchId))
 	s.cache("transient").Forget(s.databaseSettingCacheKey(databaseId, branchId))
-	s.cache("file").Forget(s.databaseSettingCacheKey(databaseId, branchId))
 
 	return nil
 }
@@ -434,14 +368,9 @@ func (s *SecretsManager) StoreDatabaseKey(
 		databaseKey,
 	)
 
-	dks, err := s.DatabaseKeyStore(s.config.Signature)
+	dks, _ := s.DatabaseKeyStore(s.config.Signature)
 
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	err = dks.Put(dk)
+	err := dks.Put(dk)
 
 	if err != nil {
 		return err

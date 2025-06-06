@@ -208,9 +208,9 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 		Prefix:  aws.String(path),
 	}
 
-	if path != "/" {
-		input.Delimiter = aws.String("/")
-	}
+	// if path != "/" {
+	// 	input.Delimiter = aws.String("/")
+	// }
 
 	paginator := s3.NewListObjectsV2Paginator(fs.S3Client, input)
 
@@ -259,10 +259,6 @@ func (fs *ObjectFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEnt
 }
 
 func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
-	// startTime := time.Now()
-	// defer func() {
-	// 	log.Printf("ReadFile took %s for %s", time.Since(startTime), path)
-	// }()
 	// Read the file using S3
 	output, err := fs.S3Client.GetObject(fs.context, &s3.GetObjectInput{
 		Bucket: aws.String(fs.bucket),

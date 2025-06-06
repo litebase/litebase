@@ -72,7 +72,7 @@ func NewConfig() *Config {
 		NetworkStoragePath:     env("LITEBASE_NETWORK_STORAGE_PATH", "").(string),
 		RouterNodePort:         env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
-		RootUsername:           env("LITEBASE_ROOT_USERNAME", "root").(string),
+		RootUsername:           env("LITEBASE_ROOT_USERNAME", "").(string),
 		Signature:              env("LITEBASE_SIGNATURE", "").(string),
 		SignatureNext:          env("LITEBASE_SIGNATURE_NEXT", "").(string),
 		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),

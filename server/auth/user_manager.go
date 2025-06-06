@@ -130,10 +130,12 @@ func (u *UserManager) Authenticate(username, password string) bool {
 			if err != nil {
 				return false
 			}
+
+			return true // Password matches
 		}
 	}
 
-	return true
+	return false
 }
 
 func (u *UserManager) Get(username string) *User {

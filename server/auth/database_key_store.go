@@ -146,6 +146,8 @@ func (d *DatabaseKeyStore) Delete(key string) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	keyFound := false
+
 	d.cache.Delete(key)
 
 	offset := int64(DatabaseKeyStoreHeaderSize)
@@ -170,6 +172,7 @@ func (d *DatabaseKeyStore) Delete(key string) error {
 		readKey = DecodeDatbaseKey(encodedKey)
 
 		if readKey.Key == key {
+			keyFound = true
 			// Mark the entry as deleted by writing zeros
 			zeroKey := make([]byte, DatabaseKeySize)
 
@@ -191,6 +194,10 @@ func (d *DatabaseKeyStore) Delete(key string) error {
 		}
 
 		offset += int64(n)
+	}
+
+	if !keyFound {
+		return errors.New("database key not found")
 	}
 
 	return nil

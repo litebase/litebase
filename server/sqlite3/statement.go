@@ -440,6 +440,10 @@ func (s *Statement) SQL() string {
 
 // Set the column types of the statement result
 func (s *Statement) setColumnTypes(result *Result) {
+	if result == nil {
+		return
+	}
+
 	for i := range result.Columns {
 		if i >= len(s.columnTypes) {
 			// Expand the columnTypes slice to accommodate the new index

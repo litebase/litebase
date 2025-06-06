@@ -331,19 +331,7 @@ func (con *DatabaseConnection) Context() context.Context {
 }
 
 func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementParameter) (result *sqlite3.Result, err error) {
-	resources := con.connectionManager.databaseManager.Resources(con.databaseId, con.branchId)
-	// Get the database hash for the connection.
-	// databaseHash := file.DatabaseHash(con.databaseId, con.branchId)
-	resultPool := resources.ResultPool()
-
-	// Get a new result from the pool.
-	result = resultPool.Get()
-
-	defer func() {
-		if err != nil {
-			resultPool.Put(result)
-		}
-	}()
+	result = &sqlite3.Result{}
 
 	statement, _, err := con.SqliteConnection().Prepare(con.context, []byte(sql))
 

@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/litebase/litebase/internal/utils"
@@ -55,7 +54,7 @@ func SignRequest(
 		jsonQueryParams, err = json.Marshal(queryParams)
 
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	} else {
 		jsonQueryParams = []byte("{}")
@@ -65,14 +64,14 @@ func SignRequest(
 		jsonBody, err = json.Marshal(data)
 
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	} else {
 		jsonBody = []byte("{}")
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	requestString := strings.Join([]string{
@@ -100,7 +99,7 @@ func SignRequest(
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
 	token := base64.StdEncoding.EncodeToString(
-		[]byte(fmt.Sprintf("credential=%s;signed_headers=content-type,host,x-lbdb-date;signature=%s", accessKeyID, signature)),
+		fmt.Appendf(nil, "credential=%s;signed_headers=content-type,host,x-lbdb-date;signature=%s", accessKeyID, signature),
 	)
 
 	return token

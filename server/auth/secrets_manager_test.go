@@ -34,7 +34,7 @@ func TestNewSecretsManager(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerDecrypt(t *testing.T) {
+func TestSecretsManager_Decrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		str := "test"
 
@@ -56,35 +56,52 @@ func TestSecretsManagerDecrypt(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerDecryptFor(t *testing.T) {
+func TestSecretsManager_DatabaseKeyStore(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		accessKey, err := app.Auth.AccessKeyManager.Create()
+		// Signature test
+		databaseKeyStore, err := app.Auth.SecretsManager.DatabaseKeyStore(
+			app.Config.Signature,
+		)
 
-		if err != nil {
-			t.Error("Expected Create to return a non-nil error")
+		if databaseKeyStore == nil {
+			t.Error("Expected DatabaseKeyStore to return a non-nil value")
 		}
 
-		str := "test"
-
-		encrypted, err := app.Auth.SecretsManager.EncryptFor(accessKey.AccessKeyId, str)
-
 		if err != nil {
-			t.Error("Expected Encrypt to return a non-nil error")
+			t.Error("Expected DatabaseKeyStore to return a non-nil error")
 		}
 
-		decrypted, err := app.Auth.SecretsManager.DecryptFor(accessKey.AccessKeyId, accessKey.AccessKeySecret, encrypted)
+		// Signature next test
+		app.Config.SignatureNext = test.CreateHash(64)
 
-		if err != nil {
-			t.Error("Expected DecryptFor to return a non-nil error")
+		databaseKeyStore, err = app.Auth.SecretsManager.DatabaseKeyStore(
+			app.Config.SignatureNext,
+		)
+
+		if databaseKeyStore == nil {
+			t.Error("Expected DatabaseKeyStore to return a non-nil value")
 		}
 
-		if decrypted.Value != str {
-			t.Error("Expected DecryptFor to return the same string as Encrypt")
+		if err != nil {
+			t.Errorf("Expected DatabaseKeyStore to return a non-nil error, got %v", err)
+		}
+
+		// Invalid database key store test
+		databaseKeyStore, err = app.Auth.SecretsManager.DatabaseKeyStore(
+			"foo",
+		)
+
+		if databaseKeyStore != nil {
+			t.Error("Expected DatabaseKeyStore to return a nil value")
+		}
+
+		if err == nil {
+			t.Error("Expected DatabaseKeyStore to return a nil error")
 		}
 	})
 }
 
-func TestSecretsManagerDeleteDatabaseAccessKey(t *testing.T) {
+func TestSecretsManager_DeleteDatabaseAccessKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		err := app.Auth.SecretsManager.StoreDatabaseKey(
 			"databaseKey",
@@ -104,7 +121,65 @@ func TestSecretsManagerDeleteDatabaseAccessKey(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerEncrypt(t *testing.T) {
+func TestSecretsManager_DeleteDatabaseKey(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		app.Config.SignatureNext = test.CreateHash(64)
+
+		err := app.Auth.SecretsManager.StoreDatabaseKey(
+			"databaseKey",
+			uuid.NewString(),
+			uuid.NewString(),
+		)
+
+		if err != nil {
+			t.Errorf("Expected StoreDatabaseKey to return a non-nil error, got %v", err)
+		}
+
+		err = app.Auth.SecretsManager.DeleteDatabaseKey("databaseKey")
+
+		if err != nil {
+			t.Error("Expected DeleteDatabaseKey to return a non-nil error")
+		}
+
+		// Check that the key is deleted
+		databaseKey, err := app.Auth.SecretsManager.GetDatabaseKey("databaseKey")
+
+		if err == nil || databaseKey != nil {
+			t.Error("Expected GetDatabaseKey to return an error or nil after deletion")
+		}
+
+		// Delete unknown database key
+		err = app.Auth.SecretsManager.DeleteDatabaseKey("unknownKey")
+
+		if err == nil {
+			t.Error("Expected DeleteDatabaseKey to return a non-nil error")
+		}
+	})
+}
+
+func TestSecretsManager_DeleteDatabaseKey_WithSignatureNext(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		err := app.Auth.SecretsManager.StoreDatabaseKey(
+			"databaseKey",
+			uuid.NewString(),
+			uuid.NewString(),
+		)
+
+		if err != nil {
+			t.Errorf("Expected StoreDatabaseKey to return a non-nil error, got %v", err)
+		}
+
+		app.Config.SignatureNext = test.CreateHash(64)
+
+		err = app.Auth.SecretsManager.DeleteDatabaseKey("databaseKey")
+
+		if err == nil {
+			t.Error("Expected DeleteDatabaseKey to return an error")
+		}
+	})
+}
+
+func TestSecretsManager_Encrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		str := "test"
 
@@ -124,33 +199,7 @@ func TestSecretsManagerEncrypt(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerEncryptFor(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		accessKey, err := app.Auth.AccessKeyManager.Create()
-
-		if err != nil {
-			t.Error("Expected Create to return a non-nil error")
-		}
-
-		str := "test"
-
-		encrypted, err := app.Auth.SecretsManager.EncryptFor(accessKey.AccessKeyId, str)
-
-		if err != nil {
-			t.Error("Expected Encrypt to return a non-nil error")
-		}
-
-		if encrypted == "" {
-			t.Error("Expected Encrypt to not return an empty string")
-		}
-
-		if encrypted == str {
-			t.Error("Expected Encrypt to return a different string")
-		}
-	})
-}
-
-func TestSecretsManagerEncrypter(t *testing.T) {
+func TestSecretsManager_Encrypter(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		encrypter := app.Auth.SecretsManager.Encrypter(app.Config.Signature)
 
@@ -160,7 +209,7 @@ func TestSecretsManagerEncrypter(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerFlushTransients(t *testing.T) {
+func TestSecretsManager_FlushTransients(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		err := app.Auth.SecretsManager.StoreDatabaseKey(
 			"databaseKey",
@@ -180,7 +229,7 @@ func TestSecretsManagerFlushTransients(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerGetAccessKeySecret(t *testing.T) {
+func TestSecretsManager_GetAccessKeySecret(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		accessKey, err := app.Auth.AccessKeyManager.Create()
 
@@ -201,10 +250,35 @@ func TestSecretsManagerGetAccessKeySecret(t *testing.T) {
 		if secret != accessKey.AccessKeySecret {
 			t.Error("Expected GetAccessKeySecret to return the same secret as the access key")
 		}
+
+		secret, err = app.Auth.SecretsManager.GetAccessKeySecret(accessKey.AccessKeyId)
+
+		if err != nil {
+			t.Error("Expected GetAccessKeySecret to return a non-nil error")
+		}
+
+		if secret == "" {
+			t.Error("Expected GetAccessKeySecret to not return an empty string")
+		}
+
+		if secret != accessKey.AccessKeySecret {
+			t.Error("Expected GetAccessKeySecret to return the same secret as the access key")
+		}
+
+		// Non-existent access key test
+		secret, err = app.Auth.SecretsManager.GetAccessKeySecret("unknownKey")
+
+		if err == nil {
+			t.Error("Expected GetAccessKeySecret to return a non-nil error")
+		}
+
+		if secret != "" {
+			t.Error("Expected GetAccessKeySecret to return an empty string")
+		}
 	})
 }
 
-func TestSecretsManagerInit(t *testing.T) {
+func TestSecretsManager_Init(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		err := app.Auth.SecretsManager.Init()
 
@@ -214,7 +288,7 @@ func TestSecretsManagerInit(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerPurgeDatabaseSettings(t *testing.T) {
+func TestSecretsManager_PurgeDatabaseSettings(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		err := app.Auth.SecretsManager.StoreDatabaseKey(
 			"databaseKey",
@@ -234,7 +308,7 @@ func TestSecretsManagerPurgeDatabaseSettings(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerPurgeExpiredSecrets(t *testing.T) {
+func TestSecretsManager_PurgeExpiredSecrets(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		err := app.Auth.SecretsManager.PurgeExpiredSecrets()
 
@@ -244,7 +318,7 @@ func TestSecretsManagerPurgeExpiredSecrets(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerSecretsPath(t *testing.T) {
+func TestSecretsManager_SecretsPath(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		path := app.Auth.SecretsManager.SecretsPath("signature", "path")
 
@@ -254,7 +328,7 @@ func TestSecretsManagerSecretsPath(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerStoreAccessKey(t *testing.T) {
+func TestSecretsManager_StoreAccessKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		accessKey, err := app.Auth.AccessKeyManager.Create()
 
@@ -284,7 +358,7 @@ func TestSecretsManagerStoreAccessKey(t *testing.T) {
 	})
 }
 
-func TestSecretsManagerStoreDatabaseKey(t *testing.T) {
+func TestSecretsManager_StoreDatabaseKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		databaseUUID := uuid.NewString()
 		branchUUID := uuid.NewString()

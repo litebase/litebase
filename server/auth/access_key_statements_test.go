@@ -2846,11 +2846,11 @@ func TestAccessKey_CanPragma(t *testing.T) {
 				_, err = con.GetConnection().Exec("PRAGMA database_list", nil)
 
 				if testCase.expectedError == nil && err != nil {
-					t.Errorf("Expected no error when creating table")
+					t.Errorf("Expected no error running PRAGMA command, got: %v", err)
 				}
 
 				if testCase.expectedError != nil && err == nil {
-					t.Errorf("Expected error when creating table")
+					t.Errorf("Expected error when running PRAGMA command")
 				}
 			})
 		}
