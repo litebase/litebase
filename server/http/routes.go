@@ -45,6 +45,7 @@ func LoadRoutes(router *Router) {
 		"/access-keys",
 		AccessKeyControllerStore,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		AdminAuth,
 	})
 
@@ -52,6 +53,7 @@ func LoadRoutes(router *Router) {
 		"/access-keys/{accessKeyId}",
 		AccessKeyControllerUpdate,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		AdminAuth,
 	})
 
@@ -59,6 +61,7 @@ func LoadRoutes(router *Router) {
 		"/access-keys/{accessKeyId}",
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		AdminAuth,
 	})
 
