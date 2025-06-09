@@ -1,0 +1,33 @@
+package auth_test
+
+import (
+	"testing"
+
+	"github.com/litebase/litebase/server/auth"
+)
+
+func TestAccessKeyStatement(t *testing.T) {
+	tc := []struct {
+		resource string
+		actions  []string
+		valid    bool
+	}{
+		{"*", []string{"*"}, true},
+		{"*", []string{"access-key:create"}, true},
+		{"access-key:*", []string{string(auth.AccessKeyPrivilegeCreate)}, true},
+		{"access-key:*", []string{string(auth.DatabasePrivilegeAlterTable)}, false},
+		{"database:*", []string{string(auth.AccessKeyPrivilegeCreate)}, false},
+	}
+
+	for _, testCase := range tc {
+		aks := &auth.AccessKeyStatement{
+			Effect:   auth.AccessKeyEffectAllow,
+			Resource: auth.AccessKeyResource(testCase.resource),
+			Actions:  testCase.actions,
+		}
+
+		if aks.IsValid() != testCase.valid {
+			t.Error("Expected access key statement to be valid")
+		}
+	}
+}

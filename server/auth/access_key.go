@@ -13,11 +13,9 @@ type AccessKey struct {
 	AccessKeyId      string `json:"access_key_id"`
 	AccessKeySecret  string `json:"access_key_secret"`
 	accessKeyManager *AccessKeyManager
-	CreatedAt        int64                 `json:"created_at"`
-	UpdatedAt        int64                 `json:"updated_at"`
-	Statements       []*AccessKeyStatement `json:"statements"`
-
-	operations []int
+	CreatedAt        int64                `json:"created_at"`
+	UpdatedAt        int64                `json:"updated_at"`
+	Statements       []AccessKeyStatement `json:"statements"`
 }
 
 // Create a new AccessKey instance.
@@ -25,7 +23,7 @@ func NewAccessKey(
 	accessKeyManager *AccessKeyManager,
 	accessKeyId string,
 	accessKeySecret string,
-	statements []*AccessKeyStatement,
+	statements []AccessKeyStatement,
 ) *AccessKey {
 	return &AccessKey{
 		accessKeyManager: accessKeyManager,
@@ -35,8 +33,19 @@ func NewAccessKey(
 	}
 }
 
-func (accessKey *AccessKey) AddOperation(operation int) {
-	accessKey.operations = append(accessKey.operations, operation)
+func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []string) bool {
+	hasAuthorization := false
+
+	for _, action := range actions {
+		for _, resource := range resources {
+			if Authorized(accessKey.Statements, resource, action) {
+				hasAuthorization = true
+				break // No need to check further if one action is authorized
+			}
+		}
+	}
+
+	return hasAuthorization
 }
 
 // Delete the AccessKey from the filesystem.
@@ -64,13 +73,9 @@ func (accessKey *AccessKey) Delete() error {
 	return nil
 }
 
-func (accessKey *AccessKey) ResetOperations() {
-	accessKey.operations = []int{}
-}
-
 // Update the AccessKey statements.
 func (accessKey *AccessKey) Update(
-	statements []*AccessKeyStatement,
+	statements []AccessKeyStatement,
 ) error {
 	accessKey.Statements = statements
 

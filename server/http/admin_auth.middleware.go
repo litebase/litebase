@@ -11,11 +11,11 @@ func AdminAuth(request *Request) (*Request, Response) {
 	}
 
 	if !ensureAdminRequestHasAnAuthorizationHeader(request) ||
-		!ensureAdminRequestIsProperlySigned(request) ||
-		ensureAdminRequestHasAValidToken(request) {
+		!ensureAdminRequestIsProperlySigned(request) {
 		return request, Response{
 			StatusCode: 401,
-			Body: map[string]interface{}{
+			Body: map[string]any{
+				"status":  "error",
 				"message": "Unauthorized",
 			},
 		}
@@ -24,7 +24,7 @@ func AdminAuth(request *Request) (*Request, Response) {
 	if !ensureAdminRequestIsNotExpired(request) {
 		return request, Response{
 			StatusCode: 401,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"status":  "error",
 				"message": "Unauthorized",
 			},
@@ -50,11 +50,7 @@ func ensureAdminRequestHasAnAuthorizationHeader(request *Request) bool {
 }
 
 func ensureAdminRequestIsProperlySigned(request *Request) bool {
-	return AdminRequestSignatureValidator(request)
-}
-
-func ensureAdminRequestHasAValidToken(request *Request) bool {
-	return AdminRequestTokenValidator(request)
+	return RequestSignatureValidator(request, "Authorization")
 }
 
 func ensureAdminRequestIsNotExpired(request *Request) bool {

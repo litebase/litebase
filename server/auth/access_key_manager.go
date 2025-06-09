@@ -67,7 +67,7 @@ func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
 }
 
 // Create a new access key
-func (akm *AccessKeyManager) Create() (*AccessKey, error) {
+func (akm *AccessKeyManager) Create(statements []AccessKeyStatement) (*AccessKey, error) {
 	accessKeyId, err := akm.GenerateAccessKeyId()
 
 	if err != nil {
@@ -78,7 +78,7 @@ func (akm *AccessKeyManager) Create() (*AccessKey, error) {
 		akm,
 		accessKeyId,
 		akm.GenerateAccessKeySecret(),
-		[]*AccessKeyStatement{
+		[]AccessKeyStatement{
 			{
 				Resource: "*",
 				Actions:  []string{"*"},
@@ -189,7 +189,6 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	}
 
 	akm.auth.SecretsManager.cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
-	// akm.secretsManager.cache("file").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*60)
 
 	return accessKey, err
 }

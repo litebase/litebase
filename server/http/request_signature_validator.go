@@ -6,7 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/litebase/litebase/internal/utils"
@@ -80,14 +79,14 @@ func RequestSignatureValidator(
 		jsonBody, err = json.Marshal(body)
 
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	} else {
 		jsonBody = []byte("{}")
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	requestString := strings.Join([]string{

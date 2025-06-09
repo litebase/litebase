@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/litebase/litebase/server/auth"
 
@@ -38,15 +37,19 @@ func NewClusterUserListCmd() *cobra.Command {
 			var users []auth.User
 
 			for _, user := range res["data"].([]interface{}) {
-				privileges := []string{}
+				statements := []auth.AccessKeyStatement{}
 
 				for _, priv := range user.(map[string]interface{})["privileges"].([]interface{}) {
-					privileges = append(privileges, priv.(string))
+					statements = append(statements, auth.AccessKeyStatement{
+						Effect:   "Allow",
+						Resource: "*",
+						Actions:  []string{priv.(string)},
+					})
 				}
 
 				users = append(users, auth.User{
 					Username:   user.(map[string]interface{})["username"].(string),
-					Privileges: privileges,
+					Statements: statements,
 					CreatedAt:  user.(map[string]interface{})["created_at"].(string),
 					UpdatedAt:  user.(map[string]interface{})["updated_at"].(string),
 				})
@@ -55,11 +58,8 @@ func NewClusterUserListCmd() *cobra.Command {
 			rows := [][]string{}
 
 			for _, user := range users {
-				priv := user.Privileges
-
 				rows = append(rows, []string{
 					user.Username,
-					strings.Join(priv, ", "),
 					user.CreatedAt,
 					user.UpdatedAt,
 				})

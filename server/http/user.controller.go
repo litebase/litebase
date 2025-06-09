@@ -1,9 +1,11 @@
 package http
 
+import "github.com/litebase/litebase/server/auth"
+
 type UserControllerStoreRequest struct {
-	Username   string   `json:"username" validate:"required"`
-	Password   string   `json:"password" validate:"required,min=8"`
-	Privileges []string `json:"privileges" validate:"required"`
+	Username   string                    `json:"username" validate:"required"`
+	Password   string                    `json:"password" validate:"required,min=8"`
+	Statements []auth.AccessKeyStatement `json:"statements" validate:"required"`
 }
 
 func UserControllerIndex(request *Request) Response {
@@ -69,7 +71,7 @@ func UserControllerStore(request *Request) Response {
 	request.cluster.Auth.UserManager().Add(
 		data.Username,
 		data.Password,
-		data.Privileges,
+		data.Statements,
 	)
 
 	return Response{

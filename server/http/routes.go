@@ -5,7 +5,7 @@ import (
 )
 
 func LoadRoutes(router *Router) {
-	// Administrative routes.
+	// Administrative routes
 	router.Get(
 		"/cluster/status",
 		ClusterStatusController,
@@ -35,7 +35,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/access-keys/",
+		"/access-keys",
 		AccessKeyControllerIndex,
 	).Middleware([]Middleware{
 		AdminAuth,
@@ -44,6 +44,13 @@ func LoadRoutes(router *Router) {
 	router.Post(
 		"/access-keys",
 		AccessKeyControllerStore,
+	).Middleware([]Middleware{
+		AdminAuth,
+	})
+
+	router.Put(
+		"/access-keys/{accessKeyId}",
+		AccessKeyControllerUpdate,
 	).Middleware([]Middleware{
 		AdminAuth,
 	})

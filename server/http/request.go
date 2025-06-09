@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/litebase/litebase/internal/validation"
@@ -30,6 +31,7 @@ type Request struct {
 	subdomains       []string
 }
 
+// Create a new Request instance.
 func NewRequest(
 	cluster *cluster.Cluster,
 	databaseManager *database.DatabaseManager,
@@ -75,6 +77,7 @@ func NewRequest(
 	}
 }
 
+// Return all of the data from the request body as a map.
 func (r *Request) All() map[string]any {
 	if r.Body == nil {
 		body := make(map[string]any)
@@ -87,12 +90,49 @@ func (r *Request) All() map[string]any {
 	return r.Body
 }
 
+// Authorize the request based on the access key and the specified resource and actions.
+func (r *Request) Authorize(resources []string, actions []string) error {
+	username, password, ok := r.BaseRequest.BasicAuth()
+
+	if ok {
+		if !r.cluster.Auth.UserManager().Authenticate(username, password) {
+			return fmt.Errorf("unauthorized: invalid username or password")
+		}
+
+		if r.cluster.Auth.UserManager().Get(username).AuthorizeForResource(
+			resources,
+			actions,
+		) {
+			return nil
+		}
+
+		return fmt.Errorf("unauthorized: user is not authorized to perform this request")
+	}
+
+	accessKey := r.RequestToken("Authorization").AccessKey(r.Subdomains()[0])
+
+	if accessKey == nil {
+		return fmt.Errorf("unauthorized: invalid access key")
+	}
+
+	if !accessKey.AuthorizeForResource(
+		resources,
+		actions,
+	) {
+		return fmt.Errorf("unauthorized: access key is not authorized to perform this request")
+	}
+
+	return nil
+}
+
+// Return the cluster id for this request.
 func (r *Request) ClusterId() string {
 	subdomains := r.Subdomains()
 
 	return subdomains[1]
 }
 
+// Return a database key for this request.
 func (r *Request) DatabaseKey() *auth.DatabaseKey {
 	if r.databaseKey != nil {
 		return r.databaseKey
@@ -120,14 +160,17 @@ func (r *Request) DatabaseKey() *auth.DatabaseKey {
 	return r.databaseKey
 }
 
+// Get a value from the request body by its key.
 func (r *Request) Get(key string) any {
 	return r.All()[key]
 }
 
+// Return the headers for the request.
 func (request *Request) Headers() Headers {
 	return request.headers
 }
 
+// Map the request body to a struct of the type input.
 func (request *Request) Input(input any) (any, error) {
 	jsonData, err := json.Marshal(request.All())
 
@@ -144,20 +187,24 @@ func (request *Request) Input(input any) (any, error) {
 	return input, nil
 }
 
+// Load the database key if it is not already loaded.
 func (request *Request) loadDatabaseKey() {
 	if request.databaseKey == nil {
 		go request.DatabaseKey()
 	}
 }
 
+// Return a route parameter for the request by its key.
 func (request *Request) Param(key string) string {
 	return request.BaseRequest.PathValue(key)
 }
 
+// Return the path of the request.
 func (request *Request) Path() string {
 	return request.BaseRequest.URL.Path
 }
 
+// Return a query parameter from the request by its key.
 func (request *Request) QueryParam(key string, defaultValue ...string) string {
 	value := request.QueryParams[key]
 
@@ -168,12 +215,14 @@ func (request *Request) QueryParam(key string, defaultValue ...string) string {
 	return value
 }
 
+// Return the region of the request parsed from the subdomains.
 func (request *Request) Region() string {
 	subdomains := request.Subdomains()
 
 	return subdomains[2]
 }
 
+// Return the request token for this request.
 func (request *Request) RequestToken(header string) auth.RequestToken {
 	if !request.requestToken.Valid() {
 		request.requestToken = auth.CaptureRequestToken(
@@ -185,6 +234,7 @@ func (request *Request) RequestToken(header string) auth.RequestToken {
 	return request.requestToken
 }
 
+// Return the subdomains for this request.
 func (request *Request) Subdomains() []string {
 	return request.subdomains
 }
@@ -195,18 +245,60 @@ func (request *Request) Validate(
 ) map[string][]string {
 	if err := validation.Validate(input); err != nil {
 		var e map[string][]string = make(map[string][]string)
+
 		for _, x := range err {
-			if e[x.Field()] == nil {
-				e[x.Field()] = []string{}
+			fieldKey := x.Field()
+			namespace := x.Namespace()
+			tag := x.Tag()
+
+			// Check if this is a slice dive validation error
+			if namespace != "" && strings.Contains(namespace, "[") && strings.Contains(namespace, "]") {
+				// Remove the first part of the namespace which is the struct name
+				// e.g. "TestStruct.users[0].email" -> "users[0].email"
+				namespace = namespace[strings.Index(namespace, ".")+1:]
+
+				// Convert array index notation to wildcard for message lookup
+				wildcardKey := strings.ReplaceAll(namespace, "[", ".")
+				wildcardKey = strings.ReplaceAll(wildcardKey, "]", "")
+
+				// Replace numeric indices with wildcards
+				parts := strings.Split(wildcardKey, ".")
+				partNumbers := []int{}
+
+				for i, part := range parts {
+					if number, err := strconv.Atoi(part); err == nil {
+						parts[i] = "*"
+						partNumbers = append(partNumbers, number)
+						break
+					}
+				}
+
+				wildcardKey = strings.Join(parts, ".")
+				messageKey := fmt.Sprintf("%s.%s", wildcardKey, tag)
+
+				if messages[messageKey] == "" {
+					continue
+				}
+
+				var result strings.Builder
+				numIdx := 0
+
+				for _, ch := range wildcardKey {
+					if ch == '*' && numIdx < len(partNumbers) {
+						result.WriteString(strconv.Itoa(partNumbers[numIdx]))
+						numIdx++
+					} else {
+						result.WriteRune(ch)
+					}
+				}
+
+				errorKey := result.String()
+
+				e[errorKey] = append(e[errorKey], messages[messageKey])
+			} else {
+				messageKey := fmt.Sprintf("%s.%s", fieldKey, tag)
+				e[fieldKey] = append(e[fieldKey], messages[messageKey])
 			}
-
-			key := fmt.Sprintf("%s.%s", x.Field(), x.Tag())
-
-			if messages[key] == "" {
-				continue
-			}
-
-			e[x.Field()] = append(e[x.Field()], messages[key])
 		}
 
 		return e

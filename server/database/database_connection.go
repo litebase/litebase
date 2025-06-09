@@ -424,8 +424,6 @@ func (c *DatabaseConnection) SetAuthorizer() {
 			return sqlite3.SQLITE_OK
 		}
 
-		c.AccessKey.AddOperation(actionCode)
-
 		allowed := true
 		var err error
 
@@ -618,12 +616,6 @@ func (con *DatabaseConnection) VFSHash() string {
 
 // Set the access key for the database connection.
 func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
-	// Reset the operations on the Access Key to ensure the scope of operations
-	// is limited to the current usage of the connection.
-	if accessKey != nil {
-		accessKey.ResetOperations()
-	}
-
 	con.AccessKey = accessKey
 
 	return con

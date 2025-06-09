@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/litebase/litebase/server/cluster"
 	"github.com/litebase/litebase/server/database"
@@ -69,6 +70,8 @@ func (router *Router) request(method string, path string, handler func(request *
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
 	}
+
+	path = strings.TrimRight(path, "/")
 
 	router.Routes[method][path] = NewRoute(handler)
 

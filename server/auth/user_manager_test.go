@@ -14,7 +14,9 @@ func TestUserManager_Add(t *testing.T) {
 		um := app.Auth.UserManager()
 
 		// Test adding a user
-		err := um.Add("testuser", "testpass", []string{"read", "write"})
+		err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"*"}},
+		})
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -31,12 +33,12 @@ func TestUserManager_Add(t *testing.T) {
 			t.Errorf("Expected username 'testuser', got '%s'", user.Username)
 		}
 
-		if len(user.Privileges) != 2 {
-			t.Errorf("Expected 2 privileges, got %d", len(user.Privileges))
+		if len(user.Statements) != 1 {
+			t.Errorf("Expected 1 statement, got %d", len(user.Statements))
 		}
 
-		if user.Privileges[0] != "read" || user.Privileges[1] != "write" {
-			t.Errorf("Expected privileges ['read', 'write'], got %v", user.Privileges)
+		if user.Statements[0].Effect != "allow" || user.Statements[0].Resource != "*" || user.Statements[0].Actions[0] != "*" {
+			t.Errorf("Expected first statement to be allow all, got %v", user.Statements[0])
 		}
 
 		if user.CreatedAt == "" {
@@ -54,14 +56,20 @@ func TestUserManager_Add_UpdatesExistingUser(t *testing.T) {
 		um := app.Auth.UserManager()
 
 		// Add initial user
-		err := um.Add("testuser", "testpass", []string{"read"})
+		err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"*"}},
+		})
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		// Update user with new privileges
-		err = um.Add("testuser", "newpass", []string{"read", "write", "admin"})
+		err = um.Add("testuser", "newpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "resource1", Actions: []string{"*"}},
+			{Effect: auth.AccessKeyEffectAllow, Resource: "resource2", Actions: []string{"*"}},
+			{Effect: auth.AccessKeyEffectAllow, Resource: "resource3", Actions: []string{"*"}},
+		})
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -74,8 +82,8 @@ func TestUserManager_Add_UpdatesExistingUser(t *testing.T) {
 			t.Fatal("Expected user to be found")
 		}
 
-		if len(user.Privileges) != 3 {
-			t.Errorf("Expected 3 privileges, got %d", len(user.Privileges))
+		if len(user.Statements) != 3 {
+			t.Errorf("Expected 3 statements, got %d", len(user.Statements))
 		}
 	})
 }
@@ -92,13 +100,17 @@ func TestUserManager_All(t *testing.T) {
 		}
 
 		// Add multiple users
-		err := um.Add("user1", "pass1", []string{"read"})
+		err := um.Add("user1", "pass1", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"*"}},
+		})
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		err = um.Add("user2", "pass2", []string{"write"})
+		err = um.Add("user2", "pass2", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"write"}},
+		})
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -135,7 +147,10 @@ func TestUserManager_Authenticate(t *testing.T) {
 		um := app.Auth.UserManager()
 
 		// Add a user
-		err := um.Add("testuser", "testpass", []string{"read"})
+		err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"*"}},
+		})
+
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -165,7 +180,11 @@ func TestUserManager_Get(t *testing.T) {
 		um := app.Auth.UserManager()
 
 		// Add a user
-		err := um.Add("testuser", "testpass", []string{"read", "write"})
+		err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "resource1", Actions: []string{"*"}},
+			{Effect: auth.AccessKeyEffectAllow, Resource: "resource2", Actions: []string{"*"}},
+		})
+
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -178,8 +197,9 @@ func TestUserManager_Get(t *testing.T) {
 		if user.Username != "testuser" {
 			t.Errorf("Expected username 'testuser', got '%s'", user.Username)
 		}
-		if len(user.Privileges) != 2 {
-			t.Errorf("Expected 2 privileges, got %d", len(user.Privileges))
+
+		if len(user.Statements) != 2 {
+			t.Errorf("Expected 2 statements, got %d", len(user.Statements))
 		}
 
 		// Test getting non-existent user
@@ -196,7 +216,9 @@ func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 		um := server.App.Auth.UserManager()
 
 		// Add a user first
-		err := um.Add("existinguser", "pass", []string{"read"})
+		err := um.Add("existinguser", "pass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"*"}},
+		})
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -236,10 +258,11 @@ func TestUserManager_Init_WithoutExistingUsers_WithRootCredentials(t *testing.T)
 		// Verify root user was created
 		user := um.Get("root")
 		if user == nil {
-			t.Error("Expected root user to be created")
+			t.Fatal("Expected root user to be created")
 		}
-		if len(user.Privileges) != 1 || user.Privileges[0] != "*" {
-			t.Errorf("Expected root user to have '*' privilege, got %v", user.Privileges)
+
+		if len(user.Statements) != 1 || user.Statements[0].Actions[0] != "*" {
+			t.Errorf("Expected root user to have '*' privilege, got %v", user.Statements)
 		}
 	})
 }
@@ -291,11 +314,17 @@ func TestUserManager_Remove(t *testing.T) {
 		um := app.Auth.UserManager()
 
 		// Add users
-		err := um.Add("user1", "pass1", []string{"read"})
+		err := um.Add("user1", "pass1", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"read"}},
+		})
+
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
-		err = um.Add("user2", "pass2", []string{"write"})
+		err = um.Add("user2", "pass2", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"read"}},
+		})
+
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -341,7 +370,10 @@ func TestUserManager_WriteFile_Persistence(t *testing.T) {
 		um := app.Auth.UserManager()
 
 		// Add a user
-		err := um.Add("testuser", "testpass", []string{"read"})
+		err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"*"}},
+		})
+
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -371,8 +403,8 @@ func TestUserManager_WriteFile_Persistence(t *testing.T) {
 		if user.Password == "" {
 			t.Error("Expected password hash to be stored")
 		}
-		if len(user.Privileges) != 1 || user.Privileges[0] != "read" {
-			t.Errorf("Expected privileges ['read'], got %v", user.Privileges)
+		if len(user.Statements) != 1 || user.Statements[0].Actions[0] != "*" {
+			t.Errorf("Expected statements *, got %v", user.Statements[0].Actions)
 		}
 	})
 }
@@ -382,7 +414,10 @@ func TestUser_PasswordHandling(t *testing.T) {
 		um := app.Auth.UserManager()
 
 		// Add a user
-		err := um.Add("testuser", "plaintextpass", []string{"read"})
+		err := um.Add("testuser", "plaintextpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"read"}},
+		})
+
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}

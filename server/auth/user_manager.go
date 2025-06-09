@@ -21,11 +21,26 @@ type UserManager struct {
 }
 
 type User struct {
-	Username   string   `json:"username"`
-	Password   string   `json:"password,omitempty"`
-	Privileges []string `json:"privileges"`
-	CreatedAt  string   `json:"created_at"`
-	UpdatedAt  string   `json:"updated_at"`
+	Username   string               `json:"username"`
+	Password   string               `json:"password,omitempty"`
+	Statements []AccessKeyStatement `json:"statements"`
+	CreatedAt  string               `json:"created_at"`
+	UpdatedAt  string               `json:"updated_at"`
+}
+
+func (u *User) AuthorizeForResource(resources []string, actions []string) bool {
+	hasAuthorization := false
+
+	for _, action := range actions {
+		for _, resource := range resources {
+			if Authorized(u.Statements, resource, action) {
+				hasAuthorization = true
+				break // No need to check further if one action is authorized
+			}
+		}
+	}
+
+	return hasAuthorization
 }
 
 func (auth *Auth) UserManager() *UserManager {
@@ -63,7 +78,13 @@ func (u *UserManager) Init() error {
 			return fmt.Errorf("the LITEBASE_ROOT_PASSWORD environment variable is not set")
 		}
 
-		err := u.Add(u.config.RootUsername, u.config.RootPassword, []string{"*"})
+		err := u.Add(u.config.RootUsername, u.config.RootPassword, []AccessKeyStatement{
+			{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []string{"*"},
+			},
+		})
 
 		if err != nil {
 			return err
@@ -83,7 +104,7 @@ func (u *UserManager) All() []User {
 	for _, user := range u.users {
 		users = append(users, User{
 			Username:   user.Username,
-			Privileges: user.Privileges,
+			Statements: user.Statements,
 			CreatedAt:  user.CreatedAt,
 			UpdatedAt:  user.UpdatedAt,
 		})
@@ -160,7 +181,7 @@ func (u *UserManager) Remove(username string) error {
 	return u.writeFile()
 }
 
-func (u *UserManager) Add(username, password string, privleges []string) error {
+func (u *UserManager) Add(username, password string, statements []AccessKeyStatement) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -178,7 +199,7 @@ func (u *UserManager) Add(username, password string, privleges []string) error {
 	u.users[username] = &User{
 		Username:   username,
 		Password:   string(bytes),
-		Privileges: privleges,
+		Statements: statements,
 		CreatedAt:  time.Now().Format("2006-01-02 15:04:05"),
 		UpdatedAt:  time.Now().Format("2006-01-02 15:04:05"),
 	}

@@ -14,7 +14,7 @@ func TestNewAccessKey(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessKeySecret",
-			[]*auth.AccessKeyStatement{},
+			[]auth.AccessKeyStatement{},
 		)
 
 		if accessKey == nil {
@@ -37,7 +37,7 @@ func TestAccessKeyDelete(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessSecret",
-			[]*auth.AccessKeyStatement{},
+			[]auth.AccessKeyStatement{},
 		)
 
 		err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
@@ -68,7 +68,7 @@ func TestAccessKeyUpdate(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessSecret",
-			[]*auth.AccessKeyStatement{},
+			[]auth.AccessKeyStatement{},
 		)
 
 		err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
@@ -77,7 +77,7 @@ func TestAccessKeyUpdate(t *testing.T) {
 			t.Error(err)
 		}
 
-		statements := []*auth.AccessKeyStatement{
+		statements := []auth.AccessKeyStatement{
 			{
 				Resource: "*",
 				Actions:  []string{"*"},

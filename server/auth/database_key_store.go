@@ -94,7 +94,9 @@ func (d *DatabaseKeyStore) All() iter.Seq[*DatabaseKey] {
 				break
 			}
 
-			yield(DecodeDatbaseKey(encodedKey))
+			if !yield(DecodeDatbaseKey(encodedKey)) {
+				break
+			}
 
 			offset += int64(len(encodedKey))
 		}

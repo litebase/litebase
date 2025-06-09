@@ -4,10 +4,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 )
 
-func Validate(input interface{}) validator.ValidationErrors {
+func Validate(input any) validator.ValidationErrors {
 	v := validator.New()
 
 	// register function to get tag name from json tags.

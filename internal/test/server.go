@@ -7,10 +7,12 @@ import (
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/server/auth"
 )
 
 type TestServer struct {
 	Address string
+	Client  *TestClient
 	App     *server.App
 	Port    string
 	Server  *httptest.Server
@@ -70,6 +72,38 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 	})
 
 	return server
+}
+
+func (ts *TestServer) WithAccessKeyClient(statements []auth.AccessKeyStatement) *TestClient {
+	if ts.Client == nil {
+		accessKey := &auth.AccessKey{
+			AccessKeyId:     CreateHash(32),
+			AccessKeySecret: "accessKeySecret",
+			Statements:      statements,
+		}
+
+		ts.App.Auth.SecretsManager.StoreAccessKey(accessKey)
+
+		ts.Client = &TestClient{
+			AccessKey: accessKey,
+			URL:       ts.Server.URL,
+		}
+	}
+
+	return ts.Client
+}
+
+func (ts *TestServer) WithBasicAuthClient() *TestClient {
+	if ts.Client == nil {
+		ts.Client = &TestClient{
+			AccessKey: nil, // No access key for basic auth
+			Username:  ts.App.Config.RootUsername,
+			Password:  ts.App.Config.RootPassword,
+			URL:       ts.Server.URL,
+		}
+	}
+
+	return ts.Client
 }
 
 func (ts *TestServer) Shutdown() {

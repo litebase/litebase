@@ -31,7 +31,7 @@ const (
 type Cluster struct {
 	Auth               *auth.Auth             `json:"-"`
 	AccessKeyManager   *auth.AccessKeyManager `json:"-"`
-	channels           map[string][]func(message *EventMessage)
+	subscriptions      map[string][]EventHandler
 	Config             *config.Config `json:"-"`
 	eventsChannel      chan *EventMessage
 	eventsManager      *EventsManager
@@ -105,11 +105,11 @@ func (cluster *Cluster) createDirectoriesAndFiles() error {
 // Create a new cluster instance.
 func NewCluster(config *config.Config) (*Cluster, error) {
 	cluster := &Cluster{
-		channels:        map[string][]func(message *EventMessage){},
+		Config:          config,
 		eventsChannel:   make(chan *EventMessage, 1000),
 		fileSystemMutex: &sync.Mutex{},
-		Config:          config,
 		mutex:           &sync.Mutex{},
+		subscriptions:   map[string][]EventHandler{},
 	}
 
 	cluster.runEventLoop()
