@@ -61,7 +61,7 @@ func openQueryStreamConnection(
 			"Host":           host,
 			"X-LBDB-Date":    fmt.Sprintf("%d", time.Now().Unix()),
 		},
-		map[string]interface{}{},
+		map[string]any{},
 		map[string]string{},
 	)
 
