@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -40,7 +41,7 @@ type Node struct {
 	joinedClusterAt   time.Time
 	lease             *Lease
 	LastActive        time.Time
-	ID                uint64
+	ID                string
 	Membership        string
 	mutex             *sync.Mutex
 	primaryAddress    string
@@ -77,9 +78,9 @@ func NewNode(cluster *Cluster) *Node {
 	}
 
 	hash := sha256.Sum256([]byte(address))
-	node.ID = binary.BigEndian.Uint64(hash[:])
+	node.ID = fmt.Sprintf("%d", binary.BigEndian.Uint64(hash[:]))
 	node.context, node.cancel = context.WithCancel(context.Background())
-
+	log.Println("NEW NODE", "address", address, "ID", node.ID)
 	return node
 }
 
@@ -322,7 +323,7 @@ func (n *Node) JoinCluster() error {
 
 	err = n.Cluster.Broadcast("cluster:join", map[string]string{
 		"address": address,
-		"ID":      fmt.Sprintf("%d", n.ID),
+		"ID":      n.ID,
 	})
 
 	if err != nil {

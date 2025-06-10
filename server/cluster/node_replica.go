@@ -10,7 +10,6 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -56,7 +55,7 @@ func (nr *NodeReplica) JoinCluster() error {
 
 	data := map[string]string{
 		"address": address,
-		"id":      strconv.FormatUint(nr.node.ID, 10),
+		"id":      nr.node.ID,
 	}
 
 	jsonData, err := json.Marshal(data)

@@ -149,7 +149,7 @@ func (cluster *Cluster) TmpFS() *storage.FileSystem {
 	if cluster.tmpFileSystem == nil {
 		cluster.tmpFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
-				fmt.Sprintf("%s/%d", cluster.Config.TmpPath, cluster.Node().ID),
+				fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().ID),
 			),
 		)
 	}
@@ -179,7 +179,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
 				storage.NewLocalFileSystemDriver(
-					fmt.Sprintf("%s/%d", cluster.Config.TmpPath, cluster.Node().ID),
+					fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().ID),
 				),
 				storage.NewObjectFileSystemDriver(cluster.Config),
 				fileSyncEligibilityFn,

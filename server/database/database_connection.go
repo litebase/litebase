@@ -35,7 +35,7 @@ type DatabaseConnection struct {
 	id                string
 	fileSystem        *storage.DurableDatabaseFileSystem
 	mutex             *sync.Mutex
-	nodeId            uint64
+	nodeId            string
 	pageLogger        *storage.PageLogger
 	resultPool        *sqlite3.ResultPool
 	sqlite3           *sqlite3.Connection
@@ -599,7 +599,7 @@ func (con *DatabaseConnection) Transaction(
 }
 
 func (con *DatabaseConnection) VFSDatabaseHash() string {
-	return fmt.Sprintf("%d:%s", con.nodeId, con.databaseHash)
+	return fmt.Sprintf("%s:%s", con.nodeId, con.databaseHash)
 }
 
 // Return the VFS hash for the connection.

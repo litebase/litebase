@@ -27,7 +27,7 @@ var (
 
 type ClusterElection struct {
 	cancel    context.CancelFunc
-	Candidate uint64
+	Candidate string
 	EndsAt    time.Time
 	context   context.Context
 	node      *Node
