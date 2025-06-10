@@ -399,6 +399,26 @@ func TestNode_Start(t *testing.T) {
 	})
 }
 
+func TestNode_StepDown(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		server := app.Cluster.Node()
+
+		if !server.IsPrimary() {
+			t.Error("Node should be primary")
+		}
+
+		err := server.StepDown()
+
+		if err != nil {
+			t.Error("Failed to step down: ", err)
+		}
+
+		if server.IsPrimary() {
+			t.Error("Node should not be primary after step down")
+		}
+	})
+}
+
 func TestNode_StoreAddress(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)

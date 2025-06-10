@@ -670,6 +670,7 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 	return nil
 }
 
+// Set the membership of the node in the cluster.
 func (n *Node) SetMembership(membership string) {
 	prevMembership := n.Membership
 	n.Membership = membership
@@ -694,18 +695,22 @@ func (n *Node) SetMembership(membership string) {
 	}
 }
 
+// Set the query builder for the node.
 func (n *Node) SetQueryBuilder(queryBuilder NodeQueryBuilder) {
 	n.queryBuilder = queryBuilder
 }
 
+// Set the query response pool for the node.
 func (n *Node) SetQueryResponsePool(queryResponsePool NodeQueryResponsePool) {
 	n.queryResponsePool = queryResponsePool
 }
 
+// Set the WAL synchronizer for the node.
 func (n *Node) SetWALSynchronizer(walSynchronizer NodeWalSynchronizer) {
 	n.walSynchronizer = walSynchronizer
 }
 
+// Shutdown the node and perform necessary cleanup operations.
 func (n *Node) Shutdown() error {
 	if n.IsPrimary() {
 		n.Primary().Shutdown()
@@ -736,6 +741,7 @@ func (n *Node) Shutdown() error {
 	return nil
 }
 
+// Start the node and begin monitoring its state and heartbeat.
 func (n *Node) Start() chan bool {
 	n.startedAt = time.Now()
 	n.replica = NewNodeReplica(n)
@@ -752,6 +758,24 @@ func (n *Node) Start() chan bool {
 	return n.started
 }
 
+// If the node is the primary, step down from the primary role.
+func (n *Node) StepDown() error {
+	if !n.IsPrimary() {
+		return nil
+	}
+
+	if err := n.Lease().Release(); err != nil {
+		return err
+	}
+
+	n.Primary().Shutdown()
+
+	n.SetMembership(ClusterMembershipReplica)
+
+	return nil
+}
+
+// Store the address of the node in the cluster's network file system.
 func (n *Node) StoreAddress() error {
 tryStore:
 	timeBytes := make([]byte, 8)
