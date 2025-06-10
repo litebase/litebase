@@ -29,7 +29,8 @@ a specific resource, such as a database, branch, or table.
 
 When an Access Key has a rule with Actions defined as "*", this indicates that
 the access key rule is scoped to all actions. Actions can also be scoped to
-specific actions, such as `ANALYZE`, `ATTACH`, `ALTER_TABLE`, `CREATE_INDEX`, etc.
+specific actions, such as `database:analyze`, `database:attach`,
+`database:alter_table`, `database:create_index`, etc.
 
 See the full list of DatabasePrivileges in `server/auth/database_privileges.go`.
 */
