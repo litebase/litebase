@@ -174,7 +174,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Get("/backups/{timestamp}",
@@ -182,7 +181,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Get("/metrics/query",
@@ -190,7 +188,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 		NodeTick,
 	}).Timeout(1 * time.Second)
 
@@ -199,7 +196,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
@@ -209,7 +205,6 @@ func LoadRoutes(router *Router) {
 		RequireSubdomain,
 		PreloadDatabaseKey,
 		Authentication,
-		Authorization,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
@@ -218,7 +213,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Get("/snapshots",
@@ -226,7 +220,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Get("/snapshots/{timestamp}",
@@ -234,7 +227,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Post("/transactions",
@@ -242,7 +234,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Delete("/transactions/{id}",
@@ -250,7 +241,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Post("/transactions/{id}/commit",
@@ -258,7 +248,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		RequireSubdomain,
 		Authentication,
-		Authorization,
 	})
 
 	router.Fallback(func(request *Request) Response {
