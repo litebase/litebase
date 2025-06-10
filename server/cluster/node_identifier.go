@@ -2,10 +2,10 @@ package cluster
 
 type NodeIdentifier struct {
 	Address string `json:"address"`
-	ID      uint64 `json:"id,omitempty"`
+	ID      string `json:"id,omitempty"`
 }
 
-func NewNodeIdentifier(address string, id uint64) *NodeIdentifier {
+func NewNodeIdentifier(address string, id string) *NodeIdentifier {
 	return &NodeIdentifier{
 		Address: address,
 		ID:      id,

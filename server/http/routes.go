@@ -126,18 +126,14 @@ func LoadRoutes(router *Router) {
 		"/cluster/members",
 		ClusterMemberStoreController,
 	).Middleware(
-		[]Middleware{
-			// TODO: PrivateNetwork,
-		},
+		[]Middleware{},
 	).Timeout(3 * time.Second)
 
 	router.Delete(
 		"/cluster/members/{address}",
 		ClusterMemberDestroyController,
 	).Middleware(
-		[]Middleware{
-			// TODO: PrivateNetwork,
-		},
+		[]Middleware{Internal},
 	).Timeout(3 * time.Second)
 
 	router.Post(

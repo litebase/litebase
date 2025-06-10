@@ -280,7 +280,7 @@ func TestNode_Send(t *testing.T) {
 			messages.NodeMessage{
 				Data: messages.HeartbeatMessage{
 					Address: address,
-					ID:      fmt.Appendf(nil, "%d", server2.App.Cluster.Node().ID),
+					ID:      []byte(server2.App.Cluster.Node().ID),
 					Time:    time.Now().Unix(),
 				},
 			},

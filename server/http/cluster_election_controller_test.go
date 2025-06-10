@@ -14,10 +14,10 @@ import (
 
 func TestClusterElectionController(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		server2 := test.NewTestServer(t)
+
 		// Step down the current node to ensure it is not the primary
 		app.Cluster.Node().StepDown()
-
-		server2 := test.NewTestServer(t)
 
 		// Create a test message to send through the stream
 		testMessage := appHttp.ClusterElectionRequest{

@@ -85,7 +85,7 @@ func TestClusterAddMember(t *testing.T) {
 		}
 
 		err = c.AddMember(
-			uint64(1), // Using a dummy raft ID for the test
+			"1", // Using a dummy raft ID for the test
 			testServer.Address,
 		)
 
@@ -152,7 +152,7 @@ func TestClusterIsMember(t *testing.T) {
 
 		// Add a query node
 		err := app.Cluster.AddMember(
-			uint64(1), // Using a dummy raft ID for the test
+			"1", // Using a dummy raft ID for the test
 			testServer.Address,
 		)
 
@@ -172,7 +172,7 @@ func TestClusterRemoveMember(t *testing.T) {
 		defer testServer.Shutdown()
 
 		err := app.Cluster.AddMember(
-			uint64(1),
+			"1",
 			testServer.Address,
 		)
 
@@ -205,7 +205,7 @@ func TestClusterRemoveMember_HardState(t *testing.T) {
 		defer testServer.Shutdown()
 
 		err := app.Cluster.AddMember(
-			uint64(1),
+			"1",
 			testServer.Address,
 		)
 

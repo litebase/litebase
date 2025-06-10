@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"log/slog"
-	"strconv"
 )
 
 type EventsManager struct {
@@ -62,10 +61,10 @@ func (em *EventsManager) Init() {
 			return
 		}
 
-		ID, err := strconv.ParseUint(data["ID"].(string), 10, 64)
+		ID, ok := data["ID"].(string)
 
-		if err != nil {
-			slog.Error("Failed to parse ID:", "error", err)
+		if !ok {
+			slog.Error("Failed to parse ID:")
 			return
 		}
 

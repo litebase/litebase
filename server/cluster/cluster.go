@@ -118,7 +118,7 @@ func NewCluster(config *config.Config) (*Cluster, error) {
 }
 
 // Add a member to the cluster.
-func (cluster *Cluster) AddMember(id uint64, address string) error {
+func (cluster *Cluster) AddMember(id string, address string) error {
 	cluster.GetMembers(false)
 
 	cluster.mutex.Lock()
@@ -174,7 +174,7 @@ func (cluster *Cluster) GetMembers(cached bool) []*NodeIdentifier {
 	for _, file := range files {
 		address := strings.ReplaceAll(file.Name(), "_", ":")
 		hash := sha256.Sum256([]byte(address))
-		ID := binary.BigEndian.Uint64(hash[:])
+		ID := fmt.Sprintf("%d", binary.BigEndian.Uint64(hash[:]))
 		cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, ID))
 	}
 
@@ -282,7 +282,7 @@ func (c *Cluster) Nodes() []*NodeIdentifier {
 	return c.nodes
 }
 
-func (c *Cluster) NodeByID(id uint64) *NodeIdentifier {
+func (c *Cluster) NodeByID(id string) *NodeIdentifier {
 	for _, node := range c.Nodes() {
 		if node.ID == id {
 			return node

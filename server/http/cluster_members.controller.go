@@ -2,11 +2,11 @@ package http
 
 import (
 	"log"
-	"strconv"
 )
 
+// Remove a member from the cluster.
 func ClusterMemberDestroyController(request *Request) Response {
-	queryNodes := request.cluster.GetMembers(true)
+	members := request.cluster.GetMembers(false)
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
 
@@ -16,8 +16,6 @@ func ClusterMemberDestroyController(request *Request) Response {
 	)
 
 	if err != nil {
-		log.Println("Unauthorized node connection attempt:", err)
-
 		return Response{
 			StatusCode: 401,
 		}
@@ -25,7 +23,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 
 	nodePresent := false
 
-	for _, node := range queryNodes {
+	for _, node := range members {
 		if node.Address == decryptedIp.Value {
 			nodePresent = true
 			break
@@ -64,7 +62,19 @@ func ClusterMemberDestroyController(request *Request) Response {
 	}
 }
 
+type ClusterMemberStoreRequest struct {
+	ID      string `json:"id" validate:"required"`
+	Address string `json:"address" validate:"required"`
+}
+
+// Add a new member to the cluster.
 func ClusterMemberStoreController(request *Request) Response {
+	input, err := request.Input(&ClusterMemberStoreRequest{})
+
+	if err != nil {
+		return BadRequestResponse(err)
+	}
+
 	queryNodes := request.cluster.GetMembers(false)
 
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
@@ -101,18 +111,16 @@ func ClusterMemberStoreController(request *Request) Response {
 		}
 	}
 
-	IDUint64, err := strconv.ParseUint(request.Get("id").(string), 10, 64)
+	validationErrors := request.Validate(input, map[string]string{})
 
-	if err != nil {
-		log.Println("Failed to parse ID: ", err)
-		return Response{
-			StatusCode: 400,
-		}
+	if validationErrors != nil {
+		return ValidationErrorResponse(validationErrors)
 	}
 
-	address := request.Get("address").(string)
-
-	err = request.cluster.AddMember(IDUint64, address)
+	err = request.cluster.AddMember(
+		input.(*ClusterMemberStoreRequest).ID,
+		input.(*ClusterMemberStoreRequest).Address,
+	)
 
 	if err != nil {
 		log.Println("Failed to add member: ", err)

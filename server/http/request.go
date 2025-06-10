@@ -79,7 +79,7 @@ func NewRequest(
 
 // Return all of the data from the request body as a map.
 func (r *Request) All() map[string]any {
-	if r.Body == nil {
+	if r.Body == nil && r.BaseRequest.Body != nil {
 		body := make(map[string]any)
 		json.NewDecoder(r.BaseRequest.Body).Decode(&body)
 		r.BaseRequest.Body.Close()
@@ -176,6 +176,10 @@ func (request *Request) Input(input any) (any, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if string(jsonData) == "null" || len(jsonData) == 0 {
+		return nil, fmt.Errorf("request body is empty")
 	}
 
 	err = json.Unmarshal(jsonData, &input)
