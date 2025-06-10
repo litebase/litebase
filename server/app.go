@@ -89,7 +89,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		database.NewDatabaseWALSynchronizer(app.DatabaseManager),
 	)
 	app.Cluster.EventsManager().Init()
-	auth.Broadcaster(app.Cluster.EventsManager().Hook())
+	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
 
 	go app.DatabaseManager.WriteQueueManager.Run()
 	go app.LogManager.Run()

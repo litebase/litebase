@@ -28,6 +28,7 @@ type User struct {
 	UpdatedAt  string               `json:"updated_at"`
 }
 
+// Check if the user has authorization for the given resources and actions
 func (u *User) AuthorizeForResource(resources []string, actions []string) bool {
 	hasAuthorization := false
 
@@ -57,6 +58,124 @@ func (auth *Auth) UserManager() *UserManager {
 	return auth.userManager
 }
 
+// Add a new user
+func (u *UserManager) Add(username, password string, statements []AccessKeyStatement) error {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	// Bcrypt the password
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+	if err != nil {
+		return err
+	}
+
+	if u.users == nil {
+		u.users = map[string]*User{}
+	}
+
+	u.users[username] = &User{
+		Username:   username,
+		Password:   string(bytes),
+		Statements: statements,
+		CreatedAt:  time.Now().Format("2006-01-02 15:04:05"),
+		UpdatedAt:  time.Now().Format("2006-01-02 15:04:05"),
+	}
+
+	return u.writeFile()
+}
+
+// Return all users without passwords
+func (u *UserManager) All() []User {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	// Remove the password from the users without affecting the original
+	users := []User{}
+
+	for _, user := range u.users {
+		users = append(users, User{
+			Username:   user.Username,
+			Statements: user.Statements,
+			CreatedAt:  user.CreatedAt,
+			UpdatedAt:  user.UpdatedAt,
+		})
+	}
+
+	return users
+}
+
+// Read all the users from storage
+func (u *UserManager) allUsers() (map[string]*User, error) {
+	var users map[string]*User
+	file, err := u.auth.ObjectFS.ReadFile(u.path)
+
+	if err != nil && os.IsNotExist(err) {
+		_, err = u.auth.ObjectFS.Create(u.path)
+
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
+
+	if len(file) == 0 {
+		return users, nil
+	}
+
+	err = json.Unmarshal(file, &users)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return users, err
+}
+
+// Authenticate a user with username and password
+func (u *UserManager) Authenticate(username, password string) bool {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	for _, user := range u.users {
+		if user.Username == username {
+			err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+
+			if err != nil {
+				return false
+			}
+
+			return true // Password matches
+		}
+	}
+
+	return false
+}
+
+// Get a user by username
+func (u *UserManager) Get(username string) *User {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	for _, user := range u.users {
+		if user.Username == username {
+			return user
+		}
+	}
+
+	u.users, _ = u.allUsers()
+
+	for _, user := range u.users {
+		if user.Username == username {
+			return user
+		}
+	}
+
+	return nil
+}
+
+// Initialize the UserManager
 func (u *UserManager) Init() error {
 	// Get the users
 	users, err := u.allUsers()
@@ -94,119 +213,32 @@ func (u *UserManager) Init() error {
 	return nil
 }
 
-func (u *UserManager) All() []User {
+// Purge a user by username from memory
+func (u *UserManager) Purge(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	// Remove the password from the users without affecting the original
-	users := []User{}
+	// Remove the user from the map
+	delete(u.users, username)
 
-	for _, user := range u.users {
-		users = append(users, User{
-			Username:   user.Username,
-			Statements: user.Statements,
-			CreatedAt:  user.CreatedAt,
-			UpdatedAt:  user.UpdatedAt,
-		})
-	}
-
-	return users
-}
-
-func (u *UserManager) allUsers() (map[string]*User, error) {
-	var users map[string]*User
-	file, err := u.auth.ObjectFS.ReadFile(u.path)
-
-	if err != nil && os.IsNotExist(err) {
-		_, err = u.auth.ObjectFS.Create(u.path)
-
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
-	}
-
-	if len(file) == 0 {
-		return users, nil
-	}
-
-	err = json.Unmarshal(file, &users)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return users, err
-}
-
-func (u *UserManager) Authenticate(username, password string) bool {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-
-	for _, user := range u.users {
-		if user.Username == username {
-			err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-
-			if err != nil {
-				return false
-			}
-
-			return true // Password matches
-		}
-	}
-
-	return false
-}
-
-func (u *UserManager) Get(username string) *User {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-
-	for _, user := range u.users {
-		if user.Username == username {
-			return user
-		}
-	}
+	u.auth.Broadcast("user:purge", username)
 
 	return nil
 }
 
+// Remove a user by username
 func (u *UserManager) Remove(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	delete(u.users, username)
 
-	return u.writeFile()
-}
-
-func (u *UserManager) Add(username, password string, statements []AccessKeyStatement) error {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-
-	// Bcrypt the password
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-
-	if err != nil {
-		return err
-	}
-
-	if u.users == nil {
-		u.users = map[string]*User{}
-	}
-
-	u.users[username] = &User{
-		Username:   username,
-		Password:   string(bytes),
-		Statements: statements,
-		CreatedAt:  time.Now().Format("2006-01-02 15:04:05"),
-		UpdatedAt:  time.Now().Format("2006-01-02 15:04:05"),
-	}
+	u.auth.Broadcast("user:purge", username)
 
 	return u.writeFile()
 }
 
+// Write the users to storage
 func (u *UserManager) writeFile() error {
 	data, err := json.MarshalIndent(u.users, "", "  ")
 

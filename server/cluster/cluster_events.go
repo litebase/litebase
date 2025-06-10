@@ -80,7 +80,7 @@ func (c *Cluster) ReceiveEvent(message *EventMessage) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if _, ok := c.channels[message.Key]; ok {
+	if _, ok := c.subscriptions[message.Key]; ok {
 		select {
 		case <-c.node.Context().Done():
 			slog.Debug("Context is cancelled, skipping event processing")
@@ -127,15 +127,15 @@ func (c *Cluster) SendEvent(nodeIdentifier *NodeIdentifier, key string, value an
 }
 
 // Subscribe to a message from the cluster.
-func (c *Cluster) Subscribe(key string, f func(message *EventMessage)) {
+func (c *Cluster) Subscribe(key string, f EventHandler) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if _, ok := c.channels[key]; !ok {
-		c.channels[key] = []func(message *EventMessage){}
+	if _, ok := c.subscriptions[key]; !ok {
+		c.subscriptions[key] = []EventHandler{}
 	}
 
-	c.channels[key] = append(c.channels[key], f)
+	c.subscriptions[key] = append(c.subscriptions[key], f)
 }
 
 func (c *Cluster) runEventLoop() {
@@ -147,7 +147,7 @@ func (c *Cluster) runEventLoop() {
 			case <-c.Node().Context().Done():
 				return
 			case message := <-c.eventsChannel:
-				if handlers, ok := c.channels[message.Key]; ok {
+				if handlers, ok := c.subscriptions[message.Key]; ok {
 					for _, handler := range handlers {
 						handler(message)
 					}

@@ -125,8 +125,14 @@ func TestAccessKeyManagerGet(t *testing.T) {
 }
 
 func TestAccessKeyManagerPurge(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		accessKey, err := app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []string{"*"}}})
+	test.Run(t, func() {
+		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
+
+		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
+
+		accessKey, err := server1.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []string{"*"}}})
 
 		if err != nil {
 			t.Error("Expected Create to return a non-nil error")
@@ -136,10 +142,56 @@ func TestAccessKeyManagerPurge(t *testing.T) {
 			t.Fatal("Expected Create to return a non-nil AccessKey")
 		}
 
-		err = app.Auth.AccessKeyManager.Purge(accessKey.AccessKeyId)
+		accessKey1, err := server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+
+		if err != nil {
+			t.Error("Expected Get to return a non-nil error")
+		}
+
+		if accessKey1 == nil {
+			t.Fatal("Expected Get to return a non-nil AccessKey")
+		}
+
+		accessKey2, err := server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+
+		if err != nil {
+			t.Error("Expected Get to return a non-nil error")
+		}
+
+		if accessKey2 == nil {
+			t.Fatal("Expected Get to return a non-nil AccessKey")
+		}
+
+		err = accessKey.Delete()
+
+		if err != nil {
+			t.Error("Expected Delete to return a non-nil error")
+		}
+
+		err = server1.App.Auth.AccessKeyManager.Purge(accessKey.AccessKeyId)
 
 		if err != nil {
 			t.Error("Expected Purge to return a non-nil error")
+		}
+
+		accessKey1, err = server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+
+		if err == nil {
+			t.Error("Expected Get to return an error after Purge")
+		}
+
+		if accessKey1 != nil {
+			t.Error("Expected Get to return a nil AccessKey after Purge")
+		}
+
+		accessKey2, err = server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+
+		if err == nil {
+			t.Error("Expected Get to return an error after Purge")
+		}
+
+		if accessKey2 != nil {
+			t.Error("Expected Get to return a nil AccessKey after Purge")
 		}
 	})
 }

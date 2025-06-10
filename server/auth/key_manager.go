@@ -257,7 +257,7 @@ func KeyPath(keyType string, signature string) string {
 	return Path(signature) + fmt.Sprintf("%s.key", keyType)
 }
 
-func NextSignature(c *config.Config, secretsManager *SecretsManager, signature string) (string, error) {
+func NextSignature(auth *Auth, c *config.Config, secretsManager *SecretsManager, signature string) (string, error) {
 	if c.Signature == signature {
 		publickey, err := GetRawPublicKey(signature, secretsManager.ObjectFS)
 
@@ -281,7 +281,7 @@ func NextSignature(c *config.Config, secretsManager *SecretsManager, signature s
 		return "", err
 	}
 
-	Broadcast("next_signature", signature)
+	auth.Broadcast("next_signature", signature)
 
 	publicKey, err := GetRawPublicKey(signature, secretsManager.ObjectFS)
 

@@ -61,8 +61,6 @@ func AccessKeyControllerStore(request *Request) Response {
 
 	// Validate the input
 	validationErrors := request.Validate(input, map[string]string{
-		"resource.required":                "The resource field is required",
-		"resource.validateFn":              "The resource is not valid",
 		"statements.max":                   "The statements field must contain at most 100 items",
 		"statements.min":                   "The statements field must contain at least 1 item",
 		"statements.required":              "The statements field is required",
@@ -141,6 +139,25 @@ func AccessKeyControllerUpdate(request *Request) Response {
 			"status":  "error",
 			"message": fmt.Sprintf("Invalid input: %s", err.Error()),
 		}, 400, nil)
+	}
+
+	// Validate the input
+	validationErrors := request.Validate(input, map[string]string{
+		"statements.max":                   "The statements field must contain at most 100 items",
+		"statements.min":                   "The statements field must contain at least 1 item",
+		"statements.required":              "The statements field is required",
+		"statements.*.validateFn":          "This statement is not valid. All actions must match the resource.",
+		"statements.*.effect.required":     "Each statement must have an effect",
+		"statements.*.effect.validateFn":   "The effect of the statement must be one of 'Allow' or 'Deny'",
+		"statements.*.resource.required":   "This statement is missing a resource",
+		"statements.*.resource.validateFn": "This resource is not valid",
+		"statements.*.actions.required":    "This statement is missing actions",
+		"statements.*.actions.min":         "Each statement must have at least one action",
+		"statements.*.actions.max":         "Each statement can have at most 100 actions",
+	})
+
+	if validationErrors != nil {
+		return ValidationErrorResponse(validationErrors)
 	}
 
 	err = accessKey.Update(input.(*AccessKeyUpdateRequest).Statements)

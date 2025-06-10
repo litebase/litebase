@@ -11,7 +11,9 @@ type Auth struct {
 	ObjectFS         *storage.FileSystem
 	SecretsManager   *SecretsManager
 	TmpFS            *storage.FileSystem
-	userManager      *UserManager
+
+	broadcaster func(key string, value string)
+	userManager *UserManager
 }
 
 func NewAuth(
@@ -39,4 +41,16 @@ func NewAuth(
 	auth.AccessKeyManager = NewAccessKeyManager(auth, auth.Config, objectFS)
 
 	return auth
+}
+
+// Broaddcast a an auth event to all listeners.
+func (a *Auth) Broadcast(key string, value string) {
+	if a.broadcaster != nil {
+		a.broadcaster(key, value)
+	}
+}
+
+// Set a broadcaster function for auth events.
+func (a *Auth) Broadcaster(f func(key string, value string)) {
+	a.broadcaster = f
 }

@@ -309,6 +309,55 @@ func TestUserManager_Init_WithoutExistingUsers_WithoutRootPassword(t *testing.T)
 	})
 }
 
+func TestUserManager_Purge(t *testing.T) {
+	test.Run(t, func() {
+		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
+
+		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
+
+		user := server1.App.Auth.UserManager().Add("testuser", "testpass", []auth.AccessKeyStatement{
+			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []string{"*"}},
+		})
+
+		if user != nil {
+			t.Error("Expected user to be nil after purge")
+		}
+
+		userFromServer1 := server1.App.Auth.UserManager().Get("testuser")
+
+		if userFromServer1 == nil {
+			t.Fatal("Expected user to be found on server1")
+		}
+
+		userFromServer2 := server2.App.Auth.UserManager().Get("testuser")
+
+		if userFromServer2 == nil {
+			t.Fatal("Expected user to be found on server2")
+		}
+
+		err := server1.App.Auth.UserManager().Remove("testuser")
+
+		if err != nil {
+			t.Fatalf("Expected no error when removing user, got %v", err)
+		}
+
+		// Verify user is removed from both servers
+		userFromServer1 = server1.App.Auth.UserManager().Get("testuser")
+
+		if userFromServer1 != nil {
+			t.Error("Expected user to be nil after removal from server1")
+		}
+
+		userFromServer2 = server2.App.Auth.UserManager().Get("testuser")
+
+		if userFromServer2 != nil {
+			t.Error("Expected user to be nil after removal from server2")
+		}
+
+	})
+}
 func TestUserManager_Remove(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		um := app.Auth.UserManager()

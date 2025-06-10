@@ -197,6 +197,7 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 func (akm *AccessKeyManager) Purge(accessKeyId string) error {
 	akm.auth.SecretsManager.cache("map").Forget(akm.accessKeyCacheKey(accessKeyId))
 	akm.auth.SecretsManager.cache("transient").Forget(akm.accessKeyCacheKey(accessKeyId))
+	akm.auth.Broadcast("access-key:purge", accessKeyId)
 
 	return nil
 }

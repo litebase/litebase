@@ -5,7 +5,21 @@ import (
 	"time"
 )
 
+func basicAuth(request *Request) bool {
+	username, password, ok := request.BaseRequest.BasicAuth()
+
+	if ok {
+		return request.cluster.Auth.UserManager().Authenticate(username, password)
+	}
+
+	return false
+}
+
 func Authentication(request *Request) (*Request, Response) {
+	if basicAuth(request) {
+		return request, Response{}
+	}
+
 	if !ensureRequestHasAnAuthorizationHeader(request) ||
 		!ensureRequestIsProperlySigned(request) {
 		return request, Response{

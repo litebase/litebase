@@ -10,6 +10,8 @@ type EventsManager struct {
 	hooks   []func(key string, value string)
 }
 
+type EventHandler func(message *EventMessage)
+
 // Return the static instance of the eventsManager
 func (c *Cluster) EventsManager() *EventsManager {
 	c.mutex.Lock()
@@ -36,8 +38,10 @@ func (em *EventsManager) Hook() func(key string, value string) {
 
 // Initialize the events manager
 func (em *EventsManager) Init() {
-	em.cluster.Subscribe("activate_signature", func(message *EventMessage) {
-		ActivateSignatureHandler(em.cluster.Config, message.Value)
+	em.cluster.Subscribe("access-key:purge", func(message *EventMessage) {
+		if accessKeyID, ok := message.Value.(string); ok {
+			em.cluster.Auth.AccessKeyManager.Purge(accessKeyID)
+		}
 	})
 
 	em.cluster.Subscribe("cluster:join", func(message *EventMessage) {
@@ -86,7 +90,17 @@ func (em *EventsManager) Init() {
 		}
 	})
 
-	em.cluster.Subscribe("next_signature", func(message *EventMessage) {
+	em.cluster.Subscribe("signature:activate", func(message *EventMessage) {
+		ActivateSignatureHandler(em.cluster.Config, message.Value)
+	})
+
+	em.cluster.Subscribe("signature:next", func(message *EventMessage) {
 		NextSignatureHandler(em.cluster.Config, message.Value)
+	})
+
+	em.cluster.Subscribe("user:purge", func(message *EventMessage) {
+		if username, ok := message.Value.(string); ok {
+			em.cluster.Auth.UserManager().Purge(username)
+		}
 	})
 }

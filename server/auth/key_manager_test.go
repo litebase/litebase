@@ -200,6 +200,7 @@ func TestNextSignature(t *testing.T) {
 		}
 
 		publicKey, err := auth.NextSignature(
+			app.Auth,
 			app.Config,
 			app.Auth.SecretsManager,
 			"test",

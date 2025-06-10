@@ -10,35 +10,35 @@ func LoadRoutes(router *Router) {
 		"/cluster/status",
 		ClusterStatusController,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Get(
-		"/users/",
+		"/users",
 		UserControllerIndex,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Post(
 		"/users",
 		UserControllerStore,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Delete(
 		"/users/{username}",
 		UserControllerDestroy,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Get(
 		"/access-keys",
 		AccessKeyControllerIndex,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Post(
@@ -46,7 +46,7 @@ func LoadRoutes(router *Router) {
 		AccessKeyControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Put(
@@ -54,7 +54,7 @@ func LoadRoutes(router *Router) {
 		AccessKeyControllerUpdate,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Delete(
@@ -62,56 +62,49 @@ func LoadRoutes(router *Router) {
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
-		AdminAuth,
-	})
-
-	router.Post(
-		"/access-keys/purge",
-		AccessKeyPurgeController,
-	).Middleware([]Middleware{
-		Internal,
+		Authentication,
 	})
 
 	router.Get(
-		"/databases/",
+		"/databases",
 		DatabaseIndexController,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Get(
 		"/databases/{database_id}",
 		DatabaseShowController,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Post(
 		"/databases",
 		DatabaseStoreController,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Delete(
 		"/databases/{databaseId}",
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Post(
 		"/signature",
 		SingatureStoreController,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	router.Post(
 		"/signature/activate",
 		SingatureActivateController,
 	).Middleware([]Middleware{
-		AdminAuth,
+		Authentication,
 	})
 
 	// Internal routes for cluster operations.
@@ -201,13 +194,6 @@ func LoadRoutes(router *Router) {
 		NodeTick,
 	}).Timeout(1 * time.Second)
 
-	router.Get("/ping",
-		PingController,
-	).Middleware([]Middleware{
-		RequireSubdomain,
-		Authentication,
-	})
-
 	router.Post("/query",
 		QueryController,
 	).Middleware([]Middleware{
@@ -235,7 +221,7 @@ func LoadRoutes(router *Router) {
 		Authorization,
 	})
 
-	router.Get("/snapshots/",
+	router.Get("/snapshots",
 		DatabaseSnapshotIndexController,
 	).Middleware([]Middleware{
 		RequireSubdomain,

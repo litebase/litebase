@@ -50,7 +50,7 @@ func SingatureActivateController(request *Request) Response {
 		input.(*SingatureActivateRequest).Signature,
 	)
 
-	request.cluster.Broadcast("activate_signature", input.(*SingatureActivateRequest).Signature)
+	request.cluster.Broadcast("signature:activate", input.(*SingatureActivateRequest).Signature)
 
 	return Response{
 		StatusCode: 200,
