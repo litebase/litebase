@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -80,7 +79,7 @@ func NewNode(cluster *Cluster) *Node {
 	hash := sha256.Sum256([]byte(address))
 	node.ID = fmt.Sprintf("%d", binary.BigEndian.Uint64(hash[:]))
 	node.context, node.cancel = context.WithCancel(context.Background())
-	log.Println("NEW NODE", "address", address, "ID", node.ID)
+
 	return node
 }
 

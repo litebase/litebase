@@ -6,14 +6,14 @@ import (
 	"github.com/litebase/litebase/server/cluster"
 )
 
-type ClusterElectionMessage struct {
-	Candidate uint64 `json:"candidate" validate:"required"`
+type ClusterElectionRequest struct {
+	Candidate string `json:"candidate" validate:"required"`
 	Seed      int64  `json:"seed" validate:"required"`
 	StartedAt int64  `json:"started_at" validate:"required"`
 }
 
 func ClusterElectionController(request *Request) Response {
-	input, err := request.Input(&ClusterElectionMessage{})
+	input, err := request.Input(&ClusterElectionRequest{})
 
 	if err != nil {
 		return Response{
@@ -25,23 +25,20 @@ func ClusterElectionController(request *Request) Response {
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"address.required":   "The address field is required",
-		"id.required":        "The id field is required",
-		"seed.required":      "The seed field is required",
-		"timestamp.required": "The timestamp field is required",
+		"candidate.required":  "The candidate field is required",
+		"seed.required":       "The seed field is required",
+		"started_at.required": "The started_at field is required",
 	})
 
 	if validationErrors != nil {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	message, ok := input.(*ClusterElectionMessage)
-
-	if !ok {
+	if request.cluster.Node().ID == input.(*ClusterElectionRequest).Candidate {
 		return Response{
 			StatusCode: 400,
 			Body: map[string]any{
-				"message": "Invalid input",
+				"message": "Cannot start election, candidate is the same as the current node",
 			},
 		}
 	}
@@ -59,7 +56,7 @@ func ClusterElectionController(request *Request) Response {
 
 	// Check if the node has running elections in progress
 	if request.cluster.Node().Election != nil && request.cluster.Node().Election.Running() {
-		if request.cluster.Node().Election.Seed > message.Seed {
+		if request.cluster.Node().Election.Seed > input.(*ClusterElectionRequest).Seed {
 			return Response{
 				StatusCode: 400,
 				Body: map[string]any{
@@ -87,9 +84,9 @@ func ClusterElectionController(request *Request) Response {
 	}
 
 	request.cluster.Node().AddPeerElection(&cluster.ClusterElection{
-		Candidate: message.Candidate,
-		Seed:      message.Seed,
-		StartedAt: time.Unix(0, message.StartedAt),
+		Candidate: input.(*ClusterElectionRequest).Candidate,
+		Seed:      input.(*ClusterElectionRequest).Seed,
+		StartedAt: time.Unix(0, input.(*ClusterElectionRequest).StartedAt),
 	})
 
 	return Response{
@@ -97,7 +94,7 @@ func ClusterElectionController(request *Request) Response {
 		Body: map[string]any{
 			"message": "Election acknowledged",
 			"data": map[string]any{
-				"candidate": message.Candidate,
+				"candidate": input.(*ClusterElectionRequest).Candidate,
 				"voted_at":  time.Now().Unix(),
 			},
 		},

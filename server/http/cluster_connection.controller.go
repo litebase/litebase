@@ -14,7 +14,7 @@ import (
 )
 
 var clusterConnectionBufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &bytes.Buffer{}
 	},
 }
@@ -23,7 +23,6 @@ func ClusterConnectionController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {
-			w.Header().Set("Connection", "close")
 			w.Header().Set("Content-Type", "application/gob")
 			w.Header().Set("Transfer-Encoding", "chunked")
 
@@ -84,7 +83,7 @@ func handleClusterConnectionStream(
 // Write a response to the client.
 func writeNodeMessageResponse(
 	w http.ResponseWriter,
-	nodeResponseMessage interface{},
+	nodeResponseMessage any,
 ) {
 	encoder := gob.NewEncoder(w)
 
