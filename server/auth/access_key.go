@@ -33,7 +33,7 @@ func NewAccessKey(
 	}
 }
 
-func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []string) bool {
+func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []Privilege) bool {
 	hasAuthorization := false
 
 	for _, action := range actions {

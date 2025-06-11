@@ -9,7 +9,10 @@ import (
 
 // List all access keys
 func AccessKeyControllerIndex(request *Request) Response {
-	err := request.Authorize([]string{"*", "access-key:*"}, []string{"access-key:list"})
+	err := request.Authorize(
+		[]string{"*", "access-key:*"},
+		[]auth.Privilege{auth.AccessKeyPrivilegeList},
+	)
 
 	if err != nil {
 		return ForbiddenResponse(err)
@@ -46,7 +49,10 @@ type AccessKeyStoreRequest struct {
 // Create a new access key
 func AccessKeyControllerStore(request *Request) Response {
 	// Authorize the request for access key creation
-	err := request.Authorize([]string{"*", "access-key:*"}, []string{"access-key:create"})
+	err := request.Authorize(
+		[]string{"*", "access-key:*"},
+		[]auth.Privilege{auth.AccessKeyPrivilegeCreate},
+	)
 
 	if err != nil {
 		return ForbiddenResponse(err)
@@ -125,7 +131,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 
 	err = request.Authorize(
 		[]string{"*", "access-key:*", fmt.Sprintf("access-key:%s", accessKey.AccessKeyId)},
-		[]string{"access-key:update"},
+		[]auth.Privilege{auth.AccessKeyPrivilegeUpdate},
 	)
 
 	if err != nil {
@@ -186,7 +192,7 @@ func AccessKeyControllerDestroy(request *Request) Response {
 	// Authorize the request for access key deletion
 	err := request.Authorize(
 		[]string{"*", "access-key:*", fmt.Sprintf("access-key:%s", accessKeyId)},
-		[]string{"access-key:delete"},
+		[]auth.Privilege{auth.AccessKeyPrivilegeDelete},
 	)
 
 	if err != nil {

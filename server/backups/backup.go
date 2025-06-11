@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/litebase/litebase/common/config"
 	internalStorage "github.com/litebase/litebase/internal/storage"
@@ -385,7 +386,6 @@ func Run(
 	objectFS *storage.FileSystem,
 	databaseId string,
 	branchId string,
-	timestamp int64,
 	snapshotLogger *SnapshotLogger,
 	dfs *storage.DurableDatabaseFileSystem,
 	rollbackLogger *RollbackLogger,
@@ -401,18 +401,21 @@ func Run(
 
 	// Ensure the durable database file system has been compacted
 	if err := dfs.Compact(); err != nil {
+		log.Println("Error compacting durable database file system:", err)
 		return nil, fmt.Errorf("error compacting durable database file system: %w", err)
 	}
 
-	snapshot, err := snapshotLogger.GetSnapshot(timestamp)
+	snapshot, err := snapshotLogger.GetSnapshot(time.Now().UnixNano())
 
 	if err != nil {
+		log.Println("Error getting snapshot:", err)
 		return nil, err
 	}
-
-	restorePoint, err := snapshot.GetRestorePoint(timestamp)
+	snapshot.Load()
+	restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
 
 	if err != nil {
+		log.Println("Error getting restorePoint:", err)
 		return nil, err
 	}
 
@@ -517,8 +520,8 @@ createFile:
 }
 
 // Returns a map representation of the backup.
-func (backup *Backup) ToMap() map[string]interface{} {
-	return map[string]interface{}{
+func (backup *Backup) ToMap() map[string]any {
+	return map[string]any{
 		"database_id": backup.DatabaseId,
 		"branch_id":   backup.BranchId,
 		"size":        backup.Size(),

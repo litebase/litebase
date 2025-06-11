@@ -148,15 +148,12 @@ func TestGetNextBackup(t *testing.T) {
 			t.Fatalf("Expected at least one restore point, got %d", len(latestSnapshot.RestorePoints.Data))
 		}
 
-		restorePointTimestamp := latestSnapshot.RestorePoints.Data[0]
-
 		// Create a backup using an actual restore point timestamp
 		_, error := backups.Run(
 			app.Config,
 			app.Cluster.ObjectFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			restorePointTimestamp,
 			snapshotLogger,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
@@ -271,14 +268,11 @@ func TestBackupDelete(t *testing.T) {
 			t.Fatalf("Expected at least one restore point, got %d", len(latestSnapshot.RestorePoints.Data))
 		}
 
-		restorePointTimestamp := latestSnapshot.RestorePoints.Data[0]
-
 		backup, err := backups.Run(
 			app.Config,
 			app.Cluster.ObjectFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			restorePointTimestamp,
 			snapshotLogger,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
@@ -570,44 +564,11 @@ func TestBackupRun(t *testing.T) {
 		// Get the snapshots and find a restore point
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 
-		// Test that backup fails with current timestamp (no restore point exists)
-		_, err = backups.Run(
-			app.Config,
-			app.Cluster.ObjectFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-			time.Now().UnixNano(),
-			snapshotLogger,
-			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
-			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
-		)
-
-		if err == nil {
-			t.Errorf("expected error, got nil")
-		}
-
-		snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
-
-		if err != nil {
-			t.Fatalf("Expected no error getting snapshots, got %v", err)
-		}
-
-		// Get the latest snapshot
-		keys := snapshotLogger.Keys()
-		latestSnapshot := snapshots[keys[len(keys)-1]]
-
-		if len(latestSnapshot.RestorePoints.Data) == 0 {
-			t.Fatalf("Expected at least one restore point, got %d", len(latestSnapshot.RestorePoints.Data))
-		}
-
-		restorePointTimestamp := latestSnapshot.RestorePoints.Data[0]
-
 		backup, err := backups.Run(
 			app.Config,
 			app.Cluster.ObjectFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			restorePointTimestamp,
 			snapshotLogger,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
@@ -704,8 +665,6 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 			t.Fatalf("Expected at least one restore point, got %d", len(latestSnapshot.RestorePoints.Data))
 		}
 
-		restorePointTimestamp := latestSnapshot.RestorePoints.Data[0]
-
 		wg := sync.WaitGroup{}
 
 		var errors []error
@@ -719,7 +678,6 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 				app.Cluster.ObjectFS(),
 				mock.DatabaseId,
 				mock.BranchId,
-				restorePointTimestamp,
 				app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 				app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 				app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
@@ -739,7 +697,6 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 				app.Cluster.ObjectFS(),
 				mock.DatabaseId,
 				mock.BranchId,
-				restorePointTimestamp,
 				app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 				app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 				app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
@@ -837,14 +794,11 @@ func TestBackupRunWithMultipleFiles(t *testing.T) {
 			t.Fatalf("Expected at least one restore point, got %d", len(snapshot.RestorePoints.Data))
 		}
 
-		restorePointTimestamp := snapshot.RestorePoints.Data[0]
-
 		backup, err := backups.Run(
 			app.Config,
 			app.Cluster.ObjectFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			restorePointTimestamp,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			dfs,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
@@ -920,7 +874,7 @@ func TestBackup_Rolling(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		totalCount := 0
+		totalCount := 1000
 
 		// Insert 1000 rows at a time
 		for range 4 {
@@ -954,46 +908,12 @@ func TestBackup_Rolling(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			// Get the snapshots
-			snapshotLogger.GetSnapshots()
-
-			// Get the lastest snapshot timestamp
-			snapshotKeys := snapshotLogger.Keys()
-
-			snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
-
-			if err != nil {
-				t.Errorf("Expected no error, got %v", err)
-			}
-
-			if err := snapshot.Load(); err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
-
-			restorePoints := snapshot.RestorePoints.Data
-
-			// Use the second-to-last restore point if available, but ensure we never use the initial empty database state
-			var restoreTimestamp int64
-
-			if len(restorePoints) >= 4 {
-				// Use second-to-last restore point for rolling backup, but ensure it's not the empty database state
-				// Skip index 0 (empty database) and use index len-2 (previous state with table)
-				restoreTimestamp = restorePoints[len(restorePoints)-2]
-			} else if len(restorePoints) >= 3 {
-				// If we have 3 restore points, use index 2 (latest with table + data)
-				restoreTimestamp = restorePoints[2]
-			} else if len(restorePoints) >= 2 {
-				// If we only have 2 restore points, use index 1 (table created state)
-				restoreTimestamp = restorePoints[1]
-			}
-
 			// Create a backup with the selected restore point
 			backup, err := backups.Run(
 				app.Config,
 				app.Cluster.ObjectFS(),
 				source.DatabaseId,
 				source.BranchId,
-				restoreTimestamp,
 				snapshotLogger,
 				app.DatabaseManager.Resources(source.DatabaseId, source.BranchId).FileSystem(),
 				app.DatabaseManager.Resources(source.DatabaseId, source.BranchId).RollbackLogger(),
@@ -1029,37 +949,17 @@ func TestBackup_Rolling(t *testing.T) {
 			// Check if the test table exists
 			results, err := db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
 
-			if len(restorePoints) < 4 {
-				// Less than 4 restore points, so we're using a recent restore point that should have the table
-				if err != nil {
-					t.Fatalf("expected no error, got %v", err)
-				}
-				if results != nil && len(results.Rows) > 0 {
-					count := results.Rows[0][0].Int64()
-					// If we're using the latest restore point, expect current + new batch
-					// If we're using table created state, expect 0
-					var expectedCount int64
-					if len(restorePoints) == 3 {
-						expectedCount = int64(totalCount + 1000) // Latest state
-					} else {
-						expectedCount = 0 // Table exists but no data
-					}
-					if count != expectedCount {
-						t.Fatalf("expected %d, got %d", expectedCount, count)
-					}
-				}
-			} else {
-				// Multiple restore points (4+), using second-to-last restore point for rolling backup
-				if err != nil {
-					t.Fatalf("expected no error, got %v", err)
-				}
-				if results != nil && len(results.Rows) > 0 {
-					count := results.Rows[0][0].Int64()
-					// We're using second-to-last restore point, so expect totalCount (previous state)
-					expectedCount := int64(totalCount)
-					if count != expectedCount {
-						t.Errorf("expected %d, got %d", expectedCount, count)
-					}
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			if results != nil && len(results.Rows) > 0 {
+				count := results.Rows[0][0].Int64()
+				// We're using second-to-last restore point, so expect totalCount (previous state)
+				expectedCount := int64(totalCount)
+
+				if count != expectedCount {
+					t.Errorf("expected %d, got %d", expectedCount, count)
 				}
 			}
 
@@ -1086,7 +986,7 @@ func TestBackup_Rolling(t *testing.T) {
 	})
 }
 
-func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
+func TestBackupRunWithEmptyDatabase(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
@@ -1116,7 +1016,6 @@ func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
 			app.Cluster.ObjectFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().Add(time.Hour).UnixNano(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
@@ -1126,57 +1025,7 @@ func TestBackupRunWithInvalidFutureRestorePoint(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		if err != backups.ErrBackupNoRestorePoint {
-			t.Fatalf("expected %v, got %v", backups.ErrBackupNoRestorePoint, err)
-		}
-
-		if backup != nil {
-			t.Fatalf("expected nil, got %v", backup)
-		}
-	})
-}
-
-func TestBackupRunWithInvalidPastRestorePoint(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
-
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
-
-		// Create a test table
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
-
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
-
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-
-		backup, err := backups.Run(
-			app.Config,
-			app.Cluster.ObjectFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-			time.Now().Add(-time.Hour).UnixNano(),
-			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
-			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
-			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),
-		)
-
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-
-		if err != backups.ErrBackupNoRestorePoint {
+		if err != backups.ErrorBackupRangeFileEmpty {
 			t.Fatalf("expected %v, got %v", backups.ErrBackupNoRestorePoint, err)
 		}
 
@@ -1218,26 +1067,11 @@ func TestBackupSize(t *testing.T) {
 			t.Errorf("expected no error, got %v", err)
 		}
 
-		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
-
-		// Get the snapshots
-		snapshotLogger.GetSnapshots()
-
-		// Get the lastest snapshot timestamp
-		snapshotKeys := snapshotLogger.Keys()
-
-		snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
-
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-
 		backup, err := backups.Run(
 			app.Config,
 			app.Cluster.ObjectFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			snapshot.RestorePoints.End,
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).RollbackLogger(),

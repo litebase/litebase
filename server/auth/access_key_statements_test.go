@@ -146,7 +146,7 @@ func TestAccessKeyAuthorizes(t *testing.T) {
 	for _, testCase := range testCases {
 		accessKey.Statements = testCase.statements
 
-		if auth.Authorized(accessKey.Statements, testCase.resource, string(auth.DatabasePrivilegeRead)) != testCase.result {
+		if auth.Authorized(accessKey.Statements, testCase.resource, auth.DatabasePrivilegeRead) != testCase.result {
 			t.Errorf("Expected accessKey to be %v for resource %q", testCase.result, testCase.resource)
 		}
 	}

@@ -38,137 +38,137 @@ func (accessKey *AccessKey) authorizationKey(strs ...string) string {
 	return strings.Join(strs, ":")
 }
 
-func (accessKey *AccessKey) authorizedForBranch(databaseId, branchId string, privilege DatabasePrivilege) bool {
+func (accessKey *AccessKey) authorizedForBranch(databaseId, branchId string, privilege Privilege) bool {
 	// Any resource
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
 	// Any resource of the database
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
 	// Any branch resource of the database
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
 		return true
 	}
 
 	// Any resource of the specific branch of the database
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
 	// A specific branch of a specific database
-	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId), string(privilege))
+	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId), privilege)
 }
 
-func (accessKey *AccessKey) authorizedForColumn(databaseId, branchId, table, column string, privilege DatabasePrivilege) bool {
+func (accessKey *AccessKey) authorizedForColumn(databaseId, branchId, table, column string, privilege Privilege) bool {
 	// Any resource
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
 	// Any resource of the database
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
 	// Any resources of the branch
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
 	// Any resource of the table
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "*"), privilege) {
 		return true
 	}
 
 	// Any column resource of the table
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", "*"), privilege) {
 		return true
 	}
 
 	// A specific column of a specific table of a specific database
-	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", column), string(privilege))
+	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "column", column), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a database.
-func (accessKey *AccessKey) authorizedForDatabase(databaseId string, privilege DatabasePrivilege) bool {
+func (accessKey *AccessKey) authorizedForDatabase(databaseId string, privilege Privilege) bool {
 	// Any resource
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
 	// Any database resource
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", "*"), privilege) {
 		return true
 	}
 
 	// A specific database
-	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId), string(privilege))
+	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a table.
-func (accessKey *AccessKey) authorizedForTable(databaseId, branchId, table string, privilege DatabasePrivilege) bool {
+func (accessKey *AccessKey) authorizedForTable(databaseId, branchId, table string, privilege Privilege) bool {
 	// Any resource
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
 	// Any resource of the specific database
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
 	// Any resource of the specific database and branch
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
 	// Any table resource of the specific branch
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", "*"), privilege) {
 		return true
 	}
 
 	// A specific table of a specific database
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table), privilege) {
 		return true
 	}
 
 	// Any resource of the specific table
-	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "*"), string(privilege))
+	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "table", table, "*"), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a module.
-func (accessKey *AccessKey) authorizedForVTable(databaseId, branchId, module, vtable string, privilege DatabasePrivilege) bool {
+func (accessKey *AccessKey) authorizedForVTable(databaseId, branchId, module, vtable string, privilege Privilege) bool {
 	// Any resource
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("*"), privilege) {
 		return true
 	}
 
 	// Any resource of the specific database
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true
 	}
 
 	// Any resource of the specific database and branch
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "*"), privilege) {
 		return true
 	}
 
 	// Any module resource of the specific branch
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", "*"), privilege) {
 		return true
 	}
 
 	// Any vtable resource of the specific module
-	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", "*"), string(privilege)) {
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", "*"), privilege) {
 		return true
 	}
 
 	// A specific vtable of a specific module of a specific database
-	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", vtable), string(privilege))
+	return Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId, "module", module, "vtable", vtable), privilege)
 }
 
 // Determine if an Access Key is authorized to perform an action on a branch.

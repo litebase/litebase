@@ -1,10 +1,8 @@
 package auth
 
-type AccessKeyPrivilege string
-
 const (
-	AccessKeyPrivilegeCreate AccessKeyPrivilege = "access-key:create"
-	AccessKeyPrivilegeDelete AccessKeyPrivilege = "access-key:delete"
-	AccessKeyPrivilegeList   AccessKeyPrivilege = "access-key:list"
-	AccessKeyPrivilegeUpdate AccessKeyPrivilege = "access-key:update"
+	AccessKeyPrivilegeCreate Privilege = "access-key:create"
+	AccessKeyPrivilegeDelete Privilege = "access-key:delete"
+	AccessKeyPrivilegeList   Privilege = "access-key:list"
+	AccessKeyPrivilegeUpdate Privilege = "access-key:update"
 )

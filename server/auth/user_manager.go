@@ -29,7 +29,7 @@ type User struct {
 }
 
 // Check if the user has authorization for the given resources and actions
-func (u *User) AuthorizeForResource(resources []string, actions []string) bool {
+func (u *User) AuthorizeForResource(resources []string, actions []Privilege) bool {
 	hasAuthorization := false
 
 	for _, action := range actions {
