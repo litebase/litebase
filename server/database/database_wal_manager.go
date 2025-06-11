@@ -94,7 +94,7 @@ func (w *DatabaseWALManager) Checkpoint(wal *DatabaseWAL, fn func() error) error
 		return errors.New("cannot set checkpointing on replica node")
 	}
 
-	if w.lastCheckpointedVersion >= wal.Timestamp() {
+	if w.lastCheckpointedVersion > wal.Timestamp() {
 		return errors.New("cannot set checkpointing on older version")
 	}
 
@@ -130,7 +130,7 @@ func (w *DatabaseWALManager) Create() (*DatabaseWAL, error) {
 	w.mutext.Lock()
 	defer w.mutext.Unlock()
 
-	return w.createNew(time.Now().UnixMicro())
+	return w.createNew(time.Now().UnixNano())
 }
 
 // Create a new WAL version

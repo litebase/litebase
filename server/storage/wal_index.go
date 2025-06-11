@@ -252,7 +252,7 @@ func (w *WALIndex) Truncate() error {
 
 	// Remove all versions that are older than 24 hours from the truncated time.
 	for i := len(w.versions) - 1; i >= 0; i-- {
-		if time.UnixMicro(w.versions[i]).Before(w.TruncatedAt.Add(-24 * time.Hour)) {
+		if time.Unix(0, w.versions[i]).Before(w.TruncatedAt.Add(-24 * time.Hour)) {
 			w.versions = slices.Delete(w.versions, i, i+1)
 		}
 	}

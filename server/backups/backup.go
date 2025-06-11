@@ -4,9 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"crypto/sha1"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -21,6 +19,10 @@ import (
 
 	"log"
 )
+
+// TODO: Investigate if we need to ensure the database page logs are compacted
+// before running a backup or if we need to create some type of locking mechanism
+// to the page logger to prevent mutations while the backup is running.
 
 var ErrBackupNoRestorePoint = fmt.Errorf("no restore point found")
 
@@ -55,7 +57,7 @@ func GetBackup(
 		return nil, err
 	}
 
-	restorePoint, err := snapshot.GetRestorePoint(timestamp)
+	restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
 
 	if err != nil {
 		return nil, err
@@ -89,13 +91,24 @@ func GetNextBackup(
 	snapshotTimestamp int64,
 ) (*Backup, error) {
 	backups := make([]int64, 0)
-	backupsDirectory := fmt.Sprintf("%s/%s", file.GetDatabaseFileBaseDir(databaseId, branchId), BACKUP_DIR)
+	backupsDirectory := fmt.Sprintf("%s%s", file.GetDatabaseFileBaseDir(databaseId, branchId), BACKUP_DIR)
 
+tryReadDir:
 	// Get a list of all directories in the directory
 	dirs, err := objectFS.ReadDir(backupsDirectory)
 
 	if err != nil {
-		log.Fatal(err)
+		if os.IsNotExist(err) {
+			err = objectFS.MkdirAll(backupsDirectory, 0755)
+
+			if err != nil {
+				return nil, err
+			}
+
+			goto tryReadDir
+		}
+
+		return nil, fmt.Errorf("error reading backups directory: %w", err)
 	}
 
 	// Loop through the directories
@@ -133,28 +146,8 @@ func GetNextBackup(
 
 // Remove the backup files from the filesystem.
 func (backup *Backup) Delete() error {
-	hash := backup.Hash()
-
-	// Read the directory to find matching file names and part numbers
-	entries, err := backup.objectFS.ReadDir(backup.DirectoryPath())
-
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		if strings.HasPrefix(entry.Name(), hash) {
-			if err := backup.objectFS.Remove(fmt.Sprintf("%s%s", backup.DirectoryPath(), entry.Name())); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	// Since only one backup exists per directory, we can remove the entire directory
+	return backup.objectFS.RemoveAll(backup.DirectoryPath())
 }
 
 func (backup *Backup) DirectoryPath() string {
@@ -183,21 +176,10 @@ func (backup *Backup) GetMaxPartSize() int64 {
 	return backup.maxPartSize
 }
 
-// Returns the hash of the backup which is used to identify the backup. This hash
-// consists of the database UUID, branch UUID, and the snapshot timestamp.
-func (backup *Backup) Hash() string {
-	hash := sha1.New()
-	hash.Write([]byte(backup.DatabaseId))
-	hash.Write([]byte(backup.BranchId))
-	hash.Write([]byte(fmt.Sprintf("%d", backup.RestorePoint.Timestamp)))
-
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-// Returns the file key for a backup part. This contains the hash of the backup
-// and the part number followed by the .tar.gz extension.
+// Returns the file key for a backup part. Since only one backup exists per directory,
+// we can use a simple naming scheme with just the part number.
 func (backup *Backup) Key(partNumber int) string {
-	return fmt.Sprintf("%s-%d.tar.gz", backup.Hash(), partNumber)
+	return fmt.Sprintf("backup-%d.tar.gz", partNumber)
 }
 
 // Package the backup files into a tarball and compress it using gzip. This will
@@ -211,7 +193,6 @@ func (backup *Backup) packageBackup() error {
 	var tarWriter *tar.Writer
 	var gzipWriter *gzip.Writer
 	var sourceFile internalStorage.File
-
 	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, backup.config.PageSize)
 	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseId, backup.BranchId)
 
@@ -262,6 +243,7 @@ func (backup *Backup) packageBackup() error {
 				return err
 			}
 		} else {
+
 			// Currently the only other file in a database directory is the
 			// metadata file. This will be the only other file that is not a
 			// range file. This file needs to be updated with the page count
@@ -399,6 +381,8 @@ func (backup *Backup) packageBackup() error {
 // propert state. This will allow the backup to copy all existing files
 // while the database is online and in use.
 func Run(
+	c *config.Config,
+	objectFS *storage.FileSystem,
 	databaseId string,
 	branchId string,
 	timestamp int64,
@@ -413,6 +397,11 @@ func Run(
 		defer lock.Unlock()
 	} else {
 		return nil, fmt.Errorf("backup is already running")
+	}
+
+	// Ensure the durable database file system has been compacted
+	if err := dfs.Compact(); err != nil {
+		return nil, fmt.Errorf("error compacting durable database file system: %w", err)
 	}
 
 	snapshot, err := snapshotLogger.GetSnapshot(timestamp)
@@ -432,9 +421,11 @@ func Run(
 	}
 
 	backup := &Backup{
+		config:         c,
 		BranchId:       branchId,
 		DatabaseId:     databaseId,
 		dfs:            dfs,
+		objectFS:       objectFS,
 		RestorePoint:   restorePoint,
 		rollbackLogger: rollbackLogger,
 	}
@@ -462,9 +453,8 @@ func (backup *Backup) SetMaxPartSize(size int64) {
 // Returns the size of the backup in bytes.
 func (backup *Backup) Size() int64 {
 	var size int64
-	hash := backup.Hash()
 
-	// Read the directory to find matching file names and part numbers
+	// Read the directory to find all backup files
 	entries, err := backup.objectFS.ReadDir(backup.DirectoryPath())
 
 	if err != nil {
@@ -476,7 +466,8 @@ func (backup *Backup) Size() int64 {
 			continue
 		}
 
-		if strings.HasPrefix(entry.Name(), hash) {
+		// Since only one backup exists per directory, all files are backup files
+		if strings.HasPrefix(entry.Name(), "backup-") && strings.HasSuffix(entry.Name(), ".tar.gz") {
 			stat, err := backup.objectFS.Stat(fmt.Sprintf("%s%s", backup.DirectoryPath(), entry.Name()))
 
 			if err != nil {
@@ -504,12 +495,12 @@ func (backup *Backup) stepApplyRollbackLogs(rangeNumber int64, sourceFile intern
 // Create a new file for the backup part.
 func (backup *Backup) stepCreateFile(partNumber int) (outputFile internalStorage.File, err error) {
 createFile:
-	outputFile, err = backup.dfs.FileSystem().Create(backup.FilePath(partNumber))
+	outputFile, err = backup.objectFS.Create(backup.FilePath(partNumber))
 
 	if err != nil {
 		if os.IsNotExist(err) {
 			// If the directory does not exist, create it
-			if err := backup.dfs.FileSystem().MkdirAll(backup.DirectoryPath(), 0755); err != nil {
+			if err := backup.objectFS.MkdirAll(backup.DirectoryPath(), 0755); err != nil {
 				log.Println("Error creating backup directory:", err)
 				return nil, err
 			}

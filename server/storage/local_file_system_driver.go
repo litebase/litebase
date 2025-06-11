@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"io/fs"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -38,12 +39,14 @@ func (fs *LocalFileSystemDriver) ClearFiles() error {
 			err = fs.RemoveAll(entry.Name())
 
 			if err != nil {
+				slog.Error("Failed to remove file", "path", entry.Name(), "error", err)
 				return err
 			}
 		} else {
 			err = fs.Remove(entry.Name())
 
 			if err != nil {
+				slog.Error("Failed to remove file", "path", entry.Name(), "error", err)
 				return err
 			}
 		}

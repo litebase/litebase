@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/litebase/litebase/server/backups"
 	"github.com/litebase/litebase/server/file"
@@ -22,7 +23,6 @@ type Checkpointer struct {
 	pageLogger       *storage.PageLogger
 	rollbackLogger   *backups.RollbackLogger
 	snapshotLogger   *backups.SnapshotLogger
-	// Timestamp             int64
 }
 
 var (
@@ -165,7 +165,7 @@ func (c *Checkpointer) Commit() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := c.snapshotLogger.Log(c.Checkpoint.Timestamp, pageCount)
+		err := c.snapshotLogger.Log(time.Now().UnixNano(), pageCount)
 
 		if err != nil {
 			log.Println("Error logging checkpoint", err)

@@ -31,8 +31,8 @@ func TestNewSnapshot(t *testing.T) {
 			app.Cluster.TieredFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().UnixMicro(),
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
+			time.Now().UnixNano(),
 		)
 
 		if snapshot.BranchId != mock.BranchId {
@@ -68,7 +68,7 @@ func TestSnapshotClose(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().Unix()
+		timestamp := time.Now().UnixNano()
 		checkpointerLogger.Log(timestamp, int64(1))
 
 		snapshot, err := snapshotLogger.GetSnapshot(timestamp)
@@ -98,8 +98,8 @@ func TestSnapshotGetRestorePoints(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().Add(time.Duration(-1) * time.Hour).Unix()
-		checkpointerLogger.Log(timestamp, int64(100))
+		timestamp := time.Now().Add(time.Duration(-1) * time.Hour).UnixNano()
+		checkpointerLogger.Log(timestamp, 100)
 
 		snapshot, err := snappshotLogger.GetSnapshot(timestamp)
 
@@ -146,7 +146,7 @@ func TestSnapshotLoad(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().Add(time.Duration(-1) * time.Hour).Unix()
+		timestamp := time.Now().Add(time.Duration(-1) * time.Hour).UnixNano()
 		checkpointerLogger.Log(timestamp, int64(100))
 
 		snapshot, err := snappshotLogger.GetSnapshot(timestamp)
@@ -154,6 +154,10 @@ func TestSnapshotLoad(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
+
+		// Simulate writing another snapshot to the file
+		timestamp = time.Now().Add(time.Duration(0) * time.Hour).UnixNano()
+		checkpointerLogger.Log(timestamp, int64(101))
 
 		if snapshot.RestorePoints.Total != 1 {
 			t.Fatalf("Expected 1 restore point, got %d", snapshot.RestorePoints.Total)
@@ -191,7 +195,7 @@ func TestSnapshotLog(t *testing.T) {
 		defer snapshotLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().Unix()
+		timestamp := time.Now().UnixNano()
 		err := snapshotLogger.Log(timestamp, int64(1))
 
 		if err != nil {

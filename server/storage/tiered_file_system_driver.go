@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -407,9 +408,20 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 		return nil, err
 	}
 
+tryOpen:
 	file, err := fsd.highTierFileSystemDriver.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			err = fsd.highTierFileSystemDriver.MkdirAll(filepath.Dir(path), 0755)
+
+			if err != nil {
+				return nil, err
+			}
+
+			goto tryOpen
+		}
+
 		return nil, err
 	}
 

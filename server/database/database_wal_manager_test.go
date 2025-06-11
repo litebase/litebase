@@ -226,7 +226,7 @@ func TestDatabaseWALManager_Release(t *testing.T) {
 
 		timestamp := time.Now()
 
-		walVersion, err := walm.Get(timestamp.UnixMicro())
+		walVersion, err := walm.Get(timestamp.UnixNano())
 
 		if err != nil {
 			t.Errorf("Error creating new WAL version: %v", err)

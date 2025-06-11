@@ -22,7 +22,7 @@ func TestNewRollbackLogger(t *testing.T) {
 
 		// Check if the page logger is not nil
 		if rollbackLogger == nil {
-			t.Error("Expected page logger to be not nil")
+			t.Fatal("Expected page logger to be not nil")
 		}
 
 		// Check if the page logger has the correct DatabaseId and BranchId
@@ -92,7 +92,7 @@ func TestPageLoggerGetLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		timestamp := time.Now().Unix()
+		timestamp := time.Now().UnixNano()
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(
@@ -112,7 +112,7 @@ func TestPageLoggerGetLog(t *testing.T) {
 			t.Fatal("Expected rollback log to be not nil")
 		}
 
-		startOfHourTimestamp := time.Now().Truncate(time.Hour).Unix()
+		startOfHourTimestamp := time.Now().Truncate(time.Hour).UnixNano()
 
 		if rollbackLog.Timestamp != startOfHourTimestamp {
 			t.Errorf("Expected Timestamp %d, got %d", startOfHourTimestamp, rollbackLog.Timestamp)

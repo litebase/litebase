@@ -120,6 +120,8 @@ func (pl *PageLogger) Compact(
 		return nil
 	}
 
+	pl.reload()
+
 	if len(pl.logs) == 0 {
 		return nil
 	}
@@ -155,7 +157,7 @@ func (pl *PageLogger) Compact(
 
 	pl.index.removePageLogs(pageLogs)
 	pl.CompactedAt = time.Now()
-	pl.index.boundary = PageGroupVersion(pl.CompactedAt.UnixMicro())
+	pl.index.boundary = PageGroupVersion(pl.CompactedAt.UnixNano())
 
 	return nil
 }
@@ -372,6 +374,35 @@ func (pl *PageLogger) Release(timestamp int64) {
 	if pl.logUsage[timestamp] <= 0 {
 		delete(pl.logUsage, timestamp)
 	}
+}
+
+// Reload the page logger index and logs to ensure the view of all page logs is
+// up to date. This is useful when the page logger is used in a distributed
+// environment and the logs may have changed due to compaction or before
+// performing a checkpoint operation.
+func (pl *PageLogger) reload() error {
+	// Close all existing logs
+	for _, group := range pl.logs {
+		for _, log := range group {
+			err := log.Close()
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
+
+	// Reload the index
+	err := pl.index.load()
+
+	if err != nil {
+		log.Println("Error reloading page logger index:", err)
+		return err
+	}
+
+	return pl.load()
 }
 
 func (pl *PageLogger) Tombstone(timestamp int64) error {

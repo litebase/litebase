@@ -398,7 +398,7 @@ func TestDurableDatabaseFileSystemTruncate(t *testing.T) {
 			4096,
 		)
 
-		timestamp := time.Now().UnixMicro()
+		timestamp := time.Now().UnixNano()
 
 		for i := range storage.RangeMaxPages * 4 {
 			_, err := dfs.WriteAt(timestamp, make([]byte, 4096), int64(i*4096))

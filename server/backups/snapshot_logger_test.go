@@ -61,7 +61,7 @@ func TestSnapshotLoggerGetSnapshot(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().Unix()
+		timestamp := time.Now().UnixNano()
 		err := checkpointerLogger.Log(timestamp, int64(1))
 
 		if err != nil {
@@ -96,7 +96,7 @@ func TestSnapshotLoggerGetSnapshots(t *testing.T) {
 
 		// Simulate writing a snapshot to the file
 		for i := 0; i < 5; i++ {
-			timestamp := time.Now().Add(-time.Duration(5-i) * time.Second).Unix()
+			timestamp := time.Now().Add(-time.Duration(5-i) * time.Second).UnixNano()
 			snapshotLogger.Log(timestamp, int64(i))
 		}
 
@@ -124,9 +124,9 @@ func TestSnapshotLoggerGetSnapshotsWithRestorePoints(t *testing.T) {
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 
 		// Simulate writing a snapshot to the file
-		snapshotLogger.Log(time.Now().Add(-3*time.Second).Unix(), int64(1))
-		snapshotLogger.Log(time.Now().Add(-2*time.Second).Unix(), int64(2))
-		snapshotLogger.Log(time.Now().Add(-1*time.Second).Unix(), int64(3))
+		snapshotLogger.Log(time.Now().Add(-3*time.Second).UnixNano(), int64(1))
+		snapshotLogger.Log(time.Now().Add(-2*time.Second).UnixNano(), int64(2))
+		snapshotLogger.Log(time.Now().Add(-1*time.Second).UnixNano(), int64(3))
 
 		snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
@@ -169,6 +169,69 @@ func TestSnapshotLoggerLog(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			// Timestamps sub seconds to avoid collisions
 			timestamp := time.Now().Add(time.Duration(10-i) * time.Second).UnixNano()
+			timestamps = append(timestamps, timestamp)
+			err := logger.Log(timestamp, int64(i))
+
+			if err != nil {
+				t.Fatalf("Expected no error on File(), got %v", err)
+			}
+		}
+
+		// read the file to verify the logs were written
+		snapshot, err := logger.GetSnapshot(timestamps[0])
+
+		if snapshot == nil {
+			t.Fatalf("Expected snapshot to be created, got nil")
+		}
+
+		file := snapshot.File
+
+		if err != nil {
+			t.Fatalf("Expected no error on File(), got %v", err)
+		}
+
+		entry := make([]byte, 64)
+
+		for i, timestamp := range timestamps {
+			_, err := file.Read(entry)
+
+			if err != nil {
+				break
+			}
+
+			if len(entry) == 0 {
+				break
+			}
+
+			entryTimestamp := int64(binary.LittleEndian.Uint64(entry[0:8]))
+
+			if entryTimestamp != timestamp {
+				t.Fatal("Expected valid log entry, got nil")
+			}
+
+			pageCount := binary.LittleEndian.Uint32(entry[8:12])
+
+			if pageCount != uint32(i) {
+				t.Fatal("Expected valid log entry, got nil")
+			}
+		}
+	})
+}
+
+func TestSnapshotLogger_Log_Precision(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+
+		logger := backups.NewSnapshotLogger(
+			app.Cluster.TieredFS(),
+			mock.DatabaseId,
+			mock.BranchId,
+		)
+		timestamps := make([]int64, 0)
+
+		for i := range 10 {
+			// Timestamps sub seconds to avoid collisions
+			timestamp := time.Now().UnixNano()
 			timestamps = append(timestamps, timestamp)
 			err := logger.Log(timestamp, int64(i))
 

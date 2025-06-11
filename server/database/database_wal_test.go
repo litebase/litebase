@@ -31,7 +31,7 @@ func TestNewDatabaseWAL(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		if databaseWAL == nil {
@@ -64,7 +64,7 @@ func TestDatabaseWAL_Checkpointing(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		if databaseWAL.Checkpointing() {
@@ -89,7 +89,7 @@ func TestDatabaseWAL_Close(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		err := databaseWAL.Close()
@@ -114,7 +114,7 @@ func TestDatabaseWAL_File(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		file, err := databaseWAL.File()
@@ -145,7 +145,7 @@ func TestDatabaseWAL_Hash(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		hash := databaseWAL.Hash()
@@ -172,7 +172,7 @@ func TestDatabaseWAL_IsCheckpointed(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		if databaseWAL.IsCheckpointed() {
@@ -197,7 +197,7 @@ func TestDatabaseWAL_MarkCheckpointed(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		databaseWAL.MarkCheckpointed()
@@ -224,7 +224,7 @@ func TestDatabaseWAL_ReadAt(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		data := make([]byte, 4096)
@@ -268,7 +268,7 @@ func TestDatabaseWAL_RequiresCheckpoint(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		if databaseWAL.RequiresCheckpoint() {
@@ -299,7 +299,7 @@ func TestDatabaseWAL_SetCheckpointing(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		databaseWAL.SetCheckpointing(true)
@@ -326,7 +326,7 @@ func TestDatabaseWAL_Size(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		size, _ := databaseWAL.Size()
@@ -367,7 +367,7 @@ func TestDatabaseWAL_Sync(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		err := databaseWAL.Sync()
@@ -394,7 +394,7 @@ func TestDatabaseWAL_Timestamp(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		timestamp := databaseWAL.Timestamp()
@@ -421,7 +421,7 @@ func TestDatabaseWAL_Truncate(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		err := databaseWAL.Truncate(0)
@@ -454,7 +454,7 @@ func TestDatabaseWAL_WriteAt(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		data := make([]byte, 4096)
@@ -488,7 +488,7 @@ func TestDatabaseWAL_ReadAfterWrite(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		numberOfWrites := 1000
@@ -584,7 +584,7 @@ func TestDatabaseWAL_HeavyWrite(t *testing.T) {
 			mock.BranchId,
 			app.Cluster.LocalFS(),
 			walManager,
-			time.Now().UnixMicro(),
+			time.Now().UnixNano(),
 		)
 
 		numberOfWrites := 10000

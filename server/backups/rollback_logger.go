@@ -66,15 +66,10 @@ func (rl *RollbackLogger) Commit(timestamp, offset, size int64) error {
 func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 	rl.mutex.Lock()
 	defer rl.mutex.Unlock()
-	var startOfHour time.Time
 
-	if timestamp > 1e15 {
-		startOfHour = time.UnixMicro(timestamp)
-	} else {
-		startOfHour = time.Unix(timestamp, 0)
-	}
+	startOfHour := time.Unix(0, timestamp)
 
-	startOfHourTimestamp := startOfHour.Truncate(time.Hour).Unix()
+	startOfHourTimestamp := startOfHour.Truncate(time.Hour).UnixNano()
 
 	if l, ok := rl.logs[startOfHourTimestamp]; ok {
 		return l, nil

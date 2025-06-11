@@ -62,9 +62,9 @@ func TestPageLogger_Acquire(t *testing.T) {
 			version int64
 			data    []byte
 		}{
-			{1, time.Now().UnixMicro(), make([]byte, 4096)},
-			{2, time.Now().UnixMicro(), make([]byte, 4096)},
-			{3, time.Now().UnixMicro(), make([]byte, 4096)},
+			{1, time.Now().UnixNano(), make([]byte, 4096)},
+			{2, time.Now().UnixNano(), make([]byte, 4096)},
+			{3, time.Now().UnixNano(), make([]byte, 4096)},
 		}
 
 		for _, tc := range testCases {
@@ -528,9 +528,9 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 			version int64
 			data    []byte
 		}{
-			{1, time.Now().UnixMicro(), make([]byte, 4096)},
-			{2, time.Now().UnixMicro(), make([]byte, 4096)},
-			{3, time.Now().UnixMicro(), make([]byte, 4096)},
+			{1, time.Now().UnixNano(), make([]byte, 4096)},
+			{2, time.Now().UnixNano(), make([]byte, 4096)},
+			{3, time.Now().UnixNano(), make([]byte, 4096)},
 		}
 
 		for _, tc := range testCases {
@@ -576,9 +576,9 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 			version int64
 			data    []byte
 		}{
-			{1, time.Now().UnixMicro(), make([]byte, 4096)},
-			{2, time.Now().UnixMicro(), make([]byte, 4096)},
-			{3, time.Now().UnixMicro(), make([]byte, 4096)},
+			{1, time.Now().UnixNano(), make([]byte, 4096)},
+			{2, time.Now().UnixNano(), make([]byte, 4096)},
+			{3, time.Now().UnixNano(), make([]byte, 4096)},
 		}
 
 		for _, tc := range testCases {
@@ -641,9 +641,9 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 			version int64
 			data    []byte
 		}{
-			{1, time.Now().UnixMicro(), make([]byte, 4096)},
-			{2, time.Now().UnixMicro(), make([]byte, 4096)},
-			{3, time.Now().UnixMicro(), make([]byte, 4096)},
+			{1, time.Now().UnixNano(), make([]byte, 4096)},
+			{2, time.Now().UnixNano(), make([]byte, 4096)},
+			{3, time.Now().UnixNano(), make([]byte, 4096)},
 		}
 
 		for _, tc := range testCases {
@@ -709,9 +709,9 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 					version int64
 					data    []byte
 				}{
-					{1, time.Now().UnixMicro(), make([]byte, 4096)},
-					{2, time.Now().UnixMicro(), make([]byte, 4096)},
-					{3, time.Now().UnixMicro(), make([]byte, 4096)},
+					{1, time.Now().UnixNano(), make([]byte, 4096)},
+					{2, time.Now().UnixNano(), make([]byte, 4096)},
+					{3, time.Now().UnixNano(), make([]byte, 4096)},
 				}
 
 				for _, tc := range testCases {
@@ -762,9 +762,9 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 					version int64
 					data    []byte
 				}{
-					{1, time.Now().UnixMicro(), make([]byte, 4096)},
-					{2, time.Now().UnixMicro(), make([]byte, 4096)},
-					{3, time.Now().UnixMicro(), make([]byte, 4096)},
+					{1, time.Now().UnixNano(), make([]byte, 4096)},
+					{2, time.Now().UnixNano(), make([]byte, 4096)},
+					{3, time.Now().UnixNano(), make([]byte, 4096)},
 				}
 
 				wg.Add(1)
@@ -857,9 +857,9 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 		// 	version int64
 		// 	data    []byte
 		// }{
-		// 	{1, time.Now().UnixMicro(), make([]byte, 4096)},
-		// 	{2, time.Now().UnixMicro(), make([]byte, 4096)},
-		// 	{3, time.Now().UnixMicro(), make([]byte, 4096)},
+		// 	{1, time.Now().UnixNano(), make([]byte, 4096)},
+		// 	{2, time.Now().UnixNano(), make([]byte, 4096)},
+		// 	{3, time.Now().UnixNano(), make([]byte, 4096)},
 		// }
 
 		// for _, tc := range testCases {

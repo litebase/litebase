@@ -150,7 +150,7 @@ func DeserializeRollbackLogEntry(reader io.ReadSeeker) (*RollbackLogEntry, error
 	hash.Write((decompressed))
 	calculatedSha1 := hash.Sum(nil)
 
-	if bytes.Compare(entrySHA1, []byte(calculatedSha1)) != 0 {
+	if !bytes.Equal(entrySHA1, calculatedSha1) {
 		return nil, fmt.Errorf("SHA1 hash mismatch")
 	}
 

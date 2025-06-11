@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"sort"
 	"strconv"
@@ -48,6 +49,8 @@ func CopySourceDatabaseToTargetDatabase(
 		return err
 	}
 
+	// TODO: Need to prevent the source database from checkpointing from WAL
+	// to page log while we are copying the files
 	err = copySourceDatabasePageLogsToTargetDatabase(
 		sourceDatabaseUuid,
 		sourceBranchUuid,
@@ -155,6 +158,9 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 			return ErrorRestoreBackupNotFound
 		}
 
+		slog.Error("Error reading source directory", "directory", sourceDirectory, "error", err)
+
+		// If the source directory does not exist, we cannot restore the backup
 		return err
 	}
 
@@ -213,7 +219,6 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 
 func RestoreFromBackup(
 	timestamp int64,
-	hash string,
 	sourceDatabaseUuid string,
 	sourceBranchUuid string,
 	targetDatabaseUuid string,
@@ -241,11 +246,10 @@ func RestoreFromBackup(
 			continue
 		}
 
-		if !strings.HasPrefix(entry.Name(), hash) {
-			continue
+		// Since only one backup exists per directory, all files are backup files
+		if strings.HasPrefix(entry.Name(), "backup-") && strings.HasSuffix(entry.Name(), ".tar.gz") {
+			backupParts = append(backupParts, entry.Name())
 		}
-
-		backupParts = append(backupParts, entry.Name())
 	}
 
 	if len(backupParts) == 0 {
@@ -281,13 +285,15 @@ func RestoreFromBackup(
 	// Open each tar.gz backup part and write it to the target database
 	for _, backupPart := range backupParts {
 		backupPartPath := fmt.Sprintf("%s/%s", timestampPath, backupPart)
-		backupFile, err := sourceFileSystem.FileSystem().Open(backupPartPath)
+		backupFile, err := sourceFileSystem.FileSystem().OpenFile(backupPartPath, os.O_RDWR, 0644)
 
 		if err != nil {
 			log.Println("Error opening backup part:", backupPartPath)
 
 			return err
 		}
+
+		backupFile.Seek(0, io.SeekStart) // Ensure we start reading from the beginning
 
 		gzipReader, err := gzip.NewReader(backupFile)
 
@@ -359,7 +365,7 @@ func RestoreFromTimestamp(
 	onComplete func(func() error) error,
 ) error {
 	// Truncate the timestamp to the start of the hour
-	startOfHourTimestamp := time.Unix(backupTimestamp, 0).UTC().Truncate(time.Hour).Unix()
+	startOfHourTimestamp := time.Unix(0, backupTimestamp).Truncate(time.Hour).UnixNano()
 	rollbackLogger := NewRollbackLogger(tieredFS, sourceDatabaseUuid, sourceBranchUuid)
 
 	snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
@@ -390,12 +396,15 @@ func RestoreFromTimestamp(
 			continue
 		}
 
-		entryTimestamp, err := strconv.ParseInt(entry.Name(), 10, 64)
+		entryTimeNano, err := strconv.ParseInt(entry.Name(), 10, 64) // Convert string to int64
 
 		if err != nil {
-			log.Println("Error parsing entry name:", entry.Name(), err)
+			log.Println("Error parsing entry name as timestamp:", entry.Name(), err)
 			return err
 		}
+
+		entryTime := time.Unix(0, entryTimeNano) // Convert UnixNano to time.Time
+		entryTimestamp := entryTime.UnixNano()
 
 		if startOfHourTimestamp < entryTimestamp {
 			continue
@@ -426,7 +435,7 @@ func RestoreFromTimestamp(
 	)
 
 	if err != nil {
-		log.Println("Error copying source database to target database:", err)
+		slog.Error("Error copying source database to target database", "error", err)
 		return err
 	}
 
@@ -451,24 +460,10 @@ func RestoreFromTimestamp(
 				return err
 			case frame := <-rollbackLogEntries:
 				for _, rollbackLogEntry := range frame {
-					// _, err = targetFileSystem.WriteWithoutWriteHook(func() (int, error) {
-					// 	return targetFileSystem.WriteAt(
-					// 		int64(0),
-					// 		rollbackLogEntry.Data,
-					// 		file.PageOffset(rollbackLogEntry.PageNumber, c.PageSize),
-					// 	)
-					// })
-
-					// _, err = targetFileSystem.WriteAt(
-					// 	int64(0),
-					// 	rollbackLogEntry.Data,
-					// 	file.PageOffset(rollbackLogEntry.PageNumber, c.PageSize),
-					// )
-
-					// if err != nil {
-					// 	log.Println("Error writing page:", rollbackLogEntry.PageNumber, err)
-					// 	return err
-					// }
+					// Only apply rollback logs for pages within the restore point's page count
+					if rollbackLogEntry.PageNumber > restorePoint.PageCount {
+						continue
+					}
 
 					err := targetFileSystem.WriteToRange(
 						rollbackLogEntry.PageNumber,

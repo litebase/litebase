@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -20,17 +21,22 @@ type Snapshot struct {
 
 	// The UUID of the database the snapshot is for.
 	DatabaseId string
+
 	// The file to write the snapshot log to.
 	File internalStorage.File
+
 	// The last time the snapshot was accessed. This timestamp is used for
 	// cleanup purposes.
 	LastAccessedAt int64
+
 	// A mutex to lock the snapshot for concurrent access. This is especially
 	// necessary when writing to the snapshot log file while backups are being
 	// processed at the same time.
 	mutex sync.Mutex
+
 	// A list of restore points for the snapshot.
 	RestorePoints SnapshotRestorePoints `json:"restore_points"`
+
 	// The UTC start of the day of the snapshot.
 	Timestamp int64 `json:"timestamp"`
 
@@ -54,7 +60,7 @@ func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, branchId strin
 	return &Snapshot{
 		BranchId:       branchId,
 		DatabaseId:     databaseId,
-		LastAccessedAt: time.Now().UnixMicro(),
+		LastAccessedAt: time.Now().UnixNano(),
 		RestorePoints: SnapshotRestorePoints{
 			Data:  []int64{},
 			Start: timestamp,
@@ -107,7 +113,7 @@ func (s *Snapshot) GetRestorePoint(timestamp int64) (RestorePoint, error) {
 	var restorePoint RestorePoint
 
 	for {
-		data := make([]byte, 64)
+		data := make([]byte, 12) // 8 bytes for timestamp, 4 bytes for page count
 
 		_, err := s.File.Read(data)
 
@@ -115,7 +121,7 @@ func (s *Snapshot) GetRestorePoint(timestamp int64) (RestorePoint, error) {
 			break
 		}
 
-		t := int64(binary.LittleEndian.Uint64(data))
+		t := int64(binary.LittleEndian.Uint64(data[0:8]))
 
 		if int64(t) == timestamp {
 			restorePoint = RestorePoint{
@@ -135,6 +141,8 @@ func (s *Snapshot) IsEmpty() bool {
 	return s.Timestamp == 0
 }
 
+// Load the data of the snapshot that includes the restore points. These are
+// logged in chronological order in the snapshot log file.
 func (s *Snapshot) Load() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -147,6 +155,11 @@ func (s *Snapshot) Load() error {
 		}
 	}
 
+	s.RestorePoints.Data = []int64{}
+	s.RestorePoints.Start = 0
+	s.RestorePoints.End = 0
+	s.RestorePoints.Total = 0
+
 	_, err := s.File.Seek(0, io.SeekStart)
 
 	if err != nil {
@@ -156,18 +169,31 @@ func (s *Snapshot) Load() error {
 	}
 
 	for {
-		data := make([]byte, 64)
+		data := make([]byte, 12)
 
 		_, err := s.File.Read(data)
 
 		if err != nil {
-			break
+			if err == io.EOF {
+				// End of file reached, this is expected
+				break
+			}
+
+			slog.Error("Error reading snapshot file", "error", err)
+
+			// An error occurred while reading the file
+			return err
 		}
 
 		t := int64(binary.LittleEndian.Uint64(data))
 
 		// Get the start of the day of the timestamp
 		s.RestorePoints.Data = append(s.RestorePoints.Data, t)
+
+		if s.RestorePoints.Start == 0 || t < s.RestorePoints.Start {
+			s.RestorePoints.Start = t
+		}
+
 		s.RestorePoints.End = t
 		s.RestorePoints.Total++
 	}
@@ -175,6 +201,8 @@ func (s *Snapshot) Load() error {
 	return nil
 }
 
+// Write a new restore point to the snapshot log file. This is used to log
+// the state of the database at a specific point in time in chronological order.
 func (s *Snapshot) Log(timestamp, pageCount int64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -193,7 +221,7 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 		return err
 	}
 
-	data := make([]byte, 64)
+	data := make([]byte, 12) // 8 bytes for timestamp, 4 bytes for page count
 	binary.LittleEndian.PutUint64(data[0:8], uint64(timestamp))
 	binary.LittleEndian.PutUint32(data[8:12], uint32(pageCount))
 

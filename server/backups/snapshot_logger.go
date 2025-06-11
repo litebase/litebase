@@ -6,11 +6,16 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/server/file"
 	"github.com/litebase/litebase/server/storage"
 )
 
+// The SnapshotLogger is used to manage snapshots of the database. The logs
+// are stored on disk and organized by day. Each log entry contains a timestamp
+// and the number of pages that were written to the snapshot.
 type SnapshotLogger struct {
 	BranchId          string
 	DatabaseId        string
@@ -37,13 +42,15 @@ func NewSnapshotLogger(tieredFS *storage.FileSystem, databaseId, branchId string
 	}
 }
 
+// Remove snapshot logs that have not been accessed in the last 5 minutes from
+// memory. This is to prevent memory leaks and to keep the memory usage low.
 func (sl *SnapshotLogger) cleanupOpenSnapshotLogs() {
 	if !sl.logsLastCleanedAt.IsZero() || time.Since(sl.logsLastCleanedAt) <= 5*time.Minute {
 		return
 	}
 
 	for _, snapshot := range sl.logs {
-		if time.Since(time.Unix(snapshot.LastAccessedAt, 0)) > 5*time.Minute {
+		if time.Since(time.Unix(0, snapshot.LastAccessedAt)) > 5*time.Minute {
 			if err := snapshot.Close(); err != nil {
 				log.Println("Error closing snapshot log", err)
 			}
@@ -52,7 +59,7 @@ func (sl *SnapshotLogger) cleanupOpenSnapshotLogs() {
 
 			for i, key := range sl.keys {
 				if key == snapshot.Timestamp {
-					sl.keys = append(sl.keys[:i], sl.keys[i+1:]...)
+					sl.keys = slices.Delete(sl.keys, i, i+1)
 					break
 				}
 			}
@@ -81,21 +88,27 @@ func (sl *SnapshotLogger) Close() error {
 }
 
 // Get a single snapshot for a specific timestamp. This method does not include
-// All the restore points for the day, just the first one.
+// all the restore points for the day, just the first one.
 func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()
 
-	var snapshotStartOfDay time.Time
+	// Check if this timestamp is already a start-of-day timestamp (i.e., it's in our logs)
+	if snapshot, exists := sl.logs[timestamp]; exists {
+		if len(snapshot.RestorePoints.Data) <= 0 {
+			snapshot.Load()
+		}
 
-	if timestamp > 1e15 { // Check if the timestamp is in microseconds
-		snapshotStartOfDay = time.UnixMicro(timestamp)
-	} else {
-		snapshotStartOfDay = time.Unix(timestamp, 0)
+		sl.cleanupOpenSnapshotLogs()
+
+		return snapshot, nil
 	}
 
+	// If not, calculate the start-of-day timestamp
+	snapshotStartOfDay := time.Unix(0, timestamp)
+
 	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
-	startOfDayTimestamp := snapshotStartOfDay.Unix()
+	startOfDayTimestamp := snapshotStartOfDay.UnixNano()
 
 	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
 		sl.logs[startOfDayTimestamp] = NewSnapshot(
@@ -105,6 +118,7 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 			startOfDayTimestamp,
 			timestamp,
 		)
+
 		sl.keys = append(sl.keys, startOfDayTimestamp)
 	}
 
@@ -160,6 +174,7 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 	return sl.logs, nil
 }
 
+// Load the restore points for all snapshots.
 func (sl *SnapshotLogger) GetSnapshotsWithRestorePoints() (map[int64]*Snapshot, error) {
 	snapshots, err := sl.GetSnapshots()
 
@@ -183,16 +198,7 @@ func (sl *SnapshotLogger) GetSnapshotsWithRestorePoints() (map[int64]*Snapshot, 
 // Write a snapshot log entry to the snapshot log file.
 func (sl *SnapshotLogger) Log(timestamp, pageCount int64) error {
 	// Get the start of the day of the timestamp
-	var snapshotStartOfDay time.Time
-
-	if timestamp > 1e15 { // Check if the timestamp is in microseconds
-		snapshotStartOfDay = time.UnixMicro(timestamp)
-	} else {
-		snapshotStartOfDay = time.Unix(timestamp, 0)
-	}
-
-	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
-	startOfDayTimestamp := snapshotStartOfDay.Unix()
+	startOfDayTimestamp := time.Unix(0, timestamp).Truncate(24 * time.Hour).UnixNano()
 
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()
