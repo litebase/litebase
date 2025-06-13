@@ -19,6 +19,7 @@ type TestDatabase struct {
 	BranchId    string
 	DatabaseKey *auth.DatabaseKey
 	AccessKey   *auth.AccessKey
+	Url         string
 }
 
 type TestDatabaseAuthorizationCommand struct {
@@ -45,7 +46,7 @@ func MockDatabase(app *server.App) TestDatabase {
 		Statements: []auth.AccessKeyStatement{
 			{
 				Resource: "*",
-				Actions:  []string{"*"},
+				Actions:  []auth.Privilege{"*"},
 			},
 		},
 	}
@@ -58,6 +59,15 @@ func MockDatabase(app *server.App) TestDatabase {
 		log.Fatal(err)
 	}
 
+	url := fmt.Sprintf(
+		"http://%s.%s.%s.%s:%s",
+		db.Key(db.PrimaryBranchId),
+		app.Config.ClusterId,
+		app.Config.Region,
+		app.Config.DomainName,
+		app.Config.Port,
+	)
+
 	return TestDatabase{
 		DatabaseId: db.Id,
 		BranchId:   db.PrimaryBranchId,
@@ -68,6 +78,7 @@ func MockDatabase(app *server.App) TestDatabase {
 			Key:          db.Key(db.PrimaryBranchId),
 		},
 		AccessKey: accessKey,
+		Url:       url,
 	}
 }
 

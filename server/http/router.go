@@ -90,7 +90,16 @@ func (router *Router) Server(
 		response := router.DefaultRoute.Handler(
 			NewRequest(cluster, databaseManager, logManager, r),
 		)
+
 		w.WriteHeader(response.StatusCode)
+
+		jsonBody, err := json.Marshal(response.Body)
+
+		if err != nil {
+			panic(err)
+		}
+
+		w.Write([]byte(jsonBody))
 	})
 
 	for method := range router.Routes {

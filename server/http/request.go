@@ -91,7 +91,7 @@ func (r *Request) All() map[string]any {
 }
 
 // Authorize the request based on the access key and the specified resource and actions.
-func (r *Request) Authorize(resources []string, actions []string) error {
+func (r *Request) Authorize(resources []string, actions []auth.Privilege) error {
 	username, password, ok := r.BaseRequest.BasicAuth()
 
 	if ok {
@@ -107,6 +107,10 @@ func (r *Request) Authorize(resources []string, actions []string) error {
 		}
 
 		return fmt.Errorf("unauthorized: user is not authorized to perform this request")
+	}
+
+	if len(r.Subdomains()) == 0 {
+		return fmt.Errorf("unauthorized")
 	}
 
 	accessKey := r.RequestToken("Authorization").AccessKey(r.Subdomains()[0])
@@ -136,6 +140,10 @@ func (r *Request) ClusterId() string {
 func (r *Request) DatabaseKey() *auth.DatabaseKey {
 	if r.databaseKey != nil {
 		return r.databaseKey
+	}
+
+	if len(r.Subdomains()) == 0 {
+		return nil
 	}
 
 	// Get the database key from the subdomain
