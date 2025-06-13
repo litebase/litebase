@@ -81,7 +81,7 @@ func (akm *AccessKeyManager) Create(statements []AccessKeyStatement) (*AccessKey
 		[]AccessKeyStatement{
 			{
 				Resource: "*",
-				Actions:  []string{"*"},
+				Actions:  []Privilege{"*"},
 			},
 		},
 	)

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"time"
 )
 
@@ -179,6 +180,13 @@ func LoadRoutes(router *Router) {
 		Authentication,
 	})
 
+	router.Delete("/backups/{timestamp}",
+		DatabaseBackupDestroyController,
+	).Middleware([]Middleware{
+		RequireSubdomain,
+		Authentication,
+	})
+
 	router.Get("/metrics/query",
 		QueryLogController,
 	).Middleware([]Middleware{
@@ -247,9 +255,12 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Fallback(func(request *Request) Response {
+		log.Println("404")
 		return Response{
 			StatusCode: 404,
-			Body:       nil,
+			Body: map[string]any{
+				"status": "error",
+			},
 		}
 	})
 }

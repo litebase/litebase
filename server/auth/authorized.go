@@ -35,7 +35,7 @@ func Authorized(statements []AccessKeyStatement, resource string, permission Pri
 		}
 
 		// Check if the statement allows the specific permission
-		if slices.Contains(statement.Actions, string(permission)) {
+		if slices.Contains(statement.Actions, permission) {
 			if strings.ToLower(string(statement.Effect)) == "deny" {
 				return false // Deny always takes precedence
 			}

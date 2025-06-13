@@ -80,7 +80,7 @@ func TestAccessKeyUpdate(t *testing.T) {
 		statements := []auth.AccessKeyStatement{
 			{
 				Resource: "*",
-				Actions:  []string{"*"},
+				Actions:  []auth.Privilege{"*"},
 			},
 		}
 

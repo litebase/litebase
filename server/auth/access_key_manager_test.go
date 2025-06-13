@@ -31,7 +31,7 @@ func TestAccessKeyManagerAllAccessKeyIds(t *testing.T) {
 		akm := app.Auth.AccessKeyManager
 
 		for i := 0; i < 10; i++ {
-			akm.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []string{"*"}}})
+			akm.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 		}
 
 		accessKeys, err := akm.AllAccessKeyIds()
@@ -48,7 +48,7 @@ func TestAccessKeyManagerAllAccessKeyIds(t *testing.T) {
 
 func TestAccessKeyManagerCreate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		accessKey, err := app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []string{"*"}}})
+		accessKey, err := app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 		if err != nil {
 			t.Error("Expected Create to return a non-nil error")
@@ -94,7 +94,7 @@ func TestAccessKeyManagerGenerateAccessKeySecret(t *testing.T) {
 
 func TestAccessKeyManagerGet(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		accessKey, err := app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []string{"*"}}})
+		accessKey, err := app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 		if err != nil {
 			t.Error("Expected Create to return a non-nil error")
@@ -132,7 +132,7 @@ func TestAccessKeyManagerPurge(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		accessKey, err := server1.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []string{"*"}}})
+		accessKey, err := server1.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 		if err != nil {
 			t.Error("Expected Create to return a non-nil error")
@@ -199,7 +199,7 @@ func TestAccessKeyManagerPurge(t *testing.T) {
 func TestAccessKeyManagerPurgeAll(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		for i := 0; i < 10; i++ {
-			app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []string{"*"}}})
+			app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 		}
 
 		err := app.Auth.AccessKeyManager.PurgeAll()

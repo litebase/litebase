@@ -19,7 +19,7 @@ func TestForwardToPrimary(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"access-key:create"},
+				Actions:  []auth.Privilege{"access-key:create"},
 			},
 		})
 

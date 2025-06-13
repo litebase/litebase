@@ -9,14 +9,14 @@ import (
 func TestAccessKeyStatement(t *testing.T) {
 	tc := []struct {
 		resource string
-		actions  []string
+		actions  []auth.Privilege
 		valid    bool
 	}{
-		{"*", []string{"*"}, true},
-		{"*", []string{"access-key:create"}, true},
-		{"access-key:*", []string{string(auth.AccessKeyPrivilegeCreate)}, true},
-		{"access-key:*", []string{string(auth.DatabasePrivilegeAlterTable)}, false},
-		{"database:*", []string{string(auth.AccessKeyPrivilegeCreate)}, false},
+		{"*", []auth.Privilege{"*"}, true},
+		{"*", []auth.Privilege{"access-key:create"}, true},
+		{"access-key:*", []auth.Privilege{auth.AccessKeyPrivilegeCreate}, true},
+		{"access-key:*", []auth.Privilege{auth.DatabasePrivilegeAlterTable}, false},
+		{"database:*", []auth.Privilege{auth.AccessKeyPrivilegeCreate}, false},
 	}
 
 	for _, testCase := range tc {

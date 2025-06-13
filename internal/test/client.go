@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/litebase/litebase/server/auth"
@@ -18,8 +19,15 @@ type TestClient struct {
 	URL       string
 }
 
-func (c *TestClient) Send(path string, method string, data map[string]any) (map[string]any, int, error) {
-	request, err := http.NewRequest(method, c.URL+path, nil)
+func (c *TestClient) Send(path string, method string, data any) (map[string]any, int, error) {
+	var url string
+	if !strings.Contains(path, "http://") && !strings.Contains(path, "https://") {
+		url = c.URL + path
+	} else {
+		url = path
+	}
+
+	request, err := http.NewRequest(method, url, nil)
 
 	if err != nil {
 		return nil, 0, err
@@ -49,14 +57,26 @@ func (c *TestClient) Send(path string, method string, data map[string]any) (map[
 		request.Header.Set(k, v)
 	}
 
+	jsonData, err = json.Marshal(data)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	jsonMap := make(map[string]any)
+	if jsonData != nil {
+		if err := json.Unmarshal(jsonData, &jsonMap); err != nil {
+			return nil, 0, fmt.Errorf("failed to unmarshal JSON data: %w", err)
+		}
+	}
+
 	if c.AccessKey != nil {
 		signature := auth.SignRequest(
 			c.AccessKey.AccessKeyId,
 			c.AccessKey.AccessKeySecret,
 			method,
-			path,
+			request.URL.Path,
 			headers,
-			data,
+			jsonMap,
 			map[string]string{},
 		)
 
@@ -85,4 +105,12 @@ func (c *TestClient) Send(path string, method string, data map[string]any) (map[
 	}
 
 	return responseData, response.StatusCode, nil
+}
+
+func (c *TestClient) SendToDatabase(database TestDatabase, path string, method string, data any) (map[string]any, int, error) {
+	if database == (TestDatabase{}) {
+		return nil, 0, fmt.Errorf("database is nil")
+	}
+
+	return c.Send(fmt.Sprintf("%s/%s", database.Url, strings.TrimLeft(path, "/")), method, data)
 }

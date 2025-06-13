@@ -201,7 +201,7 @@ func (u *UserManager) Init() error {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"*"},
+				Actions:  []Privilege{"*"},
 			},
 		})
 

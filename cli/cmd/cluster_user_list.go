@@ -43,7 +43,7 @@ func NewClusterUserListCmd() *cobra.Command {
 					statements = append(statements, auth.AccessKeyStatement{
 						Effect:   "Allow",
 						Resource: "*",
-						Actions:  []string{priv.(string)},
+						Actions:  []auth.Privilege{priv.(auth.Privilege)},
 					})
 				}
 

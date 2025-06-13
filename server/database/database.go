@@ -90,7 +90,7 @@ func (database *Database) Url(branchId string) string {
 
 	return fmt.Sprintf(
 		"http://%s.%s.%s.%s%s",
-		database.Key(database.PrimaryBranchId),
+		database.Key(branchId),
 		database.DatabaseManager.Cluster.Id,
 		database.DatabaseManager.Cluster.Config.Region,
 		database.DatabaseManager.Cluster.Config.DomainName,

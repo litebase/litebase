@@ -11,10 +11,10 @@ import (
 func TestAccessKeyControllerDestroy(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []string{"*"}},
+			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
 		if err != nil {
@@ -25,7 +25,7 @@ func TestAccessKeyControllerDestroy(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"access-key:delete"},
+				Actions:  []auth.Privilege{"access-key:delete"},
 			},
 		})
 
@@ -58,7 +58,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteCurrentAccessKey(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"access-key:delete"},
+				Actions:  []auth.Privilege{"access-key:delete"},
 			},
 		})
 
@@ -84,7 +84,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteWithInvalidAccessKey(t *testing.
 		defer server.Server.Close()
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []string{"*"}},
+			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
 		if err != nil {
@@ -95,7 +95,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteWithInvalidAccessKey(t *testing.
 			{
 				Effect:   "Allow",
 				Resource: "access-key:foobar",
-				Actions:  []string{"access-key:delete"},
+				Actions:  []auth.Privilege{"access-key:delete"},
 			},
 		})
 
@@ -124,7 +124,7 @@ func TestAccessKeyControllerIndex(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"access-key:list"},
+				Actions:  []auth.Privilege{"access-key:list"},
 			},
 		})
 
@@ -157,7 +157,7 @@ func TestAccessKeyControllerStore(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"access-key:create"},
+				Actions:  []auth.Privilege{"access-key:create"},
 			},
 		})
 
@@ -167,7 +167,7 @@ func TestAccessKeyControllerStore(t *testing.T) {
 				{
 					"effect":   "allow",
 					"resource": "*",
-					"actions":  []string{"*"},
+					"actions":  []auth.Privilege{"*"},
 				},
 			},
 		})
@@ -203,7 +203,7 @@ func TestAccessKeyControllerStore_WithInvalidAccessKey(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "database:*",
-				Actions:  []string{"access-key:create"},
+				Actions:  []auth.Privilege{"access-key:create"},
 			},
 		})
 
@@ -236,7 +236,7 @@ func TestAccessKeyControllerStore_WithInvalidInput(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"access-key:create"},
+				Actions:  []auth.Privilege{"access-key:create"},
 			},
 		})
 
@@ -291,7 +291,7 @@ func TestAccessKeyControllerStore_WithInvalidInput(t *testing.T) {
 				{
 					"effect":   "Allowed",
 					"resource": "*",
-					"actions":  []string{"*"},
+					"actions":  []auth.Privilege{"*"},
 				},
 			},
 		})
@@ -331,7 +331,7 @@ func TestAccessKeyControllerStore_WithClusterUser(t *testing.T) {
 				{
 					"effect":   "allow",
 					"resource": "*",
-					"actions":  []string{"*"},
+					"actions":  []auth.Privilege{"*"},
 				},
 			},
 		})
@@ -364,7 +364,7 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 		defer server.Server.Close()
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []string{"*"}},
+			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
 		if err != nil {
@@ -375,7 +375,7 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []string{"access-key:update"},
+				Actions:  []auth.Privilege{"access-key:update"},
 			},
 		})
 
@@ -384,7 +384,7 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 				{
 					"effect":   "allow",
 					"resource": "*",
-					"actions":  []string{"*"},
+					"actions":  []auth.Privilege{"*"},
 				},
 			},
 		})
@@ -413,7 +413,7 @@ func TestAccessKeyControllerUpdate_WithInvalidAccessKey(t *testing.T) {
 		defer server.Server.Close()
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []string{"*"}},
+			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
 		if err != nil {
@@ -424,7 +424,7 @@ func TestAccessKeyControllerUpdate_WithInvalidAccessKey(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "access-key:foobar",
-				Actions:  []string{"access-key:update"},
+				Actions:  []auth.Privilege{"access-key:update"},
 			},
 		})
 
@@ -433,7 +433,7 @@ func TestAccessKeyControllerUpdate_WithInvalidAccessKey(t *testing.T) {
 				{
 					"effect":   "allow",
 					"resource": "*",
-					"actions":  []string{"*"},
+					"actions":  []auth.Privilege{"*"},
 				},
 			},
 		})

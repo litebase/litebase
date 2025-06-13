@@ -7,7 +7,7 @@ import (
 type AccessKeyStatement struct {
 	Effect   AccessKeyEffect   `json:"effect" validate:"required,validateFn=IsValid"`
 	Resource AccessKeyResource `json:"resource" validate:"required,validateFn=IsValid"`
-	Actions  []string          `json:"actions" validate:"required,min=1,max=100"`
+	Actions  []Privilege       `json:"actions" validate:"required,min=1,max=100"`
 }
 
 // This method validates if all of the actions in the statement align with the
@@ -23,7 +23,7 @@ func (aks AccessKeyStatement) IsValid() bool {
 	for key, action := range AccessKeyResources {
 		if aks.Resource.HasPrefix(key) {
 			for _, aksAction := range aks.Actions {
-				if !slices.Contains(action, aksAction) {
+				if !slices.Contains(action, string(aksAction)) {
 					return false
 				}
 			}
