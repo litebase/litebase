@@ -74,7 +74,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/databases/{database_id}",
+		"/databases/{databaseId}",
 		DatabaseShowController,
 	).Middleware([]Middleware{
 		Authentication,

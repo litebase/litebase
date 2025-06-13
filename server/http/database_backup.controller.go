@@ -19,7 +19,7 @@ func DatabaseBackupStoreController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("%s/%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 
@@ -74,7 +74,7 @@ func DatabaseBackupShowController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("%s/%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 
@@ -125,7 +125,7 @@ func DatabaseBackupDestroyController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("%s/%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 

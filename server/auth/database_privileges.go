@@ -1,6 +1,14 @@
 package auth
 
 const (
+	DatabasePrivilegeCreate Privilege = "database:create"
+	DatabasePrivilegeList   Privilege = "database:list"
+	DatabasePrivilegeShow   Privilege = "database:show"
+	DatabasePrivilegeManage Privilege = "database:manage"
+
+	DatabasePrivilegeBackup  Privilege = "database:backup"
+	DatabasePrivilegeRestore Privilege = "database:restore"
+
 	DatabasePrivilegeAnalyze           Privilege = "database:analyze"
 	DatabasePrivilegeAttach            Privilege = "database:attach"
 	DatabasePrivilegeAlterTable        Privilege = "database:alter_table"
@@ -28,7 +36,4 @@ const (
 	DatabasePrivilegeSelect            Privilege = "database:select"
 	DatabasePrivilegeTransaction       Privilege = "database:transaction"
 	DatabasePrivilegeUpdate            Privilege = "database:update"
-
-	DatabasePrivilegeBackup  Privilege = "database:backup"
-	DatabasePrivilegeRestore Privilege = "database:restore"
 )

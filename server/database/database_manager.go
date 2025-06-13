@@ -282,6 +282,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 		return nil, err
 	}
 
+	database.DatabaseManager = d
 	d.databases[databaseId] = database
 
 	return database, nil

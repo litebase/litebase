@@ -26,8 +26,8 @@ func JsonResponse(body map[string]interface{}, statusCode int, headers map[strin
 	}
 }
 
-func SuccessResponse(message string, data interface{}, statusCode int) Response {
-	return JsonResponse(map[string]interface{}{
+func SuccessResponse(message string, data any, statusCode int) Response {
+	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": message,
 		"data":    data,

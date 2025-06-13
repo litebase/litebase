@@ -3,13 +3,21 @@ package http
 import (
 	"fmt"
 	"log"
+
+	"github.com/litebase/litebase/server/auth"
 )
 
-type DatabaseStoreRequest struct {
-	Name string `json:"name" validate:"required"`
-}
-
 func DatabaseIndexController(request *Request) Response {
+	// Authorize the request
+	err := request.Authorize(
+		[]string{"database:*"},
+		[]auth.Privilege{auth.DatabasePrivilegeList},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	dbs, err := request.databaseManager.All()
 
 	if err != nil {
@@ -24,13 +32,23 @@ func DatabaseIndexController(request *Request) Response {
 }
 
 func DatabaseShowController(request *Request) Response {
-	database_id := request.Param("database_id")
+	databaseId := request.Param("databaseId")
 
-	if database_id == "" {
-		return BadRequestResponse(fmt.Errorf("a valid database_id is required"))
+	if databaseId == "" {
+		return BadRequestResponse(fmt.Errorf("a valid databaseId is required"))
 	}
 
-	db, err := request.databaseManager.Get(database_id)
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s", databaseId)},
+		[]auth.Privilege{auth.DatabasePrivilegeShow},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
+	db, err := request.databaseManager.Get(databaseId)
 
 	if err != nil {
 		log.Println(err)
@@ -44,7 +62,21 @@ func DatabaseShowController(request *Request) Response {
 	)
 }
 
+type DatabaseStoreRequest struct {
+	Name string `json:"name" validate:"required"`
+}
+
 func DatabaseStoreController(request *Request) Response {
+	// Authorize the request
+	err := request.Authorize(
+		[]string{"database:*"},
+		[]auth.Privilege{auth.DatabasePrivilegeCreate},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	input, err := request.Input(&DatabaseStoreRequest{})
 
 	if err != nil {
@@ -67,8 +99,7 @@ func DatabaseStoreController(request *Request) Response {
 	exists, err := request.databaseManager.Exists(databaseName)
 
 	if err != nil {
-		log.Println(err)
-		return ServerErrorResponse(err)
+		return BadRequestResponse(err)
 	}
 
 	if exists {
@@ -94,7 +125,23 @@ func DatabaseStoreController(request *Request) Response {
 }
 
 func DatabaseDestroyController(request *Request) Response {
-	db, err := request.databaseManager.Get(request.Param("databaseId"))
+	databaseId := request.Param("databaseId")
+
+	if databaseId == "" {
+		return BadRequestResponse(fmt.Errorf("a valid databaseId is required"))
+	}
+
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s", databaseId)},
+		[]auth.Privilege{auth.DatabasePrivilegeManage},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
+	db, err := request.databaseManager.Get(databaseId)
 
 	if err != nil {
 		return BadRequestResponse(err)
