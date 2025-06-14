@@ -94,6 +94,8 @@ func TestGoWriteHook(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
+
 		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
 
 		if len(offsets) == 0 {
@@ -142,7 +144,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Force the database to checkpoint so data is written to disk
-		err = db.Checkpoint()
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
@@ -188,7 +190,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 
 		// Check if the directory size is greater than 0
 		if directorySize == 0 {
-			t.Errorf("VFS file size failed, expected > 0, got %v", directorySize)
+			t.Fatalf("VFS file size failed, expected > 0, got %v", directorySize)
 		}
 
 		// Check if the directory size is equal to the expected size
@@ -202,20 +204,13 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Force the database to checkpoint so data is written to disk
-		err = db.Checkpoint()
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		// Vacuum the database
-		// err = db.GetConnection().SqliteConnection().Vacuum()
-
-		// if err != nil {
-		// 	t.Errorf("VACUUM failed, expected nil, got %v", err)
-		// }
-
-		err = db.Checkpoint()
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
 
 		if err != nil {
 			t.Fatal(err)
