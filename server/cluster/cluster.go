@@ -178,7 +178,7 @@ func (cluster *Cluster) GetMembers(cached bool) []*NodeIdentifier {
 		cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, ID))
 	}
 
-	cluster.MembersRetrievedAt = time.Now()
+	cluster.MembersRetrievedAt = time.Now().UTC()
 
 	return cluster.nodes
 }

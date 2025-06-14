@@ -405,7 +405,7 @@ func Run(
 		return nil, fmt.Errorf("error compacting durable database file system: %w", err)
 	}
 
-	snapshot, err := snapshotLogger.GetSnapshot(time.Now().UnixNano())
+	snapshot, err := snapshotLogger.GetSnapshot(time.Now().UTC().UnixNano())
 
 	if err != nil {
 		log.Println("Error getting snapshot:", err)

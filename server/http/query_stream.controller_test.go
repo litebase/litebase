@@ -59,7 +59,7 @@ func openQueryStreamConnection(
 			"Content-Length": "0",
 			"Content-Type":   "application/octet-stream",
 			"Host":           host,
-			"X-LBDB-Date":    fmt.Sprintf("%d", time.Now().Unix()),
+			"X-LBDB-Date":    fmt.Sprintf("%d", time.Now().UTC().Unix()),
 		},
 		map[string]any{},
 		map[string]string{},
@@ -74,7 +74,7 @@ func openQueryStreamConnection(
 
 	request.Header.Set("Content-Type", "application/octet-stream")
 	request.Header.Set("Authorization", signature)
-	request.Header.Set("X-LBDB-Date", fmt.Sprintf("%d", time.Now().Unix()))
+	request.Header.Set("X-LBDB-Date", fmt.Sprintf("%d", time.Now().UTC().Unix()))
 
 	client := &http.Client{
 		Timeout: 0,

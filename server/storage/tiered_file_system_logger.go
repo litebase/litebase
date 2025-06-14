@@ -21,7 +21,7 @@ type TieredFileSystemLoggerEntry struct{}
 
 func NewTieredFileSystemLogger(directory string) (*TieredFileSystemLogger, error) {
 	return &TieredFileSystemLogger{
-		currentLog: time.Now().Unix(),
+		currentLog: time.Now().UTC().Unix(),
 		directory:  directory,
 		entries:    make(map[int64]map[string]struct{}),
 		files:      make(map[int64]*os.File),
@@ -222,7 +222,7 @@ func (tfl *TieredFileSystemLogger) Restart() error {
 	defer tfl.mutex.Unlock()
 
 	tfl.entries = make(map[int64]map[string]struct{})
-	tfl.currentLog = time.Now().Unix()
+	tfl.currentLog = time.Now().UTC().Unix()
 
 	// Remove the old log files
 	files, err := os.ReadDir(tfl.directory)

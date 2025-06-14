@@ -50,7 +50,7 @@ func (sl *SnapshotLogger) cleanupOpenSnapshotLogs() {
 	}
 
 	for _, snapshot := range sl.logs {
-		if time.Since(time.Unix(0, snapshot.LastAccessedAt)) > 5*time.Minute {
+		if time.Since(time.Unix(0, snapshot.LastAccessedAt).UTC()) > 5*time.Minute {
 			if err := snapshot.Close(); err != nil {
 				log.Println("Error closing snapshot log", err)
 			}
@@ -66,7 +66,7 @@ func (sl *SnapshotLogger) cleanupOpenSnapshotLogs() {
 		}
 	}
 
-	sl.logsLastCleanedAt = time.Now()
+	sl.logsLastCleanedAt = time.Now().UTC()
 }
 
 // Close the logger and the underlying file.
@@ -105,7 +105,7 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	}
 
 	// If not, calculate the start-of-day timestamp
-	snapshotStartOfDay := time.Unix(0, timestamp)
+	snapshotStartOfDay := time.Unix(0, timestamp).UTC()
 
 	snapshotStartOfDay = time.Date(snapshotStartOfDay.Year(), snapshotStartOfDay.Month(), snapshotStartOfDay.Day(), 0, 0, 0, 0, time.UTC)
 	startOfDayTimestamp := snapshotStartOfDay.UnixNano()
@@ -198,7 +198,7 @@ func (sl *SnapshotLogger) GetSnapshotsWithRestorePoints() (map[int64]*Snapshot, 
 // Write a snapshot log entry to the snapshot log file.
 func (sl *SnapshotLogger) Log(timestamp, pageCount int64) error {
 	// Get the start of the day of the timestamp
-	startOfDayTimestamp := time.Unix(0, timestamp).Truncate(24 * time.Hour).UnixNano()
+	startOfDayTimestamp := time.Unix(0, timestamp).UTC().Truncate(24 * time.Hour).UnixNano()
 
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()

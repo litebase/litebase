@@ -43,7 +43,7 @@ func DecodeStaticFileInfo(data []byte) StaticFileInfo {
 
 	nameLength := int(binary.LittleEndian.Uint32(data[0:4]))
 	size := int64(binary.LittleEndian.Uint64(data[4:12]))
-	modTime := time.Unix(int64(binary.LittleEndian.Uint64(data[12:20])), 0)
+	modTime := time.Unix(int64(binary.LittleEndian.Uint64(data[12:20])), 0).UTC()
 
 	if nameLength == 0 {
 		return info
@@ -61,7 +61,7 @@ func (fi StaticFileInfo) Encode() []byte {
 
 	binary.LittleEndian.PutUint32(data[0:4], uint32(len(fi.StaticName)))
 	binary.LittleEndian.PutUint64(data[4:12], uint64(fi.StaticSize))
-	binary.LittleEndian.PutUint64(data[12:20], uint64(fi.StaticModTime.Unix()))
+	binary.LittleEndian.PutUint64(data[12:20], uint64(fi.StaticModTime.UTC().Unix()))
 
 	copy(data[20:], []byte(fi.StaticName))
 

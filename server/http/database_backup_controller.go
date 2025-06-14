@@ -91,8 +91,6 @@ func DatabaseBackupShowController(request *Request) Response {
 		}, 500, nil)
 	}
 
-	// timeInstance := time.Unix(0, timestamp)
-
 	backup, err := backups.GetBackup(
 		request.cluster.Config,
 		request.cluster.ObjectFS(),

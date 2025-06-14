@@ -176,11 +176,6 @@ func (dfs *DurableDatabaseFileSystem) Path() string {
 }
 
 func (dfs *DurableDatabaseFileSystem) ReadAt(timestamp int64, data []byte, offset, length int64) (int, error) {
-	// start := time.Now()
-	// defer func() {
-	// 	log.Printf("DFS ReadAt took %s for", time.Since(start))
-	// }()
-
 	dfs.mutex.RLock()
 	defer dfs.mutex.RUnlock()
 

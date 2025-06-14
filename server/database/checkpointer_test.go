@@ -188,7 +188,7 @@ func TestCheckpointer_Rollback(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = cp.Begin(time.Now().UnixNano())
+		err = cp.Begin(time.Now().UTC().UnixNano())
 
 		if err != nil {
 			t.Fatal(err)

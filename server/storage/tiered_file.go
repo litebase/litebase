@@ -77,7 +77,7 @@ func NewTieredFile(
 	flag int,
 ) *TieredFile {
 	return &TieredFile{
-		CreatedAt:              time.Now(),
+		CreatedAt:              time.Now().UTC(),
 		File:                   file,
 		Flag:                   flag,
 		Key:                    key,
@@ -123,7 +123,7 @@ func (f *TieredFile) MarkUpdated() {
 		return
 	}
 
-	f.UpdatedAt = time.Now()
+	f.UpdatedAt = time.Now().UTC()
 
 	f.TieredFileSystemDriver.MarkFileUpdated(f)
 }
@@ -254,7 +254,7 @@ func (f *TieredFile) Sync() error {
 
 	f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
-	f.UpdatedAt = time.Now()
+	f.UpdatedAt = time.Now().UTC()
 
 	return nil
 }

@@ -22,7 +22,7 @@ func TestNewLease(t *testing.T) {
 func TestLease_IsUpToDate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		lease := cluster.NewLease(app.Cluster.Node())
-		lease.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
+		lease.ExpiresAt = time.Now().UTC().Add(1 * time.Hour).Unix()
 
 		if !lease.IsUpToDate() {
 			t.Error("IsUpToDate() returned false for a valid lease")
@@ -33,7 +33,7 @@ func TestLease_IsUpToDate(t *testing.T) {
 func TestLease_IsExpired(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		lease := cluster.NewLease(app.Cluster.Node())
-		lease.ExpiresAt = time.Now().Add(-1 * time.Hour).Unix()
+		lease.ExpiresAt = time.Now().UTC().Add(-1 * time.Hour).Unix()
 
 		if !lease.IsExpired() {
 			t.Error("IsExpired() returned false for an expired lease")
@@ -99,7 +99,7 @@ func TestLease_Renew_Expired(t *testing.T) {
 		}
 
 		lease := app.Cluster.Node().Lease()
-		lease.ExpiresAt = time.Now().Add(-1 * time.Hour).Unix()
+		lease.ExpiresAt = time.Now().UTC().Add(-1 * time.Hour).Unix()
 
 		if err := lease.Renew(); err == nil {
 			t.Error("Renew() did not return error for expired lease")
@@ -119,13 +119,13 @@ func TestLease_ShouldRenew(t *testing.T) {
 		}
 
 		lease := app.Cluster.Node().Lease()
-		lease.RenewedAt = time.Now().Add(-cluster.LeaseDuration)
+		lease.RenewedAt = time.Now().UTC().Add(-cluster.LeaseDuration)
 
 		if !lease.ShouldRenew() {
 			t.Error("ShouldRenew() returned false for a valid lease")
 		}
 
-		lease.RenewedAt = time.Now().Add(cluster.LeaseDuration)
+		lease.RenewedAt = time.Now().UTC().Add(cluster.LeaseDuration)
 
 		if lease.ShouldRenew() {
 			t.Error("ShouldRenew() returned true for a lease that should not renew")

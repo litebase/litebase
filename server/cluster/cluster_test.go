@@ -160,7 +160,7 @@ func TestClusterIsMember(t *testing.T) {
 			t.Fatalf("Error adding query node: %s", err)
 		}
 
-		if !app.Cluster.IsMember(testServer.Address, time.Now()) {
+		if !app.Cluster.IsMember(testServer.Address, time.Now().UTC()) {
 			t.Fatal("Node should be a member")
 		}
 	})
@@ -181,7 +181,7 @@ func TestClusterRemoveMember(t *testing.T) {
 		}
 
 		// Verify is a member
-		if !app.Cluster.IsMember(testServer.Address, time.Now()) {
+		if !app.Cluster.IsMember(testServer.Address, time.Now().UTC()) {
 			t.Fatal("Node should be a member")
 		}
 
@@ -214,7 +214,7 @@ func TestClusterRemoveMember_HardState(t *testing.T) {
 		}
 
 		// Verify is a member
-		if !app.Cluster.IsMember(testServer.Address, time.Now()) {
+		if !app.Cluster.IsMember(testServer.Address, time.Now().UTC()) {
 			t.Fatal("Node should be a member")
 		}
 

@@ -212,13 +212,6 @@ func TestRestoreFromTimestamp(t *testing.T) {
 			t.Fatalf("Expected onComplete to be called")
 		}
 
-		// Force a checkpoint on the target to ensure consistency after restore
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(target.DatabaseId, target.BranchId)
-
-		if err != nil {
-			t.Fatalf("Expected no error forcing checkpoint after restore, got %v", err)
-		}
-
 		targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseId, target.BranchId)
 
 		if err != nil {

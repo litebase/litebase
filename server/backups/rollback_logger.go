@@ -67,7 +67,7 @@ func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 	rl.mutex.Lock()
 	defer rl.mutex.Unlock()
 
-	startOfHour := time.Unix(0, timestamp)
+	startOfHour := time.Unix(0, timestamp).UTC()
 
 	startOfHourTimestamp := startOfHour.Truncate(time.Hour).UnixNano()
 

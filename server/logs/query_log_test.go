@@ -150,8 +150,8 @@ func TestQueryLog_Read(t *testing.T) {
 		endTime := time.Now().UTC().Truncate(time.Second)
 
 		queryMetrics := l.Read(
-			uint32(startTime.Unix()),
-			uint32(endTime.Unix()),
+			uint32(startTime.UTC().Unix()),
+			uint32(endTime.UTC().Unix()),
 		)
 
 		if queryMetrics == nil {

@@ -61,7 +61,7 @@ func TestSnapshotLoggerGetSnapshot(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		err := checkpointerLogger.Log(timestamp, int64(1))
 
 		if err != nil {
@@ -95,8 +95,8 @@ func TestSnapshotLoggerGetSnapshots(t *testing.T) {
 		}
 
 		// Simulate writing a snapshot to the file
-		for i := 0; i < 5; i++ {
-			timestamp := time.Now().Add(-time.Duration(5-i) * time.Second).UnixNano()
+		for i := range 5 {
+			timestamp := time.Now().UTC().Add(-time.Duration(5-i) * time.Second).UnixNano()
 			snapshotLogger.Log(timestamp, int64(i))
 		}
 
@@ -124,9 +124,9 @@ func TestSnapshotLoggerGetSnapshotsWithRestorePoints(t *testing.T) {
 		snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
 
 		// Simulate writing a snapshot to the file
-		snapshotLogger.Log(time.Now().Add(-3*time.Second).UnixNano(), int64(1))
-		snapshotLogger.Log(time.Now().Add(-2*time.Second).UnixNano(), int64(2))
-		snapshotLogger.Log(time.Now().Add(-1*time.Second).UnixNano(), int64(3))
+		snapshotLogger.Log(time.Now().UTC().Add(-3*time.Second).UnixNano(), int64(1))
+		snapshotLogger.Log(time.Now().UTC().Add(-2*time.Second).UnixNano(), int64(2))
+		snapshotLogger.Log(time.Now().UTC().Add(-1*time.Second).UnixNano(), int64(3))
 
 		snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
@@ -166,9 +166,9 @@ func TestSnapshotLoggerLog(t *testing.T) {
 		)
 		timestamps := make([]int64, 0)
 
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			// Timestamps sub seconds to avoid collisions
-			timestamp := time.Now().Add(time.Duration(10-i) * time.Second).UnixNano()
+			timestamp := time.Now().UTC().Add(time.Duration(10-i) * time.Second).UnixNano()
 			timestamps = append(timestamps, timestamp)
 			err := logger.Log(timestamp, int64(i))
 
@@ -231,7 +231,7 @@ func TestSnapshotLogger_Log_Precision(t *testing.T) {
 
 		for i := range 10 {
 			// Timestamps sub seconds to avoid collisions
-			timestamp := time.Now().UnixNano()
+			timestamp := time.Now().UTC().UnixNano()
 			timestamps = append(timestamps, timestamp)
 			err := logger.Log(timestamp, int64(i))
 

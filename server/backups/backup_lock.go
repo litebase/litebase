@@ -14,7 +14,7 @@ type BackupLock struct {
 
 var BackupLocks = make(map[string]*BackupLock)
 var BackupLockMutex = &sync.Mutex{}
-var BackupLocksLastCleanedAt = time.Now()
+var BackupLocksLastCleanedAt = time.Now().UTC()
 
 func cleanUpOldBackupLocks() {
 	if !BackupLocksLastCleanedAt.IsZero() || time.Since(BackupLocksLastCleanedAt) <= 5*time.Minute {
@@ -30,7 +30,7 @@ func cleanUpOldBackupLocks() {
 			}
 		}
 
-		BackupLocksLastCleanedAt = time.Now()
+		BackupLocksLastCleanedAt = time.Now().UTC()
 
 		BackupLockMutex.Unlock()
 	}()
@@ -44,7 +44,7 @@ func GetBackupLock(databaseHash string) *BackupLock {
 
 	if lock == nil {
 		BackupLocks[databaseHash] = &BackupLock{
-			LastLockedAt: time.Now(),
+			LastLockedAt: time.Now().UTC(),
 			lock:         &sync.Mutex{},
 		}
 	}
@@ -55,17 +55,17 @@ func GetBackupLock(databaseHash string) *BackupLock {
 }
 
 func (b *BackupLock) Lock() {
-	b.LastLockedAt = time.Now()
+	b.LastLockedAt = time.Now().UTC()
 	b.lock.Lock()
 }
 
 func (b *BackupLock) TryLock() bool {
-	b.LastLockedAt = time.Now()
+	b.LastLockedAt = time.Now().UTC()
 
 	return b.lock.TryLock()
 }
 
 func (b *BackupLock) Unlock() {
-	b.LastLockedAt = time.Now()
+	b.LastLockedAt = time.Now().UTC()
 	b.lock.Unlock()
 }

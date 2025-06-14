@@ -130,7 +130,7 @@ func (w *DatabaseWALManager) Create() (*DatabaseWAL, error) {
 	w.mutext.Lock()
 	defer w.mutext.Unlock()
 
-	return w.createNew(time.Now().UnixNano())
+	return w.createNew(time.Now().UTC().UnixNano())
 }
 
 // Create a new WAL version

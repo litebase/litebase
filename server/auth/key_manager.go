@@ -362,7 +362,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 
 	manifest := map[string]any{
 		"signature":  c.SignatureNext,
-		"rotated_at": time.Now().Unix(),
+		"rotated_at": time.Now().UTC().Unix(),
 	}
 
 	manifestBytes, err := json.Marshal(manifest)

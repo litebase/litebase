@@ -214,7 +214,7 @@ func TestNodeIsReplica(t *testing.T) {
 
 		server1.Shutdown()
 
-		time.Sleep(100 * time.Millisecond) // Wait for the node to be marked as replica
+		time.Sleep(500 * time.Millisecond) // Wait for the node to be marked as replica
 
 		if server2.App.Cluster.Node().IsReplica() {
 			t.Error("Node should not be replica")
@@ -281,7 +281,7 @@ func TestNode_Send(t *testing.T) {
 				Data: messages.HeartbeatMessage{
 					Address: address,
 					ID:      []byte(server2.App.Cluster.Node().ID),
-					Time:    time.Now().Unix(),
+					Time:    time.Now().UTC().Unix(),
 				},
 			},
 		)

@@ -365,7 +365,7 @@ func RestoreFromTimestamp(
 	onComplete func(func() error) error,
 ) error {
 	// Truncate the timestamp to the start of the hour
-	startOfHourTimestamp := time.Unix(0, backupTimestamp).Truncate(time.Hour).UnixNano()
+	startOfHourTimestamp := time.Unix(0, backupTimestamp).UTC().Truncate(time.Hour).UnixNano()
 	rollbackLogger := NewRollbackLogger(tieredFS, sourceDatabaseUuid, sourceBranchUuid)
 
 	snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
@@ -403,7 +403,7 @@ func RestoreFromTimestamp(
 			return err
 		}
 
-		entryTime := time.Unix(0, entryTimeNano) // Convert UnixNano to time.Time
+		entryTime := time.Unix(0, entryTimeNano).UTC() // Convert UnixNano to time.Time
 		entryTimestamp := entryTime.UnixNano()
 
 		if startOfHourTimestamp < entryTimestamp {

@@ -60,7 +60,7 @@ func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, branchId strin
 	return &Snapshot{
 		BranchId:       branchId,
 		DatabaseId:     databaseId,
-		LastAccessedAt: time.Now().UnixNano(),
+		LastAccessedAt: time.Now().UTC().UnixNano(),
 		RestorePoints: SnapshotRestorePoints{
 			Data:  []int64{},
 			Start: timestamp,

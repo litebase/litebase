@@ -30,7 +30,7 @@ func TestClusterElection_Expired(t *testing.T) {
 			server.Cluster.Node(),
 		)
 
-		election.EndsAt = time.Now().Add(-time.Second) // Set the election to expired
+		election.EndsAt = time.Now().UTC().Add(-time.Second) // Set the election to expired
 
 		if !election.Expired() {
 			t.Fatal("Expected election to be expired")
@@ -48,7 +48,7 @@ func TestClusterElection_Running(t *testing.T) {
 			t.Fatal("Expected election to be running")
 		}
 
-		election.StoppedAt = time.Now().Add(-10 * time.Second)
+		election.StoppedAt = time.Now().UTC().Add(-10 * time.Second)
 
 		if election.Running() {
 			t.Fatal("Expected election to not be running")

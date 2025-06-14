@@ -287,7 +287,7 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 	}
 
 	// Update the last written time to indicate the file is synced
-	file.WrittenAt = time.Now()
+	file.WrittenAt = time.Now().UTC()
 }
 
 func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool) {
@@ -301,8 +301,8 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 		}
 
 		// Do not return the file if it is stale
-		if file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now()) ||
-			(file.UpdatedAt == (time.Time{}) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now())) {
+		if file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC()) ||
+			(file.UpdatedAt == (time.Time{}) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
 			fsd.releaseFile(file)
 
 			return nil, false
@@ -370,11 +370,6 @@ func (fsd *TieredFileSystemDriver) Open(path string) (internalStorage.File, erro
 // system, this operation will create a new file on the high tier file system
 // and then create a new tiered file that will be used to manage the file.
 func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	// start := time.Now()
-	// defer func() {
-	// 	log.Printf("OpenFile %s took %s", strings.Split(path, "/")[len(strings.Split(path, "/"))-1], time.Since(start))
-	// }()
-
 	if file, ok := fsd.GetTieredFile(path); ok {
 		// Compare the flags to ensure they match
 		if file.Flag&flag == flag {

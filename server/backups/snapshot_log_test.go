@@ -31,8 +31,8 @@ func TestNewSnapshot(t *testing.T) {
 			app.Cluster.TieredFS(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().UnixNano(),
-			time.Now().UnixNano(),
+			time.Now().UTC().UnixNano(),
+			time.Now().UTC().UnixNano(),
 		)
 
 		if snapshot.BranchId != mock.BranchId {
@@ -68,7 +68,7 @@ func TestSnapshotClose(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		checkpointerLogger.Log(timestamp, int64(1))
 
 		snapshot, err := snapshotLogger.GetSnapshot(timestamp)
@@ -98,7 +98,7 @@ func TestSnapshotGetRestorePoints(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().Add(time.Duration(-1) * time.Hour).UnixNano()
+		timestamp := time.Now().UTC().Add(time.Duration(-1) * time.Hour).UnixNano()
 		checkpointerLogger.Log(timestamp, 100)
 
 		snapshot, err := snappshotLogger.GetSnapshot(timestamp)
@@ -146,7 +146,7 @@ func TestSnapshotLoad(t *testing.T) {
 		defer checkpointerLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().Add(time.Duration(-1) * time.Hour).UnixNano()
+		timestamp := time.Now().UTC().Add(time.Duration(-1) * time.Hour).UnixNano()
 		checkpointerLogger.Log(timestamp, int64(100))
 
 		snapshot, err := snappshotLogger.GetSnapshot(timestamp)
@@ -156,7 +156,7 @@ func TestSnapshotLoad(t *testing.T) {
 		}
 
 		// Simulate writing another snapshot to the file
-		timestamp = time.Now().Add(time.Duration(0) * time.Hour).UnixNano()
+		timestamp = time.Now().UTC().Add(time.Duration(0) * time.Hour).UnixNano()
 		checkpointerLogger.Log(timestamp, int64(101))
 
 		if snapshot.RestorePoints.Total != 1 {
@@ -195,7 +195,7 @@ func TestSnapshotLog(t *testing.T) {
 		defer snapshotLogger.Close()
 
 		// Simulate writing a snapshot to the file
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		err := snapshotLogger.Log(timestamp, int64(1))
 
 		if err != nil {

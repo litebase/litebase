@@ -90,7 +90,7 @@ func (q *QueryLog) Close() error {
 
 func (q *QueryLog) GetFile() internalStorage.File {
 	if q.file == nil {
-		path := fmt.Sprintf("%s/%d/QUERY_LOG_%d", q.path, q.timestamp, q.cluster.Node().ID)
+		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, q.cluster.Node().ID)
 
 	tryOpen:
 		file, err := q.tieredFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
@@ -120,7 +120,7 @@ func (q *QueryLog) GetStatementIndex() (*QueryStatementIndex, error) {
 		statementIndex, err := GetQueryStatementIndex(
 			q.tieredFS,
 			q.path,
-			fmt.Sprintf("QUERY_STATEMENT_INDEX_%d", q.cluster.Node().ID),
+			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", q.cluster.Node().ID),
 			q.timestamp,
 		)
 
@@ -180,7 +180,7 @@ func (q *QueryLog) Flush(force bool) {
 
 func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 	queryMetrics := make([]QueryMetric, 0)
-	timeInstance := time.Unix(int64(start), 0)
+	timeInstance := time.Unix(int64(start), 0).UTC()
 	startOfDay := uint32(time.Date(timeInstance.Year(), timeInstance.Month(), timeInstance.Day(), 0, 0, 0, 0, time.UTC).Unix())
 
 	// Get all the directories in the logs directory
@@ -309,7 +309,7 @@ func (q *QueryLog) watch() {
 }
 
 func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) error {
-	q.lastLoggedTime = time.Now()
+	q.lastLoggedTime = time.Now().UTC()
 	timestamp := time.Now().UTC().Truncate(time.Second)
 
 	buffer := queryLogBuffer.Get().(*bytes.Buffer)

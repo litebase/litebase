@@ -50,7 +50,7 @@ func TestGetBackup(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().UnixNano(),
+			time.Now().UTC().UnixNano(),
 		)
 
 		if err != nil {
@@ -170,7 +170,7 @@ func TestGetNextBackup(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().Add(-time.Duration(10)*time.Second).UnixNano(),
+			time.Now().UTC().Add(-time.Duration(10)*time.Second).UnixNano(),
 		)
 
 		if err != nil {
@@ -333,7 +333,7 @@ func TestBackupDirectoryPath(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
-			mock.BranchId, time.Now().UnixNano(),
+			mock.BranchId, time.Now().UTC().UnixNano(),
 		)
 
 		if err != nil {
@@ -384,7 +384,7 @@ func TestBackupFilePath(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().UnixNano(),
+			time.Now().UTC().UnixNano(),
 		)
 
 		if err != nil {
@@ -434,7 +434,7 @@ func TestBackGetAndSetMaxPartSize(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger(),
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
-			mock.BranchId, time.Now().UnixNano(),
+			mock.BranchId, time.Now().UTC().UnixNano(),
 		)
 
 		if err != nil {
@@ -485,7 +485,7 @@ func TestBackupKey(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().UnixNano(),
+			time.Now().UTC().UnixNano(),
 		)
 
 		if err != nil {
@@ -1121,7 +1121,7 @@ func TestBackupToMap(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem(),
 			mock.DatabaseId,
 			mock.BranchId,
-			time.Now().UnixNano(),
+			time.Now().UTC().UnixNano(),
 		)
 
 		if err != nil {

@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"strconv"
 	"time"
 )
@@ -45,11 +44,10 @@ func Internal(request *Request) (*Request, Response) {
 		}
 	}
 
-	timestamp := time.Unix(0, nanoseconds)
+	timestamp := time.Unix(0, nanoseconds).UTC()
 
 	// Check if the timestamp is not older than 1 second
 	if time.Since(timestamp) > time.Second {
-		log.Fatalln("Internal request timestamp is too old:", timestamp, "Current time:", time.Now(), time.Since(timestamp))
 		// Return 401 Unauthorized if the timestamp is too old
 		return request, Response{
 			StatusCode: 401,

@@ -16,7 +16,7 @@ func TestOpenRollbackLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		timestampAtHour := time.Now().Truncate(time.Hour).UnixNano()
+		timestampAtHour := time.Now().UTC().Truncate(time.Hour).UnixNano()
 
 		rollbackLog, err := backups.OpenRollbackLog(
 			app.Cluster.TieredFS(),
@@ -44,7 +44,7 @@ func TestOpenRollbackLog(t *testing.T) {
 func TestRollbackLogAppendFrame(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 
 		rollbackLog, err := backups.OpenRollbackLog(
 			app.Cluster.TieredFS(),
@@ -78,7 +78,7 @@ func TestRollbackLogAppendFrame(t *testing.T) {
 func TestRollbackLogAppendLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		pageNumber := int64(1)
 
 		rollbackLog, err := backups.OpenRollbackLog(
@@ -94,7 +94,7 @@ func TestRollbackLogAppendLog(t *testing.T) {
 
 		defer rollbackLog.Close()
 
-		entry := backups.NewRollbackLogEntry(pageNumber, time.Now().UnixNano(), []byte("test data"))
+		entry := backups.NewRollbackLogEntry(pageNumber, time.Now().UTC().UnixNano(), []byte("test data"))
 
 		size, err := rollbackLog.AppendLog(bytes.NewBuffer([]byte{}), entry)
 
@@ -111,7 +111,7 @@ func TestRollbackLogAppendLog(t *testing.T) {
 func TestRollbackLogClose(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 
 		rollbackLog, err := backups.OpenRollbackLog(
 			app.Cluster.TieredFS(),
@@ -135,7 +135,7 @@ func TestRollbackLogClose(t *testing.T) {
 func TestRollbackLogCommit(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		pageNumber := int64(1)
 
 		rollbackLog, err := backups.OpenRollbackLog(
@@ -157,7 +157,7 @@ func TestRollbackLogCommit(t *testing.T) {
 			t.Fatalf("Failed to append RollbackLogEntry: %v", err)
 		}
 
-		entry := backups.NewRollbackLogEntry(pageNumber, time.Now().UnixNano(), []byte("test data"))
+		entry := backups.NewRollbackLogEntry(pageNumber, time.Now().UTC().UnixNano(), []byte("test data"))
 
 		s, err := rollbackLog.AppendLog(bytes.NewBuffer([]byte{}), entry)
 
@@ -198,7 +198,7 @@ func TestRollbackLogCommit(t *testing.T) {
 func TestRollbackLogReadAfter(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		startOfHour := time.Now().Truncate(time.Hour)
+		startOfHour := time.Now().UTC().Truncate(time.Hour)
 
 		testCases := []struct {
 			timestamp int64
@@ -287,7 +287,7 @@ func TestRollbackLogReadAfter(t *testing.T) {
 func TestRollbackLogRollback(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		pageNumber := int64(1)
 
 		rollbackLog, err := backups.OpenRollbackLog(
@@ -309,7 +309,7 @@ func TestRollbackLogRollback(t *testing.T) {
 			t.Fatalf("Failed to append RollbackLogEntry: %v", err)
 		}
 
-		entry := backups.NewRollbackLogEntry(pageNumber, time.Now().UnixNano(), []byte("test data"))
+		entry := backups.NewRollbackLogEntry(pageNumber, time.Now().UTC().UnixNano(), []byte("test data"))
 
 		s, err := rollbackLog.AppendLog(bytes.NewBuffer([]byte{}), entry)
 

@@ -143,12 +143,17 @@ func (nr *NodeReplica) LeaveCluster() error {
 	}
 
 	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
+	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 
-	_, err = httpClient.Do(request)
+	resp, err := httpClient.Do(request)
 
 	if err != nil {
 		log.Println("Failed to leave cluster: ", err)
 		return err
+	}
+
+	if resp.StatusCode >= 400 {
+		return errors.New("failed to leave cluster")
 	}
 
 	return nil
@@ -196,7 +201,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 	}
 
 	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
+	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 	request.Header.Set("Content-Type", "application/gob")
 
 	response, err := client.Do(request)

@@ -20,7 +20,7 @@ type Branch struct {
 
 func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrimary bool) *Branch {
 	randomFactor := rand.Int64N(100000)
-	keyCount := uint64(int64(dks.Len()) + time.Now().UnixMilli() + randomFactor)
+	keyCount := uint64(int64(dks.Len()) + time.Now().UTC().UnixNano() + randomFactor)
 
 	s, _ := sqids.New(sqids.Options{
 		Alphabet:  "0123456789abcdefghijklmnopqrstuvwxyz",

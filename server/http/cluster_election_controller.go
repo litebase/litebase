@@ -86,7 +86,7 @@ func ClusterElectionController(request *Request) Response {
 	request.cluster.Node().AddPeerElection(&cluster.ClusterElection{
 		Candidate: input.(*ClusterElectionRequest).Candidate,
 		Seed:      input.(*ClusterElectionRequest).Seed,
-		StartedAt: time.Unix(0, input.(*ClusterElectionRequest).StartedAt),
+		StartedAt: time.Unix(0, input.(*ClusterElectionRequest).StartedAt).UTC(),
 	})
 
 	return Response{
@@ -95,7 +95,7 @@ func ClusterElectionController(request *Request) Response {
 			"message": "Election acknowledged",
 			"data": map[string]any{
 				"candidate": input.(*ClusterElectionRequest).Candidate,
-				"voted_at":  time.Now().Unix(),
+				"voted_at":  time.Now().UTC().Unix(),
 			},
 		},
 	}

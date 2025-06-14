@@ -64,10 +64,10 @@ func NewTransaction(
 		databaseKey:     databaseKey,
 		databaseManager: databaseManager,
 		Id:              uuid.NewString(),
-		CreatedAt:       time.Now(),
+		CreatedAt:       time.Now().UTC(),
 		queryChannel:    make(chan TransactionQuery, 1),
 		responseChannel: make(chan *QueryResponse, 1),
-		StartedAt:       time.Now(),
+		StartedAt:       time.Now().UTC(),
 	}
 
 	err = transaction.Begin()
@@ -118,7 +118,7 @@ func (t *Transaction) Commit() error {
 	defer t.Close()
 
 	if t.writesToDatabase {
-		t.connection.GetConnection().committedAt = time.Now()
+		t.connection.GetConnection().committedAt = time.Now().UTC()
 	}
 
 	return t.connection.GetConnection().SqliteConnection().Commit()

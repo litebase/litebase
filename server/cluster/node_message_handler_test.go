@@ -14,7 +14,7 @@ func TestHandleMessage(t *testing.T) {
 		// Test a known message type.
 		resp, err := app.Cluster.Node().HandleMessage(messages.NodeMessage{
 			Data: messages.HeartbeatMessage{
-				Time: time.Now().Unix(),
+				Time: time.Now().UTC().Unix(),
 			},
 		})
 

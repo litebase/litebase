@@ -100,7 +100,7 @@ func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) any {
 
 	if !n.IsPrimary() {
 		if message.Time > n.PrimaryHeartbeat.Unix() {
-			n.PrimaryHeartbeat = time.Unix(message.Time, 0)
+			n.PrimaryHeartbeat = time.Unix(message.Time, 0).UTC()
 			responseMessage.Time = n.PrimaryHeartbeat.Unix()
 		}
 	}

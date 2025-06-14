@@ -31,7 +31,7 @@ func NewBranchConnection(
 		context:       context,
 		databaseGroup: databaseGroup,
 		inUse:         true,
-		lastUsedAt:    time.Now(),
+		lastUsedAt:    time.Now().UTC(),
 	}
 }
 

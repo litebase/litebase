@@ -142,7 +142,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 	}
 
 	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
+	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 
 	nc.createHTTPClient()
 

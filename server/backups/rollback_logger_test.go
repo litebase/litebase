@@ -92,7 +92,7 @@ func TestPageLoggerGetLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 
 		// Create a new page logger
 		rollbackLogger := backups.NewRollbackLogger(
@@ -112,7 +112,7 @@ func TestPageLoggerGetLog(t *testing.T) {
 			t.Fatal("Expected rollback log to be not nil")
 		}
 
-		startOfHourTimestamp := time.Now().Truncate(time.Hour).UnixNano()
+		startOfHourTimestamp := time.Now().UTC().Truncate(time.Hour).UnixNano()
 
 		if rollbackLog.Timestamp != startOfHourTimestamp {
 			t.Errorf("Expected Timestamp %d, got %d", startOfHourTimestamp, rollbackLog.Timestamp)

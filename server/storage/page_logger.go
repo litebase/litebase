@@ -116,7 +116,7 @@ func (pl *PageLogger) Compact(
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
 
-	if PageLoggerCompactInterval != 0 && (!pl.CompactedAt.IsZero() || pl.CompactedAt.Before(time.Now().Add(-PageLoggerCompactInterval))) {
+	if PageLoggerCompactInterval != 0 && (!pl.CompactedAt.IsZero() || pl.CompactedAt.Before(time.Now().UTC().Add(-PageLoggerCompactInterval))) {
 		return nil
 	}
 
@@ -156,7 +156,7 @@ func (pl *PageLogger) Compact(
 	}
 
 	pl.index.removePageLogs(pageLogs)
-	pl.CompactedAt = time.Now()
+	pl.CompactedAt = time.Now().UTC()
 	pl.index.boundary = PageGroupVersion(pl.CompactedAt.UnixNano())
 
 	return nil

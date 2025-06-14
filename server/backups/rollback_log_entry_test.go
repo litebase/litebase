@@ -13,7 +13,7 @@ import (
 
 func TestNewRollbackLogEntry(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		data := []byte("test data")
 
 		hash := sha1.New()
@@ -50,7 +50,7 @@ func TestNewRollbackLogEntry(t *testing.T) {
 
 func TestPageLogEntrySerialize(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		timestamp := time.Now().UnixNano()
+		timestamp := time.Now().UTC().UnixNano()
 		data := []byte("test data")
 		entry := backups.NewRollbackLogEntry(1, timestamp, data)
 

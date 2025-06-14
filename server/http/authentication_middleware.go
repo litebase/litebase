@@ -61,7 +61,7 @@ func ensureRequestIsNotExpired(request *Request) bool {
 		return false
 	}
 
-	parsedTime := time.Unix(parseInt, 0)
+	parsedTime := time.Unix(parseInt, 0).UTC()
 
 	return time.Since(parsedTime) < 10*time.Second
 }

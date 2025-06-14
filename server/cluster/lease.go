@@ -27,7 +27,7 @@ func NewLease(node *Node) *Lease {
 
 // Check if the lease is up to date based on the current time and the expiration time.
 func (l *Lease) IsUpToDate() bool {
-	return time.Now().Unix() < l.ExpiresAt
+	return time.Now().UTC().Unix() < l.ExpiresAt
 }
 
 // Check if the lease is expired based on the current time and the expiration time.
@@ -36,7 +36,7 @@ func (l *Lease) IsExpired() bool {
 		return false
 	}
 
-	return time.Now().Unix() > l.ExpiresAt
+	return time.Now().UTC().Unix() > l.ExpiresAt
 }
 
 // Release the lease and remove the primary status from the node. This should
@@ -94,7 +94,7 @@ func (l *Lease) Renew() error {
 		return err
 	}
 
-	expiresAt := time.Now().Add(LeaseDuration).Unix()
+	expiresAt := time.Now().UTC().Add(LeaseDuration).Unix()
 	leaseTimestamp := strconv.FormatInt(expiresAt, 10)
 
 	err = l.node.Cluster.NetworkFS().WriteFile(l.node.Cluster.LeasePath(), []byte(leaseTimestamp), os.ModePerm)
@@ -121,7 +121,7 @@ func (l *Lease) Renew() error {
 		return fmt.Errorf("failed to verify lease file")
 	}
 
-	l.RenewedAt = time.Now()
+	l.RenewedAt = time.Now().UTC()
 	l.ExpiresAt = expiresAt
 
 	return nil

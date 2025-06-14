@@ -93,7 +93,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		pageLogger:        connectionManager.databaseManager.Resources(databaseId, branchId).PageLogger(),
 		resultPool:        resultPool,
 		statements:        sync.Map{},
-		timestamp:         time.Now().UnixNano(),
+		timestamp:         time.Now().UTC().UnixNano(),
 		tmpFileSystem:     connectionManager.cluster.TmpFS(),
 		walManager:        walManager,
 	}
@@ -218,7 +218,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 	}
 
 	// Get the latest WAL for the database.
-	wal, err := con.walManager.Get(time.Now().UnixNano())
+	wal, err := con.walManager.Get(time.Now().UTC().UnixNano())
 
 	if err != nil {
 		log.Println("Error acquiring WAL :", err)
@@ -503,7 +503,7 @@ func (c *DatabaseConnection) SetAuthorizer() {
 }
 
 func (con *DatabaseConnection) setTimestamp() {
-	wal, err := con.walManager.Get(time.Now().UnixNano())
+	wal, err := con.walManager.Get(time.Now().UTC().UnixNano())
 
 	if err != nil {
 		log.Println("Error acquiring WAL timestamp:", err)
@@ -591,7 +591,7 @@ func (con *DatabaseConnection) Transaction(
 		}
 
 		if !readOnly {
-			con.committedAt = time.Now()
+			con.committedAt = time.Now().UTC()
 		}
 
 		return handlerError

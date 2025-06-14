@@ -389,7 +389,7 @@ func (fs *ObjectFileSystemDriver) Shutdown() error {
 func (fs *ObjectFileSystemDriver) Stat(path string) (internalStorage.FileInfo, error) {
 	// If the paths ends with a slash, it's a directory
 	if strings.HasSuffix(path, "/") {
-		return NewStaticFileInfo(path, 0, time.Now()), nil
+		return NewStaticFileInfo(path, 0, time.Now().UTC()), nil
 	}
 
 	output, err := fs.S3Client.HeadObject(fs.context, &s3.HeadObjectInput{
@@ -418,11 +418,6 @@ func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
 }
 
 func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
-	// start := time.Now()
-	// defer func() {
-	// 	log.Printf("WriteFile took %s for %s", time.Since(start), path)
-	// }()
-
 	compressionBuffer := fs.buffers.Get().(*bytes.Buffer)
 	defer fs.buffers.Put(compressionBuffer)
 

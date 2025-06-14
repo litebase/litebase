@@ -22,8 +22,8 @@ func TestClusterElectionController(t *testing.T) {
 		// Create a test message to send through the stream
 		testMessage := appHttp.ClusterElectionRequest{
 			Candidate: server2.App.Cluster.Node().ID,
-			Seed:      time.Now().UnixNano(),
-			StartedAt: time.Now().UnixNano(),
+			Seed:      time.Now().UTC().UnixNano(),
+			StartedAt: time.Now().UTC().UnixNano(),
 		}
 
 		data, err := json.Marshal(testMessage)

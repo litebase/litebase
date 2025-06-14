@@ -65,7 +65,7 @@ func NewDatabaseWAL(
 	return &DatabaseWAL{
 		BranchId:      branchId,
 		cache:         cache.NewLFUCache(16000), // ~33MB
-		createdAt:     time.Now(),
+		createdAt:     time.Now().UTC(),
 		DatabaseId:    databaseId,
 		fileSystem:    fileSystem,
 		lastKnownSize: -1,
@@ -183,7 +183,7 @@ func (wal *DatabaseWAL) MarkCheckpointed() {
 	defer wal.mutex.Unlock()
 
 	wal.checkpointing = false
-	wal.checkpointedAt = time.Now()
+	wal.checkpointedAt = time.Now().UTC()
 }
 
 func (wal *DatabaseWAL) performAsynchronousSync() {
@@ -214,7 +214,7 @@ func (wal *DatabaseWAL) performAsynchronousSync() {
 			return
 		}
 
-		wal.lastSyncTime = time.Now()
+		wal.lastSyncTime = time.Now().UTC()
 	}()
 }
 
@@ -360,7 +360,7 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 	wal.mutex.Lock()
 	defer wal.mutex.Unlock()
 
-	wal.lastWriteTime = time.Now()
+	wal.lastWriteTime = time.Now().UTC()
 
 	cacheKey := fmt.Sprintf("%d", off)
 
@@ -379,7 +379,7 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 		wal.performAsynchronousSync()
 	}
 
-	wal.lastWriteTime = time.Now()
+	wal.lastWriteTime = time.Now().UTC()
 
 	return n, err
 }

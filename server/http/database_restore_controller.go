@@ -2,15 +2,15 @@ package http
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/litebase/litebase/server/auth"
 	"github.com/litebase/litebase/server/backups"
 )
 
 type DatabaseRestoreRequest struct {
-	TargetDatabaseId       string `json:"target_database_id"`
-	TargetDatabaseBranchId string `json:"target_database_branch_id"`
-	Timestamp              int64  `json:"timestamp"`
+	TargetDatabaseId       string `json:"target_database_id" validate:"required" `
+	TargetDatabaseBranchId string `json:"target_database_branch_id" validate:"required"`
+	Timestamp              int64  `json:"timestamp" validate:"required,number"`
 }
 
 func DatabaseRestoreController(request *Request) Response {
@@ -18,6 +18,16 @@ func DatabaseRestoreController(request *Request) Response {
 
 	if databaseKey == nil {
 		return ErrValidDatabaseKeyRequiredResponse
+	}
+
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]auth.Privilege{auth.DatabasePrivilegeRestore},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
 	}
 
 	input, err := request.Input(&DatabaseRestoreRequest{})
@@ -30,14 +40,14 @@ func DatabaseRestoreController(request *Request) Response {
 		"target_database_id.required":        "The target database field is required.",
 		"target_database_branch_id.required": "The target database branch field is required.",
 		"timestamp.required":                 "The timestamp field is required.",
-		"timestamp.number":                   "The timestamp field is required.",
+		"timestamp.number":                   "The timestamp field must be a number.",
 	})
 
 	if validationErrors != nil {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	timestamp := int64(request.Get("timestamp").(float64))
+	timestamp := int64(input.(*DatabaseRestoreRequest).Timestamp)
 	targetDatabaseUuid := request.Get("target_database_id").(string)
 	targetBranchUuid := request.Get("target_database_branch_id").(string)
 
@@ -57,7 +67,7 @@ func DatabaseRestoreController(request *Request) Response {
 
 	err = backups.RestoreFromTimestamp(
 		request.cluster.Config,
-		request.cluster.ObjectFS(),
+		request.cluster.TieredFS(),
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
 		targetDatabaseUuid,
@@ -66,22 +76,19 @@ func DatabaseRestoreController(request *Request) Response {
 		snapshotLogger,
 		sourceDfs,
 		targetDfs,
-		func(completed func() error) error {
-			return request.databaseManager.ConnectionManager().Drain(databaseKey.DatabaseId, databaseKey.BranchId, func() error {
-				log.Println("Database connections drained")
-				return completed()
-			})
+		func(restoreFunc func() error) error {
+			return restoreFunc()
 		},
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": err.Error(),
 		}, 500, nil)
 	}
 
-	return JsonResponse(map[string]interface{}{
+	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": "Database restored successfully",
 	}, 200, nil)

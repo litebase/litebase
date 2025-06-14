@@ -1060,7 +1060,7 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
-		now := time.Now()
+		now := time.Now().UTC()
 
 		file1 := &storage.TieredFile{
 			TieredFileSystemDriver: tieredFileSystemDriver,

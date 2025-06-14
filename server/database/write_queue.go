@@ -90,7 +90,7 @@ func (wq *WriteQueue) processQueue() {
 		result.err = err
 		job.result <- result
 		wq.resultPool.Put(result)
-		wq.activeAt = time.Now()
+		wq.activeAt = time.Now().UTC()
 
 		// Check if we should stop running
 		if !wq.running {

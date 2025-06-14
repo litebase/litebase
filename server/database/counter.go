@@ -62,7 +62,7 @@ func Key(databaseId, branchId string) string {
 }
 
 func PurgeTimestamps(minutes int) {
-	t := time.Now().Add(-time.Minute - time.Minute*time.Duration(minutes))
+	t := time.Now().UTC().Add(-time.Minute - time.Minute*time.Duration(minutes))
 	timestamp := t.Round(time.Minute).Unix()
 
 	for k := range QueryCounts {
@@ -78,9 +78,9 @@ func PurgeTimestamps(minutes int) {
 // are weighted by the number of minutes since the last request.
 func RequestsPerSecond(databaseId, branchId string) int {
 	timestamps := []int64{
-		time.Now().Add(-2 * time.Minute).Round(time.Minute).Unix(),
-		time.Now().Add(-1 * time.Minute).Round(time.Minute).Unix(),
-		time.Now().Round(time.Minute).Unix(),
+		time.Now().UTC().Add(-2 * time.Minute).Round(time.Minute).Unix(),
+		time.Now().UTC().Add(-1 * time.Minute).Round(time.Minute).Unix(),
+		time.Now().UTC().Round(time.Minute).Unix(),
 	}
 
 	counts := []int{0, 0, 0}

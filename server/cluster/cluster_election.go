@@ -39,7 +39,7 @@ type ClusterElection struct {
 // Create a new ClusterElection instance for the given node.
 func NewClusterElection(node *Node) *ClusterElection {
 	ctx, cancel := context.WithCancel(node.Context())
-	startedAt := time.Now()
+	startedAt := time.Now().UTC()
 
 	return &ClusterElection{
 		cancel:    cancel,
@@ -58,7 +58,7 @@ func (ce *ClusterElection) Context() context.Context {
 
 // Expired checks if the election has expired based on the current time.
 func (ce *ClusterElection) Expired() bool {
-	return time.Now().After(ce.EndsAt)
+	return time.Now().UTC().After(ce.EndsAt)
 }
 
 // Send requests to other nodes to get their votes for the current node to
@@ -263,7 +263,7 @@ func (ce *ClusterElection) Running() bool {
 // Stop the election process and mark the time it was stopped.
 func (ce *ClusterElection) Stop() {
 	ce.cancel()
-	ce.StoppedAt = time.Now()
+	ce.StoppedAt = time.Now().UTC()
 }
 
 // Check if the election has been stopped.

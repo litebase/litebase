@@ -62,7 +62,7 @@ func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId st
 		return false
 	}
 
-	databaseGroup.checkpointedAt = time.Now()
+	databaseGroup.checkpointedAt = time.Now().UTC()
 
 	return true
 }
@@ -286,7 +286,7 @@ func (c *ConnectionManager) ForceCheckpoint(databaseId string, branchId string) 
 		return err
 	}
 
-	databaseGroup.checkpointedAt = time.Now()
+	databaseGroup.checkpointedAt = time.Now().UTC()
 
 	return nil
 }
@@ -348,7 +348,7 @@ func (c *ConnectionManager) Release(databaseId string, branchId string, clientCo
 	for _, branchConnection := range c.databases[databaseId].branches[branchId] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
 			branchConnection.Release()
-			branchConnection.lastUsedAt = time.Now()
+			branchConnection.lastUsedAt = time.Now().UTC()
 			break
 		}
 	}

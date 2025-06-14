@@ -50,7 +50,7 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 	headers := map[string]string{
 		"Host":         request.URL.Host,
 		"Content-Type": "application/json",
-		"X-LBDB-Date":  fmt.Sprintf("%d", time.Now().Unix()),
+		"X-LBDB-Date":  fmt.Sprintf("%d", time.Now().UTC().Unix()),
 	}
 
 	for k, v := range headers {

@@ -144,7 +144,7 @@ func (n *Node) ensureNodeAddressStored() error {
 	if n.storedAddressAt.IsZero() || time.Since(n.storedAddressAt) > 1*time.Minute {
 		// Check if the address is already stored
 		if _, err := n.Cluster.NetworkFS().Stat(n.AddressPath()); err == nil {
-			n.storedAddressAt = time.Now()
+			n.storedAddressAt = time.Now().UTC()
 			return nil
 		}
 
@@ -314,10 +314,10 @@ func (n *Node) JoinCluster() error {
 		if err != nil {
 			slog.Debug("Failed to join cluster", "error", err)
 		} else {
-			n.joinedClusterAt = time.Now()
+			n.joinedClusterAt = time.Now().UTC()
 		}
 	} else {
-		n.joinedClusterAt = time.Now()
+		n.joinedClusterAt = time.Now().UTC()
 	}
 
 	err = n.Cluster.Broadcast("cluster:join", map[string]string{
@@ -425,7 +425,7 @@ func (n *Node) primaryLeaseVerification() bool {
 		return false
 	}
 
-	if time.Now().Unix() >= leaseTime {
+	if time.Now().UTC().Unix() >= leaseTime {
 		n.removePrimaryStatus()
 		n.SetMembership(ClusterMembershipReplica)
 
@@ -462,7 +462,7 @@ func (n *Node) primaryFileVerification() bool {
 		return false
 	}
 
-	if time.Now().Unix() < leaseTime {
+	if time.Now().UTC().Unix() < leaseTime {
 		return true
 	}
 
@@ -665,7 +665,7 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 	}
 
 	req.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-	req.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
+	req.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 
 	return nil
 }
@@ -743,7 +743,7 @@ func (n *Node) Shutdown() error {
 
 // Start the node and begin monitoring its state and heartbeat.
 func (n *Node) Start() chan bool {
-	n.startedAt = time.Now()
+	n.startedAt = time.Now().UTC()
 	n.replica = NewNodeReplica(n)
 
 	n.heartbeat()
@@ -779,7 +779,7 @@ func (n *Node) StepDown() error {
 func (n *Node) StoreAddress() error {
 tryStore:
 	timeBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timeBytes, uint64(time.Now().Unix()))
+	binary.LittleEndian.PutUint64(timeBytes, uint64(time.Now().UTC().Unix()))
 	err := n.Cluster.NetworkFS().WriteFile(n.AddressPath(), timeBytes, 0644)
 
 	if err != nil {
@@ -796,7 +796,7 @@ tryStore:
 		goto tryStore
 	}
 
-	n.storedAddressAt = time.Now()
+	n.storedAddressAt = time.Now().UTC()
 
 	return nil
 }
@@ -809,7 +809,7 @@ func (n *Node) Tick() {
 	}
 
 	n.mutex.Lock()
-	n.LastActive = time.Now()
+	n.LastActive = time.Now().UTC()
 	n.mutex.Unlock()
 
 	if n.State == NodeStateIdle {

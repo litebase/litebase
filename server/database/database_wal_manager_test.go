@@ -134,7 +134,8 @@ func TestDatabaseWALManager_InUse(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error creating WAL manager: %v", err)
 		}
-		timestamp := time.Now().UnixMilli()
+
+		timestamp := time.Now().UTC().UnixNano()
 
 		walVersion, err := walm.Get(timestamp)
 
@@ -224,7 +225,7 @@ func TestDatabaseWALManager_Release(t *testing.T) {
 			t.Errorf("Error creating WAL manager: %v", err)
 		}
 
-		timestamp := time.Now()
+		timestamp := time.Now().UTC()
 
 		walVersion, err := walm.Get(timestamp.UnixNano())
 

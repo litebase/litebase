@@ -28,7 +28,7 @@ func TestNewDatabaseWALSynchronizer(t *testing.T) {
 // 			db.BranchId,
 // 			0,
 // 			0,
-// 			time.Now().Unix(),
+// 			time.Now().UTC().Unix(),
 // 		)
 
 // 		if err != nil {
@@ -48,7 +48,7 @@ func TestNewDatabaseWALSynchronizer(t *testing.T) {
 // 			[]byte("hello"),
 // 			0,
 // 			1,
-// 			time.Now().Unix(),
+// 			time.Now().UTC().Unix(),
 // 		)
 
 // 		if err != nil {

@@ -78,8 +78,8 @@ func (u *UserManager) Add(username, password string, statements []AccessKeyState
 		Username:   username,
 		Password:   string(bytes),
 		Statements: statements,
-		CreatedAt:  time.Now().Format("2006-01-02 15:04:05"),
-		UpdatedAt:  time.Now().Format("2006-01-02 15:04:05"),
+		CreatedAt:  time.Now().UTC().Format("2006-01-02 15:04:05"),
+		UpdatedAt:  time.Now().UTC().Format("2006-01-02 15:04:05"),
 	}
 
 	return u.writeFile()

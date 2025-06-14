@@ -165,7 +165,7 @@ func (c *Checkpointer) Commit() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := c.snapshotLogger.Log(time.Now().UnixNano(), pageCount)
+		err := c.snapshotLogger.Log(time.Now().UTC().UnixNano(), pageCount)
 
 		if err != nil {
 			log.Println("Error logging checkpoint", err)

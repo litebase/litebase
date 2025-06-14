@@ -48,7 +48,7 @@ func (store *MapSecretsStore) Get(key string, cacheItemType interface{}) interfa
 		return nil
 	}
 
-	if time.Now().After(secret.ExpiresAt) {
+	if time.Now().UTC().After(secret.ExpiresAt) {
 		store.Forget(key)
 		return nil
 	}
@@ -72,7 +72,7 @@ func (store *MapSecretsStore) Put(key string, value interface{}, seconds time.Du
 
 	store.data[key] = MapSecret{
 		Value:     string(jsonValue),
-		ExpiresAt: time.Now().Add(seconds),
+		ExpiresAt: time.Now().UTC().Add(seconds),
 	}
 
 	return true

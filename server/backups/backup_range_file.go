@@ -44,8 +44,8 @@ func ReadBackupRangeFile(
 	// Check if now is the current hour of the restore point timestamp.
 	// If not, we need to get all the rollback logs for each hour between
 	// the restore point timestamp and now.
-	restoreStartOfHour := time.Unix(0, b.restorePoint.Timestamp).Truncate(time.Hour).UnixNano()
-	currentStartOfHour := time.Now().Truncate(time.Hour).UnixNano()
+	restoreStartOfHour := time.Unix(0, b.restorePoint.Timestamp).UTC().Truncate(time.Hour).UnixNano()
+	currentStartOfHour := time.Now().UTC().Truncate(time.Hour).UnixNano()
 
 	hourDifference := (currentStartOfHour - restoreStartOfHour) / time.Hour.Nanoseconds()
 

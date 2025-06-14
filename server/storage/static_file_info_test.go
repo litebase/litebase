@@ -10,7 +10,7 @@ import (
 func TestNewStaticFileInfo(t *testing.T) {
 	name := "file.txt"
 	size := int64(12345)
-	modTime := time.Now()
+	modTime := time.Now().UTC()
 
 	fi := storage.NewStaticFileInfo(name, size, modTime)
 
@@ -29,7 +29,7 @@ func TestStaticFileInfoIsDir(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		fi := storage.NewStaticFileInfo(tt.name, 0, time.Now())
+		fi := storage.NewStaticFileInfo(tt.name, 0, time.Now().UTC())
 
 		if got := fi.IsDir(); got != tt.expected {
 			t.Errorf("IsDir() = %v, want %v", got, tt.expected)
@@ -40,7 +40,7 @@ func TestStaticFileInfoIsDir(t *testing.T) {
 func TestStaticFileInfoName(t *testing.T) {
 	name := "file.txt"
 
-	fi := storage.NewStaticFileInfo(name, 0, time.Now())
+	fi := storage.NewStaticFileInfo(name, 0, time.Now().UTC())
 
 	if got := fi.Name(); got != name {
 		t.Errorf("Name() = %v, want %v", got, name)
@@ -50,7 +50,7 @@ func TestStaticFileInfoName(t *testing.T) {
 func TestStaticFileInfoSize(t *testing.T) {
 	size := int64(12345)
 
-	fi := storage.NewStaticFileInfo("file.txt", size, time.Now())
+	fi := storage.NewStaticFileInfo("file.txt", size, time.Now().UTC())
 
 	if got := fi.Size(); got != size {
 		t.Errorf("Size() = %v, want %v", got, size)
@@ -66,7 +66,7 @@ func TestStaticFileInfoMode(t *testing.T) {
 }
 
 func TestStaticFileInfoModTime(t *testing.T) {
-	modTime := time.Now()
+	modTime := time.Now().UTC()
 
 	fi := storage.NewStaticFileInfo("file.txt", 0, modTime)
 

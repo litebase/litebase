@@ -30,7 +30,7 @@ func ResolveQuery(logManager *logs.LogManager, query *Query, response *QueryResp
 
 func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *QueryResponse) (*QueryResponse, error) {
 	return resolveWithQueue(query, response, func(query *Query, response *QueryResponse) (*QueryResponse, error) {
-		start := time.Now()
+		start := time.Now().UTC()
 		var sqlite3Result *sqlite3.Result
 		var statement Statement
 		var changes int64

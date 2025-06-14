@@ -34,7 +34,7 @@ func NewObjectFile(fs *ObjectFileSystemDriver, key string, openFlags int, preExi
 		FileInfo: StaticFileInfo{
 			StaticName:    key,
 			StaticSize:    0,
-			StaticModTime: time.Now(),
+			StaticModTime: time.Now().UTC(),
 		},
 		fs:             fs,
 		Key:            key,

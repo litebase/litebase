@@ -85,9 +85,9 @@ func TestWALIndex_GetClosestVersion(t *testing.T) {
 			app.Cluster.LocalFS(),
 		)
 
-		past := time.Now().Add(-time.Second).UnixNano()
-		present := time.Now().UnixNano()
-		future := time.Now().Add(time.Second).UnixNano()
+		past := time.Now().UTC().Add(-time.Second).UnixNano()
+		present := time.Now().UTC().UnixNano()
+		future := time.Now().UTC().Add(time.Second).UnixNano()
 
 		walIndex.SetVersions([]int64{
 			past,
@@ -96,7 +96,7 @@ func TestWALIndex_GetClosestVersion(t *testing.T) {
 		})
 
 		// Get the closest version
-		version := walIndex.GetClosestVersion(time.Now().Local().UnixNano())
+		version := walIndex.GetClosestVersion(time.Now().UTC().UnixNano())
 
 		if version != present {
 			t.Fatalf("Expected version to be %d, but got: %d", present, version)
@@ -127,9 +127,9 @@ func TestWALIndex_GetClosestVersion_MicroSeconds(t *testing.T) {
 			app.Cluster.LocalFS(),
 		)
 
-		past := time.Now().Add(-time.Microsecond).UnixNano()
-		present := time.Now().UnixNano()
-		future := time.Now().Add(time.Microsecond).UnixNano()
+		past := time.Now().UTC().Add(-time.Microsecond).UnixNano()
+		present := time.Now().UTC().UnixNano()
+		future := time.Now().UTC().Add(time.Microsecond).UnixNano()
 
 		walIndex.SetVersions([]int64{
 			past,
@@ -211,9 +211,9 @@ func TestWALIndex_RemoveVersionsFrom(t *testing.T) {
 			app.Cluster.LocalFS(),
 		)
 
-		past := time.Now().Add(-time.Second).UnixNano()
-		present := time.Now().UnixNano()
-		future := time.Now().Add(time.Second).UnixNano()
+		past := time.Now().UTC().Add(-time.Second).UnixNano()
+		present := time.Now().UTC().UnixNano()
+		future := time.Now().UTC().Add(time.Second).UnixNano()
 
 		walIndex.SetVersions([]int64{
 			past,
@@ -309,9 +309,9 @@ func TestWALIndex_Truncate(t *testing.T) {
 			app.Cluster.LocalFS(),
 		)
 
-		past1 := time.Now().Add(-time.Hour * 26).UnixNano()
-		past2 := time.Now().Add(-time.Hour * 25).UnixNano()
-		present := time.Now().UnixNano()
+		past1 := time.Now().UTC().Add(-time.Hour * 26).UnixNano()
+		past2 := time.Now().UTC().Add(-time.Hour * 25).UnixNano()
+		present := time.Now().UTC().UnixNano()
 
 		walIndex.SetVersions([]int64{
 			past1,
