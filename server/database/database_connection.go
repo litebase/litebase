@@ -418,8 +418,6 @@ func (con *DatabaseConnection) ResultPool() *sqlite3.ResultPool {
 // Set the authorizer for the database connection.
 func (c *DatabaseConnection) SetAuthorizer() {
 	c.sqlite3.Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int {
-		// log.Println("Authorizer Action Code:", actionCode)
-		// log.Println("arg1:", arg1, "arg2:", arg2, "arg3:", arg3, "arg4:", arg4)
 		if c.AccessKey == nil {
 			return sqlite3.SQLITE_OK
 		}

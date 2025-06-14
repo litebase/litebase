@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/litebase/litebase/server"
@@ -109,6 +110,7 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 		}
 
 		// Remove the data path
+		time.Sleep(100 * time.Millisecond) // Give some time for the app to shutdown
 		os.RemoveAll(dataPath)
 	})
 }

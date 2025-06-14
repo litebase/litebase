@@ -58,8 +58,11 @@ func TestDatabaseWALManager_Create(t *testing.T) {
 
 func TestDatabaseWALManager_CreateFailsOnReplica(t *testing.T) {
 	test.Run(t, func() {
-		test.NewTestServer(t)
+		primary := test.NewTestServer(t)
+		defer primary.Shutdown()
+
 		replica := test.NewTestServer(t)
+		defer replica.Shutdown()
 
 		walm, err := database.NewDatabaseWALManager(
 			replica.App.Cluster.Node(),
@@ -333,8 +336,11 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 
 func TestDatabaseWALManager_RunGarbageCollectionFailsOnReplica(t *testing.T) {
 	test.Run(t, func() {
-		test.NewTestServer(t)
+		primary := test.NewTestServer(t)
+		defer primary.Shutdown()
+
 		replica := test.NewTestServer(t)
+		defer replica.Shutdown()
 
 		walm, err := database.NewDatabaseWALManager(
 			replica.App.Cluster.Node(),
@@ -359,8 +365,13 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 	test.Run(t, func() {
 
 		primary := test.NewTestServer(t)
+		defer primary.Shutdown()
+
 		replica1 := test.NewTestServer(t)
+		defer replica1.Shutdown()
+
 		replica2 := test.NewTestServer(t)
+		defer replica2.Shutdown()
 
 		db := test.MockDatabase(primary.App)
 

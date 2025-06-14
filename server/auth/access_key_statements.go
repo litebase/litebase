@@ -44,6 +44,10 @@ func (accessKey *AccessKey) authorizedForBranch(databaseId, branchId string, pri
 		return true
 	}
 
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database:*"), privilege) {
+		return true
+	}
+
 	// Any resource of the database
 	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), privilege) {
 		return true

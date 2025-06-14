@@ -1318,7 +1318,10 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 	t.Skip("Test is hanging, needs investigation")
 	test.Run(t, func() {
 		primaryServer := test.NewTestServer(t)
+		defer primaryServer.Shutdown()
+
 		replicaServer := test.NewTestServer(t)
+		defer replicaServer.Shutdown()
 
 		if !primaryServer.App.Cluster.Node().IsPrimary() {
 			t.Fatal("Primary server is not primary")
@@ -1500,7 +1503,9 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 // func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 // 	test.Run(t, func() {
 // 		primaryServer := test.NewTestServer(t)
+// 		defer primaryServer.Shutdown()
 // 		replicaServer := test.NewTestServer(t)
+// 		defer replicaServer.Shutdown()
 
 // 		if !primaryServer.App.Cluster.Node().IsPrimary() {
 // 			t.Fatal("Primary server is not primary")

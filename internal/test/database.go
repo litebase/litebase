@@ -45,6 +45,7 @@ func MockDatabase(app *server.App) TestDatabase {
 		AccessKeySecret: "accessKeySecret",
 		Statements: []auth.AccessKeyStatement{
 			{
+				Effect:   auth.AccessKeyEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{"*"},
 			},
