@@ -11,10 +11,10 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/backups"
+	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/server"
 	"github.com/litebase/litebase/server/database"
 	"github.com/litebase/litebase/server/file"
-	"github.com/litebase/litebase/server/sqlite3"
 	"github.com/litebase/litebase/server/storage"
 )
 

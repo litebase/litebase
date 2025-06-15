@@ -8,7 +8,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/litebase/litebase/server/sqlite3"
+	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
 func TestNewColumn(t *testing.T) {

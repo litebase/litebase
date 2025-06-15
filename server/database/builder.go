@@ -3,8 +3,8 @@ package database
 import (
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/server/logs"
-	"github.com/litebase/litebase/server/sqlite3"
 )
 
 type QueryBuilder struct {

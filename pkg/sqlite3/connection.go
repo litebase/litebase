@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/litebase/litebase/server/constants"
+	"github.com/litebase/litebase/pkg/constants"
 )
 
 /*

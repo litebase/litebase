@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/litebase/litebase/server/sqlite3"
+	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
 func TestNewStatement(t *testing.T) {

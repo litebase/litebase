@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"github.com/litebase/litebase/server/sqlite3"
+	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
 type NodeQueryBuilder interface {

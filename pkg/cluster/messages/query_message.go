@@ -1,6 +1,6 @@
 package messages
 
-import "github.com/litebase/litebase/server/sqlite3"
+import "github.com/litebase/litebase/pkg/sqlite3"
 
 type QueryMessage struct {
 	AccessKeyId string
