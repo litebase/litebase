@@ -9,8 +9,8 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/cluster/messages"
+	appHttp "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/server"
-	appHttp "github.com/litebase/litebase/server/http"
 )
 
 func TestClusterConnectionController(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	appHttp "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/server"
-	appHttp "github.com/litebase/litebase/server/http"
 )
 
 func TestClusterElectionController(t *testing.T) {

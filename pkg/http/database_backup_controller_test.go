@@ -7,8 +7,8 @@ import (
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
+	appHttp "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/storage"
-	appHttp "github.com/litebase/litebase/server/http"
 )
 
 func TestDatabaseBackupStoreController(t *testing.T) {
