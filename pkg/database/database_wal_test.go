@@ -11,8 +11,8 @@ import (
 	"slices"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/database"
 )
 
 func TestNewDatabaseWAL(t *testing.T) {

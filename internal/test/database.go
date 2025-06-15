@@ -8,9 +8,9 @@ import (
 	"log"
 
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/database"
 	"github.com/litebase/litebase/server/file"
 )
 

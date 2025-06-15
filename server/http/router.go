@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/litebase/litebase/pkg/cluster"
-	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/server/logs"
 )
 

@@ -3,7 +3,7 @@ package database_test
 import (
 	"testing"
 
-	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/pkg/database"
 )
 
 func TestQueryValidationError(t *testing.T) {

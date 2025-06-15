@@ -7,8 +7,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/sqlite3"
-	"github.com/litebase/litebase/server/database"
 )
 
 func TestNewQueryResponse(t *testing.T) {

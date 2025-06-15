@@ -11,9 +11,9 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/database"
 )
 
 func TestNewDatabaseConnection(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/pkg/database"
 )
 
 func TestCheckpointEncode(t *testing.T) {

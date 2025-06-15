@@ -1,7 +1,7 @@
 package http
 
 import (
-	"github.com/litebase/litebase/server/database"
+	"github.com/litebase/litebase/pkg/database"
 )
 
 func QueryController(request *Request) Response {
