@@ -3,7 +3,7 @@ package auth
 import (
 	"log"
 
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 
 	"github.com/litebase/litebase/common/config"
 )

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/backups"
+	"github.com/litebase/litebase/pkg/storage"
 	"github.com/litebase/litebase/server/file"
-	"github.com/litebase/litebase/server/storage"
 )
 
 type Checkpointer struct {

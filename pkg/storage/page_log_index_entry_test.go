@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 func TestNewPageLogIndexEntry(t *testing.T) {

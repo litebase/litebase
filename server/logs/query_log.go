@@ -16,8 +16,8 @@ import (
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/storage"
 	"github.com/litebase/litebase/server/file"
-	"github.com/litebase/litebase/server/storage"
 )
 
 var QueryLogFlushInterval = time.Second * 5

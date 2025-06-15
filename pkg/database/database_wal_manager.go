@@ -10,7 +10,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/cluster/messages"
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 type DatabaseWALManager struct {

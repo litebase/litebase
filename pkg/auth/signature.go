@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/litebase/litebase/common/config"
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 func InitSignature(c *config.Config, objectFS *storage.FileSystem) error {

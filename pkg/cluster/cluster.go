@@ -16,7 +16,7 @@ import (
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 const (

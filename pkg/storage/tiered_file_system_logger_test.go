@@ -3,7 +3,7 @@ package storage_test
 import (
 	"testing"
 
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 func TestNewTieredFileSystemLogger(t *testing.T) {

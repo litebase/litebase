@@ -6,8 +6,8 @@ import (
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/storage"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/storage"
 )
 
 func TestNewLocalFileSystemDriver(t *testing.T) {

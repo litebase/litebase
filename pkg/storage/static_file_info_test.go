@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 func TestNewStaticFileInfo(t *testing.T) {

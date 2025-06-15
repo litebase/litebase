@@ -13,7 +13,7 @@ import (
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/cache"
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 const (

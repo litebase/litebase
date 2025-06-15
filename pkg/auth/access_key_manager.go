@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/common/config"
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 type AccessKeyManager struct {

@@ -12,7 +12,7 @@ import (
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/cache"
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 // The Query Index stores the queries that have been executed on the database.

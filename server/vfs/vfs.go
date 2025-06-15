@@ -21,7 +21,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/litebase/litebase/server/storage"
+	"github.com/litebase/litebase/pkg/storage"
 )
 
 var vfsMutex = &sync.RWMutex{}
