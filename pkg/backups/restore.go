@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server/file"
 )
 
 var ErrorRestoreBackupNotFound = errors.New("restore backup not found")

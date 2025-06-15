@@ -9,8 +9,8 @@ import (
 
 	"github.com/litebase/litebase/common/config"
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server/file"
 )
 
 var ErrorBackupRangeFileEmpty = errors.New("backup range file is empty")

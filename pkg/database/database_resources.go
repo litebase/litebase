@@ -7,9 +7,9 @@ import (
 
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/pkg/backups"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server/file"
 )
 
 type DatabaseResources struct {

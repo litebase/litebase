@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/pkg/file"
 )
 
 const (

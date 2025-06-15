@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/file"
+	"github.com/litebase/litebase/pkg/file"
 )
 
 // const PageLogManagerCompactionInterval = time.Second * 1

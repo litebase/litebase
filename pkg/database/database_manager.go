@@ -10,8 +10,8 @@ import (
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server/file"
 
 	"github.com/google/uuid"
 )
