@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 func TestClusterStatusController(t *testing.T) {

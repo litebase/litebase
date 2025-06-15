@@ -12,7 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/litebase/litebase/common/config"
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/server/file"
 	"github.com/litebase/litebase/server/sqlite3"
 	"github.com/litebase/litebase/server/storage"

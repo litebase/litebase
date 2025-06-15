@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 type mockPrivilege string

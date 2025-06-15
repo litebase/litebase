@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 func DatabaseIndexController(request *Request) Response {

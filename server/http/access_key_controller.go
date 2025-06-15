@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 // List all access keys

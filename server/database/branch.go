@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/common/config"
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 
 	"github.com/google/uuid"
 	"github.com/sqids/sqids-go"

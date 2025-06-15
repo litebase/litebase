@@ -1,7 +1,7 @@
 package http
 
 import (
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 type SingatureStoreRequest struct {

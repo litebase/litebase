@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/server/cluster"
 	"github.com/litebase/litebase/server/logs"
 	"github.com/litebase/litebase/server/sqlite3"

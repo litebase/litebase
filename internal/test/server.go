@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/auth"
 )
 
 type TestServer struct {

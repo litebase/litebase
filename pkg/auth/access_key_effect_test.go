@@ -3,7 +3,7 @@ package auth_test
 import (
 	"testing"
 
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 func TestAccessKeyEffect(t *testing.T) {

@@ -3,7 +3,7 @@ package http
 import (
 	"fmt"
 
-	"github.com/litebase/litebase/server/auth"
+	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/server/backups"
 )
 

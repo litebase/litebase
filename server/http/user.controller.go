@@ -1,6 +1,6 @@
 package http
 
-import "github.com/litebase/litebase/server/auth"
+import "github.com/litebase/litebase/pkg/auth"
 
 type UserControllerStoreRequest struct {
 	Username   string                    `json:"username" validate:"required"`
