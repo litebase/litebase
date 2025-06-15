@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/litebase/litebase/cli/cmd"
+	"github.com/litebase/litebase/pkg/cli/cmd"
 )
 
 func main() {
