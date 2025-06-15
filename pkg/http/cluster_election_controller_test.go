@@ -9,7 +9,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	appHttp "github.com/litebase/litebase/pkg/http"
-	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/pkg/server"
 )
 
 func TestClusterElectionController(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server"
 )
 
 func TestNewDatabaseMetadata(t *testing.T) {

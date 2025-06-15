@@ -9,9 +9,9 @@ import (
 	"github.com/litebase/litebase/pkg/backups"
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server"
 )
 
 func TestCopySourceDatabaseToTargetDatabase(t *testing.T) {

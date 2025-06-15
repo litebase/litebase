@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/sqlite3"
-	"github.com/litebase/litebase/server"
 )
 
 func TestDatabaseServerCorrectness_100(t *testing.T) {

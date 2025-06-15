@@ -6,8 +6,7 @@ import (
 	"os"
 
 	"github.com/litebase/litebase/common/config"
-
-	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/pkg/server"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"

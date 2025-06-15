@@ -7,7 +7,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
-	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/pkg/server"
 )
 
 func TestNewDatabaseWAlManager(t *testing.T) {

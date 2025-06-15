@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server"
 )
 
 func TestNewPageLoggerIndex(t *testing.T) {

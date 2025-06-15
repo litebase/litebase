@@ -12,7 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/pkg/database"
-	"github.com/litebase/litebase/server"
+	"github.com/litebase/litebase/pkg/server"
 )
 
 func TestNewNode(t *testing.T) {

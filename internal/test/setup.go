@@ -10,8 +10,8 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server"
 )
 
 var envDataPath string
