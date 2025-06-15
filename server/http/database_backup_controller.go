@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/pkg/backups"
 )
 
 type DatabaseBackupStoreRequest struct{}

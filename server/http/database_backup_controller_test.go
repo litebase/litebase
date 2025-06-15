@@ -6,7 +6,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/pkg/backups"
 	appHttp "github.com/litebase/litebase/server/http"
 	"github.com/litebase/litebase/server/storage"
 )

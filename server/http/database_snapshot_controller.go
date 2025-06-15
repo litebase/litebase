@@ -3,7 +3,7 @@ package http
 import (
 	"strconv"
 
-	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/pkg/backups"
 )
 
 func DatabaseSnapshotIndexController(request *Request) Response {

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/backups"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/backups"
 )
 
 func TestNewSnapshotLogger(t *testing.T) {

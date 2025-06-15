@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/pkg/backups"
 	"github.com/litebase/litebase/server/file"
 	"github.com/litebase/litebase/server/storage"
 )

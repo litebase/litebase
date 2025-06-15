@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/joho/godotenv"
-	"github.com/litebase/litebase/router"
+	"github.com/litebase/litebase/pkg/router"
 )
 
 func main() {

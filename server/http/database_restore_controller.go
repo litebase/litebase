@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/server/backups"
+	"github.com/litebase/litebase/pkg/backups"
 )
 
 type DatabaseRestoreRequest struct {
