@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/server/file"
 	"github.com/litebase/litebase/server/storage"
 

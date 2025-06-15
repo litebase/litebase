@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
-	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/pkg/cluster"
 )
 
 func TestBroadcast(t *testing.T) {

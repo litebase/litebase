@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/pkg/cluster"
 )
 
 var ErrInvalidTransactionResponse = errors.New("invalid transaction response")

@@ -8,8 +8,8 @@ import (
 	"slices"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/cluster"
 )
 
 func TestNewClusterElection(t *testing.T) {

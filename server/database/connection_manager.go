@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/pkg/cluster"
 )
 
 const (

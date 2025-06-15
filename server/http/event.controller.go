@@ -1,7 +1,7 @@
 package http
 
 import (
-	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/pkg/cluster"
 )
 
 func EventStoreController(request *Request) Response {

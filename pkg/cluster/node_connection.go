@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/pkg/cluster/messages"
 )
 
 // After this amount of time without receiving a message from the node,

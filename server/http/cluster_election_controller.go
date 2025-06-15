@@ -3,7 +3,7 @@ package http
 import (
 	"time"
 
-	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/pkg/cluster"
 )
 
 type ClusterElectionRequest struct {

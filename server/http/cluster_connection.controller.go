@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/pkg/cluster/messages"
 )
 
 var clusterConnectionBufferPool = sync.Pool{

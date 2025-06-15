@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/server/logs"
 	"github.com/litebase/litebase/server/sqlite3"
 )

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/cluster/messages"
 	appHttp "github.com/litebase/litebase/server/http"
 )
 

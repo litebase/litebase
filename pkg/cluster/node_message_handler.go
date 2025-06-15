@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/pkg/cluster/messages"
 )
 
 // Handle a message from a node in the cluster.

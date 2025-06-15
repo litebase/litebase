@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/server/cluster/messages"
+	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/server/storage"
 )
 

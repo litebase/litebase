@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/cluster"
 )
 
 func TestNewLease(t *testing.T) {

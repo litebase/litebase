@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/server/cluster"
+	"github.com/litebase/litebase/pkg/cluster"
 )
 
 type TransactionManager struct {

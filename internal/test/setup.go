@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/cluster"
 	"github.com/litebase/litebase/server/storage"
 )
 
