@@ -17,21 +17,19 @@ jobs:
       matrix:
         package:
           [
-            { name: 'Auth', path: pkg/auth },
-            { name: 'Backups', path: pkg/backups },
-            { name: 'Cache', path: pkg/cache },
-            { name: 'Cluster', path: pkg/cluster },
-            { name: 'Database', path: pkg/database },
-            { name: 'Event', path: pkg/event },
-            { name: 'File', path: pkg/file },
-            { name: 'HTTP', path: pkg/http },
-            { name: 'Logs', path: pkg/logs },
-            { name: 'SQLite3', path: pkg/sqlite3 },
-            { name: 'VFS', path: pkg/vfs },
+            { name: 'auth', path: pkg/auth },
+            { name: 'backups', path: pkg/backups },
+            { name: 'cache', path: pkg/cache },
+            { name: 'cluster', path: pkg/cluster },
+            { name: 'database', path: pkg/database },
+            { name: 'http', path: pkg/http },
+            { name: 'logs', path: pkg/logs },
+            { name: 'sqlite3', path: pkg/sqlite3 },
+            { name: 'vfs', path: pkg/vfs },
           ]
     defaults:
       run:
-        working-directory: ./${{ matrix.package.path }}
+        working-directory: ${{ matrix.package.path }}
 
     steps:
       - uses: actions/checkout@v4
