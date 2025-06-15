@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -178,7 +179,7 @@ func GetPrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Private
 		privateKey, err := objectFS.ReadFile(KeyPath("private", signature))
 
 		if err != nil {
-			log.Println("ERROR", err)
+			slog.Debug("Failed to read private key", "error", err.Error())
 			return nil, err
 		}
 

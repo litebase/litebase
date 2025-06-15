@@ -120,8 +120,22 @@ func (accessKey *AccessKey) authorizedForTable(databaseId, branchId, table strin
 		return true
 	}
 
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", "*"), privilege) {
+		return true
+	}
+
 	// Any resource of the specific database
 	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "*"), privilege) {
+		return true
+	}
+
+	// Any resource of the specific database and branch
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", "*"), privilege) {
+		return true
+	}
+
+	// Any resource of the specific database and branch
+	if Authorized(accessKey.Statements, accessKey.authorizationKey("database", databaseId, "branch", branchId), privilege) {
 		return true
 	}
 
