@@ -80,6 +80,10 @@ func (c *Cluster) ReceiveEvent(message *EventMessage) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	if c.eventsChannel == nil {
+		return
+	}
+
 	if _, ok := c.subscriptions[message.Key]; ok {
 		select {
 		case <-c.node.Context().Done():
@@ -140,7 +144,10 @@ func (c *Cluster) Subscribe(key string, f EventHandler) {
 
 func (c *Cluster) runEventLoop() {
 	go func() {
-		defer close(c.eventsChannel)
+		defer func() {
+			close(c.eventsChannel)
+			c.eventsChannel = nil
+		}()
 
 		for {
 			select {

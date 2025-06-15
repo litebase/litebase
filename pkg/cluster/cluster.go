@@ -31,8 +31,7 @@ const (
 type Cluster struct {
 	Auth               *auth.Auth             `json:"-"`
 	AccessKeyManager   *auth.AccessKeyManager `json:"-"`
-	subscriptions      map[string][]EventHandler
-	Config             *config.Config `json:"-"`
+	Config             *config.Config         `json:"-"`
 	eventsChannel      chan *EventMessage
 	eventsManager      *EventsManager
 	fileSystemMutex    *sync.Mutex
@@ -43,6 +42,7 @@ type Cluster struct {
 	MembersRetrievedAt time.Time `json:"-"`
 	mutex              *sync.Mutex
 	node               *Node
+	subscriptions      map[string][]EventHandler
 
 	localFileSystem     *storage.FileSystem
 	objectFileSystem    *storage.FileSystem
