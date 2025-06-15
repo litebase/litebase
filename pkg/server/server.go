@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
 )
 

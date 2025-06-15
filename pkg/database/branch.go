@@ -4,8 +4,8 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/config"
 
 	"github.com/google/uuid"
 	"github.com/sqids/sqids-go"

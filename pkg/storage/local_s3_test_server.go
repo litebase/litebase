@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3afero"

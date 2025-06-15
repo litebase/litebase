@@ -3,7 +3,7 @@
 
 package storage
 
-import "github.com/litebase/litebase/common/config"
+import "github.com/litebase/litebase/pkg/config"
 
 func Init(
 	c *config.Config,

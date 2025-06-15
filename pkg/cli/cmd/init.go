@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/config"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"

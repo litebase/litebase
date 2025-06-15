@@ -4,7 +4,7 @@
 package storage
 
 import (
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 )
 
 // Init initializes the storage package with the given IP address and encryption

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 )
 
 func DatabaseDirectory() string {

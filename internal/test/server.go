@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 )
 

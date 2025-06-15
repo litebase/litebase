@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 
 	"github.com/joho/godotenv"

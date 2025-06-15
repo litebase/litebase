@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 )
 
 func NextSignatureHandler(c *config.Config, data any) {

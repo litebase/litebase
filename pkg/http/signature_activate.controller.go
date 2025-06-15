@@ -3,7 +3,7 @@ package http
 import (
 	"github.com/litebase/litebase/pkg/auth"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 )
 
 type SingatureActivateRequest struct {

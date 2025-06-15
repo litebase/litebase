@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 
 	"golang.org/x/crypto/bcrypt"
 )

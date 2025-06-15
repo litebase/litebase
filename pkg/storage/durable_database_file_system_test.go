@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
 )

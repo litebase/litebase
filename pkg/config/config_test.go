@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/config"
 )
 
 func TestInit(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"

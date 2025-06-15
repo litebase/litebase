@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/litebase/litebase/common/config"
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
 )
 

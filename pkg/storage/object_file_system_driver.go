@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/s2"
-	"github.com/litebase/litebase/common/config"
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/pkg/config"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-
-	_auth "github.com/litebase/litebase/common/auth"
 )
 
 type AccessKey struct {
@@ -50,7 +48,7 @@ func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []P
 
 // Delete the AccessKey from the filesystem.
 func (accessKey *AccessKey) Delete() error {
-	signatures := _auth.AllSignatures(
+	signatures := AllSignatures(
 		accessKey.accessKeyManager.objectFS,
 	)
 

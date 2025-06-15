@@ -5,7 +5,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/storage"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 )
 
 /*

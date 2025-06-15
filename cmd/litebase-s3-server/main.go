@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
 
 	"github.com/joho/godotenv"

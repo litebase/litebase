@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/cluster/messages"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/server"
 )

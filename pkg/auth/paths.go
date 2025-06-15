@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 
-	"github.com/litebase/litebase/common/config"
+	"github.com/litebase/litebase/pkg/config"
 )
 
 func GetDatabaseKeysPath(signature string) string {

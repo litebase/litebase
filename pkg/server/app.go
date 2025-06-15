@@ -1,9 +1,9 @@
 package server
 
 import (
-	"github.com/litebase/litebase/common/config"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/logs"
