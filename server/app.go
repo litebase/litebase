@@ -6,8 +6,8 @@ import (
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/http"
+	"github.com/litebase/litebase/pkg/logs"
 	"github.com/litebase/litebase/pkg/storage"
-	"github.com/litebase/litebase/server/logs"
 
 	netHttp "net/http"
 )

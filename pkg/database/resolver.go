@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster/messages"
+	"github.com/litebase/litebase/pkg/logs"
 	"github.com/litebase/litebase/pkg/sqlite3"
-	"github.com/litebase/litebase/server/logs"
 )
 
 func ResolveQuery(logManager *logs.LogManager, query *Query, response *QueryResponse) (*QueryResponse, error) {

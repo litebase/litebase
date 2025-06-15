@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/logs"
 	"github.com/litebase/litebase/server"
-	"github.com/litebase/litebase/server/logs"
 )
 
 func TestNewLogManager(t *testing.T) {

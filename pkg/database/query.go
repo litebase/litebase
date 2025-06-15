@@ -5,7 +5,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
-	"github.com/litebase/litebase/server/logs"
+	"github.com/litebase/litebase/pkg/logs"
 )
 
 type Query struct {

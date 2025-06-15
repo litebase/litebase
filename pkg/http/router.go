@@ -10,7 +10,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/database"
-	"github.com/litebase/litebase/server/logs"
+	"github.com/litebase/litebase/pkg/logs"
 )
 
 type Router struct {

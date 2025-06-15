@@ -3,7 +3,7 @@ package http
 import (
 	"strconv"
 
-	"github.com/litebase/litebase/server/logs"
+	"github.com/litebase/litebase/pkg/logs"
 )
 
 func QueryLogController(request *Request) Response {
