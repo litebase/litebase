@@ -13,15 +13,43 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          [
+            { name: 'Auth', path: pkg/auth },
+            { name: 'Backups', path: pkg/backups },
+            { name: 'Cache', path: pkg/cache },
+            { name: 'Cluster', path: pkg/cluster },
+            { name: 'Database', path: pkg/database },
+            { name: 'Event', path: pkg/event },
+            { name: 'File', path: pkg/file },
+            { name: 'HTTP', path: pkg/http },
+            { name: 'Logs', path: pkg/logs },
+            { name: 'SQLite3', path: pkg/sqlite3 },
+            { name: 'VFS', path: pkg/vfs },
+          ]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package.path }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.19
-          cache: true
+          go-version: 1.24
+
+      - name: Install dependencies
+        run: go get .
 
       - name: Run tests
-        run: go test runtime
+        run: |
+          go test . -v -json > TestResults-matrix.package${{ matrix.package.name }}.json
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults-${{ matrix.package.name }}
+          path: TestResults-${{ matrix.package.name }}.json
