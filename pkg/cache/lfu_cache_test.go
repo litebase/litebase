@@ -3,7 +3,7 @@ package cache_test
 import (
 	"testing"
 
-	"github.com/litebase/litebase/server/cache"
+	"github.com/litebase/litebase/pkg/cache"
 )
 
 func TestLFUCacheDelete(t *testing.T) {
