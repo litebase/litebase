@@ -31,7 +31,7 @@ jobs:
           ]
     defaults:
       run:
-        working-directory: ${{ matrix.package.path }}
+        working-directory: ./${{ matrix.package.path }}
 
     steps:
       - uses: actions/checkout@v4
