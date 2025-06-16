@@ -53,7 +53,12 @@ func TestClusterInitNoClusterId(t *testing.T) {
 		}
 	}()
 
-	test.RunWithApp(t, func(app *server.App) {
+	test.Run(t, func() {
+		c := config.NewConfig()
+
+		c.ClusterId = ""
+
+		server.NewApp(c, nil)
 	})
 }
 
