@@ -7,6 +7,8 @@ import (
 	"errors"
 	"math"
 	"sync"
+
+	"github.com/litebase/litebase/internal/utils"
 )
 
 /*
@@ -93,7 +95,13 @@ func (c *Column) Encode(buffer *bytes.Buffer) error {
 
 		// Length of the column value
 		var columnValueLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(columnValueLengthBytes[:], uint32(len(c.ColumnValue)))
+		uint32ValueLen, err := utils.SafeIntToUint32(len(c.ColumnValue))
+
+		if err != nil {
+			return err
+		}
+
+		binary.LittleEndian.PutUint32(columnValueLengthBytes[:], uint32ValueLen)
 		buffer.Write(columnValueLengthBytes[:])
 
 		if err != nil {
@@ -116,7 +124,13 @@ func (c *Column) Encode(buffer *bytes.Buffer) error {
 
 		// Length of the column value
 		var columnValueLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(columnValueLengthBytes[:], uint32(len(c.ColumnValue)))
+		uint32ValueLen, err := utils.SafeIntToUint32(len(c.ColumnValue))
+
+		if err != nil {
+			return err
+		}
+
+		binary.LittleEndian.PutUint32(columnValueLengthBytes[:], uint32ValueLen)
 		buffer.Write(columnValueLengthBytes[:])
 
 		if err != nil {
@@ -139,7 +153,13 @@ func (c *Column) Encode(buffer *bytes.Buffer) error {
 
 		// Length of the column value
 		var columnValueLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(columnValueLengthBytes[:], uint32(len(c.ColumnValue)))
+		uint32ValueLen, err := utils.SafeIntToUint32(len(c.ColumnValue))
+
+		if err != nil {
+			return err
+		}
+
+		binary.LittleEndian.PutUint32(columnValueLengthBytes[:], uint32ValueLen)
 		buffer.Write(columnValueLengthBytes[:])
 
 		if err != nil {
@@ -181,7 +201,13 @@ func (c *Column) Float64() float64 {
 }
 
 func (c *Column) Int64() int64 {
-	return int64(binary.LittleEndian.Uint64(c.ColumnValue))
+	int64Value, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(c.ColumnValue))
+
+	if err != nil {
+		return 0
+	}
+
+	return int64Value
 }
 
 func (c *Column) Reset() {
@@ -201,24 +227,26 @@ func (c *Column) MarshalJSON() ([]byte, error) {
 
 	encoder := json.NewEncoder(buffer)
 
+	var err error
+
 	switch c.ColumnType {
 	case ColumnTypeInteger:
-		encoder.Encode(c.Int64())
+		err = encoder.Encode(c.Int64())
 	case ColumnTypeFloat:
-		encoder.Encode(c.Float64())
+		err = encoder.Encode(c.Float64())
 	case ColumnTypeText:
-		encoder.Encode(string(c.ColumnValue))
+		err = encoder.Encode(string(c.ColumnValue))
 	case ColumnTypeBlob:
-		encoder.Encode(string(c.ColumnValue))
+		err = encoder.Encode(string(c.ColumnValue))
 	case ColumnTypeNull:
-		encoder.Encode(nil)
+		err = encoder.Encode(nil)
 	default:
 		return nil, ErrInvalidColumnValue
 	}
 
-	// if err := encoder.Encode(c.ColumnValue); err != nil {
-	// 	return nil, err
-	// }
+	if err != nil {
+		return nil, err
+	}
 
 	return buffer.Bytes(), nil
 }

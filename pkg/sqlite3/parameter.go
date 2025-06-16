@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"math"
 	"sync"
+
+	"github.com/litebase/litebase/internal/utils"
 )
 
 const (
@@ -46,7 +48,13 @@ func (sp StatementParameter) Encode(buffer *bytes.Buffer) []byte {
 		buffer.Write(valueLengthBytes[:])
 
 		var valueBytes [8]byte
-		binary.LittleEndian.PutUint64(valueBytes[:], uint64(sp.Value.(int64)))
+		uint64Value, err := utils.SafeInt64ToUint64(sp.Value.(int64))
+
+		if err != nil {
+			return nil
+		}
+
+		binary.LittleEndian.PutUint64(valueBytes[:], uint64Value)
 		buffer.Write(valueBytes[:])
 	case "FLOAT":
 		buffer.WriteByte(uint8(ColumnTypeFloat))
@@ -62,7 +70,13 @@ func (sp StatementParameter) Encode(buffer *bytes.Buffer) []byte {
 		buffer.WriteByte(uint8(ColumnTypeText))
 
 		var valueLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(valueLengthBytes[:], uint32(len(sp.Value.(string))))
+		uint32ValueLen, err := utils.SafeIntToUint32(len(sp.Value.(string)))
+
+		if err != nil {
+			return nil
+		}
+
+		binary.LittleEndian.PutUint32(valueLengthBytes[:], uint32ValueLen)
 		buffer.Write(valueLengthBytes[:])
 
 		buffer.Write([]byte(sp.Value.(string)))
@@ -70,7 +84,13 @@ func (sp StatementParameter) Encode(buffer *bytes.Buffer) []byte {
 		buffer.WriteByte(uint8(ColumnTypeBlob))
 
 		var valueLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(valueLengthBytes[:], uint32(len(sp.Value.([]byte))))
+		uint32ValueLen, err := utils.SafeIntToUint32(len(sp.Value.([]byte)))
+
+		if err != nil {
+			return nil
+		}
+
+		binary.LittleEndian.PutUint32(valueLengthBytes[:], uint32ValueLen)
 		buffer.Write(valueLengthBytes[:])
 
 		buffer.Write(sp.Value.([]byte))
@@ -96,7 +116,14 @@ func DecodeStatementParameter(buffer *bytes.Buffer) (StatementParameter, error) 
 	switch parameterType {
 	case ColumnTypeInteger:
 		sp.Type = "INTEGER"
-		sp.Value = int64(binary.LittleEndian.Uint64(buffer.Next(8)))
+
+		int64Value, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(buffer.Next(8)))
+
+		if err != nil {
+			return sp, err
+		}
+
+		sp.Value = int64Value
 	case ColumnTypeFloat:
 		sp.Type = "FLOAT"
 		sp.Value = math.Float64frombits(binary.LittleEndian.Uint64(buffer.Next(8)))

@@ -17,10 +17,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
+	"math"
 	"strings"
 	"sync"
 	"unsafe"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
@@ -63,15 +66,29 @@ func RegisterVFS(
 		return nil, errors.New("pageSize must be at least 512")
 	}
 
+	// Check for integer overflow when converting int64 to int32
+	if pageSize > math.MaxInt32 {
+		return nil, errors.New("pageSize exceeds maximum allowed value for int32")
+	}
+
 	// Only register the VFS if it doesn't already exist
 	if lVfs, ok := VfsMap[vfsHash]; ok {
 		return lVfs, nil
 	}
 
-	cZvfsId := C.CString(vfsHash)
+	cZvfsId, err := utils.SafeCString(vfsHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert vfsHash to C string: %v", err)
+	}
 	defer C.free(unsafe.Pointer(cZvfsId))
 
-	C.newVfs(cZvfsId, C.int(pageSize))
+	int32PageSize, err := utils.SafeInt64ToInt32(pageSize)
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid pageSize: %v", err)
+	}
+
+	C.newVfs((*C.char)(cZvfsId), C.int(int32PageSize))
 
 	// Check if the WAL is already registered
 	if VfsShmMap[vfsDatabaseHash] == nil {
@@ -106,10 +123,13 @@ func UnregisterVFS(vfsId string) error {
 		return errors.New("vfsId not found")
 	}
 
-	cvfsId := C.CString(vfsId)
+	cvfsId, err := utils.SafeCString(vfsId)
+	if err != nil {
+		return fmt.Errorf("failed to convert vfsId to C string: %v", err)
+	}
 	defer C.free(unsafe.Pointer(cvfsId))
 
-	C.unregisterVfs(cvfsId)
+	C.unregisterVfs((*C.char)(cvfsId))
 
 	walHash = vfs.walHash
 
@@ -133,7 +153,16 @@ func UnregisterVFS(vfsId string) error {
 
 // Check if a VFS is registered by its ID.
 func VFSIsRegistered(vfsId string) bool {
-	vfsPointer := C.sqlite3_vfs_find(C.CString(vfsId))
+	if vfsId == "" {
+		return false
+	}
+	cVfsId, err := utils.SafeCString(vfsId)
+	if err != nil {
+		return false
+	}
+	defer C.free(unsafe.Pointer(cVfsId))
+
+	vfsPointer := C.sqlite3_vfs_find((*C.char)(cVfsId))
 
 	return vfsPointer != nil
 }
@@ -250,6 +279,12 @@ func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.
 //export goXRead
 func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	var err error
+
+	// Validate iAmt is positive to avoid integer overflow issues
+	if iAmt < 0 {
+		return C.SQLITE_IOERR_READ
+	}
+
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
 	vfs, err := getVfsFromFile(pFile)
@@ -277,6 +312,11 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 	vfs, err := getVfsFromFile(pFile)
 
 	if err != nil {
+		return C.SQLITE_IOERR_WRITE
+	}
+
+	// Validate iAmt is positive to avoid integer overflow issues
+	if iAmt < 0 {
 		return C.SQLITE_IOERR_WRITE
 	}
 
@@ -349,11 +389,24 @@ func goXShmMap(pFile *C.sqlite3_file, iPage C.int, pgsz C.int, bExtend C.int, pp
 		}
 	}
 
+	// Validate pgsz is positive before conversion to avoid integer overflow
+	if pgsz <= 0 {
+		slog.Error("goXShmMap: Invalid page size", "pgsz", pgsz)
+		return C.SQLITE_NOMEM
+	}
+
+	uint64Pgsz, err := utils.SafeInt32ToUint64(int32(pgsz))
+
+	if err != nil {
+		slog.Error("goXShmMap: Invalid page size", "error", err)
+		return C.SQLITE_NOMEM
+	}
+
 	// Allocate new shared memory region
 	newRegion := &ShmRegion{
 		id:    int(iPage),
-		pData: C.malloc(C.size_t(pgsz)),
-		size:  C.size_t(pgsz),
+		pData: C.malloc(C.size_t(uint64Pgsz)),
+		size:  C.size_t(uint64Pgsz),
 	}
 
 	if newRegion.pData == nil {

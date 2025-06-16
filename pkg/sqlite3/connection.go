@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"runtime/cgo"
 	"time"
 	"unsafe"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/constants"
 )
 
@@ -23,13 +25,13 @@ extern int go_progress_handler(uintptr_t connectionHandle);
 import "C"
 
 var (
-	SQL_BEGIN           = (*C.char)(unsafe.Pointer(C.CString("BEGIN")))
-	SQL_BEGIN_DEFERRED  = (*C.char)(unsafe.Pointer(C.CString("BEGIN DEFERRED")))
-	SQL_BEGIN_EXCLUSIVE = (*C.char)(unsafe.Pointer(C.CString("BEGIN EXCLUSIVE")))
-	SQL_BEGIN_IMMEDIATE = (*C.char)(unsafe.Pointer(C.CString("BEGIN IMMEDIATE")))
-	SQL_COMMIT          = (*C.char)(unsafe.Pointer(C.CString("COMMIT")))
-	SQL_ROLLBACK        = (*C.char)(unsafe.Pointer(C.CString("ROLLBACK")))
-	SQL_VACUUM          = (*C.char)(unsafe.Pointer(C.CString("VACUUM")))
+	SQL_BEGIN           = (*C.char)(utils.StaticSafeCString("BEGIN"))
+	SQL_BEGIN_DEFERRED  = (*C.char)(utils.StaticSafeCString("BEGIN DEFERRED"))
+	SQL_BEGIN_EXCLUSIVE = (*C.char)(utils.StaticSafeCString("BEGIN EXCLUSIVE"))
+	SQL_BEGIN_IMMEDIATE = (*C.char)(utils.StaticSafeCString("BEGIN IMMEDIATE"))
+	SQL_COMMIT          = (*C.char)(utils.StaticSafeCString("COMMIT"))
+	SQL_ROLLBACK        = (*C.char)(utils.StaticSafeCString("ROLLBACK"))
+	SQL_VACUUM          = (*C.char)(utils.StaticSafeCString("VACUUM"))
 )
 
 type OpenFlags C.int
@@ -43,7 +45,7 @@ type Connection struct {
 	sqlite3            *C.sqlite3
 }
 
-type Authorizer func(action int, arg1, arg2, dbName, triggerOrView string) (allow int)
+type Authorizer func(action int, arg1, arg2, dbName, triggerOrView string) (allow int32)
 
 func init() {
 	if err := C.sqlite3_initialize(); err != SQLITE_OK {
@@ -56,10 +58,26 @@ func (c *Connection) Base() *C.sqlite3 {
 }
 
 func Open(ctx context.Context, path, vfsId string, flags OpenFlags) (*Connection, error) {
+	// Validate input parameters to prevent potential issues with C.CString
+	if path == "" {
+		return nil, errors.New("path cannot be empty")
+	}
+
+	cName, err := utils.SafeCString(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert path to C string: %v", err)
+	}
+
+	cVfs, err := utils.SafeCString(vfsId)
+	if err != nil {
+		C.free(unsafe.Pointer(cName))
+		return nil, fmt.Errorf("failed to convert vfsId to C string: %v", err)
+	}
+
 	c := &Connection{
-		cName:   C.CString(path),
+		cName:   (*C.char)(cName),
 		context: ctx,
-		cVfs:    C.CString(vfsId),
+		cVfs:    (*C.char)(cVfs),
 		id:      vfsId,
 	}
 
@@ -139,7 +157,13 @@ func (c *Connection) BeginImmediate() error {
 
 // Set the busy timeout for the connection
 func (c *Connection) BusyTimeout(duration time.Duration) error {
-	if err := C.sqlite3_busy_timeout((*C.sqlite3)(c.sqlite3), C.int(duration/time.Millisecond)); err != SQLITE_OK {
+	durationInt32, err := utils.SafeInt64ToInt32(int64(duration / time.Millisecond))
+
+	if err != nil {
+		return err
+	}
+
+	if err := C.sqlite3_busy_timeout((*C.sqlite3)(c.sqlite3), C.int(durationInt32)); err != SQLITE_OK {
 		return errors.New(C.GoString(C.sqlite3_errstr(err)))
 	} else {
 		return nil
@@ -201,7 +225,16 @@ func (c *Connection) Error(code int) error {
 	message := C.GoString(C.sqlite3_errmsg((*C.sqlite3)(c.sqlite3)))
 
 	if message == "" {
-		message = C.GoString(C.sqlite3_errstr(C.int(code)))
+		var int32Code int32
+		var err error
+
+		int32Code, err = utils.SafeIntToInt32(code)
+
+		if err != nil {
+			slog.Error("Failed to convert error code to int32", "error", err)
+		}
+
+		message = C.GoString(C.sqlite3_errstr(C.int(int32Code)))
 	}
 
 	return fmt.Errorf("SQLite3 Error[%d]: %s", code, message)
@@ -264,8 +297,12 @@ func (c *Connection) Readonly(schema string) bool {
 		schema = "main"
 	}
 
-	cSchema = C.CString(schema)
-	defer C.free(unsafe.Pointer(cSchema))
+	schemaString, err := utils.SafeCString(schema)
+	if err != nil {
+		return false
+	}
+	cSchema = (*C.char)(schemaString)
+	defer C.free(unsafe.Pointer(schemaString))
 
 	r := int(C.sqlite3_db_readonly((*C.sqlite3)(c.sqlite3), cSchema))
 

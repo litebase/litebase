@@ -5,12 +5,32 @@ import (
 	"math"
 )
 
+func SafeIntToInt32(i int) (int32, error) {
+	if i < math.MinInt32 || i > math.MaxInt32 {
+		return 0, errors.New("integer overflow: value out of int32 range")
+	}
+
+	return int32(i), nil
+}
+
 func SafeIntToUint32(i int) (uint32, error) {
 	if i < 0 || i > math.MaxUint32 {
 		return 0, errors.New("integer overflow: value out of uint32 range")
 	}
 
 	return uint32(i), nil
+}
+
+func SafeInt64ToInt32(i int64) (int32, error) {
+	if i < math.MinInt32 || i > math.MaxInt32 {
+		return 0, errors.New("integer overflow: value out of int32 range")
+	}
+
+	return int32(i), nil
+}
+
+func SafeInt32ToUint64(u int32) (uint64, error) {
+	return uint64(u), nil
 }
 
 func SafeInt64ToUint32(i int64) (uint32, error) {

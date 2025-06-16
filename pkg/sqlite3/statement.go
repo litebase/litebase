@@ -14,6 +14,8 @@ import (
 	"math"
 	"sync"
 	"unsafe"
+
+	"github.com/litebase/litebase/internal/utils"
 )
 
 var statementBufferPool = sync.Pool{
@@ -47,10 +49,23 @@ func NewStatement(
 	c *Connection,
 	query []byte,
 ) (*Statement, int, error) {
+	// Validate query is not empty to prevent potential issues
+	if len(query) == 0 {
+		return nil, SQLITE_MISUSE, errors.New("query cannot be empty")
+	}
+
 	var cQuery, cExtra *C.char
 	var s *C.sqlite3_stmt
 
-	cQuery = C.CString(string(query))
+	var err error
+	safeQuery, err := utils.SafeCString(string(query))
+
+	if err != nil {
+		return nil, SQLITE_MISUSE, err
+	}
+
+	cQuery = (*C.char)(safeQuery)
+
 	defer C.free(unsafe.Pointer(cQuery))
 
 	if err := C.sqlite3_prepare_v3((*C.sqlite3)(c.sqlite3), cQuery, -1, C.SQLITE_PREPARE_PERSISTENT, &s, &cExtra); err != SQLITE_OK {
@@ -75,9 +90,16 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 	}
 
 	for i, parameter := range parameters {
-		index := C.int(i + 1)
+		int32Index, err := utils.SafeIntToInt32(i + 1)
+
+		if err != nil {
+			return err
+		}
+
+		index := C.int(int32Index)
 
 		var rc C.int
+
 		switch parameter.Type {
 		case "INTEGER":
 			value, ok := parameter.Value.(int64)
@@ -103,9 +125,15 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 
 			cText := (*C.char)(unsafe.Pointer(&value[0]))
 
-			cTextLen := C.int(len(value))
+			int32Len, err := utils.SafeIntToInt32(len(value))
 
-			rc = C.sqlite3_bind_text(s.sqlite3_stmt, C.int(index), cText, cTextLen, C.SQLITE_TRANSIENT)
+			if err != nil {
+				return err
+			}
+
+			cTextLen := C.int(int32Len)
+
+			rc = C.sqlite3_bind_text(s.sqlite3_stmt, C.int(int32Index), cText, cTextLen, C.SQLITE_TRANSIENT)
 		case "BLOB":
 			var valuePointer unsafe.Pointer
 			value := parameter.Value.([]byte)
@@ -114,7 +142,13 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 				valuePointer = unsafe.Pointer(&value[0])
 			}
 
-			rc = C.sqlite3_bind_blob(s.sqlite3_stmt, index, valuePointer, C.int(len(value)), C.SQLITE_TRANSIENT)
+			int32Len, err := utils.SafeIntToInt32(len(value))
+
+			if err != nil {
+				return err
+			}
+
+			rc = C.sqlite3_bind_blob(s.sqlite3_stmt, index, valuePointer, C.int(int32Len), C.SQLITE_TRANSIENT)
 		default:
 			rc = C.sqlite3_bind_null(s.sqlite3_stmt, index)
 		}
@@ -159,7 +193,13 @@ func (s *Statement) ColumnName(index int) string {
 		return ""
 	}
 
-	return C.GoString(C.sqlite3_column_name(s.sqlite3_stmt, C.int(index)))
+	int32Index, err := utils.SafeIntToInt32(index)
+
+	if err != nil {
+		return ""
+	}
+
+	return C.GoString(C.sqlite3_column_name(s.sqlite3_stmt, C.int(int32Index)))
 }
 
 // Get the names of all columns
@@ -186,16 +226,27 @@ func (s *Statement) ColumnValue(buffer *bytes.Buffer, columnType ColumnType, ind
 		return nil
 	}
 
+	int32Index, err := utils.SafeIntToInt32(index)
+	if err != nil {
+		return nil
+	}
+
 	switch columnType {
 	case SQLITE_INTEGER:
 		var columnValueBytes [8]byte
-		binary.LittleEndian.PutUint64(columnValueBytes[:], uint64(int64(C.sqlite3_column_int64(s.sqlite3_stmt, C.int(index)))))
+		uint64Value, err := utils.SafeInt64ToUint64(int64(C.sqlite3_column_int64(s.sqlite3_stmt, C.int(int32Index))))
+
+		if err != nil {
+			return nil
+		}
+
+		binary.LittleEndian.PutUint64(columnValueBytes[:], uint64Value)
 		buffer.Write(columnValueBytes[:])
 
 		return buffer.Bytes()
 	case SQLITE_FLOAT:
 		var columnValueBytes [8]byte
-		binary.LittleEndian.PutUint64(columnValueBytes[:], math.Float64bits(float64(C.sqlite3_column_double(s.sqlite3_stmt, C.int(index)))))
+		binary.LittleEndian.PutUint64(columnValueBytes[:], math.Float64bits(float64(C.sqlite3_column_double(s.sqlite3_stmt, C.int(int32Index)))))
 		buffer.Write(columnValueBytes[:])
 
 		return buffer.Bytes()
@@ -311,8 +362,14 @@ func (s *Statement) getBlobData(index int) []byte {
 
 	buf.Reset()
 
+	int32Index, err := utils.SafeIntToInt32(index)
+
+	if err != nil {
+		return nil
+	}
+
 	// Get the size of the blob data
-	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(index)))
+	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(int32Index)))
 
 	// Ensure the buffer is large enough
 	if buf.Cap() < size {
@@ -320,7 +377,7 @@ func (s *Statement) getBlobData(index int) []byte {
 	}
 
 	// Get the pointer to the blob data
-	blobPtr := C.sqlite3_column_blob(s.sqlite3_stmt, C.int(index))
+	blobPtr := C.sqlite3_column_blob(s.sqlite3_stmt, C.int(int32Index))
 
 	if blobPtr == nil {
 		return nil
@@ -339,8 +396,14 @@ func (s *Statement) getBlobData(index int) []byte {
 func (s *Statement) getTextData(buf *bytes.Buffer, index int) []byte {
 	buf.Reset()
 
+	int32Index, err := utils.SafeIntToInt32(index)
+
+	if err != nil {
+		return nil
+	}
+
 	// Get the size of the text data
-	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(index)))
+	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(int32Index)))
 
 	// Ensure the buffer is large enough
 	if buf.Cap() < size {
@@ -348,7 +411,7 @@ func (s *Statement) getTextData(buf *bytes.Buffer, index int) []byte {
 	}
 
 	// Get the pointer to the text data
-	textPtr := C.sqlite3_column_text(s.sqlite3_stmt, C.int(index))
+	textPtr := C.sqlite3_column_text(s.sqlite3_stmt, C.int(int32Index))
 
 	if textPtr == nil {
 		return []byte{}
@@ -399,7 +462,18 @@ func (s *Statement) ParameterIndex(parameter string) int {
 		return 0
 	}
 
-	cString := C.CString(parameter)
+	// Validate parameter name is not empty
+	if parameter == "" {
+		return 0
+	}
+
+	safeCString, err := utils.SafeCString(parameter)
+
+	if err != nil {
+		return 0
+	}
+
+	cString := (*C.char)(safeCString)
 	defer C.free(unsafe.Pointer(cString))
 
 	return int(C.sqlite3_bind_parameter_index(s.sqlite3_stmt, cString))
@@ -411,7 +485,13 @@ func (s *Statement) ParameterName(index int) string {
 		return ""
 	}
 
-	return C.GoString(C.sqlite3_bind_parameter_name(s.sqlite3_stmt, C.int(index)))
+	int32Index, err := utils.SafeIntToInt32(index)
+
+	if err != nil {
+		return ""
+	}
+
+	return C.GoString(C.sqlite3_bind_parameter_name(s.sqlite3_stmt, C.int(int32Index)))
 }
 
 // Reset the statement
@@ -453,8 +533,14 @@ func (s *Statement) setColumnTypes(result *Result) {
 		}
 
 		if s.columnTypes[i] == 0 {
+			int32Index, err := utils.SafeIntToInt32(i)
+
+			if err != nil {
+				return
+			}
+
 			// Get the column type and cache it
-			s.columnTypes[i] = ColumnType(C.sqlite3_column_type(s.sqlite3_stmt, C.int(i)))
+			s.columnTypes[i] = ColumnType(C.sqlite3_column_type(s.sqlite3_stmt, C.int(int32Index)))
 		}
 	}
 }
