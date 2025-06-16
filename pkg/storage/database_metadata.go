@@ -65,7 +65,7 @@ func (d *DatabaseMetadata) File() (internalStorage.File, error) {
 
 	if d.file == nil {
 	tryOpen:
-		d.file, err = d.databaseFileSystem.FileSystem().OpenFileDirect(d.Path(), os.O_CREATE|os.O_RDWR, 0600)
+		d.file, err = d.databaseFileSystem.FileSystem().OpenFile(d.Path(), os.O_CREATE|os.O_RDWR, 0600)
 
 		if err != nil {
 			if os.IsNotExist(err) {

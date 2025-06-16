@@ -49,7 +49,7 @@ func NewRange(databaseId, branchId string, fs *FileSystem, path string, rangeNum
 	}
 
 tryOpen:
-	file, err := fs.OpenFileDirect(dr.getPath(), os.O_CREATE|os.O_RDWR, 0600)
+	file, err := fs.OpenFile(dr.getPath(), os.O_CREATE|os.O_RDWR, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {

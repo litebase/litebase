@@ -83,7 +83,7 @@ func (pli *PageLoggerIndex) File() storage.File {
 		var err error
 
 	tryOpen:
-		pli.file, err = pli.networkFS.OpenFileDirect(pli.path, os.O_RDWR|os.O_CREATE, 0600)
+		pli.file, err = pli.networkFS.OpenFile(pli.path, os.O_RDWR|os.O_CREATE, 0600)
 
 		if err != nil {
 			if os.IsNotExist(err) {

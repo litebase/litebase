@@ -136,7 +136,7 @@ func (wal *DatabaseWAL) File() (internalStorage.File, error) {
 	}
 
 tryOpen:
-	file, err := wal.fileSystem.OpenFileDirect(
+	file, err := wal.fileSystem.OpenFile(
 		wal.Path,
 		os.O_CREATE|os.O_RDWR,
 		0600,

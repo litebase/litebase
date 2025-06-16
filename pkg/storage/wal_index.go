@@ -73,7 +73,7 @@ tryOpen:
 	file, err := w.fileSystem.OpenFile(
 		path,
 		os.O_CREATE|os.O_RDWR,
-		0644,
+		0600,
 	)
 
 	if err != nil {
