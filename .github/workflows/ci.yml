@@ -56,7 +56,7 @@ jobs:
 
       - name: Run tests
         run: |
-          go test . -v -json | tee TestResults-${{ matrix.package.name }}.json
+          go test . -v
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
