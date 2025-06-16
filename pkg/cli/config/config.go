@@ -27,16 +27,20 @@ func Init(path string) error {
 	path = strings.Replace(path, "$HOME", os.Getenv("HOME"), 1)
 	configPath = path
 
-	os.MkdirAll(filepath.Dir(configPath), 0755)
+	err := os.MkdirAll(filepath.Dir(configPath), 0750)
 
-	_, err := os.Stat(configPath)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(configPath)
 
 	if os.IsNotExist(err) {
 		configuration = &Configuration{}
 		return Save()
 	}
 
-	file, err := os.ReadFile(configPath)
+	file, err := os.ReadFile(filepath.Clean(configPath))
 
 	if err != nil {
 		panic(err)
@@ -52,9 +56,13 @@ func Save() error {
 		return err
 	}
 
-	err = os.WriteFile(configPath, jsonData, 0644)
+	err = os.WriteFile(configPath, jsonData, 0600)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func GetProfiles() []Profile {

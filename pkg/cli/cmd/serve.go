@@ -18,18 +18,30 @@ func NewServeCmd() *cobra.Command {
 	return NewCommand(
 		"serve", "Start the Litebase server locally",
 	).WithConfig(func(cmd *cobra.Command) {
-		godotenv.Load(".env")
+		err := godotenv.Load(".env")
+
+		if err != nil {
+			panic(err)
+		}
 
 		dataPath := cmd.Flag("data-path").Value.String()
 
 		if dataPath != "" {
-			os.Setenv("LITEBASE_DATA_PATH", dataPath)
+			err := os.Setenv("LITEBASE_DATA_PATH", dataPath)
+
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		debug := cmd.Flag("debug").Value.String()
 
 		if debug != "" {
-			os.Setenv("DEBUG", debug)
+			err := os.Setenv("DEBUG", debug)
+
+			if err != nil {
+				panic(err)
+			}
 		}
 	}).WithFlags(func(cmd *cobra.Command) {
 		cmd.Flags().String("data-path", "./.litebase", "The path to the data directory")
@@ -59,7 +71,11 @@ func NewServeCmd() *cobra.Command {
 				return
 			}
 
-			app.Cluster.Node().Shutdown()
+			err := app.Cluster.Node().Shutdown()
+
+			if err != nil {
+				log.Fatalf("Node shutdown: %v", err)
+			}
 		})
 	}).Build()
 }

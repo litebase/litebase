@@ -78,7 +78,11 @@ func NewRoot() error {
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username")
 	cmd.PersistentFlags().StringVar(&password, "password", "", "Password")
 
-	config.Init(confiPath)
+	err := config.Init(confiPath)
+
+	if err != nil {
+		return err
+	}
 
 	cmd.SetHelpFunc(NewHelpCmd())
 

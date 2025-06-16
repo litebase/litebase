@@ -7,7 +7,11 @@ var DatabaseSettingsCmd = &cobra.Command{
 	Short: "Manage database settings",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		err := cmd.Help()
+
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

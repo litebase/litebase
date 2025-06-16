@@ -7,7 +7,11 @@ var AccessKeyCmd = &cobra.Command{
 	Short: "Manage access keys",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		err := cmd.Help()
+
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

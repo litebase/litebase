@@ -7,7 +7,11 @@ var DatabaseBackupCmd = &cobra.Command{
 	Short: "Manage database backups",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		err := cmd.Help()
+
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

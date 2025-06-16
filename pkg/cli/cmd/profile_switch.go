@@ -27,7 +27,11 @@ func NewProfileSwitchCmd() *cobra.Command {
 
 			components.NewTable(columns, rows).
 				SetHandler(func(row []string) {
-					config.SwitchProfile(row[0])
+					err := config.SwitchProfile(row[0])
+
+					if err != nil {
+						panic(err)
+					}
 
 					fmt.Print(
 						components.Container(

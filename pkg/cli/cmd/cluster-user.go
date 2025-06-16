@@ -9,7 +9,11 @@ var ClusterUserCmd = &cobra.Command{
 	Short: "Manage cluster users",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		err := cmd.Help()
+
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

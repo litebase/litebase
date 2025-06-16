@@ -17,30 +17,60 @@ func NewInitCmd() *cobra.Command {
 	return NewCommand(
 		"init", "Initialize a new Litebase cluster",
 	).WithConfig(func(cmd *cobra.Command) {
-		godotenv.Load(".env")
+		err := godotenv.Load(".env")
+
+		if err != nil {
+			panic(err)
+		}
 
 		clusterId := cmd.Flag("cluster-id").Value.String()
 
 		if clusterId != "" {
-			os.Setenv("LITEBASE_CLUSTER_ID", clusterId)
+			err := os.Setenv("LITEBASE_CLUSTER_ID", clusterId)
+
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		signature := cmd.Flag("signature").Value.String()
 
 		if signature != "" {
-			os.Setenv("LITEBASE_SIGNATURE", signature)
+			err := os.Setenv("LITEBASE_SIGNATURE", signature)
+
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		signature = cmd.Flag("signature").Value.String()
+
+		if signature != "" {
+			err := os.Setenv("LITEBASE_SIGNATURE", signature)
+
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		username := cmd.Flag("username").Value.String()
 
 		if username != "" {
-			os.Setenv("LITEBASE_ROOT_USERNAME", username)
+			err := os.Setenv("LITEBASE_ROOT_USERNAME", username)
+
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		password := cmd.Flag("password").Value.String()
 
 		if password != "" {
-			os.Setenv("LITEBASE_ROOT_PASSWORD", password)
+			err := os.Setenv("LITEBASE_ROOT_PASSWORD", password)
+
+			if err != nil {
+				panic(err)
+			}
 		}
 
 	}).WithFlags(func(cmd *cobra.Command) {
