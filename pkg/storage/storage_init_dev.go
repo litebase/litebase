@@ -14,7 +14,6 @@ import (
 func Init(
 	c *config.Config,
 	objectFS *FileSystem,
-	ipAddress string,
 ) {
 	objectMode := c.StorageObjectMode
 	tieredMode := c.StorageTieredMode

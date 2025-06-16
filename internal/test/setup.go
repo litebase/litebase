@@ -10,11 +10,30 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
 var envDataPath string
+
+func setupDirectories(dataPath string) error {
+	directories := []string{
+		dataPath,
+		fmt.Sprintf("%s/_tmp", dataPath),
+		fmt.Sprintf("%s/tiered", dataPath),
+		fmt.Sprintf("%s/object", dataPath),
+		fmt.Sprintf("%s/local", dataPath),
+	}
+
+	for _, dir := range directories {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+
+	return nil
+}
 
 func setupTestEnv(t testing.TB) (string, error) {
 	var err error
@@ -28,7 +47,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 
 	setTestEnvVariable(t)
 
-	envPath := fmt.Sprintf("%s.env", rootDirectory)
+	envPath := fmt.Sprintf("%s.env.test", rootDirectory)
 
 	if _, err := os.Stat(envPath); err == nil {
 		err := godotenv.Load(envPath)
@@ -53,11 +72,9 @@ func setupTestEnv(t testing.TB) (string, error) {
 	networkStoragePath := fmt.Sprintf("%s/_network_storage", dataPath)
 	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
 
-	os.MkdirAll(dataPath, 0755)
-	os.MkdirAll(tmpPath, 0755)
-	os.MkdirAll(dataPath+"/local", 0755)
-	os.MkdirAll(dataPath+"/object", 0755)
-	os.MkdirAll(dataPath+"/tiered", 0755)
+	if err := setupDirectories(dataPath); err != nil {
+		t.Fatalf("failed to setup directories: %v", err)
+	}
 
 	t.Setenv("LITEBASE_DOMAIN_NAME", "litebase.test")
 	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
@@ -109,8 +126,8 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 		if app != nil {
 			app.DatabaseManager.ConnectionManager().Shutdown()
 			app.DatabaseManager.ShutdownResources()
-			storage.Shutdown(app.Config)
 			app.Cluster.Node().Shutdown()
+			storage.Shutdown(app.Config)
 		}
 
 		for _, callback := range callbacks {
@@ -176,6 +193,8 @@ func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 	t.Setenv("LITEBASE_FAKE_OBJECT_STORAGE", "true")
 	t.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
 	t.Setenv("LITEBASE_STORAGE_BUCKET", CreateHash(32))
+	t.Setenv("LITEBASE_STORAGE_OBJECT_MODE", config.StorageModeObject)
+	t.Setenv("LITEBASE_STORAGE_TIERED_MODE", config.StorageModeObject)
 
 	// Setup the environment
 	app, dataPath := Setup(t, func() {

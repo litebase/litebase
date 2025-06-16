@@ -29,32 +29,28 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		panic(err)
 	}
 
-	Auth := auth.NewAuth(
+	app := &App{
+		Cluster:  clusterInstance,
+		Config:   configInstance,
+		ServeMux: serveMux,
+	}
+
+	storage.Init(
+		app.Config,
+		app.Cluster.ObjectFS(),
+	)
+
+	app.Auth = auth.NewAuth(
 		configInstance,
 		clusterInstance.NetworkFS(),
 		clusterInstance.ObjectFS(),
 		clusterInstance.TmpFS(),
 		clusterInstance.TmpTieredFS(),
 	)
-
-	app := &App{
-		Auth:            Auth,
-		Cluster:         clusterInstance,
-		Config:          configInstance,
-		DatabaseManager: database.NewDatabaseManager(clusterInstance, Auth.SecretsManager),
-		ServeMux:        serveMux,
-	}
-
+	app.DatabaseManager = database.NewDatabaseManager(clusterInstance, app.Auth.SecretsManager)
 	app.LogManager = logs.NewLogManager(app.Cluster.Node().Context())
-	address, _ := app.Cluster.Node().Address()
 
-	storage.Init(
-		app.Config,
-		app.Cluster.ObjectFS(),
-		address,
-	)
-
-	err = clusterInstance.Init(Auth)
+	err = clusterInstance.Init(app.Auth)
 
 	if err != nil {
 		panic(err)
