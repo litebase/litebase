@@ -668,12 +668,13 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 		wg := sync.WaitGroup{}
 
 		var errors []error
+		var bkps []*backups.Backup
 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
 
-			_, err := backups.Run(
+			backup, err := backups.Run(
 				app.Config,
 				app.Cluster.ObjectFS(),
 				mock.DatabaseId,
@@ -685,14 +686,15 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 
 			if err != nil {
 				errors = append(errors, err)
+			} else {
+				bkps = append(bkps, backup)
 			}
 		}()
 
 		go func() {
 			defer wg.Done()
-			// time.Sleep(1 * time.Millisecond)
 
-			_, err := backups.Run(
+			backup, err := backups.Run(
 				app.Config,
 				app.Cluster.ObjectFS(),
 				mock.DatabaseId,
@@ -704,6 +706,8 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 
 			if err != nil {
 				errors = append(errors, err)
+			} else {
+				bkps = append(bkps, backup)
 			}
 		}()
 
@@ -711,6 +715,20 @@ func TestBackupRunOnlyOneBackupAtATime(t *testing.T) {
 
 		if len(errors) != 1 {
 			t.Errorf("expected one error, got %d", len(errors))
+		}
+
+		if len(bkps) > 1 {
+			t.Errorf("expected one backup, got %d", len(bkps))
+
+			for _, backup := range bkps {
+				t.Log("Backup created successfully:", backup.RestorePoint.Timestamp)
+			}
+
+			if bkps[0].RestorePoint.Timestamp == bkps[1].RestorePoint.Timestamp {
+				t.Errorf("expected different restore points, got %d and %d", bkps[0].RestorePoint.Timestamp, bkps[1].RestorePoint.Timestamp)
+			}
+		} else if len(bkps) == 1 && len(errors) != 1 {
+			t.Errorf("expected one backup and one error, got %d backups and %d errors", len(bkps), len(errors))
 		}
 	})
 }
