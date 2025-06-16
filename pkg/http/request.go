@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -81,8 +82,18 @@ func NewRequest(
 func (r *Request) All() map[string]any {
 	if r.Body == nil && r.BaseRequest.Body != nil {
 		body := make(map[string]any)
-		json.NewDecoder(r.BaseRequest.Body).Decode(&body)
-		r.BaseRequest.Body.Close()
+		err := json.NewDecoder(r.BaseRequest.Body).Decode(&body)
+
+		if err != nil {
+			slog.Error("error decoding request body", "error", err)
+			return nil
+		}
+
+		err = r.BaseRequest.Body.Close()
+
+		if err != nil {
+			slog.Error("error closing request body", "error", err)
+		}
 
 		r.Body = body
 	}

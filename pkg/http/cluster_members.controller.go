@@ -54,7 +54,11 @@ func ClusterMemberDestroyController(request *Request) Response {
 		}
 	}
 
-	request.cluster.RemoveMember(address, false)
+	err = request.cluster.RemoveMember(address, false)
+
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
 
 	return Response{
 		StatusCode: 200,

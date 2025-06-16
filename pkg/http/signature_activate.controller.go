@@ -44,13 +44,21 @@ func SingatureActivateController(request *Request) Response {
 		}
 	}
 
-	auth.StoreSignature(
+	err = auth.StoreSignature(
 		request.cluster.Config,
 		request.cluster.ObjectFS(),
 		input.(*SingatureActivateRequest).Signature,
 	)
 
-	request.cluster.Broadcast("signature:activate", input.(*SingatureActivateRequest).Signature)
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
+
+	err = request.cluster.Broadcast("signature:activate", input.(*SingatureActivateRequest).Signature)
+
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
 
 	return Response{
 		StatusCode: 200,

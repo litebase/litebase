@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"sync"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/database"
@@ -177,7 +179,13 @@ func readQueryStream(
 		case QueryStreamFrame:
 			queryStreamFrameBuffer := bufferPool.Get().(*bytes.Buffer)
 			queryStreamFrameBuffer.Reset()
-			handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, accessKey)
+
+			err := handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, accessKey)
+
+			if err != nil {
+				slog.Error("Error handling query stream frame", "error", err)
+			}
+
 			bufferPool.Put(queryStreamFrameBuffer)
 		default:
 			log.Println("Unknown message type", messageType)
@@ -229,8 +237,16 @@ func handleQueryStreamConnection(w http.ResponseWriter, streamMutex *sync.Mutex)
 	message := []byte("connected")
 	data := bytes.NewBuffer(make([]byte, 0))
 	data.WriteByte(uint8(QueryStreamOpenConnection))
+
 	var messageLengthBytes [4]byte
-	binary.LittleEndian.PutUint32(messageLengthBytes[:], uint32(len(message)))
+
+	uint32MessageLength, err := utils.SafeIntToUint32(len(message))
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint32(messageLengthBytes[:], uint32MessageLength)
 	data.Write(messageLengthBytes[:])
 	data.Write(message)
 
@@ -281,7 +297,13 @@ func handleQueryStreamFrame(
 		// Write the length of the response
 		var responseLengthBytes [4]byte
 
-		binary.LittleEndian.PutUint32(responseLengthBytes[:], uint32(len(responseBytes)))
+		uint32ResponseBytesLength, err := utils.SafeIntToUint32(len(responseBytes))
+
+		if err != nil {
+			return err
+		}
+
+		binary.LittleEndian.PutUint32(responseLengthBytes[:], uint32ResponseBytesLength)
 
 		// Write the length of the response
 		responseFramesBuffer.Write(responseLengthBytes[:])
@@ -293,7 +315,14 @@ func handleQueryStreamFrame(
 	responseBuffer.WriteByte(uint8(QueryStreamFrame))
 	// Write the length of the response
 	var responseLengthBytes [4]byte
-	binary.LittleEndian.PutUint32(responseLengthBytes[:], uint32(responseFramesBuffer.Len()))
+
+	uint32ResponseFramesBufferLength, err := utils.SafeIntToUint32(responseFramesBuffer.Len())
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint32(responseLengthBytes[:], uint32ResponseFramesBufferLength)
 	responseBuffer.Write(responseLengthBytes[:])
 
 	// Write the response

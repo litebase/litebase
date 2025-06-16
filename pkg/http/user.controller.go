@@ -68,15 +68,19 @@ func UserControllerStore(request *Request) Response {
 
 	data := input.(*UserControllerStoreRequest)
 
-	request.cluster.Auth.UserManager().Add(
+	err = request.cluster.Auth.UserManager().Add(
 		data.Username,
 		data.Password,
 		data.Statements,
 	)
 
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
+
 	return Response{
 		StatusCode: 200,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"message": "User created successfully",
 		},
 	}

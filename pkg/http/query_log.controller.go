@@ -1,8 +1,10 @@
 package http
 
 import (
+	"errors"
 	"strconv"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/logs"
 )
 
@@ -41,12 +43,24 @@ func QueryLogController(request *Request) Response {
 		request.DatabaseKey().BranchId,
 	)
 
-	metrics := queryLog.Read(uint32(startTimestamp), uint32(endTimestamp))
+	uint32StartTimestamp, err := utils.SafeUint64ToUint32(startTimestamp)
+
+	if err != nil {
+		return BadRequestResponse(errors.New("invalid start timestamp"))
+	}
+
+	uint32EndTimestamp, err := utils.SafeUint64ToUint32(endTimestamp)
+
+	if err != nil {
+		return BadRequestResponse(errors.New("invalid end timestamp"))
+	}
+
+	metrics := queryLog.Read(uint32StartTimestamp, uint32EndTimestamp)
 	metrics = combineQueryMeticsByStep(metrics, step)
 
-	return JsonResponse(map[string]interface{}{
+	return JsonResponse(map[string]any{
 		"status": "success",
-		"meta": map[string]interface{}{
+		"meta": map[string]any{
 			"keys": logs.QueryMetricKeys(),
 		},
 		"data": metrics,
@@ -70,7 +84,13 @@ func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int64) []logs.Que
 			continue
 		}
 
-		if metric.Timestamp >= combinedMetric.Timestamp+uint32(step) {
+		uint32Step, err := utils.SafeInt64ToUint32(step)
+
+		if err != nil {
+			return nil
+		}
+
+		if metric.Timestamp >= combinedMetric.Timestamp+uint32Step {
 			combinedMetrics = append(combinedMetrics, combinedMetric)
 			combinedMetric = metric
 			continue

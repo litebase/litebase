@@ -115,8 +115,6 @@ func DatabaseStoreController(request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	request.databaseManager.Get(db.Id)
-
 	return SuccessResponse(
 		"Database created successfully.",
 		db,

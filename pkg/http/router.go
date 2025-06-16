@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -99,7 +100,11 @@ func (router *Router) Server(
 			panic(err)
 		}
 
-		w.Write([]byte(jsonBody))
+		_, err = w.Write([]byte(jsonBody))
+
+		if err != nil {
+			slog.Error("Error writing response", "error", err)
+		}
 	})
 
 	for method := range router.Routes {
@@ -127,7 +132,11 @@ func (router *Router) Server(
 				w.WriteHeader(response.StatusCode)
 
 				if response.Body == nil {
-					w.Write([]byte(""))
+					_, err := w.Write([]byte(""))
+
+					if err != nil {
+						slog.Error("Error writing empty response", "error", err)
+					}
 				} else {
 					if response.Headers["Content-Encoding"] == "gzip" {
 						gw := gzip.NewWriter(w)
@@ -145,7 +154,11 @@ func (router *Router) Server(
 							panic(err)
 						}
 
-						w.Write([]byte(jsonBody))
+						_, err = w.Write([]byte(jsonBody))
+
+						if err != nil {
+							slog.Error("Error writing response", "error", err)
+						}
 					}
 				}
 			})

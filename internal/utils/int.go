@@ -44,3 +44,11 @@ func SafeUint64ToInt64(u uint64) (int64, error) {
 
 	return int64(u), nil
 }
+
+func SafeUint64ToUint32(u uint64) (uint32, error) {
+	if u > math.MaxUint32 {
+		return 0, errors.New("integer overflow: value out of uint32 range")
+	}
+
+	return uint32(u), nil
+}

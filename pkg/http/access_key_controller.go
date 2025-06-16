@@ -118,7 +118,11 @@ func AccessKeyControllerUpdate(request *Request) Response {
 	// Get the access key ID from the request parameters
 	accessKeyId := request.Param("accessKeyId")
 
-	request.cluster.Auth.SecretsManager.Init()
+	err := request.cluster.Auth.SecretsManager.Init()
+
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
 
 	accessKey, err := request.accessKeyManager.Get(accessKeyId)
 
