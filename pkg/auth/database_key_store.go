@@ -41,10 +41,10 @@ type DatabaseKeyStore struct {
 	cache      *cache.LFUCache
 	file       internalStorage.File
 	fileSystem *storage.FileSystem
-	keyCount   int
+	keyCount   uint32
 	mutex      *sync.RWMutex
 	path       string
-	version    int
+	version    uint32
 }
 
 // Create a new instance of DatabaseKeyStore
@@ -236,7 +236,12 @@ func (d *DatabaseKeyStore) Get(key string) (*DatabaseKey, error) {
 		databaseKey := DecodeDatbaseKey(encodedKey)
 
 		if databaseKey.Key == key {
-			d.cache.Put(key, databaseKey)
+			err := d.cache.Put(key, databaseKey)
+
+			if err != nil {
+				slog.Error("Failed to cache database key:", "error", err)
+			}
+
 			return databaseKey, nil
 		}
 
@@ -247,7 +252,7 @@ func (d *DatabaseKeyStore) Get(key string) (*DatabaseKey, error) {
 }
 
 // Get the number of keys in the store.
-func (d *DatabaseKeyStore) Len() int {
+func (d *DatabaseKeyStore) Len() uint32 {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
@@ -292,8 +297,8 @@ tryOpen:
 		}
 	}
 
-	d.version = int(binary.LittleEndian.Uint32(header[0:4]))  // version
-	d.keyCount = int(binary.LittleEndian.Uint32(header[4:8])) // size of the keys
+	d.version = binary.LittleEndian.Uint32(header[0:4])  // version
+	d.keyCount = binary.LittleEndian.Uint32(header[4:8]) // size of the keys
 
 	if d.version != DatabaseKeyStoreVersion {
 		return errors.New("invalid database key store version")
@@ -331,7 +336,12 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 		databaseKey.DatabaseHash = string(encodedKey[DatabaseKeyKeySize : DatabaseKeyKeySize+DatabaseKeyHashSize])
 
 		if databaseKey.Key == key.Key {
-			d.cache.Put(key.Key, key)
+			err := d.cache.Put(key.Key, key)
+
+			if err != nil {
+				slog.Error("Failed to cache database key:", "error", err)
+			}
+
 			return nil
 		}
 
@@ -348,7 +358,11 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 				return err
 			}
 
-			d.cache.Put(key.Key, key)
+			err = d.cache.Put(key.Key, key)
+
+			if err != nil {
+				slog.Error("Failed to cache database key:", "error", err)
+			}
 
 			return nil
 		}
@@ -376,9 +390,13 @@ func (d *DatabaseKeyStore) Put(key *DatabaseKey) error {
 	// Update the free offset
 	d.keyCount++
 
-	d.writeHeader()
+	err = d.writeHeader()
 
-	return nil
+	if err != nil {
+		slog.Error("Failed to write database key store header:", "error", err)
+	}
+
+	return err
 }
 
 // Write the header of the store to the file.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 )
 
@@ -64,7 +65,11 @@ func (accessKey *AccessKey) Delete() error {
 		}
 	}
 
-	accessKey.accessKeyManager.Purge(accessKey.AccessKeyId)
+	err := accessKey.accessKeyManager.Purge(accessKey.AccessKeyId)
+
+	if err != nil {
+		slog.Error("failed to purge access key", "error", err)
+	}
 
 	accessKey = nil
 

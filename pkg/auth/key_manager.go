@@ -445,7 +445,12 @@ func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error 
 	}
 
 	for databaseKey := range currentDks.All() {
-		newDks.Put(databaseKey)
+		err := newDks.Put(databaseKey)
+
+		if err != nil {
+			slog.Error("Failed to put database key:", "error", err)
+			return err
+		}
 	}
 
 	return nil

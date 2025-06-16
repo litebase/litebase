@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -232,7 +233,11 @@ func (s *SecretsManager) Init() error {
 		}
 	}
 
-	s.PurgeExpiredSecrets()
+	err := s.PurgeExpiredSecrets()
+
+	if err != nil {
+		slog.Error("Error purging expired secrets:", "error", err)
+	}
 
 	return nil
 }

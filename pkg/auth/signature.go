@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/litebase/litebase/pkg/config"
@@ -14,8 +15,13 @@ func InitSignature(c *config.Config, objectFS *storage.FileSystem) error {
 	storedSignature := storedSignature(objectFS)
 
 	if signature != "" && storedSignature == "" {
-		StoreSignature(c, objectFS, signature)
-		return nil
+		err := StoreSignature(c, objectFS, signature)
+
+		if err != nil {
+			slog.Error("failed to store signature", "error", err)
+		}
+
+		return err
 	}
 
 	if signature == "" && storedSignature != "" {

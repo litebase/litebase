@@ -2,10 +2,10 @@ package auth
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"slices"
 	"sync"
@@ -122,7 +122,16 @@ func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 		result := make([]byte, 32)
 
 		for i := range result {
-			result[i] = dictionary[rand.Intn(len(dictionary))]
+			randomBytes := make([]byte, 1)
+
+			_, err := rand.Read(randomBytes)
+
+			if err != nil {
+				return "", err
+			}
+
+			index := int(randomBytes[0]) % len(dictionary)
+			result[i] = dictionary[index]
 		}
 
 		accessKeyId = fmt.Sprintf("%s%s", prefix, result)
@@ -149,7 +158,17 @@ func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 	result := make([]byte, 32)
 
 	for i := range result {
-		result[i] = dictionary[rand.Intn(len(dictionary))]
+		randomBytes := make([]byte, 1)
+
+		_, err := rand.Read(randomBytes)
+
+		if err != nil {
+			// If crypto/rand fails, this is a serious issue
+			panic(fmt.Sprintf("crypto/rand failed: %v", err))
+		}
+
+		index := int(randomBytes[0]) % len(dictionary)
+		result[i] = dictionary[index]
 	}
 
 	return fmt.Sprintf("%s%s", prefix, result)
