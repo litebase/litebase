@@ -1,6 +1,8 @@
 package server
 
 import (
+	"log/slog"
+
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/config"
@@ -49,7 +51,6 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	)
 	app.DatabaseManager = database.NewDatabaseManager(clusterInstance, app.Auth.SecretsManager)
 	app.LogManager = logs.NewLogManager(app.Cluster.Node().Context())
-
 	err = clusterInstance.Init(app.Auth)
 
 	if err != nil {
@@ -80,7 +81,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	err = app.Auth.UserManager().Init()
 
 	if err != nil {
-		panic(err)
+		slog.Error("Error initializing user manager", "error", err)
 	}
 
 	app.Cluster.Node().Init(

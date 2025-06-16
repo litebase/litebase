@@ -83,7 +83,7 @@ func (fs *LocalFileSystemDriver) Open(path string) (internalStorage.File, error)
 
 func (fs *LocalFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
 	// #nosec G304
-	file, err := os.OpenFile(path, flag, perm)
+	file, err := os.OpenFile(fs.Path(path), flag, perm)
 
 	if err != nil {
 		return nil, err
