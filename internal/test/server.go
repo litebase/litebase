@@ -82,7 +82,11 @@ func (ts *TestServer) WithAccessKeyClient(statements []auth.AccessKeyStatement) 
 			Statements:      statements,
 		}
 
-		ts.App.Auth.SecretsManager.StoreAccessKey(accessKey)
+		err := ts.App.Auth.SecretsManager.StoreAccessKey(accessKey)
+
+		if err != nil {
+			panic(err)
+		}
 
 		ts.Client = &TestClient{
 			AccessKey: accessKey,
@@ -108,7 +112,12 @@ func (ts *TestServer) WithBasicAuthClient() *TestClient {
 
 func (ts *TestServer) Shutdown() {
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
-	ts.App.Cluster.Node().Shutdown()
+	err := ts.App.Cluster.Node().Shutdown()
+
+	if err != nil {
+		panic(err)
+	}
+
 	// This may not be neccesary since this will be used in side of test.Run()
 	// storage.Shutdown(ts.App.Config)
 

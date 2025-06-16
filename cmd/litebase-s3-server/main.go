@@ -14,8 +14,19 @@ import (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	godotenv.Load(".env")
-	os.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
+
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	err = os.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	config := config.NewConfig()
 
 	objectFS := storage.NewFileSystem(

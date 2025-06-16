@@ -10,7 +10,11 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	godotenv.Load(".env")
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	r := router.NewRouter()
 	r.Start()

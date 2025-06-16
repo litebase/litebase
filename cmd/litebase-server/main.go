@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"log/slog"
-	"runtime"
 	"time"
 
 	"github.com/litebase/litebase/pkg/config"
@@ -12,19 +11,25 @@ import (
 	"github.com/joho/godotenv"
 
 	"net/http"
-	_ "net/http/pprof"
+	// _ "net/http/pprof"
 )
 
 var app *server.App
 
 func main() {
-	go func() {
-		runtime.SetBlockProfileRate(1)
-		runtime.SetMutexProfileFraction(1)
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	// Debugging with pprof
+	// Uncomment the following lines to enable pprof
+	// go func() {
+	// 	runtime.SetBlockProfileRate(1)
+	// 	runtime.SetMutexProfileFraction(1)
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
 
-	godotenv.Load(".env")
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	configInstance := config.NewConfig()
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -57,7 +62,11 @@ func main() {
 			// Shutdown all connections
 			app.DatabaseManager.ConnectionManager().Shutdown()
 
-			app.Cluster.Node().Shutdown()
+			err = app.Cluster.Node().Shutdown()
+
+			if err != nil {
+				slog.Error("Failed to shutdown cluster node", "error", err)
+			}
 		},
 	)
 }

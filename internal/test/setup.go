@@ -27,7 +27,7 @@ func setupDirectories(dataPath string) error {
 	}
 
 	for _, dir := range directories {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0750); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
@@ -125,8 +125,18 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 	t.Cleanup(func() {
 		if app != nil {
 			app.DatabaseManager.ConnectionManager().Shutdown()
-			app.DatabaseManager.ShutdownResources()
-			app.Cluster.Node().Shutdown()
+			err := app.DatabaseManager.ShutdownResources()
+
+			if err != nil {
+				log.Printf("failed to shutdown database manager resources: %v", err)
+			}
+
+			err = app.Cluster.Node().Shutdown()
+
+			if err != nil {
+				log.Printf("failed to shutdown cluster node: %v", err)
+			}
+
 			storage.Shutdown(app.Config)
 		}
 
@@ -136,7 +146,12 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 
 		// Remove the data path
 		time.Sleep(100 * time.Millisecond) // Give some time for the app to shutdown
-		os.RemoveAll(dataPath)
+
+		err := os.RemoveAll(dataPath)
+
+		if err != nil {
+			log.Printf("failed to remove data path %s: %v", dataPath, err)
+		}
 	})
 }
 

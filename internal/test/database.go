@@ -29,7 +29,11 @@ type TestDatabaseAuthorizationCommand struct {
 
 func CreateHash(length int) string {
 	randomBytes := make([]byte, length)
-	io.ReadFull(rand.Reader, randomBytes)
+	_, err := io.ReadFull(rand.Reader, randomBytes)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 	hash := sha256.New()
 	hash.Write(randomBytes)
 	hashBytes := hash.Sum(nil)
@@ -52,7 +56,11 @@ func MockDatabase(app *server.App) TestDatabase {
 		},
 	}
 
-	app.Auth.SecretsManager.StoreAccessKey(accessKey)
+	err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	db, err := app.DatabaseManager.Create("test-database", "main")
 

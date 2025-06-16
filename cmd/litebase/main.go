@@ -9,5 +9,9 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	cmd.NewRoot()
+	err := cmd.NewRoot()
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
