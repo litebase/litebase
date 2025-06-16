@@ -112,7 +112,7 @@ func (cluster *Cluster) ShutdownStorage() {
 		err := cluster.tmpFileSystem.ClearFiles()
 
 		if err != nil {
-			slog.Error("Clearing tmp file system", "error", err)
+			slog.Debug("Clearing tmp file system", "error", err)
 		}
 
 		err = cluster.tmpFileSystem.Shutdown()

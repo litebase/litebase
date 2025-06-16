@@ -417,7 +417,7 @@ func (n *Node) primaryLeaseVerification() bool {
 	primaryData, err := n.Cluster.NetworkFS().ReadFile(n.Cluster.PrimaryPath())
 
 	if err != nil {
-		slog.Error("Failed to read primary file", "error", err)
+		slog.Debug("Failed to read primary file", "error", err)
 		return false
 	}
 
