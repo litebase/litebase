@@ -354,11 +354,25 @@ int register_litebase_vfs(char *vfsId, int pageSize)
 
   vfsInstancesSize++;
 
-  // realloc the vfsInstances array
-  vfsInstances = realloc(vfsInstances, sizeof(LitebaseVFS *) * vfsInstancesSize);
+  // realloc the vfsInstances array with error checking
+  LitebaseVFS **newVfsInstances = realloc(vfsInstances, sizeof(LitebaseVFS *) * vfsInstancesSize);
+  if (newVfsInstances == NULL)
+  {
+    printf("Failed to realloc vfsInstances during registration\n");
+    vfsInstancesSize--; // Revert the increment
+    return SQLITE_NOMEM;
+  }
+  vfsInstances = newVfsInstances;
 
   // Push the new VFS instance to the list
   LitebaseVFS *vfs = malloc(sizeof(LitebaseVFS));
+  if (vfs == NULL)
+  {
+    printf("Failed to allocate memory for VFS instance\n");
+    vfsInstancesSize--; // Revert the increment
+    return SQLITE_NOMEM;
+  }
+
   memcpy(vfs, &litebase_vfs, sizeof(LitebaseVFS));
   vfsInstances[vfsInstancesSize - 1] = vfs;
 
@@ -367,8 +381,28 @@ int register_litebase_vfs(char *vfsId, int pageSize)
 
 void unregisterVfs(char *vfsId)
 {
+  // Input validation
+  if (vfsId == NULL || strlen(vfsId) == 0)
+  {
+    printf("Invalid vfsId provided to unregisterVfs\n");
+    return;
+  }
+
+  // Safety check for uninitialized state
+  if (vfsInstances == NULL || vfsInstancesSize <= 0)
+  {
+    printf("No VFS instances to unregister\n");
+    return;
+  }
+
   for (int i = 0; i < vfsInstancesSize; i++)
   {
+    // Safety check for null instance
+    if (vfsInstances[i] == NULL || vfsInstances[i]->vfsId == NULL)
+    {
+      continue;
+    }
+
     if (strcmp(vfsInstances[i]->vfsId, vfsId) == 0)
     {
       sqlite3_vfs *pVfs = sqlite3_vfs_find(vfsId);
@@ -376,7 +410,6 @@ void unregisterVfs(char *vfsId)
       if (pVfs == 0)
       {
         printf("Failed to find the VFS\n");
-
         return;
       }
 
@@ -392,6 +425,7 @@ void unregisterVfs(char *vfsId)
 
       // Free the memory allocated for vfsInstances[i]
       free(vfsInstances[i]);
+      vfsInstances[i] = NULL; // Prevent double-free
 
       // Resize the vfsInstances array
       for (int j = i; j < vfsInstancesSize - 1; j++)
@@ -401,16 +435,26 @@ void unregisterVfs(char *vfsId)
 
       vfsInstancesSize--;
 
+      // Handle case where all instances are removed
+      if (vfsInstancesSize == 0)
+      {
+        free(vfsInstances);
+        vfsInstances = NULL;
+        return;
+      }
+
       // Realloc the vfsInstances array and check for errors
       LitebaseVFS **newVfsInstances = realloc(vfsInstances, sizeof(LitebaseVFS *) * vfsInstancesSize);
 
-      if (newVfsInstances == NULL)
+      if (newVfsInstances == NULL && vfsInstancesSize > 0)
       {
         printf("Failed to realloc vfsInstances\n");
         return;
       }
 
       vfsInstances = newVfsInstances;
+
+      return;
     }
   }
 }

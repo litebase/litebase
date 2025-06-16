@@ -116,11 +116,21 @@ func UnregisterVFS(vfsId string) error {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
+	if vfsId == "" {
+		return errors.New("vfsId cannot be empty")
+	}
+
 	vfs, ok := VfsMap[vfsId]
-	var walHash string
 
 	if !ok {
 		return errors.New("vfsId not found")
+	}
+
+	var walHash string
+
+	if vfs == nil {
+		delete(VfsMap, vfsId) // Clean up the map entry
+		return errors.New("vfs instance is nil")
 	}
 
 	cvfsId, err := utils.SafeCString(vfsId)
@@ -128,6 +138,10 @@ func UnregisterVFS(vfsId string) error {
 		return fmt.Errorf("failed to convert vfsId to C string: %v", err)
 	}
 	defer C.free(unsafe.Pointer(cvfsId))
+
+	if cvfsId == nil {
+		return errors.New("failed to create C string for vfsId")
+	}
 
 	C.unregisterVfs((*C.char)(cvfsId))
 
@@ -138,14 +152,14 @@ func UnregisterVFS(vfsId string) error {
 	var found bool
 
 	for _, vfs := range VfsMap {
-		if vfs.walHash == walHash {
+		if vfs != nil && vfs.walHash == walHash {
 			found = true
 			break
 		}
 	}
 
-	if !found {
-		delete(VfsShmMap, vfs.walHash)
+	if !found && walHash != "" {
+		delete(VfsShmMap, walHash)
 	}
 
 	return nil

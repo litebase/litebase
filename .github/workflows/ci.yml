@@ -50,10 +50,3 @@ jobs:
         if: always()
         run: |
           rm -rf /tmp/litebase-test-${{ github.run_id }}-${{ matrix.package.name }} || true
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: TestResults-${{ matrix.package.name }}
-          path: TestResults-${{ matrix.package.name }}.json

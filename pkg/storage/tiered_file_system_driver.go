@@ -445,6 +445,8 @@ tryOpen:
 		return nil, err
 	}
 
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
 	newFile := fsd.addFile(path, file, flag)
 
 	return newFile, nil

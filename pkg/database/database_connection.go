@@ -316,7 +316,11 @@ func (con *DatabaseConnection) Close() error {
 
 	con.release()
 
-	err = vfs.UnregisterVFS(con.VFSHash())
+	if vfsHash := con.VFSHash(); vfsHash != "" && con.vfs != nil {
+		err = vfs.UnregisterVFS(con.VFSHash())
+
+		con.vfs = nil
+	}
 
 	con.sqlite3 = nil
 
