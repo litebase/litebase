@@ -12,8 +12,8 @@ import (
 
 func TestInit(t *testing.T) {
 	signature := test.CreateHash(32)
-	os.Setenv("LITEBASE_DATA_PATH", "../../.test")
-	os.Setenv("LITEBASE_SIGNATURE", signature)
+	t.Setenv("LITEBASE_DATA_PATH", "../../.test")
+	t.Setenv("LITEBASE_SIGNATURE", signature)
 
 	c := config.NewConfig()
 

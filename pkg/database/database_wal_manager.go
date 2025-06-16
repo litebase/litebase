@@ -172,7 +172,7 @@ func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
 	err := w.walIndex.SetVersions(versionNumbers)
 
 	if err != nil {
-		log.Println("Failed to add WAL index", err)
+		slog.Error("Failed to add WAL index", "error", err)
 
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (w *DatabaseWALManager) init() error {
 	versions, err := w.walIndex.GetVersions()
 
 	if err != nil {
-		log.Println("Failed to get WAL versions", err)
+		slog.Error("Failed to get WAL versions", "error", err)
 
 		return err
 	}
@@ -340,9 +340,6 @@ func (w *DatabaseWALManager) Release(timestamp int64) {
 
 // Run garbage collection on the WAL files
 func (w *DatabaseWALManager) RunGarbageCollection() error {
-	// log.Println("Running garbage collection on WAL files")
-	// defer log.Println("Done with garbage collection")
-
 	w.garbargeCollectionMutex.Lock()
 	defer w.garbargeCollectionMutex.Unlock()
 

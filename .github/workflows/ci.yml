@@ -55,8 +55,16 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run tests
+        env:
+          LITEBASE_TEST_DATA_PATH: /tmp/litebase-test-${{ github.run_id }}-${{ matrix.package.name }}
+          LITEBASE_ROOT_DIRECTORY: ${{ github.workspace }}/
         run: |
           go test . -v
+
+      - name: Cleanup test data
+        if: always()
+        run: |
+          rm -rf /tmp/litebase-test-${{ github.run_id }}-${{ matrix.package.name }} || true
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
