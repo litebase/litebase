@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"log"
+
 	"github.com/litebase/litebase/pkg/config"
 )
 
@@ -24,7 +26,11 @@ func Init(
 
 	if objectMode == config.StorageModeObject && (c.Env == config.EnvTest) ||
 		tieredMode == config.StorageModeObject && (c.Env == config.EnvTest) {
-		StartTestS3Server(c, objectFS)
+		_, err := StartTestS3Server(c, objectFS)
+
+		if err != nil {
+			log.Fatal("Error starting test S3 server:", err)
+		}
 
 		return
 	}

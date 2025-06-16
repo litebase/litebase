@@ -3,7 +3,6 @@ package storage
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -56,7 +55,6 @@ func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
 
 			o.HTTPClient = &http.Client{
 				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 					// Override the dial address because the SDK uses the bucket name as a subdomain.
 					DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
 						dialer := net.Dialer{

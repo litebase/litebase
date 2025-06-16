@@ -5,6 +5,8 @@ import (
 	"io/fs"
 	"strings"
 	"time"
+
+	"github.com/litebase/litebase/internal/utils"
 )
 
 /*
@@ -41,9 +43,25 @@ func DecodeStaticFileInfo(data []byte) StaticFileInfo {
 		return info
 	}
 
-	nameLength := int(binary.LittleEndian.Uint32(data[0:4]))
-	size := int64(binary.LittleEndian.Uint64(data[4:12]))
-	modTime := time.Unix(int64(binary.LittleEndian.Uint64(data[12:20])), 0).UTC()
+	nameLength, err := utils.SafeUint32ToInt32(binary.LittleEndian.Uint32(data[0:4]))
+
+	if err != nil {
+		return StaticFileInfo{}
+	}
+
+	size, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[4:12]))
+
+	if err != nil {
+		return StaticFileInfo{}
+	}
+
+	modTimeInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[12:20]))
+
+	if err != nil {
+		return StaticFileInfo{}
+	}
+
+	modTime := time.Unix(int64(modTimeInt64), 0).UTC()
 
 	if nameLength == 0 {
 		return info
@@ -59,9 +77,29 @@ func DecodeStaticFileInfo(data []byte) StaticFileInfo {
 func (fi StaticFileInfo) Encode() []byte {
 	data := make([]byte, 20+len(fi.StaticName))
 
-	binary.LittleEndian.PutUint32(data[0:4], uint32(len(fi.StaticName)))
-	binary.LittleEndian.PutUint64(data[4:12], uint64(fi.StaticSize))
-	binary.LittleEndian.PutUint64(data[12:20], uint64(fi.StaticModTime.UTC().Unix()))
+	uintNameLen, err := utils.SafeIntToUint32(len(fi.StaticName))
+
+	if err != nil {
+		return nil
+	}
+
+	binary.LittleEndian.PutUint32(data[0:4], uintNameLen)
+
+	uint64Size, err := utils.SafeInt64ToUint64(fi.StaticSize)
+
+	if err != nil {
+		return nil
+	}
+
+	binary.LittleEndian.PutUint64(data[4:12], uint64Size)
+
+	uint64ModTime, err := utils.SafeInt64ToUint64(fi.StaticModTime.UTC().Unix())
+
+	if err != nil {
+		return nil
+	}
+
+	binary.LittleEndian.PutUint64(data[12:20], uint64ModTime)
 
 	copy(data[20:], []byte(fi.StaticName))
 

@@ -168,7 +168,13 @@ func (pl *PageLog) Delete() error {
 	}
 
 	pl.deleted = true
-	pl.index.Delete()
+
+	err = pl.index.Delete()
+
+	if err != nil {
+		return err
+	}
+
 	pl.index = nil
 
 	return pl.fileSystem.Remove(pl.Path)

@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/internal/utils"
 )
 
 // This index is used to track the versions of pages in the distributed log.
@@ -186,7 +187,13 @@ func (pli *PageLoggerIndex) load() error {
 	}
 
 	pageGroupCount := binary.LittleEndian.Uint32(buffer[8:12])
-	nextPageGroupId := PageGroup(binary.LittleEndian.Uint64(buffer[12:20]))
+
+	nextPageGroupIdInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(buffer[12:20]))
+	if err != nil {
+		return err
+	}
+	nextPageGroupId := PageGroup(nextPageGroupIdInt64)
+
 	nextPageGroupLength := binary.LittleEndian.Uint32(buffer[20:24])
 	pageGroupBuffer := bytes.NewBuffer(make([]byte, nextPageGroupLength+8+4))
 
@@ -212,7 +219,11 @@ func (pli *PageLoggerIndex) load() error {
 		pageGroupBytesProcessed := 0
 
 		for pageGroupBytesProcessed < int(nextPageGroupLength) {
-			pageGroupVersionNumber := PageGroupVersion(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
+			pageGroupVersionNumberInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
+			if err != nil {
+				return err
+			}
+			pageGroupVersionNumber := PageGroupVersion(pageGroupVersionNumberInt64)
 			pageGroupBytesProcessed += 8
 			versionDataLength := binary.LittleEndian.Uint32(data[pageGroupBytesProcessed : pageGroupBytesProcessed+4])
 			pageGroupBytesProcessed += 4
@@ -222,7 +233,11 @@ func (pli *PageLoggerIndex) load() error {
 			}
 
 			for versionBytesProcessed := uint32(0); versionBytesProcessed < versionDataLength; versionBytesProcessed += 8 {
-				pageNumber := PageNumber(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
+				pageNumberInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
+				if err != nil {
+					return err
+				}
+				pageNumber := PageNumber(pageNumberInt64)
 				pageGroupBytesProcessed += 8
 				pli.pageGroups[nextPageGroupId][pageGroupVersionNumber] = append(pli.pageGroups[nextPageGroupId][pageGroupVersionNumber], pageNumber)
 			}
@@ -235,8 +250,20 @@ func (pli *PageLoggerIndex) load() error {
 			break
 		}
 
-		nextPageGroupId = PageGroup(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
-		nextPageGroupLength = binary.LittleEndian.Uint32(data[pageGroupBytesProcessed+8 : pageGroupBytesProcessed+12])
+		pageGroupInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
+
+		if err != nil {
+			return err
+		}
+
+		nextPageGroupId = PageGroup(pageGroupInt64)
+
+		nextPageGroupLength, err := utils.SafeUint32ToInt32(binary.LittleEndian.Uint32(data[pageGroupBytesProcessed+8 : pageGroupBytesProcessed+12]))
+
+		if err != nil {
+			return err
+		}
+
 		pageGroupBuffer.Grow(int(nextPageGroupLength + 8 + 4))
 	}
 
@@ -320,16 +347,34 @@ func (pli *PageLoggerIndex) store() error {
 	offset += 4
 
 	// Write total length
-	binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32(totalSize))
+	uint32TotalSize, err := utils.SafeIntToUint32(totalSize)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32TotalSize)
 	offset += 4
 
 	// Write page group count
-	binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32(pageGroupCount))
+	uint32PageGroupCount, err := utils.SafeIntToUint32(pageGroupCount)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32PageGroupCount)
 	offset += 4
 
 	// Write page groups
 	for pageGroupNumber, pageGroupVersions := range pli.pageGroups {
-		binary.LittleEndian.PutUint64(binaryData[offset:offset+8], uint64(pageGroupNumber))
+		uint64PageGroupNumber, err := utils.SafeInt64ToUint64(int64(pageGroupNumber))
+
+		if err != nil {
+			return err
+		}
+
+		binary.LittleEndian.PutUint64(binaryData[offset:offset+8], uint64PageGroupNumber)
 		offset += 8
 
 		// Calculate and write length of page group data
@@ -339,22 +384,47 @@ func (pli *PageLoggerIndex) store() error {
 			pageGroupDataLength += 8 + 4 + len(pageNumbers)*8
 		}
 
-		binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32(pageGroupDataLength))
+		uint32PageGroupDataLength, err := utils.SafeIntToUint32(pageGroupDataLength)
+
+		if err != nil {
+			return err
+		}
+
+		binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32PageGroupDataLength)
 		offset += 4
 
 		// Write page groups
 		for pageGroupVersionNumber, pages := range pageGroupVersions {
-			binary.LittleEndian.PutUint64(binaryData[offset:offset+8], uint64(pageGroupVersionNumber))
+			uint64PageGroupVersionNumber, err := utils.SafeInt64ToUint64(int64(pageGroupVersionNumber))
+
+			if err != nil {
+				return err
+			}
+
+			binary.LittleEndian.PutUint64(binaryData[offset:offset+8], uint64PageGroupVersionNumber)
 			offset += 8
 
 			// Write length of version data
 			versionDataLength := len(pages) * 8
-			binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32(versionDataLength))
+			uint32VersionDataLength, err := utils.SafeIntToUint32(versionDataLength)
+
+			if err != nil {
+				return err
+			}
+
+			binary.LittleEndian.PutUint32(binaryData[offset:offset+4], uint32VersionDataLength)
 			offset += 4
 
 			// Write versions
 			for _, pageNumber := range pages {
-				binary.LittleEndian.PutUint64(binaryData[offset:offset+8], uint64(pageNumber))
+				uint64PageNumber, err := utils.SafeInt64ToUint64(int64(pageNumber))
+
+				if err != nil {
+					return err
+				}
+
+				binary.LittleEndian.PutUint64(binaryData[offset:offset+8], uint64PageNumber)
+
 				offset += 8
 			}
 		}
@@ -367,7 +437,7 @@ func (pli *PageLoggerIndex) store() error {
 		return errors.New("failed to get file")
 	}
 
-	err := file.Truncate(0)
+	err = file.Truncate(0)
 
 	if err != nil {
 		return err

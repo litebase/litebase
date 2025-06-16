@@ -1,6 +1,11 @@
 package storage
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"log/slog"
+
+	"github.com/litebase/litebase/internal/utils"
+)
 
 const PageLogIndexEntryLength = 25
 
@@ -28,9 +33,32 @@ func NewPageLogIndexEntry(
 func (pageLogIndexEntry *PageLogIndexEntry) Encode() []byte {
 	data := make([]byte, PageLogIndexEntryLength)
 
-	binary.LittleEndian.PutUint64(data[0:8], uint64(pageLogIndexEntry.PageNumber))
-	binary.LittleEndian.PutUint64(data[8:16], uint64(pageLogIndexEntry.Version))
-	binary.LittleEndian.PutUint64(data[16:24], uint64(pageLogIndexEntry.Offset))
+	uint64PageNumber, err := utils.SafeInt64ToUint64(int64(pageLogIndexEntry.PageNumber))
+
+	if err != nil {
+		slog.Error("Error encoding page log index entry page number", "error", err)
+		return nil
+	}
+
+	binary.LittleEndian.PutUint64(data[0:8], uint64PageNumber)
+
+	uint64Version, err := utils.SafeInt64ToUint64(int64(pageLogIndexEntry.Version))
+
+	if err != nil {
+		slog.Error("Error encoding page log index entry version", "error", err)
+		return nil
+	}
+
+	binary.LittleEndian.PutUint64(data[8:16], uint64Version)
+
+	uint64Offset, err := utils.SafeInt64ToUint64(pageLogIndexEntry.Offset)
+
+	if err != nil {
+		slog.Error("Error encoding page log index entry offset", "error", err)
+		return nil
+	}
+
+	binary.LittleEndian.PutUint64(data[16:24], uint64Offset)
 
 	if pageLogIndexEntry.Tombstoned {
 		data[24] = 1
@@ -46,9 +74,31 @@ func DecodePageLogIndexEntry(data []byte) PageLogIndexEntry {
 		return PageLogIndexEntry{}
 	}
 
-	pageNumber := PageNumber(binary.LittleEndian.Uint64(data[0:8]))
-	version := PageVersion(binary.LittleEndian.Uint64(data[8:16]))
-	offset := int64(binary.LittleEndian.Uint64(data[16:24]))
+	pageNumberUint64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[0:8]))
+
+	if err != nil {
+		slog.Error("Error decoding page log index entry page number", "error", err)
+		return PageLogIndexEntry{}
+	}
+
+	pageNumber := PageNumber(pageNumberUint64)
+
+	pageVersionUint64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[8:16]))
+
+	if err != nil {
+		slog.Error("Error decoding page log index entry version", "error", err)
+		return PageLogIndexEntry{}
+	}
+
+	version := PageVersion(pageVersionUint64)
+
+	offset, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[16:24]))
+
+	if err != nil {
+		slog.Error("Error decoding page log index entry offset", "error", err)
+		return PageLogIndexEntry{}
+	}
+
 	tombstoned := data[24] == 1
 
 	return PageLogIndexEntry{

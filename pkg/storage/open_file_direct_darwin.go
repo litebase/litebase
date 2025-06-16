@@ -4,12 +4,14 @@ package storage
 
 import (
 	"os"
+	"path/filepath"
 
 	"golang.org/x/sys/unix"
 )
 
 func openFileDirect(name string, flag int, perm os.FileMode) (*os.File, error) {
-	file, err := os.OpenFile(name, flag, perm)
+	// #nosec G304
+	file, err := os.OpenFile(filepath.Clean(name), flag, perm)
 
 	if err != nil {
 		return nil, err

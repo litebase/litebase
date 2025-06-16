@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -100,7 +101,11 @@ func (f *TieredFile) Close() error {
 		f.TieredFileSystemDriver.flushFileToDurableStorage(f, true)
 	}
 
-	f.TieredFileSystemDriver.releaseFile(f)
+	err := f.TieredFileSystemDriver.releaseFile(f)
+
+	if err != nil {
+		slog.Error("Error releasing file", "error", err)
+	}
 
 	return nil
 }
@@ -125,7 +130,11 @@ func (f *TieredFile) MarkUpdated() {
 
 	f.UpdatedAt = time.Now().UTC()
 
-	f.TieredFileSystemDriver.MarkFileUpdated(f)
+	err := f.TieredFileSystemDriver.MarkFileUpdated(f)
+
+	if err != nil {
+		slog.Error("Error marking file as updated", "error", err)
+	}
 }
 
 // Read reads up to len(b) bytes from the File and stores them in b.

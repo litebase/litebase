@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -120,7 +121,12 @@ func (pl *PageLogger) Compact(
 		return nil
 	}
 
-	pl.reload()
+	err := pl.reload()
+
+	if err != nil {
+
+		slog.Error("Error reloading page logger for compaction", "error", err)
+	}
 
 	if len(pl.logs) == 0 {
 		return nil
@@ -132,7 +138,7 @@ func (pl *PageLogger) Compact(
 		err := logEntry.pageLog.compact(durableDatabaseFileSystem)
 
 		if err != nil {
-			log.Println("Error compacting page log:", err)
+			slog.Error("Error compacting page log:", "error", err)
 			return err
 		}
 	}
@@ -155,7 +161,12 @@ func (pl *PageLogger) Compact(
 		}
 	}
 
-	pl.index.removePageLogs(pageLogs)
+	err = pl.index.removePageLogs(pageLogs)
+
+	if err != nil {
+		return err
+	}
+
 	pl.CompactedAt = time.Now().UTC()
 	pl.index.boundary = PageGroupVersion(pl.CompactedAt.UnixNano())
 

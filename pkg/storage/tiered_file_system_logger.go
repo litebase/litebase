@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"iter"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -97,9 +98,7 @@ func (tfl *TieredFileSystemLogger) DirtyKeys() iter.Seq[string] {
 				continue
 			}
 
-			logFilePath := fmt.Sprintf("%s/%s", tfl.directory, file.Name())
-
-			logFile, err := os.Open(logFilePath)
+			logFile, err := os.Open(tfl.directory + "/" + file.Name())
 
 			if err != nil {
 				continue
@@ -115,12 +114,21 @@ func (tfl *TieredFileSystemLogger) DirtyKeys() iter.Seq[string] {
 				}
 
 				if !yield(key) {
-					logFile.Close()
+					err = logFile.Close()
+
+					if err != nil {
+						slog.Error("Error closing log file:", "error", err)
+					}
+
 					break outer
 				}
 			}
 
-			logFile.Close()
+			err = logFile.Close()
+
+			if err != nil {
+				slog.Error("Error closing log file:", "error", err)
+			}
 		}
 	}
 }
@@ -211,7 +219,11 @@ func (tfl *TieredFileSystemLogger) Remove(key string, logKey int64) error {
 	if len(tfl.entries[logKey]) == 0 {
 		delete(tfl.entries, logKey)
 
-		tfl.removeLogFile(logKey)
+		err := tfl.removeLogFile(logKey)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

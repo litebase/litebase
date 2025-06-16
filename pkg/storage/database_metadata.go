@@ -4,12 +4,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 
 	"github.com/litebase/litebase/pkg/file"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/internal/utils"
 )
 
 type DatabaseMetadata struct {
@@ -116,7 +118,14 @@ func (d *DatabaseMetadata) Load() error {
 		return err
 	}
 
-	d.PageCount = int64(binary.LittleEndian.Uint64(data))
+	pageCountInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data))
+
+	if err != nil {
+		slog.Error("Error decoding database metadata page count", "error", err)
+		return err
+	}
+
+	d.PageCount = pageCountInt64
 
 	return nil
 }
@@ -130,7 +139,14 @@ func (d *DatabaseMetadata) Save() error {
 	data := make([]byte, 8)
 
 	// Write the page count
-	binary.LittleEndian.PutUint64(data, uint64(d.PageCount))
+	uint64PageCount, err := utils.SafeInt64ToUint64(d.PageCount)
+
+	if err != nil {
+		slog.Error("Error encoding database metadata page count", "error", err)
+		return err
+	}
+
+	binary.LittleEndian.PutUint64(data, uint64PageCount)
 
 	file, err := d.File()
 

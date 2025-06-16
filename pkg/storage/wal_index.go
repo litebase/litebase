@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -14,6 +15,7 @@ import (
 	"github.com/litebase/litebase/pkg/file"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/internal/utils"
 )
 
 type WALIndex struct {
@@ -156,7 +158,13 @@ func (w *WALIndex) load() error {
 	index := 0
 
 	for index < len(data) {
-		version := int64(binary.LittleEndian.Uint64(data[index : index+8]))
+		int64Value, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[index : index+8]))
+
+		if err != nil {
+			return err
+		}
+
+		version := int64Value
 
 		if version == 0 {
 			break
@@ -198,7 +206,14 @@ func (w *WALIndex) persist() error {
 	versionBytes := make([]byte, 8)
 
 	for _, version := range w.versions {
-		binary.LittleEndian.PutUint64(versionBytes, uint64(version))
+		uint64Version, err := utils.SafeInt64ToUint64(version)
+
+		if err != nil {
+			return err
+		}
+
+		binary.LittleEndian.PutUint64(versionBytes, uint64Version)
+
 		data = append(data, versionBytes...)
 	}
 
@@ -259,7 +274,13 @@ func (w *WALIndex) Truncate() error {
 
 	slices.Sort(w.versions)
 
-	w.persist()
+	err := w.persist()
+
+	if err != nil {
+		slog.Error("failed to persist WAL index:", "error", err)
+
+		return err
+	}
 
 	return nil
 }

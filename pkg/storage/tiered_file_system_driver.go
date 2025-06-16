@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -114,7 +115,11 @@ func NewTieredFileSystemDriver(
 // is written to it will be marked to be flushed to the low tier file system.
 func (fsd *TieredFileSystemDriver) addFile(path string, file internalStorage.File, flag int) *TieredFile {
 	if fsd.FileCount >= fsd.MaxFilesOpened {
-		fsd.ReleaseOldestFile()
+		err := fsd.ReleaseOldestFile()
+
+		if err != nil {
+			slog.Error("Error releasing oldest file", "error", err)
+		}
 	}
 
 	fsd.Files[path] = NewTieredFile(
@@ -296,14 +301,23 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 
 	if file, ok := fsd.Files[path]; ok {
 		if file.Closed {
-			fsd.releaseFile(file)
+			err := fsd.releaseFile(file)
+
+			if err != nil {
+				slog.Error("Error releasing file", "error", err)
+			}
+
 			return nil, false
 		}
 
 		// Do not return the file if it is stale
 		if file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC()) ||
 			(file.UpdatedAt == (time.Time{}) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
-			fsd.releaseFile(file)
+			err := fsd.releaseFile(file)
+
+			if err != nil {
+				slog.Error("Error releasing file", "error", err)
+			}
 
 			return nil, false
 		}
@@ -384,7 +398,11 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 			return file, nil
 		}
 
-		fsd.releaseFile(file)
+		err := fsd.releaseFile(file)
+
+		if err != nil {
+			slog.Error("Error releasing file", "error", err)
+		}
 	}
 
 	// If the file is write only, we need to add file flags to durable storage
@@ -447,7 +465,11 @@ func (fsd *TieredFileSystemDriver) OpenFileDirect(path string, flag int, perm fs
 			return file, nil
 		}
 
-		fsd.releaseFile(file)
+		err := fsd.releaseFile(file)
+
+		if err != nil {
+			slog.Error("Error releasing file", "error", err)
+		}
 	}
 
 	// If the file is write only, we need to add file flags to durable storage
@@ -513,7 +535,11 @@ func (fsd *TieredFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEn
 // track the file.
 func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 	if file, ok := fsd.GetTieredFile(path); ok && file.File != nil {
-		file.Seek(0, io.SeekStart)
+		_, err := file.Seek(0, io.SeekStart)
+
+		if err != nil {
+			return nil, err
+		}
 
 		return io.ReadAll(file)
 	}
@@ -580,7 +606,12 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 func (fsd *TieredFileSystemDriver) Remove(path string) error {
 	if file, ok := fsd.GetTieredFile(path); ok {
 		fsd.mutex.Lock()
-		fsd.releaseFile(file)
+		err := fsd.releaseFile(file)
+
+		if err != nil {
+			slog.Error("Error releasing file:", "error", err)
+		}
+
 		fsd.mutex.Unlock()
 	}
 
@@ -665,14 +696,19 @@ func (fsd *TieredFileSystemDriver) ReleaseOldestFile() error {
 func (fsd *TieredFileSystemDriver) Rename(oldpath, newpath string) error {
 	if file, ok := fsd.GetTieredFile(oldpath); ok {
 		fsd.mutex.Lock()
-		fsd.releaseFile(file)
+		err := fsd.releaseFile(file)
+
+		if err != nil {
+			slog.Error("Error releasing file:", "error", err)
+		}
+
 		fsd.mutex.Unlock()
 	}
 
 	err := fsd.highTierFileSystemDriver.Rename(oldpath, newpath)
 
 	if err != nil && !os.IsNotExist(err) {
-		log.Println("Error renaming file on high tier file system", err)
+		slog.Error("Error renaming file on high tier file system:", "error", err)
 		return err
 	}
 
@@ -780,7 +816,12 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 		select {
 		case <-fsd.context.Done():
 			// Force flush all files to durable storage
-			fsd.Shutdown()
+			err := fsd.Shutdown()
+
+			if err != nil {
+				slog.Error("Error shutting down tiered file system driver:", "error", err)
+			}
+
 			return
 		case <-fsd.watchTicker.C:
 			fsd.mutex.RLock()

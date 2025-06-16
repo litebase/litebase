@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -132,7 +133,12 @@ func (plm *PageLogManager) run() {
 	for {
 		select {
 		case <-plm.context.Done():
-			plm.Close()
+			err := plm.Close()
+
+			if err != nil {
+				slog.Error("Error closing PageLogManager:", "error", err)
+			}
+
 			return
 		case <-ticker.C:
 			if plm.compacting {

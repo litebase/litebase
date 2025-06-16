@@ -2,6 +2,7 @@ package storage
 
 import (
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -22,7 +23,11 @@ func NewPageLogIndex(fileSystem *FileSystem, path string) *PageLogIndex {
 		memory:     make(map[PageNumber][]PageLogIndexEntry),
 	}
 
-	pli.load()
+	err := pli.load()
+
+	if err != nil {
+		slog.Error("Error loading page log index:", "error", err)
+	}
 
 	return pli
 }

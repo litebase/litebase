@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/litebase/litebase/pkg/file"
@@ -227,11 +228,21 @@ func (dfs *DurableDatabaseFileSystem) Shutdown() error {
 	defer dfs.mutex.Unlock()
 
 	for key, r := range dfs.ranges {
-		r.Close()
+		err := r.Close()
+
+		if err != nil {
+			slog.Error("Error closing range", "error", err)
+		}
+
 		delete(dfs.ranges, key)
 	}
 
-	dfs.metadata.Close()
+	err := dfs.metadata.Close()
+
+	if err != nil {
+		slog.Error("Error closing metadata", "error", err)
+		return err
+	}
 
 	return nil
 }
@@ -267,14 +278,14 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 		r, err := dfs.GetRangeFile(rangeNumber)
 
 		if err != nil {
-			log.Println("Error getting range file", err)
+			slog.Error("Error getting range file", "error", err)
 			return err
 		}
 
 		rangeSize, err := r.Size()
 
 		if err != nil {
-			log.Println("Error getting range size", err)
+			slog.Error("Error getting range size", "error", err)
 			return err
 		}
 
@@ -284,21 +295,26 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 			err := r.Delete()
 
 			if err != nil {
-				log.Println("Error removing range", err)
+				slog.Error("Error removing range", "error", err)
 				return err
 			}
 
 			// Remove the range from the map
 			delete(dfs.ranges, rangeNumber)
 
-			dfs.metadata.SetPageCount(dfs.metadata.PageCount - rangePageCount)
+			err = dfs.metadata.SetPageCount(dfs.metadata.PageCount - rangePageCount)
+
+			if err != nil {
+				slog.Error("Error setting page count", "error", err)
+				return err
+			}
 
 			bytesToRemove -= rangeSize
 		} else {
 			err := r.Truncate(rangeSize - bytesToRemove)
 
 			if err != nil {
-				log.Println("Error truncating range", err)
+				slog.Error("Error truncating range", "error", err)
 
 				return err
 			}
@@ -307,7 +323,12 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 
 			pageCount := r.PageCount()
 
-			dfs.metadata.SetPageCount(pageCount)
+			err = dfs.metadata.SetPageCount(pageCount)
+
+			if err != nil {
+				slog.Error("Error setting page count", "error", err)
+				return err
+			}
 		}
 
 		if bytesToRemove == 0 {
@@ -383,7 +404,11 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(timestamp int64, data []byte, offs
 	// }
 
 	if dfs.metadata.PageCount < pageNumber {
-		dfs.metadata.SetPageCount(pageNumber)
+		err := dfs.metadata.SetPageCount(pageNumber)
+
+		if err != nil {
+			slog.Error("Error setting page count", "error", err)
+		}
 	}
 
 	return n, nil
