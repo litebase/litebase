@@ -104,7 +104,7 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 	signatureDirectory := Path(signature)
 
 	if _, err := objectFS.Stat(signatureDirectory); os.IsNotExist(err) {
-		if err := objectFS.MkdirAll(signatureDirectory, 0755); err != nil {
+		if err := objectFS.MkdirAll(signatureDirectory, 0750); err != nil {
 			log.Println(err)
 			return nil, err
 		}
@@ -117,7 +117,7 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 		return nil, err
 	}
 
-	if err := objectFS.MkdirAll(Path(signature), 0755); err != nil {
+	if err := objectFS.MkdirAll(Path(signature), 0750); err != nil {
 		log.Println(err)
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 	}
 
 	// create rotate lock
-	if err := secretsManager.ObjectFS.MkdirAll(Path(c.SignatureNext), 0755); err != nil {
+	if err := secretsManager.ObjectFS.MkdirAll(Path(c.SignatureNext), 0750); err != nil {
 		return err
 	}
 
@@ -394,7 +394,7 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.MkdirAll(newAccessKeyDir, 0755); err != nil {
+	if err := secretsManager.ObjectFS.MkdirAll(newAccessKeyDir, 0750); err != nil {
 		return err
 	}
 
@@ -472,14 +472,14 @@ func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.MkdirAll(newSettingsDir, 0755); err != nil {
+	if err := secretsManager.ObjectFS.MkdirAll(newSettingsDir, 0750); err != nil {
 		return err
 	}
 
 	for _, setting := range settings {
 		if err := secretsManager.ObjectFS.MkdirAll(
 			newSettingsDir+setting.Name()+"/",
-			0755,
+			0750,
 		); err != nil {
 			return err
 		}

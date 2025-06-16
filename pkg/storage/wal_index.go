@@ -71,13 +71,13 @@ tryOpen:
 	file, err := w.fileSystem.OpenFileDirect(
 		path,
 		os.O_CREATE|os.O_RDWR,
-		0644,
+		0600,
 	)
 
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Try to create the directory
-			err = w.fileSystem.MkdirAll(filepath.Dir(path), 0755)
+			err = w.fileSystem.MkdirAll(filepath.Dir(path), 0750)
 
 			if err != nil {
 				return nil, err

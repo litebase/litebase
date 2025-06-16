@@ -228,11 +228,11 @@ func (pl *PageLog) openFile() error {
 	var err error
 
 tryOpen:
-	pl.file, err = pl.fileSystem.OpenFileDirect(pl.Path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	pl.file, err = pl.fileSystem.OpenFileDirect(pl.Path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = pl.fileSystem.MkdirAll(filepath.Dir(pl.Path), 0755)
+			err = pl.fileSystem.MkdirAll(filepath.Dir(pl.Path), 0750)
 
 			if err != nil {
 				return err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
@@ -76,24 +77,49 @@ func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 
 func (cluster *Cluster) ShutdownStorage() {
 	if cluster.localFileSystem != nil {
-		cluster.localFileSystem.Shutdown()
+		err := cluster.localFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down local file system", "error", err)
+		}
 	}
 
 	if cluster.objectFileSystem != nil {
-		cluster.objectFileSystem.Shutdown()
+		err := cluster.objectFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down object file system", "error", err)
+		}
 	}
 
 	if cluster.networkFileSystem != nil {
-		cluster.networkFileSystem.Shutdown()
+		err := cluster.networkFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down network file system", "error", err)
+		}
 	}
 
 	if cluster.tieredFileSystem != nil {
-		cluster.tieredFileSystem.Shutdown()
+		err := cluster.tieredFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down tiered file system", "error", err)
+		}
 	}
 
 	if cluster.tmpFileSystem != nil {
-		cluster.tmpFileSystem.ClearFiles()
-		cluster.tmpFileSystem.Shutdown()
+		err := cluster.tmpFileSystem.ClearFiles()
+
+		if err != nil {
+			slog.Error("Clearing tmp file system", "error", err)
+		}
+
+		err = cluster.tmpFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down tmp file system", "error", err)
+		}
 	}
 
 	if cluster.tmpTieredFileSystem != nil {
@@ -103,7 +129,11 @@ func (cluster *Cluster) ShutdownStorage() {
 			log.Println("Clearing tmp tiered file system", err)
 		}
 
-		cluster.tmpTieredFileSystem.Shutdown()
+		err = cluster.tmpTieredFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down tmp tiered file system", "error", err)
+		}
 	}
 }
 

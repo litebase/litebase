@@ -59,11 +59,11 @@ func StoreSignature(c *config.Config, objectFS *storage.FileSystem, signature st
 
 writeFile:
 
-	err := objectFS.WriteFile(signaturePath, []byte(signature), 0644)
+	err := objectFS.WriteFile(signaturePath, []byte(signature), 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = objectFS.MkdirAll("", 0755)
+			err = objectFS.MkdirAll("", 0750)
 
 			if err != nil {
 				return err

@@ -47,7 +47,7 @@ func (database *Database) Key(branchId string) string {
 }
 
 func (database *Database) save() error {
-	database.DatabaseManager.Cluster.ObjectFS().MkdirAll(fmt.Sprintf("%s%s", Directory(), database.Id), 0755)
+	database.DatabaseManager.Cluster.ObjectFS().MkdirAll(fmt.Sprintf("%s%s", Directory(), database.Id), 0750)
 
 	jsonData, err := json.Marshal(database)
 

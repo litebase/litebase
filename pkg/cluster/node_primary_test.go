@@ -54,7 +54,7 @@ func TestNodePrimaryHeartbeatWithDisconnectedNode(t *testing.T) {
 		err := testServer1.App.Cluster.NetworkFS().WriteFile(
 			fmt.Sprintf("%s%s", testServer1.App.Cluster.NodePath(), strings.ReplaceAll(stoppedAddress, ":", "_")),
 			[]byte(stoppedAddress),
-			0644,
+			0600,
 		)
 
 		if err != nil {

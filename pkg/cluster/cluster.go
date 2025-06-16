@@ -65,19 +65,19 @@ func getClusterIdFromEnv(config *config.Config) (string, error) {
 
 // Create the directories and files for the cluster.
 func (cluster *Cluster) createDirectoriesAndFiles() error {
-	err := cluster.NetworkFS().MkdirAll("_cluster/", 0755)
+	err := cluster.NetworkFS().MkdirAll("_cluster/", 0750)
 
 	if err != nil {
 		return err
 	}
 
-	err = cluster.NetworkFS().MkdirAll(cluster.NodePath(), 0755)
+	err = cluster.NetworkFS().MkdirAll(cluster.NodePath(), 0750)
 
 	if err != nil {
 		return err
 	}
 
-	err = cluster.NetworkFS().MkdirAll(cluster.NodePath(), 0755)
+	err = cluster.NetworkFS().MkdirAll(cluster.NodePath(), 0750)
 
 	if err != nil {
 		return err
@@ -199,7 +199,7 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := cluster.ObjectFS().MkdirAll(filepath.Dir(ConfigPath()), 0755)
+			err := cluster.ObjectFS().MkdirAll(filepath.Dir(ConfigPath()), 0750)
 
 			if err != nil {
 				return err
@@ -367,11 +367,15 @@ func (cluster *Cluster) Save() error {
 	}
 
 writefile:
-	err = cluster.ObjectFS().WriteFile(ConfigPath(), data, 0644)
+	err = cluster.ObjectFS().WriteFile(ConfigPath(), data, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			cluster.ObjectFS().MkdirAll("", 0755)
+			err = cluster.ObjectFS().MkdirAll("", 0750)
+
+			if err != nil {
+				return err
+			}
 
 			goto writefile
 		}

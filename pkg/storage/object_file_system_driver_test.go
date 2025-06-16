@@ -99,7 +99,7 @@ func TestObjectFileSystemDriver_Mkdir(t *testing.T) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test creating a directory
-		err := driver.Mkdir("testdir", 0755)
+		err := driver.Mkdir("testdir", 0750)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -112,7 +112,7 @@ func TestObjectFileSystemDriver_MkdirAll(t *testing.T) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test creating a directory and all parent directories
-		err := driver.MkdirAll("testdir/subdir", 0755)
+		err := driver.MkdirAll("testdir/subdir", 0750)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -169,7 +169,7 @@ func TestObjectFileSystemDriver_OpenFile(t *testing.T) {
 		}
 
 		// Test opening the file
-		file, err = driver.OpenFile("test.txt", os.O_CREATE|os.O_RDONLY, 0644)
+		file, err = driver.OpenFile("test.txt", os.O_CREATE|os.O_RDONLY, 0600)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -245,7 +245,7 @@ func TestObjectFileSystemDriverReadFile(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0644)
+		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -293,7 +293,7 @@ func TestObjectFileSystemDriverRemoveAll(t *testing.T) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a directory to remove
-		err := driver.Mkdir("testdir", 0755)
+		err := driver.Mkdir("testdir", 0750)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -399,7 +399,7 @@ func TestObjectFileSystemDriverTruncate(t *testing.T) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Create a file to truncate
-		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0644)
+		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -419,7 +419,7 @@ func TestObjectFileSystemDriverWriteFile(t *testing.T) {
 		driver := storage.NewObjectFileSystemDriver(app.Config)
 
 		// Test writing to a file
-		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0644)
+		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)

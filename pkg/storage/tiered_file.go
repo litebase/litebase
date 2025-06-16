@@ -141,7 +141,7 @@ func (f *TieredFile) Read(b []byte) (n int, err error) {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return 0, err
@@ -162,7 +162,7 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return 0, err
@@ -182,7 +182,7 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 // to the end. Seek returns the new offset and an error, if any.
 func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return 0, err
@@ -213,7 +213,7 @@ func (f *TieredFile) Stat() (fs.FileInfo, error) {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return nil, err
@@ -237,7 +237,7 @@ func (f *TieredFile) Sync() error {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return err
@@ -267,7 +267,7 @@ func (f *TieredFile) Truncate(size int64) error {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return err
@@ -306,7 +306,7 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return 0, err
@@ -339,7 +339,7 @@ func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return 0, err
@@ -364,7 +364,7 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return 0, err
@@ -386,7 +386,7 @@ func (f *TieredFile) WriteString(s string) (n int, err error) {
 	defer f.mutex.Unlock()
 
 	if f.Closed || f.File == nil {
-		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0644)
+		file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
 
 		if err != nil {
 			return 0, err

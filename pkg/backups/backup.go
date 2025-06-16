@@ -102,7 +102,7 @@ tryReadDir:
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = objectFS.MkdirAll(backupsDirectory, 0755)
+			err = objectFS.MkdirAll(backupsDirectory, 0750)
 
 			if err != nil {
 				return nil, err
@@ -519,7 +519,7 @@ createFile:
 	if err != nil {
 		if os.IsNotExist(err) {
 			// If the directory does not exist, create it
-			if err := backup.objectFS.MkdirAll(backup.DirectoryPath(), 0755); err != nil {
+			if err := backup.objectFS.MkdirAll(backup.DirectoryPath(), 0750); err != nil {
 				log.Println("Error creating backup directory:", err)
 				return nil, err
 			}

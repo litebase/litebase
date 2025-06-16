@@ -45,7 +45,7 @@ func TestFileSystemMkdir(t *testing.T) {
 
 		fs := storage.NewFileSystem(driver)
 
-		err := fs.Mkdir("test", 0755)
+		err := fs.Mkdir("test", 0750)
 
 		if err != nil {
 			t.Errorf("Mkdir() returned an error: %v", err)
@@ -59,7 +59,7 @@ func TestFileSystemMkdirAll(t *testing.T) {
 
 		fs := storage.NewFileSystem(driver)
 
-		err := fs.MkdirAll("test", 0755)
+		err := fs.MkdirAll("test", 0750)
 
 		if err != nil {
 			t.Errorf("MkdirAll() returned an error: %v", err)
@@ -108,7 +108,7 @@ func TestFileSystemOpenFile(t *testing.T) {
 
 		fs := storage.NewFileSystem(driver)
 
-		file, err := fs.OpenFile("test", 0, 0755)
+		file, err := fs.OpenFile("test", 0, 0750)
 
 		if err == nil {
 			t.Errorf("OpenFile() returned nil, expected an error")
@@ -125,7 +125,7 @@ func TestFileSystemOpenFile(t *testing.T) {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		file, err = fs.OpenFile("test", 0, 0755)
+		file, err = fs.OpenFile("test", 0, 0750)
 
 		if err != nil {
 			t.Errorf("OpenFile() returned an error: %v", err)
@@ -162,7 +162,7 @@ func TestFileSystemReadDir(t *testing.T) {
 		files := []string{"test1.txt", "test2.txt", "test3.txt"}
 
 		for _, directory := range directories {
-			err := fs.Mkdir(directory, 0755)
+			err := fs.Mkdir(directory, 0750)
 
 			if err != nil {
 				t.Errorf("Mkdir() returned an error: %v", err)
@@ -289,7 +289,7 @@ func TestFileSystemDriverRemoveAll(t *testing.T) {
 		}
 
 		// Create a directory
-		err = fs.Mkdir("test", 0755)
+		err = fs.Mkdir("test", 0750)
 
 		if err != nil {
 			t.Errorf("Mkdir() returned an error: %v", err)
@@ -407,7 +407,7 @@ func TestFileSystemWriteFile(t *testing.T) {
 
 		fs := storage.NewFileSystem(driver)
 
-		err := fs.WriteFile("test", []byte("test"), 0755)
+		err := fs.WriteFile("test", []byte("test"), 0750)
 
 		if err != nil {
 			t.Errorf("WriteFile() returned an error: %v", err)

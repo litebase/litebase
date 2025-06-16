@@ -93,11 +93,11 @@ func (q *QueryLog) GetFile() internalStorage.File {
 		path := fmt.Sprintf("%s/%d/QUERY_LOG_%s", q.path, q.timestamp, q.cluster.Node().ID)
 
 	tryOpen:
-		file, err := q.tieredFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+		file, err := q.tieredFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				err := q.tieredFS.MkdirAll(filepath.Dir(path), 0755)
+				err := q.tieredFS.MkdirAll(filepath.Dir(path), 0750)
 
 				if err != nil {
 					log.Println(err)
@@ -126,7 +126,7 @@ func (q *QueryLog) GetStatementIndex() (*QueryStatementIndex, error) {
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				q.tieredFS.MkdirAll(q.path, 0755)
+				q.tieredFS.MkdirAll(q.path, 0750)
 			} else {
 				log.Fatal(err)
 			}

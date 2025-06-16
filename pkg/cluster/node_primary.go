@@ -52,7 +52,11 @@ func (np *NodePrimary) Heartbeat() error {
 			experiencedError = true
 
 			// Remove the address file
-			np.ValidateReplica(address)
+			err := np.ValidateReplica(address)
+
+			if err != nil {
+				slog.Error("Failed to validate replica", "address", address, "error", err)
+			}
 		}
 	}
 
@@ -130,7 +134,11 @@ func (np *NodePrimary) Shutdown() {
 	defer np.mutex.Unlock()
 
 	for _, connection := range np.nodeConnections {
-		connection.Close()
+		err := connection.Close()
+
+		if err != nil {
+			slog.Error("Failed to close node connection", "address", connection.Address, "error", err)
+		}
 	}
 }
 
@@ -153,7 +161,11 @@ func (np *NodePrimary) ValidateReplica(address string) error {
 		},
 	}
 
-	np.node.setInternalHeaders(request)
+	err = np.node.setInternalHeaders(request)
+
+	if err != nil {
+		slog.Debug("Failed to set internal headers for replica validation", "error", err)
+	}
 
 	response, err := client.Do(request)
 

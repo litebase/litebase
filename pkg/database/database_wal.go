@@ -138,12 +138,12 @@ tryOpen:
 	file, err := wal.fileSystem.OpenFileDirect(
 		wal.Path,
 		os.O_CREATE|os.O_RDWR,
-		0644,
+		0600,
 	)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = wal.fileSystem.MkdirAll(filepath.Dir(wal.Path), 0755)
+			err = wal.fileSystem.MkdirAll(filepath.Dir(wal.Path), 0750)
 
 			if err != nil {
 				return nil, err

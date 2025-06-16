@@ -259,12 +259,12 @@ openFile:
 	snapshotFile, err := s.tieredFS.OpenFile(
 		GetSnapshotPath(s.DatabaseId, s.BranchId, s.Timestamp),
 		SNAPSHOT_LOG_FLAGS,
-		0644,
+		0600,
 	)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := s.tieredFS.MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(s.DatabaseId, s.BranchId)), 0755)
+			err := s.tieredFS.MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(s.DatabaseId, s.BranchId)), 0750)
 
 			if err != nil {
 				return err

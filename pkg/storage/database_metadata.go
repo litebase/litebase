@@ -63,11 +63,11 @@ func (d *DatabaseMetadata) File() (internalStorage.File, error) {
 
 	if d.file == nil {
 	tryOpen:
-		d.file, err = d.databaseFileSystem.FileSystem().OpenFileDirect(d.Path(), os.O_CREATE|os.O_RDWR, 0644)
+		d.file, err = d.databaseFileSystem.FileSystem().OpenFileDirect(d.Path(), os.O_CREATE|os.O_RDWR, 0600)
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				err := d.databaseFileSystem.FileSystem().MkdirAll(file.GetDatabaseFileDir(d.DatabaseId, d.BranchId), 0755)
+				err := d.databaseFileSystem.FileSystem().MkdirAll(file.GetDatabaseFileDir(d.DatabaseId, d.BranchId), 0750)
 
 				if err != nil {
 					return nil, err

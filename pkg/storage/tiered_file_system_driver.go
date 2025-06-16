@@ -273,7 +273,7 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 		return
 	}
 
-	err = fsd.lowTierFileSystemDriver.WriteFile(file.Key, buffer.Bytes(), 0644)
+	err = fsd.lowTierFileSystemDriver.WriteFile(file.Key, buffer.Bytes(), 0600)
 
 	if err != nil {
 		// Handle error (retry, log, etc.)
@@ -404,11 +404,11 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	}
 
 tryOpen:
-	file, err := fsd.highTierFileSystemDriver.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
+	file, err := fsd.highTierFileSystemDriver.OpenFile(path, os.O_RDWR|os.O_CREATE, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = fsd.highTierFileSystemDriver.MkdirAll(filepath.Dir(path), 0755)
+			err = fsd.highTierFileSystemDriver.MkdirAll(filepath.Dir(path), 0750)
 
 			if err != nil {
 				return nil, err
@@ -466,7 +466,7 @@ func (fsd *TieredFileSystemDriver) OpenFileDirect(path string, flag int, perm fs
 		return nil, err
 	}
 
-	file, err := fsd.highTierFileSystemDriver.OpenFileDirect(path, os.O_RDWR|os.O_CREATE, 0644)
+	file, err := fsd.highTierFileSystemDriver.OpenFileDirect(path, os.O_RDWR|os.O_CREATE, 0600)
 
 	if err != nil {
 		return nil, err
@@ -731,7 +731,7 @@ func (fsd *TieredFileSystemDriver) SyncDirtyFiles() error {
 			if file, ok := fsd.Files[key]; ok {
 				fsd.flushFileToDurableStorage(file, true)
 			} else {
-				file, err := fsd.highTierFileSystemDriver.OpenFile(key, os.O_RDWR|os.O_CREATE, 0644)
+				file, err := fsd.highTierFileSystemDriver.OpenFile(key, os.O_RDWR|os.O_CREATE, 0600)
 
 				if err != nil {
 					log.Println("Error opening file on high tier file system", err)

@@ -29,13 +29,13 @@ func GetQueryStatementIndex(tieredFS *storage.FileSystem, path, name string, tim
 	directoryPath := fmt.Sprintf("%s/%d/", path, timestamp)
 	indexPath := fmt.Sprintf("%s/%s", directoryPath, name)
 
-	err := tieredFS.MkdirAll(directoryPath, 0755)
+	err := tieredFS.MkdirAll(directoryPath, 0750)
 
 	if err != nil {
 		return nil, err
 	}
 
-	file, err := tieredFS.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	file, err := tieredFS.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
 
 	if err != nil {
 		log.Println("Failed to open file", err)

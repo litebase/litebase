@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/pkg/storage"
 )
@@ -175,19 +176,33 @@ func (n *Node) HasPeerElectionRunning() bool {
 func (n *Node) heartbeat() {
 	n.mutex.Lock()
 
-	n.ensureNodeAddressStored()
+	err := n.ensureNodeAddressStored()
+
+	if err != nil {
+		slog.Debug("Failed to ensure node address is stored", "error", err)
+	}
 
 	if n.Membership == ClusterMembershipPrimary {
 		n.mutex.Unlock()
 
 		if n.Lease() == nil {
 			slog.Error("No lease found for primary node, cannot send heartbeat")
-			n.removePrimaryStatus()
+
+			err := n.removePrimaryStatus()
+
+			if err != nil {
+				slog.Debug("Failed to remove primary status", "error", err)
+			}
+
 			return
 		}
 
 		if n.Lease().ShouldRenew() {
-			n.Lease().Renew()
+			err := n.Lease().Renew()
+
+			if err != nil {
+				slog.Debug("Failed to renew lease", "error", err)
+			}
 		} else {
 			if n.Primary() == nil {
 				return
@@ -231,8 +246,13 @@ func (n *Node) Init(
 	registerNodeMessages()
 
 	// Make directory if it doesn't exist
-	if n.Cluster.NetworkFS().Stat(n.Cluster.NodePath()); os.IsNotExist(os.ErrNotExist) {
-		n.Cluster.NetworkFS().Mkdir(n.Cluster.NodePath(), 0755)
+	if _, err := n.Cluster.NetworkFS().Stat(n.Cluster.NodePath()); os.IsNotExist(err) {
+		err := n.Cluster.NetworkFS().Mkdir(n.Cluster.NodePath(), 0750)
+
+		if err != nil {
+			slog.Error("Failed to create node directory", "error", err)
+			return
+		}
 	}
 
 	n.SetQueryBuilder(queryBuilder)
@@ -426,7 +446,12 @@ func (n *Node) primaryLeaseVerification() bool {
 	}
 
 	if time.Now().UTC().Unix() >= leaseTime {
-		n.removePrimaryStatus()
+		err := n.removePrimaryStatus()
+
+		if err != nil {
+			slog.Debug("Failed to remove primary status", "error", err)
+		}
+
 		n.SetMembership(ClusterMembershipReplica)
 
 		return false
@@ -679,14 +704,23 @@ func (n *Node) SetMembership(membership string) {
 		n.primary = NewNodePrimary(n)
 
 		if n.replica != nil {
-			n.replica.Stop()
+			err := n.replica.Stop()
+
+			if err != nil {
+				slog.Debug("Failed to stop replica", "error", err)
+			}
+
 			n.replica = nil
 		}
 
 		// Ensure the primary checks for dirty files that need to be synced from
 		// tiered storage.
 		if driver, ok := n.Cluster.TieredFS().Driver().(*storage.TieredFileSystemDriver); ok {
-			driver.SyncDirtyFiles()
+			err := driver.SyncDirtyFiles()
+
+			if err != nil {
+				slog.Debug("Failed to sync dirty files", "error", err)
+			}
 		}
 	}
 
@@ -716,7 +750,11 @@ func (n *Node) Shutdown() error {
 		n.Primary().Shutdown()
 
 		if n.Lease() != nil {
-			n.Lease().Release()
+			err := n.Lease().Release()
+
+			if err != nil {
+				slog.Debug("Failed to release lease", "error", err)
+			}
 		}
 	}
 
@@ -779,15 +817,23 @@ func (n *Node) StepDown() error {
 func (n *Node) StoreAddress() error {
 tryStore:
 	timeBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(timeBytes, uint64(time.Now().UTC().Unix()))
-	err := n.Cluster.NetworkFS().WriteFile(n.AddressPath(), timeBytes, 0644)
+
+	uint64Time, err := utils.SafeInt64ToUint64(time.Now().UTC().Unix())
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint64(timeBytes, uint64Time)
+
+	err = n.Cluster.NetworkFS().WriteFile(n.AddressPath(), timeBytes, 0600)
 
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return err
 		}
 
-		err = n.Cluster.NetworkFS().MkdirAll(n.Cluster.NodePath(), 0755)
+		err = n.Cluster.NetworkFS().MkdirAll(n.Cluster.NodePath(), 0750)
 
 		if err != nil {
 			return err
@@ -805,7 +851,12 @@ tryStore:
 // membership and state.
 func (n *Node) Tick() {
 	if n.joinedClusterAt.IsZero() {
-		n.JoinCluster()
+		err := n.JoinCluster()
+
+		if err != nil {
+			slog.Error("Failed to join cluster", "error", err)
+			return
+		}
 	}
 
 	n.mutex.Lock()

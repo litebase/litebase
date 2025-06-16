@@ -246,7 +246,7 @@ func (u *UserManager) writeFile() error {
 		return err
 	}
 
-	err = u.auth.ObjectFS.WriteFile(u.path, data, 0644)
+	err = u.auth.ObjectFS.WriteFile(u.path, data, 0600)
 
 	return err
 }

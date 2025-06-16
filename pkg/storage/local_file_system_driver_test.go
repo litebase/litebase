@@ -40,7 +40,7 @@ func TestLocalFileSystemDriverMkdir(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))
 
-		err := driver.Mkdir("test", 0755)
+		err := driver.Mkdir("test", 0750)
 
 		if err != nil {
 			t.Errorf("Mkdir() returned an error: %v", err)
@@ -52,7 +52,7 @@ func TestLocalFileSystemDriverMkdirAll(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))
 
-		err := driver.MkdirAll("test", 0755)
+		err := driver.MkdirAll("test", 0750)
 
 		if err != nil {
 			t.Errorf("MkdirAll() returned an error: %v", err)
@@ -97,7 +97,7 @@ func TestLocalFileSystemDriverOpenFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))
 
-		file, err := driver.OpenFile("test.txt", 0, 0755)
+		file, err := driver.OpenFile("test.txt", 0, 0750)
 
 		if err == nil {
 			t.Errorf("OpenFile() returned nil, expected an error")
@@ -114,7 +114,7 @@ func TestLocalFileSystemDriverOpenFile(t *testing.T) {
 			t.Errorf("Create() returned an error: %v", err)
 		}
 
-		file, err = driver.OpenFile("test.txt", 0, 0755)
+		file, err = driver.OpenFile("test.txt", 0, 0750)
 
 		if err != nil {
 			t.Errorf("OpenFile() returned an error: %v", err)
@@ -137,7 +137,7 @@ func TestLocalFileSystemDriverReadDir(t *testing.T) {
 		files := []string{"test1.txt", "test2.txt", "test3.txt"}
 
 		for _, directory := range directories {
-			err := driver.Mkdir(directory, 0755)
+			err := driver.Mkdir(directory, 0750)
 
 			if err != nil {
 				t.Errorf("Mkdir() returned an error: %v", err)
@@ -295,7 +295,7 @@ func TestLocalFileSystemDriverRemoveAll(t *testing.T) {
 		}
 
 		// Create a directory
-		err = driver.Mkdir("test", 0755)
+		err = driver.Mkdir("test", 0750)
 
 		if err != nil {
 			t.Errorf("Mkdir() returned an error: %v", err)
@@ -447,7 +447,7 @@ func TestLocalFileSystemDriverWriteFile(t *testing.T) {
 
 		// Write some data to a file
 		data := []byte("Hello, World!")
-		err := driver.WriteFile("test.txt", data, 0755)
+		err := driver.WriteFile("test.txt", data, 0750)
 
 		if err != nil {
 			t.Errorf("WriteFile() returned an error: %v", err)

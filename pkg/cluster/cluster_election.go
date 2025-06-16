@@ -3,12 +3,14 @@ package cluster
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"log/slog"
-	"math/rand/v2"
+	"math"
+	"math/big"
 	"net/http"
 	"os"
 	"syscall"
@@ -41,13 +43,20 @@ func NewClusterElection(node *Node) *ClusterElection {
 	ctx, cancel := context.WithCancel(node.Context())
 	startedAt := time.Now().UTC()
 
+	randInt64, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+
+	if err != nil {
+		log.Println("Failed to generate random seed for election:", err)
+		randInt64 = big.NewInt(0) // Fallback to zero if random generation fails
+	}
+
 	return &ClusterElection{
 		cancel:    cancel,
 		Candidate: node.ID,
 		context:   ctx,
 		EndsAt:    startedAt.Add(ElectionDeadline),
 		node:      node,
-		Seed:      rand.Int64(),
+		Seed:      randInt64.Int64(),
 		StartedAt: startedAt,
 	}
 }
@@ -192,7 +201,14 @@ func (ce *ClusterElection) run() (bool, error) {
 
 	if !ce.node.Cluster.IsSingleNodeCluster() {
 		// Add a random sleep to avoid simultaneous elections
-		sleepDuration := time.Duration(100+rand.IntN(901)) * time.Millisecond
+		randInt64, err := rand.Int(rand.Reader, big.NewInt(901))
+
+		if err != nil {
+			return false, err
+		}
+
+		sleepDuration := time.Duration(100+randInt64.Int64()) * time.Millisecond
+
 		time.Sleep(sleepDuration)
 	}
 
@@ -215,9 +231,18 @@ func (ce *ClusterElection) run() (bool, error) {
 
 	defer func() {
 		if locked {
-			syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+			err = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+
+			if err != nil {
+				slog.Debug("Failed to unlock primary file", "error", err)
+			}
 		}
-		primaryFile.Close()
+
+		err = primaryFile.Close()
+
+		if err != nil {
+			slog.Debug("Failed to close primary file", "error", err)
+		}
 	}()
 
 	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
@@ -244,7 +269,7 @@ func (ce *ClusterElection) run() (bool, error) {
 	err = ce.node.Cluster.NetworkFS().WriteFile(
 		ce.node.Cluster.PrimaryPath(),
 		[]byte(ce.node.address),
-		0644,
+		0600,
 	)
 
 	if err != nil {

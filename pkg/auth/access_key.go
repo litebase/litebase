@@ -104,7 +104,7 @@ func (accessKey *AccessKey) Update(
 			fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId),
 		),
 		[]byte(encryptedAccessKey),
-		0644,
+		0600,
 	)
 
 	if err != nil {

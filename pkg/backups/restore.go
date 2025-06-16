@@ -105,7 +105,7 @@ func copySourceDatabasePageLogsToTargetDatabase(
 			return err
 		}
 
-		err = targetFileSystem.PageLogger.NetworkFS.MkdirAll(targetDirectory, 0755)
+		err = targetFileSystem.PageLogger.NetworkFS.MkdirAll(targetDirectory, 0750)
 
 		if err != nil {
 			slog.Error("Error creating target directory:", "directory", targetDirectory, "error", err)
@@ -293,7 +293,7 @@ func RestoreFromBackup(
 	// Open each tar.gz backup part and write it to the target database
 	for _, backupPart := range backupParts {
 		backupPartPath := fmt.Sprintf("%s/%s", timestampPath, backupPart)
-		backupFile, err := sourceFileSystem.FileSystem().OpenFile(backupPartPath, os.O_RDWR, 0644)
+		backupFile, err := sourceFileSystem.FileSystem().OpenFile(backupPartPath, os.O_RDWR, 0600)
 
 		if err != nil {
 			slog.Error("Error opening backup part:", "file", backupPartPath, "error", err)
@@ -342,7 +342,7 @@ func RestoreFromBackup(
 				err = targetFileSystem.FileSystem().WriteFile(
 					file.GetDatabaseFileDir(targetDatabaseUuid, targetBranchUuid)+header.Name,
 					data,
-					0644,
+					0600,
 				)
 
 				if err != nil {

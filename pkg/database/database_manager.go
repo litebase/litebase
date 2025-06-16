@@ -58,7 +58,7 @@ tryRead:
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := d.Cluster.ObjectFS().MkdirAll(Directory(), 0755)
+			err := d.Cluster.ObjectFS().MkdirAll(Directory(), 0750)
 
 			if err != nil {
 				return nil, err
@@ -194,7 +194,7 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 		return nil, err
 	}
 
-	err = d.Cluster.ObjectFS().MkdirAll(database.BranchDirectory(branch.Id), 0755)
+	err = d.Cluster.ObjectFS().MkdirAll(database.BranchDirectory(branch.Id), 0750)
 
 	if err != nil {
 		log.Println("ERROR", err)

@@ -27,7 +27,11 @@ func (c *Cluster) EventsManager() *EventsManager {
 
 func (em *EventsManager) Hook() func(key string, value string) {
 	hook := func(key string, value string) {
-		em.cluster.Broadcast(key, value)
+		err := em.cluster.Broadcast(key, value)
+
+		if err != nil {
+			slog.Error("Failed to broadcast event", "key", key, "error", err)
+		}
 	}
 
 	em.hooks = append(em.hooks, hook)
@@ -39,7 +43,11 @@ func (em *EventsManager) Hook() func(key string, value string) {
 func (em *EventsManager) Init() {
 	em.cluster.Subscribe("access-key:purge", func(message *EventMessage) {
 		if accessKeyID, ok := message.Value.(string); ok {
-			em.cluster.Auth.AccessKeyManager.Purge(accessKeyID)
+			err := em.cluster.Auth.AccessKeyManager.Purge(accessKeyID)
+
+			if err != nil {
+				slog.Error("Failed to purge access key", "error", err)
+			}
 		}
 	})
 
@@ -68,7 +76,11 @@ func (em *EventsManager) Init() {
 			return
 		}
 
-		em.cluster.AddMember(ID, data["address"].(string))
+		err := em.cluster.AddMember(ID, data["address"].(string))
+
+		if err != nil {
+			slog.Error("Failed to add member to cluster", "error", err)
+		}
 	})
 
 	em.cluster.Subscribe("cluster:leave", func(message *EventMessage) {
@@ -85,12 +97,20 @@ func (em *EventsManager) Init() {
 		}
 
 		if address, ok := data["address"].(string); ok {
-			em.cluster.RemoveMember(address, false)
+			err := em.cluster.RemoveMember(address, false)
+
+			if err != nil {
+				slog.Error("Failed to remove member from cluster", "error", err)
+			}
 		}
 	})
 
 	em.cluster.Subscribe("signature:activate", func(message *EventMessage) {
-		ActivateSignatureHandler(em.cluster.Config, message.Value)
+		err := ActivateSignatureHandler(em.cluster.Config, message.Value)
+
+		if err != nil {
+			slog.Error("Failed to activate signature", "error", err)
+		}
 	})
 
 	em.cluster.Subscribe("signature:next", func(message *EventMessage) {
@@ -99,7 +119,11 @@ func (em *EventsManager) Init() {
 
 	em.cluster.Subscribe("user:purge", func(message *EventMessage) {
 		if username, ok := message.Value.(string); ok {
-			em.cluster.Auth.UserManager().Purge(username)
+			err := em.cluster.Auth.UserManager().Purge(username)
+
+			if err != nil {
+				slog.Error("Failed to purge user", "error", err)
+			}
 		}
 	})
 }

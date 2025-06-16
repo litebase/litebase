@@ -262,11 +262,11 @@ func (d *DatabaseKeyStore) Len() uint32 {
 // Load the database key store from the file system.
 func (d *DatabaseKeyStore) load() error {
 tryOpen:
-	file, err := d.fileSystem.OpenFile(d.path, os.O_RDWR|os.O_CREATE, 0644)
+	file, err := d.fileSystem.OpenFile(d.path, os.O_RDWR|os.O_CREATE, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := d.fileSystem.MkdirAll(filepath.Dir(d.path), 0755)
+			err := d.fileSystem.MkdirAll(filepath.Dir(d.path), 0750)
 
 			if err != nil {
 				return err

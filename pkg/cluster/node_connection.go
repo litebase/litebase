@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"sync"
@@ -77,12 +78,22 @@ func (nc *NodeConnection) closeConnection() {
 	}
 
 	if nc.reader != nil {
-		nc.reader.Close()
+		err := nc.reader.Close()
+
+		if err != nil {
+			slog.Error("Failed to close reader", "error", err)
+		}
+
 		nc.reader = nil
 	}
 
 	if nc.writer != nil {
-		nc.writer.Close()
+		err := nc.writer.Close()
+
+		if err != nil {
+			slog.Error("Failed to close writer", "error", err)
+		}
+
 		nc.writer = nil
 	}
 }

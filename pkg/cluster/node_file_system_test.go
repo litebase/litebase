@@ -87,7 +87,7 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 	if os.Getenv("LITEBASE_TEST_SERVER") == "1" {
 		test.RunWithApp(t, func(app *server.App) {
 			// Write a file
-			err := app.Cluster.TieredFS().WriteFile("test", []byte("helloworld"), 0644)
+			err := app.Cluster.TieredFS().WriteFile("test", []byte("helloworld"), 0600)
 
 			if err != nil {
 				t.Fatal(err)

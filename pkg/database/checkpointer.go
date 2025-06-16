@@ -268,7 +268,7 @@ func (c *Checkpointer) storeCheckpointFile() error {
 	return c.sharedFileSystem.WriteFile(
 		c.checkPointFilePath(),
 		data,
-		0644,
+		0600,
 	)
 }
 

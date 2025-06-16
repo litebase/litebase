@@ -37,7 +37,7 @@ func TestTieredFileSystem_ClearFiles(t *testing.T) {
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
-		err := os.WriteFile(app.Config.DataPath+"/local/test_1", []byte("test"), 0644)
+		err := os.WriteFile(app.Config.DataPath+"/local/test_1", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -58,7 +58,7 @@ func TestTieredFileSystem_ClearFiles(t *testing.T) {
 		}
 
 		// Create a new file
-		err = tieredFileSystemDriver.WriteFile("test_2", []byte("test"), 0644)
+		err = tieredFileSystemDriver.WriteFile("test_2", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -76,7 +76,7 @@ func TestTieredFileSystem_ClearFiles(t *testing.T) {
 		}
 
 		// Create a new file
-		err = tieredFileSystemDriver.WriteFile("test_3", []byte("test"), 0644)
+		err = tieredFileSystemDriver.WriteFile("test_3", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -190,7 +190,7 @@ func TestTieredFileSystemDriver_Mkdir(t *testing.T) {
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
-		err := tieredFileSystemDriver.Mkdir("test/", 0755)
+		err := tieredFileSystemDriver.Mkdir("test/", 0750)
 
 		if err != nil {
 			t.Error(err)
@@ -217,7 +217,7 @@ func TestTieredFileSystemDriver_MkdirAll(t *testing.T) {
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
 		)
 
-		err := tieredFileSystemDriver.MkdirAll("test/test/test/", 0755)
+		err := tieredFileSystemDriver.MkdirAll("test/test/test/", 0750)
 
 		if err != nil {
 			t.Error(err)
@@ -297,7 +297,7 @@ func TestTieredFileSystemDriver_OpenDurableFile(t *testing.T) {
 
 		// When a file is not found on local storage, the file system driver
 		// should attempt to find the file in durable storage.
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0644)
+		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -348,7 +348,7 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 		)
 
 		// Test open read only file that does not exist
-		_, err := tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0644)
+		_, err := tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0600)
 
 		if err == nil || !os.IsNotExist(err) {
 			t.Errorf("TieredFileSystemDriver.OpenFile should return os.IsNotExist error, got %v", err)
@@ -366,7 +366,7 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 
 		tieredFile.Close()
 
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -395,7 +395,7 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 		}
 
 		// Test opening a write only file
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test2", os.O_WRONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test2", os.O_WRONLY, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -424,7 +424,7 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 		}
 
 		// Test opening a read write file
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test3", os.O_RDWR, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test3", os.O_RDWR, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -448,7 +448,7 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 		}
 
 		// Test opening a file with create flag
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -459,7 +459,7 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 		}
 
 		// Test opening a file with create flag and read write flag
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE|os.O_RDWR, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE|os.O_RDWR, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -512,7 +512,7 @@ func TestTieredFileSystemDriver_ReadDir(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.ReadDir should return os.IsNotExist error, got %v", err)
 		}
 
-		err = tieredFileSystemDriver.Mkdir("dir/", 0755)
+		err = tieredFileSystemDriver.Mkdir("dir/", 0750)
 
 		if err != nil {
 			t.Error(err)
@@ -556,7 +556,7 @@ func TestTieredFileSystemDriver_ReadFile(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.ReadFile should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test", []byte("test"), 0644)
+		err = dfsd.WriteFile("test", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -606,7 +606,7 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.FileCount should be 0, got %d", tieredFileSystemDriver.FileCount)
 		}
 
-		tieredFile1, _ := tieredFileSystemDriver.OpenFile("test1", os.O_RDWR|os.O_CREATE, 0644)
+		tieredFile1, _ := tieredFileSystemDriver.OpenFile("test1", os.O_RDWR|os.O_CREATE, 0600)
 
 		_, err = tieredFile1.Write([]byte("test"))
 
@@ -620,7 +620,7 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 			t.Fatalf("TieredFileSystemDriver.ReleaseOldestFile should return storage.ErrNoTieredFilesToRemove error, got %v", err)
 		}
 
-		tieredFileSystemDriver.OpenFile("test2", os.O_RDWR|os.O_CREATE, 0644)
+		tieredFileSystemDriver.OpenFile("test2", os.O_RDWR|os.O_CREATE, 0600)
 
 		if tieredFileSystemDriver.FileCount != 2 {
 			t.Errorf("TieredFileSystemDriver.FileCount should be 2, got %d", tieredFileSystemDriver.FileCount)
@@ -664,7 +664,7 @@ func TestTieredFileSystemDriver_ReleaseOldestFile_WhileReading(t *testing.T) {
 			dfsd,
 		)
 
-		tieredFile1, _ := tieredFileSystemDriver.OpenFile("test1", os.O_RDWR|os.O_CREATE, 0644)
+		tieredFile1, _ := tieredFileSystemDriver.OpenFile("test1", os.O_RDWR|os.O_CREATE, 0600)
 
 		tieredFile1.Write([]byte("helloworld"))
 
@@ -730,7 +730,7 @@ func TestTieredFileSystemDriver_Remove(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Remove should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test", []byte("test"), 0644)
+		err = dfsd.WriteFile("test", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -766,7 +766,7 @@ func TestTieredFileSystemDriver_RemoveAll(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.RemoveAll should return nil, got %v", err)
 		}
 
-		err = tieredFileSystemDriver.MkdirAll("dir/dir2/dir3", 0755)
+		err = tieredFileSystemDriver.MkdirAll("dir/dir2/dir3", 0750)
 
 		if err != nil {
 			t.Error(err)
@@ -844,7 +844,7 @@ func TestTieredFileSystemDriver_Rename(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Rename should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0644)
+		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -890,7 +890,7 @@ func TestTieredFileSystemDriver_Stat(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Stat should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0644)
+		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1000,7 +1000,7 @@ func TestTieredFileSystemDriver_Truncate(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Truncate should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0644)
+		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1034,7 +1034,7 @@ func TestTieredFileSystemDriver_WriteFile(t *testing.T) {
 			dfsd,
 		)
 
-		err := tieredFileSystemDriver.WriteFile("test.txt", []byte("test"), 0644)
+		err := tieredFileSystemDriver.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1177,7 +1177,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		)
 
 		// Test open read only file that does not exist
-		_, err := tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0644)
+		_, err := tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0600)
 
 		if err == nil || !os.IsNotExist(err) {
 			t.Errorf("TieredFileSystemDriver.OpenFile should return os.IsNotExist error, got %v", err)
@@ -1195,7 +1195,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 
 		tieredFile.Close()
 
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1224,7 +1224,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a write only file
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test2", os.O_WRONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test2", os.O_WRONLY, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1253,7 +1253,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a read write file
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test3", os.O_RDWR, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test3", os.O_RDWR, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1277,7 +1277,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with create flag
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1288,7 +1288,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with create flag and read write flag
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE|os.O_RDWR, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test4", os.O_CREATE|os.O_RDWR, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1310,7 +1310,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with append flag
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test5", os.O_CREATE|os.O_APPEND, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test5", os.O_CREATE|os.O_APPEND, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1332,7 +1332,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with truncate flag
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test6", os.O_CREATE|os.O_TRUNC, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test6", os.O_CREATE|os.O_TRUNC, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1354,7 +1354,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with append and read write flags
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test7", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test7", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1391,7 +1391,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with truncate and read write flags
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test8", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test8", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1428,7 +1428,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with append and read only flags
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test9", os.O_CREATE|os.O_APPEND|os.O_RDONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test9", os.O_CREATE|os.O_APPEND|os.O_RDONLY, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1450,7 +1450,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with truncate and read only flags
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test10", os.O_CREATE|os.O_TRUNC|os.O_RDONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test10", os.O_CREATE|os.O_TRUNC|os.O_RDONLY, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1472,7 +1472,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with append and write only flags
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test11", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test11", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1509,7 +1509,7 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 		}
 
 		// Test opening a file with truncate and write only flags
-		tieredFile, err = tieredFileSystemDriver.OpenFile("test12", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		tieredFile, err = tieredFileSystemDriver.OpenFile("test12", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 
 		if err != nil {
 			t.Error(err)

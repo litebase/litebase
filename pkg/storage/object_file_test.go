@@ -121,7 +121,7 @@ func TestObjectFileRead(t *testing.T) {
 			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
 
-			err := app.Cluster.ObjectFS().WriteFile(key, []byte{}, 0644)
+			err := app.Cluster.ObjectFS().WriteFile(key, []byte{}, 0600)
 
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -149,7 +149,7 @@ func TestObjectFileRead(t *testing.T) {
 			client := storage.NewObjectFileSystemDriver(app.Config)
 			key := "test.txt"
 
-			err := app.Cluster.ObjectFS().WriteFile(key, []byte("test data"), 0644)
+			err := app.Cluster.ObjectFS().WriteFile(key, []byte("test data"), 0600)
 
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)

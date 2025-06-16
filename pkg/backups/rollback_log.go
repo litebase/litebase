@@ -39,11 +39,11 @@ func OpenRollbackLog(tierdFS *storage.FileSystem, databaseId, branchId string, t
 log:
 	directory := file.GetDatabaseRollbackDirectory(databaseId, branchId)
 	path := fmt.Sprintf("%s/%d", directory, timestamp)
-	file, err := tierdFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := tierdFS.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = tierdFS.MkdirAll(directory, 0755)
+			err = tierdFS.MkdirAll(directory, 0750)
 
 			if err != nil {
 				return nil, err

@@ -208,7 +208,7 @@ func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
 func (s *SecretsManager) Init() error {
 	// Ensure the secrets path exists
 	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.Signature, "")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, ""), 0755)
+		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, ""), 0750)
 
 		if err != nil {
 			return err
@@ -217,7 +217,7 @@ func (s *SecretsManager) Init() error {
 
 	// Ensure the access keys path exists
 	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.Signature, "access_keys/")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "access_keys/"), 0755)
+		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "access_keys/"), 0750)
 
 		if err != nil {
 			return err
@@ -226,7 +226,7 @@ func (s *SecretsManager) Init() error {
 
 	// Ensure the settings path exists
 	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.Signature, "settings/")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "settings/"), 0755)
+		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "settings/"), 0750)
 
 		if err != nil {
 			return err
@@ -350,7 +350,7 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	err = s.ObjectFS.WriteFile(
 		s.SecretsPath(s.config.Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
 		[]byte(encryptedAccessKey),
-		0644,
+		0600,
 	)
 
 	if err != nil {
