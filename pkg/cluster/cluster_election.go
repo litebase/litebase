@@ -81,7 +81,8 @@ func (ce *ClusterElection) proposeLeadership() bool {
 
 	votingNodes := ce.node.Cluster.Nodes()
 
-	if len(votingNodes) == 1 && votingNodes[0].Address == ce.node.address {
+	if len(votingNodes) <= 1 {
+		// If there are no other nodes or only ourselves, we win by default
 		return true
 	}
 
@@ -98,10 +99,25 @@ func (ce *ClusterElection) proposeLeadership() bool {
 		return false
 	}
 
-	votesNeeded := len(votingNodes) - 1
-	voteResponses := votesNeeded
-	votes := make(chan bool, voteResponses) // -1 because we don't vote for ourselves
-	votesReceived := 1
+	// Calculate votes needed for majority (more than half of all nodes)
+	totalNodes := len(votingNodes)
+	votesNeeded := (totalNodes / 2) + 1
+
+	// Count other nodes (excluding current node)
+	otherNodes := 0
+	for _, nodeAddress := range votingNodes {
+		if nodeAddress.Address != ce.node.address {
+			otherNodes++
+		}
+	}
+
+	// If no other nodes, we win by default
+	if otherNodes == 0 {
+		return true
+	}
+
+	votes := make(chan bool, otherNodes)
+	votesReceived := 1 // Start with 1 (our own vote)
 
 	for _, nodeAddress := range votingNodes {
 		if nodeAddress.Address == ce.node.address {
@@ -173,19 +189,20 @@ func (ce *ClusterElection) proposeLeadership() bool {
 
 	// Wait for a response from each node in the voting group
 	timeout := time.After(3 * time.Second) // Set a timeout duration
+	responsesRemaining := otherNodes
 
-	for voteResponses > 0 {
+	for responsesRemaining > 0 {
 		select {
 		case <-timeout:
 			return false
 		case vote := <-votes:
-			voteResponses--
+			responsesRemaining--
 
 			if vote {
 				votesReceived++
 			}
 
-			if votesReceived == votesNeeded {
+			if votesReceived >= votesNeeded {
 				return true
 			}
 		}
