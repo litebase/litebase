@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 type Router struct {
@@ -26,8 +27,9 @@ func (router *Router) Start() {
 	router.Context, router.Cancel = context.WithCancel(ctx)
 
 	router.HttpServer = &http.Server{
-		Addr:    fmt.Sprintf(":%s", port),
-		Handler: RouterHandler(),
+		Addr:              fmt.Sprintf(":%s", port),
+		Handler:           RouterHandler(),
+		ReadHeaderTimeout: 2 * time.Second,
 	}
 
 	log.Println("Litebase Router running on port", port)
