@@ -3,7 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -58,7 +58,7 @@ func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId st
 	err := clientConnection.connection.Checkpoint()
 
 	if err != nil {
-		log.Println("Error checkpointing database", err)
+		slog.Error("Error checkpointing database", "error", err)
 		return false
 	}
 
@@ -99,7 +99,7 @@ func (c *ConnectionManager) CheckpointAll() {
 				connection, err := c.Get(databaseId, branchId)
 
 				if err != nil {
-					log.Println("Error getting connection", err)
+					slog.Error("Error getting connection", "error", err)
 
 					continue
 				}
@@ -191,7 +191,7 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 
 	// // Wait for all BranchConnection <-Unclaimed() to be true
 	// for {
-	// 	log.Println("retries", retries)
+	// 	slog.Info("retries", "count", retries)
 	// 	if len(databaseGroup.branches[branchId]) == 0 || retries > 100 {
 	// 		break
 	// 	}
@@ -421,9 +421,13 @@ func (c *ConnectionManager) Shutdown() {
 	// Drain all connections
 	for databaseId, database := range c.databases {
 		for branchId := range database.branches {
-			c.Drain(databaseId, branchId, func() error {
+			err := c.Drain(databaseId, branchId, func() error {
 				return nil
 			})
+
+			if err != nil {
+				slog.Error("Error draining connections", "error", err)
+			}
 		}
 	}
 

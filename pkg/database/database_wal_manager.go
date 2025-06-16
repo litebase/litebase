@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"log"
+	"log/slog"
 	"slices"
 	"sort"
 	"sync"
@@ -99,9 +100,15 @@ func (w *DatabaseWALManager) Checkpoint(wal *DatabaseWAL, fn func() error) error
 	}
 
 	w.checkpointing = true
-	wal.SetCheckpointing(true)
+	err := wal.SetCheckpointing(true)
 
-	err := fn()
+	if err != nil {
+		w.checkpointing = false
+		slog.Error("Error setting checkpointing", "error", err)
+		return err
+	}
+
+	err = fn()
 
 	if err != nil {
 		w.checkpointing = false
@@ -310,7 +317,11 @@ func (w *DatabaseWALManager) Refresh() error {
 		return err
 	}
 
-	w.RunGarbageCollection()
+	err = w.RunGarbageCollection()
+
+	if err != nil {
+		slog.Error("Error running garbage collection", "error", err)
+	}
 
 	return nil
 }
@@ -486,7 +497,11 @@ func (w *DatabaseWALManager) Shutdown() {
 	defer w.mutext.Unlock()
 
 	for _, wal := range w.walVersions {
-		wal.Close()
+		err := wal.Close()
+
+		if err != nil {
+			slog.Error("Failed to close WAL", "error", err)
+		}
 	}
 }
 

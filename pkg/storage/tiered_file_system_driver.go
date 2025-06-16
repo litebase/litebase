@@ -715,7 +715,7 @@ func (fsd *TieredFileSystemDriver) Stat(path string) (internalStorage.FileInfo, 
 		return nil, err
 	}
 
-	return info, err
+	return info, nil
 }
 
 // SyncDirtyFiles checks if there are any dirty files in the logger and

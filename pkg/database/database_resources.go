@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/litebase/litebase/pkg/backups"
@@ -128,12 +129,20 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 			return
 		}
 
+		if checkpointer.Checkpoint == nil {
+			return
+		}
+
 		// Each time a page is written, we need to inform the check pointer to
 		// ensure it is included in the next backup.
-		checkpointer.CheckpointPage(
+		err = checkpointer.CheckpointPage(
 			file.PageNumber(offset, pageSize),
 			data,
 		)
+
+		if err != nil {
+			slog.Error("Error checkpointing page", "error", err)
+		}
 	})
 
 	return d.fileSystem, nil
@@ -211,21 +220,37 @@ func (d *DatabaseResources) Remove() {
 	}
 
 	if d.rollbackLogger != nil {
-		d.rollbackLogger.Close()
+		err := d.rollbackLogger.Close()
+
+		if err != nil {
+			slog.Error("Error closing rollback logger", "error", err)
+		}
 	}
 
 	// Perform any shutdown logic for the checkpoint logger
 	if d.snapshotLogger != nil {
-		d.snapshotLogger.Close()
+		err := d.snapshotLogger.Close()
+
+		if err != nil {
+			slog.Error("Error closing snapshot logger", "error", err)
+		}
 	}
 
 	if d.pageLogger != nil {
-		d.databaseManager.PageLogManager().Release(d.DatabaseId, d.BranchId)
+		err := d.databaseManager.PageLogManager().Release(d.DatabaseId, d.BranchId)
+
+		if err != nil {
+			slog.Error("Error releasing page logger", "error", err)
+		}
 	}
 
 	// Perform any shutdown logic for the file system
 	if d.fileSystem != nil {
-		d.fileSystem.Shutdown()
+		err := d.fileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Error shutting down file system", "error", err)
+		}
 	}
 
 	d.snapshotLogger = nil

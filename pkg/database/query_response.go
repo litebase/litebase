@@ -8,6 +8,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
@@ -111,13 +112,27 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 	responseBuffer.WriteByte(uint8(1))
 	// ID length
 	var idLengthBytes [4]byte
-	binary.LittleEndian.PutUint32(idLengthBytes[:], uint32(len(qr.id)))
+
+	idLenUint32, err := utils.SafeIntToUint32(len(qr.id))
+
+	if err != nil {
+		return nil, err
+	}
+
+	binary.LittleEndian.PutUint32(idLengthBytes[:], idLenUint32)
 	responseBuffer.Write(idLengthBytes[:])
 	// ID
 	responseBuffer.Write([]byte(qr.id))
 	// Transaction ID length
 	var transactionIdLengthBytes [4]byte
-	binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], uint32(len(qr.transactionId)))
+
+	transactionIDLenUint32, err := utils.SafeIntToUint32(len(qr.transactionId))
+
+	if err != nil {
+		return nil, err
+	}
+
+	binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], transactionIDLenUint32)
 	responseBuffer.Write(transactionIdLengthBytes[:])
 
 	// Transaction ID
@@ -126,7 +141,13 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 	if len(qr.err) > 0 {
 		// Error length
 		var errorLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(errorLengthBytes[:], uint32(len(qr.err)))
+
+		errorLenUint32, err := utils.SafeIntToUint32(len(qr.err))
+
+		if err != nil {
+			return nil, err
+		}
+		binary.LittleEndian.PutUint32(errorLengthBytes[:], errorLenUint32)
 
 		// Write the error length
 		responseBuffer.Write(errorLengthBytes[:])
@@ -136,7 +157,13 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 	} else {
 		// Changes
 		var changesBytes [4]byte
-		binary.LittleEndian.PutUint32(changesBytes[:], uint32(qr.changes))
+		changesUint32, err := utils.SafeInt64ToUint32(qr.changes)
+
+		if err != nil {
+			return nil, err
+		}
+
+		binary.LittleEndian.PutUint32(changesBytes[:], changesUint32)
 		responseBuffer.Write(changesBytes[:])
 		// Latency
 		var latencyBytes [8]byte
@@ -144,15 +171,38 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 		responseBuffer.Write(latencyBytes[:])
 		// Column count
 		var columnCountBytes [4]byte
-		binary.LittleEndian.PutUint32(columnCountBytes[:], uint32(len(qr.columns)))
+
+		columnCountUint32, err := utils.SafeInt64ToUint32(int64(len(qr.columns)))
+
+		if err != nil {
+			return nil, err
+		}
+
+		binary.LittleEndian.PutUint32(columnCountBytes[:], columnCountUint32)
 		responseBuffer.Write(columnCountBytes[:])
+
 		// Row count
 		var rowCountBytes [4]byte
-		binary.LittleEndian.PutUint32(rowCountBytes[:], uint32(qr.rowCount))
+
+		rowCountUint32, err := utils.SafeInt64ToUint32(int64(qr.rowCount))
+
+		if err != nil {
+			return nil, err
+		}
+
+		binary.LittleEndian.PutUint32(rowCountBytes[:], rowCountUint32)
 		responseBuffer.Write(rowCountBytes[:])
+
 		// Last insert row ID
 		var lastInsertRowIdBytes [4]byte
-		binary.LittleEndian.PutUint32(lastInsertRowIdBytes[:], uint32(qr.lastInsertRowId))
+
+		uint32LastInsertRowId, err := utils.SafeInt64ToUint32(qr.lastInsertRowId)
+
+		if err != nil {
+			return nil, err
+		}
+
+		binary.LittleEndian.PutUint32(lastInsertRowIdBytes[:], uint32LastInsertRowId)
 		responseBuffer.Write(lastInsertRowIdBytes[:])
 
 		// Calculate the length of the columns data to be written and write it
@@ -165,7 +215,14 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 
 		// Columns length
 		var columnsLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(columnsLengthBytes[:], uint32(columnDataLength))
+
+		uint32ColumnsLength, err := utils.SafeInt64ToUint32(int64(columnDataLength))
+
+		if err != nil {
+			return nil, err
+		}
+
+		binary.LittleEndian.PutUint32(columnsLengthBytes[:], uint32ColumnsLength)
 		responseBuffer.Write(columnsLengthBytes[:])
 
 		// Encode the columns
@@ -173,7 +230,13 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 
 		for _, column := range qr.columns {
 			// Column length
-			binary.LittleEndian.PutUint32(columnLengthBytes[:], uint32(len(column)))
+			columnLengthUint32, err := utils.SafeInt64ToUint32(int64(len(column)))
+
+			if err != nil {
+				return nil, err
+			}
+
+			binary.LittleEndian.PutUint32(columnLengthBytes[:], columnLengthUint32)
 			responseBuffer.Write(columnLengthBytes[:])
 
 			// Column
@@ -197,7 +260,14 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 
 			// Write the row length
 			var rowLengthBytes [4]byte
-			binary.LittleEndian.PutUint32(rowLengthBytes[:], uint32(rowsBuffer.Len()))
+
+			rowsLenUint32, err := utils.SafeIntToUint32(rowsBuffer.Len())
+
+			if err != nil {
+				return nil, err
+			}
+
+			binary.LittleEndian.PutUint32(rowLengthBytes[:], rowsLenUint32)
 			responseBuffer.Write(rowLengthBytes[:])
 
 			// Write the row data

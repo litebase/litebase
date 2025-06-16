@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -249,14 +250,24 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 		return n, err
 	}
 	// Cache the read data
-	wal.cache.Put(cacheKey, slices.Clone(p))
+	err = wal.cache.Put(cacheKey, slices.Clone(p))
+
+	if err != nil {
+		slog.Error("Error caching WAL data", "error", err)
+	}
 
 	return n, nil
 }
 
 func (wal *DatabaseWAL) RequiresCheckpoint() bool {
 	if wal.lastKnownSize < 0 {
-		wal.Size()
+		_, err := wal.Size()
+
+		if err != nil {
+			slog.Error("Error getting WAL size", "error", err)
+
+			return false
+		}
 	}
 
 	return wal.checkpointedAt.IsZero() && (wal.lastKnownSize > 0 || !wal.lastWriteTime.IsZero())

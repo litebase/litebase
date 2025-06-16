@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
@@ -127,7 +128,14 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 
 	// Write the length of the id
 	var idBytes [4]byte
-	binary.LittleEndian.PutUint32(idBytes[:], uint32(len(q.Id)))
+
+	idLengthUint32, err := utils.SafeIntToUint32(len(q.Id))
+
+	if err != nil {
+		return nil
+	}
+
+	binary.LittleEndian.PutUint32(idBytes[:], idLengthUint32)
 	buffer.Write(idBytes[:])
 
 	// Write the id
@@ -136,7 +144,14 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 	if q.TransactionId != nil {
 		// Write the length of the transaction id
 		var transactionIdLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], uint32(len(q.TransactionId)))
+
+		transactionIDLenUint32, err := utils.SafeIntToUint32(len(q.TransactionId))
+
+		if err != nil {
+			return nil
+		}
+
+		binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], transactionIDLenUint32)
 		buffer.Write(transactionIdLengthBytes[:])
 
 		// Write the transaction id
@@ -150,7 +165,15 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 
 	// Write the length of the statement
 	var statementLengthBytes [4]byte
-	binary.LittleEndian.PutUint32(statementLengthBytes[:], uint32(len(q.Statement)))
+
+	statementLenUint32, err := utils.SafeIntToUint32(len(q.Statement))
+
+	if err != nil {
+		return nil
+	}
+
+	binary.LittleEndian.PutUint32(statementLengthBytes[:], statementLenUint32)
+
 	buffer.Write(statementLengthBytes[:])
 
 	// Write the statement
@@ -165,7 +188,14 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 
 	// Write the length of the parameters array
 	var parametersLengthBytes [4]byte
-	binary.LittleEndian.PutUint32(parametersLengthBytes[:], uint32(parametersBuffer.Len()))
+
+	parametersLenUint32, err := utils.SafeIntToUint32(parametersBuffer.Len())
+
+	if err != nil {
+		return nil
+	}
+
+	binary.LittleEndian.PutUint32(parametersLengthBytes[:], parametersLenUint32)
 	buffer.Write(parametersLengthBytes[:])
 
 	// Write the parameters array

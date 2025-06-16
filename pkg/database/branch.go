@@ -1,9 +1,11 @@
 package database
 
 import (
-	"math/rand/v2"
+	"crypto/rand"
+	"math/big"
 	"time"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
 
@@ -18,9 +20,18 @@ type Branch struct {
 	Name      string `json:"name"`
 }
 
-func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrimary bool) *Branch {
-	randomFactor := rand.Int64N(100000)
-	keyCount := uint64(int64(dks.Len()) + time.Now().UTC().UnixNano() + randomFactor)
+func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrimary bool) (*Branch, error) {
+	randInt64, err := rand.Int(rand.Reader, big.NewInt(100000))
+
+	if err != nil {
+		return nil, err
+	}
+
+	keyCount, err := utils.SafeInt64ToUint64(int64(dks.Len()) + time.Now().UTC().UnixNano() + randInt64.Int64())
+
+	if err != nil {
+		return nil, err
+	}
 
 	s, _ := sqids.New(sqids.Options{
 		Alphabet:  "0123456789abcdefghijklmnopqrstuvwxyz",
@@ -29,12 +40,16 @@ func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrim
 
 	// TODO: ensure that the key is unique in the database key store
 
-	key, _ := s.Encode([]uint64{keyCount})
+	key, err := s.Encode([]uint64{keyCount})
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &Branch{
 		Id:        uuid.New().String(),
 		IsPrimary: isPrimary,
 		Key:       key,
 		Name:      name,
-	}
+	}, nil
 }

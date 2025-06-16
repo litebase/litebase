@@ -2,14 +2,13 @@ package database
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"hash/crc32"
 	"log"
 	"log/slog"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
@@ -266,13 +265,17 @@ func (con *DatabaseConnection) Checkpoint() error {
 		})
 
 		if err != nil {
-			con.checkpointer.Rollback()
+			err = con.checkpointer.Rollback()
+
+			if err != nil {
+				slog.Error("Error rolling back checkpoint", "error", err)
+			}
 		} else {
 			// Update the WAL Index
 			err = con.walManager.Refresh()
 
 			if err != nil {
-				log.Println("Error creating new WAL version:", err)
+				slog.Error("Error creating new WAL version:", "error", err)
 				return err
 			}
 		}
@@ -522,7 +525,7 @@ func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 func (con *DatabaseConnection) Statement(queryStatement []byte) (Statement, error) {
 	var err error
 
-	checksum := crc32.ChecksumIEEE(unsafe.Slice(unsafe.SliceData(queryStatement), len(queryStatement)))
+	checksum := crc32.ChecksumIEEE(queryStatement)
 
 	statement, ok := con.statements.Load(checksum)
 
@@ -603,9 +606,8 @@ func (con *DatabaseConnection) VFSDatabaseHash() string {
 // Return the VFS hash for the connection.
 func (con *DatabaseConnection) VFSHash() string {
 	if con.vfsHash == "" {
-		sha1 := sha1.New()
-		sha1.Write(fmt.Appendf(nil, "%s:%s:%s", con.databaseId, con.branchId, con.id))
-		con.vfsHash = fmt.Sprintf("litebase:%x", sha1.Sum(nil))
+		sha256Hash := sha256.Sum256(fmt.Appendf(nil, "%s:%s:%s", con.databaseId, con.branchId, con.id))
+		con.vfsHash = fmt.Sprintf("litebase:%x", sha256Hash)
 	}
 
 	return con.vfsHash

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -115,7 +116,11 @@ func (d *DatabaseManager) compaction() {
 			}
 
 			checkpointer.WithLock(func() {
-				resource.FileSystem().Compact()
+				err := resource.FileSystem().Compact()
+
+				if err != nil {
+					slog.Error("Error compacting file system", "error", err)
+				}
 			})
 
 			return nil
@@ -169,7 +174,11 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 		return nil, fmt.Errorf("failed to get database key store: %w", err)
 	}
 
-	branch := NewBranch(d.Cluster.Config, dks, branchName, true)
+	branch, err := NewBranch(d.Cluster.Config, dks, branchName, true)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create branch: %w", err)
+	}
 
 	database := &Database{
 		DatabaseManager:   d,
@@ -212,9 +221,13 @@ func (d *DatabaseManager) Delete(database *Database) error {
 
 	// Delete the database keys
 	for _, branch := range database.Branches {
-		d.SecretsManager.DeleteDatabaseKey(
+		err := d.SecretsManager.DeleteDatabaseKey(
 			database.Key(branch.Id),
 		)
+
+		if err != nil {
+			slog.Error("Error deleting database key", "error", err)
+		}
 	}
 
 	// TODO: Removing all database storage may require the removal of a lot of files.

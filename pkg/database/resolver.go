@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster/messages"
@@ -156,7 +157,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			response.SetRowCount(len(sqlite3Result.Rows))
 		}
 
-		logManager.Query(
+		err = logManager.Query(
 			logs.QueryLogEntry{
 				Cluster:      query.cluster,
 				DatabaseHash: query.DatabaseKey.DatabaseHash,
@@ -168,7 +169,11 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			},
 		)
 
-		return response, err
+		if err != nil {
+			slog.Error("Error logging query", "error", err)
+		}
+
+		return response, nil
 	})
 }
 

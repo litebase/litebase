@@ -1,6 +1,8 @@
 package database
 
 import (
+	"log/slog"
+
 	"github.com/litebase/litebase/pkg/auth"
 )
 
@@ -43,7 +45,11 @@ func (d *ClientConnection) Close() {
 		return
 	}
 
-	d.connection.Close()
+	err := d.connection.Close()
+
+	if err != nil {
+		slog.Error("Error closing database connection", "error", err)
+	}
 }
 
 func (d *ClientConnection) GetConnection() *DatabaseConnection {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -49,7 +50,11 @@ func NewCheckpointer(
 		pageLogger:       pageLogger,
 	}
 
-	cp.init()
+	err := cp.init()
+
+	if err != nil {
+		return nil, err
+	}
 
 	return cp, nil
 }
@@ -157,7 +162,12 @@ func (c *Checkpointer) Commit() error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			c.dfs.Metadata().SetPageCount(int64(largestPageNumber))
+
+			err := c.dfs.Metadata().SetPageCount(int64(largestPageNumber))
+
+			if err != nil {
+				slog.Error("Error setting page count", "error", err)
+			}
 		}()
 	}
 
@@ -198,27 +208,33 @@ func (c *Checkpointer) Commit() error {
 // wasn't a checkpoint in progress when the database was last closed. If there
 // was, we need to rollback the checkpoint since it didn't complete.
 func (c *Checkpointer) init() error {
+	var checkPointFileExists bool
+
 	// Check if the checkpoint file exists
 	_, err := c.sharedFileSystem.Stat(c.checkPointFilePath())
 
-	if err != nil && !os.IsNotExist(err) {
-		if !os.IsNotExist(err) {
-			return nil
+	if err != nil {
+		if os.IsNotExist(err) {
+			checkPointFileExists = false
+		} else {
+			return err
+		}
+	}
+
+	if checkPointFileExists {
+		// If the checkpoint file exists, read it and set the checkpoint
+		data, err := c.sharedFileSystem.ReadFile(c.checkPointFilePath())
+
+		if err != nil {
+			return err
 		}
 
-		return err
+		c.Checkpoint = DecodeCheckpoint(data)
+
+		return c.Rollback()
 	}
 
-	// If the checkpoint file exists, read it and set the checkpoint
-	data, err := c.sharedFileSystem.ReadFile(c.checkPointFilePath())
-
-	if err != nil {
-		return err
-	}
-
-	c.Checkpoint = DecodeCheckpoint(data)
-
-	return c.Rollback()
+	return nil
 }
 
 // Remove the checkpoint file from the shared file system.
@@ -256,7 +272,11 @@ func (c *Checkpointer) Rollback() error {
 		return err
 	}
 
-	c.dfs.Metadata().SetPageCount(c.Checkpoint.BeginPageCount)
+	err = c.dfs.Metadata().SetPageCount(c.Checkpoint.BeginPageCount)
+
+	if err != nil {
+		slog.Error("Error setting page count", "error", err)
+	}
 
 	return c.removeCheckpointFile()
 }

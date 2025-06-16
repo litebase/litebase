@@ -3,6 +3,7 @@ package database
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 type Database struct {
@@ -47,7 +48,11 @@ func (database *Database) Key(branchId string) string {
 }
 
 func (database *Database) save() error {
-	database.DatabaseManager.Cluster.ObjectFS().MkdirAll(fmt.Sprintf("%s%s", Directory(), database.Id), 0750)
+	err := database.DatabaseManager.Cluster.ObjectFS().MkdirAll(fmt.Sprintf("%s%s", Directory(), database.Id), 0750)
+
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
 
 	jsonData, err := json.Marshal(database)
 
@@ -57,11 +62,15 @@ func (database *Database) save() error {
 
 	createError := database.DatabaseManager.Cluster.ObjectFS().WriteFile(fmt.Sprintf("%s%s/settings.json", Directory(), database.Id), jsonData, 0666)
 
-	database.DatabaseManager.SecretsManager.StoreDatabaseKey(
+	err = database.DatabaseManager.SecretsManager.StoreDatabaseKey(
 		database.Key(database.PrimaryBranchId),
 		database.Id,
 		database.PrimaryBranchId,
 	)
+
+	if err != nil {
+		return err
+	}
 
 	return createError
 }

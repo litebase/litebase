@@ -13,12 +13,16 @@ func TestNewBranch(t *testing.T) {
 		dks, _ := app.Auth.SecretsManager.DatabaseKeyStore(
 			app.Config.Signature,
 		)
-		branch := database.NewBranch(
+		branch, err := database.NewBranch(
 			app.Config,
 			dks,
 			"Test Branch",
 			false,
 		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if branch.Name != "Test Branch" {
 			t.Fatal("Branch name is not correct")
