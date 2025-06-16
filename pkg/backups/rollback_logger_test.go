@@ -67,13 +67,13 @@ func TestRollbackLoggerCommit(t *testing.T) {
 			mock.BranchId,
 		)
 
-		offset, size, err := rollbackLogger.StartFrame(1234567890)
+		offset, _, err := rollbackLogger.StartFrame(1234567890)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
 		}
 
-		size, err = rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
+		size, err := rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)

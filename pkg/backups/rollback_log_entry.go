@@ -2,12 +2,13 @@ package backups
 
 import (
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"io"
 
 	"github.com/klauspost/compress/s2"
+	"github.com/litebase/litebase/internal/utils"
 )
 
 /*
@@ -25,8 +26,8 @@ compressed data frame. The header is 100 bytes and header contains:
 | 12      | 8    | The timestamp of the entry       |
 | 20     | 4    | The size of the uncompressed data |
 | 24     | 4    | The size of the compressed data   |
-| 28     | 20   | SHA1 hash of uncompressed data    |
-| 48     | 52   | Reserved for future use           |
+| 28     | 32   | SHA256 hash of uncompressed data  |
+| 60     | 40   | Reserved for future use           |
 
 The compressed frame is the serialized data of the page compressed using the
 s2 compression algorithm.
@@ -35,9 +36,9 @@ type RollbackLogEntry struct {
 	Data             []byte
 	PageNumber       int64
 	Timestamp        int64
-	SizeCompressed   int
-	SizeDecompressed int
-	SHA1             []byte
+	SizeCompressed   uint32
+	SizeDecompressed uint32
+	SHA256           []byte
 	Version          uint32
 }
 
@@ -47,15 +48,13 @@ const (
 )
 
 // Create a new RollbackLogEntry with the given parameters.
-func NewRollbackLogEntry(pageNumber, timestamp int64, data []byte) *RollbackLogEntry {
-	hash := sha1.New()
-	hash.Write(data)
-	sha1 := hash.Sum(nil)
+func NewRollbackLogEntry(pageNumber int64, timestamp int64, data []byte) *RollbackLogEntry {
+	sha256 := sha256.Sum256(data)
 
 	return &RollbackLogEntry{
 		Data:       data,
 		PageNumber: pageNumber,
-		SHA1:       sha1,
+		SHA256:     sha256[:],
 		Timestamp:  timestamp,
 		Version:    RollbackLogVersion,
 	}
@@ -63,9 +62,15 @@ func NewRollbackLogEntry(pageNumber, timestamp int64, data []byte) *RollbackLogE
 
 // Serialize the RollbackLogEntry into a byte slice.
 func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte, error) {
-	rle.SizeDecompressed = len(rle.Data)
+	var err error
+
+	rle.SizeDecompressed, err = utils.SafeIntToUint32(len(rle.Data))
+
+	if err != nil {
+		return nil, err
+	}
 	compressionBufferCap := compressionBuffer.Cap()
-	maxEncodedLen := s2.MaxEncodedLen(rle.SizeDecompressed)
+	maxEncodedLen := s2.MaxEncodedLen(int(rle.SizeDecompressed))
 
 	if compressionBufferCap < maxEncodedLen {
 		compressionBuffer.Grow(maxEncodedLen - compressionBufferCap + 1)
@@ -75,7 +80,11 @@ func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte,
 
 	compressionBuffer.Write(compressed)
 
-	rle.SizeCompressed = len(compressed)
+	rle.SizeCompressed, err = utils.SafeIntToUint32(len(compressed))
+
+	if err != nil {
+		return nil, err
+	}
 
 	serialized := make([]byte, RollbackLogEntryHeaderSize+rle.SizeCompressed)
 
@@ -83,17 +92,32 @@ func (rle *RollbackLogEntry) Serialize(compressionBuffer *bytes.Buffer) ([]byte,
 	binary.LittleEndian.PutUint32(serialized[0:4], uint32(RollbackLogEntryID))
 	// 4 bytes for the version
 	binary.LittleEndian.PutUint32(serialized[4:8], rle.Version)
+
+	uint32PageNumber, err := utils.SafeInt64ToUint32(rle.PageNumber)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// 4 bytes for the page number
-	binary.LittleEndian.PutUint32(serialized[8:12], uint32(rle.PageNumber))
+	binary.LittleEndian.PutUint32(serialized[8:12], uint32PageNumber)
+
+	uint64Timestamp, err := utils.SafeInt64ToUint64(rle.Timestamp)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// 8 bytes for the timestamp
-	binary.LittleEndian.PutUint64(serialized[12:20], uint64(rle.Timestamp))
+	binary.LittleEndian.PutUint64(serialized[12:20], uint64Timestamp)
+
 	// 4 bytes for the size of the uncompressed data
-	binary.LittleEndian.PutUint32(serialized[20:24], uint32(len(rle.Data)))
+	binary.LittleEndian.PutUint32(serialized[20:24], rle.SizeDecompressed)
 	// 4 bytes for the size of the compressed data
-	binary.LittleEndian.PutUint32(serialized[24:28], uint32(rle.SizeCompressed))
-	// 20 bytes for the SHA1 hash of the uncompressed data
-	copy(serialized[28:48], []byte(rle.SHA1))
-	// The remaining 52 bytes are reserved for future use and are already zero
+	binary.LittleEndian.PutUint32(serialized[24:28], rle.SizeCompressed)
+	// 32 bytes for the SHA256 hash of the uncompressed data
+	copy(serialized[28:60], rle.SHA256)
+	// The remaining 40 bytes are reserved for future use and are already zero
 
 	// Copy the compressed data to the serialized buffer
 	copy(serialized[RollbackLogEntryHeaderSize:], compressed)
@@ -120,16 +144,27 @@ func DeserializeRollbackLogEntry(reader io.ReadSeeker) (*RollbackLogEntry, error
 
 	// 4 bytes for the version
 	version := binary.LittleEndian.Uint32(header[4:8])
+
 	// 4 bytes for the page number
-	pageNumber := int64(binary.LittleEndian.Uint32(header[8:12]))
+	pageNumber, err := utils.SafeUint32ToInt64(binary.LittleEndian.Uint32(header[8:12]))
+
+	if err != nil {
+		return nil, err
+	}
+
 	// 8 bytes for the timestamp
-	timestamp := int64(binary.LittleEndian.Uint64(header[12:20]))
+	timestamp, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(header[12:20]))
+
+	if err != nil {
+		return nil, err
+	}
+
 	// 4 bytes for the size of the uncompressed data
 	decompressedSize := binary.LittleEndian.Uint32(header[20:24])
 	// 4 bytes for the size of the compressed data
 	compressedSize := binary.LittleEndian.Uint32(header[24:28])
-	// 20 bytes for the SHA1 hash of the uncompressed data
-	entrySHA1 := header[28:48]
+	// 32 bytes for the SHA256 hash of the uncompressed data
+	entrySHA256 := header[28:60]
 
 	// Read the compressed frame
 	compressed := make([]byte, compressedSize)
@@ -146,20 +181,18 @@ func DeserializeRollbackLogEntry(reader io.ReadSeeker) (*RollbackLogEntry, error
 		return nil, err
 	}
 
-	hash := sha1.New()
-	hash.Write((decompressed))
-	calculatedSha1 := hash.Sum(nil)
+	calculatedSha256 := sha256.Sum256(decompressed)
 
-	if !bytes.Equal(entrySHA1, calculatedSha1) {
-		return nil, fmt.Errorf("SHA1 hash mismatch")
+	if !bytes.Equal(entrySHA256, calculatedSha256[:]) {
+		return nil, fmt.Errorf("SHA256 hash mismatch")
 	}
 
 	return &RollbackLogEntry{
 		Data:             decompressed,
 		PageNumber:       pageNumber,
 		Timestamp:        timestamp,
-		SizeCompressed:   int(compressedSize),
-		SizeDecompressed: int(decompressedSize),
+		SizeCompressed:   compressedSize,
+		SizeDecompressed: decompressedSize,
 		Version:          version,
 	}, nil
 }

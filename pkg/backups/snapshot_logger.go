@@ -96,7 +96,11 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	// Check if this timestamp is already a start-of-day timestamp (i.e., it's in our logs)
 	if snapshot, exists := sl.logs[timestamp]; exists {
 		if len(snapshot.RestorePoints.Data) <= 0 {
-			snapshot.Load()
+			err := snapshot.Load()
+
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		sl.cleanupOpenSnapshotLogs()
@@ -123,7 +127,9 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	}
 
 	if len(sl.logs[startOfDayTimestamp].RestorePoints.Data) <= 0 {
-		sl.logs[startOfDayTimestamp].Load()
+		if err := sl.logs[startOfDayTimestamp].Load(); err != nil {
+			return nil, err
+		}
 	}
 
 	sl.cleanupOpenSnapshotLogs()
@@ -187,7 +193,9 @@ func (sl *SnapshotLogger) GetSnapshotsWithRestorePoints() (map[int64]*Snapshot, 
 
 	for _, snapshot := range snapshots {
 		if len(snapshot.RestorePoints.Data) <= 0 {
-			snapshot.Load()
+			if err := snapshot.Load(); err != nil {
+				return nil, err
+			}
 		}
 	}
 

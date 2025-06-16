@@ -11,6 +11,7 @@ import (
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
 )
@@ -121,7 +122,11 @@ func (s *Snapshot) GetRestorePoint(timestamp int64) (RestorePoint, error) {
 			break
 		}
 
-		t := int64(binary.LittleEndian.Uint64(data[0:8]))
+		t, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[0:8]))
+
+		if err != nil {
+			return RestorePoint{}, err
+		}
 
 		if int64(t) == timestamp {
 			restorePoint = RestorePoint{
@@ -185,7 +190,11 @@ func (s *Snapshot) Load() error {
 			return err
 		}
 
-		t := int64(binary.LittleEndian.Uint64(data))
+		t, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[0:8]))
+
+		if err != nil {
+			return err
+		}
 
 		// Get the start of the day of the timestamp
 		s.RestorePoints.Data = append(s.RestorePoints.Data, t)
@@ -222,8 +231,23 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 	}
 
 	data := make([]byte, 12) // 8 bytes for timestamp, 4 bytes for page count
-	binary.LittleEndian.PutUint64(data[0:8], uint64(timestamp))
-	binary.LittleEndian.PutUint32(data[8:12], uint32(pageCount))
+
+	uint64Timestamp, err := utils.SafeInt64ToUint64(timestamp)
+
+	if err != nil {
+		slog.Error("Error converting timestamp to uint64:", "error", err)
+		return err
+	}
+
+	binary.LittleEndian.PutUint64(data[0:8], uint64Timestamp)
+
+	uint32PageCount, err := utils.SafeInt64ToUint32(pageCount)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint32(data[8:12], uint32PageCount)
 
 	_, err = s.File.Write(data)
 

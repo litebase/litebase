@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sort"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
@@ -258,7 +260,14 @@ func (backup *Backup) packageBackup() error {
 
 			if entry.Name() == "_METADATA" {
 				// Set the first 8 bytes of the metadata file to the page count
-				binary.LittleEndian.PutUint64(data[:8], uint64(backup.RestorePoint.PageCount))
+				uint64PageCount, err := utils.SafeInt64ToUint64(backup.RestorePoint.PageCount)
+
+				if err != nil {
+					slog.Error("Error converting page count to uint64:", "error", err)
+					return err
+				}
+
+				binary.LittleEndian.PutUint64(data[:8], uint64PageCount)
 			}
 		}
 
@@ -408,10 +417,17 @@ func Run(
 	snapshot, err := snapshotLogger.GetSnapshot(time.Now().UTC().UnixNano())
 
 	if err != nil {
-		log.Println("Error getting snapshot:", err)
+		slog.Error("Error getting snapshot:", "error", err)
 		return nil, err
 	}
-	snapshot.Load()
+
+	err = snapshot.Load()
+
+	if err != nil {
+		slog.Error("Error loading snapshot:", "error", err)
+		return nil, err
+	}
+
 	restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
 
 	if err != nil {

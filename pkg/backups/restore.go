@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"os"
 	"sort"
@@ -67,7 +66,7 @@ func CopySourceDatabaseToTargetDatabase(
 	err = targetFileSystem.Compact()
 
 	if err != nil {
-		log.Println("Error compacting target database:", err)
+		slog.Error("Error compacting target database:", "error", err)
 
 		return err
 	}
@@ -102,15 +101,14 @@ func copySourceDatabasePageLogsToTargetDatabase(
 		sourceFile, err := sourceFileSystem.PageLogger.NetworkFS.Open(sourceFilePath)
 
 		if err != nil {
-			log.Println("Error opening source file:", sourceFilePath, err)
+			slog.Error("Error opening source file:", "file", sourceFilePath, "error", err)
 			return err
 		}
 
 		err = targetFileSystem.PageLogger.NetworkFS.MkdirAll(targetDirectory, 0755)
 
 		if err != nil {
-			log.Println("Error creating target directory:", targetDirectory, err)
-
+			slog.Error("Error creating target directory:", "directory", targetDirectory, "error", err)
 			return err
 		}
 
@@ -119,19 +117,24 @@ func copySourceDatabasePageLogsToTargetDatabase(
 		targetFile, err := targetFileSystem.PageLogger.NetworkFS.Create(targetFilePath)
 
 		if err != nil {
-			log.Println("Error writing file:", entry.Name(), err)
+			slog.Error("Error writing file:", "file", entry.Name(), "error", err)
 			return err
 		}
 
 		_, err = io.Copy(targetFile, sourceFile)
 
 		if err != nil {
-			log.Println("Error copying page:", entry.Name(), err)
+			slog.Error("Error copying page:", "file", entry.Name(), "error", err)
 			return err
 		}
 
-		targetFile.Close()
-		sourceFile.Close()
+		if err = targetFile.Close(); err != nil {
+			slog.Error("Error closing target file", "file", targetFilePath, "error", err)
+		}
+
+		if err = sourceFile.Close(); err != nil {
+			slog.Error("Error closing source file", "file", sourceFilePath, "error", err)
+		}
 	}
 
 	return nil
@@ -176,7 +179,7 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 		rangeNumber, err := strconv.ParseInt(entry.Name(), 10, 64)
 
 		if err != nil {
-			log.Println("Error parsing entry name:", entry.Name(), err)
+			slog.Error("Error parsing entry name:", "file", entry.Name(), "error", err)
 			return err
 		}
 
@@ -190,7 +193,7 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 		sourceFile, err := sourceFileSystem.FileSystem().Open(sourceFilePath)
 
 		if err != nil {
-			log.Println("Error opening source file:", sourceFilePath, err)
+			slog.Error("Error opening source file:", "file", sourceFilePath, "error", err)
 			return err
 		}
 
@@ -199,19 +202,24 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 		targetFile, err := targetFileSystem.FileSystem().Create(targetFilePath)
 
 		if err != nil {
-			log.Println("Error writing file:", rangeNumber, err)
+			slog.Error("Error writing file:", "file", targetFilePath, "error", err)
 			return err
 		}
 
 		_, err = io.Copy(targetFile, sourceFile)
 
 		if err != nil {
-			log.Println("Error copying page:", rangeNumber, err)
+			slog.Error("Error copying page:", "file", targetFilePath, "error", err)
 			return err
 		}
 
-		targetFile.Close()
-		sourceFile.Close()
+		if err = targetFile.Close(); err != nil {
+			slog.Error("Error closing target file:", "file", targetFilePath, "error", err)
+		}
+
+		if err = sourceFile.Close(); err != nil {
+			slog.Error("Error closing source file:", "file", sourceFilePath, "error", err)
+		}
 	}
 
 	return nil
@@ -253,7 +261,7 @@ func RestoreFromBackup(
 	}
 
 	if len(backupParts) == 0 {
-		log.Println("Backup not found for the specified timestamp")
+		slog.Error("Backup not found for the specified timestamp")
 		return errors.New("backup not found for the specified timestamp")
 	}
 
@@ -288,18 +296,21 @@ func RestoreFromBackup(
 		backupFile, err := sourceFileSystem.FileSystem().OpenFile(backupPartPath, os.O_RDWR, 0644)
 
 		if err != nil {
-			log.Println("Error opening backup part:", backupPartPath)
-
+			slog.Error("Error opening backup part:", "file", backupPartPath, "error", err)
 			return err
 		}
 
-		backupFile.Seek(0, io.SeekStart) // Ensure we start reading from the beginning
+		_, err = backupFile.Seek(0, io.SeekStart) // Ensure we start reading from the beginning
+
+		if err != nil {
+			slog.Error("Error seeking to start of backup file:", "file", backupPartPath, "error", err)
+			return err
+		}
 
 		gzipReader, err := gzip.NewReader(backupFile)
 
 		if err != nil {
-			log.Println("Error creating gzip reader:", err)
-
+			slog.Error("Error creating gzip reader:", "error", err)
 			return err
 		}
 
@@ -313,7 +324,7 @@ func RestoreFromBackup(
 			}
 
 			if err != nil {
-				log.Println("Error reading tar header:", err)
+				slog.Error("Error reading tar header:", "error", err)
 
 				return err
 			}
@@ -325,7 +336,7 @@ func RestoreFromBackup(
 				data, err := io.ReadAll(tarReader)
 
 				if err != nil {
-					log.Println("Error reading file data:", header.Name, err)
+					slog.Error("Error reading file data:", "file", header.Name, "error", err)
 				}
 
 				err = targetFileSystem.FileSystem().WriteFile(
@@ -335,14 +346,17 @@ func RestoreFromBackup(
 				)
 
 				if err != nil {
-					log.Println("Error writing file:", header.Name, err)
+					slog.Error("Error writing file:", "file", header.Name, "error", err)
 
 					return err
 				}
 
 				if header.Name == "_METADATA" {
 					// It is important to reload the metadata after writing to it
-					targetFileSystem.Metadata().Load()
+					if err := targetFileSystem.Metadata().Load(); err != nil {
+						slog.Error("Error reloading metadata:", "error", err)
+						return err
+					}
 				}
 			}
 		}
@@ -399,7 +413,7 @@ func RestoreFromTimestamp(
 		entryTimeNano, err := strconv.ParseInt(entry.Name(), 10, 64) // Convert string to int64
 
 		if err != nil {
-			log.Println("Error parsing entry name as timestamp:", entry.Name(), err)
+			slog.Error("Error parsing entry name as timestamp:", "file", entry.Name(), "error", err)
 			return err
 		}
 
@@ -414,7 +428,7 @@ func RestoreFromTimestamp(
 	}
 
 	if len(rollbackLogTimestamps) == 0 {
-		log.Println("No rollback logs found for the specified timestamp")
+		slog.Warn("No rollback logs found for the specified timestamp")
 		return nil
 	}
 
@@ -444,7 +458,7 @@ func RestoreFromTimestamp(
 		rollbackLog, err := rollbackLogger.GetLog(entryTimestamp)
 
 		if err != nil {
-			log.Println("Error opening rollback log:", err)
+			slog.Error("Error opening rollback log:", "error", err)
 			return err
 		}
 
@@ -456,7 +470,7 @@ func RestoreFromTimestamp(
 			case <-doneChannel:
 				break rollbackLogTimestampsLoop
 			case err := <-errorChannel:
-				log.Println("Error reading rollback log:", err)
+				slog.Error("Error reading rollback log:", "error", err)
 				return err
 			case frame := <-rollbackLogEntries:
 				for _, rollbackLogEntry := range frame {
@@ -471,7 +485,7 @@ func RestoreFromTimestamp(
 					)
 
 					if err != nil {
-						log.Println("Error writing page:", rollbackLogEntry.PageNumber, err)
+						slog.Error("Error writing page:", "page", rollbackLogEntry.PageNumber, "error", err)
 						return err
 					}
 				}
@@ -483,14 +497,14 @@ func RestoreFromTimestamp(
 	err = targetFileSystem.Truncate(int64(restorePoint.PageCount) * c.PageSize)
 
 	if err != nil {
-		log.Println("Error truncating database file:", err)
+		slog.Error("Error truncating database file:", "error", err)
 		return err
 	}
 
 	err = targetFileSystem.Metadata().SetPageCount(restorePoint.PageCount)
 
 	if err != nil {
-		log.Println("Error setting page count:", err)
+		slog.Error("Error setting page count:", "error", err)
 		return err
 	}
 

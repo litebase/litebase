@@ -2,7 +2,7 @@ package backups_test
 
 import (
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha256"
 	"testing"
 	"time"
 
@@ -16,9 +16,7 @@ func TestNewRollbackLogEntry(t *testing.T) {
 		timestamp := time.Now().UTC().UnixNano()
 		data := []byte("test data")
 
-		hash := sha1.New()
-		hash.Write(data)
-		sha1 := hash.Sum(nil)
+		computedSHA256 := sha256.Sum256(data)
 
 		entry := backups.NewRollbackLogEntry(1, timestamp, data)
 
@@ -42,8 +40,8 @@ func TestNewRollbackLogEntry(t *testing.T) {
 			t.Fatalf("Expected Timestamp %d, got %d", timestamp, entry.Timestamp)
 		}
 
-		if !bytes.Equal(entry.SHA1, []byte(sha1)) {
-			t.Fatalf("Expected SHA1 %x, got %x", sha1, entry.SHA1)
+		if !bytes.Equal(entry.SHA256, computedSHA256[:]) {
+			t.Fatalf("Expected SHA256 %x, got %x", computedSHA256[:], entry.SHA256)
 		}
 	})
 }
