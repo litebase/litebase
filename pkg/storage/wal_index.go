@@ -70,7 +70,7 @@ func (w *WALIndex) File() (internalStorage.File, error) {
 	path := fmt.Sprintf("%slogs/wal/WAL_INDEX", file.GetDatabaseFileBaseDir(w.DatabaseId, w.BranchId))
 
 tryOpen:
-	file, err := w.fileSystem.OpenFileDirect(
+	file, err := w.fileSystem.OpenFile(
 		path,
 		os.O_CREATE|os.O_RDWR,
 		0644,
