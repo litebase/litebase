@@ -17,6 +17,8 @@ import (
 var envDataPath string
 
 func setupTestEnv(t testing.TB) (string, error) {
+	var err error
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	rootDirectory := "./../../"
 
@@ -24,10 +26,16 @@ func setupTestEnv(t testing.TB) (string, error) {
 		rootDirectory = os.Getenv("LITEBASE_ROOT_DIRECTORY")
 	}
 
-	err := godotenv.Load(fmt.Sprintf("%s.env.test", rootDirectory))
+	setTestEnvVariable(t)
 
-	if err != nil {
-		log.Fatal(err)
+	envPath := fmt.Sprintf("%s.env", rootDirectory)
+
+	if _, err := os.Stat(envPath); err == nil {
+		err := godotenv.Load(envPath)
+
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if envDataPath == "" {
