@@ -77,7 +77,11 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		panic(err)
 	}
 
-	app.Auth.UserManager().Init()
+	err = app.Auth.UserManager().Init()
+
+	if err != nil {
+		panic(err)
+	}
 
 	app.Cluster.Node().Init(
 		database.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager, app.LogManager),

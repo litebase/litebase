@@ -45,8 +45,9 @@ func (s *Server) Start(startHook func(*http.ServeMux), shutdownHook func()) {
 	s.ServeMux = http.NewServeMux()
 
 	s.HttpServer = &http.Server{
-		Addr:    fmt.Sprintf(":%s", port),
-		Handler: s.ServeMux,
+		Addr:              fmt.Sprintf(":%s", port),
+		Handler:           s.ServeMux,
+		ReadHeaderTimeout: 2 * time.Second,
 	}
 
 	if startHook != nil {
