@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"hash/crc64"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -133,7 +134,12 @@ func (lm *LogManager) Run() {
 			// Close query logs that have not been used in the last 5 minutes.
 			for _, l := range lm.queryLogs {
 				if time.Since(l.lastLoggedTime) > QueryLogManagerFlushThreshold {
-					l.Close()
+					err := l.Close()
+
+					if err != nil {
+						slog.Error("Error closing query log", "error", err)
+					}
+
 					delete(lm.queryLogs, l.databaseHash)
 				}
 			}

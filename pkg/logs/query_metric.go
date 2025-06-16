@@ -7,6 +7,8 @@ import (
 	"math"
 	"sort"
 	"strconv"
+
+	"github.com/litebase/litebase/internal/utils"
 )
 
 // A query metric is a snapshot of the query performance at a given time. These
@@ -28,12 +30,18 @@ type QueryMetric struct {
 const LatencyBufferSize = 128
 
 func NewQueryMetric(timestamp int64, checksum uint64) *QueryMetric {
+	uint32Timestamp, err := utils.SafeInt64ToUint32(timestamp)
+
+	if err != nil {
+		return nil
+	}
+
 	return &QueryMetric{
 		Checksum:     checksum,
 		Count:        1,
 		latencyIndex: 0,
 		latencies:    make([]float64, LatencyBufferSize),
-		Timestamp:    uint32(timestamp),
+		Timestamp:    uint32Timestamp,
 	}
 }
 
@@ -47,21 +55,63 @@ func (q *QueryMetric) AddLatency(latency float64) {
 	q.latencyIndex++
 }
 
-func (q *QueryMetric) Bytes(buf *bytes.Buffer) []byte {
-	q.Count = uint32(len(q.latencies))
+func (q *QueryMetric) Bytes(buf *bytes.Buffer) ([]byte, error) {
+	var err error
+
+	q.Count, err = utils.SafeIntToUint32(len(q.latencies))
+
+	if err != nil {
+		return nil, err
+	}
+
 	q.calculateLatencies()
 
-	binary.Write(buf, binary.LittleEndian, q.Checksum)
-	binary.Write(buf, binary.LittleEndian, q.Count)
-	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyAvg))
-	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyMin))
-	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyMax))
-	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyP50))
-	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyP90))
-	binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyP99))
-	binary.Write(buf, binary.LittleEndian, q.Timestamp)
+	err = binary.Write(buf, binary.LittleEndian, q.Checksum)
+	if err != nil {
+		return nil, err
+	}
 
-	return buf.Bytes()
+	err = binary.Write(buf, binary.LittleEndian, q.Count)
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyAvg))
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyMin))
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyMax))
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyP50))
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyP90))
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.LittleEndian, math.Float64bits(q.LatencyP99))
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.LittleEndian, q.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (q *QueryMetric) calculateLatencies() {
@@ -132,21 +182,56 @@ func (qm QueryMetric) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func QueryMetricFromBytes(data []byte) QueryMetric {
+func QueryMetricFromBytes(data []byte) (QueryMetric, error) {
 	q := QueryMetric{}
 	buf := bytes.NewReader(data)
 
-	binary.Read(buf, binary.LittleEndian, &q.Checksum)
-	binary.Read(buf, binary.LittleEndian, &q.Count)
-	binary.Read(buf, binary.LittleEndian, &q.LatencyAvg)
-	binary.Read(buf, binary.LittleEndian, &q.LatencyMin)
-	binary.Read(buf, binary.LittleEndian, &q.LatencyMax)
-	binary.Read(buf, binary.LittleEndian, &q.LatencyP50)
-	binary.Read(buf, binary.LittleEndian, &q.LatencyP90)
-	binary.Read(buf, binary.LittleEndian, &q.LatencyP99)
-	binary.Read(buf, binary.LittleEndian, &q.Timestamp)
+	err := binary.Read(buf, binary.LittleEndian, &q.Checksum)
+	if err != nil {
+		return QueryMetric{}, err
+	}
 
-	return q
+	err = binary.Read(buf, binary.LittleEndian, &q.Count)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	err = binary.Read(buf, binary.LittleEndian, &q.LatencyAvg)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	err = binary.Read(buf, binary.LittleEndian, &q.LatencyMin)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	err = binary.Read(buf, binary.LittleEndian, &q.LatencyMax)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	err = binary.Read(buf, binary.LittleEndian, &q.LatencyP50)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	err = binary.Read(buf, binary.LittleEndian, &q.LatencyP90)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	err = binary.Read(buf, binary.LittleEndian, &q.LatencyP99)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	err = binary.Read(buf, binary.LittleEndian, &q.Timestamp)
+	if err != nil {
+		return QueryMetric{}, err
+	}
+
+	return q, nil
 }
 
 func QueryMetricKeys() []string {

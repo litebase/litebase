@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"slices"
 	"sync"
@@ -101,7 +102,11 @@ func (q *QueryStatementIndex) Get(key string) ([]byte, bool) {
 		return nil, false
 	}
 
-	q.cache.Put(key, slices.Clone(value))
+	err = q.cache.Put(key, slices.Clone(value))
+
+	if err != nil {
+		slog.Error("Failed to put entry in cache", "error", err)
+	}
 
 	return value, true
 }
@@ -117,7 +122,11 @@ func (q *QueryStatementIndex) Set(key string, value string) error {
 		return err
 	}
 
-	q.cache.Put(key, []byte(value))
+	err = q.cache.Put(key, []byte(value))
+
+	if err != nil {
+		slog.Error("Failed to put entry in cache", "error", err)
+	}
 
 	return nil
 }

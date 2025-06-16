@@ -15,6 +15,7 @@ import (
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
@@ -126,9 +127,13 @@ func (q *QueryLog) GetStatementIndex() (*QueryStatementIndex, error) {
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				q.tieredFS.MkdirAll(q.path, 0750)
+				err := q.tieredFS.MkdirAll(q.path, 0750)
+
+				if err != nil {
+					return nil, err
+				}
 			} else {
-				log.Fatal(err)
+				return nil, err
 			}
 		}
 
@@ -155,7 +160,14 @@ func (q *QueryLog) Flush(force bool) {
 		for checksum, metric := range metrics {
 			data.Reset()
 
-			_, err := file.Write(metric.Bytes(data))
+			metricBytes, err := metric.Bytes(data)
+
+			if err != nil {
+				slog.Error("Error converting query metric to bytes", "error", err)
+				continue
+			}
+
+			_, err = file.Write(metricBytes)
 
 			if err != nil {
 				if errors.Is(err, os.ErrClosed) {
@@ -178,10 +190,15 @@ func (q *QueryLog) Flush(force bool) {
 	}
 }
 
-func (q *QueryLog) Read(start, end uint32) []QueryMetric {
+func (q *QueryLog) Read(start, end uint32) ([]QueryMetric, error) {
 	queryMetrics := make([]QueryMetric, 0)
+	// uint64Start
 	timeInstance := time.Unix(int64(start), 0).UTC()
-	startOfDay := uint32(time.Date(timeInstance.Year(), timeInstance.Month(), timeInstance.Day(), 0, 0, 0, 0, time.UTC).Unix())
+	startOfDay, err := utils.SafeInt64ToUint32(time.Date(timeInstance.Year(), timeInstance.Month(), timeInstance.Day(), 0, 0, 0, 0, time.UTC).Unix())
+
+	if err != nil {
+		return nil, err
+	}
 
 	// Get all the directories in the logs directory
 	path := fmt.Sprintf(
@@ -193,10 +210,10 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return queryMetrics
+			return queryMetrics, nil
 		}
 
-		log.Fatal(err)
+		return nil, err
 	}
 
 	for directory := range dirs {
@@ -208,12 +225,17 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		directoryTimestamp, err := strconv.ParseInt(dirs[directory].Name(), 10, 64)
 
 		if err != nil {
-			log.Println(err)
-			break
+			return nil, err
 		}
 
-		// If the timestamp is not in the r, skip it
-		if uint32(directoryTimestamp) < startOfDay || uint32(directoryTimestamp) > end {
+		uint32DirectoryTimestamp, err := utils.SafeInt64ToUint32(directoryTimestamp)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// If the timestamp is not in the range, skip it
+		if uint32DirectoryTimestamp < startOfDay || uint32DirectoryTimestamp > end {
 			continue
 		}
 
@@ -222,10 +244,10 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				return queryMetrics
+				return queryMetrics, nil
 			}
 
-			log.Fatal(err)
+			return nil, err
 		}
 
 		for _, entry := range files {
@@ -236,8 +258,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 			file, err := q.tieredFS.Open(fmt.Sprintf("%s/%d/%s", path, directoryTimestamp, entry.Name()))
 
 			if err != nil {
-				log.Println(err)
-				break
+				return nil, err
 			}
 
 			defer file.Close()
@@ -252,7 +273,12 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 					break
 				}
 
-				queryMetric := QueryMetricFromBytes(fileBuffer)
+				queryMetric, err := QueryMetricFromBytes(fileBuffer)
+
+				if err != nil {
+					slog.Error("Error reading query metric", "error", err)
+					continue
+				}
 
 				// if the timestamp is not in the range continue
 				if queryMetric.Timestamp < start || queryMetric.Timestamp > end {
@@ -265,7 +291,7 @@ func (q *QueryLog) Read(start, end uint32) []QueryMetric {
 		}
 	}
 
-	return queryMetrics
+	return queryMetrics, nil
 }
 
 func (q *QueryLog) watch() {
@@ -334,7 +360,14 @@ func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) 
 
 	logData := buffer.Bytes()
 	q.queryHasher.Reset()
-	q.queryHasher.Write(logData)
+
+	_, err := q.queryHasher.Write(logData)
+
+	if err != nil {
+		slog.Error("error writing to query hasher", "error", err)
+		return err
+	}
+
 	checksum := q.queryHasher.Sum64()
 	// Convert the checksum to a hexadecimal
 	q.keyBuffer.Reset()

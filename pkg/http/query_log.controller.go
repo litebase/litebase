@@ -55,7 +55,12 @@ func QueryLogController(request *Request) Response {
 		return BadRequestResponse(errors.New("invalid end timestamp"))
 	}
 
-	metrics := queryLog.Read(uint32StartTimestamp, uint32EndTimestamp)
+	metrics, err := queryLog.Read(uint32StartTimestamp, uint32EndTimestamp)
+
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
+
 	metrics = combineQueryMeticsByStep(metrics, step)
 
 	return JsonResponse(map[string]any{
