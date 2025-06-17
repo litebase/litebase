@@ -64,7 +64,7 @@ func NewConfig() *Config {
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
 		Env:                    env("LITEBASE_ENV", "production").(string),
 		FakeObjectStorage:      env("LITEBASE_FAKE_OBJECT_STORAGE", "false") == "true",
-		HostName:               env("LITEBASE_HOSTNAME", "").(string),
+		HostName:               env("LITEBASE_HOSTNAME", "localhost").(string),
 		NodeAddressProvider:    env("LITEBASE_NODE_ADDRESS_PROVIDER", "").(string),
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
