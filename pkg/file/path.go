@@ -1,7 +1,7 @@
 package file
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"path/filepath"
 
@@ -16,12 +16,12 @@ func DatabaseHash(
 	databaseId string,
 	branchId string,
 ) string {
-	sha1 := sha1.New()
-	sha1.Write([]byte(databaseId))
-	sha1.Write([]byte(":"))
-	sha1.Write([]byte(branchId))
+	hash := sha256.New()
+	hash.Write([]byte(databaseId))
+	hash.Write([]byte(":"))
+	hash.Write([]byte(branchId))
 
-	return fmt.Sprintf("%x", sha1.Sum(nil))
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 func GetDatabaseBackupsDirectory(databaseId, branchId string) string {

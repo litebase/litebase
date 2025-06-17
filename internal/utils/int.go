@@ -30,6 +30,10 @@ func SafeInt64ToInt32(i int64) (int32, error) {
 }
 
 func SafeInt32ToUint64(u int32) (uint64, error) {
+	if u < 0 {
+		return 0, errors.New("integer overflow: value out of uint64 range")
+	}
+
 	return uint64(u), nil
 }
 
