@@ -1,23 +1,22 @@
 package http
 
 import (
+	"maps"
 	"net/http"
 )
 
 type Response struct {
 	StatusCode int `json:"statusCode"`
 	Stream     func(http.ResponseWriter)
-	Headers    map[string]string      `json:"headers"`
-	Body       map[string]interface{} `json:"body"`
+	Headers    map[string]string `json:"headers"`
+	Body       map[string]any    `json:"body"`
 }
 
-func JsonResponse(body map[string]interface{}, statusCode int, headers map[string]string) Response {
+func JsonResponse(body map[string]any, statusCode int, headers map[string]string) Response {
 	responseHeaders := make(map[string]string, len(headers)+1)
 	responseHeaders["Content-Type"] = "application/json"
 
-	for key, value := range headers {
-		responseHeaders[key] = value
-	}
+	maps.Copy(responseHeaders, headers)
 
 	return Response{
 		StatusCode: statusCode,
