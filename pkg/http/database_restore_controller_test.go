@@ -112,7 +112,6 @@ func TestDatabaseRestoreController(t *testing.T) {
 			},
 		})
 
-		// Test the health check endpoint
 		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/restore", source.DatabaseKey.Key), "POST", map[string]any{
 			"target_database_id":        target.DatabaseId,
 			"target_database_branch_id": target.BranchId,

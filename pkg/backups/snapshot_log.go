@@ -18,17 +18,17 @@ import (
 
 type Snapshot struct {
 	// The UUID of the branch the snapshot is for.
-	BranchId string
+	BranchId string `json:"branch_id"`
 
 	// The UUID of the database the snapshot is for.
-	DatabaseId string
+	DatabaseId string `json:"database_id"`
 
 	// The file to write the snapshot log to.
-	File internalStorage.File
+	File internalStorage.File `json:"-"`
 
 	// The last time the snapshot was accessed. This timestamp is used for
 	// cleanup purposes.
-	LastAccessedAt int64
+	LastAccessedAt int64 `json:"-"`
 
 	// A mutex to lock the snapshot for concurrent access. This is especially
 	// necessary when writing to the snapshot log file while backups are being
@@ -36,12 +36,12 @@ type Snapshot struct {
 	mutex sync.Mutex
 
 	// A list of restore points for the snapshot.
-	RestorePoints SnapshotRestorePoints `json:"restore_points"`
+	RestorePoints SnapshotRestorePoints `json:"restore_points,omitempty"`
 
 	// The UTC start of the day of the snapshot.
 	Timestamp int64 `json:"timestamp"`
 
-	tieredFS *storage.FileSystem `json:"-"`
+	tieredFS *storage.FileSystem
 }
 
 type SnapshotRestorePoints struct {
