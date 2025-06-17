@@ -1,6 +1,9 @@
 package http
 
 import (
+	"fmt"
+
+	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/database"
 	"golang.org/x/exp/slog"
 )
@@ -22,6 +25,16 @@ func QueryController(request *Request) Response {
 
 	if accessKey == nil {
 		return ErrInvalidAccessKeyResponse
+	}
+
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]auth.Privilege{auth.DatabasePrivilegeQuery},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
 	}
 
 	db, err := request.databaseManager.ConnectionManager().Get(

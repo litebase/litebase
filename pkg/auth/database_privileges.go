@@ -9,6 +9,8 @@ const (
 	DatabasePrivilegeBackup  Privilege = "database:backup"
 	DatabasePrivilegeRestore Privilege = "database:restore"
 
+	DatabasePrivilegeQuery Privilege = "database:query"
+
 	DatabasePrivilegeAnalyze           Privilege = "database:analyze"
 	DatabasePrivilegeAttach            Privilege = "database:attach"
 	DatabasePrivilegeAlterTable        Privilege = "database:alter_table"

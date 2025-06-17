@@ -20,7 +20,7 @@ func TestQueryController(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []auth.Privilege{"*"},
+				Actions:  []auth.Privilege{auth.DatabasePrivilegeQuery, auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeTransaction, auth.DatabasePrivilegeUpdate},
 			},
 		})
 
@@ -99,7 +99,7 @@ func TestQueryController_Errors(t *testing.T) {
 			{
 				Effect:   "Allow",
 				Resource: "*",
-				Actions:  []auth.Privilege{"*"},
+				Actions:  []auth.Privilege{auth.DatabasePrivilegeQuery, auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeTransaction, auth.DatabasePrivilegeUpdate},
 			},
 		})
 
