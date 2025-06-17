@@ -20,6 +20,10 @@ import (
 	"github.com/google/uuid"
 )
 
+var (
+	ErrDatabaseConnectionClosed = fmt.Errorf("database connection is closed")
+)
+
 type DatabaseConnection struct {
 	AccessKey         *auth.AccessKey
 	branchId          string
@@ -207,13 +211,21 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 
 // Return the number of rows changed by the last statement.
 func (con *DatabaseConnection) Changes() int64 {
+	if con.Closed() {
+		return 0
+	}
+
 	return con.sqlite3.Changes()
 }
 
 // Checkpoint changes that have been made to the database.
 func (con *DatabaseConnection) Checkpoint() error {
-	if con == nil || con.sqlite3 == nil {
+	if con == nil {
 		return nil
+	}
+
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
 	}
 
 	// Get the latest WAL for the database.
@@ -286,6 +298,10 @@ func (con *DatabaseConnection) Checkpoint() error {
 
 // Close the database connection.
 func (con *DatabaseConnection) Close() error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
 	var err error
 
 	// Ensure all statements are finalized before closing the connection.
@@ -338,6 +354,10 @@ func (con *DatabaseConnection) Context() context.Context {
 }
 
 func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementParameter) (result *sqlite3.Result, err error) {
+	if con.Closed() {
+		return nil, ErrDatabaseConnectionClosed
+	}
+
 	result = &sqlite3.Result{}
 
 	statement, _, err := con.SqliteConnection().Prepare(con.context, []byte(sql))
@@ -362,6 +382,10 @@ func (c *DatabaseConnection) Id() string {
 
 // Prepare a statement for execution.
 func (con *DatabaseConnection) Prepare(ctx context.Context, command []byte) (Statement, error) {
+	if con.Closed() {
+		return Statement{}, ErrDatabaseConnectionClosed
+	}
+
 	statment, _, err := con.sqlite3.Prepare(ctx, command)
 
 	if err != nil {
@@ -376,6 +400,10 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command []byte) (Sta
 
 // Execute a query on the database using a transaction.
 func (con *DatabaseConnection) Query(result *sqlite3.Result, statement *sqlite3.Statement, parameters []sqlite3.StatementParameter) error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
 	err := con.Transaction(statement.IsReadonly(), func(con *DatabaseConnection) error {
 		return statement.Exec(result, parameters...)
 	})
@@ -527,6 +555,10 @@ func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 
 // Create a statement for a query.
 func (con *DatabaseConnection) Statement(queryStatement []byte) (Statement, error) {
+	if con.Closed() {
+		return Statement{}, ErrDatabaseConnectionClosed
+	}
+
 	var err error
 
 	checksum := crc32.ChecksumIEEE(queryStatement)
@@ -553,6 +585,10 @@ func (con *DatabaseConnection) Transaction(
 	readOnly bool,
 	handler func(con *DatabaseConnection) error,
 ) error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
 	var err error
 
 	return con.walManager.CheckpointBarrier(func() error {

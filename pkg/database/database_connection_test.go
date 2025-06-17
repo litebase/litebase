@@ -601,6 +601,28 @@ func TestDatabaseConnection_Transaction(t *testing.T) {
 	})
 }
 
+func TestDatabaseConnection_Transaction_WhenClosed(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+
+		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseId, mock.BranchId)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		connection.Close()
+
+		err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
+			return nil
+		})
+
+		if err != database.ErrDatabaseConnectionClosed {
+			t.Fatalf("Expected ErrDatabaseConnectionClosed but got %v", err)
+		}
+	})
+}
+
 func TestDatabaseConnection_Transaction_WithError(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
