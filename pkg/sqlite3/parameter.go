@@ -31,8 +31,8 @@ var rawParameterPool = sync.Pool{
 var jsonParameterDecoderPool = JsonParameterDecoderPool()
 
 type StatementParameter struct {
-	Type  string `json:"type"`
-	Value any    `json:"value"`
+	Type  string `json:"type" validate:"required,oneof=TEXT INTEGER FLOAT BLOB NULL"`
+	Value any    `json:"value" validate:"required"`
 }
 
 func (sp StatementParameter) Encode(buffer *bytes.Buffer) []byte {

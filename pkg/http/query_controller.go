@@ -2,6 +2,7 @@ package http
 
 import (
 	"github.com/litebase/litebase/pkg/database"
+	"golang.org/x/exp/slog"
 )
 
 func QueryController(request *Request) Response {
@@ -19,7 +20,7 @@ func QueryController(request *Request) Response {
 
 	accessKey := requestToken.AccessKey()
 
-	if accessKey.AccessKeyId == "" {
+	if accessKey == nil {
 		return ErrInvalidAccessKeyResponse
 	}
 
@@ -29,9 +30,7 @@ func QueryController(request *Request) Response {
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
-			"message": err.Error(),
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
 	defer request.databaseManager.ConnectionManager().Release(
@@ -40,14 +39,29 @@ func QueryController(request *Request) Response {
 		db,
 	)
 
-	queryInput := &database.QueryInput{}
+	input := &database.QueryInput{}
 
-	err = queryInput.DecodeFromMap(request.All())
+	err = input.DecodeFromMap(request.All())
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
-			"message": err.Error(),
-		}, 500, nil)
+		slog.Error("failed to parse input", "error", err.Error())
+		return BadRequestResponse(ErrInvalidInput)
+	}
+
+	// Validate the input
+	validationErrors := request.Validate(input, map[string]string{
+		"id.required":                 "The query ID field is required.",
+		"id.string":                   "The query ID field must be a string.",
+		"parameters.*.type.required":  "The parameter type field is required.",
+		"parameters.*.type.oneof":     "The parameter type field must be one of the allowed values.",
+		"parameters.*.value.required": "The parameter value field is required.",
+		"statement.required":          "The SQL statement field is required.",
+		"statement.string":            "The SQL statement field must be a string.",
+		"transaction_id.string":       "The transaction ID field must be a string.",
+	})
+
+	if validationErrors != nil {
+		return ValidationErrorResponse(validationErrors)
 	}
 
 	requestQuery := database.GetQuery(
@@ -56,7 +70,7 @@ func QueryController(request *Request) Response {
 		request.logManager,
 		databaseKey,
 		accessKey,
-		queryInput,
+		input,
 	)
 
 	defer database.PutQuery(requestQuery)

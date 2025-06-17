@@ -282,9 +282,8 @@ func (d *DatabaseManager) Exists(name string) (bool, error) {
 func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	log.Println("Getting database:", databaseId)
+
 	if d.databases[databaseId] != nil {
-		log.Println("Database found in cache:", databaseId)
 		return d.databases[databaseId], nil
 	}
 

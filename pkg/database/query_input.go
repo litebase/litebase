@@ -3,6 +3,7 @@ package database
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/sqlite3"
@@ -23,9 +24,9 @@ QueryInput is a struct that represents the input of a query.
 | 16 + n + m + p  | q      | The transaction id                    |
 */
 type QueryInput struct {
-	Id            []byte                       `json:"id"`
-	Parameters    []sqlite3.StatementParameter `json:"parameters"`
-	Statement     []byte                       `json:"statement"`
+	Id            []byte                       `json:"id" validate:"required"`
+	Parameters    []sqlite3.StatementParameter `json:"parameters" validate:"dive"`
+	Statement     []byte                       `json:"statement" validate:"required"`
 	TransactionId []byte                       `json:"transaction_id"`
 }
 
@@ -87,7 +88,7 @@ func (q *QueryInput) Decode(buffer, parametersBuffer *bytes.Buffer) error {
 	return nil
 }
 
-func (q *QueryInput) DecodeFromMap(data map[string]interface{}) error {
+func (q *QueryInput) DecodeFromMap(data map[string]any) error {
 	if data["id"] != nil {
 		q.Id = []byte(data["id"].(string))
 	}
@@ -101,21 +102,29 @@ func (q *QueryInput) DecodeFromMap(data map[string]interface{}) error {
 	}
 
 	if data["parameters"] != nil {
-		parameters := data["parameters"].([]interface{})
+		parameters, ok := data["parameters"].([]any)
+
+		if !ok {
+			return fmt.Errorf("invalid parameters format")
+		}
 
 		for _, parameter := range parameters {
-			if parameter.(map[string]interface{})["type"] == "TEXT" {
-				parameter.(map[string]interface{})["value"] = []byte(parameter.(map[string]interface{})["value"].(string))
+			if _, ok := parameter.(map[string]any)["type"]; !ok {
+				return fmt.Errorf("invalid parameter format")
+			}
+
+			if parameter.(map[string]any)["type"] == "TEXT" {
+				parameter.(map[string]any)["value"] = []byte(parameter.(map[string]any)["value"].(string))
 			}
 
 			// Handle INTEGER values that may be in scientific notation
-			if parameter.(map[string]interface{})["type"] == "INTEGER" {
-				parameter.(map[string]interface{})["value"] = int64(parameter.(map[string]interface{})["value"].(float64))
+			if parameter.(map[string]any)["type"] == "INTEGER" {
+				parameter.(map[string]any)["value"] = int64(parameter.(map[string]any)["value"].(float64))
 			}
 
 			q.Parameters = append(q.Parameters, sqlite3.StatementParameter{
-				Type:  parameter.(map[string]interface{})["type"].(string),
-				Value: parameter.(map[string]interface{})["value"],
+				Type:  parameter.(map[string]any)["type"].(string),
+				Value: parameter.(map[string]any)["value"],
 			})
 		}
 	}

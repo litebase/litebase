@@ -14,6 +14,7 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
+
 		mock := test.MockDatabase(server.App)
 
 		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
@@ -70,7 +71,6 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 			},
 		})
 
-		// Test the health check endpoint
 		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/snapshots", mock.DatabaseKey.Key), "GET", nil)
 
 		if err != nil {
@@ -166,7 +166,6 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 			snapshot = s
 		}
 
-		// Test the health check endpoint
 		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/snapshots/%d", mock.DatabaseKey.Key, snapshot.Timestamp), "GET", nil)
 
 		if err != nil {

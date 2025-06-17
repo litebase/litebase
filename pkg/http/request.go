@@ -3,7 +3,6 @@ package http
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -141,7 +140,6 @@ func (r *Request) DatabaseKey() *auth.DatabaseKey {
 	)
 
 	if err != nil {
-		log.Println("error getting database key:", err)
 		return nil
 	}
 
