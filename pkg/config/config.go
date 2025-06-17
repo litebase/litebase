@@ -23,7 +23,7 @@ type Config struct {
 	DatabaseDirectory      string
 	Debug                  bool
 	DefaultBranchName      string
-	DomainName             string
+	HostName               string
 	Env                    string
 	FakeObjectStorage      bool
 	FileSystemDriver       string
@@ -61,10 +61,10 @@ func NewConfig() *Config {
 		ClusterId:              env("LITEBASE_CLUSTER_ID", "").(string),
 		DataPath:               env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
-		DomainName:             env("LITEBASE_DOMAIN_NAME", "").(string),
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
 		Env:                    env("LITEBASE_ENV", "production").(string),
 		FakeObjectStorage:      env("LITEBASE_FAKE_OBJECT_STORAGE", "false") == "true",
+		HostName:               env("LITEBASE_HOSTNAME", "").(string),
 		NodeAddressProvider:    env("LITEBASE_NODE_ADDRESS_PROVIDER", "").(string),
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
