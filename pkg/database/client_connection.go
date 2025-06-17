@@ -45,6 +45,10 @@ func (d *ClientConnection) Close() {
 		return
 	}
 
+	if d.connection.Closed() {
+		return
+	}
+
 	err := d.connection.Close()
 
 	if err != nil {

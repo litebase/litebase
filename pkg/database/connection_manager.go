@@ -20,6 +20,7 @@ const (
 var (
 	ErrorConnectionManagerShutdown = errors.New("new database connections cannot be created after shutdown")
 	ErrorConnectionManagerDraining = errors.New("new Xdatabase connections cannot be created while shutting down")
+	ConnectionDrainingWaitTime     = 3 * time.Second
 )
 
 const DatabaseIdleTimeout = 1 * time.Minute
@@ -35,8 +36,8 @@ type ConnectionManager struct {
 	state            int
 }
 
-func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
-
+// Checkpoint a database is necessary.
+func (c *ConnectionManager) checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
 	// Skip if the last checkpoint for the database group was performed less
 	// than the checkpoint threshold.
 	if time.Since(databaseGroup.checkpointedAt) <= DatabaseCheckpointThreshold {
@@ -67,6 +68,7 @@ func (c *ConnectionManager) Checkpoint(databaseGroup *DatabaseGroup, branchId st
 	return true
 }
 
+// Iterate over all active connections and checkpoint them if necessary.
 func (c *ConnectionManager) CheckpointAll() {
 	if c.cluster.Node().IsReplica() {
 		return
@@ -105,7 +107,7 @@ func (c *ConnectionManager) CheckpointAll() {
 				}
 
 				go func(databaseGroup *DatabaseGroup, cc *ClientConnection) {
-					c.Checkpoint(databaseGroup, branchId, cc)
+					c.checkpoint(databaseGroup, branchId, cc)
 					c.Release(cc.connection.databaseId, cc.connection.branchId, cc)
 				}(databaseGroup, connection)
 
@@ -115,7 +117,30 @@ func (c *ConnectionManager) CheckpointAll() {
 	}
 }
 
-func (c *ConnectionManager) ClearCaches(databaseId string, branchId string) {
+// Close all connections for a given database.
+func (c *ConnectionManager) CloseDatabaseConnections(databaseId string) {
+	c.mutex.Lock()
+
+	if c.databases[databaseId] == nil {
+		c.mutex.Unlock()
+		return
+	}
+
+	branches := make([]string, 0, len(c.databases[databaseId].branches))
+
+	for branchId := range c.databases[databaseId].branches {
+		branches = append(branches, branchId)
+	}
+
+	c.mutex.Unlock()
+
+	for _, branchId := range branches {
+		c.CloseDatabaseBranchConnections(databaseId, branchId)
+	}
+}
+
+// Close all connections for a given database branch.
+func (c *ConnectionManager) CloseDatabaseBranchConnections(databaseId string, branchId string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -124,12 +149,25 @@ func (c *ConnectionManager) ClearCaches(databaseId string, branchId string) {
 	}
 
 	for _, branchConnection := range c.databases[databaseId].branches[branchId] {
-		branchConnection.connection.GetConnection().SqliteConnection().ClearCache()
+		err := branchConnection.connection.GetConnection().Close()
+
+		if err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
 	}
+
+	c.databases[databaseId].lockMutex.Lock()
+	defer c.databases[databaseId].lockMutex.Unlock()
+
+	delete(c.databases[databaseId].branches, branchId)
 }
 
+// Drain all connections for a given database branch. This method will wait for
+// all connections to be closed but will allow 3 seconds before returning.
 func (c *ConnectionManager) Drain(databaseId string, branchId string, drained func() error) error {
 	c.mutex.Lock()
+
+	c.state = ConnectionManagerStateDraining
 
 	databaseGroup, ok := c.databases[databaseId]
 
@@ -147,35 +185,21 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 		return drained()
 	}
 
-	// Close all idle connections
-	// closedChannels := make([]chan bool, len(databaseGroup.branches[branchId]))
-	// for i := 0; i < len(databaseGroup.branches[branchId]); i++ {
-	// 	branchConnection := databaseGroup.branches[branchId][i]
-
-	// 	closedChannels[i] = branchConnection.Unclaimed()
-
-	// 	if <-branchConnection.Unclaimed() {
-
-	// 	}
-	// }
-
 	wg := sync.WaitGroup{}
 
 	for i := range databaseGroup.branches[branchId] {
 		wg.Add(1)
 		go func(branchConnection *BranchConnection) {
 			defer wg.Done()
-			timeout := time.After(3 * time.Second)
+			timeout := time.After(ConnectionDrainingWaitTime)
 
 			for {
 				select {
 				case <-branchConnection.Unclaimed():
 					branchConnection.connection.Close()
-					// databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId][:i], databaseGroup.branches[branchId][i+1:]...)
 					return
 				case <-timeout:
 					branchConnection.Close()
-					// databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId][:i], databaseGroup.branches[branchId][i+1:]...)
 					return
 				}
 			}
@@ -185,43 +209,6 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 	wg.Wait()
 
 	c.mutex.Unlock()
-
-	// // Wait for all connections to close
-	// var retries = 0
-
-	// // Wait for all BranchConnection <-Unclaimed() to be true
-	// for {
-	// 	slog.Info("retries", "count", retries)
-	// 	if len(databaseGroup.branches[branchId]) == 0 || retries > 100 {
-	// 		break
-	// 	}
-
-	// 	time.Sleep(10 * time.Millisecond)
-
-	// 	c.mutex.Lock()
-	// 	for i := 0; i < len(databaseGroup.branches[branchId]); {
-	// 		branchConnection := databaseGroup.branches[branchId][i]
-
-	// 		if !branchConnection.Claimed() {
-	// 			branchConnection.connection.Close()
-	// 			// Remove the closed connection from the slice
-	// 			databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId][:i], databaseGroup.branches[branchId][i+1:]...)
-	// 		} else {
-	// 			i++
-	// 		}
-	// 	}
-	// 	c.mutex.Unlock()
-
-	// 	retries++
-	// }
-
-	// c.mutex.Lock()
-	// defer c.mutex.Unlock()
-
-	// // Force close all connections
-	// for _, branchConnection := range databaseGroup.branches[branchId] {
-	// 	branchConnection.connection.Close()
-	// }
 
 	// Remove the branch from the database group
 	databaseGroup.lockMutex.Lock()
@@ -347,8 +334,13 @@ func (c *ConnectionManager) Release(databaseId string, branchId string, clientCo
 
 	for _, branchConnection := range c.databases[databaseId].branches[branchId] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
-			branchConnection.Release()
-			branchConnection.lastUsedAt = time.Now().UTC()
+			if branchConnection.connection.connection.Closed() {
+				c.remove(databaseId, branchId, clientConnection)
+			} else {
+				branchConnection.Release()
+				branchConnection.lastUsedAt = time.Now().UTC()
+			}
+
 			break
 		}
 	}
@@ -440,8 +432,11 @@ func (c *ConnectionManager) Shutdown() {
 	}
 
 	c.databases = map[string]*DatabaseGroup{}
+
+	c.state = ConnectionManagerStateShutdown
 }
 
+// Return a state error if the connection manager is not running.
 func (c *ConnectionManager) StateError() error {
 	switch c.state {
 	case ConnectionManagerStateShutdown:
