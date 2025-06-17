@@ -28,6 +28,7 @@ type DatabaseManager struct {
 	WriteQueueManager *WriteQueueManager
 }
 
+// Create a new instance of the database manager.
 func NewDatabaseManager(
 	cluster *cluster.Cluster,
 	secretsManager *auth.SecretsManager,
@@ -50,6 +51,7 @@ func NewDatabaseManager(
 	return dbm
 }
 
+// Return all of the databases that have been configured in the system.
 func (d *DatabaseManager) All() ([]*Database, error) {
 	var databases []*Database
 
@@ -133,6 +135,7 @@ func (d *DatabaseManager) compaction() {
 	}
 }
 
+// Build the connection manager instance if it has not been created yet.
 func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -167,6 +170,7 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 	return d.connectionManager
 }
 
+// Create a new instance of a database.
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
 	dks, err := d.SecretsManager.DatabaseKeyStore(d.Cluster.Config.Signature)
 
@@ -213,9 +217,11 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 	return database, nil
 }
 
+// Delete the given instance of the database.
 func (d *DatabaseManager) Delete(database *Database) error {
-	// path := fmt.Sprintf("%s%s", Directory(), database.Id)
 	resources := d.Resources(database.Id, database.PrimaryBranchId)
+
+	d.ConnectionManager().CloseDatabaseConnections(database.Id)
 
 	fileSystem := resources.FileSystem()
 
@@ -246,9 +252,12 @@ func (d *DatabaseManager) Delete(database *Database) error {
 
 	resources.Remove()
 
+	delete(d.databases, database.Id)
+
 	return nil
 }
 
+// Check if a database with the given name exists.
 func (d *DatabaseManager) Exists(name string) (bool, error) {
 	databases, err := d.All()
 
@@ -269,11 +278,13 @@ func (d *DatabaseManager) Exists(name string) (bool, error) {
 	return false, nil
 }
 
+// Get a database instance by its ID.
 func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
+	log.Println("Getting database:", databaseId)
 	if d.databases[databaseId] != nil {
+		log.Println("Database found in cache:", databaseId)
 		return d.databases[databaseId], nil
 	}
 
@@ -301,6 +312,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	return database, nil
 }
 
+// Return the page log manager instance.
 func (d *DatabaseManager) PageLogManager() *storage.PageLogManager {
 	return d.pageLogManager
 }
@@ -333,6 +345,7 @@ func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResour
 	return d.resources[hash]
 }
 
+// Remove the resources for the given database from a running state.
 func (d *DatabaseManager) Remove(databaseId, branchId string) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

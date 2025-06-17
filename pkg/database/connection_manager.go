@@ -286,6 +286,16 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	database, err := c.databaseManager.Get(databaseId)
+
+	if err != nil {
+		return nil, fmt.Errorf("database '%s' not found", databaseId)
+	}
+
+	if !database.HasBranch(branchId) {
+		return nil, fmt.Errorf("branch '%s' not found for database '%s'", branchId, databaseId)
+	}
+
 	if c.databases[databaseId] != nil &&
 		c.databases[databaseId].branches[branchId] != nil &&
 		len(c.databases[databaseId].branches[branchId]) > 0 {

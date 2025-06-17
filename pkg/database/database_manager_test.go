@@ -100,6 +100,59 @@ func TestDatabaseManager_Delete(t *testing.T) {
 	})
 }
 
+func TestDatabaseManager_Delete_ActiveDatabase(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+
+		db, err := dm.Create("test", "main")
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		fileSystem := dm.Resources(db.Id, db.PrimaryBranchId).FileSystem()
+
+		// Ensure the database directory exists
+		if !fileSystem.Exists() {
+			t.Errorf("Expected database directory to exist")
+		}
+
+		con1, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		defer dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con1)
+
+		_, err = con1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);", nil)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		err = dm.Delete(db)
+
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		_, err = con1.GetConnection().Exec("INSERT INTO test (value) VALUES ('Hello, World!');", nil)
+
+		if err != database.ErrDatabaseConnectionClosed {
+			t.Errorf("Expected database connection to be closed, got %v", err)
+		}
+
+		con2, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
+
+		if err == nil {
+			t.Errorf("Expected error, got nil")
+		}
+
+		dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con2)
+	})
+}
+
 func TestDatabaseManager_Exists(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)

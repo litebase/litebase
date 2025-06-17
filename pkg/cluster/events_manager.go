@@ -105,6 +105,10 @@ func (em *EventsManager) Init() {
 		}
 	})
 
+	em.cluster.Subscribe("database:delete", func(message *EventMessage) {
+		// TODO: Implement database delete
+	})
+
 	em.cluster.Subscribe("database-settings:purge", func(message *EventMessage) {
 		// TODO: Implement database settings purge
 	})
