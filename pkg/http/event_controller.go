@@ -18,7 +18,5 @@ func EventStoreController(request *Request) Response {
 
 	request.cluster.ReceiveEvent(input.(*cluster.EventMessage))
 
-	return Response{
-		StatusCode: 200,
-	}
+	return SuccessResponse("Event received", nil, 200)
 }
