@@ -23,7 +23,7 @@ func NewClusterUserDeleteCmd() *cobra.Command {
 				return
 			}
 
-			_, _, err = client.Request("DELETE", "/users/"+args[0], nil)
+			_, _, err = client.Request("DELETE", "/resources/users/"+args[0], nil)
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

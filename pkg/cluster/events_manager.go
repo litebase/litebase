@@ -105,6 +105,10 @@ func (em *EventsManager) Init() {
 		}
 	})
 
+	em.cluster.Subscribe("database-settings:purge", func(message *EventMessage) {
+		// TODO: Implement database settings purge
+	})
+
 	em.cluster.Subscribe("signature:activate", func(message *EventMessage) {
 		err := ActivateSignatureHandler(em.cluster.Config, message.Value)
 

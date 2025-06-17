@@ -20,7 +20,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
-		request, err := http.NewRequest("GET", "/users", nil)
+		request, err := http.NewRequest("GET", "/resources/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
@@ -60,7 +60,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 			client.AccessKey.AccessKeyId,
 			client.AccessKey.AccessKeySecret,
 			"GET",
-			"/users",
+			"/resources/users",
 			map[string]string{
 				"Host":         request.URL.Host,
 				"Content-Type": "application/json",

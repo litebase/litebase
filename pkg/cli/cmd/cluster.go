@@ -31,7 +31,7 @@ var ClusterStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Get the status of a cluster",
 	Run: func(cmd *cobra.Command, args []string) {
-		data, err := api.Get("cluster/status")
+		data, err := api.Get("status")
 
 		if err != nil {
 			fmt.Print(components.Container(components.ErrorAlert(err.Error())))

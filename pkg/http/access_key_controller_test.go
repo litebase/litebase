@@ -29,7 +29,7 @@ func TestAccessKeyControllerDestroy(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/access-keys/%s", accessKey.AccessKeyId), "DELETE", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to delete access key: %v", err)
@@ -62,7 +62,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteCurrentAccessKey(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/access-keys/%s", client.AccessKey.AccessKeyId), "DELETE", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", client.AccessKey.AccessKeyId), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to delete access key: %v", err)
@@ -99,7 +99,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteWithInvalidAccessKey(t *testing.
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/access-keys/%s", accessKey.AccessKeyId), "DELETE", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to delete access key: %v", err)
@@ -128,7 +128,7 @@ func TestAccessKeyControllerIndex(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send("/access-keys", "GET", nil)
+		response, statusCode, err := client.Send("/resources/access-keys", "GET", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to list access keys: %v", err)
@@ -161,7 +161,7 @@ func TestAccessKeyControllerStore(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send("/access-keys", "POST", map[string]any{
+		response, statusCode, err := client.Send("/resources/access-keys", "POST", map[string]any{
 			"resource": "*",
 			"statements": []map[string]any{
 				{
@@ -207,7 +207,7 @@ func TestAccessKeyControllerStore_WithInvalidAccessKey(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send("/access-keys", "POST", nil)
+		response, statusCode, err := client.Send("/resources/access-keys", "POST", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create access key: %v", err)
@@ -240,7 +240,7 @@ func TestAccessKeyControllerStore_WithInvalidInput(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send("/access-keys", "POST", map[string]any{
+		response, statusCode, err := client.Send("/resources/access-keys", "POST", map[string]any{
 			"resource":   "*",
 			"statements": "",
 		})
@@ -261,7 +261,7 @@ func TestAccessKeyControllerStore_WithInvalidInput(t *testing.T) {
 			t.Errorf("Unexpected response: %v", response)
 		}
 
-		response, statusCode, err = client.Send("/access-keys", "POST", map[string]any{
+		response, statusCode, err = client.Send("/resources/access-keys", "POST", map[string]any{
 			"resource":   "",
 			"statements": []map[string]any{},
 		})
@@ -286,7 +286,7 @@ func TestAccessKeyControllerStore_WithInvalidInput(t *testing.T) {
 			t.Errorf("Expected errors in response, got: %v", response)
 		}
 
-		response, statusCode, err = client.Send("/access-keys", "POST", map[string]any{
+		response, statusCode, err = client.Send("/resources/access-keys", "POST", map[string]any{
 			"statements": []map[string]any{
 				{
 					"effect":   "Allowed",
@@ -325,7 +325,7 @@ func TestAccessKeyControllerStore_WithClusterUser(t *testing.T) {
 
 		client := server.WithBasicAuthClient()
 
-		response, statusCode, err := client.Send("/access-keys", "POST", map[string]any{
+		response, statusCode, err := client.Send("/resources/access-keys", "POST", map[string]any{
 			"resource": "*",
 			"statements": []map[string]any{
 				{
@@ -379,7 +379,7 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/access-keys/%s", accessKey.AccessKeyId), "PUT", map[string]any{
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "PUT", map[string]any{
 			"statements": []map[string]any{
 				{
 					"effect":   "allow",
@@ -428,7 +428,7 @@ func TestAccessKeyControllerUpdate_WithInvalidAccessKey(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/access-keys/%s", accessKey.AccessKeyId), "PUT", map[string]any{
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "PUT", map[string]any{
 			"statements": []map[string]any{
 				{
 					"effect":   "allow",

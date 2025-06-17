@@ -76,7 +76,6 @@ func setupTestEnv(t testing.TB) (string, error) {
 		t.Fatalf("failed to setup directories: %v", err)
 	}
 
-	t.Setenv("LITEBASE_DOMAIN_NAME", "litebase.test")
 	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
 	t.Setenv("LITEBASE_NETWORK_STORAGE_PATH", networkStoragePath)
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)

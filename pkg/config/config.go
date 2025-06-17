@@ -61,7 +61,7 @@ func NewConfig() *Config {
 		ClusterId:              env("LITEBASE_CLUSTER_ID", "").(string),
 		DataPath:               env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
-		DomainName:             env("LITEBASE_DOMAIN_NAME", "litebase.test").(string),
+		DomainName:             env("LITEBASE_DOMAIN_NAME", "").(string),
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
 		Env:                    env("LITEBASE_ENV", "production").(string),
 		FakeObjectStorage:      env("LITEBASE_FAKE_OBJECT_STORAGE", "false") == "true",

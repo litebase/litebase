@@ -23,7 +23,7 @@ func TestDatabaseControllerIndex(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeList},
 		}})
 
-		resp, statusCode, err := client.Send("/databases", "GET", nil)
+		resp, statusCode, err := client.Send("/resources/databases", "GET", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)
@@ -67,7 +67,7 @@ func TestDatabaseControllerShow(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
 		}})
 
-		resp, statusCode, err := client.Send(fmt.Sprintf("/databases/%s", database.DatabaseId), "GET", nil)
+		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", database.DatabaseId), "GET", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)
@@ -109,7 +109,7 @@ func TestDatabaseControllerStore(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
 		}})
 
-		resp, statusCode, err := client.Send("/databases", "POST", map[string]any{
+		resp, statusCode, err := client.Send("/resources/databases", "POST", map[string]any{
 			"name": "test_db",
 		})
 
@@ -162,7 +162,7 @@ func TestDatabaseControllerStore_WithSameNameFails(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
 		}})
 
-		resp, statusCode, err := client.Send("/databases", "POST", map[string]any{
+		resp, statusCode, err := client.Send("/resources/databases", "POST", map[string]any{
 			"name": database.Name,
 		})
 
@@ -203,7 +203,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 		}})
 
-		resp, statusCode, err := client.Send(fmt.Sprintf("/databases/%s", mock.DatabaseId), "DELETE", nil)
+		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", mock.DatabaseId), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)

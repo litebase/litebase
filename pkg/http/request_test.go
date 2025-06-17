@@ -99,37 +99,11 @@ func TestRequest_All(t *testing.T) {
 	})
 }
 
-func TestRequest_ClusterId(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
-
-		baseRequest := &http.Request{
-			Host:   databaseUrl,
-			Method: http.MethodGet,
-			URL: &url.URL{
-				Host: databaseUrl,
-			},
-		}
-
-		request := appHttp.NewRequest(
-			app.Cluster,
-			app.DatabaseManager,
-			app.LogManager,
-			baseRequest,
-		)
-
-		if request.ClusterId() != app.Config.ClusterId {
-			t.Errorf("expected ClusterId to be %s, got %s", app.Config.ClusterId, request.ClusterId())
-		}
-	})
-}
-
 func TestRequest_DatabaseKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
 
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("%s.%s.litebase.test/%s", app.Config.ClusterId, app.Config.Region, db.DatabaseKey.Key)
 
 		baseRequest := &http.Request{
 			Host:   databaseUrl,
@@ -146,8 +120,10 @@ func TestRequest_DatabaseKey(t *testing.T) {
 			baseRequest,
 		)
 
+		request.BaseRequest.SetPathValue("databaseKey", db.DatabaseKey.Key)
+
 		if request.DatabaseKey() == nil {
-			t.Errorf("expected DatabaseKey to be not nil, got nil")
+			t.Fatal("expected DatabaseKey to be not nil, got nil")
 		}
 
 		if request.DatabaseKey().Key != db.DatabaseKey.Key {
@@ -384,32 +360,6 @@ func TestRequest_QueryParams(t *testing.T) {
 	})
 }
 
-func TestRequest_Region(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
-
-		baseRequest := &http.Request{
-			Host:   databaseUrl,
-			Method: http.MethodGet,
-			URL: &url.URL{
-				Host: databaseUrl,
-			},
-		}
-
-		request := appHttp.NewRequest(
-			app.Cluster,
-			app.DatabaseManager,
-			app.LogManager,
-			baseRequest,
-		)
-
-		if request.Region() != app.Config.Region {
-			t.Errorf("expected Region to be %s, got %s", app.Config.Region, request.Region())
-		}
-	})
-}
-
 func TestRequest_RequestToken(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
@@ -445,48 +395,6 @@ func TestRequest_RequestToken(t *testing.T) {
 
 		if !request.RequestToken("Authorization").Valid() {
 			t.Errorf("expected RequestToken to be valid, got invalid")
-		}
-	})
-}
-
-func TestRequest_Subdomains(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		baseRequest := &http.Request{
-			Host:   "litebase.test",
-			Method: http.MethodGet,
-			URL: &url.URL{
-				Host: "litebase.test",
-			},
-		}
-
-		request := appHttp.NewRequest(
-			app.Cluster,
-			app.DatabaseManager,
-			app.LogManager,
-			baseRequest,
-		)
-
-		if len(request.Subdomains()) != 0 {
-			t.Errorf("expected Subdomains() to be empty, got %v", request.Subdomains())
-		}
-
-		baseRequest = &http.Request{
-			Host:   "foo.bar.baz.litebase.test",
-			Method: http.MethodGet,
-			URL: &url.URL{
-				Host: "foo.bar.baz.litebase.test",
-			},
-		}
-
-		request = appHttp.NewRequest(
-			app.Cluster,
-			app.DatabaseManager,
-			app.LogManager,
-			baseRequest,
-		)
-
-		if len(request.Subdomains()) != 3 {
-			t.Errorf("expected Subdomains() to be 3, got %d", len(request.Subdomains()))
 		}
 	})
 }

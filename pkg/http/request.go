@@ -29,7 +29,6 @@ type Request struct {
 	QueryParams      map[string]string
 	requestToken     auth.RequestToken
 	Route            Route
-	subdomains       []string
 }
 
 // Create a new Request instance.
@@ -53,17 +52,6 @@ func NewRequest(
 		queryParams[key] = value[0]
 	}
 
-	// Parse the subdomains above the root domain name once
-	domainName := cluster.Config.DomainName
-	host := strings.Replace(request.Host, domainName, "", 1)
-	parts := strings.Split(host, ".")
-
-	var subdomains []string
-
-	if len(parts) >= 4 {
-		subdomains = parts[0:3]
-	}
-
 	return &Request{
 		accessKeyManager: cluster.Auth.AccessKeyManager,
 		BaseRequest:      request,
@@ -74,13 +62,12 @@ func NewRequest(
 		logManager:       logManager,
 		Method:           request.Method,
 		QueryParams:      queryParams,
-		subdomains:       subdomains,
 	}
 }
 
 // Return all of the data from the request body as a map.
 func (r *Request) All() map[string]any {
-	if r.Body == nil && r.BaseRequest.Body != nil {
+	if r.Body == nil && r.BaseRequest.Body != nil && r.Headers().Get("Content-Length") != "0" {
 		body := make(map[string]any)
 		err := json.NewDecoder(r.BaseRequest.Body).Decode(&body)
 
@@ -120,11 +107,7 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 		return fmt.Errorf("unauthorized: user is not authorized to perform this request")
 	}
 
-	if len(r.Subdomains()) == 0 {
-		return fmt.Errorf("unauthorized")
-	}
-
-	accessKey := r.RequestToken("Authorization").AccessKey(r.Subdomains()[0])
+	accessKey := r.RequestToken("Authorization").AccessKey()
 
 	if accessKey == nil {
 		return fmt.Errorf("unauthorized: invalid access key")
@@ -140,28 +123,16 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 	return nil
 }
 
-// Return the cluster id for this request.
-func (r *Request) ClusterId() string {
-	subdomains := r.Subdomains()
-
-	return subdomains[1]
-}
-
 // Return a database key for this request.
 func (r *Request) DatabaseKey() *auth.DatabaseKey {
 	if r.databaseKey != nil {
 		return r.databaseKey
 	}
 
-	if len(r.Subdomains()) == 0 {
-		return nil
-	}
-
 	// Get the database key from the subdomain
-	key := r.Subdomains()[0]
+	key := r.Param("databaseKey")
 
-	if key == "" || len(r.Subdomains()) != 3 {
-		log.Println("subdomain is not valid:", r.Subdomains())
+	if key == "" {
 		return nil
 	}
 
@@ -238,13 +209,6 @@ func (request *Request) QueryParam(key string, defaultValue ...string) string {
 	return value
 }
 
-// Return the region of the request parsed from the subdomains.
-func (request *Request) Region() string {
-	subdomains := request.Subdomains()
-
-	return subdomains[2]
-}
-
 // Return the request token for this request.
 func (request *Request) RequestToken(header string) auth.RequestToken {
 	if !request.requestToken.Valid() {
@@ -255,11 +219,6 @@ func (request *Request) RequestToken(header string) auth.RequestToken {
 	}
 
 	return request.requestToken
-}
-
-// Return the subdomains for this request.
-func (request *Request) Subdomains() []string {
-	return request.subdomains
 }
 
 func (request *Request) Validate(

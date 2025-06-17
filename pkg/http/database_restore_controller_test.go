@@ -113,7 +113,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		})
 
 		// Test the health check endpoint
-		resp, responseCode, err := client.SendToDatabase(source, "restore", "POST", map[string]any{
+		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/restore", source.DatabaseKey.Key), "POST", map[string]any{
 			"target_database_id":        target.DatabaseId,
 			"target_database_branch_id": target.BranchId,
 			"timestamp":                 restorePoint.Timestamp,
@@ -124,6 +124,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		}
 
 		if responseCode != 200 {
+			t.Log("Response:", resp)
 			t.Fatalf("Expected status code 200, got %d", responseCode)
 		}
 

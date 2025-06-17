@@ -20,7 +20,7 @@ func NewClusterUserListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List users",
 		Run: func(cmd *cobra.Command, args []string) {
-			res, err := api.Get("/users")
+			res, err := api.Get("/resources/users")
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

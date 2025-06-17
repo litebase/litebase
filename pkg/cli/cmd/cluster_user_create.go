@@ -43,7 +43,7 @@ func NewClusterUserCreateCmd() *cobra.Command {
 				Title("Create a new user").
 				SuccessMessage("User created successfully").
 				Method("POST").
-				Action("/users/create").
+				Action("/resources/users/create").
 				// Handler(func(data interface{}) error {
 				// 	return nil
 				// }).

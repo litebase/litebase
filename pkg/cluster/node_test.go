@@ -214,7 +214,7 @@ func TestNodeIsReplica(t *testing.T) {
 
 		server1.Shutdown()
 
-		time.Sleep(500 * time.Millisecond) // Wait for the node to be marked as replica
+		time.Sleep(1000 * time.Millisecond) // Wait for the node to be marked as replica
 
 		if server2.App.Cluster.Node().IsReplica() {
 			t.Error("Node should not be replica")

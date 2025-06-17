@@ -14,7 +14,7 @@ func NewAccessKeyListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List access keys",
 		Run: func(cmd *cobra.Command, args []string) {
-			data, err := api.Get("/access-keys")
+			data, err := api.Get("/resources/access-keys")
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

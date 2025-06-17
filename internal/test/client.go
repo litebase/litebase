@@ -106,11 +106,3 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 
 	return responseData, response.StatusCode, nil
 }
-
-func (c *TestClient) SendToDatabase(database TestDatabase, path string, method string, data any) (map[string]any, int, error) {
-	if database == (TestDatabase{}) {
-		return nil, 0, fmt.Errorf("database is nil")
-	}
-
-	return c.Send(fmt.Sprintf("%s/%s", database.Url, strings.TrimLeft(path, "/")), method, data)
-}

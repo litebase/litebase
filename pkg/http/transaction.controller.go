@@ -15,7 +15,7 @@ func TransactionControllerStore(request *Request) Response {
 		return ErrInvalidAccessKeyResponse
 	}
 
-	accessKey := requestToken.AccessKey(databaseKey.DatabaseId)
+	accessKey := requestToken.AccessKey()
 
 	if accessKey.AccessKeyId == "" {
 		return ErrInvalidAccessKeyResponse
@@ -65,7 +65,7 @@ func TransactionControllerDestroy(request *Request) Response {
 		return ErrInvalidAccessKeyResponse
 	}
 
-	accessKey := requestToken.AccessKey(databaseKey.DatabaseId)
+	accessKey := requestToken.AccessKey()
 
 	if accessKey.AccessKeyId == "" {
 		return ErrInvalidAccessKeyResponse

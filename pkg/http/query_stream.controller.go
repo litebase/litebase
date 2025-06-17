@@ -48,7 +48,7 @@ func QueryStreamController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
 	}
 
-	accessKey := requestToken.AccessKey(databaseKey.DatabaseId)
+	accessKey := requestToken.AccessKey()
 
 	if accessKey.AccessKeyId == "" {
 		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))

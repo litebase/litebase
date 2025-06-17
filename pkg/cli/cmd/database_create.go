@@ -15,7 +15,7 @@ func NewDatabaseCreateCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Short: "Create a new database",
 		Run: func(cmd *cobra.Command, args []string) {
-			res, _, err := api.Post("/databases", map[string]any{"name": args[0]})
+			res, _, err := api.Post("/resources/databases", map[string]any{"name": args[0]})
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

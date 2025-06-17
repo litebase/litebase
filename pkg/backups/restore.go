@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"os"
 	"sort"
@@ -400,6 +401,7 @@ func RestoreFromTimestamp(
 	entries, err := tieredFS.ReadDir(directory)
 
 	if err != nil {
+		log.Println("Error reading rollback logs directory:", "directory", directory, "error", err)
 		return err
 	}
 

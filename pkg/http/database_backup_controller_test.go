@@ -53,7 +53,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.SendToDatabase(db, "/backups", "POST", appHttp.DatabaseBackupStoreRequest{})
+		response, statusCode, err := client.Send(fmt.Sprintf("/%s/backups", db.DatabaseKey.Key), "POST", appHttp.DatabaseBackupStoreRequest{})
 
 		if err != nil {
 			t.Fatalf("failed to send backup request: %v", err)
@@ -129,7 +129,7 @@ func TestDatabaseBackupShowController(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.SendToDatabase(db, fmt.Sprintf("/backups/%d", backup.RestorePoint.Timestamp), "GET", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/%s/backups/%d", db.DatabaseKey.Key, backup.RestorePoint.Timestamp), "GET", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send backup request: %v", err)
@@ -224,7 +224,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.SendToDatabase(db, fmt.Sprintf("/backups/%d", backup.RestorePoint.Timestamp), "DELETE", appHttp.DatabaseBackupStoreRequest{})
+		response, statusCode, err := client.Send(fmt.Sprintf("/%s/backups/%d", db.DatabaseKey.Key, backup.RestorePoint.Timestamp), "DELETE", appHttp.DatabaseBackupStoreRequest{})
 
 		if err != nil {
 			t.Fatalf("failed to send backup request: %v", err)
@@ -242,7 +242,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 			t.Fatalf("expected message 'Database backup deleted successfully', got %s", response["message"])
 		}
 
-		response, statusCode, err = client.SendToDatabase(db, fmt.Sprintf("/backups/%d", backup.RestorePoint.Timestamp), "DELETE", nil)
+		response, statusCode, err = client.Send(fmt.Sprintf("/%s/backups/%d", db.DatabaseKey.Key, backup.RestorePoint.Timestamp), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send delete backup request: %v", err)

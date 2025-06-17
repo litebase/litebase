@@ -15,7 +15,7 @@ func NewDatabaseShowCmd() *cobra.Command {
 		Short: "Get a database",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			res, err := api.Get(fmt.Sprintf("/databases/%s", args[0]))
+			res, err := api.Get(fmt.Sprintf("/resources/databases/%s", args[0]))
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

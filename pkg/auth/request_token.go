@@ -59,7 +59,7 @@ func CaptureRequestToken(accessKeyManager *AccessKeyManager, authorizationHeader
 	}
 }
 
-func (requestToken RequestToken) AccessKey(databaseId string) *AccessKey {
+func (requestToken RequestToken) AccessKey() *AccessKey {
 	if requestToken.accessKey != nil {
 		return requestToken.accessKey
 	}

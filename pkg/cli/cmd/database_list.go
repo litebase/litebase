@@ -14,7 +14,7 @@ func NewDatabaseListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List databases",
 		Run: func(cmd *cobra.Command, args []string) {
-			data, err := api.Get("/databases")
+			data, err := api.Get("/resources/databases")
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

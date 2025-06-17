@@ -8,42 +8,42 @@ import (
 func LoadRoutes(router *Router) {
 	// Administrative routes
 	router.Get(
-		"/cluster/status",
+		"/status",
 		ClusterStatusController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
-		"/users",
+		"/resources/users",
 		UserControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/users",
+		"/resources/users",
 		UserControllerStore,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Delete(
-		"/users/{username}",
+		"/resources/users/{username}",
 		UserControllerDestroy,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
-		"/access-keys",
+		"/resources/access-keys",
 		AccessKeyControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/access-keys",
+		"/resources/access-keys",
 		AccessKeyControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -51,7 +51,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Put(
-		"/access-keys/{accessKeyId}",
+		"/resources/access-keys/{accessKeyId}",
 		AccessKeyControllerUpdate,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -59,7 +59,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Delete(
-		"/access-keys/{accessKeyId}",
+		"/resources/access-keys/{accessKeyId}",
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -67,42 +67,42 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/databases",
+		"/resources/databases",
 		DatabaseIndexController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
-		"/databases/{databaseId}",
+		"/resources/databases/{databaseId}",
 		DatabaseShowController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/databases",
+		"/resources/databases",
 		DatabaseStoreController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Delete(
-		"/databases/{databaseId}",
+		"/resources/databases/{databaseId}",
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/signature",
+		"/resources/signature",
 		SingatureStoreController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/signature/activate",
+		"/resources/signature/activate",
 		SingatureActivateController,
 	).Middleware([]Middleware{
 		Authentication,
@@ -145,13 +145,6 @@ func LoadRoutes(router *Router) {
 	).Timeout(0)
 
 	router.Post(
-		"/databases/{databaseId}/{branchId}/settings/purge",
-		DatabaseSettingsPurgeController,
-	).Middleware([]Middleware{
-		Internal,
-	})
-
-	router.Post(
 		"/events",
 		EventStoreController,
 	).Middleware([]Middleware{
@@ -166,91 +159,79 @@ func LoadRoutes(router *Router) {
 	})
 
 	// Database routes.
-	router.Post("/backups",
+	router.Post("/{databaseKey}/backups",
 		DatabaseBackupStoreController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Get("/backups/{timestamp}",
+	router.Get("/{databaseKey}/backups/{timestamp}",
 		DatabaseBackupShowController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Delete("/backups/{timestamp}",
+	router.Delete("/{databaseKey}/backups/{timestamp}",
 		DatabaseBackupDestroyController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Get("/metrics/query",
+	router.Get("/{databaseKey}/metrics/query",
 		QueryLogController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 		NodeTick,
 	}).Timeout(1 * time.Second)
 
-	router.Post("/query",
+	router.Post("/{databaseKey}/query",
 		QueryController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
-	router.Post("/query/stream",
+	router.Post("/{databaseKey}/query/stream",
 		QueryStreamController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		PreloadDatabaseKey,
 		Authentication,
 		NodeTick,
 	}).Timeout(300 * time.Second)
 
-	router.Post("/restore",
+	router.Post("/{databaseKey}/restore",
 		DatabaseRestoreController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Get("/snapshots",
+	router.Get("/{databaseKey}/snapshots",
 		DatabaseSnapshotIndexController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Get("/snapshots/{timestamp}",
+	router.Get("/{databaseKey}/snapshots/{timestamp}",
 		DatabaseSnapshotShowController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Post("/transactions",
+	router.Post("/{databaseKey}/transactions",
 		TransactionControllerStore,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Delete("/transactions/{id}",
+	router.Delete("/{databaseKey}/transactions/{id}",
 		TransactionControllerDestroy,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 
-	router.Post("/transactions/{id}/commit",
+	router.Post("/{databaseKey}/transactions/{id}/commit",
 		TransactionCommitController,
 	).Middleware([]Middleware{
-		RequireSubdomain,
 		Authentication,
 	})
 

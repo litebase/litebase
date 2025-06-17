@@ -189,17 +189,13 @@ func (c *Checkpointer) Commit() error {
 		return fmt.Errorf("error committing checkpoint: %v", errors)
 	}
 
-	defer func() {
-		c.Checkpoint = nil
-	}()
+	err := c.removeCheckpointFile()
 
-	go func() {
-		err := c.removeCheckpointFile()
+	if err != nil {
+		log.Println("Error removing checkpoint file", err)
+	}
 
-		if err != nil {
-			log.Println("Error removing checkpoint file", err)
-		}
-	}()
+	c.Checkpoint = nil
 
 	return nil
 }

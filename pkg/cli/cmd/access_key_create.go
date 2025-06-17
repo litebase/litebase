@@ -14,7 +14,7 @@ func NewAccessKeyCreateCmd() *cobra.Command {
 		Use:   "create --cluster <name>",
 		Short: "Create a new access key",
 		Run: func(cmd *cobra.Command, args []string) {
-			res, _, err := api.Post("/access-keys", map[string]interface{}{})
+			res, _, err := api.Post("/resources/access-keys", map[string]any{})
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))

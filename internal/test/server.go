@@ -67,10 +67,6 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 		Server:  ts,
 	}
 
-	t.Cleanup(func() {
-		// server.Shutdown()
-	})
-
 	return server
 }
 

@@ -22,7 +22,7 @@ func NewDatabaseDeleteCmd() *cobra.Command {
 				return
 			}
 
-			res, _, err := client.Request("DELETE", fmt.Sprintf("/databases/%s", args[0]), nil)
+			res, _, err := client.Request("DELETE", fmt.Sprintf("/resources/databases/%s", args[0]), nil)
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
