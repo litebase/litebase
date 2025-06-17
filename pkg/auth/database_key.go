@@ -11,7 +11,7 @@ import (
 
 const (
 	DatabaseKeyKeySize        = 16
-	DatabaseKeyHashSize       = 20
+	DatabaseKeyHashSize       = 32
 	DatabaseKeyDatabaseIdSize = 16
 	DatabaseKeyBranchIdSize   = 16
 	DatabaseKeySize           = DatabaseKeyKeySize + DatabaseKeyHashSize + DatabaseKeyDatabaseIdSize + DatabaseKeyBranchIdSize
@@ -24,7 +24,7 @@ const (
 // When encoded as binary, the database key is stored in a file with the following
 // structure:
 // - 16 bytes for the key
-// - 20 bytes for the database hash
+// - 32 bytes for the database hash
 // - 16 bytes for the database ID
 // - 16 bytes for the branch ID
 type DatabaseKey struct {
