@@ -12,6 +12,7 @@ type Route struct {
 	timeout              time.Duration
 }
 
+// Create a new Route instance
 func NewRoute(router *Router, handler func(request *Request) Response) *Route {
 	return &Route{
 		Handler: handler,
@@ -20,6 +21,7 @@ func NewRoute(router *Router, handler func(request *Request) Response) *Route {
 	}
 }
 
+// Handle the Route with an incoming request
 func (route *Route) Handle(request *Request) Response {
 	var response Response
 
@@ -70,12 +72,14 @@ func (route *Route) Handle(request *Request) Response {
 	}
 }
 
+// Add middleware to the Route
 func (route *Route) Middleware(middleware []Middleware) *Route {
 	route.RegisteredMiddleware = append(route.RegisteredMiddleware, middleware...)
 
 	return route
 }
 
+// Update the timeout duration for the Route
 func (route *Route) Timeout(duration time.Duration) *Route {
 	route.timeout = duration
 
