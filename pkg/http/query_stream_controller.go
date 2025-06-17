@@ -188,7 +188,7 @@ func readQueryStream(
 
 			bufferPool.Put(queryStreamFrameBuffer)
 		default:
-			log.Println("Unknown message type", messageType)
+			slog.Info("Unknown message type", "messageType", messageType)
 			// return
 		}
 	}

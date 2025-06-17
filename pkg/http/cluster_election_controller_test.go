@@ -14,14 +14,15 @@ import (
 
 func TestClusterElectionController(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		server2 := test.NewTestServer(t)
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
 
 		// Step down the current node to ensure it is not the primary
 		app.Cluster.Node().StepDown()
 
 		// Create a test message to send through the stream
 		testMessage := appHttp.ClusterElectionRequest{
-			Candidate: server2.App.Cluster.Node().ID,
+			Candidate: server.App.Cluster.Node().ID,
 			Seed:      time.Now().UTC().UnixNano(),
 			StartedAt: time.Now().UTC().UnixNano(),
 		}

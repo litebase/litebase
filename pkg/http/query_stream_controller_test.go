@@ -230,6 +230,8 @@ func openQueryStreamConnection(
 func TestQueryStreamController(t *testing.T) {
 	test.Run(t, func() {
 		testServer := test.NewTestServer(t)
+		defer testServer.Shutdown()
+
 		testDatabase := test.MockDatabase(testServer.App)
 
 		testCases := []*database.QueryInput{
