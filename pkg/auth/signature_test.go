@@ -14,9 +14,14 @@ func TestStoreSignature(t *testing.T) {
 		signature := test.CreateHash(64)
 		auth.StoreSignature(app.Config, app.Cluster.ObjectFS(), signature)
 
-		// check if the signature was stored
+		// check if the signature was stored on object storage
 		if _, err := app.Cluster.ObjectFS().Stat(".signature"); os.IsNotExist(err) {
 			t.Fatalf("The signature file was not created")
+		}
+
+		// Ensure the signature is not stored in network storage
+		if _, err := app.Cluster.NetworkFS().Stat(".signature"); !os.IsNotExist(err) {
+			t.Fatalf("The signature file should not exist in network storage")
 		}
 
 		// check if the signature was stored correctly
