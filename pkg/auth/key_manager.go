@@ -312,7 +312,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+".rotate-lock", []byte{}, 0666); err != nil {
+	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+".rotate-lock", []byte{}, 0600); err != nil {
 		return err
 	}
 
@@ -372,7 +372,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+"manifest.json", manifestBytes, 0666); err != nil {
+	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+"manifest.json", manifestBytes, 0600); err != nil {
 
 		return err
 	}
@@ -422,7 +422,7 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 		if err := secretsManager.ObjectFS.WriteFile(
 			newAccessKeyDir+accessKey.Name(),
 			[]byte(encryptedAccessKey),
-			0666,
+			0600,
 		); err != nil {
 			return err
 		}
@@ -516,7 +516,7 @@ func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 			if err := secretsManager.ObjectFS.WriteFile(
 				newSettingsDir+setting.Name()+"/"+databaseSetting.Name(),
 				[]byte(encryptedSetting),
-				0666,
+				0600,
 			); err != nil {
 				return err
 			}
