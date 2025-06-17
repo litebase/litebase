@@ -15,9 +15,10 @@ import (
 )
 
 type Router struct {
-	DefaultRoute Route
-	HttpServer   *http.Server
-	Routes       map[string]map[string]*Route
+	DefaultRoute     Route
+	HttpServer       *http.Server
+	GlobalMiddleware []Middleware
+	Routes           map[string]map[string]*Route
 }
 
 type RouteKey struct {
@@ -27,6 +28,9 @@ type RouteKey struct {
 
 func NewRouter() *Router {
 	return &Router{
+		GlobalMiddleware: []Middleware{
+			RequireHost,
+		},
 		Routes: map[string]map[string]*Route{
 			"GET":    nil,
 			"POST":   nil,
@@ -74,7 +78,7 @@ func (router *Router) request(method string, path string, handler func(request *
 
 	path = strings.TrimRight(path, "/")
 
-	router.Routes[method][path] = NewRoute(handler)
+	router.Routes[method][path] = NewRoute(router, handler)
 
 	return router.Routes[method][path]
 }

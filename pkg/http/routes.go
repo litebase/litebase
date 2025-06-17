@@ -11,6 +11,7 @@ func LoadRoutes(router *Router) {
 		"/status",
 		ClusterStatusController,
 	).Middleware([]Middleware{
+		RequireHost,
 		Authentication,
 	})
 

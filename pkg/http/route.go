@@ -8,12 +8,14 @@ import (
 type Route struct {
 	Handler              func(request *Request) Response
 	RegisteredMiddleware []Middleware
+	router               *Router
 	timeout              time.Duration
 }
 
-func NewRoute(handler func(request *Request) Response) *Route {
+func NewRoute(router *Router, handler func(request *Request) Response) *Route {
 	return &Route{
 		Handler: handler,
+		router:  router,
 		timeout: 5 * time.Second,
 	}
 }
@@ -21,10 +23,17 @@ func NewRoute(handler func(request *Request) Response) *Route {
 func (route *Route) Handle(request *Request) Response {
 	var response Response
 
-	for _, registeredMiddleware := range route.RegisteredMiddleware {
-		request, response = registeredMiddleware(request)
+	for _, middleware := range route.router.GlobalMiddleware {
+		request, response = middleware(request)
 
-		// Check if the middleware has returned a response by checking the status code
+		if response.StatusCode > 0 {
+			return response
+		}
+	}
+
+	for _, middleware := range route.RegisteredMiddleware {
+		request, response = middleware(request)
+
 		if response.StatusCode > 0 {
 			return response
 		}
