@@ -10,7 +10,7 @@ import (
 	appHttp "github.com/litebase/litebase/pkg/http"
 )
 
-func TestInternalMiddle(t *testing.T) {
+func TestInternalMiddleware(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
 		defer server1.Shutdown()
