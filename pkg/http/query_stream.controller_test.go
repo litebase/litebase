@@ -256,11 +256,9 @@ func TestQueryStreamController(t *testing.T) {
 		}
 
 		url := fmt.Sprintf(
-			"http://%s.%s.%s:%s/query/stream",
+			"%s/%s/query/stream",
+			testServer.Server.URL,
 			testDatabase.DatabaseKey.Key,
-			testServer.App.Cluster.Id,
-			"litebase.test",
-			testServer.Port,
 		)
 
 		ctx, cancel := context.WithCancel(context.Background())
