@@ -136,9 +136,9 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 
 		if transaction != nil || query.IsTransactional() {
 			if transaction != nil {
-				response.SetTransactionId([]byte(transaction.Id))
+				response.SetTransactionId(transaction.Id)
 			} else {
-				response.SetTransactionId([]byte(query.transaction.Id))
+				response.SetTransactionId(query.transaction.Id)
 			}
 		}
 

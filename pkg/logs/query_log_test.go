@@ -100,7 +100,7 @@ func TestQueryLog_Flush(t *testing.T) {
 
 		err = l.Write(
 			db.AccessKey.AccessKeyId,
-			[]byte("SELECT * FROM test"),
+			"SELECT * FROM test",
 			0.01,
 		)
 
@@ -141,7 +141,7 @@ func TestQueryLog_Read(t *testing.T) {
 
 		l.Write(
 			db.AccessKey.AccessKeyId,
-			[]byte("SELECT * FROM test"),
+			"SELECT * FROM test",
 			0.01,
 		)
 
@@ -185,7 +185,7 @@ func TestQueryLog_Write(t *testing.T) {
 
 		err := l.Write(
 			db.AccessKey.AccessKeyId,
-			[]byte("SELECT * FROM test"),
+			"SELECT * FROM test",
 			0.01,
 		)
 

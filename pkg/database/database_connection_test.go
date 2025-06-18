@@ -45,14 +45,14 @@ func TestDatabaseConnection_Changes(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
 
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// Insert a row
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("INSERT INTO test (name) VALUES (?)"), sqlite3.StatementParameter{
+		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", sqlite3.StatementParameter{
 			Type:  "TEXT",
 			Value: []byte("test"),
 		})
@@ -79,7 +79,7 @@ func TestDatabaseConnection_Checkpoint(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
 
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -105,7 +105,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
 
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -131,7 +131,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 					continue
 				}
 
-				statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), []byte("INSERT INTO test (name) VALUES (?)"))
+				statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
 
 				if err != nil {
 					t.Error(err)
@@ -174,7 +174,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 					continue
 				}
 
-				statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), []byte("INSERT INTO test (name) VALUES (?)"))
+				statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
 
 				if err != nil {
 					t.Error(err)
@@ -217,7 +217,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
-		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 		if err != nil {
 			t.Fatal(err)
@@ -244,14 +244,14 @@ func TestDatabaseConnection_Close(t *testing.T) {
 		}
 
 		// Create a table
-		_, err = connection.SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		_, err = connection.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// Insert a row
-		_, err = connection.SqliteConnection().Exec(context.Background(), []byte("INSERT INTO test (name) VALUES (?)"), sqlite3.StatementParameter{
+		_, err = connection.SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", sqlite3.StatementParameter{
 			Type:  "TEXT",
 			Value: []byte("test"),
 		})
@@ -375,7 +375,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection2)
 
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -390,7 +390,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			for range 750 {
 				_, err = connection1.GetConnection().SqliteConnection().Exec(
 					context.Background(),
-					[]byte("INSERT INTO test (name) VALUES (?)"),
+					"INSERT INTO test (name) VALUES (?)",
 					sqlite3.StatementParameter{
 						Type:  "TEXT",
 						Value: []byte("test"),
@@ -408,7 +408,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			defer wg.Done()
 
 			for range 10 {
-				_, err := connection2.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+				_, err := connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 				if err != nil {
 					t.Error(err)
@@ -418,13 +418,13 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 
 		wg.Wait()
 
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 		if err != nil {
 			t.Error(err)
 		}
 
-		_, err = connection2.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+		_, err = connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 		if err != nil {
 			t.Error(err)
@@ -458,7 +458,7 @@ func TestDatabaseConnection_Prepare(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		statement, err := connection.Prepare(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		statement, err := connection.Prepare(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -488,7 +488,7 @@ func TestDatabaseConnection_Query(t *testing.T) {
 
 		result := sqlite3.NewResult()
 
-		statement, err := connection.Prepare(context.Background(), []byte("INSERT INTO test (name) VALUES (?)"))
+		statement, err := connection.Prepare(context.Background(), "INSERT INTO test (name) VALUES (?)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -549,7 +549,7 @@ func TestDatabaseConnection_Statement(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		statement1, err := connection.Statement([]byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		statement1, err := connection.Statement("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -559,7 +559,7 @@ func TestDatabaseConnection_Statement(t *testing.T) {
 			t.Fatal("Expected statement to not be empty")
 		}
 
-		statement2, err := connection.Statement([]byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		statement2, err := connection.Statement("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -586,7 +586,7 @@ func TestDatabaseConnection_Transaction(t *testing.T) {
 		}
 
 		err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
-			_, err := con.SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+			_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 			if err != nil {
 				return err
@@ -634,7 +634,7 @@ func TestDatabaseConnection_Transaction_WithError(t *testing.T) {
 		}
 
 		err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
-			_, err := con.SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+			_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 			if err != nil {
 				return err
@@ -660,7 +660,7 @@ func TestDatabaseConnection_Transaction_WithRollback(t *testing.T) {
 		}
 
 		err = connection.Transaction(true, func(con *database.DatabaseConnection) error {
-			_, err := con.SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+			_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 			if err != nil {
 				return err
@@ -674,7 +674,7 @@ func TestDatabaseConnection_Transaction_WithRollback(t *testing.T) {
 		}
 
 		// Check if the table was created
-		_, err = connection.SqliteConnection().Exec(context.Background(), []byte("SELECT * FROM test"))
+		_, err = connection.SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
 
 		if err == nil {
 			t.Fatal("Expected error but got nil")
@@ -752,7 +752,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection1)
 
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
@@ -774,7 +774,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 				_, err = db.GetConnection().SqliteConnection().Exec(
 					context.Background(),
-					[]byte("INSERT INTO test (name) VALUES (?)"),
+					"INSERT INTO test (name) VALUES (?)",
 					sqlite3.StatementParameter{
 						Type:  "TEXT",
 						Value: []byte("test"),
@@ -807,7 +807,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 					break
 				}
 
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 				if err != nil {
 					t.Error(err)
@@ -828,7 +828,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 		if err != nil {
 			t.Error(err)
@@ -842,7 +842,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 		if err != nil {
 			t.Error(err)
@@ -856,7 +856,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT COUNT(*) FROM test"))
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
 		if err != nil {
 			t.Error(err)
@@ -1028,13 +1028,13 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 			t.Fatal(err)
 		}
 
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)"))
+		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		statement, err := connection1.GetConnection().Prepare(context.Background(), []byte("INSERT INTO test (name) VALUES ('test')"))
+		statement, err := connection1.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
 
 		err = connection1.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
 			for range 100000 {
@@ -1076,7 +1076,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 				return
 			}
 
-			statement, err := connection1.GetConnection().Prepare(context.Background(), []byte("UPDATE test SET name = 'updated' WHERE id = ?"))
+			statement, err := connection1.GetConnection().Prepare(context.Background(), "UPDATE test SET name = 'updated' WHERE id = ?")
 
 			err = connection1.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
 				for i := 1; i <= 10000; i++ {
@@ -1115,7 +1115,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 				return
 			}
 
-			statement, err := connection2.GetConnection().Prepare(context.Background(), []byte("SELECT name FROM test where id = ?"))
+			statement, err := connection2.GetConnection().Prepare(context.Background(), "SELECT name FROM test where id = ?")
 
 			if err != nil {
 				connection2Error = err
@@ -1205,7 +1205,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWhileWriting(t *testing.T) {
 				return err
 			}
 
-			statement, err := connection.GetConnection().Prepare(context.Background(), []byte("INSERT INTO test (name) VALUES ('test')"))
+			statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
 
 			if err != nil {
 				log.Println(err)
@@ -1279,7 +1279,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWhileWriting(t *testing.T) {
 					return
 				}
 
-				statement, err := connection.GetConnection().Prepare(context.Background(), []byte("SELECT COUNT(*) as count FROM test"))
+				statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
 
 				if err != nil {
 					selectError = err
@@ -1389,7 +1389,7 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 				return err
 			}
 
-			statement, err := connection.GetConnection().Prepare(context.Background(), []byte("INSERT INTO test (name) VALUES ('test')"))
+			statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
 
 			if err != nil {
 				log.Println(err)
@@ -1465,7 +1465,7 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 
 			defer replicaServer.App.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
 
-			statement, err := connection.GetConnection().Prepare(context.Background(), []byte("SELECT COUNT(*) as count FROM test"))
+			statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
 
 			if err != nil {
 				selectError = err
@@ -1573,7 +1573,7 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 // 				return err
 // 			}
 
-// 			statement, err := connection.GetConnection().Prepare(context.Background(), []byte("INSERT INTO test (name) VALUES ('test')"))
+// 			statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
 
 // 			if err != nil {
 // 				log.Println(err)
@@ -1652,7 +1652,7 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 
 // 				defer replicaServer.App.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, connection)
 
-// 				statement, err := connection.GetConnection().Prepare(context.Background(), []byte("SELECT COUNT(*) as count FROM test"))
+// 				statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
 
 // 				if err != nil {
 // 					selectError = err

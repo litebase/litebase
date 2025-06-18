@@ -146,12 +146,12 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 
 	con.SetAuthorizer()
 
-	configStatements := [][]byte{
-		[]byte(fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize)),
+	configStatements := []string{
+		fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize),
 
 		// Databases should always be in WAL mode. This allows for multiple
 		// readers and a single writer.
-		[]byte("PRAGMA journal_mode=wal"),
+		"PRAGMA journal_mode=wal",
 
 		// WAL autocheckpoint should be set to 0. This will prevent the WAL
 		// file from being checkpointed automatically. Litebase has its own
@@ -160,33 +160,33 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// It is very important that this setting remain in place as our the
 		// checkpointer is reponsible writing pages to durable storage and
 		// properly reporting the page count of the database.
-		[]byte("PRAGMA wal_autocheckpoint=0"),
+		"PRAGMA wal_autocheckpoint=0",
 
 		// PRAGMA synchronous=NORMAL will ensure that writes to the the database
 		// WAL are durable by flushing writes to storage at critical points
 		// during database operations.
-		[]byte("PRAGMA synchronous=NORMAL"),
+		"PRAGMA synchronous=NORMAL",
 
 		// PRAGMA busy_timeout will set the timeout for waiting for a lock
 		// to 3 seconds. This will allow clients to wait for a lock to be
 		// released before returning an error.
-		[]byte("PRAGMA busy_timeout = 5000"),
+		"PRAGMA busy_timeout = 5000",
 
 		// PRAGMA cache_size will set the size of the cache to 0. This will
 		// disable caching and force SQLite to read from storage for every query.
-		[]byte("PRAGMA cache_size = 0"),
+		"PRAGMA cache_size = 0",
 
 		// PRAGMA secure_delete will ensure that data is securely deleted from
 		// the database. This will prevent data from being recovered from the
 		// database file. The added benefit is that it will also reduce the
 		// amount of data that needs to be written to durable storage after
 		// compression removes data padded with zeros.
-		[]byte("PRAGMA secure_delete = true"),
+		"PRAGMA secure_delete = true",
 
 		// PRAGMA temp_store will set the temp store to memory. This will
 		// ensure that temporary files created by SQLite are stored in memory
 		// and not on disk.
-		[]byte("PRAGMA temp_store = memory"),
+		"PRAGMA temp_store = memory",
 	}
 
 	if !con.connectionManager.cluster.Node().IsPrimary() {
@@ -360,7 +360,7 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	result = &sqlite3.Result{}
 
-	statement, _, err := con.SqliteConnection().Prepare(con.context, []byte(sql))
+	statement, _, err := con.SqliteConnection().Prepare(con.context, sql)
 
 	if err != nil {
 		return nil, err
@@ -381,7 +381,7 @@ func (c *DatabaseConnection) Id() string {
 }
 
 // Prepare a statement for execution.
-func (con *DatabaseConnection) Prepare(ctx context.Context, command []byte) (Statement, error) {
+func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Statement, error) {
 	if con.Closed() {
 		return Statement{}, ErrDatabaseConnectionClosed
 	}
@@ -554,14 +554,14 @@ func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
 }
 
 // Create a statement for a query.
-func (con *DatabaseConnection) Statement(queryStatement []byte) (Statement, error) {
+func (con *DatabaseConnection) Statement(queryStatement string) (Statement, error) {
 	if con.Closed() {
 		return Statement{}, ErrDatabaseConnectionClosed
 	}
 
 	var err error
 
-	checksum := crc32.ChecksumIEEE(queryStatement)
+	checksum := crc32.ChecksumIEEE([]byte(queryStatement))
 
 	statement, ok := con.statements.Load(checksum)
 

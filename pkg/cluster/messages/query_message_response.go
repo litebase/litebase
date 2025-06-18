@@ -6,12 +6,12 @@ type QueryMessageResponse struct {
 	Changes         int64
 	Columns         []string
 	Error           string
-	ID              []byte
+	ID              string
 	Latency         float64
 	LastInsertRowID int64
 	RowCount        int
 	Rows            [][]*sqlite3.Column
-	TransactionID   []byte
+	TransactionID   string
 	WALSequence     int64
 	WALTimestamp    int64
 }

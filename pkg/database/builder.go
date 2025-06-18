@@ -37,9 +37,9 @@ func (qb *QueryBuilder) Build(
 	databaseKey string,
 	databaseId string,
 	branchId string,
-	statement []byte,
+	statement string,
 	parameters []sqlite3.StatementParameter,
-	id []byte,
+	id string,
 ) (cluster.NodeQuery, error) {
 	accessKey, err := qb.accessKeyManager.Get(accessKeyId)
 

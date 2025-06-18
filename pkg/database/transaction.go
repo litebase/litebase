@@ -1,7 +1,6 @@
 package database
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"log"
@@ -161,7 +160,7 @@ func (t *Transaction) ResolveQuery(query *Query, response *QueryResponse) error 
 
 	<-t.responseChannel
 
-	if !bytes.Equal(response.id, query.Input.Id) {
+	if response.id != query.Input.Id {
 		return ErrInvalidTransactionResponse
 	}
 

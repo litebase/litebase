@@ -21,12 +21,12 @@ func TestNewQuery(t *testing.T) {
 			auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId, mock.DatabaseKey.Key),
 			mock.AccessKey,
 			&database.QueryInput{
-				Statement: []byte("SELECT * FROM users LIMIT ?"),
+				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
 					Value: int64(1),
 				}},
-				Id: []byte(""),
+				Id: "query123",
 			},
 		)
 
@@ -46,7 +46,7 @@ func TestResolve(t *testing.T) {
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
-		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		queryResponse := &database.QueryResponse{}
 		query, err := database.NewQuery(
@@ -56,12 +56,12 @@ func TestResolve(t *testing.T) {
 			auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId, mock.DatabaseKey.Key),
 			mock.AccessKey,
 			&database.QueryInput{
-				Statement: []byte("SELECT * FROM users LIMIT ?"),
+				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
 					Value: int64(1),
 				}},
-				Id: []byte(""),
+				Id: "query123",
 			},
 		)
 
@@ -83,11 +83,11 @@ func TestStatement(t *testing.T) {
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
-		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		query := &database.Query{
 			Input: &database.QueryInput{
-				Statement: []byte("SELECT * FROM users LIMIT ?"),
+				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
 					Type:  "INTEGER",
 					Value: int64(1),

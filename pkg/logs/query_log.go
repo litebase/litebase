@@ -53,7 +53,7 @@ type QueryLog struct {
 type QueryLogEntry struct {
 	Cluster                                         *cluster.Cluster
 	DatabaseHash, DatabaseId, BranchId, AccessKeyId string
-	Statement                                       []byte
+	Statement                                       string
 	Latency                                         float64
 }
 
@@ -334,7 +334,7 @@ func (q *QueryLog) watch() {
 	}()
 }
 
-func (q *QueryLog) Write(accessKeyId string, statement []byte, latency float64) error {
+func (q *QueryLog) Write(accessKeyId string, statement string, latency float64) error {
 	q.lastLoggedTime = time.Now().UTC()
 	timestamp := time.Now().UTC().Truncate(time.Second)
 

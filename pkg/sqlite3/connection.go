@@ -241,7 +241,7 @@ func (c *Connection) Error(code int) error {
 }
 
 // Execute a query
-func (c *Connection) Exec(ctx context.Context, query []byte, params ...StatementParameter) (*Result, error) {
+func (c *Connection) Exec(ctx context.Context, query string, params ...StatementParameter) (*Result, error) {
 	var stmt *Statement
 	var err error
 	var errCode int
@@ -284,7 +284,7 @@ func (c *Connection) LastInsertRowID() int64 {
 }
 
 // Prepare query
-func (c *Connection) Prepare(ctx context.Context, query []byte) (*Statement, int, error) {
+func (c *Connection) Prepare(ctx context.Context, query string) (*Statement, int, error) {
 	return NewStatement(ctx, c, query)
 }
 

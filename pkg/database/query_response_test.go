@@ -15,7 +15,7 @@ func TestNewQueryResponse(t *testing.T) {
 	queryResponse := database.NewQueryResponse(
 		0,
 		[]string{"id", "name"},
-		[]byte("id"),
+		"id",
 		0.01,
 		1,
 		[][]*sqlite3.Column{
@@ -32,8 +32,8 @@ func TestNewQueryResponse(t *testing.T) {
 		t.Fatalf("expected columns to be not nil")
 	}
 
-	if !bytes.Equal(queryResponse.Id(), []byte("id")) {
-		t.Fatalf("expected id to be %v, got %v", []byte("id"), queryResponse.Id())
+	if queryResponse.Id() != "id" {
+		t.Fatalf("expected id to be %v, got %v", "id", queryResponse.Id())
 	}
 
 	if queryResponse.Latency() != 0.01 {
@@ -55,8 +55,8 @@ func TestNewQueryResponse(t *testing.T) {
 
 func TestQueryResponseEncodingWithResults(t *testing.T) {
 	// Setup test data
-	id := []byte("query123")
-	transactionId := []byte("txn456")
+	id := "query123"
+	transactionId := "txn456"
 	columns := []string{"col1", "col2"}
 	rows := [][]*sqlite3.Column{
 		{
@@ -197,8 +197,8 @@ func TestQueryResponseEncodingWithResults(t *testing.T) {
 }
 
 func TestQueryResponseEncodingWithError(t *testing.T) {
-	id := []byte("query123")
-	transactionId := []byte("txn456")
+	id := "query123"
+	transactionId := "txn456"
 	errorMsg := "something went wrong"
 	qr := database.NewQueryResponse(0, nil, id, 0, 0, nil)
 	qr.SetTransactionId(transactionId)
@@ -272,7 +272,7 @@ func BenchmarkQueryResponseJsonEncoding(b *testing.B) {
 	queryResponse := database.NewQueryResponse(
 		0,
 		[]string{"id", "name"},
-		[]byte("id"),
+		"id",
 		0.01,
 		1,
 		[][]*sqlite3.Column{
@@ -288,7 +288,7 @@ func BenchmarkQueryResponseJsonEncoding(b *testing.B) {
 
 		queryResponse.SetChanges(0)
 		queryResponse.SetColumns([]string{"id", "name"})
-		queryResponse.SetId([]byte("id"))
+		queryResponse.SetId("id")
 		queryResponse.SetLatency(0.01)
 		queryResponse.SetLastInsertRowId(1)
 		queryResponse.SetRowCount(2)

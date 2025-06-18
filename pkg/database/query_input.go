@@ -24,17 +24,17 @@ QueryInput is a struct that represents the input of a query.
 | 16 + n + m + p  | q      | The transaction id                    |
 */
 type QueryInput struct {
-	Id            []byte                       `json:"id" validate:"required"`
+	Id            string                       `json:"id" validate:"required"`
 	Parameters    []sqlite3.StatementParameter `json:"parameters" validate:"dive"`
-	Statement     []byte                       `json:"statement" validate:"required"`
-	TransactionId []byte                       `json:"transaction_id"`
+	Statement     string                       `json:"statement" validate:"required,min=1"`
+	TransactionId string                       `json:"transaction_id"`
 }
 
 func NewQueryInput(
-	id []byte,
-	statement []byte,
+	id string,
+	statement string,
 	parameters []sqlite3.StatementParameter,
-	transactionId []byte,
+	transactionId string,
 ) *QueryInput {
 	return &QueryInput{
 		Id:            id,
@@ -47,18 +47,18 @@ func NewQueryInput(
 func (q *QueryInput) Decode(buffer, parametersBuffer *bytes.Buffer) error {
 	// Read the length of the id
 	idLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
-	q.Id = buffer.Next(idLength)
+	q.Id = string(buffer.Next(idLength))
 
 	// Read the length of the transaction id
 	transactionIdLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
 
 	if transactionIdLength > 0 {
-		q.TransactionId = buffer.Next(transactionIdLength)
+		q.TransactionId = string(buffer.Next(transactionIdLength))
 	}
 
 	// Read the length of the statement
 	statementLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
-	q.Statement = buffer.Next(statementLength)
+	q.Statement = string(buffer.Next(statementLength))
 
 	// Read the length of the parameters array
 	parametersLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
@@ -90,15 +90,15 @@ func (q *QueryInput) Decode(buffer, parametersBuffer *bytes.Buffer) error {
 
 func (q *QueryInput) DecodeFromMap(data map[string]any) error {
 	if data["id"] != nil {
-		q.Id = []byte(data["id"].(string))
+		q.Id = data["id"].(string)
 	}
 
 	if data["transaction_id"] != nil {
-		q.TransactionId = []byte(data["transaction_id"].(string))
+		q.TransactionId = data["transaction_id"].(string)
 	}
 
 	if data["statement"] != nil {
-		q.Statement = []byte(data["statement"].(string))
+		q.Statement = data["statement"].(string)
 	}
 
 	if data["parameters"] != nil {
@@ -150,7 +150,7 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 	// Write the id
 	buffer.Write([]byte(q.Id))
 
-	if q.TransactionId != nil {
+	if q.TransactionId != "" {
 		// Write the length of the transaction id
 		var transactionIdLengthBytes [4]byte
 
@@ -164,7 +164,7 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 		buffer.Write(transactionIdLengthBytes[:])
 
 		// Write the transaction id
-		buffer.Write(q.TransactionId)
+		buffer.Write([]byte(q.TransactionId))
 	} else {
 		// Write the length of the transaction id
 		var transactionIdLengthBytes [4]byte
@@ -214,8 +214,8 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 }
 
 func (q *QueryInput) Reset() {
-	q.Id = nil
-	q.Statement = nil
+	q.Id = ""
+	q.Statement = ""
 	q.Parameters = q.Parameters[:0]
-	q.TransactionId = nil
+	q.TransactionId = ""
 }

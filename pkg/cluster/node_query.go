@@ -10,9 +10,9 @@ type NodeQueryBuilder interface {
 		databaseHash string,
 		databaseId string,
 		branchId string,
-		statement []byte,
+		statement string,
 		parameters []sqlite3.StatementParameter,
-		id []byte,
+		id string,
 	) (NodeQuery, error)
 }
 

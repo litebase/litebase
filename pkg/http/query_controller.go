@@ -64,13 +64,10 @@ func QueryController(request *Request) Response {
 	// Validate the input
 	validationErrors := request.Validate(input, map[string]string{
 		"id.required":                 "The query ID field is required.",
-		"id.string":                   "The query ID field must be a string.",
 		"parameters.*.type.required":  "The parameter type field is required.",
 		"parameters.*.type.oneof":     "The parameter type field must be one of the allowed values.",
 		"parameters.*.value.required": "The parameter value field is required.",
 		"statement.required":          "The SQL statement field is required.",
-		"statement.string":            "The SQL statement field must be a string.",
-		"transaction_id.string":       "The transaction ID field must be a string.",
 	})
 
 	if validationErrors != nil {
@@ -90,7 +87,7 @@ func QueryController(request *Request) Response {
 
 	response := &database.QueryResponse{}
 
-	if requestQuery.Input.TransactionId != nil &&
+	if requestQuery.Input.TransactionId != "" &&
 		!requestQuery.IsTransactionEnd() &&
 		!requestQuery.IsTransactionRollback() {
 		transaction, err := request.databaseManager.Resources(

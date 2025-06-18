@@ -23,20 +23,20 @@ func TestQueryResolver_Handle(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
 
-		test.RunQuery(db, []byte("CREATE TABLE users (id INT, name TEXT)"), []sqlite3.StatementParameter{})
+		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		cases := []struct {
-			statement  []byte
+			statement  string
 			parameters []sqlite3.StatementParameter
 			expected   string
 		}{
 			{
-				[]byte("SELECT * FROM users"),
+				"SELECT * FROM users",
 				[]sqlite3.StatementParameter{},
 				"success",
 			},
 			{
-				[]byte("SELECT * FROM users LIMIT ?"),
+				"SELECT * FROM users LIMIT ?",
 				[]sqlite3.StatementParameter{
 					{
 						Type:  "INTEGER",
@@ -46,7 +46,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 				"success",
 			},
 			{
-				[]byte("?SELECT * FROM users"),
+				"?SELECT * FROM users",
 				[]sqlite3.StatementParameter{},
 				"error",
 			},
@@ -64,7 +64,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 				&database.QueryInput{
 					Statement:  c.statement,
 					Parameters: c.parameters,
-					Id:         []byte(""),
+					Id:         "",
 				},
 			)
 

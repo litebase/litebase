@@ -7,7 +7,7 @@ type QueryMessage struct {
 	BranchId    string
 	DatabaseKey string
 	DatabaseId  string
-	ID          []byte
+	ID          string
 	Parameters  []sqlite3.StatementParameter
-	Statement   []byte
+	Statement   string
 }

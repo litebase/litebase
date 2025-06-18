@@ -34,7 +34,7 @@ type Statement struct {
 	isReadOnly   StatementReadonly
 	sqlite3_stmt *C.sqlite3_stmt
 	extra        *C.char
-	text         []byte
+	text         string
 }
 
 type StatementReadonly string
@@ -47,7 +47,7 @@ const (
 func NewStatement(
 	ctx context.Context,
 	c *Connection,
-	query []byte,
+	query string,
 ) (*Statement, int, error) {
 	// Validate query is not empty to prevent potential issues
 	if len(query) == 0 {
@@ -280,8 +280,8 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 	}
 
 	if result != nil &&
-		!bytes.Equal(s.text, []byte("COMMIT")) &&
-		!bytes.Equal(s.text, []byte("ROLLBACK")) {
+		s.text != "COMMIT" &&
+		s.text != "ROLLBACK" {
 		result.Reset()
 		result.SetColumns(s.ColumnNames())
 	}

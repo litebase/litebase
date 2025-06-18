@@ -1,13 +1,15 @@
 package validation
 
 import (
+	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
 
-func Validate(input any) validator.ValidationErrors {
+func Validate(input any, messages map[string]string) map[string][]string {
 	v := validator.New()
 
 	// register function to get tag name from json tags.
@@ -24,7 +26,65 @@ func Validate(input any) validator.ValidationErrors {
 
 	if err != nil {
 		if reflect.TypeOf(err) == reflect.TypeOf(validator.ValidationErrors{}) {
-			return err.(validator.ValidationErrors)
+			err := err.(validator.ValidationErrors)
+			var e map[string][]string = make(map[string][]string)
+
+			for _, x := range err {
+				fieldKey := x.Field()
+				namespace := x.Namespace()
+				tag := x.Tag()
+
+				// Check if this is a slice dive validation error
+				if namespace != "" && strings.Contains(namespace, "[") && strings.Contains(namespace, "]") {
+					// Remove the first part of the namespace which is the struct name
+					// e.g. "TestStruct.users[0].email" -> "users[0].email"
+					namespace = namespace[strings.Index(namespace, ".")+1:]
+
+					// Convert array index notation to wildcard for message lookup
+					wildcardKey := strings.ReplaceAll(namespace, "[", ".")
+					wildcardKey = strings.ReplaceAll(wildcardKey, "]", "")
+
+					// Replace numeric indices with wildcards
+					parts := strings.Split(wildcardKey, ".")
+					partNumbers := []int{}
+
+					for i, part := range parts {
+						if number, err := strconv.Atoi(part); err == nil {
+							parts[i] = "*"
+							partNumbers = append(partNumbers, number)
+							break
+						}
+					}
+
+					wildcardKey = strings.Join(parts, ".")
+					messageKey := fmt.Sprintf("%s.%s", wildcardKey, tag)
+
+					if messages[messageKey] == "" {
+						continue
+					}
+
+					var result strings.Builder
+					numIdx := 0
+
+					for _, ch := range wildcardKey {
+						if ch == '*' && numIdx < len(partNumbers) {
+							result.WriteString(strconv.Itoa(partNumbers[numIdx]))
+							numIdx++
+						} else {
+							result.WriteRune(ch)
+						}
+					}
+
+					errorKey := result.String()
+
+					e[errorKey] = append(e[errorKey], messages[messageKey])
+				} else {
+					messageKey := fmt.Sprintf("%s.%s", fieldKey, tag)
+					e[fieldKey] = append(e[fieldKey], messages[messageKey])
+				}
+			}
+
+			return e
 		}
 	}
 

@@ -269,7 +269,7 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseId, source.BranchId, db)
 
 		// Create a test table and insert some data
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)"))
+		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -282,12 +282,12 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 		}
 
 		// Insert some test data
-		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("BEGIN"))
+		db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
 
 		for range 1000 {
 			_, err = db.GetConnection().SqliteConnection().Exec(
 				context.Background(),
-				[]byte("INSERT INTO test (value) VALUES (?)"),
+				"INSERT INTO test (value) VALUES (?)",
 				sqlite3.StatementParameter{
 					Type:  sqlite3.ParameterTypeText,
 					Value: []byte("value"),
@@ -299,7 +299,7 @@ func TestRestoreFromInvalidBackup(t *testing.T) {
 			}
 		}
 
-		db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("COMMIT"))
+		db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
 
 		// Get the snapshots
 		snapshotLogger.GetSnapshots()
@@ -514,7 +514,7 @@ func TestRestoreFromDuplicateTimestamp(t *testing.T) {
 				defer app.DatabaseManager.ConnectionManager().Release(target.DatabaseId, target.BranchId, db)
 
 				// Verify the data is restored correctly
-				result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), []byte("SELECT * FROM test"))
+				result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
 
 				if err == nil || err.Error() != "SQLite3 Error[1]: no such table: test" {
 					t.Fatalf("Expected an error indicating the table does not exist, got %v", err)

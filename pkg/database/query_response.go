@@ -63,12 +63,12 @@ type QueryResponse struct {
 	changes         int64
 	columns         []string
 	err             string
-	id              []byte
+	id              string
 	latency         float64
 	lastInsertRowId int64
 	rowCount        int
 	rows            [][]*sqlite3.Column
-	transactionId   []byte
+	transactionId   string
 	walSequence     int64
 	walTimestamp    int64
 }
@@ -81,7 +81,7 @@ type QueryJsonResponse struct {
 func NewQueryResponse(
 	changes int64,
 	columns []string,
-	id []byte,
+	id string,
 	latency float64,
 	lastInsertRowId int64,
 	rows [][]*sqlite3.Column,
@@ -136,7 +136,7 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 	responseBuffer.Write(transactionIdLengthBytes[:])
 
 	// Transaction ID
-	responseBuffer.Write(qr.transactionId)
+	responseBuffer.Write([]byte(qr.transactionId))
 
 	if len(qr.err) > 0 {
 		// Error length
@@ -289,7 +289,7 @@ func (qr *QueryResponse) JsonResponse() QueryJsonResponse {
 	}
 }
 
-func (qr *QueryResponse) Id() []byte {
+func (qr *QueryResponse) Id() string {
 	return qr.id
 }
 
@@ -313,12 +313,12 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 		*Alias
 		Changes         int64               `json:"changes"`
 		Columns         []string            `json:"columns"`
-		ID              []byte              `json:"id"`
+		ID              string              `json:"id"`
 		Latency         float64             `json:"latency"`
 		LastInsertRowID int64               `json:"last_insert_row_id"`
 		RowCount        int                 `json:"row_count"`
 		Rows            [][]*sqlite3.Column `json:"rows"`
-		TransactionID   []byte              `json:"transaction_id"`
+		TransactionID   string              `json:"transaction_id"`
 	}{
 		Alias:           (*Alias)(qr),
 		Changes:         qr.changes,
@@ -342,12 +342,12 @@ func (qr *QueryResponse) Reset() {
 	qr.changes = 0
 	qr.columns = qr.columns[:0]
 	qr.err = ""
-	qr.id = []byte{}
+	qr.id = ""
 	qr.latency = 0
 	qr.lastInsertRowId = 0
 	qr.rowCount = 0
 	qr.rows = qr.rows[:0]
-	qr.transactionId = []byte{}
+	qr.transactionId = ""
 }
 
 func (qr *QueryResponse) RowCount() int {
@@ -378,7 +378,7 @@ func (qr *QueryResponse) SetError(err string) {
 	qr.err = err
 }
 
-func (qr *QueryResponse) SetId(id []byte) {
+func (qr *QueryResponse) SetId(id string) {
 	qr.id = id
 }
 
@@ -416,7 +416,7 @@ func (qr *QueryResponse) SetRows(rows [][]*sqlite3.Column) {
 	}
 }
 
-func (qr *QueryResponse) SetTransactionId(transactionId []byte) {
+func (qr *QueryResponse) SetTransactionId(transactionId string) {
 	qr.transactionId = transactionId
 }
 
@@ -446,12 +446,12 @@ func (qr QueryResponse) ToMap() map[string]interface{} {
 			"columns":            qr.columns,
 			"rows":               qr.rows,
 			"row_count":          qr.rowCount,
-			"transaction_id":     string(qr.transactionId),
+			"transaction_id":     qr.transactionId,
 		},
 	}
 }
 
-func (qr *QueryResponse) TransactionId() []byte {
+func (qr *QueryResponse) TransactionId() string {
 	return qr.transactionId
 }
 

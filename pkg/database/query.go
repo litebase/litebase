@@ -1,7 +1,7 @@
 package database
 
 import (
-	"bytes"
+	"strings"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
@@ -45,24 +45,24 @@ func (query *Query) ForTransaction(transaction *Transaction) *Query {
 
 func (query *Query) IsDDL() bool {
 	return (len(query.Input.Statement) >= 6 &&
-		(bytes.HasPrefix(query.Input.Statement, []byte("create")) || bytes.HasPrefix(query.Input.Statement, []byte("CREATE")) ||
-			bytes.HasPrefix(query.Input.Statement, []byte("alter")) || bytes.HasPrefix(query.Input.Statement, []byte("ALTER")) ||
-			bytes.HasPrefix(query.Input.Statement, []byte("drop")) || bytes.HasPrefix(query.Input.Statement, []byte("DROP"))))
+		(strings.HasPrefix(query.Input.Statement, "create") || strings.HasPrefix(query.Input.Statement, "CREATE") ||
+			strings.HasPrefix(query.Input.Statement, "alter") || strings.HasPrefix(query.Input.Statement, "ALTER") ||
+			strings.HasPrefix(query.Input.Statement, "drop") || strings.HasPrefix(query.Input.Statement, "DROP")))
 }
 
 func (query *Query) IsDML() bool {
 	return (len(query.Input.Statement) >= 6 &&
-		(bytes.HasPrefix(query.Input.Statement, []byte("insert")) || bytes.HasPrefix(query.Input.Statement, []byte("INSERT")) ||
-			bytes.HasPrefix(query.Input.Statement, []byte("update")) || bytes.HasPrefix(query.Input.Statement, []byte("UPDATE")) ||
-			bytes.HasPrefix(query.Input.Statement, []byte("delete")) || bytes.HasPrefix(query.Input.Statement, []byte("DELETE"))))
+		(strings.HasPrefix(query.Input.Statement, "insert") || strings.HasPrefix(query.Input.Statement, "INSERT") ||
+			strings.HasPrefix(query.Input.Statement, "update") || strings.HasPrefix(query.Input.Statement, "UPDATE") ||
+			strings.HasPrefix(query.Input.Statement, "delete") || strings.HasPrefix(query.Input.Statement, "DELETE")))
 }
 
 func (query *Query) IsDQL() bool {
-	return len(query.Input.Statement) >= 6 && (bytes.HasPrefix(query.Input.Statement, []byte("select")) || bytes.HasPrefix(query.Input.Statement, []byte("SELECT")))
+	return len(query.Input.Statement) >= 6 && (strings.HasPrefix(query.Input.Statement, "select") || strings.HasPrefix(query.Input.Statement, "SELECT"))
 }
 
 func (query *Query) IsPragma() bool {
-	return len(query.Input.Statement) >= 6 && (bytes.HasPrefix(query.Input.Statement, []byte("pragma")) || bytes.HasPrefix(query.Input.Statement, []byte("PRAGMA")))
+	return len(query.Input.Statement) >= 6 && (strings.HasPrefix(query.Input.Statement, "pragma") || strings.HasPrefix(query.Input.Statement, "PRAGMA"))
 }
 
 func (query *Query) IsRead() bool {
@@ -74,15 +74,15 @@ func (query *Query) IsTransactional() bool {
 }
 
 func (query *Query) IsTransactionEnd() bool {
-	return len(query.Input.Statement) >= 3 && (bytes.HasPrefix(query.Input.Statement, []byte("commit")) || bytes.HasPrefix(query.Input.Statement, []byte("COMMIT")) || bytes.HasPrefix(query.Input.Statement, []byte("end")) || bytes.HasPrefix(query.Input.Statement, []byte("END")))
+	return len(query.Input.Statement) >= 3 && (strings.HasPrefix(query.Input.Statement, "commit") || strings.HasPrefix(query.Input.Statement, "COMMIT") || strings.HasPrefix(query.Input.Statement, "end") || strings.HasPrefix(query.Input.Statement, "END"))
 }
 
 func (query *Query) IsTransactionRollback() bool {
-	return len(query.Input.Statement) >= 6 && (bytes.HasPrefix(query.Input.Statement, []byte("rollback")) || bytes.HasPrefix(query.Input.Statement, []byte("ROLLBACK")))
+	return len(query.Input.Statement) >= 6 && (strings.HasPrefix(query.Input.Statement, "rollback") || strings.HasPrefix(query.Input.Statement, "ROLLBACK"))
 }
 
 func (query *Query) IsTransactionStart() bool {
-	return len(query.Input.Statement) >= 5 && (bytes.HasPrefix(query.Input.Statement, []byte("begin")) || bytes.HasPrefix(query.Input.Statement, []byte("BEGIN")))
+	return len(query.Input.Statement) >= 5 && (strings.HasPrefix(query.Input.Statement, "begin") || strings.HasPrefix(query.Input.Statement, "BEGIN"))
 }
 
 func (query *Query) IsWrite() bool {

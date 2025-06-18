@@ -19,7 +19,7 @@ type NodeQueryResponse interface {
 	Reset()
 	ToMap() map[string]interface{}
 	ToJSON() ([]byte, error)
-	TransactionId() []byte
+	TransactionId() string
 	WALSequence() int64
 	WALTimestamp() int64
 	WriteJson(w io.Writer) error

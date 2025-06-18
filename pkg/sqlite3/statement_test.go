@@ -19,7 +19,7 @@ func TestNewStatement(t *testing.T) {
 
 	defer con.Close()
 
-	statement, errCode, err := sqlite3.NewStatement(ctx, con, []byte("create table test (id INTEGER PRIMARY KEY, name TEXT)"))
+	statement, errCode, err := sqlite3.NewStatement(ctx, con, "create table test (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -45,13 +45,13 @@ func TestStatement_Bind(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, errCode, err := sqlite3.NewStatement(ctx, con, []byte("INSERT INTO names (name) VALUES (?)"))
+	statement, errCode, err := sqlite3.NewStatement(ctx, con, "INSERT INTO names (name) VALUES (?)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -88,13 +88,13 @@ func TestStatement_ClearBindings(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, errCode, err := sqlite3.NewStatement(ctx, con, []byte("INSERT INTO names (name) VALUES (?)"))
+	statement, errCode, err := sqlite3.NewStatement(ctx, con, "INSERT INTO names (name) VALUES (?)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -137,13 +137,13 @@ func TestStatement_ColumnCount(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("INSERT INTO names (name, birthday) VALUES (?, ?)"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "INSERT INTO names (name, birthday) VALUES (?, ?)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestStatement_ColumnCount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	statement, _, err = sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err = sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -187,13 +187,13 @@ func TestStatement_ColumnName(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -219,13 +219,13 @@ func TestStatement_ColumnNames(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -253,13 +253,13 @@ func TestStatement_ColumnValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = con.Exec(ctx, []byte("INSERT INTO names (name) VALUES (?)"), sqlite3.StatementParameter{
+	_, err = con.Exec(ctx, "INSERT INTO names (name) VALUES (?)", sqlite3.StatementParameter{
 		Type:  sqlite3.ParameterTypeText,
 		Value: []byte("name"),
 	})
@@ -268,7 +268,7 @@ func TestStatement_ColumnValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -309,13 +309,13 @@ func TestStatement_Exec(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("INSERT INTO names (name) VALUES (?)"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "INSERT INTO names (name) VALUES (?)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -350,13 +350,13 @@ func TestStatement_Finalize(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -380,13 +380,13 @@ func TestStatement_IsReadonly(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -410,13 +410,13 @@ func TestStatementParameterCount(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -430,7 +430,7 @@ func TestStatementParameterCount(t *testing.T) {
 		t.Errorf("Expected parameter count to be 0, got %d", count)
 	}
 
-	statement, _, err = sqlite3.NewStatement(ctx, con, []byte("INSERT INTO names (name) VALUES (?)"))
+	statement, _, err = sqlite3.NewStatement(ctx, con, "INSERT INTO names (name) VALUES (?)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -454,13 +454,13 @@ func TestStatementParameterIndex(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("INSERT INTO names (name) VALUES (?)"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "INSERT INTO names (name) VALUES (?)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -474,13 +474,13 @@ func TestStatementParameterIndex(t *testing.T) {
 		t.Errorf("Expected parameter index to be 0, got %d", index)
 	}
 
-	_, err = con.Exec(ctx, []byte("CREATE TABLE users (name TEXT, email TEXT)"))
+	_, err = con.Exec(ctx, "CREATE TABLE users (name TEXT, email TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err = sqlite3.NewStatement(ctx, con, []byte("INSERT INTO users (name, email) VALUES (:name, :email)"))
+	statement, _, err = sqlite3.NewStatement(ctx, con, "INSERT INTO users (name, email) VALUES (:name, :email)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -512,13 +512,13 @@ func TestStatementParameterName(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table users (name TEXT, email TEXT)"))
+	_, err = con.Exec(ctx, "create table users (name TEXT, email TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("INSERT INTO users (name, email) VALUES (:name, :email)"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "INSERT INTO users (name, email) VALUES (:name, :email)")
 
 	if err != nil {
 		t.Fatal(err)
@@ -550,13 +550,13 @@ func TestStatementReset(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -582,13 +582,13 @@ func TestStatementSQL(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
@@ -614,13 +614,13 @@ func TestStatementStep(t *testing.T) {
 
 	defer con.Close()
 
-	_, err = con.Exec(ctx, []byte("create table names (id INTEGER PRIMARY KEY, name TEXT)"))
+	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	statement, _, err := sqlite3.NewStatement(ctx, con, []byte("SELECT * FROM names"))
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM names")
 
 	if err != nil {
 		t.Fatal(err)
