@@ -62,7 +62,7 @@ func QueryStreamController(request *Request) Response {
 			w.Header().Set("Transfer-Encoding", "chunked")
 
 			defer request.BaseRequest.Body.Close()
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(request.BaseRequest.Context())
 
 			readQueryStream(cancel, request, w, databaseKey, accessKey)
 
@@ -133,6 +133,15 @@ func readQueryStream(
 	messageHeaderBytes := make([]byte, 5)
 
 	for {
+		// Check if context is cancelled before attempting to read
+		select {
+		case <-request.BaseRequest.Context().Done():
+			slog.Debug("Request context cancelled")
+			cancel()
+			return
+		default:
+		}
+
 		scanBuffer.Reset()
 
 		_, err := request.BaseRequest.Body.Read(messageHeaderBytes)
@@ -151,16 +160,33 @@ func readQueryStream(
 		bytesRead := 0
 
 		for bytesRead < messageLength {
+			// Check if context is cancelled before reading chunks
+			select {
+			case <-request.BaseRequest.Context().Done():
+				slog.Debug("Request context cancelled during chunk read")
+				cancel()
+				return
+			default:
+			}
+
 			chunkSize := min(messageLength-bytesRead, 1024)
 
 			n, err := io.CopyN(scanBuffer, request.BaseRequest.Body, int64(chunkSize))
 
 			if err != nil {
-				log.Println(err)
-				break
+				slog.Error("Error reading message chunk", "error", err)
+				cancel()
+				return
 			}
 
 			bytesRead += int(n)
+		}
+
+		// Ensure we read the complete message
+		if bytesRead != messageLength {
+			slog.Error("Incomplete message read", "expected", messageLength, "got", bytesRead)
+			cancel()
+			return
 		}
 
 		switch QueryStreamMessageType(messageType) {
@@ -177,16 +203,34 @@ func readQueryStream(
 			cancel()
 			return
 		case QueryStreamFrame:
-			queryStreamFrameBuffer := bufferPool.Get().(*bytes.Buffer)
-			queryStreamFrameBuffer.Reset()
-
 			err := handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, accessKey)
 
 			if err != nil {
 				slog.Error("Error handling query stream frame", "error", err)
-			}
+				// Send error response to client
+				errorMessage := err.Error()
+				errorBuffer := bufferPool.Get().(*bytes.Buffer)
+				errorBuffer.Reset()
+				errorBuffer.WriteByte(uint8(QueryStreamError))
 
-			bufferPool.Put(queryStreamFrameBuffer)
+				var errorLengthBytes [4]byte
+				uint32ErrMsgLen, err := utils.SafeIntToUint32(len(errorMessage))
+				if err != nil {
+					slog.Error("Error converting error message length", "error", err)
+					return
+				}
+				binary.LittleEndian.PutUint32(errorLengthBytes[:], uint32ErrMsgLen)
+				errorBuffer.Write(errorLengthBytes[:])
+				errorBuffer.Write([]byte(errorMessage))
+
+				writeErr := writeQueryStreamData(w, streamMutex, errorBuffer.Bytes())
+				bufferPool.Put(errorBuffer)
+
+				if writeErr != nil {
+					slog.Error("Error writing error response", "error", writeErr)
+					return
+				}
+			}
 		default:
 			slog.Info("Unknown message type", "messageType", messageType)
 			// return

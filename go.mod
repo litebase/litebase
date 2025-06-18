@@ -10,6 +10,7 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20250402064820-d479899d8cbe
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.0
+	github.com/litebase/litebase-go/sql v0.0.0-20240630162320-6f3e2a5a5f7c
 	github.com/spf13/afero v1.14.0
 	github.com/sqids/sqids-go v0.4.1
 )
@@ -74,3 +75,5 @@ require (
 	golang.org/x/sys v0.33.0
 	golang.org/x/text v0.25.0 // indirect
 )
+
+replace github.com/litebase/litebase-go/sql => ./pkg/litebase-go/sql
