@@ -36,6 +36,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          token: ${{ secrets.LITEBASE_GO_PAT}}
 
       - name: Setup Go
         uses: actions/setup-go@v5
