@@ -112,7 +112,7 @@ func (fsl *FileSystemLock) ReleaseAccessLocks(locks []*FileSystemLockEntry) {
 		lock.mutex.RUnlock()
 		lock.count--
 
-		go fsl.DeleteLockIfUnused(lock.path)
+		fsl.DeleteLockIfUnused(lock.path)
 	}
 }
 
