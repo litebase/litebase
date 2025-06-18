@@ -281,8 +281,26 @@ func handleQueryStreamFrame(
 		queryBuffer.Reset()
 		queryParamsBuffer.Reset()
 
-		queryLength := int(binary.LittleEndian.Uint32(framesBuffer.Next(4)))
-		queryBuffer.Write(framesBuffer.Next(queryLength))
+		// Ensure we have at least 4 bytes to read the query length
+		if framesBuffer.Len() < 4 {
+			break
+		}
+
+		queryLengthBytes := framesBuffer.Next(4)
+
+		if len(queryLengthBytes) != 4 {
+			break
+		}
+
+		queryLength := int(binary.LittleEndian.Uint32(queryLengthBytes))
+
+		// Ensure we have enough bytes for the query data
+		if framesBuffer.Len() < queryLength {
+			break
+		}
+
+		queryData := framesBuffer.Next(queryLength)
+		queryBuffer.Write(queryData)
 
 		responseBytes, err := handleQueryStreamRequest(request, databaseKey, accessKey, queryBuffer, queryParamsBuffer)
 

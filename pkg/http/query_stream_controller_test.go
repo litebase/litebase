@@ -286,19 +286,29 @@ func TestQueryStreamController(t *testing.T) {
 
 			var statementLengthBytes [4]byte
 			binary.LittleEndian.PutUint32(statementLengthBytes[:], uint32(statementBuffer.Len()))
-			queryStreamFrameBuffer.Write(statementLengthBytes[:])
+			_, err := queryStreamFrameBuffer.Write(statementLengthBytes[:])
 
-			queryStreamFrameBuffer.Write(statementBuffer.Bytes())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = queryStreamFrameBuffer.Write(statementBuffer.Bytes())
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			inputChannel <- queryStreamFrameBuffer.Bytes()
 
 			// Send
+			timeout := time.After(1 * time.Second)
 		responseLoop:
 			for {
 				select {
 				case <-ctx.Done():
 					log.Println("Context done")
 					return
+				case <-timeout:
+					t.Fatal("Timeout waiting for response")
 				case <-outputChannel:
 					break responseLoop
 				case err := <-errorChannel:
