@@ -16,23 +16,26 @@ import (
 A Query Response is a data structure that represents the result of a query to a
 database. Each response will start with the following data:
 
-| Offset      | Length | Name                  | Description                                         |
-|-------------|--------|-----------------------|-----------------------------------------------------|
-| 0           | 1      | version               | The version of the query response.                  |
-| 1           | 4      | id_length             | The length of the query ID.                         |
-| 5           | n      | id                    | The unique identifier for the query.                |
-| 5 + n       | 4      | transaction_id_length | The length of the transaction ID.                   |
-| 9 + n       | m      | transaction_id        | The unique identifier for the transaction.          |
+| Offset      | Length | Name                  | Description                                       |
+|-------------|--------|-----------------------|---------------------------------------------------|
+| 0           | 1      | version               | The version of the query response.                |
+| 1           | 4      | id_length             | The length of the query ID.                       |
+| 5           | n      | id                    | The unique identifier for the query.              |
+| 5 + n       | 4      | transaction_id_length | The length of the transaction ID.                 |
+| 9 + n       | m      | transaction_id        | The unique identifier for the transaction.        |
 
 Following the transaction ID, the response will contain either an error or a
 result set.
 
 For an error response, the format is:
 
-| Offset        | Length | Name         | Description                        |
-|---------------|--------|--------------|------------------------------------|
-| 13 + n + m    | 4      | error_length | The length of the error message.   |
-| 17 + n + m    | k      | error        | The error message, if any.         |
+| Offset        | Length | Name         | Description                         |
+|---------------|--------|--------------|-------------------------------------|
+| 0             | 1      | version      | The version of the query response.  |
+| 1             | 4      | id_length    | The length of the query ID.         |
+| 5             | n      | id           | The unique identifier for the query.|
+| 13 + n + m    | 4      | error_length | The length of the error message.    |
+| 17 + n + m    | k      | error        | The error message, if any.          |
 
 For a result set response, the format is:
 
@@ -50,7 +53,7 @@ For a result set response, the format is:
 
 // Buffer pool for reusing buffers
 var queryResponseJsonBufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(bytes.Buffer)
 	},
 }
@@ -112,7 +115,6 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 	responseBuffer.WriteByte(uint8(1))
 	// ID length
 	var idLengthBytes [4]byte
-
 	idLenUint32, err := utils.SafeIntToUint32(len(qr.id))
 
 	if err != nil {
@@ -147,6 +149,7 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 		if err != nil {
 			return nil, err
 		}
+
 		binary.LittleEndian.PutUint32(errorLengthBytes[:], errorLenUint32)
 
 		// Write the error length
@@ -435,10 +438,10 @@ func (qr *QueryResponse) ToJSON() ([]byte, error) {
 	})
 }
 
-func (qr QueryResponse) ToMap() map[string]interface{} {
-	return map[string]interface{}{
+func (qr QueryResponse) ToMap() map[string]any {
+	return map[string]any{
 		"status": "success",
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"changes":            qr.changes,
 			"id":                 string(qr.id),
 			"latency":            qr.latency,

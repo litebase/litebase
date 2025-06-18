@@ -110,6 +110,7 @@ func DecodeStatementParameter(buffer *bytes.Buffer) (StatementParameter, error) 
 
 	// Read the type length
 	parameterType := ColumnType(buffer.Next(1)[0])
+
 	valueLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
 
 	// Read the value
@@ -136,6 +137,9 @@ func DecodeStatementParameter(buffer *bytes.Buffer) (StatementParameter, error) 
 	case ColumnTypeNull:
 		sp.Type = "NULL"
 		sp.Value = nil
+	case ColumnTypeUnknown:
+		sp.Type = "UNKNOWN"
+		sp.Value = buffer.Next(valueLength)
 	}
 
 	return sp, nil

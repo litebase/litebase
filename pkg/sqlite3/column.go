@@ -32,6 +32,7 @@ var columnJsonBufferPool = sync.Pool{
 type ColumnType int
 
 const (
+	ColumnTypeUnknown ColumnType = 0
 	ColumnTypeInteger ColumnType = SQLITE_INTEGER
 	ColumnTypeFloat   ColumnType = SQLITE_FLOAT
 	ColumnTypeText    ColumnType = SQLITE_TEXT

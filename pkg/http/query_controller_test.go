@@ -168,6 +168,9 @@ func TestQueryController_Errors(t *testing.T) {
 		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", mock.DatabaseKey.Key), "POST", map[string]any{
 			"id":         "1",
 			"statements": "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
+			"parameters": []map[string]any{{
+				"type": "STRING",
+			}},
 		})
 
 		if err != nil {

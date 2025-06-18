@@ -17,6 +17,8 @@ type NodeQueryResponse interface {
 	RowCount() int
 	Rows() [][]*sqlite3.Column
 	Reset()
+	SetError(err string)
+	SetId(id string)
 	ToMap() map[string]interface{}
 	ToJSON() ([]byte, error)
 	TransactionId() string

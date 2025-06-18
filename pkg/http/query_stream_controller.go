@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/litebase/litebase/internal/utils"
+	"github.com/litebase/litebase/internal/validation"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/database"
@@ -45,19 +47,42 @@ func QueryStreamController(request *Request) Response {
 	requestToken := request.RequestToken("Authorization")
 
 	if !requestToken.Valid() {
-		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
+		return ErrInvalidAccessKeyResponse
 	}
 
 	accessKey := requestToken.AccessKey()
 
 	if accessKey.AccessKeyId == "" {
-		return BadRequestResponse(fmt.Errorf("a valid access key is required to make this request"))
+		return ErrInvalidAccessKeyResponse
+	}
+
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]auth.Privilege{auth.DatabasePrivilegeQuery},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
 	}
 
 	return Response{
 		StatusCode: 200,
 		Stream: func(w http.ResponseWriter) {
-			w.Header().Set("Connection", "close")
+			// Create a new ResponseController to manage the streaming response
+			rc := http.NewResponseController(w)
+
+			// Enable full-duplex communication
+			// This allows reading from the request body while writing to the
+			// response body without waiting to fully read the request body.
+			err := rc.EnableFullDuplex()
+
+			if err != nil {
+				slog.Error("Error enabling full duplex", "error", err)
+				http.Error(w, "Error opening streaming connection", http.StatusInternalServerError)
+				return
+			}
+
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.Header().Set("Transfer-Encoding", "chunked")
 
@@ -92,7 +117,7 @@ func processInput(
 
 	defer database.PutQuery(requestQuery)
 
-	if requestQuery.Input.TransactionId != nil &&
+	if requestQuery.Input.TransactionId != "" &&
 		!requestQuery.IsTransactionEnd() &&
 		!requestQuery.IsTransactionRollback() {
 		transaction, err = request.databaseManager.Resources(
@@ -271,7 +296,33 @@ func handleQueryStreamRequest(
 		return nil, err
 	}
 
+	validationErrors := validation.Validate(queryInput, map[string]string{
+		"id.required":                 "The query ID field is required.",
+		"parameters.required":         "The parameters field is required.",
+		"parameters.*.type.required":  "The parameter type field is required.",
+		"parameters.*.type.oneof":     "The parameter type field must be one of the allowed values.",
+		"parameters.*.value.required": "The parameter value field is required.",
+		"statement.required":          "The SQL statement field is required.",
+		"statement.min":               "The SQL statement field must be at least 1 character long.",
+	})
+
+	if validationErrors != nil {
+		jsonValidationErrors, _ := json.Marshal(validationErrors)
+
+		response.SetId(queryInput.Id)
+		response.SetError(fmt.Sprintf("Invalid input: %s", jsonValidationErrors))
+
+		responseBytes, _ := response.Encode(responseBuffer, rowsBuffer, columnsBuffer)
+
+		return responseBytes, ErrInvalidInput
+	}
+
 	err = processInput(request, databaseKey, accessKey, queryInput, response)
+
+	if err != nil {
+		response.SetError(err.Error())
+	}
+
 	responseBytes, _ := response.Encode(responseBuffer, rowsBuffer, columnsBuffer)
 
 	return responseBytes, err
@@ -291,8 +342,18 @@ func handleQueryStreamConnection(w http.ResponseWriter, streamMutex *sync.Mutex)
 	}
 
 	binary.LittleEndian.PutUint32(messageLengthBytes[:], uint32MessageLength)
-	data.Write(messageLengthBytes[:])
-	data.Write(message)
+
+	_, err = data.Write(messageLengthBytes[:])
+
+	if err != nil {
+		return err
+	}
+
+	_, err = data.Write(message)
+
+	if err != nil {
+		return err
+	}
 
 	return writeQueryStreamData(w, streamMutex, data.Bytes())
 }

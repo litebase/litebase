@@ -64,6 +64,7 @@ func QueryController(request *Request) Response {
 	// Validate the input
 	validationErrors := request.Validate(input, map[string]string{
 		"id.required":                 "The query ID field is required.",
+		"parameters.required":         "The parameters field is required.",
 		"parameters.*.type.required":  "The parameter type field is required.",
 		"parameters.*.type.oneof":     "The parameter type field must be one of the allowed values.",
 		"parameters.*.value.required": "The parameter value field is required.",
