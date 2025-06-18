@@ -231,3 +231,29 @@ func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 	// Run the test
 	callback(app)
 }
+
+// RunWithoutCleanup runs a test with app setup but without cleanup.
+// This is useful for forked test processes that share resources with other processes.
+// The parent process should handle cleanup, not the individual forked processes.
+func RunWithoutCleanup(t testing.TB, callback func(*server.App)) {
+	cluster.SetAddressProvider(func() string {
+		return "127.0.0.1"
+	})
+
+	// Setup the environment without cleanup
+	_, err := setupTestEnv(t)
+
+	if err != nil {
+		t.Fail()
+	}
+
+	// Create the app without registering cleanup
+	s := NewTestServer(t)
+
+	if t != nil && err != nil {
+		t.Fail()
+	}
+
+	// Run the test callback
+	callback(s.App)
+}

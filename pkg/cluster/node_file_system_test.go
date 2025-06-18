@@ -85,7 +85,8 @@ func TestTieredFS(t *testing.T) {
 func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 	// Create a primary server
 	if os.Getenv("LITEBASE_TEST_SERVER") == "1" {
-		test.RunWithApp(t, func(app *server.App) {
+		// Use RunWithoutCleanup to prevent the forked process from cleaning up shared resources
+		test.RunWithoutCleanup(t, func(app *server.App) {
 			// Write a file
 			err := app.Cluster.TieredFS().WriteFile("test", []byte("helloworld"), 0600)
 
@@ -100,7 +101,8 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 
 	// Create a replica server
 	if os.Getenv("LITEBASE_TEST_SERVER") == "2" {
-		test.RunWithApp(t, func(app *server.App) {
+		// Use RunWithoutCleanup to prevent the forked process from cleaning up shared resources
+		test.RunWithoutCleanup(t, func(app *server.App) {
 			// Create the instance of the tiered file systemt to innitialize the
 			// dirty file syncing process
 			app.Cluster.TieredFS()
@@ -116,6 +118,12 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 	if os.Getenv("LITEBASE_TEST_SERVER") == "" {
 		dataPath := fmt.Sprintf("./../../.test/%s", test.CreateHash(32))
 		signature := test.CreateHash(64)
+
+		// Ensure cleanup of the test directory when the parent test finishes
+		t.Cleanup(func() {
+			time.Sleep(100 * time.Millisecond) // Give processes time to finish
+			os.RemoveAll(dataPath)
+		})
 
 		// Start the first server
 		cmd := exec.Command("go", "test", "-run", "TestTieredFS_SyncsDirtyFiles")

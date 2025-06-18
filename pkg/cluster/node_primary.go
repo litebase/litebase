@@ -48,7 +48,6 @@ func (np *NodePrimary) Heartbeat() error {
 
 	for address, err := range errorMap {
 		if err != nil {
-			log.Println("Failed to send heartbeat message: ", err)
 			experiencedError = true
 
 			// Remove the address file
