@@ -26,6 +26,7 @@ type RouteKey struct {
 	Regex *regexp.Regexp
 }
 
+// Create a new Router instance
 func NewRouter() *Router {
 	return &Router{
 		GlobalMiddleware: []Middleware{
@@ -41,36 +42,41 @@ func NewRouter() *Router {
 	}
 }
 
+// Add a DELETE route to the router
 func (router *Router) Delete(path string, handler func(request *Request) Response) *Route {
 	return router.request("DELETE", path, handler)
 }
 
+// Set the Fallback route to the router
 func (router *Router) Fallback(callback func(request *Request) Response) {
 	router.DefaultRoute = Route{
 		Handler: callback,
+		router:  router,
+		timeout: 0,
 	}
 }
 
+// Add a GET route on the router
 func (router *Router) Get(path string, handler func(request *Request) Response) *Route {
 	return router.request("GET", path, handler)
 }
 
-func (router *Router) Path(path string, handler func(request *Request) Response) *Route {
-	return router.request("PATCH", path, handler)
-}
-
-func (router *Router) Post(path string, handler func(request *Request) Response) *Route {
-	return router.request("POST", path, handler)
-}
-
+// Add a PATCH route to the router
 func (router *Router) Patch(path string, handler func(request *Request) Response) *Route {
 	return router.request("PATCH", path, handler)
 }
 
+// Add a POST route to the router
+func (router *Router) Post(path string, handler func(request *Request) Response) *Route {
+	return router.request("POST", path, handler)
+}
+
+// Add a PUT route to the router
 func (router *Router) Put(path string, handler func(request *Request) Response) *Route {
 	return router.request("PUT", path, handler)
 }
 
+// Resolve an incoming request using a route from the Router
 func (router *Router) request(method string, path string, handler func(request *Request) Response) *Route {
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
@@ -83,6 +89,7 @@ func (router *Router) request(method string, path string, handler func(request *
 	return router.Routes[method][path]
 }
 
+// Create a server handler for the Router.
 func (router *Router) Server(
 	cluster *cluster.Cluster,
 	databaseManager *database.DatabaseManager,
@@ -104,7 +111,13 @@ func (router *Router) Server(
 			panic(err)
 		}
 
-		_, err = w.Write([]byte(jsonBody))
+		// Set the content type to application/json
+		w.Header().Set("Content-Type", "application/json")
+
+		// Set the content length
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(jsonBody)))
+
+		_, err = w.Write(jsonBody)
 
 		if err != nil {
 			slog.Error("Error writing response", "error", err)
@@ -158,7 +171,7 @@ func (router *Router) Server(
 							panic(err)
 						}
 
-						_, err = w.Write([]byte(jsonBody))
+						_, err = w.Write(jsonBody)
 
 						if err != nil {
 							slog.Error("Error writing response", "error", err)

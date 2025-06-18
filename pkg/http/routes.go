@@ -1,7 +1,6 @@
 package http
 
 import (
-	"log"
 	"time"
 )
 
@@ -237,7 +236,6 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Fallback(func(request *Request) Response {
-		log.Println("404")
 		return Response{
 			StatusCode: 404,
 			Body: map[string]any{
