@@ -233,6 +233,13 @@ func (n *Node) heartbeat() {
 		return
 	}
 
+	select {
+	case <-n.context.Done():
+		return
+	default:
+		break
+	}
+
 	if !n.primaryLeaseVerification() {
 		success, err := n.runElection()
 
@@ -424,7 +431,7 @@ func (n *Node) primaryLeaseVerification() bool {
 	primaryData, err := n.Cluster.NetworkFS().ReadFile(n.Cluster.PrimaryPath())
 
 	if err != nil {
-		slog.Debug("Failed to read primary file", "error", err)
+		slog.Debug("Failed to read primary file", "error", err, "address", n.address)
 		return false
 	}
 

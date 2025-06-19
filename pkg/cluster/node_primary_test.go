@@ -49,6 +49,7 @@ func TestNodePrimaryHeartbeatWithDisconnectedNode(t *testing.T) {
 	test.Run(t, func() {
 		testServer1 := test.NewTestServer(t)
 		defer testServer1.Shutdown()
+
 		stoppedAddress := "10.0.0.0:9876"
 
 		err := testServer1.App.Cluster.NetworkFS().WriteFile(

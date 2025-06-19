@@ -415,6 +415,8 @@ func TestNode_Start(t *testing.T) {
 		case <-node.Start():
 			break
 		}
+
+		node.Shutdown()
 	})
 }
 
@@ -475,5 +477,6 @@ func TestNode_Timestamp(t *testing.T) {
 		if timestamp.IsZero() {
 			t.Error("Node timestamp not set")
 		}
+
 	})
 }
