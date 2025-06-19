@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -94,7 +95,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		}
 
 		restorePointTimestamp := snapshot.RestorePoints.End // Table exists but no data
-
+		log.Println("RESTORE_POINTS", snapshot.RestorePoints.Data)
 		restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
 
 		if err != nil {
