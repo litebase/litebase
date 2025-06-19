@@ -108,20 +108,6 @@ func (cluster *Cluster) ShutdownStorage() {
 		}
 	}
 
-	if cluster.tmpFileSystem != nil {
-		err := cluster.tmpFileSystem.ClearFiles()
-
-		if err != nil {
-			slog.Debug("Clearing tmp file system", "error", err)
-		}
-
-		err = cluster.tmpFileSystem.Shutdown()
-
-		if err != nil {
-			slog.Error("Shutting down tmp file system", "error", err)
-		}
-	}
-
 	if cluster.tmpTieredFileSystem != nil {
 		err := cluster.tmpTieredFileSystem.ClearFiles()
 
@@ -133,6 +119,20 @@ func (cluster *Cluster) ShutdownStorage() {
 
 		if err != nil {
 			slog.Error("Shutting down tmp tiered file system", "error", err)
+		}
+	}
+
+	if cluster.tmpFileSystem != nil {
+		err := cluster.tmpFileSystem.ClearFiles()
+
+		if err != nil {
+			slog.Debug("Clearing tmp file system", "error", err)
+		}
+
+		err = cluster.tmpFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down tmp file system", "error", err)
 		}
 	}
 }
@@ -211,7 +211,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
 				storage.NewLocalFileSystemDriver(
-					fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().ID),
+					fmt.Sprintf("%s/%s-tiered", cluster.Config.TmpPath, cluster.Node().ID),
 				),
 				storage.NewObjectFileSystemDriver(cluster.Config),
 				fileSyncEligibilityFn,
@@ -221,8 +221,10 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 		cluster.tmpTieredFileSystem = storage.NewFileSystem(
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
-				storage.NewLocalFileSystemDriver(cluster.Config.TmpPath),
-				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
+				storage.NewLocalFileSystemDriver(
+					fmt.Sprintf("%s/%s-tiered", cluster.Config.TmpPath, cluster.Node().ID),
+				),
+				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s-tiered", cluster.Config.DataPath, config.StorageModeObject)),
 				fileSyncEligibilityFn,
 			),
 		)

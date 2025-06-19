@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"io/fs"
+	"log"
 	"log/slog"
 	"os"
 	"strings"
@@ -41,6 +42,7 @@ func (fs *LocalFileSystemDriver) ClearFiles() error {
 	entries, err := fs.ReadDir("/")
 
 	if err != nil {
+		log.Println("Failed to read base path for local file system driver:", err)
 		return err
 	}
 
