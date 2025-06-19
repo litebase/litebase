@@ -151,7 +151,8 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	}
 
 	if cluster.tieredFileSystem == nil {
-		if cluster.Config.StorageTieredMode == config.StorageModeObject {
+		switch cluster.Config.StorageTieredMode {
+		case config.StorageModeObject:
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
 					cluster.Node().Context(),
@@ -160,7 +161,7 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 					fileSyncEligibilityFn,
 				),
 			)
-		} else if cluster.Config.StorageTieredMode == config.StorageModeLocal {
+		case config.StorageModeLocal:
 			cluster.tieredFileSystem = storage.NewFileSystem(
 				storage.NewTieredFileSystemDriver(
 					cluster.Node().Context(),
@@ -204,7 +205,8 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 		}
 	}
 
-	if cluster.Config.StorageTieredMode == config.StorageModeObject {
+	switch cluster.Config.StorageTieredMode {
+	case config.StorageModeObject:
 		cluster.tmpTieredFileSystem = storage.NewFileSystem(
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
@@ -215,7 +217,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 				fileSyncEligibilityFn,
 			),
 		)
-	} else if cluster.Config.StorageTieredMode == config.StorageModeLocal {
+	case config.StorageModeLocal:
 		cluster.tmpTieredFileSystem = storage.NewFileSystem(
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
