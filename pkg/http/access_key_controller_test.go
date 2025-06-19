@@ -52,7 +52,7 @@ func TestAccessKeyControllerDestroy(t *testing.T) {
 func TestAccessKeyControllerDestroy_CannotDeleteCurrentAccessKey(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
 			{
@@ -81,7 +81,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteCurrentAccessKey(t *testing.T) {
 func TestAccessKeyControllerDestroy_CannotDeleteWithInvalidAccessKey(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
 			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
@@ -118,7 +118,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteWithInvalidAccessKey(t *testing.
 func TestAccessKeyControllerIndex(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
 			{
@@ -151,7 +151,7 @@ func TestAccessKeyControllerIndex(t *testing.T) {
 func TestAccessKeyControllerStore(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
 			{
@@ -197,7 +197,7 @@ func TestAccessKeyControllerStore(t *testing.T) {
 func TestAccessKeyControllerStore_WithInvalidAccessKey(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
 			{
@@ -230,7 +230,7 @@ func TestAccessKeyControllerStore_WithInvalidAccessKey(t *testing.T) {
 func TestAccessKeyControllerStore_WithInvalidInput(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
 			{
@@ -321,7 +321,7 @@ func TestAccessKeyControllerStore_WithInvalidInput(t *testing.T) {
 func TestAccessKeyControllerStore_WithClusterUser(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		client := server.WithBasicAuthClient()
 
@@ -361,7 +361,7 @@ func TestAccessKeyControllerStore_WithClusterUser(t *testing.T) {
 func TestAccessKeyControllerUpdate(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
 			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
@@ -410,7 +410,7 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 func TestAccessKeyControllerUpdate_WithInvalidAccessKey(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		defer server.Server.Close()
+		defer server.Shutdown()
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
 			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
