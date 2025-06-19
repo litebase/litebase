@@ -317,8 +317,9 @@ func (sp *StepProcessor) setupProcesses() {
 			fmt.Sprintf("LITEBASE_TEST_SIGNATURE=%s", sp.signature),
 			fmt.Sprintf("LITEBASE_SOCKET_DIR=%s", sp.socketDir))
 
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		// Uncomment to see child process output
+		// cmd.Stdout = os.Stdout
+		// cmd.Stderr = os.Stderr
 
 		test.cmd = cmd
 		test.socketPath = filepath.Join(sp.socketDir, "coordinator.sock")
