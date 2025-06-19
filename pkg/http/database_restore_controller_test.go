@@ -36,7 +36,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		defer server.App.DatabaseManager.ConnectionManager().Release(source.DatabaseId, source.BranchId, sourceDb)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
-		err = sourceDb.GetConnection().Checkpoint()
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -49,7 +49,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		err = sourceDb.GetConnection().Checkpoint()
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -66,7 +66,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 			t.Fatalf("failed to insert row: %v", err)
 		}
 
-		err = sourceDb.GetConnection().Checkpoint()
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -177,7 +177,6 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 		defer server.Shutdown()
 
 		source := test.MockDatabase(server.App)
-		// target := test.MockDatabase(server.App)
 
 		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseId, source.BranchId).SnapshotLogger()
 
@@ -190,7 +189,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 		defer server.App.DatabaseManager.ConnectionManager().Release(source.DatabaseId, source.BranchId, sourceDb)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
-		err = sourceDb.GetConnection().Checkpoint()
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -203,7 +202,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		err = sourceDb.GetConnection().Checkpoint()
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -221,7 +220,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 				t.Fatalf("failed to insert row: %v", err)
 			}
 
-			err = sourceDb.GetConnection().Checkpoint()
+			err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseId, source.BranchId)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)

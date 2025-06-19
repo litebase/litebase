@@ -66,7 +66,7 @@ type StepTest struct {
 	socketPath string
 }
 
-// Create a new distributed test
+// Create a new multi step test
 func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 	// Check if this process has already completed (process-local check)
 	if os.Getenv("LITEBASE_TEST_COMPLETED") == "1" {
@@ -152,7 +152,7 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 	}
 }
 
-// Run a distributed test process
+// Run a multi step test process
 func (sp *StepProcessor) Run(name string, fn func(s *StepProcess)) *StepProcess {
 	sp.tests[name] = &StepTest{
 		function: fn,
@@ -353,7 +353,7 @@ func (sp *StepProcessor) Start(t *testing.T) {
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				if exitErr.ExitCode() != test.process.expectedExitCode {
 					t.Errorf(
-						"Distributed test %s should have exited with code %d, got %d",
+						"Multi step test %s should have exited with code %d, got %d",
 						testName,
 						test.process.expectedExitCode,
 						exitErr.ExitCode(),

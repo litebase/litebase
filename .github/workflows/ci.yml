@@ -50,8 +50,3 @@ jobs:
           LITEBASE_ROOT_DIRECTORY: ${{ github.workspace }}/
         run: |
           go test . -v
-
-      # - name: Cleanup test data
-      #   if: always()
-      #   run: |
-      #     rm -rf /tmp/litebase-test-${{ github.run_id }}-${{ matrix.package.name }} || true

@@ -88,7 +88,6 @@ func ReadBackupRangeFile(
 	}
 
 	if len(fileContents) == 0 {
-		log.Println("Backup range file is empty")
 		return nil, ErrorBackupRangeFileEmpty
 	}
 
