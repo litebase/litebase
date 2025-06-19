@@ -131,6 +131,25 @@ func TestNode_AddressPath(t *testing.T) {
 	})
 }
 
+func TestNode_AddPeerElection(t *testing.T) {
+	test.Run(t, func() {
+		c := config.NewConfig()
+		clusterInstance, err := cluster.NewCluster(c)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		node := cluster.NewNode(clusterInstance)
+
+		node.AddPeerElection(&cluster.ClusterElection{})
+
+		if len(node.Elections) != 1 {
+			t.Error("Peer election not added")
+		}
+	})
+}
+
 func TestNode_Context(t *testing.T) {
 	test.Run(t, func() {
 		c := config.NewConfig()

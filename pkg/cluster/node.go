@@ -28,6 +28,10 @@ const (
 	NodeStateIdle         = "idle"
 )
 
+var (
+	NodeStoreAddressInterval = 5 * time.Second
+)
+
 var addressProvider func() string
 
 type Node struct {
@@ -128,6 +132,7 @@ func (n *Node) AddressPath() string {
 	return fmt.Sprintf("%s%s", n.Cluster.NodePath(), address)
 }
 
+// Add a peer election to the node.
 func (n *Node) AddPeerElection(election *ClusterElection) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -142,11 +147,10 @@ func (n *Node) Context() context.Context {
 
 // Check if the node address is stored and if not, store it.
 func (n *Node) ensureNodeAddressStored() error {
-	if n.storedAddressAt.IsZero() || time.Since(n.storedAddressAt) > 1*time.Minute {
+	if n.storedAddressAt.IsZero() || time.Since(n.storedAddressAt) > 5*time.Second {
 		// Check if the address is already stored
 		if _, err := n.Cluster.NetworkFS().Stat(n.AddressPath()); err == nil {
-			n.storedAddressAt = time.Now().UTC()
-			return nil
+			return n.StoreAddress()
 		}
 
 		// If the address is not stored, the node needs to rejoin the cluster
@@ -155,7 +159,6 @@ func (n *Node) ensureNodeAddressStored() error {
 		err := n.JoinCluster()
 
 		if err != nil {
-			slog.Error("Failed to join cluster", "error", err)
 			return err
 		}
 	}
@@ -202,6 +205,12 @@ func (n *Node) heartbeat() {
 
 			if err != nil {
 				slog.Debug("Failed to renew lease", "error", err)
+
+				err := n.removePrimaryStatus()
+
+				if err != nil {
+					slog.Debug("Failed to remove primary status", "error", err)
+				}
 			}
 		} else {
 			if n.Primary() == nil {
@@ -314,10 +323,8 @@ func (n *Node) JoinCluster() error {
 		return nil
 	}
 
-	if n.storedAddressAt.IsZero() {
-		if err := n.StoreAddress(); err != nil {
-			return err
-		}
+	if err := n.StoreAddress(); err != nil {
+		return err
 	}
 
 	address, err := n.Address()
@@ -855,7 +862,6 @@ func (n *Node) Tick() {
 
 		if err != nil {
 			slog.Error("Failed to join cluster", "error", err)
-			return
 		}
 	}
 
@@ -868,13 +874,9 @@ func (n *Node) Tick() {
 	}
 }
 
+// Return the started at timestamp of the node.
 func (n *Node) Timestamp() time.Time {
 	return n.startedAt
-}
-
-// truncateFile truncates the specified file. It creates the file if it does not exist.
-func (n *Node) truncateFile(filePath string) error {
-	return n.Cluster.NetworkFS().WriteFile(filePath, []byte(""), os.ModePerm)
 }
 
 func (n *Node) WALSynchronizer() NodeWalSynchronizer {
