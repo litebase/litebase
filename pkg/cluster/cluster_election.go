@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"slices"
 	"syscall"
 	"time"
 )
@@ -76,14 +77,25 @@ func (ce *ClusterElection) proposeLeadership() bool {
 	if ce.context == nil || ce.context.Err() != nil {
 		return false
 	}
+
 	// Refresh the cluster members to ensure we have the latest information
 	ce.node.Cluster.GetMembers(false)
 
 	votingNodes := ce.node.Cluster.Nodes()
 
-	if len(votingNodes) <= 1 {
+	// Filter out nodes that have not updated their address recently
+	votingNodes = slices.DeleteFunc(votingNodes, func(n *NodeIdentifier) bool {
+		return n.UpdateAt.UTC().Before(time.Now().UTC().Add(-NodeStoreAddressInterval))
+	})
+
+	if len(votingNodes) == 1 && votingNodes[0].Address == ce.node.address {
 		// If there are no other nodes or only ourselves, we win by default
 		return true
+	}
+
+	if len(votingNodes) == 0 {
+		// No voting nodes available, cannot be elected
+		return false
 	}
 
 	data := map[string]any{

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -48,11 +49,111 @@ func (l *Lease) Release() error {
 		return fmt.Errorf("node is not a leader")
 	}
 
-	if err := l.node.truncateFile(l.node.Cluster.PrimaryPath()); err != nil {
+	// Lock the file, read it, and verify the address matches before truncating
+	// it. This will prevent a node from accidentally removing the primary file.
+
+	primaryFile, err := l.node.Cluster.NetworkFS().OpenFile(l.node.Cluster.PrimaryPath(), os.O_RDWR, 0600)
+
+	if err != nil {
+		slog.Debug("Failed to open primary file", "error", err)
 		return err
 	}
 
-	if err := l.node.truncateFile(l.node.Cluster.LeasePath()); err != nil {
+	// Attempt to lock the primary file using syscall.Flock
+	file := primaryFile.(*os.File)
+
+	locked := false
+
+	defer func() {
+		if locked {
+			err = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+
+			if err != nil {
+				slog.Debug("Failed to unlock primary file", "error", err)
+			}
+		}
+
+		err = primaryFile.Close()
+
+		if err != nil {
+			slog.Debug("Failed to close primary file", "error", err)
+		}
+	}()
+
+	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+
+	if err != nil {
+		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+			slog.Debug("Primary file is locked by another process", "error", err)
+			return nil // Not an error, just not elected
+		}
+
+		return err
+	}
+
+	var primaryData []byte
+	primaryData = make([]byte, 256)
+
+	for {
+		n, err := file.Read(primaryData)
+		if err != nil {
+			return err
+		}
+
+		primaryData = primaryData[:n]
+
+		if n < 256 {
+			break
+		}
+	}
+
+	if string(primaryData) != l.node.address {
+		return fmt.Errorf("primary address verification failed")
+	}
+
+	if err := primaryFile.Truncate(0); err != nil {
+		return err
+	}
+
+	// Lock the lease file, read it, and verify the address matches before truncating
+	// it. This will prevent a node from accidentally removing the lease file.
+
+	leaseFile, err := l.node.Cluster.NetworkFS().OpenFile(l.node.Cluster.LeasePath(), os.O_RDWR, 0600)
+
+	if err != nil {
+		slog.Debug("Failed to open lease file", "error", err)
+		return err
+	}
+
+	// Attempt to lock the lease file using syscall.Flock
+	defer func() {
+		if locked {
+			err = syscall.Flock(int(leaseFile.(*os.File).Fd()), syscall.LOCK_UN)
+
+			if err != nil {
+				slog.Debug("Failed to unlock lease file", "error", err)
+			}
+		}
+
+		err = leaseFile.Close()
+
+		if err != nil {
+			slog.Debug("Failed to close lease file", "error", err)
+		}
+	}()
+
+	err = syscall.Flock(int(leaseFile.(*os.File).Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+
+	if err != nil {
+		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+			slog.Debug("Lease file is locked by another process", "error", err)
+			return nil // Not an error, just not elected
+		}
+
+		return err
+	}
+
+	if err := leaseFile.Truncate(0); err != nil {
 		return err
 	}
 

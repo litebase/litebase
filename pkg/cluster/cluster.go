@@ -23,9 +23,12 @@ const (
 	ClusterMembershipPrimary = "PRIMARY"
 	ClusterMembershipReplica = "REPLICA"
 
-	LeaseDuration = 70 * time.Second
-	LeaseFile     = "LEASE"
-	PrimaryFile   = "PRIMARY"
+	LeaseFile   = "LEASE"
+	PrimaryFile = "PRIMARY"
+)
+
+var (
+	LeaseDuration = 15 * time.Second
 )
 
 type Cluster struct {
@@ -134,7 +137,7 @@ func (cluster *Cluster) AddMember(id string, address string) error {
 		return nil
 	}
 
-	cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, id))
+	cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, id, time.Now().UTC()))
 
 	return nil
 }
@@ -175,7 +178,11 @@ func (cluster *Cluster) GetMembers(cached bool) []*NodeIdentifier {
 		address := strings.ReplaceAll(file.Name(), "_", ":")
 		hash := sha256.Sum256([]byte(address))
 		ID := fmt.Sprintf("%d", binary.BigEndian.Uint64(hash[:]))
-		cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, ID))
+
+		// Get mtime of the file
+		info := file.Info()
+
+		cluster.nodes = append(cluster.nodes, NewNodeIdentifier(address, ID, info.ModTime()))
 	}
 
 	cluster.MembersRetrievedAt = time.Now().UTC()
@@ -296,9 +303,11 @@ func (c *Cluster) OtherNodes() []*NodeIdentifier {
 	nodes := []*NodeIdentifier{}
 	address, _ := c.node.Address()
 
-	c.GetMembers(true)
+	for _, node := range c.Nodes() {
+		if node == nil {
+			continue
+		}
 
-	for _, node := range c.nodes {
 		if node.Address == address {
 			continue
 		}

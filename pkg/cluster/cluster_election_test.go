@@ -1,6 +1,7 @@
 package cluster_test
 
 import (
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -361,4 +362,91 @@ func TestClusterElectionRunWithMultipleNodesAsyncWithStoppingServers(t *testing.
 			})
 		})
 	}
+}
+
+func TestElection_WillRunAfterCrashAndNewNodeStarted(t *testing.T) {
+	// Speed up the lease duration for testing purposes
+	defaultLeaseDuration := cluster.LeaseDuration
+	defer func() { cluster.LeaseDuration = defaultLeaseDuration }()
+	cluster.LeaseDuration = 1 * time.Second
+
+	defaultNodeStoreAddressInterval := cluster.NodeStoreAddressInterval
+	defer func() { cluster.NodeStoreAddressInterval = defaultNodeStoreAddressInterval }()
+	cluster.NodeStoreAddressInterval = 1 * time.Second
+
+	test.WithSteps(t, func(sp *test.StepProcessor) {
+		sp.Run("SERVER_1", func(s *test.StepProcess) {
+			test.RunWithoutCleanup(t, func(app *server.App) {
+				s.Step("SERVER_1_READY")
+				os.Exit(1) // Simulate a crash
+			})
+		}).ShouldExitWith(1)
+
+		sp.Run("SERVER_2", func(s *test.StepProcess) {
+			s.WaitForStep("SERVER_1_READY")
+
+			test.RunWithoutCleanup(t, func(app *server.App) {
+				timeout := time.After(15 * time.Second)
+
+			waitForPrimary:
+				for {
+					select {
+					case <-timeout:
+						t.Fatal("Timed out waiting for node to become primary")
+					default:
+						if app.Cluster.Node().IsPrimary() {
+							break waitForPrimary
+						}
+						time.Sleep(100 * time.Millisecond)
+					}
+				}
+
+				if !app.Cluster.Node().IsPrimary() {
+					t.Fatal("Server 2 is not primary after 15 seconds")
+				}
+			})
+		})
+	})
+}
+
+func TestElection_WillRunAfterCrashAndAnotherNodeRunning(t *testing.T) {
+	// Speed up the lease duration for testing purposes
+	defaultLeaseDuration := cluster.LeaseDuration
+	defer func() { cluster.LeaseDuration = defaultLeaseDuration }()
+	cluster.LeaseDuration = 1 * time.Second
+
+	defaultNodeStoreAddressInterval := cluster.NodeStoreAddressInterval
+	defer func() { cluster.NodeStoreAddressInterval = defaultNodeStoreAddressInterval }()
+	cluster.NodeStoreAddressInterval = 1 * time.Second
+
+	test.WithSteps(t, func(sp *test.StepProcessor) {
+		sp.Run("PRIMARY", func(s *test.StepProcess) {
+			test.RunWithoutCleanup(t, func(app *server.App) {
+				time.Sleep(1 * time.Second)
+				s.Step("PRIMARY_READY")
+				os.Exit(1) // Simulate a crash
+			})
+		}).ShouldExitWith(1)
+
+		sp.Run("REPLICA", func(s *test.StepProcess) {
+			test.RunWithoutCleanup(t, func(app *server.App) {
+				s.WaitForStep("PRIMARY_READY")
+
+				timeout := time.After(15 * time.Second)
+
+			waitForPrimary:
+				for {
+					select {
+					case <-timeout:
+						t.Fatal("Timed out waiting for node to become primary")
+					default:
+						if app.Cluster.Node().IsPrimary() {
+							break waitForPrimary
+						}
+						time.Sleep(100 * time.Millisecond)
+					}
+				}
+			})
+		})
+	})
 }
