@@ -95,7 +95,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		}
 
 		restorePointTimestamp := snapshot.RestorePoints.End // Table exists but no data
-		log.Println("RESTORE_POINTS", snapshot.RestorePoints.Data)
+		log.Println("RESTORE_POINTS", snapshot.RestorePoints.Data, snapshot.RestorePoints.End)
 		restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
 
 		if err != nil {

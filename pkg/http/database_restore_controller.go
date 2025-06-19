@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
@@ -64,7 +65,7 @@ func DatabaseRestoreController(request *Request) Response {
 	snapshotLogger := request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger()
 	sourceDfs := request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem()
 	targetDfs := request.databaseManager.Resources(targetDatabaseUuid, targetBranchUuid).FileSystem()
-
+	log.Println("Starting restore from timestamp", timestamp)
 	err = backups.RestoreFromTimestamp(
 		request.cluster.Config,
 		request.cluster.TieredFS(),
