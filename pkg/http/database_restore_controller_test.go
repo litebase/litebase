@@ -110,7 +110,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
 			},
 		})
-
+		log.Println("RESTORING TO", restorePoint.Timestamp)
 		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/restore", source.DatabaseKey.Key), "POST", map[string]any{
 			"target_database_id":        target.DatabaseId,
 			"target_database_branch_id": target.BranchId,

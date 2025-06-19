@@ -9,9 +9,9 @@ import (
 )
 
 type DatabaseRestoreRequest struct {
-	TargetDatabaseId       string  `json:"target_database_id" validate:"required" `
-	TargetDatabaseBranchId string  `json:"target_database_branch_id" validate:"required"`
-	Timestamp              float64 `json:"timestamp" validate:"required,number"`
+	TargetDatabaseId       string `json:"target_database_id" validate:"required" `
+	TargetDatabaseBranchId string `json:"target_database_branch_id" validate:"required"`
+	Timestamp              int64  `json:"timestamp" validate:"required,number"`
 }
 
 func DatabaseRestoreController(request *Request) Response {
@@ -48,7 +48,8 @@ func DatabaseRestoreController(request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	timestamp := int64(input.(*DatabaseRestoreRequest).Timestamp)
+	log.Println("test", input.(*DatabaseRestoreRequest).Timestamp)
+	timestamp := float64(input.(*DatabaseRestoreRequest).Timestamp)
 	targetDatabaseUuid := request.Get("target_database_id").(string)
 	targetBranchUuid := request.Get("target_database_branch_id").(string)
 
@@ -73,7 +74,7 @@ func DatabaseRestoreController(request *Request) Response {
 		databaseKey.BranchId,
 		targetDatabaseUuid,
 		targetBranchUuid,
-		timestamp,
+		int64(timestamp),
 		snapshotLogger,
 		sourceDfs,
 		targetDfs,
