@@ -31,6 +31,10 @@ func TestEventStoreController(t *testing.T) {
 
 		otherNodes := server1.App.Cluster.OtherNodes()
 
+		if len(otherNodes) == 0 {
+			t.Fatalf("Expected at least one other node")
+		}
+
 		var nodeIdentifier *cluster.NodeIdentifier
 
 		for _, node := range otherNodes {
