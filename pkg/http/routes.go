@@ -181,7 +181,6 @@ func LoadRoutes(router *Router) {
 		QueryLogController,
 	).Middleware([]Middleware{
 		Authentication,
-		NodeTick,
 	}).Timeout(1 * time.Second)
 
 	router.Post("/{databaseKey}/query",

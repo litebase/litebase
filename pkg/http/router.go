@@ -31,6 +31,7 @@ func NewRouter() *Router {
 	return &Router{
 		GlobalMiddleware: []Middleware{
 			RequireHost,
+			NodeTick,
 		},
 		Routes: map[string]map[string]*Route{
 			"GET":    nil,
