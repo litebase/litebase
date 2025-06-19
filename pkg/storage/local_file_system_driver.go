@@ -17,7 +17,7 @@ type LocalFileSystemDriver struct {
 }
 
 func NewLocalFileSystemDriver(basePath string) *LocalFileSystemDriver {
-	return &LocalFileSystemDriver{
+	lfsd := &LocalFileSystemDriver{
 		basePath: strings.TrimRight(basePath, "/"),
 		buffers: sync.Pool{
 			New: func() any {
@@ -25,10 +25,20 @@ func NewLocalFileSystemDriver(basePath string) *LocalFileSystemDriver {
 			},
 		},
 	}
+
+	if _, err := os.Stat(lfsd.basePath); os.IsNotExist(err) {
+		err := os.MkdirAll(lfsd.basePath, 0750)
+
+		if err != nil {
+			slog.Error("Failed to create base path for local file system driver", "error", err)
+		}
+	}
+
+	return lfsd
 }
 
 func (fs *LocalFileSystemDriver) ClearFiles() error {
-	entries, err := fs.ReadDir(fs.Path("/"))
+	entries, err := fs.ReadDir("/")
 
 	if err != nil {
 		return err

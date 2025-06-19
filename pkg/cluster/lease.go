@@ -51,7 +51,6 @@ func (l *Lease) Release() error {
 
 	// Lock the file, read it, and verify the address matches before truncating
 	// it. This will prevent a node from accidentally removing the primary file.
-
 	primaryFile, err := l.node.Cluster.NetworkFS().OpenFile(l.node.Cluster.PrimaryPath(), os.O_RDWR, 0600)
 
 	if err != nil {
