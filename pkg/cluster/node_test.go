@@ -440,7 +440,7 @@ func TestNode_Tick(t *testing.T) {
 		lastActive := server.App.Cluster.Node().LastActive
 		server.App.Cluster.Node().Tick()
 
-		if server.App.Cluster.Node().LastActive == lastActive {
+		if server.App.Cluster.Node().LastActive.Equal(lastActive) {
 			t.Error("Node last active time not updated")
 		}
 	})
