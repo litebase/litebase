@@ -9,9 +9,9 @@ import (
 )
 
 type DatabaseRestoreRequest struct {
-	TargetDatabaseId       string `json:"target_database_id" validate:"required" `
-	TargetDatabaseBranchId string `json:"target_database_branch_id" validate:"required"`
-	Timestamp              int64  `json:"timestamp" validate:"required,number"`
+	TargetDatabaseId       string  `json:"target_database_id" validate:"required" `
+	TargetDatabaseBranchId string  `json:"target_database_branch_id" validate:"required"`
+	Timestamp              float64 `json:"timestamp" validate:"required,number"`
 }
 
 func DatabaseRestoreController(request *Request) Response {
