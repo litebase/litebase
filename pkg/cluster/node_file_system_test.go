@@ -1,14 +1,12 @@
 package cluster_test
 
 import (
-	"fmt"
 	"os"
-	"os/exec"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/server"
 )
 
@@ -83,86 +81,97 @@ func TestTieredFS(t *testing.T) {
 }
 
 func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
-	// Create a primary server
-	if os.Getenv("LITEBASE_TEST_SERVER") == "1" {
-		// Use RunWithoutCleanup to prevent the forked process from cleaning up shared resources
-		test.RunWithoutCleanup(t, func(app *server.App) {
-			// Write a file
-			err := app.Cluster.TieredFS().WriteFile("test", []byte("helloworld"), 0600)
+	// Speed up the lease duration for testing purposes
+	defaultLeaseDuration := cluster.LeaseDuration
+	defer func() { cluster.LeaseDuration = defaultLeaseDuration }()
+	cluster.LeaseDuration = 1 * time.Second
 
-			if err != nil {
-				t.Fatal(err)
-			}
+	defaultNodeStoreAddressInterval := cluster.NodeStoreAddressInterval
+	defer func() { cluster.NodeStoreAddressInterval = defaultNodeStoreAddressInterval }()
+	cluster.NodeStoreAddressInterval = 1 * time.Second
 
-			// Crash the primary server
-			os.Exit(1)
-		})
-	}
+	test.WithSteps(t, func(sp *test.StepProcessor) {
+		sp.Run("PRIMARY", func(s *test.StepProcess) {
+			// Primary will crash
 
-	// Create a replica server
-	if os.Getenv("LITEBASE_TEST_SERVER") == "2" {
-		// Use RunWithoutCleanup to prevent the forked process from cleaning up shared resources
-		test.RunWithoutCleanup(t, func(app *server.App) {
-			// Create the instance of the tiered file systemt to innitialize the
-			// dirty file syncing process
-			app.Cluster.TieredFS()
-
-			_, err := app.Cluster.ObjectFS().Stat("test")
-
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-
-	if os.Getenv("LITEBASE_TEST_SERVER") == "" {
-		dataPath := fmt.Sprintf("./../../.test/%s", test.CreateHash(32))
-		signature := test.CreateHash(64)
-
-		// Ensure cleanup of the test directory when the parent test finishes
-		t.Cleanup(func() {
-			time.Sleep(100 * time.Millisecond) // Give processes time to finish
-			os.RemoveAll(dataPath)
-		})
-
-		// Start the first server
-		cmd := exec.Command("go", "test", "-run", "TestTieredFS_SyncsDirtyFiles")
-		cmd.Env = append(os.Environ(), "LITEBASE_TEST_SERVER=1", fmt.Sprintf("LITEBASE_TEST_DATA_PATH=%s", dataPath), fmt.Sprintf("LITEBASE_TEST_SIGNATURE=%s", signature))
-
-		// Start the second server
-		cmd2 := exec.Command("go", "test", "-run", "TestTieredFS_SyncsDirtyFiles")
-		cmd2.Env = append(os.Environ(), "LITEBASE_TEST_SERVER=2", fmt.Sprintf("LITEBASE_TEST_DATA_PATH=%s", dataPath), fmt.Sprintf("LITEBASE_TEST_SIGNATURE=%s", signature))
-
-		//  Wait for the commands to finish
-		wg := &sync.WaitGroup{}
-		wg.Add(2)
-
-		go func() {
-			defer wg.Done()
-			err := cmd.Run()
-
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				if exitErr.Success() {
-					t.Error("Server 1 should have exited with an error")
+			test.RunWithoutCleanup(t, func(app *server.App) {
+				if !app.Cluster.Node().IsPrimary() {
+					t.Fatal("Server is not primary")
 				}
-			}
-		}()
 
-		go func() {
-			defer wg.Done()
+				s.Step("PRIMARY_READY")
 
-			time.Sleep(250 * time.Millisecond) // Ensure the first server has time to write the file
-			err := cmd2.Run()
+				s.WaitForStep("REPLICA_READY")
 
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				if !exitErr.Success() {
-					t.Error("Error waiting for second server:", exitErr)
+				// Write a file to the tiered filesystem (this will be dirty)
+				file, err := app.Cluster.TieredFS().OpenFile("test", os.O_RDWR|os.O_CREATE, 0600)
+				if err != nil {
+					t.Fatal(err)
 				}
-			}
-		}()
 
-		wg.Wait()
-	}
+				_, err = file.Write([]byte("helloworld"))
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				// Signal that file has been written
+				s.Step("FILE_WRITTEN")
+
+				// Crash the primary node to simulate an unclean shutdown
+				os.Exit(1)
+			})
+		}).ShouldExitWith(1)
+
+		sp.Run("REPLICA", func(s *test.StepProcess) {
+			s.WaitForStep("PRIMARY_READY")
+
+			test.RunWithoutCleanup(t, func(app *server.App) {
+				// Verify file doesn't exist in object storage yet
+				_, err := app.Cluster.ObjectFS().Stat("test")
+
+				if err == nil {
+					t.Fatal("File should not exist in object storage yet (should be dirty on primary)")
+				}
+
+				s.Step("REPLICA_READY")
+
+				s.WaitForStep("FILE_WRITTEN")
+
+				// Wait for the node to become primary (after the first server crashes)
+				timeout := time.After(15 * time.Second)
+
+			waitForPrimary:
+				for {
+					select {
+					case <-timeout:
+						t.Fatal("Timed out waiting for node to become primary")
+					default:
+						if app.Cluster.Node().IsPrimary() {
+							break waitForPrimary
+						}
+						time.Sleep(100 * time.Millisecond)
+					}
+				}
+
+				// Initialize the tiered file system to trigger dirty file syncing
+				app.Cluster.TieredFS()
+
+				if _, err := app.Cluster.ObjectFS().Stat("test"); err != nil {
+					t.Fatal("File should exist in object storage after recovery")
+				}
+
+				data, err := app.Cluster.ObjectFS().ReadFile("test")
+
+				if err != nil {
+					t.Fatal("File should exist in object storage after recovery")
+				}
+
+				if string(data) != "helloworld" {
+					t.Fatalf("File contents do not match: expected 'helloworld', got '%s'", string(data))
+				}
+			})
+		})
+	})
 }
 
 func TestTmpFS(t *testing.T) {

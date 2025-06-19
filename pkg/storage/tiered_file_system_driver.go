@@ -312,7 +312,7 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 
 		// Do not return the file if it is stale
 		if file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC()) ||
-			(file.UpdatedAt == (time.Time{}) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
+			(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
 			err := fsd.releaseFile(file)
 
 			if err != nil {
@@ -765,20 +765,38 @@ func (fsd *TieredFileSystemDriver) SyncDirtyFiles() error {
 	defer fsd.mutex.Unlock()
 
 	if fsd.logger.HasDirtyLogs() {
-		for key := range fsd.logger.DirtyKeys() {
-			if file, ok := fsd.Files[key]; ok {
+		slog.Info("Syncing dirty files to durable storage")
+
+		logs := make(map[int64]struct{})
+
+		for entry := range fsd.logger.DirtyKeys() {
+			if file, ok := fsd.Files[entry.Key]; ok {
 				fsd.flushFileToDurableStorage(file, true)
 			} else {
-				file, err := fsd.highTierFileSystemDriver.OpenFile(key, os.O_RDWR|os.O_CREATE, 0600)
+				file, err := fsd.highTierFileSystemDriver.OpenFile(entry.Key, os.O_RDWR|os.O_CREATE, 0600)
 
 				if err != nil {
-					log.Println("Error opening file on high tier file system", err)
-					return err
+					slog.Error("Error opening file on high tier file system", "error", err)
+					continue
 				}
 
-				tieredFile := fsd.addFile(key, file, os.O_RDWR)
+				tieredFile := fsd.addFile(entry.Key, file, os.O_RDWR)
 
 				fsd.flushFileToDurableStorage(tieredFile, true)
+
+				if err := fsd.logger.Remove(entry.Key, tieredFile.LogKey); err != nil {
+					slog.Error("Error removing log entry:", "error", err)
+				}
+			}
+
+			logs[entry.Log] = struct{}{}
+		}
+
+		for log := range logs {
+			err := fsd.logger.removeLogFile(log)
+
+			if err != nil {
+				slog.Error("Error removing log file:", "error", err)
 			}
 		}
 	}

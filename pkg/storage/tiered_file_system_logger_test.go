@@ -65,9 +65,10 @@ func TestNewTieredFileSystemLogger_DirtyKeys(t *testing.T) {
 	}
 
 	var dirtyKeys = make(map[string]struct{})
+
 	// Simulate dirty keys
-	for key := range logger.DirtyKeys() {
-		dirtyKeys[key] = struct{}{}
+	for entry := range logger.DirtyKeys() {
+		dirtyKeys[entry.Key] = struct{}{}
 	}
 
 	if len(dirtyKeys) != len(keys) {
