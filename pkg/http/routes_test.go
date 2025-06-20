@@ -127,14 +127,14 @@ func TestRoutesMiddleware(t *testing.T) {
 		{
 			Method:             "POST",
 			Path:               "/resources/signature",
-			ExpectedMiddleware: []string{"Authentication"},
+			ExpectedMiddleware: []string{"Authentication", "ForwardToPrimary"},
 			Description:        "Signature store route should have Authentication middleware",
 		},
 		{
 			Method:             "POST",
 			Path:               "/resources/signature/activate",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Signature activate route should have Authentication middleware",
+			ExpectedMiddleware: []string{"Authentication", "ForwardToPrimary"},
+			Description:        "Signature activate route should have Authentication and ForwardToPrimary middleware",
 		},
 		// Internal cluster routes
 		{

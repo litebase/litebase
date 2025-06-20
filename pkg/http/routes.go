@@ -96,14 +96,15 @@ func LoadRoutes(router *Router) {
 
 	router.Post(
 		"/resources/signature",
-		SingatureStoreController,
+		SignatureStoreController,
 	).Middleware([]Middleware{
 		Authentication,
+		ForwardToPrimary,
 	})
 
 	router.Post(
 		"/resources/signature/activate",
-		SingatureActivateController,
+		SignatureActivateController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
