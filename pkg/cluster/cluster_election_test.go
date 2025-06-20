@@ -1,6 +1,7 @@
 package cluster_test
 
 import (
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -429,9 +430,9 @@ func TestElection_WillRunAfterCrashAndAnotherNodeRunning(t *testing.T) {
 		}).ShouldExitWith(1)
 
 		sp.Run("REPLICA", func(s *test.StepProcess) {
-			test.RunWithoutCleanup(t, func(app *server.App) {
-				s.WaitForStep("PRIMARY_READY")
+			s.WaitForStep("PRIMARY_READY")
 
+			test.RunWithoutCleanup(t, func(app *server.App) {
 				timeout := time.After(15 * time.Second)
 
 			waitForPrimary:
@@ -440,10 +441,12 @@ func TestElection_WillRunAfterCrashAndAnotherNodeRunning(t *testing.T) {
 					case <-timeout:
 						t.Fatal("Timed out waiting for node to become primary")
 					default:
+						log.Println("Checking if node is primary...")
 						if app.Cluster.Node().IsPrimary() {
 							break waitForPrimary
 						}
-						time.Sleep(100 * time.Millisecond)
+
+						time.Sleep(10 * time.Millisecond)
 					}
 				}
 			})

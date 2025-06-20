@@ -87,7 +87,6 @@ func (nr *NodeReplica) JoinCluster() error {
 	response, err := httpClient.Do(request)
 
 	if err != nil {
-		log.Println("Failed to join cluster: ", err)
 		return err
 	}
 
