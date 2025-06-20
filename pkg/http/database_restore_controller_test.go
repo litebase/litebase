@@ -271,7 +271,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			resp, responseCode, err := client.Send(fmt.Sprintf("/%s/restore", source.DatabaseKey.Key), "POST", map[string]any{
 				"target_database_id":        target.DatabaseId,
 				"target_database_branch_id": target.BranchId,
-				"timestamp":                 restorePoint.Timestamp,
+				"timestamp":                 strconv.FormatInt(restorePoint.Timestamp, 10),
 			})
 
 			if err != nil {
