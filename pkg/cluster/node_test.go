@@ -90,6 +90,7 @@ func TestNode_Address_WithAWSEcsProvider(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		node := cluster.NewNode(clusterInstance)
 
 		address, err := node.Address()

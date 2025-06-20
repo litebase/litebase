@@ -26,7 +26,10 @@ func TestNewNodeConnection(t *testing.T) {
 func TestNodeConnectionClose(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
 		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
+
 		address2, _ := server2.App.Cluster.Node().Address()
 		connection := cluster.NewNodeConnection(server1.App.Cluster.Node(), address2)
 
@@ -41,7 +44,10 @@ func TestNodeConnectionClose(t *testing.T) {
 func TestNodeConnectionSend(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
 		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
+
 		address2, _ := server2.App.Cluster.Node().Address()
 
 		connection := cluster.NewNodeConnection(server1.App.Cluster.Node(), address2)

@@ -10,18 +10,6 @@ import (
 	"github.com/litebase/litebase/pkg/storage"
 )
 
-func (cluster *Cluster) ClearFSFiles() {
-	if cluster.tieredFileSystem != nil {
-		if driver, ok := cluster.tieredFileSystem.Driver().(*storage.TieredFileSystemDriver); ok {
-			err := driver.ClearFiles()
-
-			if err != nil {
-				log.Println("Clearing tiered file system", err)
-			}
-		}
-	}
-}
-
 func (cluster *Cluster) LocalFS() *storage.FileSystem {
 	if cluster.localFileSystem == nil {
 		cluster.localFileSystem = storage.NewFileSystem(
@@ -224,7 +212,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 				storage.NewLocalFileSystemDriver(
 					fmt.Sprintf("%s/%s-tiered", cluster.Config.TmpPath, cluster.Node().ID),
 				),
-				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s-tiered", cluster.Config.DataPath, config.StorageModeObject)),
+				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
 				fileSyncEligibilityFn,
 			),
 		)

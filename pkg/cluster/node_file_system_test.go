@@ -10,46 +10,6 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestClearFSFiles(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		fs := app.Cluster.TieredFS()
-
-		if fs == nil {
-			t.Error("TieredFS() returned nil")
-		}
-
-		file, err := fs.Create("test.txt")
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		err = file.Close()
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		_, err = fs.Stat("test.txt")
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		app.Cluster.ClearFSFiles()
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		_, err = app.Cluster.LocalFS().Stat("test.txt")
-
-		if err == nil {
-			t.Error("tiered file system files were not cleared")
-		}
-	})
-}
-
 func TestLocalFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		fs := app.Cluster.LocalFS()

@@ -149,6 +149,11 @@ func (c *Cluster) runEventLoop() {
 			c.eventsChannel = nil
 		}()
 
+		if c.Node() == nil {
+			slog.Error("Cluster node is not initialized, cannot run event loop")
+			return
+		}
+
 		for {
 			select {
 			case <-c.Node().Context().Done():

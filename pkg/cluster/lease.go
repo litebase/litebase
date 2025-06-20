@@ -54,7 +54,7 @@ func (l *Lease) Release() error {
 	primaryFile, err := l.node.Cluster.NetworkFS().OpenFile(l.node.Cluster.PrimaryPath(), os.O_RDWR, 0600)
 
 	if err != nil {
-		slog.Debug("Failed to open primary file", "error", err)
+		slog.Debug("Failed to open primary file", "error", err, "address", l.node.address)
 		return err
 	}
 

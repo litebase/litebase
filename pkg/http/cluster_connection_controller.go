@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"errors"
 	"io"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"sync"
 
@@ -60,7 +62,7 @@ func handleClusterConnectionStream(
 		err := decoder.Decode(&decodedMessage)
 
 		if err != nil {
-			if err != io.ErrUnexpectedEOF {
+			if err != io.ErrUnexpectedEOF && err != io.EOF && !errors.Is(err, net.ErrClosed) {
 				slog.Debug("Error decoding message", "error", err)
 			}
 
