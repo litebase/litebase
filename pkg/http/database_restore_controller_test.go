@@ -2,7 +2,7 @@ package http_test
 
 import (
 	"fmt"
-	"log"
+	"strconv"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -95,7 +95,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		}
 
 		restorePointTimestamp := snapshot.RestorePoints.End // Table exists but no data
-		log.Println("RESTORE_POINTS", snapshot.RestorePoints.Data, snapshot.RestorePoints.End)
+
 		restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
 
 		if err != nil {
@@ -110,11 +110,11 @@ func TestDatabaseRestoreController(t *testing.T) {
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
 			},
 		})
-		log.Println("RESTORING TO", restorePoint.Timestamp)
+
 		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/restore", source.DatabaseKey.Key), "POST", map[string]any{
 			"target_database_id":        target.DatabaseId,
 			"target_database_branch_id": target.BranchId,
-			"timestamp":                 restorePoint.Timestamp,
+			"timestamp":                 strconv.FormatInt(restorePoint.Timestamp, 10),
 		})
 
 		if err != nil {

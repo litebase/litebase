@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
 
 	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/sqlite3"
@@ -122,7 +121,7 @@ func (q *QueryInput) DecodeFromMap(data map[string]any) error {
 			if parameter.(map[string]any)["type"] == "INTEGER" {
 				parameter.(map[string]any)["value"] = int64(parameter.(map[string]any)["value"].(float64))
 			}
-			log.Println("test", parameter.(map[string]any)["type"])
+
 			q.Parameters = append(q.Parameters, sqlite3.StatementParameter{
 				Type:  parameter.(map[string]any)["type"].(string),
 				Value: parameter.(map[string]any)["value"],

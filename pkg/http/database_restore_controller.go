@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
@@ -11,7 +12,7 @@ import (
 type DatabaseRestoreRequest struct {
 	TargetDatabaseId       string `json:"target_database_id" validate:"required" `
 	TargetDatabaseBranchId string `json:"target_database_branch_id" validate:"required"`
-	Timestamp              int64  `json:"timestamp" validate:"required,number"`
+	Timestamp              string `json:"timestamp" validate:"required"`
 }
 
 func DatabaseRestoreController(request *Request) Response {
@@ -41,7 +42,6 @@ func DatabaseRestoreController(request *Request) Response {
 		"target_database_id.required":        "The target database field is required.",
 		"target_database_branch_id.required": "The target database branch field is required.",
 		"timestamp.required":                 "The timestamp field is required.",
-		"timestamp.number":                   "The timestamp field must be a number.",
 	})
 
 	if validationErrors != nil {
@@ -49,7 +49,13 @@ func DatabaseRestoreController(request *Request) Response {
 	}
 
 	log.Println("test", input.(*DatabaseRestoreRequest).Timestamp)
-	timestamp := float64(input.(*DatabaseRestoreRequest).Timestamp)
+
+	timestamp, err := strconv.ParseInt(input.(*DatabaseRestoreRequest).Timestamp, 10, 64)
+
+	if err != nil {
+		return BadRequestResponse(err)
+	}
+
 	targetDatabaseUuid := request.Get("target_database_id").(string)
 	targetBranchUuid := request.Get("target_database_branch_id").(string)
 
@@ -74,7 +80,7 @@ func DatabaseRestoreController(request *Request) Response {
 		databaseKey.BranchId,
 		targetDatabaseUuid,
 		targetBranchUuid,
-		int64(timestamp),
+		timestamp,
 		snapshotLogger,
 		sourceDfs,
 		targetDfs,
