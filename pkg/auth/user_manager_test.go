@@ -227,6 +227,7 @@ func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 		server.Shutdown()
 
 		server = test.NewTestServer(t)
+		defer server.Shutdown()
 
 		// Create new UserManager instance to test Init
 		um2 := server.App.Auth.UserManager()
