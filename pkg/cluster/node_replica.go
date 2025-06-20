@@ -72,7 +72,7 @@ func (nr *NodeReplica) JoinCluster() error {
 	}
 
 	encryptedHeader, err := nr.node.Cluster.Auth.SecretsManager.Encrypt(
-		nr.node.Cluster.Config.Signature,
+		nr.node.Cluster.Config.EncryptionKey,
 		[]byte(address),
 	)
 
@@ -132,7 +132,7 @@ func (nr *NodeReplica) LeaveCluster() error {
 	}
 
 	encryptedHeader, err := nr.node.Cluster.Auth.SecretsManager.Encrypt(
-		nr.node.Cluster.Config.Signature,
+		nr.node.Cluster.Config.EncryptionKey,
 		[]byte(address),
 	)
 
@@ -190,7 +190,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 	}
 
 	encryptedHeader, err := nr.node.Cluster.Auth.SecretsManager.Encrypt(
-		nr.node.Cluster.Config.Signature,
+		nr.node.Cluster.Config.EncryptionKey,
 		[]byte(address),
 	)
 

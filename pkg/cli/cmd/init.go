@@ -33,20 +33,10 @@ func NewInitCmd() *cobra.Command {
 			}
 		}
 
-		signature := cmd.Flag("signature").Value.String()
+		encryptionKey := cmd.Flag("key").Value.String()
 
-		if signature != "" {
-			err := os.Setenv("LITEBASE_SIGNATURE", signature)
-
-			if err != nil {
-				panic(err)
-			}
-		}
-
-		signature = cmd.Flag("signature").Value.String()
-
-		if signature != "" {
-			err := os.Setenv("LITEBASE_SIGNATURE", signature)
+		if encryptionKey != "" {
+			err := os.Setenv("LITEBASE_ENCRYPTION_KEY", encryptionKey)
 
 			if err != nil {
 				panic(err)
@@ -75,7 +65,7 @@ func NewInitCmd() *cobra.Command {
 
 	}).WithFlags(func(cmd *cobra.Command) {
 		cmd.Flags().String("cluster-id", "", "Provide an ID when initializing new clusters")
-		cmd.Flags().String("signature", "", "The signature (256-bit hash digest) to use when initializing a cluster")
+		cmd.Flags().String("key", "", "The key (256-bit hash digest) to use when initializing a cluster")
 		cmd.Flags().String("username", "", "The username of the initial root user of the cluster")
 		cmd.Flags().String("password", "", "The password of the initial root user of the cluster")
 	}).WithRun(func(cmd *cobra.Command, args []string) {

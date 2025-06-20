@@ -49,12 +49,12 @@ func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []P
 
 // Delete the AccessKey from the filesystem.
 func (accessKey *AccessKey) Delete() error {
-	signatures := AllSignatures(
+	keys := AllKeys(
 		accessKey.accessKeyManager.objectFS,
 	)
 
-	for _, signature := range signatures {
-		path := fmt.Sprintf("%s/access_keys/%s", signature, accessKey.AccessKeyId)
+	for _, key := range keys {
+		path := fmt.Sprintf("%s/access_keys/%s", key, accessKey.AccessKeyId)
 
 		err := accessKey.accessKeyManager.objectFS.Remove(path)
 
@@ -90,7 +90,7 @@ func (accessKey *AccessKey) Update(
 	}
 
 	encryptedAccessKey, err := accessKey.accessKeyManager.auth.SecretsManager.Encrypt(
-		accessKey.accessKeyManager.config.Signature,
+		accessKey.accessKeyManager.config.EncryptionKey,
 		jsonValue,
 	)
 
@@ -100,7 +100,7 @@ func (accessKey *AccessKey) Update(
 
 	err = accessKey.accessKeyManager.objectFS.WriteFile(
 		accessKey.accessKeyManager.auth.SecretsManager.SecretsPath(
-			accessKey.accessKeyManager.config.Signature,
+			accessKey.accessKeyManager.config.EncryptionKey,
 			fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId),
 		),
 		[]byte(encryptedAccessKey),

@@ -3,7 +3,6 @@ package config
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 
 	"os"
 )
@@ -23,6 +22,8 @@ type Config struct {
 	DatabaseDirectory      string
 	Debug                  bool
 	DefaultBranchName      string
+	EncryptionKey          string
+	EncryptionKeyNext      string
 	HostName               string
 	Env                    string
 	FakeObjectStorage      bool
@@ -35,8 +36,6 @@ type Config struct {
 	RootPassword           string
 	RootUsername           string
 	RouterNodePort         string
-	Signature              string
-	SignatureNext          string
 	StorageAccessKeyId     string
 	StorageBucket          string
 	StorageEndpoint        string
@@ -62,6 +61,8 @@ func NewConfig() *Config {
 		DataPath:               env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
+		EncryptionKey:          env("LITEBASE_ENCRYPTION_KEY", "").(string),
+		EncryptionKeyNext:      env("LITEBASE_ENCRYPTION_KEY_NEXT", "").(string),
 		Env:                    env("LITEBASE_ENV", "production").(string),
 		FakeObjectStorage:      env("LITEBASE_FAKE_OBJECT_STORAGE", "false") == "true",
 		HostName:               env("LITEBASE_HOSTNAME", "localhost").(string),
@@ -73,8 +74,6 @@ func NewConfig() *Config {
 		RouterNodePort:         env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:           env("LITEBASE_ROOT_USERNAME", "").(string),
-		Signature:              env("LITEBASE_SIGNATURE", "").(string),
-		SignatureNext:          env("LITEBASE_SIGNATURE_NEXT", "").(string),
 		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),
 		StorageBucket:          env("LITEBASE_STORAGE_BUCKET", "").(string),
 		StorageEndpoint:        env("LITEBASE_STORAGE_ENDPOINT", "").(string),
@@ -86,16 +85,9 @@ func NewConfig() *Config {
 	}
 }
 
-// Check if the signature directory exists
-func HasSignature(config *Config, signature string) bool {
-	_, err := os.Stat(fmt.Sprintf("%s/%s", config.DataPath, SignatureHash(signature)))
-
-	return err == nil
-}
-
-// Generate a hash of the signature so that it is not stored in plain text.
-func SignatureHash(signature string) string {
-	hash := sha256.Sum256([]byte(signature))
+// Generate a hash of the encryption key so that it is not stored in plain text.
+func EncryptionKeyHash(encryptionKey string) string {
+	hash := sha256.Sum256([]byte(encryptionKey))
 
 	return hex.EncodeToString(hash[:])
 }

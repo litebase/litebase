@@ -43,14 +43,14 @@ func NewSecretsManager(
 	tmpFS *storage.FileSystem,
 	tmpTieredFS *storage.FileSystem,
 ) *SecretsManager {
-	dks, _ := NewDatabaseKeyStore(tmpTieredFS, GetDatabaseKeysPath(config.Signature))
+	dks, _ := NewDatabaseKeyStore(tmpTieredFS, GetDatabaseKeysPath(config.EncryptionKey))
 
 	return &SecretsManager{
 		auth:                  auth,
 		config:                config,
 		databaseKeyStoreMutex: sync.RWMutex{},
 		databaseKeyStores: map[string]*DatabaseKeyStore{
-			config.Signature: dks,
+			config.EncryptionKey: dks,
 		},
 		encrypterInstances: make(map[string]*KeyEncrypter),
 		mutex:              sync.RWMutex{},
@@ -92,36 +92,36 @@ func (s *SecretsManager) databaseSettingCacheKey(databaseId, branchId string) st
 	return fmt.Sprintf("database_secret:%s:%s", databaseId, branchId)
 }
 
-func (s *SecretsManager) DatabaseKeyStore(signature string) (*DatabaseKeyStore, error) {
+func (s *SecretsManager) DatabaseKeyStore(key string) (*DatabaseKeyStore, error) {
 	s.databaseKeyStoreMutex.RLock()
-	_, ok := s.databaseKeyStores[signature]
+	_, ok := s.databaseKeyStores[key]
 	s.databaseKeyStoreMutex.RUnlock()
 
 	if !ok {
 		s.databaseKeyStoreMutex.Lock()
 		defer s.databaseKeyStoreMutex.Unlock()
 
-		if signature != s.config.Signature && signature != s.config.SignatureNext {
-			return nil, errors.New("invalid signature")
+		if key != s.config.EncryptionKey && key != s.config.EncryptionKeyNext {
+			return nil, errors.New("invalid encryption key")
 		}
 
-		s.databaseKeyStores[signature], _ = NewDatabaseKeyStore(
+		s.databaseKeyStores[key], _ = NewDatabaseKeyStore(
 			s.TmpFS,
-			GetDatabaseKeysPath(signature),
+			GetDatabaseKeysPath(key),
 		)
 	}
 
-	return s.databaseKeyStores[signature], nil
+	return s.databaseKeyStores[key], nil
 }
 
-// Decrypt the given text using the given signature
-func (s *SecretsManager) Decrypt(signature string, data []byte) (DecryptedSecret, error) {
-	return s.Encrypter(signature).Decrypt(data)
+// Decrypt the given text using the given encryption key
+func (s *SecretsManager) Decrypt(encryptionKey string, data []byte) (DecryptedSecret, error) {
+	return s.Encrypter(encryptionKey).Decrypt(data)
 }
 
 // Delete a database key from the SecretsManager.
 func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
-	dks, _ := s.DatabaseKeyStore(s.config.Signature)
+	dks, _ := s.DatabaseKeyStore(s.config.EncryptionKey)
 
 	err := dks.Delete(databaseKey)
 
@@ -129,8 +129,8 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 		return err
 	}
 
-	if s.config.SignatureNext != "" {
-		dks, _ = s.DatabaseKeyStore(s.config.SignatureNext)
+	if s.config.EncryptionKeyNext != "" {
+		dks, _ = s.DatabaseKeyStore(s.config.EncryptionKeyNext)
 
 		err = dks.Delete(databaseKey)
 
@@ -142,23 +142,23 @@ func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
 	return nil
 }
 
-// Encrypt the given data using the given signature
-func (s *SecretsManager) Encrypt(signature string, data []byte) ([]byte, error) {
-	return s.Encrypter(signature).Encrypt(data)
+// Encrypt the given data using the given key
+func (s *SecretsManager) Encrypt(encryptionKey string, data []byte) ([]byte, error) {
+	return s.Encrypter(encryptionKey).Encrypt(data)
 }
 
 // Get the KeyEncrypter for the given key
-func (s *SecretsManager) Encrypter(signature string) *KeyEncrypter {
+func (s *SecretsManager) Encrypter(encryptionKey string) *KeyEncrypter {
 	var encrypter *KeyEncrypter
 
 	s.mutex.RLock()
-	encrypter, ok := s.encrypterInstances[signature]
+	encrypter, ok := s.encrypterInstances[encryptionKey]
 	s.mutex.RUnlock()
 
 	if !ok {
 		s.mutex.Lock()
-		s.encrypterInstances[signature] = NewKeyEncrypter(s, signature)
-		encrypter = s.encrypterInstances[signature]
+		s.encrypterInstances[encryptionKey] = NewKeyEncrypter(s, encryptionKey)
+		encrypter = s.encrypterInstances[encryptionKey]
 
 		s.mutex.Unlock()
 	}
@@ -193,7 +193,7 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 }
 
 func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
-	dks, _ := s.DatabaseKeyStore(s.config.Signature)
+	dks, _ := s.DatabaseKeyStore(s.config.EncryptionKey)
 
 	databaseKey, err := dks.Get(key)
 
@@ -207,8 +207,8 @@ func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
 // Initialize the SecretsManager
 func (s *SecretsManager) Init() error {
 	// Ensure the secrets path exists
-	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.Signature, "")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, ""), 0750)
+	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.EncryptionKey, "")); os.IsNotExist(err) {
+		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.EncryptionKey, ""), 0750)
 
 		if err != nil {
 			return err
@@ -216,8 +216,8 @@ func (s *SecretsManager) Init() error {
 	}
 
 	// Ensure the access keys path exists
-	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.Signature, "access_keys/")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "access_keys/"), 0750)
+	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.EncryptionKey, "access_keys/")); os.IsNotExist(err) {
+		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.EncryptionKey, "access_keys/"), 0750)
 
 		if err != nil {
 			return err
@@ -225,8 +225,8 @@ func (s *SecretsManager) Init() error {
 	}
 
 	// Ensure the settings path exists
-	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.Signature, "settings/")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.Signature, "settings/"), 0750)
+	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.EncryptionKey, "settings/")); os.IsNotExist(err) {
+		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.EncryptionKey, "settings/"), 0750)
 
 		if err != nil {
 			return err
@@ -283,7 +283,7 @@ func (s *SecretsManager) PurgeExpiredSecrets() error {
 			continue
 		}
 
-		// Check if the signature is still valid
+		// Check if the key is still valid
 		manifest, err := s.ObjectFS.ReadFile(manifestPath)
 
 		if err != nil {
@@ -319,11 +319,11 @@ func (s *SecretsManager) PurgeExpiredSecrets() error {
 	return nil
 }
 
-// Get the path for the given signature and key
-func (s *SecretsManager) SecretsPath(signature, key string) string {
+// Get the path for the given encryption key and key
+func (s *SecretsManager) SecretsPath(encryptionKey, key string) string {
 	return fmt.Sprintf(
 		"%s/%s",
-		config.SignatureHash(signature),
+		config.EncryptionKeyHash(encryptionKey),
 		key,
 	)
 }
@@ -338,7 +338,7 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	}
 
 	encryptedAccessKey, err := s.Encrypt(
-		s.config.Signature,
+		s.config.EncryptionKey,
 		jsonValue,
 	)
 
@@ -348,7 +348,7 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	}
 
 	err = s.ObjectFS.WriteFile(
-		s.SecretsPath(s.config.Signature, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
+		s.SecretsPath(s.config.EncryptionKey, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
 		[]byte(encryptedAccessKey),
 		0600,
 	)
@@ -373,7 +373,7 @@ func (s *SecretsManager) StoreDatabaseKey(
 		databaseKey,
 	)
 
-	dks, _ := s.DatabaseKeyStore(s.config.Signature)
+	dks, _ := s.DatabaseKeyStore(s.config.EncryptionKey)
 
 	err := dks.Put(dk)
 
@@ -381,8 +381,8 @@ func (s *SecretsManager) StoreDatabaseKey(
 		return err
 	}
 
-	if s.config.SignatureNext != "" {
-		dks, err = s.DatabaseKeyStore(s.config.SignatureNext)
+	if s.config.EncryptionKeyNext != "" {
+		dks, err = s.DatabaseKeyStore(s.config.EncryptionKeyNext)
 
 		if err != nil {
 			log.Println(err)

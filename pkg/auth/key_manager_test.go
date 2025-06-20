@@ -13,7 +13,7 @@ import (
 func TestGetPrivateKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		privateKey, err := auth.GetPrivateKey(
-			app.Config.Signature,
+			app.Config.EncryptionKey,
 			app.Cluster.ObjectFS(),
 		)
 
@@ -30,7 +30,7 @@ func TestGetPrivateKey(t *testing.T) {
 func TestGetPrivateKeyWithObjectStorage(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
 		privateKey, err := auth.GetPrivateKey(
-			app.Config.Signature,
+			app.Config.EncryptionKey,
 			app.Cluster.ObjectFS(),
 		)
 
@@ -40,6 +40,19 @@ func TestGetPrivateKeyWithObjectStorage(t *testing.T) {
 
 		if privateKey == nil {
 			t.Fatalf("Private key is nil")
+		}
+	})
+}
+
+func TestHasKey(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		hasKey := auth.HasKey(
+			app.Config.EncryptionKey,
+			app.Cluster.ObjectFS(),
+		)
+
+		if !hasKey {
+			t.Fatalf("Expected key to exist, but it does not")
 		}
 	})
 }
@@ -67,7 +80,7 @@ func TestKeyManagerInit(t *testing.T) {
 		}
 
 		privateKey, err := auth.GetPrivateKey(
-			server.App.Config.Signature,
+			server.App.Config.EncryptionKey,
 			server.App.Cluster.ObjectFS(),
 		)
 
@@ -96,20 +109,20 @@ func TestKeyPath(t *testing.T) {
 
 		privateKeyPath := auth.KeyPath(
 			"private",
-			server.App.Config.Signature,
+			server.App.Config.EncryptionKey,
 		)
 
 		if privateKeyPath == "" {
 			t.Fatalf("Private key path is empty")
 		}
 
-		if privateKeyPath != fmt.Sprintf("%s/private.key", config.SignatureHash(server.App.Config.Signature)) {
+		if privateKeyPath != fmt.Sprintf("%s/private.key", config.EncryptionKeyHash(server.App.Config.EncryptionKey)) {
 			t.Fatalf("Private key path is not correct: %s", privateKeyPath)
 		}
 	})
 }
 
-func TestNextSignature(t *testing.T) {
+func TestNextEncryptionKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		err := auth.KeyManagerInit(
 			app.Config,
@@ -120,10 +133,9 @@ func TestNextSignature(t *testing.T) {
 			t.Fatalf("Failed to initialize key manager: %s", err.Error())
 		}
 
-		err = auth.NextSignature(
+		err = auth.NextEncryptionKey(
 			app.Auth,
 			app.Config,
-			app.Auth.SecretsManager,
 			"test",
 		)
 

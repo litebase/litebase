@@ -144,7 +144,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 	address, _ := nc.node.Address()
 
 	encryptedHeader, err := nc.node.Cluster.Auth.SecretsManager.Encrypt(
-		nc.node.Cluster.Config.Signature,
+		nc.node.Cluster.Config.EncryptionKey,
 		[]byte(address),
 	)
 

@@ -4,7 +4,7 @@ import (
 	"github.com/litebase/litebase/pkg/config"
 )
 
-func NextSignatureHandler(c *config.Config, data any) {
-	// TOOD: check if signature is valid by using a struct
-	c.SignatureNext = data.(string)
+func NextKeyHandler(c *config.Config, data any) {
+	// TOOD: check if key is valid by using a struct
+	c.EncryptionKeyNext = data.(string)
 }

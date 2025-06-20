@@ -80,14 +80,14 @@ func setupTestEnv(t testing.TB) (string, error) {
 	t.Setenv("LITEBASE_NETWORK_STORAGE_PATH", networkStoragePath)
 	t.Setenv("LITEBASE_TMP_PATH", tmpPath)
 
-	var signature string
-	if os.Getenv("LITEBASE_TEST_SIGNATURE") != "" {
-		signature = os.Getenv("LITEBASE_TEST_SIGNATURE")
+	var encryptionKey string
+	if os.Getenv("LITEBASE_TEST_ENCRYPTION_KEY") != "" {
+		encryptionKey = os.Getenv("LITEBASE_TEST_ENCRYPTION_KEY")
 	} else {
-		signature = CreateHash(64)
+		encryptionKey = CreateHash(64)
 	}
 
-	t.Setenv("LITEBASE_SIGNATURE", signature)
+	t.Setenv("LITEBASE_ENCRYPTION_KEY", encryptionKey)
 
 	if os.Getenv("LITEBASE_TEST_DEBUG_LEVEL") == "debug" {
 		slog.SetLogLoggerLevel(slog.LevelDebug)

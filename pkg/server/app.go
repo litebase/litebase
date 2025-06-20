@@ -57,7 +57,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		panic(err)
 	}
 
-	err = auth.InitSignature(app.Config, clusterInstance.ObjectFS())
+	err = auth.InitKey(app.Config, clusterInstance.ObjectFS())
 
 	if err != nil {
 		panic(err)

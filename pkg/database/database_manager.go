@@ -172,7 +172,7 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 // Create a new instance of a database.
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
-	dks, err := d.SecretsManager.DatabaseKeyStore(d.Cluster.Config.Signature)
+	dks, err := d.SecretsManager.DatabaseKeyStore(d.Cluster.Config.EncryptionKey)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database key store: %w", err)

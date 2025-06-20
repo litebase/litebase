@@ -8,12 +8,12 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestNextSignatureHandler(t *testing.T) {
+func TestNextKeyHandler(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		cluster.NextSignatureHandler(app.Config, "data")
+		cluster.NextKeyHandler(app.Config, "data")
 
-		if app.Config.SignatureNext != "data" {
-			t.Fatalf("Signature not set correctly: %s", app.Config.SignatureNext)
+		if app.Config.EncryptionKeyNext != "data" {
+			t.Fatalf("Key not set correctly: %s", app.Config.EncryptionKeyNext)
 		}
 	})
 }

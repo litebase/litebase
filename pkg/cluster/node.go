@@ -695,7 +695,7 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 	address, _ := n.Address()
 
 	encryptedHeader, err := n.Cluster.Auth.SecretsManager.Encrypt(
-		n.Cluster.Config.Signature,
+		n.Cluster.Config.EncryptionKey,
 		[]byte(address),
 	)
 

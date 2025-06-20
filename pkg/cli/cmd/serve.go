@@ -49,7 +49,7 @@ func NewServeCmd() *cobra.Command {
 		cmd.Flags().Bool("primary", true, "Run the server as a primary node")
 		cmd.Flags().String("port", "8080", "The port to run the server on")
 		cmd.Flags().Bool("replica", false, "Run the server as a replica node")
-		cmd.Flags().String("signature", "", "The signature to use for server encryption")
+		cmd.Flags().String("key", "", "The key to use for server encryption")
 		cmd.Flags().String("tmp-path", "./litebase-tmp", "The directory to use for temporary files")
 		cmd.Flags().String("tls-cert", "", "The path to the TLS certificate")
 		cmd.Flags().String("tls-key", "", "The path to the TLS key")

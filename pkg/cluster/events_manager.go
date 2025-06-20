@@ -113,16 +113,16 @@ func (em *EventsManager) Init() {
 		// TODO: Implement database settings purge
 	})
 
-	em.cluster.Subscribe("signature:activate", func(message *EventMessage) {
-		err := ActivateSignatureHandler(em.cluster.Config, message.Value)
+	em.cluster.Subscribe("key:activate", func(message *EventMessage) {
+		err := ActivateKeyHandler(em.cluster.Config, message.Value)
 
 		if err != nil {
-			slog.Error("Failed to activate signature", "error", err)
+			slog.Error("Failed to activate key", "error", err)
 		}
 	})
 
-	em.cluster.Subscribe("signature:next", func(message *EventMessage) {
-		NextSignatureHandler(em.cluster.Config, message.Value)
+	em.cluster.Subscribe("key:next", func(message *EventMessage) {
+		NextKeyHandler(em.cluster.Config, message.Value)
 	})
 
 	em.cluster.Subscribe("user:purge", func(message *EventMessage) {

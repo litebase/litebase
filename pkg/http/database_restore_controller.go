@@ -2,7 +2,6 @@ package http
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -48,8 +47,6 @@ func DatabaseRestoreController(request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	log.Println("test", input.(*DatabaseRestoreRequest).Timestamp)
-
 	timestamp, err := strconv.ParseInt(input.(*DatabaseRestoreRequest).Timestamp, 10, 64)
 
 	if err != nil {
@@ -72,7 +69,7 @@ func DatabaseRestoreController(request *Request) Response {
 	snapshotLogger := request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger()
 	sourceDfs := request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem()
 	targetDfs := request.databaseManager.Resources(targetDatabaseUuid, targetBranchUuid).FileSystem()
-	log.Println("Starting restore from timestamp", timestamp)
+
 	err = backups.RestoreFromTimestamp(
 		request.cluster.Config,
 		request.cluster.TieredFS(),

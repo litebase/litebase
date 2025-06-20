@@ -11,7 +11,7 @@ import (
 
 func TestKeyEncrypter_Decrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
+		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.EncryptionKey)
 		testData := []byte("test data for decryption")
 
 		// First encrypt some data
@@ -40,7 +40,7 @@ func TestKeyEncrypter_Decrypt(t *testing.T) {
 
 func TestKeyEncrypter_DecryptInvalidData(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
+		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.EncryptionKey)
 
 		// Test with invalid base64
 		_, err := keyEncrypter.Decrypt([]byte("invalid base64 data!"))
@@ -66,24 +66,24 @@ func TestKeyEncrypter_DecryptInvalidData(t *testing.T) {
 	})
 }
 
-func TestKeyEncrypter_DifferentSignatures(t *testing.T) {
+func TestKeyEncrypter_DifferentEncryptionKeys(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		// Create key encrypters with different signatures
-		keyEncrypter1 := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
+		// Create key encrypters with different encryption keys
+		keyEncrypter1 := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.EncryptionKey)
 
-		// Use SignatureNext if available, otherwise create a test signature
-		var signature2 string
+		// Use EncryptionKeyNext if available, otherwise create a test encryption key
+		var encryptionKey2 string
 
-		if app.Config.SignatureNext != "" {
-			signature2 = app.Config.SignatureNext
+		if app.Config.EncryptionKeyNext != "" {
+			encryptionKey2 = app.Config.EncryptionKeyNext
 		} else {
-			signature2 = test.CreateHash(64)
-			app.Config.SignatureNext = signature2
+			encryptionKey2 = test.CreateHash(64)
+			app.Config.EncryptionKeyNext = encryptionKey2
 		}
 
-		keyEncrypter2 := auth.NewKeyEncrypter(app.Auth.SecretsManager, signature2)
+		keyEncrypter2 := auth.NewKeyEncrypter(app.Auth.SecretsManager, encryptionKey2)
 
-		testData := []byte("test data for different signatures")
+		testData := []byte("test data for different encryption keys")
 
 		// Encrypt with first encrypter
 		encrypted1, err := keyEncrypter1.Encrypt(testData)
@@ -95,14 +95,14 @@ func TestKeyEncrypter_DifferentSignatures(t *testing.T) {
 		_, err = keyEncrypter2.Decrypt(encrypted1)
 
 		if err == nil {
-			t.Error("Expected decryption to fail when using different signature")
+			t.Error("Expected decryption to fail when using different encryption keys")
 		}
 	})
 }
 
 func TestKeyEncrypter_Encrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
+		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.EncryptionKey)
 		testData := []byte("test data for encryption")
 
 		encrypted, err := keyEncrypter.Encrypt(testData)
@@ -128,7 +128,7 @@ func TestKeyEncrypter_Encrypt(t *testing.T) {
 
 func TestKeyEncrypter_EncryptDecryptRoundTrip(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
+		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.EncryptionKey)
 
 		testCases := [][]byte{
 			[]byte("simple test"),
@@ -163,7 +163,7 @@ func TestKeyEncrypter_EncryptDecryptRoundTrip(t *testing.T) {
 
 func TestKeyEncrypter_MultipleEncryptions(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
+		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.EncryptionKey)
 		testData := []byte("test data")
 
 		// Encrypt the same data multiple times
@@ -205,7 +205,7 @@ func TestKeyEncrypter_MultipleEncryptions(t *testing.T) {
 
 func TestNewKeyEncrypter(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
+		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.EncryptionKey)
 
 		if keyEncrypter == nil {
 			t.Error("Expected NewKeyEncrypter to return a non-nil KeyEncrypter")

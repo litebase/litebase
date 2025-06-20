@@ -40,7 +40,7 @@ func TestInternalMiddleware(t *testing.T) {
 		address, _ := server2.App.Cluster.Node().Address()
 
 		encryptedHeader, err := server2.App.Cluster.Auth.SecretsManager.Encrypt(
-			server2.App.Cluster.Config.Signature,
+			server2.App.Cluster.Config.EncryptionKey,
 			[]byte(address),
 		)
 

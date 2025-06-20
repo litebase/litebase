@@ -11,7 +11,7 @@ func ClusterMemberDestroyController(request *Request) Response {
 	ipAddress := request.Headers().Get("X-Lbdb-Node")
 
 	decryptedIp, err := request.cluster.Auth.SecretsManager.Decrypt(
-		request.cluster.Config.Signature,
+		request.cluster.Config.EncryptionKey,
 		[]byte(ipAddress),
 	)
 
@@ -88,7 +88,7 @@ func ClusterMemberStoreController(request *Request) Response {
 	}
 
 	decryptedIp, err := request.cluster.Auth.SecretsManager.Decrypt(
-		request.cluster.Config.Signature,
+		request.cluster.Config.EncryptionKey,
 		[]byte(ipAddress),
 	)
 

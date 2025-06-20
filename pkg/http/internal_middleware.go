@@ -13,7 +13,7 @@ func Internal(request *Request) (*Request, Response) {
 
 	if nodeHeader != "" {
 		nodeAddressDecrypted, err := request.cluster.Auth.SecretsManager.Decrypt(
-			request.cluster.Config.Signature,
+			request.cluster.Config.EncryptionKey,
 			[]byte(nodeHeader),
 		)
 

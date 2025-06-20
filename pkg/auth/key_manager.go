@@ -28,7 +28,7 @@ var privateKeys = map[string]*rsa.PrivateKey{}
 var privateKeysMutex = &sync.Mutex{}
 
 // Decrypt a private key using AES-GCM with HKDF for key derivation.
-func decryptPrivateKey(signature string, encryptedData []byte) ([]byte, error) {
+func decryptPrivateKey(key string, encryptedData []byte) ([]byte, error) {
 	hash := sha256.New()
 	saltSize := hash.Size()
 
@@ -41,22 +41,26 @@ func decryptPrivateKey(signature string, encryptedData []byte) ([]byte, error) {
 	salt := encryptedData[:saltSize]
 
 	// Derive the same key using HKDF
-	secret := sha256.Sum256([]byte(signature))
+	secret := sha256.Sum256([]byte(key))
 	info := []byte("litebase data encryption key")
 
 	hkdf := hkdf.New(sha256.New, secret[:], salt, info)
-	key := make([]byte, 32)
-	if _, err := io.ReadFull(hkdf, key); err != nil {
+
+	keySlice := make([]byte, 32)
+
+	if _, err := io.ReadFull(hkdf, keySlice); err != nil {
 		return nil, fmt.Errorf("failed to read full key from HKDF: %w", err)
 	}
 
 	// Create cipher
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(keySlice)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
 
 	aead, err := cipher.NewGCM(block)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
@@ -74,6 +78,7 @@ func decryptPrivateKey(signature string, encryptedData []byte) ([]byte, error) {
 
 	// Decrypt and verify
 	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
@@ -82,7 +87,7 @@ func decryptPrivateKey(signature string, encryptedData []byte) ([]byte, error) {
 }
 
 // Encrypt a private key using AES-GCM with HKDF for key derivation.
-func encryptPrivateKey(signature string, privateKey []byte) ([]byte, error) {
+func encryptPrivateKey(key string, privateKey []byte) ([]byte, error) {
 	hash := sha256.New()
 
 	salt := make([]byte, hash.Size())
@@ -91,18 +96,18 @@ func encryptPrivateKey(signature string, privateKey []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	secret := sha256.Sum256([]byte(signature))
+	secret := sha256.Sum256([]byte(key))
 	info := []byte("litebase data encryption key")
 
 	hkdf := hkdf.New(sha256.New, secret[:], salt, info)
 
-	key := make([]byte, 32)
+	keySlice := make([]byte, 32)
 
-	if _, err := io.ReadFull(hkdf, key); err != nil {
+	if _, err := io.ReadFull(hkdf, keySlice); err != nil {
 		return nil, fmt.Errorf("failed to read full key from HKDF: %w", err)
 	}
 
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(keySlice)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
@@ -131,19 +136,19 @@ func encryptPrivateKey(signature string, privateKey []byte) ([]byte, error) {
 	return result, nil
 }
 
-// Generate a new key for the current signature if one does not exist.
+// Generate a new key for the current encryption key if one does not exist.
 func generate(c *config.Config, objectFS *storage.FileSystem) error {
-	signature := c.Signature
+	encryptionKey := c.EncryptionKey
 
-	// Ensure the signature is a 32 byte hash
-	if len(signature) != 64 {
-		return errors.New("invalid signature length")
+	// Ensure the encryption key is a 32 byte hash
+	if len(encryptionKey) != 64 {
+		return errors.New("invalid encryption key length")
 	}
 
-	_, err := objectFS.Stat(KeyPath("private", signature))
+	_, err := objectFS.Stat(KeyPath("private", encryptionKey))
 
 	if os.IsNotExist(err) {
-		_, err := generatePrivateKey(signature, objectFS)
+		_, err := generatePrivateKey(encryptionKey, objectFS)
 
 		if err != nil {
 			return err
@@ -153,18 +158,18 @@ func generate(c *config.Config, objectFS *storage.FileSystem) error {
 	return nil
 }
 
-func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.PrivateKey, error) {
+func generatePrivateKey(encryptionKey string, objectFS *storage.FileSystem) (*rsa.PrivateKey, error) {
 	var err error
 
-	if _, err := objectFS.Stat(KeyPath("private", signature)); err == nil {
+	if _, err := objectFS.Stat(KeyPath("private", encryptionKey)); err == nil {
 		return nil, errors.New("private key already exists")
 	}
 
-	// Create the signature directory if it does not exist
-	signatureDirectory := Path(signature)
+	// Create the encryption directory if it does not exist
+	encryptionDirectory := Path(encryptionKey)
 
-	if _, err := objectFS.Stat(signatureDirectory); os.IsNotExist(err) {
-		if err := objectFS.MkdirAll(signatureDirectory, 0750); err != nil {
+	if _, err := objectFS.Stat(encryptionDirectory); os.IsNotExist(err) {
+		if err := objectFS.MkdirAll(encryptionDirectory, 0750); err != nil {
 			log.Println(err)
 			return nil, err
 		}
@@ -177,7 +182,7 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 		return nil, err
 	}
 
-	if err := objectFS.MkdirAll(Path(signature), 0750); err != nil {
+	if err := objectFS.MkdirAll(Path(encryptionKey), 0750); err != nil {
 		log.Println(err)
 		return nil, err
 	}
@@ -188,14 +193,14 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
 
-	encryptedFileData, err := encryptPrivateKey(signature, fileData)
+	encryptedFileData, err := encryptPrivateKey(encryptionKey, fileData)
 
 	if err != nil {
 		slog.Error("Failed to encrypt private key", "error", err)
 		return nil, err
 	}
 
-	if err := objectFS.WriteFile(KeyPath("private", signature), encryptedFileData, 0600); err != nil {
+	if err := objectFS.WriteFile(KeyPath("private", encryptionKey), encryptedFileData, 0600); err != nil {
 		slog.Error("Failed to write private key", "error", err)
 		return nil, err
 	}
@@ -203,111 +208,124 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 	return key, nil
 }
 
-// GetPrivateKey retrieves the private key for the given signature.
-func GetPrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.PrivateKey, error) {
+// GetPrivateKey retrieves the private key for the given encryption key.
+func GetPrivateKey(encryptionKey string, objectFS *storage.FileSystem) (*rsa.PrivateKey, error) {
 	privateKeysMutex.Lock()
 	defer privateKeysMutex.Unlock()
 
-	if privateKeys[signature] == nil {
-		encryptedPrivateKey, err := objectFS.ReadFile(KeyPath("private", signature))
+	if privateKeys[encryptionKey] == nil {
+		encryptedPrivateKey, err := objectFS.ReadFile(KeyPath("private", encryptionKey))
+
 		if err != nil {
 			slog.Debug("Failed to read private key", "error", err.Error())
 			return nil, err
 		}
 
 		// Decrypt the private key
-		privateKeyData, err := decryptPrivateKey(signature, encryptedPrivateKey)
+		privateKeyData, err := decryptPrivateKey(encryptionKey, encryptedPrivateKey)
+
 		if err != nil {
 			slog.Error("Failed to decrypt private key", "error", err)
 			return nil, err
 		}
 
 		block, _ := pem.Decode(privateKeyData)
+
 		if block == nil {
 			return nil, errors.New("failed to parse PEM block containing the key")
 		}
 
 		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+
 		if err != nil {
 			return nil, err
 		}
 
-		privateKeys[signature] = key
+		privateKeys[encryptionKey] = key
 	}
 
-	return privateKeys[signature], nil
+	return privateKeys[encryptionKey], nil
 }
 
-// Initialize the key manager by generating a private key for the signature if
+func HasKey(encryptionKey string, objectFS *storage.FileSystem) bool {
+	_, err := objectFS.Stat(Path(encryptionKey))
+
+	if os.IsNotExist(err) {
+		return false
+	}
+
+	if err != nil {
+		slog.Error("Error checking key existence", "error", err)
+		return false
+	}
+
+	return true
+}
+
+// Initialize the key manager by generating a private key for the encryption key if
 // one does not exist.
 func KeyManagerInit(c *config.Config, secretsManager *SecretsManager) error {
-	// Generate a private key for the signature if one does not exist
+	// Generate a private key for the encryption key if one does not exist
 	err := generate(c, secretsManager.ObjectFS)
 
 	if err != nil {
 		return err
 	}
 
-	_, err = GetPrivateKey(c.Signature, secretsManager.ObjectFS)
-
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
-// Return the path for a key for the given signature.
-func KeyPath(keyType string, signature string) string {
-	return Path(signature) + fmt.Sprintf("%s.key", keyType)
+// Return the path for a key for the given encryption key.
+func KeyPath(keyType string, encryptionKey string) string {
+	return Path(encryptionKey) + fmt.Sprintf("%s.key", keyType)
 }
 
-// Initialize the next signature.
-func NextSignature(auth *Auth, c *config.Config, secretsManager *SecretsManager, signature string) error {
-	if c.Signature == signature {
-		return errors.New("the signature is already the current signature")
+// Initialize the next encryption key.
+func NextEncryptionKey(auth *Auth, c *config.Config, encryptionKey string) error {
+	if c.EncryptionKey == encryptionKey {
+		return errors.New("the encryption key is already the current encryption key")
 	}
 
-	c.SignatureNext = signature
+	c.EncryptionKeyNext = encryptionKey
 
-	_, err := generatePrivateKey(signature, secretsManager.ObjectFS)
+	_, err := generatePrivateKey(encryptionKey, auth.SecretsManager.ObjectFS)
 
 	if err != nil {
 		return err
 	}
 
-	err = rotate(c, secretsManager)
+	err = rotate(c, auth.SecretsManager)
 
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	auth.Broadcast("next_signature", signature)
+	auth.Broadcast("next_encryption_key", encryptionKey)
 
 	return nil
 }
 
-// Rotate the secrets for the next signature.
+// Rotate the secrets for the next encryption key.
 func rotate(c *config.Config, secretsManager *SecretsManager) error {
-	if c.SignatureNext == "" {
+	if c.EncryptionKeyNext == "" {
 		return nil
 	}
 
-	if _, err := secretsManager.ObjectFS.Stat(Path(c.SignatureNext) + ".rotate-lock"); err == nil {
+	if _, err := secretsManager.ObjectFS.Stat(Path(c.EncryptionKeyNext) + ".rotate-lock"); err == nil {
 		return nil
 	}
 
-	if _, err := secretsManager.ObjectFS.Stat(Path(c.SignatureNext) + "manifest.json"); err == nil {
+	if _, err := secretsManager.ObjectFS.Stat(Path(c.EncryptionKeyNext) + "manifest.json"); err == nil {
 		return nil
 	}
 
 	// create rotate lock
-	if err := secretsManager.ObjectFS.MkdirAll(Path(c.SignatureNext), 0750); err != nil {
+	if err := secretsManager.ObjectFS.MkdirAll(Path(c.EncryptionKeyNext), 0750); err != nil {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+".rotate-lock", []byte{}, 0600); err != nil {
+	if err := secretsManager.ObjectFS.WriteFile(Path(c.EncryptionKeyNext)+".rotate-lock", []byte{}, 0600); err != nil {
 		return err
 	}
 
@@ -357,8 +375,8 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 	}
 
 	manifest := map[string]any{
-		"signature":  c.SignatureNext,
-		"rotated_at": time.Now().UTC().Unix(),
+		"encryption_key": c.EncryptionKeyNext,
+		"rotated_at":     time.Now().UTC().Unix(),
 	}
 
 	manifestBytes, err := json.Marshal(manifest)
@@ -367,12 +385,12 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.WriteFile(Path(c.SignatureNext)+"manifest.json", manifestBytes, 0600); err != nil {
+	if err := secretsManager.ObjectFS.WriteFile(Path(c.EncryptionKeyNext)+"manifest.json", manifestBytes, 0600); err != nil {
 
 		return err
 	}
 
-	if err := secretsManager.ObjectFS.Remove(Path(c.SignatureNext) + ".rotate-lock"); err != nil {
+	if err := secretsManager.ObjectFS.Remove(Path(c.EncryptionKeyNext) + ".rotate-lock"); err != nil {
 		return err
 	}
 
@@ -380,8 +398,8 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 }
 
 func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
-	accessKeyDir := Path(c.Signature) + "access_keys/"
-	newAccessKeyDir := Path(c.SignatureNext) + "access_keys/"
+	accessKeyDir := Path(c.EncryptionKey) + "access_keys/"
+	newAccessKeyDir := Path(c.EncryptionKeyNext) + "access_keys/"
 
 	accessKeys, err := secretsManager.ObjectFS.ReadDir(accessKeyDir)
 
@@ -402,13 +420,13 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 			return err
 		}
 
-		decryptedAccessKey, err := secretsManager.Decrypt(c.Signature, accessKeyBytes)
+		decryptedAccessKey, err := secretsManager.Decrypt(c.EncryptionKey, accessKeyBytes)
 
 		if err != nil {
 			return err
 		}
 
-		encryptedAccessKey, err := secretsManager.Encrypt(c.SignatureNext, []byte(decryptedAccessKey.Value))
+		encryptedAccessKey, err := secretsManager.Encrypt(c.EncryptionKeyNext, []byte(decryptedAccessKey.Value))
 
 		if err != nil {
 			return err
@@ -427,13 +445,13 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 }
 
 func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error {
-	currentDks, err := secretsManager.DatabaseKeyStore(c.Signature)
+	currentDks, err := secretsManager.DatabaseKeyStore(c.EncryptionKey)
 
 	if err != nil {
 		return err
 	}
 
-	newDks, err := secretsManager.DatabaseKeyStore(c.SignatureNext)
+	newDks, err := secretsManager.DatabaseKeyStore(c.EncryptionKeyNext)
 
 	if err != nil {
 		return err
@@ -454,8 +472,8 @@ func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error 
 func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 	var databaseSettings []internalStorage.DirEntry
 
-	settingsDir := Path(c.Signature) + "settings/"
-	newSettingsDir := Path(c.SignatureNext) + "settings/"
+	settingsDir := Path(c.EncryptionKey) + "settings/"
+	newSettingsDir := Path(c.EncryptionKeyNext) + "settings/"
 
 	settings, err := secretsManager.ObjectFS.ReadDir(settingsDir)
 
@@ -496,13 +514,13 @@ func rotateSettings(c *config.Config, secretsManager *SecretsManager) error {
 				return err
 			}
 
-			decryptedSetting, err := secretsManager.Decrypt(c.Signature, databaseSettingBytes)
+			decryptedSetting, err := secretsManager.Decrypt(c.EncryptionKey, databaseSettingBytes)
 
 			if err != nil {
 				return err
 			}
 
-			encryptedSetting, err := secretsManager.Encrypt(c.SignatureNext, []byte(decryptedSetting.Value))
+			encryptedSetting, err := secretsManager.Encrypt(c.EncryptionKeyNext, []byte(decryptedSetting.Value))
 
 			if err != nil {
 				return err

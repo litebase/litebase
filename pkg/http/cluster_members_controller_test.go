@@ -34,7 +34,7 @@ func TestClusterMemberDestroyController(t *testing.T) {
 		}
 
 		encryptedHeader, err := server2.App.Cluster.Auth.SecretsManager.Encrypt(
-			server2.App.Cluster.Config.Signature,
+			server2.App.Cluster.Config.EncryptionKey,
 			[]byte(address),
 		)
 
@@ -132,7 +132,7 @@ func TestClusterMemberStoreController(t *testing.T) {
 		}
 
 		encryptedHeader, err := server2.App.Cluster.Auth.SecretsManager.Encrypt(
-			server2.App.Cluster.Config.Signature,
+			server2.App.Cluster.Config.EncryptionKey,
 			[]byte(address),
 		)
 

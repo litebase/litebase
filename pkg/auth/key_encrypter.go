@@ -14,13 +14,13 @@ import (
 
 type KeyEncrypter struct {
 	secretsManager *SecretsManager
-	signature      string
+	encryptionKey  string
 }
 
-func NewKeyEncrypter(secretsManager *SecretsManager, signature string) *KeyEncrypter {
+func NewKeyEncrypter(secretsManager *SecretsManager, encryptionKey string) *KeyEncrypter {
 	return &KeyEncrypter{
 		secretsManager: secretsManager,
-		signature:      signature,
+		encryptionKey:  encryptionKey,
 	}
 }
 
@@ -166,5 +166,5 @@ func (k *KeyEncrypter) Encrypt(data []byte) ([]byte, error) {
 }
 
 func (k *KeyEncrypter) privateKey() (*rsa.PrivateKey, error) {
-	return GetPrivateKey(k.signature, k.secretsManager.ObjectFS)
+	return GetPrivateKey(k.encryptionKey, k.secretsManager.ObjectFS)
 }

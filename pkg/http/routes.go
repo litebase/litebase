@@ -95,18 +95,19 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Post(
-		"/resources/signature",
-		SignatureStoreController,
+		"/resources/keys",
+		KeyStoreController,
 	).Middleware([]Middleware{
 		Authentication,
 		ForwardToPrimary,
 	})
 
 	router.Post(
-		"/resources/signature/activate",
-		SignatureActivateController,
+		"/resources/keys/activate",
+		KeyActivateController,
 	).Middleware([]Middleware{
 		Authentication,
+		ForwardToPrimary,
 	})
 
 	// Internal routes for cluster operations.

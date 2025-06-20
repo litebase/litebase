@@ -9,6 +9,7 @@ func setTestEnvVariable(t testing.TB) {
 	envVars := map[string]string{
 		"LITEBASE_CLUSTER_ID":                "cluster-1",
 		"LITEBASE_DEBUG":                     "true",
+		"LITEBASE_ENCRYPTION_KEY":            "a1f25fb235eccdb3c007356da75d84f921c573c4c65e94a78f1a0c3f834a275a",
 		"LITEBASE_ENV":                       "test",
 		"LITEBASE_HOSTNAME":                  "localhost",
 		"LITEBASE_FILESYSTEM_DRIVER":         "local",
@@ -20,7 +21,6 @@ func setTestEnvVariable(t testing.TB) {
 		"LITEBASE_ROOT_USERNAME":             "root",
 		"LITEBASE_ROUTER_NODE_PORT":          "8080",
 		"LITEBASE_ROUTER_NODE_PATH":          "/.test/nodes/router",
-		"LITEBASE_SIGNATURE":                 "a1f25fb235eccdb3c007356da75d84f921c573c4c65e94a78f1a0c3f834a275a",
 		"LITEBASE_STORAGE_ENDPOINT":          "http://s3.test:9000",
 		"LITEBASE_STORAGE_BUCKET":            "litebase-test",
 		"LITEBASE_STORAGE_ACCESS_KEY_ID":     "litebase_test",

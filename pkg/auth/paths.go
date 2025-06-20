@@ -6,10 +6,10 @@ import (
 	"github.com/litebase/litebase/pkg/config"
 )
 
-func GetDatabaseKeysPath(signature string) string {
-	return fmt.Sprintf("%s%s", Path(signature), "DATABASE_KEYS")
+func GetDatabaseKeysPath(key string) string {
+	return fmt.Sprintf("%s%s", Path(key), "DATABASE_KEYS")
 }
 
-func Path(signature string) string {
-	return config.SignatureHash(signature) + "/"
+func Path(key string) string {
+	return config.EncryptionKeyHash(key) + "/"
 }

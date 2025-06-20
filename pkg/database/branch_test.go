@@ -11,7 +11,7 @@ import (
 func TestNewBranch(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		dks, _ := app.Auth.SecretsManager.DatabaseKeyStore(
-			app.Config.Signature,
+			app.Config.EncryptionKey,
 		)
 		branch, err := database.NewBranch(
 			app.Config,

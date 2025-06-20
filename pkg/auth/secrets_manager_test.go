@@ -38,13 +38,13 @@ func TestSecretsManager_Decrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		str := "test"
 
-		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.Signature, []byte(str))
+		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.EncryptionKey, []byte(str))
 
 		if err != nil {
 			t.Error("Expected Encrypt to return a non-nil error")
 		}
 
-		decrypted, err := app.Auth.SecretsManager.Decrypt(app.Config.Signature, encrypted)
+		decrypted, err := app.Auth.SecretsManager.Decrypt(app.Config.EncryptionKey, encrypted)
 
 		if err != nil {
 			t.Error("Expected Decrypt to return a non-nil error")
@@ -58,9 +58,9 @@ func TestSecretsManager_Decrypt(t *testing.T) {
 
 func TestSecretsManager_DatabaseKeyStore(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		// Signature test
+		// Encryption key test
 		databaseKeyStore, err := app.Auth.SecretsManager.DatabaseKeyStore(
-			app.Config.Signature,
+			app.Config.EncryptionKey,
 		)
 
 		if databaseKeyStore == nil {
@@ -71,11 +71,11 @@ func TestSecretsManager_DatabaseKeyStore(t *testing.T) {
 			t.Error("Expected DatabaseKeyStore to return a non-nil error")
 		}
 
-		// Signature next test
-		app.Config.SignatureNext = test.CreateHash(64)
+		// Encryption key next test
+		app.Config.EncryptionKeyNext = test.CreateHash(64)
 
 		databaseKeyStore, err = app.Auth.SecretsManager.DatabaseKeyStore(
-			app.Config.SignatureNext,
+			app.Config.EncryptionKeyNext,
 		)
 
 		if databaseKeyStore == nil {
@@ -123,7 +123,7 @@ func TestSecretsManager_DeleteDatabaseAccessKey(t *testing.T) {
 
 func TestSecretsManager_DeleteDatabaseKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		app.Config.SignatureNext = test.CreateHash(64)
+		app.Config.EncryptionKeyNext = test.CreateHash(64)
 
 		err := app.Auth.SecretsManager.StoreDatabaseKey(
 			"databaseKey",
@@ -157,7 +157,7 @@ func TestSecretsManager_DeleteDatabaseKey(t *testing.T) {
 	})
 }
 
-func TestSecretsManager_DeleteDatabaseKey_WithSignatureNext(t *testing.T) {
+func TestSecretsManager_DeleteDatabaseKey_WithEncryptionKeyNext(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		err := app.Auth.SecretsManager.StoreDatabaseKey(
 			"databaseKey",
@@ -169,7 +169,7 @@ func TestSecretsManager_DeleteDatabaseKey_WithSignatureNext(t *testing.T) {
 			t.Errorf("Expected StoreDatabaseKey to return a non-nil error, got %v", err)
 		}
 
-		app.Config.SignatureNext = test.CreateHash(64)
+		app.Config.EncryptionKeyNext = test.CreateHash(64)
 
 		err = app.Auth.SecretsManager.DeleteDatabaseKey("databaseKey")
 
@@ -183,7 +183,7 @@ func TestSecretsManager_Encrypt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		str := "test"
 
-		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.Signature, []byte(str))
+		encrypted, err := app.Auth.SecretsManager.Encrypt(app.Config.EncryptionKey, []byte(str))
 
 		if err != nil {
 			t.Error("Expected Encrypt to return a non-nil error")
@@ -201,7 +201,7 @@ func TestSecretsManager_Encrypt(t *testing.T) {
 
 func TestSecretsManager_Encrypter(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		encrypter := app.Auth.SecretsManager.Encrypter(app.Config.Signature)
+		encrypter := app.Auth.SecretsManager.Encrypter(app.Config.EncryptionKey)
 
 		if encrypter == nil {
 			t.Error("Expected Encrypter to return a non-nil Encrypter")
@@ -320,7 +320,7 @@ func TestSecretsManager_PurgeExpiredSecrets(t *testing.T) {
 
 func TestSecretsManager_SecretsPath(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		path := app.Auth.SecretsManager.SecretsPath("signature", "path")
+		path := app.Auth.SecretsManager.SecretsPath("key", "path")
 
 		if path == "" {
 			t.Error("Expected SecretsPath to not return an empty string")

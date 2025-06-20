@@ -28,11 +28,11 @@ import (
 )
 
 type StepProcessor struct {
-	ctx       context.Context
-	dataPath  string
-	name      string
-	signature string
-	tests     map[string]*StepTest
+	ctx           context.Context
+	dataPath      string
+	name          string
+	encryptionKey string
+	tests         map[string]*StepTest
 	// Messaging system
 	completedSteps map[string]bool // Buffer for completed steps
 	messageQueue   chan Message
@@ -101,7 +101,7 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 		fn(sp)
 
 		sp.dataPath = fmt.Sprintf("./../../.test/%s", CreateHash(32))
-		sp.signature = CreateHash(64)
+		sp.encryptionKey = CreateHash(64)
 
 		// Create socket directory
 		sp.socketDir = filepath.Join(sp.dataPath, "sockets")
@@ -314,7 +314,7 @@ func (sp *StepProcessor) setupProcesses() {
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("LITEBASE_DISTRIBUTED_TEST_RUN=%s", name),
 			fmt.Sprintf("LITEBASE_TEST_DATA_PATH=%s", sp.dataPath),
-			fmt.Sprintf("LITEBASE_TEST_SIGNATURE=%s", sp.signature),
+			fmt.Sprintf("LITEBASE_TEST_ENCRYPTION_KEY=%s", sp.encryptionKey),
 			fmt.Sprintf("LITEBASE_SOCKET_DIR=%s", sp.socketDir))
 
 		// Uncomment to see child process output
