@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -22,40 +21,114 @@ import (
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
+	"golang.org/x/crypto/hkdf"
 )
 
 var privateKeys = map[string]*rsa.PrivateKey{}
 var privateKeysMutex = &sync.Mutex{}
 
-func EncryptKey(signature, key string) (string, error) {
-	plaintextBytes := []byte(key)
+// Decrypt a private key using AES-GCM with HKDF for key derivation.
+func decryptPrivateKey(signature string, encryptedData []byte) ([]byte, error) {
+	hash := sha256.New()
+	saltSize := hash.Size()
+
+	// Minimum size check: salt + nonce + ciphertext (at least 1 byte) + auth tag (16 bytes)
+	if len(encryptedData) < saltSize+12+1+16 {
+		return nil, fmt.Errorf("encrypted data too short")
+	}
+
+	// Extract salt from the beginning
+	salt := encryptedData[:saltSize]
+
+	// Derive the same key using HKDF
+	secret := sha256.Sum256([]byte(signature))
+	info := []byte("litebase data encryption key")
+
+	hkdf := hkdf.New(sha256.New, secret[:], salt, info)
+	key := make([]byte, 32)
+	if _, err := io.ReadFull(hkdf, key); err != nil {
+		return nil, fmt.Errorf("failed to read full key from HKDF: %w", err)
+	}
+
+	// Create cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
+	}
+
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonceSize := aead.NonceSize()
+
+	// Check we have enough data for nonce + ciphertext
+	if len(encryptedData) < saltSize+nonceSize {
+		return nil, fmt.Errorf("encrypted data too short for nonce")
+	}
+
+	// Extract nonce and ciphertext
+	nonce := encryptedData[saltSize : saltSize+nonceSize]
+	ciphertext := encryptedData[saltSize+nonceSize:]
+
+	// Decrypt and verify
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt: %w", err)
+	}
+
+	return plaintext, nil
+}
+
+// Encrypt a private key using AES-GCM with HKDF for key derivation.
+func encryptPrivateKey(signature string, privateKey []byte) ([]byte, error) {
+	hash := sha256.New()
+
+	salt := make([]byte, hash.Size())
+
+	if _, err := rand.Read(salt); err != nil {
+		return nil, fmt.Errorf("failed to generate salt: %w", err)
+	}
 
 	secret := sha256.Sum256([]byte(signature))
+	info := []byte("litebase data encryption key")
 
-	block, err := aes.NewCipher(secret[:])
+	hkdf := hkdf.New(sha256.New, secret[:], salt, info)
+
+	key := make([]byte, 32)
+
+	if _, err := io.ReadFull(hkdf, key); err != nil {
+		return nil, fmt.Errorf("failed to read full key from HKDF: %w", err)
+	}
+
+	block, err := aes.NewCipher(key)
 
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
 
 	aead, err := cipher.NewGCM(block)
 
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
 
-	iv := make([]byte, aead.NonceSize())
+	nonce := make([]byte, aead.NonceSize())
 
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return "", err
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
-	ciphertext := aead.Seal(nil, iv, plaintextBytes, nil)
-	value := ciphertext[:len(ciphertext)-aead.Overhead()]
-	tag := ciphertext[len(ciphertext)-aead.Overhead():]
-	encrypted := append(iv, append(value, tag...)...)
+	ciphertext := aead.Seal(nil, nonce, privateKey, nil)
 
-	return base64.StdEncoding.EncodeToString(encrypted), nil
+	// Format: salt + nonce + ciphertext (includes auth tag)
+	result := make([]byte, 0, len(salt)+len(nonce)+len(ciphertext))
+	result = append(result, salt...)
+	result = append(result, nonce...)
+	result = append(result, ciphertext...)
+
+	return result, nil
 }
 
 // Generate a new key for the current signature if one does not exist.
@@ -67,25 +140,12 @@ func generate(c *config.Config, objectFS *storage.FileSystem) error {
 		return errors.New("invalid signature length")
 	}
 
-	_, err := objectFS.Stat(KeyPath("public", signature))
+	_, err := objectFS.Stat(KeyPath("private", signature))
 
 	if os.IsNotExist(err) {
 		_, err := generatePrivateKey(signature, objectFS)
 
 		if err != nil {
-			return err
-		}
-
-		file, err := objectFS.ReadFile(KeyPath("public", signature))
-
-		if err != nil {
-			return err
-		}
-
-		_, err = EncryptKey(signature, string(file))
-
-		if err != nil {
-			log.Println(err)
 			return err
 		}
 	}
@@ -110,7 +170,7 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 		}
 	}
 
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, 3072)
 
 	if err != nil {
 		log.Println(err)
@@ -122,75 +182,52 @@ func generatePrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Pr
 		return nil, err
 	}
 
-	file, err := objectFS.Create(KeyPath("private", signature))
-
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	defer file.Close()
-
 	// Write the key to the file
-	if err := pem.Encode(file, &pem.Block{
+	fileData := pem.EncodeToMemory(&pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}); err != nil {
-		log.Println("ERROR", err)
-		return nil, err
-	}
+	})
 
-	file, err = objectFS.Create(KeyPath("public", signature))
+	encryptedFileData, err := encryptPrivateKey(signature, fileData)
 
 	if err != nil {
+		slog.Error("Failed to encrypt private key", "error", err)
 		return nil, err
 	}
 
-	defer file.Close()
-
-	publicKey, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := pem.Encode(file, &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: publicKey,
-	}); err != nil {
-		return nil, err
-	}
-
-	// Close the file to ensure the data is written
-	err = file.Close()
-
-	if err != nil {
+	if err := objectFS.WriteFile(KeyPath("private", signature), encryptedFileData, 0600); err != nil {
+		slog.Error("Failed to write private key", "error", err)
 		return nil, err
 	}
 
 	return key, nil
 }
 
+// GetPrivateKey retrieves the private key for the given signature.
 func GetPrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.PrivateKey, error) {
 	privateKeysMutex.Lock()
 	defer privateKeysMutex.Unlock()
 
 	if privateKeys[signature] == nil {
-		privateKey, err := objectFS.ReadFile(KeyPath("private", signature))
-
+		encryptedPrivateKey, err := objectFS.ReadFile(KeyPath("private", signature))
 		if err != nil {
 			slog.Debug("Failed to read private key", "error", err.Error())
 			return nil, err
 		}
 
-		block, _ := pem.Decode(privateKey)
+		// Decrypt the private key
+		privateKeyData, err := decryptPrivateKey(signature, encryptedPrivateKey)
+		if err != nil {
+			slog.Error("Failed to decrypt private key", "error", err)
+			return nil, err
+		}
 
+		block, _ := pem.Decode(privateKeyData)
 		if block == nil {
 			return nil, errors.New("failed to parse PEM block containing the key")
 		}
 
 		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-
 		if err != nil {
 			return nil, err
 		}
@@ -201,44 +238,10 @@ func GetPrivateKey(signature string, objectFS *storage.FileSystem) (*rsa.Private
 	return privateKeys[signature], nil
 }
 
-func GetPublicKey(signature string, objectFS *storage.FileSystem) (*rsa.PublicKey, error) {
-	path := KeyPath("public", signature)
-
-	publicKey, err := objectFS.ReadFile(path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode(publicKey)
-
-	if block == nil {
-		return nil, errors.New("failed to parse PEM block containing the key")
-	}
-
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return key.(*rsa.PublicKey), nil
-}
-
-func GetRawPublicKey(signature string, objectFS *storage.FileSystem) ([]byte, error) {
-	path := KeyPath("public", signature)
-
-	file, err := objectFS.ReadFile(path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return file, nil
-}
-
+// Initialize the key manager by generating a private key for the signature if
+// one does not exist.
 func KeyManagerInit(c *config.Config, secretsManager *SecretsManager) error {
-	// Generate a public key for the signature if one does not exist
+	// Generate a private key for the signature if one does not exist
 	err := generate(c, secretsManager.ObjectFS)
 
 	if err != nil {
@@ -254,17 +257,15 @@ func KeyManagerInit(c *config.Config, secretsManager *SecretsManager) error {
 	return nil
 }
 
+// Return the path for a key for the given signature.
 func KeyPath(keyType string, signature string) string {
 	return Path(signature) + fmt.Sprintf("%s.key", keyType)
 }
 
-func NextSignature(auth *Auth, c *config.Config, secretsManager *SecretsManager, signature string) (string, error) {
+// Initialize the next signature.
+func NextSignature(auth *Auth, c *config.Config, secretsManager *SecretsManager, signature string) error {
 	if c.Signature == signature {
-		publickey, err := GetRawPublicKey(signature, secretsManager.ObjectFS)
-
-		if err == nil {
-			return EncryptKey(signature, string(publickey))
-		}
+		return errors.New("the signature is already the current signature")
 	}
 
 	c.SignatureNext = signature
@@ -272,28 +273,22 @@ func NextSignature(auth *Auth, c *config.Config, secretsManager *SecretsManager,
 	_, err := generatePrivateKey(signature, secretsManager.ObjectFS)
 
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	err = rotate(c, secretsManager)
 
 	if err != nil {
 		log.Println(err)
-		return "", err
+		return err
 	}
 
 	auth.Broadcast("next_signature", signature)
 
-	publicKey, err := GetRawPublicKey(signature, secretsManager.ObjectFS)
-
-	if err != nil {
-		log.Println("test", err)
-		return "", err
-	}
-
-	return EncryptKey(signature, string(publicKey))
+	return nil
 }
 
+// Rotate the secrets for the next signature.
 func rotate(c *config.Config, secretsManager *SecretsManager) error {
 	if c.SignatureNext == "" {
 		return nil

@@ -110,7 +110,7 @@ func (k *KeyEncrypter) Encrypt(data []byte) ([]byte, error) {
 	key := hash.Sum(nil)
 
 	// Encrypt the key with the public key
-	publicKey, err := k.PublicKey()
+	privateKey, err := k.privateKey()
 
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func (k *KeyEncrypter) Encrypt(data []byte) ([]byte, error) {
 
 	encryptedSecretKey, err := rsa.EncryptPKCS1v15(
 		rand.Reader,
-		publicKey,
+		&privateKey.PublicKey,
 		key,
 	)
 
@@ -167,8 +167,4 @@ func (k *KeyEncrypter) Encrypt(data []byte) ([]byte, error) {
 
 func (k *KeyEncrypter) privateKey() (*rsa.PrivateKey, error) {
 	return GetPrivateKey(k.signature, k.secretsManager.ObjectFS)
-}
-
-func (k *KeyEncrypter) PublicKey() (*rsa.PublicKey, error) {
-	return GetPublicKey(k.signature, k.secretsManager.ObjectFS)
 }

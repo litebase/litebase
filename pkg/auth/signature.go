@@ -14,7 +14,11 @@ func InitSignature(c *config.Config, objectFS *storage.FileSystem) error {
 
 	storedSignature := storedSignature(objectFS)
 
-	if signature != "" && storedSignature == "" {
+	if signature == "" {
+		return fmt.Errorf("the LITEBASE_SIGNATURE environment variable is not set")
+	}
+
+	if storedSignature == "" {
 		err := StoreSignature(c, objectFS, signature)
 
 		if err != nil {
@@ -24,23 +28,11 @@ func InitSignature(c *config.Config, objectFS *storage.FileSystem) error {
 		return err
 	}
 
-	if signature == "" && storedSignature != "" {
-		c.Signature = storedSignature
-
+	if config.SignatureHash(signature) != storedSignature {
 		return nil
 	}
 
-	if signature != storedSignature {
-		c.SignatureNext = storedSignature
-
-		return nil
-	}
-
-	if signature != "" {
-		return nil
-	}
-
-	return fmt.Errorf("the LITEBASE_SIGNATURE environment variable is not set")
+	return nil
 }
 
 func storedSignature(objectFS *storage.FileSystem) string {
@@ -59,7 +51,7 @@ func StoreSignature(c *config.Config, objectFS *storage.FileSystem, signature st
 
 writeFile:
 
-	err := objectFS.WriteFile(signaturePath, []byte(signature), 0600)
+	err := objectFS.WriteFile(signaturePath, []byte(config.SignatureHash(signature)), 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {

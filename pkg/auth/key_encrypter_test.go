@@ -203,33 +203,6 @@ func TestKeyEncrypter_MultipleEncryptions(t *testing.T) {
 	})
 }
 
-func TestKeyEncrypter_PublicKey(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)
-
-		publicKey, err := keyEncrypter.PublicKey()
-
-		if err != nil {
-			t.Errorf("Expected PublicKey to succeed, got error: %v", err)
-		}
-
-		if publicKey == nil {
-			t.Error("Expected PublicKey to return a non-nil public key")
-		}
-
-		// Test that we can call it multiple times (caching)
-		publicKey2, err := keyEncrypter.PublicKey()
-
-		if err != nil {
-			t.Errorf("Expected second PublicKey call to succeed, got error: %v", err)
-		}
-
-		if publicKey2 == nil {
-			t.Error("Expected second PublicKey call to return a non-nil public key")
-		}
-	})
-}
-
 func TestNewKeyEncrypter(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		keyEncrypter := auth.NewKeyEncrypter(app.Auth.SecretsManager, app.Config.Signature)

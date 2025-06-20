@@ -6,6 +6,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 )
 
@@ -39,7 +40,7 @@ func TestStoreSignature(t *testing.T) {
 			t.Fatalf("Error reading the signature file: %s", err)
 		}
 
-		if string(signatureBytes) != signature {
+		if string(signatureBytes) != config.SignatureHash(signature) {
 			t.Fatalf("The signature was not stored correctly")
 		}
 	})
