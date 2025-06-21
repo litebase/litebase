@@ -4,22 +4,33 @@
 
 ## What is Litebase?
 
-Litebase is a distributed database management system for SQLite. The distributed architecture allows the SQLite database to be queried over HTTP. Using distributed file systems, Litebase can scale horizontally. Leveraging object Storage like AWS S3, Litebase can store large amounts of data with a low cost footprint.
+[SQLite](https://sqlite.org/) is a fully-featured database that has been around for 25 years. Today it is the most used database in the world. Litebase embeds SQLite in a high-performance server so it can operate as a distributed database that scales with modern applications.
+
+Litebase uniquely tiers data across distributed file systems like AWS EFS and object storage like AWS S3, optimizing both performance and cost. Litebase scales horizontally, supports **strongly-consistent** ACID transactions, eventually consistent replication, and provides a rich set of features for building modern applications. The design decision to leverage existing distributed storage architectures allows Litebase to inherit distributed system properties like high availability, fault tolerance, and disaster recovery while remaining simple to use.
+
+### Features
 
 * Authentication
 * Authorization
 * Backups
+* Read Replicas
 * Point in Time Recovery
 
 ## Docs
 
-To get started with Litebase, please read our [documentation](https://litebase.com/docs). You'll find information about installation, development, deployment, and administration.
+You can learn more about Litebase in our documentation. You'll find all the information you need to get started, including installation, development, deployment, and administration of Litebase.
+
+**[Read the Docs →](https://litebase.com/docs)**
 
 ## Need help?
 
-If you have any questions or need help, please start a new [discussion](https://github.com/litebase/litebase/discussions).
+If you have any questions or need help, we encourage you to start a discussion on GitHub. This is a great place to ask questions, share ideas, request features and get help from the community. Please do not use Issues for general questions or support requests, as they are intended for tracking bugs and accepted feature requests.
 
-If you find a bug, please open an [issue](https://github.com/litebase/litebase/issues).
+**[Start a Discussion →](https://github.com/litebase/litebase/discussions/new/choose)**
+
+If you find a bug, please open an issue with a detailed description of the problem, including steps to reproduce it. If you have a feature request, please start a discussion instead.
+
+**[Create an Issue →](https://github.com/litebase/litebase/issues)**
 
 ## Community
 
@@ -27,11 +38,11 @@ We value a friendly and welcoming community and encourage everyone to participat
 
 ### Code of Conduct
 
-We expect all community members to adhere to our [Code of Conduct](https://github.com/litebase/litebase/blob/main/CODE_OF_CONDUCT.md).
+We expect all community members to adhere to our [Code of Conduct](https://github.com/litebase/litebase?tab=coc-ov-file).
 
 ### Contributing
 
-Contributions are welcome! If you are interested, please read our [contributing guide](https://github.com/litebase/litebase/blob/main/CONTRIBUTING.md) to learn how to get started.
+Contributions are welcome! If you are interested, please read our [contributing guide](https://github.com/litebase/litebase/docs/CONTRIBUTING.md) to learn how to get started.
 
 ## Security Vulnerabilities
 
@@ -39,5 +50,5 @@ All security related issues should be reported directly to [security@litebase.co
 
 ## License
 
-Litebase is [open-sourced](https://opensource.org/) software licensed under the [MIT License](https://github.com/litebase/litebase/LICENSE).
+Litebase is [open-sourced](https://opensource.org/) software licensed under the [MIT License](LICENSE.md).
 
