@@ -2,23 +2,23 @@
 
 [![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
 
-$~~~~~~~~~~~$
-
 ## What is Litebase?
 
-[SQLite](https://sqlite.org/) is a fully-featured database that has been around for 25 years. Today it is the most used database in the world. Litebase embeds SQLite in a high-performance server so it can operate as a distributed database that scales with modern applications.
+[SQLite](https://sqlite.org/) is a fully-featured database that has been around for 25 years, and today it is the most used database in the world. Building on this strong legacy, Litebase is a distributed relational database that embeds SQLite and complements it with additional features, aiming to scale with most modern applications.
 
-Litebase uniquely tiers data across distributed file systems like AWS EFS and object storage like AWS S3, optimizing both performance and cost. Litebase scales horizontally, supports **strongly-consistent** ACID transactions, eventually consistent replication, and provides a rich set of features for building modern applications. The design decision to leverage existing distributed storage architectures allows Litebase to inherit distributed system properties like high availability, fault tolerance, and disaster recovery while remaining simple to use.
+Litebase is cloud-native, **scales horizontally**, supports **strongly-consistent** ACID transactions, and supports read replicas with **eventual consistency**. Litebase tiers data between instance storage, distributed file systems like AWS EFS, and object storage like AWS S3 optimizing both performance and cost.  The design decision to leverage existing distributed storage architectures allows Litebase to inherit distributed system properties like high availability, fault tolerance, and disaster recovery without the need for complex replication protocols.
 
 ### Features
 
 * Authentication
 * Authorization
 * Backups
-* Read Replicas
-* Point in Time Recovery
-
-$~~~~~~~~~~~$
+* Branching
+* Distributed storage
+* Object storage
+* Point-in-time recovery
+* Primary forwarding writes
+* Read replicas
 
 ## Docs
 
@@ -26,7 +26,6 @@ You can learn more about Litebase in our documentation. You'll find all the info
 
 **[Read the Docs →](https://litebase.com/docs)**
 
-$~~~~~~~~~~~$
 
 ## Need help?
 
@@ -38,7 +37,6 @@ If you find a bug, please open an issue with a detailed description of the probl
 
 **[Create an Issue →](https://github.com/litebase/litebase/issues)**
 
-$~~~~~~~~~~~$
 
 ## Community
 
