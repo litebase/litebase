@@ -1,5 +1,12 @@
 package http
 
+import (
+	"fmt"
+
+	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
+)
+
 func TransactionCommitController(request *Request) Response {
 	databaseKey := request.DatabaseKey()
 
@@ -19,7 +26,18 @@ func TransactionCommitController(request *Request) Response {
 		return ErrInvalidAccessKeyResponse
 	}
 
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	transactionId := request.Param("id")
+
 	transactionManager := request.databaseManager.Resources(
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
@@ -28,6 +46,10 @@ func TransactionCommitController(request *Request) Response {
 	transaction, err := transactionManager.Get(transactionId)
 
 	if err != nil {
+		if err == database.ErrTransactionNotFound {
+			return NotFoundResponse(err)
+		}
+
 		return BadRequestResponse(err)
 	}
 
