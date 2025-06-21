@@ -34,15 +34,14 @@ If you find a bug, please open an issue with a detailed description of the probl
 
 ## Community
 
-We value a friendly and welcoming community and encourage everyone to participate.
+We expect all community members to adhere to our Code of Conduct. Please follow these guidelines to ensure everyone has a positive experience.
 
-### Code of Conduct
+**[Code of Conduct →](https://github.com/litebase/litebase?tab=coc-ov-file#readme)**
 
-We expect all community members to adhere to our [Code of Conduct](https://github.com/litebase/litebase?tab=coc-ov-file).
+Please review our Contribution Guide before submitting an issue or pull request to understand how to contribute effectively.
 
-### Contributing
+**[Contributing Guide →](https://github.com/litebase/litebase/blob/main/docs/CONTRIBUTING.md)**
 
-Contributions are welcome! If you are interested, please read our [contributing guide](https://github.com/litebase/litebase/docs/CONTRIBUTING.md) to learn how to get started.
 
 ## Security Vulnerabilities
 
