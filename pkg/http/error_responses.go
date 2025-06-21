@@ -18,6 +18,13 @@ func ForbiddenResponse(err error) Response {
 	}, 403, nil)
 }
 
+func NotFoundResponse(err error) Response {
+	return JsonResponse(map[string]any{
+		"status":  "error",
+		"message": fmt.Sprintf("Error: %s", err.Error()),
+	}, 404, nil)
+}
+
 func ServerErrorResponse(err error) Response {
 	return JsonResponse(map[string]any{
 		"status":  "error",
