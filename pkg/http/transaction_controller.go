@@ -89,6 +89,16 @@ func TransactionControllerDestroy(request *Request) Response {
 		return ErrInvalidAccessKeyResponse
 	}
 
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	transactionId := request.Param("id")
 	transactionManager := request.databaseManager.Resources(
 		databaseKey.DatabaseId,
