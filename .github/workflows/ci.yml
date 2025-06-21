@@ -3,8 +3,12 @@ name: Continuous Integration
 on:
   push:
     branches: [main, develop]
-    paths-ignore:
-      - '**/*.md'
+    paths:
+      - 'cmd/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'internal/**'
+      - 'pkg/**'
     tags-ignore:
       - '**'
   pull_request:
