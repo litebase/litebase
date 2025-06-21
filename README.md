@@ -1,12 +1,10 @@
 # Litebase
 
----
-
-Litebase is a distributed SQL database built on SQLite.  
+[![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
 
 ## What is Litebase?
 
-Litebase is a database management system for SQLite. The distributed architecture allows the SQLite database to be queried over HTTP. Using distributed file systems, Litebase can scale horizontally. Leveraging object Storage like AWS S3, Litebase can store large amounts of data with a low cost footprint.
+Litebase is a distributed database management system for SQLite. The distributed architecture allows the SQLite database to be queried over HTTP. Using distributed file systems, Litebase can scale horizontally. Leveraging object Storage like AWS S3, Litebase can store large amounts of data with a low cost footprint.
 
 * Authentication
 * Authorization
@@ -41,5 +39,5 @@ All security related issues should be reported directly to [security@litebase.co
 
 ## License
 
-Litebase is licensed under the [MIT License](https://github.com/litebase/litebase/LICENSE).
+Litebase is [open-sourced](https://opensource.org/) software licensed under the [MIT License](https://github.com/litebase/litebase/LICENSE).
 
