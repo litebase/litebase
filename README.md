@@ -2,6 +2,8 @@
 
 [![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
 
+$~~~~~~~~~~~$
+
 ## What is Litebase?
 
 [SQLite](https://sqlite.org/) is a fully-featured database that has been around for 25 years. Today it is the most used database in the world. Litebase embeds SQLite in a high-performance server so it can operate as a distributed database that scales with modern applications.
@@ -16,11 +18,15 @@ Litebase uniquely tiers data across distributed file systems like AWS EFS and ob
 * Read Replicas
 * Point in Time Recovery
 
+$~~~~~~~~~~~$
+
 ## Docs
 
 You can learn more about Litebase in our documentation. You'll find all the information you need to get started, including installation, development, deployment, and administration of Litebase.
 
 **[Read the Docs →](https://litebase.com/docs)**
+
+$~~~~~~~~~~~$
 
 ## Need help?
 
@@ -31,6 +37,8 @@ If you have any questions or need help, we encourage you to start a discussion o
 If you find a bug, please open an issue with a detailed description of the problem, including steps to reproduce it. If you have a feature request, please start a discussion instead.
 
 **[Create an Issue →](https://github.com/litebase/litebase/issues)**
+
+$~~~~~~~~~~~$
 
 ## Community
 
