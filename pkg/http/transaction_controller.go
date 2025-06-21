@@ -1,5 +1,13 @@
 package http
 
+import (
+	"errors"
+	"fmt"
+
+	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
+)
+
 // TransactionControllerStore creates a new transaction. This is effectively a
 // call to begin a transaction.
 func TransactionControllerStore(request *Request) Response {
@@ -21,6 +29,16 @@ func TransactionControllerStore(request *Request) Response {
 		return ErrInvalidAccessKeyResponse
 	}
 
+	// Authorize the request
+	err := request.Authorize(
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	transaction, err := request.databaseManager.Resources(
 		databaseKey.DatabaseId,
 		databaseKey.BranchId,
@@ -37,10 +55,10 @@ func TransactionControllerStore(request *Request) Response {
 
 	return Response{
 		StatusCode: 200,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"status":  "success",
 			"message": "Transaction created successfully",
-			"data": map[string]interface{}{
+			"data": map[string]any{
 				"id":          transaction.Id,
 				"database_id": databaseKey.DatabaseId,
 				"branch_id":   databaseKey.BranchId,
@@ -80,6 +98,10 @@ func TransactionControllerDestroy(request *Request) Response {
 	transaction, err := transactionManager.Get(transactionId)
 
 	if err != nil {
+		if err == database.ErrTransactionNotFound {
+			return NotFoundResponse(errors.New("transaction not found"))
+		}
+
 		return BadRequestResponse(err)
 	}
 
@@ -93,7 +115,7 @@ func TransactionControllerDestroy(request *Request) Response {
 
 	return Response{
 		StatusCode: 200,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"status":  "success",
 			"message": "Transaction deleted successfully",
 		},
