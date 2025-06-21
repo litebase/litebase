@@ -90,6 +90,48 @@ func TestUserController_Store(t *testing.T) {
 	})
 }
 
+func TestUserController_StoreWithInvalidData(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
+			},
+		})
+
+		response, statusCode, err := client.Send(
+			"/resources/users",
+			"POST", map[string]any{
+				"username": "testuser",
+				"password": "abc213",
+				"statements": []auth.AccessKeyStatement{
+					{
+						Effect:   "Allow",
+						Resource: "*",
+						Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
+					},
+				},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create user: %v", err)
+		}
+
+		if statusCode != 422 {
+			t.Fatalf("Expected status code 422, got %d", statusCode)
+		}
+
+		if _, ok := response["errors"]; !ok {
+			t.Fatal("Response does not contain 'errors' field")
+		}
+	})
+}
+
 func TestUserController_Destroy(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
