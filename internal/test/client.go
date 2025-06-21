@@ -96,6 +96,11 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 		return nil, 0, err
 	}
 
+	if response.Header.Get("Content-Length") == "0" || response.StatusCode == 204 {
+		// No content response, return nil body
+		return nil, response.StatusCode, nil
+	}
+
 	defer response.Body.Close()
 
 	var responseData map[string]any

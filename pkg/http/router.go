@@ -149,6 +149,12 @@ func (router *Router) Server(
 
 				w.WriteHeader(response.StatusCode)
 
+				if response.StatusCode == 204 {
+					// If the response body is nil and the status code is 204, we write an empty response.
+					w.Header().Set("Content-Length", "0")
+					return
+				}
+
 				if response.Body == nil {
 					_, err := w.Write([]byte(""))
 

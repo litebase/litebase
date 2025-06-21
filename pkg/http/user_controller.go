@@ -1,6 +1,31 @@
 package http
 
-import "github.com/litebase/litebase/pkg/auth"
+import (
+	"fmt"
+
+	"github.com/litebase/litebase/pkg/auth"
+)
+
+func UserControllerIndex(request *Request) Response {
+	// Authorize the request
+	err := request.Authorize(
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]auth.Privilege{auth.ClusterPrivilegeManage},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
+	users := request.cluster.Auth.UserManager().All()
+
+	return Response{
+		StatusCode: 200,
+		Body: map[string]any{
+			"data": users,
+		},
+	}
+}
 
 type UserControllerStoreRequest struct {
 	Username   string                    `json:"username" validate:"required"`
@@ -8,24 +33,23 @@ type UserControllerStoreRequest struct {
 	Statements []auth.AccessKeyStatement `json:"statements" validate:"required"`
 }
 
-func UserControllerIndex(request *Request) Response {
-	users := request.cluster.Auth.UserManager().All()
-
-	return Response{
-		StatusCode: 200,
-		Body: map[string]interface{}{
-			"data": users,
-		},
-	}
-}
-
 func UserControllerStore(request *Request) Response {
+	// Authorize the request
+	err := request.Authorize(
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]auth.Privilege{auth.ClusterPrivilegeManage},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	input, err := request.Input(&UserControllerStoreRequest{})
 
 	if err != nil {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": err,
 			},
 		}
@@ -36,13 +60,12 @@ func UserControllerStore(request *Request) Response {
 		"password.required":   "The password field is required.",
 		"password.min":        "The password field should be a minimum of 8 characters.",
 		"privileges.required": "The privileges field is required.",
-		// "privileges.array":    "The privileges field must be an array.",
 	})
 
 	if validationErrors != nil {
 		return Response{
 			StatusCode: 422,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"errors": validationErrors,
 			},
 		}
@@ -51,7 +74,7 @@ func UserControllerStore(request *Request) Response {
 	if input.(*UserControllerStoreRequest).Username == "root" {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"message": "This username is invalid.",
 			},
 		}
@@ -60,7 +83,7 @@ func UserControllerStore(request *Request) Response {
 	if request.cluster.Auth.UserManager().Get(input.(*UserControllerStoreRequest).Username) != nil {
 		return Response{
 			StatusCode: 400,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"message": "This username is already in use.",
 			},
 		}
@@ -78,50 +101,41 @@ func UserControllerStore(request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	return Response{
-		StatusCode: 200,
-		Body: map[string]any{
-			"message": "User created successfully",
+	return SuccessResponse(
+		"User created successfully",
+		map[string]any{
+			"username":   data.Username,
+			"statements": data.Statements,
 		},
-	}
+		201)
 }
 
 func UserControllerDestroy(request *Request) Response {
+	// Authorize the request
+	err := request.Authorize(
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]auth.Privilege{auth.ClusterPrivilegeManage},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	username := request.Param("username")
 
 	if username == "root" {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]interface{}{
-				"message": "The username is invalid.",
-			},
-		}
+		return BadRequestResponse(fmt.Errorf("the root user cannot be deleted"))
 	}
 
 	if request.cluster.Auth.UserManager().Get(username) == nil {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]interface{}{
-				"message": "The username is invalid.",
-			},
-		}
+		return BadRequestResponse(fmt.Errorf("the username is invalid"))
 	}
 
-	err := request.cluster.Auth.UserManager().Remove(username)
+	err = request.cluster.Auth.UserManager().Remove(username)
 
 	if err != nil {
-		return Response{
-			StatusCode: 500,
-			Body: map[string]interface{}{
-				"message": err.Error(),
-			},
-		}
+		return ServerErrorResponse(err)
 	}
 
-	return Response{
-		StatusCode: 200,
-		Body: map[string]interface{}{
-			"message": "User deleted successfully",
-		},
-	}
+	return SuccessResponse("", nil, 204)
 }
