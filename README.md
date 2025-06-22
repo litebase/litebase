@@ -1,8 +1,32 @@
-# Litebase
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/litebase-github-readme-banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/litebase-github-readme-banner.png">
+  <img alt="Fallback image description" src="docs/images/litebase-github-readme-banner.png">
+</picture>
 
+<br />
+
+<p style="text-align: center;">
+  <a href="https://litebase.com">
+	Website
+  </a>
+  &middot;
+  <a href="https://litebase.com/docs">
+	Documentation
+  </a>
+  &middot;
+  <a href="https://litebase.com/blog">
+	Blog
+  </a>
+</p>
+
+---
 [![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
+---
 
-## What is Litebase?
+<br />
+
+# Welcome to Litebase
 
 [SQLite](https://sqlite.org/) is a fully-featured database that has been around for 25 years, and today it is the most used database in the world. Building on this strong legacy, Litebase is a distributed relational database that embeds SQLite and complements it with additional features, aiming to scale with most modern applications.
 
