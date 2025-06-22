@@ -4,21 +4,22 @@
   <img alt="Fallback image description" src="docs/images/litebase-github-readme-banner.png">
 </picture>
 
-<br />
-
-<p style="text-align: center;">
-  <a href="https://litebase.com">
-	Website
-  </a>
-  &middot;
-  <a href="https://litebase.com/docs">
-	Documentation
-  </a>
-  &middot;
-  <a href="https://litebase.com/blog">
-	Blog
-  </a>
-</p>
+---
+<div align="center">
+	<p align="center">
+		<a href="https://litebase.com">
+			Website
+		</a>
+		&middot;
+		<a href="https://litebase.com/docs">
+			Documentation
+		</a>
+		&middot;
+		<a href="https://litebase.com/blog">
+			Blog
+		</a>
+	</p>
+</div>
 
 ---
 [![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
