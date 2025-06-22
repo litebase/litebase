@@ -6,8 +6,8 @@
 
 ---
 [![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
+<br />
 ---
-
 <br />
 
 # Welcome to Litebase
