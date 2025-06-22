@@ -5,24 +5,7 @@
 </picture>
 
 ---
-<div align="center">
-	<p align="center">
-		<a href="https://litebase.com">
-			Website
-		</a>
-		&middot;
-		<a href="https://litebase.com/docs">
-			Documentation
-		</a>
-		&middot;
-		<a href="https://litebase.com/blog">
-			Blog
-		</a>
-
-		[![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
-	</p>
-</div>
-
+[![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
 ---
 
 <br />
