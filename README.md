@@ -1,7 +1,7 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/litebase-github-readme-banner-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/litebase-github-readme-banner.png">
-  <img alt="Fallback image description" src="docs/images/litebase-github-readme-banner.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/litebase-github-readme-banner-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/litebase-github-readme-banner.svg">
+  <img alt="Fallback image description" src="docs/images/litebase-github-readme-banner.svg">
 </picture>
 
 ---
@@ -13,11 +13,11 @@
 <br />
 <br />
 
-# Welcome to Litebase
+# About Litebase
 
 [SQLite](https://sqlite.org/) is a fully-featured database that has been around for 25 years, and today it is the most used database in the world. Building on this strong legacy, Litebase is a distributed relational database that embeds SQLite and complements it with additional features, aiming to scale with most modern applications.
 
-Litebase is cloud-native, **scales horizontally**, supports **strongly-consistent** ACID transactions, and supports read replicas with **eventual consistency**. Litebase tiers data between instance storage, distributed file systems like AWS EFS, and object storage like AWS S3 optimizing both performance and cost.  The design decision to leverage existing distributed storage architectures allows Litebase to inherit distributed system properties like high availability, fault tolerance, and disaster recovery without the need for complex replication protocols.
+Litebase is cloud-native, **scales horizontally**, supports **strongly-consistent** ACID transactions, and supports read replicas with **eventual consistency**. Litebase tiers data between instance storage, distributed file systems like [Amazon EFS](https://aws.amazon.com/efs/), and object storage like [Amazon S3](https://aws.amazon.com/s3/) optimizing both performance and cost.  The design decision to leverage existing distributed storage architectures allows Litebase to inherit distributed system properties like high availability, fault tolerance, and disaster recovery without the need for complex replication protocols.
 
 ### Features
 
