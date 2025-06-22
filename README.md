@@ -4,6 +4,8 @@
   <img alt="Fallback image description" src="docs/images/litebase-github-readme-banner.png">
 </picture>
 
+---
+
 <div align="center">
 <a href="https://github.com/litebase/litebase/actions"><img src="https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
 </div>
