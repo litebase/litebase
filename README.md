@@ -4,7 +4,9 @@
   <img alt="Fallback image description" src="docs/images/litebase-github-readme-banner.png">
 </picture>
 
-[![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
+<div align="center">
+<a href="https://github.com/litebase/litebase/actions"><img src="https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
+</div>
 
 <br />
 <br />
