@@ -18,11 +18,11 @@
 		<a href="https://litebase.com/blog">
 			Blog
 		</a>
+
+		[![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
 	</p>
 </div>
 
----
-[![Continuous Integration](https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg)](https://github.com/litebase/litebase/actions/workflows/ci.yml)
 ---
 
 <br />
