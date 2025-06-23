@@ -78,12 +78,7 @@ func (akm *AccessKeyManager) Create(statements []AccessKeyStatement) (*AccessKey
 		akm,
 		accessKeyId,
 		akm.GenerateAccessKeySecret(),
-		[]AccessKeyStatement{
-			{
-				Resource: "*",
-				Actions:  []Privilege{"*"},
-			},
-		},
+		statements,
 	)
 
 	err = akm.auth.SecretsManager.StoreAccessKey(accessKey)
