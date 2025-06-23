@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/litebase/litebase/pkg/cli"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/fang"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +38,7 @@ func NewRoot() error {
 		Use:               "litebase <command> <subcommand> [flags]",
 		Short:             "Litebase CLI",
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
-		Long:              `Connect with Litebase from the command line.`,
+		Long:              `Connect with Litebase from the command line`,
 		Run: func(cmd *cobra.Command, args []string) {
 			title := lipgloss.NewStyle().Bold(true).
 				Margin(0, 0, 1).
@@ -72,7 +74,7 @@ func NewRoot() error {
 
 	addCommands(cmd)
 
-	cmd.PersistentFlags().StringVar(&confiPath, "config", "$HOME/.litebase/config", "Path to a configuration file (default \"$HOME/.litebase/config.json\")")
+	cmd.PersistentFlags().StringVar(&confiPath, "config", "$HOME/.litebase/config", "Path to a configuration file")
 	cmd.PersistentFlags().StringVar(&profile, "profile", "", "The profile to use during this session")
 	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username")
@@ -84,11 +86,13 @@ func NewRoot() error {
 		return err
 	}
 
-	cmd.SetHelpFunc(NewHelpCmd())
-
 	cmd.PersistentPreRunE = preRun()
 
-	return cmd.ExecuteContext(context.Background())
+	return fang.Execute(
+		context.Background(),
+		cmd,
+		fang.WithTheme(cli.ColorScheme()),
+	)
 }
 
 func preRun() func(cmd *cobra.Command, args []string) error {
