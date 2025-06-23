@@ -33,7 +33,8 @@ func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
 						panic(err)
 					}
 
-					fmt.Print(
+					fmt.Fprint(
+						cmd.OutOrStdout(),
 						components.Container(
 							components.SuccessAlert(fmt.Sprintf("Profile switched to %s", row[0])),
 						),

@@ -19,20 +19,31 @@ func NewDatabaseDeleteCmd(config *config.Configuration) *cobra.Command {
 			client, err := api.NewClient(config)
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
+				fmt.Fprint(
+					cmd.OutOrStdout(),
+					components.Container(components.ErrorAlert(err.Error())),
+				)
+
 				return err
 			}
 
 			res, _, err := client.Request("DELETE", fmt.Sprintf("/resources/databases/%s", args[0]), nil)
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
+				fmt.Fprint(
+					cmd.OutOrStdout(),
+					components.Container(components.ErrorAlert(err.Error())),
+				)
+
 				return err
 			}
 
-			fmt.Print(components.Container(
-				components.SuccessAlert(res["message"].(string)),
-			))
+			fmt.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(
+					components.SuccessAlert(res["message"].(string)),
+				),
+			)
 
 			return nil
 		},

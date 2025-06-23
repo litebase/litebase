@@ -19,7 +19,8 @@ func NewStatusCmd(c *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			// fmt.Print(
+			// fmt.Fprint(
+			// 	cmd.OutOrStdout(),
 			// 	components.Container(
 			// 		components.SuccessAlert(res["message"].(string)),
 			// 	),

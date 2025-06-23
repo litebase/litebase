@@ -19,7 +19,8 @@ var VersionCmd = &cobra.Command{
 			Foreground(styles.PrimaryForegroundColor).
 			Padding(1, 2)
 
-		fmt.Print(
+		fmt.Fprint(
+			cmd.OutOrStdout(),
 			components.Container(style.Render("Litebase CLI -→ v0.0.1")),
 		)
 

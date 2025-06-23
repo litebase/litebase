@@ -39,7 +39,10 @@ func NewClusterStatusCmd(config *config.Configuration) *cobra.Command {
 			data, err := api.Get(config, "status")
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
+				fmt.Fprint(cmd.OutOrStdout(),
+					components.Container(components.ErrorAlert(err.Error())),
+				)
+
 				return err
 			}
 

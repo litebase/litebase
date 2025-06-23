@@ -21,7 +21,8 @@ func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			fmt.Print(
+			fmt.Fprint(
+				cmd.OutOrStdout(),
 				components.Container(
 					components.NewCard(
 						components.WithCardTitle("Current Profile"),

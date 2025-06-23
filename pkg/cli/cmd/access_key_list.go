@@ -22,7 +22,8 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			if data["data"] == nil {
-				fmt.Print(components.Container(components.WarningAlert("No databases found")))
+				fmt.Fprint(cmd.OutOrStdout(),
+					components.Container(components.WarningAlert("No databases found")))
 				return nil
 			}
 

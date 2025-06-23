@@ -78,9 +78,12 @@ func NewInitCmd() *cobra.Command {
 		cluster, err := cluster.NewCluster(configInstance)
 
 		if err != nil {
-			fmt.Print(components.Container(components.ErrorAlert(
-				fmt.Sprintf("[Litebase Error]: %s", err.Error()),
-			)))
+			fmt.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(components.ErrorAlert(
+					fmt.Sprintf("[Litebase Error]: %s", err.Error()),
+				)),
+			)
 		}
 
 		authInstance := auth.NewAuth(
@@ -94,9 +97,12 @@ func NewInitCmd() *cobra.Command {
 		err = cluster.Init(authInstance)
 
 		if err != nil {
-			fmt.Print(components.Container(components.ErrorAlert(
-				fmt.Sprintf("[Litebase Error]: %s", err.Error()),
-			)))
+			fmt.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(components.ErrorAlert(
+					fmt.Sprintf("[Litebase Error]: %s", err.Error()),
+				)),
+			)
 
 			return
 		}
@@ -109,9 +115,12 @@ func NewInitCmd() *cobra.Command {
 
 		if err != nil {
 
-			fmt.Print(components.Container(components.ErrorAlert(
-				fmt.Sprintf("[Litebase Error]: %s", err.Error()),
-			)))
+			fmt.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(components.ErrorAlert(
+					fmt.Sprintf("[Litebase Error]: %s", err.Error()),
+				)),
+			)
 
 			return
 		}
@@ -119,14 +128,18 @@ func NewInitCmd() *cobra.Command {
 		err = authInstance.UserManager().Init()
 
 		if err != nil {
-			fmt.Print(components.Container(components.ErrorAlert(
-				fmt.Sprintf("[Litebase Error]: %s", err.Error()),
-			)))
+			fmt.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(components.ErrorAlert(
+					fmt.Sprintf("[Litebase Error]: %s", err.Error()),
+				)),
+			)
 
 			return
 		}
 
-		fmt.Print(
+		fmt.Fprint(
+			cmd.OutOrStdout(),
 			components.Container(
 				components.SuccessAlert("Litebase cluster initialized successfully"),
 			),

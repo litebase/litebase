@@ -21,7 +21,10 @@ func NewProfileDeleteCmd(c *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			fmt.Print(components.Container(components.SuccessAlert("Profile deleted successfully")))
+			fmt.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(components.SuccessAlert("Profile deleted successfully")),
+			)
 
 			return nil
 		},

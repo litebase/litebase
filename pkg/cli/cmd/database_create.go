@@ -19,11 +19,15 @@ func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
 			res, _, err := api.Post(config, "/resources/databases", map[string]any{"name": args[0]})
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
+				fmt.Fprint(
+					cmd.OutOrStdout(),
+					components.Container(components.ErrorAlert(err.Error())),
+				)
 				return err
 			}
 
-			fmt.Print(
+			fmt.Fprint(
+				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
 					components.DatabaseCard(res["data"].(map[string]any)),
