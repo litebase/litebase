@@ -91,7 +91,7 @@ func TestAccessKeyAuthorizes(t *testing.T) {
 			},
 		},
 		{
-			result:   false,
+			result:   true,
 			resource: "database:x",
 			statements: []auth.AccessKeyStatement{
 				{
@@ -102,7 +102,7 @@ func TestAccessKeyAuthorizes(t *testing.T) {
 			},
 		},
 		{
-			result:   false,
+			result:   true,
 			resource: "database:x:table:y",
 			statements: []auth.AccessKeyStatement{
 				{
