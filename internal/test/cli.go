@@ -36,6 +36,7 @@ func NewTestCLI(app *server.App) *TestCLI {
 	return c
 }
 
+// Run executes the CLI command with the provided arguments
 func (c *TestCLI) Run(args ...string) error {
 	// Implement the logic to run the CLI with the provided arguments
 	c.Cmd.SetArgs(args)
@@ -43,6 +44,12 @@ func (c *TestCLI) Run(args ...string) error {
 	return c.Cmd.Execute()
 }
 
+// Check if the output buffer contains the expected text
+func (c *TestCLI) ShouldSee(text string) bool {
+	return bytes.Contains(c.outputBuffer.Bytes(), []byte(text))
+}
+
+// WithAccessKey sets the access key for the CLI and updates the flags
 func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
 	accessKey, err := c.App.Auth.AccessKeyManager.Create(statements)
 
@@ -65,6 +72,7 @@ func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
 	return c
 }
 
+// WithBasicAuth sets the username and password for basic authentication
 func (c *TestCLI) WithBasicAuth(username, password string, statements []auth.AccessKeyStatement) *TestCLI {
 	err := c.App.Auth.UserManager().Add(username, password, statements)
 
@@ -87,6 +95,7 @@ func (c *TestCLI) WithBasicAuth(username, password string, statements []auth.Acc
 	return c
 }
 
+// WithServer sets the server for the CLI and updates the URL flag
 func (c *TestCLI) WithServer(server *TestServer) *TestCLI {
 	c.Server = server
 
