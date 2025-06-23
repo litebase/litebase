@@ -91,7 +91,7 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 
 	if ok {
 		if !r.cluster.Auth.UserManager().Authenticate(username, password) {
-			return fmt.Errorf("unauthorized: invalid username or password")
+			return fmt.Errorf("invalid username or password")
 		}
 
 		if r.cluster.Auth.UserManager().Get(username).AuthorizeForResource(
@@ -101,20 +101,20 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 			return nil
 		}
 
-		return fmt.Errorf("unauthorized: user is not authorized to perform this request")
+		return fmt.Errorf("user is not authorized to perform this request")
 	}
 
 	accessKey := r.RequestToken("Authorization").AccessKey()
 
 	if accessKey == nil {
-		return fmt.Errorf("unauthorized: invalid access key")
+		return fmt.Errorf("invalid access key")
 	}
 
 	if !accessKey.AuthorizeForResource(
 		resources,
 		actions,
 	) {
-		return fmt.Errorf("unauthorized: access key is not authorized to perform this request")
+		return fmt.Errorf("access key is not authorized to perform this request")
 	}
 
 	return nil

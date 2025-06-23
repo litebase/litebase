@@ -24,7 +24,7 @@ func TestBadRequestResponse(t *testing.T) {
 }
 
 func TestForbiddenResponse(t *testing.T) {
-	response := http.ForbiddenResponse(errors.New("forbidden"))
+	response := http.ForbiddenResponse(errors.New("unauthorized access"))
 
 	if response.StatusCode != 403 {
 		t.Errorf("Expected status code 403, got %d", response.StatusCode)
@@ -34,8 +34,8 @@ func TestForbiddenResponse(t *testing.T) {
 		t.Errorf("Expected status 'error', got %s", response.Body["status"])
 	}
 
-	if response.Body["message"] != "Error: forbidden" {
-		t.Errorf("Expected message 'Error: forbidden', got %s", response.Body["message"])
+	if response.Body["message"] != "Forbidden: unauthorized access" {
+		t.Errorf("Expected message 'Forbidden: unauthorized access', got %s", response.Body["message"])
 	}
 }
 

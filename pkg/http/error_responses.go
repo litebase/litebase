@@ -14,7 +14,7 @@ func BadRequestResponse(err error) Response {
 func ForbiddenResponse(err error) Response {
 	return JsonResponse(map[string]any{
 		"status":  "error",
-		"message": fmt.Sprintf("Error: %s", err.Error()),
+		"message": fmt.Sprintf("Forbidden: %s", err.Error()),
 	}, 403, nil)
 }
 
