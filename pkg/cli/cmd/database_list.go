@@ -13,29 +13,29 @@ func NewDatabaseListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List databases",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			data, err := api.Get("/resources/databases")
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			if data["data"] == nil {
-				fmt.Print(components.Container(components.WarningAlert("No databases found")))
-				return
+				return fmt.Errorf("no databases found")
 			}
 
 			rows := [][]string{}
 
-			for _, database := range data["data"].([]interface{}) {
+			for _, database := range data["data"].([]any) {
 				rows = append(rows, []string{
-					database.(map[string]interface{})["id"].(string),
-					database.(map[string]interface{})["name"].(string),
+					database.(map[string]any)["id"].(string),
+					database.(map[string]any)["name"].(string),
 				})
 			}
 
 			components.NewTable([]string{"ID", "Name"}, rows).Render()
+
+			return nil
 		},
 	}
 

@@ -12,7 +12,7 @@ func NewProfileListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all profiles",
 		Args:  cobra.MinimumNArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			profiles := config.GetProfiles()
 
 			columns := []string{"Name", "Cluster"}
@@ -24,6 +24,8 @@ func NewProfileListCmd() *cobra.Command {
 			}
 
 			components.NewTable(columns, rows).Render()
+
+			return nil
 		},
 	}
 }

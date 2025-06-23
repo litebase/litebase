@@ -10,7 +10,7 @@ func NewClusterUserCreateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a new user",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			components.NewForm(
 				[]components.FormField{
 					{
@@ -44,10 +44,12 @@ func NewClusterUserCreateCmd() *cobra.Command {
 				SuccessMessage("User created successfully").
 				Method("POST").
 				Action("/resources/users/create").
-				// Handler(func(data interface{}) error {
+				// Handler(func(data any) error {
 				// 	return nil
 				// }).
 				Render()
+
+			return nil
 		},
 	}
 }

@@ -10,8 +10,10 @@ var DatabaseRestoreCmd = &cobra.Command{
 	Use:   "restore <id>",
 	Args:  cobra.ExactArgs(1),
 	Short: "Restore a database",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Database restored:", args[0])
+
+		return nil
 	},
 }
 

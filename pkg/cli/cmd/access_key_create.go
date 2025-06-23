@@ -13,12 +13,11 @@ func NewAccessKeyCreateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create --cluster <name>",
 		Short: "Create a new access key",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			res, _, err := api.Post("/resources/access-keys", map[string]any{})
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			fmt.Print(
@@ -29,16 +28,18 @@ func NewAccessKeyCreateCmd() *cobra.Command {
 						components.WithCardRows([]components.CardRow{
 							{
 								Key:   "access_key_id",
-								Value: res["data"].(map[string]interface{})["access_key_id"].(string),
+								Value: res["data"].(map[string]any)["access_key_id"].(string),
 							},
 							{
 								Key:   "access_key_secret",
-								Value: res["data"].(map[string]interface{})["access_key_secret"].(string),
+								Value: res["data"].(map[string]any)["access_key_secret"].(string),
 							},
 						}),
 					).View(),
 				),
 			)
+
+			return nil
 		},
 	}
 }

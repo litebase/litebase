@@ -14,12 +14,11 @@ func NewProfileCurrentCmd() *cobra.Command {
 		Use:   "current",
 		Short: "Return the current profile",
 		Args:  cobra.MinimumNArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			profiles, err := config.GetCurrentProfile()
 
 			if err != nil {
-				fmt.Println(err)
-				return
+				return err
 			}
 
 			fmt.Print(
@@ -39,6 +38,8 @@ func NewProfileCurrentCmd() *cobra.Command {
 					).View(),
 				),
 			)
+
+			return nil
 		},
 	}
 }

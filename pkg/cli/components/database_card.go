@@ -1,6 +1,6 @@
 package components
 
-func DatabaseCard(data map[string]interface{}) string {
+func DatabaseCard(data map[string]any) string {
 	return NewCard(
 		WithCardTitle("Database"),
 		WithCardRows([]CardRow{

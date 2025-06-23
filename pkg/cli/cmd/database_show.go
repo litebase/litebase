@@ -14,23 +14,23 @@ func NewDatabaseShowCmd() *cobra.Command {
 		Use:   "show <id>",
 		Short: "Get a database",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			res, err := api.Get(fmt.Sprintf("/resources/databases/%s", args[0]))
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			fmt.Print(
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
 					components.DatabaseCard(
-						res["data"].(map[string]interface{}),
+						res["data"].(map[string]any),
 					),
 				),
 			)
+
+			return nil
 		},
 	}
-
 }

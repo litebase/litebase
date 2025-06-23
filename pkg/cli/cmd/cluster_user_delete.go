@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/cli/api"
-	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/styles"
 
 	"github.com/spf13/cobra"
@@ -15,19 +14,17 @@ func NewClusterUserDeleteCmd() *cobra.Command {
 		Use:   "delete <username>",
 		Short: "Delete a user",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.NewClient()
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			_, _, err = client.Request("DELETE", "/resources/users/"+args[0], nil)
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			// if errors != nil {
@@ -37,6 +34,8 @@ func NewClusterUserDeleteCmd() *cobra.Command {
 			// }
 
 			fmt.Println(styles.AlertSuccessStyle.Render("User deleted successfully"))
+
+			return nil
 		},
 	}
 }

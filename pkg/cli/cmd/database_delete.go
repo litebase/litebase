@@ -14,24 +14,26 @@ func NewDatabaseDeleteCmd() *cobra.Command {
 		Use:   "delete <id>",
 		Args:  cobra.ExactArgs(1),
 		Short: "Delete a database",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := api.NewClient()
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			res, _, err := client.Request("DELETE", fmt.Sprintf("/resources/databases/%s", args[0]), nil)
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			fmt.Print(components.Container(
 				components.SuccessAlert(res["message"].(string)),
 			))
+
+			return nil
 		},
 	}
 }

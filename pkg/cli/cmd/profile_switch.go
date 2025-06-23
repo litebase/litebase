@@ -14,7 +14,7 @@ func NewProfileSwitchCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "switch",
 		Short: "Switch to a profile",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			profiles := config.GetProfiles()
 
 			columns := []string{"Name", "Cluster"}
@@ -41,6 +41,8 @@ func NewProfileSwitchCmd() *cobra.Command {
 
 					os.Exit(0)
 				}).Render()
+
+			return nil
 		},
 	}
 

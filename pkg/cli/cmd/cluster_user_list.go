@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/litebase/litebase/pkg/auth"
 
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -19,12 +17,11 @@ func NewClusterUserListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List users",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			res, err := api.Get("/resources/users")
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			columns := []string{
@@ -36,10 +33,10 @@ func NewClusterUserListCmd() *cobra.Command {
 
 			var users []auth.User
 
-			for _, user := range res["data"].([]interface{}) {
+			for _, user := range res["data"].([]any) {
 				statements := []auth.AccessKeyStatement{}
 
-				for _, priv := range user.(map[string]interface{})["privileges"].([]interface{}) {
+				for _, priv := range user.(map[string]any)["privileges"].([]any) {
 					statements = append(statements, auth.AccessKeyStatement{
 						Effect:   "Allow",
 						Resource: "*",
@@ -48,10 +45,10 @@ func NewClusterUserListCmd() *cobra.Command {
 				}
 
 				users = append(users, auth.User{
-					Username:   user.(map[string]interface{})["username"].(string),
+					Username:   user.(map[string]any)["username"].(string),
 					Statements: statements,
-					CreatedAt:  user.(map[string]interface{})["created_at"].(string),
-					UpdatedAt:  user.(map[string]interface{})["updated_at"].(string),
+					CreatedAt:  user.(map[string]any)["created_at"].(string),
+					UpdatedAt:  user.(map[string]any)["updated_at"].(string),
 				})
 			}
 
@@ -66,6 +63,8 @@ func NewClusterUserListCmd() *cobra.Command {
 			}
 
 			components.NewTable(columns, rows).Render()
+
+			return nil
 		},
 	}
 }

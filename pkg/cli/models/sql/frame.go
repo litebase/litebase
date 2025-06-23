@@ -236,7 +236,7 @@ func (f Frame) RunQuery(query string) (Frame, tea.Cmd) {
 
 	for range q {
 		jsonString := `[{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"},{"column1": "value1","column2": "value2"}]`
-		x := make([]map[string]interface{}, 0)
+		x := make([]map[string]any, 0)
 		err := json.Unmarshal([]byte(jsonString), &x)
 
 		if err != nil {

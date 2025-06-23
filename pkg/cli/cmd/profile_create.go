@@ -12,7 +12,7 @@ func NewProfileCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a new profile",
 		Args:  cobra.MinimumNArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			components.NewForm(
 				[]components.FormField{
 					{
@@ -97,7 +97,7 @@ func NewProfileCreateCmd() *cobra.Command {
 					},
 				},
 			).
-				Handler(func(f *components.Form, requestData interface{}, responseData interface{}, err error) error {
+				Handler(func(f *components.Form, requestData any, responseData any, err error) error {
 					f.SuccessMessage("Profile stored successfully")
 
 					profiles := config.GetProfiles()
@@ -107,18 +107,20 @@ func NewProfileCreateCmd() *cobra.Command {
 					}
 
 					return config.AddProfile(config.Profile{
-						Name:    requestData.(map[string]interface{})["name"].(string),
-						Cluster: requestData.(map[string]interface{})["cluster"].(string),
-						Type:    config.ProfileType(requestData.(map[string]interface{})["type"].(string)),
+						Name:    requestData.(map[string]any)["name"].(string),
+						Cluster: requestData.(map[string]any)["cluster"].(string),
+						Type:    config.ProfileType(requestData.(map[string]any)["type"].(string)),
 						Credentials: config.ProfileCredentials{
-							Username:        requestData.(map[string]interface{})["username"].(string),
-							Password:        requestData.(map[string]interface{})["password"].(string),
-							AccessKeyId:     requestData.(map[string]interface{})["accessKeyId"].(string),
-							AccessKeySecret: requestData.(map[string]interface{})["accessKeySecret"].(string),
+							Username:        requestData.(map[string]any)["username"].(string),
+							Password:        requestData.(map[string]any)["password"].(string),
+							AccessKeyId:     requestData.(map[string]any)["accessKeyId"].(string),
+							AccessKeySecret: requestData.(map[string]any)["accessKeySecret"].(string),
 						},
 					})
 				}).
 				Render()
+
+			return nil
 		},
 	}
 }

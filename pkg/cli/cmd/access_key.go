@@ -6,12 +6,14 @@ var AccessKeyCmd = &cobra.Command{
 	Use:   "access-key",
 	Short: "Manage access keys",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		err := cmd.Help()
 
 		if err != nil {
-			panic(err)
+			return err
 		}
+
+		return nil
 	},
 }
 
@@ -24,7 +26,8 @@ var AccessKeyUpdateCmd = &cobra.Command{
 
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return nil
 	},
 }
 

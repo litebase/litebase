@@ -67,7 +67,7 @@ func (r *Radio) Toggle() {
 	r.checked = !r.checked
 }
 
-func (r *Radio) Value() interface{} {
+func (r *Radio) Value() any {
 	return r.value
 }
 

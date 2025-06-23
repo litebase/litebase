@@ -14,12 +14,12 @@ func NewDatabaseCreateCmd() *cobra.Command {
 		Use:   "create <name>",
 		Args:  cobra.ExactArgs(1),
 		Short: "Create a new database",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			res, _, err := api.Post("/resources/databases", map[string]any{"name": args[0]})
 
 			if err != nil {
 				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			fmt.Print(
@@ -28,6 +28,8 @@ func NewDatabaseCreateCmd() *cobra.Command {
 					components.DatabaseCard(res["data"].(map[string]any)),
 				),
 			)
+
+			return nil
 		},
 	}
 }

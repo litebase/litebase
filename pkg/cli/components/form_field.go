@@ -14,5 +14,5 @@ type FormField struct {
 type Condition struct {
 	FieldName string
 	Operator  string
-	Value     interface{}
+	Value     any
 }

@@ -147,7 +147,7 @@ func (c *CheckboxGroup) Update(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func (c *CheckboxGroup) Value() interface{} {
+func (c *CheckboxGroup) Value() any {
 	values := []string{}
 	for _, option := range c.options {
 		if option.checked {

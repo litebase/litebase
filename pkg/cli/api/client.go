@@ -136,7 +136,7 @@ func basicAuthHeader() string {
 	return fmt.Sprintf(
 		"Basic %s",
 		base64.StdEncoding.EncodeToString(
-			[]byte(fmt.Sprintf("%s:%s", username, password)),
+			fmt.Appendf(nil, "%s:%s", username, password),
 		),
 	)
 }

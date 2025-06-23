@@ -14,15 +14,16 @@ func NewProfileDeleteCmd() *cobra.Command {
 		Use:   "delete <name>",
 		Short: "Delete a profile",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			err := config.DeleteProfile(args[0])
 
 			if err != nil {
-				fmt.Print(components.Container(components.ErrorAlert(err.Error())))
-				return
+				return err
 			}
 
 			fmt.Print(components.Container(components.SuccessAlert("Profile deleted successfully")))
+
+			return nil
 		},
 	}
 }

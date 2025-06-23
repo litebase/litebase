@@ -55,7 +55,7 @@ func (b *Button) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (b *Button) Value() interface{} {
+func (b *Button) Value() any {
 	return nil
 }
 

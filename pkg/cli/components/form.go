@@ -18,7 +18,7 @@ type Form struct {
 	errorMessage string
 	errors       api.Errors
 	focusIndex   int
-	handler      func(f *Form, requestData interface{}, responseData interface{}, err error) error
+	handler      func(f *Form, requestData any, responseData any, err error) error
 	inputs       []Input
 	loader       *InlineLoader
 	loading      bool
@@ -315,8 +315,8 @@ func (f *Form) submit() tea.Cmd {
 		}
 
 		var errors api.Errors
-		var responseData map[string]interface{}
-		requestData := make(map[string]interface{})
+		var responseData map[string]any
+		requestData := make(map[string]any)
 
 		for _, input := range f.inputs {
 			requestData[input.Name()] = input.Value()
@@ -436,7 +436,7 @@ func (f *Form) Method(method string) *Form {
 	return f
 }
 
-func (f *Form) Handler(handler func(f *Form, requestData interface{}, responseData interface{}, err error) error) *Form {
+func (f *Form) Handler(handler func(f *Form, requestData any, responseData any, err error) error) *Form {
 	f.handler = handler
 
 	return f

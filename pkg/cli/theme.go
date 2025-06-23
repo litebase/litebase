@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"image/color"
 	"os"
 
 	"github.com/charmbracelet/fang"
@@ -30,5 +31,9 @@ func ColorScheme() fang.ColorScheme {
 		Description:    c(Black, White),
 		FlagDefault:    c(Gray500, Gray500),
 		QuotedString:   c(Gray100, Gray900),
+		ErrorHeader: [2]color.Color{
+			Red100,
+			Red700,
+		},
 	}
 }

@@ -100,7 +100,7 @@ func (t *TextInput) Update(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-func (t *TextInput) Value() interface{} {
+func (t *TextInput) Value() any {
 	return t.model.Value()
 }
 

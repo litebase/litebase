@@ -63,7 +63,7 @@ func (c *Checkbox) Toggle() {
 	c.checked = !c.checked
 }
 
-func (c *Checkbox) Value() interface{} {
+func (c *Checkbox) Value() any {
 	return c.value
 }
 

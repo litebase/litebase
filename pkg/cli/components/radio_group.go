@@ -149,7 +149,7 @@ func (r *RadioGroup) Update(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func (r *RadioGroup) Value() interface{} {
+func (r *RadioGroup) Value() any {
 	var value string
 
 	for _, option := range r.options {

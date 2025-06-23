@@ -11,7 +11,7 @@ type Input interface {
 	Update(msg tea.Msg) tea.Cmd
 	Placeholder(s string) Input
 	Name() string
-	Value() interface{}
+	Value() any
 	View() string
 }
 

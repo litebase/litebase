@@ -6,12 +6,14 @@ var DatabaseSettingsCmd = &cobra.Command{
 	Use:   "settings",
 	Short: "Manage database settings",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		err := cmd.Help()
 
 		if err != nil {
-			panic(err)
+			return err
 		}
+
+		return nil
 	},
 }
 
@@ -19,7 +21,8 @@ var DatabaseSettingsUpdateCmd = &cobra.Command{
 	Use:   "update <id>",
 	Short: "Update database settings",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return nil
 	},
 }
 
