@@ -23,6 +23,7 @@ type Configuration struct {
 var ErrMissingClusterURL = errors.New("missing cluster URL")
 var ErrorProfileNotFound = errors.New("profile not found, provide a valid profile name or enter cluster auth credentials")
 
+// Create a new configuration instance.
 func NewConfiguration(path string) (*Configuration, error) {
 	// Replace the $HOME environment variable with the actual path
 	configPath := strings.Replace(path, "$HOME", os.Getenv("HOME"), 1)
@@ -54,26 +55,19 @@ func NewConfiguration(path string) (*Configuration, error) {
 	return configuration, nil
 }
 
-func (c *Configuration) Save() error {
-	jsonData, err := json.MarshalIndent(c, "", "  ")
+// Add a new profile to the configuration.
+func (c *Configuration) AddProfile(profile Profile) error {
+	c.Profiles = append(c.Profiles, profile)
 
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(c.Path, jsonData, 0600)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.Save()
 }
 
+// Get the profiles of the configuration.
 func (c *Configuration) GetProfiles() []Profile {
 	return c.Profiles
 }
 
+// Get a specific profile by name.
 func (c *Configuration) GetProfile(name string) *Profile {
 	for _, profile := range c.Profiles {
 		if profile.Name == name {
@@ -84,12 +78,7 @@ func (c *Configuration) GetProfile(name string) *Profile {
 	return nil
 }
 
-func (c *Configuration) AddProfile(profile Profile) error {
-	c.Profiles = append(c.Profiles, profile)
-
-	return c.Save()
-}
-
+// Delete a profile from the configuration by name.
 func (c *Configuration) DeleteProfile(name string) error {
 	profiles := []Profile{}
 	var profileFound bool
@@ -112,14 +101,17 @@ func (c *Configuration) DeleteProfile(name string) error {
 	return c.Save()
 }
 
+// Return the access key ID used for authentication.
 func (c *Configuration) GetAccessKeyId() string {
 	return c.accessKeyId
 }
 
+// Return the access key secret used for authentication.
 func (c *Configuration) GetAccessKeySecret() string {
 	return c.accessKeySecret
 }
 
+// Return the current profile or the first profile if no current profile is set.
 func (c *Configuration) GetCurrentProfile() (*Profile, error) {
 	if c.CurrentProfile == "" {
 		profiles := c.GetProfiles()
@@ -134,16 +126,36 @@ func (c *Configuration) GetCurrentProfile() (*Profile, error) {
 	return c.GetProfile(c.CurrentProfile), nil
 }
 
+// Return the password used for authentication.
 func (c *Configuration) GetPassword() string {
 	return c.password
 }
 
+// Return the URL of the cluster.
 func (c *Configuration) GetUrl() string {
 	return c.url
 }
 
+// Return the username used for authentication.
 func (c *Configuration) GetUsername() string {
 	return c.username
+}
+
+// Save the configuration to the file system.
+func (c *Configuration) Save() error {
+	jsonData, err := json.MarshalIndent(c, "", "  ")
+
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(c.Path, jsonData, 0600)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Configuration) SetAccessKeyId(accessKeyId string) {
