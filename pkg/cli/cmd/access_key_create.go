@@ -5,16 +5,17 @@ import (
 
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
+	"github.com/litebase/litebase/pkg/cli/config"
 
 	"github.com/spf13/cobra"
 )
 
-func NewAccessKeyCreateCmd() *cobra.Command {
+func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "create --cluster <name>",
+		Use:   "create",
 		Short: "Create a new access key",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, _, err := api.Post("/resources/access-keys", map[string]any{})
+			res, _, err := api.Post(config, "/resources/access-keys", map[string]any{})
 
 			if err != nil {
 				return err

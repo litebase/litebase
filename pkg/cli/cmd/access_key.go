@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/litebase/litebase/pkg/cli/config"
+	"github.com/spf13/cobra"
+)
 
 var AccessKeyCmd = &cobra.Command{
 	Use:   "access-key",
@@ -31,10 +34,10 @@ var AccessKeyUpdateCmd = &cobra.Command{
 	},
 }
 
-func NewAccessKeyCmd() *cobra.Command {
-	AccessKeyCmd.AddCommand(NewAccessKeyListCmd())
-	AccessKeyCmd.AddCommand(NewAccessKeyCreateCmd())
-	AccessKeyCmd.AddCommand(NewAccessKeyDeleteCmd())
+func NewAccessKeyCmd(config *config.Configuration) *cobra.Command {
+	AccessKeyCmd.AddCommand(NewAccessKeyListCmd(config))
+	AccessKeyCmd.AddCommand(NewAccessKeyCreateCmd(config))
+	AccessKeyCmd.AddCommand(NewAccessKeyDeleteCmd(config))
 	AccessKeyCmd.AddCommand(AccessKeyUpdateCmd)
 
 	return AccessKeyCmd

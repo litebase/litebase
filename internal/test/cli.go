@@ -1,0 +1,100 @@
+package test
+
+import (
+	"bytes"
+
+	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/cli/cmd"
+	"github.com/litebase/litebase/pkg/server"
+	"github.com/spf13/cobra"
+)
+
+type TestCLI struct {
+	AccessKey    *auth.AccessKey
+	App          *server.App
+	Cmd          *cobra.Command
+	outputBuffer *bytes.Buffer
+	Server       *TestServer
+}
+
+func NewTestCLI(app *server.App) *TestCLI {
+	c := &TestCLI{
+		App:          app,
+		outputBuffer: bytes.NewBuffer(make([]byte, 0)),
+	}
+
+	cmd, err := cmd.RootCmd()
+
+	if err != nil {
+		panic(err)
+	}
+
+	cmd.SetOut(c.outputBuffer)
+
+	c.Cmd = cmd
+
+	return c
+}
+
+func (c *TestCLI) Run(args ...string) error {
+	// Implement the logic to run the CLI with the provided arguments
+	c.Cmd.SetArgs(args)
+
+	return c.Cmd.Execute()
+}
+
+func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
+	accessKey, err := c.App.Auth.AccessKeyManager.Create(statements)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = c.Cmd.PersistentFlags().Set("access-key-id", accessKey.AccessKeyId)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = c.Cmd.PersistentFlags().Set("access-key-secret", accessKey.AccessKeySecret)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return c
+}
+
+func (c *TestCLI) WithBasicAuth(username, password string, statements []auth.AccessKeyStatement) *TestCLI {
+	err := c.App.Auth.UserManager().Add(username, password, statements)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = c.Cmd.PersistentFlags().Set("username", username)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = c.Cmd.PersistentFlags().Set("password", password)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return c
+}
+
+func (c *TestCLI) WithServer(server *TestServer) *TestCLI {
+	c.Server = server
+
+	err := c.Cmd.PersistentFlags().Set("url", server.Server.URL)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return c
+}

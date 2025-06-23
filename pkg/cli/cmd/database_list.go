@@ -5,16 +5,17 @@ import (
 
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
+	"github.com/litebase/litebase/pkg/cli/config"
 
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseListCmd() *cobra.Command {
+func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List databases",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := api.Get("/resources/databases")
+			data, err := api.Get(config, "/resources/databases")
 
 			if err != nil {
 				return err

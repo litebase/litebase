@@ -10,12 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileSwitchCmd() *cobra.Command {
+func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "switch",
 		Short: "Switch to a profile",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			profiles := config.GetProfiles()
+			profiles := c.GetProfiles()
 
 			columns := []string{"Name", "Cluster"}
 
@@ -27,7 +27,7 @@ func NewProfileSwitchCmd() *cobra.Command {
 
 			components.NewTable(columns, rows).
 				SetHandler(func(row []string) {
-					err := config.SwitchProfile(row[0])
+					err := c.SwitchProfile(row[0])
 
 					if err != nil {
 						panic(err)

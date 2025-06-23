@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/litebase/litebase/pkg/cli/config"
+	"github.com/spf13/cobra"
+)
 
 var ProfileCmd = &cobra.Command{
 	Use:   "profile",
@@ -9,12 +12,12 @@ var ProfileCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 }
 
-func NewProfileCmd() *cobra.Command {
-	ProfileCmd.AddCommand(NewProfileCreateCmd())
-	ProfileCmd.AddCommand(NewProfileCurrentCmd())
-	ProfileCmd.AddCommand(NewProfileDeleteCmd())
-	ProfileCmd.AddCommand(NewProfileListCmd())
-	ProfileCmd.AddCommand(NewProfileSwitchCmd())
+func NewProfileCmd(c *config.Configuration) *cobra.Command {
+	ProfileCmd.AddCommand(NewProfileCreateCmd(c))
+	ProfileCmd.AddCommand(NewProfileCurrentCmd(c))
+	ProfileCmd.AddCommand(NewProfileDeleteCmd(c))
+	ProfileCmd.AddCommand(NewProfileListCmd(c))
+	ProfileCmd.AddCommand(NewProfileSwitchCmd(c))
 
 	return ProfileCmd
 }

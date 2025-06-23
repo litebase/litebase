@@ -9,13 +9,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileDeleteCmd() *cobra.Command {
+func NewProfileDeleteCmd(c *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <name>",
 		Short: "Delete a profile",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := config.DeleteProfile(args[0])
+			err := c.DeleteProfile(args[0])
 
 			if err != nil {
 				return err

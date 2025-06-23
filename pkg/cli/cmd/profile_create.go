@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileCreateCmd() *cobra.Command {
+func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a new profile",
@@ -100,13 +100,13 @@ func NewProfileCreateCmd() *cobra.Command {
 				Handler(func(f *components.Form, requestData any, responseData any, err error) error {
 					f.SuccessMessage("Profile stored successfully")
 
-					profiles := config.GetProfiles()
+					profiles := c.GetProfiles()
 
 					if profiles == nil {
 						profiles = []config.Profile{}
 					}
 
-					return config.AddProfile(config.Profile{
+					return c.AddProfile(config.Profile{
 						Name:    requestData.(map[string]any)["name"].(string),
 						Cluster: requestData.(map[string]any)["cluster"].(string),
 						Type:    config.ProfileType(requestData.(map[string]any)["type"].(string)),

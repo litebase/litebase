@@ -13,32 +13,43 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var confiPath string
-var profile string
-var url string
-var username string
-var password string
+var (
+	accessKeyId     string
+	accessKeySecret string
+	configPath      string
+	profile         string
+	url             string
+	username        string
+	password        string
+)
 
-func addCommands(cmd *cobra.Command) {
+func addCommands(cmd *cobra.Command, c *config.Configuration) {
 	cmd.AddCommand(VersionCmd)
-	cmd.AddCommand(NewAccessKeyCmd())
-	cmd.AddCommand(NewClusterCmd())
-	cmd.AddCommand(NewDatabaseCmd())
+	cmd.AddCommand(NewAccessKeyCmd(c))
+	cmd.AddCommand(NewClusterCmd(c))
+	cmd.AddCommand(NewDatabaseCmd(c))
 	cmd.AddCommand(NewInitCmd())
 	cmd.AddCommand(LoginCmd)
 	cmd.AddCommand(LogoutCmd)
-	cmd.AddCommand(NewProfileCmd())
+	cmd.AddCommand(NewProfileCmd(c))
 	cmd.AddCommand(NewServeCmd())
-	cmd.AddCommand(NewSQLCmd())
-	cmd.AddCommand(NewUserCmd())
+	cmd.AddCommand(NewSQLCmd(c))
+	cmd.AddCommand(NewStatusCmd(c))
+	cmd.AddCommand(NewUserCmd(c))
 }
 
-func NewRoot() error {
+func RootCmd() (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:               "litebase <command> <subcommand> [flags]",
 		Short:             "Litebase CLI",
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 		Long:              `Connect with Litebase from the command line`,
+		Example: `
+		litebase database create app_db
+		litebase database list
+		litebase shell
+		litebase sql "SELECT * FROM users"
+		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			title := lipgloss.NewStyle().Bold(true).
 				Margin(0, 0, 1).
@@ -74,21 +85,33 @@ func NewRoot() error {
 		},
 	}
 
-	addCommands(cmd)
-
-	cmd.PersistentFlags().StringVar(&confiPath, "config", "$HOME/.litebase/config", "Path to a configuration file")
+	cmd.PersistentFlags().StringVar(&accessKeyId, "access-key-id", "", "Access key ID for authentication")
+	cmd.PersistentFlags().StringVar(&accessKeySecret, "access-key-secret", "", "Access key secret for authentication")
+	cmd.PersistentFlags().StringVar(&configPath, "config", "$HOME/.litebase/config", "Path to a configuration file")
 	cmd.PersistentFlags().StringVar(&profile, "profile", "", "The profile to use during this session")
 	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
-	cmd.PersistentFlags().StringVar(&username, "username", "", "Username")
-	cmd.PersistentFlags().StringVar(&password, "password", "", "Password")
+	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
+	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
 
-	err := config.Init(confiPath)
+	configuration, err := config.NewConfiguration(configPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	addCommands(cmd, configuration)
+
+	cmd.PersistentPreRunE = preRun(configuration)
+
+	return cmd, nil
+}
+
+func NewRoot() error {
+	cmd, err := RootCmd()
 
 	if err != nil {
 		return err
 	}
-
-	cmd.PersistentPreRunE = preRun()
 
 	return fang.Execute(
 		context.Background(),
@@ -97,18 +120,26 @@ func NewRoot() error {
 	)
 }
 
-func preRun() func(cmd *cobra.Command, args []string) error {
+func preRun(c *config.Configuration) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if url != "" {
-			config.SetUrl(url)
+		if accessKeyId != "" {
+			c.SetAccessKeyId(accessKeyId)
 		}
 
-		if username != "" {
-			config.SetUsername(username)
+		if accessKeySecret != "" {
+			c.SetAccessKeySecret(accessKeySecret)
 		}
 
 		if password != "" {
-			config.SetPassword(password)
+			c.SetPassword(password)
+		}
+
+		if url != "" {
+			c.SetUrl(url)
+		}
+
+		if username != "" {
+			c.SetUsername(username)
 		}
 
 		return nil

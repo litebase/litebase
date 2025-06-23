@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"github.com/litebase/litebase/pkg/cli/components"
+	"github.com/litebase/litebase/pkg/cli/config"
 
 	"github.com/spf13/cobra"
 )
 
-func NewClusterUserCreateCmd() *cobra.Command {
+func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a new user",
@@ -43,7 +44,7 @@ func NewClusterUserCreateCmd() *cobra.Command {
 				Title("Create a new user").
 				SuccessMessage("User created successfully").
 				Method("POST").
-				Action("/resources/users/create").
+				Action(config, "/resources/users/create").
 				// Handler(func(data any) error {
 				// 	return nil
 				// }).

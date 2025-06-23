@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/litebase/litebase/pkg/cli/config"
+	"github.com/spf13/cobra"
+)
 
 var DatabaseSettingsCmd = &cobra.Command{
 	Use:   "settings",
@@ -26,7 +29,7 @@ var DatabaseSettingsUpdateCmd = &cobra.Command{
 	},
 }
 
-func NewDatabaseSettingsCmd() *cobra.Command {
+func NewDatabaseSettingsCmd(config *config.Configuration) *cobra.Command {
 	DatabaseSettingsCmd.AddCommand(DatabaseSettingsUpdateCmd)
 
 	return DatabaseSettingsCmd

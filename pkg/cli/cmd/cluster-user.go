@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/litebase/litebase/pkg/cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -34,10 +35,10 @@ var ClusterUserUpdateCmd = &cobra.Command{
 	},
 }
 
-func NewUserCmd() *cobra.Command {
-	ClusterUserCmd.AddCommand(NewClusterUserListCmd())
-	ClusterUserCmd.AddCommand(NewClusterUserCreateCmd())
-	ClusterUserCmd.AddCommand(NewClusterUserDeleteCmd())
+func NewUserCmd(config *config.Configuration) *cobra.Command {
+	ClusterUserCmd.AddCommand(NewClusterUserListCmd(config))
+	ClusterUserCmd.AddCommand(NewClusterUserCreateCmd(config))
+	ClusterUserCmd.AddCommand(NewClusterUserDeleteCmd(config))
 	ClusterUserCmd.AddCommand(ClusterUserUpdateCmd)
 
 	return ClusterUserCmd

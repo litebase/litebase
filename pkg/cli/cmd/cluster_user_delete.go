@@ -4,18 +4,19 @@ import (
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/cli/api"
+	"github.com/litebase/litebase/pkg/cli/config"
 	"github.com/litebase/litebase/pkg/cli/styles"
 
 	"github.com/spf13/cobra"
 )
 
-func NewClusterUserDeleteCmd() *cobra.Command {
+func NewClusterUserDeleteCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <username>",
 		Short: "Delete a user",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := api.NewClient()
+			client, err := api.NewClient(config)
 
 			if err != nil {
 				return err

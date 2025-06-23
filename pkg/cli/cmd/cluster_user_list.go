@@ -5,6 +5,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
+	"github.com/litebase/litebase/pkg/cli/config"
 
 	"github.com/spf13/cobra"
 )
@@ -13,12 +14,12 @@ type UserListResponse struct {
 	Data []auth.User `json:"data"`
 }
 
-func NewClusterUserListCmd() *cobra.Command {
+func NewClusterUserListCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List users",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := api.Get("/resources/users")
+			res, err := api.Get(config, "/resources/users")
 
 			if err != nil {
 				return err

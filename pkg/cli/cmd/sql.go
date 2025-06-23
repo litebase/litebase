@@ -3,6 +3,7 @@ package cmd
 import (
 	"strings"
 
+	"github.com/litebase/litebase/pkg/cli/config"
 	"github.com/litebase/litebase/pkg/cli/models/sql"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -191,7 +192,7 @@ func handleKeyUp(m Model) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func NewSQLCmd() *cobra.Command {
+func NewSQLCmd(c *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sql",
 		Short: "Run SQL queries",

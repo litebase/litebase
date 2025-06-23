@@ -9,13 +9,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileCurrentCmd() *cobra.Command {
+func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "current",
 		Short: "Return the current profile",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			profiles, err := config.GetCurrentProfile()
+			profiles, err := c.GetCurrentProfile()
 
 			if err != nil {
 				return err

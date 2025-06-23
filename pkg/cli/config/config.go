@@ -10,34 +10,35 @@ import (
 
 type Configuration struct {
 	CurrentProfile string    `json:"currentProfile"`
+	Path           string    `json:"path"`
 	Profiles       []Profile `json:"profiles"`
 
-	username string
-	password string
-	url      string
+	accessKeyId     string
+	accessKeySecret string
+	username        string
+	password        string
+	url             string
 }
 
-var configPath string
-var configuration *Configuration
+var ErrMissingClusterURL = errors.New("missing cluster URL")
+var ErrorProfileNotFound = errors.New("profile not found, provide a valid profile name or enter cluster auth credentials")
 
-var ErrorProfileNotFound = errors.New("Profile not found, provide a valid profile name or enter cluster credentials")
-
-func Init(path string) error {
+func NewConfiguration(path string) (*Configuration, error) {
 	// Replace the $HOME environment variable with the actual path
-	path = strings.Replace(path, "$HOME", os.Getenv("HOME"), 1)
-	configPath = path
-
+	configPath := strings.Replace(path, "$HOME", os.Getenv("HOME"), 1)
+	var configuration *Configuration
 	err := os.MkdirAll(filepath.Dir(configPath), 0750)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	_, err = os.Stat(configPath)
 
 	if os.IsNotExist(err) {
-		configuration = &Configuration{}
-		return Save()
+		return &Configuration{
+			Path: configPath,
+		}, nil
 	}
 
 	file, err := os.ReadFile(filepath.Clean(configPath))
@@ -46,17 +47,21 @@ func Init(path string) error {
 		panic(err)
 	}
 
-	return json.Unmarshal(file, &configuration)
+	if err := json.Unmarshal(file, &configuration); err != nil {
+		return nil, err
+	}
+
+	return configuration, nil
 }
 
-func Save() error {
-	jsonData, err := json.MarshalIndent(configuration, "", "  ")
+func (c *Configuration) Save() error {
+	jsonData, err := json.MarshalIndent(c, "", "  ")
 
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(configPath, jsonData, 0600)
+	err = os.WriteFile(c.Path, jsonData, 0600)
 
 	if err != nil {
 		return err
@@ -65,12 +70,12 @@ func Save() error {
 	return nil
 }
 
-func GetProfiles() []Profile {
-	return configuration.Profiles
+func (c *Configuration) GetProfiles() []Profile {
+	return c.Profiles
 }
 
-func GetProfile(name string) *Profile {
-	for _, profile := range configuration.Profiles {
+func (c *Configuration) GetProfile(name string) *Profile {
+	for _, profile := range c.Profiles {
 		if profile.Name == name {
 			return &profile
 		}
@@ -79,17 +84,17 @@ func GetProfile(name string) *Profile {
 	return nil
 }
 
-func AddProfile(profile Profile) error {
-	configuration.Profiles = append(configuration.Profiles, profile)
+func (c *Configuration) AddProfile(profile Profile) error {
+	c.Profiles = append(c.Profiles, profile)
 
-	return Save()
+	return c.Save()
 }
 
-func DeleteProfile(name string) error {
+func (c *Configuration) DeleteProfile(name string) error {
 	profiles := []Profile{}
 	var profileFound bool
 
-	for _, profile := range configuration.Profiles {
+	for _, profile := range c.Profiles {
 		if profile.Name != name {
 			profiles = append(profiles, profile)
 			profileFound = true
@@ -102,14 +107,22 @@ func DeleteProfile(name string) error {
 		return ErrorProfileNotFound
 	}
 
-	configuration.Profiles = profiles
+	c.Profiles = profiles
 
-	return Save()
+	return c.Save()
 }
 
-func GetCurrentProfile() (*Profile, error) {
-	if configuration.CurrentProfile == "" {
-		profiles := GetProfiles()
+func (c *Configuration) GetAccessKeyId() string {
+	return c.accessKeyId
+}
+
+func (c *Configuration) GetAccessKeySecret() string {
+	return c.accessKeySecret
+}
+
+func (c *Configuration) GetCurrentProfile() (*Profile, error) {
+	if c.CurrentProfile == "" {
+		profiles := c.GetProfiles()
 
 		if len(profiles) > 0 {
 			return &profiles[0], nil
@@ -118,41 +131,49 @@ func GetCurrentProfile() (*Profile, error) {
 		return nil, ErrorProfileNotFound
 	}
 
-	return GetProfile(configuration.CurrentProfile), nil
+	return c.GetProfile(c.CurrentProfile), nil
 }
 
-func SwitchProfile(name string) error {
-	profile := GetProfile(name)
+func (c *Configuration) GetPassword() string {
+	return c.password
+}
+
+func (c *Configuration) GetUrl() string {
+	return c.url
+}
+
+func (c *Configuration) GetUsername() string {
+	return c.username
+}
+
+func (c *Configuration) SetAccessKeyId(accessKeyId string) {
+	c.accessKeyId = accessKeyId
+}
+
+func (c *Configuration) SetAccessKeySecret(accessKeySecret string) {
+	c.accessKeySecret = accessKeySecret
+}
+
+func (c *Configuration) SetPassword(password string) {
+	c.password = password
+}
+
+func (c *Configuration) SetUrl(url string) {
+	c.url = strings.TrimRight(url, "/")
+}
+
+func (c *Configuration) SetUsername(username string) {
+	c.username = username
+}
+
+func (c *Configuration) SwitchProfile(name string) error {
+	profile := c.GetProfile(name)
 
 	if profile == nil {
 		return ErrorProfileNotFound
 	}
 
-	configuration.CurrentProfile = name
+	c.CurrentProfile = name
 
-	return Save()
-}
-
-func SetUrl(url string) {
-	configuration.url = strings.TrimRight(url, "/")
-}
-
-func SetPassword(password string) {
-	configuration.password = password
-}
-
-func SetUsername(username string) {
-	configuration.username = username
-}
-
-func GetUrl() string {
-	return configuration.url
-}
-
-func GetPassword() string {
-	return configuration.password
-}
-
-func GetUsername() string {
-	return configuration.username
+	return c.Save()
 }

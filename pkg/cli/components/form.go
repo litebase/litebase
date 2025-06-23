@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/litebase/litebase/pkg/cli/api"
+	"github.com/litebase/litebase/pkg/cli/config"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -15,6 +16,7 @@ import (
 type Form struct {
 	action       string
 	conditions   [][]Condition
+	config       *config.Configuration
 	errorMessage string
 	errors       api.Errors
 	focusIndex   int
@@ -306,7 +308,7 @@ func (f *Form) submit() tea.Cmd {
 	f.errorMessage = ""
 
 	return func() tea.Msg {
-		client, err := api.NewClient()
+		client, err := api.NewClient(f.config)
 
 		if err != nil {
 			f.errorMessage = err.Error()
@@ -424,7 +426,8 @@ func (f *Form) Render() {
 	}
 }
 
-func (f *Form) Action(action string) *Form {
+func (f *Form) Action(config *config.Configuration, action string) *Form {
+	f.config = config
 	f.action = action
 
 	return f

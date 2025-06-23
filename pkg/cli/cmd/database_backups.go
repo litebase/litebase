@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/litebase/litebase/pkg/cli/config"
+	"github.com/spf13/cobra"
+)
 
 var DatabaseBackupCmd = &cobra.Command{
 	Use:   "backup",
@@ -34,7 +37,7 @@ var DatabaseBackupDeleteCmd = &cobra.Command{
 	},
 }
 
-func NewDatabaseBackupCmd() *cobra.Command {
+func NewDatabaseBackupCmd(config *config.Configuration) *cobra.Command {
 	DatabaseBackupCmd.AddCommand(DatabaseBackupCreateCmd)
 	DatabaseBackupCmd.AddCommand(DatabaseBackupDeleteCmd)
 

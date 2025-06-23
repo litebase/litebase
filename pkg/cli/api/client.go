@@ -6,54 +6,74 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cli/config"
 )
 
 type Client struct {
-	BaseUrl        string
+	BaseURL        *url.URL
+	Config         *config.Configuration
 	defaultHeaders map[string]string
 	httpClient     *http.Client
 }
 
 type Errors map[string][]string
 
-func NewClient() (*Client, error) {
-	defaultHeaders := map[string]string{
-		"Content-Type": "application/json",
-		"Accept":       "application/json",
+func NewClient(configuration *config.Configuration) (*Client, error) {
+	c := &Client{
+		Config: configuration,
+		defaultHeaders: map[string]string{
+			"Content-Type": "application/json",
+			"Accept":       "application/json",
+		},
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
 	}
 
-	if shouldUseBasicAuth() {
-		defaultHeaders["Authorization"] = basicAuthHeader()
-	}
-
-	clusterUrl, err := clusterUrl()
+	clusterURL, err := c.clusterURL()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &Client{
-		BaseUrl:        clusterUrl,
-		defaultHeaders: defaultHeaders,
-		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
-	}, nil
+	c.BaseURL = clusterURL
+
+	return c, nil
 }
 
 func (c *Client) Request(method, path string, data map[string]any) (map[string]any, Errors, error) {
-	url := fmt.Sprintf("%s/%s", c.BaseUrl, strings.TrimLeft(path, "/"))
+	url := fmt.Sprintf("%s/%s", c.BaseURL, strings.TrimLeft(path, "/"))
 
 	jsonData, err := json.Marshal(data)
 
 	if err != nil {
 		return nil, nil, err
 	}
-	// log.Fatalln("Request", method, url, string(jsonData))
+
+	if c.shouldUseAccessKey() {
+		host := c.BaseURL.Hostname()
+
+		if c.BaseURL.Port() != "" {
+			host = fmt.Sprintf("%s:%s", c.BaseURL.Hostname(), c.BaseURL.Port())
+		}
+
+		c.defaultHeaders["X-LBDB-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
+		c.defaultHeaders["Host"] = host
+		c.defaultHeaders["Authorization"] = c.accessKeyHeader(
+			method,
+			path,
+			c.defaultHeaders,
+			data,
+		)
+	} else if c.shouldUseBasicAuth() {
+		c.defaultHeaders["Authorization"] = c.basicAuthHeader()
+	}
+
 	req, err := http.NewRequest(method, url, strings.NewReader(string(jsonData)))
 
 	if err != nil {
@@ -113,17 +133,29 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 	return responseData, nil, nil
 }
 
-func basicAuthHeader() string {
+func (c *Client) accessKeyHeader(method, path string, headers map[string]string, body map[string]any) string {
+	return auth.SignRequest(
+		c.Config.GetAccessKeyId(),
+		c.Config.GetAccessKeySecret(),
+		method,
+		path,
+		headers,
+		body,
+		map[string]string{},
+	)
+}
+
+func (c *Client) basicAuthHeader() string {
 	var (
 		username string
 		password string
 	)
 
-	if config.GetUsername() != "" && config.GetPassword() != "" {
-		username = config.GetUsername()
-		password = config.GetPassword()
+	if c.Config.GetUsername() != "" && c.Config.GetPassword() != "" {
+		username = c.Config.GetUsername()
+		password = c.Config.GetPassword()
 	} else {
-		profile, err := config.GetCurrentProfile()
+		profile, err := c.Config.GetCurrentProfile()
 
 		if err != nil {
 			return err.Error()
@@ -141,26 +173,44 @@ func basicAuthHeader() string {
 	)
 }
 
-func clusterUrl() (string, error) {
-	if config.GetUrl() != "" {
-		return config.GetUrl(), nil
+func (c *Client) clusterURL() (*url.URL, error) {
+	if c.Config.GetUrl() == "" && (c.Config.GetAccessKeyId() != "" || c.Config.GetUsername() != "") {
+		return nil, config.ErrMissingClusterURL
 	}
 
-	profile, err := config.GetCurrentProfile()
+	if c.Config.GetUrl() != "" {
+		url, err := url.Parse(c.Config.GetUrl())
+
+		if err != nil {
+			return nil, err
+		}
+
+		return url, nil
+	}
+
+	profile, err := c.Config.GetCurrentProfile()
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return profile.Cluster, nil
+	if profile.Cluster == "" {
+		return nil, fmt.Errorf("cluster URL not found")
+	}
+
+	return url.Parse(profile.Cluster)
 }
 
-func shouldUseBasicAuth() bool {
-	if config.GetUsername() != "" && config.GetPassword() != "" {
+func (c *Client) shouldUseAccessKey() bool {
+	return c.Config.GetAccessKeyId() != "" && c.Config.GetAccessKeySecret() != ""
+}
+
+func (c *Client) shouldUseBasicAuth() bool {
+	if c.Config.GetUsername() != "" && c.Config.GetPassword() != "" {
 		return true
 	}
 
-	profile, err := config.GetCurrentProfile()
+	profile, err := c.Config.GetCurrentProfile()
 
 	if err != nil {
 		return false
