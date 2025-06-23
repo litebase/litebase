@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD033 MD041 -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/litebase-github-readme-banner-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/images/litebase-github-readme-banner.svg">
@@ -19,7 +20,7 @@
 
 Litebase is cloud-native, **scales horizontally**, supports **strongly-consistent** ACID transactions, and supports read replicas with **eventual consistency**. Litebase tiers data between instance storage, distributed file systems like [Amazon EFS](https://aws.amazon.com/efs/), and object storage like [Amazon S3](https://aws.amazon.com/s3/) optimizing both performance and cost.  The design decision to leverage existing distributed storage architectures allows Litebase to inherit distributed system properties like high availability, fault tolerance, and disaster recovery without the need for complex replication protocols.
 
-### Features
+## Features
 
 * Authentication
 * Authorization
@@ -37,7 +38,6 @@ You can learn more about Litebase in our documentation. You'll find all the info
 
 **[Read the Docs →](https://litebase.com/docs)**
 
-
 ## Need help?
 
 If you have any questions or need help, we encourage you to start a discussion on GitHub. This is a great place to ask questions, share ideas, request features and get help from the community. Please do not use Issues for general questions or support requests, as they are intended for tracking bugs and accepted feature requests.
@@ -47,7 +47,6 @@ If you have any questions or need help, we encourage you to start a discussion o
 If you find a bug, please open an issue with a detailed description of the problem, including steps to reproduce it. If you have a feature request, please start a discussion instead.
 
 **[Create an Issue →](https://github.com/litebase/litebase/issues)**
-
 
 ## Community
 
@@ -59,7 +58,6 @@ Please review our Contribution Guide before submitting an issue or pull request 
 
 **[Contributing Guide →](https://github.com/litebase/litebase/blob/main/docs/CONTRIBUTING.md)**
 
-
 ## Security Vulnerabilities
 
 All security related issues should be reported directly to [security@litebase.com](mailto:security@litebase.com).
@@ -67,4 +65,3 @@ All security related issues should be reported directly to [security@litebase.co
 ## License
 
 Litebase is [open-sourced](https://opensource.org/) software licensed under the [MIT License](LICENSE.md).
-
