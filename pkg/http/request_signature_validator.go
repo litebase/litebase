@@ -33,9 +33,10 @@ func RequestSignatureValidator(
 
 	// Get the body hash that was calculated when the body was first read
 	bodyHash := request.BodyHash()
+
 	if bodyHash == "" {
 		// Hash of empty body if no body was provided
-		emptyBodyHashSum := sha256.Sum256([]byte("{}"))
+		emptyBodyHashSum := sha256.Sum256(nil)
 		bodyHash = fmt.Sprintf("%x", emptyBodyHashSum)
 	}
 

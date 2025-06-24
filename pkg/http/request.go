@@ -70,6 +70,7 @@ func (r *Request) All() map[string]any {
 	if r.Body == nil && r.BaseRequest.Body != nil && r.Headers().Get("Content-Length") != "0" {
 		// Read the raw body bytes first for hashing
 		rawBody, err := io.ReadAll(r.BaseRequest.Body)
+
 		if err != nil {
 			slog.Error("error reading request body", "error", err)
 			return nil
@@ -81,8 +82,10 @@ func (r *Request) All() map[string]any {
 
 		// Parse the body into a map
 		body := make(map[string]any)
+
 		if len(rawBody) > 0 {
 			err := json.Unmarshal(rawBody, &body)
+
 			if err != nil {
 				slog.Error("error decoding request body", "error", err)
 				return nil
@@ -90,6 +93,7 @@ func (r *Request) All() map[string]any {
 		}
 
 		err = r.BaseRequest.Body.Close()
+
 		if err != nil {
 			slog.Error("error closing request body", "error", err)
 		}

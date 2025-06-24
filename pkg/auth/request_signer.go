@@ -24,6 +24,7 @@ func SignRequest(
 ) string {
 	// Calculate body hash BEFORE any transformations
 	var bodyHash string
+
 	if len(data) > 0 {
 		jsonBody, err := json.Marshal(data)
 		if err != nil {
@@ -32,7 +33,7 @@ func SignRequest(
 		bodyHashSum := sha256.Sum256(jsonBody)
 		bodyHash = fmt.Sprintf("%x", bodyHashSum)
 	} else {
-		emptyBodyHashSum := sha256.Sum256([]byte("{}"))
+		emptyBodyHashSum := sha256.Sum256(nil)
 		bodyHash = fmt.Sprintf("%x", emptyBodyHashSum)
 	}
 

@@ -49,10 +49,15 @@ func NewClient(configuration *config.Configuration) (*Client, error) {
 func (c *Client) Request(method, path string, data map[string]any) (map[string]any, Errors, error) {
 	url := fmt.Sprintf("%s/%s", c.BaseURL, strings.TrimLeft(path, "/"))
 
-	jsonData, err := json.Marshal(data)
+	var jsonData []byte
+	var err error
 
-	if err != nil {
-		return nil, nil, err
+	if data != nil {
+		jsonData, err = json.Marshal(data)
+
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	if c.shouldUseAccessKey() {
@@ -108,7 +113,7 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 		}
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		if responseData["message"] != nil {
 			return nil, nil, fmt.Errorf("%s", responseData["message"].(string))
 		}
