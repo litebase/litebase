@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/litebase/litebase/pkg/auth"
 
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -45,11 +47,22 @@ func NewClusterUserListCmd(config *config.Configuration) *cobra.Command {
 					})
 				}
 
+				parsedCreatedAt, err := time.Parse(time.RFC3339, user.(map[string]any)["created_at"].(string))
+				if err != nil {
+					return err
+				}
+
+				parsedUpdatedAt, err := time.Parse(time.RFC3339, user.(map[string]any)["updated_at"].(string))
+
+				if err != nil {
+					return err
+				}
+
 				users = append(users, auth.User{
 					Username:   user.(map[string]any)["username"].(string),
 					Statements: statements,
-					CreatedAt:  user.(map[string]any)["created_at"].(string),
-					UpdatedAt:  user.(map[string]any)["updated_at"].(string),
+					CreatedAt:  parsedCreatedAt,
+					UpdatedAt:  parsedUpdatedAt,
 				})
 			}
 
@@ -58,8 +71,8 @@ func NewClusterUserListCmd(config *config.Configuration) *cobra.Command {
 			for _, user := range users {
 				rows = append(rows, []string{
 					user.Username,
-					user.CreatedAt,
-					user.UpdatedAt,
+					user.CreatedAt.Format(time.RFC3339),
+					user.UpdatedAt.Format(time.RFC3339),
 				})
 			}
 

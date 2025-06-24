@@ -22,10 +22,10 @@ type UserManager struct {
 
 type User struct {
 	Username   string               `json:"username"`
-	Password   string               `json:"password,omitempty"`
+	Password   string               `json:"-"`
 	Statements []AccessKeyStatement `json:"statements"`
-	CreatedAt  string               `json:"created_at"`
-	UpdatedAt  string               `json:"updated_at"`
+	CreatedAt  time.Time            `json:"created_at"`
+	UpdatedAt  time.Time            `json:"updated_at"`
 }
 
 // Check if the user has authorization for the given resources and actions
@@ -78,8 +78,8 @@ func (u *UserManager) Add(username, password string, statements []AccessKeyState
 		Username:   username,
 		Password:   string(bytes),
 		Statements: statements,
-		CreatedAt:  time.Now().UTC().Format("2006-01-02 15:04:05"),
-		UpdatedAt:  time.Now().UTC().Format("2006-01-02 15:04:05"),
+		CreatedAt:  time.Now().UTC(),
+		UpdatedAt:  time.Now().UTC(),
 	}
 
 	return u.writeFile()

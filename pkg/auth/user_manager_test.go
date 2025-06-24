@@ -41,11 +41,11 @@ func TestUserManager_Add(t *testing.T) {
 			t.Errorf("Expected first statement to be allow all, got %v", user.Statements[0])
 		}
 
-		if user.CreatedAt == "" {
+		if user.CreatedAt.IsZero() {
 			t.Error("Expected CreatedAt to be set")
 		}
 
-		if user.UpdatedAt == "" {
+		if user.UpdatedAt.IsZero() {
 			t.Error("Expected UpdatedAt to be set")
 		}
 	})

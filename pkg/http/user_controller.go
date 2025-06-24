@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/litebase/litebase/pkg/auth"
 )
@@ -81,12 +82,16 @@ func UserControllerStore(request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
+	user := request.cluster.Auth.UserManager().Get(data.Username)
+
+	if user == nil {
+		return ServerErrorResponse(fmt.Errorf("the user could not be created"))
+	}
+
+	log.Println("User created successfully:", user)
 	return SuccessResponse(
 		"User created successfully",
-		map[string]any{
-			"username":   data.Username,
-			"statements": data.Statements,
-		},
+		user,
 		201)
 }
 

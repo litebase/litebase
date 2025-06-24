@@ -7,7 +7,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-func TestAccessKeyCreate_NoInteractive(t *testing.T) {
+func TestClusterUserCreate(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
@@ -19,23 +19,27 @@ func TestAccessKeyCreate_NoInteractive(t *testing.T) {
 			})
 
 		// Test non-interactive mode with flags to avoid TTY issues
-		statements := `[{"effect":"allow","resource":"*","actions":["*"]}]`
-		err := cli.Run("access-key", "create", "--description", "Test access key", "--statements", statements)
+		statements := `[{"effect":"allow","resource":"*","actions":["cluster:manage"]}]`
+		err := cli.Run("cluster-user", "create", "--new-username", "testuser", "--new-password", "testpassword123", "--statements", statements)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if !cli.ShouldSee("Access Key") {
-			t.Error("expected output to contain 'Access Key'")
+		if !cli.ShouldSee("User") {
+			t.Error("expected output to contain 'User'")
 		}
 
-		if !cli.ShouldSee("Access Key ID") {
-			t.Error("expected output to contain 'Access Key ID'")
+		if !cli.ShouldSee("Username") {
+			t.Error("expected output to contain 'Username'")
 		}
 
-		if !cli.ShouldSee("Access Key Secret") {
-			t.Error("expected output to contain 'Access Key Secrets'")
+		if !cli.ShouldNotSee("Password") {
+			t.Error("expected output to not contain 'Password'")
+		}
+
+		if !cli.ShouldSee("testuser") {
+			t.Error("expected output to contain 'testuser'")
 		}
 
 		if !cli.ShouldSee("Created At") {
