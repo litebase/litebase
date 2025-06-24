@@ -22,9 +22,23 @@ func SignRequest(
 	data map[string]any,
 	queryParams map[string]string,
 ) string {
+	// Calculate body hash BEFORE any transformations
+	var bodyHash string
+	if len(data) > 0 {
+		jsonBody, err := json.Marshal(data)
+		if err != nil {
+			panic(err)
+		}
+		bodyHashSum := sha256.Sum256(jsonBody)
+		bodyHash = fmt.Sprintf("%x", bodyHashSum)
+	} else {
+		emptyBodyHashSum := sha256.Sum256([]byte("{}"))
+		bodyHash = fmt.Sprintf("%x", emptyBodyHashSum)
+	}
+
+	// Now transform headers for signing
 	for key, value := range headers {
 		delete(headers, key)
-
 		headers[utils.TransformHeaderKey(key)] = value
 	}
 
@@ -34,40 +48,22 @@ func SignRequest(
 		}
 	}
 
+	// Transform query params
 	for key, value := range queryParams {
 		delete(queryParams, key)
-
 		queryParams[strings.ToLower(key)] = value
-	}
-
-	for key, value := range data {
-		delete(data, key)
-
-		data[strings.ToLower(key)] = value
 	}
 
 	jsonHeaders, err := json.Marshal(headers)
 	var jsonQueryParams []byte
-	var jsonBody []byte
 
 	if len(queryParams) > 0 {
 		jsonQueryParams, err = json.Marshal(queryParams)
-
 		if err != nil {
 			panic(err)
 		}
 	} else {
 		jsonQueryParams = []byte("{}")
-	}
-
-	if len(data) > 0 {
-		jsonBody, err = json.Marshal(data)
-
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		jsonBody = []byte("{}")
 	}
 
 	if err != nil {
@@ -79,7 +75,7 @@ func SignRequest(
 		fmt.Sprintf("/%s", strings.TrimLeft(path, "/")),
 		string(jsonHeaders),
 		string(jsonQueryParams),
-		string(jsonBody),
+		bodyHash,
 	}, "")
 
 	signedRequestHash := sha256.New()

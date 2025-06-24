@@ -31,7 +31,15 @@ func RequestSignatureValidator(
 		body = request.All()
 	}
 
-	// Change all the keys to lower case
+	// Get the body hash that was calculated when the body was first read
+	bodyHash := request.BodyHash()
+	if bodyHash == "" {
+		// Hash of empty body if no body was provided
+		emptyBodyHashSum := sha256.Sum256([]byte("{}"))
+		bodyHash = fmt.Sprintf("%x", emptyBodyHashSum)
+	}
+
+	// Change all the keys to lower case for other processing
 	for key, value := range body {
 		delete(body, key)
 		body[strings.ToLower(key)] = value
@@ -63,7 +71,6 @@ func RequestSignatureValidator(
 
 	jsonHeaders, err := json.Marshal(headers)
 	var jsonQueryParams []byte
-	var jsonBody []byte
 
 	if len(queryParams) > 0 {
 		jsonQueryParams, err = json.Marshal(queryParams)
@@ -75,16 +82,6 @@ func RequestSignatureValidator(
 		jsonQueryParams = []byte("{}")
 	}
 
-	if len(body) > 0 {
-		jsonBody, err = json.Marshal(body)
-
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		jsonBody = []byte("{}")
-	}
-
 	if err != nil {
 		panic(err)
 	}
@@ -94,7 +91,7 @@ func RequestSignatureValidator(
 		"/" + strings.TrimLeft(request.Path(), "/"),
 		string(jsonHeaders),
 		string(jsonQueryParams),
-		string(jsonBody),
+		bodyHash,
 	}, "")
 
 	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(request.RequestToken(header).AccessKeyId)

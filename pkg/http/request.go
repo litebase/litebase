@@ -1,8 +1,10 @@
 package http
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -17,6 +19,7 @@ type Request struct {
 	accessKeyManager *auth.AccessKeyManager
 	BaseRequest      *http.Request
 	Body             map[string]any
+	bodyHash         string
 	databaseKey      *auth.DatabaseKey
 	databaseManager  *database.DatabaseManager
 	logManager       *logs.LogManager
@@ -65,16 +68,28 @@ func NewRequest(
 // Return all of the data from the request body as a map.
 func (r *Request) All() map[string]any {
 	if r.Body == nil && r.BaseRequest.Body != nil && r.Headers().Get("Content-Length") != "0" {
-		body := make(map[string]any)
-		err := json.NewDecoder(r.BaseRequest.Body).Decode(&body)
-
+		// Read the raw body bytes first for hashing
+		rawBody, err := io.ReadAll(r.BaseRequest.Body)
 		if err != nil {
-			slog.Error("error decoding request body", "error", err)
+			slog.Error("error reading request body", "error", err)
 			return nil
 		}
 
-		err = r.BaseRequest.Body.Close()
+		// Calculate hash of the raw body
+		bodyHashSum := sha256.Sum256(rawBody)
+		r.bodyHash = fmt.Sprintf("%x", bodyHashSum)
 
+		// Parse the body into a map
+		body := make(map[string]any)
+		if len(rawBody) > 0 {
+			err := json.Unmarshal(rawBody, &body)
+			if err != nil {
+				slog.Error("error decoding request body", "error", err)
+				return nil
+			}
+		}
+
+		err = r.BaseRequest.Body.Close()
 		if err != nil {
 			slog.Error("error closing request body", "error", err)
 		}
@@ -83,6 +98,16 @@ func (r *Request) All() map[string]any {
 	}
 
 	return r.Body
+}
+
+// Return the SHA256 hash of the request body that was calculated when All() was called.
+func (r *Request) BodyHash() string {
+	// Ensure All() has been called to populate the body hash
+	if r.bodyHash == "" && r.BaseRequest.Body != nil {
+		r.All()
+	}
+
+	return r.bodyHash
 }
 
 // Authorize the request based on the access key and the specified resource and actions.

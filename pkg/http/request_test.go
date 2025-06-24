@@ -99,6 +99,33 @@ func TestRequest_All(t *testing.T) {
 	})
 }
 
+func TestRequest_BodyHash(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		buffer := bytes.NewBufferString(`{"foo": "bar"}`)
+		body := io.NopCloser(buffer)
+
+		baseRequest := &http.Request{
+			Body:   body,
+			Host:   "foo.bar.litebase.test",
+			Method: http.MethodGet,
+			URL: &url.URL{
+				Host: "foo.bar.litebase.test",
+			},
+		}
+
+		request := appHttp.NewRequest(
+			app.Cluster,
+			app.DatabaseManager,
+			app.LogManager,
+			baseRequest,
+		)
+
+		if request.BodyHash() == "" {
+			t.Errorf("expected BodyHash() to be not empty")
+		}
+	})
+}
+
 func TestRequest_DatabaseKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
