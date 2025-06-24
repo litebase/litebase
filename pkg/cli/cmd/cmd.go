@@ -7,6 +7,8 @@ type Command struct {
 	command *cobra.Command
 	// A configuration function that can be used to configure Litebase before running the command.
 	configFunc func(cmd *cobra.Command)
+	// A configuration function that returns an error if the configuration is invalid.
+	configFuncE func(cmd *cobra.Command) error
 	// A flags function that can be used to add flags to the command.
 	flagsFunc func(cmd *cobra.Command)
 	// Use is the one-line usage message.
@@ -51,6 +53,20 @@ func (c *Command) WithRun(run func(cmd *cobra.Command, args []string)) *Command 
 		}
 
 		run(cmd, args)
+	}
+
+	return c
+}
+
+func (c *Command) WithRunE(run func(cmd *cobra.Command, args []string) error) *Command {
+	c.command.RunE = func(cmd *cobra.Command, args []string) error {
+		if c.configFuncE != nil {
+			if err := c.configFuncE(cmd); err != nil {
+				return err
+			}
+		}
+
+		return run(cmd, args)
 	}
 
 	return c

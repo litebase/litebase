@@ -9,28 +9,30 @@ import (
 	"github.com/charmbracelet/x/term"
 )
 
-func ColorScheme() fang.ColorScheme {
+func LightDark(light color.Color, dark color.Color) color.Color {
 	var isDark bool
 
 	if term.IsTerminal(os.Stdout.Fd()) {
 		isDark = lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
 	}
 
-	c := lipgloss.LightDark(isDark)
+	return lipgloss.LightDark(isDark)(light, dark)
+}
 
+func ColorScheme() fang.ColorScheme {
 	return fang.ColorScheme{
-		Base:           c(Black, White),
-		Title:          c(Black, White),
-		Codeblock:      c(Gray100, Gray900),
-		Program:        c(Sky500, Sky500),
-		Command:        c(Sky500, Sky500),
-		DimmedArgument: c(Gray300, Sky300),
-		Comment:        c(Gray500, Gray300),
-		Flag:           c(Green, Green),
-		Argument:       c(Green, Gray900),
-		Description:    c(Black, White),
-		FlagDefault:    c(Gray500, Gray500),
-		QuotedString:   c(Gray100, Gray900),
+		Base:           LightDark(Black, White),
+		Title:          LightDark(Black, White),
+		Codeblock:      LightDark(Gray100, Gray900),
+		Program:        LightDark(Sky500, Sky500),
+		Command:        LightDark(Sky500, Sky500),
+		DimmedArgument: LightDark(Gray300, Sky300),
+		Comment:        LightDark(Gray500, Gray300),
+		Flag:           LightDark(Green, Green),
+		Argument:       LightDark(Green, Gray900),
+		Description:    LightDark(Black, White),
+		FlagDefault:    LightDark(Gray500, Gray500),
+		QuotedString:   LightDark(Gray100, Gray900),
 		ErrorHeader: [2]color.Color{
 			Red100,
 			Red700,

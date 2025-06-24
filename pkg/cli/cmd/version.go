@@ -3,10 +3,9 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/styles"
-
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 

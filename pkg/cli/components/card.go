@@ -3,9 +3,9 @@ package components
 import (
 	"fmt"
 
-	"github.com/litebase/litebase/pkg/cli/styles"
+	"github.com/litebase/litebase/pkg/cli"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 type CardRow struct {
@@ -13,21 +13,26 @@ type CardRow struct {
 	Value string
 }
 
-var cardStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("240")).
-	Width(64).
-	Padding(1)
+var cardStyle = func() lipgloss.Style {
+	return lipgloss.NewStyle().
+		BorderForeground(cli.LightDark(cli.Gray400, cli.Gray500)).
+		BorderLeft(true).
+		BorderStyle(lipgloss.InnerHalfBlockBorder()).
+		PaddingBottom(1).
+		PaddingLeft(1)
+}
 
-var cardTitleStyle = lipgloss.NewStyle().
-	MarginBottom(1).
-	Padding(0, 1).
-	Bold(true).
-	Background(styles.PrimaryBackgroundColor).
-	Foreground(styles.PrimaryForegroundColor)
+var CardTitleStyle = func() lipgloss.Style {
+	return lipgloss.NewStyle().
+		MarginBottom(1).
+		Padding(0, 1).
+		Bold(true).
+		Background(cli.LightDark(cli.Sky700, cli.Sky300)).
+		Foreground(cli.LightDark(cli.White, cli.Black))
+}
 
 var cardRowStyle = lipgloss.NewStyle().
-	Padding(1)
+	PaddingTop(1)
 
 type Card struct {
 	Rows  []CardRow
@@ -62,7 +67,7 @@ func (c *Card) View() string {
 	maxKeyLength := 0
 
 	if c.Title != "" {
-		content += cardTitleStyle.Render(c.Title)
+		content += CardTitleStyle().Render(c.Title)
 	}
 
 	for _, row := range c.Rows {
@@ -71,24 +76,18 @@ func (c *Card) View() string {
 		}
 	}
 
-	for i, row := range c.Rows {
+	for _, row := range c.Rows {
 		key := row.Key
 
 		if len(row.Key) < maxKeyLength {
 			key += fmt.Sprintf("%*s", maxKeyLength-len(row.Key), "")
 		}
 
-		style := cardRowStyle.Copy()
-
-		if i == len(c.Rows)-1 {
-			style = style.PaddingBottom(0)
-		}
-
-		content += style.Render(
+		content += cardRowStyle.Render(
 			lipgloss.NewStyle().Bold(true).Render(key),
 			lipgloss.NewStyle().Render(row.Value),
 		)
 	}
 
-	return cardStyle.Render(content)
+	return cardStyle().Render(content)
 }

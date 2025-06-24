@@ -1,15 +1,19 @@
 package components
 
-import "github.com/litebase/litebase/pkg/cli/styles"
+import (
+	"fmt"
+
+	"github.com/litebase/litebase/pkg/cli/styles"
+)
 
 func ErrorAlert(message string) string {
-	return styles.AlertDangerStyle.Render(message)
+	return fmt.Sprintf("%s → %s", styles.AlertDangerStyle.Render("Error"), message)
 }
 
 func SuccessAlert(message string) string {
-	return styles.AlertSuccessStyle.Render(message)
+	return fmt.Sprintf("%s → %s", styles.AlertSuccessStyle.Render("Success"), message)
 }
 
 func WarningAlert(message string) string {
-	return styles.AlertWarningStyle.Render(message)
+	return fmt.Sprintf("%s → %s", styles.AlertWarningStyle.Render("Warning"), message)
 }
