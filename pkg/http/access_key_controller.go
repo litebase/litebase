@@ -43,7 +43,8 @@ func AccessKeyControllerIndex(request *Request) Response {
 }
 
 type AccessKeyStoreRequest struct {
-	Statements []auth.AccessKeyStatement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
+	Description string                    `json:"description" validate:"omitempty,max=255"`
+	Statements  []auth.AccessKeyStatement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
 }
 
 // Create a new access key
@@ -67,6 +68,7 @@ func AccessKeyControllerStore(request *Request) Response {
 
 	// Validate the input
 	validationErrors := request.Validate(input, map[string]string{
+		"description.max":                  "The description field must be at most 255 characters long",
 		"statements.max":                   "The statements field must contain at most 100 items",
 		"statements.min":                   "The statements field must contain at least 1 item",
 		"statements.required":              "The statements field is required",
@@ -86,6 +88,7 @@ func AccessKeyControllerStore(request *Request) Response {
 
 	// Create the access key
 	accessKey, err := request.accessKeyManager.Create(
+		input.(*AccessKeyStoreRequest).Description,
 		input.(*AccessKeyStoreRequest).Statements,
 	)
 
@@ -110,7 +113,8 @@ func AccessKeyControllerStore(request *Request) Response {
 }
 
 type AccessKeyUpdateRequest struct {
-	Statements []auth.AccessKeyStatement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
+	Description string                    `json:"description" validate:"omitempty,max=255"`
+	Statements  []auth.AccessKeyStatement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
 }
 
 // Update an existing access key
@@ -170,7 +174,16 @@ func AccessKeyControllerUpdate(request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	err = accessKey.Update(input.(*AccessKeyUpdateRequest).Statements)
+	description := accessKey.Description
+
+	if input.(*AccessKeyUpdateRequest).Description != "" {
+		description = input.(*AccessKeyUpdateRequest).Description
+	}
+
+	err = accessKey.Update(
+		description,
+		input.(*AccessKeyUpdateRequest).Statements,
+	)
 
 	if err != nil {
 		return JsonResponse(map[string]any{

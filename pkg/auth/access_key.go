@@ -11,6 +11,7 @@ import (
 type AccessKey struct {
 	AccessKeyId      string `json:"access_key_id"`
 	AccessKeySecret  string `json:"access_key_secret"`
+	Description      string `json:"description"`
 	accessKeyManager *AccessKeyManager
 	CreatedAt        int64                `json:"created_at"`
 	UpdatedAt        int64                `json:"updated_at"`
@@ -22,12 +23,14 @@ func NewAccessKey(
 	accessKeyManager *AccessKeyManager,
 	accessKeyId string,
 	accessKeySecret string,
+	description string,
 	statements []AccessKeyStatement,
 ) *AccessKey {
 	return &AccessKey{
 		accessKeyManager: accessKeyManager,
 		AccessKeyId:      accessKeyId,
 		AccessKeySecret:  accessKeySecret,
+		Description:      description,
 		Statements:       statements,
 	}
 }
@@ -78,8 +81,10 @@ func (accessKey *AccessKey) Delete() error {
 
 // Update the AccessKey statements.
 func (accessKey *AccessKey) Update(
+	description string,
 	statements []AccessKeyStatement,
 ) error {
+	accessKey.Description = description
 	accessKey.Statements = statements
 
 	jsonValue, err := json.Marshal(accessKey)

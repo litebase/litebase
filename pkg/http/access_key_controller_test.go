@@ -13,9 +13,10 @@ func TestAccessKeyControllerDestroy(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
-		})
+		accessKey, err := server.App.Auth.AccessKeyManager.Create(
+			"Test access key",
+			[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+		)
 
 		if err != nil {
 			t.Fatalf("Failed to create test access key: %v", err)
@@ -83,9 +84,10 @@ func TestAccessKeyControllerDestroy_CannotDeleteWithInvalidAccessKey(t *testing.
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
-		})
+		accessKey, err := server.App.Auth.AccessKeyManager.Create(
+			"Test access key",
+			[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+		)
 
 		if err != nil {
 			t.Fatalf("Failed to create test access key: %v", err)
@@ -162,7 +164,7 @@ func TestAccessKeyControllerStore(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send("/resources/access-keys", "POST", map[string]any{
-			"resource": "*",
+			"description": "test",
 			"statements": []map[string]any{
 				{
 					"effect":   "allow",
@@ -363,9 +365,10 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
-		})
+		accessKey, err := server.App.Auth.AccessKeyManager.Create(
+			"test",
+			[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+		)
 
 		if err != nil {
 			t.Fatalf("Failed to create test access key: %v", err)
@@ -380,6 +383,7 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "PUT", map[string]any{
+			"description": "Updated description",
 			"statements": []map[string]any{
 				{
 					"effect":   "allow",
@@ -412,9 +416,10 @@ func TestAccessKeyControllerUpdate_WithInvalidAccessKey(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		accessKey, err := server.App.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{
-			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
-		})
+		accessKey, err := server.App.Auth.AccessKeyManager.Create(
+			"Test access key",
+			[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+		)
 
 		if err != nil {
 			t.Fatalf("Failed to create test access key: %v", err)

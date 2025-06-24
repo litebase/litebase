@@ -724,7 +724,7 @@ func TestDatabaseConnection_WithAccessKey(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		accessKey := auth.NewAccessKey(app.Auth.AccessKeyManager, "test", "test", nil)
+		accessKey := auth.NewAccessKey(app.Auth.AccessKeyManager, "test", "test", "", nil)
 
 		connection.WithAccessKey(accessKey)
 

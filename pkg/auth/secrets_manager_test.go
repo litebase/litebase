@@ -231,7 +231,7 @@ func TestSecretsManager_FlushTransients(t *testing.T) {
 
 func TestSecretsManager_GetAccessKeySecret(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		accessKey, err := app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+		accessKey, err := app.Auth.AccessKeyManager.Create("test", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 		if err != nil {
 			t.Error("Expected Create to return a non-nil error")
@@ -330,7 +330,7 @@ func TestSecretsManager_SecretsPath(t *testing.T) {
 
 func TestSecretsManager_StoreAccessKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		accessKey, err := app.Auth.AccessKeyManager.Create([]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+		accessKey, err := app.Auth.AccessKeyManager.Create("test", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 		if err != nil {
 			t.Error("Expected Create to return a non-nil error")

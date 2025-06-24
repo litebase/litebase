@@ -14,6 +14,7 @@ func TestNewAccessKey(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessKeySecret",
+			"Description",
 			[]auth.AccessKeyStatement{},
 		)
 
@@ -28,6 +29,10 @@ func TestNewAccessKey(t *testing.T) {
 		if accessKey.AccessKeySecret != "accessKeySecret" {
 			t.Errorf("Expected accessKeySecret to be 'accessKeySecret', got %s", accessKey.AccessKeySecret)
 		}
+
+		if accessKey.Description != "Description" {
+			t.Errorf("Expected description to be 'Description', got %s", accessKey.Description)
+		}
 	})
 }
 
@@ -37,6 +42,7 @@ func TestAccessKeyDelete(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessSecret",
+			"",
 			[]auth.AccessKeyStatement{},
 		)
 
@@ -68,6 +74,7 @@ func TestAccessKeyUpdate(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessSecret",
+			"Description",
 			[]auth.AccessKeyStatement{},
 		)
 
@@ -84,7 +91,7 @@ func TestAccessKeyUpdate(t *testing.T) {
 			},
 		}
 
-		if err := accessKey.Update(statements); err != nil {
+		if err := accessKey.Update("Updated Description", statements); err != nil {
 			t.Error(err)
 		}
 
@@ -96,6 +103,10 @@ func TestAccessKeyUpdate(t *testing.T) {
 
 		if accessKey == nil {
 			t.Fatal("Expected accessKey to be non-nil")
+		}
+
+		if accessKey.Description != "Updated Description" {
+			t.Errorf("Expected description to be 'Updated Description', got %s", accessKey.Description)
 		}
 
 		if len(accessKey.Statements) != 1 {

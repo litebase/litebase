@@ -160,6 +160,7 @@ func TestAccessKey_CanAccessDatabase(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessKeySecret",
+			"",
 			[]auth.AccessKeyStatement{
 				{
 					Resource: "*",
@@ -287,6 +288,7 @@ func TestAccessKey_CanAnalyze(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -325,6 +327,7 @@ func TestAccessKey_CanAttach(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessKeySecret",
+			"",
 			[]auth.AccessKeyStatement{
 				{
 					Effect:   auth.AccessKeyEffectAllow,
@@ -497,6 +500,7 @@ func TestAccessKey_CanAlterTable(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -649,6 +653,7 @@ func TestAccessKey_CanCreateIndex(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -787,6 +792,7 @@ func TestAccessKey_CanCreateTable(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -926,6 +932,7 @@ func TestAccessKey_CanCreateTempTable(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -1063,6 +1070,7 @@ func TestAccessKey_CanCreateTempTrigger(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -1208,6 +1216,7 @@ func TestAccessKey_CanCreateTempView(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -1345,6 +1354,7 @@ func TestAccessKey_CanCreateTrigger(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -1490,6 +1500,7 @@ func TestAccessKey_CanCreateView(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -1629,6 +1640,7 @@ func TestAccessKey_CanCreateVTable(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -1777,6 +1789,7 @@ func TestAccessKey_CanDelete(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -1819,6 +1832,7 @@ func TestAccessKey_CanDetach(t *testing.T) {
 			app.Auth.AccessKeyManager,
 			"accessKeyId",
 			"accessKeySecret",
+			"",
 			[]auth.AccessKeyStatement{
 				{
 					Effect:   auth.AccessKeyEffectAllow,
@@ -1963,6 +1977,7 @@ func TestAccessKey_CanDropIndex(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -2108,6 +2123,7 @@ func TestAccessKey_CanDropTable(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -2260,6 +2276,7 @@ func TestAccessKey_CanDropTrigger(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -2419,6 +2436,7 @@ func TestAccessKey_CanDropView(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -2556,6 +2574,7 @@ func TestAccessKey_CanFunction(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -2687,6 +2706,7 @@ func TestAccessKey_CanInsert(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -2812,6 +2832,7 @@ func TestAccessKey_CanPragma(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -2960,6 +2981,7 @@ func TestAccessKey_CanRead(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -3092,6 +3114,7 @@ func TestAccessKey_CanRecursive(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -3237,6 +3260,7 @@ func TestAccessKey_CanReindex(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -3359,6 +3383,7 @@ func TestAccessKey_CanSavepoint(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -3482,6 +3507,7 @@ func TestAccessKey_CanSelect(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -3605,6 +3631,7 @@ func TestAccessKey_CanTransaction(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 
@@ -3746,6 +3773,7 @@ func TestAccessKey_CanUpdate(t *testing.T) {
 					app.Auth.AccessKeyManager,
 					"accessKeyId",
 					"accessKeySecret",
+					"",
 					testCase.statements,
 				)
 

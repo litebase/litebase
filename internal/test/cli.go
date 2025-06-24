@@ -29,7 +29,7 @@ func NewTestCLI(app *server.App) *TestCLI {
 		panic(err)
 	}
 
-	cmd.SetOut(c.outputBuffer)
+	// cmd.SetOut(c.outputBuffer)
 
 	c.Cmd = cmd
 
@@ -51,7 +51,7 @@ func (c *TestCLI) ShouldSee(text string) bool {
 
 // WithAccessKey sets the access key for the CLI and updates the flags
 func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
-	accessKey, err := c.App.Auth.AccessKeyManager.Create(statements)
+	accessKey, err := c.App.Auth.AccessKeyManager.Create("Test access key", statements)
 
 	if err != nil {
 		panic(err)
