@@ -396,6 +396,7 @@ func (n *Node) monitorPrimary() {
 	}
 }
 
+// Return the peer elections that the node is aware of.
 func (n *Node) PeerElections() []*ClusterElection {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -405,10 +406,13 @@ func (n *Node) PeerElections() []*ClusterElection {
 	return n.Elections
 }
 
+// Return the primary node of the cluster.
 func (n *Node) Primary() *NodePrimary {
 	return n.primary
 }
 
+// Return the primary address of the node. If the primary address is not set,
+// it will read the primary file from the cluster's network file system.
 func (n *Node) PrimaryAddress() string {
 	if n.primaryAddress == "" {
 		primaryData, err := n.Cluster.NetworkFS().ReadFile(n.Cluster.PrimaryPath())
@@ -823,6 +827,8 @@ func (n *Node) StepDown() error {
 	n.Primary().Shutdown()
 
 	n.SetMembership(ClusterMembershipReplica)
+
+	n.primaryAddress = ""
 
 	return nil
 }

@@ -271,6 +271,33 @@ func TestNode_PrimaryAddress(t *testing.T) {
 	})
 }
 
+func TestNode_PrimaryAddressIsEmptyAfterSteppingDown(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		if server.App.Cluster.Node().PrimaryAddress() == "" {
+			t.Error("Node primary address not set")
+		}
+
+		primaryAddress := server.App.Cluster.Node().PrimaryAddress()
+		address, _ := server.App.Cluster.Node().Address()
+
+		if primaryAddress != address {
+			t.Error("Node primary address format is invalid")
+		}
+
+		err := server.App.Cluster.Node().StepDown()
+		if err != nil {
+			t.Error("Failed to step down: ", err)
+		}
+
+		if server.App.Cluster.Node().PrimaryAddress() != "" {
+			t.Error("Node primary address should be empty after stepping down")
+		}
+	})
+}
+
 func TestNode_Replica(t *testing.T) {
 	test.Run(t, func() {
 		server1 := test.NewTestServer(t)
