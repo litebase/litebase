@@ -16,6 +16,7 @@ package test
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -57,7 +59,16 @@ type StepProcessor struct {
 type Message struct {
 	ProcessName string
 	StepName    string
+	Type        MessageType
 }
+
+type MessageType string
+
+const (
+	MessageTypeStep   MessageType = "step"
+	MessageTypePause  MessageType = "pause"
+	MessageTypeResume MessageType = "resume"
+)
 
 type StepTest struct {
 	cmd        *exec.Cmd
@@ -274,6 +285,7 @@ func (sp *StepProcessor) handleConnection(conn net.Conn) {
 			msg := Message{
 				ProcessName: processName,
 				StepName:    stepName,
+				Type:        MessageTypeStep,
 			}
 
 			// Check if all processes are connected
@@ -283,6 +295,48 @@ func (sp *StepProcessor) handleConnection(conn net.Conn) {
 				sp.processStepMessage(msg)
 			default:
 				// Not all processes connected yet, buffer the message
+				sp.messagesMutex.Lock()
+				sp.pendingMessages = append(sp.pendingMessages, msg)
+				sp.messagesMutex.Unlock()
+			}
+		}
+
+		// Check if this line contains a pause command
+		if after, ok := strings.CutPrefix(line, "LITEBASE_TEST_PAUSE="); ok {
+			targetProcessName := after
+
+			msg := Message{
+				ProcessName: targetProcessName,
+				StepName:    "",
+				Type:        MessageTypePause,
+			}
+
+			// Check if all processes are connected
+			select {
+			case <-sp.allConnected:
+				sp.processControlMessage(msg)
+			default:
+				sp.messagesMutex.Lock()
+				sp.pendingMessages = append(sp.pendingMessages, msg)
+				sp.messagesMutex.Unlock()
+			}
+		}
+
+		// Check if this line contains a resume command
+		if after, ok := strings.CutPrefix(line, "LITEBASE_TEST_RESUME="); ok {
+			targetProcessName := after
+
+			msg := Message{
+				ProcessName: targetProcessName,
+				StepName:    "",
+				Type:        MessageTypeResume,
+			}
+
+			// Check if all processes are connected
+			select {
+			case <-sp.allConnected:
+				sp.processControlMessage(msg)
+			default:
 				sp.messagesMutex.Lock()
 				sp.pendingMessages = append(sp.pendingMessages, msg)
 				sp.messagesMutex.Unlock()
@@ -299,6 +353,50 @@ func (sp *StepProcessor) handleConnection(conn net.Conn) {
 	sp.connMutex.Lock()
 	delete(sp.connections, processName)
 	sp.connMutex.Unlock()
+}
+
+// Pause a specific process
+func (sp *StepProcessor) Pause(name string) error {
+	sp.stepMutex.Lock()
+	defer sp.stepMutex.Unlock()
+
+	// Get the process name from the test
+	test, exists := sp.tests[name]
+
+	if !exists {
+		return errors.New("process not found")
+	}
+
+	// Pause the process
+	err := test.cmd.Process.Signal(syscall.SIGSTOP)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Resume a specific process
+func (sp *StepProcessor) Resume(name string) error {
+	sp.stepMutex.Lock()
+	defer sp.stepMutex.Unlock()
+
+	// Get the process name from the test
+	test, exists := sp.tests[name]
+
+	if !exists {
+		return errors.New("process not found")
+	}
+
+	// Resume the process
+	err := test.cmd.Process.Signal(syscall.SIGCONT)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Setup all of the processes to be run
@@ -432,7 +530,7 @@ func (sp *StepProcessor) sendAllConnectedSignal() {
 }
 
 // Wait for a specific step to be completed
-func (sp *StepProcessor) waitForStep(stepName string) {
+func (sp *StepProcessor) WaitForStep(stepName string) {
 	sp.stepMutex.Lock()
 
 	// Check if step was already completed
@@ -446,6 +544,7 @@ func (sp *StepProcessor) waitForStep(stepName string) {
 	if _, exists := sp.stepWaiters[stepName]; !exists {
 		sp.stepWaiters[stepName] = make(chan struct{})
 	}
+
 	waiter := sp.stepWaiters[stepName]
 	sp.stepMutex.Unlock()
 
@@ -545,6 +644,7 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 					case sp.messageQueue <- Message{
 						ProcessName: parts[0],
 						StepName:    stepName,
+						Type:        MessageTypeStep,
 					}:
 					case <-sp.ctx.Done():
 						return
@@ -559,16 +659,39 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 	}()
 }
 
+// Process control messages (pause/resume) by executing them immediately
+func (sp *StepProcessor) processControlMessage(msg Message) {
+	switch msg.Type {
+	case MessageTypePause:
+		err := sp.Pause(msg.ProcessName)
+
+		if err != nil {
+			fmt.Printf("[COORDINATOR] Error pausing process %s: %v\n", msg.ProcessName, err)
+		}
+	case MessageTypeResume:
+		err := sp.Resume(msg.ProcessName)
+
+		if err != nil {
+			fmt.Printf("[COORDINATOR] Error resuming process %s: %v\n", msg.ProcessName, err)
+		}
+	}
+}
+
 // Process a step message by sending it to other processes and the message broker
 func (sp *StepProcessor) processStepMessage(msg Message) {
-	// Send this step message to all other processes
-	sp.sendStepToProcesses(msg.ProcessName, msg.StepName)
+	if msg.Type == MessageTypeStep {
+		// Send this step message to all other processes
+		sp.sendStepToProcesses(msg.ProcessName, msg.StepName)
 
-	// Also process it locally for the coordinator's message broker
-	select {
-	case sp.messageQueue <- msg:
-	case <-sp.ctx.Done():
-		return
+		// Also process it locally for the coordinator's message broker
+		select {
+		case sp.messageQueue <- msg:
+		case <-sp.ctx.Done():
+			return
+		}
+	} else {
+		// Handle control messages directly
+		sp.processControlMessage(msg)
 	}
 }
 
@@ -581,8 +704,13 @@ func (sp *StepProcessor) processPendingMessages() {
 		fmt.Printf("[COORDINATOR] Processing %d pending messages\n", len(sp.pendingMessages))
 
 		for _, msg := range sp.pendingMessages {
-			fmt.Printf("[COORDINATOR] Processing pending message: %s from %s\n", msg.StepName, msg.ProcessName)
-			sp.processStepMessage(msg)
+			fmt.Printf("[COORDINATOR] Processing pending message: %s from %s (type: %s)\n", msg.StepName, msg.ProcessName, msg.Type)
+
+			if msg.Type == MessageTypeStep {
+				sp.processStepMessage(msg)
+			} else {
+				sp.processControlMessage(msg)
+			}
 		}
 
 		// Clear pending messages
@@ -598,18 +726,21 @@ func (sp *StepProcessor) startMessageBroker() {
 			case <-sp.ctx.Done():
 				return
 			case msg := <-sp.messageQueue:
-				sp.stepMutex.Lock()
+				// Only process step messages in the broker (control messages are handled immediately)
+				if msg.Type == MessageTypeStep {
+					sp.stepMutex.Lock()
 
-				// Mark step as completed
-				sp.completedSteps[msg.StepName] = true
+					// Mark step as completed
+					sp.completedSteps[msg.StepName] = true
 
-				// Notify any waiters for this step
-				if waiter, exists := sp.stepWaiters[msg.StepName]; exists {
-					close(waiter)
-					delete(sp.stepWaiters, msg.StepName)
+					// Notify any waiters for this step
+					if waiter, exists := sp.stepWaiters[msg.StepName]; exists {
+						close(waiter)
+						delete(sp.stepWaiters, msg.StepName)
+					}
+
+					sp.stepMutex.Unlock()
 				}
-
-				sp.stepMutex.Unlock()
 			}
 		}
 	}()

@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 type StepProcess struct {
@@ -54,5 +55,85 @@ func (s *StepProcess) WaitForStep(name string) {
 	}
 
 	// In both coordinator and child mode, wait for the step message
-	s.sp.waitForStep(name)
+	s.sp.WaitForStep(name)
+}
+
+// Pause another process from this process
+func (s *StepProcess) Pause(targetProcessName string) {
+	if s.sp == nil {
+		return
+	}
+
+	processName := os.Getenv("LITEBASE_DISTRIBUTED_TEST_RUN")
+	isChildProcess := processName != ""
+
+	if !isChildProcess {
+		// In coordinator mode, pause directly
+		err := s.sp.Pause(targetProcessName)
+
+		if err != nil {
+			fmt.Printf("[COORDINATOR] Error pausing process %s: %v\n", targetProcessName, err)
+		}
+	} else {
+		// In child process mode, send pause command via Unix socket
+		s.sp.connMutex.RLock()
+		conn, exists := s.sp.connections[processName]
+		s.sp.connMutex.RUnlock()
+
+		if exists {
+			message := fmt.Sprintf("LITEBASE_TEST_PAUSE=%s\n", targetProcessName)
+
+			_, err := conn.Write([]byte(message))
+
+			if err != nil {
+				fmt.Printf("[CHILD %s] Error sending pause command: %v\n", processName, err)
+			}
+		} else {
+			fmt.Printf("[CHILD %s] No connection available for sending pause command\n", processName)
+		}
+	}
+}
+
+// Resume another process from this process
+func (s *StepProcess) Resume(targetProcessName string) {
+	if s.sp == nil {
+		return
+	}
+
+	processName := os.Getenv("LITEBASE_DISTRIBUTED_TEST_RUN")
+	isChildProcess := processName != ""
+
+	if !isChildProcess {
+		// In coordinator mode, resume directly
+		err := s.sp.Resume(targetProcessName)
+
+		if err != nil {
+			fmt.Printf("[COORDINATOR] Error resuming process %s: %v\n", targetProcessName, err)
+		}
+	} else {
+		// In child process mode, send resume command via Unix socket
+		s.sp.connMutex.RLock()
+		conn, exists := s.sp.connections[processName]
+		s.sp.connMutex.RUnlock()
+
+		if exists {
+			message := fmt.Sprintf("LITEBASE_TEST_RESUME=%s\n", targetProcessName)
+
+			_, err := conn.Write([]byte(message))
+
+			if err != nil {
+				fmt.Printf("[CHILD %s] Error sending resume command: %v\n", processName, err)
+			}
+		} else {
+			fmt.Printf("[CHILD %s] No connection available for sending resume command\n", processName)
+		}
+	}
+}
+
+// PauseAndResume pauses a process, waits for the specified duration, then resumes it
+// This is a convenience method for common pause/resume patterns
+func (s *StepProcess) PauseAndResume(targetProcessName string, pauseDuration time.Duration) {
+	s.Pause(targetProcessName)
+	time.Sleep(pauseDuration)
+	s.Resume(targetProcessName)
 }
