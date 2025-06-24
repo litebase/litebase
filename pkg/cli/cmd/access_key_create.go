@@ -3,7 +3,9 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss/v2"
@@ -47,11 +49,13 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			description, err := cmd.Flags().GetString("description")
+
 			if err != nil {
 				return err
 			}
 
 			statements, err := cmd.Flags().GetString("statements")
+
 			if err != nil {
 				return err
 			}
@@ -151,22 +155,59 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 				return err
 			}
 
+			rows := []components.CardRow{
+				{
+					Key:   "Access Key ID",
+					Value: res["data"].(map[string]any)["access_key_id"].(string),
+				},
+				{
+					Key:   "Access Key Secret",
+					Value: res["data"].(map[string]any)["access_key_secret"].(string),
+				},
+			}
+
+			if res["data"].(map[string]any)["created_at"] != nil {
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["created_at"].(string))
+
+				if err != nil {
+					return err
+				}
+
+				rows = append(rows, components.CardRow{
+					Key:   "Created At",
+					Value: parsedDate.Format(time.RFC3339),
+				})
+			}
+
+			if res["data"].(map[string]any)["updated_at"] != nil {
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updated_at"].(string))
+
+				if err != nil {
+					return err
+				}
+
+				rows = append(rows, components.CardRow{
+					Key:   "Updated At",
+					Value: parsedDate.Format(time.RFC3339),
+				})
+			}
+
+			for i, statement := range res["data"].(map[string]any)["statements"].([]any) {
+				statementMap := statement.(map[string]any)
+
+				rows = append(rows, components.CardRow{
+					Key:   fmt.Sprintf("Statement %d", i+1),
+					Value: fmt.Sprintf("%s %s %s", statementMap["effect"].(string), statementMap["resource"].(string), statementMap["actions"].([]any)[0].(string)),
+				})
+			}
+
 			lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
 					components.NewCard(
 						components.WithCardTitle("Access Key"),
-						components.WithCardRows([]components.CardRow{
-							{
-								Key:   "Access Key ID",
-								Value: res["data"].(map[string]any)["access_key_id"].(string),
-							},
-							{
-								Key:   "Access Key Secret",
-								Value: res["data"].(map[string]any)["access_key_secret"].(string),
-							},
-						}),
+						components.WithCardRows(rows),
 					).View(),
 				),
 			)

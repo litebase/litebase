@@ -139,10 +139,7 @@ func AccessKeyControllerStore(request *Request) Response {
 		Body: map[string]any{
 			"status":  "success",
 			"message": "Access key created successfully",
-			"data": map[string]any{
-				"access_key_id":     accessKey.AccessKeyId,
-				"access_key_secret": accessKey.AccessKeySecret,
-			},
+			"data":    accessKey,
 		},
 	}
 }

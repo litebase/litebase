@@ -68,6 +68,7 @@ func NewAccessKeyShowCmd(config *config.Configuration) *cobra.Command {
 
 				for i, statement := range statements {
 					statementMap := statement.(map[string]any)
+
 					rows = append(rows, components.CardRow{
 						Key:   fmt.Sprintf("Statement %d", i+1),
 						Value: fmt.Sprintf("%s %s %s", statementMap["effect"].(string), statementMap["resource"].(string), statementMap["actions"].([]any)[0].(string)),
