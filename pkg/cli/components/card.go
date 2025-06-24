@@ -70,6 +70,7 @@ func (c *Card) View() string {
 
 	// Calculate available width for content
 	availableWidth := c.Width
+
 	if availableWidth <= 0 {
 		availableWidth = 80 // Default width if not specified
 	}
@@ -79,10 +80,12 @@ func (c *Card) View() string {
 
 	if c.Title != "" {
 		title := c.Title
+
 		// Truncate title if it's too long
 		if len(title) > contentWidth {
 			title = truncateString(title, contentWidth)
 		}
+
 		content += CardTitleStyle().Render(title) + "\n\n"
 	}
 
@@ -96,6 +99,7 @@ func (c *Card) View() string {
 	// Adjust maxKeyLength if it would take up too much space
 	// Reserve at least 20 characters for the value, or half the width, whichever is smaller
 	maxValueWidth := contentWidth - maxKeyLength - 1 // -1 for space between key and value
+
 	if maxValueWidth < 20 && contentWidth > 30 {
 		maxKeyLength = contentWidth - 21 // Reserve 20 chars for value + 1 for space
 	} else if maxKeyLength > contentWidth/2 {
@@ -128,11 +132,14 @@ func (c *Card) View() string {
 		if lipgloss.Width(rowContent) > contentWidth {
 			// If rendered width is still too long, truncate more aggressively
 			totalLength := len(key) + 1 + len(value)
+
 			if totalLength > contentWidth {
 				newValueLength := contentWidth - len(key) - 1
+
 				if newValueLength > 0 {
 					value = truncateString(value, newValueLength)
 				}
+
 				rowContent = lipgloss.NewStyle().Bold(true).Render(key) + " " + value
 			}
 		}
