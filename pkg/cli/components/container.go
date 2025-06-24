@@ -1,6 +1,6 @@
 package components
 
-import "github.com/charmbracelet/lipgloss"
+import "github.com/charmbracelet/lipgloss/v2"
 
 func Container(content ...string) string {
 	text := ""
@@ -14,7 +14,7 @@ func Container(content ...string) string {
 		}
 
 		if i == len(content)-1 {
-			marginBottom = 2
+			marginBottom = 1
 		}
 
 		text += lipgloss.NewStyle().
