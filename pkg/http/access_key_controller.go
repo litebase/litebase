@@ -42,6 +42,41 @@ func AccessKeyControllerIndex(request *Request) Response {
 	}, 200, nil)
 }
 
+// Show details of a specific access key
+func AccessKeyControllerShow(request *Request) Response {
+	accessKeyId := request.Param("accessKeyId")
+
+	err := request.cluster.Auth.SecretsManager.Init()
+
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
+
+	accessKey, err := request.accessKeyManager.Get(accessKeyId)
+
+	if err != nil {
+		return JsonResponse(map[string]any{
+			"status":  "error",
+			"message": "Access key could not be found",
+		}, 404, nil)
+	}
+
+	err = request.Authorize(
+		[]string{"*", "access-key:*", fmt.Sprintf("access-key:%s", accessKey.AccessKeyId)},
+		[]auth.Privilege{auth.AccessKeyPrivilegeRead},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
+	return JsonResponse(map[string]any{
+		"status":  "success",
+		"message": "Access key retrieved successfully",
+		"data":    accessKey,
+	}, 200, nil)
+}
+
 type AccessKeyStoreRequest struct {
 	Description string                    `json:"description" validate:"omitempty,max=255"`
 	Statements  []auth.AccessKeyStatement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`

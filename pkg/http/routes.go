@@ -42,6 +42,14 @@ func LoadRoutes(router *Router) {
 		Authentication,
 	})
 
+	router.Get(
+		"/resources/access-keys/{accessKeyId}",
+		AccessKeyControllerShow,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
 	router.Post(
 		"/resources/access-keys",
 		AccessKeyControllerStore,

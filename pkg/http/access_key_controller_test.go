@@ -150,6 +150,126 @@ func TestAccessKeyControllerIndex(t *testing.T) {
 	})
 }
 
+func TestAccessKeyControllerShow(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		accessKey, err := server.App.Auth.AccessKeyManager.Create(
+			"Test access key",
+			[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create test access key: %v", err)
+		}
+
+		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []auth.Privilege{"access-key:read"},
+			},
+		})
+
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "GET", nil)
+
+		if err != nil {
+			t.Fatalf("Failed to get access key: %v", err)
+		}
+
+		if statusCode != 200 {
+			t.Fatalf("Unexpected status code: %d, expected 200", statusCode)
+		}
+
+		if response["status"] != "success" {
+			t.Errorf("Unexpected response: %v", response)
+		}
+
+		if response["data"] == nil {
+			t.Fatal("Expected data in response, got nil")
+		}
+
+		if response["data"].(map[string]any)["access_key_id"] == nil {
+			t.Errorf("Unexpected response: %v", response)
+		}
+
+		if response["data"].(map[string]any)["description"] == nil {
+			t.Errorf("Unexpected response: %v", response)
+		}
+
+		if response["data"].(map[string]any)["statements"] == nil {
+			t.Errorf("Expected statements in response, got: %v", response["data"])
+		}
+
+		if response["data"].(map[string]any)["created_at"] == nil {
+			t.Errorf("Expected created_at in response, got: %v", response["data"])
+		}
+
+		if response["data"].(map[string]any)["updated_at"] == nil {
+			t.Errorf("Expected updated_at in response, got: %v", response["data"])
+		}
+	})
+}
+
+func TestAccessKeyControllerShow_WithInvalidAccessKey(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			{
+				Effect:   "Allow",
+				Resource: "access-key:foobar",
+				Actions:  []auth.Privilege{"access-key:read"},
+			},
+		})
+
+		response, statusCode, err := client.Send("/resources/access-keys/invalid-access-key-id", "GET", nil)
+
+		if err != nil {
+			t.Fatalf("Failed to get access key: %v", err)
+		}
+
+		if statusCode != 404 {
+			t.Fatalf("Unexpected status code: %d, expected 404", statusCode)
+		}
+
+		if response["status"] != "error" {
+			t.Errorf("Unexpected response: %v", response)
+		}
+	})
+}
+
+func TestAccessKeyControllerShow_WithUnauthorizedAccessKey(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			{
+				Effect:   "Allow",
+				Resource: "access-key:*",
+				Actions:  []auth.Privilege{"access-key:list"},
+			},
+		})
+
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", client.AccessKey.AccessKeyId), "GET", nil)
+
+		if err != nil {
+			t.Fatalf("Failed to get access key: %v", err)
+		}
+
+		if statusCode != 403 {
+			t.Fatalf("Unexpected status code: %d, expected 403", statusCode)
+		}
+
+		if response["status"] != "error" {
+			t.Errorf("Unexpected response: %v", response)
+		}
+	})
+}
+
 func TestAccessKeyControllerStore(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
