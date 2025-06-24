@@ -83,7 +83,7 @@ func (c *Card) View() string {
 		if len(title) > contentWidth {
 			title = truncateString(title, contentWidth)
 		}
-		content += CardTitleStyle().Render(title) + "\n"
+		content += CardTitleStyle().Render(title) + "\n\n"
 	}
 
 	// Find the optimal key length
