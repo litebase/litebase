@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -30,6 +31,7 @@ const (
 
 var (
 	NodeStoreAddressInterval = 5 * time.Second
+	NodeTickTimeout          = 3 * time.Second
 )
 
 var addressProvider func() string
@@ -43,6 +45,7 @@ type Node struct {
 	Elections         []*ClusterElection
 	Initialized       bool
 	joinedClusterAt   time.Time
+	lastTick          time.Time
 	lease             *Lease
 	LastActive        time.Time
 	ID                string
@@ -611,6 +614,18 @@ func (n *Node) runTicker() {
 		case <-n.context.Done():
 			return
 		case <-n.requestTicker.C:
+			// check if the ticker is resuming after a pause
+			if time.Now().UTC().After(n.lastTick.Add(NodeTickTimeout)) {
+				// If the node is the primary, step down to allow election to
+				// to proceed to ensure proper leadership.
+				if n.IsPrimary() {
+					log.Println("stepping down after pause")
+					n.StepDown()
+				}
+			}
+
+			n.lastTick = time.Now().UTC()
+
 			// Continue if the node is idle
 			if n.State == NodeStateIdle {
 				continue

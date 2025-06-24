@@ -2,6 +2,7 @@ package cluster_test
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -506,5 +507,38 @@ func TestNode_Timestamp(t *testing.T) {
 			t.Error("Node timestamp not set")
 		}
 
+	})
+}
+
+func TestNode_TickerResumeAfterPause(t *testing.T) {
+	test.WithSteps(t, func(sp *test.StepProcessor) {
+		defaultNodeTickTimeout := cluster.NodeTickTimeout
+		defer func() { cluster.NodeTickTimeout = defaultNodeTickTimeout }()
+		cluster.NodeTickTimeout = 1 * time.Second
+
+		sp.Run("PRIMARY_SERVER", func(s *test.StepProcess) {
+			test.RunWithoutCleanup(t, func(app *server.App) {
+				if !app.Cluster.Node().IsPrimary() {
+					t.Fatal("Node is not primary")
+				}
+
+				s.Step("PRIMARY_READY")
+
+				s.WaitForStep("PRIMARY_RESUMED")
+				log.Println("Resumed...")
+
+				if app.Cluster.Node().IsPrimary() {
+					t.Fatal("Node is still primary after pause")
+				}
+			})
+		})
+
+		sp.Run("PAUSER", func(s *test.StepProcess) {
+			s.WaitForStep("PRIMARY_READY")
+
+			s.PauseAndResume("PRIMARY_SERVER", 1*time.Second)
+
+			s.Step("PRIMARY_RESUMED")
+		})
 	})
 }
