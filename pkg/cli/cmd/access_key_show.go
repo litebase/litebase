@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/charmbracelet/lipgloss/v2"
@@ -18,7 +17,6 @@ func NewAccessKeyShowCmd(config *config.Configuration) *cobra.Command {
 		Short: "Show access key details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Println("AccessKeyShowCmd", args[0])
 			res, err := api.Get(config, fmt.Sprintf("/resources/access-keys/%s", args[0]))
 
 			if err != nil {
@@ -40,18 +38,28 @@ func NewAccessKeyShowCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			if res["data"].(map[string]any)["created_at"] != nil {
-				parsedDate := time.Unix(int64(res["data"].(map[string]any)["created_at"].(float64)), 0).Format(time.RFC3339)
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["created_at"].(string))
+
+				if err != nil {
+					return err
+				}
+
 				rows = append(rows, components.CardRow{
 					Key:   "Created At",
-					Value: parsedDate,
+					Value: parsedDate.Format(time.RFC3339),
 				})
 			}
 
 			if res["data"].(map[string]any)["updated_at"] != nil {
-				parsedDate := time.Unix(int64(res["data"].(map[string]any)["updated_at"].(float64)), 0).Format(time.RFC3339)
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updated_at"].(string))
+
+				if err != nil {
+					return err
+				}
+
 				rows = append(rows, components.CardRow{
 					Key:   "Updated At",
-					Value: parsedDate,
+					Value: parsedDate.Format(time.RFC3339),
 				})
 			}
 

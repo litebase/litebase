@@ -29,7 +29,7 @@ func NewTestCLI(app *server.App) *TestCLI {
 		panic(err)
 	}
 
-	// cmd.SetOut(c.outputBuffer)
+	cmd.SetOut(c.outputBuffer)
 
 	c.Cmd = cmd
 
@@ -49,6 +49,11 @@ func (c *TestCLI) ShouldSee(text string) bool {
 	return bytes.Contains(c.outputBuffer.Bytes(), []byte(text))
 }
 
+// Check if the output buffer does not contain the expected text
+func (c *TestCLI) ShouldNotSee(text string) bool {
+	return !c.ShouldSee(text)
+}
+
 // WithAccessKey sets the access key for the CLI and updates the flags
 func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
 	accessKey, err := c.App.Auth.AccessKeyManager.Create("Test access key", statements)
@@ -56,6 +61,8 @@ func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
 	if err != nil {
 		panic(err)
 	}
+
+	c.AccessKey = accessKey
 
 	err = c.Cmd.PersistentFlags().Set("access-key-id", accessKey.AccessKeyId)
 
