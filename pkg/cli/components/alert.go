@@ -7,13 +7,13 @@ import (
 )
 
 func ErrorAlert(message string) string {
-	return fmt.Sprintf("%s → %s", styles.AlertDangerStyle.Render("Error"), message)
+	return styles.AlertContainerStyle.Render(fmt.Sprintf("%s → %s", styles.AlertDangerStyle.Render("Error"), message))
 }
 
 func SuccessAlert(message string) string {
-	return fmt.Sprintf("%s → %s", styles.AlertSuccessStyle.Render("Success"), message)
+	return styles.AlertContainerStyle.Render(fmt.Sprintf("%s → %s", styles.AlertSuccessStyle.Render("Success"), message))
 }
 
 func WarningAlert(message string) string {
-	return fmt.Sprintf("%s → %s", styles.AlertWarningStyle.Render("Warning"), message)
+	return styles.AlertContainerStyle.Render(fmt.Sprintf("%s → %s", styles.AlertWarningStyle.Render("Warning"), message))
 }

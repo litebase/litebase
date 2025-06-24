@@ -22,6 +22,7 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 		SetString("►")
 
 	theme.Focused.Title = theme.Group.Title.
+		MarginBottom(1).
 		Padding(0, 1).
 		Bold(true).
 		Background(
@@ -89,5 +90,6 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 		)
 
 	return huh.NewForm(groups...).
+		WithHeight(20).
 		WithTheme(theme)
 }

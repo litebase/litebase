@@ -1,28 +1,32 @@
 package components
 
-import "github.com/charmbracelet/lipgloss/v2"
+import (
+	"strings"
+)
 
 func Container(content ...string) string {
-	text := ""
-
-	for i, t := range content {
-		var marginTop int = 1
-		var marginBottom int = 0
-
-		if i == 0 {
-			marginTop = 2
-		}
-
-		if i == len(content)-1 {
-			marginBottom = 1
-		}
-
-		text += lipgloss.NewStyle().
-			MarginTop(marginTop).
-			MarginBottom(marginBottom).
-			Render(t)
+	if len(content) == 0 {
+		return ""
 	}
 
-	return lipgloss.NewStyle().
-		Render(text)
+	var parts []string
+
+	// Add top spacing
+	parts = append(parts, "")
+
+	for i, t := range content {
+		// Add the content
+		parts = append(parts, t)
+
+		// Add spacing between elements (except after the last one)
+		if i < len(content)-1 {
+			parts = append(parts, "")
+		}
+	}
+
+	// Add bottom spacing
+	parts = append(parts, "")
+
+	// Join with newlines to create consistent spacing
+	return strings.Join(parts, "\n")
 }

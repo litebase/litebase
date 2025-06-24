@@ -1,7 +1,7 @@
 package components
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/litebase/litebase/pkg/cli"
 
@@ -18,25 +18,21 @@ var cardStyle = func() lipgloss.Style {
 		BorderForeground(cli.LightDark(cli.Gray400, cli.Gray500)).
 		BorderLeft(true).
 		BorderStyle(lipgloss.InnerHalfBlockBorder()).
-		PaddingBottom(1).
 		PaddingLeft(1)
 }
 
 var CardTitleStyle = func() lipgloss.Style {
 	return lipgloss.NewStyle().
-		MarginBottom(1).
 		Padding(0, 1).
 		Bold(true).
 		Background(cli.LightDark(cli.Sky700, cli.Sky300)).
 		Foreground(cli.LightDark(cli.White, cli.Black))
 }
 
-var cardRowStyle = lipgloss.NewStyle().
-	PaddingTop(1)
-
 type Card struct {
 	Rows  []CardRow
 	Title string
+	Width int // Add width field
 }
 type CardOption func(*Card)
 
@@ -62,32 +58,108 @@ func WithCardTitle(title string) CardOption {
 	}
 }
 
+func WithCardWidth(width int) CardOption {
+	return func(c *Card) {
+		c.Width = width
+	}
+}
+
 func (c *Card) View() string {
 	content := ""
 	maxKeyLength := 0
 
-	if c.Title != "" {
-		content += CardTitleStyle().Render(c.Title)
+	// Calculate available width for content
+	availableWidth := c.Width
+	if availableWidth <= 0 {
+		availableWidth = 80 // Default width if not specified
 	}
 
+	// Account for border and padding (border=1, paddingLeft=1)
+	contentWidth := availableWidth - 2
+
+	if c.Title != "" {
+		title := c.Title
+		// Truncate title if it's too long
+		if len(title) > contentWidth {
+			title = truncateString(title, contentWidth)
+		}
+		content += CardTitleStyle().Render(title) + "\n"
+	}
+
+	// Find the optimal key length
 	for _, row := range c.Rows {
-		if len(row.Key) >= maxKeyLength {
+		if len(row.Key) > maxKeyLength {
 			maxKeyLength = len(row.Key)
 		}
 	}
 
-	for _, row := range c.Rows {
-		key := row.Key
-
-		if len(row.Key) < maxKeyLength {
-			key += fmt.Sprintf("%*s", maxKeyLength-len(row.Key), "")
-		}
-
-		content += cardRowStyle.Render(
-			lipgloss.NewStyle().Bold(true).Render(key),
-			lipgloss.NewStyle().Render(row.Value),
-		)
+	// Adjust maxKeyLength if it would take up too much space
+	// Reserve at least 20 characters for the value, or half the width, whichever is smaller
+	maxValueWidth := contentWidth - maxKeyLength - 1 // -1 for space between key and value
+	if maxValueWidth < 20 && contentWidth > 30 {
+		maxKeyLength = contentWidth - 21 // Reserve 20 chars for value + 1 for space
+	} else if maxKeyLength > contentWidth/2 {
+		maxKeyLength = contentWidth / 2
 	}
 
+	var rowStrings []string
+
+	for _, row := range c.Rows {
+		key := row.Key
+		value := row.Value
+
+		// Truncate key if too long
+		if len(key) > maxKeyLength {
+			key = truncateString(key, maxKeyLength)
+		}
+
+		// Calculate remaining space for value
+		remainingWidth := contentWidth - len(key) - 1 // -1 for space between key and value
+
+		// Truncate value if too long
+		if len(value) > remainingWidth && remainingWidth > 0 {
+			value = truncateString(value, remainingWidth)
+		}
+
+		// Build the row string with exact width control
+		rowContent := lipgloss.NewStyle().Bold(true).Render(key) + " " + value
+
+		// Ensure the row doesn't exceed content width
+		if lipgloss.Width(rowContent) > contentWidth {
+			// If rendered width is still too long, truncate more aggressively
+			totalLength := len(key) + 1 + len(value)
+			if totalLength > contentWidth {
+				newValueLength := contentWidth - len(key) - 1
+				if newValueLength > 0 {
+					value = truncateString(value, newValueLength)
+				}
+				rowContent = lipgloss.NewStyle().Bold(true).Render(key) + " " + value
+			}
+		}
+
+		rowStrings = append(rowStrings, rowContent)
+	}
+
+	// Join rows with newlines
+	if len(rowStrings) > 0 {
+		if c.Title != "" {
+			content += strings.Join(rowStrings, "\n")
+		} else {
+			content = strings.Join(rowStrings, "\n")
+		}
+	}
+
+	// Apply the card style without setting width on it
 	return cardStyle().Render(content)
+}
+
+// truncateString truncates a string to maxLength and adds "..." if truncated
+func truncateString(s string, maxLength int) string {
+	if len(s) <= maxLength {
+		return s
+	}
+	if maxLength <= 3 {
+		return s[:maxLength]
+	}
+	return s[:maxLength-3] + "..."
 }
