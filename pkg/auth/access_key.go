@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"time"
 )
 
 type AccessKey struct {
@@ -13,8 +14,8 @@ type AccessKey struct {
 	AccessKeySecret  string `json:"access_key_secret"`
 	Description      string `json:"description"`
 	accessKeyManager *AccessKeyManager
-	CreatedAt        int64                `json:"created_at"`
-	UpdatedAt        int64                `json:"updated_at"`
+	CreatedAt        time.Time            `json:"created_at"`
+	UpdatedAt        time.Time            `json:"updated_at"`
 	Statements       []AccessKeyStatement `json:"statements"`
 }
 
@@ -32,6 +33,8 @@ func NewAccessKey(
 		AccessKeySecret:  accessKeySecret,
 		Description:      description,
 		Statements:       statements,
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
 	}
 }
 
@@ -86,6 +89,7 @@ func (accessKey *AccessKey) Update(
 ) error {
 	accessKey.Description = description
 	accessKey.Statements = statements
+	accessKey.UpdatedAt = time.Now().UTC()
 
 	jsonValue, err := json.Marshal(accessKey)
 

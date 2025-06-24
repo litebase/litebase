@@ -33,6 +33,14 @@ func TestNewAccessKey(t *testing.T) {
 		if accessKey.Description != "Description" {
 			t.Errorf("Expected description to be 'Description', got %s", accessKey.Description)
 		}
+
+		if accessKey.CreatedAt.IsZero() {
+			t.Error("Expected CreatedAt to be set, got zero value")
+		}
+
+		if accessKey.UpdatedAt.IsZero() {
+			t.Error("Expected UpdatedAt to be set, got zero value")
+		}
 	})
 }
 
@@ -91,6 +99,8 @@ func TestAccessKeyUpdate(t *testing.T) {
 			},
 		}
 
+		updatedAt := accessKey.UpdatedAt
+
 		if err := accessKey.Update("Updated Description", statements); err != nil {
 			t.Error(err)
 		}
@@ -123,6 +133,10 @@ func TestAccessKeyUpdate(t *testing.T) {
 
 		if accessKey.Statements[0].Actions[0] != "*" {
 			t.Errorf("Expected action to be '*', got %s", accessKey.Statements[0].Actions[0])
+		}
+
+		if accessKey.UpdatedAt.Equal(updatedAt) {
+			t.Error("Expected UpdatedAt to be updated, but it is still the same as before")
 		}
 	})
 }
