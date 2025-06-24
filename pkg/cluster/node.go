@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -615,11 +614,10 @@ func (n *Node) runTicker() {
 			return
 		case <-n.requestTicker.C:
 			// check if the ticker is resuming after a pause
-			if time.Now().UTC().After(n.lastTick.Add(NodeTickTimeout)) {
+			if !n.lastTick.IsZero() && time.Now().UTC().After(n.lastTick.Add(NodeTickTimeout)) {
 				// If the node is the primary, step down to allow election to
 				// to proceed to ensure proper leadership.
 				if n.IsPrimary() {
-					log.Println("stepping down after pause")
 					n.StepDown()
 				}
 			}
