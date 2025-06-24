@@ -47,12 +47,7 @@ func UserControllerStore(request *Request) Response {
 	input, err := request.Input(&UserControllerStoreRequest{})
 
 	if err != nil {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]any{
-				"errors": err,
-			},
-		}
+		return BadRequestResponse(fmt.Errorf("invalid input: %w", err))
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
@@ -63,30 +58,15 @@ func UserControllerStore(request *Request) Response {
 	})
 
 	if validationErrors != nil {
-		return Response{
-			StatusCode: 422,
-			Body: map[string]any{
-				"errors": validationErrors,
-			},
-		}
+		return ValidationErrorResponse(validationErrors)
 	}
 
 	if input.(*UserControllerStoreRequest).Username == "root" {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]any{
-				"message": "This username is invalid.",
-			},
-		}
+		return BadRequestResponse(fmt.Errorf("the username is invalid, 'root' is reserved"))
 	}
 
 	if request.cluster.Auth.UserManager().Get(input.(*UserControllerStoreRequest).Username) != nil {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]any{
-				"message": "This username is already in use.",
-			},
-		}
+		return BadRequestResponse(fmt.Errorf("the username already exists"))
 	}
 
 	data := input.(*UserControllerStoreRequest)
