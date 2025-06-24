@@ -80,7 +80,7 @@ func NewConfig() *Config {
 		StorageRegion:          env("LITEBASE_STORAGE_REGION", "").(string),
 		StorageObjectMode:      env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string),
 		StorageSecretAccessKey: env("LITEBASE_STORAGE_SECRET_ACCESS_KEY", "").(string),
-		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", "object").(string),
+		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string)).(string),
 		TmpPath:                env("LITEBASE_TMP_PATH", "").(string),
 	}
 }
