@@ -2,7 +2,6 @@ package http
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -19,21 +18,25 @@ func ForwardToPrimary(request *Request) (*Request, Response) {
 	if primaryAddress == "" {
 		return request, Response{
 			StatusCode: 503,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"status":  "error",
 				"message": "Primary node not available",
 			},
 		}
 	}
 
-	log.Println("Proxying request to primary node at", primaryAddress)
+	// Continue if the primary address is the same as the current node's address
+	if address, _ := request.cluster.Node().Address(); primaryAddress == address {
+		return request, Response{}
+	}
+
 	// Parse the primary URL
 	primaryURL, err := url.Parse(fmt.Sprintf("http://%s", primaryAddress))
 
 	if err != nil {
 		return request, Response{
 			StatusCode: 500,
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"status":  "error",
 				"message": "Invalid primary node address",
 			},
