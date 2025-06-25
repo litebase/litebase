@@ -79,7 +79,10 @@ func RootCmd() (*cobra.Command, error) {
 				),
 			)
 
-			fmt.Println(container)
+			lipgloss.Fprint(
+				cmd.OutOrStdout(),
+				container,
+			)
 
 			return nil
 		},
