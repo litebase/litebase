@@ -196,6 +196,10 @@ func (c *Client) clusterURL() (*url.URL, error) {
 	profile, err := c.Config.GetCurrentProfile()
 
 	if err != nil {
+		if err == config.ErrorProfileNotFound {
+			return nil, config.ErrorCredentialsNotSet
+		}
+
 		return nil, err
 	}
 

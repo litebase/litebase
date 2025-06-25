@@ -18,8 +18,8 @@ func TestCLIAuth(t *testing.T) {
 
 			err := cli.Run("status")
 
-			if err != config.ErrorProfileNotFound {
-				t.Fatalf("expected ErrorProfileNotFound, got %v", err)
+			if err != config.ErrorCredentialsNotSet {
+				t.Fatalf("expected ErrorCredentialsNotSet, got %v", err)
 			}
 		})
 
