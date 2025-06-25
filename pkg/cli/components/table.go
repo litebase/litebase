@@ -12,6 +12,7 @@ import (
 )
 
 type Table struct {
+	displayHelp bool
 	handler     func(row []string)
 	table       table.Model
 	width       int
@@ -60,10 +61,10 @@ func (m *Table) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *Table) View(displayHelp bool) string {
+func (m *Table) View() string {
 	helpView := ""
 
-	if displayHelp {
+	if m.displayHelp {
 		helpView = m.table.HelpView()
 	}
 
@@ -123,7 +124,13 @@ func NewTable(
 
 	// Create initial table with percentage-based widths
 	tableColumns := make([]table.Column, len(columns))
-	initialWidth := 120 // Default width for initial render
+	initialWidth := 60
+	width, _, err := term.GetSize(os.Stdout.Fd())
+
+	if err == nil {
+		initialWidth = width // Default width for initial render
+	}
+
 	usableWidth := initialWidth - (len(columns) - 1) - 2
 
 	for i, title := range columns {
@@ -150,7 +157,7 @@ func NewTable(
 	if term.IsTerminal(os.Stdout.Fd()) {
 		height = min(10, len(rows))
 	} else {
-		height = len(rows) + 1 // Reserve space for headers
+		height = len(rows) + 3 // Reserve space for headers
 	}
 
 	t := table.New(
@@ -160,23 +167,8 @@ func NewTable(
 		table.WithHeight(height),
 	)
 
-	s := table.DefaultStyles()
-
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		MarginTop(1).
-		Bold(true)
-
-	s.Selected = s.Selected.
-		Foreground(cli.LightDark(cli.White, cli.Black)).
-		Background(cli.LightDark(cli.Sky700, cli.Sky300)).
-		Bold(false)
-
-	t.SetStyles(s)
-
 	return &Table{
+		displayHelp: true,
 		handler:     nil,
 		table:       t,
 		columns:     columns,
@@ -191,8 +183,16 @@ func (t *Table) Render(interactive bool) string {
 	if !term.IsTerminal(os.Stdout.Fd()) || !interactive {
 		// In non-TTY environments (like tests), just return the table view
 		// without interactive functionality
-		return t.View(false)
+		t.displayHelp = false
+
+		t.height = len(t.rows) + 3 // Reserve space for headers
+		t.table.SetHeight(t.height)
+		t.SetStyles(false)
+
+		return t.View()
 	}
+
+	t.SetStyles(true)
 
 	p := tea.NewProgram(t, tea.WithAltScreen())
 
@@ -222,6 +222,30 @@ func (t *Table) SetHandler(handler func(row []string)) *Table {
 	return t
 }
 
+func (t *Table) SetStyles(interactive bool) {
+	s := table.DefaultStyles()
+
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		MarginTop(1).
+		Bold(true)
+
+	if interactive {
+		s.Selected = s.Selected.
+			Foreground(cli.LightDark(cli.White, cli.Black)).
+			Background(cli.LightDark(cli.Sky700, cli.Sky300)).
+			Bold(false)
+	} else {
+		s.Selected = s.Selected.
+			Foreground(cli.LightDark(cli.Black, cli.White)).
+			Bold(false)
+	}
+
+	t.table.SetStyles(s)
+}
+
 // calculateColumnWidths calculates column widths based on percentages and available width
 func (m *Table) calculateColumnWidths(availableWidth int) []table.Column {
 	if len(m.columnPercs) == 0 || len(m.columns) == 0 {
@@ -229,10 +253,7 @@ func (m *Table) calculateColumnWidths(availableWidth int) []table.Column {
 	}
 
 	// Reserve space for borders and padding (3 chars per column separator + 2 for outer borders)
-	usableWidth := availableWidth - (len(m.columns) - 1) - 2
-	if usableWidth < 10 {
-		usableWidth = 10
-	}
+	usableWidth := max(availableWidth-(len(m.columns)-1)-2, 10)
 
 	tableColumns := make([]table.Column, len(m.columns))
 

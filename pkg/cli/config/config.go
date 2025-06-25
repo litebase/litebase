@@ -22,7 +22,8 @@ type Configuration struct {
 }
 
 var ErrMissingClusterURL = errors.New("missing cluster URL")
-var ErrorProfileNotFound = errors.New("profile not found, provide a valid profile name or enter cluster auth credentials")
+var ErrorCredentialsNotSet = errors.New("credentials were not set, please provide access credentials or a stored profile name")
+var ErrorProfileNotFound = errors.New("profile not found, provide a valid profile name")
 
 // Create a new configuration instance.
 func NewConfiguration(path string) (*Configuration, error) {
