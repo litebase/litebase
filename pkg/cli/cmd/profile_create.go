@@ -65,7 +65,8 @@ func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
 									return errors.New("cluster url cannot be empty")
 								}
 								return nil
-							}),
+							}).
+							Value(&profile.Cluster),
 						huh.NewSelect[string]().
 							Title("Type").
 							Options(
