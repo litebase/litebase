@@ -34,7 +34,7 @@ func TestRequestSignatureValidator_ValidSignature(t *testing.T) {
 		headers := map[string]string{
 			"Host": databaseUrl,
 		}
-		body := map[string]any{}
+		body := []byte{}
 		queryParams := map[string]string{}
 
 		// Generate valid signature
@@ -90,10 +90,7 @@ func TestRequestSignatureValidator_InvalidSignature(t *testing.T) {
 			"Content-Type": "application/json",
 			"Host":         databaseUrl,
 		}
-		body := map[string]any{
-			"key":   "value",
-			"count": 123,
-		}
+		body := []byte(`{"key":"value","count":123}`)
 		queryParams := map[string]string{}
 
 		// Generate valid signature for original body
@@ -153,7 +150,7 @@ func TestRequestSignatureValidator_NoContentLength(t *testing.T) {
 		headers := map[string]string{
 			"Host": databaseUrl,
 		}
-		body := map[string]any{}
+		body := []byte{}
 		queryParams := map[string]string{
 			"param": "value",
 		}
@@ -240,7 +237,7 @@ func TestRequestSignatureValidator_MissingAccessKey(t *testing.T) {
 			"GET",
 			"/api/test",
 			map[string]string{"X-LBDB-Date": "20240101T000000Z"},
-			map[string]any{},
+			[]byte{},
 			map[string]string{},
 		)
 
@@ -282,7 +279,7 @@ func TestRequestSignatureValidator_EmptyBody(t *testing.T) {
 			"Content-Type": "application/json",
 			"Host":         databaseUrl,
 		}
-		body := map[string]any{} // Empty body
+		body := []byte{} // Empty body
 		queryParams := map[string]string{}
 
 		// Generate valid signature for empty body
@@ -339,7 +336,7 @@ func TestRequestSignatureValidator_CaseInsensitiveHeaders(t *testing.T) {
 			"Content-Type": "application/json",
 			"Host":         databaseUrl,
 		}
-		body := map[string]any{}
+		body := []byte{}
 		queryParams := map[string]string{}
 
 		// Generate signature with standard headers
@@ -393,7 +390,7 @@ func TestRequestSignatureValidator_PathNormalization(t *testing.T) {
 		headers := map[string]string{
 			"Host": databaseUrl,
 		}
-		body := map[string]any{}
+		body := []byte{}
 		queryParams := map[string]string{}
 
 		// Generate signature
@@ -445,7 +442,7 @@ func TestRequestSignatureValidator_ComplexQueryParams(t *testing.T) {
 		headers := map[string]string{
 			"Host": databaseUrl,
 		}
-		body := map[string]any{}
+		body := []byte{}
 		queryParams := map[string]string{
 			"Query":  "test search",
 			"Limit":  "10",
@@ -503,15 +500,7 @@ func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 			"Content-Type": "application/json",
 			"Host":         databaseUrl,
 		}
-		body := map[string]any{
-			"name":   "test",
-			"value":  42,
-			"active": true,
-			"tags":   []string{"tag1", "tag2"},
-			"nested": map[string]any{
-				"inner": "value",
-			},
-		}
+		body := []byte(`{"name":"test","value":42,"active":true,"tags":["tag1","tag2"],"nested":{"inner":"value"}}`)
 		queryParams := map[string]string{}
 
 		// Generate valid signature
@@ -526,7 +515,6 @@ func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 		)
 
 		// Create HTTP request with matching body
-		jsonBody := `{"active":true,"name":"test","nested":{"inner":"value"},"tags":["tag1","tag2"],"value":42}`
 		baseRequest := &http.Request{
 			Host:   databaseUrl,
 			Method: method,
@@ -537,10 +525,10 @@ func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 			Header: map[string][]string{
 				"Authorization":  {token},
 				"Content-Type":   {"application/json"},
-				"Content-Length": {fmt.Sprintf("%d", len(jsonBody))},
+				"Content-Length": {fmt.Sprintf("%d", len(body))},
 			},
 			Body: &MockReadCloser{
-				Reader: bytes.NewReader([]byte(jsonBody)),
+				Reader: bytes.NewReader([]byte(body)),
 			},
 		}
 
@@ -629,7 +617,7 @@ func TestRequestSignatureValidator_SpecialCharacters(t *testing.T) {
 		headers := map[string]string{
 			"Host": databaseUrl,
 		}
-		body := map[string]any{}
+
 		queryParams := map[string]string{
 			"query":   "hello world & more",
 			"special": "chars!@#$%^&*()",
@@ -644,7 +632,7 @@ func TestRequestSignatureValidator_SpecialCharacters(t *testing.T) {
 			method,
 			path,
 			headers,
-			body,
+			nil,
 			queryParams,
 		)
 
