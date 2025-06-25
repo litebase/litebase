@@ -2,7 +2,6 @@ package http
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/litebase/litebase/pkg/auth"
 )
@@ -20,10 +19,21 @@ func UserControllerIndex(request *Request) Response {
 
 	users := request.cluster.Auth.UserManager().All()
 
+	userResponses := make([]*auth.UserResponse, 0, len(users))
+
+	for _, user := range users {
+		userResponses = append(userResponses, &auth.UserResponse{
+			Username:   user.Username,
+			Statements: user.Statements,
+			CreatedAt:  user.CreatedAt,
+			UpdatedAt:  user.UpdatedAt,
+		})
+	}
+
 	return Response{
 		StatusCode: 200,
 		Body: map[string]any{
-			"data": users,
+			"data": userResponses,
 		},
 	}
 }
@@ -32,6 +42,39 @@ type UserControllerStoreRequest struct {
 	Username   string                    `json:"username" validate:"required"`
 	Password   string                    `json:"password" validate:"required,min=8"`
 	Statements []auth.AccessKeyStatement `json:"statements" validate:"required"`
+}
+
+func UserControllerShow(request *Request) Response {
+	// Authorize the request
+	err := request.Authorize(
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]auth.Privilege{auth.ClusterPrivilegeManage},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
+	username := request.Param("username")
+
+	user := request.cluster.Auth.UserManager().Get(username)
+
+	if user == nil {
+		return NotFoundResponse(fmt.Errorf("the user was not found"))
+	}
+
+	userResponse := &auth.UserResponse{
+		Username:   user.Username,
+		Statements: user.Statements,
+		CreatedAt:  user.CreatedAt,
+		UpdatedAt:  user.UpdatedAt,
+	}
+
+	return SuccessResponse(
+		fmt.Sprintf("User '%s' retrieved successfully", username),
+		userResponse,
+		200,
+	)
 }
 
 func UserControllerStore(request *Request) Response {
@@ -88,11 +131,19 @@ func UserControllerStore(request *Request) Response {
 		return ServerErrorResponse(fmt.Errorf("the user could not be created"))
 	}
 
-	log.Println("User created successfully:", user)
+	// Convert the user to a response format
+	userResponse := &auth.UserResponse{
+		Username:   user.Username,
+		Statements: user.Statements,
+		CreatedAt:  user.CreatedAt,
+		UpdatedAt:  user.UpdatedAt,
+	}
+
 	return SuccessResponse(
 		"User created successfully",
-		user,
-		201)
+		userResponse,
+		201,
+	)
 }
 
 func UserControllerDestroy(request *Request) Response {

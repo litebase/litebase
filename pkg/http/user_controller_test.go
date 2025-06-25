@@ -48,6 +48,64 @@ func TestUserController_List(t *testing.T) {
 	})
 }
 
+func TestUserController_Show(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		err := server.App.Cluster.Auth.UserManager().Add(
+			"testuser",
+			"password123",
+			[]auth.AccessKeyStatement{
+				{
+					Effect:   "Allow",
+					Resource: "*",
+					Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
+				},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create test user: %v", err)
+		}
+
+		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
+			},
+		})
+
+		response, statusCode, err := client.Send(
+			"/resources/users/testuser",
+			"GET", nil,
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to get user: %v", err)
+		}
+
+		if statusCode != 200 {
+			t.Fatalf("Expected status code 200, got %d", statusCode)
+		}
+
+		if _, ok := response["data"]; !ok {
+			t.Fatal("Response does not contain 'data' field")
+		}
+
+		user, ok := response["data"].(map[string]any)
+
+		if !ok {
+			t.Fatal("Response 'data' field is not an object")
+		}
+
+		if user["username"] != "testuser" {
+			t.Fatalf("Expected username 'testuser', got '%s'", user["username"])
+		}
+	})
+}
+
 func TestUserController_Store(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)

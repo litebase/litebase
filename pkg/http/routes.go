@@ -21,6 +21,13 @@ func LoadRoutes(router *Router) {
 		Authentication,
 	})
 
+	router.Get(
+		"/resources/users/{username}",
+		UserControllerShow,
+	).Middleware([]Middleware{
+		Authentication,
+	})
+
 	router.Post(
 		"/resources/users",
 		UserControllerStore,

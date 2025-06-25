@@ -398,7 +398,7 @@ func TestRequest_RequestToken(t *testing.T) {
 			"GET",
 			"/",
 			map[string]string{},
-			map[string]any{},
+			[]byte{},
 			map[string]string{},
 		)
 
