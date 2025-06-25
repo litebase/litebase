@@ -21,6 +21,7 @@ func (c *Cluster) Broadcast(key string, value any) error {
 	nodeIdentifiers := c.OtherNodes()
 
 	var errors []error
+
 	if len(nodeIdentifiers) == 0 {
 		return nil
 	}

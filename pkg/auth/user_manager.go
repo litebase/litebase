@@ -197,8 +197,6 @@ func (u *UserManager) Purge(username string) error {
 	// Remove the user from the map
 	delete(u.users, username)
 
-	u.auth.Broadcast("user:purge", username)
-
 	return nil
 }
 
