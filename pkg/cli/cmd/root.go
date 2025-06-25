@@ -16,7 +16,6 @@ import (
 var (
 	accessKeyId     string
 	accessKeySecret string
-	configPath      string
 	noInteraction   bool
 	profile         string
 	url             string
@@ -25,7 +24,6 @@ var (
 )
 
 func addCommands(cmd *cobra.Command, c *config.Configuration) {
-	cmd.AddCommand(VersionCmd)
 	cmd.AddCommand(NewAccessKeyCmd(c))
 	cmd.AddCommand(NewClusterCmd(c))
 	cmd.AddCommand(NewDatabaseCmd(c))
@@ -112,7 +110,7 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 	return cmd, nil
 }
 
-func NewRoot() error {
+func NewRoot(version string) error {
 	cmd, err := RootCmd("")
 
 	if err != nil {
@@ -123,6 +121,7 @@ func NewRoot() error {
 		context.Background(),
 		cmd,
 		fang.WithTheme(cli.ColorScheme()),
+		fang.WithVersion(version),
 	)
 }
 
