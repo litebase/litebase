@@ -27,7 +27,6 @@ func addCommands(cmd *cobra.Command, c *config.Configuration) {
 	cmd.AddCommand(NewAccessKeyCmd(c))
 	cmd.AddCommand(NewClusterCmd(c))
 	cmd.AddCommand(NewDatabaseCmd(c))
-	cmd.AddCommand(NewInitCmd())
 	cmd.AddCommand(LoginCmd)
 	cmd.AddCommand(LogoutCmd)
 	cmd.AddCommand(NewProfileCmd(c))
