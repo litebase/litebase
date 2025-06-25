@@ -84,9 +84,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = tea.Println(msg.Results)
 		cmds = append(cmds, cmd)
 	case tea.KeyMsg:
-		if msg.Type == tea.KeyCtrlC {
+		switch msg.Type {
+		case tea.KeyCtrlC:
 			return m, tea.Quit
-		} else if msg.Type == tea.KeyEsc {
+		case tea.KeyEsc:
 			if len(m.frames) > 0 && m.activeFrame < 0 {
 				frame, cmd = m.frames[m.activeFrame].Update(msg)
 				cmds = append(cmds, cmd)
@@ -95,11 +96,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				return m, tea.Quit
 			}
-		} else if msg.Type == tea.KeyUp {
+		case tea.KeyUp:
 			m, cmd = handleKeyUp(m)
 			cmds = append(cmds, cmd)
 			// return m, tea.Batch(cmds...)
-		} else if msg.Type == tea.KeyDown {
+		case tea.KeyDown:
 			m, cmd = handleKeyDown(m)
 			cmds = append(cmds, cmd)
 			// return m, tea.Batch(cmds...)
