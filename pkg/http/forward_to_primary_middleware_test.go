@@ -34,8 +34,8 @@ func TestForwardToPrimary(t *testing.T) {
 			},
 		})
 
-		if statusCode != 200 {
-			t.Fatalf("Expected status code 200, got %d: %v", statusCode, err)
+		if statusCode != 201 {
+			t.Fatalf("Expected status code 201, got %d: %v", statusCode, err)
 		}
 
 		if err != nil {
