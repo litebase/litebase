@@ -73,7 +73,7 @@ func AccessKeyControllerShow(request *Request) Response {
 	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": "Access key retrieved successfully",
-		"data":    accessKey,
+		"data":    accessKey.ToResponse(),
 	}, 200, nil)
 }
 
@@ -134,14 +134,11 @@ func AccessKeyControllerStore(request *Request) Response {
 		}, 500, nil)
 	}
 
-	return Response{
-		StatusCode: 200,
-		Body: map[string]any{
-			"status":  "success",
-			"message": "Access key created successfully",
-			"data":    accessKey,
-		},
-	}
+	return JsonResponse(map[string]any{
+		"status":  "success",
+		"message": "Access key created successfully",
+		"data":    accessKey,
+	}, 201, nil)
 }
 
 type AccessKeyUpdateRequest struct {
@@ -227,10 +224,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": "Access key updated successfully.",
-		"data": map[string]any{
-			"access_key_id": accessKey.AccessKeyId,
-			"statements":    accessKey.Statements,
-		},
+		"data":    accessKey.ToResponse(),
 	}, 200, nil)
 }
 

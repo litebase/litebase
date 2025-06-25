@@ -7,7 +7,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-func TestAccessKeyCreate_NoInteractive(t *testing.T) {
+func TestAccessKeyCreate(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()

@@ -298,8 +298,8 @@ func TestAccessKeyControllerStore(t *testing.T) {
 			t.Fatalf("Failed to create access key: %v", err)
 		}
 
-		if statusCode != 200 {
-			t.Errorf("Unexpected status code: %d, expected 200", statusCode)
+		if statusCode != 201 {
+			t.Errorf("Unexpected status code: %d, expected 201", statusCode)
 		}
 
 		if response["status"] != "success" {
@@ -462,7 +462,7 @@ func TestAccessKeyControllerStore_WithClusterUser(t *testing.T) {
 			t.Fatalf("Failed to create access key: %v", err)
 		}
 
-		if statusCode != 200 {
+		if statusCode != 201 {
 			t.Errorf("Unexpected status code: %d, expected 200", statusCode)
 		}
 
