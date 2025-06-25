@@ -88,13 +88,15 @@ func RootCmd() (*cobra.Command, error) {
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&accessKeyId, "access-key-id", "", "Access key ID for authentication")
-	cmd.PersistentFlags().StringVar(&accessKeySecret, "access-key-secret", "", "Access key secret for authentication")
-	cmd.PersistentFlags().StringVar(&configPath, "config", "$HOME/.litebase/config", "Path to a configuration file")
-	cmd.PersistentFlags().StringVar(&profile, "profile", "", "The profile to use during this session")
+	cmd.PersistentFlags().StringVarP(&accessKeyId, "access-key-id", "k", "", "Access key ID for authentication")
+	cmd.PersistentFlags().StringVarP(&accessKeySecret, "access-key-secret", "s", "", "Access key secret for authentication")
+	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", "$HOME/.litebase/config", "Path to a configuration file")
+	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "The profile to use during this session")
 	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
 	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
+
+	cmd.PersistentFlags().StringP("no-interaction", "n", "", "Run without user interaction")
 
 	configuration, err := config.NewConfiguration(configPath)
 
