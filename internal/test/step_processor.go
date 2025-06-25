@@ -31,6 +31,7 @@ import (
 
 type StepProcessor struct {
 	ctx           context.Context
+	cancelCtx     context.CancelFunc
 	dataPath      string
 	name          string
 	encryptionKey string
@@ -91,6 +92,7 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 
 	sp := &StepProcessor{
 		ctx:               ctx,
+		cancelCtx:         cancel,
 		name:              t.Name(),
 		tests:             make(map[string]*StepTest),
 		messageQueue:      make(chan Message, 100),
@@ -442,20 +444,32 @@ func (sp *StepProcessor) Start(t *testing.T) {
 
 			err := test.cmd.Start()
 			if err != nil {
-				t.Errorf("Failed to start process %s: %v", testName, err)
-				return
+				// Check if context is cancelled before calling t.Errorf to avoid panic
+				select {
+				case <-sp.ctx.Done():
+					return
+				default:
+					t.Errorf("Failed to start process %s: %v", testName, err)
+					return
+				}
 			}
 
 			err = test.cmd.Wait()
 
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				if exitErr.ExitCode() != test.process.expectedExitCode {
-					t.Errorf(
-						"Multi step test %s should have exited with code %d, got %d",
-						testName,
-						test.process.expectedExitCode,
-						exitErr.ExitCode(),
-					)
+					// Check if context is cancelled before calling t.Errorf to avoid panic
+					select {
+					case <-sp.ctx.Done():
+						return
+					default:
+						t.Errorf(
+							"Multi step test %s should have exited with code %d, got %d",
+							testName,
+							test.process.expectedExitCode,
+							exitErr.ExitCode(),
+						)
+					}
 				}
 			}
 		}(tname, tt)
@@ -465,7 +479,17 @@ func (sp *StepProcessor) Start(t *testing.T) {
 	select {
 	case <-sp.allConnected:
 	case <-time.After(2 * time.Second): // Keep under 3s test timeout
+		// Cancel context immediately to signal goroutines to stop
+		sp.cancelCtx()
+		// Give goroutines a moment to see the cancellation
+		time.Sleep(50 * time.Millisecond)
 		t.Errorf("Timeout waiting for all processes to connect")
+		// Kill any processes that may have started but not connected
+		for _, test := range sp.tests {
+			if test.cmd != nil && test.cmd.Process != nil {
+				test.cmd.Process.Kill()
+			}
+		}
 		return
 	case <-sp.ctx.Done():
 		return
