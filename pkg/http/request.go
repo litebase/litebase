@@ -67,7 +67,10 @@ func NewRequest(
 
 // Return all of the data from the request body as a map.
 func (r *Request) All() map[string]any {
-	if r.Body == nil && r.BaseRequest.Body != nil && r.Headers().Get("Content-Length") != "0" {
+	if r.Body == nil &&
+		r.BaseRequest.Body != nil &&
+		r.Headers().Get("Content-Type") == "application/json" &&
+		r.Headers().Get("Content-Length") != "0" {
 		// Read the raw body bytes first for hashing
 		rawBody, err := io.ReadAll(r.BaseRequest.Body)
 
