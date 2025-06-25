@@ -5,6 +5,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/cli"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
@@ -30,10 +31,13 @@ var CardTitleStyle = func() lipgloss.Style {
 }
 
 type Card struct {
-	Rows  []CardRow
-	Title string
-	Width int // Add width field
+	Content      string
+	ContentTitle string
+	Rows         []CardRow
+	Title        string
+	Width        int
 }
+
 type CardOption func(*Card)
 
 func NewCard(options ...CardOption) *Card {
@@ -46,6 +50,13 @@ func NewCard(options ...CardOption) *Card {
 	return c
 }
 
+func WithCardContent(title, content string) CardOption {
+	return func(c *Card) {
+		c.ContentTitle = title
+		c.Content = content
+	}
+}
+
 func WithCardRows(rows []CardRow) CardOption {
 	return func(c *Card) {
 		c.Rows = rows
@@ -55,12 +66,6 @@ func WithCardRows(rows []CardRow) CardOption {
 func WithCardTitle(title string) CardOption {
 	return func(c *Card) {
 		c.Title = title
-	}
-}
-
-func WithCardWidth(width int) CardOption {
-	return func(c *Card) {
-		c.Width = width
 	}
 }
 
@@ -156,8 +161,34 @@ func (c *Card) View() string {
 		}
 	}
 
+	if c.Content != "" {
+		content += c.renderContent()
+	}
+
 	// Apply the card style without setting width on it
 	return cardStyle().Render(content)
+}
+
+func (c *Card) renderContent() string {
+	content := lipgloss.NewStyle().Bold(true).MarginTop(2).Render(c.ContentTitle)
+
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+	)
+
+	if err != nil {
+		return "Error initializing renderer: " + err.Error()
+	}
+
+	glamourContent, err := renderer.Render(c.Content)
+
+	if err != nil {
+		glamourContent = "Error rendering content: " + err.Error()
+	}
+
+	content += glamourContent
+
+	return content
 }
 
 // truncateString truncates a string to maxLength and adds "..." if truncated
@@ -165,8 +196,10 @@ func truncateString(s string, maxLength int) string {
 	if len(s) <= maxLength {
 		return s
 	}
+
 	if maxLength <= 3 {
 		return s[:maxLength]
 	}
+
 	return s[:maxLength-3] + "..."
 }
