@@ -17,6 +17,7 @@ var (
 	accessKeyId     string
 	accessKeySecret string
 	configPath      string
+	noInteraction   bool
 	profile         string
 	url             string
 	username        string
@@ -96,7 +97,7 @@ func RootCmd() (*cobra.Command, error) {
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
 	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
 
-	cmd.PersistentFlags().StringP("no-interaction", "n", "", "Run without user interaction")
+	cmd.PersistentFlags().BoolVarP(&noInteraction, "no-interaction", "n", false, "Run without user interaction")
 
 	configuration, err := config.NewConfiguration(configPath)
 
@@ -133,6 +134,10 @@ func preRun(c *config.Configuration) func(cmd *cobra.Command, args []string) err
 
 		if accessKeySecret != "" {
 			c.SetAccessKeySecret(accessKeySecret)
+		}
+
+		if !noInteraction {
+			c.SetInteractive(!noInteraction)
 		}
 
 		if password != "" {

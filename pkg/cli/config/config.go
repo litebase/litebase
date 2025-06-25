@@ -15,9 +15,10 @@ type Configuration struct {
 
 	accessKeyId     string
 	accessKeySecret string
-	username        string
+	interactive     bool
 	password        string
 	url             string
+	username        string
 }
 
 var ErrMissingClusterURL = errors.New("missing cluster URL")
@@ -39,6 +40,8 @@ func NewConfiguration(path string) (*Configuration, error) {
 	if os.IsNotExist(err) {
 		return &Configuration{
 			Path: configPath,
+
+			interactive: true,
 		}, nil
 	}
 
@@ -60,6 +63,10 @@ func (c *Configuration) AddProfile(profile Profile) error {
 	c.Profiles = append(c.Profiles, profile)
 
 	return c.Save()
+}
+
+func (c *Configuration) GetInteractive() bool {
+	return c.interactive
 }
 
 // Get the profiles of the configuration.
@@ -164,6 +171,10 @@ func (c *Configuration) SetAccessKeyId(accessKeyId string) {
 
 func (c *Configuration) SetAccessKeySecret(accessKeySecret string) {
 	c.accessKeySecret = accessKeySecret
+}
+
+func (c *Configuration) SetInteractive(interactive bool) {
+	c.interactive = interactive
 }
 
 func (c *Configuration) SetPassword(password string) {
