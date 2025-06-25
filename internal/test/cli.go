@@ -54,6 +54,11 @@ func (c *TestCLI) ShouldNotSee(text string) bool {
 	return !c.ShouldSee(text)
 }
 
+// GetOutput returns the current output buffer content for debugging
+func (c *TestCLI) GetOutput() string {
+	return c.outputBuffer.String()
+}
+
 // WithAccessKey sets the access key for the CLI and updates the flags
 func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
 	accessKey, err := c.App.Auth.AccessKeyManager.Create("Test access key", statements)
