@@ -310,7 +310,7 @@ func TestAllRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 33 // Update this number if you add more routes
+	expectedRouteCount := 35 // Update this number if you add more routes
 
 	totalRoutes := 0
 	for method, methodRoutes := range router.Routes {
