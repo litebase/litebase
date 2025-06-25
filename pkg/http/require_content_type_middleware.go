@@ -9,12 +9,12 @@ func RequireContentType(req *Request) (*Request, Response) {
 		return req, BadRequestResponse(errors.New("missing Content-Type header"))
 	}
 
-	if contentType != "application/json" {
+	if contentType != "application/json" && contentType != "application/octet-stream" {
 		return req, Response{
 			StatusCode: 415,
 			Body: map[string]any{
 				"status":  "error",
-				"message": "Unsupported Content-Type. Only application/json is allowed.",
+				"message": "Unsupported Content-Type",
 			},
 		}
 	}
