@@ -9,6 +9,14 @@ import (
 	"github.com/charmbracelet/x/term"
 )
 
+func IsDarkMode() bool {
+	if term.IsTerminal(os.Stdout.Fd()) {
+		return lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+	}
+
+	return false
+}
+
 func LightDark(light color.Color, dark color.Color) color.Color {
 	var isDark bool
 
