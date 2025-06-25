@@ -27,6 +27,7 @@ const (
 	Pink500
 	Pink600
 	Red100
+	Red500
 	Red700
 	Sky300
 	Sky500
@@ -53,6 +54,7 @@ func (ck ColorKey) Hex() string {
 		Pink500:  "#f6339a",
 		Pink600:  "#e60076",
 		Red100:   "#ffe2e2",
+		Red500:   "#dc2626",
 		Red700:   "#c10007",
 		Sky300:   "#74d4ff",
 		Sky500:   "#00a6f4",
@@ -89,6 +91,7 @@ func (ck ColorKey) String() string {
 		Pink500:  "pink500",
 		Pink600:  "pink600",
 		Red100:   "red100",
+		Red500:   "red500",
 		Red700:   "red700",
 		Sky300:   "sky300",
 		Sky500:   "sky500",
