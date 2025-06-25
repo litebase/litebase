@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
 
@@ -11,40 +11,50 @@ import (
 )
 
 func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
-	return &cobra.Command{
-		Use:   "switch",
-		Short: "Switch to a profile",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			profiles := c.GetProfiles()
+	return NewCommand("switch <name>", "Switch to a different profile").
+		WithArgs(cobra.MaximumNArgs(1)).
+		WithRunE(func(cmd *cobra.Command, args []string) error {
+			var profileName string
 
-			columns := []string{"Name", "Cluster"}
+			if !c.GetInteractive() && len(args) == 1 || c.GetInteractive() && len(args) == 1 {
+				profileName = args[0]
+			} else {
+				profiles := c.GetProfiles()
 
-			rows := [][]string{}
+				columns := []string{"Name", "Cluster"}
 
-			for _, profile := range profiles {
-				rows = append(rows, []string{profile.Name, profile.Cluster})
+				rows := [][]string{}
+
+				for _, profile := range profiles {
+					rows = append(rows, []string{profile.Name, profile.Cluster})
+				}
+
+				lipgloss.Fprint(
+					cmd.OutOrStdout(),
+					components.NewTable(columns, rows).
+						SetHandler(func(row []string) {
+							profileName = row[0]
+						}).
+						Render(c.GetInteractive()),
+				)
 			}
 
-			components.NewTable(columns, rows).
-				SetHandler(func(row []string) {
-					err := c.SwitchProfile(row[0])
+			if profileName == "" {
+				return fmt.Errorf("profile name is required")
+			}
 
-					if err != nil {
-						panic(err)
-					}
+			err := c.SwitchProfile(profileName)
 
-					fmt.Fprint(
-						cmd.OutOrStdout(),
-						components.Container(
-							components.SuccessAlert(fmt.Sprintf("Profile switched to %s", row[0])),
-						),
-					)
+			if err != nil {
+				return fmt.Errorf("failed to switch profile: %w", err)
+			}
 
-					os.Exit(0)
-				}).Render(c.GetInteractive())
-
+			lipgloss.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(
+					components.SuccessAlert(fmt.Sprintf("Profile switched successfully to '%s'", profileName)),
+				),
+			)
 			return nil
-		},
-	}
-
+		}).Build()
 }
