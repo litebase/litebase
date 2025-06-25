@@ -57,18 +57,6 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 		request.Header.Set(k, v)
 	}
 
-	jsonData, err = json.Marshal(data)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	jsonMap := make(map[string]any)
-	if jsonData != nil {
-		if err := json.Unmarshal(jsonData, &jsonMap); err != nil {
-			return nil, 0, fmt.Errorf("failed to unmarshal JSON data: %w", err)
-		}
-	}
-
 	if c.AccessKey != nil {
 		signature := auth.SignRequest(
 			c.AccessKey.AccessKeyId,
@@ -76,7 +64,7 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 			method,
 			request.URL.Path,
 			headers,
-			jsonMap,
+			jsonData,
 			map[string]string{},
 		)
 
