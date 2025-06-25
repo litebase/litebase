@@ -87,12 +87,9 @@ func accessKeyShow(cmd *cobra.Command, config *config.Configuration, accessKeyId
 }
 
 func NewAccessKeyShowCmd(config *config.Configuration) *cobra.Command {
-	return &cobra.Command{
-		Use:   "show <id>",
-		Short: "Show access key details",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+	return NewCommand("show <id>", "Show access key details").
+		WithArgs(cobra.ExactArgs(1)).
+		WithRunE(func(cmd *cobra.Command, args []string) error {
 			return accessKeyShow(cmd, config, args[0])
-		},
-	}
+		}).Build()
 }

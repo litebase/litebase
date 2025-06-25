@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cli/cmd"
@@ -23,7 +24,9 @@ func NewTestCLI(app *server.App) *TestCLI {
 		outputBuffer: bytes.NewBuffer(make([]byte, 0)),
 	}
 
-	cmd, err := cmd.RootCmd()
+	configPath := fmt.Sprintf("%s/.litebase-cli/config.json", c.App.Config.DataPath)
+
+	cmd, err := cmd.RootCmd(configPath)
 
 	if err != nil {
 		panic(err)
@@ -38,7 +41,8 @@ func NewTestCLI(app *server.App) *TestCLI {
 
 // Run executes the CLI command with the provided arguments
 func (c *TestCLI) Run(args ...string) error {
-	// Implement the logic to run the CLI with the provided arguments
+	args = append(args, "--no-interaction")
+
 	c.Cmd.SetArgs(args)
 
 	return c.Cmd.Execute()

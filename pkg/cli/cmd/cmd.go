@@ -33,6 +33,11 @@ func (c *Command) Build() *cobra.Command {
 
 	return c.command
 }
+func (c *Command) WithArgs(args cobra.PositionalArgs) *Command {
+	c.command.Args = args
+
+	return c
+}
 
 func (c *Command) WithConfig(config func(cmd *cobra.Command)) *Command {
 	c.configFunc = config

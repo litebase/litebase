@@ -4,14 +4,14 @@ type Profile struct {
 	Name        string             `json:"name"`
 	Cluster     string             `json:"cluster"`
 	Credentials ProfileCredentials `json:"credentials"`
-	Type        ProfileType        `json:"type"`
+	Type        string             `json:"type"`
 }
 
 type ProfileType string
 
 const (
-	ProfileTypeBasicAuth string = "basicAuth"
-	ProfileTypeAccessKey string = "accessKey"
+	ProfileTypeBasicAuth ProfileType = "basic_auth"
+	ProfileTypeAccessKey ProfileType = "access_key"
 )
 
 type ProfileCredentials struct {

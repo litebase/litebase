@@ -10,13 +10,13 @@ import (
 
 type Configuration struct {
 	CurrentProfile string    `json:"currentProfile"`
-	Path           string    `json:"path"`
 	Profiles       []Profile `json:"profiles"`
 
 	accessKeyId     string
 	accessKeySecret string
 	interactive     bool
 	password        string
+	path            string
 	url             string
 	username        string
 }
@@ -26,9 +26,21 @@ var ErrorProfileNotFound = errors.New("profile not found, provide a valid profil
 
 // Create a new configuration instance.
 func NewConfiguration(path string) (*Configuration, error) {
-	// Replace the $HOME environment variable with the actual path
-	configPath := strings.Replace(path, "$HOME", os.Getenv("HOME"), 1)
+	var configPath string
 	var configuration *Configuration
+
+	if path == "" {
+		homeDir, err := os.UserHomeDir()
+
+		if err != nil {
+			return nil, err
+		}
+
+		configPath = filepath.Join(homeDir, ".litebase", "config.json")
+	} else {
+		configPath = path
+	}
+
 	err := os.MkdirAll(filepath.Dir(configPath), 0750)
 
 	if err != nil {
@@ -38,11 +50,12 @@ func NewConfiguration(path string) (*Configuration, error) {
 	_, err = os.Stat(configPath)
 
 	if os.IsNotExist(err) {
-		return &Configuration{
-			Path: configPath,
-
+		c := &Configuration{
+			path:        configPath,
 			interactive: true,
-		}, nil
+		}
+
+		return c, c.Save()
 	}
 
 	file, err := os.ReadFile(filepath.Clean(configPath))
@@ -54,6 +67,9 @@ func NewConfiguration(path string) (*Configuration, error) {
 	if err := json.Unmarshal(file, &configuration); err != nil {
 		return nil, err
 	}
+
+	configuration.path = configPath
+	configuration.interactive = true
 
 	return configuration, nil
 }
@@ -156,7 +172,7 @@ func (c *Configuration) Save() error {
 		return err
 	}
 
-	err = os.WriteFile(c.Path, jsonData, 0600)
+	err = os.WriteFile(c.path, jsonData, 0600)
 
 	if err != nil {
 		return err

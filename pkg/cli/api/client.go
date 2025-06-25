@@ -221,5 +221,5 @@ func (c *Client) shouldUseBasicAuth() bool {
 		return false
 	}
 
-	return profile.Type == config.ProfileType(config.ProfileTypeBasicAuth)
+	return profile.Type == string(config.ProfileTypeBasicAuth)
 }

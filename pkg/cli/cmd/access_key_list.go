@@ -12,10 +12,9 @@ import (
 )
 
 func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List access keys",
-		RunE: func(cmd *cobra.Command, args []string) error {
+	return NewCommand("list", "List access keys").
+		WithFlags(func(cmd *cobra.Command) {}).
+		WithRunE(func(cmd *cobra.Command, args []string) error {
 			data, err := api.Get(config, "/resources/access-keys")
 
 			if err != nil {
@@ -73,6 +72,5 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		},
-	}
+		}).Build()
 }

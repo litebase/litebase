@@ -39,7 +39,7 @@ func addCommands(cmd *cobra.Command, c *config.Configuration) {
 	cmd.AddCommand(NewUserCmd(c))
 }
 
-func RootCmd() (*cobra.Command, error) {
+func RootCmd(configPath string) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:               "litebase <command> <subcommand> [flags]",
 		Short:             "Litebase CLI",
@@ -91,7 +91,7 @@ func RootCmd() (*cobra.Command, error) {
 
 	cmd.PersistentFlags().StringVarP(&accessKeyId, "access-key-id", "k", "", "Access key ID for authentication")
 	cmd.PersistentFlags().StringVarP(&accessKeySecret, "access-key-secret", "s", "", "Access key secret for authentication")
-	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", "$HOME/.litebase/config", "Path to a configuration file")
+	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", configPath, "Path to a configuration file")
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "The profile to use during this session")
 	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
@@ -113,7 +113,7 @@ func RootCmd() (*cobra.Command, error) {
 }
 
 func NewRoot() error {
-	cmd, err := RootCmd()
+	cmd, err := RootCmd("")
 
 	if err != nil {
 		return err
@@ -136,9 +136,7 @@ func preRun(c *config.Configuration) func(cmd *cobra.Command, args []string) err
 			c.SetAccessKeySecret(accessKeySecret)
 		}
 
-		if !noInteraction {
-			c.SetInteractive(!noInteraction)
-		}
+		c.SetInteractive(!noInteraction)
 
 		if password != "" {
 			c.SetPassword(password)
