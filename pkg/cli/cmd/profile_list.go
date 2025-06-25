@@ -22,8 +22,6 @@ func NewProfileListCmd(c *config.Configuration) *cobra.Command {
 				rows = append(rows, []string{profile.Name, profile.Cluster})
 			}
 
-			components.NewTable(columns, rows).Render(c.GetInteractive())
-
 			lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
