@@ -117,6 +117,7 @@ func TestRouterFallback(t *testing.T) {
 
 		// Create a mock request to trigger fallback
 		req := httptest.NewRequest("GET", "http://localhost/nonexistent", nil)
+		req.Header.Set("Content-Type", "application/json")
 		mockRequest := appHttp.NewRequest(app.Cluster, app.DatabaseManager, app.LogManager, req)
 		router.DefaultRoute.Handler(mockRequest)
 
@@ -141,6 +142,7 @@ func TestRouterServer(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/test", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -175,6 +177,9 @@ func TestRouterServerFallbackRoute(t *testing.T) {
 		})
 
 		req := httptest.NewRequest("GET", "http://localhost/nonexistent", nil)
+
+		req.Header.Set("Content-Type", "application/json")
+
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -215,6 +220,7 @@ func TestRouterServerWithNilBody(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/empty", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -248,6 +254,7 @@ func TestRouterServerWithHeaders(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/headers", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -279,6 +286,8 @@ func TestRouterServerWithGzipEncoding(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/gzip", nil)
+		req.Header.Set("Accept-Encoding", "gzip")
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -324,6 +333,7 @@ func TestRouterServerWithStream(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/stream", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -356,6 +366,7 @@ func TestRouterServerWithZeroStatusCode(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/zero", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -393,6 +404,7 @@ func TestRouterMultipleRoutesOnSamePath(t *testing.T) {
 
 		// Test GET
 		req := httptest.NewRequest("GET", "http://localhost/api", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -402,6 +414,7 @@ func TestRouterMultipleRoutesOnSamePath(t *testing.T) {
 
 		// Test POST
 		req = httptest.NewRequest("POST", "http://localhost/api", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -426,6 +439,7 @@ func TestRouterServerWithErrorStatusCode(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/error", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -514,6 +528,7 @@ func TestRouterEmptyStringBodyResponse(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/empty-string", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -550,6 +565,7 @@ func TestRouterComplexBodyResponse(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/complex", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -609,6 +625,7 @@ func TestRouterWithURLParameters(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/users/123", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -639,6 +656,7 @@ func TestRouterLargeResponse(t *testing.T) {
 		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
 		req := httptest.NewRequest("GET", "http://localhost/large", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -701,6 +719,7 @@ func TestRouterEdgeCases(t *testing.T) {
 
 		// Test numeric response
 		req := httptest.NewRequest("GET", "http://localhost/number", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 
@@ -714,6 +733,7 @@ func TestRouterEdgeCases(t *testing.T) {
 
 		// Test boolean response
 		req = httptest.NewRequest("GET", "http://localhost/boolean", nil)
+		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
 		serveMux.ServeHTTP(w, req)
 

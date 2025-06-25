@@ -720,6 +720,7 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 		return err
 	}
 
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 	req.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 

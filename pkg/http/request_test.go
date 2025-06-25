@@ -17,6 +17,7 @@ import (
 func TestNewRequest(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		baseRequest := &http.Request{
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -52,6 +53,7 @@ func TestRequest_All(t *testing.T) {
 
 		baseRequest := &http.Request{
 			Body:   body,
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -75,6 +77,7 @@ func TestRequest_All(t *testing.T) {
 
 		baseRequest = &http.Request{
 			Body:   body,
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -106,6 +109,7 @@ func TestRequest_BodyHash(t *testing.T) {
 
 		baseRequest := &http.Request{
 			Body:   body,
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -133,6 +137,7 @@ func TestRequest_DatabaseKey(t *testing.T) {
 		databaseUrl := fmt.Sprintf("%s.%s.litebase.test/%s", app.Config.ClusterId, app.Config.Region, db.DatabaseKey.Key)
 
 		baseRequest := &http.Request{
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   databaseUrl,
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -166,6 +171,7 @@ func TestRequest_Get(t *testing.T) {
 
 		baseRequest := &http.Request{
 			Body:   body,
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -189,6 +195,7 @@ func TestRequest_Get(t *testing.T) {
 
 		baseRequest = &http.Request{
 			Body:   body,
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -212,6 +219,7 @@ func TestRequest_Get(t *testing.T) {
 func TestRequest_Headers(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		baseRequest := &http.Request{
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -245,12 +253,15 @@ func TestRequest_Input(t *testing.T) {
 
 		baseRequest := &http.Request{
 			Body:   body,
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
 				Host: "foo.bar.litebase.test",
 			},
 		}
+
+		baseRequest.Body = io.NopCloser(bytes.NewBufferString(`{"name": "foo", "value": "bar"}`))
 
 		request := appHttp.NewRequest(
 			app.Cluster,
@@ -278,6 +289,7 @@ func TestRequest_Input(t *testing.T) {
 func TestRequest_Param(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		baseRequest := &http.Request{
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -323,6 +335,7 @@ func TestRequest_Param(t *testing.T) {
 func TestRequest_Path(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		baseRequest := &http.Request{
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -366,6 +379,7 @@ func TestRequest_Path(t *testing.T) {
 func TestRequest_QueryParams(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		baseRequest := &http.Request{
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{
@@ -397,7 +411,9 @@ func TestRequest_RequestToken(t *testing.T) {
 			db.AccessKey.AccessKeySecret,
 			"GET",
 			"/",
-			map[string]string{},
+			map[string]string{
+				"Content-Type": "application/json",
+			},
 			[]byte{},
 			map[string]string{},
 		)
@@ -406,6 +422,7 @@ func TestRequest_RequestToken(t *testing.T) {
 			Host:   databaseUrl,
 			Method: http.MethodGet,
 			Header: map[string][]string{
+				"Content-Type":  {"application/json"},
 				"Authorization": {token},
 			},
 			URL: &url.URL{
@@ -438,6 +455,7 @@ func TestRequest_Validate(t *testing.T) {
 
 		baseRequest := &http.Request{
 			Body:   body,
+			Header: map[string][]string{"Content-Type": {"application/json"}},
 			Host:   "foo.bar.us-east-1.litebase.test",
 			Method: http.MethodGet,
 			URL: &url.URL{

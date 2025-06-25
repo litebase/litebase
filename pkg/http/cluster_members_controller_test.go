@@ -141,6 +141,7 @@ func TestClusterMemberStoreController(t *testing.T) {
 		}
 
 		request.SetPathValue("address", address)
+		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 
 		req := appHttp.NewRequest(
@@ -189,6 +190,7 @@ func TestClusterMemberStoreControllerUnauthorized(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
+		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("X-Lbdb-Node", "invalid-header")
 
 		req := appHttp.NewRequest(

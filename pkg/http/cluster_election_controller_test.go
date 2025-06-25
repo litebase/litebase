@@ -42,6 +42,8 @@ func TestClusterElectionController(t *testing.T) {
 			t.Fatalf("failed to create request: %v", err)
 		}
 
+		request.Header.Set("Content-Type", "application/json")
+
 		req := appHttp.NewRequest(
 			app.Cluster,
 			app.DatabaseManager,
