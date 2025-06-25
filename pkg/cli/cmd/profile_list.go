@@ -23,7 +23,7 @@ func NewProfileListCmd(c *config.Configuration) *cobra.Command {
 				rows = append(rows, []string{profile.Name, profile.Cluster})
 			}
 
-			components.NewTable(columns, rows).Render()
+			components.NewTable(columns, rows).Render(c.GetInteractive())
 
 			return nil
 		},

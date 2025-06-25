@@ -76,7 +76,7 @@ func NewClusterUserListCmd(config *config.Configuration) *cobra.Command {
 				})
 			}
 
-			components.NewTable(columns, rows).Render()
+			components.NewTable(columns, rows).Render(config.GetInteractive())
 
 			return nil
 		},

@@ -34,7 +34,7 @@ func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
 				})
 			}
 
-			components.NewTable([]string{"ID", "Name"}, rows).Render()
+			components.NewTable([]string{"ID", "Name"}, rows).Render(config.GetInteractive())
 
 			return nil
 		},

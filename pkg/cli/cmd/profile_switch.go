@@ -41,7 +41,7 @@ func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
 					)
 
 					os.Exit(0)
-				}).Render()
+				}).Render(c.GetInteractive())
 
 			return nil
 		},
