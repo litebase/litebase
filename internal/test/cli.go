@@ -39,6 +39,16 @@ func NewTestCLI(app *server.App) *TestCLI {
 	return c
 }
 
+// ClearOutput resets the output buffer for the CLI
+func (c *TestCLI) ClearOutput() {
+	c.outputBuffer.Reset()
+}
+
+// GetOutput returns the current output buffer content for debugging
+func (c *TestCLI) GetOutput() string {
+	return c.outputBuffer.String()
+}
+
 // Run executes the CLI command with the provided arguments
 func (c *TestCLI) Run(args ...string) error {
 	args = append(args, "--no-interaction")
@@ -56,11 +66,6 @@ func (c *TestCLI) ShouldSee(text string) bool {
 // Check if the output buffer does not contain the expected text
 func (c *TestCLI) ShouldNotSee(text string) bool {
 	return !c.ShouldSee(text)
-}
-
-// GetOutput returns the current output buffer content for debugging
-func (c *TestCLI) GetOutput() string {
-	return c.outputBuffer.String()
 }
 
 // WithAccessKey sets the access key for the CLI and updates the flags

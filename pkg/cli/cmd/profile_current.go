@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
 
@@ -10,18 +9,16 @@ import (
 )
 
 func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
-	return &cobra.Command{
-		Use:   "current",
-		Short: "Return the current profile",
-		Args:  cobra.MinimumNArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+	return NewCommand("current", "Get the current profile").
+		WithArgs(cobra.MinimumNArgs(0)).
+		WithRunE(func(cmd *cobra.Command, args []string) error {
 			profiles, err := c.GetCurrentProfile()
 
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprint(
+			lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewCard(
@@ -41,6 +38,5 @@ func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		},
-	}
+		}).Build()
 }
