@@ -91,7 +91,7 @@ func TestNodeReplicaLeaveCluster(t *testing.T) {
 		err := testServer2.App.Cluster.Node().Replica().LeaveCluster()
 
 		if err != nil {
-			t.Error("LeaveCluster should not return an error")
+			t.Errorf("LeaveCluster should not return an error but got %v", err)
 		}
 
 		queryNodes = testServer1.App.Cluster.GetMembers(true)

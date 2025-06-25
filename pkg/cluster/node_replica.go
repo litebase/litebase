@@ -131,6 +131,8 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return err
 	}
 
+	request.Header.Set("Content-Type", "application/json")
+
 	encryptedHeader, err := nr.node.Cluster.Auth.SecretsManager.Encrypt(
 		nr.node.Cluster.Config.EncryptionKey,
 		[]byte(address),
