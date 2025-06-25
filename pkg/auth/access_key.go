@@ -19,6 +19,14 @@ type AccessKey struct {
 	Statements       []AccessKeyStatement `json:"statements"`
 }
 
+type AccessKeyResponse struct {
+	AccessKeyId string               `json:"access_key_id"`
+	Description string               `json:"description"`
+	CreatedAt   time.Time            `json:"created_at"`
+	UpdatedAt   time.Time            `json:"updated_at"`
+	Statements  []AccessKeyStatement `json:"statements"`
+}
+
 // Create a new AccessKey instance.
 func NewAccessKey(
 	accessKeyManager *AccessKeyManager,
@@ -80,6 +88,16 @@ func (accessKey *AccessKey) Delete() error {
 	accessKey = nil
 
 	return nil
+}
+
+func (accessKey *AccessKey) ToResponse() *AccessKeyResponse {
+	return &AccessKeyResponse{
+		AccessKeyId: accessKey.AccessKeyId,
+		Description: accessKey.Description,
+		CreatedAt:   accessKey.CreatedAt,
+		UpdatedAt:   accessKey.UpdatedAt,
+		Statements:  accessKey.Statements,
+	}
 }
 
 // Update the AccessKey statements.

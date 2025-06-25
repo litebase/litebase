@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -40,6 +41,42 @@ func TestNewAccessKey(t *testing.T) {
 
 		if accessKey.UpdatedAt.IsZero() {
 			t.Error("Expected UpdatedAt to be set, got zero value")
+		}
+	})
+}
+
+func TestAccessKeyResponse(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		accessKey := auth.NewAccessKey(
+			app.Auth.AccessKeyManager,
+			"accessKeyId",
+			"accessKeySecret",
+			"Description",
+			[]auth.AccessKeyStatement{},
+		)
+
+		jsonData, err := json.Marshal(accessKey.ToResponse())
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if jsonData == nil {
+			t.Error("Expected JSON data to be non-empty")
+		}
+
+		var result map[string]any
+
+		if err := json.Unmarshal(jsonData, &result); err != nil {
+			t.Errorf("Failed to unmarshal JSON: %v", err)
+		}
+
+		if result["access_key_id"] != "accessKeyId" {
+			t.Errorf("Expected accessKeyId to be 'accessKeyId', got %v", result["access_key_id"])
+		}
+
+		if _, ok := result["access_key_secret"]; ok {
+			t.Error("Expected accessKeySecret to be omitted from JSON, but it was included")
 		}
 	})
 }
