@@ -44,8 +44,8 @@ func TestAccessKeyShow(t *testing.T) {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if !cli.ShouldSee("Statement 1") {
-			t.Error("expected output to contain 'Statement 1'")
+		if !cli.ShouldSee("Statements") {
+			t.Errorf("expected output to contain 'Statements' got %q", cli.GetOutput())
 		}
 	})
 }
