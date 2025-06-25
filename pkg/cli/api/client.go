@@ -73,7 +73,7 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 			method,
 			path,
 			c.defaultHeaders,
-			data,
+			jsonData,
 		)
 	} else if c.shouldUseBasicAuth() {
 		c.defaultHeaders["Authorization"] = c.basicAuthHeader()
@@ -138,7 +138,7 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 	return responseData, nil, nil
 }
 
-func (c *Client) accessKeyHeader(method, path string, headers map[string]string, body map[string]any) string {
+func (c *Client) accessKeyHeader(method, path string, headers map[string]string, body []byte) string {
 	return auth.SignRequest(
 		c.Config.GetAccessKeyId(),
 		c.Config.GetAccessKeySecret(),
