@@ -32,6 +32,7 @@ func LoadRoutes(router *Router) {
 		"/resources/users",
 		UserControllerStore,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -39,6 +40,7 @@ func LoadRoutes(router *Router) {
 		"/resources/users/{username}",
 		UserControllerDestroy,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -53,7 +55,6 @@ func LoadRoutes(router *Router) {
 		"/resources/access-keys/{accessKeyId}",
 		AccessKeyControllerShow,
 	).Middleware([]Middleware{
-		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -99,6 +100,7 @@ func LoadRoutes(router *Router) {
 		"/resources/databases",
 		DatabaseStoreController,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -106,6 +108,7 @@ func LoadRoutes(router *Router) {
 		"/resources/databases/{databaseId}",
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -113,16 +116,16 @@ func LoadRoutes(router *Router) {
 		"/resources/keys",
 		KeyStoreController,
 	).Middleware([]Middleware{
-		Authentication,
 		ForwardToPrimary,
+		Authentication,
 	})
 
 	router.Post(
 		"/resources/keys/activate",
 		KeyActivateController,
 	).Middleware([]Middleware{
-		Authentication,
 		ForwardToPrimary,
+		Authentication,
 	})
 
 	// Internal routes for cluster operations.
@@ -179,6 +182,7 @@ func LoadRoutes(router *Router) {
 	router.Post("/{databaseKey}/backups",
 		DatabaseBackupStoreController,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -191,6 +195,7 @@ func LoadRoutes(router *Router) {
 	router.Delete("/{databaseKey}/backups/{timestamp}",
 		DatabaseBackupDestroyController,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -204,7 +209,6 @@ func LoadRoutes(router *Router) {
 		QueryController,
 	).Middleware([]Middleware{
 		Authentication,
-		NodeTick,
 	}).Timeout(300 * time.Second)
 
 	router.Post("/{databaseKey}/query/stream",
@@ -212,12 +216,12 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		PreloadDatabaseKey,
 		Authentication,
-		NodeTick,
 	}).Timeout(300 * time.Second)
 
 	router.Post("/{databaseKey}/restore",
 		DatabaseRestoreController,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
@@ -236,18 +240,21 @@ func LoadRoutes(router *Router) {
 	router.Post("/{databaseKey}/transactions",
 		TransactionControllerStore,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
 	router.Delete("/{databaseKey}/transactions/{id}",
 		TransactionControllerDestroy,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 
 	router.Post("/{databaseKey}/transactions/{id}/commit",
 		TransactionCommitController,
 	).Middleware([]Middleware{
+		ForwardToPrimary,
 		Authentication,
 	})
 

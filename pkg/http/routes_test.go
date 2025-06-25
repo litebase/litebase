@@ -65,22 +65,34 @@ func TestRoutesMiddleware(t *testing.T) {
 			Description:        "User index route should have Authentication middleware",
 		},
 		{
+			Method:             "GET",
+			Path:               "/resources/users/{username}",
+			ExpectedMiddleware: []string{"Authentication"},
+			Description:        "User show route should have Authentication middleware",
+		},
+		{
 			Method:             "POST",
 			Path:               "/resources/users",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "User store route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "User store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "DELETE",
 			Path:               "/resources/users/{username}",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "User destroy route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "User destroy route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "GET",
 			Path:               "/resources/access-keys",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Access key index route should have Authentication middleware",
+		},
+		{
+			Method:             "GET",
+			Path:               "/resources/access-keys/{accessKeyId}",
+			ExpectedMiddleware: []string{"Authentication"},
+			Description:        "Access key show route should have Authentication middleware",
 		},
 		{
 			Method:             "POST",
@@ -115,26 +127,26 @@ func TestRoutesMiddleware(t *testing.T) {
 		{
 			Method:             "POST",
 			Path:               "/resources/databases",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Database store route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "DELETE",
 			Path:               "/resources/databases/{databaseId}",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Database destroy route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database destroy route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "POST",
 			Path:               "/resources/keys",
-			ExpectedMiddleware: []string{"Authentication", "ForwardToPrimary"},
-			Description:        "Key store route should have Authentication and ForwardToPrimary middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Key store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "POST",
 			Path:               "/resources/keys/activate",
-			ExpectedMiddleware: []string{"Authentication", "ForwardToPrimary"},
-			Description:        "Key activate route should have Authentication and ForwardToPrimary middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Key activate route should have ForwardToPrimary and Authentication middleware",
 		},
 		// Internal cluster routes
 		{
@@ -183,8 +195,8 @@ func TestRoutesMiddleware(t *testing.T) {
 		{
 			Method:             "POST",
 			Path:               "/{databaseKey}/backups",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Database backup store route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database backup store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "GET",
@@ -195,7 +207,7 @@ func TestRoutesMiddleware(t *testing.T) {
 		{
 			Method:             "DELETE",
 			Path:               "/{databaseKey}/backups/{timestamp}",
-			ExpectedMiddleware: []string{"Authentication"},
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Database backup destroy route should have Authentication middleware",
 		},
 		{
@@ -207,20 +219,20 @@ func TestRoutesMiddleware(t *testing.T) {
 		{
 			Method:             "POST",
 			Path:               "/{databaseKey}/query",
-			ExpectedMiddleware: []string{"Authentication", "NodeTick"},
+			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Query route should have Authentication and NodeTick middleware",
 		},
 		{
 			Method:             "POST",
 			Path:               "/{databaseKey}/query/stream",
-			ExpectedMiddleware: []string{"PreloadDatabaseKey", "Authentication", "NodeTick"},
+			ExpectedMiddleware: []string{"PreloadDatabaseKey", "Authentication"},
 			Description:        "Query stream route should have PreloadDatabaseKey, Authentication and NodeTick middleware",
 		},
 		{
 			Method:             "POST",
 			Path:               "/{databaseKey}/restore",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Database restore route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database restore route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "GET",
@@ -237,20 +249,20 @@ func TestRoutesMiddleware(t *testing.T) {
 		{
 			Method:             "POST",
 			Path:               "/{databaseKey}/transactions",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Transaction store route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Transaction store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "DELETE",
 			Path:               "/{databaseKey}/transactions/{id}",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Transaction destroy route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Transaction destroy route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "POST",
 			Path:               "/{databaseKey}/transactions/{id}/commit",
-			ExpectedMiddleware: []string{"Authentication"},
-			Description:        "Transaction commit route should have Authentication middleware",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Transaction commit route should have ForwardToPrimary and Authentication middleware",
 		},
 	}
 
