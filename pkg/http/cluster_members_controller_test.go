@@ -43,6 +43,7 @@ func TestClusterMemberDestroyController(t *testing.T) {
 		}
 
 		request.SetPathValue("address", address)
+		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 
 		req := appHttp.NewRequest(
@@ -83,6 +84,7 @@ func TestClusterMemberDestroyControllerUnauthorized(t *testing.T) {
 		}
 
 		request.SetPathValue("address", "invalid-address")
+		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("X-Lbdb-Node", "invalid-header")
 
 		req := appHttp.NewRequest(

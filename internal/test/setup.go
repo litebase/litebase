@@ -89,11 +89,11 @@ func setupTestEnv(t testing.TB) (string, error) {
 
 	t.Setenv("LITEBASE_ENCRYPTION_KEY", encryptionKey)
 
-	if os.Getenv("LITEBASE_TEST_DEBUG_LEVEL") == "debug" {
-		slog.SetLogLoggerLevel(slog.LevelDebug)
-	} else {
-		slog.SetLogLoggerLevel(slog.LevelError)
-	}
+	// if os.Getenv("LITEBASE_TEST_DEBUG_LEVEL") == "debug" {
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+	// } else {
+	// 	slog.SetLogLoggerLevel(slog.LevelError)
+	// }
 
 	return dataPath, err
 }

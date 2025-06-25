@@ -152,6 +152,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 		return nil, fmt.Errorf("failed to encrypt header: %w", err)
 	}
 
+	request.Header.Set("Content-Type", "application/octet-stream")
 	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
 	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 

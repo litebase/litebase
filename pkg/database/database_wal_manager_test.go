@@ -361,6 +361,7 @@ func TestDatabaseWALManager_RunGarbageCollectionFailsOnReplica(t *testing.T) {
 		}
 	})
 }
+
 func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 	test.Run(t, func() {
 		primary := test.NewTestServer(t)
