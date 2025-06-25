@@ -1,7 +1,7 @@
 package components
 
 import (
-	"strings"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 func Container(content ...string) string {
@@ -28,5 +28,10 @@ func Container(content ...string) string {
 	parts = append(parts, "")
 
 	// Join with newlines to create consistent spacing
-	return strings.Join(parts, "\n")
+	return lipgloss.NewStyle().MarginBottom(1).Render(
+		lipgloss.JoinVertical(
+			lipgloss.Left,
+			parts...,
+		),
+	)
 }

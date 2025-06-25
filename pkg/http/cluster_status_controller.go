@@ -4,9 +4,9 @@ func ClusterStatusController(request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Body: map[string]any{
-			"status": "success",
+			"status":  "ok",
+			"message": "Cluster is functioning normally",
 			"data": map[string]any{
-				"region":     []string{request.cluster.Config.Region},
 				"node_count": len(request.cluster.Nodes()),
 			},
 		},

@@ -28,6 +28,10 @@ var AlertSuccessStyle = alertStyle.
 	Background(cli.LightDark(cli.Green700, cli.Green200)).
 	Foreground(cli.LightDark(cli.White, cli.Black))
 
+var AlertInfoStyle = alertStyle.
+	Background(cli.LightDark(cli.Gray300, cli.Gray500)).
+	Foreground(cli.LightDark(cli.Gray900, cli.White))
+
 var AlertDangerStyle = alertStyle.
 	Background(cli.LightDark(cli.Red700, cli.Red500)).
 	Foreground(cli.LightDark(cli.White, cli.White))

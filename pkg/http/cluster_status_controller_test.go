@@ -39,10 +39,6 @@ func TestClusterStatusController(t *testing.T) {
 			t.Fatal("Expected data to contain 'data' key")
 		}
 
-		if _, ok := data["data"].(map[string]any)["region"]; !ok {
-			t.Fatal("Expected data['data'] to contain 'region' key")
-		}
-
 		if count, ok := data["data"].(map[string]any)["node_count"]; !ok {
 			t.Fatal("Expected data['data'] to contain 'node_count' key")
 		} else {
