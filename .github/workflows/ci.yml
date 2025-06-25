@@ -53,4 +53,4 @@ jobs:
           LITEBASE_TEST_DEBUG_LEVEL: debug
           LITEBASE_ROOT_DIRECTORY: ${{ github.workspace }}/
         run: |
-          go test . -v
+          go test . -v --timeout=300s
