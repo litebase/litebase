@@ -69,7 +69,7 @@ func WithCardTitle(title string) CardOption {
 	}
 }
 
-func (c *Card) View() string {
+func (c *Card) Render() string {
 	content := ""
 	maxKeyLength := 0
 

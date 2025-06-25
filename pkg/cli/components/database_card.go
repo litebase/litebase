@@ -17,5 +17,5 @@ func DatabaseCard(data map[string]any) string {
 				Value: data["url"].(string),
 			},
 		}),
-	).View()
+	).Render()
 }

@@ -12,7 +12,7 @@ func TestProfileDeleteCmd(t *testing.T) {
 		cli := test.NewTestCLI(app)
 
 		// Create a profile to delete
-		err := cli.Run("profile", "create", "test-profile", "--profile-name", "Test Profile", "--profile-cluster", "http://localhost:8080", "--profile-type", "access_key", "--profile-access-key-id", "test-access-key-id", "--profile-access-key-secret", "test-access-key-secret")
+		err := cli.Run("profile", "create", "--profile-name", "Test Profile", "--profile-cluster", "http://localhost:8080", "--profile-type", "access_key", "--profile-access-key-id", "test-access-key-id", "--profile-access-key-secret", "test-access-key-secret")
 
 		if err != nil {
 			t.Fatalf("expected no error when creating profile, got %v", err)

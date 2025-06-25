@@ -237,7 +237,7 @@ func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
 					components.NewCard(
 						components.WithCardTitle("User"),
 						components.WithCardRows(rows),
-					).View(),
+					).Render(),
 				),
 			)
 

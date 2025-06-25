@@ -36,7 +36,7 @@ func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
 								Value: profiles.Cluster,
 							},
 						}),
-					).View(),
+					).Render(),
 				),
 			)
 

@@ -79,7 +79,7 @@ func accessKeyShow(cmd *cobra.Command, config *config.Configuration, accessKeyId
 				components.WithCardTitle("Access Key"),
 				components.WithCardRows(rows),
 				components.WithCardContent("Statements", cardContent),
-			).View(),
+			).Render(),
 		),
 	)
 

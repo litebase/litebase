@@ -208,7 +208,7 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 					components.NewCard(
 						components.WithCardTitle("Access Key"),
 						components.WithCardRows(rows),
-					).View(),
+					).Render(),
 				),
 			)
 
