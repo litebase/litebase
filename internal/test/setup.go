@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,6 +17,30 @@ import (
 )
 
 var envDataPath string
+
+// findProjectRoot searches for the project root by looking for go.mod file
+func findProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	// Walk up the directory tree looking for go.mod
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// We've reached the root of the filesystem
+			break
+		}
+		dir = parent
+	}
+
+	return "", fmt.Errorf("could not find go.mod file in any parent directory")
+}
 
 func setupDirectories(dataPath string) error {
 	directories := []string{
@@ -39,10 +64,16 @@ func setupTestEnv(t testing.TB) (string, error) {
 	var err error
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	rootDirectory := "./../../"
 
+	var rootDirectory string
 	if os.Getenv("LITEBASE_ROOT_DIRECTORY") != "" {
 		rootDirectory = os.Getenv("LITEBASE_ROOT_DIRECTORY")
+	} else {
+		rootDirectory, err = findProjectRoot()
+
+		if err != nil {
+			return "", fmt.Errorf("failed to find project root: %w", err)
+		}
 	}
 
 	setTestEnvVariable(t)
