@@ -10,20 +10,56 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestGetPrivateKey(t *testing.T) {
+func TestKeyManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		privateKey, err := auth.GetPrivateKey(
-			app.Config.EncryptionKey,
-			app.Cluster.ObjectFS(),
-		)
+		t.Run("TestGetPrivateKey", func(t *testing.T) {
+			privateKey, err := auth.GetPrivateKey(
+				app.Config.EncryptionKey,
+				app.Cluster.ObjectFS(),
+			)
 
-		if err != nil {
-			t.Fatalf("Failed to get private key: %s", err.Error())
-		}
+			if err != nil {
+				t.Fatalf("Failed to get private key: %s", err.Error())
+			}
 
-		if privateKey == nil {
-			t.Fatalf("Private key is nil")
-		}
+			if privateKey == nil {
+				t.Fatalf("Private key is nil")
+			}
+		})
+
+		t.Run("TestHasKey", func(t *testing.T) {
+			hasKey := auth.HasKey(
+				app.Config.EncryptionKey,
+				app.Cluster.ObjectFS(),
+			)
+
+			if !hasKey {
+				t.Fatalf("Expected key to exist, but it does not")
+			}
+		})
+
+		t.Run("TestNextEncryptionKey", func(t *testing.T) {
+			test.RunWithApp(t, func(app *server.App) {
+				err := auth.KeyManagerInit(
+					app.Config,
+					app.Auth.SecretsManager,
+				)
+
+				if err != nil {
+					t.Fatalf("Failed to initialize key manager: %s", err.Error())
+				}
+
+				err = auth.NextEncryptionKey(
+					app.Auth,
+					app.Config,
+					"test",
+				)
+
+				if err != nil {
+					t.Fatalf("Failed to get public key: %s", err.Error())
+				}
+			})
+		})
 	})
 }
 
@@ -40,19 +76,6 @@ func TestGetPrivateKeyWithObjectStorage(t *testing.T) {
 
 		if privateKey == nil {
 			t.Fatalf("Private key is nil")
-		}
-	})
-}
-
-func TestHasKey(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		hasKey := auth.HasKey(
-			app.Config.EncryptionKey,
-			app.Cluster.ObjectFS(),
-		)
-
-		if !hasKey {
-			t.Fatalf("Expected key to exist, but it does not")
 		}
 	})
 }
@@ -118,29 +141,6 @@ func TestKeyPath(t *testing.T) {
 
 		if privateKeyPath != fmt.Sprintf("%s/private.key", config.EncryptionKeyHash(server.App.Config.EncryptionKey)) {
 			t.Fatalf("Private key path is not correct: %s", privateKeyPath)
-		}
-	})
-}
-
-func TestNextEncryptionKey(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		err := auth.KeyManagerInit(
-			app.Config,
-			app.Auth.SecretsManager,
-		)
-
-		if err != nil {
-			t.Fatalf("Failed to initialize key manager: %s", err.Error())
-		}
-
-		err = auth.NextEncryptionKey(
-			app.Auth,
-			app.Config,
-			"test",
-		)
-
-		if err != nil {
-			t.Fatalf("Failed to get public key: %s", err.Error())
 		}
 	})
 }
