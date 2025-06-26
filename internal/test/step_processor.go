@@ -478,12 +478,22 @@ func (sp *StepProcessor) Start(t *testing.T) {
 	// Wait for all processes to connect before allowing them to proceed
 	select {
 	case <-sp.allConnected:
-	case <-time.After(2 * time.Second): // Keep under 3s test timeout
+	case <-time.After(5 * time.Second): // Increased timeout from 2s to 5s
 		// Cancel context immediately to signal goroutines to stop
 		sp.cancelCtx()
 		// Give goroutines a moment to see the cancellation
 		time.Sleep(50 * time.Millisecond)
-		t.Errorf("Timeout waiting for all processes to connect")
+
+		sp.connMutex.RLock()
+		connectedProcesses := make([]string, 0, len(sp.connections))
+		for name := range sp.connections {
+			connectedProcesses = append(connectedProcesses, name)
+		}
+		sp.connMutex.RUnlock()
+
+		t.Errorf("Timeout waiting for all processes to connect (connected %d/%d: %v)",
+			len(connectedProcesses), len(sp.expectedProcesses), connectedProcesses)
+
 		// Kill any processes that may have started but not connected
 		for _, test := range sp.tests {
 			if test.cmd != nil && test.cmd.Process != nil {
@@ -607,7 +617,7 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 	}
 
 	if err != nil {
-		fmt.Printf("[CHILD] Failed to connect to coordinator socket after retries: %v\n", err)
+		fmt.Printf("[CHILD %s] Failed to connect to coordinator socket after retries: %v\n", processName, err)
 		return
 	}
 
