@@ -25,6 +25,7 @@ const (
 
 var (
 	ErrElectionAlreadyRunning     = errors.New("election already running")
+	ErrElectionMoratorium         = errors.New("election moratorium in effect")
 	ErrMustWaitBeforeNextElection = errors.New("must wait before starting the next election")
 )
 

@@ -36,32 +36,33 @@ var (
 var addressProvider func() string
 
 type Node struct {
-	address           string
-	cancel            context.CancelFunc
-	Cluster           *Cluster
-	context           context.Context
-	Election          *ClusterElection
-	Elections         []*ClusterElection
-	Initialized       bool
-	joinedClusterAt   time.Time
-	lastTick          time.Time
-	lease             *Lease
-	LastActive        time.Time
-	ID                string
-	Membership        string
-	mutex             *sync.Mutex
-	primaryAddress    string
-	primary           *NodePrimary
-	PrimaryHeartbeat  time.Time
-	queryBuilder      NodeQueryBuilder
-	queryResponsePool NodeQueryResponsePool
-	replica           *NodeReplica
-	requestTicker     *time.Ticker
-	started           chan bool
-	State             string
-	startedAt         time.Time
-	storedAddressAt   time.Time
-	walSynchronizer   NodeWalSynchronizer
+	address            string
+	cancel             context.CancelFunc
+	Cluster            *Cluster
+	context            context.Context
+	electionMoratorium time.Time
+	Election           *ClusterElection
+	Elections          []*ClusterElection
+	Initialized        bool
+	joinedClusterAt    time.Time
+	lastTick           time.Time
+	lease              *Lease
+	LastActive         time.Time
+	ID                 string
+	Membership         string
+	mutex              *sync.Mutex
+	primaryAddress     string
+	primary            *NodePrimary
+	PrimaryHeartbeat   time.Time
+	queryBuilder       NodeQueryBuilder
+	queryResponsePool  NodeQueryResponsePool
+	replica            *NodeReplica
+	requestTicker      *time.Ticker
+	started            chan bool
+	State              string
+	startedAt          time.Time
+	storedAddressAt    time.Time
+	walSynchronizer    NodeWalSynchronizer
 }
 
 // Create a new instance of a node.
@@ -213,6 +214,15 @@ func (n *Node) heartbeat() {
 				if err != nil {
 					slog.Debug("Failed to remove primary status", "error", err)
 				}
+			}
+		} else if n.Lease().IsExpired() {
+			// Check if lease has expired (e.g., after a pause)
+			slog.Debug("Lease has expired, stepping down")
+
+			err := n.StepDown()
+
+			if err != nil {
+				slog.Debug("Failed to remove primary status after lease expiration", "error", err)
 			}
 		} else {
 			if n.Primary() == nil {
@@ -563,6 +573,10 @@ func (n *Node) removeAddress() error {
 
 // Run an election to determine the primary node in the cluster group.
 func (n *Node) runElection() (bool, error) {
+	if time.Now().UTC().Before(n.electionMoratorium) {
+		return false, ErrElectionMoratorium
+	}
+
 	if n.Election != nil && n.Election.Running() {
 		return false, ErrElectionAlreadyRunning
 	}
@@ -613,10 +627,8 @@ func (n *Node) runTicker() {
 		case <-n.context.Done():
 			return
 		case <-n.requestTicker.C:
-			// check if the ticker is resuming after a pause
+			// Check if the ticker is resuming after a pause
 			if !n.lastTick.IsZero() && time.Now().UTC().After(n.lastTick.Add(NodeTickTimeout)) {
-				// If the node is the primary, step down to allow election to
-				// to proceed to ensure proper leadership.
 				if n.IsPrimary() {
 					n.StepDown()
 				}
@@ -834,15 +846,19 @@ func (n *Node) StepDown() error {
 		return nil
 	}
 
-	if err := n.Lease().Release(); err != nil {
+	if err := n.removePrimaryStatus(); err != nil {
 		return err
 	}
 
-	n.Primary().Shutdown()
+	if n.Primary() != nil {
+		n.Primary().Shutdown()
+	}
 
 	n.SetMembership(ClusterMembershipReplica)
 
 	n.primaryAddress = ""
+
+	n.electionMoratorium = time.Now().UTC().Add(1 * time.Second)
 
 	return nil
 }

@@ -533,7 +533,7 @@ func TestNode_TickerResumeAfterPause(t *testing.T) {
 
 		sp.Run("PAUSER", func(s *test.StepProcess) {
 			s.WaitForStep("PRIMARY_READY")
-			s.PauseAndResume("PRIMARY_SERVER", 1*time.Second)
+			s.PauseAndResume("PRIMARY_SERVER", 2*time.Second)
 			s.Step("PRIMARY_RESUMED")
 		})
 	})
