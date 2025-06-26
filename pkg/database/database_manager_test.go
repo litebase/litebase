@@ -242,5 +242,14 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected non-nil Resources")
 			}
 		})
+
+		t.Run("SystemDatabase", func(t *testing.T) {
+			systemDB := app.DatabaseManager.SystemDatabase()
+			defer systemDB.Close()
+
+			if systemDB == nil {
+				t.Fatal("Expected non-nil SystemDatabase")
+			}
+		})
 	})
 }

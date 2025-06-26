@@ -187,6 +187,10 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// ensure that temporary files created by SQLite are stored in memory
 		// and not on disk.
 		"PRAGMA temp_store = memory",
+
+		// PRAGMA foreign_keys will ensure that foreign key constraints are
+		// enforced by SQLite.
+		"PRAGMA foreign_keys = ON",
 	}
 
 	if !con.connectionManager.cluster.Node().IsPrimary() {

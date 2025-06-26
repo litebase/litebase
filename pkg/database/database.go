@@ -28,6 +28,11 @@ func TmpDirectory() string {
 }
 
 func (database *Database) HasBranch(branchId string) bool {
+	if database.Id == SystemDatabaseId && branchId == SystemDatabaseBranchId {
+		return true
+	}
+
+	// TODO: This needs to be an actualy lookup on the system database
 	for _, branch := range database.Branches {
 		if branch.Id == branchId {
 			return true

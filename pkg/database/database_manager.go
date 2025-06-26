@@ -18,14 +18,17 @@ import (
 )
 
 type DatabaseManager struct {
-	Cluster           *cluster.Cluster
-	databases         map[string]*Database
-	connectionManager *ConnectionManager
-	mutex             *sync.Mutex
-	pageLogManager    *storage.PageLogManager
-	resources         map[string]*DatabaseResources
-	SecretsManager    *auth.SecretsManager
-	WriteQueueManager *WriteQueueManager
+	Cluster                *cluster.Cluster
+	databases              map[string]*Database
+	connectionManager      *ConnectionManager
+	connectionManagerMutex *sync.Mutex
+	mutex                  *sync.Mutex
+	pageLogManager         *storage.PageLogManager
+	resources              map[string]*DatabaseResources
+	SecretsManager         *auth.SecretsManager
+	systemDatabase         *SystemDatabase
+	systemDatabaseMutex    *sync.Mutex
+	WriteQueueManager      *WriteQueueManager
 }
 
 // Create a new instance of the database manager.
@@ -34,12 +37,14 @@ func NewDatabaseManager(
 	secretsManager *auth.SecretsManager,
 ) *DatabaseManager {
 	dbm := &DatabaseManager{
-		Cluster:           cluster,
-		databases:         make(map[string]*Database),
-		mutex:             &sync.Mutex{},
-		resources:         make(map[string]*DatabaseResources),
-		SecretsManager:    secretsManager,
-		WriteQueueManager: NewWriteQueueManager(cluster.Node().Context()),
+		Cluster:                cluster,
+		connectionManagerMutex: &sync.Mutex{},
+		databases:              make(map[string]*Database),
+		mutex:                  &sync.Mutex{},
+		resources:              make(map[string]*DatabaseResources),
+		SecretsManager:         secretsManager,
+		systemDatabaseMutex:    &sync.Mutex{},
+		WriteQueueManager:      NewWriteQueueManager(cluster.Node().Context()),
 	}
 
 	dbm.pageLogManager = storage.NewPageLogManager(
@@ -73,6 +78,7 @@ tryRead:
 		return nil, err
 	}
 
+	// We need the database name, we need the id, we do not want to open each file (thinking)
 	for _, entry := range entries {
 		data, err := d.Cluster.ObjectFS().ReadFile(fmt.Sprintf("%s%s/settings.json", Directory(), entry.Name()))
 
@@ -137,8 +143,8 @@ func (d *DatabaseManager) compaction() {
 
 // Build the connection manager instance if it has not been created yet.
 func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.connectionManagerMutex.Lock()
+	defer d.connectionManagerMutex.Unlock()
 
 	if d.connectionManager != nil {
 		return d.connectionManager
@@ -288,23 +294,26 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	if d.databases[databaseId] != nil {
 		return d.databases[databaseId], nil
 	}
-
-	path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseId)
-
-	file, err := d.Cluster.ObjectFS().Open(path)
-
-	if err != nil {
-		return nil, fmt.Errorf("database '%s' has not been configured", databaseId)
-	}
-
-	defer file.Close()
-
 	database := &Database{}
 
-	err = json.NewDecoder(file).Decode(database)
+	if databaseId == SystemDatabaseId {
+		database = &TheSystemDatabase
+	} else {
+		path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseId)
 
-	if err != nil {
-		return nil, err
+		file, err := d.Cluster.ObjectFS().Open(path)
+
+		if err != nil {
+			return nil, fmt.Errorf("database '%s' has not been configured", databaseId)
+		}
+
+		defer file.Close()
+
+		err = json.NewDecoder(file).Decode(database)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	database.DatabaseManager = d
@@ -371,4 +380,18 @@ func (d *DatabaseManager) ShutdownResources() error {
 	d.resources = map[string]*DatabaseResources{}
 
 	return nil
+}
+
+// Return the system database instance. If it has not been created yet, create it.
+func (d *DatabaseManager) SystemDatabase() *SystemDatabase {
+	// d.mutex.Lock()
+	// defer d.mutex.Unlock()
+
+	if d.systemDatabase != nil {
+		return d.systemDatabase
+	}
+
+	d.systemDatabase = NewSystemDatabase(d)
+
+	return d.systemDatabase
 }
