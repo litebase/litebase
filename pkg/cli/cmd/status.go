@@ -11,8 +11,10 @@ import (
 )
 
 func NewStatusCmd(c *config.Configuration) *cobra.Command {
-	return NewCommand("status", "Show the status of the cluster").
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show the status of the cluster",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			res, err := api.Get(c, "/status")
 
 			if err != nil {
@@ -49,5 +51,6 @@ func NewStatusCmd(c *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		}).Build()
+		},
+	}
 }

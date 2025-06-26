@@ -9,9 +9,11 @@ import (
 )
 
 func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
-	return NewCommand("current", "Get the current profile").
-		WithArgs(cobra.MinimumNArgs(0)).
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{
+		Use:   "current",
+		Short: "Get the current profile",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			profiles, err := c.GetCurrentProfile()
 
 			if err != nil {
@@ -38,5 +40,6 @@ func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		}).Build()
+		},
+	}
 }

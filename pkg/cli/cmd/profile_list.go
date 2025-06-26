@@ -9,9 +9,11 @@ import (
 )
 
 func NewProfileListCmd(c *config.Configuration) *cobra.Command {
-	return NewCommand("list", "List all profiles").
-		WithArgs(cobra.MinimumNArgs(0)).
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all profiles",
+		Args:  cobra.MinimumNArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			profiles := c.GetProfiles()
 
 			columns := []string{"Name", "Cluster"}
@@ -30,5 +32,6 @@ func NewProfileListCmd(c *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		}).Build()
+		},
+	}
 }

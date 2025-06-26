@@ -11,9 +11,11 @@ import (
 )
 
 func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
-	return NewCommand("switch <name>", "Switch to a different profile").
-		WithArgs(cobra.MaximumNArgs(1)).
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{
+		Use:   "switch <name>",
+		Short: "Switch to a different profile",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			var profileName string
 
 			if !c.GetInteractive() && len(args) == 1 || c.GetInteractive() && len(args) == 1 {
@@ -56,5 +58,6 @@ func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
 				),
 			)
 			return nil
-		}).Build()
+		},
+	}
 }

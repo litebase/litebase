@@ -29,12 +29,10 @@ type AccessKeyInputStatement struct {
 }
 
 func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
-	return NewCommand("create", "Create a new access key").
-		WithFlags(func(cmd *cobra.Command) {
-			cmd.Flags().String("description", "", "Description for the access key")
-			cmd.Flags().String("statements", "", "JSON array of statements")
-		}).
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new access key",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			var confirmed bool
 
 			input := AccessKeyInput{
@@ -213,6 +211,12 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		}).
-		Build()
+		},
+	}
+
+	// Add flags
+	cmd.Flags().String("description", "", "Description for the access key")
+	cmd.Flags().String("statements", "", "JSON array of statements")
+
+	return cmd
 }

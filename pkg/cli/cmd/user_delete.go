@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
+	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
-	"github.com/litebase/litebase/pkg/cli/styles"
 
 	"github.com/spf13/cobra"
 )
@@ -22,19 +21,18 @@ func NewClusterUserDeleteCmd(config *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			_, _, err = client.Request("DELETE", "/resources/users/"+args[0], nil)
+			res, _, err := client.Request("DELETE", "/resources/users/"+args[0], nil)
 
 			if err != nil {
 				return err
 			}
 
-			// if errors != nil {
-			// 	log.Println("Error deleting user:", errors)
-			// 	fmt.Println(styles.AlertDangerStyle.Render(errors.Error()))
-			// 	return
-			// }
-
-			fmt.Println(styles.AlertSuccessStyle.Render("User deleted successfully"))
+			lipgloss.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(
+					components.SuccessAlert(res["message"].(string)),
+				),
+			)
 
 			return nil
 		},

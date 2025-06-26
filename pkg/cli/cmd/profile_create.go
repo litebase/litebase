@@ -13,17 +13,10 @@ import (
 )
 
 func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
-	return NewCommand("create", "Create a new profile").
-		WithFlags(func(cmd *cobra.Command) {
-			cmd.Flags().String("profile-name", "", "Name of the profile (required)")
-			cmd.Flags().String("profile-cluster", "", "Cluster URL (required)")
-			cmd.Flags().String("profile-type", "", "Type of profile (Access Key or Basic Auth) (required)")
-			cmd.Flags().String("profile-username", "", "Username for Basic Auth (required if type is Basic Auth)")
-			cmd.Flags().String("profile-password", "", "Password for Basic Auth (required if type is Basic Auth)")
-			cmd.Flags().String("profile-access-key-id", "", "Access Key ID (required if type is Access Key)")
-			cmd.Flags().String("profile-access-key-secret", "", "Access Key Secret (required if type is Access Key)")
-		}).
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new profile",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			profiles := c.GetProfiles()
 
 			profile := config.Profile{}
@@ -186,5 +179,17 @@ func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		}).Build()
+		},
+	}
+
+	// Add flags
+	cmd.Flags().String("profile-name", "", "Name of the profile (required)")
+	cmd.Flags().String("profile-cluster", "", "Cluster URL (required)")
+	cmd.Flags().String("profile-type", "", "Type of profile (Access Key or Basic Auth) (required)")
+	cmd.Flags().String("profile-username", "", "Username for Basic Auth (required if type is Basic Auth)")
+	cmd.Flags().String("profile-password", "", "Password for Basic Auth (required if type is Basic Auth)")
+	cmd.Flags().String("profile-access-key-id", "", "Access Key ID (required if type is Access Key)")
+	cmd.Flags().String("profile-access-key-secret", "", "Access Key Secret (required if type is Access Key)")
+
+	return cmd
 }

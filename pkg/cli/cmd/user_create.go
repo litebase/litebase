@@ -30,13 +30,10 @@ type UserInputStatement struct {
 }
 
 func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
-	return NewCommand("create", "Create a new user").
-		WithFlags(func(cmd *cobra.Command) {
-			cmd.Flags().StringP("new-username", "n", "", "Username for the new user")
-			cmd.Flags().StringP("new-password", "w", "", "Password for the new user")
-			cmd.Flags().StringP("statements", "s", "", "JSON array of statements")
-		}).
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new user",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			var confirmed bool
 
 			input := UserInput{
@@ -63,6 +60,7 @@ func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			statements, err := cmd.Flags().GetString("statements")
+
 			if err != nil {
 				return err
 			}
@@ -103,7 +101,7 @@ func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
 							Title("Create User").
 							Description("Add a username, password and define the statements for the user."),
 						huh.NewInput().
-							Title("New Username").
+							Title("Username").
 							Placeholder("Enter a unique username for the new user").
 							Value(&input.Username).
 							CharLimit(255).
@@ -114,7 +112,7 @@ func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
 								return nil
 							}),
 						huh.NewInput().
-							Title("New Password").
+							Title("Password").
 							Placeholder("Enter a strong password for the new user").
 							Value(&input.Password).
 							EchoMode(huh.EchoModePassword).
@@ -242,6 +240,13 @@ func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		}).
-		Build()
+		},
+	}
+
+	// Add flags
+	cmd.Flags().String("new-username", "", "Username for the new user")
+	cmd.Flags().String("new-password", "", "Password for the new user")
+	cmd.Flags().String("statements", "", "JSON array of statements")
+
+	return cmd
 }

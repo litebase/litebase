@@ -12,9 +12,11 @@ import (
 )
 
 func NewAccessKeyDeleteCmd(config *config.Configuration) *cobra.Command {
-	return NewCommand("delete <id>", "Delete an access key").
-		WithArgs(cobra.ExactArgs(1)).
-		WithRunE(func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{
+		Use:   "delete <id>",
+		Short: "Delete an access key",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			res, _, err := api.Delete(config, fmt.Sprintf("/resources/access-keys/%s", args[0]))
 
 			if err != nil {
@@ -29,5 +31,6 @@ func NewAccessKeyDeleteCmd(config *config.Configuration) *cobra.Command {
 			)
 
 			return nil
-		}).Build()
+		},
+	}
 }
