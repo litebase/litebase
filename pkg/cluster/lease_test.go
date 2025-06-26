@@ -9,35 +9,33 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestNewLease(t *testing.T) {
+func TestLease(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		lease := cluster.NewLease(app.Cluster.Node())
+		t.Run("NewLease", func(t *testing.T) {
+			lease := cluster.NewLease(app.Cluster.Node())
 
-		if lease == nil {
-			t.Error("NewLease() returned nil")
-		}
-	})
-}
+			if lease == nil {
+				t.Error("NewLease() returned nil")
+			}
+		})
 
-func TestLease_IsUpToDate(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		lease := cluster.NewLease(app.Cluster.Node())
-		lease.ExpiresAt = time.Now().UTC().Add(1 * time.Hour).Unix()
+		t.Run("IsUpToDate", func(t *testing.T) {
+			lease := cluster.NewLease(app.Cluster.Node())
+			lease.ExpiresAt = time.Now().UTC().Add(1 * time.Hour).Unix()
 
-		if !lease.IsUpToDate() {
-			t.Error("IsUpToDate() returned false for a valid lease")
-		}
-	})
-}
+			if !lease.IsUpToDate() {
+				t.Error("IsUpToDate() returned false for a valid lease")
+			}
+		})
 
-func TestLease_IsExpired(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		lease := cluster.NewLease(app.Cluster.Node())
-		lease.ExpiresAt = time.Now().UTC().Add(-1 * time.Hour).Unix()
+		t.Run("IsExpired", func(t *testing.T) {
+			lease := cluster.NewLease(app.Cluster.Node())
+			lease.ExpiresAt = time.Now().UTC().Add(-1 * time.Hour).Unix()
 
-		if !lease.IsExpired() {
-			t.Error("IsExpired() returned false for an expired lease")
-		}
+			if !lease.IsExpired() {
+				t.Error("IsExpired() returned false for an expired lease")
+			}
+		})
 	})
 }
 

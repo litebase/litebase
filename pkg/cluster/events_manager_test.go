@@ -9,30 +9,28 @@ import (
 
 func TestEventsManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		eventsManager := app.Cluster.EventsManager()
+		t.Run("", func(t *testing.T) {
+			eventsManager := app.Cluster.EventsManager()
 
-		if eventsManager == nil {
-			t.Error("EventsManager() returned nil")
-		}
-	})
-}
+			if eventsManager == nil {
+				t.Error("EventsManager() returned nil")
+			}
+		})
 
-func TestEventsManagerHook(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		eventsManager := app.Cluster.EventsManager()
+		t.Run("Hook", func(t *testing.T) {
+			eventsManager := app.Cluster.EventsManager()
 
-		hook := eventsManager.Hook()
+			hook := eventsManager.Hook()
 
-		if hook == nil {
-			t.Error("EventsManagerHook() returned nil")
-		}
-	})
-}
+			if hook == nil {
+				t.Error("EventsManagerHook() returned nil")
+			}
+		})
 
-func TestEventsManagerInit(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		eventsManager := app.Cluster.EventsManager()
+		t.Run("Init", func(t *testing.T) {
+			eventsManager := app.Cluster.EventsManager()
 
-		eventsManager.Init()
+			eventsManager.Init()
+		})
 	})
 }

@@ -62,7 +62,6 @@ func getClusterIdFromEnv(config *config.Config) (string, error) {
 	if clusterId == "" {
 		return "", fmt.Errorf("LITEBASE_CLUSTER_ID environment variable is not set")
 	}
-
 	return clusterId, nil
 }
 

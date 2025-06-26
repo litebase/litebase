@@ -8,105 +8,103 @@ import (
 	"github.com/litebase/litebase/pkg/cluster"
 )
 
-func TestBroadcast(t *testing.T) {
-	cluster.SetAddressProvider(func() string {
-		return "127.0.0.1"
-	})
-
-	// Create a new node instance
+func TestEvents(t *testing.T) {
 	test.Run(t, func() {
-		server1 := test.NewTestServer(t)
-		server2 := test.NewTestServer(t)
+		t.Run("TestBroadcast", func(t *testing.T) {
+			cluster.SetAddressProvider(func() string {
+				return "127.0.0.1"
+			})
 
-		defer server1.Shutdown()
-		defer server2.Shutdown()
+			// Create a new node instance
+			server1 := test.NewTestServer(t)
+			server2 := test.NewTestServer(t)
 
-		var receivedMessage *cluster.EventMessage
+			defer server1.Shutdown()
+			defer server2.Shutdown()
 
-		server2.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
-			receivedMessage = message
+			var receivedMessage *cluster.EventMessage
+
+			server2.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
+				receivedMessage = message
+			})
+
+			err := server1.App.Cluster.Broadcast("test", "test")
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			if receivedMessage == nil {
+				t.Fatal("Message not received")
+			}
+
+			if receivedMessage.Key != "test" {
+				t.Error("Invalid message key")
+			}
+
+			if receivedMessage.Value != "test" {
+				t.Error("Invalid message value")
+			}
 		})
 
-		err := server1.App.Cluster.Broadcast("test", "test")
+		t.Run("TestReceiveEvent", func(t *testing.T) {
+			server := test.NewTestServer(t)
+			defer server.Shutdown()
 
-		if err != nil {
-			t.Error(err)
-		}
+			var receivedMessage *cluster.EventMessage
 
-		if receivedMessage == nil {
-			t.Fatal("Message not received")
-		}
+			server.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
+				receivedMessage = message
+			})
 
-		if receivedMessage.Key != "test" {
-			t.Error("Invalid message key")
-		}
+			server.App.Cluster.ReceiveEvent(&cluster.EventMessage{
+				Key:   "test",
+				Value: "test",
+			})
 
-		if receivedMessage.Value != "test" {
-			t.Error("Invalid message value")
-		}
-	})
-}
+			time.Sleep(10 * time.Millisecond)
 
-func TestReceiveEvent(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
+			if receivedMessage == nil {
+				t.Error("Message not received")
+			}
 
-		var receivedMessage *cluster.EventMessage
+			if receivedMessage.Key != "test" {
+				t.Error("Invalid message key")
+			}
 
-		server.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
-			receivedMessage = message
+			if receivedMessage.Value != "test" {
+				t.Error("Invalid message value")
+			}
 		})
 
-		server.App.Cluster.ReceiveEvent(&cluster.EventMessage{
-			Key:   "test",
-			Value: "test",
+		t.Run("TestSubscribe", func(t *testing.T) {
+			server := test.NewTestServer(t)
+			defer server.Shutdown()
+
+			var receivedMessage *cluster.EventMessage
+
+			server.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
+				receivedMessage = message
+			})
+
+			server.App.Cluster.ReceiveEvent(&cluster.EventMessage{
+				Key:   "test",
+				Value: "test",
+			})
+
+			time.Sleep(10 * time.Millisecond)
+
+			if receivedMessage == nil {
+				t.Error("Message not received")
+			}
+
+			if receivedMessage.Key != "test" {
+				t.Error("Invalid message key")
+			}
+
+			if receivedMessage.Value != "test" {
+				t.Error("Invalid message value")
+			}
 		})
-
-		time.Sleep(10 * time.Millisecond)
-
-		if receivedMessage == nil {
-			t.Error("Message not received")
-		}
-
-		if receivedMessage.Key != "test" {
-			t.Error("Invalid message key")
-		}
-
-		if receivedMessage.Value != "test" {
-			t.Error("Invalid message value")
-		}
-	})
-}
-
-func TestSubscribe(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
-
-		var receivedMessage *cluster.EventMessage
-
-		server.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
-			receivedMessage = message
-		})
-
-		server.App.Cluster.ReceiveEvent(&cluster.EventMessage{
-			Key:   "test",
-			Value: "test",
-		})
-
-		time.Sleep(10 * time.Millisecond)
-
-		if receivedMessage == nil {
-			t.Error("Message not received")
-		}
-
-		if receivedMessage.Key != "test" {
-			t.Error("Invalid message key")
-		}
-
-		if receivedMessage.Value != "test" {
-			t.Error("Invalid message value")
-		}
 	})
 }

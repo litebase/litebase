@@ -3,452 +3,448 @@ package cluster_test
 import (
 	"log"
 	"os"
+	"slices"
 	"sync"
 	"testing"
 	"time"
-
-	"slices"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestNewClusterElection(t *testing.T) {
+func TestClusterElection(t *testing.T) {
 	test.RunWithApp(t, func(server *server.App) {
-		election := cluster.NewClusterElection(
-			server.Cluster.Node(),
-		)
+		t.Run("NewClusterElection", func(t *testing.T) {
+			election := cluster.NewClusterElection(
+				server.Cluster.Node(),
+			)
 
-		if election == nil {
-			t.Fatal("Expected NewClusterElection to return a non-nil value")
-		}
-	})
-}
+			if election == nil {
+				t.Fatal("Expected NewClusterElection to return a non-nil value")
+			}
+		})
 
-func TestClusterElection_Expired(t *testing.T) {
-	test.RunWithApp(t, func(server *server.App) {
-		election := cluster.NewClusterElection(
-			server.Cluster.Node(),
-		)
+		t.Run("Expired", func(t *testing.T) {
+			election := cluster.NewClusterElection(
+				server.Cluster.Node(),
+			)
 
-		election.EndsAt = time.Now().UTC().Add(-time.Second) // Set the election to expired
+			election.EndsAt = time.Now().UTC().Add(-time.Second) // Set the election to expired
 
-		if !election.Expired() {
-			t.Fatal("Expected election to be expired")
-		}
-	})
-}
+			if !election.Expired() {
+				t.Fatal("Expected election to be expired")
+			}
+		})
 
-func TestClusterElection_Running(t *testing.T) {
-	test.RunWithApp(t, func(server *server.App) {
-		election := cluster.NewClusterElection(
-			server.Cluster.Node(),
-		)
+		t.Run("Running", func(t *testing.T) {
+			election := cluster.NewClusterElection(
+				server.Cluster.Node(),
+			)
 
-		if !election.Running() {
-			t.Fatal("Expected election to be running")
-		}
+			if !election.Running() {
+				t.Fatal("Expected election to be running")
+			}
 
-		election.StoppedAt = time.Now().UTC().Add(-10 * time.Second)
+			election.StoppedAt = time.Now().UTC().Add(-10 * time.Second)
 
-		if election.Running() {
-			t.Fatal("Expected election to not be running")
-		}
-	})
-}
+			if election.Running() {
+				t.Fatal("Expected election to not be running")
+			}
+		})
 
-func TestClusterElection_Stop(t *testing.T) {
-	test.RunWithApp(t, func(server *server.App) {
-		election := cluster.NewClusterElection(
-			server.Cluster.Node(),
-		)
+		t.Run("Stop", func(t *testing.T) {
+			election := cluster.NewClusterElection(
+				server.Cluster.Node(),
+			)
 
-		if !election.Running() {
-			t.Fatal("Expected election to be running before stopping")
-		}
+			if !election.Running() {
+				t.Fatal("Expected election to be running before stopping")
+			}
 
-		election.Stop()
+			election.Stop()
 
-		if election.Running() {
-			t.Fatal("Expected election to not be running after stopping")
-		}
-	})
-}
+			if election.Running() {
+				t.Fatal("Expected election to not be running after stopping")
+			}
+		})
 
-func TestClusterElection_Stopped(t *testing.T) {
-	test.RunWithApp(t, func(server *server.App) {
-		election := cluster.NewClusterElection(
-			server.Cluster.Node(),
-		)
+		t.Run("Stopped", func(t *testing.T) {
+			election := cluster.NewClusterElection(
+				server.Cluster.Node(),
+			)
 
-		if election.Stopped() {
-			t.Fatal("Expected election to not be stopped before stopping")
-		}
+			if election.Stopped() {
+				t.Fatal("Expected election to not be stopped before stopping")
+			}
 
-		election.Stop()
+			election.Stop()
 
-		if !election.Stopped() {
-			t.Fatal("Expected election to be stopped after stopping")
-		}
-	})
-}
+			if !election.Stopped() {
+				t.Fatal("Expected election to be stopped after stopping")
+			}
+		})
 
-func TestClusterElectionRunWithMultipleNodesSynchronous(t *testing.T) {
-	testCases := []struct {
-		nodeCount int
-	}{
-		{nodeCount: 1},
-		{nodeCount: 2},
-		{nodeCount: 3},
-		{nodeCount: 4},
-		{nodeCount: 5},
-		{nodeCount: 6},
-		{nodeCount: 7},
-		{nodeCount: 8},
-		{nodeCount: 9},
-	}
+		t.Run("RunWithMultipleNodesSynchronous", func(t *testing.T) {
+			testCases := []struct {
+				nodeCount int
+			}{
+				{nodeCount: 1},
+				{nodeCount: 2},
+				{nodeCount: 3},
+				{nodeCount: 4},
+				{nodeCount: 5},
+				{nodeCount: 6},
+				{nodeCount: 7},
+				{nodeCount: 8},
+				{nodeCount: 9},
+			}
 
-	for _, tc := range testCases {
-		t.Run("", func(t *testing.T) {
-			servers := make([]*test.TestServer, tc.nodeCount)
-			test.RunWithTearDown(t, func() {
-				for i := range tc.nodeCount {
-					servers[i] = test.NewTestServer(t)
-					<-servers[i].Started
-				}
+			for _, tc := range testCases {
+				t.Run("", func(t *testing.T) {
+					servers := make([]*test.TestServer, tc.nodeCount)
 
-				timeout := time.After(3 * time.Second)
-
-			outerLoop:
-				for {
-					select {
-					case <-timeout:
-						t.Fatalf("Election timed out after 3 seconds")
-					default:
-						var electedCount int
-						var primaryAddress string
-						var allObservedPrimary bool = true
-
-						for _, server := range servers {
-							if server.App.Cluster.Node().Membership == cluster.ClusterMembershipPrimary {
-								electedCount++
-								primaryAddress = server.App.Cluster.Node().PrimaryAddress()
-							}
+					test.RunWithTearDown(t, func() {
+						for i := range tc.nodeCount {
+							servers[i] = test.NewTestServer(t)
+							<-servers[i].Started
 						}
 
-						if electedCount == 1 && primaryAddress != "" {
-							for _, server := range servers {
-								if server.App.Cluster.Node().Membership != cluster.ClusterMembershipPrimary {
-									if server.App.Cluster.Node().PrimaryAddress() != primaryAddress {
-										allObservedPrimary = false
-										break
+						timeout := time.After(3 * time.Second)
+
+					outerLoop:
+						for {
+							select {
+							case <-timeout:
+								t.Fatalf("Election timed out after 3 seconds")
+							default:
+								var electedCount int
+								var primaryAddress string
+								var allObservedPrimary bool = true
+
+								for _, s := range servers {
+									if s.App.Cluster.Node().Membership == cluster.ClusterMembershipPrimary {
+										electedCount++
+										primaryAddress = s.App.Cluster.Node().PrimaryAddress()
 									}
 								}
-							}
 
-							if allObservedPrimary {
-								break outerLoop
+								if electedCount == 1 && primaryAddress != "" {
+									for _, s := range servers {
+										if s.App.Cluster.Node().Membership != cluster.ClusterMembershipPrimary {
+											if s.App.Cluster.Node().PrimaryAddress() != primaryAddress {
+												allObservedPrimary = false
+												break
+											}
+										}
+									}
+
+									if allObservedPrimary {
+										break outerLoop
+									}
+								}
+
+								time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
 							}
 						}
-
-						time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
-					}
-				}
-			}, func() {
-				for _, server := range servers {
-					server.Shutdown()
-				}
-			})
+					}, func() {
+						for _, s := range servers {
+							s.Shutdown()
+						}
+					})
+				})
+			}
 		})
-	}
-}
 
-func TestClusterElectionRunWithMultipleNodesAsync(t *testing.T) {
-	testCases := []struct {
-		nodeCount int
-	}{
-		{nodeCount: 1},
-		{nodeCount: 2},
-		{nodeCount: 3},
-		{nodeCount: 4},
-		{nodeCount: 5},
-		{nodeCount: 6},
-		{nodeCount: 7},
-		{nodeCount: 8},
-		{nodeCount: 9},
-	}
+		t.Run("RunWithMultipleNodesAsync", func(t *testing.T) {
+			testCases := []struct {
+				nodeCount int
+			}{
+				{nodeCount: 1},
+				{nodeCount: 2},
+				{nodeCount: 3},
+				{nodeCount: 4},
+				{nodeCount: 5},
+				{nodeCount: 6},
+				{nodeCount: 7},
+				{nodeCount: 8},
+				{nodeCount: 9},
+			}
 
-	for _, tc := range testCases {
-		t.Run("", func(t *testing.T) {
-			servers := make(map[int]*test.TestServer, tc.nodeCount)
+			for _, tc := range testCases {
+				t.Run("", func(t *testing.T) {
+					servers := make(map[int]*test.TestServer, tc.nodeCount)
 
-			test.RunWithTearDown(t, func() {
-				serversMutex := sync.Mutex{}
+					test.RunWithTearDown(t, func() {
+						serversMutex := sync.Mutex{}
 
-				// Start the first server to initialize the cluster
-				server := test.NewTestServer(t)
-				<-server.Started
-				server.Shutdown()
+						// Start the first server to initialize the cluster
+						s := test.NewTestServer(t)
+						<-s.Started
+						s.Shutdown()
 
-				wg := sync.WaitGroup{}
-				wg.Add(tc.nodeCount)
+						wg := sync.WaitGroup{}
+						wg.Add(tc.nodeCount)
 
-				for i := range tc.nodeCount {
-					go func(i int) {
-						defer wg.Done()
+						for i := range tc.nodeCount {
+							go func(i int) {
+								defer wg.Done()
 
-						serversMutex.Lock()
-						server := test.NewTestServer(t)
-						servers[i] = server
-						serversMutex.Unlock()
+								serversMutex.Lock()
+								s := test.NewTestServer(t)
+								servers[i] = s
+								serversMutex.Unlock()
 
-						<-server.Started
-					}(i)
-				}
+								<-s.Started
+							}(i)
+						}
 
-				wg.Wait()
+						wg.Wait()
 
-				timeout := time.After(3 * time.Second)
+						timeout := time.After(3 * time.Second)
 
-			outerLoop:
-				for {
-					select {
-					case <-timeout:
-						t.Fatalf("Election timed out after 3 seconds")
-					default:
-						var electedCount int
-						var primaryAddress string
-						var allObservedPrimary bool = true
+					outerLoop:
+						for {
+							select {
+							case <-timeout:
+								t.Fatalf("Election timed out after 3 seconds")
+							default:
+								var electedCount int
+								var primaryAddress string
+								var allObservedPrimary bool = true
 
-						for _, server := range servers {
-							if server.App.Cluster.Node().IsPrimary() {
-								electedCount++
-								primaryAddress = server.App.Cluster.Node().PrimaryAddress()
+								for _, s := range servers {
+									if s.App.Cluster.Node().IsPrimary() {
+										electedCount++
+										primaryAddress = s.App.Cluster.Node().PrimaryAddress()
 
-								if primaryAddress == "" {
-									t.Fatal("Primary address is empty")
+										if primaryAddress == "" {
+											t.Fatal("Primary address is empty")
+										}
+									}
+								}
+
+								if electedCount == 1 && primaryAddress != "" {
+									for _, s := range servers {
+										nodePrimaryAddress := s.App.Cluster.Node().PrimaryAddress()
+										if nodePrimaryAddress != primaryAddress {
+											allObservedPrimary = false
+											break
+										}
+									}
+
+									if allObservedPrimary {
+										break outerLoop
+									}
+								}
+
+								time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
+							}
+						}
+					}, func() {
+						for _, s := range servers {
+							s.Shutdown()
+						}
+					})
+				})
+			}
+		})
+
+		t.Run("RunWithMultipleNodesAsyncWithStoppingServers", func(t *testing.T) {
+			testCases := []struct {
+				nodeCount int
+			}{
+				{nodeCount: 2},
+				{nodeCount: 3},
+				{nodeCount: 4},
+				{nodeCount: 5},
+				{nodeCount: 6},
+				{nodeCount: 7},
+				{nodeCount: 8},
+			}
+
+			for _, tc := range testCases {
+				t.Run("", func(t *testing.T) {
+					servers := make([]*test.TestServer, tc.nodeCount)
+
+					test.RunWithTearDown(t, func() {
+						serversMutex := sync.Mutex{}
+
+						// Start the first server to initialize the cluster
+						s := test.NewTestServer(t)
+						<-s.Started
+						s.Shutdown()
+
+						wg := sync.WaitGroup{}
+						wg.Add(tc.nodeCount)
+
+						for i := range tc.nodeCount {
+							go func(i int) {
+								defer wg.Done()
+
+								serversMutex.Lock()
+								s := test.NewTestServer(t)
+								servers[i] = s
+								serversMutex.Unlock()
+
+								<-s.Started
+							}(i)
+						}
+
+						wg.Wait()
+
+						// Continue looping until we have 1 server left, removing the
+						// primary server each time.
+						for {
+							timeout := time.After(10 * time.Second)
+							var electedIndex int = -1
+
+						outerLoop:
+							for {
+								select {
+								case <-timeout:
+									t.Fatalf("Election timed out after 10 seconds")
+								default:
+									var electedCount int
+									var primaryAddress string
+									var allObservedPrimary bool = true
+
+									for i, s := range servers {
+										if s.App.Cluster.Node().IsPrimary() {
+											electedCount++
+											electedIndex = i
+											primaryAddress = s.App.Cluster.Node().PrimaryAddress()
+
+											if primaryAddress == "" {
+												t.Fatal("Primary address is empty")
+											}
+										}
+									}
+
+									if electedCount == 1 && primaryAddress != "" {
+										for _, s := range servers {
+											nodePrimaryAddress := s.App.Cluster.Node().PrimaryAddress()
+											if nodePrimaryAddress != primaryAddress {
+												allObservedPrimary = false
+												break
+											}
+										}
+
+										if allObservedPrimary {
+											break outerLoop
+										}
+									}
+
+									time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
 								}
 							}
-						}
 
-						if electedCount == 1 && primaryAddress != "" {
-							for _, server := range servers {
-								nodePrimaryAddress := server.App.Cluster.Node().PrimaryAddress()
-								if nodePrimaryAddress != primaryAddress {
-									allObservedPrimary = false
-									break
-								}
+							if electedIndex >= 0 {
+								servers[electedIndex].Shutdown()
+								servers = slices.Delete(servers, electedIndex, electedIndex+1)
 							}
 
-							if allObservedPrimary {
-								break outerLoop
+							if len(servers) == 1 {
+								break
 							}
 						}
-
-						time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
-					}
-				}
-			}, func() {
-				for _, server := range servers {
-					server.Shutdown()
-				}
-			})
+					}, func() {
+						for _, s := range servers {
+							s.Shutdown()
+						}
+					})
+				})
+			}
 		})
-	}
+	})
 }
 
-func TestClusterElectionRunWithMultipleNodesAsyncWithStoppingServers(t *testing.T) {
-	testCases := []struct {
-		nodeCount int
-	}{
-		{nodeCount: 2},
-		{nodeCount: 3},
-		{nodeCount: 4},
-		{nodeCount: 5},
-		{nodeCount: 6},
-		{nodeCount: 7},
-		{nodeCount: 8},
-	}
+func TestClusterElection_WithStepProcessing(t *testing.T) {
+	t.Run("WillRunAfterCrashAndNewNodeStarted", func(t *testing.T) {
+		// Speed up the lease duration for testing purposes
+		defaultLeaseDuration := cluster.LeaseDuration
+		defer func() { cluster.LeaseDuration = defaultLeaseDuration }()
+		cluster.LeaseDuration = 1 * time.Second
 
-	for _, tc := range testCases {
-		t.Run("", func(t *testing.T) {
-			servers := make([]*test.TestServer, tc.nodeCount)
+		defaultNodeStoreAddressInterval := cluster.NodeStoreAddressInterval
+		defer func() { cluster.NodeStoreAddressInterval = defaultNodeStoreAddressInterval }()
+		cluster.NodeStoreAddressInterval = 1 * time.Second
 
-			test.RunWithTearDown(t, func() {
-				serversMutex := sync.Mutex{}
+		test.WithSteps(t, func(sp *test.StepProcessor) {
+			sp.Run("SERVER_1", func(s *test.StepProcess) {
+				test.RunWithoutCleanup(t, func(app *server.App) {
+					s.Step("SERVER_1_READY")
+					os.Exit(1) // Simulate a crash
+				})
+			}).ShouldExitWith(1)
 
-				// Start the first server to initialize the cluster
-				server := test.NewTestServer(t)
-				<-server.Started
-				server.Shutdown()
+			sp.Run("SERVER_2", func(s *test.StepProcess) {
+				s.WaitForStep("SERVER_1_READY")
 
-				wg := sync.WaitGroup{}
-				wg.Add(tc.nodeCount)
+				test.RunWithoutCleanup(t, func(app *server.App) {
+					timeout := time.After(15 * time.Second)
 
-				for i := range tc.nodeCount {
-					go func(i int) {
-						defer wg.Done()
-
-						serversMutex.Lock()
-						server := test.NewTestServer(t)
-						servers[i] = server
-						serversMutex.Unlock()
-
-						<-server.Started
-					}(i)
-				}
-
-				wg.Wait()
-
-				// Continue looping until we have 1 server left, removing the
-				// primary server each time.
-				for {
-					timeout := time.After(10 * time.Second)
-					var electedIndex int = -1
-
-				outerLoop:
+				waitForPrimary:
 					for {
 						select {
 						case <-timeout:
-							t.Fatalf("Election timed out after 10 seconds")
+							t.Fatal("Timed out waiting for node to become primary")
 						default:
-							var electedCount int
-							var primaryAddress string
-							var allObservedPrimary bool = true
-
-							for i, server := range servers {
-								if server.App.Cluster.Node().IsPrimary() {
-									electedCount++
-									electedIndex = i
-									primaryAddress = server.App.Cluster.Node().PrimaryAddress()
-
-									if primaryAddress == "" {
-										t.Fatal("Primary address is empty")
-									}
-								}
+							if app.Cluster.Node().IsPrimary() {
+								break waitForPrimary
 							}
-
-							if electedCount == 1 && primaryAddress != "" {
-								for _, server := range servers {
-									nodePrimaryAddress := server.App.Cluster.Node().PrimaryAddress()
-									if nodePrimaryAddress != primaryAddress {
-										allObservedPrimary = false
-										break
-									}
-								}
-
-								if allObservedPrimary {
-									break outerLoop
-								}
-							}
-
-							time.Sleep(10 * time.Millisecond) // Sleep to avoid busy waiting
+							time.Sleep(100 * time.Millisecond)
 						}
 					}
 
-					if electedIndex >= 0 {
-						servers[electedIndex].Shutdown()
-						servers = slices.Delete(servers, electedIndex, electedIndex+1)
+					if !app.Cluster.Node().IsPrimary() {
+						t.Fatal("Server 2 is not primary after 15 seconds")
 					}
-
-					if len(servers) == 1 {
-						break
-					}
-				}
-			}, func() {
-				for _, server := range servers {
-					server.Shutdown()
-				}
-			})
-		})
-	}
-}
-
-func TestElection_WillRunAfterCrashAndNewNodeStarted(t *testing.T) {
-	// Speed up the lease duration for testing purposes
-	defaultLeaseDuration := cluster.LeaseDuration
-	defer func() { cluster.LeaseDuration = defaultLeaseDuration }()
-	cluster.LeaseDuration = 1 * time.Second
-
-	defaultNodeStoreAddressInterval := cluster.NodeStoreAddressInterval
-	defer func() { cluster.NodeStoreAddressInterval = defaultNodeStoreAddressInterval }()
-	cluster.NodeStoreAddressInterval = 1 * time.Second
-
-	test.WithSteps(t, func(sp *test.StepProcessor) {
-		sp.Run("SERVER_1", func(s *test.StepProcess) {
-			test.RunWithoutCleanup(t, func(app *server.App) {
-				s.Step("SERVER_1_READY")
-				os.Exit(1) // Simulate a crash
-			})
-		}).ShouldExitWith(1)
-
-		sp.Run("SERVER_2", func(s *test.StepProcess) {
-			s.WaitForStep("SERVER_1_READY")
-
-			test.RunWithoutCleanup(t, func(app *server.App) {
-				timeout := time.After(15 * time.Second)
-
-			waitForPrimary:
-				for {
-					select {
-					case <-timeout:
-						t.Fatal("Timed out waiting for node to become primary")
-					default:
-						if app.Cluster.Node().IsPrimary() {
-							break waitForPrimary
-						}
-						time.Sleep(100 * time.Millisecond)
-					}
-				}
-
-				if !app.Cluster.Node().IsPrimary() {
-					t.Fatal("Server 2 is not primary after 15 seconds")
-				}
+				})
 			})
 		})
 	})
-}
 
-func TestElection_WillRunAfterCrashAndAnotherNodeRunning(t *testing.T) {
-	// Speed up the lease duration for testing purposes
-	defaultLeaseDuration := cluster.LeaseDuration
-	defer func() { cluster.LeaseDuration = defaultLeaseDuration }()
-	cluster.LeaseDuration = 1 * time.Second
+	t.Run("WillRunAfterCrashAndAnotherNodeRunning", func(t *testing.T) {
+		// Speed up the lease duration for testing purposes
+		defaultLeaseDuration := cluster.LeaseDuration
+		defer func() { cluster.LeaseDuration = defaultLeaseDuration }()
+		cluster.LeaseDuration = 1 * time.Second
 
-	defaultNodeStoreAddressInterval := cluster.NodeStoreAddressInterval
-	defer func() { cluster.NodeStoreAddressInterval = defaultNodeStoreAddressInterval }()
-	cluster.NodeStoreAddressInterval = 1 * time.Second
+		defaultNodeStoreAddressInterval := cluster.NodeStoreAddressInterval
+		defer func() { cluster.NodeStoreAddressInterval = defaultNodeStoreAddressInterval }()
+		cluster.NodeStoreAddressInterval = 1 * time.Second
 
-	test.WithSteps(t, func(sp *test.StepProcessor) {
-		sp.Run("PRIMARY", func(s *test.StepProcess) {
-			test.RunWithoutCleanup(t, func(app *server.App) {
-				time.Sleep(1 * time.Second)
-				s.Step("PRIMARY_READY")
-				os.Exit(1) // Simulate a crash
-			})
-		}).ShouldExitWith(1)
+		test.WithSteps(t, func(sp *test.StepProcessor) {
+			sp.Run("PRIMARY", func(s *test.StepProcess) {
+				test.RunWithoutCleanup(t, func(app *server.App) {
+					time.Sleep(1 * time.Second)
+					s.Step("PRIMARY_READY")
+					os.Exit(1) // Simulate a crash
+				})
+			}).ShouldExitWith(1)
 
-		sp.Run("REPLICA", func(s *test.StepProcess) {
-			s.WaitForStep("PRIMARY_READY")
+			sp.Run("REPLICA", func(s *test.StepProcess) {
+				s.WaitForStep("PRIMARY_READY")
 
-			test.RunWithoutCleanup(t, func(app *server.App) {
-				timeout := time.After(15 * time.Second)
+				test.RunWithoutCleanup(t, func(app *server.App) {
+					timeout := time.After(15 * time.Second)
 
-			waitForPrimary:
-				for {
-					select {
-					case <-timeout:
-						t.Fatal("Timed out waiting for node to become primary")
-					default:
-						log.Println("Checking if node is primary...")
-						if app.Cluster.Node().IsPrimary() {
-							break waitForPrimary
+				waitForPrimary:
+					for {
+						select {
+						case <-timeout:
+							t.Fatal("Timed out waiting for node to become primary")
+						default:
+							log.Println("Checking if node is primary...")
+							if app.Cluster.Node().IsPrimary() {
+								break waitForPrimary
+							}
+
+							time.Sleep(10 * time.Millisecond)
 						}
-
-						time.Sleep(10 * time.Millisecond)
 					}
-				}
+				})
 			})
 		})
 	})
