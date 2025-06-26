@@ -44,6 +44,14 @@ func LoadRoutes(router *Router) {
 		Authentication,
 	})
 
+	router.Put(
+		"/resources/users/{username}",
+		UserControllerUpdate,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
 	router.Get(
 		"/resources/access-keys",
 		AccessKeyControllerIndex,
