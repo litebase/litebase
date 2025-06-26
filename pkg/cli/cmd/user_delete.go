@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewClusterUserDeleteCmd(config *config.Configuration) *cobra.Command {
+func NewUserDeleteCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <username>",
 		Short: "Delete a user",
@@ -21,7 +21,7 @@ func NewClusterUserDeleteCmd(config *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			res, _, err := client.Request("DELETE", "/resources/users/"+args[0], nil)
+			_, _, err = client.Request("DELETE", "/resources/users/"+args[0], nil)
 
 			if err != nil {
 				return err
@@ -30,7 +30,7 @@ func NewClusterUserDeleteCmd(config *config.Configuration) *cobra.Command {
 			lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
-					components.SuccessAlert(res["message"].(string)),
+					components.SuccessAlert("User deleted successfully"),
 				),
 			)
 

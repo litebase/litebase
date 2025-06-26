@@ -21,10 +21,10 @@ func NewUserCmd(config *config.Configuration) *cobra.Command {
 		},
 	}
 
-	UserCmd.AddCommand(NewClusterUserListCmd(config))
-	UserCmd.AddCommand(NewClusterUserCreateCmd(config))
-	UserCmd.AddCommand(NewClusterUserDeleteCmd(config))
-	UserCmd.AddCommand(UserUpdateCmd)
+	UserCmd.AddCommand(NewUserListCmd(config))
+	UserCmd.AddCommand(NewUserCreateCmd(config))
+	UserCmd.AddCommand(NewUserDeleteCmd(config))
+	UserCmd.AddCommand(NewUserUpdateCmd(config))
 
 	return UserCmd
 }

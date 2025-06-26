@@ -29,7 +29,7 @@ type UserInputStatement struct {
 	Actions  []string             `json:"actions"`
 }
 
-func NewClusterUserCreateCmd(config *config.Configuration) *cobra.Command {
+func NewUserCreateCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new user",

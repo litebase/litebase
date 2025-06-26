@@ -16,7 +16,7 @@ type UserListResponse struct {
 	Data []auth.User `json:"data"`
 }
 
-func NewClusterUserListCmd(config *config.Configuration) *cobra.Command {
+func NewUserListCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List users",
