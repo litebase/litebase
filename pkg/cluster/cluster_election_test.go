@@ -1,7 +1,6 @@
 package cluster_test
 
 import (
-	"log"
 	"os"
 	"slices"
 	"sync"
@@ -436,7 +435,6 @@ func TestClusterElection_WithStepProcessing(t *testing.T) {
 						case <-timeout:
 							t.Fatal("Timed out waiting for node to become primary")
 						default:
-							log.Println("Checking if node is primary...")
 							if app.Cluster.Node().IsPrimary() {
 								break waitForPrimary
 							}
