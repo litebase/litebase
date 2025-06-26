@@ -9,209 +9,200 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestNewRollbackLogger(t *testing.T) {
+func TestRollbackLogger(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
 
-		// Create a new page logger
-		rollbackLogger := backups.NewRollbackLogger(
-			app.Cluster.TieredFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-		)
+		t.Run("NewRollbackLogger", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		// Check if the page logger is not nil
-		if rollbackLogger == nil {
-			t.Fatal("Expected page logger to be not nil")
-		}
+			// Create a new page logger
+			rollbackLogger := backups.NewRollbackLogger(
+				app.Cluster.TieredFS(),
+				mock.DatabaseId,
+				mock.BranchId,
+			)
 
-		// Check if the page logger has the correct DatabaseId and BranchId
-		if rollbackLogger.DatabaseId != mock.DatabaseId {
-			t.Errorf("Expected DatabaseId to be %s, got %s", mock.DatabaseId, rollbackLogger.DatabaseId)
-		}
+			// Check if the page logger is not nil
+			if rollbackLogger == nil {
+				t.Fatal("Expected page logger to be not nil")
+			}
 
-		if rollbackLogger.BranchId != mock.BranchId {
-			t.Errorf("Expected BranchId to be %s, got %s", mock.BranchId, rollbackLogger.BranchId)
-		}
-	})
-}
+			// Check if the page logger has the correct DatabaseId and BranchId
+			if rollbackLogger.DatabaseId != mock.DatabaseId {
+				t.Errorf("Expected DatabaseId to be %s, got %s", mock.DatabaseId, rollbackLogger.DatabaseId)
+			}
 
-func TestPageLoggerClose(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if rollbackLogger.BranchId != mock.BranchId {
+				t.Errorf("Expected BranchId to be %s, got %s", mock.BranchId, rollbackLogger.BranchId)
+			}
+		})
 
-		// Create a new page logger
-		rollbackLogger := backups.NewRollbackLogger(
-			app.Cluster.TieredFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-		)
+		t.Run("Close", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		// Close the page logger
-		err := rollbackLogger.Close()
+			// Create a new page logger
+			rollbackLogger := backups.NewRollbackLogger(
+				app.Cluster.TieredFS(),
+				mock.DatabaseId,
+				mock.BranchId,
+			)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-	})
-}
+			// Close the page logger
+			err := rollbackLogger.Close()
 
-func TestRollbackLoggerCommit(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		})
 
-		// Create a new page logger
-		rollbackLogger := backups.NewRollbackLogger(
-			app.Cluster.TieredFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-		)
+		t.Run("Commit", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		offset, _, err := rollbackLogger.StartFrame(1234567890)
+			// Create a new page logger
+			rollbackLogger := backups.NewRollbackLogger(
+				app.Cluster.TieredFS(),
+				mock.DatabaseId,
+				mock.BranchId,
+			)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			offset, _, err := rollbackLogger.StartFrame(1234567890)
 
-		size, err := rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			size, err := rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
 
-		// Commit a log
-		err = rollbackLogger.Commit(1234567890, offset, size)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-	})
-}
+			// Commit a log
+			err = rollbackLogger.Commit(1234567890, offset, size)
 
-func TestPageLoggerGetLog(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		})
 
-		timestamp := time.Now().UTC().UnixNano()
+		t.Run("TestPageLoggerGetLog", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		// Create a new page logger
-		rollbackLogger := backups.NewRollbackLogger(
-			app.Cluster.TieredFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-		)
+			timestamp := time.Now().UTC().UnixNano()
 
-		// Get a log
-		rollbackLog, err := rollbackLogger.GetLog(timestamp)
+			// Create a new page logger
+			rollbackLogger := backups.NewRollbackLogger(
+				app.Cluster.TieredFS(),
+				mock.DatabaseId,
+				mock.BranchId,
+			)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			// Get a log
+			rollbackLog, err := rollbackLogger.GetLog(timestamp)
 
-		if rollbackLog == nil {
-			t.Fatal("Expected rollback log to be not nil")
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		startOfHourTimestamp := time.Now().UTC().Truncate(time.Hour).UnixNano()
+			if rollbackLog == nil {
+				t.Fatal("Expected rollback log to be not nil")
+			}
 
-		if rollbackLog.Timestamp != startOfHourTimestamp {
-			t.Errorf("Expected Timestamp %d, got %d", startOfHourTimestamp, rollbackLog.Timestamp)
-		}
-	})
-}
+			startOfHourTimestamp := time.Now().UTC().Truncate(time.Hour).UnixNano()
 
-func TestRollbackLoggerLog(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if rollbackLog.Timestamp != startOfHourTimestamp {
+				t.Errorf("Expected Timestamp %d, got %d", startOfHourTimestamp, rollbackLog.Timestamp)
+			}
+		})
 
-		// Create a new page logger
-		rollbackLogger := backups.NewRollbackLogger(
-			app.Cluster.TieredFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-		)
+		t.Run("Log", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		// Log a page
-		size, err := rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
+			// Create a new page logger
+			rollbackLogger := backups.NewRollbackLogger(
+				app.Cluster.TieredFS(),
+				mock.DatabaseId,
+				mock.BranchId,
+			)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			// Log a page
+			size, err := rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
 
-		if size <= 0 {
-			t.Errorf("Expected size to be greater than 0, got %d", size)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		size, err = rollbackLogger.Log(1, 1234567891, []byte("test data 2"))
+			if size <= 0 {
+				t.Errorf("Expected size to be greater than 0, got %d", size)
+			}
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			size, err = rollbackLogger.Log(1, 1234567891, []byte("test data 2"))
 
-		if size <= 0 {
-			t.Errorf("Expected size to be greater than 0, got %d", size)
-		}
-	})
-}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-func TestRollbackLoggerRollback(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if size <= 0 {
+				t.Errorf("Expected size to be greater than 0, got %d", size)
+			}
+		})
 
-		// Create a new page logger
-		rollbackLogger := backups.NewRollbackLogger(
-			app.Cluster.TieredFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-		)
+		t.Run("Rollback", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		offset, size, err := rollbackLogger.StartFrame(1234567890)
+			// Create a new page logger
+			rollbackLogger := backups.NewRollbackLogger(
+				app.Cluster.TieredFS(),
+				mock.DatabaseId,
+				mock.BranchId,
+			)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			offset, size, err := rollbackLogger.StartFrame(1234567890)
 
-		// Log a page
-		s, err := rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			// Log a page
+			s, err := rollbackLogger.Log(1, 1234567890, []byte("test data 1"))
 
-		size += s
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		// Rollback
-		err = rollbackLogger.Rollback(1234567890, offset, size)
+			size += s
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
-	})
-}
+			// Rollback
+			err = rollbackLogger.Rollback(1234567890, offset, size)
 
-func TestRollbackLoggerStartFrame(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		})
 
-		// Create a new page logger
-		rollbackLogger := backups.NewRollbackLogger(
-			app.Cluster.TieredFS(),
-			mock.DatabaseId,
-			mock.BranchId,
-		)
+		t.Run("StartFrame", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		offset, size, err := rollbackLogger.StartFrame(1234567890)
+			// Create a new page logger
+			rollbackLogger := backups.NewRollbackLogger(
+				app.Cluster.TieredFS(),
+				mock.DatabaseId,
+				mock.BranchId,
+			)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			offset, size, err := rollbackLogger.StartFrame(1234567890)
 
-		if offset < 0 {
-			t.Errorf("Expected offset to be >= 0, got %d", offset)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if size < 0 {
-			t.Errorf("Expected size to be >= 0, got %d", size)
-		}
+			if offset < 0 {
+				t.Errorf("Expected offset to be >= 0, got %d", offset)
+			}
+
+			if size < 0 {
+				t.Errorf("Expected size to be >= 0, got %d", size)
+			}
+		})
 	})
 }
