@@ -20,6 +20,7 @@ type UserManager struct {
 	users  map[string]*User
 }
 
+// Get the UserManager instance
 func (auth *Auth) UserManager() *UserManager {
 	if auth.userManager == nil {
 		auth.userManager = &UserManager{
@@ -208,6 +209,23 @@ func (u *UserManager) Remove(username string) error {
 	delete(u.users, username)
 
 	u.auth.Broadcast("user:purge", username)
+
+	return u.writeFile()
+}
+
+// Update an existing user
+func (u *UserManager) Update(user *User) error {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	existingUser, exists := u.users[user.Username]
+
+	if !exists {
+		return fmt.Errorf("the user was not found")
+	}
+
+	existingUser.Statements = user.Statements
+	existingUser.UpdatedAt = time.Now().UTC()
 
 	return u.writeFile()
 }

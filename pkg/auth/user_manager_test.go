@@ -283,6 +283,52 @@ func TestUserManager(t *testing.T) {
 				t.Error("Expected authentication to succeed with original password")
 			}
 		})
+
+		t.Run("Update", func(t *testing.T) {
+			um := app.Auth.UserManager()
+
+			// Add a user
+			err := um.Add("usertoupdate", "testpass", []auth.AccessKeyStatement{
+				{Effect: auth.AccessKeyEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.AccessKeyEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
+			})
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			user := um.Get("usertoupdate")
+
+			if user == nil {
+				t.Fatal("Expected user to be found")
+			}
+
+			user.Statements = []auth.AccessKeyStatement{
+				{Effect: auth.AccessKeyEffectDeny, Resource: "resource1", Actions: []auth.Privilege{"*"}},
+			}
+
+			// Update the user's statements
+			err = um.Update(user)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Verify the user's statements were updated
+			user = um.Get("usertoupdate")
+
+			if user == nil {
+				t.Fatal("Expected user to be found")
+			}
+
+			if len(user.Statements) != 1 {
+				t.Errorf("Expected 1 statement, got %d", len(user.Statements))
+			}
+
+			if user.Statements[0].Effect != auth.AccessKeyEffectDeny {
+				t.Errorf("Expected effect 'Deny', got '%s'", user.Statements[0].Effect)
+			}
+		})
 	})
 }
 
