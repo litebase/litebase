@@ -24,8 +24,8 @@ func TestNewDatabaseWALSynchronizer(t *testing.T) {
 // 		db := test.MockDatabase(app)
 
 // 		err := synchronizer.Truncate(
-// 			db.DatabaseId,
-// 			db.BranchId,
+// 			db.DatabaseID,
+// 			db.BranchID,
 // 			0,
 // 			0,
 // 			time.Now().UTC().Unix(),
@@ -43,8 +43,8 @@ func TestNewDatabaseWALSynchronizer(t *testing.T) {
 // 		db := test.MockDatabase(app)
 
 // 		err := synchronizer.WriteAt(
-// 			db.DatabaseId,
-// 			db.BranchId,
+// 			db.DatabaseID,
+// 			db.BranchID,
 // 			[]byte("hello"),
 // 			0,
 // 			1,

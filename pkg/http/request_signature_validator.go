@@ -95,7 +95,7 @@ func RequestSignatureValidator(
 		bodyHash,
 	}, "")
 
-	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(request.RequestToken(header).AccessKeyId)
+	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(request.RequestToken(header).AccessKeyID)
 
 	if err != nil {
 		return false

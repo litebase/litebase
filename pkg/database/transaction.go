@@ -44,8 +44,8 @@ func NewTransaction(
 	accessKey *auth.AccessKey,
 ) (*Transaction, error) {
 	connection, err := databaseManager.ConnectionManager().Get(
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 	)
 
 	if err != nil {
@@ -104,8 +104,8 @@ func (t *Transaction) Close() {
 	t.cancel()
 
 	t.databaseManager.ConnectionManager().Release(
-		t.databaseKey.DatabaseId,
-		t.databaseKey.BranchId,
+		t.databaseKey.DatabaseID,
+		t.databaseKey.BranchID,
 		t.connection,
 	)
 

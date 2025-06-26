@@ -15,8 +15,8 @@ func TestNewWALIndex(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -33,8 +33,8 @@ func TestWALIndex_Close(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -54,8 +54,8 @@ func TestWALIndex_File(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -80,8 +80,8 @@ func TestWALIndex_GetClosestVersion(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -122,8 +122,8 @@ func TestWALIndex_GetClosestVersion_MicroSeconds(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -164,8 +164,8 @@ func TestWALIndex_GetVersions(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -206,8 +206,8 @@ func TestWALIndex_RemoveVersionsFrom(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -257,8 +257,8 @@ func TestWALIndex_SetVersions(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -304,8 +304,8 @@ func TestWALIndex_Truncate(t *testing.T) {
 
 		// Create a new WALIndex instance
 		walIndex := storage.NewWALIndex(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 

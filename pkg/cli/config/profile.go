@@ -17,6 +17,6 @@ const (
 type ProfileCredentials struct {
 	Username        string `json:"username"`
 	Password        string `json:"password"`
-	AccessKeyId     string `json:"accessKeyId"`
+	AccessKeyID     string `json:"accessKeyId"`
 	AccessKeySecret string `json:"accessKeySecret"`
 }

@@ -49,15 +49,15 @@ func (n *Node) handleBroadcastMessage(message interface{}) (interface{}, error) 
 		err = n.handleRangeReplicationWriteMessage(message)
 	case messages.WALIndexHeaderMessage:
 		err = n.walSynchronizer.SetWALIndexHeader(
-			message.DatabaseId,
-			message.BranchId,
+			message.DatabaseID,
+			message.BranchID,
 			message.Header,
 		)
 	case messages.WALIndexTimestampMessage:
 		log.Println("Received WAL index timestamp message")
 		// n.walSynchronizer.SetCurrentTimestamp(
-		// 	message.DatabaseId,
-		// 	message.BranchId,
+		// 	message.DatabaseID,
+		// 	message.BranchID,
 		// 	message.Timestamp,
 		// )
 	case messages.WALVersionUsageRequest:
@@ -83,8 +83,8 @@ func (n *Node) handleRangeReplicationWriteMessage(message messages.RangeReplicat
 	}
 
 	// return n.RangeSynchronizer().WriteAt(
-	// 	message.DatabaseId,
-	// 	message.BranchId,
+	// 	message.DatabaseID,
+	// 	message.BranchID,
 	// 	message.Data,
 	// 	message.Offset,
 	// 	message.Sequence,
@@ -111,10 +111,10 @@ func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) any {
 // Handle a query message from a replica node.
 func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 	query, err := n.queryBuilder.Build(
-		message.AccessKeyId,
+		message.AccessKeyID,
 		message.DatabaseKey,
-		message.DatabaseId,
-		message.BranchId,
+		message.DatabaseID,
+		message.BranchID,
 		message.Statement,
 		message.Parameters,
 		message.ID,
@@ -174,8 +174,8 @@ func (n *Node) handleWALReplicationWriteMessage(message messages.WALReplicationW
 	}
 
 	// err := n.walSynchronizer.WriteAt(
-	// 	message.DatabaseId,
-	// 	message.BranchId,
+	// 	message.DatabaseID,
+	// 	message.BranchID,
 	// 	message.Data,
 	// 	message.Offset,
 	// 	message.Sequence,
@@ -192,8 +192,8 @@ func (n *Node) handleWALReplicationWriteMessage(message messages.WALReplicationW
 
 func (n *Node) handleWALVersionUsageRequest(message messages.WALVersionUsageRequest) (interface{}, error) {
 	versions, err := n.walSynchronizer.GetActiveWALVersions(
-		message.DatabaseId,
-		message.BranchId,
+		message.DatabaseID,
+		message.BranchID,
 	)
 
 	if err != nil {
@@ -202,8 +202,8 @@ func (n *Node) handleWALVersionUsageRequest(message messages.WALVersionUsageRequ
 	}
 
 	return messages.WALVersionUsageResponse{
-		BranchId:   message.BranchId,
-		DatabaseId: message.DatabaseId,
+		BranchID:   message.BranchID,
+		DatabaseID: message.DatabaseID,
 		Versions:   versions,
 	}, nil
 }

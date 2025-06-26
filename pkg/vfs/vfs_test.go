@@ -82,19 +82,19 @@ func TestGoWriteHook(t *testing.T) {
 
 		offsets := make([]int64, 0)
 
-		filesystem := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
+		filesystem := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem()
 
 		filesystem.SetWriteHook(func(offset int64, data []byte) {
 			offsets = append(offsets, offset)
 		})
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
@@ -114,13 +114,13 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
 		}()
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
 
 		// Create a set of tables to force the database to grow. SQLite will
 		// create a new page for each table root page so this is good for our
@@ -144,19 +144,19 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Force the database to checkpoint so data is written to disk
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		path := file.GetDatabaseFileDir(mock.DatabaseId, mock.BranchId)
+		path := file.GetDatabaseFileDir(mock.DatabaseID, mock.BranchID)
 		pageCount := db.GetConnection().FileSystem().Metadata().PageCount
 
 		var expectedSize int64 = 4096 * pageCount
 		var directorySize int64
 
-		dfs := app.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).FileSystem()
+		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem()
 		fileSystemDriver := dfs.FileSystem().Driver()
 
 		fileSystemDriver.Flush()
@@ -204,13 +204,13 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Force the database to checkpoint so data is written to disk
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseId, mock.BranchId)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -257,13 +257,13 @@ func TestVfsVacuum(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
 
 		// Create a table for users
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})

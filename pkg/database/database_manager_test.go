@@ -54,7 +54,7 @@ func TestDatabaseManager(t *testing.T) {
 			}
 
 			if database.Name != "test" {
-				t.Errorf("Expected DatabaseId to be 'test', got %s", database.Id)
+				t.Errorf("Expected DatabaseID to be 'test', got %s", database.DatabaseID)
 			}
 		})
 
@@ -67,7 +67,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			fileSystem := dm.Resources(database.Id, database.PrimaryBranchId).FileSystem()
+			fileSystem := dm.Resources(database.DatabaseID, database.PrimaryBranch().BranchID).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
@@ -85,7 +85,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected database directory to not exist")
 			}
 
-			_, err = dm.Get(database.Id)
+			_, err = dm.Get(database.DatabaseID)
 
 			if err == nil {
 				t.Errorf("Expected error, got nil")
@@ -101,20 +101,20 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			fileSystem := dm.Resources(db.Id, db.PrimaryBranchId).FileSystem()
+			fileSystem := dm.Resources(db.DatabaseID, db.PrimaryBranch().BranchID).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
 				t.Errorf("Expected database directory to exist")
 			}
 
-			con1, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
+			con1, err := dm.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().BranchID)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			defer dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con1)
+			defer dm.ConnectionManager().Release(db.DatabaseID, db.PrimaryBranch().BranchID, con1)
 
 			_, err = con1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);", nil)
 
@@ -134,13 +134,13 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected database connection to be closed, got %v", err)
 			}
 
-			con2, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
+			con2, err := dm.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().BranchID)
 
 			if err == nil {
 				t.Errorf("Expected error, got nil")
 			}
 
-			dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con2)
+			dm.ConnectionManager().Release(db.DatabaseID, db.PrimaryBranch().BranchID, con2)
 		})
 
 		t.Run("Exists", func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			db, err := dm.Get(database.Id)
+			db, err := dm.Get(database.DatabaseID)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -192,8 +192,8 @@ func TestDatabaseManager(t *testing.T) {
 				t.Fatal("Expected non-nil Database")
 			}
 
-			if db.Id != database.Id {
-				t.Errorf("Expected DatabaseId to be %s, got %s", database.Id, db.Id)
+			if db.DatabaseID != database.DatabaseID {
+				t.Errorf("Expected DatabaseID to be %s, got %s", database.DatabaseID, db.DatabaseID)
 			}
 		})
 
@@ -214,7 +214,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.Id, database.PrimaryBranchId)
+			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().BranchID)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")
@@ -236,7 +236,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.Id, database.PrimaryBranchId)
+			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().BranchID)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")

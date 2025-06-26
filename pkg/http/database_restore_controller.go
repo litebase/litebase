@@ -23,7 +23,7 @@ func DatabaseRestoreController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeRestore},
 	)
 
@@ -66,15 +66,15 @@ func DatabaseRestoreController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("target branch '%s' does not exist in target database '%s'", targetBranchUuid, targetDatabaseUuid))
 	}
 
-	snapshotLogger := request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger()
-	sourceDfs := request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem()
+	snapshotLogger := request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).SnapshotLogger()
+	sourceDfs := request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).FileSystem()
 	targetDfs := request.databaseManager.Resources(targetDatabaseUuid, targetBranchUuid).FileSystem()
 
 	err = backups.RestoreFromTimestamp(
 		request.cluster.Config,
 		request.cluster.TieredFS(),
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 		targetDatabaseUuid,
 		targetBranchUuid,
 		timestamp,

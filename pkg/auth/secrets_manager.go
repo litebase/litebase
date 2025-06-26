@@ -348,7 +348,7 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	}
 
 	err = s.ObjectFS.WriteFile(
-		s.SecretsPath(s.config.EncryptionKey, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId)),
+		s.SecretsPath(s.config.EncryptionKey, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyID)),
 		[]byte(encryptedAccessKey),
 		0600,
 	)

@@ -29,7 +29,7 @@ func TestAccessKeyDeleteCmd(t *testing.T) {
 			t.Fatalf("failed to create access key: %v", err)
 		}
 
-		err = cli.Run("access-key", "delete", accessKey.AccessKeyId)
+		err = cli.Run("access-key", "delete", accessKey.AccessKeyID)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)

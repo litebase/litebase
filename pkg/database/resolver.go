@@ -43,8 +43,8 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		if query.IsTransactionStart() {
 			// Handle transaction begin
 			transaction, err = query.databaseManager.Resources(
-				query.DatabaseKey.DatabaseId,
-				query.DatabaseKey.BranchId,
+				query.DatabaseKey.DatabaseID,
+				query.DatabaseKey.BranchID,
 			).TransactionManager().Create(
 				query.cluster,
 				query.databaseManager,
@@ -54,8 +54,8 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		} else if query.IsTransactionEnd() {
 			// Handle transaction end
 			transaction, err = query.databaseManager.Resources(
-				query.DatabaseKey.DatabaseId,
-				query.DatabaseKey.BranchId,
+				query.DatabaseKey.DatabaseID,
+				query.DatabaseKey.BranchID,
 			).TransactionManager().Get(string(query.Input.TransactionId))
 
 			if err != nil {
@@ -66,8 +66,8 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		} else if query.IsTransactionRollback() {
 			// Handle transaction rollback
 			transaction, err = query.databaseManager.Resources(
-				query.DatabaseKey.DatabaseId,
-				query.DatabaseKey.BranchId,
+				query.DatabaseKey.DatabaseID,
+				query.DatabaseKey.BranchID,
 			).TransactionManager().Get(string(query.Input.TransactionId))
 
 			if err != nil {
@@ -77,7 +77,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			err = transaction.Rollback()
 		} else if !query.IsTransactional() {
 			// Handle non-transactional queries
-			db, err = query.databaseManager.ConnectionManager().Get(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId)
+			db, err = query.databaseManager.ConnectionManager().Get(query.DatabaseKey.DatabaseID, query.DatabaseKey.BranchID)
 
 			if err != nil {
 				log.Println("Error getting database connection", err)
@@ -86,7 +86,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				return response, err
 			}
 
-			defer query.databaseManager.ConnectionManager().Release(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId, db)
+			defer query.databaseManager.ConnectionManager().Release(query.DatabaseKey.DatabaseID, query.DatabaseKey.BranchID, db)
 		} else {
 			// Handle transactional queries
 			db = query.transaction.connection
@@ -161,9 +161,9 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			logs.QueryLogEntry{
 				Cluster:      query.cluster,
 				DatabaseHash: query.DatabaseKey.DatabaseHash,
-				DatabaseId:   query.DatabaseKey.DatabaseId,
-				BranchId:     query.DatabaseKey.BranchId,
-				AccessKeyId:  query.AccessKey.AccessKeyId,
+				DatabaseID:   query.DatabaseKey.DatabaseID,
+				BranchID:     query.DatabaseKey.BranchID,
+				AccessKeyID:  query.AccessKey.AccessKeyID,
 				Statement:    query.Input.Statement,
 				Latency:      response.Latency(),
 			},
@@ -205,9 +205,9 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryRespons
 	responseMessage, err := query.cluster.Node().Send(
 		messages.NodeMessage{
 			Data: messages.QueryMessage{
-				AccessKeyId: query.AccessKey.AccessKeyId,
-				BranchId:    query.DatabaseKey.BranchId,
-				DatabaseId:  query.DatabaseKey.DatabaseId,
+				AccessKeyID: query.AccessKey.AccessKeyID,
+				BranchID:    query.DatabaseKey.BranchID,
+				DatabaseID:  query.DatabaseKey.DatabaseID,
 				ID:          query.Input.Id,
 				Statement:   query.Input.Statement,
 				Parameters:  query.Input.Parameters,
@@ -240,7 +240,7 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryRespons
 		return nil, fmt.Errorf("unexpected response from primary")
 	}
 
-	// wal, err := query.databaseManager.Resources(query.DatabaseKey.DatabaseId, query.DatabaseKey.BranchId).WALFile()
+	// wal, err := query.databaseManager.Resources(query.DatabaseKey.DatabaseID, query.DatabaseKey.BranchID).WALFile()
 
 	// if err != nil {
 	// 	return nil, err

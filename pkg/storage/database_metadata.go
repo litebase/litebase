@@ -15,8 +15,8 @@ import (
 )
 
 type DatabaseMetadata struct {
-	BranchId           string `json:"branch_id"`
-	DatabaseId         string `json:"database_id"`
+	BranchID           string `json:"branch_id"`
+	DatabaseID         string `json:"database_id"`
 	databaseFileSystem *DurableDatabaseFileSystem
 	file               internalStorage.File
 	mutext             sync.Mutex
@@ -28,8 +28,8 @@ func NewDatabaseMetadata(dfs *DurableDatabaseFileSystem, databaseId, branchId st
 	var err error
 
 	metadata := &DatabaseMetadata{
-		BranchId:           branchId,
-		DatabaseId:         databaseId,
+		BranchID:           branchId,
+		DatabaseID:         databaseId,
 		databaseFileSystem: dfs,
 		mutext:             sync.Mutex{},
 		PageCount:          0,
@@ -69,7 +69,7 @@ func (d *DatabaseMetadata) File() (internalStorage.File, error) {
 
 		if err != nil {
 			if os.IsNotExist(err) {
-				err := d.databaseFileSystem.FileSystem().MkdirAll(file.GetDatabaseFileDir(d.DatabaseId, d.BranchId), 0750)
+				err := d.databaseFileSystem.FileSystem().MkdirAll(file.GetDatabaseFileDir(d.DatabaseID, d.BranchID), 0750)
 
 				if err != nil {
 					return nil, err
@@ -131,7 +131,7 @@ func (d *DatabaseMetadata) Load() error {
 }
 
 func (d *DatabaseMetadata) Path() string {
-	return fmt.Sprintf("%s_METADATA", file.GetDatabaseFileDir(d.DatabaseId, d.BranchId))
+	return fmt.Sprintf("%s_METADATA", file.GetDatabaseFileDir(d.DatabaseID, d.BranchID))
 }
 
 // Save the database meta data

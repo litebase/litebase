@@ -56,8 +56,8 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Fatal("Expected Create to return a non-nil AccessKey")
 			}
 
-			if accessKey.AccessKeyId == "" {
-				t.Error("Expected AccessKeyId to not be an empty string")
+			if accessKey.AccessKeyID == "" {
+				t.Error("Expected AccessKeyID to not be an empty string")
 			}
 
 			if accessKey.AccessKeySecret == "" {
@@ -96,7 +96,7 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Fatal("Expected Create to return a non-nil AccessKey")
 			}
 
-			accessKey2, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+			accessKey2, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
 				t.Error("Expected Get to return a non-nil error")
@@ -106,8 +106,8 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Fatal("Expected Get to return a non-nil AccessKey")
 			}
 
-			if accessKey2.AccessKeyId != accessKey.AccessKeyId {
-				t.Error("Expected AccessKeyId to match")
+			if accessKey2.AccessKeyID != accessKey.AccessKeyID {
+				t.Error("Expected AccessKeyID to match")
 			}
 
 			if accessKey2.AccessKeySecret != accessKey.AccessKeySecret {
@@ -132,7 +132,7 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Fatal("Expected Create to return a non-nil AccessKey")
 			}
 
-			accessKey1, err := server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+			accessKey1, err := server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
 				t.Error("Expected Get to return a non-nil error")
@@ -142,7 +142,7 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Fatal("Expected Get to return a non-nil AccessKey")
 			}
 
-			accessKey2, err := server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+			accessKey2, err := server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
 				t.Error("Expected Get to return a non-nil error")
@@ -158,13 +158,13 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Error("Expected Delete to return a non-nil error")
 			}
 
-			err = server1.App.Auth.AccessKeyManager.Purge(accessKey.AccessKeyId)
+			err = server1.App.Auth.AccessKeyManager.Purge(accessKey.AccessKeyID)
 
 			if err != nil {
 				t.Error("Expected Purge to return a non-nil error")
 			}
 
-			accessKey1, err = server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+			accessKey1, err = server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err == nil {
 				t.Error("Expected Get to return an error after Purge")
@@ -174,7 +174,7 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Error("Expected Get to return a nil AccessKey after Purge")
 			}
 
-			accessKey2, err = server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+			accessKey2, err = server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err == nil {
 				t.Error("Expected Get to return an error after Purge")

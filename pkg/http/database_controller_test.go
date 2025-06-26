@@ -67,7 +67,7 @@ func TestDatabaseControllerShow(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
 		}})
 
-		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", database.DatabaseId), "GET", nil)
+		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", database.DatabaseID), "GET", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)
@@ -91,8 +91,8 @@ func TestDatabaseControllerShow(t *testing.T) {
 			t.Fatalf("expected data to be an object, got %T", resp["data"])
 		}
 
-		if data["id"] != database.DatabaseId {
-			t.Fatalf("expected database id to be %s, got %v", database.DatabaseId, data["id"])
+		if data["id"] != database.DatabaseID {
+			t.Fatalf("expected database id to be %s, got %v", database.DatabaseID, data["id"])
 		}
 
 	})
@@ -150,7 +150,7 @@ func TestDatabaseControllerStore_WithSameNameFails(t *testing.T) {
 
 		mock := test.MockDatabase(server.App)
 
-		database, err := server.App.DatabaseManager.Get(mock.DatabaseId)
+		database, err := server.App.DatabaseManager.Get(mock.DatabaseID)
 
 		if err != nil {
 			t.Fatalf("failed to get mock database: %v", err)
@@ -203,7 +203,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 		}})
 
-		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", mock.DatabaseId), "DELETE", nil)
+		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", mock.DatabaseID), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)

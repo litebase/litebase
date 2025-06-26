@@ -16,7 +16,7 @@ func TestGetQueryStatementIndex(t *testing.T) {
 
 		queryLogIndex, err := logs.GetQueryStatementIndex(
 			app.Cluster.TieredFS(),
-			fmt.Sprintf("%slogs/query", file.GetDatabaseFileBaseDir(db.DatabaseId, db.BranchId)),
+			fmt.Sprintf("%slogs/query", file.GetDatabaseFileBaseDir(db.DatabaseID, db.BranchID)),
 			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", app.Cluster.Node().ID),
 			0,
 		)
@@ -37,7 +37,7 @@ func TestQueryStatementIndex_Close(t *testing.T) {
 
 		queryLogIndex, err := logs.GetQueryStatementIndex(
 			app.Cluster.TieredFS(),
-			fmt.Sprintf("%slogs/query", file.GetDatabaseFileBaseDir(db.DatabaseId, db.BranchId)),
+			fmt.Sprintf("%slogs/query", file.GetDatabaseFileBaseDir(db.DatabaseID, db.BranchID)),
 			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", app.Cluster.Node().Cluster.Id),
 			0,
 		)
@@ -60,7 +60,7 @@ func TestQueryStatementIndex_Get_Set(t *testing.T) {
 
 		queryLogIndex, err := logs.GetQueryStatementIndex(
 			app.Cluster.TieredFS(),
-			fmt.Sprintf("%slogs/query", file.GetDatabaseFileBaseDir(db.DatabaseId, db.BranchId)),
+			fmt.Sprintf("%slogs/query", file.GetDatabaseFileBaseDir(db.DatabaseID, db.BranchID)),
 			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", app.Cluster.Node().ID),
 			0,
 		)

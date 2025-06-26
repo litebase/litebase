@@ -1,8 +1,8 @@
 package messages
 
 type RangeReplicationWriteMessage struct {
-	BranchId   string
-	DatabaseId string
+	BranchID   string
+	DatabaseID string
 	Data       []byte
 	ID         []byte
 	Offset     int64

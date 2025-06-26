@@ -99,8 +99,8 @@ func (lm *LogManager) Query(entry QueryLogEntry) error {
 	l := lm.GetQueryLog(
 		entry.Cluster,
 		entry.DatabaseHash,
-		entry.DatabaseId,
-		entry.BranchId,
+		entry.DatabaseID,
+		entry.BranchID,
 	)
 
 	if l == nil {
@@ -108,7 +108,7 @@ func (lm *LogManager) Query(entry QueryLogEntry) error {
 	}
 
 	go l.Write(
-		entry.AccessKeyId,
+		entry.AccessKeyID,
 		entry.Statement,
 		entry.Latency,
 	)

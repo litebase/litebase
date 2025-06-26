@@ -3,20 +3,26 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
+
+	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
 type Database struct {
+	ID                int64            `json:"-"`
 	DatabaseManager   *DatabaseManager `json:"-"`
 	Name              string           `json:"name"`
 	Branches          []*Branch        `json:"branches"`
-	Id                string           `json:"id"`
-	PrimaryBranchId   string           `json:"primary_branch_id"`
+	DatabaseID        string           `json:"database_id"`
+	PrimaryBranchID   int64            `json:"primary_branch_id"`
 	PrimaryBranchName string           `json:"primary_branch_name"`
 	Settings          DatabaseSettings `json:"settings"`
 	CreatedAt         time.Time        `json:"created_at"`
 	UpdatedAt         time.Time        `json:"updated_at"`
+
+	exists         bool
+	primaryBranch  *Branch
+	systemDatabase *SystemDatabase `json:"-"`
 }
 
 func Directory() string {
@@ -27,14 +33,103 @@ func TmpDirectory() string {
 	return "_databases/"
 }
 
-func (database *Database) HasBranch(branchId string) bool {
-	if database.Id == SystemDatabaseId && branchId == SystemDatabaseBranchId {
+func NewDatabase(databaseManager *DatabaseManager) *Database {
+	return &Database{
+		DatabaseManager: databaseManager,
+	}
+}
+
+// Insert a new database into the system database.
+func InsertDatabase(database *Database) error {
+	systemDatabase := database.DatabaseManager.SystemDatabase()
+
+	_, err := systemDatabase.Exec(
+		`INSERT INTO databases (
+			database_id, 
+			name, 
+			created_at, 
+			updated_at
+		)
+		VALUES (?, ?, ?, ?)
+		`,
+		[]sqlite3.StatementParameter{
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: database.DatabaseID,
+			},
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: database.Name,
+			},
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: time.Now().UTC().Format(time.RFC3339),
+			},
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	database.exists = true
+
+	return nil
+}
+
+// Update an existing database in the system database.
+func UpdateDatabase(database *Database) error {
+	systemDatabase := database.DatabaseManager.SystemDatabase()
+
+	_, err := systemDatabase.Exec(
+		`UPDATE databases 
+		SET (
+			name = ?,
+			primary_branch_id = ?,
+			settings = ?,
+			updated_at = ?
+		)
+		WHERE database_id = ?
+		`,
+		[]sqlite3.StatementParameter{
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: database.Name,
+			},
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: database.PrimaryBranchID,
+			},
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: database.Settings,
+			},
+			{
+				Type:  sqlite3.ParameterTypeText,
+				Value: time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (database *Database) HasBranch(branchID string) bool {
+	if database.DatabaseID == SystemDatabaseID && branchID == SystemDatabaseBranchID {
 		return true
 	}
 
 	// TODO: This needs to be an actualy lookup on the system database
 	for _, branch := range database.Branches {
-		if branch.Id == branchId {
+		if branch.BranchID == branchID {
 			return true
 		}
 	}
@@ -42,11 +137,11 @@ func (database *Database) HasBranch(branchId string) bool {
 	return false
 }
 
-func (database *Database) Key(branchId string) string {
+func (database *Database) Key(branchID string) string {
 	var branch *Branch
 
 	for _, b := range database.Branches {
-		if b.Id == branchId {
+		if b.BranchID == branchID {
 			branch = b
 			break
 		}
@@ -55,52 +150,40 @@ func (database *Database) Key(branchId string) string {
 	return branch.Key
 }
 
-func (database *Database) save() error {
-	err := database.DatabaseManager.Cluster.ObjectFS().MkdirAll(fmt.Sprintf("%s%s", Directory(), database.Id), 0750)
-
-	if err != nil && !os.IsExist(err) {
-		return err
+func (database *Database) PrimaryBranch() *Branch {
+	if database.primaryBranch == nil {
+		// TODO: Select the branch from the system database
 	}
 
-	jsonData, err := json.Marshal(database)
+	return database.primaryBranch
+}
 
-	if err != nil {
-		return err
+func (database *Database) Save() error {
+	if database.exists {
+		return InsertDatabase(database)
+	} else {
+		return UpdateDatabase(database)
 	}
-
-	createError := database.DatabaseManager.Cluster.ObjectFS().WriteFile(fmt.Sprintf("%s%s/settings.json", Directory(), database.Id), jsonData, 0600)
-
-	err = database.DatabaseManager.SecretsManager.StoreDatabaseKey(
-		database.Key(database.PrimaryBranchId),
-		database.Id,
-		database.PrimaryBranchId,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	return createError
 }
 
 func (database *Database) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"name":              database.Name,
 		"branches":          database.Branches,
-		"id":                database.Id,
-		"primary_branch_id": database.PrimaryBranchId,
+		"database_id":       database.DatabaseID,
+		"primary_branch_id": database.PrimaryBranchID,
 		"settings":          database.Settings,
-		"url":               database.Url(database.PrimaryBranchId),
+		"url":               database.Url(database.PrimaryBranch().BranchID),
 		"created_at":        database.CreatedAt,
 		"updated_at":        database.UpdatedAt,
 	})
 }
 
-func (database *Database) BranchDirectory(branchId string) string {
-	return fmt.Sprintf("%s%s/%s", Directory(), database.Id, branchId)
+func (database *Database) BranchDirectory(branchID string) string {
+	return fmt.Sprintf("%s%s/%s", Directory(), database.DatabaseID, branchID)
 }
 
-func (database *Database) Url(branchId string) string {
+func (database *Database) Url(branchID string) string {
 	port := ""
 
 	if database.DatabaseManager.Cluster.Config.Port != "80" {
@@ -111,6 +194,6 @@ func (database *Database) Url(branchId string) string {
 		"http://%s%s/%s",
 		database.DatabaseManager.Cluster.Config.HostName,
 		port,
-		database.Key(branchId),
+		database.Key(branchID),
 	)
 }

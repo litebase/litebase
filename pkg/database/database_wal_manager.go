@@ -15,11 +15,11 @@ import (
 )
 
 type DatabaseWALManager struct {
-	BranchId                string
+	BranchID                string
 	checkpointing           bool
 	checkpointMutex         *sync.Mutex
 	connectionManager       *ConnectionManager
-	DatabaseId              string
+	DatabaseID              string
 	networkFileSystem       *storage.FileSystem
 	garbargeCollectionMutex *sync.RWMutex
 	lastCheckpointedVersion int64
@@ -44,11 +44,11 @@ func NewDatabaseWALManager(
 	networkFileSystem *storage.FileSystem,
 ) (*DatabaseWALManager, error) {
 	walManager := &DatabaseWALManager{
-		BranchId:                branchId,
+		BranchID:                branchId,
 		checkpointing:           false,
 		checkpointMutex:         &sync.Mutex{},
 		connectionManager:       connectionManager,
-		DatabaseId:              databaseId,
+		DatabaseID:              databaseId,
 		garbargeCollectionMutex: &sync.RWMutex{},
 		networkFileSystem:       networkFileSystem,
 		mutext:                  &sync.RWMutex{},
@@ -150,8 +150,8 @@ func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
 	w.walVersions[timestamp] = NewDatabaseWAL(
 		w.node,
 		w.connectionManager,
-		w.DatabaseId,
-		w.BranchId,
+		w.DatabaseID,
+		w.BranchID,
 		w.networkFileSystem,
 		w,
 		timestamp,
@@ -228,8 +228,8 @@ func (w *DatabaseWALManager) init() error {
 		w.walVersions[version] = NewDatabaseWAL(
 			w.node,
 			w.connectionManager,
-			w.DatabaseId,
-			w.BranchId,
+			w.DatabaseID,
+			w.BranchID,
 			w.networkFileSystem,
 			w,
 			version,
@@ -381,8 +381,8 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	// Ask replicas for their oldest known timestamps
 	responseMap, errorMap := w.node.Primary().Publish(messages.NodeMessage{
 		Data: messages.WALVersionUsageRequest{
-			BranchId:   w.BranchId,
-			DatabaseId: w.DatabaseId,
+			BranchID:   w.BranchID,
+			DatabaseID: w.DatabaseID,
 		},
 	})
 
@@ -453,8 +453,8 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	// TODO: Publish the WAL index to replicas
 	// _, errMap := w.node.Primary().Publish(messages.NodeMessage{
 	// 	Data: messages.WALIndexMessage{
-	// 		BranchId:   w.BranchId,
-	// 		DatabaseId: w.DatabaseId,
+	// 		BranchID:   w.BranchID,
+	// 		DatabaseID: w.DatabaseID,
 	// 		Versions:   versions,
 	// 	},
 	// })

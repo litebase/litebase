@@ -18,7 +18,7 @@ func TestAccessKeyShow(t *testing.T) {
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		err := cli.Run("access-key", "show", cli.AccessKey.AccessKeyId)
+		err := cli.Run("access-key", "show", cli.AccessKey.AccessKeyID)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)

@@ -190,35 +190,51 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 		return nil, fmt.Errorf("failed to create branch: %w", err)
 	}
 
-	database := &Database{
-		DatabaseManager:   d,
-		Name:              databaseName,
-		Branches:          []*Branch{branch},
-		Id:                uuid.New().String(),
-		PrimaryBranchId:   branch.Id,
-		PrimaryBranchName: branchName,
-		Settings: DatabaseSettings{
-			Backups: DatabaseBackupSettings{
+	// systemDB := d.SystemDatabase()
+
+	// systemDB.Exec(
+	// 	"INSERT INTO databases (name)"
+	// )
+
+	database := NewDatabase(d)
+	database.DatabaseID = uuid.New().String()
+	database.Name = databaseName
+
+	database.PrimaryBranchID = branch.ID
+	database.PrimaryBranchName = branchName
+	database.Settings = DatabaseSettings{
+		Backups: DatabaseBackupSettings{
+			Enabled: true,
+			IncrementalBackups: DatabaseIncrementalBackupSettings{
 				Enabled: true,
-				IncrementalBackups: DatabaseIncrementalBackupSettings{
-					Enabled: true,
-				},
 			},
 		},
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
 	}
 
-	err = database.save()
+	database.CreatedAt = time.Now().UTC()
+	database.UpdatedAt = time.Now().UTC()
+
+	err = database.Save()
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = d.Cluster.ObjectFS().MkdirAll(database.BranchDirectory(branch.Id), 0750)
+	// Create the initial branch
+	branch.DatabaseID = database.ID
+
+	err = branch.Save()
 
 	if err != nil {
-		log.Println("ERROR", err)
+		return nil, err
+	}
+
+	// Update the database with the branch
+	database.PrimaryBranchID = branch.ID
+
+	err = database.Save()
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -227,16 +243,16 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 
 // Delete the given instance of the database.
 func (d *DatabaseManager) Delete(database *Database) error {
-	resources := d.Resources(database.Id, database.PrimaryBranchId)
+	resources := d.Resources(database.DatabaseID, database.PrimaryBranch().BranchID)
 
-	d.ConnectionManager().CloseDatabaseConnections(database.Id)
+	d.ConnectionManager().CloseDatabaseConnections(database.DatabaseID)
 
 	fileSystem := resources.FileSystem()
 
 	// Delete the database keys
 	for _, branch := range database.Branches {
 		err := d.SecretsManager.DeleteDatabaseKey(
-			database.Key(branch.Id),
+			database.Key(branch.BranchID),
 		)
 
 		if err != nil {
@@ -249,7 +265,7 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	// removing a database stops any opertaions to the database.
 	err := fileSystem.FileSystem().RemoveAll(
 		file.GetDatabaseRootDir(
-			database.Id,
+			database.DatabaseID,
 		),
 	)
 
@@ -260,7 +276,7 @@ func (d *DatabaseManager) Delete(database *Database) error {
 
 	resources.Remove()
 
-	delete(d.databases, database.Id)
+	delete(d.databases, database.DatabaseID)
 
 	return nil
 }
@@ -296,7 +312,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	}
 	database := &Database{}
 
-	if databaseId == SystemDatabaseId {
+	if databaseId == SystemDatabaseID {
 		database = &TheSystemDatabase
 	} else {
 		path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseId)
@@ -340,9 +356,9 @@ func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResour
 	}
 
 	resource := &DatabaseResources{
-		BranchId:        branchId,
+		BranchID:        branchId,
 		config:          d.Cluster.Config,
-		DatabaseId:      databaseId,
+		DatabaseID:      databaseId,
 		databaseManager: d,
 		DatabaseHash:    file.DatabaseHash(databaseId, branchId),
 		mutex:           &sync.Mutex{},

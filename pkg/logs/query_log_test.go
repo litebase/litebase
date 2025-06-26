@@ -18,8 +18,8 @@ func TestQueryLog_Close(t *testing.T) {
 		l := app.LogManager.GetQueryLog(
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 		)
 
 		err := l.Close()
@@ -37,8 +37,8 @@ func TestQueryLog_GetFile(t *testing.T) {
 		l := app.LogManager.GetQueryLog(
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 		)
 
 		file := l.GetFile()
@@ -56,8 +56,8 @@ func TestQueryLog_GetStatementIndex(t *testing.T) {
 		l := app.LogManager.GetQueryLog(
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 		)
 
 		index, err := l.GetStatementIndex()
@@ -81,8 +81,8 @@ func TestQueryLog_Flush(t *testing.T) {
 		l := app.LogManager.GetQueryLog(
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 		)
 
 		l.Flush(true)
@@ -99,7 +99,7 @@ func TestQueryLog_Flush(t *testing.T) {
 		}
 
 		err = l.Write(
-			db.AccessKey.AccessKeyId,
+			db.AccessKey.AccessKeyID,
 			"SELECT * FROM test",
 			0.01,
 		)
@@ -133,14 +133,14 @@ func TestQueryLog_Read(t *testing.T) {
 		l := app.LogManager.GetQueryLog(
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 		)
 
 		startTime := time.Now().UTC().Truncate(time.Second)
 
 		l.Write(
-			db.AccessKey.AccessKeyId,
+			db.AccessKey.AccessKeyID,
 			"SELECT * FROM test",
 			0.01,
 		)
@@ -164,7 +164,7 @@ func TestQueryLog_Read(t *testing.T) {
 
 		hash64 := crc64.New(crc64.MakeTable(crc64.ISO))
 
-		hash64.Write(fmt.Appendf(nil, "access_key_id=%s statement=select * from test", db.AccessKey.AccessKeyId))
+		hash64.Write(fmt.Appendf(nil, "access_key_id=%s statement=select * from test", db.AccessKey.AccessKeyID))
 
 		if queryMetrics[0].Checksum != hash64.Sum64() {
 			t.Fatal("Query metrics checksum is incorrect")
@@ -179,12 +179,12 @@ func TestQueryLog_Write(t *testing.T) {
 		l := app.LogManager.GetQueryLog(
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 		)
 
 		err := l.Write(
-			db.AccessKey.AccessKeyId,
+			db.AccessKey.AccessKeyID,
 			"SELECT * FROM test",
 			0.01,
 		)

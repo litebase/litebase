@@ -18,8 +18,8 @@ func TestRollbackLogger(t *testing.T) {
 			// Create a new page logger
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			// Check if the page logger is not nil
@@ -27,13 +27,13 @@ func TestRollbackLogger(t *testing.T) {
 				t.Fatal("Expected page logger to be not nil")
 			}
 
-			// Check if the page logger has the correct DatabaseId and BranchId
-			if rollbackLogger.DatabaseId != mock.DatabaseId {
-				t.Errorf("Expected DatabaseId to be %s, got %s", mock.DatabaseId, rollbackLogger.DatabaseId)
+			// Check if the page logger has the correct DatabaseID and BranchID
+			if rollbackLogger.DatabaseID != mock.DatabaseID {
+				t.Errorf("Expected DatabaseID to be %s, got %s", mock.DatabaseID, rollbackLogger.DatabaseID)
 			}
 
-			if rollbackLogger.BranchId != mock.BranchId {
-				t.Errorf("Expected BranchId to be %s, got %s", mock.BranchId, rollbackLogger.BranchId)
+			if rollbackLogger.BranchID != mock.BranchID {
+				t.Errorf("Expected BranchID to be %s, got %s", mock.BranchID, rollbackLogger.BranchID)
 			}
 		})
 
@@ -43,8 +43,8 @@ func TestRollbackLogger(t *testing.T) {
 			// Create a new page logger
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			// Close the page logger
@@ -61,8 +61,8 @@ func TestRollbackLogger(t *testing.T) {
 			// Create a new page logger
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			offset, _, err := rollbackLogger.StartFrame(1234567890)
@@ -93,8 +93,8 @@ func TestRollbackLogger(t *testing.T) {
 			// Create a new page logger
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			// Get a log
@@ -121,8 +121,8 @@ func TestRollbackLogger(t *testing.T) {
 			// Create a new page logger
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			// Log a page
@@ -153,8 +153,8 @@ func TestRollbackLogger(t *testing.T) {
 			// Create a new page logger
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			offset, size, err := rollbackLogger.StartFrame(1234567890)
@@ -186,8 +186,8 @@ func TestRollbackLogger(t *testing.T) {
 			// Create a new page logger
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			offset, size, err := rollbackLogger.StartFrame(1234567890)

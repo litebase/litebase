@@ -7,16 +7,16 @@ import (
 )
 
 // Constants and variables related to the system database.
-const SystemDatabaseId = "system"
-const SystemDatabaseBranchId = "system"
+const SystemDatabaseID = "system"
+const SystemDatabaseBranchID = "system"
 const SystemDatabaseName = "system"
 const SystemDatabasePrimaryBranchName = "system"
 
 // A static system database that can be used to new up a new reference.
 var TheSystemDatabase Database = Database{
-	Id:                SystemDatabaseId,
-	Name:              SystemDatabaseName,
-	PrimaryBranchId:   SystemDatabaseBranchId,
+	DatabaseID: SystemDatabaseID,
+	Name:       SystemDatabaseName,
+	// PrimaryBranchID:   SystemDatabaseBranchID,
 	PrimaryBranchName: SystemDatabasePrimaryBranchName,
 }
 
@@ -43,8 +43,8 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 func (s *SystemDatabase) Close() bool {
 	if s.clientConnection != nil {
 		s.databaseManager.ConnectionManager().Remove(
-			SystemDatabaseId,
-			SystemDatabaseBranchId,
+			SystemDatabaseID,
+			SystemDatabaseBranchID,
 			s.clientConnection,
 		)
 
@@ -61,7 +61,7 @@ func (s *SystemDatabase) connection() *ClientConnection {
 	}
 
 	if s.clientConnection == nil {
-		databaseConnection, err := s.databaseManager.ConnectionManager().Get(SystemDatabaseId, SystemDatabaseBranchId)
+		databaseConnection, err := s.databaseManager.ConnectionManager().Get(SystemDatabaseID, SystemDatabaseBranchID)
 
 		if err != nil {
 			panic(err)
@@ -128,12 +128,29 @@ func (s *SystemDatabase) init() {
 		`CREATE TABLE IF NOT EXISTS databases
 		(
 			id INTEGER PRIMARY KEY, 
-			name TEXT UNIQUE,
 			database_id TEXT UNIQUE, 
+			name TEXT UNIQUE,
 			primary_branch_id INTEGER,
 			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT
+		)
+		`,
+		nil,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create the database keys table if it doesn't exist.
+	_, err = s.Exec(
+		`CREATE TABLE IF NOT EXISTS database_keys
+		(
+			id INTEGER PRIMARY KEY,
+			database_id INTEGER,
+			database_branch_id TEXT,
+			key TEXT UNIQUE,
 		)
 		`,
 		nil,
@@ -149,7 +166,9 @@ func (s *SystemDatabase) init() {
 		(
 			id INTEGER PRIMARY KEY, 
 			database_id INTEGER,
+			database_branch_id TEXT,
 			name TEXT,
+			key TEXT,
 			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT,

@@ -1,7 +1,7 @@
 package messages
 
 type WALIndexTimestampMessage struct {
-	BranchId   string
-	DatabaseId string
+	BranchID   string
+	DatabaseID string
 	Timestamp  int64
 }

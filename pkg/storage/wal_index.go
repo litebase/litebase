@@ -19,9 +19,9 @@ import (
 )
 
 type WALIndex struct {
-	BranchId    string
+	BranchID    string
 	CreatedAt   time.Time
-	DatabaseId  string
+	DatabaseID  string
 	file        internalStorage.File
 	fileSystem  *FileSystem
 	mutex       *sync.Mutex
@@ -32,8 +32,8 @@ type WALIndex struct {
 // Create a new instance of a WAL Index
 func NewWALIndex(databaseId, branchId string, fileSystem *FileSystem) *WALIndex {
 	w := &WALIndex{
-		BranchId:   branchId,
-		DatabaseId: databaseId,
+		BranchID:   branchId,
+		DatabaseID: databaseId,
 		fileSystem: fileSystem,
 		mutex:      &sync.Mutex{},
 		versions:   make([]int64, 0),
@@ -67,7 +67,7 @@ func (w *WALIndex) File() (internalStorage.File, error) {
 		return w.file, nil
 	}
 
-	path := fmt.Sprintf("%slogs/wal/WAL_INDEX", file.GetDatabaseFileBaseDir(w.DatabaseId, w.BranchId))
+	path := fmt.Sprintf("%slogs/wal/WAL_INDEX", file.GetDatabaseFileBaseDir(w.DatabaseID, w.BranchID))
 
 tryOpen:
 	file, err := w.fileSystem.OpenFile(

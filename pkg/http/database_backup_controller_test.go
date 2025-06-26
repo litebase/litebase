@@ -25,13 +25,13 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 
 		db := test.MockDatabase(server.App)
 
-		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 		if err != nil {
 			t.Fatalf("failed to get database connection: %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
@@ -39,7 +39,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 			t.Fatalf("failed to create table: %v", err)
 		}
 
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseId, db.BranchId)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, db.BranchID)
 
 		if err != nil {
 			t.Fatalf("failed to checkpoint database: %v", err)
@@ -87,13 +87,13 @@ func TestDatabaseBackupShowController(t *testing.T) {
 
 		db := test.MockDatabase(server.App)
 
-		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 		if err != nil {
 			t.Fatalf("failed to get database connection: %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
@@ -101,7 +101,7 @@ func TestDatabaseBackupShowController(t *testing.T) {
 			t.Fatalf("failed to create table: %v", err)
 		}
 
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseId, db.BranchId)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, db.BranchID)
 
 		if err != nil {
 			t.Fatalf("failed to checkpoint database: %v", err)
@@ -110,11 +110,11 @@ func TestDatabaseBackupShowController(t *testing.T) {
 		backup, err := backups.Run(
 			server.App.Config,
 			server.App.Cluster.ObjectFS(),
-			db.DatabaseId,
-			db.BranchId,
-			server.App.DatabaseManager.Resources(db.DatabaseId, db.BranchId).SnapshotLogger(),
-			server.App.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
-			server.App.DatabaseManager.Resources(db.DatabaseId, db.BranchId).RollbackLogger(),
+			db.DatabaseID,
+			db.BranchID,
+			server.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).SnapshotLogger(),
+			server.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			server.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -158,11 +158,11 @@ func TestDatabaseBackupShowController(t *testing.T) {
 			t.Fatalf("expected size to be greater than 0, got %v", response["data"].(map[string]any)["size"])
 		}
 
-		if response["data"].(map[string]any)["database_id"] != db.DatabaseId {
+		if response["data"].(map[string]any)["database_id"] != db.DatabaseID {
 			t.Fatalf("expected database_id to be present, got %v", response["data"].(map[string]any)["database_id"])
 		}
 
-		if response["data"].(map[string]any)["branch_id"] != db.BranchId {
+		if response["data"].(map[string]any)["branch_id"] != db.BranchID {
 			t.Fatalf("expected branch_id to be present, got %v", response["data"].(map[string]any)["branch_id"])
 		}
 	})
@@ -182,13 +182,13 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 
 		db := test.MockDatabase(server.App)
 
-		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 		if err != nil {
 			t.Fatalf("failed to get database connection: %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
@@ -196,7 +196,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 			t.Fatalf("failed to create table: %v", err)
 		}
 
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseId, db.BranchId)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, db.BranchID)
 
 		if err != nil {
 			t.Fatalf("failed to checkpoint database: %v", err)
@@ -205,11 +205,11 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 		backup, err := backups.Run(
 			server.App.Config,
 			server.App.Cluster.ObjectFS(),
-			db.DatabaseId,
-			db.BranchId,
-			server.App.DatabaseManager.Resources(db.DatabaseId, db.BranchId).SnapshotLogger(),
-			server.App.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
-			server.App.DatabaseManager.Resources(db.DatabaseId, db.BranchId).RollbackLogger(),
+			db.DatabaseID,
+			db.BranchID,
+			server.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).SnapshotLogger(),
+			server.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			server.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).RollbackLogger(),
 		)
 
 		if err != nil {

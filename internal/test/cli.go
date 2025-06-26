@@ -78,7 +78,7 @@ func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
 
 	c.AccessKey = accessKey
 
-	err = c.Cmd.PersistentFlags().Set("access-key-id", accessKey.AccessKeyId)
+	err = c.Cmd.PersistentFlags().Set("access-key-id", accessKey.AccessKeyID)
 
 	if err != nil {
 		panic(err)

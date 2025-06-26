@@ -52,7 +52,7 @@ type QueryLog struct {
 
 type QueryLogEntry struct {
 	Cluster                                         *cluster.Cluster
-	DatabaseHash, DatabaseId, BranchId, AccessKeyId string
+	DatabaseHash, DatabaseID, BranchID, AccessKeyID string
 	Statement                                       string
 	Latency                                         float64
 }

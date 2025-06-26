@@ -14,11 +14,11 @@ import (
 )
 
 type DatabaseResources struct {
-	BranchId           string
+	BranchID           string
 	checkpointer       *Checkpointer
 	config             *config.Config
 	DatabaseHash       string
-	DatabaseId         string
+	DatabaseID         string
 	databaseManager    *DatabaseManager
 	snapshotLogger     *backups.SnapshotLogger
 	fileSystem         *storage.DurableDatabaseFileSystem
@@ -67,8 +67,8 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 	}
 
 	checkpointer, err := NewCheckpointer(
-		d.DatabaseId,
-		d.BranchId,
+		d.DatabaseID,
+		d.BranchID,
 		d.fileSystem,
 		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
@@ -96,8 +96,8 @@ func (d *DatabaseResources) DatabaseWALManager() (*DatabaseWALManager, error) {
 	d.walManager, err = NewDatabaseWALManager(
 		d.databaseManager.Cluster.Node(),
 		d.databaseManager.ConnectionManager(),
-		d.DatabaseId,
-		d.BranchId,
+		d.DatabaseID,
+		d.BranchID,
 		d.databaseManager.Cluster.NetworkFS(),
 	)
 
@@ -115,9 +115,9 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 		d.databaseManager.Cluster.TieredFS(),
 		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
-		fmt.Sprintf("%s%s/%s/", Directory(), d.DatabaseId, d.BranchId),
-		d.DatabaseId,
-		d.BranchId,
+		fmt.Sprintf("%s%s/%s/", Directory(), d.DatabaseID, d.BranchID),
+		d.DatabaseID,
+		d.BranchID,
 		pageSize,
 	)
 
@@ -150,8 +150,8 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 
 func (d *DatabaseResources) createPageLogger() *storage.PageLogger {
 	return d.databaseManager.PageLogManager().Get(
-		d.DatabaseId,
-		d.BranchId,
+		d.DatabaseID,
+		d.BranchID,
 		d.databaseManager.Cluster.NetworkFS(),
 	)
 }
@@ -198,7 +198,7 @@ func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 	}
 
 	if d.rollbackLogger == nil {
-		d.rollbackLogger = backups.NewRollbackLogger(d.tieredFS, d.DatabaseId, d.BranchId)
+		d.rollbackLogger = backups.NewRollbackLogger(d.tieredFS, d.DatabaseID, d.BranchID)
 	}
 
 	return d.rollbackLogger
@@ -237,7 +237,7 @@ func (d *DatabaseResources) Remove() {
 	}
 
 	if d.pageLogger != nil {
-		err := d.databaseManager.PageLogManager().Release(d.DatabaseId, d.BranchId)
+		err := d.databaseManager.PageLogManager().Release(d.DatabaseID, d.BranchID)
 
 		if err != nil {
 			slog.Error("Error releasing page logger", "error", err)
@@ -289,7 +289,7 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 		return d.snapshotLogger
 	}
 
-	d.snapshotLogger = backups.NewSnapshotLogger(d.tieredFS, d.DatabaseId, d.BranchId)
+	d.snapshotLogger = backups.NewSnapshotLogger(d.tieredFS, d.DatabaseID, d.BranchID)
 
 	return d.snapshotLogger
 }
@@ -303,8 +303,8 @@ func (d *DatabaseResources) TransactionManager() *TransactionManager {
 	}
 
 	d.transactionManager = NewTransactionManager(
-		d.DatabaseId,
-		d.BranchId,
+		d.DatabaseID,
+		d.BranchID,
 	)
 
 	return d.transactionManager

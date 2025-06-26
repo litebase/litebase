@@ -21,8 +21,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			rollbackLog, err := backups.OpenRollbackLog(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				timestampAtHour,
 			)
 
@@ -47,8 +47,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			rollbackLog, err := backups.OpenRollbackLog(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				timestamp,
 			)
 
@@ -80,8 +80,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			rollbackLog, err := backups.OpenRollbackLog(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				timestamp,
 			)
 
@@ -110,8 +110,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			rollbackLog, err := backups.OpenRollbackLog(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				timestamp,
 			)
 
@@ -133,8 +133,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			rollbackLog, err := backups.OpenRollbackLog(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				timestamp,
 			)
 
@@ -203,8 +203,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			backupLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 			)
 
 			for _, tc := range testCases {
@@ -233,8 +233,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			rollbackLog, err := backups.OpenRollbackLog(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				startOfHour.UnixNano(),
 			)
 
@@ -281,8 +281,8 @@ func TestRollbackLogNew(t *testing.T) {
 
 			rollbackLog, err := backups.OpenRollbackLog(
 				app.Cluster.TieredFS(),
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				timestamp,
 			)
 

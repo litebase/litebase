@@ -25,13 +25,13 @@ func TransactionControllerStore(request *Request) Response {
 
 	accessKey := requestToken.AccessKey()
 
-	if accessKey.AccessKeyId == "" {
+	if accessKey.AccessKeyID == "" {
 		return ErrInvalidAccessKeyResponse
 	}
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
 	)
 
@@ -40,8 +40,8 @@ func TransactionControllerStore(request *Request) Response {
 	}
 
 	transaction, err := request.databaseManager.Resources(
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 	).TransactionManager().Create(
 		request.cluster,
 		request.databaseManager,
@@ -60,8 +60,8 @@ func TransactionControllerStore(request *Request) Response {
 			"message": "Transaction created successfully",
 			"data": map[string]any{
 				"id":          transaction.Id,
-				"database_id": databaseKey.DatabaseId,
-				"branch_id":   databaseKey.BranchId,
+				"database_id": databaseKey.DatabaseID,
+				"branch_id":   databaseKey.BranchID,
 				"created_at":  transaction.CreatedAt,
 				"started_at":  transaction.StartedAt,
 			},
@@ -85,13 +85,13 @@ func TransactionControllerDestroy(request *Request) Response {
 
 	accessKey := requestToken.AccessKey()
 
-	if accessKey.AccessKeyId == "" {
+	if accessKey.AccessKeyID == "" {
 		return ErrInvalidAccessKeyResponse
 	}
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
 	)
 
@@ -101,8 +101,8 @@ func TransactionControllerDestroy(request *Request) Response {
 
 	transactionId := request.Param("id")
 	transactionManager := request.databaseManager.Resources(
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 	).TransactionManager()
 
 	transaction, err := transactionManager.Get(transactionId)

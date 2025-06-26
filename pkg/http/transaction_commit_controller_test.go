@@ -17,13 +17,13 @@ func TestTransactionCommitController(t *testing.T) {
 		database := test.MockDatabase(server.App)
 
 		con, err := server.App.DatabaseManager.ConnectionManager().Get(
-			database.DatabaseKey.DatabaseId,
-			database.DatabaseKey.BranchId,
+			database.DatabaseKey.DatabaseID,
+			database.DatabaseKey.BranchID,
 		)
 
 		defer server.App.DatabaseManager.ConnectionManager().Release(
-			database.DatabaseKey.DatabaseId,
-			database.DatabaseKey.BranchId,
+			database.DatabaseKey.DatabaseID,
+			database.DatabaseKey.BranchID,
 			con,
 		)
 

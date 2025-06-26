@@ -14,10 +14,14 @@ import (
 )
 
 type Branch struct {
-	Id        string `json:"id"`
-	IsPrimary bool   `json:"is_primary"`
-	Key       string `json:"key"`
-	Name      string `json:"name"`
+	ID         int64  `json:"id"`
+	DatabaseID int64  `json:"database_id"`
+	BranchID   string `json:"branch_id"`
+	Key        string `json:"key"`
+	Name       string `json:"name"`
+	Settings   string `json:"settings"` // TODO: Need to make this a struct
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrimary bool) (*Branch, error) {
@@ -38,8 +42,6 @@ func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrim
 		MinLength: 12,
 	})
 
-	// TODO: ensure that the key is unique in the database key store
-
 	key, err := s.Encode([]uint64{keyCount})
 
 	if err != nil {
@@ -47,9 +49,12 @@ func NewBranch(c *config.Config, dks *auth.DatabaseKeyStore, name string, isPrim
 	}
 
 	return &Branch{
-		Id:        uuid.New().String(),
-		IsPrimary: isPrimary,
-		Key:       key,
-		Name:      name,
+		BranchID: uuid.New().String(),
+		Key:      key,
+		Name:     name,
 	}, nil
+}
+
+func (b *Branch) Save() error {
+	return nil
 }

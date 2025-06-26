@@ -52,13 +52,13 @@ func QueryStreamController(request *Request) Response {
 
 	accessKey := requestToken.AccessKey()
 
-	if accessKey.AccessKeyId == "" {
+	if accessKey.AccessKeyID == "" {
 		return ErrInvalidAccessKeyResponse
 	}
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeQuery},
 	)
 
@@ -121,15 +121,15 @@ func processInput(
 		!requestQuery.IsTransactionEnd() &&
 		!requestQuery.IsTransactionRollback() {
 		transaction, err = request.databaseManager.Resources(
-			databaseKey.DatabaseId,
-			databaseKey.BranchId,
+			databaseKey.DatabaseID,
+			databaseKey.BranchID,
 		).TransactionManager().Get(string(requestQuery.Input.TransactionId))
 
 		if err != nil {
 			return err
 		}
 
-		if accessKey.AccessKeyId != transaction.AccessKey.AccessKeyId {
+		if accessKey.AccessKeyID != transaction.AccessKey.AccessKeyID {
 			return fmt.Errorf("invalid access key")
 		}
 

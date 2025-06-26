@@ -15,8 +15,8 @@ import (
 )
 
 type TestDatabase struct {
-	DatabaseId  string
-	BranchId    string
+	DatabaseID  string
+	BranchID    string
 	DatabaseKey *auth.DatabaseKey
 	AccessKey   *auth.AccessKey
 }
@@ -44,7 +44,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	accessKeyId := CreateHash(32)
 
 	accessKey := &auth.AccessKey{
-		AccessKeyId:     accessKeyId,
+		AccessKeyID:     accessKeyId,
 		AccessKeySecret: "accessKeySecret",
 		Statements: []auth.AccessKeyStatement{
 			{
@@ -68,13 +68,13 @@ func MockDatabase(app *server.App) TestDatabase {
 	}
 
 	return TestDatabase{
-		DatabaseId: db.Id,
-		BranchId:   db.PrimaryBranchId,
+		DatabaseID: db.DatabaseID,
+		BranchID:   db.PrimaryBranch().BranchID,
 		DatabaseKey: &auth.DatabaseKey{
-			DatabaseHash: file.DatabaseHash(db.Id, db.PrimaryBranchId),
-			DatabaseId:   db.Id,
-			BranchId:     db.PrimaryBranchId,
-			Key:          db.Key(db.PrimaryBranchId),
+			DatabaseHash: file.DatabaseHash(db.DatabaseID, db.PrimaryBranch().BranchID),
+			DatabaseID:   db.DatabaseID,
+			BranchID:     db.PrimaryBranch().BranchID,
+			Key:          db.PrimaryBranch().Key,
 		},
 		AccessKey: accessKey,
 	}

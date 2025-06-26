@@ -174,7 +174,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Error("Expected accessKey to not have access to database")
 			}
 
-			if err := accessKey.CanAccessDatabase(db.DatabaseId, db.BranchId); err != nil {
+			if err := accessKey.CanAccessDatabase(db.DatabaseID, db.BranchID); err != nil {
 				t.Error("Expected accessKey to have access to database")
 			}
 		})
@@ -182,13 +182,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanAnalyze", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -215,7 +215,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
 					},
 				},
 				{
@@ -224,7 +224,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeAnalyze),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
 					},
 				},
 				{
@@ -233,7 +233,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
 					},
 				},
 				{
@@ -242,7 +242,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeAnalyze),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
 					},
 				},
 				{
@@ -251,7 +251,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:%s:*", db.DatabaseId, db.BranchId, "test_table")), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:%s:*", db.DatabaseID, db.BranchID, "test_table")), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
 					},
 				},
 				{
@@ -260,7 +260,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeAnalyze),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAnalyze}},
 					},
 				},
 			}
@@ -293,8 +293,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanAnalyze(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -336,8 +336,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 			// Test the access key permissions directly
 			check, err := accessKey.CanAttach(
-				db.DatabaseId,
-				db.BranchId,
+				db.DatabaseID,
+				db.BranchID,
 				"test_table",
 			)
 
@@ -353,13 +353,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanAlterTable", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -405,7 +405,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 				{
@@ -414,7 +414,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeAlterTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 				{
@@ -423,7 +423,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 				{
@@ -432,7 +432,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeAlterTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 				{
@@ -441,7 +441,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 				{
@@ -450,7 +450,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeAlterTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 				{
@@ -459,7 +459,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:%s", db.DatabaseId, db.BranchId, "test_table")), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:%s", db.DatabaseID, db.BranchID, "test_table")), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 				{
@@ -468,7 +468,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeAlterTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeFunction, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:%s", db.DatabaseId, db.BranchId, "test_table")), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:table:%s", db.DatabaseID, db.BranchID, "test_table")), Actions: []auth.Privilege{auth.DatabasePrivilegeAlterTable}},
 					},
 				},
 			}
@@ -501,8 +501,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanAlterTable(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -539,13 +539,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateIndex", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -592,7 +592,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeReindex, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
 					},
 				},
 				{
@@ -601,7 +601,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateIndex),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeReindex, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
 					},
 				},
 				{
@@ -610,7 +610,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeReindex, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
 					},
 				},
 				{
@@ -619,7 +619,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateIndex),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeReindex, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateIndex}},
 					},
 				},
 			}
@@ -652,8 +652,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateIndex(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -684,13 +684,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateTable", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -737,7 +737,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
 					},
 				},
 				{
@@ -746,7 +746,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
 					},
 				},
 				{
@@ -755,7 +755,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
 					},
 				},
 				{
@@ -763,7 +763,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_table"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTable),
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable}},
 					},
 				},
 			}
@@ -789,8 +789,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateTable(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -821,13 +821,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateTempTable", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -874,7 +874,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
 					},
 				},
 				{
@@ -883,7 +883,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTempTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
 					},
 				},
 				{
@@ -892,7 +892,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
 					},
 				},
 				{
@@ -901,7 +901,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTempTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTable}},
 					},
 				},
 			}
@@ -927,8 +927,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateTempTable(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -959,13 +959,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateTempTrigger", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -1012,7 +1012,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTrigger}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTrigger}},
 					},
 				},
 				{
@@ -1021,7 +1021,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTempTrigger),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTrigger}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTrigger}},
 					},
 				},
 				{
@@ -1030,7 +1030,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTempTrigger),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTrigger}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempTrigger}},
 					},
 				},
 			}
@@ -1063,8 +1063,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateTempTrigger(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -1096,13 +1096,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateTempView", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -1149,7 +1149,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempView}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempView}},
 					},
 				},
 				{
@@ -1158,7 +1158,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTempView),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempView}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempView}},
 					},
 				},
 				{
@@ -1167,7 +1167,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTempView),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempView}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTempView}},
 					},
 				},
 			}
@@ -1207,8 +1207,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateTempView(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -1239,13 +1239,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateTrigger", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -1292,7 +1292,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTrigger}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTrigger}},
 					},
 				},
 				{
@@ -1301,7 +1301,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTrigger),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTrigger}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTrigger}},
 					},
 				},
 				{
@@ -1310,7 +1310,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateTrigger),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTrigger}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTrigger}},
 					},
 				},
 			}
@@ -1343,8 +1343,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateTrigger(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -1376,13 +1376,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateView", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -1429,7 +1429,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateView}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateView}},
 					},
 				},
 				{
@@ -1438,7 +1438,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateView),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateView}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateView}},
 					},
 				},
 				{
@@ -1447,7 +1447,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateView),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateView}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateView}},
 					},
 				},
 			}
@@ -1487,8 +1487,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateView(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -1519,13 +1519,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanCreateVTable", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -1572,7 +1572,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeCreateIndex, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
 					},
 				},
 				{
@@ -1581,7 +1581,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateVTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeCreateIndex, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
 					},
 				},
 				{
@@ -1590,7 +1590,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeCreateIndex, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
 					},
 				},
 				{
@@ -1599,7 +1599,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeCreateVTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeCreateIndex, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeCreateVTable}},
 					},
 				},
 			}
@@ -1625,8 +1625,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanCreateVTable(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -1658,13 +1658,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanDelete", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -1712,7 +1712,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 				},
 				{
@@ -1721,7 +1721,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDelete),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 				},
 				{
@@ -1730,7 +1730,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 				},
 				{
@@ -1739,7 +1739,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDelete),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 				},
 			}
@@ -1772,8 +1772,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanDelete(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -1819,8 +1819,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 			// Test the access key permissions directly
 			check, err := accessKey.CanDetach(
-				db.DatabaseId,
-				db.BranchId,
+				db.DatabaseID,
+				db.BranchID,
 				"test_table",
 			)
 
@@ -1836,13 +1836,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanDropIndex", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -1889,7 +1889,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
 					},
 				},
 				{
@@ -1898,7 +1898,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropIndex),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
 					},
 				},
 				{
@@ -1907,7 +1907,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
 					},
 				},
 				{
@@ -1916,7 +1916,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropIndex),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropIndex}},
 					},
 				},
 			}
@@ -1956,8 +1956,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanDropIndex(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -1988,13 +1988,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanDropTable", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -2040,7 +2040,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
 					},
 				},
 				{
@@ -2049,7 +2049,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
 					},
 				},
 				{
@@ -2058,7 +2058,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
 					},
 				},
 				{
@@ -2067,7 +2067,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropTable),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTable}},
 					},
 				},
 			}
@@ -2100,8 +2100,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanDropTable(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -2131,13 +2131,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanDropTrigger", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -2184,7 +2184,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
 					},
 				},
 				{
@@ -2193,7 +2193,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropTrigger),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
 					},
 				},
 				{
@@ -2202,7 +2202,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
 					},
 				},
 				{
@@ -2211,7 +2211,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropTrigger),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropTrigger}},
 					},
 				},
 			}
@@ -2251,8 +2251,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanDropTrigger(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -2283,13 +2283,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanDropView", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -2335,7 +2335,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
 					},
 				},
 				{
@@ -2344,7 +2344,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropView),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
 					},
 				},
 				{
@@ -2353,7 +2353,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
 					},
 				},
 				{
@@ -2362,7 +2362,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeDropView),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeDropView}},
 					},
 				},
 			}
@@ -2409,8 +2409,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanDropView(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -2440,13 +2440,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanFunction", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -2492,7 +2492,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
 					},
 				},
 				{
@@ -2501,7 +2501,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeFunction),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
 					},
 				},
 				{
@@ -2510,7 +2510,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
 					},
 				},
 				{
@@ -2519,7 +2519,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeFunction),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeFunction}},
 					},
 				},
 			}
@@ -2545,8 +2545,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanFunction(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -2576,13 +2576,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanInsert", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -2625,7 +2625,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_table"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
 					},
 				},
 				{
@@ -2633,7 +2633,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_table"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeInsert),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
 					},
 				},
 				{
@@ -2641,7 +2641,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_table"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
 					},
 				},
 				{
@@ -2649,7 +2649,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_table"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeInsert),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeInsert}},
 					},
 				},
 			}
@@ -2675,8 +2675,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanInsert(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -2707,13 +2707,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanPragma", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -2756,7 +2756,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"database_list"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
 					},
 				},
 				{
@@ -2764,7 +2764,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"database_list"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegePragma),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
 					},
 				},
 				{
@@ -2772,7 +2772,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"database_list"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
 					},
 				},
 				{
@@ -2780,7 +2780,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"database_list"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegePragma),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegePragma}},
 					},
 				},
 			}
@@ -2799,8 +2799,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanPragma(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						"",
 					)
@@ -2832,13 +2832,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanRead", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -2886,7 +2886,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
 					},
 				},
 				{
@@ -2895,7 +2895,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeRead),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
 					},
 				},
 				{
@@ -2904,7 +2904,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
 					},
 				},
 				{
@@ -2913,7 +2913,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeRead),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
 					},
 				},
 			}
@@ -2946,8 +2946,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanRead(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -2979,13 +2979,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanRecursive", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -3032,7 +3032,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
 					},
 				},
 				{
@@ -3041,7 +3041,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeRecursive),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
 					},
 				},
 				{
@@ -3050,7 +3050,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
 					},
 				},
 				{
@@ -3059,7 +3059,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeRecursive),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
-						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
+						{Effect: auth.AccessKeyEffectDeny, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeRecursive}},
 					},
 				},
 			}
@@ -3077,8 +3077,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanRecursive(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 					)
 
 					if err != testCase.expectedError {
@@ -3108,13 +3108,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanReindex", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -3157,7 +3157,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"idx_test_table_name"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
 					},
 				},
 				{
@@ -3165,7 +3165,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"idx_test_table_name"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeReindex),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
 					},
 				},
 				{
@@ -3173,7 +3173,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"idx_test_table_name"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
 					},
 				},
 				{
@@ -3181,7 +3181,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"idx_test_table_name"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeReindex),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeReindex}},
 					},
 				},
 			}
@@ -3221,8 +3221,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanReindex(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -3252,13 +3252,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanSavepoint", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -3301,7 +3301,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation", "savepoint_name"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
 					},
 				},
 				{
@@ -3309,7 +3309,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation", "savepoint_name"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeSavepoint),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
 					},
 				},
 				{
@@ -3317,7 +3317,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation", "savepoint_name"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
 					},
 				},
 				{
@@ -3325,7 +3325,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation", "savepoint_name"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeSavepoint),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSavepoint}},
 					},
 				},
 			}
@@ -3342,8 +3342,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanSavepoint(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)
@@ -3374,13 +3374,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanSelect", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -3423,7 +3423,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
 					},
 				},
 				{
@@ -3431,7 +3431,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeSelect),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
 					},
 				},
 				{
@@ -3439,7 +3439,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
 					},
 				},
 				{
@@ -3447,7 +3447,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeSelect),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeSelect}},
 					},
 				},
 			}
@@ -3464,8 +3464,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanSelect(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 					)
 
 					if err != testCase.expectedError {
@@ -3494,13 +3494,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanTransaction", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -3545,7 +3545,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
 					},
 				},
 				{
@@ -3553,7 +3553,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeTransaction),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
 					},
 				},
 				{
@@ -3561,7 +3561,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation"},
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
 					},
 				},
 				{
@@ -3569,7 +3569,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					args:          []string{"test_operation"},
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeTransaction),
 					statements: []auth.AccessKeyStatement{
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeTransaction}},
 					},
 				},
 			}
@@ -3586,8 +3586,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanTransaction(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 					)
 
@@ -3621,13 +3621,13 @@ func TestAccessKeyStatements(t *testing.T) {
 		t.Run("CanUpdate", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseId, db.BranchId)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.BranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, con)
+			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
 
 			testCases := []struct {
 				name          string
@@ -3673,7 +3673,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
 					},
 				},
 				{
@@ -3682,7 +3682,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeUpdate),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseId)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:*", db.DatabaseID)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
 					},
 				},
 				{
@@ -3691,7 +3691,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: nil,
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
+						{Effect: auth.AccessKeyEffectAllow, Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
 					},
 				},
 				{
@@ -3700,7 +3700,7 @@ func TestAccessKeyStatements(t *testing.T) {
 					expectedError: auth.NewDatabasePrivilegeError(auth.DatabasePrivilegeUpdate),
 					statements: []auth.AccessKeyStatement{
 						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{auth.DatabasePrivilegeRead}},
-						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseId, db.BranchId)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
+						{Effect: "DENY", Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:%s:*", db.DatabaseID, db.BranchID)), Actions: []auth.Privilege{auth.DatabasePrivilegeUpdate}},
 					},
 				},
 			}
@@ -3726,8 +3726,8 @@ func TestAccessKeyStatements(t *testing.T) {
 
 					// Test the access key permissions directly
 					check, err := accessKey.CanUpdate(
-						db.DatabaseId,
-						db.BranchId,
+						db.DatabaseID,
+						db.BranchID,
 						testCase.args[0],
 						testCase.args[1],
 					)

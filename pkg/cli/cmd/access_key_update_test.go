@@ -28,7 +28,7 @@ func TestAccessKeyUpdate(t *testing.T) {
 
 		// Test non-interactive mode with flags to avoid TTY issues
 		statements := `[{"effect":"deny","resource":"*","actions":["*"]}]`
-		err = cli.Run("access-key", "update", accessKey.AccessKeyId, "--description", "Updated access key", "--statements", statements)
+		err = cli.Run("access-key", "update", accessKey.AccessKeyID, "--description", "Updated access key", "--statements", statements)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)

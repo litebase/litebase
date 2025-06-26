@@ -407,7 +407,7 @@ func TestRequest_RequestToken(t *testing.T) {
 		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
 
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyId,
+			db.AccessKey.AccessKeyID,
 			db.AccessKey.AccessKeySecret,
 			"GET",
 			"/",

@@ -9,7 +9,7 @@ import (
 type RequestToken struct {
 	accessKey        *AccessKey
 	accessKeyManager *AccessKeyManager
-	AccessKeyId      string   `json:"access_key_id"`
+	AccessKeyID      string   `json:"access_key_id"`
 	SignedHeaders    []string `json:"signed_headers"`
 	Signature        string   `json:"signature"`
 }
@@ -52,7 +52,7 @@ func CaptureRequestToken(accessKeyManager *AccessKeyManager, authorizationHeader
 	}
 
 	return RequestToken{
-		AccessKeyId:      token["credential"],
+		AccessKeyID:      token["credential"],
 		accessKeyManager: accessKeyManager,
 		SignedHeaders:    strings.Split(token["signed_headers"], ","),
 		Signature:        token["signature"],
@@ -64,7 +64,7 @@ func (requestToken RequestToken) AccessKey() *AccessKey {
 		return requestToken.accessKey
 	}
 
-	data, err := requestToken.accessKeyManager.Get(requestToken.AccessKeyId)
+	data, err := requestToken.accessKeyManager.Get(requestToken.AccessKeyID)
 
 	if err != nil {
 		return nil
@@ -77,7 +77,7 @@ func (requestToken RequestToken) AccessKey() *AccessKey {
 
 func (requestToken RequestToken) ToMap() map[string]any {
 	return map[string]interface{}{
-		"access_key_id":  requestToken.AccessKeyId,
+		"access_key_id":  requestToken.AccessKeyID,
 		"signed_headers": requestToken.SignedHeaders,
 		"signature":      requestToken.Signature,
 	}
@@ -94,5 +94,5 @@ func (requestToken RequestToken) ToJson() string {
 }
 
 func (requestToken RequestToken) Valid() bool {
-	return requestToken.AccessKeyId != "" && len(requestToken.SignedHeaders) > 0 && requestToken.Signature != ""
+	return requestToken.AccessKeyID != "" && len(requestToken.SignedHeaders) > 0 && requestToken.Signature != ""
 }

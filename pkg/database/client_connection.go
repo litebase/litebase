@@ -8,9 +8,9 @@ import (
 
 type ClientConnection struct {
 	accessKey  *auth.AccessKey
-	BranchId   string
+	BranchID   string
 	connection *DatabaseConnection
-	DatabaseId string
+	DatabaseID string
 	path       string
 }
 
@@ -30,9 +30,9 @@ func NewClientConnection(
 	}
 
 	return &ClientConnection{
-		BranchId:   branchId,
+		BranchID:   branchId,
 		connection: connection,
-		DatabaseId: databaseId,
+		DatabaseID: databaseId,
 	}, nil
 }
 

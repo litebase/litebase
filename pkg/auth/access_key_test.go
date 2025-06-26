@@ -24,8 +24,8 @@ func TestAccessKey(t *testing.T) {
 				t.Fatal("Expected accessKey to be non-nil")
 			}
 
-			if accessKey.AccessKeyId != "accessKeyId" {
-				t.Errorf("Expected accessKeyId to be 'accessKeyId', got %s", accessKey.AccessKeyId)
+			if accessKey.AccessKeyID != "accessKeyId" {
+				t.Errorf("Expected accessKeyId to be 'accessKeyId', got %s", accessKey.AccessKeyID)
 			}
 
 			if accessKey.AccessKeySecret != "accessKeySecret" {

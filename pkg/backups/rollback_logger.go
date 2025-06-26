@@ -11,8 +11,8 @@ import (
 
 type RollbackLogger struct {
 	buffers    sync.Pool
-	DatabaseId string
-	BranchId   string
+	DatabaseID string
+	BranchID   string
 	logs       map[int64]*RollbackLog
 	mutex      *sync.Mutex
 	tieredFS   *storage.FileSystem
@@ -25,8 +25,8 @@ func NewRollbackLogger(tieredFS *storage.FileSystem, databaseId, branchId string
 				return bytes.NewBuffer(make([]byte, 1024))
 			},
 		},
-		DatabaseId: databaseId,
-		BranchId:   branchId,
+		DatabaseID: databaseId,
+		BranchID:   branchId,
 		logs:       make(map[int64]*RollbackLog),
 		mutex:      &sync.Mutex{},
 		tieredFS:   tieredFS,
@@ -77,8 +77,8 @@ func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 
 	rollbackLog, err := OpenRollbackLog(
 		rl.tieredFS,
-		rl.DatabaseId,
-		rl.BranchId,
+		rl.DatabaseID,
+		rl.BranchID,
 		startOfHourTimestamp,
 	)
 

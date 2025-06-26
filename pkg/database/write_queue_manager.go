@@ -28,9 +28,9 @@ func (wqm *WriteQueueManager) GetWriteQueue(query *Query) *WriteQueue {
 	}
 
 	writeQueue := &WriteQueue{
-		branchId:   query.DatabaseKey.BranchId,
+		branchId:   query.DatabaseKey.BranchID,
 		context:    ctx,
-		databaseId: query.DatabaseKey.DatabaseId,
+		databaseId: query.DatabaseKey.DatabaseID,
 		// Setup a buffered channel to hold up to 1000 concurrent jobs
 		jobs:  make(chan WriteQueueJob, 1),
 		mutex: sync.Mutex{},

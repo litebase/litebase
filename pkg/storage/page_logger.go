@@ -29,9 +29,9 @@ type PageNumber int64
 type PageVersion int64
 
 type PageLogger struct {
-	BranchId    string
+	BranchID    string
 	CompactedAt time.Time
-	DatabaseId  string
+	DatabaseID  string
 	NetworkFS   *FileSystem
 	index       *PageLoggerIndex
 	logs        map[PageGroup]map[PageGroupVersion]*PageLog
@@ -58,8 +58,8 @@ func NewPageLogger(
 	}
 
 	pl := &PageLogger{
-		BranchId:   branchId,
-		DatabaseId: databaseId,
+		BranchID:   branchId,
+		DatabaseID: databaseId,
 		NetworkFS:  networkFS,
 		index:      pli,
 		logs:       make(map[PageGroup]map[PageGroupVersion]*PageLog),
@@ -178,7 +178,7 @@ func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGrou
 		pl.NetworkFS,
 		fmt.Sprintf(
 			"%slogs/page/PAGE_LOG_%d_%d",
-			file.GetDatabaseFileBaseDir(pl.DatabaseId, pl.BranchId),
+			file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID),
 			logGroup,
 			logTimestamp,
 		),
@@ -244,7 +244,7 @@ func (pl *PageLogger) load() error {
 	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
 
 	// Scan the log directory
-	logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(pl.DatabaseId, pl.BranchId))
+	logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID))
 
 	files, err := pl.NetworkFS.ReadDir(logDir)
 

@@ -17,7 +17,7 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 
@@ -26,7 +26,7 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 	}
 
 	snapshots, err := request.databaseManager.
-		Resources(databaseKey.DatabaseId, databaseKey.BranchId).
+		Resources(databaseKey.DatabaseID, databaseKey.BranchID).
 		SnapshotLogger().
 		GetSnapshots()
 
@@ -66,7 +66,7 @@ func DatabaseSnapshotShowController(request *Request) Response {
 	}
 
 	snapshot, err := request.databaseManager.
-		Resources(databaseKey.DatabaseId, databaseKey.BranchId).
+		Resources(databaseKey.DatabaseID, databaseKey.BranchID).
 		SnapshotLogger().
 		GetSnapshot(timestamp)
 

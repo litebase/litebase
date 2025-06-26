@@ -28,11 +28,7 @@ func TestNewBranch(t *testing.T) {
 			t.Fatal("Branch name is not correct")
 		}
 
-		if branch.IsPrimary {
-			t.Fatal("Branch is primary")
-		}
-
-		if branch.Id == "" {
+		if branch.BranchID == "" {
 			t.Fatal("Branch ID is empty")
 		}
 

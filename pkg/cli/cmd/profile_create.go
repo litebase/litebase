@@ -26,7 +26,7 @@ func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
 			profile.Type, _ = cmd.Flags().GetString("profile-type")
 			profile.Credentials.Username, _ = cmd.Flags().GetString("profile-username")
 			profile.Credentials.Password, _ = cmd.Flags().GetString("profile-password")
-			profile.Credentials.AccessKeyId, _ = cmd.Flags().GetString("profile-access-key-id")
+			profile.Credentials.AccessKeyID, _ = cmd.Flags().GetString("profile-access-key-id")
 			profile.Credentials.AccessKeySecret, _ = cmd.Flags().GetString("profile-access-key-secret")
 
 			if c.GetInteractive() {
@@ -115,7 +115,7 @@ func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
 
 								return nil
 							}).
-							Value(&profile.Credentials.AccessKeyId),
+							Value(&profile.Credentials.AccessKeyID),
 						huh.NewInput().
 							Title("Access Key Secret").
 							Placeholder("Enter an access key secret").
@@ -157,7 +157,7 @@ func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
 						return errors.New("username and password are required for Basic Auth type")
 					}
 				} else if profile.Type == string(config.ProfileTypeAccessKey) {
-					if profile.Credentials.AccessKeyId == "" || profile.Credentials.AccessKeySecret == "" {
+					if profile.Credentials.AccessKeyID == "" || profile.Credentials.AccessKeySecret == "" {
 						return errors.New("access key id and secret are required for Access Key type")
 					}
 				} else {

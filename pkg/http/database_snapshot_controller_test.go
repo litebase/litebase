@@ -17,13 +17,13 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 
 		mock := test.MockDatabase(server.App)
 
-		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, db)
+		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, db)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
 		err = db.GetConnection().Checkpoint()
@@ -94,15 +94,15 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		defer server.Shutdown()
 		mock := test.MockDatabase(server.App)
 
-		snapshotLogger := server.App.DatabaseManager.Resources(mock.DatabaseId, mock.BranchId).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).SnapshotLogger()
 
-		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseId, db.BranchId, db)
+		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, db)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
 		err = db.GetConnection().Checkpoint()

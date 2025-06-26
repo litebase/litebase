@@ -59,7 +59,7 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 
 	if c.AccessKey != nil {
 		signature := auth.SignRequest(
-			c.AccessKey.AccessKeyId,
+			c.AccessKey.AccessKeyID,
 			c.AccessKey.AccessKeySecret,
 			method,
 			request.URL.Path,

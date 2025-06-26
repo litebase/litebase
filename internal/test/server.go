@@ -73,7 +73,7 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 func (ts *TestServer) WithAccessKeyClient(statements []auth.AccessKeyStatement) *TestClient {
 	if ts.Client == nil {
 		accessKey := &auth.AccessKey{
-			AccessKeyId:     CreateHash(32),
+			AccessKeyID:     CreateHash(32),
 			AccessKeySecret: "accessKeySecret",
 			Statements:      statements,
 		}

@@ -17,8 +17,8 @@ import (
 // are stored on disk and organized by day. Each log entry contains a timestamp
 // and the number of pages that were written to the snapshot.
 type SnapshotLogger struct {
-	BranchId          string
-	DatabaseId        string
+	BranchID          string
+	DatabaseID        string
 	file              internalStorage.File
 	keys              []int64
 	logs              map[int64]*Snapshot
@@ -34,8 +34,8 @@ type SnapshotLogger struct {
 // of pages that were written to the snapshot.
 func NewSnapshotLogger(tieredFS *storage.FileSystem, databaseId, branchId string) *SnapshotLogger {
 	return &SnapshotLogger{
-		BranchId:   branchId,
-		DatabaseId: databaseId,
+		BranchID:   branchId,
+		DatabaseID: databaseId,
 		logs:       make(map[int64]*Snapshot),
 		mutex:      &sync.Mutex{},
 		tieredFS:   tieredFS,
@@ -117,8 +117,8 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
 		sl.logs[startOfDayTimestamp] = NewSnapshot(
 			sl.tieredFS,
-			sl.DatabaseId,
-			sl.BranchId,
+			sl.DatabaseID,
+			sl.BranchID,
 			startOfDayTimestamp,
 			timestamp,
 		)
@@ -144,7 +144,7 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 	defer sl.mutex.Unlock()
 
 	entries, err := sl.tieredFS.ReadDir(
-		file.GetDatabaseSnapshotDirectory(sl.DatabaseId, sl.BranchId),
+		file.GetDatabaseSnapshotDirectory(sl.DatabaseID, sl.BranchID),
 	)
 
 	if err != nil {
@@ -168,8 +168,8 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 
 		sl.logs[timestamp] = NewSnapshot(
 			sl.tieredFS,
-			sl.DatabaseId,
-			sl.BranchId,
+			sl.DatabaseID,
+			sl.BranchID,
 			timestamp,
 			0,
 		)
@@ -214,8 +214,8 @@ func (sl *SnapshotLogger) Log(timestamp, pageCount int64) error {
 	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
 		sl.logs[startOfDayTimestamp] = NewSnapshot(
 			sl.tieredFS,
-			sl.DatabaseId,
-			sl.BranchId,
+			sl.DatabaseID,
+			sl.BranchID,
 			startOfDayTimestamp,
 			0,
 		)

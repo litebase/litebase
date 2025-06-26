@@ -22,15 +22,15 @@ func TestConnectionManager_CloseDatabaseConnections(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseId, mock1.BranchId)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseId, con1.BranchId, con1)
+		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseID, con1.BranchID, con1)
 
-		app.DatabaseManager.ConnectionManager().CloseDatabaseConnections(mock1.DatabaseId)
+		app.DatabaseManager.ConnectionManager().CloseDatabaseConnections(mock1.DatabaseID)
 
 		_, err = con1.GetConnection().Exec("SELECT 1", nil)
 
@@ -44,15 +44,15 @@ func TestConnectionManager_CloseDatabaseBranchConnections(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseId, mock1.BranchId)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseId, con1.BranchId, con1)
+		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseID, con1.BranchID, con1)
 
-		app.DatabaseManager.ConnectionManager().CloseDatabaseBranchConnections(mock1.DatabaseId, mock1.BranchId)
+		app.DatabaseManager.ConnectionManager().CloseDatabaseBranchConnections(mock1.DatabaseID, mock1.BranchID)
 
 		_, err = con1.GetConnection().Exec("SELECT 1", nil)
 
@@ -73,15 +73,15 @@ func TestConnectionManager_Drain(t *testing.T) {
 
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseId, mock1.BranchId)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseId, con1.BranchId, con1)
+		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseID, con1.BranchID, con1)
 
-		err = app.DatabaseManager.ConnectionManager().Drain(mock1.DatabaseId, mock1.BranchId, func() error {
+		err = app.DatabaseManager.ConnectionManager().Drain(mock1.DatabaseID, mock1.BranchID, func() error {
 			return nil
 		})
 
@@ -95,15 +95,15 @@ func TestConnectionManager_ForceCheckpoint(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseId, mock1.BranchId)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseId, con1.BranchId, con1)
+		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseID, con1.BranchID, con1)
 
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock1.DatabaseId, mock1.BranchId)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -115,13 +115,13 @@ func TestConnectionManager_Get(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseId, mock1.BranchId)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseId, con1.BranchId, con1)
+		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseID, con1.BranchID, con1)
 
 		// Simulate some work with the connection
 		_, err = con1.GetConnection().Exec("SELECT 1", nil)
@@ -136,13 +136,13 @@ func TestConnectionManager_Release(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseId, mock1.BranchId)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		app.DatabaseManager.ConnectionManager().Release(con1.DatabaseId, con1.BranchId, con1)
+		app.DatabaseManager.ConnectionManager().Release(con1.DatabaseID, con1.BranchID, con1)
 	})
 }
 
@@ -157,13 +157,13 @@ func TestConnectionManager_Shutdown(t *testing.T) {
 
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseId, mock1.BranchId)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseId, con1.BranchId, con1)
+		defer app.DatabaseManager.ConnectionManager().Release(con1.DatabaseID, con1.BranchID, con1)
 
 		app.DatabaseManager.ConnectionManager().Shutdown()
 

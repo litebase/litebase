@@ -18,8 +18,8 @@ func TestDatabaseKey(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			databaseKey := auth.NewDatabaseKey(
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				mock.DatabaseKey.Key,
 			)
 
@@ -27,12 +27,12 @@ func TestDatabaseKey(t *testing.T) {
 				t.Fatal("database key is nil")
 			}
 
-			if databaseKey.DatabaseId != mock.DatabaseId {
-				t.Errorf("expected DatabaseId %s, got %s", mock.DatabaseId, databaseKey.DatabaseId)
+			if databaseKey.DatabaseID != mock.DatabaseID {
+				t.Errorf("expected DatabaseID %s, got %s", mock.DatabaseID, databaseKey.DatabaseID)
 			}
 
-			if databaseKey.BranchId != mock.BranchId {
-				t.Errorf("expected BranchId %s, got %s", mock.BranchId, databaseKey.BranchId)
+			if databaseKey.BranchID != mock.BranchID {
+				t.Errorf("expected BranchID %s, got %s", mock.BranchID, databaseKey.BranchID)
 			}
 
 			if databaseKey.Key != mock.DatabaseKey.Key {
@@ -44,8 +44,8 @@ func TestDatabaseKey(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			databaseKey := auth.NewDatabaseKey(
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				mock.DatabaseKey.Key,
 			)
 
@@ -75,16 +75,16 @@ func TestDatabaseKey(t *testing.T) {
 				t.Errorf("expected DatabaseHash %s, got %s", hashBytes, string(encodedKey[auth.DatabaseKeyKeySize:auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize]))
 			}
 
-			databaseIdBytes, _ := uuid.Parse(mock.DatabaseId)
+			databaseIdBytes, _ := uuid.Parse(mock.DatabaseID)
 
-			if !bytes.Equal(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize:auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIdSize], databaseIdBytes[:]) {
-				t.Errorf("expected DatabaseId %s, got %s", mock.DatabaseId, string(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize:auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIdSize]))
+			if !bytes.Equal(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize:auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIDSize], databaseIdBytes[:]) {
+				t.Errorf("expected DatabaseID %s, got %s", mock.DatabaseID, string(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize:auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIDSize]))
 			}
 
-			branchIdBytes, _ := uuid.Parse(mock.BranchId)
+			branchIdBytes, _ := uuid.Parse(mock.BranchID)
 
-			if !bytes.Equal(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIdSize:], branchIdBytes[:]) {
-				t.Errorf("expected BranchId %s, got %s", mock.BranchId, string(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIdSize:]))
+			if !bytes.Equal(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIDSize:], branchIdBytes[:]) {
+				t.Errorf("expected BranchID %s, got %s", mock.BranchID, string(encodedKey[auth.DatabaseKeyKeySize+auth.DatabaseKeyHashSize+auth.DatabaseKeyDatabaseIDSize:]))
 			}
 		})
 
@@ -92,8 +92,8 @@ func TestDatabaseKey(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			databaseKey := auth.NewDatabaseKey(
-				mock.DatabaseId,
-				mock.BranchId,
+				mock.DatabaseID,
+				mock.BranchID,
 				mock.DatabaseKey.Key,
 			)
 
@@ -117,12 +117,12 @@ func TestDatabaseKey(t *testing.T) {
 				t.Errorf("expected DatabaseHash %s, got %s", mock.DatabaseKey.DatabaseHash, decodedKey.DatabaseHash)
 			}
 
-			if decodedKey.DatabaseId != mock.DatabaseId {
-				t.Errorf("expected DatabaseId %s, got %s", mock.DatabaseId, decodedKey.DatabaseId)
+			if decodedKey.DatabaseID != mock.DatabaseID {
+				t.Errorf("expected DatabaseID %s, got %s", mock.DatabaseID, decodedKey.DatabaseID)
 			}
 
-			if decodedKey.BranchId != mock.BranchId {
-				t.Errorf("expected BranchId %s, got %s", mock.BranchId, decodedKey.BranchId)
+			if decodedKey.BranchID != mock.BranchID {
+				t.Errorf("expected BranchID %s, got %s", mock.BranchID, decodedKey.BranchID)
 			}
 		})
 	})

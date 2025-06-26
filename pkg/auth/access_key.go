@@ -10,7 +10,7 @@ import (
 )
 
 type AccessKey struct {
-	AccessKeyId      string `json:"access_key_id"`
+	AccessKeyID      string `json:"access_key_id"`
 	AccessKeySecret  string `json:"access_key_secret"`
 	Description      string `json:"description"`
 	accessKeyManager *AccessKeyManager
@@ -20,7 +20,7 @@ type AccessKey struct {
 }
 
 type AccessKeyResponse struct {
-	AccessKeyId string               `json:"access_key_id"`
+	AccessKeyID string               `json:"access_key_id"`
 	Description string               `json:"description"`
 	CreatedAt   time.Time            `json:"created_at"`
 	UpdatedAt   time.Time            `json:"updated_at"`
@@ -37,7 +37,7 @@ func NewAccessKey(
 ) *AccessKey {
 	return &AccessKey{
 		accessKeyManager: accessKeyManager,
-		AccessKeyId:      accessKeyId,
+		AccessKeyID:      accessKeyId,
 		AccessKeySecret:  accessKeySecret,
 		Description:      description,
 		Statements:       statements,
@@ -68,7 +68,7 @@ func (accessKey *AccessKey) Delete() error {
 	)
 
 	for _, key := range keys {
-		path := fmt.Sprintf("%s/access_keys/%s", key, accessKey.AccessKeyId)
+		path := fmt.Sprintf("%s/access_keys/%s", key, accessKey.AccessKeyID)
 
 		err := accessKey.accessKeyManager.objectFS.Remove(path)
 
@@ -79,7 +79,7 @@ func (accessKey *AccessKey) Delete() error {
 		}
 	}
 
-	err := accessKey.accessKeyManager.Purge(accessKey.AccessKeyId)
+	err := accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
 
 	if err != nil {
 		slog.Error("failed to purge access key", "error", err)
@@ -92,7 +92,7 @@ func (accessKey *AccessKey) Delete() error {
 
 func (accessKey *AccessKey) ToResponse() *AccessKeyResponse {
 	return &AccessKeyResponse{
-		AccessKeyId: accessKey.AccessKeyId,
+		AccessKeyID: accessKey.AccessKeyID,
 		Description: accessKey.Description,
 		CreatedAt:   accessKey.CreatedAt,
 		UpdatedAt:   accessKey.UpdatedAt,
@@ -128,7 +128,7 @@ func (accessKey *AccessKey) Update(
 	err = accessKey.accessKeyManager.objectFS.WriteFile(
 		accessKey.accessKeyManager.auth.SecretsManager.SecretsPath(
 			accessKey.accessKeyManager.config.EncryptionKey,
-			fmt.Sprintf("access_keys/%s", accessKey.AccessKeyId),
+			fmt.Sprintf("access_keys/%s", accessKey.AccessKeyID),
 		),
 		[]byte(encryptedAccessKey),
 		0600,
@@ -140,5 +140,5 @@ func (accessKey *AccessKey) Update(
 		return err
 	}
 
-	return accessKey.accessKeyManager.Purge(accessKey.AccessKeyId)
+	return accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
 }

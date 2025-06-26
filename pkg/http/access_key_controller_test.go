@@ -30,7 +30,7 @@ func TestAccessKeyControllerDestroy(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "DELETE", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyID), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to delete access key: %v", err)
@@ -63,7 +63,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteCurrentAccessKey(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", client.AccessKey.AccessKeyId), "DELETE", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", client.AccessKey.AccessKeyID), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to delete access key: %v", err)
@@ -101,7 +101,7 @@ func TestAccessKeyControllerDestroy_CannotDeleteWithInvalidAccessKey(t *testing.
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "DELETE", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyID), "DELETE", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to delete access key: %v", err)
@@ -172,7 +172,7 @@ func TestAccessKeyControllerShow(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "GET", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyID), "GET", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to get access key: %v", err)
@@ -254,7 +254,7 @@ func TestAccessKeyControllerShow_WithUnauthorizedAccessKey(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", client.AccessKey.AccessKeyId), "GET", nil)
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", client.AccessKey.AccessKeyID), "GET", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to get access key: %v", err)
@@ -502,7 +502,7 @@ func TestAccessKeyControllerUpdate(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "PUT", map[string]any{
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyID), "PUT", map[string]any{
 			"description": "Updated description",
 			"statements": []map[string]any{
 				{
@@ -553,7 +553,7 @@ func TestAccessKeyControllerUpdate_WithInvalidAccessKey(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyId), "PUT", map[string]any{
+		response, statusCode, err := client.Send(fmt.Sprintf("/resources/access-keys/%s", accessKey.AccessKeyID), "PUT", map[string]any{
 			"statements": []map[string]any{
 				{
 					"effect":   "allow",

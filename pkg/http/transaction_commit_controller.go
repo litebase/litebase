@@ -22,13 +22,13 @@ func TransactionCommitController(request *Request) Response {
 
 	accessKey := requestToken.AccessKey()
 
-	if accessKey.AccessKeyId == "" {
+	if accessKey.AccessKeyID == "" {
 		return ErrInvalidAccessKeyResponse
 	}
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
 	)
 
@@ -39,8 +39,8 @@ func TransactionCommitController(request *Request) Response {
 	transactionId := request.Param("id")
 
 	transactionManager := request.databaseManager.Resources(
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 	).TransactionManager()
 
 	transaction, err := transactionManager.Get(transactionId)

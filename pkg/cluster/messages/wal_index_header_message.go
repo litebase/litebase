@@ -1,7 +1,7 @@
 package messages
 
 type WALIndexHeaderMessage struct {
-	BranchId   string
-	DatabaseId string
+	BranchID   string
+	DatabaseID string
 	Header     []byte
 }

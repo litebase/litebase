@@ -133,7 +133,7 @@ func TestQueryController_Errors(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", db.Key(db.PrimaryBranchId)), "POST", map[string]any{
+		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", db.Key(db.PrimaryBranch().BranchID)), "POST", map[string]any{
 			"id":         "1",
 			"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
 			"parameters": []map[string]any{},

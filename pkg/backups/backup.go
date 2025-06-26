@@ -34,8 +34,8 @@ var ErrBackupNoRestorePoint = fmt.Errorf("no restore point found")
 type Backup struct {
 	config         *config.Config
 	dfs            *storage.DurableDatabaseFileSystem
-	BranchId       string
-	DatabaseId     string
+	BranchID       string
+	DatabaseID     string
 	maxPartSize    int64
 	objectFS       *storage.FileSystem
 	rollbackLogger *RollbackLogger
@@ -72,8 +72,8 @@ func GetBackup(
 
 	backup := &Backup{
 		config:       c,
-		BranchId:     branchId,
-		DatabaseId:   databaseId,
+		BranchID:     branchId,
+		DatabaseID:   databaseId,
 		dfs:          dfs,
 		objectFS:     objectFS,
 		RestorePoint: restorePoint,
@@ -156,7 +156,7 @@ func (backup *Backup) Delete() error {
 func (backup *Backup) DirectoryPath() string {
 	return fmt.Sprintf(
 		"%s%d/",
-		file.GetDatabaseBackupsDirectory(backup.DatabaseId, backup.BranchId),
+		file.GetDatabaseBackupsDirectory(backup.DatabaseID, backup.BranchID),
 		backup.RestorePoint.Timestamp,
 	)
 }
@@ -197,7 +197,7 @@ func (backup *Backup) packageBackup() error {
 	var gzipWriter *gzip.Writer
 	var sourceFile internalStorage.File
 	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, backup.config.PageSize)
-	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseId, backup.BranchId)
+	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseID, backup.BranchID)
 
 	// Loop through the files in the source database and copy them to the target database
 	entries, err := backup.dfs.FileSystem().ReadDir(sourceDirectory)
@@ -441,8 +441,8 @@ func Run(
 
 	backup := &Backup{
 		config:         c,
-		BranchId:       branchId,
-		DatabaseId:     databaseId,
+		BranchID:       branchId,
+		DatabaseID:     databaseId,
 		dfs:            dfs,
 		objectFS:       objectFS,
 		RestorePoint:   restorePoint,
@@ -538,8 +538,8 @@ createFile:
 // Returns a map representation of the backup.
 func (backup *Backup) ToMap() map[string]any {
 	return map[string]any{
-		"database_id": backup.DatabaseId,
-		"branch_id":   backup.BranchId,
+		"database_id": backup.DatabaseID,
+		"branch_id":   backup.BranchID,
 		"size":        backup.Size(),
 		"timestamp":   backup.RestorePoint.Timestamp,
 	}

@@ -57,7 +57,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 
 		// Test with access key authentication
 		signature := auth.SignRequest(
-			client.AccessKey.AccessKeyId,
+			client.AccessKey.AccessKeyID,
 			client.AccessKey.AccessKeySecret,
 			"GET",
 			"/resources/users",

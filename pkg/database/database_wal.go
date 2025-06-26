@@ -34,10 +34,10 @@ var (
 // consider the number of cached items which may be 24 bytes for a SQLITE WAL
 // Frame header and 4KB for the contents of the page.
 type DatabaseWAL struct {
-	BranchId       string
+	BranchID       string
 	cache          *cache.LFUCache
 	createdAt      time.Time
-	DatabaseId     string
+	DatabaseID     string
 	checkpointedAt time.Time
 	checkpointing  bool
 	file           internalStorage.File
@@ -64,10 +64,10 @@ func NewDatabaseWAL(
 	timestamp int64,
 ) *DatabaseWAL {
 	return &DatabaseWAL{
-		BranchId:      branchId,
+		BranchID:      branchId,
 		cache:         cache.NewLFUCache(16000), // ~33MB
 		createdAt:     time.Now().UTC(),
-		DatabaseId:    databaseId,
+		DatabaseID:    databaseId,
 		fileSystem:    fileSystem,
 		lastKnownSize: -1,
 		lastSyncTime:  time.Time{},
@@ -166,7 +166,7 @@ func (wal *DatabaseWAL) Hash() string {
 		return wal.hash
 	}
 
-	checksum := sha256.Sum256(fmt.Appendf(nil, "%s:%s:%d", wal.DatabaseId, wal.BranchId, wal.Timestamp()))
+	checksum := sha256.Sum256(fmt.Appendf(nil, "%s:%s:%d", wal.DatabaseID, wal.BranchID, wal.Timestamp()))
 	wal.hash = hex.EncodeToString(checksum[:])
 
 	return wal.hash

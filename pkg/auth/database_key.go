@@ -12,9 +12,9 @@ import (
 const (
 	DatabaseKeyKeySize        = 16
 	DatabaseKeyHashSize       = 32
-	DatabaseKeyDatabaseIdSize = 16
-	DatabaseKeyBranchIdSize   = 16
-	DatabaseKeySize           = DatabaseKeyKeySize + DatabaseKeyHashSize + DatabaseKeyDatabaseIdSize + DatabaseKeyBranchIdSize
+	DatabaseKeyDatabaseIDSize = 16
+	DatabaseKeyBranchIDSize   = 16
+	DatabaseKeySize           = DatabaseKeyKeySize + DatabaseKeyHashSize + DatabaseKeyDatabaseIDSize + DatabaseKeyBranchIDSize
 )
 
 // DatabaseKey represents a database key with its associated metadata. This
@@ -30,16 +30,16 @@ const (
 type DatabaseKey struct {
 	Key          string `json:"key"`
 	DatabaseHash string `json:"database_hash"`
-	DatabaseId   string `json:"database_id"`
-	BranchId     string `json:"branch_id"`
+	DatabaseID   string `json:"database_id"`
+	BranchID     string `json:"branch_id"`
 }
 
-func NewDatabaseKey(databaseId, branchId, key string) *DatabaseKey {
+func NewDatabaseKey(databaseID, branchID, key string) *DatabaseKey {
 	return &DatabaseKey{
 		Key:          key,
-		DatabaseHash: file.DatabaseHash(databaseId, branchId),
-		DatabaseId:   databaseId,
-		BranchId:     branchId,
+		DatabaseHash: file.DatabaseHash(databaseID, branchID),
+		DatabaseID:   databaseID,
+		BranchID:     branchID,
 	}
 }
 
@@ -54,34 +54,34 @@ func (d *DatabaseKey) Encode() ([]byte, error) {
 		return nil, fmt.Errorf("invalid database hash size: expected %d bytes, got %d bytes", DatabaseKeyHashSize, len(hashBytes))
 	}
 
-	databaseIdBytes, err := uuid.Parse(d.DatabaseId)
+	databaseIDBytes, err := uuid.Parse(d.DatabaseID)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if len(databaseIdBytes) != DatabaseKeyDatabaseIdSize {
-		return nil, fmt.Errorf("invalid database ID size: expected %d bytes, got %d bytes", DatabaseKeyDatabaseIdSize, len(databaseIdBytes))
+	if len(databaseIDBytes) != DatabaseKeyDatabaseIDSize {
+		return nil, fmt.Errorf("invalid database ID size: expected %d bytes, got %d bytes", DatabaseKeyDatabaseIDSize, len(databaseIDBytes))
 	}
 
-	branchIdBytes, err := uuid.Parse(d.BranchId)
+	branchIDBytes, err := uuid.Parse(d.BranchID)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if len(branchIdBytes[:]) != DatabaseKeyBranchIdSize {
-		return nil, fmt.Errorf("invalid branch ID size: expected %d bytes, got %d bytes", DatabaseKeyBranchIdSize, len(branchIdBytes[:]))
+	if len(branchIDBytes[:]) != DatabaseKeyBranchIDSize {
+		return nil, fmt.Errorf("invalid branch ID size: expected %d bytes, got %d bytes", DatabaseKeyBranchIDSize, len(branchIDBytes[:]))
 	}
 
 	// Create a byte slice with the total fixed size
-	encodedData := make([]byte, DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIdSize+DatabaseKeyBranchIdSize)
+	encodedData := make([]byte, DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIDSize+DatabaseKeyBranchIDSize)
 
 	// Copy data into the encodedData slice, truncating or padding as necessary
 	copy(encodedData[:DatabaseKeyKeySize], []byte(d.Key))                                                                                          //Database key
 	copy(encodedData[DatabaseKeyKeySize:DatabaseKeyKeySize+DatabaseKeyHashSize], hashBytes)                                                        //Database hash
-	copy(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize:DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIdSize], databaseIdBytes[:]) //Database ID
-	copy(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIdSize:], branchIdBytes[:])                                         //Branch ID
+	copy(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize:DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIDSize], databaseIDBytes[:]) //Database ID
+	copy(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIDSize:], branchIDBytes[:])                                         //Branch ID
 
 	return encodedData, nil
 }
@@ -93,10 +93,10 @@ func DecodeDatbaseKey(encodedData []byte) *DatabaseKey {
 	// Extract the key, database hash, database ID, and branch ID from the encoded data
 	databaseKey.Key = strings.TrimRight(string(encodedData[:DatabaseKeyKeySize]), "\x00")
 	databaseKey.DatabaseHash = hex.EncodeToString(encodedData[DatabaseKeyKeySize : DatabaseKeyKeySize+DatabaseKeyHashSize])
-	databaseUUID, _ := uuid.FromBytes(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize : DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIdSize])
-	databaseKey.DatabaseId = databaseUUID.String()
-	branchUUID, _ := uuid.FromBytes(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIdSize:])
-	databaseKey.BranchId = branchUUID.String()
+	databaseUUID, _ := uuid.FromBytes(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize : DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIDSize])
+	databaseKey.DatabaseID = databaseUUID.String()
+	branchUUID, _ := uuid.FromBytes(encodedData[DatabaseKeyKeySize+DatabaseKeyHashSize+DatabaseKeyDatabaseIDSize:])
+	databaseKey.BranchID = branchUUID.String()
 
 	return databaseKey
 }

@@ -15,13 +15,13 @@ func TestQueryResolver_Handle(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseId, mock.BranchId)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseId, mock.BranchId, db)
+		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
@@ -59,7 +59,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				app.LogManager,
-				auth.NewDatabaseKey(mock.DatabaseId, mock.BranchId, mock.DatabaseKey.Key),
+				auth.NewDatabaseKey(mock.DatabaseID, mock.BranchID, mock.DatabaseKey.Key),
 				mock.AccessKey,
 				&database.QueryInput{
 					Statement:  c.statement,
@@ -120,7 +120,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 		// 		encrytpedQuery := test.EncryptQuery(
 		// 			c.statement,
 		// 			c.parameters,
-		// 			mock.AccessKeyId,
+		// 			mock.AccessKeyID,
 		// 			mock.AccessKeySecret,
 		// 		)
 
@@ -130,7 +130,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 		// }
 
 		// for _, batchCase := range batchCases {
-		// 	db, err = database.Get(mock.DatabaseId, mock.BranchId, nil, false)
+		// 	db, err = database.Get(mock.DatabaseID, mock.BranchID, nil, false)
 
 		// 	if err != nil {
 		// 		t.Fatal(err)
@@ -146,7 +146,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 
 		// 	query, err := query.NewQuery(
 		// 		db,
-		// 		mock.AccessKeyId,
+		// 		mock.AccessKeyID,
 		// 		map[string]interface{}{
 		// 			"batch": batchQueries,
 		// 		},

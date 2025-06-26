@@ -220,7 +220,7 @@ func TestSecretsManager(t *testing.T) {
 				t.Error("Expected Create to return a non-nil error")
 			}
 
-			secret, err := app.Auth.SecretsManager.GetAccessKeySecret(accessKey.AccessKeyId)
+			secret, err := app.Auth.SecretsManager.GetAccessKeySecret(accessKey.AccessKeyID)
 
 			if err != nil {
 				t.Error("Expected GetAccessKeySecret to return a non-nil error")
@@ -234,7 +234,7 @@ func TestSecretsManager(t *testing.T) {
 				t.Error("Expected GetAccessKeySecret to return the same secret as the access key")
 			}
 
-			secret, err = app.Auth.SecretsManager.GetAccessKeySecret(accessKey.AccessKeyId)
+			secret, err = app.Auth.SecretsManager.GetAccessKeySecret(accessKey.AccessKeyID)
 
 			if err != nil {
 				t.Error("Expected GetAccessKeySecret to return a non-nil error")
@@ -315,7 +315,7 @@ func TestSecretsManager(t *testing.T) {
 				t.Error("Expected StoreAccessKey to return a non-nil error")
 			}
 
-			accessKeyCheck, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyId)
+			accessKeyCheck, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
 				t.Error("Expected GetAccessKeySecret to return a non-nil error")
@@ -325,8 +325,8 @@ func TestSecretsManager(t *testing.T) {
 				t.Fatal("Expected GetAccessKeySecret to return the same secret as the access key")
 			}
 
-			if accessKeyCheck.AccessKeyId != accessKey.AccessKeyId {
-				t.Error("Expected AccessKeyId to match")
+			if accessKeyCheck.AccessKeyID != accessKey.AccessKeyID {
+				t.Error("Expected AccessKeyID to match")
 			}
 		})
 
@@ -354,8 +354,8 @@ func TestSecretsManager(t *testing.T) {
 				t.Fatal("Expected GetDatabaseKey to return a non-nil database key")
 			}
 
-			if databaseKey.DatabaseId != databaseUUID {
-				t.Error("Expected DatabaseId to match")
+			if databaseKey.DatabaseID != databaseUUID {
+				t.Error("Expected DatabaseID to match")
 			}
 		})
 	})

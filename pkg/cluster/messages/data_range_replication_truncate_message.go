@@ -1,8 +1,8 @@
 package messages
 
 type RangeReplicationTruncateMessage struct {
-	BranchId   string
-	DatabaseId string
+	BranchID   string
+	DatabaseID string
 	ID         []byte
 	Size       int64
 	Sequence   int64

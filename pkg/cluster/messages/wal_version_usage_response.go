@@ -1,7 +1,7 @@
 package messages
 
 type WALVersionUsageResponse struct {
-	BranchId   string
-	DatabaseId string
+	BranchID   string
+	DatabaseID string
 	Versions   []int64
 }

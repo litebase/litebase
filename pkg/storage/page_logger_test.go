@@ -17,8 +17,8 @@ func TestNewPageLogger(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -42,8 +42,8 @@ func TestPageLogger_Acquire(t *testing.T) {
 		}()
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -81,7 +81,7 @@ func TestPageLogger_Acquire(t *testing.T) {
 			}
 
 			err = pageLogger.Compact(
-				app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+				app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 			)
 
 			if err != nil {
@@ -116,8 +116,8 @@ func TestPageLogger_Close(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -142,8 +142,8 @@ func TestPageLogger_Compact(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -177,7 +177,7 @@ func TestPageLogger_Compact(t *testing.T) {
 		}
 
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -191,8 +191,8 @@ func TestPageLogger_Read(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -244,8 +244,8 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -273,7 +273,7 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 
 		// Compaction will run since the compaction interval has passed
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -301,8 +301,8 @@ func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -330,7 +330,7 @@ func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 
 		// Compaction will not run because of the compaction interval has not passed
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -367,8 +367,8 @@ func TestPageLogger_Release(t *testing.T) {
 		}()
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -389,7 +389,7 @@ func TestPageLogger_Release(t *testing.T) {
 		pageLogger.Write(1, 1, make([]byte, 4096))
 
 		pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
 		if !pageLogger.CompactedAt.IsZero() {
@@ -399,7 +399,7 @@ func TestPageLogger_Release(t *testing.T) {
 		pageLogger.Release(1)
 
 		pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
 		if pageLogger.CompactedAt.IsZero() {
@@ -413,8 +413,8 @@ func TestPageLogger_Write(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -476,8 +476,8 @@ func TestPageLogger_Write(t *testing.T) {
 		}
 
 		pageLogger, err = storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -510,8 +510,8 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -564,7 +564,7 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 		}
 
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -619,8 +619,8 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 
 		// Test reopening the page logger and writing again
 		pageLogger, err = storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -629,7 +629,7 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 		}
 
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -689,8 +689,8 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 		}()
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -748,7 +748,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 				}
 
 				err = pageLogger.Compact(
-					app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+					app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 				)
 
 				if err != nil {
@@ -773,7 +773,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 					defer wg.Done()
 
 					err := pageLogger.Compact(
-						app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+						app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 					)
 
 					if err != nil {
@@ -835,8 +835,8 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 
 		// Test reopening the page logger and writing again
 		// pageLogger, err = storage.NewPageLogger(
-		// 	db.DatabaseId,
-		// 	db.BranchId,
+		// 	db.DatabaseID,
+		// 	db.BranchID,
 		// 	app.Cluster.LocalFS(),
 		// )
 
@@ -845,7 +845,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 		// }
 
 		// err = pageLogger.Compact(
-		// 	app.DatabaseManager.Resources(db.DatabaseId, db.BranchId).FileSystem(),
+		// 	app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		// )
 
 		// if err != nil {
@@ -899,8 +899,8 @@ func TestPageLoggerCanReadFromLaterVersion(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -969,8 +969,8 @@ func TestPageLogger_Tombstone(t *testing.T) {
 		db := test.MockDatabase(app)
 
 		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1036,8 +1036,8 @@ func TestPageLogger_Tombstone(t *testing.T) {
 		}
 
 		pageLogger, err = storage.NewPageLogger(
-			db.DatabaseId,
-			db.BranchId,
+			db.DatabaseID,
+			db.BranchID,
 			app.Cluster.LocalFS(),
 		)
 

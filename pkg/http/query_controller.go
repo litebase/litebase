@@ -29,7 +29,7 @@ func QueryController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeQuery},
 	)
 
@@ -38,8 +38,8 @@ func QueryController(request *Request) Response {
 	}
 
 	db, err := request.databaseManager.ConnectionManager().Get(
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 	)
 
 	if err != nil {
@@ -47,8 +47,8 @@ func QueryController(request *Request) Response {
 	}
 
 	defer request.databaseManager.ConnectionManager().Release(
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 		db,
 	)
 
@@ -92,8 +92,8 @@ func QueryController(request *Request) Response {
 		!requestQuery.IsTransactionEnd() &&
 		!requestQuery.IsTransactionRollback() {
 		transaction, err := request.databaseManager.Resources(
-			databaseKey.DatabaseId,
-			databaseKey.BranchId,
+			databaseKey.DatabaseID,
+			databaseKey.BranchID,
 		).TransactionManager().Get(string(requestQuery.Input.TransactionId))
 
 		if err != nil {
@@ -103,7 +103,7 @@ func QueryController(request *Request) Response {
 			)
 		}
 
-		if accessKey.AccessKeyId != transaction.AccessKey.AccessKeyId {
+		if accessKey.AccessKeyID != transaction.AccessKey.AccessKeyID {
 			return ErrInvalidAccessKeyResponse
 		}
 

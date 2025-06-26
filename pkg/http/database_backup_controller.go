@@ -19,7 +19,7 @@ func DatabaseBackupStoreController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 
@@ -44,11 +44,11 @@ func DatabaseBackupStoreController(request *Request) Response {
 	backup, err := backups.Run(
 		request.cluster.Config,
 		request.cluster.ObjectFS(),
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
-		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
-		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
-		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).RollbackLogger(),
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
+		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).SnapshotLogger(),
+		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).FileSystem(),
+		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).RollbackLogger(),
 	)
 
 	if err != nil {
@@ -74,7 +74,7 @@ func DatabaseBackupShowController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 
@@ -94,10 +94,10 @@ func DatabaseBackupShowController(request *Request) Response {
 	backup, err := backups.GetBackup(
 		request.cluster.Config,
 		request.cluster.ObjectFS(),
-		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
-		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).SnapshotLogger(),
+		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).FileSystem(),
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 		timestamp,
 	)
 
@@ -123,7 +123,7 @@ func DatabaseBackupDestroyController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseId, databaseKey.BranchId)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 
@@ -143,10 +143,10 @@ func DatabaseBackupDestroyController(request *Request) Response {
 	backup, err := backups.GetBackup(
 		request.cluster.Config,
 		request.cluster.ObjectFS(),
-		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).SnapshotLogger(),
-		request.databaseManager.Resources(databaseKey.DatabaseId, databaseKey.BranchId).FileSystem(),
-		databaseKey.DatabaseId,
-		databaseKey.BranchId,
+		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).SnapshotLogger(),
+		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).FileSystem(),
+		databaseKey.DatabaseID,
+		databaseKey.BranchID,
 		timestamp,
 	)
 

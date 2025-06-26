@@ -62,7 +62,7 @@ func AccessKeyControllerShow(request *Request) Response {
 	}
 
 	err = request.Authorize(
-		[]string{"*", "access-key:*", fmt.Sprintf("access-key:%s", accessKey.AccessKeyId)},
+		[]string{"*", "access-key:*", fmt.Sprintf("access-key:%s", accessKey.AccessKeyID)},
 		[]auth.Privilege{auth.AccessKeyPrivilegeRead},
 	)
 
@@ -167,7 +167,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 	}
 
 	err = request.Authorize(
-		[]string{"*", "access-key:*", fmt.Sprintf("access-key:%s", accessKey.AccessKeyId)},
+		[]string{"*", "access-key:*", fmt.Sprintf("access-key:%s", accessKey.AccessKeyID)},
 		[]auth.Privilege{auth.AccessKeyPrivilegeUpdate},
 	)
 
@@ -242,7 +242,7 @@ func AccessKeyControllerDestroy(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	if accessKeyId == request.RequestToken("Authorization").AccessKeyId {
+	if accessKeyId == request.RequestToken("Authorization").AccessKeyID {
 		return ForbiddenResponse(errors.New("cannot delete current access key"))
 	}
 
