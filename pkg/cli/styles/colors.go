@@ -22,7 +22,11 @@ var PromptStyle = lipgloss.NewStyle()
 var FocusedPromptStyle = PromptStyle.Foreground(PrimaryTextColor)
 
 var alertStyle = lipgloss.NewStyle().Bold(true).Padding(0, 1)
-var AlertContainerStyle = lipgloss.NewStyle()
+var AlertContainerStyle = lipgloss.NewStyle().
+	BorderForeground(cli.LightDark(cli.Gray400, cli.Gray500)).
+	BorderLeft(true).
+	BorderStyle(lipgloss.InnerHalfBlockBorder()).
+	PaddingLeft(1)
 
 var AlertSuccessStyle = alertStyle.
 	Background(cli.LightDark(cli.Green700, cli.Green200)).

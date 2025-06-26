@@ -116,7 +116,8 @@ func (c *Card) Render() string {
 		// Wrap description with proper word wrapping
 		wrappedDescription := lipgloss.NewStyle().
 			MarginTop(2).
-			Render(wordWrap(description, contentWidth))
+			Width(contentWidth - 2).
+			Render(description)
 
 		content += wrappedDescription
 	}
