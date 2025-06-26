@@ -54,8 +54,8 @@ func TestAccessKeyUpdate(t *testing.T) {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statement") {
-			t.Error("expected output to contain 'Statement 1'")
+		if cli.DoesntSee("Statements") {
+			t.Error("expected output to contain 'Statements'")
 		}
 
 		if cli.DoesntSee("deny") {

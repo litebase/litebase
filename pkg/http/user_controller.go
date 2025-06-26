@@ -123,7 +123,7 @@ func UserControllerStore(request *Request) Response {
 
 	data := input.(*UserControllerStoreRequest)
 
-	err = request.cluster.Auth.UserManager().Add(
+	user, err := request.cluster.Auth.UserManager().Add(
 		data.Username,
 		data.Password,
 		data.Statements,
@@ -131,12 +131,6 @@ func UserControllerStore(request *Request) Response {
 
 	if err != nil {
 		return ServerErrorResponse(err)
-	}
-
-	user := request.cluster.Auth.UserManager().Get(data.Username)
-
-	if user == nil {
-		return ServerErrorResponse(fmt.Errorf("the user could not be created"))
 	}
 
 	// Convert the user to a response format

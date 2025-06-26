@@ -39,15 +39,36 @@ func NewUserListCmd(config *config.Configuration) *cobra.Command {
 			for _, user := range res["data"].([]any) {
 				statements := []auth.AccessKeyStatement{}
 
-				for _, priv := range user.(map[string]any)["privileges"].([]any) {
-					statements = append(statements, auth.AccessKeyStatement{
-						Effect:   "Allow",
-						Resource: "*",
-						Actions:  []auth.Privilege{priv.(auth.Privilege)},
-					})
+				for _, statement := range user.(map[string]any)["statements"].([]any) {
+					s := auth.AccessKeyStatement{}
+
+					effect, ok := statement.(map[string]any)["effect"].(string)
+
+					if ok {
+						s.Effect = auth.AccessKeyEffect(effect)
+					}
+
+					resource, ok := statement.(map[string]any)["resource"].(string)
+
+					if ok {
+						s.Resource = auth.AccessKeyResource(resource)
+					}
+
+					actions, ok := statement.(map[string]any)["actions"].([]any)
+
+					if ok {
+						s.Actions = make([]auth.Privilege, len(actions))
+
+						for i, action := range actions {
+							s.Actions[i] = auth.Privilege(action.(string))
+						}
+					}
+
+					statements = append(statements, s)
 				}
 
 				parsedCreatedAt, err := time.Parse(time.RFC3339, user.(map[string]any)["created_at"].(string))
+
 				if err != nil {
 					return err
 				}

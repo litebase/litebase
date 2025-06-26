@@ -18,7 +18,7 @@ func TestUserDeleteCmd(t *testing.T) {
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		err := server.App.Auth.UserManager().Add(
+		_, err := server.App.Auth.UserManager().Add(
 			"username",
 			"password",
 			[]auth.AccessKeyStatement{

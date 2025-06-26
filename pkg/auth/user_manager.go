@@ -36,7 +36,7 @@ func (auth *Auth) UserManager() *UserManager {
 }
 
 // Add a new user
-func (u *UserManager) Add(username, password string, statements []AccessKeyStatement) error {
+func (u *UserManager) Add(username, password string, statements []AccessKeyStatement) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -44,7 +44,7 @@ func (u *UserManager) Add(username, password string, statements []AccessKeyState
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if u.users == nil {
@@ -59,7 +59,7 @@ func (u *UserManager) Add(username, password string, statements []AccessKeyState
 		UpdatedAt:  time.Now().UTC(),
 	}
 
-	return u.writeFile()
+	return u.users[username], u.writeFile()
 }
 
 // Return all users without passwords
@@ -174,7 +174,7 @@ func (u *UserManager) Init() error {
 			return fmt.Errorf("the LITEBASE_ROOT_PASSWORD environment variable is not set")
 		}
 
-		err := u.Add(u.config.RootUsername, u.config.RootPassword, []AccessKeyStatement{
+		_, err := u.Add(u.config.RootUsername, u.config.RootPassword, []AccessKeyStatement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
