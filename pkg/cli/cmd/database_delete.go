@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
@@ -30,15 +31,10 @@ func NewDatabaseDeleteCmd(config *config.Configuration) *cobra.Command {
 			res, _, err := client.Request("DELETE", fmt.Sprintf("/resources/databases/%s", args[0]), nil)
 
 			if err != nil {
-				fmt.Fprint(
-					cmd.OutOrStdout(),
-					components.Container(components.ErrorAlert(err.Error())),
-				)
-
 				return err
 			}
 
-			fmt.Fprint(
+			lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),

@@ -12,10 +12,6 @@ func DatabaseCard(data map[string]any) string {
 			Key:   "Name",
 			Value: data["name"].(string),
 		},
-		{
-			Key:   "URL",
-			Value: data["url"].(string),
-		},
 	}
 
 	if data["created_at"] != nil {
@@ -39,6 +35,14 @@ func DatabaseCard(data map[string]any) string {
 			})
 		}
 	}
+
+	rows = append(rows, CardRow{
+		Key:   "",
+		Value: "",
+	}, CardRow{
+		Key:   "URL",
+		Value: data["url"].(string),
+	})
 
 	return NewCard(
 		WithCardTitle("Database"),
