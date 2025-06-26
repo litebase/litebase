@@ -24,6 +24,7 @@ func NewUserCmd(config *config.Configuration) *cobra.Command {
 	UserCmd.AddCommand(NewUserListCmd(config))
 	UserCmd.AddCommand(NewUserCreateCmd(config))
 	UserCmd.AddCommand(NewUserDeleteCmd(config))
+	UserCmd.AddCommand(NewUserShowCmd(config))
 	UserCmd.AddCommand(NewUserUpdateCmd(config))
 
 	return UserCmd
