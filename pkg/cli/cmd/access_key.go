@@ -39,6 +39,7 @@ func NewAccessKeyCmd(config *config.Configuration) *cobra.Command {
 	AccessKeyCmd.AddCommand(NewAccessKeyCreateCmd(config))
 	AccessKeyCmd.AddCommand(NewAccessKeyShowCmd(config))
 	AccessKeyCmd.AddCommand(NewAccessKeyDeleteCmd(config))
+	AccessKeyCmd.AddCommand(NewAccessKeyUpdateCmd(config))
 	AccessKeyCmd.AddCommand(AccessKeyUpdateCmd)
 
 	return AccessKeyCmd

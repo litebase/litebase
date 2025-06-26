@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -16,23 +17,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type AccessKeyInput struct {
-	Description string                    `json:"description"`
-	Statements  []AccessKeyInputStatement `json:"statements"`
-}
-
-type AccessKeyInputStatement struct {
-	Effect   auth.AccessKeyEffect `json:"effect"`
-	Resource string               `json:"resource"`
-	Actions  []string             `json:"actions"`
-}
-
-func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
+func NewAccessKeyUpdateCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new access key",
+		Use:   "update <id>",
+		Short: "Update an existing access key",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var confirmed bool
+			var accessKeyId string
+
+			if len(args) > 0 {
+				accessKeyId = args[0]
+			} else {
+				return errors.New("access key ID is required")
+			}
 
 			input := AccessKeyInput{
 				Description: "",
@@ -70,6 +67,29 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 
 				confirmed = true
 			} else {
+				res, err := api.Get(config, fmt.Sprintf("/resources/access-keys/%s", accessKeyId))
+
+				if err != nil {
+					return err
+				}
+				// Pre-fill with existing values
+				if res["data"].(map[string]any)["description"] != nil {
+					input.Description = res["data"].(map[string]any)["description"].(string)
+				}
+
+				if res["data"].(map[string]any)["statements"] != nil {
+					statements := res["data"].(map[string]any)["statements"].([]any)
+					statementsJSON, err := json.MarshalIndent(statements, "", "  ")
+
+					if err != nil {
+						return err
+					}
+
+					if err := json.Unmarshal(statementsJSON, &input.Statements); err != nil {
+						return errors.New("invalid JSON format for statements")
+					}
+				}
+
 				// Interactive mode: show form
 				if description != "" {
 					input.Description = description
@@ -85,11 +105,11 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 				form := components.NewForm(
 					huh.NewGroup(
 						huh.NewNote().
-							Title("Create Access Key").
-							Description("Add a description and define the statements for the access key."),
+							Title("Update Access Key").
+							Description("Update the description and the statements for the access key."),
 						huh.NewInput().
 							Title("Description").
-							Placeholder("What will this access key be used for?").
+							Placeholder("What is this access key used for?").
 							Value(&input.Description).
 							CharLimit(255),
 					),
@@ -122,7 +142,7 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 					huh.NewGroup(
 						huh.NewConfirm().
 							Title("Confirm").
-							Description("Are you sure you want to create this access key?").
+							Description("Are you sure you want to update this access key?").
 							Value(&confirmed),
 					),
 				)
@@ -143,7 +163,7 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 				return nil
 			}
 
-			res, _, err := api.Post(config, "/resources/access-keys", map[string]any{
+			res, _, err := api.Put(config, fmt.Sprintf("/resources/access-keys/%s", accessKeyId), map[string]any{
 				"description": input.Description,
 				"statements":  input.Statements,
 			})
@@ -158,10 +178,6 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 				{
 					Key:   "Access Key ID",
 					Value: res["data"].(map[string]any)["access_key_id"].(string),
-				},
-				{
-					Key:   "Access Key Secret",
-					Value: res["data"].(map[string]any)["access_key_secret"].(string),
 				},
 				{
 					Key:   "Description",
@@ -212,7 +228,6 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 					components.SuccessAlert(res["message"].(string)),
 					components.NewCard(
 						components.WithCardTitle("Access Key"),
-						components.WithCardDescription("Copy and securely store the Access Key ID and Secret now. You won't be able to retrieve the secret later."),
 						components.WithCardRows(rows),
 						components.WithCardContent("Statements", cardContent),
 					).Render(),
