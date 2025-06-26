@@ -1,12 +1,13 @@
 package components
 
 import (
-	"strings"
+	"os"
 
 	"github.com/litebase/litebase/pkg/cli"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/x/term"
 )
 
 type CardRow struct {
@@ -31,6 +32,7 @@ var CardTitleStyle = func() lipgloss.Style {
 }
 
 type Card struct {
+	Description  string
 	Content      string
 	ContentTitle string
 	Rows         []CardRow
@@ -47,7 +49,21 @@ func NewCard(options ...CardOption) *Card {
 		opt(c)
 	}
 
+	width, _, err := term.GetSize(os.Stdout.Fd())
+
+	if err != nil {
+		width = 80
+	}
+
+	c.Width = width // Leave some margin
+
 	return c
+}
+
+func WithCardDescription(description string) CardOption {
+	return func(c *Card) {
+		c.Description = description
+	}
 }
 
 func WithCardContent(title, content string) CardOption {
@@ -91,7 +107,18 @@ func (c *Card) Render() string {
 			title = truncateString(title, contentWidth)
 		}
 
-		content += CardTitleStyle().Render(title) + "\n\n"
+		content += CardTitleStyle().Render(title)
+	}
+
+	if c.Description != "" {
+		description := c.Description
+
+		// Wrap description with proper word wrapping
+		wrappedDescription := lipgloss.NewStyle().
+			MarginTop(2).
+			Render(wordWrap(description, contentWidth))
+
+		content += wrappedDescription
 	}
 
 	// Find the optimal key length
@@ -154,26 +181,37 @@ func (c *Card) Render() string {
 
 	// Join rows with newlines
 	if len(rowStrings) > 0 {
-		if c.Title != "" {
-			content += strings.Join(rowStrings, "\n")
-		} else {
-			content = strings.Join(rowStrings, "\n")
-		}
+		content += lipgloss.NewStyle().
+			MarginTop(2).
+			Render(lipgloss.JoinVertical(
+				lipgloss.Left,
+				rowStrings...,
+			))
 	}
 
 	if c.Content != "" {
 		content += c.renderContent()
 	}
 
-	// Apply the card style without setting width on it
-	return cardStyle().Render(content)
+	// Apply the card style with proper width to prevent border breaking
+	return cardStyle().
+		Width(contentWidth).
+		Render(content)
 }
 
 func (c *Card) renderContent() string {
+	// Calculate available width for content (same as in Render method)
+	availableWidth := c.Width
+	if availableWidth <= 0 {
+		availableWidth = 80
+	}
+	contentWidth := availableWidth - 2
+
 	content := lipgloss.NewStyle().Bold(true).MarginTop(2).Render(c.ContentTitle)
 
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(contentWidth),
 	)
 
 	if err != nil {
@@ -189,17 +227,4 @@ func (c *Card) renderContent() string {
 	content += glamourContent
 
 	return content
-}
-
-// truncateString truncates a string to maxLength and adds "..." if truncated
-func truncateString(s string, maxLength int) string {
-	if len(s) <= maxLength {
-		return s
-	}
-
-	if maxLength <= 3 {
-		return s[:maxLength]
-	}
-
-	return s[:maxLength-3] + "..."
 }
