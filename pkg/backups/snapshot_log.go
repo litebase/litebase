@@ -251,7 +251,12 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 
 	_, err = s.File.Write(data)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Ensure data is flushed to disk immediately
+	return s.File.Sync()
 }
 
 func (s *Snapshot) openFile() error {
