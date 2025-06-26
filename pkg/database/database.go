@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
 
 type Database struct {
@@ -14,6 +15,8 @@ type Database struct {
 	PrimaryBranchId   string           `json:"primary_branch_id"`
 	PrimaryBranchName string           `json:"primary_branch_name"`
 	Settings          DatabaseSettings `json:"settings"`
+	CreatedAt         time.Time        `json:"created_at"`
+	UpdatedAt         time.Time        `json:"updated_at"`
 }
 
 func Directory() string {
@@ -83,6 +86,8 @@ func (database *Database) MarshalJSON() ([]byte, error) {
 		"primary_branch_id": database.PrimaryBranchId,
 		"settings":          database.Settings,
 		"url":               database.Url(database.PrimaryBranchId),
+		"created_at":        database.CreatedAt,
+		"updated_at":        database.UpdatedAt,
 	})
 }
 

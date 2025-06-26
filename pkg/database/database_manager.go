@@ -199,6 +199,8 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 				},
 			},
 		},
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	err = database.save()
