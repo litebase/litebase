@@ -36,7 +36,7 @@ func TestUserDeleteCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if !cli.ShouldSee("User deleted") {
+		if cli.DoesntSee("User deleted") {
 			t.Error("expected output to contain 'User deleted'")
 		}
 	})

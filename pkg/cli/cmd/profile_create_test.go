@@ -17,7 +17,7 @@ func TestProfileCreateCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if !cli.ShouldSee("Profile stored successfully") {
+		if cli.DoesntSee("Profile stored successfully") {
 			t.Errorf("expected output to contain 'Profile stored successfully', got %q", cli.GetOutput())
 		}
 	})

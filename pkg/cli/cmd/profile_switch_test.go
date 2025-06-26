@@ -32,7 +32,7 @@ func TestProfileSwitch(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if !cli.ShouldSee("Profile switched successfully to 'profile2'") {
+		if cli.DoesntSee("Profile switched successfully to 'profile2'") {
 			t.Errorf("expected output to contain 'Profile switched successfully to 'profile2'', got %q", cli.GetOutput())
 		}
 	})

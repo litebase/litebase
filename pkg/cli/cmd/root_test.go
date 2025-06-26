@@ -15,15 +15,15 @@ func TestRootCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if !cli.ShouldSee("Litebase CLI - v") {
+		if cli.DoesntSee("Litebase CLI - v") {
 			t.Error("expected output to contain 'Litebase CLI - v'")
 		}
 
-		if !cli.ShouldSee("Website") {
+		if cli.DoesntSee("Website") {
 			t.Error("expected output to contain 'Website'")
 		}
 
-		if !cli.ShouldSee("https://litebase.com") {
+		if cli.DoesntSee("https://litebase.com") {
 			t.Error("expected output to contain 'https://litebase.com'")
 		}
 	})

@@ -35,7 +35,7 @@ func TestAccessKeyDeleteCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if !cli.ShouldSee("Access key deleted") {
+		if cli.DoesntSee("Access key deleted") {
 			t.Error("expected output to contain 'Access key deleted'")
 		}
 	})

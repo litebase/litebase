@@ -25,7 +25,7 @@ func TestProfileDeleteCmd(t *testing.T) {
 			t.Fatalf("expected no error when deleting profile, got %v", err)
 		}
 
-		if !cli.ShouldSee("Profile deleted successfully") {
+		if cli.DoesntSee("Profile deleted successfully") {
 			t.Errorf("expected output to contain 'Profile deleted successfully', got %q", cli.GetOutput())
 		}
 	})

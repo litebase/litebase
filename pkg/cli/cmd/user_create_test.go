@@ -26,31 +26,31 @@ func TestClusterUserCreate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if !cli.ShouldSee("User") {
+		if cli.DoesntSee("User") {
 			t.Error("expected output to contain 'User'")
 		}
 
-		if !cli.ShouldSee("Username") {
+		if cli.DoesntSee("Username") {
 			t.Error("expected output to contain 'Username'")
 		}
 
-		if !cli.ShouldNotSee("Password") {
+		if cli.Sees("Password") {
 			t.Error("expected output to not contain 'Password'")
 		}
 
-		if !cli.ShouldSee("testuser") {
+		if cli.DoesntSee("testuser") {
 			t.Error("expected output to contain 'testuser'")
 		}
 
-		if !cli.ShouldSee("Created At") {
+		if cli.DoesntSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if !cli.ShouldSee("Updated At") {
+		if cli.DoesntSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if !cli.ShouldSee("Statement 1") {
+		if cli.DoesntSee("Statement 1") {
 			t.Error("expected output to contain 'Statement 1'")
 		}
 	})

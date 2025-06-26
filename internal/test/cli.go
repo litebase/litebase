@@ -59,13 +59,13 @@ func (c *TestCLI) Run(args ...string) error {
 }
 
 // Check if the output buffer contains the expected text
-func (c *TestCLI) ShouldSee(text string) bool {
-	return bytes.Contains(c.outputBuffer.Bytes(), []byte(text))
+func (c *TestCLI) DoesntSee(text string) bool {
+	return !c.Sees(text)
 }
 
 // Check if the output buffer does not contain the expected text
-func (c *TestCLI) ShouldNotSee(text string) bool {
-	return !c.ShouldSee(text)
+func (c *TestCLI) Sees(text string) bool {
+	return bytes.Contains(c.outputBuffer.Bytes(), []byte(text))
 }
 
 // WithAccessKey sets the access key for the CLI and updates the flags
