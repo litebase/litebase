@@ -8,257 +8,239 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestNewDatabaseManager(t *testing.T) {
+func TestDatabaseManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("NewDatabaseManager", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		if dm == nil {
-			t.Errorf("Expected non-nil DatabaseManager")
-		}
-	})
-}
+			if dm == nil {
+				t.Errorf("Expected non-nil DatabaseManager")
+			}
+		})
 
-func TestDatabaseManager_All(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("All", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		databases, err := dm.All()
+			databases, err := dm.All()
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if len(databases) != 0 {
-			t.Errorf("Expected 0 databases, got %d", len(databases))
-		}
-	})
-}
+			if len(databases) != 0 {
+				t.Errorf("Expected 0 databases, got %d", len(databases))
+			}
+		})
 
-func TestDatabaseManager_ConnectionManager(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("ConnectionManager", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		if dm.ConnectionManager() == nil {
-			t.Errorf("Expected non-nil ConnectionManager")
-		}
-	})
-}
+			if dm.ConnectionManager() == nil {
+				t.Errorf("Expected non-nil ConnectionManager")
+			}
+		})
 
-func TestDatabaseManager_Create(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("Create", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		database, err := dm.Create("test", "main")
+			database, err := dm.Create("test", "main")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if database == nil {
-			t.Fatal("Expected non-nil DatabaseKey")
-		}
+			if database == nil {
+				t.Fatal("Expected non-nil DatabaseKey")
+			}
 
-		if database.Name != "test" {
-			t.Errorf("Expected DatabaseId to be 'test', got %s", database.Id)
-		}
-	})
-}
+			if database.Name != "test" {
+				t.Errorf("Expected DatabaseId to be 'test', got %s", database.Id)
+			}
+		})
 
-func TestDatabaseManager_Delete(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("Delete", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		database, err := dm.Create("test", "main")
+			database, err := dm.Create("test", "main")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		fileSystem := dm.Resources(database.Id, database.PrimaryBranchId).FileSystem()
+			fileSystem := dm.Resources(database.Id, database.PrimaryBranchId).FileSystem()
 
-		// Ensure the database directory exists
-		if !fileSystem.Exists() {
-			t.Errorf("Expected database directory to exist")
-		}
+			// Ensure the database directory exists
+			if !fileSystem.Exists() {
+				t.Errorf("Expected database directory to exist")
+			}
 
-		err = dm.Delete(database)
+			err = dm.Delete(database)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		// Ensure the database directory does not exist
-		if fileSystem.Exists() {
-			t.Errorf("Expected database directory to not exist")
-		}
+			// Ensure the database directory does not exist
+			if fileSystem.Exists() {
+				t.Errorf("Expected database directory to not exist")
+			}
 
-		_, err = dm.Get(database.Id)
+			_, err = dm.Get(database.Id)
 
-		if err == nil {
-			t.Errorf("Expected error, got nil")
-		}
-	})
-}
+			if err == nil {
+				t.Errorf("Expected error, got nil")
+			}
+		})
 
-func TestDatabaseManager_Delete_ActiveDatabase(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("Delete_ActiveDatabase", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		db, err := dm.Create("test", "main")
+			db, err := dm.Create("test", "main")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		fileSystem := dm.Resources(db.Id, db.PrimaryBranchId).FileSystem()
+			fileSystem := dm.Resources(db.Id, db.PrimaryBranchId).FileSystem()
 
-		// Ensure the database directory exists
-		if !fileSystem.Exists() {
-			t.Errorf("Expected database directory to exist")
-		}
+			// Ensure the database directory exists
+			if !fileSystem.Exists() {
+				t.Errorf("Expected database directory to exist")
+			}
 
-		con1, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
+			con1, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		defer dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con1)
+			defer dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con1)
 
-		_, err = con1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);", nil)
+			_, err = con1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);", nil)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		err = dm.Delete(db)
+			err = dm.Delete(db)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		_, err = con1.GetConnection().Exec("INSERT INTO test (value) VALUES ('Hello, World!');", nil)
+			_, err = con1.GetConnection().Exec("INSERT INTO test (value) VALUES ('Hello, World!');", nil)
 
-		if err != database.ErrDatabaseConnectionClosed {
-			t.Errorf("Expected database connection to be closed, got %v", err)
-		}
+			if err != database.ErrDatabaseConnectionClosed {
+				t.Errorf("Expected database connection to be closed, got %v", err)
+			}
 
-		con2, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
+			con2, err := dm.ConnectionManager().Get(db.Id, db.PrimaryBranchId)
 
-		if err == nil {
-			t.Errorf("Expected error, got nil")
-		}
+			if err == nil {
+				t.Errorf("Expected error, got nil")
+			}
 
-		dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con2)
-	})
-}
+			dm.ConnectionManager().Release(db.Id, db.PrimaryBranchId, con2)
+		})
 
-func TestDatabaseManager_Exists(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("Exists", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		exists, err := dm.Exists("nonexistent")
+			exists, err := dm.Exists("nonexistent")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if exists {
-			t.Errorf("Expected false, got true")
-		}
+			if exists {
+				t.Errorf("Expected false, got true")
+			}
 
-		database, err := dm.Create("test", "main")
+			database, err := dm.Create("test", "main")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		exists, err = dm.Exists(database.Name)
+			exists, err = dm.Exists(database.Name)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if !exists {
-			t.Errorf("Expected true, got false")
-		}
-	})
-}
+			if !exists {
+				t.Errorf("Expected true, got false")
+			}
+		})
 
-func TestDatabaseManager_Get(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("Get", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		database, err := dm.Create("test", "main")
+			database, err := dm.Create("test", "main")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		db, err := dm.Get(database.Id)
+			db, err := dm.Get(database.Id)
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		if db == nil {
-			t.Fatal("Expected non-nil Database")
-		}
+			if db == nil {
+				t.Fatal("Expected non-nil Database")
+			}
 
-		if db.Id != database.Id {
-			t.Errorf("Expected DatabaseId to be %s, got %s", database.Id, db.Id)
-		}
-	})
-}
+			if db.Id != database.Id {
+				t.Errorf("Expected DatabaseId to be %s, got %s", database.Id, db.Id)
+			}
+		})
 
-func TestDatabaseManager_PageLogManager(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("PageLogManager", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		if dm.PageLogManager() == nil {
-			t.Errorf("Expected non-nil PageLogManager")
-		}
-	})
-}
+			if dm.PageLogManager() == nil {
+				t.Errorf("Expected non-nil PageLogManager")
+			}
+		})
 
-func TestDatabaseManager_Resources(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("Resources", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		database, err := dm.Create("test", "main")
+			database, err := dm.Create("test", "main")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		resources := dm.Resources(database.Id, database.PrimaryBranchId)
+			resources := dm.Resources(database.Id, database.PrimaryBranchId)
 
-		if resources == nil {
-			t.Errorf("Expected non-nil Resources")
-		}
-	})
-}
+			if resources == nil {
+				t.Errorf("Expected non-nil Resources")
+			}
+		})
 
-func TestDatabaseManager_ShutdownResources(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+		t.Run("ShutdownResources", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
-		database, err := dm.Create("test", "main")
+			database, err := dm.Create("test", "main")
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		err = dm.ShutdownResources()
+			err = dm.ShutdownResources()
 
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-		resources := dm.Resources(database.Id, database.PrimaryBranchId)
+			resources := dm.Resources(database.Id, database.PrimaryBranchId)
 
-		if resources == nil {
-			t.Errorf("Expected non-nil Resources")
-		}
+			if resources == nil {
+				t.Errorf("Expected non-nil Resources")
+			}
+		})
 	})
 }
