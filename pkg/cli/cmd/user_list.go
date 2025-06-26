@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"time"
+	"fmt"
 
-	"github.com/litebase/litebase/pkg/auth"
-
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
@@ -12,92 +11,67 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type UserListResponse struct {
-	Data []auth.User `json:"data"`
-}
-
 func NewUserListCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List users",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := api.Get(config, "/resources/users")
+			data, err := api.Get(config, "/resources/users")
 
 			if err != nil {
 				return err
 			}
 
-			columns := []string{
-				"Username",
-				"Privileges",
-				"Created At",
-				"Updated At",
-			}
+			if data["data"] == nil {
+				lipgloss.Fprint(
+					cmd.OutOrStdout(),
+					components.Container(components.WarningAlert("No users found")),
+				)
 
-			var users []auth.User
-
-			for _, user := range res["data"].([]any) {
-				statements := []auth.AccessKeyStatement{}
-
-				for _, statement := range user.(map[string]any)["statements"].([]any) {
-					s := auth.AccessKeyStatement{}
-
-					effect, ok := statement.(map[string]any)["effect"].(string)
-
-					if ok {
-						s.Effect = auth.AccessKeyEffect(effect)
-					}
-
-					resource, ok := statement.(map[string]any)["resource"].(string)
-
-					if ok {
-						s.Resource = auth.AccessKeyResource(resource)
-					}
-
-					actions, ok := statement.(map[string]any)["actions"].([]any)
-
-					if ok {
-						s.Actions = make([]auth.Privilege, len(actions))
-
-						for i, action := range actions {
-							s.Actions[i] = auth.Privilege(action.(string))
-						}
-					}
-
-					statements = append(statements, s)
-				}
-
-				parsedCreatedAt, err := time.Parse(time.RFC3339, user.(map[string]any)["created_at"].(string))
-
-				if err != nil {
-					return err
-				}
-
-				parsedUpdatedAt, err := time.Parse(time.RFC3339, user.(map[string]any)["updated_at"].(string))
-
-				if err != nil {
-					return err
-				}
-
-				users = append(users, auth.User{
-					Username:   user.(map[string]any)["username"].(string),
-					Statements: statements,
-					CreatedAt:  parsedCreatedAt,
-					UpdatedAt:  parsedUpdatedAt,
-				})
+				return nil
 			}
 
 			rows := [][]string{}
 
-			for _, user := range users {
+			users, ok := data["data"].([]any)
+
+			if !ok {
+				lipgloss.Fprint(
+					cmd.OutOrStdout(),
+					components.Container(components.ErrorAlert("Invalid data format for users")),
+				)
+
+				return nil
+			}
+
+			for i, user := range users {
+				var userName string = "-"
+
+				if a, ok := user.(map[string]any)["username"].(string); ok {
+					userName = a
+				}
+
+				// Ensure username is a string before appending
 				rows = append(rows, []string{
-					user.Username,
-					user.CreatedAt.Format(time.RFC3339),
-					user.UpdatedAt.Format(time.RFC3339),
+					fmt.Sprintf("%d", i+1),
+					userName,
 				})
 			}
 
-			components.NewTable(columns, rows).Render(config.GetInteractive())
+			columns := []string{
+				"#",
+				"Username",
+			}
+
+			lipgloss.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(
+					components.NewTable(columns, rows).
+						SetHandler(func(row []string) {
+							userShow(cmd, config, row[1])
+						}).Render(config.GetInteractive()),
+				),
+			)
 
 			return nil
 		},

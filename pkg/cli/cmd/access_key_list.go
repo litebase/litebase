@@ -25,7 +25,7 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 			if data["data"] == nil {
 				lipgloss.Fprint(
 					cmd.OutOrStdout(),
-					components.Container(components.WarningAlert("No databases found")),
+					components.Container(components.WarningAlert("No access keys found")),
 				)
 
 				return nil
@@ -34,6 +34,7 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 			rows := [][]string{}
 
 			accessKeys, ok := data["data"].([]any)
+
 			if !ok {
 				lipgloss.Fprint(
 					cmd.OutOrStdout(),
