@@ -9,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss/v2"
-	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
@@ -21,25 +20,14 @@ func NewAccessKeyUpdateCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update an existing access key",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var confirmed bool
-			var accessKeyId string
-
-			if len(args) > 0 {
-				accessKeyId = args[0]
-			} else {
-				return errors.New("access key ID is required")
-			}
+			accessKeyId := args[0]
 
 			input := AccessKeyInput{
 				Description: "",
-				Statements: []AccessKeyInputStatement{
-					{
-						Effect:   auth.AccessKeyEffectAllow,
-						Resource: "*",
-						Actions:  []string{"*"},
-					},
-				},
+				Statements:  []AccessKeyInputStatement{},
 			}
 
 			description, err := cmd.Flags().GetString("description")
@@ -72,6 +60,7 @@ func NewAccessKeyUpdateCmd(config *config.Configuration) *cobra.Command {
 				if err != nil {
 					return err
 				}
+
 				// Pre-fill with existing values
 				if res["data"].(map[string]any)["description"] != nil {
 					input.Description = res["data"].(map[string]any)["description"].(string)
@@ -96,6 +85,7 @@ func NewAccessKeyUpdateCmd(config *config.Configuration) *cobra.Command {
 				}
 
 				statementsJSON, err := json.MarshalIndent(input.Statements, "", "  ")
+
 				if err != nil {
 					log.Fatal("Error marshalling statements to JSON:", err)
 				}
