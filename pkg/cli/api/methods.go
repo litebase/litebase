@@ -33,3 +33,13 @@ func Delete(config *config.Configuration, path string) (map[string]any, Errors, 
 
 	return client.Request("DELETE", path, nil)
 }
+
+func Put(config *config.Configuration, path string, body map[string]any) (map[string]any, Errors, error) {
+	client, err := NewClient(config)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return client.Request("PUT", path, body)
+}
