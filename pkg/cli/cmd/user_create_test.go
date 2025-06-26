@@ -20,7 +20,7 @@ func TestClusterUserCreate(t *testing.T) {
 
 		// Test non-interactive mode with flags to avoid TTY issues
 		statements := `[{"effect":"allow","resource":"*","actions":["cluster:manage"]}]`
-		err := cli.Run("cluster-user", "create", "--new-username", "testuser", "--new-password", "testpassword123", "--statements", statements)
+		err := cli.Run("user", "create", "--new-username", "testuser", "--new-password", "testpassword123", "--statements", statements)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -50,8 +50,8 @@ func TestClusterUserCreate(t *testing.T) {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statement 1") {
-			t.Error("expected output to contain 'Statement 1'")
+		if cli.DoesntSee("Statements") {
+			t.Error("expected output to contain 'Statements'")
 		}
 	})
 }

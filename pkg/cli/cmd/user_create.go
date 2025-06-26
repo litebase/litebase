@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"time"
 
@@ -186,6 +185,8 @@ func NewUserCreateCmd(config *config.Configuration) *cobra.Command {
 				return err
 			}
 
+			var cardContent string
+
 			rows := []components.CardRow{
 				{
 					Key:   "Username",
@@ -219,13 +220,15 @@ func NewUserCreateCmd(config *config.Configuration) *cobra.Command {
 				})
 			}
 
-			for i, statement := range res["data"].(map[string]any)["statements"].([]any) {
-				statementMap := statement.(map[string]any)
+			if res["data"].(map[string]any)["statements"] != nil {
+				statements := res["data"].(map[string]any)["statements"].([]any)
+				statementsJSON, err := json.MarshalIndent(statements, "", "  ")
 
-				rows = append(rows, components.CardRow{
-					Key:   fmt.Sprintf("Statement %d", i+1),
-					Value: fmt.Sprintf("%s %s %s", statementMap["effect"].(string), statementMap["resource"].(string), statementMap["actions"].([]any)[0].(string)),
-				})
+				if err != nil {
+					return err
+				}
+
+				cardContent = "```json\n" + string(statementsJSON) + "\n```"
 			}
 
 			lipgloss.Fprint(
@@ -235,6 +238,7 @@ func NewUserCreateCmd(config *config.Configuration) *cobra.Command {
 					components.NewCard(
 						components.WithCardTitle("User"),
 						components.WithCardRows(rows),
+						components.WithCardContent("Statements", cardContent),
 					).Render(),
 				),
 			)
