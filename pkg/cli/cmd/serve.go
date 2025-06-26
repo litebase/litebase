@@ -47,11 +47,7 @@ func NewServeCmd() *cobra.Command {
 
 	// Configuration (setup before command runs)
 	cobra.OnInitialize(func() {
-		err := godotenv.Load(".env")
-
-		if err != nil {
-			panic(err)
-		}
+		godotenv.Load(".env")
 
 		dataPath := cmd.Flag("data-path").Value.String()
 
