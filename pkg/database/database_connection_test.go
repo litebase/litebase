@@ -176,13 +176,6 @@ func TestDatabaseConnection(t *testing.T) {
 						continue
 					}
 
-					// err = db.GetConnection().Query(nil, statement.Sqlite3Statement, []sqlite3.StatementParameter{
-					// 	{
-					// 		Type:  "TEXT",
-					// 		Value: []byte("test"),
-					// 	},
-					// })
-
 					err = db.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
 						return statement.Sqlite3Statement.Exec(nil, []sqlite3.StatementParameter{
 							{

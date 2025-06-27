@@ -843,6 +843,8 @@ func (n *Node) Start() chan bool {
 // If the node is the primary, step down from the primary role.
 func (n *Node) StepDown() error {
 	if !n.IsPrimary() {
+		n.lease = nil
+
 		return nil
 	}
 
