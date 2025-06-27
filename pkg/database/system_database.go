@@ -34,7 +34,9 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 		mutex:           &sync.Mutex{},
 	}
 
-	sd.init()
+	if sd.databaseManager.Cluster.Node().IsPrimary() {
+		sd.init()
+	}
 
 	sd.initialized = true
 
