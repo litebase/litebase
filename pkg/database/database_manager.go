@@ -187,9 +187,6 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 // Create a new instance of a database.
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	return CreateDatabase(d, databaseName, branchName)
 }
 
@@ -264,6 +261,7 @@ func (d *DatabaseManager) Exists(name string) (bool, error) {
 func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
 	database := &Database{}
 
 	if databaseId == SystemDatabaseID {
