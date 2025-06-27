@@ -421,10 +421,12 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 
 // Shutdown the connection manager by closing all connections and stopping
 func (c *ConnectionManager) Shutdown() {
-	err := c.databaseManager.SystemDatabase().Close()
+	if c.databaseManager.systemDatabase != nil {
+		err := c.databaseManager.SystemDatabase().Close()
 
-	if err != nil {
-		slog.Error("Error closing system database", "error", err)
+		if err != nil {
+			slog.Error("Error closing system database", "error", err)
+		}
 	}
 
 	// Drain all connections
