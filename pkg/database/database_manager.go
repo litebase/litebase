@@ -242,20 +242,28 @@ func (d *DatabaseManager) Delete(database *Database) error {
 
 	// Delete the database keys
 	// TODO: Delete the database keys for all branches in the system database.
-	// for _, branch := range database.Branches {
-	// 	err := d.SecretsManager.DeleteDatabaseKey(
-	// 		database.Key(branch.BranchID),
-	// 	)
 
-	// 	if err != nil {
-	// 		slog.Error("Error deleting database key", "error", err)
-	// 	}
-	// }
+	db, err := d.SystemDatabase().DB()
+
+	if err != nil {
+		slog.Error("Error getting system database", "error", err)
+		return err
+	}
+
+	_, err = db.Exec(
+		"DELETE FROM database_keys WHERE id = ?",
+		database.ID,
+	)
+
+	if err != nil {
+		slog.Error("Error getting database branches", "error", err)
+		return err
+	}
 
 	// TODO: Removing all database storage may require the removal of a lot of files.
 	// How is this going to work with tiered storage? We also need to test that
 	// removing a database stops any opertaions to the database.
-	err := fileSystem.FileSystem().RemoveAll(
+	err = fileSystem.FileSystem().RemoveAll(
 		file.GetDatabaseRootDir(
 			database.DatabaseID,
 		),
@@ -267,13 +275,6 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	}
 
 	resources.Remove()
-
-	db, err := d.SystemDatabase().DB()
-
-	if err != nil {
-		slog.Error("Error getting system database", "error", err)
-		return err
-	}
 
 	_, err = db.Exec(
 		"DELETE FROM databases WHERE id = ?",
