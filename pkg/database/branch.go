@@ -26,7 +26,7 @@ type Branch struct {
 	CreatedAt           time.Time        `json:"created_at"`
 	UpdatedAt           time.Time        `json:"updated_at"`
 
-	exists bool
+	Exists bool `json:"-"`
 }
 
 func NewBranch(databaseManager *DatabaseManager, name string) (*Branch, error) {
@@ -84,6 +84,7 @@ func InsertBranch(b *Branch) error {
 
 	result, err := db.Exec(
 		`INSERT INTO database_branches (
+			database_reference_id,
 			database_id, 
 			database_branch_id, 
 			key, 
@@ -92,8 +93,9 @@ func InsertBranch(b *Branch) error {
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		`,
+		b.DatabaseReferenceID,
 		b.DatabaseID,
 		b.DatabaseBranchID,
 		b.Key,
@@ -116,7 +118,7 @@ func InsertBranch(b *Branch) error {
 	}
 
 	b.ID = id
-	b.exists = true
+	b.Exists = true
 
 	return nil
 }
@@ -154,7 +156,7 @@ func (b *Branch) Save() error {
 		return fmt.Errorf("branch is missing required fields")
 	}
 
-	if b.exists {
+	if b.Exists {
 		return UpdateBranch(b)
 	} else {
 		return InsertBranch(b)

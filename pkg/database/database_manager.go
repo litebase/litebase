@@ -1,7 +1,6 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"log/slog"
@@ -188,52 +187,10 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 // Create a new instance of a database.
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
-	database := NewDatabase(d, databaseName)
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
-	database.Settings = &DatabaseSettings{
-		Backups: DatabaseBackupSettings{
-			Enabled: true,
-			IncrementalBackups: DatabaseIncrementalBackupSettings{
-				Enabled: true,
-			},
-		},
-	}
-
-	database.CreatedAt = time.Now().UTC()
-	database.UpdatedAt = time.Now().UTC()
-
-	err := database.Save()
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Create the initial branch
-	branch, err := NewBranch(d, branchName)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create branch: %w", err)
-	}
-
-	branch.DatabaseID = database.DatabaseID
-	branch.DatabaseReferenceID = sql.NullInt64{Int64: database.ID, Valid: true}
-
-	err = branch.Save()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to save branch: %w", err)
-	}
-
-	// Update the database with the branch
-	database.PrimaryBranchReferenceID = sql.NullInt64{Int64: branch.ID, Valid: true}
-
-	err = database.Save()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return database, nil
+	return CreateDatabase(d, databaseName, branchName)
 }
 
 // Delete the given instance of the database.

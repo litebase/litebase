@@ -25,20 +25,61 @@ type Database struct {
 	primaryBranch *Branch
 }
 
-func Directory() string {
-	return "_databases/"
-}
-
-func TmpDirectory() string {
-	return "_databases/"
-}
-
-func NewDatabase(databaseManager *DatabaseManager, name string) *Database {
+func NewDatabase(databaseManager *DatabaseManager, databaseName string) *Database {
 	return &Database{
 		DatabaseID:      uuid.New().String(),
 		DatabaseManager: databaseManager,
-		Name:            name,
+		Name:            databaseName,
 	}
+}
+
+func CreateDatabase(databaseManager *DatabaseManager, databaseName string, branchName string) (*Database, error) {
+	database := NewDatabase(databaseManager, databaseName)
+
+	database.Settings = &DatabaseSettings{
+		Backups: DatabaseBackupSettings{
+			Enabled: true,
+			IncrementalBackups: DatabaseIncrementalBackupSettings{
+				Enabled: true,
+			},
+		},
+	}
+
+	database.CreatedAt = time.Now().UTC()
+	database.UpdatedAt = time.Now().UTC()
+
+	err := database.Save()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the initial branch
+	branch, err := NewBranch(databaseManager, branchName)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create branch: %w", err)
+	}
+
+	branch.DatabaseID = database.DatabaseID
+	branch.DatabaseReferenceID = sql.NullInt64{Int64: database.ID, Valid: true}
+
+	err = branch.Save()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to save branch: %w", err)
+	}
+
+	// Update the database with the branch
+	database.PrimaryBranchReferenceID = sql.NullInt64{Int64: branch.ID, Valid: true}
+
+	err = database.Save()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return database, nil
 }
 
 // Insert a new database into the system database.
@@ -134,28 +175,28 @@ func (database *Database) HasBranch(branchID string) bool {
 	db, err := database.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
-		slog.Debug("Error checking branch existence", "error", err)
+		slog.Error("Error checking branch existence", "error", err)
 		return false
 	}
 
 	var id int64
 
 	err = db.QueryRow(
-		`SELECT id FROM database_branches WHERE database_branch_id = ? AND database_id = ?`,
-		branchID,
+		`SELECT id FROM database_branches WHERE database_reference_id = ? AND database_branch_id = ?`,
 		database.ID,
+		branchID,
 	).Scan(&id)
 
 	if err != nil {
-		if err != sql.ErrNoRows {
-			slog.Error("Error checking branch existence", "error", err)
-		}
+		slog.Error("Error checking branch existence", "error", err)
+
 		return false
 	}
 
 	return true
 }
 
+// Get the key for a branch of the database.
 func (database *Database) Key(branchID string) string {
 	var key string
 
@@ -166,10 +207,10 @@ func (database *Database) Key(branchID string) string {
 	}
 
 	err = db.QueryRow(
-		`SELECT key FROM database_branches WHERE database_branch_id = ? AND database_id = ?`,
-		branchID,
+		`SELECT key FROM database_branches WHERE database_reference_id = ? AND database_branch_id = ?`,
 		database.ID,
-	).Scan(key)
+		branchID,
+	).Scan(&key)
 
 	if err != nil {
 		return ""
@@ -178,6 +219,7 @@ func (database *Database) Key(branchID string) string {
 	return key
 }
 
+// Load and return the primary branch of the database.
 func (database *Database) PrimaryBranch() *Branch {
 	if database == nil {
 		return nil
@@ -216,7 +258,7 @@ func (database *Database) PrimaryBranch() *Branch {
 
 			if err == nil {
 				branch.DatabaseManager = database.DatabaseManager
-				branch.exists = true
+				branch.Exists = true
 				database.primaryBranch = &branch
 			} else {
 				log.Println("Error loading primary branch:", err)
@@ -235,10 +277,6 @@ func (database *Database) Save() error {
 	}
 }
 
-func (database *Database) BranchDirectory(branchID string) string {
-	return fmt.Sprintf("%s%s/%s", Directory(), database.DatabaseID, branchID)
-}
-
 func (database *Database) Url(branchID string) string {
 	port := ""
 
@@ -247,7 +285,7 @@ func (database *Database) Url(branchID string) string {
 	}
 
 	return fmt.Sprintf(
-		"http://%s%s/%s",
+		"%s%s/%s",
 		database.DatabaseManager.Cluster.Config.HostName,
 		port,
 		database.Key(branchID),

@@ -115,7 +115,7 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 		d.databaseManager.Cluster.TieredFS(),
 		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
-		fmt.Sprintf("%s%s/%s/", Directory(), d.DatabaseID, d.BranchID),
+		fmt.Sprintf("%s%s/%s/", file.DatabaseDirectory(), d.DatabaseID, d.BranchID),
 		d.DatabaseID,
 		d.BranchID,
 		pageSize,
