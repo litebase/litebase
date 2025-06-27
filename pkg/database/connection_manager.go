@@ -108,7 +108,7 @@ func (c *ConnectionManager) CheckpointAll() {
 
 				go func(databaseGroup *DatabaseGroup, cc *ClientConnection) {
 					c.checkpoint(databaseGroup, branchId, cc)
-					c.Release(cc.connection.databaseId, cc.connection.branchId, cc)
+					c.Release(cc)
 				}(databaseGroup, connection)
 
 				break
@@ -251,7 +251,7 @@ func (c *ConnectionManager) ForceCheckpoint(databaseId string, branchId string) 
 		return err
 	}
 
-	defer c.Release(databaseId, branchId, connection)
+	defer c.Release(connection)
 
 	databaseGroup := c.databases[databaseId]
 
@@ -326,7 +326,7 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 	return con, nil
 }
 
-func (c *ConnectionManager) Release(databaseId string, branchId string, clientConnection *ClientConnection) {
+func (c *ConnectionManager) Release(clientConnection *ClientConnection) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -334,18 +334,18 @@ func (c *ConnectionManager) Release(databaseId string, branchId string, clientCo
 		return
 	}
 
-	if c.databases[databaseId] == nil {
+	if c.databases[clientConnection.DatabaseID] == nil {
 		return
 	}
 
-	if c.databases[databaseId].branches[branchId] == nil {
+	if c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] == nil {
 		return
 	}
 
-	for _, branchConnection := range c.databases[databaseId].branches[branchId] {
+	for _, branchConnection := range c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
 			if branchConnection.connection.connection.Closed() {
-				c.remove(databaseId, branchId, clientConnection)
+				c.remove(clientConnection)
 			} else {
 				branchConnection.Release()
 				branchConnection.lastUsedAt = time.Now().UTC()
@@ -358,19 +358,19 @@ func (c *ConnectionManager) Release(databaseId string, branchId string, clientCo
 
 // Remove a branch connection from the database group. This method is called
 // without the mutex lock, so it should be called from within a mutex lock.
-func (c *ConnectionManager) remove(databaseId string, branchId string, clientConnection *ClientConnection) {
+func (c *ConnectionManager) remove(clientConnection *ClientConnection) {
 	// Remove the branch connection from the database group branch
-	for i, branchConnection := range c.databases[databaseId].branches[branchId] {
+	for i, branchConnection := range c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
-			c.databases[databaseId].branches[branchId] = slices.Delete(c.databases[databaseId].branches[branchId], i, i+1)
+			c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] = slices.Delete(c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID], i, i+1)
 			break
 		}
 	}
 
 	// If there are no more branches, remove the database
-	if len(c.databases[databaseId].branches[branchId]) == 0 {
-		delete(c.databases[databaseId].branches, branchId)
-		c.databaseManager.Remove(databaseId, branchId)
+	if len(c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID]) == 0 {
+		delete(c.databases[clientConnection.DatabaseID].branches, clientConnection.BranchID)
+		c.databaseManager.Remove(clientConnection.DatabaseID, clientConnection.BranchID)
 	}
 
 	clientConnection.Close()
@@ -380,7 +380,7 @@ func (c *ConnectionManager) Remove(databaseId string, branchId string, clientCon
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.remove(databaseId, branchId, clientConnection)
+	c.remove(clientConnection)
 }
 
 func (c *ConnectionManager) RemoveIdleConnections() {
@@ -390,7 +390,7 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 	for databaseId, database := range c.databases {
 		var activeBranches = len(database.branches)
 
-		for branchId, branchConnections := range database.branches {
+		for _, branchConnections := range database.branches {
 			removeableBranches := []*BranchConnection{}
 
 			for _, branchConnection := range branchConnections {
@@ -404,7 +404,7 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 			}
 
 			for _, branchConnection := range removeableBranches {
-				c.remove(databaseId, branchId, branchConnection.connection)
+				c.remove(branchConnection.connection)
 			}
 
 			if len(database.branches) == 0 {
