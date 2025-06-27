@@ -109,8 +109,7 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 			}
 
 			rc = C.sqlite3_bind_int64(s.sqlite3_stmt, index, C.sqlite3_int64(value))
-		case "FLOAT":
-		case "REAL":
+		case "FLOAT", "REAL":
 			value, ok := parameter.Value.(float64)
 
 			if !ok {
@@ -140,8 +139,9 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 
 			rc = C.sqlite3_bind_text(s.sqlite3_stmt, C.int(int32Index), cText, cTextLen, C.SQLITE_TRANSIENT)
 		case "BLOB":
-			var valuePointer unsafe.Pointer
 			value := parameter.Value.([]byte)
+
+			var valuePointer unsafe.Pointer
 
 			if len(value) > 0 {
 				valuePointer = unsafe.Pointer(&value[0])
@@ -376,9 +376,8 @@ func (s *Statement) getBlobData(index int) []byte {
 	// Get the size of the blob data
 	size := int(C.sqlite3_column_bytes(s.sqlite3_stmt, C.int(int32Index)))
 
-	// Ensure the buffer is large enough
-	if buf.Cap() < size {
-		buf.Grow(size)
+	if size == 0 {
+		return nil
 	}
 
 	// Get the pointer to the blob data
@@ -388,13 +387,11 @@ func (s *Statement) getBlobData(index int) []byte {
 		return nil
 	}
 
-	// Copy the blob data into the buffer
-	byteSlice := buf.Bytes()
-	copy(byteSlice, (*[1 << 30]byte)(unsafe.Pointer(blobPtr))[:size:size])
+	// Create a byte slice and copy the data
+	data := make([]byte, size)
+	copy(data, (*[1 << 30]byte)(unsafe.Pointer(blobPtr))[:size:size])
 
-	// Return a slice of the buffer containing the blob data
-
-	return byteSlice
+	return data
 }
 
 // Use the text buffer to store the text data

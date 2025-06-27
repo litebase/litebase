@@ -1,11 +1,10 @@
 package database
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"log"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 
@@ -13,13 +12,10 @@ import (
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
-
-	"github.com/google/uuid"
 )
 
 type DatabaseManager struct {
 	Cluster                *cluster.Cluster
-	databases              map[string]*Database
 	connectionManager      *ConnectionManager
 	connectionManagerMutex *sync.Mutex
 	mutex                  *sync.Mutex
@@ -39,7 +35,6 @@ func NewDatabaseManager(
 	dbm := &DatabaseManager{
 		Cluster:                cluster,
 		connectionManagerMutex: &sync.Mutex{},
-		databases:              make(map[string]*Database),
 		mutex:                  &sync.Mutex{},
 		resources:              make(map[string]*DatabaseResources),
 		SecretsManager:         secretsManager,
@@ -53,49 +48,61 @@ func NewDatabaseManager(
 
 	dbm.pageLogManager.SetCompactionFn(dbm.compaction)
 
+	RegisterDriver("litebase", dbm.ConnectionManager())
+
 	return dbm
 }
 
 // Return all of the databases that have been configured in the system.
 func (d *DatabaseManager) All() ([]*Database, error) {
-	var databases []*Database
-
-	// Read all files in the databases directory
-tryRead:
-	entries, err := d.Cluster.ObjectFS().ReadDir(Directory())
+	db, err := d.SystemDatabase().DB()
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			err := d.Cluster.ObjectFS().MkdirAll(Directory(), 0750)
-
-			if err != nil {
-				return nil, err
-			}
-
-			goto tryRead
-		}
-
 		return nil, err
 	}
 
-	// We need the database name, we need the id, we do not want to open each file (thinking)
-	for _, entry := range entries {
-		data, err := d.Cluster.ObjectFS().ReadFile(fmt.Sprintf("%s%s/settings.json", Directory(), entry.Name()))
+	var databases []*Database
 
-		if err != nil {
-			return nil, err
-		}
+	rows, err := db.Query(
+		"SELECT * FROM databases",
+	)
 
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
 		database := &Database{}
 
-		err = json.Unmarshal(data, database)
+		err := rows.Scan(
+			&database.ID,
+			&database.DatabaseID,
+			&database.Name,
+			&database.PrimaryBranchID,
+			&database.Settings,
+			&database.CreatedAt,
+			&database.UpdatedAt,
+		)
 
 		if err != nil {
 			return nil, err
 		}
 
-		database.DatabaseManager = d
+		// // Parse timestamps if they exist
+		// if database.CreatedAtRaw.Valid && database.CreatedAtRaw.String != "" {
+		// 	if parsedTime, err := time.Parse(time.RFC3339, database.CreatedAtRaw.String); err == nil {
+		// 		database.CreatedAt = parsedTime
+		// 	}
+		// }
 
+		// if database.UpdatedAtRaw.Valid && database.UpdatedAtRaw.String != "" {
+		// 	if parsedTime, err := time.Parse(time.RFC3339, database.UpdatedAtRaw.String); err == nil {
+		// 		database.UpdatedAt = parsedTime
+		// 	}
+		// }
+
+		database.DatabaseManager = d
 		databases = append(databases, database)
 	}
 
@@ -178,31 +185,9 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 // Create a new instance of a database.
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
-	dks, err := d.SecretsManager.DatabaseKeyStore(d.Cluster.Config.EncryptionKey)
+	database := NewDatabase(d, databaseName)
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to get database key store: %w", err)
-	}
-
-	branch, err := NewBranch(d.Cluster.Config, dks, branchName, true)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create branch: %w", err)
-	}
-
-	// systemDB := d.SystemDatabase()
-
-	// systemDB.Exec(
-	// 	"INSERT INTO databases (name)"
-	// )
-
-	database := NewDatabase(d)
-	database.DatabaseID = uuid.New().String()
-	database.Name = databaseName
-
-	database.PrimaryBranchID = branch.ID
-	database.PrimaryBranchName = branchName
-	database.Settings = DatabaseSettings{
+	database.Settings = &DatabaseSettings{
 		Backups: DatabaseBackupSettings{
 			Enabled: true,
 			IncrementalBackups: DatabaseIncrementalBackupSettings{
@@ -214,23 +199,29 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 	database.CreatedAt = time.Now().UTC()
 	database.UpdatedAt = time.Now().UTC()
 
-	err = database.Save()
+	err := database.Save()
 
 	if err != nil {
 		return nil, err
 	}
 
 	// Create the initial branch
+	branch, err := NewBranch(d, branchName)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create branch: %w", err)
+	}
+
 	branch.DatabaseID = database.ID
 
 	err = branch.Save()
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to save branch: %w", err)
 	}
 
 	// Update the database with the branch
-	database.PrimaryBranchID = branch.ID
+	database.PrimaryBranchID = sql.NullInt64{Int64: branch.ID, Valid: true}
 
 	err = database.Save()
 
@@ -250,15 +241,16 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	fileSystem := resources.FileSystem()
 
 	// Delete the database keys
-	for _, branch := range database.Branches {
-		err := d.SecretsManager.DeleteDatabaseKey(
-			database.Key(branch.BranchID),
-		)
+	// TODO: Delete the database keys for all branches in the system database.
+	// for _, branch := range database.Branches {
+	// 	err := d.SecretsManager.DeleteDatabaseKey(
+	// 		database.Key(branch.BranchID),
+	// 	)
 
-		if err != nil {
-			slog.Error("Error deleting database key", "error", err)
-		}
-	}
+	// 	if err != nil {
+	// 		slog.Error("Error deleting database key", "error", err)
+	// 	}
+	// }
 
 	// TODO: Removing all database storage may require the removal of a lot of files.
 	// How is this going to work with tiered storage? We also need to test that
@@ -270,70 +262,87 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	)
 
 	if err != nil {
-		log.Println("Error deleting database storage", err)
+		slog.Error("Error deleting database storage", "error", err)
 		return err
 	}
 
 	resources.Remove()
 
-	delete(d.databases, database.DatabaseID)
+	db, err := d.SystemDatabase().DB()
+
+	if err != nil {
+		slog.Error("Error getting system database", "error", err)
+		return err
+	}
+
+	_, err = db.Exec(
+		"DELETE FROM databases WHERE id = ?",
+		database.ID,
+	)
+
+	if err != nil {
+		slog.Error("Error deleting database from system database", "error", err)
+	}
 
 	return nil
 }
 
 // Check if a database with the given name exists.
 func (d *DatabaseManager) Exists(name string) (bool, error) {
-	databases, err := d.All()
+	db, err := d.SystemDatabase().DB()
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-
-		return false, fmt.Errorf("failed to list databases: %w", err)
+		return false, err
 	}
 
-	for _, database := range databases {
-		if database.Name == name {
-			return true, nil
-		}
+	var count int64
+
+	err = db.QueryRow(
+		"SELECT COUNT(*) FROM databases WHERE name = ?",
+		name,
+	).Scan(&count)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check database existence: %w", err)
 	}
 
-	return false, nil
+	return count > 0, nil
 }
 
 // Get a database instance by its ID.
 func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
-	if d.databases[databaseId] != nil {
-		return d.databases[databaseId], nil
-	}
 	database := &Database{}
 
 	if databaseId == SystemDatabaseID {
 		database = &TheSystemDatabase
 	} else {
-		path := fmt.Sprintf("%s%s/settings.json", file.DatabaseDirectory(), databaseId)
-
-		file, err := d.Cluster.ObjectFS().Open(path)
+		db, err := d.SystemDatabase().DB()
 
 		if err != nil {
-			return nil, fmt.Errorf("database '%s' has not been configured", databaseId)
+			return nil, fmt.Errorf("failed to get system database: %w", err)
 		}
 
-		defer file.Close()
-
-		err = json.NewDecoder(file).Decode(database)
+		err = db.QueryRow(
+			"SELECT id, database_id, name, primary_branch_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+			databaseId,
+		).Scan(
+			&database.ID,
+			&database.DatabaseID,
+			&database.Name,
+			&database.PrimaryBranchID,
+			&database.Settings,
+			&database.CreatedAt,
+			&database.UpdatedAt,
+		)
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get database: %w", err)
 		}
 	}
 
 	database.DatabaseManager = d
-	d.databases[databaseId] = database
 
 	return database, nil
 }
@@ -400,8 +409,8 @@ func (d *DatabaseManager) ShutdownResources() error {
 
 // Return the system database instance. If it has not been created yet, create it.
 func (d *DatabaseManager) SystemDatabase() *SystemDatabase {
-	// d.mutex.Lock()
-	// defer d.mutex.Unlock()
+	d.systemDatabaseMutex.Lock()
+	defer d.systemDatabaseMutex.Unlock()
 
 	if d.systemDatabase != nil {
 		return d.systemDatabase

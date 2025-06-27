@@ -94,7 +94,7 @@ func TestGoWriteHook(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
@@ -120,7 +120,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		// Create a set of tables to force the database to grow. SQLite will
 		// create a new page for each table root page so this is good for our
@@ -263,7 +263,7 @@ func TestVfsVacuum(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		// Create a table for users
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})

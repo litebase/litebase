@@ -1,28 +1,28 @@
 package database
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
+	"log/slog"
 	"time"
 
-	"github.com/litebase/litebase/pkg/sqlite3"
+	"github.com/google/uuid"
 )
 
 type Database struct {
-	ID                int64            `json:"-"`
-	DatabaseManager   *DatabaseManager `json:"-"`
-	Name              string           `json:"name"`
-	Branches          []*Branch        `json:"branches"`
-	DatabaseID        string           `json:"database_id"`
-	PrimaryBranchID   int64            `json:"primary_branch_id"`
-	PrimaryBranchName string           `json:"primary_branch_name"`
-	Settings          DatabaseSettings `json:"settings"`
-	CreatedAt         time.Time        `json:"created_at"`
-	UpdatedAt         time.Time        `json:"updated_at"`
+	ID              int64             `json:"-"`
+	DatabaseManager *DatabaseManager  `json:"-"`
+	Name            string            `json:"name"`
+	DatabaseID      string            `json:"database_id"`
+	PrimaryBranchID sql.NullInt64     `json:"primary_branch_id"`
+	Settings        *DatabaseSettings `json:"settings"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
 
-	exists         bool
-	primaryBranch  *Branch
-	systemDatabase *SystemDatabase `json:"-"`
+	exists        bool
+	primaryBranch *Branch
 }
 
 func Directory() string {
@@ -33,48 +33,50 @@ func TmpDirectory() string {
 	return "_databases/"
 }
 
-func NewDatabase(databaseManager *DatabaseManager) *Database {
+func NewDatabase(databaseManager *DatabaseManager, name string) *Database {
 	return &Database{
+		DatabaseID:      uuid.New().String(),
 		DatabaseManager: databaseManager,
+		Name:            name,
 	}
 }
 
 // Insert a new database into the system database.
 func InsertDatabase(database *Database) error {
-	systemDatabase := database.DatabaseManager.SystemDatabase()
+	db, err := database.DatabaseManager.SystemDatabase().DB()
 
-	_, err := systemDatabase.Exec(
+	if err != nil {
+		return err
+	}
+
+	result, err := db.Exec(
 		`INSERT INTO databases (
-			database_id, 
+			database_id,
+			primary_branch_id, 
 			name, 
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?)
 		`,
-		[]sqlite3.StatementParameter{
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: database.DatabaseID,
-			},
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: database.Name,
-			},
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: time.Now().UTC().Format(time.RFC3339),
-			},
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: time.Now().UTC().Format(time.RFC3339),
-			},
-		},
+		database.DatabaseID,
+		database.PrimaryBranchID,
+		database.Name,
+		time.Now().UTC(),
+		time.Now().UTC(),
 	)
 
 	if err != nil {
 		return err
 	}
+
+	id, err := result.LastInsertId()
+
+	if err != nil {
+		return err
+	}
+
+	database.ID = id
 
 	database.exists = true
 
@@ -83,36 +85,37 @@ func InsertDatabase(database *Database) error {
 
 // Update an existing database in the system database.
 func UpdateDatabase(database *Database) error {
-	systemDatabase := database.DatabaseManager.SystemDatabase()
+	db, err := database.DatabaseManager.SystemDatabase().DB()
 
-	_, err := systemDatabase.Exec(
+	if err != nil {
+		return err
+	}
+
+	settingsJson, err := json.Marshal(database.Settings)
+
+	if err != nil {
+		return err
+	}
+
+	var primaryBranchId int64
+
+	if database.PrimaryBranchID.Valid {
+		primaryBranchId = database.PrimaryBranchID.Int64
+	}
+
+	_, err = db.Exec(
 		`UPDATE databases 
-		SET (
+		SET 
 			name = ?,
 			primary_branch_id = ?,
 			settings = ?,
 			updated_at = ?
-		)
 		WHERE database_id = ?
 		`,
-		[]sqlite3.StatementParameter{
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: database.Name,
-			},
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: database.PrimaryBranchID,
-			},
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: database.Settings,
-			},
-			{
-				Type:  sqlite3.ParameterTypeText,
-				Value: time.Now().UTC().Format(time.RFC3339),
-			},
-		},
+		database.Name,
+		primaryBranchId,
+		string(settingsJson),
+		time.Now().UTC(),
 	)
 
 	if err != nil {
@@ -122,37 +125,88 @@ func UpdateDatabase(database *Database) error {
 	return nil
 }
 
+// Check if a branch exists for the database.
 func (database *Database) HasBranch(branchID string) bool {
 	if database.DatabaseID == SystemDatabaseID && branchID == SystemDatabaseBranchID {
 		return true
 	}
 
-	// TODO: This needs to be an actualy lookup on the system database
-	for _, branch := range database.Branches {
-		if branch.BranchID == branchID {
-			return true
-		}
+	db, err := database.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		slog.Error("Error checking branch existence", "error", err)
+		return false
 	}
 
-	return false
+	var id int64
+
+	err = db.QueryRow(
+		`SELECT id FROM database_branches WHERE database_branch_id = ? AND database_id = ?`,
+		branchID,
+		database.ID,
+	).Scan(&id)
+
+	if err != nil {
+		if err != sql.ErrNoRows {
+			slog.Error("Error checking branch existence", "error", err)
+		}
+		return false
+	}
+
+	return true
 }
 
 func (database *Database) Key(branchID string) string {
 	var branch *Branch
 
-	for _, b := range database.Branches {
-		if b.BranchID == branchID {
-			branch = b
-			break
-		}
-	}
+	// TODO: Load the branch from the database
 
 	return branch.Key
 }
 
 func (database *Database) PrimaryBranch() *Branch {
+	if database == nil {
+		return nil
+	}
+
 	if database.primaryBranch == nil {
-		// TODO: Select the branch from the system database
+		// If no primary branch ID is set, return nil
+		if !database.PrimaryBranchID.Valid || database.PrimaryBranchID.Int64 == 0 {
+			return nil
+		}
+
+		// Load the primary branch from the system database using the foreign key
+		if database.DatabaseManager != nil {
+			db, err := database.DatabaseManager.SystemDatabase().DB()
+
+			if err != nil {
+				return nil
+			}
+
+			var branch Branch
+
+			err = db.QueryRow(
+				`SELECT * FROM database_branches WHERE id = ?`,
+				database.PrimaryBranchID.Int64,
+			).Scan(
+				&branch.ID,
+				&branch.DatabaseID,
+				&branch.BranchID,
+				&branch.Name,
+				&branch.Key,
+				&branch.Settings,
+				&branch.CreatedAt,
+				&branch.UpdatedAt,
+			)
+
+			if err == nil {
+				branch.DatabaseManager = database.DatabaseManager
+				branch.exists = true
+				database.primaryBranch = &branch
+			} else {
+				log.Println("Error loading primary branch:", err)
+			}
+		}
 	}
 
 	return database.primaryBranch
@@ -160,23 +214,10 @@ func (database *Database) PrimaryBranch() *Branch {
 
 func (database *Database) Save() error {
 	if database.exists {
-		return InsertDatabase(database)
-	} else {
 		return UpdateDatabase(database)
+	} else {
+		return InsertDatabase(database)
 	}
-}
-
-func (database *Database) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"name":              database.Name,
-		"branches":          database.Branches,
-		"database_id":       database.DatabaseID,
-		"primary_branch_id": database.PrimaryBranchID,
-		"settings":          database.Settings,
-		"url":               database.Url(database.PrimaryBranch().BranchID),
-		"created_at":        database.CreatedAt,
-		"updated_at":        database.UpdatedAt,
-	})
 }
 
 func (database *Database) BranchDirectory(branchID string) string {

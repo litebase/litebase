@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"slices"
 	"sync"
@@ -127,7 +128,6 @@ func (c *ConnectionManager) CloseDatabaseConnections(databaseId string) {
 	}
 
 	branches := make([]string, 0, len(c.databases[databaseId].branches))
-
 	for branchId := range c.databases[databaseId].branches {
 		branches = append(branches, branchId)
 	}
@@ -137,6 +137,14 @@ func (c *ConnectionManager) CloseDatabaseConnections(databaseId string) {
 	for _, branchId := range branches {
 		c.CloseDatabaseBranchConnections(databaseId, branchId)
 	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	delete(c.databases, databaseId)
+
+	log.Println("Closed all connections for database", databaseId)
+
 }
 
 // Close all connections for a given database branch.
@@ -217,18 +225,7 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 	return drained()
 }
 
-// func (c *ConnectionManager) ensureBranchGroupExists(databaseId string) {
-// 	databaseGroup, ok := c.databases[databaseId]
-
-// 	if !ok {
-// 		c.databases[databaseId] = NewDatabaseGroup()
-// 		c.databases[databaseId].lockMutex.Lock()
-// 		defer c.databases[databaseId].lockMutex.Unlock()
-// 	}
-
-// 	return databaseGroup
-// }
-
+// Ensure that a database and branch exists in the connection manager.
 func (c *ConnectionManager) ensureDatabaseBranchExists(databaseId, branchId string) {
 	_, ok := c.databases[databaseId]
 
@@ -244,6 +241,7 @@ func (c *ConnectionManager) ensureDatabaseBranchExists(databaseId, branchId stri
 	}
 }
 
+// Force a database to checkpoint by locking the branch and performing a checkpoint.
 func (c *ConnectionManager) ForceCheckpoint(databaseId string, branchId string) error {
 	connection, err := c.Get(databaseId, branchId)
 
@@ -278,6 +276,8 @@ func (c *ConnectionManager) ForceCheckpoint(databaseId string, branchId string) 
 	return nil
 }
 
+// Get a client connection for a given database and branch. If there are no
+// available connections, a new one will be created.
 func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConnection, error) {
 	if err := c.StateError(); err != nil {
 		return nil, err
@@ -289,6 +289,7 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 	database, err := c.databaseManager.Get(databaseId)
 
 	if err != nil {
+		slog.Error("Error getting database", "error", err)
 		return nil, fmt.Errorf("database '%s' not found", databaseId)
 	}
 
@@ -326,6 +327,7 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 	return con, nil
 }
 
+// Release a client connection back to the connection manager.
 func (c *ConnectionManager) Release(clientConnection *ClientConnection) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -376,6 +378,7 @@ func (c *ConnectionManager) remove(clientConnection *ClientConnection) {
 	clientConnection.Close()
 }
 
+// Remove a specific client connection from the connection manager.
 func (c *ConnectionManager) Remove(databaseId string, branchId string, clientConnection *ClientConnection) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -383,6 +386,7 @@ func (c *ConnectionManager) Remove(databaseId string, branchId string, clientCon
 	c.remove(clientConnection)
 }
 
+// Remove idle connections that have not been used for more than a minute.
 func (c *ConnectionManager) RemoveIdleConnections() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -419,7 +423,14 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 	}
 }
 
+// Shutdown the connection manager by closing all connections and stopping
 func (c *ConnectionManager) Shutdown() {
+	err := c.databaseManager.SystemDatabase().Close()
+
+	if err != nil {
+		slog.Error("Error closing system database", "error", err)
+	}
+
 	// Drain all connections
 	for databaseId, database := range c.databases {
 		for branchId := range database.branches {

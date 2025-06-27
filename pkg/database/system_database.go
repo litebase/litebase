@@ -1,30 +1,30 @@
 package database
 
 import (
+	"database/sql"
+	"fmt"
+	"log"
 	"sync"
-
-	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
 // Constants and variables related to the system database.
 const SystemDatabaseID = "system"
 const SystemDatabaseBranchID = "system"
 const SystemDatabaseName = "system"
-const SystemDatabasePrimaryBranchName = "system"
 
 // A static system database that can be used to new up a new reference.
 var TheSystemDatabase Database = Database{
 	DatabaseID: SystemDatabaseID,
 	Name:       SystemDatabaseName,
 	// PrimaryBranchID:   SystemDatabaseBranchID,
-	PrimaryBranchName: SystemDatabasePrimaryBranchName,
 }
 
 // The system database structure that has a connection to the system database.
 type SystemDatabase struct {
-	clientConnection *ClientConnection
-	databaseManager  *DatabaseManager
-	mutex            *sync.Mutex
+	databaseManager *DatabaseManager
+	db              *sql.DB
+	initialized     bool
+	mutex           *sync.Mutex
 }
 
 // Create a new instance of the system database.
@@ -36,66 +36,47 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 
 	sd.init()
 
+	sd.initialized = true
+
 	return sd
 }
 
-// Close the system database connection by removing it from the connection manager.
-func (s *SystemDatabase) Close() bool {
-	if s.clientConnection != nil {
-		s.databaseManager.ConnectionManager().Remove(
-			SystemDatabaseID,
-			SystemDatabaseBranchID,
-			s.clientConnection,
-		)
-
-		s.clientConnection = nil
+func (s *SystemDatabase) Close() error {
+	if s.db != nil {
+		return s.db.Close()
 	}
 
-	return true
+	return nil
 }
 
-// Return the client connection to the system database.
-func (s *SystemDatabase) connection() *ClientConnection {
-	if s.clientConnection != nil && s.clientConnection.connection.Closed() {
-		s.clientConnection = nil
+func (s *SystemDatabase) DB() (*sql.DB, error) {
+	if s.db != nil {
+		return s.db, nil
 	}
 
-	if s.clientConnection == nil {
-		databaseConnection, err := s.databaseManager.ConnectionManager().Get(SystemDatabaseID, SystemDatabaseBranchID)
+	db, err := sql.Open("litebase", "system/system")
 
-		if err != nil {
-			panic(err)
-		}
-
-		s.clientConnection = databaseConnection
+	if err != nil {
+		return nil, fmt.Errorf("failed to open system database: %w", err)
 	}
 
-	return s.clientConnection
-}
+	s.db = db
 
-// GetConnection returns the database connection for external use
-func (s *SystemDatabase) GetConnection() *DatabaseConnection {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.connection().GetConnection()
-}
-
-// Execute a SQL statement against the system database.
-func (s *SystemDatabase) Exec(
-	sql string,
-	args []sqlite3.StatementParameter,
-) (*sqlite3.Result, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.connection().GetConnection().Exec(sql, args)
+	return s.db, nil
 }
 
 // Initialize the system database by creating necessary tables.
 func (s *SystemDatabase) init() {
+	db, err := sql.Open("litebase", "system/system")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer db.Close()
+
 	// Create the metadata table if it doesn't exist.
-	_, err := s.Exec(
+	_, err = db.Exec(
 		`
 		CREATE TABLE IF NOT EXISTS metadata
 		(
@@ -104,27 +85,6 @@ func (s *SystemDatabase) init() {
 			value TEXT
 		)
 		`,
-		nil,
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
-	// Create the users table if it doesn't exist.
-	_, err = s.Exec(
-		`
-		CREATE TABLE IF NOT EXISTS users
-		(
-			id INTEGER PRIMARY KEY, 
-			username TEXT UNIQUE, 
-			password TEXT,
-			statements TEXT,
-			created_at TEXT,
-			updated_at TEXT
-		)	
-		`,
-		nil,
 	)
 
 	if err != nil {
@@ -132,7 +92,7 @@ func (s *SystemDatabase) init() {
 	}
 
 	// Create the databases table if it doesn't exist.
-	_, err = s.Exec(
+	_, err = db.Exec(
 		`CREATE TABLE IF NOT EXISTS databases
 		(
 			id INTEGER PRIMARY KEY, 
@@ -144,7 +104,6 @@ func (s *SystemDatabase) init() {
 			updated_at TEXT
 		)
 		`,
-		nil,
 	)
 
 	if err != nil {
@@ -152,7 +111,7 @@ func (s *SystemDatabase) init() {
 	}
 
 	// Create the database keys table if it doesn't exist.
-	_, err = s.Exec(
+	_, err = db.Exec(
 		`CREATE TABLE IF NOT EXISTS database_keys
 		(
 			id INTEGER PRIMARY KEY,
@@ -161,7 +120,6 @@ func (s *SystemDatabase) init() {
 			key TEXT UNIQUE
 		)
 		`,
-		nil,
 	)
 
 	if err != nil {
@@ -169,7 +127,7 @@ func (s *SystemDatabase) init() {
 	}
 
 	// Create the branches table if it doesn't exist.
-	_, err = s.Exec(
+	_, err = db.Exec(
 		`CREATE TABLE IF NOT EXISTS database_branches
 		(
 			id INTEGER PRIMARY KEY, 
@@ -180,10 +138,9 @@ func (s *SystemDatabase) init() {
 			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT,
-			FOREIGN KEY (database_id) REFERENCES databases(id)
+			FOREIGN KEY (database_id) REFERENCES databases(id) ON DELETE CASCADE
 		)
 		`,
-		nil,
 	)
 
 	if err != nil {
