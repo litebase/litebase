@@ -123,6 +123,11 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 		case "TEXT":
 			value := parameter.Value.([]byte)
 
+			if len(value) == 0 {
+				rc = C.sqlite3_bind_text(s.sqlite3_stmt, index, nil, 0, C.SQLITE_STATIC)
+				break
+			}
+
 			cText := (*C.char)(unsafe.Pointer(&value[0]))
 
 			int32Len, err := utils.SafeIntToInt32(len(value))
