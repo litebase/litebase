@@ -73,6 +73,14 @@ func (s *SystemDatabase) connection() *ClientConnection {
 	return s.clientConnection
 }
 
+// GetConnection returns the database connection for external use
+func (s *SystemDatabase) GetConnection() *DatabaseConnection {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.connection().GetConnection()
+}
+
 // Execute a SQL statement against the system database.
 func (s *SystemDatabase) Exec(
 	sql string,
@@ -150,7 +158,7 @@ func (s *SystemDatabase) init() {
 			id INTEGER PRIMARY KEY,
 			database_id INTEGER,
 			database_branch_id TEXT,
-			key TEXT UNIQUE,
+			key TEXT UNIQUE
 		)
 		`,
 		nil,
