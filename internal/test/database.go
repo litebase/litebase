@@ -60,7 +60,6 @@ func MockDatabase(app *server.App) TestDatabase {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	db, err := app.DatabaseManager.Create("test-database", "main")
 
 	if err != nil {

@@ -17,6 +17,7 @@ type BranchConnection struct {
 	lastUsedAt    time.Time
 }
 
+// Create a new BranchConnection instance.
 func NewBranchConnection(
 	cluster *cluster.Cluster,
 	databaseGroup *DatabaseGroup,
@@ -35,30 +36,37 @@ func NewBranchConnection(
 	}
 }
 
+// Claim the branch connection for use.
 func (b *BranchConnection) Claim() {
 	b.inUse = true
 }
 
+// Check if the branch connection is currently claimed.
 func (b *BranchConnection) Claimed() bool {
 	return b.inUse
 }
 
+// Close the branch connection and its underlying resources.
 func (b *BranchConnection) Close() {
 	b.cancel()
 	b.connection.Close()
 }
 
+// Release the branch connection for reuse.
 func (b *BranchConnection) Release() {
 	b.inUse = false
 
 	b.connection.Release()
 }
 
+// Check if the branch connection requires a checkpoint to be created.
 func (b *BranchConnection) RequiresCheckpoint() bool {
 	return (b.databaseGroup.checkpointedAt.IsZero() && !b.connection.connection.committedAt.IsZero()) ||
 		(b.connection.connection.committedAt.After(b.databaseGroup.checkpointedAt))
 }
 
+// Check if the branch connection is unclaimed, and return a channel that will
+// be notified when it becomes unclaimed.
 func (b *BranchConnection) Unclaimed() chan bool {
 	c := make(chan bool)
 
