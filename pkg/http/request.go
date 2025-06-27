@@ -165,15 +165,17 @@ func (r *Request) DatabaseKey() *auth.DatabaseKey {
 		return nil
 	}
 
-	databaseKey, err := r.cluster.Auth.SecretsManager.GetDatabaseKey(
-		key,
-	)
+	databaseKey, err := r.databaseManager.GetKey(key)
 
 	if err != nil {
 		return nil
 	}
 
-	r.databaseKey = databaseKey
+	r.databaseKey = auth.NewDatabaseKey(
+		databaseKey.DatabaseID,
+		databaseKey.DatabaseBranchID,
+		databaseKey.Key,
+	)
 
 	return r.databaseKey
 }

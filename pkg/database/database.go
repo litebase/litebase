@@ -134,7 +134,7 @@ func (database *Database) HasBranch(branchID string) bool {
 	db, err := database.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
-		slog.Error("Error checking branch existence", "error", err)
+		slog.Debug("Error checking branch existence", "error", err)
 		return false
 	}
 

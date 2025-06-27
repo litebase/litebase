@@ -2,7 +2,6 @@ package auth
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -16,17 +15,15 @@ import (
 )
 
 type SecretsManager struct {
-	auth                  *Auth
-	config                *config.Config
-	databaseKeyStoreMutex sync.RWMutex
-	databaseKeyStores     map[string]*DatabaseKeyStore
-	NetworkFS             *storage.FileSystem
-	secretStore           map[string]SecretsStore
-	secretStoreMutex      sync.RWMutex
-	encrypterInstances    map[string]*KeyEncrypter
-	mutex                 sync.RWMutex
-	ObjectFS              *storage.FileSystem
-	TmpFS                 *storage.FileSystem
+	auth               *Auth
+	config             *config.Config
+	NetworkFS          *storage.FileSystem
+	secretStore        map[string]SecretsStore
+	secretStoreMutex   sync.RWMutex
+	encrypterInstances map[string]*KeyEncrypter
+	mutex              sync.RWMutex
+	ObjectFS           *storage.FileSystem
+	TmpFS              *storage.FileSystem
 }
 
 type DecryptedSecret struct {
@@ -43,15 +40,9 @@ func NewSecretsManager(
 	tmpFS *storage.FileSystem,
 	tmpTieredFS *storage.FileSystem,
 ) *SecretsManager {
-	dks, _ := NewDatabaseKeyStore(tmpTieredFS, GetDatabaseKeysPath(config.EncryptionKey))
-
 	return &SecretsManager{
-		auth:                  auth,
-		config:                config,
-		databaseKeyStoreMutex: sync.RWMutex{},
-		databaseKeyStores: map[string]*DatabaseKeyStore{
-			config.EncryptionKey: dks,
-		},
+		auth:               auth,
+		config:             config,
 		encrypterInstances: make(map[string]*KeyEncrypter),
 		mutex:              sync.RWMutex{},
 		ObjectFS:           objectFS,
@@ -92,54 +83,9 @@ func (s *SecretsManager) databaseSettingCacheKey(databaseId, branchId string) st
 	return fmt.Sprintf("database_secret:%s:%s", databaseId, branchId)
 }
 
-func (s *SecretsManager) DatabaseKeyStore(key string) (*DatabaseKeyStore, error) {
-	s.databaseKeyStoreMutex.RLock()
-	_, ok := s.databaseKeyStores[key]
-	s.databaseKeyStoreMutex.RUnlock()
-
-	if !ok {
-		s.databaseKeyStoreMutex.Lock()
-		defer s.databaseKeyStoreMutex.Unlock()
-
-		if key != s.config.EncryptionKey && key != s.config.EncryptionKeyNext {
-			return nil, errors.New("invalid encryption key")
-		}
-
-		s.databaseKeyStores[key], _ = NewDatabaseKeyStore(
-			s.TmpFS,
-			GetDatabaseKeysPath(key),
-		)
-	}
-
-	return s.databaseKeyStores[key], nil
-}
-
 // Decrypt the given text using the given encryption key
 func (s *SecretsManager) Decrypt(encryptionKey string, data []byte) (DecryptedSecret, error) {
 	return s.Encrypter(encryptionKey).Decrypt(data)
-}
-
-// Delete a database key from the SecretsManager.
-func (s *SecretsManager) DeleteDatabaseKey(databaseKey string) error {
-	dks, _ := s.DatabaseKeyStore(s.config.EncryptionKey)
-
-	err := dks.Delete(databaseKey)
-
-	if err != nil {
-		return err
-	}
-
-	if s.config.EncryptionKeyNext != "" {
-		dks, _ = s.DatabaseKeyStore(s.config.EncryptionKeyNext)
-
-		err = dks.Delete(databaseKey)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Encrypt the given data using the given key
@@ -190,18 +136,6 @@ func (s *SecretsManager) GetAccessKeySecret(accessKeyId string) (string, error) 
 	s.cache("transient").Put(fmt.Sprintf("%s:server_secret", accessKeyId), accessKey.AccessKeySecret, time.Second*1)
 
 	return accessKey.AccessKeySecret, nil
-}
-
-func (s *SecretsManager) GetDatabaseKey(key string) (*DatabaseKey, error) {
-	dks, _ := s.DatabaseKeyStore(s.config.EncryptionKey)
-
-	databaseKey, err := dks.Get(key)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return databaseKey, nil
 }
 
 // Initialize the SecretsManager
@@ -356,44 +290,6 @@ func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
 	if err != nil {
 		log.Println(err)
 		return err
-	}
-
-	return nil
-}
-
-// Store the given database settings in the SecretsManager
-func (s *SecretsManager) StoreDatabaseKey(
-	databaseKey string,
-	databaseId string,
-	branchId string,
-) error {
-	dk := NewDatabaseKey(
-		databaseId,
-		branchId,
-		databaseKey,
-	)
-
-	dks, _ := s.DatabaseKeyStore(s.config.EncryptionKey)
-
-	err := dks.Put(dk)
-
-	if err != nil {
-		return err
-	}
-
-	if s.config.EncryptionKeyNext != "" {
-		dks, err = s.DatabaseKeyStore(s.config.EncryptionKeyNext)
-
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		err = dks.Put(dk)
-
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

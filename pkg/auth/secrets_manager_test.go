@@ -3,7 +3,6 @@ package auth_test
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
@@ -54,121 +53,6 @@ func TestSecretsManager(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseKeystore", func(t *testing.T) {
-			// Encryption key test
-			databaseKeyStore, err := app.Auth.SecretsManager.DatabaseKeyStore(
-				app.Config.EncryptionKey,
-			)
-
-			if databaseKeyStore == nil {
-				t.Error("Expected DatabaseKeyStore to return a non-nil value")
-			}
-
-			if err != nil {
-				t.Error("Expected DatabaseKeyStore to return a non-nil error")
-			}
-
-			// Encryption key next test
-			app.Config.EncryptionKeyNext = test.CreateHash(64)
-
-			databaseKeyStore, err = app.Auth.SecretsManager.DatabaseKeyStore(
-				app.Config.EncryptionKeyNext,
-			)
-
-			if databaseKeyStore == nil {
-				t.Error("Expected DatabaseKeyStore to return a non-nil value")
-			}
-
-			if err != nil {
-				t.Errorf("Expected DatabaseKeyStore to return a non-nil error, got %v", err)
-			}
-
-			// Invalid database key store test
-			databaseKeyStore, err = app.Auth.SecretsManager.DatabaseKeyStore(
-				"foo",
-			)
-
-			if databaseKeyStore != nil {
-				t.Error("Expected DatabaseKeyStore to return a nil value")
-			}
-
-			if err == nil {
-				t.Error("Expected DatabaseKeyStore to return a nil error")
-			}
-		})
-
-		t.Run("DeleteDatabaseAccessKey", func(t *testing.T) {
-			err := app.Auth.SecretsManager.StoreDatabaseKey(
-				"databaseKey",
-				uuid.NewString(),
-				uuid.NewString(),
-			)
-
-			if err != nil {
-				t.Errorf("Expected StoreDatabaseKey to return a non-nil error, got %v", err)
-			}
-
-			err = app.Auth.SecretsManager.DeleteDatabaseKey("databaseKey")
-
-			if err != nil {
-				t.Error("Expected DeleteDatabaseAccessKey to return a non-nil error")
-			}
-		})
-
-		t.Run("DeleteDatabaseKey", func(t *testing.T) {
-			app.Config.EncryptionKeyNext = test.CreateHash(64)
-
-			err := app.Auth.SecretsManager.StoreDatabaseKey(
-				"databaseKey",
-				uuid.NewString(),
-				uuid.NewString(),
-			)
-
-			if err != nil {
-				t.Errorf("Expected StoreDatabaseKey to return a non-nil error, got %v", err)
-			}
-
-			err = app.Auth.SecretsManager.DeleteDatabaseKey("databaseKey")
-
-			if err != nil {
-				t.Error("Expected DeleteDatabaseKey to return a non-nil error")
-			}
-
-			// Check that the key is deleted
-			databaseKey, err := app.Auth.SecretsManager.GetDatabaseKey("databaseKey")
-
-			if err == nil || databaseKey != nil {
-				t.Error("Expected GetDatabaseKey to return an error or nil after deletion")
-			}
-
-			// Delete unknown database key
-			err = app.Auth.SecretsManager.DeleteDatabaseKey("unknownKey")
-
-			if err == nil {
-				t.Error("Expected DeleteDatabaseKey to return a non-nil error")
-			}
-		})
-
-		t.Run("DeleteDatabaseKey_WithEncryptionKeyNext", func(t *testing.T) {
-			err := app.Auth.SecretsManager.StoreDatabaseKey(
-				"databaseKey",
-				uuid.NewString(),
-				uuid.NewString(),
-			)
-
-			if err != nil {
-				t.Errorf("Expected StoreDatabaseKey to return a non-nil error, got %v", err)
-			}
-
-			app.Config.EncryptionKeyNext = test.CreateHash(64)
-
-			err = app.Auth.SecretsManager.DeleteDatabaseKey("databaseKey")
-
-			if err == nil {
-				t.Error("Expected DeleteDatabaseKey to return an error")
-			}
-		})
-
 		t.Run("Encrypt", func(t *testing.T) {
 			str := "test"
 
@@ -196,14 +80,17 @@ func TestSecretsManager(t *testing.T) {
 		})
 
 		t.Run("FlushTransients", func(t *testing.T) {
-			err := app.Auth.SecretsManager.StoreDatabaseKey(
-				"databaseKey",
-				uuid.NewString(),
-				uuid.NewString(),
-			)
+			accessKey, err := app.Auth.AccessKeyManager.Create("test", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
-				t.Error("Expected StoreDatabaseKey to return a non-nil error")
+				t.Fatal("Expected Create to return a non-nil error")
+			}
+
+			// Store a transient secret
+			_, err = app.Auth.SecretsManager.GetAccessKeySecret(accessKey.AccessKeyID)
+
+			if err != nil {
+				t.Fatal("Expected GetAccessKeySecret to return a non-nil error")
 			}
 
 			err = app.Auth.SecretsManager.FlushTransients()
@@ -269,17 +156,7 @@ func TestSecretsManager(t *testing.T) {
 		})
 
 		t.Run("PurgeDatabaseSettings", func(t *testing.T) {
-			err := app.Auth.SecretsManager.StoreDatabaseKey(
-				"databaseKey",
-				uuid.NewString(),
-				uuid.NewString(),
-			)
-
-			if err != nil {
-				t.Error("Expected StoreDatabaseKey to return a non-nil error")
-			}
-
-			err = app.Auth.SecretsManager.PurgeDatabaseSettings("databaseId", "branchId")
+			err := app.Auth.SecretsManager.PurgeDatabaseSettings("databaseId", "branchId")
 
 			if err != nil {
 				t.Error("Expected PurgeDatabaseSettings to return a non-nil error")
@@ -327,35 +204,6 @@ func TestSecretsManager(t *testing.T) {
 
 			if accessKeyCheck.AccessKeyID != accessKey.AccessKeyID {
 				t.Error("Expected AccessKeyID to match")
-			}
-		})
-
-		t.Run("StoreDatabaseKey", func(t *testing.T) {
-			databaseUUID := uuid.NewString()
-			branchUUID := uuid.NewString()
-
-			err := app.Auth.SecretsManager.StoreDatabaseKey(
-				"databaseKey",
-				databaseUUID,
-				branchUUID,
-			)
-
-			if err != nil {
-				t.Error("Expected StoreDatabaseKey to return a non-nil error")
-			}
-
-			databaseKey, err := app.Auth.SecretsManager.GetDatabaseKey("databaseKey")
-
-			if err != nil {
-				t.Error("Expected GetDatabaseKey to return a non-nil error")
-			}
-
-			if databaseKey == nil {
-				t.Fatal("Expected GetDatabaseKey to return a non-nil database key")
-			}
-
-			if databaseKey.DatabaseID != databaseUUID {
-				t.Error("Expected DatabaseID to match")
 			}
 		})
 	})

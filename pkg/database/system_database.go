@@ -117,9 +117,20 @@ func (s *SystemDatabase) init() {
 			id INTEGER PRIMARY KEY,
 			database_id INTEGER,
 			database_branch_id TEXT,
-			key TEXT UNIQUE
+			key TEXT UNIQUE,
+			FOREIGN KEY (database_id) REFERENCES databases(id) ON DELETE CASCADE
 		)
 		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create index for efficient lookups by database_id and database_branch_id
+	_, err = db.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_database_keys_db_branch 
+		ON database_keys(database_id, database_branch_id)`,
 	)
 
 	if err != nil {

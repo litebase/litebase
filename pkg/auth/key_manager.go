@@ -356,18 +356,6 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 		}
 	}()
 
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		err := rotateDatabaseKeys(c, secretsManager)
-
-		if err != nil {
-			errors = append(errors, err)
-		}
-	}()
-
 	wg.Wait()
 
 	for _, err := range errors {
@@ -437,31 +425,6 @@ func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
 			[]byte(encryptedAccessKey),
 			0600,
 		); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func rotateDatabaseKeys(c *config.Config, secretsManager *SecretsManager) error {
-	currentDks, err := secretsManager.DatabaseKeyStore(c.EncryptionKey)
-
-	if err != nil {
-		return err
-	}
-
-	newDks, err := secretsManager.DatabaseKeyStore(c.EncryptionKeyNext)
-
-	if err != nil {
-		return err
-	}
-
-	for databaseKey := range currentDks.All() {
-		err := newDks.Put(databaseKey)
-
-		if err != nil {
-			slog.Error("Failed to put database key:", "error", err)
 			return err
 		}
 	}

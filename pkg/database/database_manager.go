@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/cache"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
@@ -18,6 +19,7 @@ type DatabaseManager struct {
 	Cluster                *cluster.Cluster
 	connectionManager      *ConnectionManager
 	connectionManagerMutex *sync.Mutex
+	databaseKeyCache       *cache.LFUCache
 	mutex                  *sync.Mutex
 	pageLogManager         *storage.PageLogManager
 	resources              map[string]*DatabaseResources
@@ -35,6 +37,7 @@ func NewDatabaseManager(
 	dbm := &DatabaseManager{
 		Cluster:                cluster,
 		connectionManagerMutex: &sync.Mutex{},
+		databaseKeyCache:       cache.NewLFUCache(1000),
 		mutex:                  &sync.Mutex{},
 		resources:              make(map[string]*DatabaseResources),
 		SecretsManager:         secretsManager,
@@ -236,13 +239,12 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 func (d *DatabaseManager) Delete(database *Database) error {
 	resources := d.Resources(database.DatabaseID, database.PrimaryBranch().BranchID)
 
+	// Close all database connections to the database before deleting it
 	d.ConnectionManager().CloseDatabaseConnections(database.DatabaseID)
 
 	fileSystem := resources.FileSystem()
 
-	// Delete the database keys
-	// TODO: Delete the database keys for all branches in the system database.
-
+	// Delete the database keys for all branches in the system database.
 	db, err := d.SystemDatabase().DB()
 
 	if err != nil {
@@ -346,6 +348,43 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	database.DatabaseManager = d
 
 	return database, nil
+}
+
+// Get a database key by its key string.
+func (d *DatabaseManager) GetKey(databaseKey string) (*DatabaseKey, error) {
+	if value, ok := d.databaseKeyCache.Get(databaseKey); ok {
+		if dbKey, valid := value.(*DatabaseKey); valid {
+			return dbKey, nil
+		}
+	}
+
+	db, err := d.SystemDatabase().DB()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system database: %w", err)
+	}
+
+	dbKey := &DatabaseKey{}
+
+	err = db.QueryRow(
+		"SELECT id, database_id, branch_id, key FROM database_keys WHERE key = ?",
+		databaseKey,
+	).Scan(
+		&dbKey.ID,
+		&dbKey.DatabaseID,
+		&dbKey.DatabaseBranchID,
+		&dbKey.Key,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database key: %w", err)
+	}
+
+	if dbKey != nil {
+		d.databaseKeyCache.Put(databaseKey, dbKey)
+	}
+
+	return dbKey, nil
 }
 
 // Return the page log manager instance.

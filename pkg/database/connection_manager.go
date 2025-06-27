@@ -3,7 +3,6 @@ package database
 import (
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"slices"
 	"sync"
@@ -142,9 +141,6 @@ func (c *ConnectionManager) CloseDatabaseConnections(databaseId string) {
 	defer c.mutex.Unlock()
 
 	delete(c.databases, databaseId)
-
-	log.Println("Closed all connections for database", databaseId)
-
 }
 
 // Close all connections for a given database branch.
