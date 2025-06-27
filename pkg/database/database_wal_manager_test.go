@@ -367,13 +367,14 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 		primary := test.NewTestServer(t)
 		defer primary.Shutdown()
 
+		// Create the database on the primary before replicas are started
+		db := test.MockDatabase(primary.App)
+
 		replica1 := test.NewTestServer(t)
 		defer replica1.Shutdown()
 
 		replica2 := test.NewTestServer(t)
 		defer replica2.Shutdown()
-
-		db := test.MockDatabase(primary.App)
 
 		// Create three different WAL versions
 		walm, err := primary.App.DatabaseManager.Resources(
