@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 
+	"github.com/google/uuid"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/file"
@@ -60,7 +61,10 @@ func MockDatabase(app *server.App) TestDatabase {
 	if err != nil {
 		log.Fatal(err)
 	}
-	db, err := app.DatabaseManager.Create("test-database", "main")
+
+	randomDbName := "testdb_" + uuid.NewString()
+
+	db, err := app.DatabaseManager.Create(randomDbName, "main")
 
 	if err != nil {
 		log.Fatal(err)
