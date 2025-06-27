@@ -33,7 +33,7 @@ func TestDatabaseConnection(t *testing.T) {
 
 		})
 
-		t.Run("DatabaseConnection_Changes", func(t *testing.T) {
+		t.Run("Changes", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -65,7 +65,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Checkpoint", func(t *testing.T) {
+		t.Run("Checkpoint", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -89,8 +89,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Checkpoint_WithMultipleConnections", func(t *testing.T) {
-
+		t.Run("Checkpoint_WithMultipleConnections", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -228,7 +227,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Close", func(t *testing.T) {
+		t.Run("Close", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -262,7 +261,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Closed", func(t *testing.T) {
+		t.Run("Closed", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -287,7 +286,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Context", func(t *testing.T) {
+		t.Run("Context", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -302,7 +301,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Exec", func(t *testing.T) {
+		t.Run("Exec", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -330,7 +329,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_FileSystem", func(t *testing.T) {
+		t.Run("FileSystem", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -421,7 +420,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Id", func(t *testing.T) {
+		t.Run("Id", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -436,7 +435,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Prepare", func(t *testing.T) {
+		t.Run("Prepare", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -457,7 +456,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Query", func(t *testing.T) {
+		t.Run("Query", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -493,7 +492,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_ResultPool", func(t *testing.T) {
+		t.Run("ResultPool", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -508,7 +507,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_SqliteConnection", func(t *testing.T) {
+		t.Run("SqliteConnection", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -523,7 +522,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Statement", func(t *testing.T) {
+		t.Run("Statement", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -558,7 +557,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Transaction", func(t *testing.T) {
+		t.Run("Transaction", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -583,7 +582,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Transaction_WhenClosed", func(t *testing.T) {
+		t.Run("Transaction_WhenClosed", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -604,7 +603,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Transaction_WithError", func(t *testing.T) {
+		t.Run("Transaction_WithError", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -629,7 +628,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_Transaction_WithRollback", func(t *testing.T) {
+		t.Run("Transaction_WithRollback", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -661,7 +660,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_VFSDatabaseHash", func(t *testing.T) {
+		t.Run("VFSDatabaseHash", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -676,7 +675,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_VFSHash", func(t *testing.T) {
+		t.Run("VFSHash", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
@@ -691,7 +690,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("DatabaseConnection_WithAccessKey", func(t *testing.T) {
+		t.Run("WithAccessKey", func(t *testing.T) {
 
 			mock := test.MockDatabase(app)
 
