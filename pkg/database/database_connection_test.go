@@ -16,900 +16,923 @@ import (
 	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
-func TestNewDatabaseConnection(t *testing.T) {
+func TestDatabaseConnection(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+		t.Run("NewDatabaseConnection", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if connection == nil {
-			t.Fatal("Expected connection to be non-nil")
-		}
+			if connection == nil {
+				t.Fatal("Expected connection to be non-nil")
+			}
 
-	})
-}
-
-func TestDatabaseConnection_Changes(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(connection)
-
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Insert a row
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", sqlite3.StatementParameter{
-			Type:  "TEXT",
-			Value: []byte("test"),
 		})
 
-		if err != nil {
-			t.Fatal(err)
-		}
+		t.Run("DatabaseConnection_Changes", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		if connection.GetConnection().Changes() != 1 {
-			t.Fatalf("Expected 1 change but got %d", connection.GetConnection().Changes())
-		}
-	})
-}
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
-func TestDatabaseConnection_Checkpoint(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(connection)
-
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection.Checkpoint()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(connection)
-
-		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection.Checkpoint()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		wg := sync.WaitGroup{}
-		rounds := 100
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for range rounds {
-				db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-				if err != nil {
-					t.Error(err)
-					continue
-				}
-
-				statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
-
-				if err != nil {
-					t.Error(err)
-					continue
-				}
-
-				err = db.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-					return statement.Sqlite3Statement.Exec(nil, []sqlite3.StatementParameter{
-						{
-							Type:  "TEXT",
-							Value: []byte("test"),
-						},
-					}...)
-				})
-
-				if err != nil {
-					t.Error(err)
-					continue
-				}
-
-				err = db.Checkpoint()
-
-				if err != nil {
-					t.Log(err)
-				}
-
-				app.DatabaseManager.ConnectionManager().Release(db)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
 
-			for range rounds {
-				db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+			_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
-				if err != nil {
-					t.Error(err)
-					continue
-				}
-
-				statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
-
-				if err != nil {
-					t.Error(err)
-					continue
-				}
-
-				// err = db.GetConnection().Query(nil, statement.Sqlite3Statement, []sqlite3.StatementParameter{
-				// 	{
-				// 		Type:  "TEXT",
-				// 		Value: []byte("test"),
-				// 	},
-				// })
-
-				err = db.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-					return statement.Sqlite3Statement.Exec(nil, []sqlite3.StatementParameter{
-						{
-							Type:  "TEXT",
-							Value: []byte("test"),
-						},
-					}...)
-				})
-
-				if err != nil {
-					t.Error(err)
-					continue
-				}
-
-				app.DatabaseManager.ConnectionManager().Release(db)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}()
 
-		wg.Wait()
-
-		//  Ensure the count is correct
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(db)
-
-		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if len(result.Rows) != 1 {
-			t.Fatal("Expected 1 row")
-		}
-
-		if result.Rows[0][0].Int64() != int64(rounds*2) {
-			t.Fatalf("Expected %d rows", rounds*2)
-		}
-	})
-}
-
-func TestDatabaseConnection_Close(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Create a table
-		_, err = connection.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Insert a row
-		_, err = connection.SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", sqlite3.StatementParameter{
-			Type:  "TEXT",
-			Value: []byte("test"),
-		})
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection.Close()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func TestDatabaseConnection_Closed(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if connection.Closed() {
-			t.Fatal("Expected connection to be open")
-		}
-
-		err = connection.Close()
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !connection.Closed() {
-			t.Fatal("Expected connection to be closed")
-		}
-	})
-}
-
-func TestDatabaseConnection_Context(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if connection.Context() == nil {
-			t.Fatal("Expected connection to have a context")
-		}
-	})
-}
-
-func TestDatabaseConnection_Exec(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = connection.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = connection.Exec("INSERT INTO test (name) VALUES (?)", []sqlite3.StatementParameter{
-			{
+			// Insert a row
+			_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", sqlite3.StatementParameter{
 				Type:  "TEXT",
 				Value: []byte("test"),
-			},
+			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if connection.GetConnection().Changes() != 1 {
+				t.Fatalf("Expected 1 change but got %d", connection.GetConnection().Changes())
+			}
 		})
 
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-}
+		t.Run("DatabaseConnection_Checkpoint", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-func TestDatabaseConnection_FileSystem(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if connection.FileSystem() == nil {
-			t.Fatal("Expected connection to have a file system")
-		}
-	})
-}
-
-func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(connection1)
-
-		connection2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(connection2)
-
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		wg := sync.WaitGroup{}
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for range 750 {
-				_, err = connection1.GetConnection().SqliteConnection().Exec(
-					context.Background(),
-					"INSERT INTO test (name) VALUES (?)",
-					sqlite3.StatementParameter{
-						Type:  "TEXT",
-						Value: []byte("test"),
-					},
-				)
-
-				if err != nil {
-					t.Error(err)
-				}
+			if err != nil {
+				t.Fatal(err)
 			}
-		}()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
 
-			for range 10 {
-				_, err := connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+			_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
-				if err != nil {
-					t.Error(err)
-				}
+			if err != nil {
+				t.Fatal(err)
 			}
-		}()
 
-		wg.Wait()
+			err = connection.Checkpoint()
 
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 
-		if err != nil {
-			t.Error(err)
-		}
+		t.Run("DatabaseConnection_Checkpoint_WithMultipleConnections", func(t *testing.T) {
 
-		_, err = connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+			mock := test.MockDatabase(app)
 
-		if err != nil {
-			t.Error(err)
-		}
-	})
-}
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
-func TestDatabaseConnection_Id(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+			_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
-		if connection.Id() == "" {
-			t.Fatal("Expected connection to have an ID")
-		}
-	})
-}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-func TestDatabaseConnection_Prepare(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			err = connection.Checkpoint()
 
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if err != nil {
-			t.Fatal(err)
-		}
+			wg := sync.WaitGroup{}
+			rounds := 100
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-		statement, err := connection.Prepare(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+				for range rounds {
+					db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+					if err != nil {
+						t.Error(err)
+						continue
+					}
 
-		if statement == (database.Statement{}) {
-			t.Fatal("Expected statement to not be empty")
-		}
-	})
-}
+					statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
 
-func TestDatabaseConnection_Query(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+					if err != nil {
+						t.Error(err)
+						continue
+					}
 
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+					err = db.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						return statement.Sqlite3Statement.Exec(nil, []sqlite3.StatementParameter{
+							{
+								Type:  "TEXT",
+								Value: []byte("test"),
+							},
+						}...)
+					})
 
-		if err != nil {
-			t.Fatal(err)
-		}
+					if err != nil {
+						t.Error(err)
+						continue
+					}
 
-		_, err = connection.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
+					err = db.Checkpoint()
 
-		if err != nil {
-			t.Fatal(err)
-		}
+					if err != nil {
+						t.Log(err)
+					}
 
-		result := sqlite3.NewResult()
+					app.DatabaseManager.ConnectionManager().Release(db)
+				}
+			}()
 
-		statement, err := connection.Prepare(context.Background(), "INSERT INTO test (name) VALUES (?)")
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-		if err != nil {
-			t.Fatal(err)
-		}
+				for range rounds {
+					db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
-		err = connection.Query(result, statement.Sqlite3Statement, []sqlite3.StatementParameter{
-			{
+					if err != nil {
+						t.Error(err)
+						continue
+					}
+
+					statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
+
+					if err != nil {
+						t.Error(err)
+						continue
+					}
+
+					// err = db.GetConnection().Query(nil, statement.Sqlite3Statement, []sqlite3.StatementParameter{
+					// 	{
+					// 		Type:  "TEXT",
+					// 		Value: []byte("test"),
+					// 	},
+					// })
+
+					err = db.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						return statement.Sqlite3Statement.Exec(nil, []sqlite3.StatementParameter{
+							{
+								Type:  "TEXT",
+								Value: []byte("test"),
+							},
+						}...)
+					})
+
+					if err != nil {
+						t.Error(err)
+						continue
+					}
+
+					app.DatabaseManager.ConnectionManager().Release(db)
+				}
+			}()
+
+			wg.Wait()
+
+			//  Ensure the count is correct
+			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(db)
+
+			result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(result.Rows) != 1 {
+				t.Fatal("Expected 1 row")
+			}
+
+			if result.Rows[0][0].Int64() != int64(rounds*2) {
+				t.Fatalf("Expected %d rows", rounds*2)
+			}
+		})
+
+		t.Run("DatabaseConnection_Close", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Create a table
+			_, err = connection.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Insert a row
+			_, err = connection.SqliteConnection().Exec(context.Background(), "INSERT INTO test (name) VALUES (?)", sqlite3.StatementParameter{
 				Type:  "TEXT",
 				Value: []byte("test"),
-			},
-		})
-
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func TestDatabaseConnection_ResultPool(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if connection.ResultPool() == nil {
-			t.Fatal("Expected connection to have a result pool")
-		}
-	})
-}
-
-func TestDatabaseConnection_SqliteConnection(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if connection.SqliteConnection() == nil {
-			t.Fatal("Expected connection to have a SQLite connection")
-		}
-	})
-}
-
-func TestDatabaseConnection_Statement(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		statement1, err := connection.Statement("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if statement1 == (database.Statement{}) {
-			t.Fatal("Expected statement to not be empty")
-		}
-
-		statement2, err := connection.Statement("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if statement2 == (database.Statement{}) {
-			t.Fatal("Expected statement to not be empty")
-		}
-
-		if statement1 != statement2 {
-			t.Fatal("Expected statement to be the same")
-		}
-	})
-}
-
-func TestDatabaseConnection_Transaction(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
-			_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			})
 
 			if err != nil {
-				return err
+				t.Fatal(err)
 			}
 
-			return nil
-		})
-
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func TestDatabaseConnection_Transaction_WhenClosed(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		connection.Close()
-
-		err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
-			return nil
-		})
-
-		if err != database.ErrDatabaseConnectionClosed {
-			t.Fatalf("Expected ErrDatabaseConnectionClosed but got %v", err)
-		}
-	})
-}
-
-func TestDatabaseConnection_Transaction_WithError(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
-			_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			err = connection.Close()
 
 			if err != nil {
-				return err
+				t.Fatal(err)
 			}
-
-			return fmt.Errorf("test error")
 		})
 
-		if err == nil {
-			t.Fatal("Expected error but got nil")
-		}
-	})
-}
+		t.Run("DatabaseConnection_Closed", func(t *testing.T) {
 
-func TestDatabaseConnection_Transaction_WithRollback(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			mock := test.MockDatabase(app)
 
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection.Transaction(true, func(con *database.DatabaseConnection) error {
-			_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
 
 			if err != nil {
-				return err
+				t.Fatal(err)
 			}
 
-			return errors.New("test error")
+			if connection.Closed() {
+				t.Fatal("Expected connection to be open")
+			}
+
+			err = connection.Close()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !connection.Closed() {
+				t.Fatal("Expected connection to be closed")
+			}
 		})
 
-		if err == nil {
-			t.Fatal("Expected error but got nil")
-		}
+		t.Run("DatabaseConnection_Context", func(t *testing.T) {
 
-		// Check if the table was created
-		_, err = connection.SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
+			mock := test.MockDatabase(app)
 
-		if err == nil {
-			t.Fatal("Expected error but got nil")
-		}
-	})
-}
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
 
-func TestDatabaseConnection_VFSDatabaseHash(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if connection.VFSDatabaseHash() == "" {
-			t.Fatal("Expected connection to have a VFS database hash")
-		}
-	})
-}
-
-func TestDatabaseConnection_VFSHash(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if connection.VFSHash() == "" {
-			t.Fatal("Expected connection to have a VFS hash")
-		}
-	})
-}
-
-func TestDatabaseConnection_WithAccessKey(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		accessKey := auth.NewAccessKey(app.Auth.AccessKeyManager, "test", "test", "", nil)
-
-		connection.WithAccessKey(accessKey)
-
-		if connection.AccessKey == nil {
-			t.Fatal("Expected connection to have an access key")
-		}
-
-		if connection.AccessKey.AccessKeyID != accessKey.AccessKeyID {
-			t.Fatal("Expected connection to have the same access key")
-		}
-	})
-}
-
-// This test is useful in ensuring the database can be properly written to and read
-// from in an interleaved manner without issue.
-func TestDatabaseConnectionsInterleaved(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(connection1)
-
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		wg := sync.WaitGroup{}
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for range 10000 {
-				db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-				if err != nil {
-					t.Error(err)
-					break
-				}
-
-				_, err = db.GetConnection().SqliteConnection().Exec(
-					context.Background(),
-					"INSERT INTO test (name) VALUES (?)",
-					sqlite3.StatementParameter{
-						Type:  "TEXT",
-						Value: []byte("test"),
-					},
-				)
-
-				if err != nil {
-					t.Error(err)
-					break
-				}
-
-				if db.GetConnection().SqliteConnection().Changes() != 1 {
-					t.Error("Expected 1 row affected")
-					break
-				}
-
-				app.DatabaseManager.ConnectionManager().Release(db)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for range 10000 {
-				db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-				if err != nil {
-					t.Error(err)
-					break
-				}
-
-				_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
-
-				if err != nil {
-					t.Error(err)
-					break
-				}
-
-				app.DatabaseManager.ConnectionManager().Release(db)
+			if connection.Context() == nil {
+				t.Fatal("Expected connection to have a context")
 			}
-		}()
+		})
 
-		wg.Wait()
+		t.Run("DatabaseConnection_Exec", func(t *testing.T) {
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+			mock := test.MockDatabase(app)
 
-		if err != nil {
-			t.Error(err)
-		}
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
 
-		defer app.DatabaseManager.ConnectionManager().Release(db)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+			_, err = connection.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
-		if err != nil {
-			t.Error(err)
-		}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		db, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(db)
-
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		db, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(db)
-
-		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
-
-		if err != nil {
-			t.Error(err)
-		}
-	})
-}
-
-func TestDatabaseConnectionReadSnapshotIsolation(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, text TEXT)", nil)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(connection)
-
-		wg := sync.WaitGroup{}
-		var errors []error
-		mutex := sync.Mutex{}
-
-		recordError := func(err error) {
-			mutex.Lock()
-			defer mutex.Unlock()
-
-			errors = append(errors, err)
-		}
-
-		_, err = connection.GetConnection().Exec("INSERT INTO test (text) VALUES (?)",
-			[]sqlite3.StatementParameter{
+			_, err = connection.Exec("INSERT INTO test (name) VALUES (?)", []sqlite3.StatementParameter{
 				{
 					Type:  "TEXT",
 					Value: []byte("test"),
 				},
 			})
 
-		if err != nil {
-			t.Fatal(err)
-		}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 
-		// Start multiple read transactions at different points
-		for i := range 3 {
+		t.Run("DatabaseConnection_FileSystem", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if connection.FileSystem() == nil {
+				t.Fatal("Expected connection to have a file system")
+			}
+		})
+
+		t.Run("DatabaseConnectionIsolationDuringCheckpoint", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection1)
+
+			connection2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection2)
+
+			_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			wg := sync.WaitGroup{}
+
 			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-			go func(readerID int) {
+				for range 750 {
+					_, err = connection1.GetConnection().SqliteConnection().Exec(
+						context.Background(),
+						"INSERT INTO test (name) VALUES (?)",
+						sqlite3.StatementParameter{
+							Type:  "TEXT",
+							Value: []byte("test"),
+						},
+					)
+
+					if err != nil {
+						t.Error(err)
+					}
+				}
+			}()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				for range 10 {
+					_, err := connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+					if err != nil {
+						t.Error(err)
+					}
+				}
+			}()
+
+			wg.Wait()
+
+			_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			_, err = connection2.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+			if err != nil {
+				t.Error(err)
+			}
+		})
+
+		t.Run("DatabaseConnection_Id", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if connection.Id() == "" {
+				t.Fatal("Expected connection to have an ID")
+			}
+		})
+
+		t.Run("DatabaseConnection_Prepare", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			statement, err := connection.Prepare(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if statement == (database.Statement{}) {
+				t.Fatal("Expected statement to not be empty")
+			}
+		})
+
+		t.Run("DatabaseConnection_Query", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = connection.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			result := sqlite3.NewResult()
+
+			statement, err := connection.Prepare(context.Background(), "INSERT INTO test (name) VALUES (?)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = connection.Query(result, statement.Sqlite3Statement, []sqlite3.StatementParameter{
+				{
+					Type:  "TEXT",
+					Value: []byte("test"),
+				},
+			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+
+		t.Run("DatabaseConnection_ResultPool", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if connection.ResultPool() == nil {
+				t.Fatal("Expected connection to have a result pool")
+			}
+		})
+
+		t.Run("DatabaseConnection_SqliteConnection", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if connection.SqliteConnection() == nil {
+				t.Fatal("Expected connection to have a SQLite connection")
+			}
+		})
+
+		t.Run("DatabaseConnection_Statement", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			statement1, err := connection.Statement("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if statement1 == (database.Statement{}) {
+				t.Fatal("Expected statement to not be empty")
+			}
+
+			statement2, err := connection.Statement("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if statement2 == (database.Statement{}) {
+				t.Fatal("Expected statement to not be empty")
+			}
+
+			if statement1 != statement2 {
+				t.Fatal("Expected statement to be the same")
+			}
+		})
+
+		t.Run("DatabaseConnection_Transaction", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
+				_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+
+		t.Run("DatabaseConnection_Transaction_WhenClosed", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			connection.Close()
+
+			err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
+				return nil
+			})
+
+			if err != database.ErrDatabaseConnectionClosed {
+				t.Fatalf("Expected ErrDatabaseConnectionClosed but got %v", err)
+			}
+		})
+
+		t.Run("DatabaseConnection_Transaction_WithError", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
+				_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+				if err != nil {
+					return err
+				}
+
+				return fmt.Errorf("test error")
+			})
+
+			if err == nil {
+				t.Fatal("Expected error but got nil")
+			}
+		})
+
+		t.Run("DatabaseConnection_Transaction_WithRollback", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = connection.Transaction(true, func(con *database.DatabaseConnection) error {
+				_, err := con.SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+				if err != nil {
+					return err
+				}
+
+				return errors.New("test error")
+			})
+
+			if err == nil {
+				t.Fatal("Expected error but got nil")
+			}
+
+			// Check if the table was created
+			_, err = connection.SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
+
+			if err == nil {
+				t.Fatal("Expected error but got nil")
+			}
+		})
+
+		t.Run("DatabaseConnection_VFSDatabaseHash", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if connection.VFSDatabaseHash() == "" {
+				t.Fatal("Expected connection to have a VFS database hash")
+			}
+		})
+
+		t.Run("DatabaseConnection_VFSHash", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if connection.VFSHash() == "" {
+				t.Fatal("Expected connection to have a VFS hash")
+			}
+		})
+
+		t.Run("DatabaseConnection_WithAccessKey", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			accessKey := auth.NewAccessKey(app.Auth.AccessKeyManager, "test", "test", "", nil)
+
+			connection.WithAccessKey(accessKey)
+
+			if connection.AccessKey == nil {
+				t.Fatal("Expected connection to have an access key")
+			}
+
+			if connection.AccessKey.AccessKeyID != accessKey.AccessKeyID {
+				t.Fatal("Expected connection to have the same access key")
+			}
+		})
+
+		// This test is useful in ensuring the database can be properly written to and read
+		// from in an interleaved manner without issue.
+		t.Run("DatabaseConnectionsInterleaved", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection1)
+
+			_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			wg := sync.WaitGroup{}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				for range 10000 {
+					db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+					if err != nil {
+						t.Error(err)
+						break
+					}
+
+					_, err = db.GetConnection().SqliteConnection().Exec(
+						context.Background(),
+						"INSERT INTO test (name) VALUES (?)",
+						sqlite3.StatementParameter{
+							Type:  "TEXT",
+							Value: []byte("test"),
+						},
+					)
+
+					if err != nil {
+						t.Error(err)
+						break
+					}
+
+					if db.GetConnection().SqliteConnection().Changes() != 1 {
+						t.Error("Expected 1 row affected")
+						break
+					}
+
+					app.DatabaseManager.ConnectionManager().Release(db)
+				}
+			}()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				for range 10000 {
+					db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+					if err != nil {
+						t.Error(err)
+						break
+					}
+
+					_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+					if err != nil {
+						t.Error(err)
+						break
+					}
+
+					app.DatabaseManager.ConnectionManager().Release(db)
+				}
+			}()
+
+			wg.Wait()
+
+			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(db)
+
+			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			db, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(db)
+
+			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			db, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(db)
+
+			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+
+			if err != nil {
+				t.Error(err)
+			}
+		})
+
+		t.Run("DatabaseConnectionReadSnapshotIsolation", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, text TEXT)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
+
+			wg := sync.WaitGroup{}
+			var errors []error
+			mutex := sync.Mutex{}
+
+			recordError := func(err error) {
+				mutex.Lock()
+				defer mutex.Unlock()
+
+				errors = append(errors, err)
+			}
+
+			_, err = connection.GetConnection().Exec("INSERT INTO test (text) VALUES (?)",
+				[]sqlite3.StatementParameter{
+					{
+						Type:  "TEXT",
+						Value: []byte("test"),
+					},
+				})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Start multiple read transactions at different points
+			for i := range 3 {
+				wg.Add(1)
+
+				go func(readerID int) {
+					defer wg.Done()
+
+					conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+					if err != nil {
+						recordError(err)
+						return
+					}
+
+					defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+					var firstCount int64
+
+					// Start a read transaction that should maintain its snapshot
+					err = conn.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						for j := range 10 {
+							result, err := con.Exec("SELECT COUNT(*) FROM test", nil)
+
+							if err != nil {
+								return err
+							}
+
+							// Each reader should see consistent results throughout its transaction
+							count := result.Rows[0][0].Int64()
+
+							if j == 0 {
+								firstCount = count
+							}
+
+							if j > 0 && count != firstCount {
+								return fmt.Errorf("reader %d: count changed within transaction from %d to %d", readerID, firstCount, count)
+							}
+
+							time.Sleep(5 * time.Millisecond) // Stagger reads
+						}
+
+						return nil
+					})
+
+					if err != nil {
+						recordError(err)
+					}
+				}(i)
+			}
+
+			// Concurrent writer
+			wg.Add(1)
+			go func() {
 				defer wg.Done()
 
 				conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -921,178 +944,87 @@ func TestDatabaseConnectionReadSnapshotIsolation(t *testing.T) {
 
 				defer app.DatabaseManager.ConnectionManager().Release(conn)
 
-				var firstCount int64
+				for range 10 {
+					err = conn.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						_, err := con.Exec("INSERT INTO test (text) VALUES (?)",
+							[]sqlite3.StatementParameter{
+								{
+									Type:  "TEXT",
+									Value: []byte("test"),
+								},
+							})
 
-				// Start a read transaction that should maintain its snapshot
-				err = conn.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-					for j := range 10 {
-						result, err := con.Exec("SELECT COUNT(*) FROM test", nil)
+						return err
+					})
 
-						if err != nil {
-							return err
-						}
-
-						// Each reader should see consistent results throughout its transaction
-						count := result.Rows[0][0].Int64()
-
-						if j == 0 {
-							firstCount = count
-						}
-
-						if j > 0 && count != firstCount {
-							return fmt.Errorf("reader %d: count changed within transaction from %d to %d", readerID, firstCount, count)
-						}
-
-						time.Sleep(5 * time.Millisecond) // Stagger reads
+					if err != nil {
+						recordError(err)
+						continue
 					}
 
-					return nil
-				})
-
-				if err != nil {
-					recordError(err)
+					time.Sleep(10 * time.Millisecond)
 				}
-			}(i)
-		}
+			}()
 
-		// Concurrent writer
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+			wg.Wait()
 
+			// Verify final state
 			conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 			if err != nil {
-				recordError(err)
-				return
+				t.Fatal(err)
 			}
 
 			defer app.DatabaseManager.ConnectionManager().Release(conn)
 
-			for range 10 {
-				err = conn.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-					_, err := con.Exec("INSERT INTO test (text) VALUES (?)",
-						[]sqlite3.StatementParameter{
-							{
-								Type:  "TEXT",
-								Value: []byte("test"),
-							},
-						})
-
-					return err
-				})
-
-				if err != nil {
-					recordError(err)
-					continue
-				}
-
-				time.Sleep(10 * time.Millisecond)
-			}
-		}()
-
-		wg.Wait()
-
-		// Verify final state
-		conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		defer app.DatabaseManager.ConnectionManager().Release(conn)
-
-		result, err := conn.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if count := result.Rows[0][0].Int64(); count != 11 {
-			t.Errorf("expected 11 rows, got %d", count)
-		}
-
-		for _, err := range errors {
-			t.Error(err)
-		}
-	})
-}
-
-func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		statement, err := connection1.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
-
-		err = connection1.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-			for range 100000 {
-				err = statement.Sqlite3Statement.Exec(nil)
-
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection1.Checkpoint()
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		app.DatabaseManager.ConnectionManager().Release(connection1)
-
-		wg := sync.WaitGroup{}
-		var connection1Error error
-		var connection2Error error
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			connection1, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+			result, err := conn.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
 
 			if err != nil {
-				connection1Error = err
-
-				return
+				t.Fatal(err)
 			}
 
-			statement, err := connection1.GetConnection().Prepare(context.Background(), "UPDATE test SET name = 'updated' WHERE id = ?")
+			if count := result.Rows[0][0].Int64(); count != 11 {
+				t.Errorf("expected 11 rows, got %d", count)
+			}
+
+			for _, err := range errors {
+				t.Error(err)
+			}
+		})
+
+		t.Run("DatabaseConnectionReadSnapshotIsolationWithLargerDataSet", func(t *testing.T) {
+
+			mock := test.MockDatabase(app)
+
+			connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			statement, err := connection1.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
 
 			err = connection1.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-				for i := 1; i <= 10000; i++ {
-					err = statement.Sqlite3Statement.Exec(nil, sqlite3.StatementParameter{
-						Type:  "INTEGER",
-						Value: int64(i),
-					})
+				for range 100000 {
+					err = statement.Sqlite3Statement.Exec(nil)
 
 					if err != nil {
-						connection1Error = err
-						break
+						return err
 					}
 				}
 
-				return connection1Error
+				return nil
 			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			err = connection1.Checkpoint()
 
@@ -1101,423 +1033,464 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 			}
 
 			app.DatabaseManager.ConnectionManager().Release(connection1)
-		}()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+			wg := sync.WaitGroup{}
+			var connection1Error error
+			var connection2Error error
 
-			connection2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-			if err != nil {
-				connection2Error = err
-
-				return
-			}
-
-			statement, err := connection2.GetConnection().Prepare(context.Background(), "SELECT name FROM test where id = ?")
-
-			if err != nil {
-				connection2Error = err
-				return
-			}
-
-			result := sqlite3.NewResult()
-
-			err = connection2.GetConnection().Transaction(true, func(con *database.DatabaseConnection) error {
-				for i := 1; i <= 10000; i++ {
-					err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
-						Type:  "INTEGER",
-						Value: int64(i),
-					})
-
-					if err != nil {
-						return err
-					}
-
-					if len(result.Rows) != 1 {
-						t.Error("Expected 1 row")
-					}
-
-					if string(result.Rows[0][0].Text()) != "test" {
-						return fmt.Errorf("Expected %s, got %s", "test", result.Rows[0][0].Text())
-					}
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				connection2Error = err
-
-				return
-			}
-
-			app.DatabaseManager.ConnectionManager().Release(connection2)
-		}()
-
-		wg.Wait()
-
-		if connection1Error != nil {
-			t.Fatal(connection1Error)
-		}
-
-		if connection2Error != nil {
-			t.Fatal(connection2Error)
-		}
-	})
-}
-
-func TestDatabaseConnectionReadSnapshotIsolationWhileWriting(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
-
-		connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = connection1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = connection1.Checkpoint()
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		app.DatabaseManager.ConnectionManager().Release(connection1)
-
-		var wg sync.WaitGroup
-		var insertError error
-		var selectError error
-		var insertingName = make(chan struct{}, 1)
-		var readingName = make(chan struct{}, 1)
-
-		insertName := func() error {
-			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-			if err != nil {
-				return err
-			}
-
-			statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
-
-			if err != nil {
-				log.Println(err)
-				return err
-			}
-
-			insertingName <- struct{}{}
-
-			<-readingName
-
-			// Checkpoint
-			err = connection.Checkpoint()
-
-			if err != nil {
-				log.Println(err)
-				return err
-			}
-
-			// Insert 1 row
-			err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-				err = statement.Sqlite3Statement.Exec(nil)
-
-				if err != nil {
-					return err
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				log.Println(err)
-				return err
-			}
-
-			app.DatabaseManager.ConnectionManager().Release(connection)
-
-			return nil
-		}
-
-		// Insert the rows and checkpoint after each insert
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for range 50 {
-				err := insertName()
-
-				if err != nil {
-					insertError = err
-					log.Println(err)
-				}
-			}
-
-			close(insertingName)
-		}()
-
-		var namesInserted = 0
-
-		// Each time a name is inserted, start a new read transaction
-		for range insertingName {
 			wg.Add(1)
-
-			go func(namesInserted int) {
+			go func() {
 				defer wg.Done()
 
-				connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+				connection1, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 				if err != nil {
-					selectError = err
-					log.Println(err)
+					connection1Error = err
+
 					return
 				}
 
-				statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
+				statement, err := connection1.GetConnection().Prepare(context.Background(), "UPDATE test SET name = 'updated' WHERE id = ?")
+
+				err = connection1.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+					for i := 1; i <= 10000; i++ {
+						err = statement.Sqlite3Statement.Exec(nil, sqlite3.StatementParameter{
+							Type:  "INTEGER",
+							Value: int64(i),
+						})
+
+						if err != nil {
+							connection1Error = err
+							break
+						}
+					}
+
+					return connection1Error
+				})
+
+				err = connection1.Checkpoint()
 
 				if err != nil {
-					selectError = err
-					log.Println(err)
+					t.Error(err)
+				}
+
+				app.DatabaseManager.ConnectionManager().Release(connection1)
+			}()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				connection2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+				if err != nil {
+					connection2Error = err
+
+					return
+				}
+
+				statement, err := connection2.GetConnection().Prepare(context.Background(), "SELECT name FROM test where id = ?")
+
+				if err != nil {
+					connection2Error = err
 					return
 				}
 
 				result := sqlite3.NewResult()
 
-				// Start a new read transaction
-				err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-					readingName <- struct{}{}
+				err = connection2.GetConnection().Transaction(true, func(con *database.DatabaseConnection) error {
+					for i := 1; i <= 10000; i++ {
+						err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
+							Type:  "INTEGER",
+							Value: int64(i),
+						})
 
-					err = statement.Sqlite3Statement.Exec(result)
+						if err != nil {
+							return err
+						}
 
-					if err != nil {
-						log.Println(err)
-						return err
+						if len(result.Rows) != 1 {
+							t.Error("Expected 1 row")
+						}
+
+						if string(result.Rows[0][0].Text()) != "test" {
+							return fmt.Errorf("Expected %s, got %s", "test", result.Rows[0][0].Text())
+						}
 					}
-
-					if len(result.Rows) != 1 {
-						return fmt.Errorf("Expected 1 row, got %d", len(result.Rows))
-					}
-
-					// Read the expected number of rows
-					if result.Rows[0][0].Int64() != int64(namesInserted) {
-						return fmt.Errorf("Expected %d, got %d", namesInserted, result.Rows[0][0].Int64())
-					}
-
-					app.DatabaseManager.ConnectionManager().Release(connection)
 
 					return nil
 				})
 
 				if err != nil {
-					selectError = err
-					log.Println(err)
+					connection2Error = err
+
+					return
 				}
-			}(namesInserted)
 
-			namesInserted++
-		}
+				app.DatabaseManager.ConnectionManager().Release(connection2)
+			}()
 
-		// Wait for all inserts to complete
-		wg.Wait()
+			wg.Wait()
 
-		if insertError != nil {
-			t.Fatal(insertError)
-		}
-
-		if selectError != nil {
-			t.Fatal(selectError)
-		}
-	})
-}
-
-func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
-	t.Skip("Test is hanging, needs investigation")
-	test.Run(t, func() {
-		primaryServer := test.NewTestServer(t)
-		defer primaryServer.Shutdown()
-
-		replicaServer := test.NewTestServer(t)
-		defer replicaServer.Shutdown()
-
-		if !primaryServer.App.Cluster.Node().IsPrimary() {
-			t.Fatal("Primary server is not primary")
-		}
-
-		if !replicaServer.App.Cluster.Node().IsReplica() {
-			t.Fatal("Replica server is not replica")
-		}
-
-		mock := test.MockDatabase(primaryServer.App)
-
-		// Create a database table
-		connection1, err := primaryServer.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = connection1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// err = connection1.Checkpoint()
-
-		// if err != nil {
-		// 	t.Error(err)
-		// }
-
-		primaryServer.App.DatabaseManager.ConnectionManager().Release(connection1)
-
-		var wg sync.WaitGroup
-		var insertError error
-		var selectError error
-		var insertingName = make(chan struct{}, 1)
-		var readingName = make(chan struct{}, 1)
-
-		insertName := func() error {
-			connection, err := primaryServer.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-
-			if err != nil {
-				return err
+			if connection1Error != nil {
+				t.Fatal(connection1Error)
 			}
 
-			statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
+			if connection2Error != nil {
+				t.Fatal(connection2Error)
+			}
+		})
+
+		t.Run("DatabaseConnectionReadSnapshotIsolationWhileWriting", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			connection1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 			if err != nil {
-				log.Println(err)
-				return err
+				t.Fatal(err)
 			}
 
-			insertingName <- struct{}{}
+			_, err = connection1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
-			<-readingName
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			// Checkpoint
-			// err = connection.Checkpoint()
+			err = connection1.Checkpoint()
 
-			// if err != nil {
-			// 	log.Println(err)
-			// 	return err
-			// }
+			if err != nil {
+				t.Error(err)
+			}
 
-			// Insert 1 row
-			err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-				err = statement.Sqlite3Statement.Exec(nil)
+			app.DatabaseManager.ConnectionManager().Release(connection1)
+
+			var wg sync.WaitGroup
+			var insertError error
+			var selectError error
+			var insertingName = make(chan struct{}, 1)
+			var readingName = make(chan struct{}, 1)
+
+			insertName := func() error {
+				connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 				if err != nil {
 					return err
 				}
 
-				return nil
-			})
-
-			if err != nil {
-				log.Println(err)
-				return err
-			}
-
-			primaryServer.App.DatabaseManager.ConnectionManager().Release(connection)
-
-			return nil
-		}
-
-		// Insert the rows and checkpoint after each insert
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for range 50 {
-				err := insertName()
+				statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
 
 				if err != nil {
-					insertError = err
 					log.Println(err)
+					return err
 				}
+
+				insertingName <- struct{}{}
+
+				<-readingName
+
+				// Checkpoint
+				err = connection.Checkpoint()
+
+				if err != nil {
+					log.Println(err)
+					return err
+				}
+
+				// Insert 1 row
+				err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+					err = statement.Sqlite3Statement.Exec(nil)
+
+					if err != nil {
+						return err
+					}
+
+					return nil
+				})
+
+				if err != nil {
+					log.Println(err)
+					return err
+				}
+
+				app.DatabaseManager.ConnectionManager().Release(connection)
+
+				return nil
 			}
-		}()
 
-		var namesInserted = 0
+			// Insert the rows and checkpoint after each insert
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-		// Before each time a name is inserted, start a new read transaction to
-		// ensure the read transaction is started before the write transaction.
-		// This is to ensure the read transaction is able to see the data with
-		// a consistent snapshot.
-		wg.Add(1)
+				for range 50 {
+					err := insertName()
 
-		go func() {
-			defer wg.Done()
+					if err != nil {
+						insertError = err
+						log.Println(err)
+					}
+				}
 
-			connection, err := replicaServer.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+				close(insertingName)
+			}()
 
-			if err != nil {
-				selectError = err
-				log.Println(err)
-				return
+			var namesInserted = 0
+
+			// Each time a name is inserted, start a new read transaction
+			for range insertingName {
+				wg.Add(1)
+
+				go func(namesInserted int) {
+					defer wg.Done()
+
+					connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+					if err != nil {
+						selectError = err
+						log.Println(err)
+						return
+					}
+
+					statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
+
+					if err != nil {
+						selectError = err
+						log.Println(err)
+						return
+					}
+
+					result := sqlite3.NewResult()
+
+					// Start a new read transaction
+					err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						readingName <- struct{}{}
+
+						err = statement.Sqlite3Statement.Exec(result)
+
+						if err != nil {
+							log.Println(err)
+							return err
+						}
+
+						if len(result.Rows) != 1 {
+							return fmt.Errorf("Expected 1 row, got %d", len(result.Rows))
+						}
+
+						// Read the expected number of rows
+						if result.Rows[0][0].Int64() != int64(namesInserted) {
+							return fmt.Errorf("Expected %d, got %d", namesInserted, result.Rows[0][0].Int64())
+						}
+
+						app.DatabaseManager.ConnectionManager().Release(connection)
+
+						return nil
+					})
+
+					if err != nil {
+						selectError = err
+						log.Println(err)
+					}
+				}(namesInserted)
+
+				namesInserted++
 			}
 
-			defer replicaServer.App.DatabaseManager.ConnectionManager().Release(connection)
+			// Wait for all inserts to complete
+			wg.Wait()
 
-			statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
-
-			if err != nil {
-				selectError = err
-				log.Println(err)
-				return
+			if insertError != nil {
+				t.Fatal(insertError)
 			}
 
-			result := sqlite3.NewResult()
+			if selectError != nil {
+				t.Fatal(selectError)
+			}
+		})
 
-			// Start a new read transaction
-			err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-				for range insertingName {
-					readingName <- struct{}{}
+		t.Run("DatabaseConnectionReadSnapshotIsolationOnReplicaServer", func(t *testing.T) {
+			t.Skip("Test is hanging, needs investigation")
+			test.Run(t, func() {
+				primaryServer := test.NewTestServer(t)
+				defer primaryServer.Shutdown()
 
-					err = statement.Sqlite3Statement.Exec(result)
+				replicaServer := test.NewTestServer(t)
+				defer replicaServer.Shutdown()
+
+				if !primaryServer.App.Cluster.Node().IsPrimary() {
+					t.Fatal("Primary server is not primary")
+				}
+
+				if !replicaServer.App.Cluster.Node().IsReplica() {
+					t.Fatal("Replica server is not replica")
+				}
+
+				mock := test.MockDatabase(primaryServer.App)
+
+				// Create a database table
+				connection1, err := primaryServer.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				_, err = connection1.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				// err = connection1.Checkpoint()
+
+				// if err != nil {
+				// 	t.Error(err)
+				// }
+
+				primaryServer.App.DatabaseManager.ConnectionManager().Release(connection1)
+
+				var wg sync.WaitGroup
+				var insertError error
+				var selectError error
+				var insertingName = make(chan struct{}, 1)
+				var readingName = make(chan struct{}, 1)
+
+				insertName := func() error {
+					connection, err := primaryServer.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+					if err != nil {
+						return err
+					}
+
+					statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
 
 					if err != nil {
 						log.Println(err)
 						return err
 					}
 
-					if len(result.Rows) != 1 {
-						return fmt.Errorf("Expected 1 row, got %d", len(result.Rows))
-					}
+					insertingName <- struct{}{}
 
-					// Read the expected number of rows
-					// if result.Rows[0][0].Int64() != int64(namesInserted) {
-					// 	return fmt.Errorf("Expected %d, got %d", namesInserted, result.Rows[0][0].Int64())
+					<-readingName
+
+					// Checkpoint
+					// err = connection.Checkpoint()
+
+					// if err != nil {
+					// 	log.Println(err)
+					// 	return err
 					// }
 
-					namesInserted++
+					// Insert 1 row
+					err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						err = statement.Sqlite3Statement.Exec(nil)
+
+						if err != nil {
+							return err
+						}
+
+						return nil
+					})
+
+					if err != nil {
+						log.Println(err)
+						return err
+					}
+
+					primaryServer.App.DatabaseManager.ConnectionManager().Release(connection)
+
+					return nil
 				}
-				return nil
+
+				// Insert the rows and checkpoint after each insert
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					for range 50 {
+						err := insertName()
+
+						if err != nil {
+							insertError = err
+							log.Println(err)
+						}
+					}
+				}()
+
+				var namesInserted = 0
+
+				// Before each time a name is inserted, start a new read transaction to
+				// ensure the read transaction is started before the write transaction.
+				// This is to ensure the read transaction is able to see the data with
+				// a consistent snapshot.
+				wg.Add(1)
+
+				go func() {
+					defer wg.Done()
+
+					connection, err := replicaServer.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+					if err != nil {
+						selectError = err
+						log.Println(err)
+						return
+					}
+
+					defer replicaServer.App.DatabaseManager.ConnectionManager().Release(connection)
+
+					statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
+
+					if err != nil {
+						selectError = err
+						log.Println(err)
+						return
+					}
+
+					result := sqlite3.NewResult()
+
+					// Start a new read transaction
+					err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						for range insertingName {
+							readingName <- struct{}{}
+
+							err = statement.Sqlite3Statement.Exec(result)
+
+							if err != nil {
+								log.Println(err)
+								return err
+							}
+
+							if len(result.Rows) != 1 {
+								return fmt.Errorf("Expected 1 row, got %d", len(result.Rows))
+							}
+
+							// Read the expected number of rows
+							// if result.Rows[0][0].Int64() != int64(namesInserted) {
+							// 	return fmt.Errorf("Expected %d, got %d", namesInserted, result.Rows[0][0].Int64())
+							// }
+
+							namesInserted++
+						}
+						return nil
+					})
+
+					if err != nil {
+						selectError = err
+						log.Println(err)
+						// close(readingName)
+						// close(insertingName)
+					}
+				}()
+
+				// Wait for all inserts to complete
+				wg.Wait()
+
+				if insertError != nil {
+					t.Fatal(insertError)
+				}
+
+				if selectError != nil {
+					t.Fatal(selectError)
+				}
 			})
-
-			if err != nil {
-				selectError = err
-				log.Println(err)
-				// close(readingName)
-				// close(insertingName)
-			}
-		}()
-
-		// Wait for all inserts to complete
-		wg.Wait()
-
-		if insertError != nil {
-			t.Fatal(insertError)
-		}
-
-		if selectError != nil {
-			t.Fatal(selectError)
-		}
+		})
 	})
 }
