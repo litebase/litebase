@@ -19,7 +19,7 @@ const (
 
 var (
 	ErrorConnectionManagerShutdown = errors.New("new database connections cannot be created after shutdown")
-	ErrorConnectionManagerDraining = errors.New("new Xdatabase connections cannot be created while shutting down")
+	ErrorConnectionManagerDraining = errors.New("new database connections cannot be created while shutting down")
 	ConnectionDrainingWaitTime     = 3 * time.Second
 )
 
