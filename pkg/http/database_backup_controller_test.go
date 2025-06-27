@@ -31,7 +31,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 			t.Fatalf("failed to get database connection: %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
 
 		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
@@ -93,7 +93,7 @@ func TestDatabaseBackupShowController(t *testing.T) {
 			t.Fatalf("failed to get database connection: %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
 
 		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
@@ -188,7 +188,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 			t.Fatalf("failed to get database connection: %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
 
 		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)", nil)
 

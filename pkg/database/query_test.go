@@ -44,7 +44,7 @@ func TestResolve(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
@@ -81,7 +81,7 @@ func TestStatement(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 

@@ -23,7 +23,7 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, db)
+		defer server.App.DatabaseManager.ConnectionManager().Release(db)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
 		err = db.GetConnection().Checkpoint()
@@ -102,7 +102,7 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, db)
+		defer server.App.DatabaseManager.ConnectionManager().Release(db)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
 		err = db.GetConnection().Checkpoint()

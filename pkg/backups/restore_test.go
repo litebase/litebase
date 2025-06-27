@@ -77,7 +77,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseID, source.BranchID, sourceDb)
+			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
 			err = sourceDb.GetConnection().Checkpoint()
@@ -217,7 +217,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(target.DatabaseID, target.BranchID, targetDb)
+			defer app.DatabaseManager.ConnectionManager().Release(targetDb)
 
 			// Verify the data is restored correctly - should have the table but no data
 			// Use a transaction like in the rolling test for consistency
@@ -263,7 +263,7 @@ func TestRestore(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseID, source.BranchID, db)
+			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table and insert some data
 			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
@@ -357,7 +357,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Expected no error, got %v", err)
 					}
 
-					defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseID, source.BranchID, db)
+					defer app.DatabaseManager.ConnectionManager().Release(db)
 
 					// Force an initial checkpoint to create a restore point representing empty database state
 					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
@@ -506,7 +506,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Expected no error, got %v", err)
 					}
 
-					defer app.DatabaseManager.ConnectionManager().Release(target.DatabaseID, target.BranchID, db)
+					defer app.DatabaseManager.ConnectionManager().Release(db)
 
 					// Verify the data is restored correctly
 					result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
@@ -559,7 +559,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseID, source.BranchID, sourceDb)
+			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
 			err = sourceDb.GetConnection().Checkpoint()
@@ -586,7 +586,7 @@ func TestRestore(t *testing.T) {
 			for i, testcase := range testCases {
 				t.Run(fmt.Sprintf("rolling restore: %d", i), func(t *testing.T) {
 					sourceDb, _ := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
-					defer app.DatabaseManager.ConnectionManager().Release(source.DatabaseID, source.BranchID, sourceDb)
+					defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 					// Insert some test data
 					sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
@@ -709,7 +709,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Expected no error, got %v", err)
 					}
 
-					defer app.DatabaseManager.ConnectionManager().Release(target.DatabaseID, target.BranchID, targetDb)
+					defer app.DatabaseManager.ConnectionManager().Release(targetDb)
 
 					err = targetDb.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {
 						result, err := db.Exec("SELECT COUNT(*) FROM test", nil)

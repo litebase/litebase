@@ -86,7 +86,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				return response, err
 			}
 
-			defer query.databaseManager.ConnectionManager().Release(query.DatabaseKey.DatabaseID, query.DatabaseKey.BranchID, db)
+			defer query.databaseManager.ConnectionManager().Release(db)
 		} else {
 			// Handle transactional queries
 			db = query.transaction.connection

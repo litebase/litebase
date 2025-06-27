@@ -34,7 +34,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(source.DatabaseID, source.BranchID, sourceDb)
+		defer server.App.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
 		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
@@ -137,7 +137,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 			t.Fatalf("failed to get target database connection: %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(target.DatabaseID, target.BranchID, targetDB)
+		defer server.App.DatabaseManager.ConnectionManager().Release(targetDB)
 
 		// Verify the data is restored correctly - should have the table but no data (restore point 1)
 		err = targetDB.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {
@@ -187,7 +187,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(source.DatabaseID, source.BranchID, sourceDb)
+		defer server.App.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
 		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
@@ -294,7 +294,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 				t.Fatalf("failed to get target database connection: %v", err)
 			}
 
-			defer server.App.DatabaseManager.ConnectionManager().Release(target.DatabaseID, target.BranchID, targetDB)
+			defer server.App.DatabaseManager.ConnectionManager().Release(targetDB)
 
 			// Verify the data is restored correctly - should have the table but no data (restore point 1)
 			err = targetDB.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {

@@ -21,11 +21,7 @@ func TestTransactionCommitController(t *testing.T) {
 			database.DatabaseKey.BranchID,
 		)
 
-		defer server.App.DatabaseManager.ConnectionManager().Release(
-			database.DatabaseKey.DatabaseID,
-			database.DatabaseKey.BranchID,
-			con,
-		)
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
 
 		if err != nil {
 			t.Fatalf("Failed to get database connection: %v", err)

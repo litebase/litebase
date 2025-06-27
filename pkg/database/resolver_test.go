@@ -21,7 +21,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 

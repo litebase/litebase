@@ -43,7 +43,7 @@ func TestDatabaseConnection_Changes(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -77,7 +77,7 @@ func TestDatabaseConnection_Checkpoint(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -103,7 +103,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 		_, err = connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -158,7 +158,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 					t.Log(err)
 				}
 
-				app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+				app.DatabaseManager.ConnectionManager().Release(db)
 			}
 		}()
 
@@ -202,7 +202,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 					continue
 				}
 
-				app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+				app.DatabaseManager.ConnectionManager().Release(db)
 			}
 		}()
 
@@ -215,7 +215,7 @@ func TestDatabaseConnection_Checkpoint_WithMultipleConnections(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
@@ -365,7 +365,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection1)
+		defer app.DatabaseManager.ConnectionManager().Release(connection1)
 
 		connection2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
@@ -373,7 +373,7 @@ func TestDatabaseConnectionIsolationDuringCheckpoint(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection2)
+		defer app.DatabaseManager.ConnectionManager().Release(connection2)
 
 		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -750,7 +750,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection1)
+		defer app.DatabaseManager.ConnectionManager().Release(connection1)
 
 		_, err = connection1.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -791,7 +791,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 					break
 				}
 
-				app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+				app.DatabaseManager.ConnectionManager().Release(db)
 			}
 		}()
 
@@ -814,7 +814,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 					break
 				}
 
-				app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+				app.DatabaseManager.ConnectionManager().Release(db)
 			}
 		}()
 
@@ -826,7 +826,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Error(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
@@ -840,7 +840,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Error(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
@@ -854,7 +854,7 @@ func TestDatabaseConnectionsInterleaved(t *testing.T) {
 			t.Error(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, db)
+		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
 
@@ -880,7 +880,7 @@ func TestDatabaseConnectionReadSnapshotIsolation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 		wg := sync.WaitGroup{}
 		var errors []error
@@ -919,7 +919,7 @@ func TestDatabaseConnectionReadSnapshotIsolation(t *testing.T) {
 					return
 				}
 
-				defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, conn)
+				defer app.DatabaseManager.ConnectionManager().Release(conn)
 
 				var firstCount int64
 
@@ -967,7 +967,7 @@ func TestDatabaseConnectionReadSnapshotIsolation(t *testing.T) {
 				return
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, conn)
+			defer app.DatabaseManager.ConnectionManager().Release(conn)
 
 			for range 10 {
 				err = conn.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
@@ -1000,7 +1000,7 @@ func TestDatabaseConnectionReadSnapshotIsolation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, conn)
+		defer app.DatabaseManager.ConnectionManager().Release(conn)
 
 		result, err := conn.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
 
@@ -1058,7 +1058,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 			t.Error(err)
 		}
 
-		app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection1)
+		app.DatabaseManager.ConnectionManager().Release(connection1)
 
 		wg := sync.WaitGroup{}
 		var connection1Error error
@@ -1100,7 +1100,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 				t.Error(err)
 			}
 
-			app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection1)
+			app.DatabaseManager.ConnectionManager().Release(connection1)
 		}()
 
 		wg.Add(1)
@@ -1153,7 +1153,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWithLargerDataSet(t *testing.T) 
 				return
 			}
 
-			app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection2)
+			app.DatabaseManager.ConnectionManager().Release(connection2)
 		}()
 
 		wg.Wait()
@@ -1190,7 +1190,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWhileWriting(t *testing.T) {
 			t.Error(err)
 		}
 
-		app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection1)
+		app.DatabaseManager.ConnectionManager().Release(connection1)
 
 		var wg sync.WaitGroup
 		var insertError error
@@ -1240,7 +1240,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWhileWriting(t *testing.T) {
 				return err
 			}
 
-			app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+			app.DatabaseManager.ConnectionManager().Release(connection)
 
 			return nil
 		}
@@ -1309,7 +1309,7 @@ func TestDatabaseConnectionReadSnapshotIsolationWhileWriting(t *testing.T) {
 						return fmt.Errorf("Expected %d, got %d", namesInserted, result.Rows[0][0].Int64())
 					}
 
-					app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+					app.DatabaseManager.ConnectionManager().Release(connection)
 
 					return nil
 				})
@@ -1374,7 +1374,7 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 		// 	t.Error(err)
 		// }
 
-		primaryServer.App.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection1)
+		primaryServer.App.DatabaseManager.ConnectionManager().Release(connection1)
 
 		var wg sync.WaitGroup
 		var insertError error
@@ -1424,7 +1424,7 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 				return err
 			}
 
-			primaryServer.App.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+			primaryServer.App.DatabaseManager.ConnectionManager().Release(connection)
 
 			return nil
 		}
@@ -1463,7 +1463,7 @@ func TestDatabaseConnectionReadSnapshotIsolationOnReplicaServer(t *testing.T) {
 				return
 			}
 
-			defer replicaServer.App.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+			defer replicaServer.App.DatabaseManager.ConnectionManager().Release(connection)
 
 			statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
 

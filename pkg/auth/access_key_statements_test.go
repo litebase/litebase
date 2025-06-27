@@ -188,7 +188,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -359,7 +359,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -545,7 +545,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -690,7 +690,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -827,7 +827,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -965,7 +965,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -1102,7 +1102,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -1245,7 +1245,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -1382,7 +1382,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -1525,7 +1525,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -1664,7 +1664,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -1842,7 +1842,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -1994,7 +1994,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -2137,7 +2137,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -2289,7 +2289,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -2446,7 +2446,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -2582,7 +2582,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -2713,7 +2713,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -2838,7 +2838,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -2985,7 +2985,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -3114,7 +3114,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -3258,7 +3258,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -3380,7 +3380,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -3500,7 +3500,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string
@@ -3627,7 +3627,7 @@ func TestAccessKeyStatements(t *testing.T) {
 				t.Fatalf("Failed to get connection for test: %v", err)
 			}
 
-			defer app.DatabaseManager.ConnectionManager().Release(db.DatabaseID, db.BranchID, con)
+			defer app.DatabaseManager.ConnectionManager().Release(con)
 
 			testCases := []struct {
 				name          string

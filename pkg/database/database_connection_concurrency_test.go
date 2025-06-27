@@ -23,7 +23,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 
 		connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (name TEXT)")
 
-		app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+		app.DatabaseManager.ConnectionManager().Release(connection)
 
 		wg := sync.WaitGroup{}
 
@@ -34,7 +34,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 
 				connection, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
-				defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+				defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 				statement, _ := connection.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
 				result := connection.GetConnection().ResultPool().Get()
@@ -66,7 +66,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 		// Check integrity of the database
 		result, err := connection.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
@@ -92,7 +92,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 		connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (name TEXT)")
 
@@ -111,7 +111,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 						return
 					}
 
-					defer app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+					defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 					statement, _ := connection.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
 					result := connection.GetConnection().ResultPool().Get()
@@ -153,7 +153,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 				t.Errorf("Expected %d rows, got %d", 1000*int64(round+1), result.Rows[0][0].Int64())
 			}
 
-			app.DatabaseManager.ConnectionManager().Release(mock.DatabaseID, mock.BranchID, connection)
+			app.DatabaseManager.ConnectionManager().Release(connection)
 		}
 	})
 }

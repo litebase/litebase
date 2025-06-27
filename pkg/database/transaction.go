@@ -103,11 +103,7 @@ func (t *Transaction) Close() {
 	t.closed = true
 	t.cancel()
 
-	t.databaseManager.ConnectionManager().Release(
-		t.databaseKey.DatabaseID,
-		t.databaseKey.BranchID,
-		t.connection,
-	)
+	t.databaseManager.ConnectionManager().Release(t.connection)
 
 	close(t.queryChannel)
 	close(t.responseChannel)

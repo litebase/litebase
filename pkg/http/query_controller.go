@@ -46,11 +46,7 @@ func QueryController(request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	defer request.databaseManager.ConnectionManager().Release(
-		databaseKey.DatabaseID,
-		databaseKey.BranchID,
-		db,
-	)
+	defer request.databaseManager.ConnectionManager().Release(db)
 
 	input := &database.QueryInput{}
 
