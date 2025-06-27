@@ -12,14 +12,14 @@ import (
 )
 
 type Database struct {
-	ID              int64             `json:"-"`
-	DatabaseManager *DatabaseManager  `json:"-"`
-	Name            string            `json:"name"`
-	DatabaseID      string            `json:"database_id"`
-	PrimaryBranchID sql.NullInt64     `json:"primary_branch_id"`
-	Settings        *DatabaseSettings `json:"settings"`
-	CreatedAt       time.Time         `json:"created_at"`
-	UpdatedAt       time.Time         `json:"updated_at"`
+	ID                       int64             `json:"-"`
+	DatabaseManager          *DatabaseManager  `json:"-"`
+	Name                     string            `json:"name"`
+	DatabaseID               string            `json:"database_id"`
+	PrimaryBranchReferenceID sql.NullInt64     `json:"primary_branch_reference_id"`
+	Settings                 *DatabaseSettings `json:"settings"`
+	CreatedAt                time.Time         `json:"created_at"`
+	UpdatedAt                time.Time         `json:"updated_at"`
 
 	exists        bool
 	primaryBranch *Branch
@@ -52,7 +52,7 @@ func InsertDatabase(database *Database) error {
 	result, err := db.Exec(
 		`INSERT INTO databases (
 			database_id,
-			primary_branch_id, 
+			primary_branch_reference_id, 
 			name, 
 			created_at, 
 			updated_at
@@ -60,7 +60,7 @@ func InsertDatabase(database *Database) error {
 		VALUES (?, ?, ?, ?, ?)
 		`,
 		database.DatabaseID,
-		database.PrimaryBranchID,
+		database.PrimaryBranchReferenceID,
 		database.Name,
 		time.Now().UTC(),
 		time.Now().UTC(),
@@ -99,15 +99,15 @@ func UpdateDatabase(database *Database) error {
 
 	var primaryBranchId int64
 
-	if database.PrimaryBranchID.Valid {
-		primaryBranchId = database.PrimaryBranchID.Int64
+	if database.PrimaryBranchReferenceID.Valid {
+		primaryBranchId = database.PrimaryBranchReferenceID.Int64
 	}
 
 	_, err = db.Exec(
 		`UPDATE databases 
 		SET 
 			name = ?,
-			primary_branch_id = ?,
+			primary_branch_reference_id = ?,
 			settings = ?,
 			updated_at = ?
 		WHERE database_id = ?
@@ -157,11 +157,25 @@ func (database *Database) HasBranch(branchID string) bool {
 }
 
 func (database *Database) Key(branchID string) string {
-	var branch *Branch
+	var key string
 
-	// TODO: Load the branch from the database
+	db, err := database.DatabaseManager.SystemDatabase().DB()
 
-	return branch.Key
+	if err != nil {
+		return ""
+	}
+
+	err = db.QueryRow(
+		`SELECT key FROM database_branches WHERE database_branch_id = ? AND database_id = ?`,
+		branchID,
+		database.ID,
+	).Scan(key)
+
+	if err != nil {
+		return ""
+	}
+
+	return key
 }
 
 func (database *Database) PrimaryBranch() *Branch {
@@ -171,7 +185,7 @@ func (database *Database) PrimaryBranch() *Branch {
 
 	if database.primaryBranch == nil {
 		// If no primary branch ID is set, return nil
-		if !database.PrimaryBranchID.Valid || database.PrimaryBranchID.Int64 == 0 {
+		if !database.PrimaryBranchReferenceID.Valid || database.PrimaryBranchReferenceID.Int64 == 0 {
 			return nil
 		}
 
@@ -186,12 +200,13 @@ func (database *Database) PrimaryBranch() *Branch {
 			var branch Branch
 
 			err = db.QueryRow(
-				`SELECT * FROM database_branches WHERE id = ?`,
-				database.PrimaryBranchID.Int64,
+				`SELECT id, database_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				database.PrimaryBranchReferenceID.Int64,
 			).Scan(
 				&branch.ID,
+				&branch.DatabaseReferenceID,
 				&branch.DatabaseID,
-				&branch.BranchID,
+				&branch.DatabaseBranchID,
 				&branch.Name,
 				&branch.Key,
 				&branch.Settings,

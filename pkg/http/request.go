@@ -165,16 +165,16 @@ func (r *Request) DatabaseKey() *auth.DatabaseKey {
 		return nil
 	}
 
-	databaseKey, err := r.databaseManager.GetKey(key)
+	branch, err := r.databaseManager.GetKey(key)
 
 	if err != nil {
 		return nil
 	}
 
 	r.databaseKey = auth.NewDatabaseKey(
-		databaseKey.DatabaseID,
-		databaseKey.DatabaseBranchID,
-		databaseKey.Key,
+		branch.DatabaseID,
+		branch.DatabaseBranchID,
+		branch.Key,
 	)
 
 	return r.databaseKey

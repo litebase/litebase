@@ -98,7 +98,7 @@ func (s *SystemDatabase) init() {
 			id INTEGER PRIMARY KEY, 
 			database_id TEXT UNIQUE, 
 			name TEXT UNIQUE,
-			primary_branch_id INTEGER,
+			primary_branch_reference_id INTEGER,
 			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT
@@ -110,46 +110,20 @@ func (s *SystemDatabase) init() {
 		panic(err)
 	}
 
-	// Create the database keys table if it doesn't exist.
-	_, err = db.Exec(
-		`CREATE TABLE IF NOT EXISTS database_keys
-		(
-			id INTEGER PRIMARY KEY,
-			database_id INTEGER,
-			database_branch_id TEXT,
-			key TEXT UNIQUE,
-			FOREIGN KEY (database_id) REFERENCES databases(id) ON DELETE CASCADE
-		)
-		`,
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
-	// Create index for efficient lookups by database_id and database_branch_id
-	_, err = db.Exec(
-		`CREATE INDEX IF NOT EXISTS idx_database_keys_db_branch 
-		ON database_keys(database_id, database_branch_id)`,
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
 	// Create the branches table if it doesn't exist.
 	_, err = db.Exec(
 		`CREATE TABLE IF NOT EXISTS database_branches
 		(
 			id INTEGER PRIMARY KEY, 
-			database_id INTEGER,
+			database_reference_id INTEGER,
+			database_id TEXT,
 			database_branch_id TEXT,
 			name TEXT,
 			key TEXT,
 			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT,
-			FOREIGN KEY (database_id) REFERENCES databases(id) ON DELETE CASCADE
+			FOREIGN KEY (database_reference_id) REFERENCES databases(id) ON DELETE CASCADE
 		)
 		`,
 	)

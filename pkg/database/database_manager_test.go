@@ -83,7 +83,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			fileSystem := dm.Resources(database.DatabaseID, database.PrimaryBranch().BranchID).FileSystem()
+			fileSystem := dm.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
@@ -115,14 +115,14 @@ func TestDatabaseManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			fileSystem := app.DatabaseManager.Resources(db.DatabaseID, db.PrimaryBranch().BranchID).FileSystem()
+			fileSystem := app.DatabaseManager.Resources(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
 				t.Fatalf("Expected database directory to exist")
 			}
 
-			con1, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().BranchID)
+			con1, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -147,7 +147,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected database connection to be closed, got %v", err)
 			}
 
-			con2, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().BranchID)
+			con2, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID)
 
 			if err == nil {
 				t.Fatal("Expected error, got nil")
@@ -227,7 +227,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().BranchID)
+			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")
@@ -249,7 +249,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().BranchID)
+			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")

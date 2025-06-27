@@ -23,7 +23,7 @@ func TestNewBranch(t *testing.T) {
 			t.Fatal("Branch name is not correct")
 		}
 
-		if branch.BranchID == "" {
+		if branch.DatabaseBranchID == "" {
 			t.Fatal("Branch ID is empty")
 		}
 

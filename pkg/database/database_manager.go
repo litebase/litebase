@@ -16,10 +16,10 @@ import (
 )
 
 type DatabaseManager struct {
+	branchCache            *cache.LFUCache
 	Cluster                *cluster.Cluster
 	connectionManager      *ConnectionManager
 	connectionManagerMutex *sync.Mutex
-	databaseKeyCache       *cache.LFUCache
 	mutex                  *sync.Mutex
 	pageLogManager         *storage.PageLogManager
 	resources              map[string]*DatabaseResources
@@ -35,9 +35,9 @@ func NewDatabaseManager(
 	secretsManager *auth.SecretsManager,
 ) *DatabaseManager {
 	dbm := &DatabaseManager{
+		branchCache:            cache.NewLFUCache(100),
 		Cluster:                cluster,
 		connectionManagerMutex: &sync.Mutex{},
-		databaseKeyCache:       cache.NewLFUCache(1000),
 		mutex:                  &sync.Mutex{},
 		resources:              make(map[string]*DatabaseResources),
 		SecretsManager:         secretsManager,
@@ -82,7 +82,7 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 			&database.ID,
 			&database.DatabaseID,
 			&database.Name,
-			&database.PrimaryBranchID,
+			&database.PrimaryBranchReferenceID,
 			&database.Settings,
 			&database.CreatedAt,
 			&database.UpdatedAt,
@@ -215,7 +215,8 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 		return nil, fmt.Errorf("failed to create branch: %w", err)
 	}
 
-	branch.DatabaseID = database.ID
+	branch.DatabaseID = database.DatabaseID
+	branch.DatabaseReferenceID = sql.NullInt64{Int64: database.ID, Valid: true}
 
 	err = branch.Save()
 
@@ -224,7 +225,7 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 	}
 
 	// Update the database with the branch
-	database.PrimaryBranchID = sql.NullInt64{Int64: branch.ID, Valid: true}
+	database.PrimaryBranchReferenceID = sql.NullInt64{Int64: branch.ID, Valid: true}
 
 	err = database.Save()
 
@@ -237,7 +238,7 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 
 // Delete the given instance of the database.
 func (d *DatabaseManager) Delete(database *Database) error {
-	resources := d.Resources(database.DatabaseID, database.PrimaryBranch().BranchID)
+	resources := d.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID)
 
 	// Close all database connections to the database before deleting it
 	d.ConnectionManager().CloseDatabaseConnections(database.DatabaseID)
@@ -249,16 +250,6 @@ func (d *DatabaseManager) Delete(database *Database) error {
 
 	if err != nil {
 		slog.Error("Error getting system database", "error", err)
-		return err
-	}
-
-	_, err = db.Exec(
-		"DELETE FROM database_keys WHERE id = ?",
-		database.ID,
-	)
-
-	if err != nil {
-		slog.Error("Error getting database branches", "error", err)
 		return err
 	}
 
@@ -328,13 +319,13 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 		}
 
 		err = db.QueryRow(
-			"SELECT id, database_id, name, primary_branch_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+			"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
 			databaseId,
 		).Scan(
 			&database.ID,
 			&database.DatabaseID,
 			&database.Name,
-			&database.PrimaryBranchID,
+			&database.PrimaryBranchReferenceID,
 			&database.Settings,
 			&database.CreatedAt,
 			&database.UpdatedAt,
@@ -351,9 +342,9 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 }
 
 // Get a database key by its key string.
-func (d *DatabaseManager) GetKey(databaseKey string) (*DatabaseKey, error) {
-	if value, ok := d.databaseKeyCache.Get(databaseKey); ok {
-		if dbKey, valid := value.(*DatabaseKey); valid {
+func (d *DatabaseManager) GetKey(databaseKey string) (*Branch, error) {
+	if value, ok := d.branchCache.Get(databaseKey); ok {
+		if dbKey, valid := value.(*Branch); valid {
 			return dbKey, nil
 		}
 	}
@@ -364,27 +355,31 @@ func (d *DatabaseManager) GetKey(databaseKey string) (*DatabaseKey, error) {
 		return nil, fmt.Errorf("failed to get system database: %w", err)
 	}
 
-	dbKey := &DatabaseKey{}
+	branch := &Branch{}
 
 	err = db.QueryRow(
-		"SELECT id, database_id, branch_id, key FROM database_keys WHERE key = ?",
+		"SELECT id, database_id, branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE key = ?",
 		databaseKey,
 	).Scan(
-		&dbKey.ID,
-		&dbKey.DatabaseID,
-		&dbKey.DatabaseBranchID,
-		&dbKey.Key,
+		&branch.ID,
+		&branch.DatabaseID,
+		&branch.DatabaseBranchID,
+		&branch.Name,
+		&branch.Key,
+		&branch.Settings,
+		&branch.CreatedAt,
+		&branch.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database key: %w", err)
 	}
 
-	if dbKey != nil {
-		d.databaseKeyCache.Put(databaseKey, dbKey)
+	if err := d.branchCache.Put(databaseKey, branch); err != nil {
+		slog.Warn("Failed to cache database key", "error", err)
 	}
 
-	return dbKey, nil
+	return branch, nil
 }
 
 // Return the page log manager instance.

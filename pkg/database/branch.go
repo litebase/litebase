@@ -2,6 +2,8 @@ package database
 
 import (
 	"crypto/rand"
+	"database/sql"
+	"fmt"
 	"log"
 	"math/big"
 	"time"
@@ -13,15 +15,16 @@ import (
 )
 
 type Branch struct {
-	ID              int64 `json:"id"`
-	DatabaseID      int64 `json:"database_id"`
-	DatabaseManager *DatabaseManager
-	BranchID        string          `json:"branch_id"`
-	Key             string          `json:"key"`
-	Name            string          `json:"name"`
-	Settings        *BranchSettings `json:"settings"` // TODO: Need to make this a struct
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                  int64            `json:"id"`
+	DatabaseBranchID    string           `json:"branch_id"`
+	DatabaseID          string           `json:"database_id"`
+	DatabaseManager     *DatabaseManager `json:"-"`
+	DatabaseReferenceID sql.NullInt64    `json:"database_reference_id"`
+	Key                 string           `json:"key"`
+	Name                string           `json:"name"`
+	Settings            *BranchSettings  `json:"settings"` // TODO: Need to make this a struct
+	CreatedAt           time.Time        `json:"created_at"`
+	UpdatedAt           time.Time        `json:"updated_at"`
 
 	exists bool
 }
@@ -41,7 +44,7 @@ func NewBranch(databaseManager *DatabaseManager, name string) (*Branch, error) {
 
 	var databaseKeyCount int64
 
-	err = db.QueryRow(`SELECT COUNT(*) FROM database_keys`).Scan(&databaseKeyCount)
+	err = db.QueryRow(`SELECT COUNT(*) FROM database_branches`).Scan(&databaseKeyCount)
 
 	if err != nil {
 		return nil, err
@@ -65,10 +68,10 @@ func NewBranch(databaseManager *DatabaseManager, name string) (*Branch, error) {
 	}
 
 	return &Branch{
-		BranchID:        uuid.New().String(),
-		DatabaseManager: databaseManager,
-		Key:             key,
-		Name:            name,
+		DatabaseBranchID: uuid.New().String(),
+		DatabaseManager:  databaseManager,
+		Key:              key,
+		Name:             name,
 	}, nil
 }
 
@@ -92,7 +95,7 @@ func InsertBranch(b *Branch) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		`,
 		b.DatabaseID,
-		b.BranchID,
+		b.DatabaseBranchID,
 		b.Key,
 		b.Name,
 		b.Settings,
@@ -136,7 +139,7 @@ func UpdateBranch(b *Branch) error {
 		b.Name,
 		b.Settings,
 		time.Now().UTC(),
-		b.BranchID,
+		b.DatabaseBranchID,
 	)
 
 	if err != nil {
@@ -147,6 +150,10 @@ func UpdateBranch(b *Branch) error {
 }
 
 func (b *Branch) Save() error {
+	if b.DatabaseID == "" || b.DatabaseBranchID == "" {
+		return fmt.Errorf("branch is missing required fields")
+	}
+
 	if b.exists {
 		return UpdateBranch(b)
 	} else {

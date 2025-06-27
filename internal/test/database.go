@@ -69,11 +69,11 @@ func MockDatabase(app *server.App) TestDatabase {
 
 	return TestDatabase{
 		DatabaseID: db.DatabaseID,
-		BranchID:   db.PrimaryBranch().BranchID,
+		BranchID:   db.PrimaryBranch().DatabaseBranchID,
 		DatabaseKey: &auth.DatabaseKey{
-			DatabaseHash: file.DatabaseHash(db.DatabaseID, db.PrimaryBranch().BranchID),
+			DatabaseHash: file.DatabaseHash(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID),
 			DatabaseID:   db.DatabaseID,
-			BranchID:     db.PrimaryBranch().BranchID,
+			BranchID:     db.PrimaryBranch().DatabaseBranchID,
 			Key:          db.PrimaryBranch().Key,
 		},
 		AccessKey: accessKey,
