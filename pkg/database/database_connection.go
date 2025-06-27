@@ -543,7 +543,7 @@ func (con *DatabaseConnection) setTimestamp() {
 	wal, err := con.walManager.Get(time.Now().UTC().UnixNano())
 
 	if err != nil {
-		log.Println("Error acquiring WAL timestamp:", err)
+		slog.Error("Error acquiring WAL timestamp:", "error", err)
 		return
 	}
 
