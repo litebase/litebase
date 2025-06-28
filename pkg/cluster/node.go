@@ -200,6 +200,7 @@ func (n *Node) heartbeat() {
 				slog.Debug("Failed to remove primary status", "error", err)
 			}
 
+			n.SetMembership(ClusterMembershipReplica)
 			return
 		}
 
