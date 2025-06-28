@@ -218,7 +218,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 
 			if result.Rows[0][0].Int64() != int64(rounds*2) {
-				t.Fatalf("Expected %d rows", rounds*2)
+				t.Fatalf("Expected %d rows, got %d", rounds*2, result.Rows[0][0].Int64())
 			}
 		})
 
