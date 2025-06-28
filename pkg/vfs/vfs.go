@@ -183,14 +183,6 @@ func VFSIsRegistered(vfsId string) bool {
 	return vfsPointer != nil
 }
 
-// TOOD: Do we need this?
-func (vfs *LitebaseVFS) getWALShmRegions() []*ShmRegion {
-	vfsMutex.RLock()
-	defer vfsMutex.RUnlock()
-
-	return vfs.shm.regions
-}
-
 // Set the timestamp for the VFS instance. This timestamp is used to
 // consistently interact with the file system and WAL.
 func (vfs *LitebaseVFS) SetTimestamp(timestamp int64) {
@@ -198,51 +190,6 @@ func (vfs *LitebaseVFS) SetTimestamp(timestamp int64) {
 	defer vfsMutex.Unlock()
 
 	vfs.timestamp = timestamp
-}
-
-// TODO: Do we need this?
-func (vfs *LitebaseVFS) setWALShmRegions(regions []*ShmRegion) {
-	vfsMutex.Lock()
-	defer vfsMutex.Unlock()
-
-	// Update existing regions, add new regions, and remove unused regions
-	newRegions := make([]*ShmRegion, len(regions))
-
-	for i, region := range regions {
-		var existingMemory *ShmRegion
-
-		for _, existingRegion := range vfs.shm.regions {
-			if existingRegion.id == region.id {
-				existingMemory = existingRegion
-			}
-		}
-
-		if existingMemory != nil {
-			C.memcpy(existingMemory.pData, region.pData, region.size)
-		} else {
-			// Add new region
-			newRegion := &ShmRegion{
-				id:    region.id,
-				pData: C.malloc(region.size),
-				size:  region.size,
-			}
-
-			C.memcpy(newRegion.pData, region.pData, region.size)
-
-			vfs.shm.regions = append(vfs.shm.regions, newRegion)
-		}
-
-		newRegions[i] = region
-	}
-
-	// Remove unused regions
-	if len(vfs.shm.regions) > len(regions) {
-		for _, unusedRegion := range vfs.shm.regions[len(regions):] {
-			C.free(unusedRegion.pData)
-		}
-
-		vfs.shm.regions = vfs.shm.regions[:len(regions)]
-	}
 }
 
 func (vfs *LitebaseVFS) Timestamp() int64 {
