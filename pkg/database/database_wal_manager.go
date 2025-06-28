@@ -2,7 +2,7 @@ package database
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"log/slog"
 	"slices"
 	"sort"
@@ -71,10 +71,10 @@ func (w *DatabaseWALManager) Acquire(timestamp int64) (int64, error) {
 	w.mutext.Lock()
 	defer w.mutext.Unlock()
 
-	wal, err := w.Get(timestamp)
+	wal, err := w.GetOrCreateCurrent(timestamp)
 
 	if err != nil {
-		log.Println("Error acquiring WAL:", err)
+		slog.Error("Error acquiring WAL", "timestamp", timestamp, "error", err)
 		return 0, err
 	}
 
@@ -90,6 +90,10 @@ func (w *DatabaseWALManager) Acquire(timestamp int64) (int64, error) {
 func (w *DatabaseWALManager) Checkpoint(wal *DatabaseWAL, fn func() error) error {
 	w.checkpointMutex.Lock()
 	defer w.checkpointMutex.Unlock()
+
+	if w.checkpointing {
+		return errors.New("checkpointing already in progress")
+	}
 
 	if w.node.IsReplica() {
 		return errors.New("cannot set checkpointing on replica node")
@@ -186,12 +190,37 @@ func (w *DatabaseWALManager) Get(timestamp int64) (*DatabaseWAL, error) {
 	latestVersion := w.walIndex.GetClosestVersion(timestamp)
 
 	if wal, ok := w.walVersions[latestVersion]; ok {
-		if wal.checkpointedAt.IsZero() {
-			return wal, nil
+		return wal, nil
+	}
+
+	// No WAL exists for this timestamp - this is an error for read operations
+	return nil, fmt.Errorf("no WAL version found for timestamp %d", timestamp)
+}
+
+// Get the latest WAL without creating a new one. Returns nil if no WAL exists.
+func (w *DatabaseWALManager) GetLatest() (*DatabaseWAL, error) {
+	w.mutext.RLock()
+	defer w.mutext.RUnlock()
+
+	var latestVersion int64
+	var found bool
+
+	for version := range w.walVersions {
+		if version > latestVersion {
+			latestVersion = version
+			found = true
 		}
 	}
 
-	return w.createNew(timestamp)
+	if !found {
+		return nil, nil // No WAL exists, nothing to checkpoint
+	}
+
+	if wal, ok := w.walVersions[latestVersion]; ok {
+		return wal, nil
+	}
+
+	return nil, errors.New("latest WAL version not found")
 }
 
 func (w *DatabaseWALManager) HasOtherActiveConnections(timestamp int64) bool {
@@ -270,12 +299,12 @@ func (w *DatabaseWALManager) InUseVersions() []int64 {
 }
 
 func (w *DatabaseWALManager) IsLatestVersion(timestamp int64) bool {
-	w.mutext.RLock()
-	defer w.mutext.RUnlock()
+	// w.mutext.RLock()
+	// defer w.mutext.RUnlock()
 
-	if w.node.IsPrimary() {
-		return true
-	}
+	// if w.node.IsPrimary() {
+	// 	return true
+	// }
 
 	if _, ok := w.walVersions[timestamp]; !ok {
 		if w.node.IsReplica() {
@@ -313,7 +342,7 @@ func (w *DatabaseWALManager) Refresh() error {
 	_, err := w.Create()
 
 	if err != nil {
-		log.Println("Error creating new WAL version:", err)
+		slog.Error("Error creating new WAL version", "error", err)
 		return err
 	}
 
@@ -389,10 +418,7 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	// check for errors
 	for _, err := range errorMap {
 		if err != nil {
-			log.Println(
-				errors.New("failed to get WAL version usage"),
-				err,
-			)
+			slog.Error("failed to get WAL version usage", "error", err)
 		}
 	}
 
@@ -437,7 +463,7 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	removedVersions, err := w.walIndex.RemoveVersionsFrom(timestamp)
 
 	if err != nil {
-		log.Println("Failed to remove old WAL versions", err)
+		slog.Error("Failed to remove old WAL versions", "error", err)
 
 		return err
 	}
@@ -445,7 +471,7 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	versions, err = w.walIndex.GetVersions()
 
 	if err != nil {
-		log.Println("Failed to get WAL versions", err)
+		slog.Error("Failed to get WAL versions", "error", err)
 
 		return err
 	}
@@ -461,10 +487,7 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 
 	// for _, err := range errMap {
 	// 	if err != nil {
-	// 		log.Println(
-	// 			errors.New("failed to replicate WAL index"),
-	// 			err,
-	// 		)
+	// 		slog.Error("failed to replicate WAL index", "error", err)
 
 	// 		return errors.New("failed to replicate WAL index")
 	// 	}
@@ -473,14 +496,14 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	// Delete the removed WAL versions
 	for _, version := range removedVersions {
 		if _, ok := w.walVersions[version]; !ok {
-			log.Println("WAL version not found", version)
+			slog.Error("WAL version not found", version)
 			continue
 		}
 
 		err := w.walVersions[version].Delete()
 
 		if err != nil {
-			log.Println("Failed to delete WAL version", err)
+			slog.Error("Failed to delete WAL version", "error", err)
 		}
 
 		delete(w.walVersions, version)
@@ -532,8 +555,22 @@ func (w *DatabaseWALManager) Truncate(timestamp, size int64) error {
 	w.mutext.RLock()
 	defer w.mutext.RUnlock()
 
+	// If the specific timestamp doesn't exist, use the latest WAL
 	if _, ok := w.walVersions[timestamp]; !ok {
-		return errors.New("WAL version not found")
+		// Find the latest WAL version
+		var latestVersion int64
+		for version := range w.walVersions {
+			if version > latestVersion {
+				latestVersion = version
+			}
+		}
+
+		if latestVersion == 0 {
+			return errors.New("no WAL versions available")
+		}
+
+		// Use the latest WAL version instead
+		timestamp = latestVersion
 	}
 
 	return w.walVersions[timestamp].Truncate(size)
@@ -560,14 +597,69 @@ func (w *DatabaseWALManager) WaitForCheckpointing() {
 }
 
 func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n int, err error) {
-	w.mutext.RLock()
-	defer w.mutext.RUnlock()
+	w.mutext.Lock()
+	defer w.mutext.Unlock()
 
-	wal, err := w.Get(timestamp)
+	wal, err := w.GetOrCreateCurrent(timestamp)
 
 	if err != nil {
 		return 0, err
 	}
 
+	// Use the actual WAL timestamp, not the requested timestamp
+	walTimestamp := wal.Timestamp()
+
+	// if the wal is not the latest, panic
+	if !w.IsLatestVersion(walTimestamp) {
+		latest := w.getLatestVersionUnsafe()
+		return 0, fmt.Errorf("cannot write to WAL file that is not the latest version: requested=%d, wal=%d, latest=%d", timestamp, walTimestamp, latest)
+	}
+
 	return wal.WriteAt(p, off)
+}
+
+// Get or create the current WAL for write operations. All connections should
+// write to the same current WAL version to avoid versioning conflicts.
+// Note: Caller must hold w.mutext.Lock()
+func (w *DatabaseWALManager) GetOrCreateCurrent(timestamp int64) (*DatabaseWAL, error) {
+	// Always try to use the latest available WAL first
+	latestVersion := w.getLatestVersionUnsafe()
+
+	if latestVersion > 0 {
+		if wal, ok := w.walVersions[latestVersion]; ok {
+			// If the latest WAL hasn't been checkpointed, use it regardless of the requested timestamp
+			if wal.checkpointedAt.IsZero() {
+				return wal, nil
+			}
+		}
+	}
+
+	// If we get here, either no WAL exists or the latest WAL has been checkpointed
+	// Create a new WAL using current time to ensure it's newer than any existing WAL
+	newTimestamp := time.Now().UTC().UnixNano()
+
+	// Ensure it's actually newer than the latest version
+	if newTimestamp <= latestVersion {
+		newTimestamp = latestVersion + 1
+	}
+
+	if latestVersion == 0 {
+		slog.Info("Creating initial WAL version", "version", newTimestamp)
+	} else {
+		slog.Info("Creating new WAL version after checkpoint", "previous_version", latestVersion, "new_version", newTimestamp)
+	}
+
+	return w.createNew(newTimestamp)
+}
+
+// Helper method to get latest version without additional locking
+// Note: Caller must already hold w.mutext lock
+func (w *DatabaseWALManager) getLatestVersionUnsafe() int64 {
+	var latestVersion int64
+	for version := range w.walVersions {
+		if version > latestVersion {
+			latestVersion = version
+		}
+	}
+	return latestVersion
 }

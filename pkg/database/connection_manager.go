@@ -98,10 +98,11 @@ func (c *ConnectionManager) CheckpointAll() {
 					continue
 				}
 
+				// TODO: Does this prevent checkpointing when shutting down?
 				connection, err := c.Get(databaseId, branchId)
 
 				if err != nil {
-					slog.Error("Error getting connection", "error", err)
+					slog.Debug("Error getting connection", "error", err)
 
 					continue
 				}

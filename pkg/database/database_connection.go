@@ -232,12 +232,17 @@ func (con *DatabaseConnection) Checkpoint() error {
 		return ErrDatabaseConnectionClosed
 	}
 
-	// Get the latest WAL for the database.
-	wal, err := con.walManager.Get(time.Now().UTC().UnixNano())
+	// Get the latest WAL for the database without creating a new one.
+	wal, err := con.walManager.GetLatest()
 
 	if err != nil {
-		log.Println("Error acquiring WAL :", err)
+		log.Println("Error acquiring latest WAL:", err)
 		return err
+	}
+
+	// If no WAL exists, there's nothing to checkpoint
+	if wal == nil {
+		return nil
 	}
 
 	return con.walManager.Checkpoint(wal, func() error {
@@ -364,6 +369,10 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	result = &sqlite3.Result{}
 
+	// Set timestamp for this operation to ensure proper WAL coordination
+	con.setTimestamp()
+	defer con.releaseTimestamp()
+
 	statement, _, err := con.SqliteConnection().Prepare(con.context, sql)
 
 	if err != nil {
@@ -446,7 +455,10 @@ func (con *DatabaseConnection) release() {
 }
 
 func (con *DatabaseConnection) releaseTimestamp() {
+	// Release the timestamp from the WAL manager
 	con.walManager.Release(con.timestamp)
+
+	// Release the timestamp from the page logger
 	con.pageLogger.Release(con.timestamp)
 }
 
@@ -540,15 +552,20 @@ func (c *DatabaseConnection) SetAuthorizer() {
 }
 
 func (con *DatabaseConnection) setTimestamp() {
-	wal, err := con.walManager.Get(time.Now().UTC().UnixNano())
+	// Acquire the latest WAL based on our timestamp - this also handles getting the WAL
+	timestamp, err := con.walManager.Acquire(time.Now().UTC().UnixNano())
 
 	if err != nil {
 		slog.Error("Error acquiring WAL timestamp:", "error", err)
 		return
 	}
 
-	con.timestamp = wal.timestamp
+	con.timestamp = timestamp
+
+	// Acquire the timestamp on the page logger
 	con.pageLogger.Acquire(con.timestamp)
+
+	// Set timestamp on VFS for proper WAL file reading
 	con.vfs.SetTimestamp(con.timestamp)
 }
 
@@ -595,16 +612,13 @@ func (con *DatabaseConnection) Transaction(
 
 	var err error
 
+	// Acquire timestamp before entering checkpoint barrier to avoid deadlock
+	con.setTimestamp()
+	defer func() {
+		con.releaseTimestamp()
+	}()
+
 	return con.walManager.CheckpointBarrier(func() error {
-		// Set connection timestamp before starting the transaction. This ensures we
-		// have a consistent timestamp for the transaction and the vfs reads from
-		// the proper WAL file and Page Log.
-		con.setTimestamp()
-
-		defer func() {
-			con.releaseTimestamp()
-		}()
-
 		if !readOnly {
 			// Start the transaction with a write lock.
 			err = con.SqliteConnection().BeginImmediate()
