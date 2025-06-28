@@ -349,43 +349,80 @@ func TestVFSLocking(t *testing.T) {
 		con1.GetConnection().SqliteConnection().BusyTimeout(0 * time.Second)
 		con2.GetConnection().SqliteConnection().BusyTimeout(0 * time.Second)
 
-		wg := sync.WaitGroup{}
-		wg.Add(2)
+		t.Run("LockintTransactions", func(t *testing.T) {
+			wg := sync.WaitGroup{}
+			wg.Add(2)
 
-		go func() {
-			defer wg.Done()
-			err := con1.GetConnection().SqliteConnection().BeginImmediate()
+			go func() {
+				defer wg.Done()
+				err := con1.GetConnection().SqliteConnection().BeginImmediate()
+
+				if err != nil {
+					t.Errorf("Begin transaction failed in goroutine 1, expected nil, got %v", err)
+				}
+
+				time.Sleep(100 * time.Millisecond)
+			}()
+
+			go func() {
+				defer wg.Done()
+
+				time.Sleep(50 * time.Millisecond)
+				err := con2.GetConnection().SqliteConnection().Begin()
+
+				if err != nil {
+					log.Printf("Expected error in goroutine 2: %v", err)
+				}
+
+				_, err = con2.GetConnection().SqliteConnection().Exec(context.TODO(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+				if err == nil {
+					t.Errorf("Begin transaction should have failed in goroutine 2, expected error, got nil")
+				}
+			}()
+
+			wg.Wait()
+
+			err = con1.GetConnection().SqliteConnection().Commit()
 
 			if err != nil {
-				t.Errorf("Begin transaction failed in goroutine 1, expected nil, got %v", err)
+				t.Errorf("Commit transaction failed in goroutine 1, expected nil, got %v", err)
 			}
+		})
 
-			time.Sleep(100 * time.Millisecond)
-		}()
+		t.Run("LockingCheckpoint", func(t *testing.T) {
+			wg := sync.WaitGroup{}
+			wg.Add(2)
 
-		go func() {
-			defer wg.Done()
+			go func() {
+				defer wg.Done()
+				err := con1.GetConnection().SqliteConnection().BeginImmediate()
 
-			time.Sleep(50 * time.Millisecond)
-			err := con2.GetConnection().SqliteConnection().Begin()
+				if err != nil {
+					t.Errorf("Begin transaction failed in goroutine 1, expected nil, got %v", err)
+				}
+
+				time.Sleep(100 * time.Millisecond)
+			}()
+
+			go func() {
+				defer wg.Done()
+
+				time.Sleep(50 * time.Millisecond)
+				err := con2.GetConnection().Checkpoint()
+
+				if err == nil {
+					t.Errorf("Checkpoint should have failed in goroutine 2, expected error, got nil")
+				}
+			}()
+
+			wg.Wait()
+
+			err = con1.GetConnection().SqliteConnection().Commit()
 
 			if err != nil {
-				log.Printf("Expected error in goroutine 2: %v", err)
+				t.Errorf("Commit transaction failed in goroutine 1, expected nil, got %v", err)
 			}
-
-			_, err = con2.GetConnection().SqliteConnection().Exec(context.TODO(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-
-			if err == nil {
-				t.Errorf("Begin transaction should have failed in goroutine 2, expected error, got nil")
-			}
-		}()
-
-		wg.Wait()
-
-		err = con1.GetConnection().SqliteConnection().Commit()
-
-		if err != nil {
-			t.Errorf("Commit transaction failed in goroutine 1, expected nil, got %v", err)
-		}
+		})
 	})
 }

@@ -275,10 +275,10 @@ func (con *DatabaseConnection) Checkpoint() error {
 				err = con.checkpointer.Commit()
 
 				if err != nil {
-					log.Println("Error checkpointing database", err)
+					slog.Debug("Error checkpointing database", "error", err)
 					return err
 				} else {
-					// log.Println("Successful database checkpoint")
+					slog.Debug("Successful database checkpoint")
 				}
 			}
 
@@ -286,7 +286,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 		})
 
 		if err != nil {
-			err = con.checkpointer.Rollback()
+			err := con.checkpointer.Rollback()
 
 			if err != nil {
 				slog.Error("Error rolling back checkpoint", "error", err)
