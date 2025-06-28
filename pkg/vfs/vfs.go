@@ -96,6 +96,7 @@ func RegisterVFS(
 			locks:   make(map[int]int),
 			mutex:   &sync.Mutex{},
 			regions: make([]*ShmRegion, 0),
+			walHash: vfsDatabaseHash,
 		}
 	}
 
@@ -103,6 +104,7 @@ func RegisterVFS(
 		fileSystem: fileSystem,
 		id:         vfsHash,
 		wal:        wal,
+		walHash:    vfsDatabaseHash,
 		shm:        VfsShmMap[vfsDatabaseHash],
 	}
 
