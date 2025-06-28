@@ -1,9 +1,12 @@
 package vfs_test
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/file"
@@ -320,5 +323,69 @@ func TestVfsVacuum(t *testing.T) {
 		}
 
 		db.Close()
+	})
+}
+
+func TestVFSLocking(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer app.DatabaseManager.ConnectionManager().Release(con1)
+
+		con2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer app.DatabaseManager.ConnectionManager().Release(con2)
+
+		con1.GetConnection().SqliteConnection().BusyTimeout(0 * time.Second)
+		con2.GetConnection().SqliteConnection().BusyTimeout(0 * time.Second)
+
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			err := con1.GetConnection().SqliteConnection().BeginImmediate()
+
+			if err != nil {
+				t.Errorf("Begin transaction failed in goroutine 1, expected nil, got %v", err)
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			time.Sleep(50 * time.Millisecond)
+			err := con2.GetConnection().SqliteConnection().Begin()
+
+			if err != nil {
+				log.Printf("Expected error in goroutine 2: %v", err)
+			}
+
+			_, err = con2.GetConnection().SqliteConnection().Exec(context.TODO(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err == nil {
+				t.Errorf("Begin transaction should have failed in goroutine 2, expected error, got nil")
+			}
+		}()
+
+		wg.Wait()
+
+		err = con1.GetConnection().SqliteConnection().Commit()
+
+		if err != nil {
+			t.Errorf("Commit transaction failed in goroutine 1, expected nil, got %v", err)
+		}
 	})
 }

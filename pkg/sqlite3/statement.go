@@ -300,11 +300,12 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 		default:
 			rc := s.Step()
 
-			if rc == SQLITE_DONE {
+			switch rc {
+			case SQLITE_DONE:
 				return nil
-			} else if rc == SQLITE_BUSY {
-				continue
-			} else if rc == SQLITE_ROW {
+			case SQLITE_BUSY:
+				return errors.New("database is locked")
+			case SQLITE_ROW:
 				rowIndex++
 
 				// Set the column types slice to the length of the result columns
@@ -335,7 +336,7 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 						)
 					}
 				}
-			} else {
+			default:
 				return s.Connection.Error(rc)
 			}
 		}
