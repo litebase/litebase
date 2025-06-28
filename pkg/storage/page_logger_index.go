@@ -123,9 +123,8 @@ func (pli *PageLoggerIndex) Find(pageGroup PageGroup, pageNumber PageNumber, ver
 			if int64(v) <= int64(version) || version == 0 {
 				if slices.Contains(pli.pageGroups[pageGroup][v], pageNumber) {
 					return int64(v), true, nil
-				} else {
-					return int64(v), false, nil
 				}
+				// Continue searching in older versions instead of returning false immediately
 			}
 		}
 	}

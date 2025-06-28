@@ -553,7 +553,7 @@ func (c *DatabaseConnection) SetAuthorizer() {
 
 func (con *DatabaseConnection) setTimestamp() {
 	// Acquire the latest WAL based on our timestamp - this also handles getting the WAL
-	timestamp, err := con.walManager.Acquire(time.Now().UTC().UnixNano())
+	timestamp, err := con.walManager.Acquire()
 
 	if err != nil {
 		slog.Error("Error acquiring WAL timestamp:", "error", err)

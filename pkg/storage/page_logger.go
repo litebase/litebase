@@ -315,23 +315,9 @@ func (pl *PageLogger) Read(
 	// Search the all available page group versions in reverse order to find
 	// the latest version of a page.
 	for i := len(pageGroupVersions) - 1; i >= 0; i-- {
-		if pageGroupVersions[i] > PageGroupVersion(timestamp) {
-			continue
-		}
+		pageGroupVersion := pageGroupVersions[i]
 
-		// Find the closest page log for the timestamp
-		logTimestamp, found, err := pl.index.Find(
-			PageGroup(pageGroup),
-			PageNumber(pageNumber),
-			PageVersion(timestamp),
-		)
-
-		if err != nil {
-			log.Println(err)
-			return false, 0, err
-		}
-
-		if !found {
+		if pageGroupVersion > PageGroupVersion(timestamp) {
 			continue
 		}
 
@@ -339,27 +325,28 @@ func (pl *PageLogger) Read(
 
 		if pl.logs[PageGroup(logGroup)] == nil {
 			pl.logs[PageGroup(logGroup)] = make(map[PageGroupVersion]*PageLog)
+		}
 
-			if pl.logs[PageGroup(logGroup)][PageGroupVersion(logTimestamp)] == nil {
-				pLog, err := pl.createNewPageLog(
-					PageGroup(logGroup),
-					PageGroupVersion(logTimestamp),
-				)
+		// Check if the page log already exists, if not create it
+		if pl.logs[PageGroup(logGroup)][pageGroupVersion] == nil {
+			pLog, err := pl.createNewPageLog(
+				PageGroup(logGroup),
+				pageGroupVersion,
+			)
 
-				if err != nil {
-					log.Println("Error creating page log", err)
-					return false, 0, err
-				}
-
-				pl.logs[PageGroup(logGroup)][PageGroupVersion(logTimestamp)] = pLog
+			if err != nil {
+				log.Println("Error creating page log", err)
+				return false, 0, err
 			}
+
+			pl.logs[PageGroup(logGroup)][pageGroupVersion] = pLog
 		}
 
 		// Read the data from the page log if available
-		pLog, ok := pl.logs[PageGroup(logGroup)][PageGroupVersion(logTimestamp)]
+		pLog, ok := pl.logs[PageGroup(logGroup)][pageGroupVersion]
 
 		if !ok {
-			return false, 0, nil
+			continue
 		}
 
 		found, foundVersion, err := pLog.Get(PageNumber(pageNumber), PageVersion(timestamp), data)
@@ -455,7 +442,15 @@ func (pl *PageLogger) Write(
 
 	if logTimestamp == 0 {
 		logTimestamp = timestamp
+	}
 
+	// Ensure the page log group exists
+	if pl.logs[PageGroup(logGroup)] == nil {
+		pl.logs[PageGroup(logGroup)] = make(map[PageGroupVersion]*PageLog)
+	}
+
+	// Ensure the specific page log exists for this timestamp
+	if pl.logs[PageGroup(logGroup)][PageGroupVersion(logTimestamp)] == nil {
 		pLog, err := pl.createNewPageLog(
 			PageGroup(logGroup),
 			PageGroupVersion(logTimestamp),
@@ -464,10 +459,6 @@ func (pl *PageLogger) Write(
 		if err != nil {
 			log.Println("Error creating page log", err)
 			return 0, err
-		}
-
-		if pl.logs[PageGroup(logGroup)] == nil {
-			pl.logs[PageGroup(logGroup)] = make(map[PageGroupVersion]*PageLog)
 		}
 
 		pl.logs[PageGroup(logGroup)][PageGroupVersion(logTimestamp)] = pLog

@@ -23,6 +23,7 @@ type DatabaseWALManager struct {
 	networkFileSystem       *storage.FileSystem
 	garbargeCollectionMutex *sync.RWMutex
 	lastCheckpointedVersion int64
+	lastTimestamp           int64 // Track last generated timestamp for uniqueness
 	mutext                  *sync.RWMutex
 	node                    *cluster.Node
 	walIndex                *storage.WALIndex
@@ -67,14 +68,14 @@ func NewDatabaseWALManager(
 	return walManager, err
 }
 
-func (w *DatabaseWALManager) Acquire(timestamp int64) (int64, error) {
+func (w *DatabaseWALManager) Acquire() (int64, error) {
 	w.mutext.Lock()
 	defer w.mutext.Unlock()
 
-	wal, err := w.GetOrCreateCurrent(timestamp)
+	wal, err := w.GetOrCreateCurrent()
 
 	if err != nil {
-		slog.Error("Error acquiring WAL", "timestamp", timestamp, "error", err)
+		slog.Error("Error acquiring WAL", "error", err)
 		return 0, err
 	}
 
@@ -600,7 +601,7 @@ func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n in
 	w.mutext.Lock()
 	defer w.mutext.Unlock()
 
-	wal, err := w.GetOrCreateCurrent(timestamp)
+	wal, err := w.GetOrCreateCurrent()
 
 	if err != nil {
 		return 0, err
@@ -621,7 +622,7 @@ func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n in
 // Get or create the current WAL for write operations. All connections should
 // write to the same current WAL version to avoid versioning conflicts.
 // Note: Caller must hold w.mutext.Lock()
-func (w *DatabaseWALManager) GetOrCreateCurrent(timestamp int64) (*DatabaseWAL, error) {
+func (w *DatabaseWALManager) GetOrCreateCurrent() (*DatabaseWAL, error) {
 	// Always try to use the latest available WAL first
 	latestVersion := w.getLatestVersionUnsafe()
 
@@ -639,8 +640,17 @@ func (w *DatabaseWALManager) GetOrCreateCurrent(timestamp int64) (*DatabaseWAL, 
 	newTimestamp := time.Now().UTC().UnixNano()
 
 	// Ensure it's actually newer than the latest version
+	// This handles both clock skew and rapid successive calls
 	if newTimestamp <= latestVersion {
 		newTimestamp = latestVersion + 1
+	}
+	
+	// Additional safety: ensure timestamp is strictly increasing even for concurrent calls
+	for {
+		if _, exists := w.walVersions[newTimestamp]; !exists {
+			break // This timestamp is available
+		}
+		newTimestamp++ // Increment until we find an available timestamp
 	}
 
 	if latestVersion == 0 {

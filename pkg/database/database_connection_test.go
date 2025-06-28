@@ -195,7 +195,6 @@ func TestDatabaseConnection(t *testing.T) {
 					app.DatabaseManager.ConnectionManager().Release(db)
 				}
 			}()
-
 			wg.Wait()
 
 			//  Ensure the count is correct
@@ -217,8 +216,12 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal("Expected 1 row")
 			}
 
-			if result.Rows[0][0].Int64() != int64(rounds*2) {
-				t.Fatalf("Expected %d rows, got %d", rounds*2, result.Rows[0][0].Int64())
+			actualRows := result.Rows[0][0].Int64()
+			expectedRows := int64(rounds * 2)
+			t.Logf("TEST RESULTS: Expected rows=%d, Actual rows=%d", expectedRows, actualRows)
+
+			if actualRows != expectedRows {
+				t.Fatalf("Expected %d rows, got %d", expectedRows, actualRows)
 			}
 		})
 

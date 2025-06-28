@@ -146,7 +146,7 @@ func TestDatabaseWALManager_InUse(t *testing.T) {
 			t.Errorf("Error creating new WAL version: %v", err)
 		}
 
-		walm.Acquire(walVersion.Timestamp())
+		walm.Acquire()
 
 		if walVersion == nil {
 			t.Fatal()
@@ -187,7 +187,7 @@ func TestDatabaseWALManager_InUseVersions(t *testing.T) {
 				t.Errorf("Error creating new WAL version: %v", err)
 			}
 
-			walm.Acquire(walVersion.Timestamp())
+			walm.Acquire()
 
 			walVersions[i] = walVersion
 		}
@@ -240,7 +240,7 @@ func TestDatabaseWALManager_Release(t *testing.T) {
 			t.Fatal()
 		}
 
-		walm.Acquire(walVersion.Timestamp())
+		walm.Acquire()
 
 		if !walm.InUse(walVersion.Timestamp()) {
 			t.Errorf("Expected WAL version %d to be in use", walVersion.Timestamp())
@@ -279,7 +279,7 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 
 			walVersion.Size()
 
-			walm.Acquire(walVersion.Timestamp())
+			walm.Acquire()
 
 			if i == 0 {
 				walm.Release(walVersion.Timestamp())
@@ -397,7 +397,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 
 			walVersion.Size()
 
-			walm.Acquire(walVersion.Timestamp())
+			walm.Acquire()
 
 			walVersions[i] = walVersion
 		}
