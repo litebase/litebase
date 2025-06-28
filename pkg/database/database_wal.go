@@ -278,9 +278,18 @@ func (wal *DatabaseWAL) SetCheckpointing(checkpointing bool) error {
 		return errors.New("cannot set checkpointing on replica node")
 	}
 
+	wal.mutex.Lock()
+	defer wal.mutex.Unlock()
 	wal.checkpointing = checkpointing
 
 	return nil
+}
+
+// IsCheckpointing returns whether this WAL is currently being checkpointed
+func (wal *DatabaseWAL) IsCheckpointing() bool {
+	wal.mutex.RLock()
+	defer wal.mutex.RUnlock()
+	return wal.checkpointing
 }
 
 func (wal *DatabaseWAL) shouldSync() bool {

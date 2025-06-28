@@ -129,7 +129,8 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 			return
 		}
 
-		if checkpointer.Checkpoint == nil {
+		// Only capture pages during an active checkpoint to prevent corruption
+		if checkpointer.Checkpoint == nil || !checkpointer.IsCheckpointing() {
 			return
 		}
 

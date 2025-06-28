@@ -394,13 +394,6 @@ func goXShmLock(pFile *C.sqlite3_file, offset C.int, n C.int, flags C.int) C.int
 	vfs.shm.mutex.Lock()
 	defer vfs.shm.mutex.Unlock()
 
-	// If an exclusive lock is requested, check if the WAL is the latest version,
-	// otherwise, return ErrSnapshotConflict meaning that the lock cannot be
-	// acquired since the WAL is not the latest version and cannot be updated.
-	// if flags&C.SQLITE_SHM_EXCLUSIVE != 0 && !vfs.wal.IsLatestVersion() {
-	// 	return C.int(constants.ErrSnapshotConflict)
-	// }
-
 	// Validate inputs
 	if offset < 0 || int(offset)+int(n) > C.SQLITE_SHM_NLOCK || n < 1 ||
 		(flags != (C.SQLITE_SHM_LOCK|C.SQLITE_SHM_SHARED) &&

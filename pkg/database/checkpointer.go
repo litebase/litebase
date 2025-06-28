@@ -24,6 +24,10 @@ type Checkpointer struct {
 	pageLogger       *storage.PageLogger
 	rollbackLogger   *backups.RollbackLogger
 	snapshotLogger   *backups.SnapshotLogger
+	// New fields for atomic page capture protection
+	capturedPages    map[int64]bool // Track which pages have been captured in this checkpoint
+	captureMutex     sync.Mutex     // Ensure atomic page capture
+	isCheckpointing  bool           // Flag to control write hook behavior
 }
 
 var (
@@ -48,6 +52,7 @@ func NewCheckpointer(
 		rollbackLogger:   backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
 		snapshotLogger:   backups.NewSnapshotLogger(dfs.FileSystem(), databaseId, branchId),
 		pageLogger:       pageLogger,
+		capturedPages:    make(map[int64]bool), // Initialize the captured pages map
 	}
 
 	err := cp.init()
@@ -82,6 +87,12 @@ func (c *Checkpointer) Begin(timestamp int64) error {
 		Timestamp:      timestamp,
 	}
 
+	// Clear captured pages and enable checkpointing mode
+	c.captureMutex.Lock()
+	c.capturedPages = make(map[int64]bool)
+	c.isCheckpointing = true
+	c.captureMutex.Unlock()
+
 	err = c.storeCheckpointFile()
 
 	if err != nil {
@@ -104,6 +115,15 @@ func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
 	if c.Checkpoint == nil {
 		return ErrorNoCheckpointInProgressError
 	}
+
+	// Ensure we only capture each page once during the checkpoint
+	c.captureMutex.Lock()
+	if c.capturedPages[pageNumber] {
+		c.captureMutex.Unlock()
+		return nil // Page already captured, skip
+	}
+	c.capturedPages[pageNumber] = true
+	c.captureMutex.Unlock()
 
 	if pageNumber > c.Checkpoint.LargestPageNumber {
 		c.Checkpoint.LargestPageNumber = pageNumber
@@ -139,6 +159,11 @@ func (c *Checkpointer) Commit() error {
 	if c.Checkpoint == nil {
 		return ErrorNoCheckpointInProgressError
 	}
+
+	// Disable checkpointing mode first
+	c.captureMutex.Lock()
+	c.isCheckpointing = false
+	c.captureMutex.Unlock()
 
 	var errors []error
 
@@ -247,6 +272,11 @@ func (c *Checkpointer) Rollback() error {
 		return ErrorNoCheckpointInProgressError
 	}
 
+	// Disable checkpointing mode first
+	c.captureMutex.Lock()
+	c.isCheckpointing = false
+	c.captureMutex.Unlock()
+
 	defer func() {
 		c.Checkpoint = nil
 	}()
@@ -294,4 +324,11 @@ func (c *Checkpointer) WithLock(fn func()) {
 	defer c.lock.Unlock()
 
 	fn()
+}
+
+// IsCheckpointing returns whether a checkpoint is currently in progress
+func (c *Checkpointer) IsCheckpointing() bool {
+	c.captureMutex.Lock()
+	defer c.captureMutex.Unlock()
+	return c.isCheckpointing
 }

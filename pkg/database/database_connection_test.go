@@ -91,7 +91,7 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("Checkpoint_WithMultipleConnections", func(t *testing.T) {
+		t.Run("Checkpointing_WithMultipleConnections", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -128,14 +128,13 @@ func TestDatabaseConnection(t *testing.T) {
 						continue
 					}
 
-					statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
-
-					if err != nil {
-						t.Error(err)
-						continue
-					}
-
 					err = db.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						statement, err := db.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
+
+						if err != nil {
+							return err
+						}
+
 						return statement.Sqlite3Statement.Exec(nil, []sqlite3.StatementParameter{
 							{
 								Type:  "TEXT",
@@ -171,14 +170,13 @@ func TestDatabaseConnection(t *testing.T) {
 						continue
 					}
 
-					statement, err := db.GetConnection().Prepare(db.GetConnection().Context(), "INSERT INTO test (name) VALUES (?)")
-
-					if err != nil {
-						t.Error(err)
-						continue
-					}
-
 					err = db.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+						statement, err := db.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
+
+						if err != nil {
+							return err
+						}
+
 						return statement.Sqlite3Statement.Exec(nil, []sqlite3.StatementParameter{
 							{
 								Type:  "TEXT",
@@ -437,7 +435,6 @@ func TestDatabaseConnection(t *testing.T) {
 		})
 
 		t.Run("Prepare", func(t *testing.T) {
-
 			mock := test.MockDatabase(app)
 
 			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)

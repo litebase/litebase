@@ -24,130 +24,9 @@ var (
 	ErrDatabaseConnectionClosed = fmt.Errorf("database connection is closed")
 )
 
-type DatabaseConnection struct {
-	AccessKey         *auth.AccessKey
-	branchId          string
-	cancel            context.CancelFunc
-	checkpointer      *Checkpointer
-	committedAt       time.Time
-	config            *config.Config
-	connectionManager *ConnectionManager
-	context           context.Context
-	databaseHash      string
-	databaseId        string
-	id                string
-	fileSystem        *storage.DurableDatabaseFileSystem
-	mutex             *sync.Mutex
-	nodeId            string
-	pageLogger        *storage.PageLogger
-	resultPool        *sqlite3.ResultPool
-	sqlite3           *sqlite3.Connection
-	statements        sync.Map
-	timestamp         int64
-	tmpFileSystem     *storage.FileSystem
-	vfs               *vfs.LitebaseVFS
-	vfsHash           string
-	walManager        *DatabaseWALManager
-}
-
-// Create a new database connection instance.
-func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, branchId string) (*DatabaseConnection, error) {
-	var (
-		connection *sqlite3.Connection
-		err        error
-	)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	resources := connectionManager.databaseManager.Resources(databaseId, branchId)
-	// Get the database hash for the connection.
-	databaseHash := file.DatabaseHash(databaseId, branchId)
-	resultPool := resources.ResultPool()
-	checkpointer, err := resources.Checkpointer()
-
-	if err != nil {
-		cancel()
-		log.Println("Error Getting Checkpointer:", err)
-
-		return nil, err
-	}
-
-	walManager, err := resources.DatabaseWALManager()
-
-	if err != nil {
-		log.Println("Error Getting WAL Manager:", err)
-		cancel()
-
-		return nil, err
-	}
-
-	con := &DatabaseConnection{
-		branchId:          branchId,
-		cancel:            cancel,
-		checkpointer:      checkpointer,
-		config:            connectionManager.cluster.Config,
-		connectionManager: connectionManager,
-		context:           ctx,
-		databaseHash:      databaseHash,
-		databaseId:        databaseId,
-		fileSystem:        connectionManager.databaseManager.Resources(databaseId, branchId).FileSystem(),
-		id:                uuid.NewString(),
-		mutex:             &sync.Mutex{},
-		nodeId:            connectionManager.cluster.Node().ID,
-		pageLogger:        connectionManager.databaseManager.Resources(databaseId, branchId).PageLogger(),
-		resultPool:        resultPool,
-		statements:        sync.Map{},
-		timestamp:         time.Now().UTC().UnixNano(),
-		tmpFileSystem:     connectionManager.cluster.TmpFS(),
-		walManager:        walManager,
-	}
-
-	err = con.registerVFS()
-
-	if err != nil {
-		log.Println("Error Registering VFS:", err)
-
-		return nil, err
-	}
-
-	path, err := file.GetDatabaseFileTmpPath(
-		con.config,
-		con.nodeId,
-		databaseId,
-		branchId,
-	)
-
-	if err != nil {
-		log.Println("Error Getting Database File Path:", err)
-
-		return nil, err
-	}
-
-	err = file.EnsureDirectoryExists(path)
-
-	if err != nil {
-		log.Println("Error Ensuring Directory Exists:", err)
-
-		return nil, err
-	}
-
-	connection, err = sqlite3.Open(
-		con.context,
-		path,
-		con.VFSHash(),
-		sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE,
-	)
-
-	if err != nil {
-		log.Println("Error Opening Database Connection:", err)
-		return nil, err
-	}
-
-	con.sqlite3 = connection
-
-	con.SetAuthorizer()
-
-	configStatements := []string{
-		fmt.Sprintf("PRAGMA page_size = %d", con.config.PageSize),
+var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
+	return []string{
+		fmt.Sprintf("PRAGMA page_size = %d", config.PageSize),
 
 		// Databases should always be in WAL mode. This allows for multiple
 		// readers and a single writer.
@@ -192,23 +71,89 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		// enforced by SQLite.
 		"PRAGMA foreign_keys = ON",
 	}
+}
 
-	if !con.connectionManager.cluster.Node().IsPrimary() {
-		// log.Default().Println("Setting database locking mode to EXCLUSIVE")
-		// configStatements = append(configStatements, "PRAGMA query_only = true")
+type DatabaseConnection struct {
+	AccessKey         *auth.AccessKey
+	branchId          string
+	cancel            context.CancelFunc
+	checkpointer      *Checkpointer
+	committedAt       time.Time
+	config            *config.Config
+	connectionManager *ConnectionManager
+	context           context.Context
+	databaseHash      string
+	databaseId        string
+	id                string
+	fileSystem        *storage.DurableDatabaseFileSystem
+	mutex             *sync.Mutex
+	nodeId            string
+	pageLogger        *storage.PageLogger
+	resultPool        *sqlite3.ResultPool
+	sqlite3           *sqlite3.Connection
+	statements        sync.Map
+	timestamp         int64
+	tmpFileSystem     *storage.FileSystem
+	vfs               *vfs.LitebaseVFS
+	vfsHash           string
+	walManager        *DatabaseWALManager
+}
+
+// Create a new database connection instance.
+func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, branchId string) (*DatabaseConnection, error) {
+	ctx, cancel := context.WithCancel(connectionManager.cluster.Node().Context())
+
+	resources := connectionManager.databaseManager.Resources(databaseId, branchId)
+
+	// Get the database hash for the connection.
+	databaseHash := file.DatabaseHash(databaseId, branchId)
+	resultPool := resources.ResultPool()
+	checkpointer, err := resources.Checkpointer()
+
+	if err != nil {
+		cancel()
+		slog.Error("Error Getting Checkpointer:", "error", err)
+
+		return nil, err
 	}
 
-	con.setTimestamp()
+	walManager, err := resources.DatabaseWALManager()
 
-	for _, statement := range configStatements {
-		_, err = con.sqlite3.Exec(ctx, statement)
+	if err != nil {
+		cancel()
+		slog.Error("Error Getting WAL Manager:", "error", err)
 
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	con.releaseTimestamp()
+	con := &DatabaseConnection{
+		branchId:          branchId,
+		cancel:            cancel,
+		checkpointer:      checkpointer,
+		config:            connectionManager.cluster.Config,
+		connectionManager: connectionManager,
+		context:           ctx,
+		databaseHash:      databaseHash,
+		databaseId:        databaseId,
+		fileSystem:        connectionManager.databaseManager.Resources(databaseId, branchId).FileSystem(),
+		id:                uuid.NewString(),
+		mutex:             &sync.Mutex{},
+		nodeId:            connectionManager.cluster.Node().ID,
+		pageLogger:        connectionManager.databaseManager.Resources(databaseId, branchId).PageLogger(),
+		resultPool:        resultPool,
+		statements:        sync.Map{},
+		timestamp:         time.Now().UTC().UnixNano(),
+		tmpFileSystem:     connectionManager.cluster.TmpFS(),
+		walManager:        walManager,
+	}
+
+	err = con.openSqliteConnection()
+
+	if err != nil {
+		slog.Error("Error Opening SQLite:", "error", err)
+
+		return nil, err
+	}
 
 	return con, err
 }
@@ -219,7 +164,7 @@ func (con *DatabaseConnection) Changes() int64 {
 		return 0
 	}
 
-	return con.sqlite3.Changes()
+	return con.SqliteConnection().Changes()
 }
 
 // Checkpoint changes that have been made to the database.
@@ -232,20 +177,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 		return ErrDatabaseConnectionClosed
 	}
 
-	// Get the latest WAL for the database without creating a new one.
-	wal, err := con.walManager.GetLatest()
-
-	if err != nil {
-		log.Println("Error acquiring latest WAL:", err)
-		return err
-	}
-
-	// If no WAL exists, there's nothing to checkpoint
-	if wal == nil {
-		return nil
-	}
-
-	return con.walManager.Checkpoint(wal, func() error {
+	return con.walManager.Checkpoint(func(wal *DatabaseWAL) error {
 		// Ensure the timestamp for the checkpoint is acquired on the page logger.
 		con.pageLogger.Acquire(wal.timestamp)
 
@@ -261,14 +193,14 @@ func (con *DatabaseConnection) Checkpoint() error {
 		}()
 
 		// Begin the checkpoint process using the WAL timestamp.
-		err = con.checkpointer.Begin(wal.timestamp)
+		err := con.checkpointer.Begin(wal.timestamp)
 
 		if err != nil {
 			log.Println("Error beginning checkpoint:", err)
 			return err
 		}
 
-		_, err = sqlite3.Checkpoint(con.sqlite3.Base(), func(result sqlite3.CheckpointResult) error {
+		_, err = sqlite3.Checkpoint(con.SqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
 			if result.Result != 0 {
 				log.Println("Error checkpointing database", err)
 			} else {
@@ -301,6 +233,8 @@ func (con *DatabaseConnection) Checkpoint() error {
 			}
 		}
 
+		// log.Println("Checkpoint completed successfully")
+
 		return err
 	})
 }
@@ -313,30 +247,22 @@ func (con *DatabaseConnection) Close() error {
 
 	var err error
 
-	// Ensure all statements are finalized before closing the connection.
-	con.statements.Range(func(key any, statement any) bool {
-		err = statement.(Statement).Sqlite3Statement.Finalize()
-
-		return true
-	})
+	// Finalize all statements before closing the connection.
+	err = con.finalizeStatments()
 
 	if err != nil {
-		log.Println("Error finalizing statement:", err)
-
 		return err
 	}
 
 	// Cancel the context of the connection.
 	con.cancel()
 
-	con.statements = sync.Map{}
+	// Close the SQLite connection
+	err = con.closeSqliteConnection()
 
-	if con.sqlite3 != nil {
-		err = con.sqlite3.Close()
-
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		slog.Error("Error closing SQLite connection", "error", err)
+		return err
 	}
 
 	con.release()
@@ -347,14 +273,25 @@ func (con *DatabaseConnection) Close() error {
 		con.vfs = nil
 	}
 
-	con.sqlite3 = nil
-
 	return err
 }
 
 // Check if the connection is closed.
 func (con *DatabaseConnection) Closed() bool {
 	return con.sqlite3 == nil
+}
+
+// Close the SQLite connection.
+func (con *DatabaseConnection) closeSqliteConnection() error {
+	if con.sqlite3 != nil {
+		if closeErr := con.sqlite3.Close(); closeErr != nil {
+			return fmt.Errorf("error closing sqlite3 connection: %w", closeErr)
+		}
+
+		con.sqlite3 = nil
+	}
+
+	return nil
 }
 
 // Return the context of the connection.
@@ -369,28 +306,119 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	result = &sqlite3.Result{}
 
-	// Set timestamp for this operation to ensure proper WAL coordination
-	con.setTimestamp()
-	defer con.releaseTimestamp()
+	return result, con.walManager.CheckpointBarrier(func() error {
+		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
+		con.setTimestamp()
+		defer con.releaseTimestamp()
 
-	statement, _, err := con.SqliteConnection().Prepare(con.context, sql)
+		statement, _, err := con.SqliteConnection().Prepare(con.context, sql)
 
-	if err != nil {
-		return nil, err
-	}
+		if err != nil {
+			return err
+		}
 
-	err = statement.Exec(result, parameters...)
+		err = statement.Exec(result, parameters...)
 
-	return result, err
+		return err
+	})
 }
 
 func (con *DatabaseConnection) FileSystem() *storage.DurableDatabaseFileSystem {
 	return con.fileSystem
 }
 
+// Finalize the statements of the connection.
+func (con *DatabaseConnection) finalizeStatments() error {
+	var err error
+
+	// Ensure all statements are finalized before closing the connection.
+	con.statements.Range(func(key any, statement any) bool {
+		err = statement.(Statement).Sqlite3Statement.Finalize()
+
+		return true
+	})
+
+	if err != nil {
+		slog.Error("Error finalizing statement", "error", err)
+		return err
+	}
+
+	// Clear the statements map
+	con.statements = sync.Map{}
+
+	return nil
+}
+
 // Return the id of the connection.
 func (c *DatabaseConnection) Id() string {
 	return c.id
+}
+
+func (con *DatabaseConnection) openSqliteConnection() error {
+	var err error
+
+	err = con.registerVFS()
+
+	if err != nil {
+		slog.Error("Error Registering VFS:", "error", err)
+
+		return err
+	}
+
+	path, err := file.GetDatabaseFileTmpPath(
+		con.config,
+		con.nodeId,
+		con.databaseId,
+		con.branchId,
+	)
+
+	if err != nil {
+		log.Println("Error Getting Database File Path:", err)
+
+		return err
+	}
+
+	err = file.EnsureDirectoryExists(path)
+
+	if err != nil {
+		log.Println("Error Ensuring Directory Exists:", err)
+
+		return err
+	}
+
+	con.sqlite3, err = sqlite3.Open(
+		con.context,
+		path,
+		con.VFSHash(),
+		sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE,
+	)
+
+	if err != nil {
+		log.Println("Error Opening Database Connection:", err)
+		return err
+	}
+
+	con.SetAuthorizer()
+
+	// TODO: Verify if this is the proper way to allow replicas to only read.
+	if !con.connectionManager.cluster.Node().IsPrimary() {
+		// log.Default().Println("Setting database locking mode to EXCLUSIVE")
+		// configStatements = append(configStatements, "PRAGMA query_only = true")
+	}
+
+	con.setTimestamp()
+
+	for _, statement := range DatabaseConnectionConfigStatements(con.config) {
+		_, err = con.SqliteConnection().Exec(con.context, statement)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	con.releaseTimestamp()
+
+	return nil
 }
 
 // Prepare a statement for execution.
@@ -399,7 +427,7 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 		return Statement{}, ErrDatabaseConnectionClosed
 	}
 
-	statment, _, err := con.sqlite3.Prepare(ctx, command)
+	statment, _, err := con.SqliteConnection().Prepare(ctx, command)
 
 	if err != nil {
 		return Statement{}, err
@@ -447,6 +475,7 @@ func (con *DatabaseConnection) registerVFS() error {
 	return nil
 }
 
+// TODO: Is this needed?
 // Release the connection.
 func (con *DatabaseConnection) release() {
 	if con.timestamp > 0 {
@@ -468,7 +497,7 @@ func (con *DatabaseConnection) ResultPool() *sqlite3.ResultPool {
 
 // Set the authorizer for the database connection.
 func (c *DatabaseConnection) SetAuthorizer() {
-	c.sqlite3.Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int32 {
+	c.SqliteConnection().Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int32 {
 		if c.AccessKey == nil {
 			return sqlite3.SQLITE_OK
 		}
@@ -552,7 +581,8 @@ func (c *DatabaseConnection) SetAuthorizer() {
 }
 
 func (con *DatabaseConnection) setTimestamp() {
-	// Acquire the latest WAL based on our timestamp - this also handles getting the WAL
+	// First acquire WAL timestamp without holding the connection lock
+	// to avoid potential deadlocks with WAL manager
 	timestamp, err := con.walManager.Acquire()
 
 	if err != nil {
@@ -560,10 +590,28 @@ func (con *DatabaseConnection) setTimestamp() {
 		return
 	}
 
+	// If the current timestamp of the connection is not the acquired timestamp,
+	// the connection needs to be refreshed to ensure the SQLite connection is
+	// memory is tied to the right WAL.
+	existingTimestamp := con.timestamp
 	con.timestamp = timestamp
 
 	// Acquire the timestamp on the page logger
 	con.pageLogger.Acquire(con.timestamp)
+
+	// If the timestamp has changed, we need to refresh the SQLite connection
+	if existingTimestamp != con.timestamp {
+		slog.Debug("Refreshing SQLite connection due to timestamp change",
+			"old_timestamp", existingTimestamp,
+			"new_timestamp", con.timestamp)
+
+		// err = con.refreshSqliteConnection()
+
+		// if err != nil {
+		// 	slog.Error("Error refreshing SQLite connection:", "error", err)
+		// 	return
+		// }
+	}
 
 	// Set timestamp on VFS for proper WAL file reading
 	con.vfs.SetTimestamp(con.timestamp)
@@ -612,13 +660,12 @@ func (con *DatabaseConnection) Transaction(
 
 	var err error
 
-	// Acquire timestamp before entering checkpoint barrier to avoid deadlock
-	con.setTimestamp()
-	defer func() {
-		con.releaseTimestamp()
-	}()
-
 	return con.walManager.CheckpointBarrier(func() error {
+		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
+		con.setTimestamp()
+		defer func() {
+			con.releaseTimestamp()
+		}()
 		if !readOnly {
 			// Start the transaction with a write lock.
 			err = con.SqliteConnection().BeginImmediate()
