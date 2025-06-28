@@ -496,7 +496,7 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	// Delete the removed WAL versions
 	for _, version := range removedVersions {
 		if _, ok := w.walVersions[version]; !ok {
-			slog.Error("WAL version not found", "version", version)
+			slog.Error("WAL version not found", version)
 			continue
 		}
 
