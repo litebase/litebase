@@ -136,10 +136,16 @@ func TestSnapshotLog(t *testing.T) {
 				mock.DatabaseID,
 				mock.BranchID,
 			)
+
 			defer checkpointerLogger.Close()
 
-			// Simulate writing a snapshot to the file
-			timestamp := time.Now().UTC().Add(time.Duration(-1) * time.Hour).UnixNano()
+			// Create a base time in UTC to ensure both timestamps are on the same day
+			baseTime := time.Now().UTC()
+			// Set to a specific time during the day to avoid timezone issues
+			baseTime = time.Date(baseTime.Year(), baseTime.Month(), baseTime.Day(), 10, 0, 0, 0, time.UTC)
+
+			// Simulate writing a snapshot to the file (2 hours earlier in the same day)
+			timestamp := baseTime.Add(-2 * time.Hour).UnixNano()
 			checkpointerLogger.Log(timestamp, int64(100))
 
 			snapshot, err := snapshotLogger.GetSnapshot(timestamp)
@@ -148,8 +154,8 @@ func TestSnapshotLog(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			// Simulate writing another snapshot to the file
-			timestamp = time.Now().UTC().Add(time.Duration(0) * time.Hour).UnixNano()
+			// Simulate writing another snapshot to the file (1 hour later in the same day)
+			timestamp = baseTime.Add(-1 * time.Hour).UnixNano()
 			checkpointerLogger.Log(timestamp, int64(101))
 
 			if snapshot.RestorePoints.Total != 1 {
