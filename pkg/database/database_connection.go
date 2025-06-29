@@ -84,8 +84,9 @@ type DatabaseConnection struct {
 	context           context.Context
 	databaseHash      string
 	databaseId        string
-	id                string
 	fileSystem        *storage.DurableDatabaseFileSystem
+	id                string
+	inTransaction     bool
 	mutex             *sync.Mutex
 	nodeId            string
 	pageLogger        *storage.PageLogger
@@ -306,7 +307,17 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	result = &sqlite3.Result{}
 
-	return result, con.walManager.CheckpointBarrier(func() error {
+	var run func(func() error) error
+
+	if !con.inTransaction {
+		run = con.walManager.CheckpointBarrier
+	} else {
+		run = func(fn func() error) error {
+			return fn()
+		}
+	}
+
+	return result, run(func() error {
 		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
 		con.setTimestamp()
 		defer con.releaseTimestamp()
@@ -590,28 +601,10 @@ func (con *DatabaseConnection) setTimestamp() {
 		return
 	}
 
-	// If the current timestamp of the connection is not the acquired timestamp,
-	// the connection needs to be refreshed to ensure the SQLite connection is
-	// memory is tied to the right WAL.
-	existingTimestamp := con.timestamp
 	con.timestamp = timestamp
 
 	// Acquire the timestamp on the page logger
 	con.pageLogger.Acquire(con.timestamp)
-
-	// If the timestamp has changed, we need to refresh the SQLite connection
-	if existingTimestamp != con.timestamp {
-		slog.Debug("Refreshing SQLite connection due to timestamp change",
-			"old_timestamp", existingTimestamp,
-			"new_timestamp", con.timestamp)
-
-		// err = con.refreshSqliteConnection()
-
-		// if err != nil {
-		// 	slog.Error("Error refreshing SQLite connection:", "error", err)
-		// 	return
-		// }
-	}
 
 	// Set timestamp on VFS for proper WAL file reading
 	con.vfs.SetTimestamp(con.timestamp)
@@ -654,18 +647,26 @@ func (con *DatabaseConnection) Transaction(
 	readOnly bool,
 	handler func(con *DatabaseConnection) error,
 ) error {
+	con.inTransaction = true
+
+	defer func() {
+		con.inTransaction = false
+	}()
+
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
 	}
 
-	var err error
-
 	return con.walManager.CheckpointBarrier(func() error {
+		var err error
+
 		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
 		con.setTimestamp()
+
 		defer func() {
 			con.releaseTimestamp()
 		}()
+
 		if !readOnly {
 			// Start the transaction with a write lock.
 			err = con.SqliteConnection().BeginImmediate()

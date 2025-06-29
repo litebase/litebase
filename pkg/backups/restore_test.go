@@ -16,7 +16,7 @@ import (
 
 func TestRestore(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		t.Run(" CopySourceDatabaseToTargetDatabase", func(t *testing.T) {
+		t.Run("CopySourceDatabaseToTargetDatabase", func(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 			sourceDirectory := file.GetDatabaseFileDir(source.DatabaseID, source.BranchID)

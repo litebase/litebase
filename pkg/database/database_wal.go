@@ -336,10 +336,6 @@ func (wal *DatabaseWAL) Size() (int64, error) {
 }
 
 func (wal *DatabaseWAL) Sync() error {
-	if wal.node.IsReplica() {
-		return errors.New("cannot sync WAL file on replica node")
-	}
-
 	wal.syncMutex.Lock()
 	defer wal.syncMutex.Unlock()
 
@@ -373,10 +369,6 @@ func (wal *DatabaseWAL) Truncate(size int64) error {
 }
 
 func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
-	if wal.node.IsReplica() {
-		return 0, errors.New("cannot write to WAL file on replica node")
-	}
-
 	wal.mutex.Lock()
 	defer wal.mutex.Unlock()
 
