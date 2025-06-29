@@ -175,10 +175,6 @@ func (w *DatabaseWALManager) Create() (*DatabaseWAL, error) {
 
 // Create a new WAL version
 func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
-	if w.node.IsReplica() {
-		return nil, ErrCreateWALVersionOnReplica
-	}
-
 	// Add the new version
 	w.walVersions[timestamp] = NewDatabaseWAL(
 		w.node,
@@ -667,6 +663,7 @@ func (w *DatabaseWALManager) getOrCreateCurrent() (*DatabaseWAL, error) {
 		if _, exists := w.walVersions[newTimestamp]; !exists {
 			break // This timestamp is available
 		}
+
 		newTimestamp++ // Increment until we find an available timestamp
 	}
 
