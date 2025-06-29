@@ -159,13 +159,58 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	return con, err
 }
 
+func (con *DatabaseConnection) BusyTimeout(timeout time.Duration) {
+	if con.Closed() {
+		return
+	}
+
+	// Set the busy timeout for the SQLite connection.
+	con.sqliteConnection().BusyTimeout(timeout)
+}
+
+// Begin a transaction on the database connection
+func (con *DatabaseConnection) Begin() error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
+	return con.sqliteConnection().Begin()
+}
+
+// Begin a transaction that will deffer the write lock until the first write operation.
+func (con *DatabaseConnection) BeginDeferred() error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
+	return con.sqliteConnection().BeginDeferred()
+}
+
+// Begin a transaction that will immediately acquire the write lock.
+func (con *DatabaseConnection) BeginImmediate() error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
+	return con.sqliteConnection().BeginImmediate()
+}
+
+// Commit the current transaction on the database connection
+func (con *DatabaseConnection) Commit() error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
+	return con.sqliteConnection().Commit()
+}
+
 // Return the number of rows changed by the last statement.
 func (con *DatabaseConnection) Changes() int64 {
 	if con.Closed() {
 		return 0
 	}
 
-	return con.SqliteConnection().Changes()
+	return con.sqliteConnection().Changes()
 }
 
 // Checkpoint changes that have been made to the database.
@@ -201,7 +246,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 			return err
 		}
 
-		_, err = sqlite3.Checkpoint(con.SqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
+		_, err = sqlite3.Checkpoint(con.sqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
 			if result.Result != 0 {
 				log.Println("Error checkpointing database", err)
 			} else {
@@ -322,7 +367,7 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 		con.setTimestamp()
 		defer con.releaseTimestamp()
 
-		statement, _, err := con.SqliteConnection().Prepare(con.context, sql)
+		statement, _, err := con.sqliteConnection().Prepare(con.context, sql)
 
 		if err != nil {
 			return err
@@ -363,6 +408,15 @@ func (con *DatabaseConnection) finalizeStatments() error {
 // Return the id of the connection.
 func (c *DatabaseConnection) Id() string {
 	return c.id
+}
+
+// Return the last insert row ID of the connection
+func (con *DatabaseConnection) LastInsertRowID() int64 {
+	if con.Closed() {
+		return 0
+	}
+
+	return con.sqliteConnection().LastInsertRowID()
 }
 
 func (con *DatabaseConnection) openSqliteConnection() error {
@@ -420,7 +474,7 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 	con.setTimestamp()
 
 	for _, statement := range DatabaseConnectionConfigStatements(con.config) {
-		_, err = con.SqliteConnection().Exec(con.context, statement)
+		_, err = con.sqliteConnection().Exec(con.context, statement)
 
 		if err != nil {
 			return err
@@ -438,7 +492,7 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 		return Statement{}, ErrDatabaseConnectionClosed
 	}
 
-	statment, _, err := con.SqliteConnection().Prepare(ctx, command)
+	statment, _, err := con.sqliteConnection().Prepare(ctx, command)
 
 	if err != nil {
 		return Statement{}, err
@@ -506,9 +560,18 @@ func (con *DatabaseConnection) ResultPool() *sqlite3.ResultPool {
 	return con.resultPool
 }
 
+// Rollback the current transaction on the database connection
+func (con *DatabaseConnection) Rollback() error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
+	return con.sqliteConnection().Rollback()
+}
+
 // Set the authorizer for the database connection.
 func (c *DatabaseConnection) SetAuthorizer() {
-	c.SqliteConnection().Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int32 {
+	c.sqliteConnection().Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int32 {
 		if c.AccessKey == nil {
 			return sqlite3.SQLITE_OK
 		}
@@ -578,7 +641,7 @@ func (c *DatabaseConnection) SetAuthorizer() {
 		}
 
 		if err != nil {
-			c.SqliteConnection().SetAuthorizationError(err)
+			c.sqliteConnection().SetAuthorizationError(err)
 
 			return sqlite3.SQLITE_DENY
 		}
@@ -611,7 +674,7 @@ func (con *DatabaseConnection) setTimestamp() {
 }
 
 // Return the underlying sqlite3 connection of the database connection.
-func (con *DatabaseConnection) SqliteConnection() *sqlite3.Connection {
+func (con *DatabaseConnection) sqliteConnection() *sqlite3.Connection {
 	return con.sqlite3
 }
 
@@ -669,9 +732,9 @@ func (con *DatabaseConnection) Transaction(
 
 		if !readOnly {
 			// Start the transaction with a write lock.
-			err = con.SqliteConnection().BeginImmediate()
+			err = con.sqliteConnection().BeginImmediate()
 		} else {
-			err = con.SqliteConnection().BeginDeferred()
+			err = con.sqliteConnection().BeginDeferred()
 		}
 
 		if err != nil {
@@ -681,7 +744,7 @@ func (con *DatabaseConnection) Transaction(
 		handlerError := handler(con)
 
 		if handlerError != nil {
-			err = con.SqliteConnection().Rollback()
+			err = con.sqliteConnection().Rollback()
 
 			if err != nil {
 				log.Println("Transaction Error:", err)
@@ -690,7 +753,7 @@ func (con *DatabaseConnection) Transaction(
 			return handlerError
 		}
 
-		err = con.SqliteConnection().Commit()
+		err = con.sqliteConnection().Commit()
 
 		if err != nil {
 			log.Println("Transaction Error:", err)
@@ -703,6 +766,14 @@ func (con *DatabaseConnection) Transaction(
 
 		return handlerError
 	})
+}
+
+func (con *DatabaseConnection) Vacuum() error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
+	return con.sqliteConnection().Vacuum()
 }
 
 func (con *DatabaseConnection) VFSDatabaseHash() string {

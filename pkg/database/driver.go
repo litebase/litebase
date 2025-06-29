@@ -388,7 +388,7 @@ func (r *LitebaseResult) LastInsertId() (int64, error) {
 	if r.conn == nil || r.conn.Closed() {
 		return 0, driver.ErrBadConn
 	}
-	return r.conn.SqliteConnection().LastInsertRowID(), nil
+	return r.conn.LastInsertRowID(), nil
 }
 
 // RowsAffected returns the number of rows affected by the query
@@ -397,7 +397,7 @@ func (r *LitebaseResult) RowsAffected() (int64, error) {
 		return 0, driver.ErrBadConn
 	}
 
-	return r.conn.SqliteConnection().Changes(), nil
+	return r.conn.Changes(), nil
 }
 
 // LitebaseTx implements driver.Tx

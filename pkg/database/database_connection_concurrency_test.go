@@ -1,7 +1,6 @@
 package database_test
 
 import (
-	"context"
 	"sync"
 	"testing"
 
@@ -21,7 +20,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (name TEXT)")
+		connection.GetConnection().Exec("CREATE TABLE test (name TEXT)", nil)
 
 		app.DatabaseManager.ConnectionManager().Release(connection)
 
@@ -69,7 +68,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 		// Check integrity of the database
-		result, err := connection.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+		result, err := connection.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
 
 		if err != nil {
 			t.Error(err)
@@ -94,7 +93,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
-		connection.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (name TEXT)")
+		connection.GetConnection().Exec("CREATE TABLE test (name TEXT)", nil)
 
 		for round := range 10 {
 			wg := sync.WaitGroup{}
@@ -143,7 +142,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 			}
 
 			// Check integrity of the database
-			result, err := connection.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+			result, err := connection.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
 
 			if err != nil {
 				t.Error(err)

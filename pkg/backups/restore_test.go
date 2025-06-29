@@ -1,7 +1,6 @@
 package backups_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -266,7 +265,7 @@ func TestRestore(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table and insert some data
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -279,15 +278,16 @@ func TestRestore(t *testing.T) {
 			}
 
 			// Insert some test data
-			db.GetConnection().SqliteConnection().Exec(context.Background(), "BEGIN")
+			db.GetConnection().Exec("BEGIN", nil)
 
 			for range 1000 {
-				_, err = db.GetConnection().SqliteConnection().Exec(
-					context.Background(),
+				_, err = db.GetConnection().Exec(
 					"INSERT INTO test (value) VALUES (?)",
-					sqlite3.StatementParameter{
-						Type:  sqlite3.ParameterTypeText,
-						Value: []byte("value"),
+					[]sqlite3.StatementParameter{
+						{
+							Type:  sqlite3.ParameterTypeText,
+							Value: []byte("value"),
+						},
 					},
 				)
 
@@ -296,7 +296,7 @@ func TestRestore(t *testing.T) {
 				}
 			}
 
-			db.GetConnection().SqliteConnection().Exec(context.Background(), "COMMIT")
+			db.GetConnection().Exec("COMMIT", nil)
 
 			// Get the snapshots
 			snapshotLogger.GetSnapshots()
@@ -509,7 +509,7 @@ func TestRestore(t *testing.T) {
 					defer app.DatabaseManager.ConnectionManager().Release(db)
 
 					// Verify the data is restored correctly
-					result, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT * FROM test")
+					result, err := db.GetConnection().Exec("SELECT * FROM test", nil)
 
 					if err == nil || err.Error() != "SQLite3 Error[1]: no such table: test" {
 						t.Fatalf("Expected an error indicating the table does not exist, got %v", err)

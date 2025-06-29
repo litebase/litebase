@@ -2,7 +2,6 @@ package backups_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -32,7 +31,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -90,7 +89,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table and insert data
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -209,7 +208,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table and insert data
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -311,7 +310,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -359,7 +358,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -408,7 +407,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -456,7 +455,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -511,7 +510,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table and insert data
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -594,7 +593,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -602,12 +601,13 @@ func TestBackup(t *testing.T) {
 
 			// Insert some data to create actual database content
 			for i := range 100 {
-				_, err = db.GetConnection().SqliteConnection().Exec(
-					context.Background(),
+				_, err = db.GetConnection().Exec(
 					"INSERT INTO test (name) VALUES (?)",
-					sqlite3.StatementParameter{
-						Type:  sqlite3.ParameterTypeText,
-						Value: fmt.Appendf(nil, "test-data-%d", i),
+					[]sqlite3.StatementParameter{
+						{
+							Type:  sqlite3.ParameterTypeText,
+							Value: fmt.Appendf(nil, "test-data-%d", i),
+						},
 					},
 				)
 
@@ -737,7 +737,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -881,12 +881,13 @@ func TestBackup(t *testing.T) {
 				// Begin a transaction
 				err = sourceDB.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 					for j := range 1000 {
-						_, err = db.SqliteConnection().Exec(
-							context.Background(),
+						_, err = db.Exec(
 							"INSERT INTO test (name) VALUES (?)",
-							sqlite3.StatementParameter{
-								Type:  sqlite3.ParameterTypeText,
-								Value: fmt.Appendf(nil, "test-%d", j),
+							[]sqlite3.StatementParameter{
+								{
+									Type:  sqlite3.ParameterTypeText,
+									Value: fmt.Appendf(nil, "test-%d", j),
+								},
 							},
 						)
 
@@ -947,7 +948,7 @@ func TestBackup(t *testing.T) {
 				}
 
 				// Check if the test table exists
-				results, err := db.GetConnection().SqliteConnection().Exec(context.Background(), "SELECT COUNT(*) FROM test")
+				results, err := db.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
 
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -997,7 +998,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -1051,7 +1052,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -1096,7 +1097,7 @@ func TestBackup(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
 			// Create a test table
-			_, err = db.GetConnection().SqliteConnection().Exec(context.Background(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)

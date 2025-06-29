@@ -1,7 +1,6 @@
 package vfs_test
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -309,7 +308,7 @@ func TestVfsVacuum(t *testing.T) {
 		// Delete all rows
 		test.RunQuery(db, "DELETE FROM users", []sqlite3.StatementParameter{})
 
-		err = db.GetConnection().SqliteConnection().Vacuum()
+		err = db.GetConnection().Vacuum()
 
 		if err != nil {
 			t.Errorf("VACUUM failed, expected nil, got %v", err)
@@ -346,8 +345,8 @@ func TestVFSLocking(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(con2)
 
-		con1.GetConnection().SqliteConnection().BusyTimeout(0 * time.Second)
-		con2.GetConnection().SqliteConnection().BusyTimeout(0 * time.Second)
+		con1.GetConnection().BusyTimeout(0 * time.Second)
+		con2.GetConnection().BusyTimeout(0 * time.Second)
 
 		t.Run("LockintTransactions", func(t *testing.T) {
 			wg := sync.WaitGroup{}
@@ -355,7 +354,7 @@ func TestVFSLocking(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
-				err := con1.GetConnection().SqliteConnection().BeginImmediate()
+				err := con1.GetConnection().BeginImmediate()
 
 				if err != nil {
 					t.Errorf("Begin transaction failed in goroutine 1, expected nil, got %v", err)
@@ -368,13 +367,13 @@ func TestVFSLocking(t *testing.T) {
 				defer wg.Done()
 
 				time.Sleep(50 * time.Millisecond)
-				err := con2.GetConnection().SqliteConnection().Begin()
+				err := con2.GetConnection().Begin()
 
 				if err != nil {
 					log.Printf("Expected error in goroutine 2: %v", err)
 				}
 
-				_, err = con2.GetConnection().SqliteConnection().Exec(context.TODO(), "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+				_, err = con2.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
 
 				if err == nil {
 					t.Errorf("Begin transaction should have failed in goroutine 2, expected error, got nil")
@@ -383,7 +382,7 @@ func TestVFSLocking(t *testing.T) {
 
 			wg.Wait()
 
-			err = con1.GetConnection().SqliteConnection().Commit()
+			err = con1.GetConnection().Commit()
 
 			if err != nil {
 				t.Errorf("Commit transaction failed in goroutine 1, expected nil, got %v", err)
@@ -396,7 +395,7 @@ func TestVFSLocking(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
-				err := con1.GetConnection().SqliteConnection().BeginImmediate()
+				err := con1.GetConnection().BeginImmediate()
 
 				if err != nil {
 					t.Errorf("Begin transaction failed in goroutine 1, expected nil, got %v", err)
@@ -418,7 +417,7 @@ func TestVFSLocking(t *testing.T) {
 
 			wg.Wait()
 
-			err = con1.GetConnection().SqliteConnection().Commit()
+			err = con1.GetConnection().Commit()
 
 			if err != nil {
 				t.Errorf("Commit transaction failed in goroutine 1, expected nil, got %v", err)

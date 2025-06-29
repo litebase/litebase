@@ -98,7 +98,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 
 		if !query.IsTransactionStart() && !query.IsTransactionEnd() && !query.IsTransactionRollback() {
 			if query.IsPragma() {
-				sqlite3Result, err = db.GetConnection().SqliteConnection().Exec(db.GetConnection().Context(), query.Input.Statement)
+				sqlite3Result, err = db.GetConnection().Exec(query.Input.Statement, nil)
 				changes = db.GetConnection().Changes()
 			} else {
 				statement, err = db.GetConnection().Statement(query.Input.Statement)
@@ -125,7 +125,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 
 					if !query.IsDQL() {
 						changes = db.GetConnection().Changes()
-						lastInsertRowID = db.GetConnection().SqliteConnection().LastInsertRowID()
+						lastInsertRowID = db.GetConnection().LastInsertRowID()
 					}
 				}
 			}

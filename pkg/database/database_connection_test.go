@@ -496,20 +496,6 @@ func TestDatabaseConnection(t *testing.T) {
 			}
 		})
 
-		t.Run("SqliteConnection", func(t *testing.T) {
-			mock := test.MockDatabase(app)
-
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.BranchID)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if connection.SqliteConnection() == nil {
-				t.Fatal("Expected connection to have a SQLite connection")
-			}
-		})
-
 		t.Run("Statement", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
