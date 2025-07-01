@@ -3,7 +3,6 @@ package database_test
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
@@ -138,28 +137,20 @@ func TestDatabaseWALManager_InUse(t *testing.T) {
 			t.Errorf("Error creating WAL manager: %v", err)
 		}
 
-		timestamp := time.Now().UTC().UnixNano()
-
-		walVersion, err := walm.Get(timestamp)
+		walVersion, err := walm.Acquire()
 
 		if err != nil {
 			t.Errorf("Error creating new WAL version: %v", err)
 		}
 
-		walm.Acquire()
-
-		if walVersion == nil {
-			t.Fatal()
+		if !walm.InUse(walVersion) {
+			t.Errorf("Expected WAL version %d to be in use", walVersion)
 		}
 
-		if !walm.InUse(walVersion.Timestamp()) {
-			t.Errorf("Expected WAL version %d to be in use", walVersion.Timestamp())
-		}
+		walm.Release(walVersion)
 
-		walm.Release(walVersion.Timestamp())
-
-		if walm.InUse(walVersion.Timestamp()) {
-			t.Errorf("Expected WAL version %d to not be in use", walVersion.Timestamp())
+		if walm.InUse(walVersion) {
+			t.Errorf("Expected WAL version %d to not be in use", walVersion)
 		}
 	})
 }
@@ -228,28 +219,20 @@ func TestDatabaseWALManager_Release(t *testing.T) {
 			t.Errorf("Error creating WAL manager: %v", err)
 		}
 
-		timestamp := time.Now().UTC()
-
-		walVersion, err := walm.Get(timestamp.UnixNano())
+		walVersion, err := walm.Acquire()
 
 		if err != nil {
 			t.Errorf("Error creating new WAL version: %v", err)
 		}
 
-		if walVersion == nil {
-			t.Fatal()
+		if !walm.InUse(walVersion) {
+			t.Errorf("Expected WAL version %d to be in use", walVersion)
 		}
 
-		walm.Acquire()
+		walm.Release(walVersion)
 
-		if !walm.InUse(walVersion.Timestamp()) {
-			t.Errorf("Expected WAL version %d to be in use", walVersion.Timestamp())
-		}
-
-		walm.Release(walVersion.Timestamp())
-
-		if walm.InUse(walVersion.Timestamp()) {
-			t.Errorf("Expected WAL version %d to not be in use", walVersion.Timestamp())
+		if walm.InUse(walVersion) {
+			t.Errorf("Expected WAL version %d to not be in use", walVersion)
 		}
 	})
 }
