@@ -175,6 +175,10 @@ func (w *DatabaseWALManager) Create() (*DatabaseWAL, error) {
 
 // Create a new WAL version
 func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
+	if w.node.IsReplica() {
+		return nil, ErrCreateWALVersionOnReplica
+	}
+
 	// Add the new version
 	w.walVersions[timestamp] = NewDatabaseWAL(
 		w.node,
