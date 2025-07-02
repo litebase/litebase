@@ -118,6 +118,7 @@ func (s *SystemDatabase) init() {
 		(
 			id INTEGER PRIMARY KEY, 
 			database_reference_id INTEGER,
+			parent_database_branch_reference_id INTEGER,
 			database_id TEXT,
 			database_branch_id TEXT,
 			name TEXT,

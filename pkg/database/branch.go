@@ -15,36 +15,77 @@ import (
 )
 
 type Branch struct {
-	ID                  int64            `json:"id"`
-	DatabaseBranchID    string           `json:"branch_id"`
-	DatabaseID          string           `json:"database_id"`
-	DatabaseManager     *DatabaseManager `json:"-"`
-	DatabaseReferenceID sql.NullInt64    `json:"database_reference_id"`
-	Key                 string           `json:"key"`
-	Name                string           `json:"name"`
-	Settings            *BranchSettings  `json:"settings"` // TODO: Need to make this a struct
-	CreatedAt           time.Time        `json:"created_at"`
-	UpdatedAt           time.Time        `json:"updated_at"`
+	ID                              int64            `json:"id"`
+	DatabaseBranchID                string           `json:"branch_id"`
+	DatabaseID                      string           `json:"database_id"`
+	DatabaseManager                 *DatabaseManager `json:"-"`
+	DatabaseReferenceID             sql.NullInt64    `json:"database_reference_id"`
+	Key                             string           `json:"key"`
+	Name                            string           `json:"name"`
+	ParentDatabaseBranchReferenceID sql.NullInt64    `json:"-"`
+	Settings                        *BranchSettings  `json:"settings"`
+	CreatedAt                       time.Time        `json:"created_at"`
+	UpdatedAt                       time.Time        `json:"updated_at"`
 
 	Exists bool `json:"-"`
 }
 
-func NewBranch(databaseManager *DatabaseManager, name string) (*Branch, error) {
-	randInt64, err := rand.Int(rand.Reader, big.NewInt(100000))
-
-	if err != nil {
-		return nil, err
-	}
-
+func NewBranch(databaseManager *DatabaseManager, databaseReferenceID int64, parentName string, name string) (*Branch, error) {
 	db, err := databaseManager.SystemDatabase().DB()
 
 	if err != nil {
 		return nil, err
 	}
 
+	// Ensure there is not a current branch with the same name and parent branch within this database
+	var existingBranchCount int64
+	var parentBranchID sql.NullInt64
+
+	// Get the parent branch ID if parentName is provided
+	if parentName != "" {
+		err = db.QueryRow(
+			`SELECT id FROM database_branches WHERE name = ? AND database_reference_id = ?`,
+			parentName,
+			databaseReferenceID,
+		).Scan(&parentBranchID.Int64)
+
+		if err != nil {
+			return nil, fmt.Errorf("parent branch '%s' not found in this database", parentName)
+		}
+
+		parentBranchID.Valid = true
+	}
+
+	// Check for existing branch with same name within this database
+	err = db.QueryRow(
+		`SELECT COUNT(*) FROM database_branches 
+			WHERE name = ? AND database_reference_id = ?`,
+		name,
+		databaseReferenceID,
+	).Scan(&existingBranchCount)
+
+	if err != nil {
+		return nil, fmt.Errorf("error checking for existing branch: %w", err)
+	}
+
+	if existingBranchCount > 0 {
+		if parentName != "" {
+			return nil, fmt.Errorf("branch with name '%s' and parent '%s' already exists in this database", name, parentName)
+		} else {
+			return nil, fmt.Errorf("root branch with name '%s' already exists in this database", name)
+		}
+	}
+
 	var databaseKeyCount int64
 
+	// Get the current count of branches to generate a unique key.
 	err = db.QueryRow(`SELECT COUNT(*) FROM database_branches`).Scan(&databaseKeyCount)
+
+	if err != nil {
+		return nil, err
+	}
+
+	randInt64, err := rand.Int(rand.Reader, big.NewInt(100000))
 
 	if err != nil {
 		return nil, err
@@ -68,10 +109,12 @@ func NewBranch(databaseManager *DatabaseManager, name string) (*Branch, error) {
 	}
 
 	return &Branch{
-		DatabaseBranchID: uuid.New().String(),
-		DatabaseManager:  databaseManager,
-		Key:              key,
-		Name:             name,
+		DatabaseBranchID:                uuid.New().String(),
+		DatabaseManager:                 databaseManager,
+		DatabaseReferenceID:             sql.NullInt64{Int64: databaseReferenceID, Valid: true},
+		Key:                             key,
+		Name:                            name,
+		ParentDatabaseBranchReferenceID: parentBranchID,
 	}, nil
 }
 
@@ -85,6 +128,7 @@ func InsertBranch(b *Branch) error {
 	result, err := db.Exec(
 		`INSERT INTO database_branches (
 			database_reference_id,
+			parent_database_branch_reference_id,
 			database_id, 
 			database_branch_id, 
 			key, 
@@ -93,9 +137,10 @@ func InsertBranch(b *Branch) error {
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`,
 		b.DatabaseReferenceID,
+		b.ParentDatabaseBranchReferenceID,
 		b.DatabaseID,
 		b.DatabaseBranchID,
 		b.Key,
