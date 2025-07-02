@@ -210,6 +210,20 @@ func TestDatabaseManager(t *testing.T) {
 			}
 		})
 
+		t.Run("GetInvalid", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+
+			db, err := dm.Get("non-existing-id")
+
+			if err == nil {
+				t.Errorf("Expected error, got nil")
+			}
+
+			if db != nil {
+				t.Errorf("Expected nil Database when error occurs, got: %v", db)
+			}
+		})
+
 		t.Run("PageLogManager", func(t *testing.T) {
 			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
