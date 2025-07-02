@@ -89,7 +89,7 @@ func TestDatabase(t *testing.T) {
 		})
 
 		t.Run("Database_Branch", func(t *testing.T) {
-			db, err := database.CreateDatabase(app.DatabaseManager, "test_Branches", "main")
+			db, err := database.CreateDatabase(app.DatabaseManager, "test_Database_Branch", "main")
 
 			if err != nil {
 				t.Fatal(err)

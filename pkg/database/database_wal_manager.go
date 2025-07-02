@@ -424,7 +424,6 @@ func (w *DatabaseWALManager) RunGarbageCollection() error {
 	if w.checkpointingWAL != nil {
 		checkpointingTimestamp := w.checkpointingWAL.Timestamp()
 		inUseVersions = append(inUseVersions, checkpointingTimestamp)
-		slog.Debug("Protecting checkpointing WAL from garbage collection", "timestamp", checkpointingTimestamp)
 	}
 
 	earliestInUseVersion := int64(0)

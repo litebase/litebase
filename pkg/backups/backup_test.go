@@ -954,19 +954,6 @@ func TestBackup(t *testing.T) {
 
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
-			// Create a test table
-			_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
-
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
-
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-
 			backup, err := backups.Run(
 				app.Config,
 				app.Cluster.ObjectFS(),
@@ -981,7 +968,7 @@ func TestBackup(t *testing.T) {
 				t.Fatal("expected error, got nil")
 			}
 
-			if err != backups.ErrorBackupRangeFileEmpty {
+			if err != backups.ErrBackupNoRestorePoint {
 				t.Fatalf("expected %v, got %v", backups.ErrBackupNoRestorePoint, err)
 			}
 

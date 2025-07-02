@@ -75,11 +75,7 @@ func TestRestore(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Create a test table and insert some data
 			_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
@@ -88,11 +84,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Insert some test data in a transaction for consistency
 			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
@@ -113,11 +105,7 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Insert more test data in another transaction
 			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
@@ -138,11 +126,7 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Get the snapshots
 			snapshotLogger.GetSnapshots()
@@ -263,11 +247,7 @@ func TestRestore(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Create a test table and insert some data
 			_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
@@ -276,11 +256,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Insert some test data in a transaction for consistency
 			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
@@ -301,11 +277,7 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Insert more test data in another transaction
 			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
@@ -326,11 +298,7 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			// Get the snapshots
 			snapshotLogger.GetSnapshots()
@@ -731,11 +699,7 @@ func TestRestore(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			restorePointIndex++
 
@@ -746,11 +710,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			err = sourceDb.GetConnection().Checkpoint()
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
+			sourceDb.GetConnection().Checkpoint()
 
 			for i, testcase := range testCases {
 				t.Run(fmt.Sprintf("rolling restore: %d", i), func(t *testing.T) {

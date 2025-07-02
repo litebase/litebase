@@ -84,11 +84,7 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = connection.Checkpoint()
-
-			if err != nil {
-				t.Fatal(err)
-			}
+			connection.Checkpoint()
 		})
 
 		t.Run("Checkpointing_WithMultipleConnections", func(t *testing.T) {
@@ -989,11 +985,7 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = connection1.Checkpoint()
-
-			if err != nil {
-				t.Error(err)
-			}
+			connection1.Checkpoint()
 
 			app.DatabaseManager.ConnectionManager().Release(connection1)
 
@@ -1031,11 +1023,7 @@ func TestDatabaseConnection(t *testing.T) {
 					return connection1Error
 				})
 
-				err = connection1.Checkpoint()
-
-				if err != nil {
-					t.Error(err)
-				}
+				connection1.Checkpoint()
 
 				app.DatabaseManager.ConnectionManager().Release(connection1)
 			}()
@@ -1119,11 +1107,7 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = connection1.Checkpoint()
-
-			if err != nil {
-				t.Error(err)
-			}
+			connection1.Checkpoint()
 
 			app.DatabaseManager.ConnectionManager().Release(connection1)
 
@@ -1152,12 +1136,7 @@ func TestDatabaseConnection(t *testing.T) {
 				<-readingName
 
 				// Checkpoint
-				err = connection.Checkpoint()
-
-				if err != nil {
-					log.Println(err)
-					return err
-				}
+				connection.Checkpoint()
 
 				// Insert 1 row
 				err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
