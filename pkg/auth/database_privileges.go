@@ -6,6 +6,11 @@ const (
 	DatabasePrivilegeShow   Privilege = "database:show"
 	DatabasePrivilegeManage Privilege = "database:manage"
 
+	DatabaseBranchPrivilegeCreate Privilege = "database:branch:create"
+	DatabaseBranchPrivilegeList   Privilege = "database:branch:list"
+	DatabaseBranchPrivilegeShow   Privilege = "database:branch:show"
+	DatabaseBranchPrivilegeManage Privilege = "database:branch:manage"
+
 	DatabasePrivilegeBackup  Privilege = "database:backup"
 	DatabasePrivilegeRestore Privilege = "database:restore"
 
