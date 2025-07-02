@@ -187,6 +187,7 @@ func (t *Table) Render(interactive bool) string {
 
 		t.height = len(t.rows) + 3 // Reserve space for headers
 		t.table.SetHeight(t.height)
+		t.table.SetColumns(t.calculateColumnWidths(120))
 		t.SetStyles(false)
 
 		return t.View()
@@ -225,12 +226,14 @@ func (t *Table) SetHandler(handler func(row []string)) *Table {
 func (t *Table) SetStyles(interactive bool) {
 	s := table.DefaultStyles()
 
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		MarginTop(1).
-		Bold(true)
+	if interactive {
+		s.Header = s.Header.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			BorderBottom(true).
+			MarginTop(1).
+			Bold(true)
+	}
 
 	if interactive {
 		s.Selected = s.Selected.
@@ -259,6 +262,7 @@ func (m *Table) calculateColumnWidths(availableWidth int) []table.Column {
 
 	for i, title := range m.columns {
 		var width int
+
 		if i < len(m.columnPercs) {
 			width = int(float64(usableWidth) * m.columnPercs[i])
 		} else {
@@ -268,6 +272,7 @@ func (m *Table) calculateColumnWidths(availableWidth int) []table.Column {
 
 		// Ensure minimum width
 		minWidth := max(3, len(title))
+
 		if width < minWidth {
 			width = minWidth
 		}

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
@@ -29,12 +30,18 @@ func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
 
 			for _, database := range data["data"].([]any) {
 				rows = append(rows, []string{
-					database.(map[string]any)["id"].(string),
+					database.(map[string]any)["database_id"].(string),
 					database.(map[string]any)["name"].(string),
 				})
 			}
 
-			components.NewTable([]string{"ID", "Name"}, rows).Render(config.GetInteractive())
+			lipgloss.Fprint(
+				cmd.OutOrStdout(),
+				components.Container(
+					components.NewTable([]string{"ID", "Name"}, rows).
+						Render(config.GetInteractive()),
+				),
+			)
 
 			return nil
 		},
