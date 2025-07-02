@@ -8,18 +8,10 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
 	appHttp "github.com/litebase/litebase/pkg/http"
-	"github.com/litebase/litebase/pkg/storage"
 )
 
 func TestDatabaseBackupStoreController(t *testing.T) {
 	test.Run(t, func() {
-		// Force immediate compaction for testing
-		originalInterval := storage.PageLoggerCompactInterval
-		storage.PageLoggerCompactInterval = 0
-		defer func() {
-			storage.PageLoggerCompactInterval = originalInterval
-		}()
-
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
@@ -75,13 +67,6 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 
 func TestDatabaseBackupShowController(t *testing.T) {
 	test.Run(t, func() {
-		// Force immediate compaction for testing
-		originalInterval := storage.PageLoggerCompactInterval
-		storage.PageLoggerCompactInterval = 0
-		defer func() {
-			storage.PageLoggerCompactInterval = originalInterval
-		}()
-
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
@@ -170,13 +155,6 @@ func TestDatabaseBackupShowController(t *testing.T) {
 
 func TestDatabaseBackupControllerDestroy(t *testing.T) {
 	test.Run(t, func() {
-		// Force immediate compaction for testing
-		originalInterval := storage.PageLoggerCompactInterval
-		storage.PageLoggerCompactInterval = 0
-		defer func() {
-			storage.PageLoggerCompactInterval = originalInterval
-		}()
-
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 

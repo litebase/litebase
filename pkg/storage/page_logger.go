@@ -121,6 +121,18 @@ func (pl *PageLogger) Compact(
 		return nil
 	}
 
+	compactionErr := pl.compaction(durableDatabaseFileSystem)
+
+	if compactionErr != nil {
+		slog.Error("Error during page logger compaction", "error", compactionErr)
+		return compactionErr
+	}
+
+	return nil
+}
+
+// Run the page logger compaction process.
+func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileSystem) error {
 	err := pl.reload()
 
 	if err != nil {
@@ -173,6 +185,7 @@ func (pl *PageLogger) Compact(
 	return nil
 }
 
+// Create a new instance of a page log for the given log group and timestamp.
 func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGroupVersion) (*PageLog, error) {
 	return NewPageLog(
 		pl.NetworkFS,
@@ -183,6 +196,24 @@ func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGrou
 			logTimestamp,
 		),
 	)
+}
+
+// Force compaction of the page logger. This is used to ensure that the
+// page logger is compacted immediately, regardless of the compaction interval.
+func (pl *PageLogger) ForceCompact(
+	durableDatabaseFileSystem *DurableDatabaseFileSystem,
+) error {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	err := pl.compaction(durableDatabaseFileSystem)
+
+	if err != nil {
+		slog.Error("Error during forced page logger compaction", "error", err)
+		return err
+	}
+
+	return nil
 }
 
 func (pl *PageLogger) getLogGroupNumber(pageNumber int64) int64 {

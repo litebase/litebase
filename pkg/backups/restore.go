@@ -64,7 +64,7 @@ func CopySourceDatabaseToTargetDatabase(
 		return err
 	}
 
-	err = targetFileSystem.Compact()
+	err = targetFileSystem.ForceCompact()
 
 	if err != nil {
 		slog.Error("Error compacting target database:", "error", err)

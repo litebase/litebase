@@ -121,6 +121,28 @@ func TestDurableDatabaseFileSystem_FileSystem(t *testing.T) {
 	})
 }
 
+func TestDurableDatabaseFileSystem_ForceCompact(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mockDatabase := test.MockDatabase(app)
+
+		storage.PageLoggerCompactInterval = 0
+		defer func() {
+			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
+		}()
+
+		dfs := app.DatabaseManager.Resources(
+			mockDatabase.DatabaseID,
+			mockDatabase.BranchID,
+		).FileSystem()
+
+		err := dfs.ForceCompact()
+
+		if err != nil {
+			t.Error("expected nil, got", err)
+		}
+	})
+}
+
 func TestDurableDatabaseFileSystem_GetRangeFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)

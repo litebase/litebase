@@ -11,7 +11,6 @@ import (
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/sqlite3"
-	"github.com/litebase/litebase/pkg/storage"
 	"github.com/litebase/litebase/pkg/vfs"
 )
 
@@ -110,12 +109,6 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		storage.PageLoggerCompactInterval = 0
-
-		defer func() {
-			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
-		}()
-
 		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
 
 		if err != nil {
@@ -162,10 +155,10 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		fileSystemDriver := dfs.FileSystem().Driver()
 
 		fileSystemDriver.Flush()
-		err = dfs.Compact()
+		err = dfs.ForceCompact()
 
 		if err != nil {
-			t.Fatalf("Compact failed, expected nil, got %v", err)
+			t.Fatalf("ForceCompact failed, expected nil, got %v", err)
 		}
 
 		entries, err := fileSystemDriver.ReadDir(path)

@@ -35,11 +35,6 @@ func TestNewPageLogger(t *testing.T) {
 func TestPageLogger_Acquire(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		storage.PageLoggerCompactInterval = 0
-
-		defer func() {
-			storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
-		}()
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
@@ -182,6 +177,34 @@ func TestPageLogger_Compact(t *testing.T) {
 
 		if err != nil {
 			t.Fatalf("Failed to compact page logger: %v", err)
+		}
+	})
+}
+
+func TestPageLogger_ForceCompact(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			app.Cluster.LocalFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		if pageLogger == nil {
+			t.Fatal("Expected page logger to be created, but got nil")
+		}
+
+		err = pageLogger.ForceCompact(
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to force compact page logger: %v", err)
 		}
 	})
 }

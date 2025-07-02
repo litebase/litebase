@@ -14,7 +14,6 @@ import (
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/sqlite3"
-	"github.com/litebase/litebase/pkg/storage"
 )
 
 func TestBackup(t *testing.T) {
@@ -71,13 +70,6 @@ func TestBackup(t *testing.T) {
 		})
 
 		t.Run("GetNextBackup", func(t *testing.T) {
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			mock := test.MockDatabase(app)
 
 			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -190,13 +182,6 @@ func TestBackup(t *testing.T) {
 		})
 
 		t.Run("Delete", func(t *testing.T) {
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			mock := test.MockDatabase(app)
 
 			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -492,13 +477,6 @@ func TestBackup(t *testing.T) {
 		})
 
 		t.Run("Run", func(t *testing.T) {
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			mock := test.MockDatabase(app)
 
 			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -575,13 +553,6 @@ func TestBackup(t *testing.T) {
 		})
 
 		t.Run("RunOnlyOneBackupAtATime", func(t *testing.T) {
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			mock := test.MockDatabase(app)
 
 			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -719,13 +690,6 @@ func TestBackup(t *testing.T) {
 		})
 
 		t.Run("RunWithMultipleFiles", func(t *testing.T) {
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			mock := test.MockDatabase(app)
 
 			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
@@ -835,13 +799,6 @@ func TestBackup(t *testing.T) {
 		})
 
 		t.Run("Rolling", func(t *testing.T) {
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			source := test.MockDatabase(app)
 
 			sourceDB, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
@@ -1034,13 +991,6 @@ func TestBackup(t *testing.T) {
 		})
 
 		t.Run("BackupSize", func(t *testing.T) {
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			mock := test.MockDatabase(app)
 
 			db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)

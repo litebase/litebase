@@ -409,7 +409,7 @@ func Run(
 	}
 
 	// Ensure the durable database file system has been compacted
-	if err := dfs.Compact(); err != nil {
+	if err := dfs.ForceCompact(); err != nil {
 		log.Println("Error compacting durable database file system:", err)
 		return nil, fmt.Errorf("error compacting durable database file system: %w", err)
 	}

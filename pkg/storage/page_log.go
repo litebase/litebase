@@ -114,8 +114,8 @@ func (pl *PageLog) close() error {
 
 // Close the page log.
 func (pl *PageLog) Close() error {
-	// pl.mutex.Lock()
-	// defer pl.mutex.Unlock()
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
 
 	return pl.close()
 }

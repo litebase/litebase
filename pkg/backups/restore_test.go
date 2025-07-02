@@ -56,13 +56,6 @@ func TestRestore(t *testing.T) {
 		})
 
 		t.Run("RestoreFromTimestamp", func(t *testing.T) {
-			// Force immediate compaction for testing - ensures deterministic restore points
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 
@@ -249,13 +242,6 @@ func TestRestore(t *testing.T) {
 		})
 
 		t.Run("RestoreFromTimestampWithoutCompletedCallback", func(t *testing.T) {
-			// Force immediate compaction for testing - ensures deterministic restore points
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
-
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 
@@ -719,13 +705,6 @@ func TestRestore(t *testing.T) {
 			}
 
 			restorePointIndex := -1
-
-			// Force immediate compaction for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
-			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
-			}()
 
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)

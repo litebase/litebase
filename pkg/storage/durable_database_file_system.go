@@ -82,6 +82,10 @@ func (dfs *DurableDatabaseFileSystem) FileSystem() *FileSystem {
 	return dfs.tieredFS
 }
 
+func (dfs *DurableDatabaseFileSystem) ForceCompact() error {
+	return dfs.PageLogger.ForceCompact(dfs)
+}
+
 func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*Range, error) {
 	if r, ok := dfs.ranges[rangeNumber]; ok {
 		return r, nil

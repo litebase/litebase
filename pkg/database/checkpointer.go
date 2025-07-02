@@ -25,9 +25,9 @@ type Checkpointer struct {
 	rollbackLogger   *backups.RollbackLogger
 	snapshotLogger   *backups.SnapshotLogger
 	// New fields for atomic page capture protection
-	capturedPages    map[int64]bool // Track which pages have been captured in this checkpoint
-	captureMutex     sync.Mutex     // Ensure atomic page capture
-	isCheckpointing  bool           // Flag to control write hook behavior
+	capturedPages   map[int64]bool // Track which pages have been captured in this checkpoint
+	captureMutex    sync.Mutex     // Ensure atomic page capture
+	isCheckpointing bool           // Flag to control write hook behavior
 }
 
 var (
