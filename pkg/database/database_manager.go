@@ -50,7 +50,10 @@ func NewDatabaseManager(
 
 	dbm.pageLogManager.SetCompactionFn(dbm.compaction)
 
-	RegisterDriver("litebase", dbm.ConnectionManager())
+	RegisterDriver(
+		fmt.Sprintf("litebase:%s", cluster.Node().ID),
+		dbm.ConnectionManager(),
+	)
 
 	return dbm
 }
@@ -292,7 +295,6 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	}
 
 	database.DatabaseManager = d
-
 	return database, nil
 }
 
@@ -313,7 +315,7 @@ func (d *DatabaseManager) GetKey(databaseKey string) (*Branch, error) {
 	branch := &Branch{}
 
 	err = db.QueryRow(
-		"SELECT id, database_id, branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE key = ?",
+		"SELECT id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE key = ?",
 		databaseKey,
 	).Scan(
 		&branch.ID,

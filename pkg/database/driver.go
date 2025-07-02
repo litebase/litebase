@@ -15,7 +15,7 @@ import (
 
 var (
 	// Ensure our types implement the required interfaces
-	_ driver.Driver             = (*LitebaseDriver)(nil)
+	_ driver.Driver             = (*LitebaseSQLDriver)(nil)
 	_ driver.Conn               = (*LitebaseConn)(nil)
 	_ driver.Pinger             = (*LitebaseConn)(nil)
 	_ driver.Stmt               = (*LitebaseStmt)(nil)
@@ -31,22 +31,22 @@ var (
 )
 
 // Global driver instance that can have its connection manager updated
-var globalDriver *LitebaseDriver
 var globalDriverMutex sync.RWMutex
-var driverRegistered bool
 
 // GlobalDriverWrapper wraps the global driver to allow connection manager updates
-type GlobalDriverWrapper struct{}
+type GlobalDriverWrapper struct {
+	connectionManager *ConnectionManager
+}
 
 func (d *GlobalDriverWrapper) Open(name string) (driver.Conn, error) {
 	globalDriverMutex.RLock()
 	defer globalDriverMutex.RUnlock()
 
-	if globalDriver == nil {
+	if d.connectionManager == nil || d.connectionManager.sqlDriver == nil {
 		return nil, fmt.Errorf("litebase driver not initialized")
 	}
 
-	return globalDriver.Open(name)
+	return d.connectionManager.sqlDriver.Open(name)
 }
 
 // UpdateGlobalConnectionManager updates the connection manager for the global driver
@@ -54,24 +54,24 @@ func UpdateGlobalConnectionManager(connectionManager *ConnectionManager) {
 	globalDriverMutex.Lock()
 	defer globalDriverMutex.Unlock()
 
-	globalDriver = NewLitebaseDriver(connectionManager)
+	connectionManager.sqlDriver = NewLitebaseSQLDriver(connectionManager)
 }
 
-// LitebaseDriver implements driver.Driver
-type LitebaseDriver struct {
+// LitebaseSQLDriver implements driver.Driver
+type LitebaseSQLDriver struct {
 	connectionManager *ConnectionManager
 }
 
-// NewLitebaseDriver creates a new driver instance
-func NewLitebaseDriver(connectionManager *ConnectionManager) *LitebaseDriver {
-	return &LitebaseDriver{
+// NewLitebaseSQLDriver creates a new driver instance
+func NewLitebaseSQLDriver(connectionManager *ConnectionManager) *LitebaseSQLDriver {
+	return &LitebaseSQLDriver{
 		connectionManager: connectionManager,
 	}
 }
 
 // Open returns a new connection to the database.
 // The name is a string in the format "database_id/branch_id"
-func (d *LitebaseDriver) Open(name string) (driver.Conn, error) {
+func (d *LitebaseSQLDriver) Open(name string) (driver.Conn, error) {
 	parts := strings.Split(name, "/")
 
 	if len(parts) != 2 {
@@ -544,12 +544,12 @@ func RegisterDriver(name string, connectionManager *ConnectionManager) {
 	globalDriverMutex.Lock()
 	defer globalDriverMutex.Unlock()
 
-	// Update the global connection manager
-	globalDriver = NewLitebaseDriver(connectionManager)
-
 	// Register the wrapper driver only once
-	if !driverRegistered {
-		sql.Register(name, &GlobalDriverWrapper{})
-		driverRegistered = true
+	if connectionManager.sqlDriver == nil {
+		connectionManager.sqlDriver = NewLitebaseSQLDriver(connectionManager)
+
+		sql.Register(name, &GlobalDriverWrapper{
+			connectionManager: connectionManager,
+		})
 	}
 }

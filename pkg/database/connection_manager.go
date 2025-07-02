@@ -34,6 +34,7 @@ type ConnectionManager struct {
 	databases        map[string]*DatabaseGroup
 	mutex            *sync.RWMutex
 	state            int
+	sqlDriver        *LitebaseSQLDriver
 }
 
 // Checkpoint a database is necessary.
