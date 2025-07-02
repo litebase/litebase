@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -257,39 +258,48 @@ func (d *DatabaseManager) Exists(name string) (bool, error) {
 
 // Get a database instance by its ID.
 func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	if databaseId == SystemDatabaseID {
+		d.mutex.Lock()
+		defer d.mutex.Unlock()
+
+		database := &TheSystemDatabase
+		database.DatabaseManager = d
+
+		return database, nil
+	}
+
+	// Get system database without holding the main mutex to avoid deadlock
+	systemDB := d.SystemDatabase()
+	db, err := systemDB.DB()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system database: %w", err)
+	}
 
 	database := &Database{}
 
-	if databaseId == SystemDatabaseID {
-		database = &TheSystemDatabase
-	} else {
-		db, err := d.SystemDatabase().DB()
+	err = db.QueryRow(
+		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+		databaseId,
+	).Scan(
+		&database.ID,
+		&database.DatabaseID,
+		&database.Name,
+		&database.PrimaryBranchReferenceID,
+		&database.Settings,
+		&database.CreatedAt,
+		&database.UpdatedAt,
+	)
 
-		if err != nil {
-			return nil, fmt.Errorf("failed to get system database: %w", err)
-		}
+	if err != nil {
+		slog.Error("Failed to get database", "error", err, "databaseId", databaseId)
 
-		err = db.QueryRow(
-			"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
-			databaseId,
-		).Scan(
-			&database.ID,
-			&database.DatabaseID,
-			&database.Name,
-			&database.PrimaryBranchReferenceID,
-			&database.Settings,
-			&database.CreatedAt,
-			&database.UpdatedAt,
-		)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to get database: %w", err)
-		}
+		return nil, errors.New("failed to find database")
 	}
 
+	d.mutex.Lock()
 	database.DatabaseManager = d
+	d.mutex.Unlock()
 
 	return database, nil
 }
@@ -325,7 +335,9 @@ func (d *DatabaseManager) GetKey(databaseKey string) (*Branch, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get database key: %w", err)
+		slog.Error("Failed to get database key", "error", err, "key", databaseKey)
+
+		return nil, errors.New("failed to get database key")
 	}
 
 	if err := d.branchCache.Put(databaseKey, branch); err != nil {
