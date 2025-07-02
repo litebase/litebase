@@ -63,7 +63,7 @@ func TestDatabase(t *testing.T) {
 				t.Error(err)
 			}
 
-			if db2.Name != "test_UpdateDatabase" {
+			if db2.Name != "test2" {
 				t.Errorf("Expected name to be 'test2', got '%s'", db2.Name)
 			}
 		})
