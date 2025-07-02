@@ -12,7 +12,7 @@ require (
 	github.com/charmbracelet/huh v0.7.0
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta1
 	github.com/charmbracelet/x/term v0.2.1
-	github.com/go-playground/validator/v10 v10.26.1-0.20250603154142-dfc7ccd4d817
+	github.com/go-playground/validator/v10 v10.27.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20250402064820-d479899d8cbe
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.0

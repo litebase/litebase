@@ -143,6 +143,31 @@ func TestDatabaseControllerStore(t *testing.T) {
 	})
 }
 
+func TestDatabaseControllerStore_WithInvalidName(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+			Effect:   "Allow",
+			Resource: "*",
+			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
+		}})
+
+		_, statusCode, err := client.Send("/resources/databases", "POST", map[string]any{
+			"name": "Test Database!",
+		})
+
+		if err != nil {
+			t.Fatalf("failed to send request: %v", err)
+		}
+
+		if statusCode != 422 {
+			t.Fatalf("expected status code 422, got %d", statusCode)
+		}
+	})
+}
+
 func TestDatabaseControllerStore_WithSameNameFails(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)

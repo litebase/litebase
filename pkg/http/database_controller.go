@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
 )
 
 func DatabaseIndexController(request *Request) Response {
@@ -36,7 +37,7 @@ func DatabaseShowController(request *Request) Response {
 	databaseId := request.Param("databaseId")
 
 	if databaseId == "" {
-		return BadRequestResponse(fmt.Errorf("a valid databaseId is required"))
+		return ErrValidDatabaseIdRequiredResponse
 	}
 
 	// Authorize the request
@@ -64,7 +65,7 @@ func DatabaseShowController(request *Request) Response {
 }
 
 type DatabaseStoreRequest struct {
-	Name string `json:"name" validate:"required"`
+	Name database.DatabaseName `json:"name" validate:"required,validateFn"`
 }
 
 func DatabaseStoreController(request *Request) Response {
@@ -86,18 +87,18 @@ func DatabaseStoreController(request *Request) Response {
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"name.required": "The name field is required.",
+		"name.required":   "The name field is required.",
+		"name.validateFn": "The name field can only contain alpha numeric characters, hyphens, or underscores.",
 	})
 
 	if validationErrors != nil {
-		log.Println(validationErrors)
 		return ValidationErrorResponse(validationErrors)
 	}
 
 	var databaseName = input.(*DatabaseStoreRequest).Name
 
 	// check if the database exists
-	exists, err := request.databaseManager.Exists(databaseName)
+	exists, err := request.databaseManager.Exists(string(databaseName))
 
 	if err != nil {
 		return BadRequestResponse(err)
@@ -108,7 +109,7 @@ func DatabaseStoreController(request *Request) Response {
 	}
 
 	db, err := request.databaseManager.Create(
-		databaseName,
+		string(databaseName),
 		request.cluster.Config.DefaultBranchName,
 	)
 
@@ -127,7 +128,7 @@ func DatabaseDestroyController(request *Request) Response {
 	databaseId := request.Param("databaseId")
 
 	if databaseId == "" {
-		return BadRequestResponse(fmt.Errorf("a valid databaseId is required"))
+		return ErrValidDatabaseIdRequiredResponse
 	}
 
 	// Authorize the request

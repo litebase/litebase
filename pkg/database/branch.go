@@ -16,7 +16,7 @@ import (
 
 type Branch struct {
 	ID                              int64            `json:"id"`
-	DatabaseBranchID                string           `json:"branch_id"`
+	DatabaseBranchID                string           `json:"database_branch_id"`
 	DatabaseID                      string           `json:"database_id"`
 	DatabaseManager                 *DatabaseManager `json:"-"`
 	DatabaseReferenceID             sql.NullInt64    `json:"-"`
