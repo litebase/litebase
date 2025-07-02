@@ -11,7 +11,6 @@ import (
 
 func TestDatabase(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-
 		t.Run("NewDatabase", func(t *testing.T) {
 			db := database.NewDatabase(app.DatabaseManager, "test")
 
@@ -68,7 +67,25 @@ func TestDatabase(t *testing.T) {
 			}
 		})
 
-		t.Run("HasBranch", func(t *testing.T) {
+		t.Run("Database_CreateBranch", func(t *testing.T) {
+			db, err := database.CreateDatabase(app.DatabaseManager, "test_CreateBranch", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch, err := db.CreateBranch("test_branch", "")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if branch == nil {
+				t.Fatal("Expected branch to be created, but got nil")
+			}
+		})
+
+		t.Run("Database_HasBranch", func(t *testing.T) {
 			db, err := database.CreateDatabase(app.DatabaseManager, "test_HasBranch", "main")
 
 			if err != nil {

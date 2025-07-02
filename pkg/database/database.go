@@ -55,19 +55,10 @@ func CreateDatabase(databaseManager *DatabaseManager, databaseName string, branc
 	}
 
 	// Create the initial branch
-	branch, err := NewBranch(databaseManager, branchName)
+	branch, err := database.CreateBranch(branchName, "")
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create branch: %w", err)
-	}
-
-	branch.DatabaseID = database.DatabaseID
-	branch.DatabaseReferenceID = sql.NullInt64{Int64: database.ID, Valid: true}
-
-	err = branch.Save()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to save branch: %w", err)
 	}
 
 	// Update the database with the branch
@@ -170,6 +161,26 @@ func UpdateDatabase(database *Database) error {
 	}
 
 	return nil
+}
+
+// TODO: Need to copy the data from the parent branch to the new branch.
+// Create a new branch for the database.
+func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, error) {
+	branch, err := NewBranch(database.DatabaseManager, database.ID, parentBranchName, name)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create branch: %w", err)
+	}
+
+	branch.DatabaseID = database.DatabaseID
+
+	err = branch.Save()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to save branch: %w", err)
+	}
+
+	return branch, nil
 }
 
 // Check if a branch exists for the database.
