@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -29,14 +30,15 @@ type PageNumber int64
 type PageVersion int64
 
 type PageLogger struct {
-	BranchID    string
-	CompactedAt time.Time
-	DatabaseID  string
-	NetworkFS   *FileSystem
-	index       *PageLoggerIndex
-	logs        map[PageGroup]map[PageGroupVersion]*PageLog
-	logUsage    map[int64]int64
-	mutex       *sync.Mutex
+	BranchID        string
+	CompactedAt     time.Time
+	compactionMutex *sync.Mutex
+	DatabaseID      string
+	NetworkFS       *FileSystem
+	index           *PageLoggerIndex
+	logs            map[PageGroup]map[PageGroupVersion]*PageLog
+	logUsage        map[int64]int64
+	mutex           *sync.Mutex
 }
 
 type PageLogEntry struct {
@@ -44,6 +46,8 @@ type PageLogEntry struct {
 	pageGroupVersion PageGroupVersion
 	pageLog          *PageLog
 }
+
+var ErrCompactionInProgress = errors.New("compaction is already in progress")
 
 func NewPageLogger(
 	databaseId string,
@@ -58,13 +62,14 @@ func NewPageLogger(
 	}
 
 	pl := &PageLogger{
-		BranchID:   branchId,
-		DatabaseID: databaseId,
-		NetworkFS:  networkFS,
-		index:      pli,
-		logs:       make(map[PageGroup]map[PageGroupVersion]*PageLog),
-		logUsage:   make(map[int64]int64),
-		mutex:      &sync.Mutex{},
+		BranchID:        branchId,
+		compactionMutex: &sync.Mutex{},
+		DatabaseID:      databaseId,
+		NetworkFS:       networkFS,
+		index:           pli,
+		logs:            make(map[PageGroup]map[PageGroupVersion]*PageLog),
+		logUsage:        make(map[int64]int64),
+		mutex:           &sync.Mutex{},
 	}
 
 	err = pl.load()
@@ -111,24 +116,29 @@ func (pl *PageLogger) Close() error {
 	return nil
 }
 
+// Compact the page logger. This will compact all page logs that are not in use
+// and remove them from the page logger index. The compaction will only run if
+// the compaction interval has passed since the last compaction.
 func (pl *PageLogger) Compact(
 	durableDatabaseFileSystem *DurableDatabaseFileSystem,
 ) error {
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
 
-	if PageLoggerCompactInterval != 0 && (!pl.CompactedAt.IsZero() || pl.CompactedAt.Before(time.Now().UTC().Add(-PageLoggerCompactInterval))) {
+	return pl.CompactionBarrier(func() error {
+		if PageLoggerCompactInterval != 0 && (!pl.CompactedAt.IsZero() || pl.CompactedAt.Before(time.Now().UTC().Add(-PageLoggerCompactInterval))) {
+			return nil
+		}
+
+		compactionErr := pl.compaction(durableDatabaseFileSystem)
+
+		if compactionErr != nil {
+			slog.Error("Error during page logger compaction", "error", compactionErr)
+			return compactionErr
+		}
+
 		return nil
-	}
-
-	compactionErr := pl.compaction(durableDatabaseFileSystem)
-
-	if compactionErr != nil {
-		slog.Error("Error during page logger compaction", "error", compactionErr)
-		return compactionErr
-	}
-
-	return nil
+	})
 }
 
 // Run the page logger compaction process.
@@ -185,6 +195,19 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 	return nil
 }
 
+// Create a barrier for compaction operations. This ensures that only one
+// compaction operation can run at a time. If another compaction is already in
+// progress, it will return an error.
+func (pl *PageLogger) CompactionBarrier(f func() error) error {
+	if !pl.compactionMutex.TryLock() {
+		return ErrCompactionInProgress
+	}
+
+	defer pl.compactionMutex.Unlock()
+
+	return f()
+}
+
 // Create a new instance of a page log for the given log group and timestamp.
 func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGroupVersion) (*PageLog, error) {
 	return NewPageLog(
@@ -206,14 +229,16 @@ func (pl *PageLogger) ForceCompact(
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
 
-	err := pl.compaction(durableDatabaseFileSystem)
+	return pl.CompactionBarrier(func() error {
+		err := pl.compaction(durableDatabaseFileSystem)
 
-	if err != nil {
-		slog.Error("Error during forced page logger compaction", "error", err)
-		return err
-	}
+		if err != nil {
+			slog.Error("Error during forced page logger compaction", "error", err)
+			return err
+		}
 
-	return nil
+		return nil
+	})
 }
 
 func (pl *PageLogger) getLogGroupNumber(pageNumber int64) int64 {

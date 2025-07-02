@@ -78,14 +78,17 @@ func (dfs *DurableDatabaseFileSystem) Exists() bool {
 	return err == nil
 }
 
+// Return the FileSystem that this DurableDatabaseFileSystem is using.
 func (dfs *DurableDatabaseFileSystem) FileSystem() *FileSystem {
 	return dfs.tieredFS
 }
 
+// ForceCompact forces the page logger to compact the database file system.
 func (dfs *DurableDatabaseFileSystem) ForceCompact() error {
 	return dfs.PageLogger.ForceCompact(dfs)
 }
 
+// GetRangeFile returns the range file for the given range number.
 func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*Range, error) {
 	if r, ok := dfs.ranges[rangeNumber]; ok {
 		return r, nil

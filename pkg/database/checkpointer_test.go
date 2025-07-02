@@ -1,6 +1,7 @@
 package database_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -65,6 +66,53 @@ func TestCheckpointer_Begin(t *testing.T) {
 	})
 }
 
+func TestCheckpointer_CheckpointBarrier(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		checkpointer, err := app.DatabaseManager.Resources(
+			db.DatabaseID,
+			db.BranchID,
+		).Checkpointer()
+
+		if err != nil {
+			t.Fatalf("Failed to create checkpointer: %v", err)
+		}
+
+		if checkpointer == nil {
+			t.Fatal("Expected checkpointer to be created, but got nil")
+		}
+
+		wg := sync.WaitGroup{}
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			err = checkpointer.CheckpointBarrier(func() error {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			})
+		}()
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			time.Sleep(1 * time.Millisecond)
+
+			err = checkpointer.CheckpointBarrier(func() error {
+				return nil
+			})
+
+			if err == nil {
+				t.Error("Expected error due to checkpoint barrier, but got nil")
+			}
+		}()
+
+		wg.Wait()
+	})
+}
 func TestCheckpointer_CheckpointPage(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)

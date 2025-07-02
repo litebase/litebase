@@ -56,6 +56,7 @@ func (d *ClientConnection) Close() {
 	}
 }
 
+// Return the underlying DatabaseConnection instance.
 func (d *ClientConnection) GetConnection() *DatabaseConnection {
 	return d.connection
 }

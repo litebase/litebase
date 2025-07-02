@@ -17,6 +17,7 @@ import (
 type Checkpointer struct {
 	branchId         string
 	Checkpoint       *Checkpoint
+	checkpointMutex  *sync.Mutex
 	databaseId       string
 	dfs              *storage.DurableDatabaseFileSystem
 	sharedFileSystem *storage.FileSystem
@@ -45,6 +46,7 @@ func NewCheckpointer(
 ) (*Checkpointer, error) {
 	cp := &Checkpointer{
 		branchId:         branchId,
+		checkpointMutex:  &sync.Mutex{},
 		databaseId:       databaseId,
 		dfs:              dfs,
 		sharedFileSystem: sharedFileSystem,
@@ -105,6 +107,19 @@ func (c *Checkpointer) Begin(timestamp int64) error {
 // Get the path for the checkpoint file.
 func (c *Checkpointer) checkPointFilePath() string {
 	return fmt.Sprintf("%slogs/CHECKPOINT", file.GetDatabaseFileBaseDir(c.databaseId, c.branchId))
+}
+
+// Create a barrier for checkpoint operations. This ensures that only one
+// checkpoint operation can run at a time. If another checkpoint is already in
+// progress, it will return an error.
+func (c *Checkpointer) CheckpointBarrier(f func() error) error {
+	if !c.checkpointMutex.TryLock() {
+		return ErrorCheckpointAlreadyInProgressError
+	}
+
+	defer c.checkpointMutex.Unlock()
+
+	return f()
 }
 
 // Add a page to the checkpoint.

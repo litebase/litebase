@@ -181,6 +181,55 @@ func TestPageLogger_Compact(t *testing.T) {
 	})
 }
 
+func TestPageLogger_CompactionBarrier(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			app.Cluster.LocalFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		if pageLogger == nil {
+			t.Fatal("Expected page logger to be created, but got nil")
+		}
+
+		wg := sync.WaitGroup{}
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			err = pageLogger.CompactionBarrier(func() error {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			})
+		}()
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			time.Sleep(1 * time.Millisecond)
+
+			err = pageLogger.CompactionBarrier(func() error {
+				return nil
+			})
+
+			if err == nil {
+				t.Error("Expected error due to compaction barrier, but got nil")
+			}
+		}()
+
+		wg.Wait()
+	})
+}
+
 func TestPageLogger_ForceCompact(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)

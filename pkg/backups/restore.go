@@ -34,31 +34,38 @@ func CopySourceDatabaseToTargetDatabase(
 	targetBranchUuid string,
 	sourceFileSystem *storage.DurableDatabaseFileSystem,
 	targetFileSystem *storage.DurableDatabaseFileSystem,
+	checkpointer Checkpointer,
 ) error {
-	err := copySourceDatabaseRangeFilesToTargetDatabase(
-		maxPageNumber,
-		sourceDatabaseUuid,
-		sourceBranchUuid,
-		targetDatabaseUuid,
-		targetBranchUuid,
-		sourceFileSystem,
-		targetFileSystem,
-	)
+	// Prevent the page logger from writing to the source database range files
+	// during this operation
+	err := sourceFileSystem.PageLogger.CompactionBarrier(func() error {
+		return copySourceDatabaseRangeFilesToTargetDatabase(
+			maxPageNumber,
+			sourceDatabaseUuid,
+			sourceBranchUuid,
+			targetDatabaseUuid,
+			targetBranchUuid,
+			sourceFileSystem,
+			targetFileSystem,
+		)
+	})
 
 	if err != nil {
 		return err
 	}
 
-	// TODO: Need to prevent the source database from checkpointing from WAL
-	// to page log while we are copying the files
-	err = copySourceDatabasePageLogsToTargetDatabase(
-		sourceDatabaseUuid,
-		sourceBranchUuid,
-		targetDatabaseUuid,
-		targetBranchUuid,
-		sourceFileSystem,
-		targetFileSystem,
-	)
+	// Prevent the source database from checkpointing from WAL to Page Log
+	// while files are being copied
+	err = checkpointer.CheckpointBarrier(func() error {
+		return copySourceDatabasePageLogsToTargetDatabase(
+			sourceDatabaseUuid,
+			sourceBranchUuid,
+			targetDatabaseUuid,
+			targetBranchUuid,
+			sourceFileSystem,
+			targetFileSystem,
+		)
+	})
 
 	if err != nil {
 		return err
@@ -377,6 +384,7 @@ func RestoreFromTimestamp(
 	snapshotLogger *SnapshotLogger,
 	sourceFileSystem *storage.DurableDatabaseFileSystem,
 	targetFileSystem *storage.DurableDatabaseFileSystem,
+	checkpointer Checkpointer,
 	onComplete func(func() error) error,
 ) error {
 	// Truncate the timestamp to the start of the hour
@@ -448,6 +456,7 @@ func RestoreFromTimestamp(
 		targetBranchUuid,
 		sourceFileSystem,
 		targetFileSystem,
+		checkpointer,
 	)
 
 	if err != nil {

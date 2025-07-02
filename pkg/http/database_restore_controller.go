@@ -67,6 +67,12 @@ func DatabaseRestoreController(request *Request) Response {
 	}
 
 	snapshotLogger := request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).SnapshotLogger()
+	checkpointer, err := request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).Checkpointer()
+
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
+
 	sourceDfs := request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.BranchID).FileSystem()
 	targetDfs := request.databaseManager.Resources(targetDatabaseUuid, targetBranchUuid).FileSystem()
 
@@ -81,6 +87,7 @@ func DatabaseRestoreController(request *Request) Response {
 		snapshotLogger,
 		sourceDfs,
 		targetDfs,
+		checkpointer,
 		func(restoreFunc func() error) error {
 			return restoreFunc()
 		},

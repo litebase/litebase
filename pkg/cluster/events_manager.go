@@ -30,7 +30,7 @@ func (em *EventsManager) Hook() func(key string, value string) {
 		err := em.cluster.Broadcast(key, value)
 
 		if err != nil {
-			slog.Error("Failed to broadcast event", "key", key, "error", err)
+			slog.Debug("Failed to broadcast event", "key", key, "error", err)
 		}
 	}
 

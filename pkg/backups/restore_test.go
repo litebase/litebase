@@ -19,6 +19,7 @@ func TestRestore(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 			sourceDirectory := file.GetDatabaseFileDir(source.DatabaseID, source.BranchID)
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
 			targetDirectory := file.GetDatabaseFileDir(target.DatabaseID, target.BranchID)
 
 			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
@@ -36,6 +37,7 @@ func TestRestore(t *testing.T) {
 				target.BranchID,
 				sourceDfs,
 				targetDfs,
+				checkpointer,
 			)
 
 			if err != nil {
@@ -60,6 +62,7 @@ func TestRestore(t *testing.T) {
 			target := test.MockDatabase(app)
 
 			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
 			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
 			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
 
@@ -191,6 +194,7 @@ func TestRestore(t *testing.T) {
 				snapshotLogger,
 				sourceDfs,
 				targetDfs,
+				checkpointer,
 				onComplete,
 			)
 
@@ -246,6 +250,7 @@ func TestRestore(t *testing.T) {
 			target := test.MockDatabase(app)
 
 			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
 			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
 			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
 
@@ -369,6 +374,7 @@ func TestRestore(t *testing.T) {
 				snapshotLogger,
 				sourceDfs,
 				targetDfs,
+				checkpointer,
 				nil,
 			)
 
@@ -515,6 +521,7 @@ func TestRestore(t *testing.T) {
 					target := test.MockDatabase(app)
 
 					snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
+					checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
 					sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
 					targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
 
@@ -655,6 +662,7 @@ func TestRestore(t *testing.T) {
 						snapshotLogger,
 						sourceDfs,
 						targetDfs,
+						checkpointer,
 						onComplete,
 					)
 
@@ -710,6 +718,7 @@ func TestRestore(t *testing.T) {
 			target := test.MockDatabase(app)
 
 			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
 			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
 			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
 
@@ -832,6 +841,7 @@ func TestRestore(t *testing.T) {
 						snapshotLogger,
 						sourceDfs,
 						targetDfs,
+						checkpointer,
 						onComplete,
 					)
 

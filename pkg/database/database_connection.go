@@ -223,65 +223,67 @@ func (con *DatabaseConnection) Checkpoint() error {
 		return ErrDatabaseConnectionClosed
 	}
 
-	return con.walManager.Checkpoint(func(wal *DatabaseWAL) error {
-		// Ensure the timestamp for the checkpoint is acquired on the page logger.
-		con.pageLogger.Acquire(wal.timestamp)
+	return con.checkpointer.CheckpointBarrier(func() error {
+		return con.walManager.Checkpoint(func(wal *DatabaseWAL) error {
+			// Ensure the timestamp for the checkpoint is acquired on the page logger.
+			con.pageLogger.Acquire(wal.timestamp)
 
-		// Ensure the timestamp for the checkpoint is set on the VFS, this will
-		// ensure the VFS writes changes from the WAL to the page logger with
-		// the correct timestamp. This is crucial for the checkpoint process,
-		// as it ensures that the pages are written to the correct location and
-		// in the event of a failure, the pages can be tombstoned correctly.
-		con.vfs.SetTimestamp(wal.timestamp)
+			// Ensure the timestamp for the checkpoint is set on the VFS, this will
+			// ensure the VFS writes changes from the WAL to the page logger with
+			// the correct timestamp. This is crucial for the checkpoint process,
+			// as it ensures that the pages are written to the correct location and
+			// in the event of a failure, the pages can be tombstoned correctly.
+			con.vfs.SetTimestamp(wal.timestamp)
 
-		defer func() {
-			con.pageLogger.Release(wal.timestamp)
-		}()
+			defer func() {
+				con.pageLogger.Release(wal.timestamp)
+			}()
 
-		// Begin the checkpoint process using the WAL timestamp.
-		err := con.checkpointer.Begin(wal.timestamp)
+			// Begin the checkpoint process using the WAL timestamp.
+			err := con.checkpointer.Begin(wal.timestamp)
 
-		if err != nil {
-			log.Println("Error beginning checkpoint:", err)
-			return err
-		}
+			if err != nil {
+				log.Println("Error beginning checkpoint:", err)
+				return err
+			}
 
-		_, err = sqlite3.Checkpoint(con.sqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
-			if result.Result != 0 {
-				log.Println("Error checkpointing database", err)
-			} else {
-				err = con.checkpointer.Commit()
+			_, err = sqlite3.Checkpoint(con.sqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
+				if result.Result != 0 {
+					log.Println("Error checkpointing database", err)
+				} else {
+					err = con.checkpointer.Commit()
+
+					if err != nil {
+						slog.Debug("Error checkpointing database", "error", err)
+						return err
+					} else {
+						slog.Debug("Successful database checkpoint")
+					}
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				err := con.checkpointer.Rollback()
 
 				if err != nil {
-					slog.Debug("Error checkpointing database", "error", err)
+					slog.Error("Error rolling back checkpoint", "error", err)
+				}
+			} else {
+				// Update the WAL Index
+				err = con.walManager.Refresh()
+
+				if err != nil {
+					slog.Error("Error creating new WAL version:", "error", err)
 					return err
-				} else {
-					slog.Debug("Successful database checkpoint")
 				}
 			}
 
-			return nil
+			// log.Println("Checkpoint completed successfully")
+
+			return err
 		})
-
-		if err != nil {
-			err := con.checkpointer.Rollback()
-
-			if err != nil {
-				slog.Error("Error rolling back checkpoint", "error", err)
-			}
-		} else {
-			// Update the WAL Index
-			err = con.walManager.Refresh()
-
-			if err != nil {
-				slog.Error("Error creating new WAL version:", "error", err)
-				return err
-			}
-		}
-
-		// log.Println("Checkpoint completed successfully")
-
-		return err
 	})
 }
 
