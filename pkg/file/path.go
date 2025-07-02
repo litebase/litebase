@@ -31,6 +31,16 @@ func GetDatabaseBackupsDirectory(databaseId, branchId string) string {
 	)
 }
 
+// Return the root directoy of a branch
+func GetDatabaseBranchRootDir(databaseID, branchID string) string {
+	return fmt.Sprintf(
+		"%s%s/%s/",
+		DatabaseDirectory(),
+		databaseID,
+		branchID,
+	)
+}
+
 func GetDatabaseFileBaseDir(databaseId string, branchId string) string {
 	dir, err := GetDatabaseFilePath(databaseId, branchId)
 

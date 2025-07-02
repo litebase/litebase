@@ -91,6 +91,36 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
+		"/resources/databases/{databaseId}/branches",
+		DatabaseBranchIndexController,
+	).Middleware([]Middleware{
+		Authentication,
+	})
+
+	router.Get(
+		"/resources/databases/{databaseId}/branches/{branchId}",
+		DatabaseBranchShowController,
+	).Middleware([]Middleware{
+		Authentication,
+	})
+
+	router.Post(
+		"/resources/databases/{databaseId}/branches",
+		DatabaseBranchStoreController,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Delete(
+		"/resources/databases/{databaseId}/branches/{branchId}",
+		DatabaseBranchDestroyController,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Get(
 		"/resources/databases",
 		DatabaseIndexController,
 	).Middleware([]Middleware{

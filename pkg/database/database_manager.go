@@ -198,12 +198,21 @@ func (d *DatabaseManager) Delete(database *Database) error {
 
 	fileSystem := resources.FileSystem()
 
-	// Delete the database keys for all branches in the system database.
+	// Delete from the system database
 	db, err := d.SystemDatabase().DB()
 
 	if err != nil {
 		slog.Error("Error getting system database", "error", err)
 		return err
+	}
+
+	_, err = db.Exec(
+		"DELETE FROM databases WHERE id = ?",
+		database.ID,
+	)
+
+	if err != nil {
+		slog.Error("Error deleting database from system database", "error", err)
 	}
 
 	// TODO: Removing all database storage may require the removal of a lot of files.
@@ -221,15 +230,6 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	}
 
 	resources.Remove()
-
-	_, err = db.Exec(
-		"DELETE FROM databases WHERE id = ?",
-		database.ID,
-	)
-
-	if err != nil {
-		slog.Error("Error deleting database from system database", "error", err)
-	}
 
 	return nil
 }

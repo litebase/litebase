@@ -114,6 +114,30 @@ func TestRoutesMiddleware(t *testing.T) {
 		},
 		{
 			Method:             "GET",
+			Path:               "/resources/databases/{databaseId}/branches",
+			ExpectedMiddleware: []string{"Authentication"},
+			Description:        "Database Branches index route should have Authentication middleware",
+		},
+		{
+			Method:             "GET",
+			Path:               "/resources/databases/{databaseId}/branches/{branchId}",
+			ExpectedMiddleware: []string{"Authentication"},
+			Description:        "Database Branch show route should have Authentication middleware",
+		},
+		{
+			Method:             "POST",
+			Path:               "/resources/databases/{databaseId}/branches",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database Branch store route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "DELETE",
+			Path:               "/resources/databases/{databaseId}/branches/{branchId}",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database Branch destroy route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "GET",
 			Path:               "/resources/databases",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database index route should have Authentication middleware",
@@ -310,9 +334,10 @@ func TestAllRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 36 // Update this number if you add more routes
+	expectedRouteCount := 40 // Update this number if you add more routes
 
 	totalRoutes := 0
+
 	for method, methodRoutes := range router.Routes {
 		totalRoutes += len(methodRoutes)
 		t.Logf("Method %s has %d routes", method, len(methodRoutes))
