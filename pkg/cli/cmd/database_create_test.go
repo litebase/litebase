@@ -39,5 +39,9 @@ func TestDatabaseCreate(t *testing.T) {
 		if cli.DoesntSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
+
+		if cli.DoesntSee("URL") {
+			t.Error("expected output to contain 'URL'")
+		}
 	})
 }
