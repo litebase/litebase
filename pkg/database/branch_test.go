@@ -9,7 +9,7 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestNewBranch(t *testing.T) {
+func TestBranch(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		// Create a test database first
 		testDB, err := database.CreateDatabase(app.DatabaseManager, "test_NewBranch", "main")
@@ -119,6 +119,85 @@ func TestNewBranch(t *testing.T) {
 			}
 		})
 
+		t.Run("Branch_Database", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			branch, err := database.NewBranch(
+				app.DatabaseManager,
+				mock.ID,
+				"",
+				"test_Branch_Database",
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch.DatabaseID = mock.DatabaseID
+
+			err = branch.Save()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if branch.Database() == nil {
+				t.Fatal("Expected database to be set")
+			}
+		})
+
+		t.Run("Branch_Delete", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch, err := db.CreateBranch("test", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = branch.Delete()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+
+		t.Run("Branch_DeleteFailsOnPrimaryBranch", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch := db.PrimaryBranch()
+
+			err = branch.Delete()
+
+			if err == nil {
+				t.Fatal("Expected error when deleting primary branch, but got none")
+			}
+
+			branch, err = db.Branch(branch.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = branch.Delete()
+
+			if err == nil {
+				t.Fatal("Expected error when deleting the primary branch, but got none")
+			}
+		})
+
 		t.Run("Branch_ParentBranch", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
@@ -126,7 +205,7 @@ func TestNewBranch(t *testing.T) {
 				app.DatabaseManager,
 				db.ID,
 				"main",
-				"Test Parent Branch",
+				"TestParentBranch",
 			)
 
 			if err != nil {

@@ -5,17 +5,20 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"math/big"
 	"time"
 
 	"github.com/litebase/litebase/internal/utils"
+	"github.com/litebase/litebase/pkg/file"
 
 	"github.com/google/uuid"
 	"github.com/sqids/sqids-go"
 )
 
 type Branch struct {
-	ID                              int64            `json:"id"`
+	ID                              int64 `json:"id"`
+	database                        *Database
 	DatabaseBranchID                string           `json:"database_branch_id"`
 	DatabaseID                      string           `json:"database_id"`
 	DatabaseManager                 *DatabaseManager `json:"-"`
@@ -193,6 +196,77 @@ func UpdateBranch(b *Branch) error {
 	return nil
 }
 
+// Retrieve the database that the branch belongs to.
+func (b *Branch) Database() *Database {
+	if b.database != nil {
+		return b.database
+	}
+
+	db, err := b.DatabaseManager.Get(b.DatabaseID)
+
+	if err != nil {
+		log.Println("Error getting database:", err)
+		return nil
+	}
+
+	b.database = db
+
+	return b.database
+}
+
+// Delete the branch
+func (b *Branch) Delete() error {
+	if b == nil || !b.Exists {
+		return fmt.Errorf("branch does not exist or is nil")
+	}
+
+	if b.Database().PrimaryBranch().DatabaseBranchID == b.DatabaseBranchID {
+		return fmt.Errorf("cannot delete the primary branch of a database")
+	}
+
+	resources := b.DatabaseManager.Resources(b.DatabaseID, b.DatabaseBranchID)
+
+	// Close all database connections to the database before deleting it
+	b.DatabaseManager.ConnectionManager().CloseDatabaseBranchConnections(b.DatabaseID, b.DatabaseBranchID)
+
+	fileSystem := resources.FileSystem()
+
+	// Delete from the system database
+	db, err := b.DatabaseManager.SystemDatabase().DB()
+	if err != nil {
+		return fmt.Errorf("failed to get database connection: %w", err)
+	}
+
+	_, err = db.Exec(
+		`DELETE FROM database_branches WHERE id = ?`,
+		b.ID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete database branch: %w", err)
+	}
+
+	// Delete the database storage.
+	// TODO: Removing all database storage may require the removal of a lot of files.
+	// How is this going to work with tiered storage? We also need to test that
+	// removing a branch stops any operations to the database.
+	err = fileSystem.FileSystem().RemoveAll(
+		file.GetDatabaseBranchRootDir(
+			b.DatabaseID,
+			b.DatabaseBranchID,
+		),
+	)
+
+	if err != nil {
+		slog.Error("Error deleting database storage", "error", err)
+		return err
+	}
+
+	resources.Remove()
+
+	return nil
+}
+
 // Load and return the parent branch of the current branch
 func (branch *Branch) ParentBranch() *Branch {
 	if branch == nil {
@@ -244,6 +318,7 @@ func (branch *Branch) ParentBranch() *Branch {
 	return branch.parentBranch
 }
 
+// Save a database to the system database.
 func (b *Branch) Save() error {
 	if b.DatabaseID == "" || b.DatabaseBranchID == "" {
 		return fmt.Errorf("branch is missing required fields")
