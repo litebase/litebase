@@ -44,16 +44,11 @@ func NewDatabaseManager(
 		WriteQueueManager:      NewWriteQueueManager(cluster.Node().Context()),
 	}
 
-	dbm.pageLogManager = storage.NewPageLogManager(
-		dbm.Cluster.Node().Context(),
-	)
+	dbm.pageLogManager = storage.NewPageLogManager(dbm.Cluster.Node().Context())
 
 	dbm.pageLogManager.SetCompactionFn(dbm.compaction)
 
-	RegisterDriver(
-		fmt.Sprintf("litebase:%s", cluster.Node().ID),
-		dbm.ConnectionManager(),
-	)
+	RegisterDriver("litebase-internal", dbm.ConnectionManager())
 
 	return dbm
 }

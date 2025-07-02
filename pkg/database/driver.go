@@ -32,21 +32,23 @@ var (
 
 // Global driver instance that can have its connection manager updated
 var globalDriverMutex sync.RWMutex
+var globalDriver *LitebaseSQLDriver
+var driverRegistered bool
+var registeredDriverName string
 
 // GlobalDriverWrapper wraps the global driver to allow connection manager updates
 type GlobalDriverWrapper struct {
-	connectionManager *ConnectionManager
 }
 
 func (d *GlobalDriverWrapper) Open(name string) (driver.Conn, error) {
 	globalDriverMutex.RLock()
 	defer globalDriverMutex.RUnlock()
 
-	if d.connectionManager == nil || d.connectionManager.sqlDriver == nil {
+	if globalDriver == nil {
 		return nil, fmt.Errorf("litebase driver not initialized")
 	}
 
-	return d.connectionManager.sqlDriver.Open(name)
+	return globalDriver.Open(name)
 }
 
 // UpdateGlobalConnectionManager updates the connection manager for the global driver
@@ -54,7 +56,7 @@ func UpdateGlobalConnectionManager(connectionManager *ConnectionManager) {
 	globalDriverMutex.Lock()
 	defer globalDriverMutex.Unlock()
 
-	connectionManager.sqlDriver = NewLitebaseSQLDriver(connectionManager)
+	globalDriver = NewLitebaseSQLDriver(connectionManager)
 }
 
 // LitebaseSQLDriver implements driver.Driver
@@ -544,12 +546,21 @@ func RegisterDriver(name string, connectionManager *ConnectionManager) {
 	globalDriverMutex.Lock()
 	defer globalDriverMutex.Unlock()
 
-	// Register the wrapper driver only once
-	if connectionManager.sqlDriver == nil {
-		connectionManager.sqlDriver = NewLitebaseSQLDriver(connectionManager)
+	// Prevent double registration
+	if driverRegistered {
+		if registeredDriverName == name {
+			// Same driver name, just update the connection manager
+			globalDriver = NewLitebaseSQLDriver(connectionManager)
+			return
+		}
 
-		sql.Register(name, &GlobalDriverWrapper{
-			connectionManager: connectionManager,
-		})
+		// Different driver name, this is not allowed
+		panic(fmt.Sprintf("litebase driver already registered with name '%s', cannot register with name '%s'", registeredDriverName, name))
 	}
+
+	// First time registration
+	globalDriver = NewLitebaseSQLDriver(connectionManager)
+	sql.Register(name, &GlobalDriverWrapper{})
+	driverRegistered = true
+	registeredDriverName = name
 }

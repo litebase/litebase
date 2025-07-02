@@ -56,10 +56,7 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 		return s.db, nil
 	}
 
-	db, err := sql.Open(
-		fmt.Sprintf("litebase:%s", s.databaseManager.Cluster.Node().ID),
-		"system/system",
-	)
+	db, err := sql.Open("litebase-internal", "system/system")
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to open system database: %w", err)
@@ -72,10 +69,7 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 
 // Initialize the system database by creating necessary tables.
 func (s *SystemDatabase) init() {
-	db, err := sql.Open(
-		fmt.Sprintf("litebase:%s", s.databaseManager.Cluster.Node().ID),
-		"system/system",
-	)
+	db, err := sql.Open("litebase-internal", "system/system")
 
 	if err != nil {
 		log.Fatal(err)
