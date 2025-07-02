@@ -321,10 +321,12 @@ func (d *DatabaseManager) GetKey(databaseKey string) (*Branch, error) {
 	branch := &Branch{}
 
 	err = db.QueryRow(
-		"SELECT id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE key = ?",
+		"SELECT id, database_reference_id, parent_database_branch_reference_id,database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE key = ?",
 		databaseKey,
 	).Scan(
 		&branch.ID,
+		&branch.DatabaseReferenceID,
+		&branch.ParentDatabaseBranchReferenceID,
 		&branch.DatabaseID,
 		&branch.DatabaseBranchID,
 		&branch.Name,

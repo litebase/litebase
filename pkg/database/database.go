@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/litebase/litebase/pkg/backups"
 )
 
 type Database struct {
@@ -163,7 +164,60 @@ func UpdateDatabase(database *Database) error {
 	return nil
 }
 
-// TODO: Need to copy the data from the parent branch to the new branch.
+// Copy the parent branch data to the new branch.
+func (database *Database) copyBranchParentData(branch *Branch) error {
+	parentBranchResources := database.DatabaseManager.Resources(
+		database.DatabaseID,
+		branch.ParentBranch().DatabaseBranchID,
+	)
+
+	parentDFS := parentBranchResources.FileSystem()
+
+	branchDFS := database.DatabaseManager.Resources(
+		database.DatabaseID,
+		branch.DatabaseBranchID,
+	).FileSystem()
+
+	snapshotLogger := parentBranchResources.SnapshotLogger()
+	checkpointer, err := parentBranchResources.Checkpointer()
+
+	if err != nil {
+		return fmt.Errorf("failed to get checkpointer: %w", err)
+	}
+
+	// Get the snapshots
+	snapshotLogger.GetSnapshots()
+
+	// Get the latest snapshot timestamp
+	snapshotKeys := snapshotLogger.Keys()
+
+	// Esnure there is a snapshot to restore from
+	if len(snapshotKeys) > 0 {
+		snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
+
+		if err != nil {
+			return fmt.Errorf("failed to get snapshot: %w", err)
+		}
+
+		return backups.RestoreFromTimestamp(
+			database.DatabaseManager.Cluster.Config,
+			database.DatabaseManager.Cluster.TieredFS(),
+			database.DatabaseID,
+			branch.ParentBranch().DatabaseBranchID,
+			database.DatabaseID,
+			branch.DatabaseBranchID,
+			snapshot.RestorePoints.End,
+			snapshotLogger,
+			parentDFS,
+			branchDFS,
+			checkpointer,
+			nil,
+		)
+	}
+
+	return nil
+}
+
 // Create a new branch for the database.
 func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, error) {
 	branch, err := NewBranch(database.DatabaseManager, database.ID, parentBranchName, name)
@@ -178,6 +232,15 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to save branch: %w", err)
+	}
+
+	// Copy the data from the parent branch if specified
+	if parentBranchName != "" && branch.ParentBranch() != nil {
+		err = database.copyBranchParentData(branch)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to copy parent branch data: %w", err)
+		}
 	}
 
 	return branch, nil
@@ -250,7 +313,7 @@ func (database *Database) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Load and return the primary branch of the database.
+// Load and return the primary branch of the database
 func (database *Database) PrimaryBranch() *Branch {
 	if database == nil {
 		return nil
@@ -273,11 +336,12 @@ func (database *Database) PrimaryBranch() *Branch {
 			var branch Branch
 
 			err = db.QueryRow(
-				`SELECT id, database_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
 				database.PrimaryBranchReferenceID.Int64,
 			).Scan(
 				&branch.ID,
 				&branch.DatabaseReferenceID,
+				&branch.ParentDatabaseBranchReferenceID,
 				&branch.DatabaseID,
 				&branch.DatabaseBranchID,
 				&branch.Name,
@@ -300,6 +364,7 @@ func (database *Database) PrimaryBranch() *Branch {
 	return database.primaryBranch
 }
 
+// Save the database to the system database
 func (database *Database) Save() error {
 	if database.exists {
 		return UpdateDatabase(database)

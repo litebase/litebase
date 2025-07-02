@@ -85,6 +85,175 @@ func TestDatabase(t *testing.T) {
 			}
 		})
 
+		t.Run("Database_CreateBranchFromParentWithNoSnapshots", func(t *testing.T) {
+			db, err := database.CreateDatabase(app.DatabaseManager, "test_CreateBranchFromParent", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch, err := db.CreateBranch("test_branch", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if branch == nil {
+				t.Fatal("Expected branch to be created, but got nil")
+			}
+		})
+
+		t.Run("Database_CreateBranchFromParentWith1Snapshot", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
+
+			// Create an initial checkpoint before creating the table (this will be restore point 0)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Create a test table and insert some data
+			_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Create the new branch from the primary branch
+			branch, err := db.CreateBranch("test_branch", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if branch == nil {
+				t.Fatal("Expected branch to be created, but got nil")
+			}
+
+			targetDB, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, branch.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(targetDB)
+
+			// Check if the table exists in the new branch
+			_, err = targetDB.GetConnection().Exec("SELECT * FROM test", nil)
+
+			if err != nil {
+				t.Fatalf("Expected table 'test' to exist in new branch, got error: %v", err)
+			}
+		})
+
+		t.Run("Database_CreateBranchFromParentWithMultipleSnapshots", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
+
+			// Create an initial checkpoint before creating the table (this will be restore point 0)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Create a test table and insert some data
+			_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			for range 10 {
+				// Insert some data into the table
+				_, err = sourceDb.GetConnection().Exec("INSERT INTO test (value) VALUES('test_value')", nil)
+
+				if err != nil {
+					t.Fatalf("Expected no error, got %v", err)
+				}
+
+				err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+
+				if err != nil {
+					t.Fatalf("Expected no error, got %v", err)
+				}
+			}
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Create the new branch from the primary branch
+			branch, err := db.CreateBranch("test_branch", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if branch == nil {
+				t.Fatal("Expected branch to be created, but got nil")
+			}
+
+			targetDB, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, branch.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(targetDB)
+
+			// Check if the table exists in the new branch
+			res, err := targetDB.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
+
+			if err != nil {
+				t.Fatalf("Expected table 'test' to exist in new branch, got error: %v", err)
+			}
+
+			if res == nil {
+				t.Fatal("Expected result set to be non-nil, got nil")
+			}
+
+			if res.Rows[0][0].Int64() != 10 {
+				t.Errorf("Expected 10 rows in 'test' table, got %d", res.Rows[0][0].Int64())
+			}
+		})
+
 		t.Run("Database_HasBranch", func(t *testing.T) {
 			db, err := database.CreateDatabase(app.DatabaseManager, "test_HasBranch", "main")
 
