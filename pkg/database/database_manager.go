@@ -295,6 +295,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	}
 
 	database.DatabaseManager = d
+
 	return database, nil
 }
 

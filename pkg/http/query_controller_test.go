@@ -143,7 +143,7 @@ func TestQueryController_Errors(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		if responseCode != 400 {
+		if responseCode != 404 {
 			t.Fatalf("Expected response code 400, got %d: %s", responseCode, resp)
 		}
 

@@ -90,19 +90,26 @@ func InsertDatabase(database *Database) error {
 		return err
 	}
 
+	var primaryBranchId sql.NullInt64
+	if database.PrimaryBranchReferenceID.Valid {
+		primaryBranchId = database.PrimaryBranchReferenceID
+	}
+
 	result, err := db.Exec(
 		`INSERT INTO databases (
 			database_id,
 			primary_branch_reference_id, 
-			name, 
+			name,
+			settings,
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?)
 		`,
 		database.DatabaseID,
-		database.PrimaryBranchReferenceID,
+		primaryBranchId,
 		database.Name,
+		database.Settings,
 		time.Now().UTC(),
 		time.Now().UTC(),
 	)
@@ -118,7 +125,6 @@ func InsertDatabase(database *Database) error {
 	}
 
 	database.ID = id
-
 	database.exists = true
 
 	return nil
@@ -138,10 +144,9 @@ func UpdateDatabase(database *Database) error {
 		return err
 	}
 
-	var primaryBranchId int64
-
+	var primaryBranchId sql.NullInt64
 	if database.PrimaryBranchReferenceID.Valid {
-		primaryBranchId = database.PrimaryBranchReferenceID.Int64
+		primaryBranchId = database.PrimaryBranchReferenceID
 	}
 
 	_, err = db.Exec(
@@ -157,6 +162,7 @@ func UpdateDatabase(database *Database) error {
 		primaryBranchId,
 		string(settingsJson),
 		time.Now().UTC(),
+		database.DatabaseID,
 	)
 
 	if err != nil {

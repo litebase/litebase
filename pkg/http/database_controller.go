@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/litebase/litebase/pkg/auth"
 )
@@ -148,7 +149,7 @@ func DatabaseDestroyController(request *Request) Response {
 	err = request.databaseManager.Delete(db)
 
 	if err != nil {
-		log.Println(err)
+		slog.Error("Failed to delete database", "error", err, "databaseId", db.DatabaseID)
 		return ServerErrorResponse(err)
 	}
 
