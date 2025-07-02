@@ -6,7 +6,7 @@ func DatabaseCard(data map[string]any) string {
 	rows := []CardRow{
 		{
 			Key:   "ID",
-			Value: data["id"].(string),
+			Value: data["database_id"].(string),
 		},
 		{
 			Key:   "Name",
