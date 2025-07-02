@@ -671,12 +671,6 @@ func (w *DatabaseWALManager) getOrCreateCurrent() (*DatabaseWAL, error) {
 		newTimestamp++ // Increment until we find an available timestamp
 	}
 
-	if latestVersion == 0 {
-		slog.Info("Creating initial WAL version", "version", newTimestamp)
-	} else {
-		slog.Info("Creating new WAL version after checkpoint", "previous_version", latestVersion, "new_version", newTimestamp)
-	}
-
 	return w.createNew(newTimestamp)
 }
 

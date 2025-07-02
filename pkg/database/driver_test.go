@@ -16,7 +16,7 @@ func TestLitebaseDriver(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		// The driver should already be registered by the DatabaseManager
 		// Open connection to the system database
-		db, err := sql.Open("litebase", "system/system")
+		db, err := sql.Open("litebase-internal", "system/system")
 
 		if err != nil {
 			t.Fatalf("failed to open system database: %v", err)
@@ -252,7 +252,7 @@ func TestLitebaseDriver(t *testing.T) {
 func TestLitebaseDriverSimple(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		// Open connection to the system database
-		db, err := sql.Open("litebase", "system/system")
+		db, err := sql.Open("litebase-internal", "system/system")
 		if err != nil {
 			t.Fatalf("failed to open system database: %v", err)
 		}
@@ -314,7 +314,7 @@ func TestLitebaseDriverSimple(t *testing.T) {
 func TestLitebaseDriverDataTypes(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		// Open connection to the system database
-		db, err := sql.Open("litebase", "system/system")
+		db, err := sql.Open("litebase-internal", "system/system")
 
 		if err != nil {
 			t.Fatalf("failed to open database: %v", err)
@@ -456,7 +456,7 @@ func TestLitebaseDriverDataTypes(t *testing.T) {
 // func BenchmarkLitebaseDriver(b *testing.B) {
 // 	test.RunWithApp(b, func(app *server.App) {
 // 		// Open connection to the system database
-// 		db, err := sql.Open("litebase", "system/system")
+// 		db, err := sql.Open("litebase-internal", "system/system")
 // 		if err != nil {
 // 			b.Fatalf("failed to open database: %v", err)
 // 		}
