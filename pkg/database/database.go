@@ -16,7 +16,7 @@ type Database struct {
 	DatabaseManager          *DatabaseManager  `json:"-"`
 	Name                     string            `json:"name"`
 	DatabaseID               string            `json:"database_id"`
-	PrimaryBranchReferenceID sql.NullInt64     `json:"primary_branch_reference_id"`
+	PrimaryBranchReferenceID sql.NullInt64     `json:"-"`
 	Settings                 *DatabaseSettings `json:"settings"`
 	CreatedAt                time.Time         `json:"created_at"`
 	UpdatedAt                time.Time         `json:"updated_at"`
@@ -223,6 +223,20 @@ func (database *Database) Key(branchID string) string {
 	}
 
 	return key
+}
+
+// MarshalJSON customizes the JSON representation of the Database struct.
+// It includes the URL for the primary branch.
+func (database *Database) MarshalJSON() ([]byte, error) {
+	type Alias Database
+
+	return json.Marshal(&struct {
+		*Alias
+		Url string `json:"url"`
+	}{
+		Alias: (*Alias)(database),
+		Url:   database.Url(database.PrimaryBranch().DatabaseBranchID),
+	})
 }
 
 // Load and return the primary branch of the database.
