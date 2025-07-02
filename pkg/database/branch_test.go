@@ -119,7 +119,38 @@ func TestNewBranch(t *testing.T) {
 			}
 		})
 
-		t.Run("Save", func(t *testing.T) {
+		t.Run("Branch_ParentBranch", func(t *testing.T) {
+			db := test.MockDatabase(app)
+
+			branch, err := database.NewBranch(
+				app.DatabaseManager,
+				db.ID,
+				"main",
+				"Test Parent Branch",
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = database.InsertBranch(branch)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			parentBranch := branch.ParentBranch()
+
+			if parentBranch == nil {
+				t.Fatal("Expected parent branch to not be nil")
+			}
+
+			if parentBranch.Name != "main" {
+				t.Fatalf("Expected parent branch name to be 'main', got '%s'", parentBranch.Name)
+			}
+		})
+
+		t.Run("Branch_Save", func(t *testing.T) {
 			branch, err := database.NewBranch(
 				app.DatabaseManager,
 				testDB.ID,

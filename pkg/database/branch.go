@@ -22,6 +22,7 @@ type Branch struct {
 	DatabaseReferenceID             sql.NullInt64    `json:"database_reference_id"`
 	Key                             string           `json:"key"`
 	Name                            string           `json:"name"`
+	parentBranch                    *Branch          `json:"-"`
 	ParentDatabaseBranchReferenceID sql.NullInt64    `json:"-"`
 	Settings                        *BranchSettings  `json:"settings"`
 	CreatedAt                       time.Time        `json:"created_at"`
@@ -190,6 +191,57 @@ func UpdateBranch(b *Branch) error {
 	}
 
 	return nil
+}
+
+// Load and return the parent branch of the current branch
+func (branch *Branch) ParentBranch() *Branch {
+	if branch == nil {
+		return nil
+	}
+
+	if branch.parentBranch == nil {
+		// If no primary branch ID is set, return nil
+		if !branch.ParentDatabaseBranchReferenceID.Valid || branch.ParentDatabaseBranchReferenceID.Int64 == 0 {
+			return nil
+		}
+
+		// Load the primary branch from the system database using the foreign key
+		if branch.DatabaseManager != nil {
+			db, err := branch.DatabaseManager.SystemDatabase().DB()
+
+			if err != nil {
+				return nil
+			}
+
+			var parentBranch Branch
+
+			err = db.QueryRow(
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				branch.ParentDatabaseBranchReferenceID.Int64,
+			).Scan(
+				&parentBranch.ID,
+				&parentBranch.DatabaseReferenceID,
+				&parentBranch.ParentDatabaseBranchReferenceID,
+				&parentBranch.DatabaseID,
+				&parentBranch.DatabaseBranchID,
+				&parentBranch.Name,
+				&parentBranch.Key,
+				&parentBranch.Settings,
+				&parentBranch.CreatedAt,
+				&parentBranch.UpdatedAt,
+			)
+
+			if err == nil {
+				parentBranch.DatabaseManager = branch.DatabaseManager
+				parentBranch.Exists = true
+				branch.parentBranch = &parentBranch
+			} else {
+				log.Println("Error loading primary branch:", err)
+			}
+		}
+	}
+
+	return branch.parentBranch
 }
 
 func (b *Branch) Save() error {
