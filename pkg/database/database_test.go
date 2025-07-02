@@ -67,6 +67,27 @@ func TestDatabase(t *testing.T) {
 			}
 		})
 
+		t.Run("Database_Branches", func(t *testing.T) {
+			db, err := database.CreateDatabase(app.DatabaseManager, "test_Branches", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branches, err := db.Branches()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(branches) == 0 {
+				t.Fatal("Expected at least one branch, but got none")
+			}
+
+			if branches[0].Name != "main" {
+				t.Errorf("Expected primary branch name to be 'main', got '%s'", branches[0].Name)
+			}
+		})
+
 		t.Run("Database_CreateBranch", func(t *testing.T) {
 			db, err := database.CreateDatabase(app.DatabaseManager, "test_CreateBranch", "main")
 

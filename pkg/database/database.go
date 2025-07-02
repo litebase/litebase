@@ -164,6 +164,41 @@ func UpdateDatabase(database *Database) error {
 	return nil
 }
 
+// Retrieve all branches of the database.
+func (database *Database) Branches() ([]*Branch, error) {
+	var branches []*Branch
+
+	db, err := database.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := db.Query(
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches
+		WHERE database_reference_id = ?`,
+		database.ID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var branch Branch
+
+		if err := rows.Scan(&branch.ID, &branch.DatabaseReferenceID, &branch.ParentDatabaseBranchReferenceID, &branch.DatabaseID, &branch.DatabaseBranchID, &branch.Name, &branch.Key, &branch.Settings, &branch.CreatedAt, &branch.UpdatedAt); err != nil {
+			continue
+		}
+
+		branches = append(branches, &branch)
+	}
+
+	return branches, nil
+}
+
 // Copy the parent branch data to the new branch.
 func (database *Database) copyBranchParentData(branch *Branch) error {
 	parentBranchResources := database.DatabaseManager.Resources(

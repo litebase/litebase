@@ -19,7 +19,7 @@ type Branch struct {
 	DatabaseBranchID                string           `json:"branch_id"`
 	DatabaseID                      string           `json:"database_id"`
 	DatabaseManager                 *DatabaseManager `json:"-"`
-	DatabaseReferenceID             sql.NullInt64    `json:"database_reference_id"`
+	DatabaseReferenceID             sql.NullInt64    `json:"-"`
 	Key                             string           `json:"key"`
 	Name                            string           `json:"name"`
 	parentBranch                    *Branch          `json:"-"`
