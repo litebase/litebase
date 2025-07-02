@@ -192,37 +192,72 @@ func TestDatabaseControllerStore_WithSameNameFails(t *testing.T) {
 
 func TestDatabaseControllerDestroy(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
+		t.Run("ExistingDatabase", func(t *testing.T) {
+			server := test.NewTestServer(t)
+			defer server.Shutdown()
 
-		mock := test.MockDatabase(server.App)
+			mock := test.MockDatabase(server.App)
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
-			Effect:   "Allow",
-			Resource: "*",
-			Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
-		}})
+			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
+			}})
 
-		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", mock.DatabaseID), "DELETE", nil)
+			resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s", mock.DatabaseID), "DELETE", nil)
 
-		if err != nil {
-			t.Fatalf("failed to send request: %v", err)
-		}
+			if err != nil {
+				t.Fatalf("failed to send request: %v", err)
+			}
 
-		if statusCode != 200 {
-			t.Fatalf("expected status code 200, got %d", statusCode)
-		}
+			if statusCode != 200 {
+				t.Fatalf("expected status code 200, got %d", statusCode)
+			}
 
-		if resp == nil {
-			t.Fatalf("response is nil")
-		}
+			if resp == nil {
+				t.Fatalf("response is nil")
+			}
 
-		if resp["status"] != "success" {
-			t.Fatalf("expected success status, got %v", resp["status"])
-		}
+			if resp["status"] != "success" {
+				t.Fatalf("expected success status, got %v", resp["status"])
+			}
 
-		if resp["message"] != "Database deleted successfully." {
-			t.Fatalf("expected message to be 'Database deleted successfully.', got %v", resp["message"])
-		}
+			if resp["message"] != "Database deleted successfully." {
+				t.Fatalf("expected message to be 'Database deleted successfully.', got %v", resp["message"])
+			}
+		})
+
+		t.Run("NonExistingDatabase", func(t *testing.T) {
+			server := test.NewTestServer(t)
+			defer server.Shutdown()
+
+			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
+			}})
+
+			resp, statusCode, err := client.Send("/resources/databases/non-existing-id", "DELETE", nil)
+
+			if err != nil {
+				t.Fatalf("failed to send request: %v", err)
+			}
+
+			if statusCode != 400 {
+				t.Fatalf("expected status code 400, got %d", statusCode)
+			}
+
+			if resp == nil {
+				t.Fatalf("response is nil")
+			}
+
+			if resp["status"] != "error" {
+				t.Fatalf("expected error status, got %v", resp["status"])
+			}
+
+			if resp["message"] != "Error: failed to find database" {
+				t.Fatalf("expected message to be 'Error: failed to find database', got %v", resp["message"])
+			}
+		})
 	})
 }
