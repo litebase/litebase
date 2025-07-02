@@ -1,6 +1,7 @@
 package database_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -10,9 +11,18 @@ import (
 
 func TestNewBranch(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		// Create a test database first
+		testDB, err := database.CreateDatabase(app.DatabaseManager, "test_NewBranch", "main")
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		t.Run("NewBranch", func(t *testing.T) {
 			branch, err := database.NewBranch(
 				app.DatabaseManager,
+				testDB.ID,
+				"",
 				"Test Branch",
 			)
 
@@ -36,6 +46,8 @@ func TestNewBranch(t *testing.T) {
 		t.Run("InsertBranch", func(t *testing.T) {
 			branch, err := database.NewBranch(
 				app.DatabaseManager,
+				testDB.ID,
+				"",
 				"Test Insert Branch",
 			)
 
@@ -61,6 +73,8 @@ func TestNewBranch(t *testing.T) {
 		t.Run("UpdateBranch", func(t *testing.T) {
 			branch, err := database.NewBranch(
 				app.DatabaseManager,
+				testDB.ID,
+				"",
 				"Test Update Branch",
 			)
 
@@ -108,6 +122,8 @@ func TestNewBranch(t *testing.T) {
 		t.Run("Save", func(t *testing.T) {
 			branch, err := database.NewBranch(
 				app.DatabaseManager,
+				testDB.ID,
+				"",
 				"Test Save Branch",
 			)
 
@@ -127,6 +143,121 @@ func TestNewBranch(t *testing.T) {
 
 			if err != nil {
 				t.Fatal(err)
+			}
+		})
+
+		t.Run("NewBranchDuplicateName", func(t *testing.T) {
+			branch, err := database.NewBranch(
+				app.DatabaseManager,
+				testDB.ID,
+				"",
+				"duplicate_branch_name",
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = database.InsertBranch(branch)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Attempt to create a branch with the same name as an existing one
+			duplicateBranch, err := database.NewBranch(
+				app.DatabaseManager,
+				testDB.ID,
+				"",
+				"duplicate_branch_name",
+			)
+
+			if err == nil {
+				t.Fatal("Expected error when creating branch with duplicate name, but got none")
+			}
+
+			if err.Error() != fmt.Errorf("branch with name '%s' already exists in this database", "duplicate_branch_name").Error() {
+				t.Fatalf("Expected specific error message, got: %v", err)
+			}
+
+			if duplicateBranch != nil {
+				t.Fatal("Expected duplicate branch to be nil, but it is not")
+			}
+		})
+
+		t.Run("NewBranchDuplicateNameDifferentParent", func(t *testing.T) {
+			testDB1 := test.MockDatabase(app)
+
+			branch, err := database.NewBranch(
+				app.DatabaseManager,
+				testDB1.ID,
+				"",
+				"duplicate_branch_name",
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = database.InsertBranch(branch)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Attempt to create a branch with the same name as an existing one
+			duplicateBranch, err := database.NewBranch(
+				app.DatabaseManager,
+				testDB1.ID,
+				"main",
+				"duplicate_branch_name",
+			)
+
+			if err == nil {
+				t.Fatal("Expected error when creating branch with duplicate name in different parent, but got none")
+			}
+
+			if duplicateBranch != nil {
+				t.Fatal("Expected duplicate branch to be nil, but it is not")
+			}
+		})
+
+		t.Run("NewBranchDuplicateNameDifferentDatabase", func(t *testing.T) {
+			testDB1 := test.MockDatabase(app)
+
+			testDB2 := test.MockDatabase(app)
+
+			branch, err := database.NewBranch(
+				app.DatabaseManager,
+				testDB1.ID,
+				"",
+				"duplicate_branch_name",
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = database.InsertBranch(branch)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Attempt to create a branch with the same name as an existing one
+			duplicateBranch, err := database.NewBranch(
+				app.DatabaseManager,
+				testDB2.ID,
+				"",
+				"duplicate_branch_name",
+			)
+
+			if err != nil {
+				t.Fatal("Expected no error when creating branch with duplicate name in different database, but got:", err)
+			}
+
+			if duplicateBranch == nil {
+				t.Fatal("Expected duplicate branch to be not nil, but it is")
 			}
 		})
 	})

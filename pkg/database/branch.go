@@ -69,11 +69,7 @@ func NewBranch(databaseManager *DatabaseManager, databaseReferenceID int64, pare
 	}
 
 	if existingBranchCount > 0 {
-		if parentName != "" {
-			return nil, fmt.Errorf("branch with name '%s' and parent '%s' already exists in this database", name, parentName)
-		} else {
-			return nil, fmt.Errorf("root branch with name '%s' already exists in this database", name)
-		}
+		return nil, fmt.Errorf("branch with name '%s' already exists in this database", name)
 	}
 
 	var databaseKeyCount int64
