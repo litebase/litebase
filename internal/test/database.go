@@ -16,6 +16,7 @@ import (
 )
 
 type TestDatabase struct {
+	ID          int64
 	DatabaseID  string
 	BranchID    string
 	DatabaseKey *auth.DatabaseKey
@@ -71,6 +72,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	}
 
 	return TestDatabase{
+		ID:         db.ID,
 		DatabaseID: db.DatabaseID,
 		BranchID:   db.PrimaryBranch().DatabaseBranchID,
 		DatabaseKey: &auth.DatabaseKey{
