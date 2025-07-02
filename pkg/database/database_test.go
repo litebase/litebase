@@ -88,6 +88,27 @@ func TestDatabase(t *testing.T) {
 			}
 		})
 
+		t.Run("Database_Branch", func(t *testing.T) {
+			db, err := database.CreateDatabase(app.DatabaseManager, "test_Branches", "main")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch, err := db.Branch(db.PrimaryBranch().DatabaseBranchID)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if branch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
+
+			if branch.Name != "main" {
+				t.Errorf("Expected primary branch name to be 'main', got '%s'", branch.Name)
+			}
+		})
+
 		t.Run("Database_CreateBranch", func(t *testing.T) {
 			db, err := database.CreateDatabase(app.DatabaseManager, "test_CreateBranch", "main")
 
