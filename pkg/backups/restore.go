@@ -510,6 +510,10 @@ func RestoreFromTimestamp(
 		return err
 	}
 
+	if onComplete == nil {
+		return nil
+	}
+
 	// Wrap things up after running this callback
 	return onComplete(func() error {
 		return nil

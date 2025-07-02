@@ -248,6 +248,187 @@ func TestRestore(t *testing.T) {
 			}
 		})
 
+		t.Run("RestoreFromTimestampWithoutCompletedCallback", func(t *testing.T) {
+			// Force immediate compaction for testing - ensures deterministic restore points
+			originalInterval := storage.PageLoggerCompactInterval
+			storage.PageLoggerCompactInterval = 0
+			defer func() {
+				storage.PageLoggerCompactInterval = originalInterval
+			}()
+
+			source := test.MockDatabase(app)
+			target := test.MockDatabase(app)
+
+			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
+			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
+			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
+
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
+
+			// Create an initial checkpoint before creating the table (this will be restore point 0)
+			err = sourceDb.GetConnection().Checkpoint()
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Create a test table and insert some data
+			_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			err = sourceDb.GetConnection().Checkpoint()
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Insert some test data in a transaction for consistency
+			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+				for range 10 {
+					_, err = db.Exec(
+						"INSERT INTO test (value) VALUES (?)",
+						[]sqlite3.StatementParameter{{
+							Type:  sqlite3.ParameterTypeText,
+							Value: []byte("value"),
+						}},
+					)
+
+					if err != nil {
+						t.Fatalf("Expected no error, got %v", err)
+					}
+				}
+
+				return nil
+			})
+
+			err = sourceDb.GetConnection().Checkpoint()
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Insert more test data in another transaction
+			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+				for range 10 {
+					_, err = db.Exec(
+						"INSERT INTO test (value) VALUES (?)",
+						[]sqlite3.StatementParameter{{
+							Type:  sqlite3.ParameterTypeText,
+							Value: []byte("value"),
+						}},
+					)
+
+					if err != nil {
+						t.Fatalf("Expected no error, got %v", err)
+					}
+				}
+
+				return nil
+			})
+
+			err = sourceDb.GetConnection().Checkpoint()
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Get the snapshots
+			snapshotLogger.GetSnapshots()
+
+			// Get the latest snapshot timestamp
+			snapshotKeys := snapshotLogger.Keys()
+
+			snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			if len(snapshot.RestorePoints.Data) == 0 {
+				t.Fatalf("Expected at least one restore point, got %d", len(snapshot.RestorePoints.Data))
+			}
+
+			// Use the second restore point (table created but no data) for deterministic behavior
+			// This avoids potential issues with restoring to a completely empty database state
+			if len(snapshot.RestorePoints.Data) < 2 {
+				t.Fatalf("Expected at least 2 restore points, got %d", len(snapshot.RestorePoints.Data))
+			}
+
+			restorePointTimestamp := snapshot.RestorePoints.Data[1] // Table exists but no data
+
+			restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
+
+			if err != nil {
+				t.Fatalf("Expected no error getting restore point for timestamp %d, got %v", restorePointTimestamp, err)
+			}
+
+			// Call the RestoreFromTimestamp function
+			err = backups.RestoreFromTimestamp(
+				app.Config,
+				app.Cluster.TieredFS(),
+				source.DatabaseID,
+				source.BranchID,
+				target.DatabaseID,
+				target.BranchID,
+				restorePoint.Timestamp,
+				snapshotLogger,
+				sourceDfs,
+				targetDfs,
+				nil,
+			)
+
+			// Check for errors
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.BranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(targetDb)
+
+			// Verify the data is restored correctly - should have the table but no data
+			// Use a transaction like in the rolling test for consistency
+			err = targetDb.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {
+				result, err := db.Exec("SELECT COUNT(*) FROM test", nil)
+
+				if err != nil {
+					return fmt.Errorf("Expected no error, got %v", err)
+				}
+
+				if result == nil || len(result.Rows) == 0 {
+					return fmt.Errorf("Expected result to have rows")
+				}
+
+				count := result.Rows[0][0].Int64()
+				if count != 0 {
+					return fmt.Errorf("Expected 0 rows in restored table, got %d", count)
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				t.Fatalf("Transaction failed: %v", err)
+			}
+
+			if targetDfs.Metadata().PageCount != restorePoint.PageCount {
+				t.Fatalf("Expected PageCount %d, got %d", restorePoint.PageCount, targetDfs.Metadata().PageCount)
+			}
+		})
+
 		t.Run("RestoreFromInvalidBackup", func(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
