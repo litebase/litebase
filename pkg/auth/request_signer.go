@@ -29,7 +29,7 @@ func SignRequest(
 		bodyHashSum := sha256.Sum256(data)
 		bodyHash = fmt.Sprintf("%x", bodyHashSum)
 	} else {
-		emptyBodyHashSum := sha256.Sum256(nil)
+		emptyBodyHashSum := sha256.Sum256([]byte(""))
 		bodyHash = fmt.Sprintf("%x", emptyBodyHashSum)
 	}
 

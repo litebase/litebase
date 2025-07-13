@@ -79,6 +79,10 @@ func (r *Request) All() map[string]any {
 			return nil
 		}
 
+		if len(rawBody) == 0 {
+			rawBody = []byte("")
+		}
+
 		// Calculate hash of the raw body
 		bodyHashSum := sha256.Sum256(rawBody)
 		r.bodyHash = fmt.Sprintf("%x", bodyHashSum)
