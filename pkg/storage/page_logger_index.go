@@ -1,11 +1,11 @@
 package storage
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,7 +56,7 @@ func NewPageLoggerIndex(networkFS *FileSystem, path string) (*PageLoggerIndex, e
 	err := pli.load()
 
 	if err != nil {
-		log.Println("Error loading page logger index:", err)
+		slog.Error("Error loading page logger index", "error", err)
 		return nil, err
 	}
 
@@ -189,19 +189,20 @@ func (pli *PageLoggerIndex) load() error {
 
 	nextPageGroupIdInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(buffer[12:20]))
 	if err != nil {
+		slog.Error("Error reading next page group ID from index", "error", err)
 		return err
 	}
 	nextPageGroupId := PageGroup(nextPageGroupIdInt64)
 
 	nextPageGroupLength := binary.LittleEndian.Uint32(buffer[20:24])
-	pageGroupBuffer := bytes.NewBuffer(make([]byte, nextPageGroupLength+8+4))
 
 	for i := uint32(0); i < pageGroupCount; i++ {
 		if pli.pageGroups[nextPageGroupId] == nil {
 			pli.pageGroups[nextPageGroupId] = make(map[PageGroupVersion][]PageNumber)
 		}
 
-		data := pageGroupBuffer.Bytes()
+		// Create a buffer for the current page group data
+		data := make([]byte, nextPageGroupLength)
 
 		// Read the pageGroup
 		n, err := file.Read(data)
@@ -215,15 +216,33 @@ func (pli *PageLoggerIndex) load() error {
 			break
 		}
 
+		// Ensure we only process the bytes that were actually read
+		actualDataLength := n
+		if actualDataLength > int(nextPageGroupLength) {
+			actualDataLength = int(nextPageGroupLength)
+		}
+
 		pageGroupBytesProcessed := 0
 
-		for pageGroupBytesProcessed < int(nextPageGroupLength) {
+		for pageGroupBytesProcessed < actualDataLength {
+			// Ensure we have enough bytes for page group version
+			if pageGroupBytesProcessed+8 > actualDataLength {
+				break
+			}
+			
 			pageGroupVersionNumberInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
 			if err != nil {
+				slog.Error("Error reading next page group version from index", "error", err)
 				return err
 			}
 			pageGroupVersionNumber := PageGroupVersion(pageGroupVersionNumberInt64)
 			pageGroupBytesProcessed += 8
+			
+			// Ensure we have enough bytes for version data length
+			if pageGroupBytesProcessed+4 > actualDataLength {
+				break
+			}
+			
 			versionDataLength := binary.LittleEndian.Uint32(data[pageGroupBytesProcessed : pageGroupBytesProcessed+4])
 			pageGroupBytesProcessed += 4
 
@@ -232,8 +251,14 @@ func (pli *PageLoggerIndex) load() error {
 			}
 
 			for versionBytesProcessed := uint32(0); versionBytesProcessed < versionDataLength; versionBytesProcessed += 8 {
+				// Ensure we have enough bytes for page number
+				if pageGroupBytesProcessed+8 > actualDataLength {
+					break
+				}
+				
 				pageNumberInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
 				if err != nil {
+					slog.Error("Error reading page number from index", "error", err)
 					return err
 				}
 				pageNumber := PageNumber(pageNumberInt64)
@@ -244,26 +269,37 @@ func (pli *PageLoggerIndex) load() error {
 			slices.Sort(pli.pageGroups[nextPageGroupId][pageGroupVersionNumber])
 		}
 
-		// Check if there is more page group data
-		if pageGroupBytesProcessed == n {
-			break
+		// Check if we need to read more page groups
+		if i < pageGroupCount-1 {
+			// Read the next page group metadata (ID and length)
+			nextPageGroupMetadata := make([]byte, 12) // 8 bytes for ID + 4 bytes for length
+			n, err := file.Read(nextPageGroupMetadata)
+			
+			if err != nil && err != io.EOF {
+				log.Println("Error reading next page group metadata:", err)
+				return err
+			}
+			
+			if n < 12 {
+				break // Not enough data for next page group
+			}
+
+			pageGroupInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(nextPageGroupMetadata[0:8]))
+			if err != nil {
+				slog.Error("Error reading page group ID from index", "error", err)
+				return err
+			}
+
+			nextPageGroupId = PageGroup(pageGroupInt64)
+
+			nextPageGroupLengthInt32, err := utils.SafeUint32ToInt32(binary.LittleEndian.Uint32(nextPageGroupMetadata[8:12]))
+			if err != nil {
+				slog.Error("Error reading next page group length from index", "error", err)
+				return err
+			}
+			
+			nextPageGroupLength = uint32(nextPageGroupLengthInt32)
 		}
-
-		pageGroupInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
-
-		if err != nil {
-			return err
-		}
-
-		nextPageGroupId = PageGroup(pageGroupInt64)
-
-		nextPageGroupLength, err := utils.SafeUint32ToInt32(binary.LittleEndian.Uint32(data[pageGroupBytesProcessed+8 : pageGroupBytesProcessed+12]))
-
-		if err != nil {
-			return err
-		}
-
-		pageGroupBuffer.Grow(int(nextPageGroupLength + 8 + 4))
 	}
 
 	// Set the boundary to the latest page group version
