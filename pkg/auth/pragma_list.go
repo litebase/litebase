@@ -59,6 +59,7 @@ var PragmaList = map[string]bool{
 	"stats":                     false,
 	"synchronous":               false,
 	"table_info":                true,
+	"table_list":                true,
 	"table_xinfo":               true,
 	"temp_store":                false,
 	"threads":                   false,
