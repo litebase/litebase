@@ -97,9 +97,10 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		}
 
 		if !query.IsTransactionStart() && !query.IsTransactionEnd() && !query.IsTransactionRollback() {
-			if query.IsPragma() {
-				sqlite3Result, err = db.GetConnection().Exec(query.Input.Statement, nil)
-				changes = db.GetConnection().Changes()
+			if query.IsVacuum() {
+				response.SetError(errors.New("VACUUM is not supported from this context").Error())
+
+				return response, errors.New("VACUUM is not supported from this context")
 			} else {
 				statement, err = db.GetConnection().Statement(query.Input.Statement)
 

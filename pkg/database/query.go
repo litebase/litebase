@@ -85,6 +85,18 @@ func (query *Query) IsTransactionStart() bool {
 	return len(query.Input.Statement) >= 5 && (strings.HasPrefix(query.Input.Statement, "begin") || strings.HasPrefix(query.Input.Statement, "BEGIN"))
 }
 
+func (query *Query) IsVacuum() bool {
+	if len(query.Input.Statement) < 6 {
+		return false
+	}
+
+	if strings.HasPrefix(query.Input.Statement, "vacuum") || strings.HasPrefix(query.Input.Statement, "VACUUM") {
+		return true
+	}
+
+	return false
+}
+
 func (query *Query) IsWrite() bool {
 	return query.IsDDL() || query.IsDML() || query.IsPragma()
 }
