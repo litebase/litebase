@@ -105,8 +105,6 @@ func (router *Router) Server(
 			NewRequest(cluster, databaseManager, logManager, r),
 		)
 
-		w.WriteHeader(response.StatusCode)
-
 		jsonBody, err := json.Marshal(response.Body)
 
 		if err != nil {
@@ -118,6 +116,8 @@ func (router *Router) Server(
 
 		// Set the content length
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(jsonBody)))
+
+		w.WriteHeader(response.StatusCode)
 
 		_, err = w.Write(jsonBody)
 
