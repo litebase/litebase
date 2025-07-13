@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/litebase/litebase/pkg/backups"
+	"github.com/litebase/litebase/pkg/cache"
 )
 
 type Database struct {
@@ -24,6 +26,8 @@ type Database struct {
 
 	exists        bool
 	primaryBranch *Branch
+	branchCache   *cache.LFUCache
+	cacheMutex    sync.Mutex
 }
 
 func NewDatabase(databaseManager *DatabaseManager, databaseName string) *Database {
@@ -31,6 +35,7 @@ func NewDatabase(databaseManager *DatabaseManager, databaseName string) *Databas
 		DatabaseID:      uuid.New().String(),
 		DatabaseManager: databaseManager,
 		Name:            databaseName,
+		branchCache:     cache.NewLFUCache(100),
 	}
 }
 
@@ -307,6 +312,9 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 		return nil, fmt.Errorf("failed to save branch: %w", err)
 	}
 
+	// Update cache to reflect the new branch exists
+	database.UpdateBranchCache(branch.DatabaseBranchID, true)
+
 	// Copy the data from the parent branch if specified
 	if parentBranchName != "" && branch.ParentBranch() != nil {
 		err = database.copyBranchParentData(branch)
@@ -325,6 +333,14 @@ func (database *Database) HasBranch(branchID string) bool {
 		return true
 	}
 
+	database.cacheMutex.Lock()
+	defer database.cacheMutex.Unlock()
+
+	// Check cache first
+	if _, found := database.branchCache.Get(branchID); found {
+		return true
+	}
+
 	db, err := database.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
@@ -340,13 +356,26 @@ func (database *Database) HasBranch(branchID string) bool {
 		branchID,
 	).Scan(&id)
 
-	if err != nil {
-		slog.Error("Error checking branch existence", "error", err)
+	exists := err == nil
 
-		return false
+	// Cache the result
+	if err := database.branchCache.Put(branchID, exists); err != nil {
+		slog.Warn("Failed to cache branch existence", "error", err)
 	}
 
-	return true
+	if err != nil && err != sql.ErrNoRows {
+		slog.Error("Error checking branch existence", "error", err)
+	}
+
+	return exists
+}
+
+// InvalidateBranchCache removes a branch from the cache
+func (database *Database) InvalidateBranchCache(branchID string) {
+	database.cacheMutex.Lock()
+	defer database.cacheMutex.Unlock()
+
+	database.branchCache.Delete(branchID)
 }
 
 // Get the key for a branch of the database.
@@ -443,6 +472,16 @@ func (database *Database) Save() error {
 		return UpdateDatabase(database)
 	} else {
 		return InsertDatabase(database)
+	}
+}
+
+// UpdateBranchCache updates the cache with branch existence information
+func (database *Database) UpdateBranchCache(branchID string, exists bool) {
+	database.cacheMutex.Lock()
+	defer database.cacheMutex.Unlock()
+
+	if err := database.branchCache.Put(branchID, exists); err != nil {
+		slog.Warn("Failed to update branch cache", "error", err)
 	}
 }
 

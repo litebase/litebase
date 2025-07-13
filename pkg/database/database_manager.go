@@ -20,6 +20,7 @@ type DatabaseManager struct {
 	Cluster                *cluster.Cluster
 	connectionManager      *ConnectionManager
 	connectionManagerMutex *sync.Mutex
+	databaseCache          *cache.LFUCache
 	mutex                  *sync.Mutex
 	pageLogManager         *storage.PageLogManager
 	resources              map[string]*DatabaseResources
@@ -38,6 +39,7 @@ func NewDatabaseManager(
 		branchCache:            cache.NewLFUCache(100),
 		Cluster:                cluster,
 		connectionManagerMutex: &sync.Mutex{},
+		databaseCache:          cache.NewLFUCache(100),
 		mutex:                  &sync.Mutex{},
 		resources:              make(map[string]*DatabaseResources),
 		SecretsManager:         secretsManager,
@@ -104,6 +106,7 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 		// }
 
 		database.DatabaseManager = d
+		database.branchCache = cache.NewLFUCache(100)
 		databases = append(databases, database)
 	}
 
@@ -215,6 +218,8 @@ func (d *DatabaseManager) Delete(database *Database) error {
 		slog.Error("Error deleting database from system database", "error", err)
 	}
 
+	d.databaseCache.Delete(database.DatabaseID)
+
 	// TODO: Removing all database storage may require the removal of a lot of files.
 	// How is this going to work with tiered storage? We also need to test that
 	// removing a database stops any opertaions to the database.
@@ -265,7 +270,16 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 		database := &TheSystemDatabase
 		database.DatabaseManager = d
 
+		if database.branchCache == nil {
+			database.branchCache = cache.NewLFUCache(100)
+		}
+
 		return database, nil
+	}
+
+	// Check the database cache first
+	if database, found := d.databaseCache.Get(databaseId); found {
+		return database.(*Database), nil
 	}
 
 	// Get system database without holding the main mutex to avoid deadlock
@@ -276,7 +290,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 		return nil, fmt.Errorf("failed to get system database: %w", err)
 	}
 
-	database := &Database{}
+	database := NewDatabase(d, "")
 
 	err = db.QueryRow(
 		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
@@ -299,7 +313,14 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 
 	d.mutex.Lock()
 	database.DatabaseManager = d
+	database.branchCache = cache.NewLFUCache(100)
 	d.mutex.Unlock()
+
+	err = d.databaseCache.Put(databaseId, database)
+
+	if err != nil {
+		slog.Warn("Failed to cache database", "error", err, "databaseId", databaseId)
+	}
 
 	return database, nil
 }

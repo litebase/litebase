@@ -165,6 +165,14 @@ func InsertBranch(b *Branch) error {
 	b.ID = id
 	b.Exists = true
 
+	// Invalidate cache entry for this branch in the DatabaseManager's cache using the branch Key
+	b.DatabaseManager.branchCache.Delete(b.Key)
+
+	// Update the Database's branch cache
+	if database := b.Database(); database != nil {
+		database.UpdateBranchCache(b.DatabaseBranchID, true)
+	}
+
 	return nil
 }
 
@@ -191,6 +199,11 @@ func UpdateBranch(b *Branch) error {
 
 	if err != nil {
 		return err
+	}
+
+	// Update the Database's branch cache to ensure consistency
+	if database := b.Database(); database != nil {
+		database.UpdateBranchCache(b.DatabaseBranchID, true)
 	}
 
 	return nil
@@ -245,6 +258,14 @@ func (b *Branch) Delete() error {
 	if err != nil {
 		return fmt.Errorf("failed to delete database branch: %w", err)
 	}
+
+	// Invalidate the Database's branch cache
+	if database := b.Database(); database != nil {
+		database.InvalidateBranchCache(b.DatabaseBranchID)
+	}
+
+	// Invalidate the DatabaseManager's cache using the branch Key
+	b.DatabaseManager.branchCache.Delete(b.Key)
 
 	// Delete the database storage.
 	// TODO: Removing all database storage may require the removal of a lot of files.
