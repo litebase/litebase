@@ -447,14 +447,18 @@ func (database *Database) Save() error {
 }
 
 func (database *Database) Url(branchID string) string {
+	protocol := "http://"
 	port := ""
 
 	if database.DatabaseManager.Cluster.Config.Port != "80" {
 		port = fmt.Sprintf(":%s", database.DatabaseManager.Cluster.Config.Port)
+	} else {
+		protocol = "https://"
 	}
 
 	return fmt.Sprintf(
-		"%s%s/%s",
+		"%s%s%s/%s",
+		protocol,
 		database.DatabaseManager.Cluster.Config.HostName,
 		port,
 		database.Key(branchID),
