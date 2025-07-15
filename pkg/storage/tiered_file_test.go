@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/server"
@@ -538,6 +539,69 @@ func TestTieredFile_WriteAt(t *testing.T) {
 
 		if err := tf.Close(); err != nil {
 			t.Error(err)
+		}
+	})
+}
+
+func TestTieredFile_WriteAt_Persistence(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		tfsd := storage.NewTieredFileSystemDriver(
+			app.Cluster.Node().Context(),
+			app.Cluster.NetworkFS(),
+			app.Cluster.ObjectFS(),
+			func(c context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.WriteInterval = 1 * time.Millisecond
+			},
+		)
+
+		tf, err := tfsd.Create("test_writeat.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tf == nil {
+			t.Error("TieredFile is nil")
+			return
+		}
+
+		data1 := []byte("Hello,")
+		n, err := tf.WriteAt(data1, 0)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != len(data1) {
+			t.Errorf("WriteAt bytes count is unexpected: %v", n)
+		}
+
+		data2 := []byte(" WriteAt!")
+
+		n, err = tf.WriteAt(data2, 6)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if n != len(data2) {
+			t.Errorf("WriteAt bytes count is unexpected: %v", n)
+		}
+
+		buf := data1
+		buf = append(buf, data2...) // buf should now contain "Hello, WriteAt
+
+		time.Sleep(10 * time.Millisecond) // Wait for the background writer to flush the file
+
+		// Get the file from object storage
+		objectData, err := app.Cluster.ObjectFS().ReadFile("test_writeat.txt")
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if !bytes.Equal(buf, objectData) {
+			t.Errorf("Data in object storage is unexpected: %v", string(buf))
 		}
 	})
 }
