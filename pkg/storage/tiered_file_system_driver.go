@@ -216,16 +216,28 @@ func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64
 // the file on the high tier file system. When the file is closed, or written
 // to, it will be pushed down to the low tier file system.
 func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, error) {
-	file, err := fsd.lowTierFileSystemDriver.Create(path)
-
+	// Create the file in the high tier file system first
+	highTierFile, err := fsd.highTierFileSystemDriver.Create(path)
 	if err != nil {
 		return nil, err
 	}
 
+	// Also create the file in the low tier file system to ensure it exists
+	lowTierFile, err := fsd.lowTierFileSystemDriver.Create(path)
+
+	if err != nil {
+		// If low tier creation fails, clean up the high tier file
+		highTierFile.Close()
+		fsd.highTierFileSystemDriver.Remove(path)
+		return nil, err
+	}
+
+	lowTierFile.Close()
+
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
 
-	newFile := fsd.addFile(path, file, os.O_CREATE|os.O_RDWR)
+	newFile := fsd.addFile(path, highTierFile, os.O_CREATE|os.O_RDWR)
 
 	newFile.MarkUpdated()
 
