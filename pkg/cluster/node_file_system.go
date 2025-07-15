@@ -12,6 +12,13 @@ import (
 
 func (cluster *Cluster) LocalFS() *storage.FileSystem {
 	if cluster.localFileSystem == nil {
+		cluster.fileSystemMutex.Lock()
+		defer cluster.fileSystemMutex.Unlock()
+
+		if cluster.localFileSystem != nil {
+			return cluster.localFileSystem
+		}
+
 		cluster.localFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
 				fmt.Sprintf(
@@ -31,6 +38,13 @@ func (cluster *Cluster) LocalFS() *storage.FileSystem {
 // accessed need high performance or strong consistency guarantees.
 func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 	if cluster.objectFileSystem == nil {
+		cluster.fileSystemMutex.Lock()
+		defer cluster.fileSystemMutex.Unlock()
+
+		if cluster.objectFileSystem != nil {
+			return cluster.objectFileSystem
+		}
+
 		if cluster.Config.StorageObjectMode == config.StorageModeLocal {
 			cluster.objectFileSystem = storage.NewFileSystem(
 				storage.NewLocalFileSystemDriver(
@@ -53,6 +67,13 @@ func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 
 func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 	if cluster.networkFileSystem == nil {
+		cluster.fileSystemMutex.Lock()
+		defer cluster.fileSystemMutex.Unlock()
+
+		if cluster.networkFileSystem != nil {
+			return cluster.networkFileSystem
+		}
+
 		cluster.networkFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
 				cluster.Config.NetworkStoragePath,
@@ -139,26 +160,21 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	}
 
 	if cluster.tieredFileSystem == nil {
-		switch cluster.Config.StorageTieredMode {
-		case config.StorageModeObject:
-			cluster.tieredFileSystem = storage.NewFileSystem(
-				storage.NewTieredFileSystemDriver(
-					cluster.Node().Context(),
-					storage.NewLocalFileSystemDriver(cluster.Config.NetworkStoragePath),
-					storage.NewObjectFileSystemDriver(cluster.Config),
-					fileSyncEligibilityFn,
-				),
-			)
-		case config.StorageModeLocal:
-			cluster.tieredFileSystem = storage.NewFileSystem(
-				storage.NewTieredFileSystemDriver(
-					cluster.Node().Context(),
-					storage.NewLocalFileSystemDriver(cluster.Config.NetworkStoragePath),
-					storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
-					fileSyncEligibilityFn,
-				),
-			)
+		cluster.fileSystemMutex.Lock()
+		defer cluster.fileSystemMutex.Unlock()
+
+		if cluster.tieredFileSystem != nil {
+			return cluster.tieredFileSystem
 		}
+
+		cluster.tieredFileSystem = storage.NewFileSystem(
+			storage.NewTieredFileSystemDriver(
+				cluster.Node().Context(),
+				cluster.NetworkFS(),
+				cluster.ObjectFS(),
+				fileSyncEligibilityFn,
+			),
+		)
 	}
 
 	return cluster.tieredFileSystem
@@ -166,6 +182,13 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 
 func (cluster *Cluster) TmpFS() *storage.FileSystem {
 	if cluster.tmpFileSystem == nil {
+		cluster.fileSystemMutex.Lock()
+		defer cluster.fileSystemMutex.Unlock()
+
+		if cluster.tmpFileSystem != nil {
+			return cluster.tmpFileSystem
+		}
+
 		cluster.tmpFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
 				fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().ID),
@@ -183,36 +206,25 @@ func (cluster *Cluster) TmpFS() *storage.FileSystem {
 // storage system. When writing files, the tmp tiered file system will write to
 // both the local file system and the object storage system.
 func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
-	if cluster.tmpTieredFileSystem != nil {
-		return cluster.tmpTieredFileSystem
-	}
+	if cluster.tmpTieredFileSystem == nil {
+		cluster.fileSystemMutex.Lock()
+		defer cluster.fileSystemMutex.Unlock()
 
-	fileSyncEligibilityFn := func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
-		fsd.CanSyncDirtyFiles = func() bool {
-			return cluster.Node().Membership == ClusterMembershipPrimary
+		if cluster.tmpTieredFileSystem != nil {
+			return cluster.tmpTieredFileSystem
 		}
-	}
 
-	switch cluster.Config.StorageTieredMode {
-	case config.StorageModeObject:
+		fileSyncEligibilityFn := func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+			fsd.CanSyncDirtyFiles = func() bool {
+				return cluster.Node().Membership == ClusterMembershipPrimary
+			}
+		}
+
 		cluster.tmpTieredFileSystem = storage.NewFileSystem(
 			storage.NewTieredFileSystemDriver(
 				cluster.Node().Context(),
-				storage.NewLocalFileSystemDriver(
-					fmt.Sprintf("%s/%s-tiered", cluster.Config.TmpPath, cluster.Node().ID),
-				),
-				storage.NewObjectFileSystemDriver(cluster.Config),
-				fileSyncEligibilityFn,
-			),
-		)
-	case config.StorageModeLocal:
-		cluster.tmpTieredFileSystem = storage.NewFileSystem(
-			storage.NewTieredFileSystemDriver(
-				cluster.Node().Context(),
-				storage.NewLocalFileSystemDriver(
-					fmt.Sprintf("%s/%s-tiered", cluster.Config.TmpPath, cluster.Node().ID),
-				),
-				storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", cluster.Config.DataPath, config.StorageModeObject)),
+				cluster.TmpFS(),
+				cluster.ObjectFS(),
 				fileSyncEligibilityFn,
 			),
 		)
