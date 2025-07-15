@@ -220,6 +220,12 @@ func (pl *PageLog) Delete() error {
 
 	pl.deleted = true
 
+	err = pl.index.Close()
+
+	if err != nil {
+		slog.Error("Error closing page log index during delete:", "error", err)
+	}
+
 	err = pl.index.Delete()
 
 	if err != nil {

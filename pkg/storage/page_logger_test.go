@@ -3,11 +3,14 @@ package storage_test
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
 )
@@ -2446,6 +2449,126 @@ func TestPageLogger_CompactEmptyPageLogsWithAcquiredLogs(t *testing.T) {
 		}
 
 		// Verify compaction actually happened
+		if pageLogger.CompactedAt.IsZero() {
+			t.Fatal("Expected CompactedAt to be set after compaction")
+		}
+	})
+}
+
+func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+		fileSystem := app.Cluster.LocalFS()
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			fileSystem,
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		defer pageLogger.Close()
+
+		// Write some data to create page logs
+		pageData := make([]byte, 4096)
+		timestamp1 := time.Now().UnixNano()
+		timestamp2 := timestamp1 + 1000
+
+		_, err = pageLogger.Write(1, timestamp1, pageData)
+
+		if err != nil {
+			t.Fatalf("Failed to write to page logger: %v", err)
+		}
+
+		_, err = pageLogger.Write(2, timestamp2, pageData)
+
+		if err != nil {
+			t.Fatalf("Failed to write to page logger: %v", err)
+		}
+
+		// Check that page log files exist before compaction
+		logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(db.DatabaseID, db.BranchID))
+
+		files, err := fileSystem.ReadDir(logDir)
+
+		if err != nil {
+			t.Fatalf("Failed to read log directory: %v", err)
+		}
+
+		// Find the page log files
+		var pageLogFiles []string
+		var indexFiles []string
+
+		for _, file := range files {
+			if strings.HasPrefix(file.Name(), "PAGE_LOG_") && !strings.HasSuffix(file.Name(), "_INDEX") {
+				pageLogFiles = append(pageLogFiles, file.Name())
+			}
+
+			if strings.HasPrefix(file.Name(), "PAGE_LOG_") && strings.HasSuffix(file.Name(), "_INDEX") {
+				indexFiles = append(indexFiles, file.Name())
+			}
+		}
+
+		if len(pageLogFiles) == 0 {
+			t.Fatal("Expected page log files to exist before compaction")
+		}
+
+		if len(indexFiles) == 0 {
+			t.Fatal("Expected page log index files to exist before compaction")
+		}
+
+		// Force compaction to remove the page logs
+		err = pageLogger.ForceCompact(
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to force compact: %v", err)
+		}
+
+		// Check that page log files are removed after compaction
+		filesAfterCompaction, err := fileSystem.ReadDir(logDir)
+
+		if err != nil {
+			t.Fatalf("Failed to read log directory after compaction: %v", err)
+		}
+
+		// Verify that the specific page log files are removed
+		for _, pageLogFile := range pageLogFiles {
+			found := false
+
+			for _, remainingFile := range filesAfterCompaction {
+				if remainingFile.Name() == pageLogFile {
+					found = true
+					break
+				}
+			}
+
+			if found {
+				t.Fatalf("Expected page log file %s to be removed after compaction", pageLogFile)
+			}
+		}
+
+		// Verify that the specific index files are removed
+		for _, indexFile := range indexFiles {
+			found := false
+
+			for _, remainingFile := range filesAfterCompaction {
+				if remainingFile.Name() == indexFile {
+					found = true
+					break
+				}
+			}
+
+			if found {
+				t.Fatalf("Expected index file %s to be removed after compaction", indexFile)
+			}
+		}
+
+		// Verify compaction happened
 		if pageLogger.CompactedAt.IsZero() {
 			t.Fatal("Expected CompactedAt to be set after compaction")
 		}

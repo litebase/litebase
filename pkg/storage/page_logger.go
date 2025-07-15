@@ -141,6 +141,10 @@ func (pl *PageLogger) Compact(
 			return nil
 		}
 
+		log.Println("Starting page logger compaction for database", pl.DatabaseID, "branch", pl.BranchID, "with", len(pl.logs), "logs")
+
+		defer log.Println("Finished page logger compaction for database", pl.DatabaseID, "branch", pl.BranchID, "compacted at", pl.CompactedAt, "with", len(pl.logs), "logs remaining")
+
 		compactionErr := pl.compaction(durableDatabaseFileSystem)
 
 		if compactionErr != nil {

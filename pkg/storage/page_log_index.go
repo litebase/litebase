@@ -49,11 +49,9 @@ func (pli *PageLogIndex) Delete() error {
 		defer func() {
 			pli.file = nil
 		}()
-
-		return pli.fileSystem.Remove(pli.path)
 	}
 
-	return nil
+	return pli.fileSystem.Remove(pli.path)
 }
 
 func (pli *PageLogIndex) Empty() bool {

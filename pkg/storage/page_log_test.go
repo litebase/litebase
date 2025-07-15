@@ -94,20 +94,40 @@ func TestPageLog_Delete(t *testing.T) {
 			t.Fatalf("Failed to create new page log: %v", err)
 		}
 
+		// Add some data to create the index
+		data := make([]byte, 4096)
+
+		err = pageLog.Append(1, 1, data)
+
+		if err != nil {
+			t.Fatalf("Failed to append data: %v", err)
+		}
+
 		file := pageLog.File()
 
 		if file == nil {
 			t.Fatal("Expected page log file to be created, but got nil")
 		}
 
+		// Check that both the page log and index files exist
 		stat, err := fileSystem.Stat(pageLog.Path)
-
 		if err != nil {
 			t.Fatalf("Failed to stat page log: %v", err)
 		}
-
 		if stat == nil {
 			t.Fatal("Expected page log file to exist, but got nil")
+		}
+
+		// Check that the index file exists
+		indexPath := pageLog.Path + "_INDEX"
+		indexStat, err := fileSystem.Stat(indexPath)
+
+		if err != nil {
+			t.Fatalf("Failed to stat page log index: %v", err)
+		}
+
+		if indexStat == nil {
+			t.Fatal("Expected page log index file to exist, but got nil")
 		}
 
 		err = pageLog.Delete()
@@ -116,14 +136,24 @@ func TestPageLog_Delete(t *testing.T) {
 			t.Fatalf("Failed to delete page log: %v", err)
 		}
 
+		// Verify that the page log file is deleted
 		stat, err = fileSystem.Stat(pageLog.Path)
-
 		if err == nil {
 			t.Fatal("Expected page log file to be deleted, but it still exists")
 		}
-
 		if stat != nil {
 			t.Fatalf("Expected page log file to be nil, but got: %v", stat)
+		}
+
+		// Verify that the index file is also deleted
+		indexStat, err = fileSystem.Stat(indexPath)
+
+		if err == nil {
+			t.Fatal("Expected page log index file to be deleted, but it still exists")
+		}
+
+		if indexStat != nil {
+			t.Fatalf("Expected page log index file to be nil, but got: %v", indexStat)
 		}
 	})
 }
