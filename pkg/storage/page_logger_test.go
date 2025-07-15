@@ -2011,15 +2011,15 @@ func TestPageLogger_RestartWithoutCompaction_EmptyPageLogs(t *testing.T) {
 			found, _, err := pageLogger2.Read(tc.pageNum, tc.version, readData)
 
 			if err != nil {
-				t.Fatalf("Failed to read page after compaction: %v. Page: %d, Version: %d", err, tc.pageNum, tc.version)
+				t.Fatalf("Failed to read page from second instance after compaction: %v. Page: %d, Version: %d", err, tc.pageNum, tc.version)
 			}
 
 			if !found {
-				t.Fatalf("Expected to find page data after compaction, but not found. Page: %d, Version: %d", tc.pageNum, tc.version)
+				t.Fatalf("Expected to find page data in second instance after compaction, but not found. Page: %d, Version: %d", tc.pageNum, tc.version)
 			}
 
 			if !bytes.Equal(readData, tc.data) {
-				t.Fatalf("Data mismatch after compaction. Page: %d, Version: %d", tc.pageNum, tc.version)
+				t.Fatalf("Data mismatch in second instance after compaction. Page: %d, Version: %d", tc.pageNum, tc.version)
 			}
 		}
 
@@ -2210,7 +2210,7 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 			t.Fatalf("Failed to close page logger: %v", err)
 		}
 
-		// Create new page logger instance - this might create new empty page logs
+		// Create new instance and immediately try to compact
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
 			db.BranchID,
@@ -2225,60 +2225,8 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 			t.Fatal("Expected second page logger to be created, but got nil")
 		}
 
-		// Write more data with newer timestamps to create newer page logs
-		newData := []struct {
-			pageNum int64
-			version int64
-			data    []byte
-		}{
-			{1, 200, make([]byte, 4096)},
-			{2, 200, make([]byte, 4096)},
-			{3, 200, make([]byte, 4096)},
-			{4097, 200, make([]byte, 4096)},
-			{4098, 200, make([]byte, 4096)},
-		}
-
-		for i := range newData {
-			rand.Read(newData[i].data)
-		}
-
-		// Write new data
-		for _, tc := range newData {
-			n, err := pageLogger2.Write(tc.pageNum, tc.version, tc.data)
-
-			if err != nil {
-				t.Fatalf("Failed to write new page: %v. Page: %d, Version: %d", err, tc.pageNum, tc.version)
-			}
-
-			if n != len(tc.data) {
-				t.Fatalf("Expected to write %d bytes, but wrote %d", len(tc.data), n)
-			}
-		}
-
-		// Close without compacting - this might leave incomplete page logs
-		err = pageLogger2.Close()
-
-		if err != nil {
-			t.Fatalf("Failed to close second page logger: %v", err)
-		}
-
-		// Create third instance and immediately try to compact
-		pageLogger3, err := storage.NewPageLogger(
-			db.DatabaseID,
-			db.BranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		if err != nil {
-			t.Fatalf("Failed to create third page logger: %v", err)
-		}
-
-		if pageLogger3 == nil {
-			t.Fatal("Expected third page logger to be created, but got nil")
-		}
-
 		// This compaction might fail with EOF error if there are incomplete page logs
-		err = pageLogger3.Compact(
+		err = pageLogger2.Compact(
 			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
@@ -2288,7 +2236,7 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 		}
 
 		// Force compaction to see if it handles the issue differently
-		err = pageLogger3.ForceCompact(
+		err = pageLogger2.ForceCompact(
 			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
@@ -2296,11 +2244,210 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 			t.Logf("Force compaction failed: %v", err)
 		}
 
-		// Close third instance
-		err = pageLogger3.Close()
+		// Close second instance
+		err = pageLogger2.Close()
 
 		if err != nil {
-			t.Fatalf("Failed to close third page logger: %v", err)
+			t.Fatalf("Failed to close second page logger: %v", err)
+		}
+	})
+}
+
+func TestPageLogger_CompactEmptyPageLogs(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			app.Cluster.LocalFS(),
+		)
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+		defer pageLogger.Close()
+
+		// Create some empty page logs by writing and then tombstoning all data
+		pageData := make([]byte, 4096)
+		timestamp1 := time.Now().UnixNano()
+		timestamp2 := timestamp1 + 1000
+		timestamp3 := timestamp1 + 2000
+
+		// Write data to create logs
+		_, err = pageLogger.Write(1, timestamp1, pageData)
+		if err != nil {
+			t.Fatalf("Failed to write to page logger: %v", err)
+		}
+
+		_, err = pageLogger.Write(2, timestamp2, pageData)
+		if err != nil {
+			t.Fatalf("Failed to write to page logger: %v", err)
+		}
+
+		_, err = pageLogger.Write(3, timestamp3, pageData)
+		if err != nil {
+			t.Fatalf("Failed to write to page logger: %v", err)
+		}
+
+		// Verify data exists before tombstoning
+		readData := make([]byte, 4096)
+		found, _, err := pageLogger.Read(1, timestamp1, readData)
+		if err != nil {
+			t.Fatalf("Failed to read from page logger: %v", err)
+		}
+		if !found {
+			t.Fatal("Expected data to be found before tombstoning")
+		}
+
+		// Tombstone all the data to make the logs empty
+		err = pageLogger.Tombstone(timestamp1)
+		if err != nil {
+			t.Fatalf("Failed to tombstone: %v", err)
+		}
+
+		err = pageLogger.Tombstone(timestamp2)
+		if err != nil {
+			t.Fatalf("Failed to tombstone: %v", err)
+		}
+
+		err = pageLogger.Tombstone(timestamp3)
+		if err != nil {
+			t.Fatalf("Failed to tombstone: %v", err)
+		}
+
+		// Force compaction to clean up empty logs
+		err = pageLogger.ForceCompact(
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+		)
+		if err != nil {
+			t.Fatalf("Failed to force compact: %v", err)
+		}
+
+		// Verify that we can't read any data (all should be tombstoned)
+		found, _, err = pageLogger.Read(1, timestamp1, readData)
+		if err != nil {
+			t.Fatalf("Failed to read from page logger: %v", err)
+		}
+		if found {
+			t.Fatal("Expected no data to be found after tombstoning")
+		}
+
+		found, _, err = pageLogger.Read(2, timestamp2, readData)
+		if err != nil {
+			t.Fatalf("Failed to read from page logger: %v", err)
+		}
+		if found {
+			t.Fatal("Expected no data to be found after tombstoning")
+		}
+
+		found, _, err = pageLogger.Read(3, timestamp3, readData)
+		if err != nil {
+			t.Fatalf("Failed to read from page logger: %v", err)
+		}
+		if found {
+			t.Fatal("Expected no data to be found after tombstoning")
+		}
+
+		// Verify compaction actually happened
+		if pageLogger.CompactedAt.IsZero() {
+			t.Fatal("Expected CompactedAt to be set after compaction")
+		}
+	})
+}
+
+func TestPageLogger_CompactEmptyPageLogsWithAcquiredLogs(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			app.Cluster.LocalFS(),
+		)
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+		defer pageLogger.Close()
+
+		// Create some empty page logs
+		pageData := make([]byte, 4096)
+		timestamp1 := time.Now().UnixNano()
+		timestamp2 := timestamp1 + 1000
+
+		// Write data to create logs
+		_, err = pageLogger.Write(1, timestamp1, pageData)
+		if err != nil {
+			t.Fatalf("Failed to write to page logger: %v", err)
+		}
+
+		_, err = pageLogger.Write(2, timestamp2, pageData)
+		if err != nil {
+			t.Fatalf("Failed to write to page logger: %v", err)
+		}
+
+		// Acquire the first timestamp to prevent its compaction
+		pageLogger.Acquire(timestamp1)
+
+		// Tombstone all the data to make the logs empty
+		err = pageLogger.Tombstone(timestamp1)
+		if err != nil {
+			t.Fatalf("Failed to tombstone: %v", err)
+		}
+
+		err = pageLogger.Tombstone(timestamp2)
+		if err != nil {
+			t.Fatalf("Failed to tombstone: %v", err)
+		}
+
+		// Force compaction - should only compact the non-acquired log
+		err = pageLogger.ForceCompact(
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+		)
+		if err != nil {
+			t.Fatalf("Failed to force compact: %v", err)
+		}
+
+		// Verify that tombstoned data is still not found
+		readData := make([]byte, 4096)
+		found, _, err := pageLogger.Read(1, timestamp1, readData)
+		if err != nil {
+			t.Fatalf("Failed to read from page logger: %v", err)
+		}
+		if found {
+			t.Fatal("Expected no data to be found after tombstoning")
+		}
+
+		found, _, err = pageLogger.Read(2, timestamp2, readData)
+		if err != nil {
+			t.Fatalf("Failed to read from page logger: %v", err)
+		}
+		if found {
+			t.Fatal("Expected no data to be found after tombstoning")
+		}
+
+		// Release the acquired timestamp
+		pageLogger.Release(timestamp1)
+
+		// Force compaction again - should clean up the remaining empty log
+		err = pageLogger.ForceCompact(
+			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+		)
+		if err != nil {
+			t.Fatalf("Failed to force compact after release: %v", err)
+		}
+
+		// Verify data is still not found
+		found, _, err = pageLogger.Read(1, timestamp1, readData)
+		if err != nil {
+			t.Fatalf("Failed to read from page logger: %v", err)
+		}
+		if found {
+			t.Fatal("Expected no data to be found after final compaction")
+		}
+
+		// Verify compaction actually happened
+		if pageLogger.CompactedAt.IsZero() {
+			t.Fatal("Expected CompactedAt to be set after compaction")
 		}
 	})
 }

@@ -164,9 +164,16 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 		return nil
 	}
 
+	// Get non-empty page logs for regular compaction
 	pageLogs := pl.getPageLogsForCompaction()
 
+	// Compact non-empty logs
 	for _, logEntry := range pageLogs {
+		// Skip empty logs during regular compaction
+		if logEntry.pageLog.index.Empty() {
+			continue
+		}
+
 		err := logEntry.pageLog.compact(durableDatabaseFileSystem)
 
 		if err != nil {
@@ -175,11 +182,28 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 		}
 	}
 
-	if len(pageLogs) == 0 {
+	// Get empty page logs for cleanup
+	emptyLogs := pl.getEmptyPageLogsForCleanup()
+
+	// Combine non-empty compacted logs and empty logs for deletion
+	allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs)+len(emptyLogs))
+
+	// Add non-empty logs that were compacted
+	for _, logEntry := range pageLogs {
+		if !logEntry.pageLog.index.Empty() {
+			allLogsToDelete = append(allLogsToDelete, logEntry)
+		}
+	}
+
+	// Add empty logs for cleanup
+	allLogsToDelete = append(allLogsToDelete, emptyLogs...)
+
+	if len(allLogsToDelete) == 0 {
 		return nil
 	}
 
-	for _, logEntry := range pageLogs {
+	// Delete all logs (both compacted and empty)
+	for _, logEntry := range allLogsToDelete {
 		err := logEntry.pageLog.Delete()
 
 		if err != nil {
@@ -193,7 +217,7 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 		}
 	}
 
-	err = pl.index.removePageLogs(pageLogs)
+	err = pl.index.removePageLogs(allLogsToDelete)
 
 	if err != nil {
 		return err
@@ -279,11 +303,6 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 				continue
 			}
 
-			// Skip empty logs
-			if pageLog.index.Empty() {
-				continue
-			}
-
 			pageLogs = append(pageLogs, PageLogEntry{
 				pageGroup:        pageGroup,
 				pageGroupVersion: pageGroupVersion,
@@ -309,6 +328,40 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 	})
 
 	return pageLogs
+}
+
+// Get a list of empty page logs that are eligible for removal. These logs
+// contain no data and are not currently in use, so they can be safely deleted.
+func (pl *PageLogger) getEmptyPageLogsForCleanup() []PageLogEntry {
+	emptyLogs := make([]PageLogEntry, 0)
+
+	// Get the lowest timestamp in log usage
+	lowestTimestamp := int64(0)
+
+	for timestamp := range pl.logUsage {
+		if lowestTimestamp == 0 || timestamp < lowestTimestamp {
+			lowestTimestamp = timestamp
+		}
+	}
+
+	for pageGroup, group := range pl.logs {
+		for pageGroupVersion, pageLog := range group {
+			if lowestTimestamp != 0 && pageGroupVersion >= PageGroupVersion(lowestTimestamp) {
+				continue
+			}
+
+			// Only include empty logs
+			if pageLog.index.Empty() {
+				emptyLogs = append(emptyLogs, PageLogEntry{
+					pageGroup:        pageGroup,
+					pageGroupVersion: pageGroupVersion,
+					pageLog:          pageLog,
+				})
+			}
+		}
+	}
+
+	return emptyLogs
 }
 
 // Load the page logger index and all associated page logs. This is called when

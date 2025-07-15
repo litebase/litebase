@@ -282,7 +282,6 @@ func (pl *PageLog) Get(page PageNumber, version PageVersion, data []byte) (bool,
 		return false, 0, err
 	}
 
-	// Read the data - if we get EOF, it means the index is inconsistent with the file
 	bytesRead, err := pl.File().Read(data)
 
 	if err != nil {
