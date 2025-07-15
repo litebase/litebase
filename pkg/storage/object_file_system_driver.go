@@ -190,10 +190,6 @@ func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMo
 	return NewObjectFile(fs, path, flag, false)
 }
 
-func (fs *ObjectFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	return fs.OpenFile(path, flag, perm)
-}
-
 func (fs *ObjectFileSystemDriver) Path(path string) string {
 	return path
 }

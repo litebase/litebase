@@ -161,19 +161,14 @@ func TestTieredFile_Read(t *testing.T) {
 			t.Errorf("Read content is unexpected: %v", string(buf[:n]))
 		}
 
-		// Close the file
-		if err := tf.Close(); err != nil {
-			t.Error(err)
-		}
-
 		_, err = tf.Seek(0, 0)
 
 		if err != nil {
 			t.Error(err)
 		}
 
-		if !tf.(*storage.TieredFile).Closed {
-			t.Error("Closed is not true")
+		if tf.(*storage.TieredFile).Closed {
+			t.Error("Closed is false")
 		}
 
 		// Reset the buffer

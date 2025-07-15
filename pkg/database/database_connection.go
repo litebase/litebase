@@ -550,6 +550,7 @@ func (con *DatabaseConnection) release() {
 	}
 }
 
+// Release a timestamp from the wal manager and page logger.
 func (con *DatabaseConnection) releaseTimestamp() {
 	// Release the timestamp from the WAL manager
 	con.walManager.Release(con.timestamp)
@@ -558,6 +559,7 @@ func (con *DatabaseConnection) releaseTimestamp() {
 	con.pageLogger.Release(con.timestamp)
 }
 
+// Return the sqlite3 result pool.
 func (con *DatabaseConnection) ResultPool() *sqlite3.ResultPool {
 	return con.resultPool
 }

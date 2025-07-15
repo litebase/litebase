@@ -13,7 +13,7 @@ import (
 func TestNewPageLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -30,7 +30,7 @@ func TestNewPageLog(t *testing.T) {
 func TestPageLog_Append(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -65,7 +65,7 @@ func TestPageLog_Append(t *testing.T) {
 func TestPageLog_Close(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -83,7 +83,7 @@ func TestPageLog_Close(t *testing.T) {
 
 func TestPageLog_Delete(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		fileSystem := app.Cluster.LocalFS()
+		fileSystem := app.Cluster.TieredFS()
 
 		pageLog, err := storage.NewPageLog(
 			fileSystem,
@@ -131,7 +131,7 @@ func TestPageLog_Delete(t *testing.T) {
 func TestPageLog_File(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -150,7 +150,7 @@ func TestPageLog_File(t *testing.T) {
 func TestPageLog_Get(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -203,7 +203,7 @@ func TestPageLog_Get(t *testing.T) {
 func TestPageLog_RestoresAfterClose(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -228,7 +228,7 @@ func TestPageLog_RestoresAfterClose(t *testing.T) {
 		}
 
 		pageLog, err = storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -258,10 +258,133 @@ func TestPageLog_RestoresAfterClose(t *testing.T) {
 	})
 }
 
+func TestPageLog_Sync(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		pageLog, err := storage.NewPageLog(
+			app.Cluster.TieredFS(),
+			"PAGE_LOG",
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create new page log: %v", err)
+		}
+
+		// Test syncing empty page log
+		err = pageLog.Sync()
+
+		if err != nil {
+			t.Fatalf("Failed to sync empty page log: %v", err)
+		}
+
+		// Test syncing after appending data
+		data := make([]byte, 4096)
+		rand.Read(data)
+
+		err = pageLog.Append(1, 1, data)
+
+		if err != nil {
+			t.Fatalf("Failed to append data: %v", err)
+		}
+
+		err = pageLog.Sync()
+
+		if err != nil {
+			t.Fatalf("Failed to sync page log after append: %v", err)
+		}
+
+		// Test syncing multiple times
+		err = pageLog.Sync()
+
+		if err != nil {
+			t.Fatalf("Failed to sync page log multiple times: %v", err)
+		}
+
+		// Test syncing with multiple pages
+		for i := int64(2); i <= 5; i++ {
+			data := make([]byte, 4096)
+			rand.Read(data)
+
+			err = pageLog.Append(i, 1, data)
+			if err != nil {
+				t.Fatalf("Failed to append data for page %d: %v", i, err)
+			}
+		}
+
+		err = pageLog.Sync()
+
+		if err != nil {
+			t.Fatalf("Failed to sync page log with multiple pages: %v", err)
+		}
+
+		// Verify data persists after sync by reading it back
+		readData := make([]byte, 4096)
+
+		found, foundVersion, err := pageLog.Get(1, 1, readData)
+
+		if err != nil {
+			t.Fatalf("Failed to read data after sync: %v", err)
+		}
+
+		if !found {
+			t.Fatal("Data not found after sync")
+		}
+
+		if foundVersion != 1 {
+			t.Fatalf("Expected version 1, got %d", foundVersion)
+		}
+
+		if !bytes.Equal(data, readData) {
+			t.Fatal("Data mismatch after sync")
+		}
+	})
+}
+
+func TestPageLog_SyncAfterDelete(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		pageLog, err := storage.NewPageLog(
+			app.Cluster.TieredFS(),
+			"PAGE_LOG",
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create new page log: %v", err)
+		}
+
+		// Add some data
+		data := make([]byte, 4096)
+		rand.Read(data)
+
+		err = pageLog.Append(1, 1, data)
+		if err != nil {
+			t.Fatalf("Failed to append data: %v", err)
+		}
+
+		// Delete the page log
+		err = pageLog.Delete()
+
+		if err != nil {
+			t.Fatalf("Failed to delete page log: %v", err)
+		}
+
+		// Try to sync after delete - should return error
+		err = pageLog.Sync()
+
+		if err == nil {
+			t.Fatal("Expected error when syncing deleted page log, but got nil")
+		}
+
+		expectedError := "cannot sync a deleted page log"
+
+		if err.Error() != expectedError {
+			t.Fatalf("Expected error '%s', got '%s'", expectedError, err.Error())
+		}
+	})
+}
+
 func TestPageLog_Tombstone(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
-			app.Cluster.LocalFS(),
+			app.Cluster.TieredFS(),
 			"PAGE_LOG",
 		)
 
@@ -299,6 +422,68 @@ func TestPageLog_Tombstone(t *testing.T) {
 
 		if foundVersion != 0 {
 			t.Fatal("Expected found version to be 0 after tombstone")
+		}
+	})
+}
+
+func TestPageLog_ConcurrentSync(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		pageLog, err := storage.NewPageLog(
+			app.Cluster.TieredFS(),
+			"PAGE_LOG",
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create new page log: %v", err)
+		}
+
+		// Add some data
+		data := make([]byte, 4096)
+		rand.Read(data)
+
+		err = pageLog.Append(1, 1, data)
+
+		if err != nil {
+			t.Fatalf("Failed to append data: %v", err)
+		}
+
+		// Test concurrent sync operations
+		numGoroutines := 10
+		errChan := make(chan error, numGoroutines)
+
+		for range numGoroutines {
+			go func() {
+				errChan <- pageLog.Sync()
+			}()
+		}
+
+		// Check all sync operations completed successfully
+		for range numGoroutines {
+			err := <-errChan
+			if err != nil {
+				t.Fatalf("Concurrent sync failed: %v", err)
+			}
+		}
+
+		// Verify data is still accessible after concurrent syncs
+		readData := make([]byte, 4096)
+
+		found, foundVersion, err := pageLog.Get(1, 1, readData)
+
+		if err != nil {
+			t.Fatalf("Failed to read data after concurrent sync: %v", err)
+		}
+
+		if !found {
+			t.Fatal("Data not found after concurrent sync")
+		}
+
+		if foundVersion != 1 {
+			t.Fatalf("Expected version 1, got %d", foundVersion)
+		}
+
+		if !bytes.Equal(data, readData) {
+			t.Fatal("Data mismatch after concurrent sync")
 		}
 	})
 }

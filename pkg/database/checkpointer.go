@@ -150,15 +150,6 @@ func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
 		return err
 	}
 
-	// This is absolutely wrong! We should not be writing to the page log here.
-	// Need to remove it and also find a way to tombstone the pages that are
-	// are added during this checkpoint.
-	// _, err = c.pageLogger.Write(pageNumber, c.Checkpoint.Timestamp, data)
-
-	// if err != nil {
-	// 	return err
-	// }
-
 	c.Checkpoint.Size += int64(size)
 
 	return nil
@@ -220,6 +211,17 @@ func (c *Checkpointer) Commit() error {
 		if err != nil {
 			log.Println("Error logging checkpoint", err)
 			errors = append(errors, err)
+		}
+	}()
+
+	// Sync the page logs to ensure all data is flushed to disk
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := c.pageLogger.Sync()
+
+		if err != nil {
+			slog.Warn("Error syncing page log after checkpoint commit", "error", err)
 		}
 	}()
 

@@ -57,7 +57,7 @@ func (tfl *TieredFileSystemLogger) file() (*os.File, error) {
 tryOpen:
 	file, err := os.OpenFile(
 		fmt.Sprintf("%s/%d", tfl.directory, tfl.currentLog),
-		os.O_CREATE|os.O_WRONLY|os.O_APPEND,
+		os.O_CREATE|os.O_WRONLY,
 		0600,
 	)
 

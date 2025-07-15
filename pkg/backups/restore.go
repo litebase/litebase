@@ -94,7 +94,7 @@ func copySourceDatabasePageLogsToTargetDatabase(
 	targetDirectory := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(targetDatabaseUuid, targetBranchUuid))
 
 	// Loop through the files in the source database and copy them to the target database
-	entries, err := sourceFileSystem.PageLogger.NetworkFS.ReadDir(sourceDirectory)
+	entries, err := sourceFileSystem.PageLogger.TieredFS.ReadDir(sourceDirectory)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -106,14 +106,14 @@ func copySourceDatabasePageLogsToTargetDatabase(
 
 	for _, entry := range entries {
 		sourceFilePath := fmt.Sprintf("%s%s", sourceDirectory, entry.Name())
-		sourceFile, err := sourceFileSystem.PageLogger.NetworkFS.Open(sourceFilePath)
+		sourceFile, err := sourceFileSystem.PageLogger.TieredFS.Open(sourceFilePath)
 
 		if err != nil {
 			slog.Error("Error opening source file:", "file", sourceFilePath, "error", err)
 			return err
 		}
 
-		err = targetFileSystem.PageLogger.NetworkFS.MkdirAll(targetDirectory, 0750)
+		err = targetFileSystem.PageLogger.TieredFS.MkdirAll(targetDirectory, 0750)
 
 		if err != nil {
 			slog.Error("Error creating target directory:", "directory", targetDirectory, "error", err)
@@ -122,7 +122,7 @@ func copySourceDatabasePageLogsToTargetDatabase(
 
 		targetFilePath := fmt.Sprintf("%s%s", targetDirectory, entry.Name())
 
-		targetFile, err := targetFileSystem.PageLogger.NetworkFS.Create(targetFilePath)
+		targetFile, err := targetFileSystem.PageLogger.TieredFS.Create(targetFilePath)
 
 		if err != nil {
 			slog.Error("Error writing file:", "file", entry.Name(), "error", err)

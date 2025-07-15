@@ -104,10 +104,6 @@ func (fs *LocalFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMod
 	return file, nil
 }
 
-func (fs *LocalFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	return openFileDirect(fs.Path(path), flag, perm)
-}
-
 func (fs *LocalFileSystemDriver) Path(path string) string {
 	var builder strings.Builder
 	path = strings.TrimRight(path, "/")

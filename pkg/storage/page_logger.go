@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DefaultPageLoggerCompactInterval = time.Minute * 1
+	DefaultPageLoggerCompactInterval = time.Second * 10
 	PageLoggerMaxPages               = 4294967295
 	PageLoggerPageGroups             = 4096
 )
@@ -34,11 +34,12 @@ type PageLogger struct {
 	CompactedAt     time.Time
 	compactionMutex *sync.Mutex
 	DatabaseID      string
-	NetworkFS       *FileSystem
+	TieredFS        *FileSystem
 	index           *PageLoggerIndex
 	logs            map[PageGroup]map[PageGroupVersion]*PageLog
 	logUsage        map[int64]int64
 	mutex           *sync.Mutex
+	writtenAt       time.Time
 }
 
 type PageLogEntry struct {
@@ -49,13 +50,14 @@ type PageLogEntry struct {
 
 var ErrCompactionInProgress = errors.New("compaction is already in progress")
 
+// Create a new instance of a page logger for the given database and branch.
 func NewPageLogger(
 	databaseId string,
 	branchId string,
-	networkFS *FileSystem,
+	tieredFS *FileSystem,
 ) (*PageLogger, error) {
 	path := file.GetDatabaseFileBaseDir(databaseId, branchId)
-	pli, err := NewPageLoggerIndex(networkFS, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
+	pli, err := NewPageLoggerIndex(tieredFS, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
 
 	if err != nil {
 		return nil, err
@@ -65,7 +67,7 @@ func NewPageLogger(
 		BranchID:        branchId,
 		compactionMutex: &sync.Mutex{},
 		DatabaseID:      databaseId,
-		NetworkFS:       networkFS,
+		TieredFS:        tieredFS,
 		index:           pli,
 		logs:            make(map[PageGroup]map[PageGroupVersion]*PageLog),
 		logUsage:        make(map[int64]int64),
@@ -82,6 +84,9 @@ func NewPageLogger(
 	return pl, nil
 }
 
+// Acquire a reference to a specific timestamp in the page logger. This is used to
+// prevent compaction of logs that are in use. Each call to Acquire must be matched
+// with a call to Release.
 func (pl *PageLogger) Acquire(timestamp int64) {
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
@@ -89,6 +94,8 @@ func (pl *PageLogger) Acquire(timestamp int64) {
 	pl.logUsage[timestamp] = pl.logUsage[timestamp] + 1
 }
 
+// Close the page logger and all its associated page logs. This will flush any
+// pending writes to disk and close all open file handles.
 func (pl *PageLogger) Close() error {
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
@@ -126,7 +133,11 @@ func (pl *PageLogger) Compact(
 	defer pl.mutex.Unlock()
 
 	return pl.CompactionBarrier(func() error {
-		if PageLoggerCompactInterval != 0 && (!pl.CompactedAt.IsZero() || pl.CompactedAt.Before(time.Now().UTC().Add(-PageLoggerCompactInterval))) {
+		if PageLoggerCompactInterval != 0 && !pl.CompactedAt.IsZero() && pl.CompactedAt.After(time.Now().UTC().Add(-PageLoggerCompactInterval)) {
+			return nil
+		}
+
+		if pl.writtenAt.IsZero() || pl.writtenAt.Before(pl.CompactedAt) {
 			return nil
 		}
 
@@ -146,7 +157,6 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 	err := pl.reload()
 
 	if err != nil {
-
 		slog.Error("Error reloading page logger for compaction", "error", err)
 	}
 
@@ -211,7 +221,7 @@ func (pl *PageLogger) CompactionBarrier(f func() error) error {
 // Create a new instance of a page log for the given log group and timestamp.
 func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGroupVersion) (*PageLog, error) {
 	return NewPageLog(
-		pl.NetworkFS,
+		pl.TieredFS,
 		fmt.Sprintf(
 			"%slogs/page/PAGE_LOG_%d_%d",
 			file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID),
@@ -241,10 +251,16 @@ func (pl *PageLogger) ForceCompact(
 	})
 }
 
+// Get the log group number for a given page number. This is used to determine
+// which page log a page belongs to. Page logs are sharded by groups of pages to
+// limit the number of open file handles and improve performance.
 func (pl *PageLogger) getLogGroupNumber(pageNumber int64) int64 {
 	return (pageNumber / PageLoggerPageGroups) + 1
 }
 
+// Get a list of page logs that are eligible for compaction. This will return
+// all page logs that are not currently in use. A page log is considered in use
+// if it has been acquired by a caller using the Acquire method.
 func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 	pageLogs := make([]PageLogEntry, 0)
 
@@ -295,6 +311,9 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 	return pageLogs
 }
 
+// Load the page logger index and all associated page logs. This is called when
+// the page logger is created to initialize its state from disk. It will scan
+// the log directory for all page log files and load their metadata.
 func (pl *PageLogger) load() error {
 	// Reinitialize the logs map
 	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
@@ -302,7 +321,7 @@ func (pl *PageLogger) load() error {
 	// Scan the log directory
 	logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID))
 
-	files, err := pl.NetworkFS.ReadDir(logDir)
+	files, err := pl.TieredFS.ReadDir(logDir)
 
 	if err != nil {
 		return err
@@ -351,6 +370,10 @@ func (pl *PageLogger) load() error {
 	return nil
 }
 
+// Read a page from the page logger. This will search through all available page
+// logs for the given page number and timestamp. It will return the latest
+// version of the page that is less than or equal to the given timestamp.
+// If no page is found, it will return false.
 func (pl *PageLogger) Read(
 	pageNumber int64,
 	timestamp int64,
@@ -419,6 +442,10 @@ func (pl *PageLogger) Read(
 	return false, 0, nil
 }
 
+// Release a reference to a specific timestamp in the page logger. This will
+// decrement the usage count for the given timestamp. If the usage count
+// reaches zero, the timestamp will be removed from the usage map. This
+// indicates that the page log is no longer in use and can be safely compacted.
 func (pl *PageLogger) Release(timestamp int64) {
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
@@ -459,6 +486,31 @@ func (pl *PageLogger) reload() error {
 	return pl.load()
 }
 
+// Sync all page logs and the page logger index to ensure all data is flushed to
+// disk. This should be called after a checkpoint is committed to ensure that
+// all data is persisted.
+func (pl *PageLogger) Sync() error {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	for _, group := range pl.logs {
+		for _, log := range group {
+			err := log.Sync()
+
+			if err != nil {
+				slog.Warn("Error syncing page log", "error", err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Tombstone a specific timestamp in all page logs. This will mark the given
+// timestamp as deleted in all page logs. This is used to indicate that all
+// pages with the given timestamp are no longer valid and should not be
+// returned by reads. This is useful for discarding data during a rollback.
 func (pl *PageLogger) Tombstone(timestamp int64) error {
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
@@ -540,6 +592,8 @@ func (pl *PageLogger) Write(
 		log.Println("Error appending page log", err)
 		return 0, err
 	}
+
+	pl.writtenAt = time.Now().UTC()
 
 	return len(data), nil
 }

@@ -17,7 +17,6 @@ type FileSystemDriver interface {
 	MkdirAll(path string, perm fs.FileMode) error
 	Open(path string) (internalStorage.File, error)
 	OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error)
-	OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error)
 	Path(string) string
 	ReadDir(path string) ([]internalStorage.DirEntry, error)
 	ReadFile(path string) ([]byte, error)
@@ -113,16 +112,6 @@ func (fs *FileSystem) OpenFile(path string, flag int, perm fs.FileMode) (interna
 	defer fs.lock.ReleasePathWriteLock(pathLock)
 
 	return fs.driver.OpenFile(path, flag, perm)
-}
-
-func (fs *FileSystem) OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	accessLocks := fs.lock.AcquireAccessLocks(path)
-	defer fs.lock.ReleaseAccessLocks(accessLocks)
-
-	pathLock := fs.lock.AcquirePathWriteLock(path)
-	defer fs.lock.ReleasePathWriteLock(pathLock)
-
-	return fs.driver.OpenFileDirect(path, flag, perm)
 }
 
 func (fs *FileSystem) Path(path string) string {

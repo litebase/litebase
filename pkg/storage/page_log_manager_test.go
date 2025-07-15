@@ -30,7 +30,7 @@ func TestPageLogManager_Close(t *testing.T) {
 
 func TestPageLogManager_Get(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		localFileSystem := app.Cluster.LocalFS()
+		tieredFS := app.Cluster.TieredFS()
 
 		plm := storage.NewPageLogManager(context.Background())
 		defer plm.Close()
@@ -38,13 +38,13 @@ func TestPageLogManager_Get(t *testing.T) {
 		databaseId := "test_db"
 		branchId := "test_branch"
 
-		logger := plm.Get(databaseId, branchId, localFileSystem)
+		logger := plm.Get(databaseId, branchId, tieredFS)
 
 		if logger == nil {
 			t.Fatal("Expected to get a PageLogger instance, got nil")
 		}
 
-		sameLogger := plm.Get(databaseId, branchId, localFileSystem)
+		sameLogger := plm.Get(databaseId, branchId, tieredFS)
 
 		if logger != sameLogger {
 			t.Fatal("Expected to get the same PageLogger instance, got different instances")
@@ -54,7 +54,7 @@ func TestPageLogManager_Get(t *testing.T) {
 
 func TestPageLogManager_Release(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		localFileSystem := app.Cluster.LocalFS()
+		tieredFS := app.Cluster.TieredFS()
 
 		plm := storage.NewPageLogManager(context.Background())
 		defer plm.Close()
@@ -62,7 +62,7 @@ func TestPageLogManager_Release(t *testing.T) {
 		databaseId := "test_db"
 		branchId := "test_branch"
 
-		logger := plm.Get(databaseId, branchId, localFileSystem)
+		logger := plm.Get(databaseId, branchId, tieredFS)
 
 		if logger == nil {
 			t.Fatal("Expected to get a PageLogger instance, got nil")

@@ -153,7 +153,7 @@ func (d *DatabaseResources) createPageLogger() *storage.PageLogger {
 	return d.databaseManager.PageLogManager().Get(
 		d.DatabaseID,
 		d.BranchID,
-		d.databaseManager.Cluster.NetworkFS(),
+		d.databaseManager.Cluster.TieredFS(),
 	)
 }
 

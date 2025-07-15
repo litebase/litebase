@@ -399,14 +399,7 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	if file, ok := fsd.GetTieredFile(path); ok {
 		// Compare the flags to ensure they match
 		if file.Flag&flag == flag {
-			_, err := file.Seek(0, io.SeekStart)
-
-			if err != nil {
-				log.Println("Error seeking to start of file", err)
-
-				return nil, err
-			}
-
+			// Don't seek to position 0 automatically - let the caller control file position
 			return file, nil
 		}
 
@@ -464,65 +457,6 @@ tryOpen:
 	return newFile, nil
 }
 
-func (fsd *TieredFileSystemDriver) OpenFileDirect(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	if file, ok := fsd.GetTieredFile(path); ok {
-		// Compare the flags to ensure they match
-		if file.Flag&flag == flag {
-			_, err := file.Seek(0, io.SeekStart)
-
-			if err != nil {
-				log.Println("Error seeking to start of file", err)
-
-				return nil, err
-			}
-
-			return file, nil
-		}
-
-		err := fsd.releaseFile(file)
-
-		if err != nil {
-			slog.Error("Error releasing file", "error", err)
-		}
-	}
-
-	// If the file is write only, we need to add file flags to durable storage
-	// that allow the file to be created and read.
-	durableFlag := flag
-
-	if flag&os.O_WRONLY == os.O_WRONLY {
-		durableFlag &= ^os.O_WRONLY
-		durableFlag |= os.O_RDWR
-	}
-
-	// To open a file, we need to first try and read the file from the durable storage
-	f, err := fsd.lowTierFileSystemDriver.OpenFileDirect(path, durableFlag, perm)
-
-	if err != nil {
-		return nil, err
-	}
-
-	file, err := fsd.highTierFileSystemDriver.OpenFileDirect(path, os.O_RDWR|os.O_CREATE, 0600)
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = fsd.CopyFile(file, f)
-
-	if err != nil {
-		log.Println("Error writing to high tier file", err)
-		return nil, err
-	}
-
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
-	newFile := fsd.addFile(path, file, flag)
-
-	return newFile, nil
-}
-
 func (fsd *TieredFileSystemDriver) Path(path string) string {
 	return fsd.highTierFileSystemDriver.Path(path)
 }
@@ -549,13 +483,30 @@ func (fsd *TieredFileSystemDriver) ReadDir(path string) ([]internalStorage.DirEn
 // track the file.
 func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 	if file, ok := fsd.GetTieredFile(path); ok && file.File != nil {
-		_, err := file.Seek(0, io.SeekStart)
-
+		// Save current position
+		currentPos, err := file.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return nil, err
 		}
 
-		return io.ReadAll(file)
+		// Seek to start for reading entire file
+		_, err = file.Seek(0, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+
+		// Restore original position
+		_, err = file.Seek(currentPos, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+
+		return data, nil
 	}
 
 	data, err := fsd.lowTierFileSystemDriver.ReadFile(path)
@@ -585,7 +536,7 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 // This operation is typically performed when the file is no longer needed.
 func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 	// Files should not be released if their changes are pending to be written
-	if file.shouldBeWrittenToDurableStorage() {
+	if !file.WrittenAt.IsZero() && file.shouldBeWrittenToDurableStorage() {
 		return ErrTieredFileCannotBeReleased
 	}
 
