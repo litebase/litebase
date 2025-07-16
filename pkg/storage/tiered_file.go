@@ -174,6 +174,7 @@ func (f *TieredFile) Read(b []byte) (n int, err error) {
 	if err == nil {
 		f.position += int64(n)
 	}
+
 	return n, err
 }
 

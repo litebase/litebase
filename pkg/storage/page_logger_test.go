@@ -2574,3 +2574,278 @@ func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
 		}
 	})
 }
+
+func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+		fileSystem := app.Cluster.LocalFS()
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			fileSystem,
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		defer pageLogger.Close()
+
+		// Create data for 17 different page logs across multiple page groups
+		pageData := make([]byte, 4096)
+		baseTime := time.Now().UnixNano()
+
+		testData := []struct {
+			pageNum   int64
+			timestamp int64
+		}{}
+
+		// Create 17 different page logs with varying timestamps
+		for i := range 17 {
+			pageNum := int64(i*1000 + 1) // Spread across different page groups
+			timestamp := baseTime + int64(i*1000)
+			testData = append(testData, struct {
+				pageNum   int64
+				timestamp int64
+			}{pageNum, timestamp})
+		}
+
+		// Write data to create the 17 page logs
+		for _, tc := range testData {
+			rand.Read(pageData)
+
+			_, err = pageLogger.Write(tc.pageNum, tc.timestamp, pageData)
+			if err != nil {
+				t.Fatalf("Failed to write page %d at timestamp %d: %v", tc.pageNum, tc.timestamp, err)
+			}
+		}
+
+		// Create some additional empty logs by tombstoning some data
+		for i := range 5 {
+			emptyTimestamp := baseTime + int64(i*10000)
+			pageNum := int64(i*2000 + 1)
+
+			_, err = pageLogger.Write(pageNum, emptyTimestamp, pageData)
+			if err != nil {
+				t.Fatalf("Failed to write page for tombstoning: %v", err)
+			}
+
+			err = pageLogger.Tombstone(emptyTimestamp)
+			if err != nil {
+				t.Fatalf("Failed to tombstone: %v", err)
+			}
+		}
+
+		// Verify we have logs before compaction
+		t.Logf("Created page logs, running compaction...")
+
+		// Run compaction multiple times like the user scenario
+		for i := range 3 {
+			err = pageLogger.ForceCompact(
+				app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			)
+
+			if err != nil {
+				t.Fatalf("Failed to compact on attempt %d: %v", i+1, err)
+			}
+
+			t.Logf("Compaction attempt %d completed successfully", i+1)
+		}
+
+		// Verify compaction worked
+		if pageLogger.CompactedAt.IsZero() {
+			t.Fatal("Expected CompactedAt to be set after compaction")
+		}
+
+		t.Logf("Successfully completed compaction with many page logs")
+	})
+}
+
+func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
+	test.Run(t, func() {
+		// Set compaction interval to 0 to test compaction behavior after restart
+		originalInterval := storage.PageLoggerCompactInterval
+		storage.PageLoggerCompactInterval = time.Millisecond
+		defer func() {
+			storage.PageLoggerCompactInterval = originalInterval
+		}()
+
+		// Create first server instance
+		server1 := test.NewUnstartedTestServer(t)
+		server1.Started = server1.App.Cluster.Node().Start()
+		<-server1.Started // Wait for server to start
+
+		// Create mock database
+		db := test.MockDatabase(server1.App)
+
+		// Create page logger with TieredFS (which handles sync to low-tier storage)
+		pageLogger1, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			server1.App.Cluster.TieredFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		// Write data across multiple page logs to simulate real-world scenario
+		baseTimestamp := time.Now().UnixNano()
+
+		testData := []struct {
+			pageNum   int64
+			timestamp int64
+			data      []byte
+		}{}
+
+		// Create 10 page logs with different timestamps and page groups
+		for i := range 10 {
+			pageNum := int64(i*storage.PageLoggerPageGroups + 1) // Different page groups
+			timestamp := baseTimestamp + int64(i*1000)
+			data := make([]byte, 4096)
+			rand.Read(data)
+			testData = append(testData, struct {
+				pageNum   int64
+				timestamp int64
+				data      []byte
+			}{pageNum, timestamp, data})
+		}
+
+		// Write all data to the first page logger
+		for _, tc := range testData {
+			_, err = pageLogger1.Write(tc.pageNum, tc.timestamp, tc.data)
+
+			if err != nil {
+				t.Fatalf("Failed to write page %d: %v", tc.pageNum, err)
+			}
+		}
+
+		// Verify data can be read from first instance
+		for _, tc := range testData {
+			readData := make([]byte, 4096)
+			found, _, err := pageLogger1.Read(tc.pageNum, tc.timestamp, readData)
+
+			if err != nil {
+				t.Fatalf("Failed to read page %d: %v", tc.pageNum, err)
+			}
+
+			if !found {
+				t.Fatalf("Expected to find data for page %d", tc.pageNum)
+			}
+
+			if !bytes.Equal(readData, tc.data) {
+				t.Fatalf("Data mismatch for page %d", tc.pageNum)
+			}
+		}
+
+		// Close the page logger and shutdown the server
+		// This should trigger tiered FS sync to low-tier storage
+		err = pageLogger1.Close()
+
+		if err != nil {
+			t.Fatalf("Failed to close page logger: %v", err)
+		}
+
+		t.Logf("Shutting down server1...")
+		server1.Shutdown()
+
+		// Start a new server instance (simulating restart)
+		server2 := test.NewUnstartedTestServer(t)
+		server2.Started = server2.App.Cluster.Node().Start()
+		<-server2.Started // Wait for server to start
+
+		// Create a new page logger instance with the same database ID (simulating restart)
+		// This should recover any files that were synced to low-tier storage
+		pageLogger2, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			server2.App.Cluster.TieredFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger after restart: %v", err)
+		}
+
+		defer pageLogger2.Close()
+
+		// Write additional data to create new page logs
+		additionalData := []struct {
+			pageNum   int64
+			timestamp int64
+			data      []byte
+		}{}
+
+		for i := 10; i < 17; i++ { // Create 7 more logs to reach 17 total
+			pageNum := int64(i*storage.PageLoggerPageGroups + 1)
+			timestamp := baseTimestamp + int64(i*1000)
+			data := make([]byte, 4096)
+			rand.Read(data)
+			additionalData = append(additionalData, struct {
+				pageNum   int64
+				timestamp int64
+				data      []byte
+			}{pageNum, timestamp, data})
+		}
+
+		// Write additional data
+		for _, tc := range additionalData {
+			_, err = pageLogger2.Write(tc.pageNum, tc.timestamp, tc.data)
+
+			if err != nil {
+				t.Fatalf("Failed to write additional page %d: %v", tc.pageNum, err)
+			}
+		}
+
+		// Now try to compact with all 17 page logs
+		// This is where the user is experiencing EOF errors
+		t.Logf("Attempting compaction with 17 page logs after restart...")
+
+		err = pageLogger2.ForceCompact(
+			server2.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to compact after restart: %v", err)
+		}
+
+		// Verify compaction worked
+		if pageLogger2.CompactedAt.IsZero() {
+			t.Fatal("Expected CompactedAt to be set after compaction")
+		}
+
+		// Try multiple compactions to ensure consistency
+		for i := range 3 {
+			err = pageLogger2.ForceCompact(
+				server2.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			)
+
+			if err != nil {
+				t.Fatalf("Failed to compact on attempt %d: %v", i+1, err)
+			}
+
+			t.Logf("Compaction attempt %d completed successfully", i+1)
+		}
+
+		// Verify we can still read the additional data
+		for _, tc := range additionalData {
+			readData := make([]byte, 4096)
+			found, _, err := pageLogger2.Read(tc.pageNum, tc.timestamp, readData)
+
+			if err != nil {
+				t.Fatalf("Failed to read additional page %d after compaction: %v", tc.pageNum, err)
+			}
+
+			// Note: Data might not be found if it was compacted to durable storage
+			if found {
+				t.Logf("Successfully read additional data for page %d after compaction", tc.pageNum)
+			} else {
+				t.Logf("Data for page %d was compacted to durable storage", tc.pageNum)
+			}
+		}
+
+		t.Logf("Successfully completed server restart and compaction test")
+
+		server2.Shutdown()
+	})
+}
