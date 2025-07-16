@@ -930,12 +930,41 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 				},
 			)
 
-			_, err := tieredFileSystemDriver.Create("test")
-
+			// Create a file with actual content
+			file, err := tieredFileSystemDriver.Create("test")
 			if err != nil {
 				t.Error(err)
 			}
 
+			// Write some content to the file
+			_, err = file.Write([]byte("hello world"))
+			if err != nil {
+				t.Error(err)
+			}
+
+			// Close the file to ensure it's marked as dirty
+			err = file.Close()
+			if err != nil {
+				t.Error(err)
+			}
+
+			// Create another file that should also be synced
+			file2, err := tieredFileSystemDriver.Create("test2")
+			if err != nil {
+				t.Error(err)
+			}
+
+			_, err = file2.Write([]byte("hello world 2"))
+			if err != nil {
+				t.Error(err)
+			}
+
+			err = file2.Close()
+			if err != nil {
+				t.Error(err)
+			}
+
+			// Simulate crash
 			os.Exit(1)
 		})
 	}
@@ -957,14 +986,19 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 
 		fsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
 
-		// Verify the file was not synced due to the crash.
-		_, err := fsd.Stat("test.txt")
-
+		// Verify the files were not synced due to the crash
+		_, err := fsd.Stat("test")
 		if err != nil && !os.IsNotExist(err) {
 			t.Errorf("TieredFileSystemDriver.Stat should return os.IsNotExist error, got %v", err)
 		}
 
-		storage.NewTieredFileSystemDriver(
+		_, err = fsd.Stat("test2")
+		if err != nil && !os.IsNotExist(err) {
+			t.Errorf("TieredFileSystemDriver.Stat should return os.IsNotExist error, got %v", err)
+		}
+
+		// Create a new tiered file system driver (simulating restart)
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
 			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
 			fsd,
@@ -975,11 +1009,38 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 			},
 		)
 
-		// Verify the file was synced.
-		_, err = fsd.Stat("test.txt")
-
+		// Verify the files were synced after restart
+		_, err = fsd.Stat("test")
 		if err != nil {
-			t.Errorf("TieredFileSystemDriver.Stat should return nil, got %v", err)
+			t.Errorf("TieredFileSystemDriver.Stat should return nil after sync, got %v", err)
+		}
+
+		_, err = fsd.Stat("test2")
+		if err != nil {
+			t.Errorf("TieredFileSystemDriver.Stat should return nil after sync, got %v", err)
+		}
+
+		// Verify the files have the correct content (not empty)
+		data, err := fsd.ReadFile("test")
+		if err != nil {
+			t.Errorf("Failed to read synced file: %v", err)
+		}
+		if string(data) != "hello world" {
+			t.Errorf("Expected 'hello world', got '%s'", string(data))
+		}
+
+		data, err = fsd.ReadFile("test2")
+		if err != nil {
+			t.Errorf("Failed to read synced file: %v", err)
+		}
+		if string(data) != "hello world 2" {
+			t.Errorf("Expected 'hello world 2', got '%s'", string(data))
+		}
+
+		// Close the driver
+		err = tieredFileSystemDriver.Shutdown()
+		if err != nil {
+			t.Errorf("Failed to shutdown tiered file system driver: %v", err)
 		}
 	})
 }
@@ -1639,6 +1700,232 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 		// The number of files should not have been changed
 		if tieredFileSystemDriver.FileCount != 4 {
 			t.Fatalf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		}
+	})
+}
+
+func TestTieredFileSystemDriver_FlushClearsDirtyLog(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
+		)
+
+		// Create a file with content
+		file, err := tieredFileSystemDriver.Create("test")
+		if err != nil {
+			t.Error(err)
+		}
+
+		_, err = file.Write([]byte("hello world"))
+		if err != nil {
+			t.Error(err)
+		}
+
+		err = file.Close()
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Verify the file is in the dirty log
+		hasDirtyLogs := tieredFileSystemDriver.HasDirtyLogs()
+		if !hasDirtyLogs {
+			t.Error("Expected dirty logs to exist after file creation")
+		}
+
+		// Flush the files
+		err = tieredFileSystemDriver.Flush()
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Verify the dirty log is cleared after flush
+		hasDirtyLogs = tieredFileSystemDriver.HasDirtyLogs()
+		if hasDirtyLogs {
+			t.Error("Expected dirty logs to be cleared after flush")
+		}
+
+		// Verify the file was actually written to low tier
+		fsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		data, err := fsd.ReadFile("test")
+		if err != nil {
+			t.Errorf("Failed to read flushed file: %v", err)
+		}
+		if string(data) != "hello world" {
+			t.Errorf("Expected 'hello world', got '%s'", string(data))
+		}
+
+		err = tieredFileSystemDriver.Shutdown()
+		if err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestTieredFileSystemDriver_SyncDirtyFiles_SkipsEmptyFiles(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Create a file on high tier first
+		highTierFSD := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local")
+		err := highTierFSD.WriteFile("empty_file", []byte{}, 0600)
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Create another file with content
+		err = highTierFSD.WriteFile("content_file", []byte("content"), 0600)
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Manually add entries to dirty log
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			highTierFSD,
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
+		)
+
+		// Add entries to dirty log manually (simulating what would happen if these were dirty)
+		_, err = tieredFileSystemDriver.Logger().Put("empty_file")
+		if err != nil {
+			t.Error(err)
+		}
+
+		_, err = tieredFileSystemDriver.Logger().Put("content_file")
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Sync dirty files
+		err = tieredFileSystemDriver.SyncDirtyFiles()
+		if err != nil {
+			t.Error(err)
+		}
+
+		// Verify that empty file was NOT synced to low tier
+		lowTierFSD := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		_, err = lowTierFSD.Stat("empty_file")
+		if err == nil || !os.IsNotExist(err) {
+			t.Error("Empty file should not have been synced to low tier")
+		}
+
+		// Verify that content file WAS synced to low tier
+		data, err := lowTierFSD.ReadFile("content_file")
+		if err != nil {
+			t.Errorf("Content file should have been synced to low tier: %v", err)
+		}
+		if string(data) != "content" {
+			t.Errorf("Expected 'content', got '%s'", string(data))
+		}
+
+		err = tieredFileSystemDriver.Shutdown()
+		if err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestTieredFileSystemDriver_FlushAndRestartScenario(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Create initial tiered file system driver
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
+		)
+
+		// Create and write to a file
+		file, err := tieredFileSystemDriver.Create("test_file")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = file.Write([]byte("test content"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = file.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Verify file is in dirty log
+		if !tieredFileSystemDriver.HasDirtyLogs() {
+			t.Error("Expected dirty logs after file creation")
+		}
+
+		// Flush the files (should clear dirty log)
+		err = tieredFileSystemDriver.Flush()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Verify dirty log is cleared
+		if tieredFileSystemDriver.HasDirtyLogs() {
+			t.Error("Expected dirty logs to be cleared after flush")
+		}
+
+		// Verify file is in low tier storage
+		lowTierFSD := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		data, err := lowTierFSD.ReadFile("test_file")
+		if err != nil {
+			t.Errorf("File should be in low tier storage after flush: %v", err)
+		}
+		if string(data) != "test content" {
+			t.Errorf("Expected 'test content', got '%s'", string(data))
+		}
+
+		// Shutdown the first driver
+		err = tieredFileSystemDriver.Shutdown()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a new driver (simulating restart)
+		newTieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
+			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
+		)
+
+		// Verify no dirty logs exist after restart (since flush cleared them)
+		if newTieredFileSystemDriver.HasDirtyLogs() {
+			t.Error("Expected no dirty logs after restart since flush cleared them")
+		}
+
+		// Verify file is still accessible (should be loaded from low tier)
+		data, err = newTieredFileSystemDriver.ReadFile("test_file")
+		if err != nil {
+			t.Errorf("File should be accessible after restart: %v", err)
+		}
+		if string(data) != "test content" {
+			t.Errorf("Expected 'test content', got '%s'", string(data))
+		}
+
+		err = newTieredFileSystemDriver.Shutdown()
+		if err != nil {
+			t.Fatal(err)
 		}
 	})
 }

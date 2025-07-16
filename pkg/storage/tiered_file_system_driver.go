@@ -136,6 +136,31 @@ func (fsd *TieredFileSystemDriver) addFile(path string, file internalStorage.Fil
 	return fsd.Files[path]
 }
 
+// clearDirtyLog clears all dirty log entries after successful flush
+func (fsd *TieredFileSystemDriver) clearDirtyLog() error {
+	logs := make(map[int64]struct{})
+
+	// Collect all log entries to clear
+	for entry := range fsd.logger.DirtyKeys() {
+		// Only clear entries for files that exist in the opened files
+		if file, ok := fsd.Files[entry.Key]; ok {
+			if err := fsd.logger.Remove(entry.Key, file.LogKey); err != nil {
+				slog.Error("Error removing log entry:", "error", err)
+			}
+		}
+		logs[entry.Log] = struct{}{}
+	}
+
+	// Remove the log files
+	for log := range logs {
+		if err := fsd.logger.removeLogFile(log); err != nil {
+			slog.Error("Error removing log file:", "error", err)
+		}
+	}
+
+	return nil
+}
+
 func (fsd *TieredFileSystemDriver) ClearFiles() error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
@@ -249,7 +274,14 @@ func (fsd *TieredFileSystemDriver) Flush() error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
 
-	return fsd.flushFiles()
+	err := fsd.flushFiles()
+
+	if err != nil {
+		return err
+	}
+
+	// Clear the dirty log after successful flush
+	return fsd.clearDirtyLog()
 }
 
 // Force flushing all files to durable storage. This operation is typically
@@ -257,6 +289,12 @@ func (fsd *TieredFileSystemDriver) Flush() error {
 func (fsd *TieredFileSystemDriver) flushFiles() error {
 	for _, file := range fsd.Files {
 		fsd.flushFileToDurableStorage(file, false)
+		// Remove the file from dirty log after successful flush
+		if file.LogKey != 0 {
+			if err := fsd.logger.Remove(file.Key, file.LogKey); err != nil {
+				slog.Error("Error removing log entry after flush:", "error", err)
+			}
+		}
 	}
 
 	return nil
@@ -719,6 +757,16 @@ func (fsd *TieredFileSystemDriver) Stat(path string) (internalStorage.FileInfo, 
 	return info, nil
 }
 
+// HasDirtyLogs checks if there are any dirty logs
+func (fsd *TieredFileSystemDriver) HasDirtyLogs() bool {
+	return fsd.logger.HasDirtyLogs()
+}
+
+// Logger returns the logger for testing purposes
+func (fsd *TieredFileSystemDriver) Logger() *TieredFileSystemLogger {
+	return fsd.logger
+}
+
 // SyncDirtyFiles checks if there are any dirty files in the logger and
 // flushes them to durable storage. This operation is typically performed
 // when the driver is initially opened and there may be files that have not
@@ -736,6 +784,29 @@ func (fsd *TieredFileSystemDriver) SyncDirtyFiles() error {
 			if file, ok := fsd.Files[entry.Key]; ok {
 				fsd.flushFileToDurableStorage(file, true)
 			} else {
+				// Check if the file exists on high tier before trying to sync
+				if fileInfo, err := fsd.highTierFileSystemDriver.Stat(entry.Key); err != nil {
+					if os.IsNotExist(err) {
+						slog.Debug("File does not exist on high tier, skipping sync", "file", entry.Key)
+						// Still remove the log entry since the file doesn't exist
+						if err := fsd.logger.Remove(entry.Key, entry.Log); err != nil {
+							slog.Error("Error removing log entry for non-existent file:", "error", err)
+						}
+						logs[entry.Log] = struct{}{}
+						continue
+					}
+					slog.Error("Error checking file existence on high tier file system", "error", err)
+					continue
+				} else if fileInfo.Size() == 0 {
+					slog.Debug("File is empty on high tier, skipping sync", "file", entry.Key)
+					// Still remove the log entry since empty files shouldn't be synced
+					if err := fsd.logger.Remove(entry.Key, entry.Log); err != nil {
+						slog.Error("Error removing log entry for empty file:", "error", err)
+					}
+					logs[entry.Log] = struct{}{}
+					continue
+				}
+
 				file, err := fsd.highTierFileSystemDriver.OpenFile(entry.Key, os.O_RDWR|os.O_CREATE, 0600)
 
 				if err != nil {
