@@ -27,6 +27,8 @@ func NewPageLogIndex(fileSystem *FileSystem, path string) *PageLogIndex {
 
 	if err != nil {
 		slog.Error("Error loading page log index:", "error", err)
+		// If loading fails, reset the memory to empty state
+		pli.memory = make(map[PageNumber][]PageLogIndexEntry)
 	}
 
 	return pli
@@ -145,6 +147,12 @@ func (pli *PageLogIndex) load() error {
 	}
 
 	size := stat.Size()
+
+	// If the file is empty, there's nothing to load
+	if size == 0 {
+		return nil
+	}
+
 	indexData := make([]byte, size)
 
 	_, err = pli.File().ReadAt(indexData, 0)
@@ -155,6 +163,8 @@ func (pli *PageLogIndex) load() error {
 
 	for i := 0; i < len(indexData); i += PageLogIndexEntryLength {
 		if i+PageLogIndexEntryLength > len(indexData) {
+			// If we have incomplete data at the end, log it and skip
+			slog.Warn("Incomplete page log index entry at end of file", "remaining_bytes", len(indexData)-i, "expected", PageLogIndexEntryLength)
 			break
 		}
 

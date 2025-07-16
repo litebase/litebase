@@ -2849,3 +2849,231 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		server2.Shutdown()
 	})
 }
+
+func TestPageLogger_ConcurrentReadsDuringCompaction(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		// Set a very short compaction interval to trigger compaction frequently
+		originalInterval := storage.PageLoggerCompactInterval
+		storage.PageLoggerCompactInterval = time.Millisecond * 10
+		defer func() {
+			storage.PageLoggerCompactInterval = originalInterval
+		}()
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			app.Cluster.LocalFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		defer pageLogger.Close()
+
+		// Get a properly initialized durable filesystem
+		durableFS := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+
+		// Write multiple versions of the same page to create compaction opportunity
+		pageNumber := int64(1)
+		timestamps := []int64{1000, 2000, 3000, 4000, 5000}
+		pageData := make([][]byte, len(timestamps))
+
+		for i, ts := range timestamps {
+			data := make([]byte, 4096)
+			// Fill with recognizable pattern
+			for j := range data {
+				data[j] = byte(i + 1) // 1, 2, 3, 4, 5
+			}
+
+			pageData[i] = data
+
+			_, err := pageLogger.Write(pageNumber, ts, data)
+
+			if err != nil {
+				t.Fatalf("Failed to write page: %v", err)
+			}
+		}
+
+		// Wait for potential compaction to be eligible
+		time.Sleep(time.Millisecond * 20)
+
+		// Start concurrent operations
+		var wg sync.WaitGroup
+		errors := make(chan error, 100)
+		done := make(chan bool, 1)
+
+		// Start multiple readers
+		for i := range 5 {
+			wg.Add(1)
+			go func(readerID int) {
+				defer wg.Done()
+				readData := make([]byte, 4096)
+
+				for {
+					select {
+					case <-done:
+						return
+					default:
+						// Try to read different versions
+						for _, ts := range timestamps {
+							pageLogger.Acquire(ts)
+							found, version, err := pageLogger.Read(pageNumber, ts, readData)
+							pageLogger.Release(ts)
+
+							if err != nil {
+								errors <- fmt.Errorf("reader %d: read error at timestamp %d: %v", readerID, ts, err)
+								return
+							}
+
+							if found {
+								// Validate data integrity
+								expectedByte := byte(0)
+								for j, expectedTs := range timestamps {
+									if ts >= expectedTs {
+										expectedByte = byte(j + 1)
+									}
+								}
+
+								if len(readData) > 0 && readData[0] != expectedByte {
+									errors <- fmt.Errorf("reader %d: data corruption at timestamp %d, expected %d, got %d",
+										readerID, ts, expectedByte, readData[0])
+									return
+								}
+
+								// Verify version is reasonable
+								if version <= 0 || version > storage.PageVersion(ts) {
+									errors <- fmt.Errorf("reader %d: invalid version %d for timestamp %d",
+										readerID, version, ts)
+									return
+								}
+							}
+						}
+					}
+				}
+			}(i)
+		}
+
+		// Start compaction goroutine
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					err := pageLogger.Compact(durableFS)
+
+					if err != nil && err != storage.ErrCompactionInProgress {
+						errors <- fmt.Errorf("compaction error: %v", err)
+						return
+					}
+
+					time.Sleep(time.Millisecond * 5)
+				}
+			}
+		}()
+
+		// Run the test for a short duration
+		time.Sleep(time.Millisecond * 100)
+		close(done)
+		wg.Wait()
+
+		// Check for any errors
+		close(errors)
+
+		for err := range errors {
+			t.Errorf("Concurrent access error: %v", err)
+		}
+	})
+}
+
+func TestPageLogger_ReadDuringReload(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.BranchID,
+			app.Cluster.LocalFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		defer pageLogger.Close()
+
+		// Write some data
+		pageNumber := int64(1)
+		timestamp := int64(1000)
+		data := make([]byte, 4096)
+
+		for i := range data {
+			data[i] = 0xFF
+		}
+
+		_, err = pageLogger.Write(pageNumber, timestamp, data)
+
+		if err != nil {
+			t.Fatalf("Failed to write page: %v", err)
+		}
+
+		// Get a properly initialized durable filesystem
+		durableFS := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+
+		// Test that reads work correctly during reload
+		var wg sync.WaitGroup
+		errors := make(chan error, 10)
+
+		// Start multiple readers
+		for i := range 3 {
+			wg.Add(1)
+			go func(readerID int) {
+				defer wg.Done()
+
+				for j := range 10 {
+					readData := make([]byte, 4096)
+					pageLogger.Acquire(timestamp)
+					found, _, err := pageLogger.Read(pageNumber, timestamp, readData)
+					pageLogger.Release(timestamp)
+
+					if err != nil {
+						errors <- fmt.Errorf("reader %d iteration %d: %v", readerID, j, err)
+						return
+					}
+
+					if found {
+						// Validate data
+						if readData[0] != 0xFF {
+							errors <- fmt.Errorf("reader %d iteration %d: data corruption", readerID, j)
+							return
+						}
+					}
+				}
+			}(i)
+		}
+
+		// Force a reload while reads are happening
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// This should be safe to call concurrently with reads
+			err := pageLogger.ForceCompact(durableFS)
+
+			if err != nil && err != storage.ErrCompactionInProgress {
+				errors <- fmt.Errorf("force compact error: %v", err)
+			}
+		}()
+
+		wg.Wait()
+		close(errors)
+
+		for err := range errors {
+			t.Errorf("Concurrent reload error: %v", err)
+		}
+	})
+}

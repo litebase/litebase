@@ -162,6 +162,7 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 
 	if err != nil {
 		slog.Error("Error reloading page logger for compaction", "error", err)
+		return err
 	}
 
 	if len(pl.logs) == 0 {
@@ -396,24 +397,31 @@ func (pl *PageLogger) load() error {
 
 		parts := strings.Split(file.Name(), "_")
 
+		// Skip files that don't match the expected pattern
+		if len(parts) < 4 {
+			slog.Warn("Skipping file with unexpected name format:", "file", file.Name())
+			continue
+		}
+
 		logGroupNumber, err := strconv.ParseInt(parts[2], 10, 64)
 
 		if err != nil {
-			log.Println("Error parsing log group number:", err)
+			slog.Error("Error parsing log group number from file:", "file", file.Name(), "error", err)
 			return err
 		}
 
 		versionNumber, err := strconv.ParseInt(parts[3], 10, 64)
 
 		if err != nil {
-			log.Println("Error parsing version number:", err)
+			slog.Error("Error parsing version number from file:", "file", file.Name(), "error", err)
 			return err
 		}
 
 		pageLog, err := pl.createNewPageLog(PageGroup(logGroupNumber), PageGroupVersion(versionNumber))
 
 		if err != nil {
-			log.Println("Error creating new page log:", err)
+			slog.Error("Error creating new page log:", "error", err)
+
 			return err
 		}
 
@@ -436,6 +444,10 @@ func (pl *PageLogger) Read(
 	timestamp int64,
 	data []byte,
 ) (bool, PageVersion, error) {
+	// First acquire the compaction mutex to ensure no compaction is in progress
+	pl.compactionMutex.Lock()
+	defer pl.compactionMutex.Unlock()
+
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
 
@@ -537,7 +549,9 @@ func (pl *PageLogger) reload() error {
 
 	if err != nil {
 		log.Println("Error reloading page logger index:", err)
-		return err
+		// Reset the index state if loading fails
+		pl.index.pageGroups = make(map[PageGroup]map[PageGroupVersion][]PageNumber)
+		pl.index.boundary = PageGroupVersion(0)
 	}
 
 	return pl.load()
