@@ -376,7 +376,13 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 		err = statement.Exec(result, parameters...)
 
-		return err
+		if err != nil {
+			return err
+		}
+
+		con.committedAt = time.Now().UTC()
+
+		return nil
 	})
 }
 
