@@ -55,8 +55,6 @@ func (b *BranchConnection) Close() {
 // Release the branch connection for reuse.
 func (b *BranchConnection) Release() {
 	b.inUse = false
-
-	b.connection.Release()
 }
 
 // Check if the branch connection requires a checkpoint to be created.

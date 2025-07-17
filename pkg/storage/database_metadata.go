@@ -57,6 +57,7 @@ func (d *DatabaseMetadata) Close() error {
 	return err
 }
 
+// Return the file associated with the database metadata, opening it if necessary.
 func (d *DatabaseMetadata) File() (internalStorage.File, error) {
 	var err error
 

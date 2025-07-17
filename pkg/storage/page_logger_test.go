@@ -452,6 +452,8 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to write page: %v", err)
 				}
+
+				// log.Println("testing write", int64(i+1), version)
 			}
 		}
 
@@ -475,6 +477,7 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 				if found {
 					t.Fatalf("Expected no to find page data. Page: %d, Version: %d", int64(i+1), version)
 				}
+				// log.Println("tested read", int64(i+1), version)
 			}
 		}
 	})
@@ -2272,7 +2275,7 @@ func TestPageLogger_CompactEmptyPageLogs(t *testing.T) {
 
 		// Create some empty page logs by writing and then tombstoning all data
 		pageData := make([]byte, 4096)
-		timestamp1 := time.Now().UnixNano()
+		timestamp1 := time.Now().UTC().UnixNano()
 		timestamp2 := timestamp1 + 1000
 		timestamp3 := timestamp1 + 2000
 
@@ -2374,7 +2377,7 @@ func TestPageLogger_CompactEmptyPageLogsWithAcquiredLogs(t *testing.T) {
 
 		// Create some empty page logs
 		pageData := make([]byte, 4096)
-		timestamp1 := time.Now().UnixNano()
+		timestamp1 := time.Now().UTC().UnixNano()
 		timestamp2 := timestamp1 + 1000
 
 		// Write data to create logs
@@ -2474,7 +2477,7 @@ func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
 
 		// Write some data to create page logs
 		pageData := make([]byte, 4096)
-		timestamp1 := time.Now().UnixNano()
+		timestamp1 := time.Now().UTC().UnixNano()
 		timestamp2 := timestamp1 + 1000
 
 		_, err = pageLogger.Write(1, timestamp1, pageData)
@@ -2594,7 +2597,7 @@ func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 
 		// Create data for 17 different page logs across multiple page groups
 		pageData := make([]byte, 4096)
-		baseTime := time.Now().UnixNano()
+		baseTime := time.Now().UTC().UnixNano()
 
 		testData := []struct {
 			pageNum   int64
@@ -2691,7 +2694,7 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		}
 
 		// Write data across multiple page logs to simulate real-world scenario
-		baseTimestamp := time.Now().UnixNano()
+		baseTimestamp := time.Now().UTC().UnixNano()
 
 		testData := []struct {
 			pageNum   int64

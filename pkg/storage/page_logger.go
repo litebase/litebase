@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DefaultPageLoggerCompactInterval = time.Second * 10
+	DefaultPageLoggerCompactInterval = time.Second * 2
 	PageLoggerMaxPages               = 4294967295
 	PageLoggerPageGroups             = 4096
 )
@@ -34,7 +34,7 @@ type PageLogger struct {
 	CompactedAt     time.Time
 	compactionMutex *sync.Mutex
 	DatabaseID      string
-	TieredFS        *FileSystem
+	NetworkFS       *FileSystem
 	index           *PageLoggerIndex
 	logs            map[PageGroup]map[PageGroupVersion]*PageLog
 	logUsage        map[int64]int64
@@ -54,10 +54,10 @@ var ErrCompactionInProgress = errors.New("compaction is already in progress")
 func NewPageLogger(
 	databaseId string,
 	branchId string,
-	tieredFS *FileSystem,
+	networkFS *FileSystem,
 ) (*PageLogger, error) {
 	path := file.GetDatabaseFileBaseDir(databaseId, branchId)
-	pli, err := NewPageLoggerIndex(tieredFS, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
+	pli, err := NewPageLoggerIndex(networkFS, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
 
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func NewPageLogger(
 		BranchID:        branchId,
 		compactionMutex: &sync.Mutex{},
 		DatabaseID:      databaseId,
-		TieredFS:        tieredFS,
+		NetworkFS:       networkFS,
 		index:           pli,
 		logs:            make(map[PageGroup]map[PageGroupVersion]*PageLog),
 		logUsage:        make(map[int64]int64),
@@ -129,10 +129,10 @@ func (pl *PageLogger) Close() error {
 func (pl *PageLogger) Compact(
 	durableDatabaseFileSystem *DurableDatabaseFileSystem,
 ) error {
-	pl.mutex.Lock()
-	defer pl.mutex.Unlock()
-
 	return pl.CompactionBarrier(func() error {
+		pl.mutex.Lock()
+		defer pl.mutex.Unlock()
+
 		if PageLoggerCompactInterval != 0 && !pl.CompactedAt.IsZero() && pl.CompactedAt.After(time.Now().UTC().Add(-PageLoggerCompactInterval)) {
 			return nil
 		}
@@ -141,9 +141,11 @@ func (pl *PageLogger) Compact(
 			return nil
 		}
 
-		log.Println("Starting page logger compaction for database", pl.DatabaseID, "branch", pl.BranchID, "with", len(pl.logs), "logs")
+		log.Println("Starting page logger compaction", "with", len(pl.logs), "logs")
 
-		defer log.Println("Finished page logger compaction for database", pl.DatabaseID, "branch", pl.BranchID, "compacted at", pl.CompactedAt, "with", len(pl.logs), "logs remaining")
+		defer func() {
+			log.Println("Finished page logger compaction", "with", len(pl.logs), "logs remaining")
+		}()
 
 		compactionErr := pl.compaction(durableDatabaseFileSystem)
 
@@ -179,19 +181,22 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 			continue
 		}
 
-		err := logEntry.pageLog.compact(durableDatabaseFileSystem)
+		rangeNumber := int64(logEntry.pageGroup)
+
+		err := logEntry.pageLog.compact(durableDatabaseFileSystem, rangeNumber)
 
 		if err != nil {
 			slog.Error("Error compacting page log:", "error", err)
-			return err
+			// return err
 		}
 	}
 
 	// Get empty page logs for cleanup
-	emptyLogs := pl.getEmptyPageLogsForCleanup()
+	// emptyLogs := pl.getEmptyPageLogsForCleanup()
 
 	// Combine non-empty compacted logs and empty logs for deletion
-	allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs)+len(emptyLogs))
+	allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs))
+	// allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs)+len(emptyLogs))
 
 	// Add non-empty logs that were compacted
 	for _, logEntry := range pageLogs {
@@ -201,7 +206,7 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 	}
 
 	// Add empty logs for cleanup
-	allLogsToDelete = append(allLogsToDelete, emptyLogs...)
+	// allLogsToDelete = append(allLogsToDelete, emptyLogs...)
 
 	if len(allLogsToDelete) == 0 {
 		return nil
@@ -250,7 +255,7 @@ func (pl *PageLogger) CompactionBarrier(f func() error) error {
 // Create a new instance of a page log for the given log group and timestamp.
 func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGroupVersion) (*PageLog, error) {
 	return NewPageLog(
-		pl.TieredFS,
+		pl.NetworkFS,
 		fmt.Sprintf(
 			"%slogs/page/PAGE_LOG_%d_%d",
 			file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID),
@@ -379,7 +384,7 @@ func (pl *PageLogger) load() error {
 	// Scan the log directory
 	logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID))
 
-	files, err := pl.TieredFS.ReadDir(logDir)
+	files, err := pl.NetworkFS.ReadDir(logDir)
 
 	if err != nil {
 		return err

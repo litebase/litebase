@@ -10,8 +10,9 @@ import (
 	"github.com/litebase/litebase/pkg/file"
 )
 
-// const PageLogManagerCompactionInterval = time.Second * 1
-const PageLogManagerCompactionInterval = time.Second * 10
+const PageLogManagerCompactionInterval = time.Second * 2
+
+// const PageLogManagerCompactionInterval = time.Second * 10
 
 type PageLogManagerConfig func(*PageLogManager)
 
@@ -69,7 +70,7 @@ func (plm *PageLogManager) Close() error {
 func (plm *PageLogManager) Get(
 	databaseId string,
 	branchId string,
-	tieredFS *FileSystem,
+	networkFS *FileSystem,
 ) *PageLogger {
 	plm.mutex.Lock()
 	defer plm.mutex.Unlock()
@@ -80,7 +81,7 @@ func (plm *PageLogManager) Get(
 		return logger
 	}
 
-	logger, err := NewPageLogger(databaseId, branchId, tieredFS)
+	logger, err := NewPageLogger(databaseId, branchId, networkFS)
 
 	if err != nil {
 		log.Println("Error creating page logger", err)

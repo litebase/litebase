@@ -1,12 +1,11 @@
 package storage
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/litebase/litebase/pkg/file"
 
@@ -32,28 +31,28 @@ type Range struct {
 	closed     bool
 	file       internalStorage.File
 	fs         *FileSystem
-	pageSize   int64
-	path       string
 	number     int64
+	pageSize   int64
+	Timestamp  int64
 }
 
 // NewRange creates a new range for the specified path.
-func NewRange(databaseId, branchId string, fs *FileSystem, path string, rangeNumber int64, pageSize int64) (*Range, error) {
+func NewRange(databaseId, branchId string, fs *FileSystem, rangeNumber int64, pageSize int64, timestamp int64) (*Range, error) {
 	dr := &Range{
 		branchId:   branchId,
 		databaseId: databaseId,
 		fs:         fs,
 		pageSize:   pageSize,
-		path:       path,
 		number:     rangeNumber,
+		Timestamp:  timestamp,
 	}
 
 tryOpen:
-	file, err := fs.OpenFile(dr.getPath(), os.O_CREATE|os.O_RDWR, 0600)
+	file, err := fs.OpenFile(dr.Path(), os.O_CREATE|os.O_RDWR, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = fs.MkdirAll(filepath.Dir(dr.getPath()), 0750)
+			err = fs.MkdirAll(filepath.Dir(dr.Path()), 0750)
 
 			if err != nil {
 				log.Println("Error creating range directory", err)
@@ -73,6 +72,10 @@ tryOpen:
 }
 
 func (dr *Range) Close() error {
+	if dr.closed {
+		return nil
+	}
+
 	err := dr.file.Close()
 
 	if err != nil {
@@ -94,7 +97,7 @@ func (dr *Range) Delete() error {
 		return err
 	}
 
-	err = dr.fs.Remove(dr.getPath())
+	err = dr.fs.Remove(dr.Path())
 
 	if err != nil {
 		log.Println("Error removing range file", err)
@@ -103,30 +106,6 @@ func (dr *Range) Delete() error {
 	}
 
 	return nil
-}
-
-func (dr *Range) getPath() string {
-	var builder strings.Builder
-	builder.Grow(len(dr.path) + 10) // Preallocate memory
-	builder.WriteString(dr.path)
-
-	// Create a strings.Builder for efficient string concatenation
-	var pageNumberBuilder strings.Builder
-	pageNumberBuilder.Grow(10) // Preallocate memory for 10 characters
-
-	// Convert rangeNumber to a zero-padded 10-digit string
-	rangeStr := strconv.FormatInt(dr.number, 10)
-	padding := 10 - len(rangeStr)
-
-	for i := 0; i < padding; i++ {
-		pageNumberBuilder.WriteByte('0')
-	}
-
-	pageNumberBuilder.WriteString(rangeStr)
-
-	builder.WriteString(pageNumberBuilder.String())
-
-	return builder.String()
 }
 
 func (dr *Range) PageCount() int64 {
@@ -142,6 +121,17 @@ func (dr *Range) PageCount() int64 {
 	}
 
 	return size / dr.pageSize
+}
+
+func (r *Range) Path() string {
+	rangeStr := fmt.Sprintf("%010d", r.number)
+
+	return fmt.Sprintf(
+		"%s%s_%d",
+		file.GetDatabaseFileDir(r.databaseId, r.branchId),
+		rangeStr,
+		r.Timestamp,
+	)
 }
 
 func (dr *Range) ReadAt(pageNumber int64, p []byte) (n int, err error) {

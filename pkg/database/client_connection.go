@@ -65,10 +65,6 @@ func (d *ClientConnection) Path() string {
 	return d.path
 }
 
-func (d *ClientConnection) Release() {
-	d.connection.release()
-}
-
 func (d *ClientConnection) WithAccessKey(accessKey *auth.AccessKey) *ClientConnection {
 	d.accessKey = accessKey
 	d.connection.WithAccessKey(accessKey)

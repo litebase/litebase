@@ -253,9 +253,11 @@ func TestLitebaseDriverSimple(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		// Open connection to the system database
 		db, err := sql.Open("litebase-internal", "system/system")
+
 		if err != nil {
 			t.Fatalf("failed to open system database: %v", err)
 		}
+
 		defer db.Close()
 
 		// Test ping with a timeout context to avoid hanging
@@ -263,24 +265,28 @@ func TestLitebaseDriverSimple(t *testing.T) {
 		defer cancel()
 
 		err = db.PingContext(ctx)
+
 		if err != nil {
 			t.Fatalf("failed to ping database: %v", err)
 		}
 
 		// Test simple table creation
 		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS test_simple (id INTEGER PRIMARY KEY, name TEXT)`)
+
 		if err != nil {
 			t.Fatalf("failed to create table: %v", err)
 		}
 
 		// Test simple insert
 		result, err := db.Exec("INSERT INTO test_simple (name) VALUES (?)", "test")
+
 		if err != nil {
 			t.Fatalf("failed to insert: %v", err)
 		}
 
 		// Test LastInsertId
 		lastID, err := result.LastInsertId()
+
 		if err != nil {
 			t.Fatalf("failed to get last insert id: %v", err)
 		}
@@ -292,6 +298,7 @@ func TestLitebaseDriverSimple(t *testing.T) {
 		// Test simple query
 		var name string
 		err = db.QueryRow("SELECT name FROM test_simple WHERE id = ?", lastID).Scan(&name)
+
 		if err != nil {
 			t.Fatalf("failed to query: %v", err)
 		}
@@ -302,6 +309,7 @@ func TestLitebaseDriverSimple(t *testing.T) {
 
 		// Clean up
 		_, err = db.Exec("DROP TABLE test_simple")
+
 		if err != nil {
 			t.Fatalf("failed to drop table: %v", err)
 		}

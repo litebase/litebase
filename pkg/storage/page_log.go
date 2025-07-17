@@ -106,17 +106,8 @@ func (pl *PageLog) Append(page int64, version int64, value []byte) error {
 		return fmt.Errorf("incomplete write: expected %d bytes, wrote %d bytes", PageSize, bytesWritten)
 	}
 
-	if pl.shouldSync() {
-		err = pl.sync()
-
-		if err != nil {
-			slog.Warn("Error syncing page log", "error", err)
-		}
-	}
-
 	pl.size += int64(bytesWritten)
 	pl.writesSinceLastSync += 1
-	pl.writtenAt = time.Now()
 
 	// Only update the index after the data is safely written and synced
 	err = pl.index.Put(PageNumber(page), PageVersion(version), offset, value)
@@ -130,12 +121,22 @@ func (pl *PageLog) Append(page int64, version int64, value []byte) error {
 	}
 
 	// Update cache only after successful index update
-	if pl.cache != nil {
-		err = pl.cache.Put(fmt.Sprintf("%d:%d", page, version), value)
-		if err != nil {
-			slog.Warn("Failed to cache page log entry", "error", err, "page", page, "version", version)
-		}
-	}
+	// if pl.cache != nil {
+	// 	err = pl.cache.Put(fmt.Sprintf("%d:%d", page, version), value)
+	// 	if err != nil {
+	// 		slog.Warn("Failed to cache page log entry", "error", err, "page", page, "version", version)
+	// 	}
+	// }
+
+	// if pl.shouldSync() {
+	// 	err = pl.sync()
+
+	// 	if err != nil {
+	// 		slog.Warn("Error syncing page log", "error", err)
+	// 	}
+	// }
+
+	pl.writtenAt = time.Now()
 
 	return nil
 }
@@ -172,7 +173,10 @@ func (pl *PageLog) Close() error {
 }
 
 // Compact the page log contents into the durable file system.
-func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem) error {
+func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNumber int64) error {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
 	// TODO: The page log needs to be durably marked as compacted to avoid
 	// overwrites. This also will allow us to retry compaction if it fails due
 	// to a crash or other error.
@@ -181,28 +185,42 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem) error {
 	}
 
 	if pl.deleted {
-		panic("PageLog is deleted")
+		slog.Warn("Attempted to compact deleted page log", "path", pl.Path)
+		return nil // Skip compaction for deleted/corrupted logs
 	}
 
 	// Get the latest version of each page in the log.
 	latestVersions := pl.index.getLatestPageVersions()
 	data := make([]byte, PageSize)
 
-	for _, entry := range latestVersions {
-		found, _, err := pl.Get(entry.PageNumber, entry.Version, data)
+	// log.Printf("Compacting page log to range %d with %d pages", rangeNumber, len(latestVersions))
+	durableFileSystem.compactToRange(
+		rangeNumber,
+		func(newRange *Range) error {
+			// newRange, err := durableFileSystem.GetRangeFile(rangeNumber)
 
-		if err != nil {
-			return err
-		}
+			// if err != nil {
+			// 	return err
+			// }
 
-		if found {
-			err := durableFileSystem.WriteToRange(int64(entry.PageNumber), data)
+			for _, entry := range latestVersions {
+				found, _, err := pl.get(entry.PageNumber, entry.Version, data)
 
-			if err != nil {
-				return err
+				if err != nil {
+					return err
+				}
+
+				if found {
+					_, err := newRange.WriteAt(int64(entry.PageNumber), data)
+
+					if err != nil {
+						return err
+					}
+				}
 			}
-		}
-	}
+
+			return nil
+		})
 
 	return nil
 }
@@ -255,21 +273,18 @@ func (pl *PageLog) File() storage.File {
 	return pl.file
 }
 
-// Get a page from the PageLog by page number and version.
-func (pl *PageLog) Get(page PageNumber, version PageVersion, data []byte) (bool, PageVersion, error) {
-	pl.mutex.Lock()
-	defer pl.mutex.Unlock()
-
+// Internal get method without mutex protection - for use within already-locked methods
+func (pl *PageLog) get(page PageNumber, version PageVersion, data []byte) (bool, PageVersion, error) {
 	if pl.size == 0 {
 		return false, 0, nil // Empty log
 	}
 
-	if pl.cache != nil {
-		if cachedValue, found := pl.cache.Get(fmt.Sprintf("%d:%d", page, version)); found {
-			copy(data, cachedValue.([]byte))
-			return true, version, nil
-		}
-	}
+	// if pl.cache != nil {
+	// 	if cachedValue, found := pl.cache.Get(fmt.Sprintf("%d:%d", page, version)); found {
+	// 		copy(data, cachedValue.([]byte))
+	// 		return true, version, nil
+	// 	}
+	// }
 
 	found, foundVersion, offset, err := pl.index.Find(page, version)
 
@@ -281,32 +296,35 @@ func (pl *PageLog) Get(page PageNumber, version PageVersion, data []byte) (bool,
 		return false, 0, nil
 	}
 
-	_, err = pl.File().Seek(offset, io.SeekStart)
+	file := pl.File()
+
+	if file == nil {
+		return false, 0, fmt.Errorf("page log file is not available")
+	}
+
+	_, err = file.Seek(offset, io.SeekStart)
 
 	if err != nil {
 		log.Println("Error seeking to offset", offset, err)
 		return false, 0, err
 	}
 
-	bytesRead, err := pl.File().Read(data)
+	_, err = pl.File().Read(data)
 
 	if err != nil {
 		log.Println("Error reading page data", err)
 		return false, 0, err
 	}
 
-	// Ensure we read the complete page
-	if bytesRead != PageSize {
-		slog.Error("Incomplete page read from log",
-			"page", page,
-			"version", version,
-			"offset", offset,
-			"expected_bytes", PageSize,
-			"actual_bytes", bytesRead)
-		return false, 0, nil // Return not found for incomplete reads
-	}
-
 	return true, foundVersion, nil
+}
+
+// Get a page from the PageLog by page number and version.
+func (pl *PageLog) Get(page PageNumber, version PageVersion, data []byte) (bool, PageVersion, error) {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	return pl.get(page, version, data)
 }
 
 func (pl *PageLog) openFile() error {

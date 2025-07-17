@@ -62,8 +62,8 @@ func TestDatabase(t *testing.T) {
 				t.Error(err)
 			}
 
-			if db2.Name != "test2" {
-				t.Errorf("Expected name to be 'test2', got '%s'", db2.Name)
+			if db2.Name != "test_UpdateDatabase" {
+				t.Errorf("Expected name to be 'test_UpdateDatabase', got '%s'", db2.Name)
 			}
 		})
 
@@ -503,7 +503,7 @@ func TestDatabase(t *testing.T) {
 
 			port := app.Config.Port
 
-			expected := fmt.Sprintf("localhost:%s/%s", port, db.PrimaryBranch().Key)
+			expected := fmt.Sprintf("http://localhost:%s/%s", port, db.PrimaryBranch().Key)
 
 			if url != expected {
 				t.Errorf("Expected URL to be '%s', got '%s'", expected, url)

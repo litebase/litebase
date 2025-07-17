@@ -37,14 +37,15 @@ var vfsBuffers = &sync.Pool{
 }
 
 type LitebaseVFS struct {
-	filename   string
-	fileSystem *storage.DurableDatabaseFileSystem
-	id         string
-	timestamp  int64
-	vfsIdPtr   uintptr
-	wal        WAL
-	walHash    string
-	shm        *ShmMemory
+	filename               string
+	fileSystem             *storage.DurableDatabaseFileSystem
+	id                     string
+	transactionalTimestamp int64
+	vfsIdPtr               uintptr
+	wal                    WAL
+	walHash                string
+	walTimestamp           int64
+	shm                    *ShmMemory
 }
 
 // Register a new VFS instance for a database connection.
@@ -185,15 +186,16 @@ func VFSIsRegistered(vfsId string) bool {
 
 // Set the timestamp for the VFS instance. This timestamp is used to
 // consistently interact with the file system and WAL.
-func (vfs *LitebaseVFS) SetTimestamp(timestamp int64) {
+func (vfs *LitebaseVFS) SetTimestamps(walTimestamp, transactionalTimestamp int64) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
-	vfs.timestamp = timestamp
+	vfs.walTimestamp = walTimestamp
+	vfs.transactionalTimestamp = transactionalTimestamp
 }
 
-func (vfs *LitebaseVFS) Timestamp() int64 {
-	return vfs.timestamp
+func (vfs *LitebaseVFS) WALTimestamp() int64 {
+	return vfs.walTimestamp
 }
 
 func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
@@ -257,7 +259,8 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 	}
 
 	_, err = vfs.fileSystem.ReadAt(
-		vfs.timestamp,
+		vfs.walTimestamp,
+		vfs.transactionalTimestamp,
 		goBuffer,
 		int64(iOfst),
 		int64(iAmt),
@@ -285,7 +288,7 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.fileSystem.WriteAt(vfs.timestamp, goBuffer, int64(iOfst))
+	_, err = vfs.fileSystem.WriteAt(vfs.walTimestamp, vfs.transactionalTimestamp, goBuffer, int64(iOfst))
 
 	if err != nil {
 		return C.SQLITE_IOERR_WRITE
@@ -513,7 +516,7 @@ func goXWALFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 		return C.SQLITE_IOERR
 	}
 
-	size, err := vfs.wal.Size(vfs.timestamp)
+	size, err := vfs.wal.Size(vfs.walTimestamp)
 
 	if err != nil {
 		log.Println("Error getting WAL file size", err)
@@ -550,7 +553,7 @@ func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.wal.ReadAt(vfs.timestamp, goBuffer, int64(iOfst))
+	_, err = vfs.wal.ReadAt(vfs.walTimestamp, goBuffer, int64(iOfst))
 
 	if err != nil {
 		if err == io.EOF {
@@ -582,7 +585,7 @@ func goXWALWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf 
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.wal.WriteAt(vfs.timestamp, goBuffer, int64(iOfst))
+	_, err = vfs.wal.WriteAt(vfs.walTimestamp, goBuffer, int64(iOfst))
 
 	if err != nil {
 		log.Println("Error writing to WAL file", err)
@@ -601,7 +604,7 @@ func goXWALSync(pFile *C.sqlite3_file, flags C.int) C.int {
 		return C.SQLITE_IOERR
 	}
 
-	err = vfs.wal.Sync(vfs.timestamp)
+	err = vfs.wal.Sync(vfs.walTimestamp)
 
 	if err != nil {
 		log.Println("Error syncing WAL file", err)
@@ -620,7 +623,7 @@ func goXWALTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 		return C.SQLITE_IOERR
 	}
 
-	err = vfs.wal.Truncate(vfs.timestamp, int64(size))
+	err = vfs.wal.Truncate(vfs.walTimestamp, int64(size))
 
 	if err != nil {
 		log.Println("Error truncating WAL file", err)

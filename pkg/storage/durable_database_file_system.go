@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/litebase/litebase/pkg/file"
 
@@ -15,17 +16,17 @@ import (
 // OPTIMIZE: Use an LRU cache for page data
 // TODO: Do we need to limit the number of open ranges?
 type DurableDatabaseFileSystem struct {
-	buffers    *sync.Pool
-	branchId   string
-	databaseId string
-	tieredFS   *FileSystem
-	ranges     map[int64]*Range
-	metadata   *DatabaseMetadata
-	mutex      *sync.RWMutex
-	path       string
-	PageLogger *PageLogger
-	pageSize   int64
-	writeHook  func(offset int64, data []byte)
+	buffers      *sync.Pool
+	branchId     string
+	databaseId   string
+	tieredFS     *FileSystem
+	rangeManager *DataRangeManager
+	metadata     *DatabaseMetadata
+	mutex        *sync.RWMutex
+	path         string
+	PageLogger   *PageLogger
+	pageSize     int64
+	writeHook    func(offset int64, data []byte)
 }
 
 func NewDurableDatabaseFileSystem(
@@ -43,13 +44,14 @@ func NewDurableDatabaseFileSystem(
 			},
 		},
 		databaseId: databaseId,
-		ranges:     make(map[int64]*Range),
 		tieredFS:   tieredFS,
 		mutex:      &sync.RWMutex{},
 		PageLogger: pageLogger,
 		path:       path,
 		pageSize:   pageSize,
 	}
+
+	dfs.rangeManager = NewDataRangeManager(dfs)
 
 	err := dfs.init()
 
@@ -61,8 +63,41 @@ func NewDurableDatabaseFileSystem(
 	return dfs
 }
 
+// Acquire marks a range as being used at the specified timestamp.
+func (dfs *DurableDatabaseFileSystem) Acquire(timestamp int64) {
+	dfs.rangeManager.Acquire(timestamp)
+}
+
+// Run compaction on the page logger of the database file system.
 func (dfs *DurableDatabaseFileSystem) Compact() error {
+	dfs.mutex.Lock()
+	defer dfs.mutex.Unlock()
+
 	return dfs.PageLogger.Compact(dfs)
+}
+
+// Compact data to a new range with an atomic operation.
+func (dfs *DurableDatabaseFileSystem) compactToRange(rangeNumber int64, fn func(newRange *Range) error) error {
+	found, rangeTimestamp, err := dfs.rangeManager.index.Get(rangeNumber)
+
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		panic("Range not found in index")
+	}
+
+	newTimestamp := rangeTimestamp + 1
+
+	// Create a new range for this batch of pages
+	_, err = dfs.rangeManager.CopyRange(rangeNumber, newTimestamp, fn)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (dfs *DurableDatabaseFileSystem) Delete(path string) error {
@@ -90,27 +125,11 @@ func (dfs *DurableDatabaseFileSystem) ForceCompact() error {
 
 // GetRangeFile returns the range file for the given range number.
 func (dfs *DurableDatabaseFileSystem) GetRangeFile(rangeNumber int64) (*Range, error) {
-	if r, ok := dfs.ranges[rangeNumber]; ok {
-		return r, nil
-	}
-
-	path := file.GetDatabaseFileDir(dfs.databaseId, dfs.branchId)
-
-	r, err := NewRange(
-		dfs.databaseId,
-		dfs.branchId,
-		dfs.tieredFS,
-		path,
-		rangeNumber,
-		dfs.pageSize,
-	)
+	r, err := dfs.rangeManager.Get(rangeNumber, time.Now().UTC().UnixNano())
 
 	if err != nil {
-		log.Println("Error creating range", err)
 		return nil, err
 	}
-
-	dfs.ranges[rangeNumber] = r
 
 	return r, nil
 }
@@ -142,7 +161,7 @@ func (dfs *DurableDatabaseFileSystem) init() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, err := dfs.GetRangeFile(1)
+		_, err := dfs.rangeManager.Get(1, time.Now().UTC().UnixNano())
 
 		if err != nil {
 			log.Println("Error creating range file", err)
@@ -183,13 +202,13 @@ func (dfs *DurableDatabaseFileSystem) Path() string {
 	return dfs.path
 }
 
-func (dfs *DurableDatabaseFileSystem) ReadAt(timestamp int64, data []byte, offset, length int64) (int, error) {
+func (dfs *DurableDatabaseFileSystem) ReadAt(walTimestamp, transactionalTimestamp int64, data []byte, offset, length int64) (int, error) {
 	dfs.mutex.RLock()
 	defer dfs.mutex.RUnlock()
 
 	pageNumber := file.PageNumber(offset, dfs.pageSize)
 
-	found, _, err := dfs.PageLogger.Read(pageNumber, timestamp, data)
+	found, _, err := dfs.PageLogger.Read(pageNumber, walTimestamp, data)
 
 	if err != nil {
 		log.Println("Error reading page", pageNumber, err)
@@ -200,8 +219,11 @@ func (dfs *DurableDatabaseFileSystem) ReadAt(timestamp int64, data []byte, offse
 		return len(data), nil
 	}
 
-	// Get the range file for the page
-	rangeFile, err := dfs.GetRangeFile(file.PageRange(pageNumber, RangeMaxPages))
+	// Get the range file for the page using the range manager
+	rangeFile, err := dfs.rangeManager.Get(
+		file.PageRange(pageNumber, RangeMaxPages),
+		transactionalTimestamp,
+	)
 
 	if err != nil {
 		log.Println("Error getting range file", err)
@@ -220,6 +242,11 @@ func (dfs *DurableDatabaseFileSystem) ReadAt(timestamp int64, data []byte, offse
 	return n, err
 }
 
+// Release marks a range as no longer being used at the specified timestamp.
+func (dfs *DurableDatabaseFileSystem) Release(timestamp int64) {
+	dfs.rangeManager.Release(timestamp)
+}
+
 func (dfs *DurableDatabaseFileSystem) SetWriteHook(hook func(offset int64, data []byte)) *DurableDatabaseFileSystem {
 	dfs.writeHook = hook
 
@@ -234,17 +261,13 @@ func (dfs *DurableDatabaseFileSystem) Shutdown() error {
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
-	for key, r := range dfs.ranges {
-		err := r.Close()
+	err := dfs.rangeManager.Close()
 
-		if err != nil {
-			slog.Error("Error closing range", "error", err)
-		}
-
-		delete(dfs.ranges, key)
+	if err != nil {
+		slog.Error("Error closing range manager", "error", err)
 	}
 
-	err := dfs.metadata.Close()
+	err = dfs.metadata.Close()
 
 	if err != nil {
 		slog.Error("Error closing metadata", "error", err)
@@ -282,7 +305,7 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 
 	// Open ranges from end to start and continue until the bytesToRemove is 0
 	for rangeNumber := endingRange; rangeNumber >= startingRange; rangeNumber-- {
-		r, err := dfs.GetRangeFile(rangeNumber)
+		r, err := dfs.rangeManager.Get(rangeNumber, time.Now().UTC().UnixNano())
 
 		if err != nil {
 			slog.Error("Error getting range file", "error", err)
@@ -306,8 +329,13 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 				return err
 			}
 
-			// Remove the range from the map
-			delete(dfs.ranges, rangeNumber)
+			// Remove the range from the range manager
+			err = dfs.rangeManager.Remove(rangeNumber, r.Timestamp)
+
+			if err != nil {
+				slog.Error("Error removing range from range manager", "error", err)
+				return err
+			}
 
 			err = dfs.metadata.SetPageCount(dfs.metadata.PageCount - rangePageCount)
 
@@ -347,7 +375,7 @@ func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
 }
 
 // Write to the DurableDatabaseFileSystem at the specified offset at a timestamp.
-func (dfs *DurableDatabaseFileSystem) WriteAt(timestamp int64, data []byte, offset int64) (n int, err error) {
+func (dfs *DurableDatabaseFileSystem) WriteAt(walTimestamp, transactionalTimestamp int64, data []byte, offset int64) (n int, err error) {
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
@@ -361,14 +389,14 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(timestamp int64, data []byte, offs
 
 		currentPageData := buffer.Bytes()[:len(data)]
 
-		found, _, err := dfs.PageLogger.Read(pageNumber, timestamp, currentPageData)
+		found, _, err := dfs.PageLogger.Read(pageNumber, walTimestamp, currentPageData)
 
 		if err != nil {
 			return 0, err
 		}
 
 		if !found {
-			rangeFile, err := dfs.GetRangeFile(file.PageRange(pageNumber, RangeMaxPages))
+			rangeFile, err := dfs.rangeManager.Get(file.PageRange(pageNumber, RangeMaxPages), transactionalTimestamp)
 
 			if err != nil {
 				log.Println("Error getting range file", err)
@@ -389,7 +417,7 @@ func (dfs *DurableDatabaseFileSystem) WriteAt(timestamp int64, data []byte, offs
 		dfs.writeHook(offset, currentPageData)
 	}
 
-	n, err = dfs.PageLogger.Write(pageNumber, timestamp, data)
+	n, err = dfs.PageLogger.Write(pageNumber, walTimestamp, data)
 
 	if err != nil {
 		return 0, err
@@ -429,7 +457,7 @@ func (dfs *DurableDatabaseFileSystem) WriteToRange(pageNumber int64, data []byte
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
-	rangeFile, err := dfs.GetRangeFile(file.PageRange(pageNumber, RangeMaxPages))
+	rangeFile, err := dfs.rangeManager.Get(file.PageRange(pageNumber, RangeMaxPages), time.Now().UTC().UnixNano())
 
 	if err != nil {
 		return err

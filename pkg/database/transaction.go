@@ -86,7 +86,7 @@ func (t *Transaction) Begin() error {
 	// Set connection timestamp before starting the transaction. This ensures we
 	// have a consistent timestamp for the transaction and the vfs reads from
 	// the proper WAL file and Page Log.
-	t.connection.connection.setTimestamp()
+	t.connection.connection.setTimestamps()
 
 	return t.connection.GetConnection().Begin()
 }
@@ -100,7 +100,7 @@ func (t *Transaction) Close() {
 		return
 	}
 
-	t.connection.GetConnection().releaseTimestamp()
+	t.connection.GetConnection().releaseTimestamps()
 	t.closed = true
 	t.cancel()
 

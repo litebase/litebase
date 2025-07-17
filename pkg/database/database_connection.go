@@ -74,30 +74,31 @@ var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
 }
 
 type DatabaseConnection struct {
-	AccessKey         *auth.AccessKey
-	branchId          string
-	cancel            context.CancelFunc
-	checkpointer      *Checkpointer
-	committedAt       time.Time
-	config            *config.Config
-	connectionManager *ConnectionManager
-	context           context.Context
-	databaseHash      string
-	databaseId        string
-	fileSystem        *storage.DurableDatabaseFileSystem
-	id                string
-	inTransaction     bool
-	mutex             *sync.Mutex
-	nodeId            string
-	pageLogger        *storage.PageLogger
-	resultPool        *sqlite3.ResultPool
-	sqlite3           *sqlite3.Connection
-	statements        sync.Map
-	timestamp         int64
-	tmpFileSystem     *storage.FileSystem
-	vfs               *vfs.LitebaseVFS
-	vfsHash           string
-	walManager        *DatabaseWALManager
+	AccessKey              *auth.AccessKey
+	branchId               string
+	cancel                 context.CancelFunc
+	checkpointer           *Checkpointer
+	committedAt            time.Time
+	config                 *config.Config
+	connectionManager      *ConnectionManager
+	context                context.Context
+	databaseHash           string
+	databaseId             string
+	fileSystem             *storage.DurableDatabaseFileSystem
+	id                     string
+	inTransaction          bool
+	mutex                  *sync.Mutex
+	nodeId                 string
+	pageLogger             *storage.PageLogger
+	resultPool             *sqlite3.ResultPool
+	sqlite3                *sqlite3.Connection
+	statements             sync.Map
+	transactionalTimestamp int64
+	tmpFileSystem          *storage.FileSystem
+	vfs                    *vfs.LitebaseVFS
+	vfsHash                string
+	walManager             *DatabaseWALManager
+	walTimestamp           int64
 }
 
 // Create a new database connection instance.
@@ -143,9 +144,9 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		pageLogger:        connectionManager.databaseManager.Resources(databaseId, branchId).PageLogger(),
 		resultPool:        resultPool,
 		statements:        sync.Map{},
-		timestamp:         time.Now().UTC().UnixNano(),
 		tmpFileSystem:     connectionManager.cluster.TmpFS(),
 		walManager:        walManager,
+		walTimestamp:      time.Now().UTC().UnixNano(),
 	}
 
 	err = con.openSqliteConnection()
@@ -233,7 +234,7 @@ func (con *DatabaseConnection) Checkpoint() error {
 			// the correct timestamp. This is crucial for the checkpoint process,
 			// as it ensures that the pages are written to the correct location and
 			// in the event of a failure, the pages can be tombstoned correctly.
-			con.vfs.SetTimestamp(wal.timestamp)
+			con.vfs.SetTimestamps(wal.timestamp, time.Now().UTC().UnixNano())
 
 			defer func() {
 				con.pageLogger.Release(wal.timestamp)
@@ -313,8 +314,6 @@ func (con *DatabaseConnection) Close() error {
 		return err
 	}
 
-	con.release()
-
 	if vfsHash := con.VFSHash(); vfsHash != "" && con.vfs != nil {
 		err = vfs.UnregisterVFS(con.VFSHash())
 
@@ -366,8 +365,8 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	return result, run(func() error {
 		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
-		con.setTimestamp()
-		defer con.releaseTimestamp()
+		con.setTimestamps()
+		defer con.releaseTimestamps()
 
 		statement, _, err := con.sqliteConnection().Prepare(con.context, sql)
 
@@ -473,7 +472,7 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 		// configStatements = append(configStatements, "PRAGMA query_only = true")
 	}
 
-	con.setTimestamp()
+	con.setTimestamps()
 
 	for _, statement := range DatabaseConnectionConfigStatements(con.config) {
 		_, err = con.sqliteConnection().Exec(con.context, statement)
@@ -483,7 +482,7 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 		}
 	}
 
-	con.releaseTimestamp()
+	con.releaseTimestamps()
 
 	return nil
 }
@@ -542,21 +541,16 @@ func (con *DatabaseConnection) registerVFS() error {
 	return nil
 }
 
-// TODO: Is this needed?
-// Release the connection.
-func (con *DatabaseConnection) release() {
-	if con.timestamp > 0 {
-		// con.walManager.Release(con.timestamp)
-	}
-}
-
 // Release a timestamp from the wal manager and page logger.
-func (con *DatabaseConnection) releaseTimestamp() {
+func (con *DatabaseConnection) releaseTimestamps() {
 	// Release the timestamp from the WAL manager
-	con.walManager.Release(con.timestamp)
+	con.walManager.Release(con.walTimestamp)
 
 	// Release the timestamp from the page logger
-	con.pageLogger.Release(con.timestamp)
+	con.pageLogger.Release(con.walTimestamp)
+
+	// Release the timestamp from the durable database file system
+	con.fileSystem.Release(con.transactionalTimestamp)
 }
 
 // Return the sqlite3 result pool.
@@ -658,7 +652,7 @@ func (c *DatabaseConnection) SetAuthorizer() {
 	})
 }
 
-func (con *DatabaseConnection) setTimestamp() {
+func (con *DatabaseConnection) setTimestamps() {
 	// First acquire WAL timestamp without holding the connection lock
 	// to avoid potential deadlocks with WAL manager
 	timestamp, err := con.walManager.Acquire()
@@ -668,13 +662,19 @@ func (con *DatabaseConnection) setTimestamp() {
 		return
 	}
 
-	con.timestamp = timestamp
+	con.walTimestamp = timestamp
+
+	// Also, define a transactional timestamp for the start of the transaction
+	con.transactionalTimestamp = time.Now().UTC().UnixNano()
 
 	// Acquire the timestamp on the page logger
-	con.pageLogger.Acquire(con.timestamp)
+	con.pageLogger.Acquire(con.walTimestamp)
+
+	// Acquire the timestamp on the durable database file system
+	con.fileSystem.Acquire(con.transactionalTimestamp)
 
 	// Set timestamp on VFS for proper WAL file reading
-	con.vfs.SetTimestamp(con.timestamp)
+	con.vfs.SetTimestamps(con.walTimestamp, con.transactionalTimestamp)
 }
 
 // Return the underlying sqlite3 connection of the database connection.
@@ -705,10 +705,6 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 	return statement.(Statement), err
 }
 
-func (con *DatabaseConnection) Timestamp() int64 {
-	return con.timestamp
-}
-
 // Execute a transaction on the database.
 func (con *DatabaseConnection) Transaction(
 	readOnly bool,
@@ -728,10 +724,10 @@ func (con *DatabaseConnection) Transaction(
 		var err error
 
 		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
-		con.setTimestamp()
+		con.setTimestamps()
 
 		defer func() {
-			con.releaseTimestamp()
+			con.releaseTimestamps()
 		}()
 
 		if !readOnly {
@@ -792,7 +788,10 @@ func (con *DatabaseConnection) VFSHash() string {
 	}
 
 	return con.vfsHash
+}
 
+func (con *DatabaseConnection) WALTimestamp() int64 {
+	return con.walTimestamp
 }
 
 // Set the access key for the database connection.

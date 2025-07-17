@@ -6,6 +6,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -82,10 +84,10 @@ func (d *LitebaseSQLDriver) Open(name string) (driver.Conn, error) {
 
 	databaseId := parts[0]
 	branchId := parts[1]
-
 	con, err := d.connectionManager.Get(databaseId, branchId)
 
 	if err != nil {
+		slog.Error("Error getting database connection", "error", err, "databaseId", databaseId, "branchId", branchId)
 		return nil, fmt.Errorf("failed to create database connection: %w", err)
 	}
 
@@ -283,6 +285,7 @@ func (s *LitebaseStmt) Exec(args []driver.Value) (driver.Result, error) {
 
 // ExecContext executes a query that doesn't return rows
 func (s *LitebaseStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	log.Println("ExecContext", s.query, args)
 	if s.conn.Closed() {
 		return nil, driver.ErrBadConn
 	}
