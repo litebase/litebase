@@ -90,13 +90,10 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 		panic("CopyRange: corrupted range index")
 	}
 
-	slog.Debug("CopyRange", "rangeTimestamp", rangeTimestamp, "lastRangeTimestamp", drm.lastRangeMap[rangeNumber])
-
 	if !found {
 		return nil, errors.New("range not found")
 	}
 
-	// existingRange, err := drm.Get(rangeNumber, boundaryTimestamp)
 	existingRange, err := drm.Get(rangeNumber, rangeTimestamp)
 
 	if err != nil {
@@ -137,13 +134,15 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 	newRange.file.Seek(0, io.SeekStart)
 	existingRange.file.Seek(0, io.SeekStart)
 
-	// Verify positions are actually at 0
-	// newPos, _ := newRange.file.Seek(0, io.SeekCurrent)
-	// existingPos, _ := existingRange.file.Seek(0, io.SeekCurrent)
+	// Verify positions are actually at 0. For some reason Seek is not returning
+	// the correct position. Could be the use of a TieredFile and concurrent
+	// seeking during background syncs.
+	newPos, _ := newRange.file.Seek(0, io.SeekCurrent)
+	existingPos, _ := existingRange.file.Seek(0, io.SeekCurrent)
 
-	// slog.Debug("File positions before copy",
-	// 	"newPos", newPos,
-	// 	"existingPos", existingPos)
+	if newPos != 0 || existingPos != 0 {
+		panic("CopyRange: file positions are not at start")
+	}
 
 	// Copy data from the existing range to the new range
 	_, err = io.Copy(newRange.file, existingRange.file)
@@ -152,7 +151,8 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 		return nil, err
 	}
 
-	// newRange.file.Sync()
+	newRange.file.Sync()
+
 	newRangeSize, _ := newRange.Size()
 	existingRangeSize, _ := existingRange.Size()
 
