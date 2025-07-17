@@ -19,8 +19,8 @@ func TestUser(t *testing.T) {
 				Actions:  []auth.Privilege{"*"},
 			},
 		},
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	// Ensure user password is not exposed in JSON
@@ -51,8 +51,8 @@ func TestUserResponse(t *testing.T) {
 				Actions:  []auth.Privilege{"*"},
 			},
 		},
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	// Ensure user password is not exposed in JSON
