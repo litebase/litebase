@@ -349,11 +349,6 @@ func TestDurableDatabaseFileSystem_CompactWithConcurrentWrites(t *testing.T) {
 }
 
 func TestDurableDatabaseFileSystem_Compact_WithDatabaseConnection(t *testing.T) {
-	// storage.PageLoggerCompactInterval = 0
-	// defer func() {
-	// 	storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
-	// }()
-
 	test.RunWithApp(t, func(app *server.App) {
 		mockDatabase := test.MockDatabase(app)
 
@@ -372,7 +367,7 @@ func TestDurableDatabaseFileSystem_Compact_WithDatabaseConnection(t *testing.T) 
 			t.Fatal("expected nil, got", err)
 		}
 
-		rounds := 10
+		rounds := 20
 		inserts := 50000
 		expectedCount := 0
 

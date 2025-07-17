@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -136,7 +137,7 @@ func (pl *PageLog) Append(page int64, version int64, value []byte) error {
 	// 	}
 	// }
 
-	pl.writtenAt = time.Now()
+	pl.writtenAt = time.Now().UTC()
 
 	return nil
 }
@@ -193,17 +194,21 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNu
 	latestVersions := pl.index.getLatestPageVersions()
 	data := make([]byte, PageSize)
 
+	// Write pages in sequence to improve locality of writes
+	pageNumbersInSequence := make([]int64, 0, len(latestVersions))
+
+	for _, entry := range latestVersions {
+		pageNumbersInSequence = append(pageNumbersInSequence, int64(entry.PageNumber))
+	}
+
+	slices.Sort(pageNumbersInSequence)
+
 	// log.Printf("Compacting page log to range %d with %d pages", rangeNumber, len(latestVersions))
 	durableFileSystem.compactToRange(
 		rangeNumber,
 		func(newRange *Range) error {
-			// newRange, err := durableFileSystem.GetRangeFile(rangeNumber)
-
-			// if err != nil {
-			// 	return err
-			// }
-
-			for _, entry := range latestVersions {
+			for _, pageNumber := range pageNumbersInSequence {
+				entry := latestVersions[PageNumber(pageNumber)]
 				found, _, err := pl.get(entry.PageNumber, entry.Version, data)
 
 				if err != nil {
@@ -221,6 +226,8 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNu
 
 			return nil
 		})
+
+	pl.compactedAt = time.Now().UTC()
 
 	return nil
 }

@@ -3,6 +3,7 @@ package storage
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -197,7 +198,14 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 
 	f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
-	return f.File.ReadAt(p, off)
+	result, err := f.File.ReadAt(p, off)
+
+	// Update position only if this read extends beyond current position
+	if off+int64(result) > f.position {
+		f.position = off + int64(result)
+	}
+
+	return result, err
 }
 
 // Seek sets the offset for the next Read or Write on the File to offset,
@@ -205,6 +213,9 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 // the File, 1 means relative to the current offset, 2 means relative
 // to the end. Seek returns the new offset and an error, if any.
 func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	if f.Closed {
 		return 0, ErrFileClosed
 	}
@@ -283,6 +294,15 @@ func (f *TieredFile) Sync() error {
 
 	if err != nil {
 		return err
+	}
+
+	// Sync the position after file sync to ensure consistency
+	if f.File != nil {
+		currentPos, seekErr := f.File.Seek(0, io.SeekCurrent)
+
+		if seekErr == nil {
+			f.position = currentPos
+		}
 	}
 
 	f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
@@ -389,6 +409,10 @@ func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 
 	if err == nil {
 		f.MarkUpdated()
+
+		if off+int64(n) > f.position {
+			f.position = off + int64(n)
+		}
 	}
 
 	return n, err
@@ -413,8 +437,14 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 
 	defer f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
-	return f.File.WriteTo(w)
+	n, err = f.File.WriteTo(w)
 
+	if err == nil {
+		// WriteTo reads from current position to EOF, so update position accordingly
+		f.position += n
+	}
+
+	return n, err
 }
 
 // WriteString writes the string s to the File. It returns the number of
@@ -438,6 +468,7 @@ func (f *TieredFile) WriteString(s string) (n int, err error) {
 
 	if err == nil {
 		f.MarkUpdated()
+		f.position += int64(n)
 	}
 
 	return n, err
@@ -465,9 +496,21 @@ func (f *TieredFile) reopenFile() error {
 
 	// Restore the file position
 	if f.position > 0 {
-		_, err = f.File.Seek(f.position, io.SeekStart)
+		actualPos, err := f.File.Seek(f.position, io.SeekStart)
+
 		if err != nil {
+			f.File.Close() // Clean up on failure
+			f.File = nil
+
 			return err
+		}
+
+		// Verify the position was set correctly
+		if actualPos != f.position {
+			f.File.Close()
+			f.File = nil
+
+			return fmt.Errorf("failed to restore file position: expected %d, got %d", f.position, actualPos)
 		}
 	}
 

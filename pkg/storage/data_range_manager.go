@@ -16,15 +16,18 @@ type DataRangeManager struct {
 	mutex      *sync.RWMutex
 	ranges     map[int64]map[int64]*Range
 	rangeUsage map[int64]int64
+
+	lastRangeMap map[int64]int64
 }
 
 // Create a new instance of the data range manager.
 func NewDataRangeManager(dfs *DurableDatabaseFileSystem) *DataRangeManager {
 	drm := &DataRangeManager{
-		dfs:        dfs,
-		mutex:      &sync.RWMutex{},
-		ranges:     make(map[int64]map[int64]*Range),
-		rangeUsage: make(map[int64]int64),
+		dfs:          dfs,
+		mutex:        &sync.RWMutex{},
+		ranges:       make(map[int64]map[int64]*Range),
+		rangeUsage:   make(map[int64]int64),
+		lastRangeMap: make(map[int64]int64),
 	}
 
 	drm.index = NewDataRangeIndex(drm)
@@ -79,6 +82,16 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 		return nil, err
 	}
 
+	defer func() {
+		drm.lastRangeMap[rangeNumber] = rangeTimestamp
+	}()
+
+	if drm.lastRangeMap[rangeNumber] != 0 && drm.lastRangeMap[rangeNumber] >= rangeTimestamp {
+		panic("CopyRange: corrupted range index")
+	}
+
+	slog.Debug("CopyRange", "rangeTimestamp", rangeTimestamp, "lastRangeTimestamp", drm.lastRangeMap[rangeNumber])
+
 	if !found {
 		return nil, errors.New("range not found")
 	}
@@ -120,14 +133,32 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 		panic("CopyRange: existing and new range files are the same")
 	}
 
+	existingRange.file.Sync()
 	newRange.file.Seek(0, io.SeekStart)
 	existingRange.file.Seek(0, io.SeekStart)
+
+	// Verify positions are actually at 0
+	// newPos, _ := newRange.file.Seek(0, io.SeekCurrent)
+	// existingPos, _ := existingRange.file.Seek(0, io.SeekCurrent)
+
+	// slog.Debug("File positions before copy",
+	// 	"newPos", newPos,
+	// 	"existingPos", existingPos)
 
 	// Copy data from the existing range to the new range
 	_, err = io.Copy(newRange.file, existingRange.file)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// newRange.file.Sync()
+	newRangeSize, _ := newRange.Size()
+	existingRangeSize, _ := existingRange.Size()
+
+	if newRangeSize != existingRangeSize {
+		slog.Debug("CopyRange: size mismatch", "existingSize", existingRangeSize, "newSize", newRangeSize)
+		panic("CopyRange: new range size does not match existing range size")
 	}
 
 	// Call the provided function to allow further modifications to the new range

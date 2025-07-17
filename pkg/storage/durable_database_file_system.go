@@ -76,7 +76,14 @@ func (dfs *DurableDatabaseFileSystem) Compact() error {
 	return dfs.PageLogger.Compact(dfs)
 }
 
-// Compact data to a new range with an atomic operation.
+// CompactionBarrier runs the given function while preventing compaction from
+// occurring during its execution.
+func (dfs *DurableDatabaseFileSystem) CompactionBarrier(fn func() error) error {
+	return dfs.PageLogger.CompactionBarrier(fn)
+}
+
+// Compact data to the latest version of a range by creating a copy of the
+// latest range so the caller can make modifications with an atomic operation.
 func (dfs *DurableDatabaseFileSystem) compactToRange(rangeNumber int64, fn func(newRange *Range) error) error {
 	found, rangeTimestamp, err := dfs.rangeManager.index.Get(rangeNumber)
 

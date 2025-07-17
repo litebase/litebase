@@ -141,12 +141,6 @@ func (pl *PageLogger) Compact(
 			return nil
 		}
 
-		log.Println("Starting page logger compaction", "with", len(pl.logs), "logs")
-
-		defer func() {
-			log.Println("Finished page logger compaction", "with", len(pl.logs), "logs remaining")
-		}()
-
 		compactionErr := pl.compaction(durableDatabaseFileSystem)
 
 		if compactionErr != nil {
@@ -289,7 +283,7 @@ func (pl *PageLogger) ForceCompact(
 // which page log a page belongs to. Page logs are sharded by groups of pages to
 // limit the number of open file handles and improve performance.
 func (pl *PageLogger) getLogGroupNumber(pageNumber int64) int64 {
-	return (pageNumber / PageLoggerPageGroups) + 1
+	return (pageNumber-1)/PageLoggerPageGroups + 1
 }
 
 // Get a list of page logs that are eligible for compaction. This will return
@@ -449,10 +443,6 @@ func (pl *PageLogger) Read(
 	timestamp int64,
 	data []byte,
 ) (bool, PageVersion, error) {
-	// First acquire the compaction mutex to ensure no compaction is in progress
-	pl.compactionMutex.Lock()
-	defer pl.compactionMutex.Unlock()
-
 	pl.mutex.Lock()
 	defer pl.mutex.Unlock()
 
