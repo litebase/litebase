@@ -12,7 +12,7 @@ import (
 
 type DataRangeManager struct {
 	dfs        *DurableDatabaseFileSystem
-	index      *DataRangeIndex
+	Index      *DataRangeIndex
 	logger     *DataRangeLogger
 	mutex      *sync.RWMutex
 	ranges     map[int64]map[int64]*Range
@@ -31,7 +31,7 @@ func NewDataRangeManager(dfs *DurableDatabaseFileSystem) *DataRangeManager {
 		lastRangeMap: make(map[int64]int64),
 	}
 
-	drm.index = NewDataRangeIndex(drm)
+	drm.Index = NewDataRangeIndex(drm)
 	drm.logger = NewDataRangeLogger(drm)
 
 	return drm
@@ -51,7 +51,7 @@ func (drm *DataRangeManager) Acquire(timestamp int64) {
 
 // Close closes all open ranges and the index file.
 func (drm *DataRangeManager) Close() error {
-	drm.index.Close()
+	drm.Index.Close()
 
 	for _, rangeVersions := range drm.ranges {
 		for _, r := range rangeVersions {
@@ -70,7 +70,7 @@ func (drm *DataRangeManager) Close() error {
 // Copy the latest version of a range and create a new version of a range file.
 // This is called when the page logger compacts data into range files.
 func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn func(newRange *Range) error) (*Range, error) {
-	found, rangeTimestamp, err := drm.index.Get(rangeNumber)
+	found, rangeTimestamp, err := drm.Index.Get(rangeNumber)
 
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 	}
 
 	// Update the range index with the new version
-	err = drm.index.Set(rangeNumber, newRange.Timestamp)
+	err = drm.Index.Set(rangeNumber, newRange.Timestamp)
 
 	if err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func (drm *DataRangeManager) Get(rangeNumber int64, timestamp int64) (*Range, er
 	}
 
 	// Get the latest version of the range from the index.
-	found, rangeVersion, err := drm.index.Get(rangeNumber)
+	found, rangeVersion, err := drm.Index.Get(rangeNumber)
 
 	if err != nil {
 		return nil, err
@@ -248,7 +248,7 @@ func (drm *DataRangeManager) Get(rangeNumber int64, timestamp int64) (*Range, er
 		}
 
 		// Update the range index with the latest version.
-		err = drm.index.Set(rangeNumber, timestamp)
+		err = drm.Index.Set(rangeNumber, timestamp)
 	} else {
 		r, err = NewRange(
 			drm.dfs.databaseId,
@@ -342,7 +342,7 @@ func (drm *DataRangeManager) Remove(rangeNumber int64, timestamp int64) error {
 		}
 	}
 
-	err := drm.index.Set(rangeNumber, 0)
+	err := drm.Index.Set(rangeNumber, 0)
 
 	if err != nil {
 		return err

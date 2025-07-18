@@ -15,11 +15,65 @@ type DataRangeIndex struct {
 	file internalStorage.File
 }
 
+type DataRangeIndexEntry struct {
+	Number  int64
+	Version int64
+}
+
+func (dri *DataRangeIndexEntry) Name() string {
+	return fmt.Sprintf("%010d_%d", dri.Number, dri.Version)
+}
+
 // Create a new instance of the data range index.
 func NewDataRangeIndex(drm *DataRangeManager) *DataRangeIndex {
 	return &DataRangeIndex{
 		drm: drm,
 	}
+}
+
+// Return all entries in the data range index as a map of range number to entry.
+func (dri *DataRangeIndex) All() (map[int64]DataRangeIndexEntry, error) {
+	result := make(map[int64]DataRangeIndexEntry)
+
+	file, err := dri.File()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var rangeNumber int64 = 1
+	var rangeVersion int64
+
+	for {
+		_, err = file.Seek((rangeNumber-1)*8, io.SeekStart)
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return nil, err
+		}
+
+		err = binary.Read(file, binary.LittleEndian, &rangeVersion)
+
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return nil, err
+		}
+
+		result[rangeNumber] = DataRangeIndexEntry{
+			Number:  rangeNumber,
+			Version: rangeVersion,
+		}
+
+		rangeNumber++
+	}
+
+	return result, nil
 }
 
 // Close the data range index file if it is open.
