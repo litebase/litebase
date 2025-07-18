@@ -80,6 +80,13 @@ func ReadBackupRangeFile(
 		c.PageSize,
 	)
 
+	// Reset file pointer to beginning
+	_, err := b.file.Seek(0, io.SeekStart)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// Read the current state of the file
 	fileContents, err := io.ReadAll(b.file)
 
@@ -110,7 +117,6 @@ func ReadBackupRangeFile(
 			case <-doneChannel:
 				break applyRollBackLogs
 			case err := <-errorChannel:
-				log.Println("Error reading rollback log entries:", err)
 				return nil, err
 			case frame := <-rollbackLogEntries:
 				for _, rollbackLogEntry := range frame {
@@ -137,15 +143,14 @@ func ReadBackupRangeFile(
 		}
 	}
 
-	if b.restorePoint.PageCount > endPageNumber {
-		return fileContents, nil
+	// Calculate the correct size based on the restore point page count
+	// This ensures we don't return more data than the database actually contains
+	correctSize := b.restorePoint.PageCount * int64(c.PageSize)
+
+	if correctSize > int64(len(fileContents)) {
+		return fileContents, err
 	}
 
-	rangePageCount := b.restorePoint.PageCount % storage.RangeMaxPages
-	rangeSize := rangePageCount * c.PageSize
-
-	// Truncate the file content to the length of the data
-	fileContents = fileContents[:rangeSize]
-
-	return fileContents, err
+	// Truncate to the correct size to ensure we have a valid SQLite file
+	return fileContents[:correctSize], err
 }

@@ -203,7 +203,6 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNu
 
 	slices.Sort(pageNumbersInSequence)
 
-	// log.Printf("Compacting page log to range %d with %d pages", rangeNumber, len(latestVersions))
 	durableFileSystem.compactToRange(
 		rangeNumber,
 		func(newRange *Range) error {

@@ -260,11 +260,16 @@ func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) erro
 				return err
 			}
 		} else {
+			// Skip reading RANGE_LOG contents as we do not need to include it
+			// for garbage collection, as we are not copying stale ranges.
+			if fileName != "_RANGE_LOG" {
+				sourceFile.Seek(0, io.SeekStart)
 
-			data, err = io.ReadAll(sourceFile)
+				data, err = io.ReadAll(sourceFile)
 
-			if err != nil {
-				return err
+				if err != nil {
+					return err
+				}
 			}
 
 			// This file needs to be updated with the page count from the restore point.

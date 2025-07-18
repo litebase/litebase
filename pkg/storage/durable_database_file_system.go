@@ -174,7 +174,8 @@ func (dfs *DurableDatabaseFileSystem) init() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, err := dfs.RangeManager.Get(1, time.Now().UTC().UnixNano())
+		// Use timestamp 1 to avoid conflicts with restored ranges that have higher timestamps
+		_, err := dfs.RangeManager.Get(1, 1)
 
 		if err != nil {
 			log.Println("Error creating range file", err)

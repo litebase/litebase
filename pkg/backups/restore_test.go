@@ -18,7 +18,6 @@ func TestRestore(t *testing.T) {
 		t.Run("CopySourceDatabaseToTargetDatabase", func(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
-			sourceDirectory := file.GetDatabaseFileDir(source.DatabaseID, source.BranchID)
 			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
 			targetDirectory := file.GetDatabaseFileDir(target.DatabaseID, target.BranchID)
 
@@ -26,7 +25,7 @@ func TestRestore(t *testing.T) {
 			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
 
 			for i := 1; i <= 10; i++ {
-				sourceDfs.FileSystem().Create(fmt.Sprintf("%s%010d", sourceDirectory, i))
+				sourceDfs.GetRangeFile(int64(i))
 			}
 
 			err := backups.CopySourceDatabaseToTargetDatabase(
@@ -51,9 +50,9 @@ func TestRestore(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			// There should be 5 entries in the target directory, including the metadata file
-			if len(entries) != 6 {
-				t.Errorf("Expected 5 entries, got %d", len(entries))
+			// There should be 5 entries in the target directory, including the metadata file, range index
+			if len(entries) != 7 {
+				t.Errorf("Expected 7 entries, got %d", len(entries))
 			}
 		})
 

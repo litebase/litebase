@@ -24,7 +24,7 @@ var ErrorRestoreBackupNotFound = errors.New("restore backup not found")
 // OPTIMIZE: Use copy commands instead of reading and writing files
 // Copying the source database to the target database requires the following:
 // 1. Copy all of the range files
-// 2. Copy the _METADATA file
+// 2. Copy the _METADATA, _RANGE_INDEX, and _RANGE_LOG files
 // 3. Copy any page logs and their indexes
 func CopySourceDatabaseToTargetDatabase(
 	maxPageNumber int64,
@@ -36,8 +36,8 @@ func CopySourceDatabaseToTargetDatabase(
 	targetFileSystem *storage.DurableDatabaseFileSystem,
 	checkpointer Checkpointer,
 ) error {
-	// Prevent the page logger from writing to the source database range files
-	// during this operation
+	// Prevent the source page logger from writing to the source database range
+	// files during this operation
 	err := sourceFileSystem.PageLogger.CompactionBarrier(func() error {
 		return copySourceDatabaseRangeFilesToTargetDatabase(
 			maxPageNumber,
@@ -129,6 +129,9 @@ func copySourceDatabasePageLogsToTargetDatabase(
 			return err
 		}
 
+		targetFile.Seek(0, io.SeekStart)
+		sourceFile.Seek(0, io.SeekStart)
+
 		_, err = io.Copy(targetFile, sourceFile)
 
 		if err != nil {
@@ -216,19 +219,14 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 			return err
 		}
 
+		targetFile.Seek(0, io.SeekStart)
+		sourceFile.Seek(0, io.SeekStart)
+
 		_, err = io.Copy(targetFile, sourceFile)
 
 		if err != nil {
 			slog.Error("Error copying page:", "file", targetFilePath, "error", err)
 			return err
-		}
-
-		if err = targetFile.Close(); err != nil {
-			slog.Error("Error closing target file:", "file", targetFilePath, "error", err)
-		}
-
-		if err = sourceFile.Close(); err != nil {
-			slog.Error("Error closing source file:", "file", sourceFilePath, "error", err)
 		}
 	}
 
@@ -368,6 +366,14 @@ func RestoreFromBackup(
 						return err
 					}
 				}
+
+				if header.Name == "_RANGE_INDEX" {
+					// // It is important to reload the range index after writing to it
+					// if err := targetFileSystem.RangeManager.Index.Load(); err != nil {
+					// 	slog.Error("Error reloading range index:", "error", err)
+					// 	return err
+					// }
+				}
 			}
 		}
 	}
@@ -429,8 +435,7 @@ func RestoreFromTimestamp(
 			return err
 		}
 
-		entryTime := time.Unix(0, entryTimeNano).UTC() // Convert UnixNano to time.Time
-		entryTimestamp := entryTime.UnixNano()
+		entryTimestamp := time.Unix(0, entryTimeNano).UTC().UnixNano() // Convert UnixNano to time.Time
 
 		if startOfHourTimestamp < entryTimestamp {
 			continue
