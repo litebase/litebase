@@ -499,8 +499,7 @@ func (f *TieredFile) reopenFile() error {
 		actualPos, err := f.File.Seek(f.position, io.SeekStart)
 
 		if err != nil {
-			f.File.Close() // Clean up on failure
-			f.File = nil
+			f.File.Close()
 
 			return err
 		}
@@ -508,7 +507,6 @@ func (f *TieredFile) reopenFile() error {
 		// Verify the position was set correctly
 		if actualPos != f.position {
 			f.File.Close()
-			f.File = nil
 
 			return fmt.Errorf("failed to restore file position: expected %d, got %d", f.position, actualPos)
 		}

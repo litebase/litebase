@@ -523,23 +523,27 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 	if file, ok := fsd.GetTieredFile(path); ok && file.File != nil {
 		// Save current position
 		currentPos, err := file.Seek(0, io.SeekCurrent)
+
 		if err != nil {
 			return nil, err
 		}
 
 		// Seek to start for reading entire file
 		_, err = file.Seek(0, io.SeekStart)
+
 		if err != nil {
 			return nil, err
 		}
 
 		data, err := io.ReadAll(file)
+
 		if err != nil {
 			return nil, err
 		}
 
 		// Restore original position
 		_, err = file.Seek(currentPos, io.SeekStart)
+
 		if err != nil {
 			return nil, err
 		}
@@ -564,6 +568,9 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
 
 	fsd.addFile(path, file, os.O_RDONLY)
 
@@ -918,7 +925,6 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 					log.Println("Error removing oldest file", err)
 					break
 				}
-
 			}
 		}
 	}
@@ -964,7 +970,7 @@ func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.F
 	fsd.mutex.RLock()
 	defer fsd.mutex.RUnlock()
 
-	fsd.flushFileToDurableStorage(fsd.Files[path], true)
+	fsd.flushFileToDurableStorage(file, true)
 
 	return nil
 }
