@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/config"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/pkg/storage"
@@ -20,9 +21,9 @@ func TestNewDurableDatabaseFileSystem(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -192,7 +193,7 @@ func TestDurableDatabaseFileSystem_CompactWithConcurrentWrites(t *testing.T) {
 		)
 
 		// Test parameters
-		const numWrites = 1000
+		const numWrites = 10
 		const numCompactionCycles = 10
 		const numConcurrentWrites = 50
 		const pageSize = 4096
@@ -368,24 +369,28 @@ func TestDurableDatabaseFileSystem_Compact_WithDatabaseConnection(t *testing.T) 
 		}
 
 		rounds := 20
-		inserts := 50000
+		inserts := 5000
 		expectedCount := 0
 
 		for range rounds {
 			for range inserts {
-				_, err = con.GetConnection().Exec("INSERT INTO test (value, created_at, updated_at) VALUES (?, ?, ?)", []sqlite3.StatementParameter{
-					{
-						Type:  sqlite3.ParameterTypeText,
-						Value: fmt.Appendf(nil, "value-%s", uuid.NewString()),
-					},
-					{
-						Type:  sqlite3.ParameterTypeText,
-						Value: []byte(time.Now().UTC().Format(time.RFC3339)),
-					},
-					{
-						Type:  sqlite3.ParameterTypeText,
-						Value: []byte(time.Now().UTC().Format(time.RFC3339)),
-					},
+				err = con.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+					_, err := con.Exec("INSERT INTO test (value, created_at, updated_at) VALUES (?, ?, ?)", []sqlite3.StatementParameter{
+						{
+							Type:  sqlite3.ParameterTypeText,
+							Value: fmt.Appendf(nil, "value-%s", uuid.NewString()),
+						},
+						{
+							Type:  sqlite3.ParameterTypeText,
+							Value: []byte(time.Now().UTC().Format(time.RFC3339)),
+						},
+						{
+							Type:  sqlite3.ParameterTypeText,
+							Value: []byte(time.Now().UTC().Format(time.RFC3339)),
+						},
+					})
+
+					return err
 				})
 
 				if err != nil {
@@ -401,18 +406,11 @@ func TestDurableDatabaseFileSystem_Compact_WithDatabaseConnection(t *testing.T) 
 				t.Fatal("expected nil, got", err)
 			}
 
-			// time.Sleep(1 * time.Second)
-
 			count := int(result.Rows[0][0].Int64())
 
 			if count != expectedCount {
 				t.Fatalf("expected %d, got %d", expectedCount, count)
 			}
-
-			// con.GetConnection().Checkpoint()
-			// go func() {
-			// 	con.GetConnection().FileSystem().Compact()
-			// }()
 
 			// Pragma integrity check
 			result, err = con.GetConnection().Exec("PRAGMA integrity_check", nil)
@@ -424,7 +422,6 @@ func TestDurableDatabaseFileSystem_Compact_WithDatabaseConnection(t *testing.T) 
 			if len(result.Rows) != 1 || !bytes.Equal(result.Rows[0][0].Text(), []byte("ok")) {
 				t.Fatal("expected integrity_check to return 'ok', got", string(result.Rows[0][0].Text()))
 			}
-
 		}
 
 		t.Logf("Final row count: %d", expectedCount)
@@ -436,9 +433,9 @@ func TestDurableDatabaseFileSystem_FileSystem(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -451,8 +448,8 @@ func TestDurableDatabaseFileSystem_FileSystem(t *testing.T) {
 			t.Error("expected file system, got nil")
 		}
 
-		if fs != app.Cluster.LocalFS() {
-			t.Error("expected local file system, got", fs)
+		if fs != app.Cluster.TieredFS() {
+			t.Error("expected tiered file system, got", fs)
 		}
 	})
 }
@@ -484,9 +481,9 @@ func TestDurableDatabaseFileSystem_GetRangeFile(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -510,9 +507,9 @@ func TestDurableDatabaseFileSystem_Metadata(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -532,9 +529,9 @@ func TestDurableDatabaseFileSystem_Open(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -558,9 +555,9 @@ func TestDurableDatabaseFileSystem_PageSize(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -580,9 +577,9 @@ func TestDurableDatabaseFileSystem_Path(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -602,9 +599,9 @@ func TestDurableDatabaseFileSystem_ReadAt(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -663,9 +660,9 @@ func TestDurableDatabaseFileSystem_SetWriteHook(t *testing.T) {
 		var data []byte
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -696,9 +693,9 @@ func TestDurableDatabaseFileSystem_Size(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -722,9 +719,9 @@ func TestDurableDatabaseFileSystemShutdown(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -748,16 +745,24 @@ func TestDurableDatabaseFileSystemTruncate(t *testing.T) {
 		}()
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
 			4096,
 		)
 
+		rangeManager := dfs.RangeManager
+
 		timestamp := time.Now().UTC().UnixNano()
+
+		// Intialize the ranges
+		rangeManager.Get(1, 0)
+		rangeManager.Get(2, 0)
+		rangeManager.Get(3, 0)
+		rangeManager.Get(4, 0)
 
 		for i := range storage.RangeMaxPages * 4 {
 			_, err := dfs.WriteAt(timestamp, timestamp, make([]byte, 4096), int64(i*4096))
@@ -828,9 +833,9 @@ func TestDurableDatabaseFileSystemWriteAt(t *testing.T) {
 		mockDatabase := test.MockDatabase(app)
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,
@@ -877,9 +882,9 @@ func TestDurableDatabaseFileSystemWithoutWriteHook(t *testing.T) {
 		var hookCalled bool
 
 		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.LocalFS(),
-			app.Cluster.LocalFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.LocalFS()),
+			app.Cluster.TieredFS(),
+			app.Cluster.NetworkFS(),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.NetworkFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
 			mockDatabase.BranchID,

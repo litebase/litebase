@@ -547,6 +547,11 @@ func TestTieredFile_WriteAt_Persistence(t *testing.T) {
 			func(c context.Context, fsd *storage.TieredFileSystemDriver) {
 				fsd.WriteInterval = 1 * time.Millisecond
 			},
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test_writeat.txt")

@@ -2,7 +2,6 @@ package storage
 
 import (
 	"container/list"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -13,8 +12,6 @@ import (
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
 )
-
-var ErrFileClosed = errors.New("use of closed file")
 
 // The TieredFile stores a reference of a single File that is stored durably in
 // two different locations for the purpose of latency and cost. The File is
@@ -61,6 +58,10 @@ type TieredFile struct {
 	// Position tracks the current file position to preserve it across file reopens
 	position int64
 
+	// Mutex that needs to be checked when flushing the file to durable storage
+	// to prevent multiple goroutines from flushing the file at the same time.
+	syncMutex *sync.Mutex
+
 	// The pointer to the FileSystemDriver that created the File.
 	TieredFileSystemDriver *TieredFileSystemDriver
 
@@ -91,16 +92,27 @@ func NewTieredFile(
 		Key:                    key,
 		mutex:                  &sync.Mutex{},
 		position:               0,
+		syncMutex:              &sync.Mutex{},
 		TieredFileSystemDriver: tieredFileSystemDriver,
 		UpdatedAt:              time.Time{},
 		WrittenAt:              time.Time{},
 	}
 }
 
+// Get access to the tiered file with the sync mutex locked. This is useful
+// for performing multiple operations on the file without having to lock and
+// unlock the mutex each time or worry about the file being modified during flush.
+func (f *TieredFile) AccessBarrier(fn func() error) error {
+	f.syncMutex.Lock()
+	defer f.syncMutex.Unlock()
+
+	return fn()
+}
+
 // Close the file and release it from the TieredFileSystemDriver.
 func (f *TieredFile) Close() error {
 	if f.Closed {
-		return ErrFileClosed
+		return nil
 	}
 
 	f.Closed = true
@@ -157,10 +169,6 @@ func (f *TieredFile) Read(b []byte) (n int, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.Closed {
-		return 0, ErrFileClosed
-	}
-
 	if f.File == nil {
 		err := f.reopenFile()
 		if err != nil {
@@ -184,10 +192,6 @@ func (f *TieredFile) Read(b []byte) (n int, err error) {
 func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-
-	if f.Closed {
-		return 0, ErrFileClosed
-	}
 
 	if f.File == nil {
 		err := f.reopenFile()
@@ -215,10 +219,6 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-
-	if f.Closed {
-		return 0, ErrFileClosed
-	}
 
 	if f.File == nil {
 		err := f.reopenFile()
@@ -254,10 +254,6 @@ func (f *TieredFile) Stat() (fs.FileInfo, error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.Closed {
-		return nil, ErrFileClosed
-	}
-
 	if f.File == nil {
 		err := f.reopenFile()
 		if err != nil {
@@ -278,10 +274,6 @@ func (f *TieredFile) Stat() (fs.FileInfo, error) {
 func (f *TieredFile) Sync() error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-
-	if f.Closed {
-		return ErrFileClosed
-	}
 
 	if f.File == nil {
 		err := f.reopenFile()
@@ -319,10 +311,6 @@ func (f *TieredFile) Truncate(size int64) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.Closed {
-		return ErrFileClosed
-	}
-
 	if f.File == nil {
 		err := f.reopenFile()
 		if err != nil {
@@ -359,10 +347,6 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.Closed {
-		return 0, ErrFileClosed
-	}
-
 	if f.File == nil {
 		err := f.reopenFile()
 		if err != nil {
@@ -394,10 +378,6 @@ func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.Closed {
-		return 0, ErrFileClosed
-	}
-
 	if f.File == nil {
 		err := f.reopenFile()
 		if err != nil {
@@ -424,10 +404,6 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.Closed {
-		return 0, ErrFileClosed
-	}
-
 	if f.File == nil {
 		err := f.reopenFile()
 		if err != nil {
@@ -453,10 +429,6 @@ func (f *TieredFile) WriteString(s string) (n int, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.Closed {
-		return 0, ErrFileClosed
-	}
-
 	if f.File == nil {
 		err := f.reopenFile()
 		if err != nil {
@@ -477,10 +449,6 @@ func (f *TieredFile) WriteString(s string) (n int, err error) {
 // reopenFile reopens the file directly from the high tier file system
 // without going through the TieredFileSystemDriver to avoid recursion
 func (f *TieredFile) reopenFile() error {
-	if f.Closed {
-		return ErrFileClosed
-	}
-
 	if f.File != nil {
 		return nil
 	}

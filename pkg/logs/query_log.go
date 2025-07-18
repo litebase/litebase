@@ -266,6 +266,8 @@ func (q *QueryLog) Read(start, end uint32) ([]QueryMetric, error) {
 			// read 64 bytes at a time
 			fileBuffer := make([]byte, 64)
 
+			file.Seek(0, 0)
+
 			for {
 				_, err := file.Read(fileBuffer)
 

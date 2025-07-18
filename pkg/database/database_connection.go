@@ -375,13 +375,13 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 			con.setTimestamps()
 			defer con.releaseTimestamps()
 
-			statement, _, err := con.sqliteConnection().Prepare(con.context, sql)
+			statement, err := con.Statement(sql)
 
 			if err != nil {
 				return err
 			}
 
-			err = statement.Exec(result, parameters...)
+			err = statement.Sqlite3Statement.Exec(result, parameters...)
 
 			if err != nil {
 				return err

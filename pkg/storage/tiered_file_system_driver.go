@@ -58,8 +58,8 @@ type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
 // files that are stored on the high and low tier file system.
 func NewTieredFileSystemDriver(
 	context context.Context,
-	highTierFileSystemDriver FileSystemDriver,
-	lowTierFileSystemDriver FileSystemDriver,
+	highTierFileSystemDriver *FileSystem,
+	lowTierFileSystemDriver *FileSystem,
 	f ...TieredFileSystemNewFunc,
 ) *TieredFileSystemDriver {
 	fsd := &TieredFileSystemDriver{
@@ -86,9 +86,17 @@ func NewTieredFileSystemDriver(
 		}
 	}
 
-	logger, err := NewTieredFileSystemLogger(
-		highTierFileSystemDriver.Path("/_fslogs/tiered-files"),
-	)
+	var fileSystemDriver FileSystemDriver
+
+	if _, ok := highTierFileSystemDriver.Driver().(*LocalFileSystemDriver); ok {
+		fileSystemDriver = NewLocalFileSystemDriver(
+			highTierFileSystemDriver.Path("/"),
+		)
+	} else {
+		slog.Error("High tier file system driver must be a local file system driver")
+	}
+
+	logger, err := NewTieredFileSystemLogger(fileSystemDriver, "/_fslogs/tiered-files")
 
 	if err != nil {
 		log.Println("Error creating logger", err)
@@ -321,41 +329,50 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 		return
 	}
 
-	_, err := file.File.Seek(0, io.SeekStart)
+	err := file.AccessBarrier(func() error {
+		_, err := file.File.Seek(0, io.SeekStart)
 
-	if err != nil {
-		log.Println("Error seeking to start of file", err)
-		return
-	}
-
-	buffer := fsd.buffers.Get().(*bytes.Buffer)
-
-	buffer.Reset()
-
-	defer fsd.buffers.Put(buffer)
-
-	_, err = buffer.ReadFrom(file.File)
-
-	if err != nil {
-		log.Println("Error reading file from high tier storage", err)
-		return
-	}
-
-	err = fsd.lowTierFileSystemDriver.WriteFile(file.Key, buffer.Bytes(), 0600)
-
-	if err != nil {
-		// Handle error (retry, log, etc.)
-		// Check if context is done
-		if fsd.context.Err() != nil {
-			log.Println("Context is done, skipping write to durable storage", fsd.context.Err())
-			return
+		if err != nil {
+			log.Println("Error seeking to start of file", err)
+			return err
 		}
 
+		buffer := fsd.buffers.Get().(*bytes.Buffer)
+
+		buffer.Reset()
+
+		defer fsd.buffers.Put(buffer)
+
+		_, err = buffer.ReadFrom(file.File)
+
+		if err != nil {
+			log.Println("Error reading file from high tier storage", err)
+			return err
+		}
+
+		err = fsd.lowTierFileSystemDriver.WriteFile(file.Key, buffer.Bytes(), 0600)
+
+		if err != nil {
+			// Handle error (retry, log, etc.)
+			// Check if context is done
+			if fsd.context.Err() != nil {
+				log.Println("Context is done, skipping write to durable storage", fsd.context.Err())
+				return fsd.context.Err()
+			}
+
+			return err
+		}
+
+		// Update the last written time to indicate the file is synced
+		file.WrittenAt = time.Now().UTC()
+
+		return nil
+	})
+
+	if err != nil {
+		log.Println("Error accessing file for flush", err)
 		return
 	}
-
-	// Update the last written time to indicate the file is synced
-	file.WrittenAt = time.Now().UTC()
 }
 
 func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool) {

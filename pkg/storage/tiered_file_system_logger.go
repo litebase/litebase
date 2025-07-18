@@ -9,13 +9,16 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	internalStorage "github.com/litebase/litebase/internal/storage"
 )
 
 type TieredFileSystemLogger struct {
 	currentLog int64
 	directory  string
 	entries    map[int64]map[string]struct{}
-	files      map[int64]*os.File
+	files      map[int64]internalStorage.File
+	fileSystem FileSystemDriver
 	mutex      *sync.Mutex
 }
 
@@ -24,12 +27,13 @@ type TieredFileSystemLoggerEntry struct {
 	Log int64
 }
 
-func NewTieredFileSystemLogger(directory string) (*TieredFileSystemLogger, error) {
+func NewTieredFileSystemLogger(fileSystem FileSystemDriver, directory string) (*TieredFileSystemLogger, error) {
 	return &TieredFileSystemLogger{
 		currentLog: time.Now().UTC().Unix(),
 		directory:  directory,
 		entries:    make(map[int64]map[string]struct{}),
-		files:      make(map[int64]*os.File),
+		files:      make(map[int64]internalStorage.File),
+		fileSystem: fileSystem,
 		mutex:      &sync.Mutex{},
 	}, nil
 }
@@ -44,18 +48,18 @@ func (tfl *TieredFileSystemLogger) Close() error {
 		}
 	}
 
-	tfl.files = make(map[int64]*os.File)
+	tfl.files = make(map[int64]internalStorage.File)
 
 	return nil
 }
 
-func (tfl *TieredFileSystemLogger) file() (*os.File, error) {
+func (tfl *TieredFileSystemLogger) file() (internalStorage.File, error) {
 	if file, ok := tfl.files[tfl.currentLog]; ok {
 		return file, nil
 	}
 
 tryOpen:
-	file, err := os.OpenFile(
+	file, err := tfl.fileSystem.OpenFile(
 		fmt.Sprintf("%s/%d", tfl.directory, tfl.currentLog),
 		os.O_CREATE|os.O_WRONLY,
 		0600,
@@ -63,7 +67,7 @@ tryOpen:
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			if err := os.MkdirAll(tfl.directory, 0750); err != nil {
+			if err := tfl.fileSystem.MkdirAll(tfl.directory, 0750); err != nil {
 				return nil, err
 			}
 
@@ -84,12 +88,12 @@ func (tfl *TieredFileSystemLogger) DirtyKeys() iter.Seq[TieredFileSystemLoggerEn
 
 	return func(yield func(TieredFileSystemLoggerEntry) bool) {
 		// Check if the directory exists
-		if _, err := os.Stat(tfl.directory); os.IsNotExist(err) {
+		if _, err := tfl.fileSystem.Stat(tfl.directory); os.IsNotExist(err) {
 			return
 		}
 
 		// Check if there are any log files in the directory
-		files, err := os.ReadDir(tfl.directory)
+		files, err := tfl.fileSystem.ReadDir(tfl.directory)
 
 		if err != nil {
 			return
@@ -102,7 +106,7 @@ func (tfl *TieredFileSystemLogger) DirtyKeys() iter.Seq[TieredFileSystemLoggerEn
 				continue
 			}
 
-			logFile, err := os.Open(tfl.directory + "/" + file.Name())
+			logFile, err := tfl.fileSystem.Open(tfl.directory + "/" + file.Name())
 
 			if err != nil {
 				continue
@@ -146,7 +150,7 @@ func (tfl *TieredFileSystemLogger) DirtyKeys() iter.Seq[TieredFileSystemLoggerEn
 	}
 }
 
-func (tfl *TieredFileSystemLogger) File() (*os.File, error) {
+func (tfl *TieredFileSystemLogger) File() (internalStorage.File, error) {
 	tfl.mutex.Lock()
 	defer tfl.mutex.Unlock()
 
@@ -160,12 +164,12 @@ func (tfl *TieredFileSystemLogger) HasDirtyLogs() bool {
 	defer tfl.mutex.Unlock()
 
 	// Check if the directory exists
-	if _, err := os.Stat(tfl.directory); os.IsNotExist(err) {
+	if _, err := tfl.fileSystem.Stat(tfl.directory); os.IsNotExist(err) {
 		return false
 	}
 
 	// Check if there are any log files in the directory
-	files, err := os.ReadDir(tfl.directory)
+	files, err := tfl.fileSystem.ReadDir(tfl.directory)
 
 	if err != nil {
 		return false
@@ -248,7 +252,7 @@ func (tfl *TieredFileSystemLogger) Restart() error {
 	tfl.currentLog = time.Now().UTC().Unix()
 
 	// Remove the old log files
-	files, err := os.ReadDir(tfl.directory)
+	files, err := tfl.fileSystem.ReadDir(tfl.directory)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -263,7 +267,7 @@ func (tfl *TieredFileSystemLogger) Restart() error {
 			continue
 		}
 
-		err := os.Remove(fmt.Sprintf("%s/%s", tfl.directory, file.Name()))
+		err := tfl.fileSystem.Remove(fmt.Sprintf("%s/%s", tfl.directory, file.Name()))
 
 		if err != nil {
 			log.Println("Error removing log file", file.Name(), ":", err)
@@ -282,7 +286,7 @@ func (tfl *TieredFileSystemLogger) removeLogFile(log int64) error {
 		delete(tfl.files, log)
 	}
 
-	if err := os.Remove(fmt.Sprintf("%s/%d", tfl.directory, log)); err != nil {
+	if err := tfl.fileSystem.Remove(fmt.Sprintf("%s/%d", tfl.directory, log)); err != nil {
 		return err
 	}
 

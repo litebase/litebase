@@ -3,199 +3,216 @@ package storage_test
 import (
 	"testing"
 
+	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
-func TestNewTieredFileSystemLogger(t *testing.T) {
-	dir := t.TempDir()
+func TestTieredFileSystemLogger(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		t.Run("NewTieredFileSystemLogger", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-	logger, err := storage.NewTieredFileSystemLogger(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+			if logger == nil {
+				t.Fatal("logger is nil")
+			}
+		})
 
-	if logger == nil {
-		t.Fatal("logger is nil")
-	}
-}
+		t.Run("Close", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-func TestNewTieredFileSystemLogger_Close(t *testing.T) {
-	dir := t.TempDir()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	logger, err := storage.NewTieredFileSystemLogger(dir)
+			file, err := logger.File()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	file, err := logger.File()
+			if err := logger.Close(); err != nil {
+				t.Fatal(err)
+			}
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			// Check if the file is closed
+			if _, err := file.Write([]byte("test")); err == nil {
+				t.Fatal("file is not closed")
+			}
+		})
 
-	if err := logger.Close(); err != nil {
-		t.Fatal(err)
-	}
+		t.Run("DirtyKeys", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-	// Check if the file is closed
-	if _, err := file.Write([]byte("test")); err == nil {
-		t.Fatal("file is not closed")
-	}
-}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-func TestNewTieredFileSystemLogger_DirtyKeys(t *testing.T) {
-	dir := t.TempDir()
+			keys := []string{"key1", "key2", "key3"}
+			for _, key := range keys {
+				if _, err := logger.Put(key); err != nil {
+					t.Fatal(err)
+				}
+			}
 
-	logger, err := storage.NewTieredFileSystemLogger(dir)
+			var dirtyKeys = make(map[string]struct{})
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			// Simulate dirty keys
+			for entry := range logger.DirtyKeys() {
+				dirtyKeys[entry.Key] = struct{}{}
+			}
 
-	keys := []string{"key1", "key2", "key3"}
-	for _, key := range keys {
-		if _, err := logger.Put(key); err != nil {
-			t.Fatal(err)
-		}
-	}
+			if len(dirtyKeys) != len(keys) {
+				t.Fatalf("expected %d dirty keys, got %d", len(keys), len(dirtyKeys))
+			}
 
-	var dirtyKeys = make(map[string]struct{})
+			for _, key := range keys {
+				if _, ok := dirtyKeys[key]; !ok {
+					t.Fatalf("expected key %s to be in dirty keys", key)
+				}
+			}
+		})
 
-	// Simulate dirty keys
-	for entry := range logger.DirtyKeys() {
-		dirtyKeys[entry.Key] = struct{}{}
-	}
+		t.Run("File", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-	if len(dirtyKeys) != len(keys) {
-		t.Fatalf("expected %d dirty keys, got %d", len(keys), len(dirtyKeys))
-	}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	for _, key := range keys {
-		if _, ok := dirtyKeys[key]; !ok {
-			t.Fatalf("expected key %s to be in dirty keys", key)
-		}
-	}
-}
+			file, err := logger.File()
 
-func TestNewTieredFileSystemLogger_File(t *testing.T) {
-	dir := t.TempDir()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	logger, err := storage.NewTieredFileSystemLogger(dir)
+			if file == nil {
+				t.Fatal("file is nil")
+			}
+		})
 
-	if err != nil {
-		t.Fatal(err)
-	}
+		t.Run("HasDirtyLogs", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test_dirty_logs",
+			)
 
-	file, err := logger.File()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			if logger.HasDirtyLogs() {
+				t.Fatal("expected HasDirtyLogs to return false")
+			}
 
-	if file == nil {
-		t.Fatal("file is nil")
-	}
-}
+			_, err = logger.Put("test_key")
 
-func TestNewTieredFileSystemLogger_HasDirtyLogs(t *testing.T) {
-	dir := t.TempDir()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	logger, err := storage.NewTieredFileSystemLogger(dir)
+			logger.Close()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			logger, err = storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-	if logger.HasDirtyLogs() {
-		t.Fatal("expected HasDirtyLogs to return false")
-	}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	_, err = logger.Put("test_key")
+			if !logger.HasDirtyLogs() {
+				t.Fatal("expected HasDirtyLogs to return true")
+			}
+		})
 
-	if err != nil {
-		t.Fatal(err)
-	}
+		t.Run("Put", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-	logger.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	logger, err = storage.NewTieredFileSystemLogger(dir)
+			key := "test_key"
+			logKey, err := logger.Put(key)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if !logger.HasDirtyLogs() {
-		t.Fatal("expected HasDirtyLogs to return true")
-	}
-}
+			if logKey == 0 {
+				t.Fatalf("expected logKey to be greater than 0, got %d", logKey)
+			}
+		})
 
-func TestNewTieredFileSystemLogger_Put(t *testing.T) {
-	dir := t.TempDir()
+		t.Run("Remove", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-	logger, err := storage.NewTieredFileSystemLogger(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			key := "test_key"
+			logKey, err := logger.Put(key)
 
-	key := "test_key"
-	logKey, err := logger.Put(key)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			if logKey == 0 {
+				t.Fatalf("expected logKey to be greater than 0, got %d", logKey)
+			}
 
-	if logKey == 0 {
-		t.Fatalf("expected logKey to be greater than 0, got %d", logKey)
-	}
-}
+			if err := logger.Remove(key, logKey); err != nil {
+				t.Fatal(err)
+			}
+		})
 
-func TestNewTieredFileSystemLogger_Remove(t *testing.T) {
-	dir := t.TempDir()
+		t.Run("Restart", func(t *testing.T) {
+			logger, err := storage.NewTieredFileSystemLogger(
+				app.Cluster.Node().Cluster.LocalFS(),
+				"test",
+			)
 
-	logger, err := storage.NewTieredFileSystemLogger(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if err != nil {
-		t.Fatal(err)
-	}
+			logger.Put("test_key")
 
-	key := "test_key"
-	logKey, err := logger.Put(key)
+			if err := logger.Restart(); err != nil {
+				t.Fatal(err)
+			}
 
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if logKey == 0 {
-		t.Fatalf("expected logKey to be greater than 0, got %d", logKey)
-	}
-
-	if err := logger.Remove(key, logKey); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestNewTieredFileSystemLogger_Restart(t *testing.T) {
-	dir := t.TempDir()
-
-	logger, err := storage.NewTieredFileSystemLogger(dir)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	logger.Put("test_key")
-
-	if err := logger.Restart(); err != nil {
-		t.Fatal(err)
-	}
-
-	if logger.HasDirtyLogs() {
-		t.Fatal("expected HasDirtyLogs to return false")
-	}
+			if logger.HasDirtyLogs() {
+				t.Fatal("expected HasDirtyLogs to return false")
+			}
+		})
+	})
 }

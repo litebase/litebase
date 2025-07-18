@@ -193,7 +193,7 @@ func TestDataRangeIndex_Path(t *testing.T) {
 		drm := storage.NewDataRangeManager(dfs)
 		dri := storage.NewDataRangeIndex(drm)
 
-		expectedPath := fmt.Sprintf("%s_INDEX", file.GetDatabaseFileDir(mockDatabase.DatabaseID, mockDatabase.BranchID))
+		expectedPath := fmt.Sprintf("%s_RANGE_INDEX", file.GetDatabaseFileDir(mockDatabase.DatabaseID, mockDatabase.BranchID))
 		actualPath := dri.Path()
 
 		if actualPath != expectedPath {

@@ -17,10 +17,18 @@ import (
 
 func TestNewTieredFileSystemDriver(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		if tieredFileSystemDriver == nil {
@@ -31,10 +39,23 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 
 func TestTieredFileSystem_ClearFiles(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := os.WriteFile(app.Config.DataPath+"/local/test_1", []byte("test"), 0600)
@@ -97,10 +118,18 @@ func TestTieredFileSystem_ClearFiles(t *testing.T) {
 
 func TestTieredFileSystemDriver_Create(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -128,10 +157,18 @@ func TestTieredFileSystemDriver_Create(t *testing.T) {
 
 func TestTieredFileSystemDriver_Files(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -154,10 +191,18 @@ func TestTieredFileSystemDriver_Files(t *testing.T) {
 
 func TestTieredFileSystemMarkFileUpdated(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		if tieredFileSystemDriver == nil {
@@ -184,10 +229,18 @@ func TestTieredFileSystemMarkFileUpdated(t *testing.T) {
 
 func TestTieredFileSystemDriver_Mkdir(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		err := tieredFileSystemDriver.Mkdir("test/", 0750)
@@ -211,10 +264,18 @@ func TestTieredFileSystemDriver_Mkdir(t *testing.T) {
 
 func TestTieredFileSystemDriver_MkdirAll(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		err := tieredFileSystemDriver.MkdirAll("test/test/test/", 0750)
@@ -238,10 +299,18 @@ func TestTieredFileSystemDriver_MkdirAll(t *testing.T) {
 
 func TestTieredFileSystemDriver_Open(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		_, err := tieredFileSystemDriver.Open("test")
@@ -278,13 +347,18 @@ func TestTieredFileSystemDriver_Open(t *testing.T) {
 
 func TestTieredFileSystemDriver_OpenDurableFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		lfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local")
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			lfsd,
-			dfsd,
+			fs1,
+			fs2,
 		)
 
 		// If the file is not found in local storage or durable storage, the
@@ -297,7 +371,7 @@ func TestTieredFileSystemDriver_OpenDurableFile(t *testing.T) {
 
 		// When a file is not found on local storage, the file system driver
 		// should attempt to find the file in durable storage.
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
+		err = fs2.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -329,7 +403,7 @@ func TestTieredFileSystemDriver_OpenDurableFile(t *testing.T) {
 		}
 
 		// Verify that the file was copied to local storage
-		_, err = lfsd.Stat("test.txt")
+		_, err = fs1.Stat("test.txt")
 
 		if err != nil {
 			t.Error(err)
@@ -341,10 +415,23 @@ func TestTieredFileSystemDriver_OpenDurableFile(t *testing.T) {
 
 func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		// Test open read only file that does not exist
@@ -484,10 +571,18 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 
 func TestTieredFileSystemDriver_Path(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		path := tieredFileSystemDriver.Path("test")
@@ -500,10 +595,18 @@ func TestTieredFileSystemDriver_Path(t *testing.T) {
 
 func TestTieredFileSystemDriver_ReadDir(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		_, err := tieredFileSystemDriver.ReadDir("dir/")
@@ -542,12 +645,18 @@ func TestTieredFileSystemDriver_ReadDir(t *testing.T) {
 
 func TestTieredFileSystemDriver_ReadFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
 		)
 
 		_, err := tieredFileSystemDriver.ReadFile("test")
@@ -556,7 +665,7 @@ func TestTieredFileSystemDriver_ReadFile(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.ReadFile should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test", []byte("test"), 0600)
+		err = fs2.WriteFile("test", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -588,12 +697,23 @@ func TestTieredFileSystemDriver_ReadFile(t *testing.T) {
 
 func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.ReleaseOldestFile()
@@ -656,12 +776,23 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 
 func TestTieredFileSystemDriver_ReleaseOldestFile_WhileReading(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tieredFile1, _ := tieredFileSystemDriver.OpenFile("test1", os.O_RDWR|os.O_CREATE, 0600)
@@ -716,12 +847,18 @@ func TestTieredFileSystemDriver_ReleaseOldestFile_WhileReading(t *testing.T) {
 
 func TestTieredFileSystemDriver_Remove(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
 		)
 
 		err := tieredFileSystemDriver.Remove("test")
@@ -730,7 +867,7 @@ func TestTieredFileSystemDriver_Remove(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Remove should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test", []byte("test"), 0600)
+		err = fs2.WriteFile("test", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -752,12 +889,23 @@ func TestTieredFileSystemDriver_Remove(t *testing.T) {
 
 func TestTieredFileSystemDriver_RemoveAll(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.RemoveAll("dir/")
@@ -830,12 +978,23 @@ func TestTieredFileSystemDriver_RemoveAll(t *testing.T) {
 
 func TestTieredFileSystemDriver_Rename(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.Rename("test", "'test2")
@@ -844,7 +1003,7 @@ func TestTieredFileSystemDriver_Rename(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Rename should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
+		err = fs2.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -876,12 +1035,18 @@ func TestTieredFileSystemDriver_Rename(t *testing.T) {
 
 func TestTieredFileSystemDriver_Stat(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
 		)
 
 		_, err := tieredFileSystemDriver.Stat("test")
@@ -890,7 +1055,7 @@ func TestTieredFileSystemDriver_Stat(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Stat should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
+		err = fs2.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -919,10 +1084,18 @@ func TestTieredFileSystemDriver_Stat(t *testing.T) {
 func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 	if os.Getenv("TEST_RUN") == "1" {
 		test.RunWithApp(t, func(app *server.App) {
+			fs1 := storage.NewFileSystem(
+				storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+			)
+
+			fs2 := storage.NewFileSystem(
+				storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+			)
+
 			tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 				context.Background(),
-				storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-				storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+				fs1,
+				fs2,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -997,11 +1170,19 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Stat should return os.IsNotExist error, got %v", err)
 		}
 
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		// Create a new tiered file system driver (simulating restart)
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			fsd,
+			fs1,
+			fs2,
 			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 				fsd.CanSyncDirtyFiles = func() bool {
 					return true
@@ -1047,12 +1228,18 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 
 func TestTieredFileSystemDriver_Truncate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
 		)
 
 		err := tieredFileSystemDriver.Truncate("test", 4)
@@ -1061,7 +1248,7 @@ func TestTieredFileSystemDriver_Truncate(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Truncate should return os.IsNotExist error, got %v", err)
 		}
 
-		err = dfsd.WriteFile("test.txt", []byte("test"), 0600)
+		err = fs2.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
 			t.Error(err)
@@ -1087,12 +1274,18 @@ func TestTieredFileSystemDriver_Truncate(t *testing.T) {
 
 func TestTieredFileSystemDriver_WriteFile(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
 		)
 
 		err := tieredFileSystemDriver.WriteFile("test.txt", []byte("test"), 0600)
@@ -1115,10 +1308,18 @@ func TestTieredFileSystemDriver_WriteFile(t *testing.T) {
 
 func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		now := time.Now().UTC()
@@ -1190,14 +1391,25 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 
 func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
 				tieredFileSystemDriver.WriteInterval = time.Millisecond * 1
+			},
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
 			},
 		)
 
@@ -1215,7 +1427,7 @@ func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 
 		time.Sleep(time.Millisecond * 2)
 
-		data, err := dfsd.ReadFile("test.txt")
+		data, err := fs2.ReadFile("test.txt")
 
 		if err != nil {
 			t.Error(err)
@@ -1229,12 +1441,18 @@ func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 
 func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		dfsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
 
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			dfsd,
+			fs1,
+			fs2,
 		)
 
 		// Test open read only file that does not exist
@@ -1610,10 +1828,18 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 
 func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
@@ -1640,13 +1866,26 @@ func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 
 func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 			func(context context.Context, tieredFileSystemDriver *storage.TieredFileSystemDriver) {
 				tieredFileSystemDriver.MaxFilesOpened = 4
 				tieredFileSystemDriver.WriteInterval = time.Millisecond * 5
+			},
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
 			},
 		)
 
@@ -1706,10 +1945,18 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 
 func TestTieredFileSystemDriver_FlushClearsDirtyLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 				fsd.CanSyncDirtyFiles = func() bool {
 					return true
@@ -1770,15 +2017,22 @@ func TestTieredFileSystemDriver_FlushClearsDirtyLog(t *testing.T) {
 
 func TestTieredFileSystemDriver_SyncDirtyFiles_SkipsEmptyFiles(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		// Create a file on high tier first
-		highTierFSD := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local")
-		err := highTierFSD.WriteFile("empty_file", []byte{}, 0600)
+		err := fs1.WriteFile("empty_file", []byte{}, 0600)
 		if err != nil {
 			t.Error(err)
 		}
 
 		// Create another file with content
-		err = highTierFSD.WriteFile("content_file", []byte("content"), 0600)
+		err = fs1.WriteFile("content_file", []byte("content"), 0600)
 		if err != nil {
 			t.Error(err)
 		}
@@ -1786,8 +2040,8 @@ func TestTieredFileSystemDriver_SyncDirtyFiles_SkipsEmptyFiles(t *testing.T) {
 		// Manually add entries to dirty log
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			highTierFSD,
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 				fsd.CanSyncDirtyFiles = func() bool {
 					return true
@@ -1837,11 +2091,19 @@ func TestTieredFileSystemDriver_SyncDirtyFiles_SkipsEmptyFiles(t *testing.T) {
 
 func TestTieredFileSystemDriver_FlushAndRestartScenario(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local"),
+		)
+
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object"),
+		)
+
 		// Create initial tiered file system driver
 		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 				fsd.CanSyncDirtyFiles = func() bool {
 					return true
@@ -1900,8 +2162,8 @@ func TestTieredFileSystemDriver_FlushAndRestartScenario(t *testing.T) {
 		// Create a new driver (simulating restart)
 		newTieredFileSystemDriver := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local"),
-			storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object"),
+			fs1,
+			fs2,
 			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 				fsd.CanSyncDirtyFiles = func() bool {
 					return true

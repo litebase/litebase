@@ -128,30 +128,41 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 	newRange.file.Seek(0, io.SeekStart)
 	existingRange.file.Seek(0, io.SeekStart)
 
-	// Verify positions are actually at 0. For some reason Seek is not returning
-	// the correct position. Could be the use of a TieredFile and concurrent
-	// seeking during background syncs.
-	newPos, _ := newRange.file.Seek(0, io.SeekCurrent)
-	existingPos, _ := existingRange.file.Seek(0, io.SeekCurrent)
+	err = newRange.file.(*TieredFile).AccessBarrier(func() error {
+		return existingRange.file.(*TieredFile).AccessBarrier(func() error {
+			// Verify positions are actually at 0. For some reason Seek is not returning
+			// the correct position. Could be the use of a TieredFile and concurrent
+			// seeking during background syncs.
+			newPos, _ := newRange.file.Seek(0, io.SeekCurrent)
+			existingPos, _ := existingRange.file.Seek(0, io.SeekCurrent)
 
-	if newPos != 0 || existingPos != 0 {
-		panic("CopyRange: file positions are not at start")
-	}
+			if newPos != 0 || existingPos != 0 {
+				panic("CopyRange: file positions are not at start")
+			}
 
-	// Copy data from the existing range to the new range
-	_, err = io.Copy(newRange.file, existingRange.file)
+			// Copy data from the existing range to the new range
+			_, err = io.Copy(newRange.file, existingRange.file)
+
+			if err != nil {
+				return err
+			}
+
+			newRange.file.Sync()
+			existingRange.file.Sync()
+
+			return nil
+		})
+	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	newRange.file.Sync()
-
 	newRangeSize, _ := newRange.Size()
 	existingRangeSize, _ := existingRange.Size()
 
 	if newRangeSize != existingRangeSize {
-		slog.Debug("CopyRange: size mismatch", "existingSize", existingRangeSize, "newSize", newRangeSize)
+		slog.Error("CopyRange: size mismatch", "existingSize", existingRangeSize, "newSize", newRangeSize)
 		panic("CopyRange: new range size does not match existing range size")
 	}
 
