@@ -311,34 +311,82 @@ func TestPageLogger_CompactionBarrier(t *testing.T) {
 			t.Fatal("Expected page logger to be created, but got nil")
 		}
 
+		// Track execution order to ensure operations are serialized
+		var executionOrder []int
+		var mutex sync.Mutex
+
 		wg := sync.WaitGroup{}
+		startTime := time.Now()
 
 		wg.Add(1)
-
 		go func() {
 			defer wg.Done()
 			err = pageLogger.CompactionBarrier(func() error {
-				time.Sleep(10 * time.Millisecond)
+				// First operation should start immediately
+				mutex.Lock()
+				executionOrder = append(executionOrder, 1)
+				mutex.Unlock()
+
+				time.Sleep(20 * time.Millisecond) // Hold the barrier for longer
+
+				mutex.Lock()
+				executionOrder = append(executionOrder, 2) // Mark completion of first operation
+				mutex.Unlock()
 				return nil
 			})
+
+			if err != nil {
+				t.Errorf("First CompactionBarrier call failed: %v", err)
+			}
 		}()
 
 		wg.Add(1)
-
 		go func() {
 			defer wg.Done()
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond) // Start after first operation has begun
 
 			err = pageLogger.CompactionBarrier(func() error {
+				// Second operation should wait for first to complete
+				mutex.Lock()
+				executionOrder = append(executionOrder, 3)
+				mutex.Unlock()
+
+				time.Sleep(5 * time.Millisecond)
+
+				mutex.Lock()
+				executionOrder = append(executionOrder, 4) // Mark completion of second operation
+				mutex.Unlock()
 				return nil
 			})
 
-			if err == nil {
-				t.Error("Expected error due to compaction barrier, but got nil")
+			if err != nil {
+				t.Errorf("Second CompactionBarrier call failed: %v", err)
 			}
 		}()
 
 		wg.Wait()
+		totalTime := time.Since(startTime)
+
+		// Verify operations were serialized (not concurrent)
+		// Total time should be at least 25ms (20ms + 5ms) if operations were serialized
+		if totalTime < 20*time.Millisecond {
+			t.Errorf("Operations appear to have run concurrently. Total time: %v, expected at least 20ms", totalTime)
+		}
+
+		// Verify execution order: first operation should start and complete before second operation starts
+		expectedOrder := []int{1, 2, 3, 4}
+		mutex.Lock()
+		if len(executionOrder) != len(expectedOrder) {
+			t.Fatalf("Expected %d execution events, got %d: %v", len(expectedOrder), len(executionOrder), executionOrder)
+		}
+
+		for i, expected := range expectedOrder {
+			if executionOrder[i] != expected {
+				t.Errorf("Execution order mismatch at position %d: expected %d, got %d. Full order: %v",
+					i, expected, executionOrder[i], executionOrder)
+			}
+		}
+		mutex.Unlock()
 	})
 }
 
@@ -427,19 +475,17 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 
 		db := test.MockDatabase(app)
 
-		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseID,
-			db.BranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		if err != nil {
-			t.Fatalf("Failed to create page logger: %v", err)
-		}
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		pageLogger := dfs.PageLogger
+		rangeManager := dfs.RangeManager
 
 		if pageLogger == nil {
 			t.Fatal("Expected page logger to be created, but got nil")
 		}
+
+		// Ensure the ranges are initialized
+		rangeManager.Get(1, 0)
+		rangeManager.Get(2, 0)
 
 		write := make([]byte, 4096)
 		read := make([]byte, 4096)
@@ -452,13 +498,11 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to write page: %v", err)
 				}
-
-				// log.Println("testing write", int64(i+1), version)
 			}
 		}
 
 		// Compaction will run since the compaction interval has passed
-		err = pageLogger.Compact(
+		err := pageLogger.Compact(
 			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
@@ -477,7 +521,6 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 				if found {
 					t.Fatalf("Expected no to find page data. Page: %d, Version: %d", int64(i+1), version)
 				}
-				// log.Println("tested read", int64(i+1), version)
 			}
 		}
 	})
@@ -494,19 +537,13 @@ func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 
 		db := test.MockDatabase(app)
 
-		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseID,
-			db.BranchID,
-			app.Cluster.LocalFS(),
-		)
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		pageLogger := dfs.PageLogger
+		rangeManager := dfs.RangeManager
 
-		if err != nil {
-			t.Fatalf("Failed to create page logger: %v", err)
-		}
-
-		if pageLogger == nil {
-			t.Fatal("Expected page logger to be created, but got nil")
-		}
+		// Ensure the ranges are initialized
+		rangeManager.Get(1, 0)
+		rangeManager.Get(2, 0)
 
 		write := make([]byte, 4096)
 		read := make([]byte, 4096)
@@ -523,7 +560,7 @@ func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 		}
 
 		// First compaction - this should run since CompactedAt is zero
-		err = pageLogger.Compact(
+		err := pageLogger.Compact(
 			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 		)
 
@@ -2165,21 +2202,13 @@ func TestPageLogger_EOFErrorDuringCompaction(t *testing.T) {
 func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		rangeManager := dfs.RangeManager
+		pageLogger := dfs.PageLogger
 
-		// Create initial page logger
-		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseID,
-			db.BranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		if err != nil {
-			t.Fatalf("Failed to create page logger: %v", err)
-		}
-
-		if pageLogger == nil {
-			t.Fatal("Expected page logger to be created, but got nil")
-		}
+		// Initialize the ranges
+		rangeManager.Get(1, 0)
+		rangeManager.Get(2, 0)
 
 		// Write data to create page logs
 		testData := []struct {
@@ -2210,7 +2239,7 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 		}
 
 		// Close the page logger
-		err = pageLogger.Close()
+		err := pageLogger.Close()
 
 		if err != nil {
 			t.Fatalf("Failed to close page logger: %v", err)
@@ -2581,19 +2610,9 @@ func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
 func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		fileSystem := app.Cluster.LocalFS()
-
-		pageLogger, err := storage.NewPageLogger(
-			db.DatabaseID,
-			db.BranchID,
-			fileSystem,
-		)
-
-		if err != nil {
-			t.Fatalf("Failed to create page logger: %v", err)
-		}
-
-		defer pageLogger.Close()
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		rangeManager := dfs.RangeManager
+		pageLogger := dfs.PageLogger
 
 		// Create data for 17 different page logs across multiple page groups
 		pageData := make([]byte, 4096)
@@ -2607,6 +2626,10 @@ func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 		// Create 17 different page logs with varying timestamps
 		for i := range 17 {
 			pageNum := int64(i*1000 + 1) // Spread across different page groups
+			rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
+			// Initialize the range for this page
+			rangeManager.Get(rangeNumber, 0)
+
 			timestamp := baseTime + int64(i*1000)
 			testData = append(testData, struct {
 				pageNum   int64
@@ -2618,7 +2641,8 @@ func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 		for _, tc := range testData {
 			rand.Read(pageData)
 
-			_, err = pageLogger.Write(tc.pageNum, tc.timestamp, pageData)
+			_, err := pageLogger.Write(tc.pageNum, tc.timestamp, pageData)
+
 			if err != nil {
 				t.Fatalf("Failed to write page %d at timestamp %d: %v", tc.pageNum, tc.timestamp, err)
 			}
@@ -2629,7 +2653,8 @@ func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 			emptyTimestamp := baseTime + int64(i*10000)
 			pageNum := int64(i*2000 + 1)
 
-			_, err = pageLogger.Write(pageNum, emptyTimestamp, pageData)
+			_, err := pageLogger.Write(pageNum, emptyTimestamp, pageData)
+
 			if err != nil {
 				t.Fatalf("Failed to write page for tombstoning: %v", err)
 			}
@@ -2645,7 +2670,7 @@ func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 
 		// Run compaction multiple times like the user scenario
 		for i := range 3 {
-			err = pageLogger.ForceCompact(
+			err := pageLogger.ForceCompact(
 				app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
 			)
 
@@ -2682,6 +2707,9 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		// Create mock database
 		db := test.MockDatabase(server1.App)
 
+		dfs := server1.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		rangeManager := dfs.RangeManager
+
 		// Create page logger with TieredFS (which handles sync to low-tier storage)
 		pageLogger1, err := storage.NewPageLogger(
 			db.DatabaseID,
@@ -2705,6 +2733,9 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		// Create 10 page logs with different timestamps and page groups
 		for i := range 10 {
 			pageNum := int64(i*storage.PageLoggerPageGroups + 1) // Different page groups
+			rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
+			// Initialize the range for this page
+			rangeManager.Get(rangeNumber, 0)
 			timestamp := baseTimestamp + int64(i*1000)
 			data := make([]byte, 4096)
 			rand.Read(data)
@@ -2781,6 +2812,9 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 
 		for i := 10; i < 17; i++ { // Create 7 more logs to reach 17 total
 			pageNum := int64(i*storage.PageLoggerPageGroups + 1)
+			rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
+			// Initialize the range for this page
+			rangeManager.Get(rangeNumber, 0)
 			timestamp := baseTimestamp + int64(i*1000)
 			data := make([]byte, 4096)
 			rand.Read(data)
@@ -2970,7 +3004,7 @@ func TestPageLogger_ConcurrentReadsDuringCompaction(t *testing.T) {
 				default:
 					err := pageLogger.Compact(durableFS)
 
-					if err != nil && err != storage.ErrCompactionInProgress {
+					if err != nil {
 						errors <- fmt.Errorf("compaction error: %v", err)
 						return
 					}
@@ -3067,7 +3101,7 @@ func TestPageLogger_ReadDuringReload(t *testing.T) {
 			// This should be safe to call concurrently with reads
 			err := pageLogger.ForceCompact(durableFS)
 
-			if err != nil && err != storage.ErrCompactionInProgress {
+			if err != nil {
 				errors <- fmt.Errorf("force compact error: %v", err)
 			}
 		}()

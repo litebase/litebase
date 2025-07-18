@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -47,8 +46,6 @@ type PageLogEntry struct {
 	pageGroupVersion PageGroupVersion
 	pageLog          *PageLog
 }
-
-var ErrCompactionInProgress = errors.New("compaction is already in progress")
 
 // Create a new instance of a page logger for the given database and branch.
 func NewPageLogger(
@@ -234,13 +231,9 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 }
 
 // Create a barrier for compaction operations. This ensures that only one
-// compaction operation can run at a time. If another compaction is already in
-// progress, it will return an error.
+// compaction operation can run at a time.
 func (pl *PageLogger) CompactionBarrier(f func() error) error {
-	if !pl.compactionMutex.TryLock() {
-		return ErrCompactionInProgress
-	}
-
+	pl.compactionMutex.Lock()
 	defer pl.compactionMutex.Unlock()
 
 	return f()
