@@ -275,8 +275,8 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				t.Fatalf("failed to send request: %v", err)
 			}
 
-			if statusCode != 400 {
-				t.Fatalf("expected status code 400, got %d", statusCode)
+			if statusCode != 404 {
+				t.Fatalf("expected status code 404, got %d", statusCode)
 			}
 
 			if resp == nil {
@@ -287,8 +287,8 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				t.Fatalf("expected error status, got %v", resp["status"])
 			}
 
-			if resp["message"] != "Error: failed to find database" {
-				t.Fatalf("expected message to be 'Error: failed to find database', got %v", resp["message"])
+			if resp["message"] != "Error: database not found" {
+				t.Fatalf("expected message to be 'Error: database not found', got %v", resp["message"])
 			}
 		})
 	})

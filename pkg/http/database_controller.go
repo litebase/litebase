@@ -1,6 +1,8 @@
 package http
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -53,7 +55,10 @@ func DatabaseShowController(request *Request) Response {
 	db, err := request.databaseManager.Get(databaseId)
 
 	if err != nil {
-		log.Println(err)
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("database not found"))
+		}
+
 		return BadRequestResponse(err)
 	}
 
@@ -144,6 +149,10 @@ func DatabaseDestroyController(request *Request) Response {
 	db, err := request.databaseManager.Get(databaseId)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("database not found"))
+		}
+
 		return BadRequestResponse(err)
 	}
 

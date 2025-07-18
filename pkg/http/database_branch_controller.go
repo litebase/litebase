@@ -1,6 +1,8 @@
 package http
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -78,6 +80,10 @@ func DatabaseBranchShowController(request *Request) Response {
 	db, err := request.databaseManager.Get(databaseID)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("database not found"))
+		}
+
 		return BadRequestResponse(err)
 	}
 
