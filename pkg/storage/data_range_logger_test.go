@@ -35,6 +35,10 @@ func TestDataRangeLogger_All(t *testing.T) {
 			t.Fatalf("Expected All() to succeed, got error: %v", err)
 		}
 
+		if entries != nil {
+			t.Error("Expected All() to return nil on empty log, got non-nil")
+		}
+
 		err = logger.Append("000000001_1234567890")
 
 		if err != nil {
