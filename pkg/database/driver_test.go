@@ -313,8 +313,6 @@ func TestLitebaseDriverSimple(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to drop table: %v", err)
 		}
-
-		t.Log("Simple test passed!")
 	})
 }
 

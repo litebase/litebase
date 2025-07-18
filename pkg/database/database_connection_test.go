@@ -212,7 +212,6 @@ func TestDatabaseConnection(t *testing.T) {
 
 			actualRows := result.Rows[0][0].Int64()
 			expectedRows := int64(rounds * 2)
-			t.Logf("TEST RESULTS: Expected rows=%d, Actual rows=%d", expectedRows, actualRows)
 
 			if actualRows != expectedRows {
 				t.Fatalf("Expected %d rows, got %d", expectedRows, actualRows)

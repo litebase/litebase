@@ -161,9 +161,17 @@ func (fsd *TieredFileSystemDriver) clearDirtyLog() error {
 	return nil
 }
 
+// ClearFiles clears all files from the tiered file system driver. This operation
+// will flush any dirty files to durable storage before clearing the files from
+// the storage device.
 func (fsd *TieredFileSystemDriver) ClearFiles() error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
+
+	// Do not clear files if we cannot sync dirty files
+	if !fsd.CanSyncDirtyFiles() {
+		return nil
+	}
 
 	for path, file := range fsd.Files {
 		if file.shouldBeWrittenToDurableStorage() {
@@ -274,6 +282,10 @@ func (fsd *TieredFileSystemDriver) Flush() error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
 
+	if !fsd.CanSyncDirtyFiles() {
+		return nil
+	}
+
 	err := fsd.flushFiles()
 
 	if err != nil {
@@ -289,6 +301,7 @@ func (fsd *TieredFileSystemDriver) Flush() error {
 func (fsd *TieredFileSystemDriver) flushFiles() error {
 	for _, file := range fsd.Files {
 		fsd.flushFileToDurableStorage(file, false)
+
 		// Remove the file from dirty log after successful flush
 		if file.LogKey != 0 {
 			if err := fsd.logger.Remove(file.Key, file.LogKey); err != nil {
@@ -738,6 +751,10 @@ func (fsd *TieredFileSystemDriver) Shutdown() error {
 		fsd.watchTicker.Stop()
 	}
 
+	if !fsd.CanSyncDirtyFiles() {
+		return nil
+	}
+
 	return fsd.Flush()
 }
 
@@ -885,6 +902,10 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 
 			return
 		case <-fsd.watchTicker.C:
+			if !fsd.CanSyncDirtyFiles() {
+				continue
+			}
+
 			fsd.mutex.RLock()
 
 			// Use a semaphore to limit concurrency to 10
