@@ -102,7 +102,7 @@ func (dri *DataRangeIndex) Get(rangeNumber int64) (bool, int64, error) {
 
 // Return the path of the data range index file.
 func (dri *DataRangeIndex) Path() string {
-	return fmt.Sprintf("%s_INDEX", file.GetDatabaseFileDir(dri.drm.dfs.databaseId, dri.drm.dfs.branchId))
+	return fmt.Sprintf("%s_RANGE_INDEX", file.GetDatabaseFileDir(dri.drm.dfs.databaseId, dri.drm.dfs.branchId))
 }
 
 // Set the version of the specified range number in the index file.

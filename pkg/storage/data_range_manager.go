@@ -13,6 +13,7 @@ import (
 type DataRangeManager struct {
 	dfs        *DurableDatabaseFileSystem
 	index      *DataRangeIndex
+	logger     *DataRangeLogger
 	mutex      *sync.RWMutex
 	ranges     map[int64]map[int64]*Range
 	rangeUsage map[int64]int64
@@ -31,6 +32,7 @@ func NewDataRangeManager(dfs *DurableDatabaseFileSystem) *DataRangeManager {
 	}
 
 	drm.index = NewDataRangeIndex(drm)
+	drm.logger = NewDataRangeLogger(drm)
 
 	return drm
 }
@@ -49,20 +51,12 @@ func (drm *DataRangeManager) Acquire(timestamp int64) {
 
 // Close closes all open ranges and the index file.
 func (drm *DataRangeManager) Close() error {
-	err := drm.index.Close()
-
-	if err != nil {
-		slog.Error(`Error closing range index`, "error", err)
-	}
+	drm.index.Close()
 
 	for _, rangeVersions := range drm.ranges {
 		for _, r := range rangeVersions {
 			if r != nil {
-				err := r.Close()
-
-				if err != nil {
-					slog.Error("Error closing range file", "error", err)
-				}
+				r.Close()
 			}
 		}
 	}
@@ -185,6 +179,12 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 	// Store the new range in the in-memory cache
 	drm.ranges[rangeNumber][newRange.Timestamp] = newRange
 
+	err = drm.logger.Append(existingRange.ID())
+
+	if err != nil {
+		slog.Error("Failed to log existing range", "error", err)
+	}
+
 	return newRange, nil
 }
 
@@ -278,6 +278,11 @@ func (drm *DataRangeManager) GetOldestTimestamp() int64 {
 	drm.mutex.RLock()
 	defer drm.mutex.RUnlock()
 
+	return drm.getOldestTimestamp()
+}
+
+// getOldestTimestamp is the internal implementation of GetOldestTimestamp.
+func (drm *DataRangeManager) getOldestTimestamp() int64 {
 	if len(drm.rangeUsage) == 0 {
 		return 0
 	}
@@ -352,52 +357,83 @@ func (drm *DataRangeManager) RunGarbageCollection() error {
 	drm.mutex.Lock()
 	defer drm.mutex.Unlock()
 
-	// Find the oldest timestamp without calling GetOldestTimestamp() to avoid deadlock
-	var oldestTimestamp int64
-	first := true
+	oldestTimestamp := drm.getOldestTimestamp()
 
-	if len(drm.rangeUsage) == 0 {
-		return nil // No active timestamps, nothing to clean up
+	// TODO: Coordinate with Replicas to get their oldest timestamps and ensure
+	// we don't delete ranges they might need
+
+	// Read all log entries to determine which ranges are no longer needed
+	logEntries, err := drm.logger.All()
+
+	if err != nil {
+		slog.Error("Failed to read data range log during garbage collection", "error", err)
+		return err
 	}
 
-	for timestamp := range drm.rangeUsage {
-		if first || timestamp < oldestTimestamp {
-			oldestTimestamp = timestamp
-			first = false
+	// Refresh the log to remove deleted entries
+	validEntries := make([]DataRangeLogEntry, 0)
+
+	for _, entry := range logEntries {
+		if oldestTimestamp > 0 && entry.Timestamp >= oldestTimestamp {
+			validEntries = append(validEntries, entry)
+			continue
 		}
-	}
+		slog.Info("Garbage collecting range file", "rangeNumber", entry.RangeNumber, "timestamp", entry.Timestamp)
+		// Check if the range is open in memory
+		var r *Range
 
-	var filesToRemove []string
-
-	for rangeNumber, rangeVersions := range drm.ranges {
-		for timestamp, r := range rangeVersions {
-			if timestamp < oldestTimestamp {
-				// Close and delete the range file
-				if r != nil {
-					err := r.Close()
-					if err != nil {
-						log.Printf("Error closing range file during garbage collection: %v", err)
-					}
-
-					err = r.Delete()
-					if err != nil {
-						log.Printf("Error deleting range file during garbage collection: %v", err)
-					}
-
-					filesToRemove = append(filesToRemove, "range file")
-				}
-
-				delete(rangeVersions, timestamp)
+		if rangeVersions, ok := drm.ranges[entry.RangeNumber]; ok {
+			if r, ok = rangeVersions[entry.Timestamp]; !ok {
+				r = nil
 			}
 		}
 
-		// Remove empty range entries
-		if len(rangeVersions) == 0 {
-			delete(drm.ranges, rangeNumber)
+		// Check if the range is open in memory
+		if r == nil {
+			// Open the range file to delete it
+			r, err = NewRange(
+				drm.dfs.databaseId,
+				drm.dfs.branchId,
+				drm.dfs.tieredFS,
+				entry.RangeNumber,
+				drm.dfs.pageSize,
+				entry.Timestamp,
+			)
+
+			if err != nil {
+				slog.Error("Failed to open range file during garbage collection", "rangeNumber", entry.RangeNumber, "timestamp", entry.Timestamp, "error", err)
+				continue
+			}
+		}
+
+		err := r.Close()
+
+		if err != nil {
+			log.Printf("Error closing range file during garbage collection: %v", err)
+		}
+
+		err = r.Delete()
+
+		if err != nil {
+			log.Printf("Error deleting range file during garbage collection: %v", err)
+		}
+
+		if drm.ranges[entry.RangeNumber] != nil {
+			delete(drm.ranges[entry.RangeNumber], entry.Timestamp)
+		}
+
+		if drm.rangeUsage[entry.Timestamp] <= 0 {
+			delete(drm.rangeUsage, entry.Timestamp)
 		}
 	}
 
-	log.Printf("Garbage collected %d range files", len(filesToRemove))
+	// Rewrite the log with only valid entries
+	err = drm.logger.Refresh(validEntries)
+
+	if err != nil {
+		slog.Error("Failed to refresh data range log during garbage collection", "error", err)
+		return err
+	}
 
 	return nil
 }

@@ -241,3 +241,98 @@ func TestDataRangeManager_Remove(t *testing.T) {
 		}
 	})
 }
+
+func TestDataRangeManager_RunGarbageCollection(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+
+		drm := storage.NewDataRangeManager(
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+		)
+
+		// Create ranges with different timestamps
+		timestamp1 := time.Now().UTC().UnixNano()
+		timestamp2 := timestamp1 + 1000000 // 1ms later
+		timestamp3 := timestamp2 + 1000000 // 2ms later
+
+		// Create ranges - these should be eligible for GC
+		_, err := drm.Get(1, timestamp1)
+
+		if err != nil {
+			t.Fatalf("Expected Get to succeed, got error: %v", err)
+		}
+
+		_, err = drm.Get(2, timestamp1)
+
+		if err != nil {
+			t.Fatalf("Expected Get to succeed, got error: %v", err)
+		}
+
+		// Create a newer range that should NOT be eligible for GC
+		r3, err := drm.Get(1, timestamp3)
+
+		if err != nil {
+			t.Fatalf("Expected Get to succeed, got error: %v", err)
+		}
+
+		// Acquire timestamp3 to make it the oldest active timestamp
+		// This means ranges with timestamp1 and timestamp2 should be garbage collected
+		drm.Acquire(timestamp3)
+
+		// Verify ranges exist before GC
+		rangeUsage := drm.RangeUsage()
+
+		if rangeUsage[timestamp3] != 1 {
+			t.Errorf("Expected timestamp3 to have usage 1, got %d", rangeUsage[timestamp3])
+		}
+
+		_, err = drm.CopyRange(1, time.Now().UTC().UnixNano(), nil) // Create another range with a new timestamp
+
+		if err != nil {
+			t.Fatalf("Expected CopyRange to succeed, got error: %v", err)
+		}
+
+		// Run garbage collection
+		err = drm.RunGarbageCollection()
+
+		if err != nil {
+			t.Errorf("Expected RunGarbageCollection to succeed, got error: %v", err)
+		}
+
+		// Verify that old ranges were cleaned up
+		// The older ranges (timestamp1) should be removed, but timestamp3 should remain
+		rangeUsageAfter := drm.RangeUsage()
+
+		if rangeUsageAfter[timestamp3] != 1 {
+			t.Errorf("Expected timestamp3 to still have usage 1 after GC, got %d", rangeUsageAfter[timestamp3])
+		}
+
+		// Older timestamps should be cleaned up from rangeUsage
+		if _, exists := rangeUsageAfter[timestamp1]; exists {
+			t.Errorf("Expected timestamp1 to be cleaned up from rangeUsage, but it still exists")
+		}
+
+		// Close the remaining range manually to verify no double-close error
+		err = r3.Close()
+
+		if err != nil {
+			t.Errorf("Expected Close to succeed, got error: %v", err)
+		}
+
+		// Test edge case: GC with no active timestamps
+		drm.Release(timestamp3) // Release the last timestamp
+
+		err = drm.RunGarbageCollection()
+
+		if err != nil {
+			t.Errorf("Expected RunGarbageCollection with no active timestamps to succeed, got error: %v", err)
+		}
+
+		// Ensure the resources are properly cleaned up
+		err = drm.Close()
+
+		if err != nil {
+			t.Errorf("Expected Close to succeed, got error: %v", err)
+		}
+	})
+}

@@ -61,7 +61,6 @@ func TestDurableDatabaseFileSystem_Compact(t *testing.T) {
 
 		// Map to store all written data for verification
 		writtenData := make(map[int64][]byte)
-		// baseTimestamp := time.Now().UTC().UnixNano()
 
 		for cycle := range numCompactionCycles {
 			t.Logf("Starting compaction cycle %d", cycle+1)
@@ -71,7 +70,6 @@ func TestDurableDatabaseFileSystem_Compact(t *testing.T) {
 
 			for i := range numWrites {
 				offset := int64(i * pageSize)
-				// timestamp := baseTimestamp + int64(cycle*numWrites+i)
 				timestamp := time.Now().UTC().UnixNano()
 
 				// Generate unique data for this write
@@ -86,6 +84,7 @@ func TestDurableDatabaseFileSystem_Compact(t *testing.T) {
 
 				// Write to DFS
 				n, err := dfs.WriteAt(timestamp, timestamp, data, offset)
+
 				if err != nil {
 					t.Fatalf("Failed to write at offset %d: %v", offset, err)
 				}
@@ -96,6 +95,7 @@ func TestDurableDatabaseFileSystem_Compact(t *testing.T) {
 
 				// Immediately read back and verify
 				readBuffer := make([]byte, pageSize)
+
 				n, err = dfs.ReadAt(timestamp, timestamp, readBuffer, offset, pageSize)
 
 				if err != nil {

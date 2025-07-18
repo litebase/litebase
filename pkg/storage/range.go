@@ -71,33 +71,22 @@ tryOpen:
 	return dr, nil
 }
 
+// Close the range file.
 func (dr *Range) Close() error {
 	if dr.closed {
 		return nil
 	}
 
-	err := dr.file.Close()
-
-	if err != nil {
-		log.Println("Error closing range file", err)
-		return err
-	}
+	dr.file.Close()
 
 	dr.closed = true
 
 	return nil
 }
 
+// Delete the range file from disk.
 func (dr *Range) Delete() error {
-	err := dr.file.Close()
-
-	if err != nil {
-		log.Println("Error closing range file", err)
-
-		return err
-	}
-
-	err = dr.fs.Remove(dr.Path())
+	err := dr.fs.Remove(dr.Path())
 
 	if err != nil {
 		log.Println("Error removing range file", err)
@@ -108,6 +97,12 @@ func (dr *Range) Delete() error {
 	return nil
 }
 
+// The unique identifier for the range file.
+func (dr *Range) ID() string {
+	return fmt.Sprintf("%010d_%d", dr.number, dr.Timestamp)
+}
+
+// The number of pages in the range file.
 func (dr *Range) PageCount() int64 {
 	if dr.closed {
 		return 0
@@ -123,17 +118,16 @@ func (dr *Range) PageCount() int64 {
 	return size / dr.pageSize
 }
 
+// The path to the range file.
 func (r *Range) Path() string {
-	rangeStr := fmt.Sprintf("%010d", r.number)
-
 	return fmt.Sprintf(
-		"%s%s_%d",
+		"%s%s",
 		file.GetDatabaseFileDir(r.databaseId, r.branchId),
-		rangeStr,
-		r.Timestamp,
+		r.ID(),
 	)
 }
 
+// Perform a read operation at the specified page number.
 func (dr *Range) ReadAt(pageNumber int64, p []byte) (n int, err error) {
 	if dr.closed {
 		return 0, os.ErrClosed
@@ -157,6 +151,7 @@ func (dr *Range) ReadAt(pageNumber int64, p []byte) (n int, err error) {
 	return n, nil
 }
 
+// Return the size of the range file in bytes.
 func (dr *Range) Size() (int64, error) {
 	if dr.closed {
 		return 0, os.ErrClosed
@@ -176,6 +171,7 @@ func (dr *Range) Size() (int64, error) {
 	return pageCount * (dr.pageSize), nil
 }
 
+// Truncate the range file to the specified size in bytes.
 func (dr *Range) Truncate(size int64) error {
 	if dr.closed {
 		return os.ErrClosed
@@ -192,6 +188,7 @@ func (dr *Range) Truncate(size int64) error {
 	return nil
 }
 
+// Perform a write operation at the specified page number.
 func (dr *Range) WriteAt(pageNumber int64, p []byte) (n int, err error) {
 	if dr.closed {
 		return 0, os.ErrClosed

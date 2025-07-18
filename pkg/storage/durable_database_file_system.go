@@ -73,7 +73,13 @@ func (dfs *DurableDatabaseFileSystem) Compact() error {
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
-	return dfs.PageLogger.Compact(dfs)
+	err := dfs.PageLogger.Compact(dfs)
+
+	if err != nil {
+		slog.Error("Error compacting database file system", "error", err)
+	}
+
+	return dfs.rangeManager.RunGarbageCollection()
 }
 
 // CompactionBarrier runs the given function while preventing compaction from
