@@ -188,7 +188,7 @@ func (backup *Backup) Key(partNumber int) string {
 // Package the backup files into a tarball and compress it using gzip. This will
 // create a series of files in the filesystem that can be used to restore the
 // database.
-func (backup *Backup) packageBackup() error {
+func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) error {
 	var err error
 	var fileSize int64
 	var partNumber = 1
@@ -199,23 +199,37 @@ func (backup *Backup) packageBackup() error {
 	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, backup.config.PageSize)
 	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseID, backup.BranchID)
 
-	// Loop through the files in the source database and copy them to the target database
-	entries, err := backup.dfs.FileSystem().ReadDir(sourceDirectory)
+	// Loop through the ranges in the range index.
+	entries, err := dfs.RangeManager.Index.All()
 
 	if err != nil {
-		log.Println("Error reading source directory:", err)
+		slog.Error("Not able to get range entries:", "error", err)
+
 		return err
 	}
 
+	systemFiles := []string{"_METADATA", "_RANGE_INDEX", "_RANGE_LOG"}
+
+	// Create a map for quick lookup of range numbers by filename
+	rangeNumberMap := make(map[string]int64)
+
 	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
+		rangeNumberMap[entry.Name()] = entry.Number
+	}
+
+	// Process all files in order (system files first, then range files)
+	allFiles := make([]string, 0, len(systemFiles)+len(entries))
+	allFiles = append(allFiles, systemFiles...)
+
+	for _, entry := range entries {
+		allFiles = append(allFiles, entry.Name())
+	}
+
+	for _, fileName := range allFiles {
+		var data []byte
 
 		// Get the full path of the source file
-		path := fmt.Sprintf("%s%s", sourceDirectory, entry.Name())
-
-		var data []byte
+		path := fmt.Sprintf("%s%s", sourceDirectory, fileName)
 
 		// Open the source file
 		sourceFile, err = backup.dfs.FileSystem().Open(path)
@@ -224,13 +238,13 @@ func (backup *Backup) packageBackup() error {
 			return err
 		}
 
-		// Ensure we are working on a range file
-		if entry.Name()[0] != '_' {
-			rangeNumber, err := strconv.ParseInt(entry.Name(), 10, 64)
+		if fileName[0] != '_' {
+			// This is a range file - get the range number from our map
+			rangeNumber, exists := rangeNumberMap[fileName]
 
-			if err != nil {
-				log.Println("Error parsing entry name:", entry.Name(), err)
-				return err
+			if !exists {
+				slog.Error("Range number not found for file:", "fileName", fileName)
+				return fmt.Errorf("range number not found for file: %s", fileName)
 			}
 
 			// Skip if the range number is greater than the max range number of
@@ -247,23 +261,20 @@ func (backup *Backup) packageBackup() error {
 			}
 		} else {
 
-			// Currently the only other file in a database directory is the
-			// metadata file. This will be the only other file that is not a
-			// range file. This file needs to be updated with the page count
-			// from the restore point.
-
 			data, err = io.ReadAll(sourceFile)
 
 			if err != nil {
 				return err
 			}
 
-			if entry.Name() == "_METADATA" {
+			// This file needs to be updated with the page count from the restore point.
+			if fileName == "_METADATA" {
 				// Set the first 8 bytes of the metadata file to the page count
 				uint64PageCount, err := utils.SafeInt64ToUint64(backup.RestorePoint.PageCount)
 
 				if err != nil {
 					slog.Error("Error converting page count to uint64:", "error", err)
+
 					return err
 				}
 
@@ -284,7 +295,7 @@ func (backup *Backup) packageBackup() error {
 		}
 
 		if err != nil {
-			log.Println("Error opening source file:", entry.Name(), err)
+			log.Println("Error opening source file:", fileName, err)
 			return err
 		}
 
@@ -297,7 +308,7 @@ func (backup *Backup) packageBackup() error {
 
 		// Create tar header
 		header := &tar.Header{
-			Name:    entry.Name(),
+			Name:    fileName,
 			ModTime: info.ModTime(),
 			Mode:    int64(info.Mode()),
 			Size:    int64(len(data)),
@@ -414,46 +425,58 @@ func Run(
 		return nil, fmt.Errorf("error compacting durable database file system: %w", err)
 	}
 
-	snapshot, err := snapshotLogger.GetSnapshot(time.Now().UTC().UnixNano())
+	var backup *Backup
 
-	if err != nil {
-		slog.Error("Error getting snapshot:", "error", err)
-		return nil, err
-	}
+	err := dfs.CompactionBarrier(func() error {
+		snapshot, err := snapshotLogger.GetSnapshot(time.Now().UTC().UnixNano())
 
-	err = snapshot.Load()
+		if err != nil {
+			slog.Error("Error getting snapshot:", "error", err)
 
-	if err != nil {
-		slog.Error("Error loading snapshot:", "error", err)
-		return nil, err
-	}
+			return err
+		}
 
-	restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
+		err = snapshot.Load()
 
-	if err != nil {
-		log.Println("Error getting restorePoint:", err)
-		return nil, err
-	}
+		if err != nil {
+			slog.Error("Error loading snapshot:", "error", err)
 
-	if restorePoint == (RestorePoint{}) {
-		return nil, ErrBackupNoRestorePoint
-	}
+			return err
+		}
 
-	backup := &Backup{
-		config:         c,
-		BranchID:       branchId,
-		DatabaseID:     databaseId,
-		dfs:            dfs,
-		objectFS:       objectFS,
-		RestorePoint:   restorePoint,
-		rollbackLogger: rollbackLogger,
-	}
+		restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
 
-	for _, callback := range callbacks {
-		callback(backup)
-	}
+		if err != nil {
+			log.Println("Error getting restorePoint:", err)
+			return err
+		}
 
-	err = backup.packageBackup()
+		if restorePoint == (RestorePoint{}) {
+			return ErrBackupNoRestorePoint
+		}
+
+		backup = &Backup{
+			config:         c,
+			BranchID:       branchId,
+			DatabaseID:     databaseId,
+			dfs:            dfs,
+			objectFS:       objectFS,
+			RestorePoint:   restorePoint,
+			rollbackLogger: rollbackLogger,
+		}
+
+		for _, callback := range callbacks {
+			callback(backup)
+		}
+
+		err = backup.packageBackup(dfs)
+
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 
 	if err != nil {
 		return nil, err

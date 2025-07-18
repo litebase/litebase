@@ -200,7 +200,7 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Insert some test data to ensure the database has actual content
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				_, err = db.GetConnection().Exec(
 					"INSERT INTO test (name) VALUES (?)",
 					[]sqlite3.StatementParameter{
@@ -262,6 +262,10 @@ func TestBackup(t *testing.T) {
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
+			}
+
+			if backup == nil {
+				t.Fatal("expected backup to be non-nil")
 			}
 
 			path := backup.FilePath(1)
@@ -894,6 +898,7 @@ func TestBackup(t *testing.T) {
 					app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem(),
 					app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem(),
 				)
+
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
 				}

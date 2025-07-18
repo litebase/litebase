@@ -182,12 +182,8 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 		}
 	}
 
-	// Get empty page logs for cleanup
-	// emptyLogs := pl.getEmptyPageLogsForCleanup()
-
 	// Combine non-empty compacted logs and empty logs for deletion
 	allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs))
-	// allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs)+len(emptyLogs))
 
 	// Add non-empty logs that were compacted
 	for _, logEntry := range pageLogs {
@@ -195,9 +191,6 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 			allLogsToDelete = append(allLogsToDelete, logEntry)
 		}
 	}
-
-	// Add empty logs for cleanup
-	// allLogsToDelete = append(allLogsToDelete, emptyLogs...)
 
 	if len(allLogsToDelete) == 0 {
 		return nil
