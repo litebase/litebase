@@ -79,9 +79,7 @@ func (sl *SnapshotLogger) Close() error {
 	}
 
 	for _, l := range sl.logs {
-		if err := l.Close(); err != nil {
-			log.Println("Error closing snapshot log", err)
-		}
+		l.Close()
 	}
 
 	return nil
