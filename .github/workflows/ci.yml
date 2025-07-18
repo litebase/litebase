@@ -29,6 +29,7 @@ jobs:
             { name: 'database', path: pkg/database },
             { name: 'http', path: pkg/http },
             { name: 'logs', path: pkg/logs },
+            { name: 'storage', path: pkg/storage },
             { name: 'sqlite3', path: pkg/sqlite3 },
             { name: 'vfs', path: pkg/vfs },
           ]
