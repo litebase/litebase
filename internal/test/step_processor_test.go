@@ -65,14 +65,13 @@ func TestStepProcessor_WithExpectedFailingSteps(t *testing.T) {
 	WithSteps(t, func(sp *StepProcessor) {
 		// Process A: Sends a step message
 		sp.Run("process_a", func(s *StepProcess) {
-
 			// Signal that we've completed step 1
 			s.Step("step_1_completed")
 
 			// Wait for process B to complete its work
 			s.WaitForStep("step_2_completed")
 
-			t.Fatal("Expected failure")
+			os.Exit(1)
 		}).ShouldExitWith(1)
 
 		// Process B: Waits for step message and responds
