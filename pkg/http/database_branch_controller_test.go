@@ -79,7 +79,13 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
 		}})
 
-		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s/branches/%s", database.DatabaseID, db.PrimaryBranch().DatabaseBranchID), "GET", nil)
+		primaryBranch := db.PrimaryBranch()
+
+		if primaryBranch == nil {
+			t.Fatalf("expected primary branch to be found, got nil")
+		}
+
+		resp, statusCode, err := client.Send(fmt.Sprintf("/resources/databases/%s/branches/%s", database.DatabaseID, primaryBranch.DatabaseBranchID), "GET", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)
@@ -103,8 +109,14 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 			t.Fatalf("expected data to be an object, got %T", resp["data"])
 		}
 
-		if data["database_branch_id"] != db.PrimaryBranch().DatabaseBranchID {
-			t.Fatalf("expected database branch id to be %s, got %v", db.PrimaryBranch().DatabaseBranchID, data["database_branch_id"])
+		primaryBranch = db.PrimaryBranch()
+
+		if primaryBranch == nil {
+			t.Fatalf("expected primary branch to be found, got nil")
+		}
+
+		if data["database_branch_id"] != primaryBranch.DatabaseBranchID {
+			t.Fatalf("expected database branch id to be %s, got %v", primaryBranch.DatabaseBranchID, data["database_branch_id"])
 		}
 	})
 }

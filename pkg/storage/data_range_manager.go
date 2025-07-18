@@ -171,6 +171,21 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 		return nil, err
 	}
 
+	// Sync the index to ensure it's written to disk before backup reads it
+	indexFile, err := drm.Index.File()
+
+	if err != nil {
+		slog.Error("Failed to get index file for sync", "error", err)
+		return nil, err
+	}
+
+	err = indexFile.Sync()
+
+	if err != nil {
+		slog.Error("Failed to sync range index after update", "error", err)
+		return nil, err
+	}
+
 	// Ensure the map for this range number exists
 	if _, ok := drm.ranges[rangeNumber]; !ok {
 		drm.ranges[rangeNumber] = make(map[int64]*Range)
@@ -223,12 +238,6 @@ func (drm *DataRangeManager) Get(rangeNumber int64, timestamp int64) (*Range, er
 	if err != nil {
 		return nil, err
 	}
-
-	// // If the range version is greater than the requested timestamp, return an error.
-	// if timestamp != 0 && rangeVersion > timestamp {
-	// 	log.Println("requested timestamp:", timestamp, "range version:", rangeVersion)
-	// 	return nil, errors.New("range version is greater than requested timestamp")
-	// }
 
 	var r *Range
 

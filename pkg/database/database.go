@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -142,6 +143,7 @@ func UpdateDatabase(database *Database) error {
 	}
 
 	var primaryBranchId sql.NullInt64
+
 	if database.PrimaryBranchReferenceID.Valid {
 		primaryBranchId = database.PrimaryBranchReferenceID
 	}
@@ -164,6 +166,16 @@ func UpdateDatabase(database *Database) error {
 
 	if err != nil {
 		return err
+	}
+
+	// Update the cached version's primary branch reference ID to ensure consistency
+	// This is crucial for the PrimaryBranch() method to work correctly
+	if cachedDb, found := database.DatabaseManager.databaseCache.Get(database.DatabaseID); found {
+		cachedDatabase := cachedDb.(*Database)
+		cachedDatabase.PrimaryBranchReferenceID = database.PrimaryBranchReferenceID
+
+		// Clear the cached primary branch since the reference ID might have changed
+		cachedDatabase.primaryBranch = nil
 	}
 
 	return nil
@@ -336,11 +348,6 @@ func (database *Database) HasBranch(branchID string) bool {
 	database.cacheMutex.Lock()
 	defer database.cacheMutex.Unlock()
 
-	// Check cache first
-	if _, found := database.branchCache.Get(branchID); found {
-		return true
-	}
-
 	db, err := database.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
@@ -406,12 +413,18 @@ func (database *Database) Key(branchID string) string {
 func (database *Database) MarshalJSON() ([]byte, error) {
 	type Alias Database
 
+	primaryBranch := database.PrimaryBranch()
+
+	if primaryBranch == nil {
+		return nil, errors.New("primary branch not found")
+	}
+
 	return json.Marshal(&struct {
 		*Alias
 		Url string `json:"url"`
 	}{
 		Alias: (*Alias)(database),
-		Url:   database.Url(database.PrimaryBranch().DatabaseBranchID),
+		Url:   database.Url(primaryBranch.DatabaseBranchID),
 	})
 }
 

@@ -194,7 +194,13 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 
 // Delete the given instance of the database.
 func (d *DatabaseManager) Delete(database *Database) error {
-	resources := d.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID)
+	primaryBranch := database.PrimaryBranch()
+
+	if primaryBranch == nil {
+		return fmt.Errorf("cannot delete database: primary branch not found")
+	}
+
+	resources := d.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID)
 
 	// Close all database connections to the database before deleting it
 	d.ConnectionManager().CloseDatabaseConnections(database.DatabaseID)
@@ -306,9 +312,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	)
 
 	if err != nil {
-		slog.Error("Failed to get database", "error", err, "databaseId", databaseId)
-
-		return nil, errors.New("failed to find database")
+		return nil, err
 	}
 
 	d.mutex.Lock()

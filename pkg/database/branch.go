@@ -168,8 +168,14 @@ func InsertBranch(b *Branch) error {
 	// Invalidate cache entry for this branch in the DatabaseManager's cache using the branch Key
 	b.DatabaseManager.branchCache.Delete(b.Key)
 
+	database, err := b.Database()
+
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
 	// Update the Database's branch cache
-	if database := b.Database(); database != nil {
+	if database != nil {
 		database.UpdateBranchCache(b.DatabaseBranchID, true)
 	}
 
@@ -201,8 +207,14 @@ func UpdateBranch(b *Branch) error {
 		return err
 	}
 
+	database, err := b.Database()
+
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
 	// Update the Database's branch cache to ensure consistency
-	if database := b.Database(); database != nil {
+	if database != nil {
 		database.UpdateBranchCache(b.DatabaseBranchID, true)
 	}
 
@@ -210,21 +222,20 @@ func UpdateBranch(b *Branch) error {
 }
 
 // Retrieve the database that the branch belongs to.
-func (b *Branch) Database() *Database {
+func (b *Branch) Database() (*Database, error) {
 	if b.database != nil {
-		return b.database
+		return b.database, nil
 	}
 
 	db, err := b.DatabaseManager.Get(b.DatabaseID)
 
 	if err != nil {
-		log.Println("Error getting database:", err)
-		return nil
+		return nil, err
 	}
 
 	b.database = db
 
-	return b.database
+	return b.database, nil
 }
 
 // Delete the branch
@@ -233,7 +244,19 @@ func (b *Branch) Delete() error {
 		return fmt.Errorf("branch does not exist or is nil")
 	}
 
-	if b.Database().PrimaryBranch().DatabaseBranchID == b.DatabaseBranchID {
+	database, err := b.Database()
+
+	if err != nil {
+		return fmt.Errorf("failed to load branch's database: %w", err)
+	}
+
+	primaryBranch := database.PrimaryBranch()
+
+	if primaryBranch == nil {
+		return fmt.Errorf("cannot delete branch: primary branch not found")
+	}
+
+	if primaryBranch.DatabaseBranchID == b.DatabaseBranchID {
 		return fmt.Errorf("cannot delete the primary branch of a database")
 	}
 
@@ -246,6 +269,7 @@ func (b *Branch) Delete() error {
 
 	// Delete from the system database
 	db, err := b.DatabaseManager.SystemDatabase().DB()
+
 	if err != nil {
 		return fmt.Errorf("failed to get database connection: %w", err)
 	}
@@ -259,8 +283,14 @@ func (b *Branch) Delete() error {
 		return fmt.Errorf("failed to delete database branch: %w", err)
 	}
 
+	database, err = b.Database()
+
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to load branch's database: %w", err)
+	}
+
 	// Invalidate the Database's branch cache
-	if database := b.Database(); database != nil {
+	if database != nil {
 		database.InvalidateBranchCache(b.DatabaseBranchID)
 	}
 

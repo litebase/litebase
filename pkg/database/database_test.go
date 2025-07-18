@@ -95,7 +95,14 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			branch, err := db.Branch(db.PrimaryBranch().DatabaseBranchID)
+			primaryBranch := db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
+
+			branch, err := db.Branch(primaryBranch.DatabaseBranchID)
+
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -303,7 +310,13 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			hasBranch := db.HasBranch(db.PrimaryBranch().DatabaseBranchID)
+			primaryBranch := db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
+
+			hasBranch := db.HasBranch(primaryBranch.DatabaseBranchID)
 
 			if !hasBranch {
 				t.Error("Expected database to have branch 'main'")
@@ -317,11 +330,17 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			primaryBranch := db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
+
 			// Test updating cache with a branch that exists
-			db.UpdateBranchCache(db.PrimaryBranch().DatabaseBranchID, true)
+			db.UpdateBranchCache(primaryBranch.DatabaseBranchID, true)
 
 			// Verify the cache was updated by checking HasBranch
-			hasBranch := db.HasBranch(db.PrimaryBranch().DatabaseBranchID)
+			hasBranch := db.HasBranch(primaryBranch.DatabaseBranchID)
 
 			if !hasBranch {
 				t.Error("Expected database to have cached branch after UpdateBranchCache")
@@ -347,7 +366,13 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			branchID := db.PrimaryBranch().DatabaseBranchID
+			primaryBranch := db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
+
+			branchID := primaryBranch.DatabaseBranchID
 
 			// First, ensure the branch is in cache by calling HasBranch
 			hasBranch := db.HasBranch(branchID)
@@ -400,6 +425,7 @@ func TestDatabase(t *testing.T) {
 
 			// The branch should still exist in the database after cache invalidation
 			hasBranch = db.HasBranch(newBranch.DatabaseBranchID)
+
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation")
 			}
@@ -414,33 +440,52 @@ func TestDatabase(t *testing.T) {
 
 			// Create a secondary branch (non-primary)
 			secondaryBranch, err := db.CreateBranch("secondary", "")
+
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			// Verify the branch exists in cache
 			hasBranch := db.HasBranch(secondaryBranch.DatabaseBranchID)
+
 			if !hasBranch {
 				t.Error("Expected database to have newly created secondary branch")
 			}
 
-			// Instead of testing actual deletion (which may have system constraints),
-			// let's test the cache invalidation mechanism directly
+			// Test cache invalidation mechanism - this should clear the cache entry
+			// but the branch should still be reloaded from DB when checked again
 			db.InvalidateBranchCache(secondaryBranch.DatabaseBranchID)
 
-			// The branch should still exist in DB after cache invalidation
+			// The branch should still exist in DB after cache invalidation (reload from DB)
 			hasBranch = db.HasBranch(secondaryBranch.DatabaseBranchID)
+
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation (should reload from DB)")
 			}
 
-			// Now test updating cache to false (simulating deletion)
-			db.UpdateBranchCache(secondaryBranch.DatabaseBranchID, false)
+			// Test actual branch deletion
+			err = secondaryBranch.Delete()
 
-			// The cache should now return false
+			if err != nil {
+				t.Fatalf("Failed to delete secondary branch: %v", err)
+			}
+
+			// After deletion, the branch should no longer exist in database
 			hasBranch = db.HasBranch(secondaryBranch.DatabaseBranchID)
+
 			if hasBranch {
-				t.Error("Expected cache to return false after UpdateBranchCache(false)")
+				t.Error("Expected branch to not exist after deletion")
+			}
+
+			// Verify that we can create a branch with the same name again
+			newBranch, err := db.CreateBranch("secondary", "")
+			if err != nil {
+				t.Fatalf("Failed to create new branch with same name: %v", err)
+			}
+
+			// This should be a different branch with a different ID
+			if newBranch.DatabaseBranchID == secondaryBranch.DatabaseBranchID {
+				t.Error("Expected new branch to have different ID than deleted branch")
 			}
 		})
 
@@ -450,10 +495,15 @@ func TestDatabase(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			primaryBranch := db.PrimaryBranch()
 
-			k := db.PrimaryBranch().Key
+			if primaryBranch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
 
-			key := db.Key(db.PrimaryBranch().DatabaseBranchID)
+			k := primaryBranch.Key
+
+			key := db.Key(primaryBranch.DatabaseBranchID)
 
 			if key != k {
 				t.Errorf("Expected key to be '%s', got '%s'", k, key)
@@ -499,11 +549,17 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			url := db.Url(db.PrimaryBranch().DatabaseBranchID)
+			primaryBranch := db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
+
+			url := db.Url(primaryBranch.DatabaseBranchID)
 
 			port := app.Config.Port
 
-			expected := fmt.Sprintf("http://localhost:%s/%s", port, db.PrimaryBranch().Key)
+			expected := fmt.Sprintf("http://localhost:%s/%s", port, primaryBranch.Key)
 
 			if url != expected {
 				t.Errorf("Expected URL to be '%s', got '%s'", expected, url)

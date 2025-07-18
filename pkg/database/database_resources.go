@@ -250,7 +250,7 @@ func (d *DatabaseResources) Remove() {
 		err := d.fileSystem.Shutdown()
 
 		if err != nil {
-			slog.Error("Error shutting down file system", "error", err)
+			slog.Warn("shutting down file system", "error", err)
 		}
 	}
 

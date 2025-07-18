@@ -133,7 +133,13 @@ func TestQueryController_Errors(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", db.Key(db.PrimaryBranch().DatabaseBranchID)), "POST", map[string]any{
+		primaryBranch := db.PrimaryBranch()
+
+		if primaryBranch == nil {
+			t.Fatal("Expected primary branch to be found, but got nil")
+		}
+
+		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", db.Key(primaryBranch.DatabaseBranchID)), "POST", map[string]any{
 			"id":         "1",
 			"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
 			"parameters": []map[string]any{},

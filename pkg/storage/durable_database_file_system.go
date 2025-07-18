@@ -284,8 +284,7 @@ func (dfs *DurableDatabaseFileSystem) Shutdown() error {
 	err = dfs.metadata.Close()
 
 	if err != nil {
-		slog.Error("Error closing metadata", "error", err)
-		return err
+		slog.Warn("Error closing metadata", "error", err)
 	}
 
 	return nil

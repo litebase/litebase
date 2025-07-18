@@ -141,7 +141,13 @@ func TestBranch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if branch.Database() == nil {
+			db, err := branch.Database()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if db == nil {
 				t.Fatal("Expected database to be set")
 			}
 		})
@@ -177,15 +183,19 @@ func TestBranch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			branch := db.PrimaryBranch()
+			primaryBranch := db.PrimaryBranch()
 
-			err = branch.Delete()
+			if primaryBranch == nil {
+				t.Fatal("Expected primary branch to be found, but got nil")
+			}
+
+			err = primaryBranch.Delete()
 
 			if err == nil {
 				t.Fatal("Expected error when deleting primary branch, but got none")
 			}
 
-			branch, err = db.Branch(branch.DatabaseBranchID)
+			branch, err := db.Branch(primaryBranch.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatal(err)

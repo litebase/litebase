@@ -83,7 +83,13 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			fileSystem := dm.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID).FileSystem()
+			primaryBranch := database.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected non-nil primary branch")
+			}
+
+			fileSystem := dm.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
@@ -115,14 +121,26 @@ func TestDatabaseManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			fileSystem := app.DatabaseManager.Resources(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID).FileSystem()
+			primaryBranch := db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected non-nil primary branch")
+			}
+
+			fileSystem := app.DatabaseManager.Resources(db.DatabaseID, primaryBranch.DatabaseBranchID).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
 				t.Fatalf("Expected database directory to exist")
 			}
 
-			con1, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID)
+			primaryBranch = db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected non-nil primary branch")
+			}
+
+			con1, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, primaryBranch.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -147,7 +165,13 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected database connection to be closed, got %v", err)
 			}
 
-			con2, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID)
+			primaryBranch = db.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected non-nil primary branch")
+			}
+
+			con2, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, primaryBranch.DatabaseBranchID)
 
 			if err == nil {
 				t.Fatal("Expected error, got nil")
@@ -241,7 +265,13 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID)
+			primaryBranch := database.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected non-nil primary branch")
+			}
+
+			resources := dm.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")
@@ -263,7 +293,13 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.DatabaseID, database.PrimaryBranch().DatabaseBranchID)
+			primaryBranch := database.PrimaryBranch()
+
+			if primaryBranch == nil {
+				t.Fatal("Expected non-nil primary branch")
+			}
+
+			resources := dm.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")
