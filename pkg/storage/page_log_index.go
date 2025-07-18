@@ -251,15 +251,3 @@ func (pli *PageLogIndex) Tombstone(pageNumber PageNumber, versionNumber PageVers
 
 	return nil
 }
-
-// hasPageVersion checks if a specific page and version exists in this index.
-func (pli *PageLogIndex) hasPageVersion(pageNumber PageNumber, version PageVersion) bool {
-	if pageVersions, exists := pli.memory[pageNumber]; exists {
-		for _, entry := range pageVersions {
-			if entry.Version == version {
-				return true
-			}
-		}
-	}
-	return false
-}

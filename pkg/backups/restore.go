@@ -366,14 +366,6 @@ func RestoreFromBackup(
 						return err
 					}
 				}
-
-				if header.Name == "_RANGE_INDEX" {
-					// // It is important to reload the range index after writing to it
-					// if err := targetFileSystem.RangeManager.Index.Load(); err != nil {
-					// 	slog.Error("Error reloading range index:", "error", err)
-					// 	return err
-					// }
-				}
 			}
 		}
 	}

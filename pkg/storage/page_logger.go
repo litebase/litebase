@@ -320,40 +320,6 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 	return pageLogs
 }
 
-// Get a list of empty page logs that are eligible for removal. These logs
-// contain no data and are not currently in use, so they can be safely deleted.
-func (pl *PageLogger) getEmptyPageLogsForCleanup() []PageLogEntry {
-	emptyLogs := make([]PageLogEntry, 0)
-
-	// Get the lowest timestamp in log usage
-	lowestTimestamp := int64(0)
-
-	for timestamp := range pl.logUsage {
-		if lowestTimestamp == 0 || timestamp < lowestTimestamp {
-			lowestTimestamp = timestamp
-		}
-	}
-
-	for pageGroup, group := range pl.logs {
-		for pageGroupVersion, pageLog := range group {
-			if lowestTimestamp != 0 && pageGroupVersion >= PageGroupVersion(lowestTimestamp) {
-				continue
-			}
-
-			// Only include empty logs
-			if pageLog.index.Empty() {
-				emptyLogs = append(emptyLogs, PageLogEntry{
-					pageGroup:        pageGroup,
-					pageGroupVersion: pageGroupVersion,
-					pageLog:          pageLog,
-				})
-			}
-		}
-	}
-
-	return emptyLogs
-}
-
 // Load the page logger index and all associated page logs. This is called when
 // the page logger is created to initialize its state from disk. It will scan
 // the log directory for all page log files and load their metadata.
