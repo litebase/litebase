@@ -101,6 +101,11 @@ type DatabaseConnection struct {
 	walTimestamp           int64
 }
 
+type StatementKey struct {
+	SQLChecksum       uint32
+	AccessKeyCheckSum [32]byte
+}
+
 // Create a new database connection instance.
 func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, branchId string) (*DatabaseConnection, error) {
 	ctx, cancel := context.WithCancel(connectionManager.cluster.Node().Context())
@@ -280,8 +285,6 @@ func (con *DatabaseConnection) Checkpoint() error {
 					return err
 				}
 			}
-
-			// log.Println("Checkpoint completed successfully")
 
 			return err
 		})
@@ -704,15 +707,25 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 
 	var err error
 
-	checksum := crc32.ChecksumIEEE([]byte(queryStatement))
+	sqlChecksum := crc32.ChecksumIEEE([]byte(queryStatement))
+	accessKeyChecksum := [32]byte{}
 
-	statement, ok := con.statements.Load(checksum)
+	if con.AccessKey != nil {
+		accessKeyChecksum = con.AccessKey.Hash()
+	}
+
+	statementKey := StatementKey{
+		SQLChecksum:       sqlChecksum,
+		AccessKeyCheckSum: accessKeyChecksum,
+	}
+
+	statement, ok := con.statements.Load(statementKey)
 
 	if !ok {
 		statement, err = con.Prepare(con.context, queryStatement)
 
 		if err == nil {
-			con.statements.Store(checksum, statement)
+			con.statements.Store(statementKey, statement)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -17,6 +18,8 @@ type AccessKey struct {
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
 	Statements       []AccessKeyStatement `json:"statements"`
+
+	hash [32]byte
 }
 
 type AccessKeyResponse struct {
@@ -46,6 +49,7 @@ func NewAccessKey(
 	}
 }
 
+// Determine if the AccessKey has authorization for the given resources and actions.
 func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []Privilege) bool {
 	hasAuthorization := false
 
@@ -88,6 +92,17 @@ func (accessKey *AccessKey) Delete() error {
 	accessKey = nil
 
 	return nil
+}
+
+// Return the hash of the AccessKey.
+func (accessKey *AccessKey) Hash() [32]byte {
+	if accessKey.hash != [32]byte{} {
+		return accessKey.hash
+	}
+
+	accessKey.updateHash()
+
+	return accessKey.hash
 }
 
 func (accessKey *AccessKey) ToResponse() *AccessKeyResponse {
@@ -140,5 +155,17 @@ func (accessKey *AccessKey) Update(
 		return err
 	}
 
+	accessKey.updateHash()
+
 	return accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
+}
+
+// Update the internal hash of the access key.
+func (accessKey *AccessKey) updateHash() {
+	jsonBytes, err := json.Marshal(accessKey)
+	if err != nil {
+		return
+	}
+
+	accessKey.hash = sha256.Sum256(jsonBytes)
 }
