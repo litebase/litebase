@@ -353,18 +353,24 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	result = &sqlite3.Result{}
 
-	var run func(func() error) error
+	var checkpointBarrier func(func() error) error
+	var compactionBarrier func(func() error) error
 
 	if !con.inTransaction {
-		run = con.walManager.CheckpointBarrier
+		checkpointBarrier = con.walManager.CheckpointBarrier
+		compactionBarrier = con.fileSystem.CompactionBarrier
 	} else {
-		run = func(fn func() error) error {
+		checkpointBarrier = func(fn func() error) error {
+			return fn()
+		}
+
+		compactionBarrier = func(fn func() error) error {
 			return fn()
 		}
 	}
 
-	return result, run(func() error {
-		return con.fileSystem.CompactionBarrier(func() error {
+	return result, checkpointBarrier(func() error {
+		return compactionBarrier(func() error {
 			// Acquire timestamp inside the checkpoint barrier to ensure atomicity
 			con.setTimestamps()
 			defer con.releaseTimestamps()
