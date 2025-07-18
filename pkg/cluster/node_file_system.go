@@ -216,7 +216,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 
 		fileSyncEligibilityFn := func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 			fsd.CanSyncDirtyFiles = func() bool {
-				return cluster.Node().Membership == ClusterMembershipPrimary
+				return true
 			}
 		}
 
