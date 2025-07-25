@@ -13,7 +13,7 @@ func setTestEnvVariable(t testing.TB) {
 		"LITEBASE_ENV":                       "test",
 		"LITEBASE_HOSTNAME":                  "localhost",
 		"LITEBASE_FILESYSTEM_DRIVER":         "local",
-		"LITEBASE_LOCAL_DATA_PATH":           ".test",
+		"LITEBASE_LOCAL_DATA_PATH":           "/.test",
 		"LITEBASE_PORT":                      "8080",
 		"LITEBASE_REGION":                    "us-east-1",
 		"LITEBASE_SHARED_PATH":               "/.test/shared",
