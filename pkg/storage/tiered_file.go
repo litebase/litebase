@@ -190,26 +190,30 @@ func (f *TieredFile) Read(b []byte) (n int, err error) {
 // ReadAt reads up to len(p) bytes from the File starting at offset off.
 // It returns the number of bytes read and any error encountered.
 func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
+	err = f.AccessBarrier(func() error {
+		f.mutex.Lock()
+		defer f.mutex.Unlock()
 
-	if f.File == nil {
-		err := f.reopenFile()
-		if err != nil {
-			return 0, err
+		if f.File == nil {
+			err := f.reopenFile()
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+		f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
-	result, err := f.File.ReadAt(p, off)
+		result, err := f.File.ReadAt(p, off)
 
-	// Update position only if this read extends beyond current position
-	if off+int64(result) > f.position {
-		f.position = off + int64(result)
-	}
+		// Update position only if this read extends beyond current position
+		if off+int64(result) > f.position {
+			f.position = off + int64(result)
+		}
 
-	return result, err
+		return err
+	})
+
+	return n, err
 }
 
 // Seek sets the offset for the next Read or Write on the File to offset,
@@ -308,24 +312,34 @@ func (f *TieredFile) Sync() error {
 // File is larger than the specified size, the File will be truncated to
 // the specified size.
 func (f *TieredFile) Truncate(size int64) error {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
+	err := f.AccessBarrier(func() error {
+		f.mutex.Lock()
+		defer f.mutex.Unlock()
 
-	if f.File == nil {
-		err := f.reopenFile()
+		if f.File == nil {
+			err := f.reopenFile()
+
+			if err != nil {
+				return err
+			}
+		}
+
+		err := f.File.Truncate(size)
+
 		if err != nil {
 			return err
 		}
-	}
 
-	err := f.File.Truncate(size)
+		return nil
+	})
 
 	if err != nil {
+		slog.Error("Error truncating file", "error", err)
+
 		return err
 	}
 
 	f.MarkUpdated()
-
 	return nil
 }
 
@@ -349,6 +363,7 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 
 	if f.File == nil {
 		err := f.reopenFile()
+
 		if err != nil {
 			return 0, err
 		}
@@ -375,25 +390,29 @@ func (f *TieredFile) Write(p []byte) (n int, err error) {
 // WriteAt writes len(p) bytes from p to the File at offset off. It returns
 // the number of bytes written and any error encountered.
 func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
+	err = f.AccessBarrier(func() error {
+		f.mutex.Lock()
+		defer f.mutex.Unlock()
 
-	if f.File == nil {
-		err := f.reopenFile()
-		if err != nil {
-			return 0, err
+		if f.File == nil {
+			err := f.reopenFile()
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	n, err = f.File.WriteAt(p, off)
+		n, err = f.File.WriteAt(p, off)
 
-	if err == nil {
-		f.MarkUpdated()
+		if err == nil {
+			f.MarkUpdated()
 
-		if off+int64(n) > f.position {
-			f.position = off + int64(n)
+			if off+int64(n) > f.position {
+				f.position = off + int64(n)
+			}
 		}
-	}
+
+		return err
+	})
 
 	return n, err
 }
@@ -406,6 +425,7 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 
 	if f.File == nil {
 		err := f.reopenFile()
+
 		if err != nil {
 			return 0, err
 		}
@@ -426,22 +446,26 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 // WriteString writes the string s to the File. It returns the number of
 // bytes written and any error encountered.
 func (f *TieredFile) WriteString(s string) (n int, err error) {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
+	err = f.AccessBarrier(func() error {
+		f.mutex.Lock()
+		defer f.mutex.Unlock()
 
-	if f.File == nil {
-		err := f.reopenFile()
-		if err != nil {
-			return 0, err
+		if f.File == nil {
+			err := f.reopenFile()
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	n, err = f.File.WriteString(s)
+		n, err = f.File.WriteString(s)
 
-	if err == nil {
-		f.MarkUpdated()
-		f.position += int64(n)
-	}
+		if err == nil {
+			f.MarkUpdated()
+			f.position += int64(n)
+		}
+
+		return err
+	})
 
 	return n, err
 }
