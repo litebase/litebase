@@ -376,36 +376,50 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 }
 
 func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool) {
-	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
+	// First, try with a read lock for the common case where no modification is needed
+	fsd.mutex.RLock()
+	file, ok := fsd.Files[path]
+	if !ok {
+		fsd.mutex.RUnlock()
+		return nil, false
+	}
 
-	if file, ok := fsd.Files[path]; ok {
-		if file.Closed {
-			err := fsd.releaseFile(file)
+	// Check if file needs to be released without holding the lock
+	needsRelease := file.Closed ||
+		(file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
+		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC()))
 
-			if err != nil {
-				slog.Error("Error releasing file", "error", err)
-			}
-
-			return nil, false
-		}
-
-		// Do not return the file if it is stale
-		if file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC()) ||
-			(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
-			err := fsd.releaseFile(file)
-
-			if err != nil {
-				slog.Error("Error releasing file", "error", err)
-			}
-
-			return nil, false
-		}
-
+	if !needsRelease {
+		// Common case: file is valid, return it with read lock
+		defer fsd.mutex.RUnlock()
 		return file, true
 	}
 
-	return nil, false
+	// Need to release file, upgrade to write lock
+	fsd.mutex.RUnlock()
+
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	// Re-check after acquiring write lock (double-checked locking pattern)
+	file, ok = fsd.Files[path]
+	if !ok {
+		return nil, false
+	}
+
+	// Re-check conditions after acquiring write lock
+	if file.Closed ||
+		(file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
+		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
+
+		err := fsd.releaseFile(file)
+		if err != nil {
+			slog.Error("Error releasing file", "error", err)
+		}
+		return nil, false
+	}
+
+	return file, true
 }
 
 // Mkdir creates a new directory on the low and high tier file systems.
