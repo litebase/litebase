@@ -174,7 +174,8 @@ func (dfs *DurableDatabaseFileSystem) init() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// Use timestamp 1 to avoid conflicts with restored ranges that have higher timestamps
+		// This is an optimization for the first range file, so using timestamp 1
+		// to avoid conflicts with restored ranges that have higher timestamps
 		_, err := dfs.RangeManager.Get(1, 1)
 
 		if err != nil {

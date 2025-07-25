@@ -136,6 +136,8 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 			newPos, _ := newRange.file.Seek(0, io.SeekCurrent)
 			existingPos, _ := existingRange.file.Seek(0, io.SeekCurrent)
 
+			// ALPHA: This should never happen. Has been fixed, and should be observed
+			// in the future if it does happen again before beta.
 			if newPos != 0 || existingPos != 0 {
 				panic("CopyRange: file positions are not at start")
 			}
