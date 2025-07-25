@@ -22,7 +22,7 @@ extern int goXShmUnmap(sqlite3_file *file, int deleteFlag);
 extern void goXShmBarrier(sqlite3_file *file);
 
 /*
-** Method declarations for LitebaseDBFile.
+** Method declarations for LitebaseFile.
 */
 static int xClose(sqlite3_file *);
 static int xRead(sqlite3_file *, void *, int iAmt, sqlite3_int64 iOfst);

@@ -84,7 +84,7 @@ func SignRequest(
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))
-	serviceHash.Write([]byte("litebasedb_request"))
+	serviceHash.Write([]byte("litebase_request"))
 	service := fmt.Sprintf("%x", serviceHash.Sum(nil))
 
 	signatureHash := hmac.New(sha256.New, []byte(service))
