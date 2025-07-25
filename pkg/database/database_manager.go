@@ -362,7 +362,7 @@ func (d *DatabaseManager) GetKey(databaseKey string) (*Branch, error) {
 	)
 
 	if err != nil {
-		slog.Error("Failed to get database key", "error", err, "key", databaseKey)
+		slog.Debug("Failed to get database key", "error", err, "key", databaseKey)
 
 		return nil, errors.New("failed to get database key")
 	}
