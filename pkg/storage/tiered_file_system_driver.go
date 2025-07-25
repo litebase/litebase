@@ -123,7 +123,7 @@ func NewTieredFileSystemDriver(
 // is written to it will be marked to be flushed to the low tier file system.
 func (fsd *TieredFileSystemDriver) addFile(path string, file internalStorage.File, flag int) *TieredFile {
 	if fsd.FileCount >= fsd.MaxFilesOpened {
-		err := fsd.ReleaseOldestFile()
+		err := fsd.releaseOldestFileInternal()
 
 		if err != nil {
 			slog.Error("Error releasing oldest file", "error", err)
@@ -379,6 +379,7 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 	// First, try with a read lock for the common case where no modification is needed
 	fsd.mutex.RLock()
 	file, ok := fsd.Files[path]
+
 	if !ok {
 		fsd.mutex.RUnlock()
 		return nil, false
@@ -403,6 +404,7 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 
 	// Re-check after acquiring write lock (double-checked locking pattern)
 	file, ok = fsd.Files[path]
+
 	if !ok {
 		return nil, false
 	}
@@ -413,6 +415,7 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
 
 		err := fsd.releaseFile(file)
+
 		if err != nil {
 			slog.Error("Error releasing file", "error", err)
 		}
@@ -717,6 +720,14 @@ func (fsd *TieredFileSystemDriver) ReleaseOldestFile() error {
 	fsd.releasingOldestFile.Store(true)
 	defer fsd.releasingOldestFile.Store(false)
 
+	return fsd.releaseOldestFileWithLock()
+}
+
+// releaseOldestFileInternal releases the oldest file in the tiered file system
+// driver without acquiring the lock. This is useful for operations that need to
+// release the oldest file without blocking other operations.
+func (fsd *TieredFileSystemDriver) releaseOldestFileInternal() error {
+	// Assumes lock is already held
 	element := fsd.FileOrder.Front()
 
 	if element == nil {
@@ -742,6 +753,13 @@ func (fsd *TieredFileSystemDriver) ReleaseOldestFile() error {
 	fsd.FileOrder.Remove(element)
 
 	return fsd.releaseFile(file)
+}
+
+func (fsd *TieredFileSystemDriver) releaseOldestFileWithLock() error {
+	fsd.mutex.Lock()
+	defer fsd.mutex.Unlock()
+
+	return fsd.releaseOldestFileInternal()
 }
 
 // Renaming a file in the tiered file system driver involves renaming the file
