@@ -5,22 +5,37 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-playground/validator/v10"
 )
 
-func Validate(input any, messages map[string]string) map[string][]string {
-	v := validator.New()
+var (
+	// Use a singleton validator instance to avoid recreating it
+	validatorInstance *validator.Validate
+	validatorOnce     sync.Once
+)
 
-	// register function to get tag name from json tags.
-	v.RegisterTagNameFunc(func(fld reflect.StructField) string {
-		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+func getValidator() *validator.Validate {
+	validatorOnce.Do(func() {
+		validatorInstance = validator.New()
 
-		if name == "_" {
-			return ""
-		}
-		return name
+		// register function to get tag name from json tags.
+		validatorInstance.RegisterTagNameFunc(func(fld reflect.StructField) string {
+			name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+
+			if name == "_" {
+				return ""
+			}
+			return name
+		})
 	})
+
+	return validatorInstance
+}
+
+func Validate(input any, messages map[string]string) map[string][]string {
+	v := getValidator()
 
 	err := v.Struct(input)
 
