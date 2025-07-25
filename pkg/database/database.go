@@ -345,6 +345,10 @@ func (database *Database) HasBranch(branchID string) bool {
 		return true
 	}
 
+	if found, exists := database.branchCache.Get(branchID); exists {
+		return found.(bool)
+	}
+
 	database.cacheMutex.Lock()
 	defer database.cacheMutex.Unlock()
 
