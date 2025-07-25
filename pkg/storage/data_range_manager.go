@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"bytes"
 	"errors"
-	"io"
 	"log"
 	"log/slog"
 	"maps"
@@ -125,36 +125,37 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 	}
 
 	existingRange.file.Sync()
-	newRange.file.Seek(0, io.SeekStart)
-	existingRange.file.Seek(0, io.SeekStart)
 
-	err = newRange.file.(*TieredFile).AccessBarrier(func() error {
-		return existingRange.file.(*TieredFile).AccessBarrier(func() error {
-			// Verify positions are actually at 0. For some reason Seek is not returning
-			// the correct position. Could be the use of a TieredFile and concurrent
-			// seeking during background syncs.
-			newPos, _ := newRange.file.Seek(0, io.SeekCurrent)
-			existingPos, _ := existingRange.file.Seek(0, io.SeekCurrent)
+	// Get the size of the existing range
+	existingSize, err := existingRange.Size()
 
-			// ALPHA: This should never happen. Has been fixed, and should be observed
-			// in the future if it does happen again before beta.
-			if newPos != 0 || existingPos != 0 {
-				panic("CopyRange: file positions are not at start")
-			}
+	if err != nil {
+		return nil, err
+	}
 
-			// Copy data from the existing range to the new range
-			_, err = io.Copy(newRange.file, existingRange.file)
+	// Read the entire existing range and write to new range
+	buffer := drm.dfs.buffers.Get().(*bytes.Buffer)
+	buffer.Reset()
+	defer drm.dfs.buffers.Put(buffer)
 
-			if err != nil {
-				return err
-			}
+	// Ensure the buffer has the correct size
+	buffer.Grow(int(existingSize))
+	buffer.Write(make([]byte, existingSize)) // Set the length
 
-			newRange.file.Sync()
-			existingRange.file.Sync()
+	_, err = existingRange.file.ReadAt(buffer.Bytes(), 0)
 
-			return nil
-		})
-	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = newRange.file.WriteAt(buffer.Bytes(), 0)
+
+	if err != nil {
+		return nil, err
+	}
+
+	newRange.file.Sync()
+	existingRange.file.Sync()
 
 	if err != nil {
 		return nil, err
@@ -400,7 +401,7 @@ func (drm *DataRangeManager) RunGarbageCollection() error {
 			validEntries = append(validEntries, entry)
 			continue
 		}
-		slog.Info("Garbage collecting range file", "rangeNumber", entry.RangeNumber, "timestamp", entry.Timestamp)
+
 		// Check if the range is open in memory
 		var r *Range
 
