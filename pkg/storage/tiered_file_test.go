@@ -23,8 +23,13 @@ func TestNewTieredFile(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -69,8 +74,13 @@ func TestTieredFile_Close(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -95,8 +105,13 @@ func TestTieredFile_MarkUpdated(t *testing.T) {
 
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
@@ -117,8 +132,13 @@ func TestTieredFile_Read(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test.txt")
@@ -191,8 +211,13 @@ func TestTieredFileReadAt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test.txt")
@@ -242,8 +267,13 @@ func TestTieredFile_Seek(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test.txt")
@@ -351,8 +381,13 @@ func TestTieredFile_Sync(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test_sync.txt")
@@ -397,8 +432,13 @@ func TestTieredFile_Truncate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test_truncate.txt")
@@ -443,8 +483,13 @@ func TestTieredFileWrite(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test_write.txt")
@@ -493,8 +538,13 @@ func TestTieredFile_WriteAt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test_writeat.txt")
@@ -610,8 +660,13 @@ func TestTieredFile_WriteTo(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tfsd := storage.NewTieredFileSystemDriver(
 			context.Background(),
-			app.Cluster.LocalFS(),
+			app.Cluster.NetworkFS(),
 			app.Cluster.ObjectFS(),
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tf, err := tfsd.Create("test_writeto.txt")

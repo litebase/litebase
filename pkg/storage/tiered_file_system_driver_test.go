@@ -29,6 +29,11 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		if tieredFileSystemDriver == nil {
@@ -130,6 +135,11 @@ func TestTieredFileSystemDriver_Create(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -169,6 +179,11 @@ func TestTieredFileSystemDriver_Files(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test")
@@ -203,6 +218,11 @@ func TestTieredFileSystemMarkFileUpdated(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		if tieredFileSystemDriver == nil {
@@ -241,6 +261,11 @@ func TestTieredFileSystemDriver_Mkdir(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.Mkdir("test/", 0750)
@@ -276,6 +301,11 @@ func TestTieredFileSystemDriver_MkdirAll(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.MkdirAll("test/test/test/", 0750)
@@ -311,6 +341,11 @@ func TestTieredFileSystemDriver_Open(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		_, err := tieredFileSystemDriver.Open("test")
@@ -359,6 +394,11 @@ func TestTieredFileSystemDriver_OpenDurableFile(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		// If the file is not found in local storage or durable storage, the
@@ -583,6 +623,11 @@ func TestTieredFileSystemDriver_Path(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		path := tieredFileSystemDriver.Path("test")
@@ -607,6 +652,11 @@ func TestTieredFileSystemDriver_ReadDir(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		_, err := tieredFileSystemDriver.ReadDir("dir/")
@@ -657,6 +707,11 @@ func TestTieredFileSystemDriver_ReadFile(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		_, err := tieredFileSystemDriver.ReadFile("test")
@@ -859,6 +914,11 @@ func TestTieredFileSystemDriver_Remove(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.Remove("test")
@@ -1047,6 +1107,11 @@ func TestTieredFileSystemDriver_Stat(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		_, err := tieredFileSystemDriver.Stat("test")
@@ -1240,6 +1305,11 @@ func TestTieredFileSystemDriver_Truncate(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.Truncate("test", 4)
@@ -1286,6 +1356,11 @@ func TestTieredFileSystemDriver_WriteFile(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		err := tieredFileSystemDriver.WriteFile("test.txt", []byte("test"), 0600)
@@ -1320,6 +1395,11 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		now := time.Now().UTC()
@@ -1453,6 +1533,11 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		// Test open read only file that does not exist
@@ -1840,6 +1925,11 @@ func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 			context.Background(),
 			fs1,
 			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool {
+					return true
+				}
+			},
 		)
 
 		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
