@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -36,6 +36,7 @@ var (
 type DatabaseWAL struct {
 	BranchID       string
 	cache          *cache.LFUCache
+	cacheKeyBuffer []byte
 	createdAt      time.Time
 	DatabaseID     string
 	checkpointedAt time.Time
@@ -64,19 +65,20 @@ func NewDatabaseWAL(
 	timestamp int64,
 ) *DatabaseWAL {
 	return &DatabaseWAL{
-		BranchID:      branchId,
-		cache:         cache.NewLFUCache(16000), // ~33MB
-		createdAt:     time.Now().UTC(),
-		DatabaseID:    databaseId,
-		fileSystem:    fileSystem,
-		lastKnownSize: -1,
-		lastSyncTime:  time.Time{},
-		mutex:         &sync.RWMutex{},
-		node:          node,
-		Path:          fmt.Sprintf("%slogs/wal/WAL_%d", file.GetDatabaseFileBaseDir(databaseId, branchId), timestamp),
-		syncMutex:     &sync.Mutex{},
-		timestamp:     timestamp,
-		walManager:    walManager,
+		BranchID:       branchId,
+		cache:          cache.NewLFUCache(16000), // ~33MB
+		cacheKeyBuffer: make([]byte, 0, 64),
+		createdAt:      time.Now().UTC(),
+		DatabaseID:     databaseId,
+		fileSystem:     fileSystem,
+		lastKnownSize:  -1,
+		lastSyncTime:   time.Time{},
+		mutex:          &sync.RWMutex{},
+		node:           node,
+		Path:           fmt.Sprintf("%slogs/wal/WAL_%d", file.GetDatabaseFileBaseDir(databaseId, branchId), timestamp),
+		syncMutex:      &sync.Mutex{},
+		timestamp:      timestamp,
+		walManager:     walManager,
 	}
 }
 
@@ -161,6 +163,13 @@ tryOpen:
 	return wal.file, nil
 }
 
+func (wal *DatabaseWAL) getCacheKey(offset int64) string {
+	wal.cacheKeyBuffer = wal.cacheKeyBuffer[:0]
+	wal.cacheKeyBuffer = strconv.AppendInt(wal.cacheKeyBuffer, offset, 10)
+
+	return string(wal.cacheKeyBuffer)
+}
+
 func (wal *DatabaseWAL) Hash() string {
 	if wal.hash != "" {
 		return wal.hash
@@ -223,10 +232,12 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 	wal.mutex.RLock()
 	defer wal.mutex.RUnlock()
 
-	cacheKey := fmt.Sprintf("%d", off)
+	cacheKey := wal.getCacheKey(off)
 
 	if data, found := wal.cache.Get(cacheKey); found && len(data.([]byte)) == len(p) {
-		return copy(p, data.([]byte)), nil
+		if cachedData, ok := data.([]byte); ok && len(cachedData) >= len(p) {
+			return copy(p, cachedData[:len(p)]), nil
+		}
 	}
 
 	file, err := wal.File()
@@ -249,8 +260,12 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 	if err != nil {
 		return n, err
 	}
+
+	cachedData := make([]byte, n)
+	copy(cachedData, p[:n])
+
 	// Cache the read data
-	err = wal.cache.Put(cacheKey, slices.Clone(p))
+	err = wal.cache.Put(cacheKey, cachedData)
 
 	if err != nil {
 		slog.Error("Error caching WAL data", "error", err)
@@ -374,9 +389,12 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	wal.lastWriteTime = time.Now().UTC()
 
-	cacheKey := fmt.Sprintf("%d", off)
+	cacheKey := wal.getCacheKey(off)
 
-	err = wal.cache.Put(cacheKey, slices.Clone(p))
+	cachedData := make([]byte, n)
+	copy(cachedData, p[:n])
+
+	err = wal.cache.Put(cacheKey, cachedData)
 
 	file, err := wal.File()
 
