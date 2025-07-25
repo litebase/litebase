@@ -939,9 +939,7 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 
 			fsd.mutex.RLock()
 
-			// Use a semaphore to limit concurrency to 10
-			semaphore := make(chan struct{}, 10)
-			filesToFlush := make([]*TieredFile, 0)
+			filesToFlush := make([]*TieredFile, 0, len(fsd.Files))
 
 			for _, file := range fsd.Files {
 				if file.shouldBeWrittenToDurableStorage() {
@@ -951,6 +949,12 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 
 			fsd.mutex.RUnlock()
 
+			if len(filesToFlush) == 0 {
+				continue
+			}
+
+			// Use a semaphore to limit concurrency to 10
+			semaphore := make(chan struct{}, 10)
 			var wg sync.WaitGroup
 
 			// Process files concurrently
