@@ -203,11 +203,11 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 
 		f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
 
-		result, err := f.File.ReadAt(p, off)
+		n, err = f.File.ReadAt(p, off)
 
 		// Update position only if this read extends beyond current position
-		if off+int64(result) > f.position {
-			f.position = off + int64(result)
+		if off+int64(n) > f.position {
+			f.position = off + int64(n)
 		}
 
 		return err
