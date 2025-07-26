@@ -544,7 +544,8 @@ func (n *Node) removePrimaryStatus() error {
 	err := n.Lease().Release()
 
 	if err != nil {
-		slog.Error("Failed to release lease", "error", err)
+		slog.Debug("Failed to release lease", "error", err)
+
 		return err
 	}
 
