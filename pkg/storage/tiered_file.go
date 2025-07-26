@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
@@ -71,11 +72,28 @@ type TieredFile struct {
 	// durable storage.
 	UpdatedAt time.Time
 
+	usageCount atomic.Int64
+
 	// WrittenAt stores the time the File was last written to durable storage.
 	// This value will be used in correlation with the CreatedAt and updatedAt
 	// values to determine how long the File has been open and if the File
 	// should be written to durable storage.
 	WrittenAt time.Time
+}
+
+// Increment the usage count for this file
+func (f *TieredFile) IncUsage() {
+	f.usageCount.Add(1)
+}
+
+// Decrement the usage count for this file and return the new value
+func (f *TieredFile) DecUsage() int64 {
+	return f.usageCount.Add(-1)
+}
+
+// Get the current usage count
+func (f *TieredFile) Usage() int64 {
+	return f.usageCount.Load()
 }
 
 // Create a new instance of a TieredFile.
@@ -95,6 +113,7 @@ func NewTieredFile(
 		syncMutex:              &sync.Mutex{},
 		TieredFileSystemDriver: tieredFileSystemDriver,
 		UpdatedAt:              time.Time{},
+		usageCount:             atomic.Int64{},
 		WrittenAt:              time.Time{},
 	}
 }
@@ -111,27 +130,19 @@ func (f *TieredFile) AccessBarrier(fn func() error) error {
 
 // Close the file and release it from the TieredFileSystemDriver.
 func (f *TieredFile) Close() error {
-	if f.Closed {
-		return nil
-	}
-
-	f.Closed = true
-
-	if f.shouldBeWrittenToDurableStorage() {
-		f.TieredFileSystemDriver.flushFileToDurableStorage(f, true)
-	}
-
-	err := f.TieredFileSystemDriver.releaseFile(f)
-
+	// Always use the driver to release the file with proper locking
+	err := f.TieredFileSystemDriver.ReleaseFileWithLock(f)
 	if err != nil {
 		slog.Error("Error releasing file", "error", err)
 	}
-
-	return nil
+	return err
 }
 
 // Close the file without locking the mutex.
 func (f *TieredFile) closeFile() error {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	f.Closed = true
 
 	if f.File == nil {

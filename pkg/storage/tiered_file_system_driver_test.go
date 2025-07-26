@@ -42,6 +42,92 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 	})
 }
 
+func TestTieredFileSystemDriver_ConcurrentFilesAccess(t *testing.T) {
+	   test.RunWithApp(t, func(app *server.App) {
+			   fs1 := storage.NewFileSystem(
+					   storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local_concurrent"),
+			   )
+			   fs2 := storage.NewFileSystem(
+					   storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object_concurrent"),
+			   )
+			   tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+					   context.Background(),
+					   fs1,
+					   fs2,
+					   func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+							   fsd.CanSyncDirtyFiles = func() bool { return true }
+					   },
+			   )
+
+			   const numGoroutines = 16
+			   const numFiles = 32
+			   done := make(chan struct{})
+			   errCh := make(chan error, numGoroutines)
+
+			   // Pre-create files
+			   for i := 0; i < numFiles; i++ {
+					   fname := fmt.Sprintf("concurrent_file_%d", i)
+					   f, err := tieredFileSystemDriver.Create(fname)
+					   if err != nil {
+							   t.Fatalf("failed to create file: %v", err)
+					   }
+					   _, err = f.Write([]byte(fmt.Sprintf("data_%d", i)))
+					   if err != nil {
+							   t.Fatalf("failed to write file: %v", err)
+					   }
+					   f.Close()
+			   }
+
+			   // Concurrently read and write files
+			   for g := 0; g < numGoroutines; g++ {
+					   go func(gid int) {
+							   defer func() { done <- struct{}{} }()
+							   for i := 0; i < numFiles; i++ {
+									   fname := fmt.Sprintf("concurrent_file_%d", i)
+									   // Alternate between read and write
+									   if i%2 == 0 {
+											   // Read
+											   _, err := tieredFileSystemDriver.ReadFile(fname)
+											   if err != nil {
+													   errCh <- fmt.Errorf("goroutine %d: read error: %w", gid, err)
+													   return
+											   }
+									   } else {
+											   // Write
+											   f, err := tieredFileSystemDriver.OpenFile(fname, os.O_RDWR, 0644)
+											   if err != nil {
+													   errCh <- fmt.Errorf("goroutine %d: open error: %w", gid, err)
+													   return
+											   }
+											   _, err = f.Write([]byte(fmt.Sprintf("update_%d", gid)))
+											   if err != nil {
+													   errCh <- fmt.Errorf("goroutine %d: write error: %w", gid, err)
+													   f.Close()
+													   return
+											   }
+											   f.Close()
+									   }
+							   }
+					   }(g)
+			   }
+
+			   // Wait for all goroutines
+			   for g := 0; g < numGoroutines; g++ {
+					   <-done
+			   }
+			   close(errCh)
+
+			   for err := range errCh {
+					   t.Error(err)
+			   }
+
+			   err := tieredFileSystemDriver.Shutdown()
+			   if err != nil {
+					   t.Fatal(err)
+			   }
+	   })
+}
+
 func TestTieredFileSystem_ClearFiles(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		fs1 := storage.NewFileSystem(
