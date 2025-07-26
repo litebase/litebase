@@ -157,12 +157,17 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 	newRange.file.Sync()
 	existingRange.file.Sync()
 
+	newRangeSize, err := newRange.Size()
+
 	if err != nil {
-		return nil, err
+		slog.Error("Failed to get new range size", "error", err)
 	}
 
-	newRangeSize, _ := newRange.Size()
 	existingRangeSize, _ := existingRange.Size()
+
+	if err != nil {
+		slog.Error("Failed to get existing range size", "error", err)
+	}
 
 	if newRangeSize != existingRangeSize {
 		slog.Error("CopyRange: size mismatch", "existingSize", existingRangeSize, "newSize", newRangeSize)
