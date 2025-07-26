@@ -301,7 +301,6 @@ func (dfs *DurableDatabaseFileSystem) Shutdown() error {
 // Where there is a remainder, we need to remove the last range file and truncate
 // the range file that contains the last page that needs to be removed.
 func (dfs *DurableDatabaseFileSystem) Truncate(size int64) error {
-	log.Println("Truncating database file system to size", size)
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
