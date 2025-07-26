@@ -94,35 +94,23 @@ func (pl *PageLog) Append(page int64, version int64, value []byte) error {
 		return fmt.Errorf("page log file is not available")
 	}
 
-	barrier := func(fn func() error) error {
-		return fn()
-	}
-
-	if _, ok := file.(*TieredFile); ok {
-		barrier = file.(*TieredFile).AccessBarrier
-	}
-
 	var bytesWritten int
 	var offset int64
 	var err error
 
-	err = barrier(func() error {
-		// Get the offset where we plan to write
-		offset, err = file.Seek(0, io.SeekEnd)
+	// Get the offset where we plan to write
+	offset, err = file.Seek(0, io.SeekEnd)
 
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
+	}
 
-		// Write the data to the file first
-		bytesWritten, err = pl.File().Write(value)
+	// Write the data to the file first
+	bytesWritten, err = pl.File().Write(value)
 
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	if err != nil {
+		return err
+	}
 
 	// Ensure the entire page was written
 	if bytesWritten != PageSize {
@@ -330,33 +318,17 @@ func (pl *PageLog) get(page PageNumber, version PageVersion, data []byte) (bool,
 		return false, 0, fmt.Errorf("page log file is not available")
 	}
 
-	barrier := func(fn func() error) error {
-		return fn()
-	}
-
-	if _, ok := file.(*TieredFile); ok {
-		barrier = file.(*TieredFile).AccessBarrier
-	}
-
-	err = barrier(func() error {
-		_, err = file.Seek(offset, io.SeekStart)
-
-		if err != nil {
-			log.Println("Error seeking to offset", offset, err)
-			return err
-		}
-
-		_, err = pl.File().Read(data)
-
-		if err != nil {
-			log.Println("Error reading page data", err)
-			return err
-		}
-
-		return nil
-	})
+	_, err = file.Seek(offset, io.SeekStart)
 
 	if err != nil {
+		log.Println("Error seeking to offset", offset, err)
+		return false, 0, err
+	}
+
+	_, err = pl.File().Read(data)
+
+	if err != nil {
+		log.Println("Error reading page data", err)
 		return false, 0, err
 	}
 

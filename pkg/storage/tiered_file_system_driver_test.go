@@ -43,89 +43,108 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 }
 
 func TestTieredFileSystemDriver_ConcurrentFilesAccess(t *testing.T) {
-	   test.RunWithApp(t, func(app *server.App) {
-			   fs1 := storage.NewFileSystem(
-					   storage.NewLocalFileSystemDriver(app.Config.DataPath+"/local_concurrent"),
-			   )
-			   fs2 := storage.NewFileSystem(
-					   storage.NewLocalFileSystemDriver(app.Config.DataPath+"/object_concurrent"),
-			   )
-			   tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
-					   context.Background(),
-					   fs1,
-					   fs2,
-					   func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
-							   fsd.CanSyncDirtyFiles = func() bool { return true }
-					   },
-			   )
+	test.RunWithApp(t, func(app *server.App) {
+		fs1 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/local_concurrent"),
+		)
 
-			   const numGoroutines = 16
-			   const numFiles = 32
-			   done := make(chan struct{})
-			   errCh := make(chan error, numGoroutines)
+		fs2 := storage.NewFileSystem(
+			storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object_concurrent"),
+		)
 
-			   // Pre-create files
-			   for i := 0; i < numFiles; i++ {
-					   fname := fmt.Sprintf("concurrent_file_%d", i)
-					   f, err := tieredFileSystemDriver.Create(fname)
-					   if err != nil {
-							   t.Fatalf("failed to create file: %v", err)
-					   }
-					   _, err = f.Write([]byte(fmt.Sprintf("data_%d", i)))
-					   if err != nil {
-							   t.Fatalf("failed to write file: %v", err)
-					   }
-					   f.Close()
-			   }
+		tieredFileSystemDriver := storage.NewTieredFileSystemDriver(
+			context.Background(),
+			fs1,
+			fs2,
+			func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+				fsd.CanSyncDirtyFiles = func() bool { return true }
+			},
+		)
 
-			   // Concurrently read and write files
-			   for g := 0; g < numGoroutines; g++ {
-					   go func(gid int) {
-							   defer func() { done <- struct{}{} }()
-							   for i := 0; i < numFiles; i++ {
-									   fname := fmt.Sprintf("concurrent_file_%d", i)
-									   // Alternate between read and write
-									   if i%2 == 0 {
-											   // Read
-											   _, err := tieredFileSystemDriver.ReadFile(fname)
-											   if err != nil {
-													   errCh <- fmt.Errorf("goroutine %d: read error: %w", gid, err)
-													   return
-											   }
-									   } else {
-											   // Write
-											   f, err := tieredFileSystemDriver.OpenFile(fname, os.O_RDWR, 0644)
-											   if err != nil {
-													   errCh <- fmt.Errorf("goroutine %d: open error: %w", gid, err)
-													   return
-											   }
-											   _, err = f.Write([]byte(fmt.Sprintf("update_%d", gid)))
-											   if err != nil {
-													   errCh <- fmt.Errorf("goroutine %d: write error: %w", gid, err)
-													   f.Close()
-													   return
-											   }
-											   f.Close()
-									   }
-							   }
-					   }(g)
-			   }
+		const numGoroutines = 16
+		const numFiles = 32
+		done := make(chan struct{})
+		errCh := make(chan error, numGoroutines)
 
-			   // Wait for all goroutines
-			   for g := 0; g < numGoroutines; g++ {
-					   <-done
-			   }
-			   close(errCh)
+		// Pre-create files
+		for i := range numFiles {
+			fname := fmt.Sprintf("concurrent_file_%d", i)
 
-			   for err := range errCh {
-					   t.Error(err)
-			   }
+			f, err := tieredFileSystemDriver.Create(fname)
 
-			   err := tieredFileSystemDriver.Shutdown()
-			   if err != nil {
-					   t.Fatal(err)
-			   }
-	   })
+			if err != nil {
+				t.Fatalf("failed to create file: %v", err)
+			}
+
+			_, err = fmt.Fprintf(f, "data_%d", i)
+
+			if err != nil {
+				t.Fatalf("failed to write file: %v", err)
+			}
+
+			f.Close()
+		}
+
+		// Concurrently read and write files
+		for g := range numGoroutines {
+			go func(gid int) {
+				defer func() { done <- struct{}{} }()
+
+				for i := range numFiles {
+					fname := fmt.Sprintf("concurrent_file_%d", i)
+					// Alternate between read and write
+					if i%2 == 0 {
+						// Read
+						_, err := tieredFileSystemDriver.ReadFile(fname)
+
+						if err != nil {
+							errCh <- fmt.Errorf("goroutine %d: read error: %w", gid, err)
+
+							return
+						}
+					} else {
+						// Write
+						f, err := tieredFileSystemDriver.OpenFile(fname, os.O_RDWR, 0644)
+
+						if err != nil {
+							errCh <- fmt.Errorf("goroutine %d: open error: %w", gid, err)
+
+							return
+						}
+
+						_, err = fmt.Fprintf(f, "update_%d", gid)
+
+						if err != nil {
+							errCh <- fmt.Errorf("goroutine %d: write error: %w", gid, err)
+
+							f.Close()
+
+							return
+						}
+
+						f.Close()
+					}
+				}
+			}(g)
+		}
+
+		// Wait for all goroutines
+		for range numGoroutines {
+			<-done
+		}
+
+		close(errCh)
+
+		for err := range errCh {
+			t.Error(err)
+		}
+
+		err := tieredFileSystemDriver.Shutdown()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestTieredFileSystem_ClearFiles(t *testing.T) {
@@ -325,7 +344,7 @@ func TestTieredFileSystemMarkFileUpdated(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.Files returned incorrect number of files, got %d", len(tieredFileSystemDriver.Files))
 		}
 
-		err = tieredFileSystemDriver.MarkFileUpdated(file.(*storage.TieredFile))
+		err = tieredFileSystemDriver.MarkFileUpdated(file.(*storage.TieredFileDescriptor).File)
 
 		if err != nil {
 			t.Error(err)
@@ -863,8 +882,8 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.ReleaseOldestFile should return storage.ErrNoTieredFilesToRemove error, got %v", err)
 		}
 
-		if tieredFileSystemDriver.FileCount != 0 {
-			t.Errorf("TieredFileSystemDriver.FileCount should be 0, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 0 {
+			t.Errorf("TieredFileSystemDriver.FileCount should be 0, got %d", tieredFileSystemDriver.FileCount())
 		}
 
 		tieredFile1, _ := tieredFileSystemDriver.OpenFile("test1", os.O_RDWR|os.O_CREATE, 0600)
@@ -883,8 +902,8 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 
 		tieredFileSystemDriver.OpenFile("test2", os.O_RDWR|os.O_CREATE, 0600)
 
-		if tieredFileSystemDriver.FileCount != 2 {
-			t.Errorf("TieredFileSystemDriver.FileCount should be 2, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 2 {
+			t.Errorf("TieredFileSystemDriver.FileCount should be 2, got %d", tieredFileSystemDriver.FileCount())
 		}
 
 		err = tieredFileSystemDriver.Flush()
@@ -899,8 +918,8 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.ReleaseOldestFile should return nil, got %v", err)
 		}
 
-		if tieredFileSystemDriver.FileCount != 1 {
-			t.Errorf("TieredFileSystemDriver.FileCount should be 1, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 1 {
+			t.Errorf("TieredFileSystemDriver.FileCount should be 1, got %d", tieredFileSystemDriver.FileCount())
 		}
 
 		err = tieredFileSystemDriver.ReleaseOldestFile()
@@ -909,8 +928,8 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.ReleaseOldestFile should return nil, got %v", err)
 		}
 
-		if tieredFileSystemDriver.FileCount != 0 {
-			t.Errorf("TieredFileSystemDriver.FileCount should be 0, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 0 {
+			t.Errorf("TieredFileSystemDriver.FileCount should be 0, got %d", tieredFileSystemDriver.FileCount())
 		}
 	})
 }
@@ -968,8 +987,8 @@ func TestTieredFileSystemDriver_ReleaseOldestFile_WhileReading(t *testing.T) {
 			t.Errorf("TieredFileSystemDriver.ReleaseOldestFile should return nil, got %v", err)
 		}
 
-		if tieredFileSystemDriver.FileCount != 0 {
-			t.Errorf("TieredFileSystemDriver.FileCount should be 0, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 0 {
+			t.Errorf("TieredFileSystemDriver.FileCount should be 0, got %d", tieredFileSystemDriver.FileCount())
 		}
 
 		tieredFile1.Seek(5, io.SeekStart)
@@ -1490,13 +1509,12 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 
 		now := time.Now().UTC()
 
-		file1 := &storage.TieredFile{
-			TieredFileSystemDriver: tieredFileSystemDriver,
-			Flag:                   os.O_RDWR,
-			Closed:                 false,
-			UpdatedAt:              now.Add(-time.Minute * 30),
-			CreatedAt:              now.Add(-time.Hour * 2),
-		}
+		file1 := storage.NewTieredFile(
+			tieredFileSystemDriver,
+			"file1",
+			nil,
+			0600,
+		)
 
 		tests := []struct {
 			name     string
@@ -1517,7 +1535,18 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 			{
 				name: "File exists but is closed",
 				files: map[string]*storage.TieredFile{
-					"file2": {TieredFileSystemDriver: tieredFileSystemDriver, Closed: true, UpdatedAt: now.Add(-time.Minute * 30), CreatedAt: now.Add(-time.Hour * 2)},
+					"file2": func() *storage.TieredFile {
+						f := storage.NewTieredFile(
+							tieredFileSystemDriver,
+							"file2",
+							nil,
+							0600,
+						)
+						f.Closed = true
+						f.UpdatedAt = now.Add(-time.Minute * 30)
+						f.CreatedAt = now.Add(-time.Hour * 2)
+						return f
+					}(),
 				},
 				path:     "file2",
 				expected: nil,
@@ -1526,7 +1555,18 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 			{
 				name: "File exists but is stale",
 				files: map[string]*storage.TieredFile{
-					"file3": {TieredFileSystemDriver: tieredFileSystemDriver, Closed: false, UpdatedAt: now.Add(-time.Hour * 25), CreatedAt: now.Add(-time.Hour * 26)},
+					"file3": func() *storage.TieredFile {
+						f := storage.NewTieredFile(
+							tieredFileSystemDriver,
+							"file3",
+							nil,
+							0600,
+						)
+						f.Closed = false
+						f.UpdatedAt = now.Add(-time.Hour * 25)
+						f.CreatedAt = now.Add(-time.Hour * 26)
+						return f
+					}(),
 				},
 				path:     "file3",
 				expected: nil,
@@ -1547,7 +1587,20 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 
 				file, ok := tieredFileSystemDriver.GetTieredFile(tt.path)
 
-				if (file == nil && tt.expected != nil) || (file != nil && tt.expected == nil) || (file != nil && tt.expected != nil && (*file != *tt.expected)) || ok != tt.ok {
+				// Use field-by-field comparison since TieredFile now contains non-comparable fields
+				var filesEqual bool
+
+				if file == nil && tt.expected == nil {
+					filesEqual = true
+				} else if file != nil && tt.expected != nil {
+					filesEqual = file.Key == tt.expected.Key &&
+						file.Flag == tt.expected.Flag &&
+						file.Closed == tt.expected.Closed
+				} else {
+					filesEqual = false
+				}
+
+				if !filesEqual || ok != tt.ok {
 					t.Errorf("expected (%v, %v), got (%v, %v)", tt.expected, tt.ok, file, ok)
 				}
 			})
@@ -2028,14 +2081,14 @@ func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 			t.Error("TieredFileSystemDriver.Create returned nil")
 		}
 
-		if tieredFileSystemDriver.FileCount != 1 {
-			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 1 {
+			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount())
 		}
 
 		tieredFile.Close()
 
-		if tieredFileSystemDriver.FileCount != 0 {
-			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 0 {
+			t.Errorf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount())
 		}
 	})
 }
@@ -2091,8 +2144,8 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 			time.Sleep(time.Millisecond * 5)
 		}
 
-		if tieredFileSystemDriver.FileCount != 4 {
-			t.Fatalf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 4 {
+			t.Fatalf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount())
 		}
 
 		// Now there may be files that are out in the wild, when a closed file
@@ -2113,8 +2166,8 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 		tieredFileSystemDriver.Flush()
 
 		// The number of files should not have been changed
-		if tieredFileSystemDriver.FileCount != 4 {
-			t.Fatalf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount)
+		if tieredFileSystemDriver.FileCount() != 4 {
+			t.Fatalf("TieredFileSystemDriver.OpenFiles returned incorrect number of files, got %d", tieredFileSystemDriver.FileCount())
 		}
 	})
 }
@@ -2142,49 +2195,59 @@ func TestTieredFileSystemDriver_FlushClearsDirtyLog(t *testing.T) {
 
 		// Create a file with content
 		file, err := tieredFileSystemDriver.Create("test")
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		_, err = file.Write([]byte("hello world"))
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		err = file.Close()
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		// Verify the file is in the dirty log
 		hasDirtyLogs := tieredFileSystemDriver.HasDirtyLogs()
+
 		if !hasDirtyLogs {
 			t.Error("Expected dirty logs to exist after file creation")
 		}
 
 		// Flush the files
 		err = tieredFileSystemDriver.Flush()
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		// Verify the dirty log is cleared after flush
 		hasDirtyLogs = tieredFileSystemDriver.HasDirtyLogs()
+
 		if hasDirtyLogs {
 			t.Error("Expected dirty logs to be cleared after flush")
 		}
 
 		// Verify the file was actually written to low tier
 		fsd := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+
 		data, err := fsd.ReadFile("test")
+
 		if err != nil {
 			t.Errorf("Failed to read flushed file: %v", err)
 		}
+
 		if string(data) != "hello world" {
 			t.Errorf("Expected 'hello world', got '%s'", string(data))
 		}
 
 		err = tieredFileSystemDriver.Shutdown()
+
 		if err != nil {
 			t.Error(err)
 		}

@@ -152,14 +152,42 @@ func TestTieredFile_Read(t *testing.T) {
 			return
 		}
 
-		_, err = tf.WriteString("Hello, World!")
+		n1, err := tf.WriteString("Hello, World!")
 
 		if err != nil {
 			t.Error(err)
+		}
+
+		if n1 != 13 {
+			t.Errorf("WriteString bytes count is unexpected: %v", n1)
 		}
 
 		// Read the file
-		buf := make([]byte, 1024)
+		buf := make([]byte, n1)
+
+		s1, err := tf.Seek(0, io.SeekStart)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if s1 != 0 {
+			t.Errorf("Seek position is unexpected: %v", s1)
+		}
+
+		r1, err := tf.Read(buf)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if r1 != n1 {
+			t.Errorf("Read bytes count is unexpected: %v", r1)
+		}
+
+		if string(buf[:n1]) != "Hello, World!" {
+			t.Errorf("Read content is unexpected: %v", string(buf[:n1]))
+		}
 
 		_, err = tf.Seek(0, 0)
 
@@ -167,27 +195,7 @@ func TestTieredFile_Read(t *testing.T) {
 			t.Error(err)
 		}
 
-		n, err := tf.Read(buf)
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		if n == 0 {
-			t.Error("Read failed")
-		}
-
-		if string(buf[:n]) != "Hello, World!" {
-			t.Errorf("Read content is unexpected: %v", string(buf[:n]))
-		}
-
-		_, err = tf.Seek(0, 0)
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		if tf.(*storage.TieredFile).Closed {
+		if tf.(*storage.TieredFileDescriptor).File.Closed {
 			t.Error("Closed is false")
 		}
 
@@ -195,14 +203,18 @@ func TestTieredFile_Read(t *testing.T) {
 		buf = make([]byte, 1024)
 
 		// Attempt to read the file again, it should be reopened automatically
-		_, err = tf.Read(buf)
+		r2, err := tf.Read(buf)
 
 		if err != nil && err != io.EOF {
 			t.Error(err)
 		}
 
-		if string(buf[:n]) != "Hello, World!" {
-			t.Error("Read content is unexpected after reopening: " + string(buf[:n]))
+		if r2 != n1 {
+			t.Errorf("Read bytes count is unexpected after reopening: %v", r2)
+		}
+
+		if string(buf[:n1]) != "Hello, World!" {
+			t.Error("Read content is unexpected after reopening: " + string(buf[:n1]))
 		}
 	})
 }

@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
@@ -19,7 +18,6 @@ import (
 // stored on a shared file system and eventually stored durably to
 // another file system, typically object storage.
 type TieredFile struct {
-
 	// Closed is a boolean value that determines if the File has been Closed
 	// by local storage. If the File has been Closed, the File will be marked
 	// for release, which means the File will be removed from local storage
@@ -30,6 +28,12 @@ type TieredFile struct {
 	// value will be used in correlation with the updatedAt and writtenAt
 	// values to determine how long the File has been open.
 	CreatedAt time.Time
+
+	// Map to track open descriptors
+	descriptors map[string]*TieredFileDescriptor
+
+	// Mutex to protect the descriptors map
+	descriptorsMutex sync.Mutex
 
 	// Element is a pointer to the list.Element that is used to store the File
 	// in the LRU cache. The Element is used to determine the position of the
@@ -59,6 +63,10 @@ type TieredFile struct {
 	// Position tracks the current file position to preserve it across file reopens
 	position int64
 
+	// Released indicates that the file was released from memory for resource management.
+	// Descriptors can still be "open" but will need to reopen the file when accessed.
+	Released bool
+
 	// Mutex that needs to be checked when flushing the file to durable storage
 	// to prevent multiple goroutines from flushing the file at the same time.
 	syncMutex *sync.Mutex
@@ -72,28 +80,11 @@ type TieredFile struct {
 	// durable storage.
 	UpdatedAt time.Time
 
-	usageCount atomic.Int64
-
 	// WrittenAt stores the time the File was last written to durable storage.
 	// This value will be used in correlation with the CreatedAt and updatedAt
 	// values to determine how long the File has been open and if the File
 	// should be written to durable storage.
 	WrittenAt time.Time
-}
-
-// Increment the usage count for this file
-func (f *TieredFile) IncUsage() {
-	f.usageCount.Add(1)
-}
-
-// Decrement the usage count for this file and return the new value
-func (f *TieredFile) DecUsage() int64 {
-	return f.usageCount.Add(-1)
-}
-
-// Get the current usage count
-func (f *TieredFile) Usage() int64 {
-	return f.usageCount.Load()
 }
 
 // Create a new instance of a TieredFile.
@@ -113,8 +104,8 @@ func NewTieredFile(
 		syncMutex:              &sync.Mutex{},
 		TieredFileSystemDriver: tieredFileSystemDriver,
 		UpdatedAt:              time.Time{},
-		usageCount:             atomic.Int64{},
 		WrittenAt:              time.Time{},
+		descriptors:            make(map[string]*TieredFileDescriptor),
 	}
 }
 
@@ -128,14 +119,78 @@ func (f *TieredFile) AccessBarrier(fn func() error) error {
 	return fn()
 }
 
+// AddDescriptor registers a new descriptor with this file
+func (f *TieredFile) AddDescriptor(descriptor *TieredFileDescriptor) {
+	f.descriptorsMutex.Lock()
+	defer f.descriptorsMutex.Unlock()
+
+	f.descriptors[descriptor.ID()] = descriptor
+}
+
 // Close the file and release it from the TieredFileSystemDriver.
+// Note: This method is now primarily used internally. External callers
+// should close TieredFileDescriptor instances instead.
 func (f *TieredFile) Close() error {
+	// Check if there are still open descriptors
+	f.descriptorsMutex.Lock()
+	hasDescriptors := len(f.descriptors) > 0
+	f.descriptorsMutex.Unlock()
+
+	if hasDescriptors {
+		// Don't actually close if there are still descriptors open
+		return nil
+	}
+
 	// Always use the driver to release the file with proper locking
 	err := f.TieredFileSystemDriver.ReleaseFileWithLock(f)
+
 	if err != nil {
 		slog.Error("Error releasing file", "error", err)
 	}
+
 	return err
+}
+
+// CloseDescriptor is called when a descriptor is closed
+func (f *TieredFile) CloseDescriptor(descriptor *TieredFileDescriptor) error {
+	var shouldRemoveFromMap bool
+
+	f.descriptorsMutex.Lock()
+	// Remove the descriptor from our tracking
+	delete(f.descriptors, descriptor.ID())
+
+	// If no more descriptors are using this file, we can potentially release it
+	// Note: We don't check shouldBeWrittenToDurableStorage() here because flushing
+	// should happen independently from descriptor lifecycle. The background flush
+	// process will handle writing files to durable storage even if they have
+	// open descriptors, and release will only happen when both conditions are met:
+	// 1. No open descriptors AND 2. No need to flush
+	if len(f.descriptors) == 0 {
+		shouldRemoveFromMap = true
+	}
+
+	f.descriptorsMutex.Unlock()
+
+	// Handle file release outside of the descriptors mutex to avoid deadlock
+	if shouldRemoveFromMap {
+		// Try to release the file, but if it can't be released (e.g., needs flushing),
+		// that's OK - just leave it in the driver for later flushing
+		err := f.TieredFileSystemDriver.ReleaseFileWithLock(f) // We know descriptor count is 0
+
+		if err != nil && err != ErrTieredFileCannotBeReleased {
+			// Log non-expected errors, but don't fail the close operation
+			slog.Warn("Unexpected error trying to release file after descriptor close", "error", err, "file", f.Key)
+		} else if err == ErrTieredFileCannotBeReleased {
+			slog.Debug("File cannot be released yet, keeping for later flush", "file", f.Key)
+		} else {
+			// File was successfully released, now remove it from the driver's map
+			// This needs to be done while holding the driver's mutex to avoid concurrent map access
+			f.TieredFileSystemDriver.ReleaseFileFromMap(f)
+		}
+	}
+
+	// Always return nil - closing a descriptor should not fail even if file can't be released yet
+	return nil
 }
 
 // Close the file without locking the mutex.
@@ -150,6 +205,22 @@ func (f *TieredFile) closeFile() error {
 	}
 
 	return f.File.Close()
+}
+
+// Return the number of open descriptors
+func (f *TieredFile) GetDescriptorCount() int {
+	f.descriptorsMutex.Lock()
+	defer f.descriptorsMutex.Unlock()
+
+	return len(f.descriptors)
+}
+
+// HasOpenDescriptors returns true if there are any open descriptors
+func (f *TieredFile) HasOpenDescriptors() bool {
+	f.descriptorsMutex.Lock()
+	defer f.descriptorsMutex.Unlock()
+
+	return len(f.descriptors) > 0
 }
 
 // Indicate that the file has been updated so that they TieredFileSystemDriver
@@ -180,8 +251,9 @@ func (f *TieredFile) Read(b []byte) (n int, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.File == nil {
+	if f.File == nil || f.Released {
 		err := f.reopenFile()
+
 		if err != nil {
 			return 0, err
 		}
@@ -205,7 +277,7 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 		f.mutex.Lock()
 		defer f.mutex.Unlock()
 
-		if f.File == nil {
+		if f.File == nil || f.Released {
 			err := f.reopenFile()
 			if err != nil {
 				return err
@@ -235,7 +307,7 @@ func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if f.File == nil {
+	if f.File == nil || f.Released {
 		err := f.reopenFile()
 		if err != nil {
 			return 0, err
@@ -271,6 +343,7 @@ func (f *TieredFile) Stat() (fs.FileInfo, error) {
 
 	if f.File == nil {
 		err := f.reopenFile()
+
 		if err != nil {
 			return nil, err
 		}
@@ -407,6 +480,7 @@ func (f *TieredFile) WriteAt(p []byte, off int64) (n int, err error) {
 
 		if f.File == nil {
 			err := f.reopenFile()
+
 			if err != nil {
 				return err
 			}
@@ -488,10 +562,38 @@ func (f *TieredFile) reopenFile() error {
 		return nil
 	}
 
-	// Open the file directly from the high tier file system
-	file, err := f.TieredFileSystemDriver.OpenFile(f.Key, f.Flag, 0600)
+	// Try to open the file directly from the high tier file system first
+	// Always open with RDWR since descriptors handle access control
+	file, err := f.TieredFileSystemDriver.highTierFileSystemDriver.OpenFile(f.Key, os.O_RDWR, 0600)
 	if err != nil {
-		return err
+		// If file doesn't exist on high tier, try to copy it from low tier
+		if os.IsNotExist(err) {
+			// Read from low tier storage
+			lowTierFile, err := f.TieredFileSystemDriver.lowTierFileSystemDriver.OpenFile(f.Key, os.O_RDONLY, 0600)
+
+			if err != nil {
+				return err
+			}
+
+			defer lowTierFile.Close()
+
+			// Create on high tier storage
+			file, err = f.TieredFileSystemDriver.highTierFileSystemDriver.OpenFile(f.Key, os.O_RDWR|os.O_CREATE, 0600)
+			if err != nil {
+				return err
+			}
+
+			// Copy data from low tier to high tier
+			_, err = f.TieredFileSystemDriver.CopyFile(file, lowTierFile)
+
+			if err != nil {
+				file.Close()
+
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	f.File = file
