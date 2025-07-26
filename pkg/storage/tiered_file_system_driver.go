@@ -955,17 +955,21 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 				continue
 			}
 
+			// Take a snapshot of all files under lock to avoid concurrent map write during iteration
 			fsd.mutex.RLock()
-
-			filesToFlush := make([]*TieredFile, 0, len(fsd.Files))
-
+			fileSnapshot := make([]*TieredFile, 0, len(fsd.Files))
 			for _, file := range fsd.Files {
+				fileSnapshot = append(fileSnapshot, file)
+			}
+			fsd.mutex.RUnlock()
+
+			// Now filter for files to flush outside the lock
+			filesToFlush := make([]*TieredFile, 0, len(fileSnapshot))
+			for _, file := range fileSnapshot {
 				if file.shouldBeWrittenToDurableStorage() {
 					filesToFlush = append(filesToFlush, file)
 				}
 			}
-
-			fsd.mutex.RUnlock()
 
 			if len(filesToFlush) == 0 {
 				continue
