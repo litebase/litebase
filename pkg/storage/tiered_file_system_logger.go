@@ -29,7 +29,7 @@ type TieredFileSystemLoggerEntry struct {
 
 func NewTieredFileSystemLogger(fileSystem FileSystemDriver, directory string) (*TieredFileSystemLogger, error) {
 	return &TieredFileSystemLogger{
-		currentLog: time.Now().UTC().Unix(),
+		currentLog: time.Now().UTC().UnixNano(),
 		directory:  directory,
 		entries:    make(map[int64]map[string]struct{}),
 		files:      make(map[int64]internalStorage.File),
@@ -210,13 +210,15 @@ func (tfl *TieredFileSystemLogger) Put(key string) (int64, error) {
 
 	tfl.files[tfl.currentLog] = file
 
-	if _, err := file.WriteString(fmt.Sprintf("%s\n", key)); err != nil {
+	if _, err := fmt.Fprintf(file, "%s\n", key); err != nil {
 		return 0, err
 	}
 
 	return tfl.currentLog, nil
 }
 
+// Remove a key from the log. If the log is empty after removing the key,
+// the log file is deleted.
 func (tfl *TieredFileSystemLogger) Remove(key string, logKey int64) error {
 	tfl.mutex.Lock()
 	defer tfl.mutex.Unlock()
@@ -249,7 +251,7 @@ func (tfl *TieredFileSystemLogger) Restart() error {
 	defer tfl.mutex.Unlock()
 
 	tfl.entries = make(map[int64]map[string]struct{})
-	tfl.currentLog = time.Now().UTC().Unix()
+	tfl.setCurrentLog()
 
 	// Remove the old log files
 	files, err := tfl.fileSystem.ReadDir(tfl.directory)
@@ -277,6 +279,7 @@ func (tfl *TieredFileSystemLogger) Restart() error {
 	return nil
 }
 
+// Remove the log file for the given log key
 func (tfl *TieredFileSystemLogger) removeLogFile(log int64) error {
 	if file, ok := tfl.files[log]; ok {
 		if err := file.Close(); err != nil {
@@ -284,11 +287,18 @@ func (tfl *TieredFileSystemLogger) removeLogFile(log int64) error {
 		}
 
 		delete(tfl.files, log)
-	}
 
-	if err := tfl.fileSystem.Remove(fmt.Sprintf("%s/%d", tfl.directory, log)); err != nil {
-		return err
+		if err := tfl.fileSystem.Remove(fmt.Sprintf("%s/%d", tfl.directory, log)); err != nil {
+			return err
+		}
+
+		tfl.setCurrentLog()
 	}
 
 	return nil
+}
+
+// Set the current log to the current time in nanoseconds.
+func (tfl *TieredFileSystemLogger) setCurrentLog() {
+	tfl.currentLog = time.Now().UTC().UnixNano()
 }
