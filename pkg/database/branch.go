@@ -289,9 +289,18 @@ func (b *Branch) Delete() error {
 		return fmt.Errorf("failed to load branch's database: %w", err)
 	}
 
-	// Invalidate the Database's branch cache
+	// Remove the branch from the database's branch cache
 	if database != nil {
+		database.branchCache.Delete(b.DatabaseBranchID)
 		database.InvalidateBranchCache(b.DatabaseBranchID)
+	}
+
+	// Invalidate the database branch cache
+
+	if b.DatabaseManager.databaseCache != nil {
+		database, _ = b.DatabaseManager.Get(b.DatabaseID)
+
+		database.branchCache.Delete(b.DatabaseBranchID)
 	}
 
 	// Invalidate the DatabaseManager's cache using the branch Key

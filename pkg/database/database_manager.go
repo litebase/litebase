@@ -189,7 +189,16 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 // Create a new instance of a database.
 func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, error) {
-	return CreateDatabase(d, databaseName, branchName)
+	db, err := CreateDatabase(d, databaseName, branchName)
+
+	if err != nil {
+		slog.Error("Error creating database", "error", err, "name", databaseName, "branch", branchName)
+		return nil, err
+	}
+
+	d.databaseCache.Put(db.DatabaseID, db)
+
+	return db, nil
 }
 
 // Delete the given instance of the database.

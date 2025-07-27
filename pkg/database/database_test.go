@@ -432,7 +432,7 @@ func TestDatabase(t *testing.T) {
 		})
 
 		t.Run("Database_BranchDeletionCacheInvalidation", func(t *testing.T) {
-			db, err := database.CreateDatabase(app.DatabaseManager, "test_BranchDeletion", "main")
+			db, err := app.DatabaseManager.Create("test_BranchDeletion", "main")
 
 			if err != nil {
 				t.Fatal(err)
@@ -449,7 +449,7 @@ func TestDatabase(t *testing.T) {
 			hasBranch := db.HasBranch(secondaryBranch.DatabaseBranchID)
 
 			if !hasBranch {
-				t.Error("Expected database to have newly created secondary branch")
+				t.Fatal("Expected database to have newly created secondary branch")
 			}
 
 			// Test cache invalidation mechanism - this should clear the cache entry
