@@ -50,9 +50,9 @@ func TestRestore(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			// There should be 5 entries in the target directory, including the metadata file, range index
-			if len(entries) != 7 {
-				t.Errorf("Expected 7 entries, got %d", len(entries))
+			// There should be 8 entries in the target directory, including the metadata file, range index, and range log
+			if len(entries) != 8 {
+				t.Errorf("Expected 8 entries, got %d", len(entries))
 			}
 		})
 

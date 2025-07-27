@@ -71,6 +71,15 @@ func CopySourceDatabaseToTargetDatabase(
 		return err
 	}
 
+	// Run garbage collection on the target database to remove any
+	// unused ranges and ensure the database is compacted
+	err = targetFileSystem.RangeManager.RunGarbageCollection()
+
+	if err != nil {
+		slog.Error("Error running garbage collection:", "error", err)
+		return err
+	}
+
 	err = targetFileSystem.ForceCompact()
 
 	if err != nil {
@@ -183,21 +192,19 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 			continue
 		}
 
-		if entry.Name()[0] == '_' {
-			continue
-		}
+		if entry.Name()[0] != '_' {
+			parts := strings.SplitN(entry.Name(), "_", 2)
 
-		parts := strings.SplitN(entry.Name(), "_", 2)
+			rangeNumber, err := strconv.ParseInt(parts[0], 10, 64)
 
-		rangeNumber, err := strconv.ParseInt(parts[0], 10, 64)
+			if err != nil {
+				slog.Error("Error parsing entry name:", "file", entry.Name(), "error", err)
+				return err
+			}
 
-		if err != nil {
-			slog.Error("Error parsing entry name:", "file", entry.Name(), "error", err)
-			return err
-		}
-
-		if rangeNumber > maxRangeNumber {
-			continue
+			if rangeNumber > maxRangeNumber {
+				continue
+			}
 		}
 
 		// Copy the file from the source to the target
