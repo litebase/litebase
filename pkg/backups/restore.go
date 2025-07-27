@@ -235,6 +235,16 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 			slog.Error("Error copying page:", "file", targetFilePath, "error", err)
 			return err
 		}
+
+		err = targetFile.Close()
+
+		if err != nil {
+			slog.Error("Error closing target file", "file", targetFilePath, "error", err)
+		}
+
+		if err = sourceFile.Close(); err != nil {
+			slog.Error("Error closing source file", "file", sourceFilePath, "error", err)
+		}
 	}
 
 	return nil
