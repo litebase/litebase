@@ -377,7 +377,7 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 		_, err := file.File.Seek(0, io.SeekStart)
 
 		if err != nil {
-			log.Println("Error seeking to start of file", err)
+			slog.Error("Error seeking to start of file", "error", err)
 			return err
 		}
 
@@ -922,22 +922,29 @@ func (fsd *TieredFileSystemDriver) SyncDirtyFiles() error {
 				if fileInfo, err := fsd.highTierFileSystemDriver.Stat(entry.Key); err != nil {
 					if os.IsNotExist(err) {
 						slog.Debug("File does not exist on high tier, skipping sync", "file", entry.Key)
+
 						// Still remove the log entry since the file doesn't exist
 						if err := fsd.logger.Remove(entry.Key, entry.Log); err != nil {
 							slog.Error("Error removing log entry for non-existent file:", "error", err)
 						}
+
 						logs[entry.Log] = struct{}{}
 						continue
 					}
+
 					slog.Error("Error checking file existence on high tier file system", "error", err)
+
 					continue
 				} else if fileInfo.Size() == 0 {
 					slog.Debug("File is empty on high tier, skipping sync", "file", entry.Key)
+
 					// Still remove the log entry since empty files shouldn't be synced
 					if err := fsd.logger.Remove(entry.Key, entry.Log); err != nil {
 						slog.Error("Error removing log entry for empty file:", "error", err)
 					}
+
 					logs[entry.Log] = struct{}{}
+
 					continue
 				}
 
