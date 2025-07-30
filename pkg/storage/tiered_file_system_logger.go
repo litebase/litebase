@@ -288,12 +288,13 @@ func (tfl *TieredFileSystemLogger) removeLogFile(log int64) error {
 
 		delete(tfl.files, log)
 
-		if err := tfl.fileSystem.Remove(fmt.Sprintf("%s/%d", tfl.directory, log)); err != nil {
-			return err
-		}
-
-		tfl.setCurrentLog()
 	}
+
+	if err := tfl.fileSystem.Remove(fmt.Sprintf("%s/%d", tfl.directory, log)); err != nil {
+		return err
+	}
+
+	tfl.setCurrentLog()
 
 	return nil
 }
