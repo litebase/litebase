@@ -850,9 +850,7 @@ func (n *Node) StepDown() error {
 		return nil
 	}
 
-	if err := n.removePrimaryStatus(); err != nil {
-		return err
-	}
+	n.removePrimaryStatus()
 
 	if n.Primary() != nil {
 		n.Primary().Shutdown()
