@@ -20,6 +20,8 @@ require (
 	github.com/spf13/afero v1.14.0
 )
 
+require github.com/microcosm-cc/bluemonday v1.0.27 // indirect
+
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.10 // indirect
@@ -52,8 +54,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/litebase/litebase-go/sql v0.0.0-20250725191238-42aa754f0eb8 // indirect
-	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
+	github.com/litebase/litebase-go/sql v0.0.0-20250725191238-42aa754f0eb8
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/muesli/mango v0.1.0 // indirect
 	github.com/muesli/mango-cobra v1.2.0 // indirect

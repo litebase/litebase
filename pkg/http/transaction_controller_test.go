@@ -216,7 +216,7 @@ func TestTransactionController_2(t *testing.T) {
 				"POST",
 				map[string]any{
 					"queries": []map[string]any{
-						map[string]any{
+						{
 							"id":             uuid.NewString(),
 							"transaction_id": transactionId,
 							"statement":      "SELECT COUNT(*) FROM test",
