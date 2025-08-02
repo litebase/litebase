@@ -161,20 +161,23 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 			t.Fatalf("ForceCompact failed, expected nil, got %v", err)
 		}
 
-		entries, err := fileSystemDriver.ReadDir(path)
+		// Get the file size of the directory using the range index
+		rangeIndex := dfs.RangeManager.Index
+
+		entries, err := rangeIndex.All()
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		// Get the file size of the directory
-		for _, entry := range entries {
-			// Skip directories or files that start with an underscore
-			if entry.IsDir() || entry.Name()[0] == '_' {
-				continue
-			}
+		if len(entries) == 0 {
+			t.Fatalf("Range index is empty, expected > 0, got %v", len(entries))
+		}
 
-			info, err := fileSystemDriver.Stat(path + entry.Name())
+		for _, entry := range entries {
+			rangePath := fmt.Sprintf("%s%s", path, entry.Name())
+
+			info, err := fileSystemDriver.Stat(rangePath)
 
 			if err != nil {
 				t.Fatal(err)
@@ -216,20 +219,27 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		expectedSize = 4096 * pageCount
 
 		fileSystemDriver.Flush()
-		entries, err = fileSystemDriver.ReadDir(path)
+
+		rangeIndex = dfs.RangeManager.Index
+
+		entries, err = rangeIndex.All()
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		// Get the file size of the directory
-		for _, entry := range entries {
-			// Skip directories or files that start with an underscore
-			if entry.IsDir() || entry.Name()[0] == '_' {
-				continue
-			}
+		if len(entries) == 0 {
+			t.Fatalf("Range index is empty, expected > 0, got %v", len(entries))
+		}
 
-			info, _ := fileSystemDriver.Stat(path + "/" + entry.Name())
+		for _, entry := range entries {
+			rangePath := fmt.Sprintf("%s%s", path, entry.Name())
+
+			info, err := fileSystemDriver.Stat(rangePath)
+
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			directorySize += info.Size()
 		}
