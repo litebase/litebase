@@ -45,7 +45,7 @@ func (nr *NodeReplica) JoinCluster() error {
 		Timeout: 3 * time.Second,
 	}
 
-	url := fmt.Sprintf("http://%s/cluster/members", nr.node.PrimaryAddress())
+	url := fmt.Sprintf("http://%s/v1/cluster/members", nr.node.PrimaryAddress())
 
 	address, err := nr.node.Address()
 
@@ -122,7 +122,7 @@ func (nr *NodeReplica) LeaveCluster() error {
 		return fmt.Errorf("failed to get node address: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s/cluster/members/%s", nr.node.PrimaryAddress(), address)
+	url := fmt.Sprintf("http://%s/v1/cluster/members/%s", nr.node.PrimaryAddress(), address)
 
 	request, err := http.NewRequestWithContext(nr.node.context, "DELETE", url, nil)
 
@@ -181,7 +181,7 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 
 	request, err := http.NewRequestWithContext(
 		nr.node.context, "POST",
-		fmt.Sprintf("http://%s/cluster/primary", nr.node.PrimaryAddress()),
+		fmt.Sprintf("http://%s/v1/cluster/primary", nr.node.PrimaryAddress()),
 		data,
 	)
 

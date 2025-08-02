@@ -12,15 +12,21 @@ import (
 
 // List all branches for a specific database
 func DatabaseBranchIndexController(request *Request) Response {
-	databaseId := request.Param("databaseId")
+	databaseName := request.Param("databaseName")
 
-	if databaseId == "" {
-		return ErrValidDatabaseIdRequiredResponse
+	if databaseName == "" {
+		return ErrValidDatabaseNameRequiredResponse
+	}
+
+	db, err := request.databaseManager.GetByName(databaseName)
+
+	if err != nil {
+		return BadRequestResponse(err)
 	}
 
 	// Authorize the request
-	err := request.Authorize(
-		[]string{"database:*", fmt.Sprintf("database:%s", databaseId)},
+	err = request.Authorize(
+		[]string{"database:*", fmt.Sprintf("database:%s", db.DatabaseID)},
 		[]auth.Privilege{auth.DatabaseBranchPrivilegeList},
 	)
 
@@ -28,17 +34,11 @@ func DatabaseBranchIndexController(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	db, err := request.databaseManager.Get(databaseId)
-
-	if err != nil {
-		return BadRequestResponse(err)
-	}
-
 	// Get all branches for the database
 	branches, err := db.Branches()
 
 	if err != nil {
-		slog.Error("Failed to retrieve database branches", "error", err, "databaseId", db.DatabaseID)
+		slog.Error("Failed to retrieve database branches", "error", err, "databaseName", db.Name)
 		return ServerErrorResponse(err)
 	}
 
@@ -51,33 +51,13 @@ func DatabaseBranchIndexController(request *Request) Response {
 
 // Show a specific database branch by ID
 func DatabaseBranchShowController(request *Request) Response {
-	databaseID := request.Param("databaseId")
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseID == "" {
-		return ErrValidDatabaseIdRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
 	}
 
-	branchID := request.Param("branchId")
-
-	if branchID == "" {
-		return ErrValidBranchIdRequiredResponse
-	}
-
-	// Authorize the request
-	err := request.Authorize(
-		[]string{
-			"database:*",
-			fmt.Sprintf("database:%s:branch:*", databaseID),
-			fmt.Sprintf("database:%s:branch:%s", databaseID, branchID),
-		},
-		[]auth.Privilege{auth.DatabasePrivilegeShow},
-	)
-
-	if err != nil {
-		return ForbiddenResponse(err)
-	}
-
-	db, err := request.databaseManager.Get(databaseID)
+	db, err := request.databaseManager.Get(databaseKey.DatabaseID)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -88,11 +68,25 @@ func DatabaseBranchShowController(request *Request) Response {
 	}
 
 	// Get the branch by ID
-	branch, err := db.Branch(branchID)
+	branch, err := db.Branch(databaseKey.DatabaseBranchName)
 
 	if err != nil {
-		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchId", branchID)
+		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchName", databaseKey.DatabaseBranchName)
 		return BadRequestResponse(err)
+	}
+
+	// Authorize the request
+	err = request.Authorize(
+		[]string{
+			"database:*",
+			fmt.Sprintf("database:%s:branch:*", db.DatabaseID),
+			fmt.Sprintf("database:%s:branch:%s", db.DatabaseID, branch.DatabaseBranchID),
+		},
+		[]auth.Privilege{auth.DatabasePrivilegeShow},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
 	}
 
 	return SuccessResponse(
@@ -109,15 +103,25 @@ type DatabaseBranchStoreRequest struct {
 
 // Create a new database branch
 func DatabaseBranchStoreController(request *Request) Response {
-	databaseID := request.Param("databaseId")
+	databaseName := request.Param("databaseName")
 
-	if databaseID == "" {
-		return ErrValidDatabaseIdRequiredResponse
+	if databaseName == "" {
+		return ErrValidDatabaseNameRequiredResponse
+	}
+
+	db, err := request.databaseManager.GetByName(databaseName)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("database not found"))
+		}
+
+		return BadRequestResponse(err)
 	}
 
 	// Authorize the request
-	err := request.Authorize(
-		[]string{"database:*", fmt.Sprintf("database:%s", databaseID)},
+	err = request.Authorize(
+		[]string{"database:*", fmt.Sprintf("database:%s", db.DatabaseID)},
 		[]auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
 	)
 
@@ -142,14 +146,6 @@ func DatabaseBranchStoreController(request *Request) Response {
 
 	var branchName = input.(*DatabaseBranchStoreRequest).Name
 
-	// Get the database by ID
-	db, err := request.databaseManager.Get(databaseID)
-
-	if err != nil {
-		slog.Error("Failed to retrieve database", "error", err, "databaseId", databaseID)
-		return BadRequestResponse(err)
-	}
-
 	branch, err := db.CreateBranch(
 		string(branchName),
 		request.cluster.Config.DefaultBranchName,
@@ -168,21 +164,37 @@ func DatabaseBranchStoreController(request *Request) Response {
 
 // Delete a specific database branch
 func DatabaseBranchDestroyController(request *Request) Response {
-	databaseID := request.Param("databaseId")
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseID == "" {
-		return ErrValidDatabaseIdRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
 	}
 
-	branchID := request.Param("branchId")
+	db, err := request.databaseManager.Get(databaseKey.DatabaseID)
 
-	if branchID == "" {
-		return ErrValidBranchIdRequiredResponse
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("database not found"))
+		}
+
+		return BadRequestResponse(err)
+	}
+
+	branch, err := db.Branch(databaseKey.DatabaseBranchName)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("branch not found"))
+		}
+
+		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchName", databaseKey.DatabaseBranchName)
+
+		return BadRequestResponse(err)
 	}
 
 	// Authorize the request
-	err := request.Authorize(
-		[]string{"database:*", fmt.Sprintf("database:%s:branch:*", databaseID), fmt.Sprintf("database:%s:branch:%s", databaseID, branchID)},
+	err = request.Authorize(
+		[]string{"database:*", fmt.Sprintf("database:%s:branch:*", db.DatabaseID), fmt.Sprintf("database:%s:branch:%s", db.DatabaseID, branch.DatabaseBranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeManage},
 	)
 
@@ -190,23 +202,11 @@ func DatabaseBranchDestroyController(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	db, err := request.databaseManager.Get(databaseID)
-
-	if err != nil {
-		return BadRequestResponse(err)
-	}
-
-	branch, err := db.Branch(branchID)
-
-	if err != nil {
-		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchId", branchID)
-		return BadRequestResponse(err)
-	}
-
 	err = branch.Delete()
 
 	if err != nil {
-		slog.Error("Failed to delete database branch", "error", err, "databaseId", db.DatabaseID, "branchId", branchID)
+		slog.Error("Failed to delete database branch", "error", err, "databaseId", db.DatabaseID, "branchId", branch.DatabaseBranchID)
+
 		return ServerErrorResponse(err)
 	}
 

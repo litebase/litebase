@@ -18,7 +18,7 @@ func TestNewQuery(t *testing.T) {
 			app.Cluster,
 			app.DatabaseManager,
 			app.LogManager,
-			auth.NewDatabaseKey(mock.DatabaseID, mock.BranchID, mock.DatabaseKey.Key),
+			auth.NewDatabaseKey(mock.DatabaseID, mock.DatabaseName, mock.DatabaseBranchID, mock.BranchName),
 			mock.AccessKey,
 			&database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
@@ -43,7 +43,7 @@ func TestNewQuery(t *testing.T) {
 func TestResolve(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
@@ -53,7 +53,7 @@ func TestResolve(t *testing.T) {
 			app.Cluster,
 			app.DatabaseManager,
 			app.LogManager,
-			auth.NewDatabaseKey(mock.DatabaseID, mock.BranchID, mock.DatabaseKey.Key),
+			auth.NewDatabaseKey(mock.DatabaseID, mock.DatabaseName, mock.DatabaseBranchID, mock.BranchName),
 			mock.AccessKey,
 			&database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
@@ -80,7 +80,7 @@ func TestResolve(t *testing.T) {
 func TestStatement(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
@@ -110,11 +110,11 @@ func TestStatement(t *testing.T) {
 // func TestStatementOfBatchQuery(t *testing.T) {
 // 	test.RunWithApp(t, func(app *server.App) {
 // 		mock := test.MockDatabase(app)
-// 		db, _ := database.Get(mock.DatabaseID, mock.BranchID, nil, false)
+// 		db, _ := database.Get(mock.DatabaseID, mock.DatabaseBranchID, nil, false)
 
 // 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
 
-// 		db, _ = database.Get(mock.DatabaseID, mock.BranchID, nil, false)
+// 		db, _ = database.Get(mock.DatabaseID, mock.DatabaseBranchID, nil, false)
 
 // 		query := &Query{
 // 			Batch: []*Query{{

@@ -13,22 +13,11 @@ import (
 
 func NewDatabaseDeleteCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
+		Use:   "delete <name>",
 		Args:  cobra.ExactArgs(1),
 		Short: "Delete a database",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := api.NewClient(config)
-
-			if err != nil {
-				fmt.Fprint(
-					cmd.OutOrStdout(),
-					components.Container(components.ErrorAlert(err.Error())),
-				)
-
-				return err
-			}
-
-			res, _, err := client.Request("DELETE", fmt.Sprintf("/resources/databases/%s", args[0]), nil)
+			res, _, err := api.Delete(config, fmt.Sprintf("/v1/databases/%s", args[0]))
 
 			if err != nil {
 				return err

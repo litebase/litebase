@@ -35,7 +35,5 @@ func TestDatabaseList(t *testing.T) {
 		if cli.DoesntSee(database2.DatabaseID) {
 			t.Errorf("expected output to contain database2 ID, got %v", cli.GetOutput())
 		}
-
-		t.Log("Database list output:", cli.GetOutput())
 	})
 }

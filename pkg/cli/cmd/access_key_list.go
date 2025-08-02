@@ -16,7 +16,7 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 		Use:   "list",
 		Short: "List access keys",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := api.Get(config, "/resources/access-keys")
+			data, err := api.Get(config, "/v1/access-keys")
 
 			if err != nil {
 				return err

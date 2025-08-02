@@ -13,7 +13,7 @@ import (
 )
 
 func userShow(cmd *cobra.Command, config *config.Configuration, AccessKeyID string) error {
-	res, err := api.Get(config, fmt.Sprintf("/resources/users/%s", AccessKeyID))
+	res, err := api.Get(config, fmt.Sprintf("/v1/users/%s", AccessKeyID))
 
 	if err != nil {
 		return err

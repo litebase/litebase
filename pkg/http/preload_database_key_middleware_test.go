@@ -14,13 +14,22 @@ func TestPreloadDatabaseKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		request, err := http.NewRequest("GET", fmt.Sprintf("/%s", mock.DatabaseKey.Key), nil)
+		request, err := http.NewRequest(
+			"GET",
+			fmt.Sprintf(
+				"/v1/databases/%s/%s",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			nil,
+		)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
 		}
 
-		request.SetPathValue("databaseKey", mock.DatabaseKey.Key)
+		request.SetPathValue("databaseName", mock.DatabaseName)
+		request.SetPathValue("branchName", mock.BranchName)
 
 		req := appHttp.NewRequest(
 			app.Cluster,

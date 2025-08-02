@@ -11,10 +11,10 @@ import (
 // TransactionControllerStore creates a new transaction. This is effectively a
 // call to begin a transaction.
 func TransactionControllerStore(request *Request) Response {
-	databaseKey := request.DatabaseKey()
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseKey == nil {
-		return ErrValidDatabaseKeyRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
 	}
 
 	requestToken := request.RequestToken("Authorization")
@@ -31,7 +31,7 @@ func TransactionControllerStore(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
 	)
 
@@ -41,7 +41,7 @@ func TransactionControllerStore(request *Request) Response {
 
 	transaction, err := request.databaseManager.Resources(
 		databaseKey.DatabaseID,
-		databaseKey.BranchID,
+		databaseKey.DatabaseBranchID,
 	).TransactionManager().Create(
 		request.cluster,
 		request.databaseManager,
@@ -61,7 +61,7 @@ func TransactionControllerStore(request *Request) Response {
 			"data": map[string]any{
 				"id":          transaction.Id,
 				"database_id": databaseKey.DatabaseID,
-				"branch_id":   databaseKey.BranchID,
+				"branch_id":   databaseKey.DatabaseBranchID,
 				"created_at":  transaction.CreatedAt,
 				"started_at":  transaction.StartedAt,
 			},
@@ -71,10 +71,10 @@ func TransactionControllerStore(request *Request) Response {
 
 // Destroying a transaction is where the transaction is rolled back.
 func TransactionControllerDestroy(request *Request) Response {
-	databaseKey := request.DatabaseKey()
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseKey == nil {
-		return ErrValidDatabaseKeyRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
 	}
 
 	requestToken := request.RequestToken("Authorization")
@@ -91,7 +91,7 @@ func TransactionControllerDestroy(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
 	)
 
@@ -102,7 +102,7 @@ func TransactionControllerDestroy(request *Request) Response {
 	transactionId := request.Param("id")
 	transactionManager := request.databaseManager.Resources(
 		databaseKey.DatabaseID,
-		databaseKey.BranchID,
+		databaseKey.DatabaseBranchID,
 	).TransactionManager()
 
 	transaction, err := transactionManager.Get(transactionId)

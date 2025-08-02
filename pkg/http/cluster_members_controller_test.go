@@ -25,7 +25,7 @@ func TestClusterMemberDestroyController(t *testing.T) {
 
 		request, err := http.NewRequest(
 			"DELETE",
-			fmt.Sprintf("/cluster/members/%s", address),
+			fmt.Sprintf("/v1/cluster/members/%s", address),
 			nil,
 		)
 
@@ -75,7 +75,7 @@ func TestClusterMemberDestroyControllerUnauthorized(t *testing.T) {
 
 		request, err := http.NewRequest(
 			"DELETE",
-			fmt.Sprintf("/cluster/members/%s", address),
+			fmt.Sprintf("/v1/cluster/members/%s", address),
 			nil,
 		)
 
@@ -125,7 +125,7 @@ func TestClusterMemberStoreController(t *testing.T) {
 
 		request, err := http.NewRequest(
 			"POST",
-			fmt.Sprintf("/cluster/members/%s", address),
+			fmt.Sprintf("/v1/cluster/members/%s", address),
 			bytes.NewReader(jsonData),
 		)
 
@@ -184,7 +184,7 @@ func TestClusterMemberStoreControllerUnauthorized(t *testing.T) {
 
 		request, err := http.NewRequest(
 			"POST",
-			fmt.Sprintf("/cluster/members/%s", address),
+			fmt.Sprintf("/v1/cluster/members/%s", address),
 			bytes.NewReader(jsonData),
 		)
 

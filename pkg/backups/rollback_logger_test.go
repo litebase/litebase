@@ -19,7 +19,7 @@ func TestRollbackLogger(t *testing.T) {
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			// Check if the page logger is not nil
@@ -32,8 +32,8 @@ func TestRollbackLogger(t *testing.T) {
 				t.Errorf("Expected DatabaseID to be %s, got %s", mock.DatabaseID, rollbackLogger.DatabaseID)
 			}
 
-			if rollbackLogger.BranchID != mock.BranchID {
-				t.Errorf("Expected BranchID to be %s, got %s", mock.BranchID, rollbackLogger.BranchID)
+			if rollbackLogger.BranchID != mock.DatabaseBranchID {
+				t.Errorf("Expected BranchID to be %s, got %s", mock.DatabaseBranchID, rollbackLogger.BranchID)
 			}
 		})
 
@@ -44,7 +44,7 @@ func TestRollbackLogger(t *testing.T) {
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			// Close the page logger
@@ -62,7 +62,7 @@ func TestRollbackLogger(t *testing.T) {
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			offset, _, err := rollbackLogger.StartFrame(1234567890)
@@ -94,7 +94,7 @@ func TestRollbackLogger(t *testing.T) {
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			// Get a log
@@ -122,7 +122,7 @@ func TestRollbackLogger(t *testing.T) {
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			// Log a page
@@ -154,7 +154,7 @@ func TestRollbackLogger(t *testing.T) {
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			offset, size, err := rollbackLogger.StartFrame(1234567890)
@@ -187,7 +187,7 @@ func TestRollbackLogger(t *testing.T) {
 			rollbackLogger := backups.NewRollbackLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			offset, size, err := rollbackLogger.StartFrame(1234567890)

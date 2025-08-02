@@ -112,9 +112,10 @@ func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) any {
 func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 	query, err := n.queryBuilder.Build(
 		message.AccessKeyID,
-		message.DatabaseKey,
 		message.DatabaseID,
+		message.DatabaseName,
 		message.BranchID,
+		message.BranchName,
 		message.Statement,
 		message.Parameters,
 		message.ID,

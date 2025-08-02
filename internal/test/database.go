@@ -16,11 +16,14 @@ import (
 )
 
 type TestDatabase struct {
-	ID          int64
-	DatabaseID  string
-	BranchID    string
-	DatabaseKey *auth.DatabaseKey
-	AccessKey   *auth.AccessKey
+	ID               int64
+	BranchID         int64
+	BranchName       string
+	DatabaseID       string
+	DatabaseBranchID string
+	DatabaseKey      *auth.DatabaseKey
+	DatabaseName     string
+	AccessKey        *auth.AccessKey
 }
 
 type TestDatabaseAuthorizationCommand struct {
@@ -72,15 +75,20 @@ func MockDatabase(app *server.App) TestDatabase {
 	}
 
 	return TestDatabase{
-		ID:         db.ID,
-		DatabaseID: db.DatabaseID,
-		BranchID:   db.PrimaryBranch().DatabaseBranchID,
+		ID:               db.ID,
+		BranchID:         db.PrimaryBranch().ID,
+		BranchName:       db.PrimaryBranch().Name,
+		DatabaseID:       db.DatabaseID,
+		DatabaseBranchID: db.PrimaryBranch().DatabaseBranchID,
 		DatabaseKey: &auth.DatabaseKey{
-			DatabaseHash: file.DatabaseHash(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID),
-			DatabaseID:   db.DatabaseID,
-			BranchID:     db.PrimaryBranch().DatabaseBranchID,
-			Key:          db.PrimaryBranch().Key,
+			DatabaseHash:       file.DatabaseHash(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID),
+			DatabaseID:         db.DatabaseID,
+			DatabaseName:       db.Name,
+			DatabaseBranchID:   db.PrimaryBranch().DatabaseBranchID,
+			DatabaseBranchName: db.PrimaryBranch().Name,
 		},
+		DatabaseName: db.Name,
+
 		AccessKey: accessKey,
 	}
 }

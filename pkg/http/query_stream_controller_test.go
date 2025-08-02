@@ -42,9 +42,10 @@ func TestQueryStreamController(t *testing.T) {
 		}
 
 		url := fmt.Sprintf(
-			"%s/%s/query/stream",
+			"%s/v1/databases/%s/%s/query/stream",
 			testServer.Server.URL,
-			testDatabase.DatabaseKey.Key,
+			testDatabase.DatabaseName,
+			testDatabase.BranchName,
 		)
 
 		connectionPool := sql.NewConnectionPool(
@@ -106,9 +107,10 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 
 		// Use invalid database key
 		url := fmt.Sprintf(
-			"%s/%s/query/stream",
+			"%s/v1/databases/%s/%s/query/stream",
 			testServer.Server.URL,
 			"invalid_database_key",
+			testDatabase.BranchName,
 		)
 
 		connectionPool := sql.NewConnectionPool(
@@ -134,8 +136,8 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		if err.Error() != "request failed: 400 Bad Request" {
-			t.Fatalf("expected error 'request failed: 400 Bad Request', got %s", err.Error())
+		if err.Error() != "request failed: 404 Not Found" {
+			t.Fatalf("expected error 'request failed: 404 Not Found', got %s", err.Error())
 		}
 
 		connectionPool.Put(connection)
@@ -143,9 +145,10 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 
 		// Use invalid access key
 		url = fmt.Sprintf(
-			"%s/%s/query/stream",
+			"%s/v1/databases/%s/%s/query/stream",
 			testServer.Server.URL,
-			testDatabase.DatabaseKey.Key,
+			testDatabase.DatabaseName,
+			testDatabase.BranchName,
 		)
 
 		connectionPool = sql.NewConnectionPool(
@@ -206,9 +209,10 @@ func TestQueryStreamController_WithValidationErrors(t *testing.T) {
 		}
 
 		url := fmt.Sprintf(
-			"%s/%s/query/stream",
+			"%s/v1/databases/%s/%s/query/stream",
 			testServer.Server.URL,
-			testDatabase.DatabaseKey.Key,
+			testDatabase.DatabaseName,
+			testDatabase.BranchName,
 		)
 
 		connectionPool := sql.NewConnectionPool(

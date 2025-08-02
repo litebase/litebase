@@ -19,7 +19,7 @@ func TestQueryLog_Close(t *testing.T) {
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		)
 
 		err := l.Close()
@@ -38,7 +38,7 @@ func TestQueryLog_GetFile(t *testing.T) {
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		)
 
 		file := l.GetFile()
@@ -57,7 +57,7 @@ func TestQueryLog_GetStatementIndex(t *testing.T) {
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		)
 
 		index, err := l.GetStatementIndex()
@@ -82,7 +82,7 @@ func TestQueryLog_Flush(t *testing.T) {
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		)
 
 		l.Flush(true)
@@ -134,7 +134,7 @@ func TestQueryLog_Read(t *testing.T) {
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		)
 
 		startTime := time.Now().UTC().Truncate(time.Second)
@@ -180,7 +180,7 @@ func TestQueryLog_Write(t *testing.T) {
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		)
 
 		err := l.Write(

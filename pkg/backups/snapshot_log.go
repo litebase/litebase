@@ -18,7 +18,7 @@ import (
 
 type Snapshot struct {
 	// The UUID of the branch the snapshot is for.
-	BranchID string `json:"branch_id"`
+	DatabaseBranchID string `json:"database_branch_id"`
 
 	// The UUID of the database the snapshot is for.
 	DatabaseID string `json:"database_id"`
@@ -52,16 +52,16 @@ type SnapshotRestorePoints struct {
 }
 
 type RestorePoint struct {
-	Timestamp int64
-	PageCount int64
+	Timestamp int64 `json:"timestamp,string"`
+	PageCount int64 `json:"page_count"`
 }
 
 // Create a new instance of a snapshot.
-func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, branchId string, dayTimestamp, timestamp int64) *Snapshot {
+func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, databaseBranchId string, dayTimestamp, timestamp int64) *Snapshot {
 	return &Snapshot{
-		BranchID:       branchId,
-		DatabaseID:     databaseId,
-		LastAccessedAt: time.Now().UTC().UnixNano(),
+		DatabaseBranchID: databaseBranchId,
+		DatabaseID:       databaseId,
+		LastAccessedAt:   time.Now().UTC().UnixNano(),
 		RestorePoints: SnapshotRestorePoints{
 			Data:  []int64{},
 			Start: timestamp,
@@ -262,14 +262,14 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 func (s *Snapshot) openFile() error {
 openFile:
 	snapshotFile, err := s.tieredFS.OpenFile(
-		GetSnapshotPath(s.DatabaseID, s.BranchID, s.Timestamp),
+		GetSnapshotPath(s.DatabaseID, s.DatabaseBranchID, s.Timestamp),
 		SNAPSHOT_LOG_FLAGS,
 		0600,
 	)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := s.tieredFS.MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(s.DatabaseID, s.BranchID)), 0750)
+			err := s.tieredFS.MkdirAll(fmt.Sprintf("%s/logs/snapshots", file.GetDatabaseFileBaseDir(s.DatabaseID, s.DatabaseBranchID)), 0750)
 
 			if err != nil {
 				return err

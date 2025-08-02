@@ -15,7 +15,7 @@ func NewStatusCmd(c *config.Configuration) *cobra.Command {
 		Use:   "status",
 		Short: "Show the status of the cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := api.Get(c, "/status")
+			res, err := api.Get(c, "/v1/status")
 
 			if err != nil {
 				return err

@@ -16,10 +16,10 @@ func TestNewCheckpointer(t *testing.T) {
 
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseID,
-			mock.BranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			mock.DatabaseBranchID,
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
 		)
 
 		if err != nil {
@@ -38,10 +38,10 @@ func TestCheckpointer_Begin(t *testing.T) {
 
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseID,
-			mock.BranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			mock.DatabaseBranchID,
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
 		)
 
 		if err != nil {
@@ -72,7 +72,7 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 
 		checkpointer, err := app.DatabaseManager.Resources(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		).Checkpointer()
 
 		if err != nil {
@@ -118,10 +118,10 @@ func TestCheckpointer_CheckpointPage(t *testing.T) {
 		mock := test.MockDatabase(app)
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseID,
-			mock.BranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			mock.DatabaseBranchID,
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
 		)
 
 		if err != nil {
@@ -155,7 +155,7 @@ func TestCheckpointer_CheckpointPage(t *testing.T) {
 func TestCheckpointer_Commit(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
 
 		pageCount := dfs.Metadata().PageCount
 
@@ -165,10 +165,10 @@ func TestCheckpointer_Commit(t *testing.T) {
 
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseID,
-			mock.BranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			mock.DatabaseBranchID,
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
 		)
 
 		if err != nil {
@@ -214,7 +214,7 @@ func TestCheckpointer_Commit(t *testing.T) {
 func TestCheckpointer_Rollback(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
 
 		pageCount := dfs.Metadata().PageCount
 
@@ -222,14 +222,14 @@ func TestCheckpointer_Rollback(t *testing.T) {
 			t.Fatal("Expected initial page count to be 0")
 		}
 
-		fileSystem := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem()
+		fileSystem := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
 
 		cp, err := database.NewCheckpointer(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			fileSystem,
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
 		)
 
 		if err != nil {
@@ -341,10 +341,10 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 
 // 		cp, err := database.NewCheckpointer(
 // 			mock.DatabaseID,
-// 			mock.BranchID,
-// 			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+// 			mock.DatabaseBranchID,
+// 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 // 			app.Cluster.NetworkFS(),
-// 			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).PageLogger(),
+// 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
 // 		)
 
 // 		if err != nil {

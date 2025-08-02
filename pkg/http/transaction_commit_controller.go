@@ -8,7 +8,11 @@ import (
 )
 
 func TransactionCommitController(request *Request) Response {
-	databaseKey := request.DatabaseKey()
+	databaseKey, errResponse := request.DatabaseKey()
+
+	if !errResponse.IsEmpty() {
+		return errResponse
+	}
 
 	if databaseKey == nil {
 		return ErrValidDatabaseKeyRequiredResponse
@@ -28,7 +32,7 @@ func TransactionCommitController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeTransaction},
 	)
 
@@ -40,7 +44,7 @@ func TransactionCommitController(request *Request) Response {
 
 	transactionManager := request.databaseManager.Resources(
 		databaseKey.DatabaseID,
-		databaseKey.BranchID,
+		databaseKey.DatabaseBranchID,
 	).TransactionManager()
 
 	transaction, err := transactionManager.Get(transactionId)

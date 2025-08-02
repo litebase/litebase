@@ -18,11 +18,11 @@ func TestRestore(t *testing.T) {
 		t.Run("CopySourceDatabaseToTargetDatabase", func(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
-			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
-			targetDirectory := file.GetDatabaseFileDir(target.DatabaseID, target.BranchID)
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).Checkpointer()
+			targetDirectory := file.GetDatabaseFileDir(target.DatabaseID, target.DatabaseBranchID)
 
-			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
-			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
+			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem()
+			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem()
 
 			for i := 1; i <= 10; i++ {
 				sourceDfs.GetRangeFile(int64(i))
@@ -31,9 +31,9 @@ func TestRestore(t *testing.T) {
 			err := backups.CopySourceDatabaseToTargetDatabase(
 				5*storage.RangeMaxPages,
 				source.DatabaseID,
-				source.BranchID,
+				source.DatabaseBranchID,
 				target.DatabaseID,
-				target.BranchID,
+				target.DatabaseBranchID,
 				sourceDfs,
 				targetDfs,
 				checkpointer,
@@ -60,12 +60,12 @@ func TestRestore(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
-			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
-			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
-			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
+			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).Checkpointer()
+			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem()
+			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem()
 
-			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -170,9 +170,9 @@ func TestRestore(t *testing.T) {
 				app.Config,
 				app.Cluster.TieredFS(),
 				source.DatabaseID,
-				source.BranchID,
+				source.DatabaseBranchID,
 				target.DatabaseID,
-				target.BranchID,
+				target.DatabaseBranchID,
 				restorePoint.Timestamp,
 				snapshotLogger,
 				sourceDfs,
@@ -190,7 +190,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected onComplete to be called")
 			}
 
-			targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.BranchID)
+			targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -232,12 +232,12 @@ func TestRestore(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
-			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
-			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
-			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
+			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).Checkpointer()
+			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem()
+			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem()
 
-			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -334,9 +334,9 @@ func TestRestore(t *testing.T) {
 				app.Config,
 				app.Cluster.TieredFS(),
 				source.DatabaseID,
-				source.BranchID,
+				source.DatabaseBranchID,
 				target.DatabaseID,
-				target.BranchID,
+				target.DatabaseBranchID,
 				restorePoint.Timestamp,
 				snapshotLogger,
 				sourceDfs,
@@ -350,7 +350,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.BranchID)
+			targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -392,11 +392,11 @@ func TestRestore(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
-			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
-			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
+			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem()
+			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem()
 
-			db, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+			db, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -411,7 +411,7 @@ func TestRestore(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -464,9 +464,9 @@ func TestRestore(t *testing.T) {
 			err = backups.RestoreFromBackup(
 				restorePoint.Timestamp,
 				source.DatabaseID,
-				source.BranchID,
+				source.DatabaseBranchID,
 				target.DatabaseID,
-				target.BranchID,
+				target.DatabaseBranchID,
 				sourceDfs,
 				targetDfs,
 			)
@@ -487,12 +487,12 @@ func TestRestore(t *testing.T) {
 					source := test.MockDatabase(app)
 					target := test.MockDatabase(app)
 
-					snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
-					checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
-					sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
-					targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
+					snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+					checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).Checkpointer()
+					sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem()
+					targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem()
 
-					db, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+					db, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -501,7 +501,7 @@ func TestRestore(t *testing.T) {
 					defer app.DatabaseManager.ConnectionManager().Release(db)
 
 					// Force an initial checkpoint to create a restore point representing empty database state
-					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -518,7 +518,7 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
-					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -550,7 +550,7 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
-					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -581,7 +581,7 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
-					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -622,9 +622,9 @@ func TestRestore(t *testing.T) {
 						app.Config,
 						app.Cluster.TieredFS(),
 						source.DatabaseID,
-						source.BranchID,
+						source.DatabaseBranchID,
 						target.DatabaseID,
-						target.BranchID,
+						target.DatabaseBranchID,
 						restorePoint.Timestamp,
 						snapshotLogger,
 						sourceDfs,
@@ -642,7 +642,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Expected onComplete to be called")
 					}
 
-					db, err = app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.BranchID)
+					db, err = app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -684,12 +684,12 @@ func TestRestore(t *testing.T) {
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
-			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).Checkpointer()
-			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.BranchID).FileSystem()
-			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.BranchID).FileSystem()
+			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+			checkpointer, _ := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).Checkpointer()
+			sourceDfs := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem()
+			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem()
 
-			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -713,7 +713,7 @@ func TestRestore(t *testing.T) {
 
 			for i, testcase := range testCases {
 				t.Run(fmt.Sprintf("rolling restore: %d", i), func(t *testing.T) {
-					sourceDb, _ := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+					sourceDb, _ := app.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 					defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 					// Insert some test data
@@ -743,7 +743,7 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
-					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -793,9 +793,9 @@ func TestRestore(t *testing.T) {
 						app.Config,
 						app.Cluster.TieredFS(),
 						source.DatabaseID,
-						source.BranchID,
+						source.DatabaseBranchID,
 						target.DatabaseID,
-						target.BranchID,
+						target.DatabaseBranchID,
 						restorePoint.Timestamp,
 						snapshotLogger,
 						sourceDfs,
@@ -832,7 +832,7 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
-					targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.BranchID)
+					targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -844,7 +844,7 @@ func TestRestore(t *testing.T) {
 						result, err := db.Exec("SELECT COUNT(*) FROM test", nil)
 
 						if err != nil {
-							return fmt.Errorf("Expected no error, got %v - %s/%s", err, target.DatabaseID, target.BranchID)
+							return fmt.Errorf("Expected no error, got %v - %s/%s", err, target.DatabaseID, target.DatabaseBranchID)
 						}
 
 						if result != nil && result.Rows[0][0].Int64() != testcase.targetCount {
@@ -855,7 +855,7 @@ func TestRestore(t *testing.T) {
 					})
 
 					if err != nil {
-						t.Fatalf("Expected no error, got %v - %s/%s", err, target.DatabaseID, target.BranchID)
+						t.Fatalf("Expected no error, got %v - %s/%s", err, target.DatabaseID, target.DatabaseBranchID)
 					}
 				})
 			}

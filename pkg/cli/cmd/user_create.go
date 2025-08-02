@@ -175,7 +175,7 @@ func NewUserCreateCmd(config *config.Configuration) *cobra.Command {
 				return nil
 			}
 
-			res, _, err := api.Post(config, "/resources/users", map[string]any{
+			res, _, err := api.Post(config, "/v1/users", map[string]any{
 				"username":   input.Username,
 				"password":   input.Password,
 				"statements": input.Statements,

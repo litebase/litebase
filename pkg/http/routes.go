@@ -7,7 +7,7 @@ import (
 func LoadRoutes(router *Router) {
 	// Administrative routes
 	router.Get(
-		"/status",
+		"/v1/status",
 		ClusterStatusController,
 	).Middleware([]Middleware{
 		RequireHost,
@@ -15,21 +15,21 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/resources/users",
+		"/v1/users",
 		UserControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
-		"/resources/users/{username}",
+		"/v1/users/{username}",
 		UserControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/resources/users",
+		"/v1/users",
 		UserControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -37,7 +37,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Delete(
-		"/resources/users/{username}",
+		"/v1/users/{username}",
 		UserControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -45,7 +45,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Put(
-		"/resources/users/{username}",
+		"/v1/users/{username}",
 		UserControllerUpdate,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -53,21 +53,21 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/resources/access-keys",
+		"/v1/access-keys",
 		AccessKeyControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
-		"/resources/access-keys/{accessKeyId}",
+		"/v1/access-keys/{accessKeyId}",
 		AccessKeyControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/resources/access-keys",
+		"/v1/access-keys",
 		AccessKeyControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -75,7 +75,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Put(
-		"/resources/access-keys/{accessKeyId}",
+		"/v1/access-keys/{accessKeyId}",
 		AccessKeyControllerUpdate,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -83,7 +83,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Delete(
-		"/resources/access-keys/{accessKeyId}",
+		"/v1/access-keys/{accessKeyId}",
 		AccessKeyControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -91,21 +91,21 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/resources/databases/{databaseId}/branches",
+		"/v1/databases/{databaseName}/branches",
 		DatabaseBranchIndexController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
-		"/resources/databases/{databaseId}/branches/{branchId}",
+		"/v1/databases/{databaseName}/{branchName}",
 		DatabaseBranchShowController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/resources/databases/{databaseId}/branches",
+		"/v1/databases/{databaseName}/branches",
 		DatabaseBranchStoreController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -113,7 +113,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Delete(
-		"/resources/databases/{databaseId}/branches/{branchId}",
+		"/v1/databases/{databaseName}/{branchName}",
 		DatabaseBranchDestroyController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -121,21 +121,21 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/resources/databases",
+		"/v1/databases",
 		DatabaseIndexController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
-		"/resources/databases/{databaseId}",
+		"/v1/databases/{databaseName}",
 		DatabaseShowController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
-		"/resources/databases",
+		"/v1/databases",
 		DatabaseStoreController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -143,7 +143,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Delete(
-		"/resources/databases/{databaseId}",
+		"/v1/databases/{databaseName}",
 		DatabaseDestroyController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -151,7 +151,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Post(
-		"/resources/keys",
+		"/v1/keys",
 		KeyStoreController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -159,7 +159,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Post(
-		"/resources/keys/activate",
+		"/v1/keys/activate",
 		KeyActivateController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -168,128 +168,134 @@ func LoadRoutes(router *Router) {
 
 	// Internal routes for cluster operations.
 	router.Post(
-		"/cluster/connection",
+		"/v1/cluster/connection",
 		ClusterConnectionController,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(0)
 
 	router.Post(
-		"/cluster/election",
+		"/v1/cluster/election",
 		ClusterElectionController,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(3 * time.Second)
 
 	router.Post(
-		"/cluster/members",
+		"/v1/cluster/members",
 		ClusterMemberStoreController,
 	).Middleware(
 		[]Middleware{},
 	).Timeout(3 * time.Second)
 
 	router.Delete(
-		"/cluster/members/{address}",
+		"/v1/cluster/members/{address}",
 		ClusterMemberDestroyController,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(3 * time.Second)
 
 	router.Post(
-		"/cluster/primary",
+		"/v1/cluster/primary",
 		ClusterPrimaryController,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(0)
 
 	router.Post(
-		"/events",
+		"/v1/events",
 		EventStoreController,
 	).Middleware([]Middleware{
 		Internal,
 	})
 
 	router.Get(
-		"/health",
+		"/v1/health",
 		HealthCheckController,
 	).Middleware([]Middleware{
 		Internal,
 	})
 
-	// Database routes.
-	router.Post("/{databaseKey}/backups",
+	router.Get("/v1/databases/{databaseName}/{branchName}/backups",
+		DatabaseBackupIndexController,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Post("/v1/databases/{databaseName}/{branchName}/backups",
 		DatabaseBackupStoreController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Get("/{databaseKey}/backups/{timestamp}",
+	router.Get("/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
 		DatabaseBackupShowController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
-	router.Delete("/{databaseKey}/backups/{timestamp}",
+	router.Delete("/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
 		DatabaseBackupDestroyController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Get("/{databaseKey}/metrics/query",
+	router.Get("/v1/databases/{databaseName}/{branchName}/metrics/query",
 		QueryLogController,
 	).Middleware([]Middleware{
 		Authentication,
 	}).Timeout(1 * time.Second)
 
-	router.Post("/{databaseKey}/query",
+	router.Post("/v1/databases/{databaseName}/{branchName}/query",
 		QueryController,
 	).Middleware([]Middleware{
 		Authentication,
 	}).Timeout(300 * time.Second)
 
-	router.Post("/{databaseKey}/query/stream",
+	router.Post("/v1/databases/{databaseName}/{branchName}/query/stream",
 		QueryStreamController,
 	).Middleware([]Middleware{
 		PreloadDatabaseKey,
 		Authentication,
 	}).Timeout(300 * time.Second)
 
-	router.Post("/{databaseKey}/restore",
+	router.Post("/v1/databases/{databaseName}/{branchName}/restore",
 		DatabaseRestoreController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Get("/{databaseKey}/snapshots",
+	router.Get("/v1/databases/{databaseName}/{branchName}/snapshots",
 		DatabaseSnapshotIndexController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
-	router.Get("/{databaseKey}/snapshots/{timestamp}",
+	router.Get("/v1/databases/{databaseName}/{branchName}/snapshots/{timestamp}",
 		DatabaseSnapshotShowController,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
-	router.Post("/{databaseKey}/transactions",
+	router.Post("/v1/databases/{databaseName}/{branchName}/transactions",
 		TransactionControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Delete("/{databaseKey}/transactions/{id}",
+	router.Delete("/v1/databases/{databaseName}/{branchName}/transactions/{id}",
 		TransactionControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Post("/{databaseKey}/transactions/{id}/commit",
+	router.Post("/v1/databases/{databaseName}/{branchName}/transactions/{id}/commit",
 		TransactionCommitController,
 	).Middleware([]Middleware{
 		ForwardToPrimary,

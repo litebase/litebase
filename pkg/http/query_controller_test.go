@@ -25,11 +25,19 @@ func TestQueryController(t *testing.T) {
 		})
 
 		// Create a table
-		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/query", mock.DatabaseKey.Key), "POST", map[string]any{
-			"id":         "1",
-			"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
-			"parameters": []map[string]any{},
-		})
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"id":         "1",
+				"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
+				"parameters": []map[string]any{},
+			},
+		)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -40,14 +48,21 @@ func TestQueryController(t *testing.T) {
 		}
 
 		// Insert a row
-		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", mock.DatabaseKey.Key), "POST", map[string]any{
-			"id":        "1",
-			"statement": "INSERT INTO test (value) VALUES (?);",
-			"parameters": []map[string]any{{
-				"type":  "TEXT",
-				"value": "John Doe",
-			}},
-		})
+		resp, responseCode, err = client.Send(fmt.Sprintf(
+			"/v1/databases/%s/%s/query",
+			mock.DatabaseName,
+			mock.BranchName,
+		),
+			"POST",
+			map[string]any{
+				"id":        "1",
+				"statement": "INSERT INTO test (value) VALUES (?);",
+				"parameters": []map[string]any{{
+					"type":  "TEXT",
+					"value": "John Doe",
+				}},
+			},
+		)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -62,14 +77,22 @@ func TestQueryController(t *testing.T) {
 		}
 
 		// Select the row
-		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", mock.DatabaseKey.Key), "POST", map[string]any{
-			"id":        "1",
-			"statement": "SELECT * FROM test WHERE id = ?;",
-			"parameters": []map[string]any{{
-				"type":  "INTEGER",
-				"value": 1,
-			}},
-		})
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"id":        "1",
+				"statement": "SELECT * FROM test WHERE id = ?;",
+				"parameters": []map[string]any{{
+					"type":  "INTEGER",
+					"value": 1,
+				}},
+			},
+		)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -104,7 +127,7 @@ func TestQueryController_Errors(t *testing.T) {
 		})
 
 		// Test invalid database key
-		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/query", "invalidkey"), "POST", map[string]any{
+		resp, responseCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/%s/query", "invalidDatabase", "invalidBranch"), "POST", map[string]any{
 			"id":         "1",
 			"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
 			"parameters": []map[string]any{},
@@ -114,12 +137,9 @@ func TestQueryController_Errors(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		if responseCode != 400 {
-			t.Fatalf("Expected response code 400, got %d: %s", responseCode, resp)
+		if responseCode != 404 {
+			t.Fatalf("Expected response code 404, got %d: %s", responseCode, resp)
 		}
-
-		// Test a deleted database
-		// mock := test.MockDatabase(server.App)
 
 		db, err := server.App.DatabaseManager.Create("test", "main")
 
@@ -139,7 +159,7 @@ func TestQueryController_Errors(t *testing.T) {
 			t.Fatal("Expected primary branch to be found, but got nil")
 		}
 
-		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", db.Key(primaryBranch.DatabaseBranchID)), "POST", map[string]any{
+		resp, responseCode, err = client.Send(fmt.Sprintf("/v1/databases/%s/%s/query", "test", "main"), "POST", map[string]any{
 			"id":         "1",
 			"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
 			"parameters": []map[string]any{},
@@ -156,11 +176,19 @@ func TestQueryController_Errors(t *testing.T) {
 		// Test bad input
 		mock := test.MockDatabase(server.App)
 
-		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", mock.DatabaseKey.Key), "POST", map[string]any{
-			"id":         "1",
-			"statements": "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
-			"parameters": "test",
-		})
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"id":         "1",
+				"statements": "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
+				"parameters": "test",
+			},
+		)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -171,13 +199,21 @@ func TestQueryController_Errors(t *testing.T) {
 		}
 
 		// Test invalid input
-		resp, responseCode, err = client.Send(fmt.Sprintf("/%s/query", mock.DatabaseKey.Key), "POST", map[string]any{
-			"id":         "1",
-			"statements": "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
-			"parameters": []map[string]any{{
-				"type": "STRING",
-			}},
-		})
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"id":         "1",
+				"statements": "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
+				"parameters": []map[string]any{{
+					"type": "STRING",
+				}},
+			},
+		)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)

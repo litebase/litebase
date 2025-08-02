@@ -362,7 +362,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 		// Create three different WAL versions
 		walm, err := primary.App.DatabaseManager.Resources(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		if err != nil {
@@ -388,7 +388,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 		// Ensure the WAL versions are in use
 		replica1WALManager, err := replica1.App.DatabaseManager.Resources(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		if err != nil {
@@ -397,7 +397,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 
 		replica2WALManager, err := replica2.App.DatabaseManager.Resources(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		if err != nil {

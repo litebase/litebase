@@ -17,8 +17,8 @@ func TestTransactionCommitController(t *testing.T) {
 		database := test.MockDatabase(server.App)
 
 		con, err := server.App.DatabaseManager.ConnectionManager().Get(
-			database.DatabaseKey.DatabaseID,
-			database.DatabaseKey.BranchID,
+			database.DatabaseID,
+			database.DatabaseBranchID,
 		)
 
 		defer server.App.DatabaseManager.ConnectionManager().Release(con)
@@ -46,7 +46,7 @@ func TestTransactionCommitController(t *testing.T) {
 
 		t.Run("Store", func(t *testing.T) {
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions", database.DatabaseKey.Key),
+				fmt.Sprintf("/v1/databases/%s/%s/transactions", database.DatabaseName, database.BranchName),
 				"POST", map[string]any{},
 			)
 
@@ -82,7 +82,7 @@ func TestTransactionCommitController(t *testing.T) {
 
 		t.Run("Query", func(t *testing.T) {
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/query", database.DatabaseKey.Key),
+				fmt.Sprintf("/v1/databases/%s/%s/query", database.DatabaseName, database.BranchName),
 				"POST",
 				map[string]any{
 					"id":             uuid.NewString(),
@@ -112,7 +112,7 @@ func TestTransactionCommitController(t *testing.T) {
 
 			// Query the count of rows in the test table
 			countResponse, countStatusCode, err := client.Send(
-				fmt.Sprintf("/%s/query", database.DatabaseKey.Key),
+				fmt.Sprintf("/v1/databases/%s/%s/query", database.DatabaseName, database.BranchName),
 				"POST",
 				map[string]any{
 					"id":             uuid.NewString(),
@@ -166,7 +166,7 @@ func TestTransactionCommitController(t *testing.T) {
 			}
 
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions/%s/commit", database.DatabaseKey.Key, transactionId),
+				fmt.Sprintf("/v1/databases/%s/%s/transactions/%s/commit", database.DatabaseName, database.BranchName, transactionId),
 				"POST", nil,
 			)
 
@@ -233,7 +233,12 @@ func TestTransactionCommitController_WithInvalidTransaction(t *testing.T) {
 
 		t.Run("Commit with invalid transaction", func(t *testing.T) {
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions/%s/commit", database.DatabaseKey.Key, transactionId),
+				fmt.Sprintf(
+					"/v1/databases/%s/%s/transactions/%s/commit",
+					database.DatabaseName,
+					database.BranchName,
+					transactionId,
+				),
 				"POST", nil,
 			)
 

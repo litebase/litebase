@@ -17,7 +17,7 @@ func TestClusterStatusController(t *testing.T) {
 
 		client := server2.WithAccessKeyClient([]auth.AccessKeyStatement{})
 
-		data, statusCode, err := client.Send("/status", "GET", nil)
+		data, statusCode, err := client.Send("/v1/status", "GET", nil)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got: %v", err)

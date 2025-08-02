@@ -22,7 +22,7 @@ func TestConnectionManager_CloseDatabaseConnections(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -44,7 +44,7 @@ func TestConnectionManager_CloseDatabaseBranchConnections(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -52,7 +52,7 @@ func TestConnectionManager_CloseDatabaseBranchConnections(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(con1)
 
-		app.DatabaseManager.ConnectionManager().CloseDatabaseBranchConnections(mock1.DatabaseID, mock1.BranchID)
+		app.DatabaseManager.ConnectionManager().CloseDatabaseBranchConnections(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		_, err = con1.GetConnection().Exec("SELECT 1", nil)
 
@@ -73,7 +73,7 @@ func TestConnectionManager_Drain(t *testing.T) {
 
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -81,7 +81,7 @@ func TestConnectionManager_Drain(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(con1)
 
-		err = app.DatabaseManager.ConnectionManager().Drain(mock1.DatabaseID, mock1.BranchID, func() error {
+		err = app.DatabaseManager.ConnectionManager().Drain(mock1.DatabaseID, mock1.DatabaseBranchID, func() error {
 			return nil
 		})
 
@@ -95,7 +95,7 @@ func TestConnectionManager_ForceCheckpoint(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -103,7 +103,7 @@ func TestConnectionManager_ForceCheckpoint(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(con1)
 
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock1.DatabaseID, mock1.BranchID)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -115,7 +115,7 @@ func TestConnectionManager_Get(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -136,7 +136,7 @@ func TestConnectionManager_Release(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -157,7 +157,7 @@ func TestConnectionManager_Shutdown(t *testing.T) {
 
 		mock1 := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock1.DatabaseID, mock1.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)

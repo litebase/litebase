@@ -148,6 +148,9 @@ func UpdateDatabase(database *Database) error {
 		primaryBranchId = database.PrimaryBranchReferenceID
 	}
 
+	updatedAt := time.Now().UTC()
+
+	// Update the database record
 	_, err = db.Exec(
 		`UPDATE databases 
 		SET 
@@ -160,7 +163,7 @@ func UpdateDatabase(database *Database) error {
 		database.Name,
 		primaryBranchId,
 		string(settingsJson),
-		time.Now().UTC(),
+		updatedAt,
 		database.DatabaseID,
 	)
 
@@ -172,7 +175,12 @@ func UpdateDatabase(database *Database) error {
 	// This is crucial for the PrimaryBranch() method to work correctly
 	if cachedDb, found := database.DatabaseManager.databaseCache.Get(database.DatabaseID); found {
 		cachedDatabase := cachedDb.(*Database)
+
+		cachedDatabase.Name = database.Name
 		cachedDatabase.PrimaryBranchReferenceID = database.PrimaryBranchReferenceID
+		cachedDatabase.Settings = database.Settings
+		cachedDatabase.UpdatedAt = updatedAt
+		cachedDatabase.exists = true
 
 		// Clear the cached primary branch since the reference ID might have changed
 		cachedDatabase.primaryBranch = nil
@@ -182,7 +190,7 @@ func UpdateDatabase(database *Database) error {
 }
 
 // Get a database branch by its ID.
-func (database *Database) Branch(branchID string) (*Branch, error) {
+func (database *Database) Branch(name string) (*Branch, error) {
 	var branch Branch
 
 	db, err := database.DatabaseManager.SystemDatabase().DB()
@@ -191,11 +199,11 @@ func (database *Database) Branch(branchID string) (*Branch, error) {
 	}
 
 	err = db.QueryRow(
-		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at 
-		FROM database_branches 
-		WHERE database_reference_id = ? AND database_branch_id = ?`,
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at 
+		FROM database_branches
+		WHERE database_reference_id = ? AND name = ?`,
 		database.ID,
-		branchID,
+		name,
 	).Scan(
 		&branch.ID,
 		&branch.DatabaseReferenceID,
@@ -203,7 +211,6 @@ func (database *Database) Branch(branchID string) (*Branch, error) {
 		&branch.DatabaseID,
 		&branch.DatabaseBranchID,
 		&branch.Name,
-		&branch.Key,
 		&branch.Settings,
 		&branch.CreatedAt,
 		&branch.UpdatedAt,
@@ -211,10 +218,14 @@ func (database *Database) Branch(branchID string) (*Branch, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("branch with ID %s not found", branchID)
+			return nil, fmt.Errorf("branch with name %s not found", name)
 		}
+
 		return nil, fmt.Errorf("failed to query branch: %w", err)
 	}
+
+	branch.Exists = true
+	branch.DatabaseManager = database.DatabaseManager
 
 	return &branch, nil
 }
@@ -230,7 +241,7 @@ func (database *Database) Branches() ([]*Branch, error) {
 	}
 
 	rows, err := db.Query(
-		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches
 		WHERE database_reference_id = ?`,
 		database.ID,
 	)
@@ -244,9 +255,12 @@ func (database *Database) Branches() ([]*Branch, error) {
 	for rows.Next() {
 		var branch Branch
 
-		if err := rows.Scan(&branch.ID, &branch.DatabaseReferenceID, &branch.ParentDatabaseBranchReferenceID, &branch.DatabaseID, &branch.DatabaseBranchID, &branch.Name, &branch.Key, &branch.Settings, &branch.CreatedAt, &branch.UpdatedAt); err != nil {
+		if err := rows.Scan(&branch.ID, &branch.DatabaseReferenceID, &branch.ParentDatabaseBranchReferenceID, &branch.DatabaseID, &branch.DatabaseBranchID, &branch.Name, &branch.Settings, &branch.CreatedAt, &branch.UpdatedAt); err != nil {
 			continue
 		}
+
+		branch.Exists = true
+		branch.DatabaseManager = database.DatabaseManager
 
 		branches = append(branches, &branch)
 	}
@@ -340,12 +354,12 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 }
 
 // Check if a branch exists for the database.
-func (database *Database) HasBranch(branchID string) bool {
-	if database.DatabaseID == SystemDatabaseID && branchID == SystemDatabaseBranchID {
+func (database *Database) HasBranch(branchName string) bool {
+	if database.DatabaseID == SystemDatabaseID && branchName == SystemDatabaseBranchID {
 		return true
 	}
 
-	if found, exists := database.branchCache.Get(branchID); exists {
+	if found, exists := database.branchCache.Get(branchName); exists {
 		return found.(bool)
 	}
 
@@ -362,15 +376,15 @@ func (database *Database) HasBranch(branchID string) bool {
 	var id int64
 
 	err = db.QueryRow(
-		`SELECT id FROM database_branches WHERE database_reference_id = ? AND database_branch_id = ?`,
+		`SELECT id FROM database_branches WHERE database_reference_id = ? AND name = ?`,
 		database.ID,
-		branchID,
+		branchName,
 	).Scan(&id)
 
 	exists := err == nil
 
 	// Cache the result
-	if err := database.branchCache.Put(branchID, exists); err != nil {
+	if err := database.branchCache.Put(branchName, exists); err != nil {
 		slog.Warn("Failed to cache branch existence", "error", err)
 	}
 
@@ -382,34 +396,11 @@ func (database *Database) HasBranch(branchID string) bool {
 }
 
 // InvalidateBranchCache removes a branch from the cache
-func (database *Database) InvalidateBranchCache(branchID string) {
+func (database *Database) InvalidateBranchCache(branchName string) {
 	database.cacheMutex.Lock()
 	defer database.cacheMutex.Unlock()
 
-	database.branchCache.Delete(branchID)
-}
-
-// Get the key for a branch of the database.
-func (database *Database) Key(branchID string) string {
-	var key string
-
-	db, err := database.DatabaseManager.SystemDatabase().DB()
-
-	if err != nil {
-		return ""
-	}
-
-	err = db.QueryRow(
-		`SELECT key FROM database_branches WHERE database_reference_id = ? AND database_branch_id = ?`,
-		database.ID,
-		branchID,
-	).Scan(&key)
-
-	if err != nil {
-		return ""
-	}
-
-	return key
+	database.branchCache.Delete(branchName)
 }
 
 // MarshalJSON customizes the JSON representation of the Database struct.
@@ -428,7 +419,7 @@ func (database *Database) MarshalJSON() ([]byte, error) {
 		Url string `json:"url"`
 	}{
 		Alias: (*Alias)(database),
-		Url:   database.Url(primaryBranch.DatabaseBranchID),
+		Url:   database.Url(primaryBranch.Name),
 	})
 }
 
@@ -455,7 +446,7 @@ func (database *Database) PrimaryBranch() *Branch {
 			var branch Branch
 
 			err = db.QueryRow(
-				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
 				database.PrimaryBranchReferenceID.Int64,
 			).Scan(
 				&branch.ID,
@@ -464,7 +455,6 @@ func (database *Database) PrimaryBranch() *Branch {
 				&branch.DatabaseID,
 				&branch.DatabaseBranchID,
 				&branch.Name,
-				&branch.Key,
 				&branch.Settings,
 				&branch.CreatedAt,
 				&branch.UpdatedAt,
@@ -502,7 +492,7 @@ func (database *Database) UpdateBranchCache(branchID string, exists bool) {
 	}
 }
 
-func (database *Database) Url(branchID string) string {
+func (database *Database) Url(branchName string) string {
 	protocol := "http://"
 	port := ""
 
@@ -512,11 +502,19 @@ func (database *Database) Url(branchID string) string {
 		protocol = "https://"
 	}
 
+	branch, err := database.Branch(branchName)
+
+	if err != nil {
+		log.Println("Error getting branch:", err)
+		return ""
+	}
+
 	return fmt.Sprintf(
-		"%s%s%s/%s",
+		"%s%s%s/v1/databases/%s/%s",
 		protocol,
 		database.DatabaseManager.Cluster.Config.HostName,
 		port,
-		database.Key(branchID),
+		database.Name,
+		branch.Name,
 	)
 }

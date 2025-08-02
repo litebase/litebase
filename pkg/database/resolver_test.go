@@ -15,7 +15,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -59,7 +59,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				app.LogManager,
-				auth.NewDatabaseKey(mock.DatabaseID, mock.BranchID, mock.DatabaseKey.Key),
+				auth.NewDatabaseKey(mock.DatabaseID, mock.DatabaseName, mock.DatabaseBranchID, mock.BranchName),
 				mock.AccessKey,
 				&database.QueryInput{
 					Statement:  c.statement,
@@ -130,7 +130,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 		// }
 
 		// for _, batchCase := range batchCases {
-		// 	db, err = database.Get(mock.DatabaseID, mock.BranchID, nil, false)
+		// 	db, err = database.Get(mock.DatabaseID, mock.DatabaseBranchID, nil, false)
 
 		// 	if err != nil {
 		// 		t.Fatal(err)

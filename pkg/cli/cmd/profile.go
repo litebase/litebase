@@ -5,19 +5,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var ProfileCmd = &cobra.Command{
-	Use:   "profile",
-	Short: "Manage your profiles",
-	Long:  `Manage your profiles`,
-	Args:  cobra.MinimumNArgs(1),
-}
-
 func NewProfileCmd(c *config.Configuration) *cobra.Command {
-	ProfileCmd.AddCommand(NewProfileCreateCmd(c))
-	ProfileCmd.AddCommand(NewProfileCurrentCmd(c))
-	ProfileCmd.AddCommand(NewProfileDeleteCmd(c))
-	ProfileCmd.AddCommand(NewProfileListCmd(c))
-	ProfileCmd.AddCommand(NewProfileSwitchCmd(c))
+	cmd := &cobra.Command{
+		Use:   "profile",
+		Short: "Manage your profiles",
+		Long:  `Manage your profiles`,
+		Args:  cobra.MinimumNArgs(1),
+	}
 
-	return ProfileCmd
+	cmd.AddCommand(NewProfileCreateCmd(c))
+	cmd.AddCommand(NewProfileCurrentCmd(c))
+	cmd.AddCommand(NewProfileDeleteCmd(c))
+	cmd.AddCommand(NewProfileListCmd(c))
+	cmd.AddCommand(NewProfileSwitchCmd(c))
+
+	return cmd
 }

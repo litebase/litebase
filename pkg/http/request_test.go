@@ -134,7 +134,7 @@ func TestRequest_DatabaseKey(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
 
-		databaseUrl := fmt.Sprintf("%s.%s.litebase.test/%s", app.Config.ClusterId, app.Config.Region, db.DatabaseKey.Key)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		baseRequest := &http.Request{
 			Header: map[string][]string{"Content-Type": {"application/json"}},
@@ -152,14 +152,20 @@ func TestRequest_DatabaseKey(t *testing.T) {
 			baseRequest,
 		)
 
-		request.BaseRequest.SetPathValue("databaseKey", db.DatabaseKey.Key)
+		request.BaseRequest.SetPathValue("databaseName", db.DatabaseName)
+		request.BaseRequest.SetPathValue("branchName", db.BranchName)
+		databaseKey, errResponse := request.DatabaseKey()
 
-		if request.DatabaseKey() == nil {
-			t.Fatal("expected DatabaseKey to be not nil, got nil")
+		if !errResponse.IsEmpty() {
+			t.Fatal("expected no error, got", errResponse)
 		}
 
-		if request.DatabaseKey().Key != db.DatabaseKey.Key {
-			t.Errorf("expected DatabaseKey.Key to be %s, got %s", db.DatabaseKey.Key, request.DatabaseKey().Key)
+		if databaseKey.DatabaseHash != db.DatabaseKey.DatabaseHash {
+			t.Errorf("expected DatabaseKey.Hash to be %s, got %s", db.DatabaseKey.DatabaseHash, databaseKey.DatabaseHash)
+		}
+
+		if databaseKey.DatabaseID != db.DatabaseKey.DatabaseID {
+			t.Errorf("expected DatabaseKey.ID to be %s, got %s", db.DatabaseKey.DatabaseID, databaseKey.DatabaseID)
 		}
 	})
 }
@@ -404,7 +410,7 @@ func TestRequest_QueryParams(t *testing.T) {
 func TestRequest_RequestToken(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/databases/%s/%s", db.DatabaseKey.DatabaseName, db.DatabaseKey.DatabaseBranchName)
 
 		token := auth.SignRequest(
 			db.AccessKey.AccessKeyID,

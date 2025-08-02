@@ -17,7 +17,7 @@ func NewAccessKeyDeleteCmd(config *config.Configuration) *cobra.Command {
 		Short: "Delete an access key",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, _, err := api.Delete(config, fmt.Sprintf("/resources/access-keys/%s", args[0]))
+			res, _, err := api.Delete(config, fmt.Sprintf("/v1/access-keys/%s", args[0]))
 
 			if err != nil {
 				return err

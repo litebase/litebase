@@ -143,7 +143,7 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 				return nil
 			}
 
-			res, _, err := api.Post(config, "/resources/access-keys", map[string]any{
+			res, _, err := api.Post(config, "/v1/access-keys", map[string]any{
 				"description": input.Description,
 				"statements":  input.Statements,
 			})

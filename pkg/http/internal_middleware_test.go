@@ -18,7 +18,7 @@ func TestInternalMiddleware(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		request, err := http.NewRequest("GET", "/resources/users", nil)
+		request, err := http.NewRequest("GET", "/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())

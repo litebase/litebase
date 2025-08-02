@@ -133,7 +133,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 	request, err := http.NewRequestWithContext(
 		nc.context,
 		"POST",
-		fmt.Sprintf("http://%s/cluster/connection", nc.Address),
+		fmt.Sprintf("http://%s/v1/cluster/connection", nc.Address),
 		nc.reader,
 	)
 

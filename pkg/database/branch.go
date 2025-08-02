@@ -1,19 +1,15 @@
 package database
 
 import (
-	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"log"
 	"log/slog"
-	"math/big"
 	"time"
 
-	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/file"
 
 	"github.com/google/uuid"
-	"github.com/sqids/sqids-go"
 )
 
 type Branch struct {
@@ -23,7 +19,6 @@ type Branch struct {
 	DatabaseID                      string           `json:"database_id"`
 	DatabaseManager                 *DatabaseManager `json:"-"`
 	DatabaseReferenceID             sql.NullInt64    `json:"-"`
-	Key                             string           `json:"key"`
 	Name                            string           `json:"name"`
 	parentBranch                    *Branch          `json:"-"`
 	ParentDatabaseBranchReferenceID sql.NullInt64    `json:"-"`
@@ -76,43 +71,10 @@ func NewBranch(databaseManager *DatabaseManager, databaseReferenceID int64, pare
 		return nil, fmt.Errorf("branch with name '%s' already exists in this database", name)
 	}
 
-	var databaseKeyCount int64
-
-	// Get the current count of branches to generate a unique key.
-	err = db.QueryRow(`SELECT COUNT(*) FROM database_branches`).Scan(&databaseKeyCount)
-
-	if err != nil {
-		return nil, err
-	}
-
-	randInt64, err := rand.Int(rand.Reader, big.NewInt(100000))
-
-	if err != nil {
-		return nil, err
-	}
-
-	keyCount, err := utils.SafeInt64ToUint64(databaseKeyCount + time.Now().UTC().UnixNano() + randInt64.Int64())
-
-	if err != nil {
-		return nil, err
-	}
-
-	s, _ := sqids.New(sqids.Options{
-		Alphabet:  "0123456789abcdefghijklmnopqrstuvwxyz",
-		MinLength: 12,
-	})
-
-	key, err := s.Encode([]uint64{keyCount})
-
-	if err != nil {
-		return nil, err
-	}
-
 	return &Branch{
 		DatabaseBranchID:                uuid.New().String(),
 		DatabaseManager:                 databaseManager,
 		DatabaseReferenceID:             sql.NullInt64{Int64: databaseReferenceID, Valid: true},
-		Key:                             key,
 		Name:                            name,
 		ParentDatabaseBranchReferenceID: parentBranchID,
 	}, nil
@@ -131,19 +93,17 @@ func InsertBranch(b *Branch) error {
 			parent_database_branch_reference_id,
 			database_id, 
 			database_branch_id, 
-			key, 
 			name, 
 			settings, 
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		`,
 		b.DatabaseReferenceID,
 		b.ParentDatabaseBranchReferenceID,
 		b.DatabaseID,
 		b.DatabaseBranchID,
-		b.Key,
 		b.Name,
 		b.Settings,
 		time.Now().UTC(),
@@ -164,9 +124,6 @@ func InsertBranch(b *Branch) error {
 
 	b.ID = id
 	b.Exists = true
-
-	// Invalidate cache entry for this branch in the DatabaseManager's cache using the branch Key
-	b.DatabaseManager.branchCache.Delete(b.Key)
 
 	database, err := b.Database()
 
@@ -303,9 +260,6 @@ func (b *Branch) Delete() error {
 		database.branchCache.Delete(b.DatabaseBranchID)
 	}
 
-	// Invalidate the DatabaseManager's cache using the branch Key
-	b.DatabaseManager.branchCache.Delete(b.Key)
-
 	// Delete the database storage.
 	// TODO: Removing all database storage may require the removal of a lot of files.
 	// How is this going to work with tiered storage? We also need to test that
@@ -350,7 +304,7 @@ func (branch *Branch) ParentBranch() *Branch {
 			var parentBranch Branch
 
 			err = db.QueryRow(
-				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
 				branch.ParentDatabaseBranchReferenceID.Int64,
 			).Scan(
 				&parentBranch.ID,
@@ -359,7 +313,6 @@ func (branch *Branch) ParentBranch() *Branch {
 				&parentBranch.DatabaseID,
 				&parentBranch.DatabaseBranchID,
 				&parentBranch.Name,
-				&parentBranch.Key,
 				&parentBranch.Settings,
 				&parentBranch.CreatedAt,
 				&parentBranch.UpdatedAt,

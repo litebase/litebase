@@ -9,6 +9,12 @@ import (
 )
 
 func QueryLogController(request *Request) Response {
+	databaseKey, errResponse := request.DatabaseKey()
+
+	if !errResponse.IsEmpty() {
+		return errResponse
+	}
+
 	step, err := strconv.ParseInt(request.QueryParam("step", "1"), 10, 64)
 
 	if err != nil || step < 1 {
@@ -38,9 +44,9 @@ func QueryLogController(request *Request) Response {
 
 	queryLog := request.logManager.GetQueryLog(
 		request.cluster,
-		request.DatabaseKey().DatabaseHash,
-		request.DatabaseKey().DatabaseID,
-		request.DatabaseKey().BranchID,
+		databaseKey.DatabaseHash,
+		databaseKey.DatabaseID,
+		databaseKey.DatabaseBranchID,
 	)
 
 	uint32StartTimestamp, err := utils.SafeUint64ToUint32(startTimestamp)

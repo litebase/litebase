@@ -34,7 +34,7 @@ func TestClusterElectionController(t *testing.T) {
 
 		request, err := http.NewRequest(
 			"POST",
-			"/cluster/election",
+			"/v1/cluster/election",
 			bytes.NewBuffer(data),
 		)
 

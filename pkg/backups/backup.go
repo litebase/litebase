@@ -9,7 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -32,14 +32,16 @@ var ErrBackupNoRestorePoint = fmt.Errorf("no restore point found")
 // A Backup is a complete logical snapshot of a database at a given point in time.
 // This data is derived from a Snapshot and can be used to restore a database.
 type Backup struct {
+	DatabaseBranchID string       `json:"database_branch_id"`
+	DatabaseID       string       `json:"database_id"`
+	RestorePoint     RestorePoint `json:"restore_point"`
+	Size             int64        `json:"size"`
+
 	config         *config.Config
 	dfs            *storage.DurableDatabaseFileSystem
-	BranchID       string
-	DatabaseID     string
 	maxPartSize    int64
 	objectFS       *storage.FileSystem
 	rollbackLogger *RollbackLogger
-	RestorePoint   RestorePoint
 }
 
 type BackupConfigCallback func(backup *Backup)
@@ -71,12 +73,12 @@ func GetBackup(
 	}
 
 	backup := &Backup{
-		config:       c,
-		BranchID:     branchId,
-		DatabaseID:   databaseId,
-		dfs:          dfs,
-		objectFS:     objectFS,
-		RestorePoint: restorePoint,
+		config:           c,
+		DatabaseBranchID: branchId,
+		DatabaseID:       databaseId,
+		dfs:              dfs,
+		objectFS:         objectFS,
+		RestorePoint:     restorePoint,
 	}
 
 	return backup, nil
@@ -133,9 +135,7 @@ tryReadDir:
 	}
 
 	// Sort the backups
-	sort.Slice(backups, func(i, j int) bool {
-		return backups[i] < backups[j]
-	})
+	slices.Sort(backups)
 
 	// Loop through the backups
 	for _, b := range backups {
@@ -147,6 +147,156 @@ tryReadDir:
 	return nil, fmt.Errorf("no next backup found")
 }
 
+func ListBackups(
+	c *config.Config,
+	objectFS *storage.FileSystem,
+	dfs *storage.DurableDatabaseFileSystem,
+	snapshotLogger *SnapshotLogger,
+	databaseId string,
+	branchId string,
+) ([]*Backup, error) {
+	backups := make([]*Backup, 0)
+	backupsDirectory := fmt.Sprintf("%s%s", file.GetDatabaseFileBaseDir(databaseId, branchId), BACKUP_DIR)
+
+	// Get a list of all directories in the directory
+	dirs, err := objectFS.ReadDir(backupsDirectory)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return backups, nil // No backups found
+		}
+
+		return nil, fmt.Errorf("error reading backups directory: %w", err)
+	}
+
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		timestamp, err := strconv.ParseInt(dir.Name(), 10, 64)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Create restore point directly from the directory timestamp
+		// since the directory is named with the restore point timestamp
+		restorePoint := RestorePoint{
+			Timestamp: timestamp,
+			PageCount: 0, // We'll set this when calculating the size
+		}
+
+		backup := &Backup{
+			config:           c,
+			DatabaseBranchID: branchId,
+			DatabaseID:       databaseId,
+			dfs:              dfs,
+			objectFS:         objectFS,
+			RestorePoint:     restorePoint,
+		}
+
+		backups = append(backups, backup)
+	}
+
+	// Sort the backups by restore point timestamp in ascending order
+	slices.SortFunc(backups, func(a, b *Backup) int {
+		return int(a.RestorePoint.Timestamp - b.RestorePoint.Timestamp)
+	})
+
+	return backups, nil
+}
+
+// Run a backup for the given database and branch. This will create a snapshot of
+// the database and store it in the filesystem. The backup will be based on the
+// current state of the database at the time of backup. As the backup runs,
+// rollback logs will be applied where needed to keep the database in the
+// propert state. This will allow the backup to copy all existing files
+// while the database is online and in use.
+func Run(
+	c *config.Config,
+	objectFS *storage.FileSystem,
+	databaseId string,
+	branchId string,
+	snapshotLogger *SnapshotLogger,
+	dfs *storage.DurableDatabaseFileSystem,
+	rollbackLogger *RollbackLogger,
+	callbacks ...BackupConfigCallback,
+) (*Backup, error) {
+	lock := GetBackupLock(file.DatabaseHash(databaseId, branchId))
+
+	if lock.TryLock() {
+		defer lock.Unlock()
+	} else {
+		return nil, fmt.Errorf("backup is already running")
+	}
+
+	// Ensure the durable database file system has been compacted
+	if err := dfs.ForceCompact(); err != nil {
+		log.Println("Error compacting durable database file system:", err)
+		return nil, fmt.Errorf("error compacting durable database file system: %w", err)
+	}
+
+	var backup *Backup
+
+	err := dfs.CompactionBarrier(func() error {
+		snapshot, err := snapshotLogger.GetSnapshot(time.Now().UTC().UnixNano())
+
+		if err != nil {
+			slog.Error("Error getting snapshot:", "error", err)
+
+			return err
+		}
+
+		err = snapshot.Load()
+
+		if err != nil {
+			slog.Error("Error loading snapshot:", "error", err)
+
+			return err
+		}
+
+		restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
+
+		if err != nil {
+			log.Println("Error getting restorePoint:", err)
+			return err
+		}
+
+		if restorePoint == (RestorePoint{}) {
+			return ErrBackupNoRestorePoint
+		}
+
+		backup = &Backup{
+			config:           c,
+			DatabaseBranchID: branchId,
+			DatabaseID:       databaseId,
+			dfs:              dfs,
+			objectFS:         objectFS,
+			RestorePoint:     restorePoint,
+			rollbackLogger:   rollbackLogger,
+		}
+
+		for _, callback := range callbacks {
+			callback(backup)
+		}
+
+		err = backup.packageBackup(dfs)
+
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return backup, nil
+}
+
 // Remove the backup files from the filesystem.
 func (backup *Backup) Delete() error {
 	// Since only one backup exists per directory, we can remove the entire directory
@@ -156,7 +306,7 @@ func (backup *Backup) Delete() error {
 func (backup *Backup) DirectoryPath() string {
 	return fmt.Sprintf(
 		"%s%d/",
-		file.GetDatabaseBackupsDirectory(backup.DatabaseID, backup.BranchID),
+		file.GetDatabaseBackupsDirectory(backup.DatabaseID, backup.DatabaseBranchID),
 		backup.RestorePoint.Timestamp,
 	)
 }
@@ -179,6 +329,40 @@ func (backup *Backup) GetMaxPartSize() int64 {
 	return backup.maxPartSize
 }
 
+// Returns the size of the backup in bytes.
+func (backup *Backup) GetSize() int64 {
+	var size int64
+
+	// Read the directory to find all backup files
+	entries, err := backup.objectFS.ReadDir(backup.DirectoryPath())
+
+	if err != nil {
+		return 0
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		// Since only one backup exists per directory, all files are backup files
+		if strings.HasPrefix(entry.Name(), "backup-") && strings.HasSuffix(entry.Name(), ".tar.gz") {
+			stat, err := backup.objectFS.Stat(fmt.Sprintf("%s%s", backup.DirectoryPath(), entry.Name()))
+
+			if err != nil {
+				log.Println("Error getting file size:", err)
+				return 0
+			}
+
+			size += stat.Size()
+		}
+	}
+
+	backup.Size = size
+
+	return size
+}
+
 // Returns the file key for a backup part. Since only one backup exists per directory,
 // we can use a simple naming scheme with just the part number.
 func (backup *Backup) Key(partNumber int) string {
@@ -197,7 +381,7 @@ func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) erro
 	var gzipWriter *gzip.Writer
 	var sourceFile internalStorage.File
 	maxRangeNumber := file.PageRange(backup.RestorePoint.PageCount, backup.config.PageSize)
-	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseID, backup.BranchID)
+	sourceDirectory := file.GetDatabaseFileDir(backup.DatabaseID, backup.DatabaseBranchID)
 
 	// Loop through the ranges in the range index.
 	entries, err := dfs.RangeManager.Index.All()
@@ -355,11 +539,11 @@ func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) erro
 				return err
 			}
 
-			// Close the file to ensure the data is flushed.
-			err = outputFile.Close()
+			// Sync the file to ensure the data is flushed.
+			err = outputFile.Sync()
 
 			if err != nil {
-				log.Println("Error closing tar file:", err)
+				log.Println("Error syncing tar file:", err)
 
 				return err
 			}
@@ -400,133 +584,11 @@ func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) erro
 	return nil
 }
 
-// Run a backup for the given database and branch. This will create a snapshot of
-// the database and store it in the filesystem. The backup will be based on the
-// current state of the database at the time of backup. As the backup runs,
-// rollback logs will be applied where needed to keep the database in the
-// propert state. This will allow the backup to copy all existing files
-// while the database is online and in use.
-func Run(
-	c *config.Config,
-	objectFS *storage.FileSystem,
-	databaseId string,
-	branchId string,
-	snapshotLogger *SnapshotLogger,
-	dfs *storage.DurableDatabaseFileSystem,
-	rollbackLogger *RollbackLogger,
-	callbacks ...BackupConfigCallback,
-) (*Backup, error) {
-	lock := GetBackupLock(file.DatabaseHash(databaseId, branchId))
-
-	if lock.TryLock() {
-		defer lock.Unlock()
-	} else {
-		return nil, fmt.Errorf("backup is already running")
-	}
-
-	// Ensure the durable database file system has been compacted
-	if err := dfs.ForceCompact(); err != nil {
-		log.Println("Error compacting durable database file system:", err)
-		return nil, fmt.Errorf("error compacting durable database file system: %w", err)
-	}
-
-	var backup *Backup
-
-	err := dfs.CompactionBarrier(func() error {
-		snapshot, err := snapshotLogger.GetSnapshot(time.Now().UTC().UnixNano())
-
-		if err != nil {
-			slog.Error("Error getting snapshot:", "error", err)
-
-			return err
-		}
-
-		err = snapshot.Load()
-
-		if err != nil {
-			slog.Error("Error loading snapshot:", "error", err)
-
-			return err
-		}
-
-		restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
-
-		if err != nil {
-			log.Println("Error getting restorePoint:", err)
-			return err
-		}
-
-		if restorePoint == (RestorePoint{}) {
-			return ErrBackupNoRestorePoint
-		}
-
-		backup = &Backup{
-			config:         c,
-			BranchID:       branchId,
-			DatabaseID:     databaseId,
-			dfs:            dfs,
-			objectFS:       objectFS,
-			RestorePoint:   restorePoint,
-			rollbackLogger: rollbackLogger,
-		}
-
-		for _, callback := range callbacks {
-			callback(backup)
-		}
-
-		err = backup.packageBackup(dfs)
-
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return backup, nil
-}
-
 // Set the maximum part size for a backup. This is the maximum size of each part
 // of the backup. If the backup exceeds this size, then it will be split into
 // multiple parts.
 func (backup *Backup) SetMaxPartSize(size int64) {
 	backup.maxPartSize = size
-}
-
-// Returns the size of the backup in bytes.
-func (backup *Backup) Size() int64 {
-	var size int64
-
-	// Read the directory to find all backup files
-	entries, err := backup.objectFS.ReadDir(backup.DirectoryPath())
-
-	if err != nil {
-		return 0
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		// Since only one backup exists per directory, all files are backup files
-		if strings.HasPrefix(entry.Name(), "backup-") && strings.HasSuffix(entry.Name(), ".tar.gz") {
-			stat, err := backup.objectFS.Stat(fmt.Sprintf("%s%s", backup.DirectoryPath(), entry.Name()))
-
-			if err != nil {
-				log.Println("Error getting file size:", err)
-				return 0
-			}
-
-			size += stat.Size()
-		}
-	}
-
-	return size
 }
 
 func (backup *Backup) stepApplyRollbackLogs(rangeNumber int64, sourceFile internalStorage.File) ([]byte, error) {
@@ -561,14 +623,4 @@ createFile:
 	}
 
 	return outputFile, nil
-}
-
-// Returns a map representation of the backup.
-func (backup *Backup) ToMap() map[string]any {
-	return map[string]any{
-		"database_id": backup.DatabaseID,
-		"branch_id":   backup.BranchID,
-		"size":        backup.Size(),
-		"timestamp":   backup.RestorePoint.Timestamp,
-	}
 }

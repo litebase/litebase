@@ -14,7 +14,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -31,7 +31,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 			go func() {
 				defer wg.Done()
 
-				connection, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+				connection, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 				defer app.DatabaseManager.ConnectionManager().Release(connection)
 
@@ -59,7 +59,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 
 		wg.Wait()
 
-		connection, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		connection, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -85,7 +85,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -103,7 +103,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 				go func() {
 					defer wg.Done()
 
-					connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+					connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 					if err != nil {
 						t.Error(err)
@@ -135,7 +135,7 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 
 			wg.Wait()
 
-			connection, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+			connection, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatal(err)

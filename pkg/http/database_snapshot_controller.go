@@ -1,7 +1,10 @@
 package http
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -9,15 +12,37 @@ import (
 )
 
 func DatabaseSnapshotIndexController(request *Request) Response {
-	databaseKey := request.DatabaseKey()
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseKey == nil {
-		return ErrValidDatabaseKeyRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
+	}
+
+	db, err := request.databaseManager.Get(databaseKey.DatabaseID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("database not found"))
+		}
+
+		return BadRequestResponse(err)
+	}
+
+	branch, err := db.Branch(databaseKey.DatabaseBranchName)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("branch not found"))
+		}
+
+		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchName", databaseKey.DatabaseBranchName)
+
+		return BadRequestResponse(err)
 	}
 
 	// Authorize the request
-	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
+	err = request.Authorize(
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeBackup},
 	)
 
@@ -26,7 +51,7 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 	}
 
 	snapshots, err := request.databaseManager.
-		Resources(databaseKey.DatabaseID, databaseKey.BranchID).
+		Resources(db.DatabaseID, branch.DatabaseBranchID).
 		SnapshotLogger().
 		GetSnapshots()
 
@@ -50,10 +75,32 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 }
 
 func DatabaseSnapshotShowController(request *Request) Response {
-	databaseKey := request.DatabaseKey()
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseKey == nil {
-		return ErrValidDatabaseKeyRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
+	}
+
+	db, err := request.databaseManager.Get(databaseKey.DatabaseID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("database not found"))
+		}
+
+		return BadRequestResponse(err)
+	}
+
+	branch, err := db.Branch(databaseKey.DatabaseBranchName)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(errors.New("branch not found"))
+		}
+
+		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchName", databaseKey.DatabaseBranchName)
+
+		return BadRequestResponse(err)
 	}
 
 	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
@@ -66,7 +113,7 @@ func DatabaseSnapshotShowController(request *Request) Response {
 	}
 
 	snapshot, err := request.databaseManager.
-		Resources(databaseKey.DatabaseID, databaseKey.BranchID).
+		Resources(db.DatabaseID, branch.DatabaseBranchID).
 		SnapshotLogger().
 		GetSnapshot(timestamp)
 

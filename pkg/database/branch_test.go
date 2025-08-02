@@ -37,10 +37,6 @@ func TestBranch(t *testing.T) {
 			if branch.DatabaseBranchID == "" {
 				t.Fatal("Branch ID is empty")
 			}
-
-			if branch.Key == "" {
-				t.Fatal("Branch key is empty")
-			}
 		})
 
 		t.Run("InsertBranch", func(t *testing.T) {
@@ -195,7 +191,7 @@ func TestBranch(t *testing.T) {
 				t.Fatal("Expected error when deleting primary branch, but got none")
 			}
 
-			branch, err := db.Branch(primaryBranch.DatabaseBranchID)
+			branch, err := db.Branch(primaryBranch.Name)
 
 			if err != nil {
 				t.Fatal(err)

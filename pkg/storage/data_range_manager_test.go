@@ -50,7 +50,7 @@ func TestDataRangeManager_CopyRange(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 		)
 
 		r1Data := make([]byte, 4096)
@@ -134,7 +134,7 @@ func TestDataRangeManager_Get(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 		)
 
 		r, err := drm.Get(1, time.Now().UTC().UnixNano())
@@ -164,7 +164,7 @@ func TestDataRangeManager_GetOldestTimestamp(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 		)
 
 		drm.Acquire(12345)
@@ -204,7 +204,7 @@ func TestDataRangeManager_Release(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 		)
 		drm.Acquire(12345)
 
@@ -225,7 +225,7 @@ func TestDataRangeManager_Remove(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 		)
 
 		r, err := drm.Get(12345, time.Now().UTC().UnixNano())
@@ -247,7 +247,7 @@ func TestDataRangeManager_RunGarbageCollection(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 		)
 
 		// Create ranges with different timestamps

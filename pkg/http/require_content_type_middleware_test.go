@@ -13,7 +13,7 @@ func TestRequireContentTypeMiddleware(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		request, err := http.NewRequest("GET", "http://localhost/resources/users", nil)
+		request, err := http.NewRequest("GET", "http://localhost/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
@@ -34,7 +34,7 @@ func TestRequireContentTypeMiddleware(t *testing.T) {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
 		}
 
-		request, err = http.NewRequest("POST", "/resources/users", nil)
+		request, err = http.NewRequest("POST", "/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
@@ -53,7 +53,7 @@ func TestRequireContentTypeMiddleware(t *testing.T) {
 			t.Fatalf("Expected status code %d, got %d", 400, res.StatusCode)
 		}
 
-		request, err = http.NewRequest("POST", "http://localhost/resources/users", nil)
+		request, err = http.NewRequest("POST", "http://localhost/users", nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
 		}

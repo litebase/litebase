@@ -26,7 +26,7 @@ func TestLogManager_GetQueryLog(t *testing.T) {
 			app.Cluster,
 			db.DatabaseKey.DatabaseHash,
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 		)
 
 		if l == nil {
@@ -54,7 +54,7 @@ func TestLogManager_Query(t *testing.T) {
 				Cluster:      app.Cluster,
 				DatabaseHash: db.DatabaseKey.DatabaseHash,
 				DatabaseID:   db.DatabaseID,
-				BranchID:     db.BranchID,
+				BranchID:     db.DatabaseBranchID,
 				AccessKeyID:  db.AccessKey.AccessKeyID,
 				Statement:    "SELECT * FROM test",
 				Latency:      0.01,

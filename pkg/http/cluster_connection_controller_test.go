@@ -33,7 +33,7 @@ func TestClusterConnectionController(t *testing.T) {
 
 		request, err := http.NewRequest(
 			"POST",
-			"/cluster/connection",
+			"/v1/cluster/connection",
 			&buf,
 		)
 

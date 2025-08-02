@@ -26,7 +26,7 @@ func (m *MockReadCloser) Close() error {
 func TestRequestSignatureValidator_ValidSignature(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		// Setup request data - mimic the working example
 		method := "GET"
@@ -81,7 +81,7 @@ func TestRequestSignatureValidator_ValidSignature(t *testing.T) {
 func TestRequestSignatureValidator_InvalidSignature(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		// Setup request data with correct signature
 		method := "POST"
@@ -142,7 +142,7 @@ func TestRequestSignatureValidator_InvalidSignature(t *testing.T) {
 func TestRequestSignatureValidator_NoContentLength(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		// Setup request data without body
 		method := "GET"
@@ -271,7 +271,7 @@ func TestRequestSignatureValidator_MissingAccessKey(t *testing.T) {
 func TestRequestSignatureValidator_EmptyBody(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		method := "POST"
 		path := "/api/test"
@@ -328,7 +328,7 @@ func TestRequestSignatureValidator_EmptyBody(t *testing.T) {
 func TestRequestSignatureValidator_CaseInsensitiveHeaders(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		method := "GET"
 		path := "/api/test"
@@ -383,7 +383,7 @@ func TestRequestSignatureValidator_CaseInsensitiveHeaders(t *testing.T) {
 func TestRequestSignatureValidator_PathNormalization(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		method := "GET"
 		path := "api/test" // No leading slash
@@ -435,7 +435,7 @@ func TestRequestSignatureValidator_PathNormalization(t *testing.T) {
 func TestRequestSignatureValidator_ComplexQueryParams(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		method := "GET"
 		path := "/api/search"
@@ -492,7 +492,7 @@ func TestRequestSignatureValidator_ComplexQueryParams(t *testing.T) {
 func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		method := "POST"
 		path := "/api/data"
@@ -610,7 +610,7 @@ func TestRequestSignatureValidator_MissingAuthHeader(t *testing.T) {
 func TestRequestSignatureValidator_SpecialCharacters(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		databaseUrl := fmt.Sprintf("%s.%s.%s.litebase.test", db.DatabaseKey.Key, app.Config.ClusterId, app.Config.Region)
+		databaseUrl := fmt.Sprintf("localhost:8080/v1/databases/%s/%s", db.DatabaseName, db.BranchName)
 
 		method := "GET"
 		path := "/api/test"

@@ -26,10 +26,10 @@ func TestDataRangeIndex_All(t *testing.T) {
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.TieredFS(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.TieredFS()),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
-			mockDatabase.BranchID,
+			mockDatabase.DatabaseBranchID,
 			4096,
 		)
 
@@ -76,10 +76,10 @@ func TestDataRangeIndex_Close(t *testing.T) {
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.TieredFS(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.TieredFS()),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
-			mockDatabase.BranchID,
+			mockDatabase.DatabaseBranchID,
 			4096,
 		)
 
@@ -101,10 +101,10 @@ func TestDataRangeIndex_File(t *testing.T) {
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.TieredFS(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.TieredFS()),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
-			mockDatabase.BranchID,
+			mockDatabase.DatabaseBranchID,
 			4096,
 		)
 
@@ -133,10 +133,10 @@ func TestDataRangeIndex_Get(t *testing.T) {
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.TieredFS(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.TieredFS()),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
-			mockDatabase.BranchID,
+			mockDatabase.DatabaseBranchID,
 			4096,
 		)
 
@@ -183,17 +183,17 @@ func TestDataRangeIndex_Path(t *testing.T) {
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.TieredFS(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.TieredFS()),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
-			mockDatabase.BranchID,
+			mockDatabase.DatabaseBranchID,
 			4096,
 		)
 
 		drm := storage.NewDataRangeManager(dfs)
 		dri := storage.NewDataRangeIndex(drm)
 
-		expectedPath := fmt.Sprintf("%s_RANGE_INDEX", file.GetDatabaseFileDir(mockDatabase.DatabaseID, mockDatabase.BranchID))
+		expectedPath := fmt.Sprintf("%s_RANGE_INDEX", file.GetDatabaseFileDir(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID))
 		actualPath := dri.Path()
 
 		if actualPath != expectedPath {
@@ -212,10 +212,10 @@ func TestDataRangeIndex_Set(t *testing.T) {
 		dfs := storage.NewDurableDatabaseFileSystem(
 			app.Cluster.TieredFS(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.BranchID, app.Cluster.TieredFS()),
+			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
 			config.StorageModeLocal,
 			mockDatabase.DatabaseID,
-			mockDatabase.BranchID,
+			mockDatabase.DatabaseBranchID,
 			4096,
 		)
 

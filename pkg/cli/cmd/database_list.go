@@ -16,7 +16,7 @@ func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
 		Use:   "list",
 		Short: "List databases",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := api.Get(config, "/resources/databases")
+			data, err := api.Get(config, "/v1/databases")
 
 			if err != nil {
 				return err
@@ -30,15 +30,15 @@ func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
 
 			for _, database := range data["data"].([]any) {
 				rows = append(rows, []string{
-					database.(map[string]any)["database_id"].(string),
 					database.(map[string]any)["name"].(string),
+					database.(map[string]any)["database_id"].(string),
 				})
 			}
 
 			lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
-					components.NewTable([]string{"ID", "Name"}, rows).
+					components.NewTable([]string{"Name", "ID"}, rows).
 						Render(config.GetInteractive()),
 				),
 			)

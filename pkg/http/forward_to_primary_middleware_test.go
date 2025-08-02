@@ -23,7 +23,7 @@ func TestForwardToPrimary(t *testing.T) {
 			},
 		})
 
-		_, statusCode, err := client.Send("/resources/access-keys", "POST", map[string]any{
+		_, statusCode, err := client.Send("/v1/access-keys", "POST", map[string]any{
 			"resource": "*",
 			"statements": []map[string]any{
 				{

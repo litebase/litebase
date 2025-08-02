@@ -5,42 +5,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var AccessKeyCmd = &cobra.Command{
-	Use:   "access-key",
-	Short: "Manage access keys",
-	Args:  cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		err := cmd.Help()
-
-		if err != nil {
-			return err
-		}
-
-		return nil
-	},
-}
-
-var AccessKeyUpdateCmd = &cobra.Command{
-	Use: "update <id>",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			return cobra.MinimumNArgs(1)(cmd, args)
-		}
-
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-}
-
 func NewAccessKeyCmd(config *config.Configuration) *cobra.Command {
-	AccessKeyCmd.AddCommand(NewAccessKeyListCmd(config))
-	AccessKeyCmd.AddCommand(NewAccessKeyCreateCmd(config))
-	AccessKeyCmd.AddCommand(NewAccessKeyShowCmd(config))
-	AccessKeyCmd.AddCommand(NewAccessKeyDeleteCmd(config))
-	AccessKeyCmd.AddCommand(NewAccessKeyUpdateCmd(config))
-	AccessKeyCmd.AddCommand(AccessKeyUpdateCmd)
+	cmd := &cobra.Command{
+		Use:   "access-key",
+		Short: "Manage access keys",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := cmd.Help()
 
-	return AccessKeyCmd
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.AddCommand(NewAccessKeyListCmd(config))
+	cmd.AddCommand(NewAccessKeyCreateCmd(config))
+	cmd.AddCommand(NewAccessKeyShowCmd(config))
+	cmd.AddCommand(NewAccessKeyDeleteCmd(config))
+	cmd.AddCommand(NewAccessKeyUpdateCmd(config))
+
+	return cmd
 }

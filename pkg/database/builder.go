@@ -34,9 +34,10 @@ func NewQueryBuilder(
 
 func (qb *QueryBuilder) Build(
 	accessKeyId string,
-	databaseKey string,
 	databaseId string,
+	databaseName string,
 	branchId string,
+	branchName string,
 	statement string,
 	parameters []sqlite3.StatementParameter,
 	id string,
@@ -51,7 +52,7 @@ func (qb *QueryBuilder) Build(
 		qb.cluster,
 		qb.databaseManager,
 		qb.logManager,
-		auth.NewDatabaseKey(databaseId, branchId, databaseKey),
+		auth.NewDatabaseKey(databaseId, databaseName, branchId, branchName),
 		accessKey,
 		&QueryInput{
 			Id:         id,

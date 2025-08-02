@@ -21,14 +21,14 @@ func TestNewDatabaseWAL(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -42,8 +42,8 @@ func TestNewDatabaseWAL(t *testing.T) {
 			t.Fatalf("Expected DatabaseID to be %s, got %s", mock.DatabaseID, databaseWAL.DatabaseID)
 		}
 
-		if databaseWAL.BranchID != mock.BranchID {
-			t.Fatalf("Expected BranchID to be %s, got %s", mock.BranchID, databaseWAL.BranchID)
+		if databaseWAL.BranchID != mock.DatabaseBranchID {
+			t.Fatalf("Expected BranchID to be %s, got %s", mock.DatabaseBranchID, databaseWAL.BranchID)
 		}
 	})
 }
@@ -54,14 +54,14 @@ func TestDatabaseWAL_Checkpointing(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -79,14 +79,14 @@ func TestDatabaseWAL_Close(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -104,14 +104,14 @@ func TestDatabaseWAL_File(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -135,14 +135,14 @@ func TestDatabaseWAL_Hash(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -162,14 +162,14 @@ func TestDatabaseWAL_IsCheckpointed(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -187,14 +187,14 @@ func TestDatabaseWAL_MarkCheckpointed(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -214,14 +214,14 @@ func TestDatabaseWAL_ReadAt(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -258,14 +258,14 @@ func TestDatabaseWAL_RequiresCheckpoint(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -289,14 +289,14 @@ func TestDatabaseWAL_SetCheckpointing(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -316,14 +316,14 @@ func TestDatabaseWAL_Size(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -357,14 +357,14 @@ func TestDatabaseWAL_Sync(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -384,14 +384,14 @@ func TestDatabaseWAL_Timestamp(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -411,14 +411,14 @@ func TestDatabaseWAL_Truncate(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -444,14 +444,14 @@ func TestDatabaseWAL_WriteAt(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -478,14 +478,14 @@ func TestDatabaseWAL_ReadAfterWrite(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),
@@ -574,14 +574,14 @@ func TestDatabaseWAL_HeavyWrite(t *testing.T) {
 
 		walManager, _ := app.DatabaseManager.Resources(
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
 			mock.DatabaseID,
-			mock.BranchID,
+			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 			walManager,
 			time.Now().UTC().UnixNano(),

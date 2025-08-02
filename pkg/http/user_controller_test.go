@@ -21,7 +21,7 @@ func TestUserController_List(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			"/resources/users",
+			"/v1/users",
 			"GET", nil,
 		)
 
@@ -78,7 +78,7 @@ func TestUserController_Show(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			"/resources/users/testuser",
+			"/v1/users/testuser",
 			"GET", nil,
 		)
 
@@ -120,7 +120,7 @@ func TestUserController_Store(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			"/resources/users",
+			"/v1/users",
 			"POST", map[string]any{
 				"username": "testuser",
 				"password": "password123",
@@ -162,7 +162,7 @@ func TestUserController_StoreWithInvalidData(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			"/resources/users",
+			"/v1/users",
 			"POST", map[string]any{
 				"username": "testuser",
 				"password": "abc213",
@@ -220,7 +220,7 @@ func TestUserControllerUpdate(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			"/resources/users/foo",
+			"/v1/users/foo",
 			"PUT", map[string]any{
 				"password": "newpassword123",
 				"statements": []auth.AccessKeyStatement{
@@ -297,7 +297,7 @@ func TestUserController_Destroy(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			"/resources/users/foo",
+			"/v1/users/foo",
 			"DELETE", nil,
 		)
 

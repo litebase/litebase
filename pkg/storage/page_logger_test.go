@@ -21,7 +21,7 @@ func TestNewPageLogger(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -41,7 +41,7 @@ func TestPageLogger_Acquire(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -79,7 +79,7 @@ func TestPageLogger_Acquire(t *testing.T) {
 			}
 
 			err = pageLogger.Compact(
-				app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 			)
 
 			if err != nil {
@@ -115,7 +115,7 @@ func TestPageLogger_Close(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -141,7 +141,7 @@ func TestPageLogger_Compact(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -175,7 +175,7 @@ func TestPageLogger_Compact(t *testing.T) {
 		}
 
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -197,7 +197,7 @@ func TestPageLogger_Compact_NoNewWrites(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -230,7 +230,7 @@ func TestPageLogger_Compact_NoNewWrites(t *testing.T) {
 
 		// First compaction - this should run since there are writes
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -249,7 +249,7 @@ func TestPageLogger_Compact_NoNewWrites(t *testing.T) {
 		// Now try to compact again WITHOUT any new writes since last compaction
 		// This should NOT run because there are no new writes (writtenAt is before or equal to CompactedAt)
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -278,7 +278,7 @@ func TestPageLogger_Compact_NoNewWrites(t *testing.T) {
 
 		// Now compaction should run because we have new writes
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -299,7 +299,7 @@ func TestPageLogger_CompactionBarrier(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -396,7 +396,7 @@ func TestPageLogger_ForceCompact(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -409,7 +409,7 @@ func TestPageLogger_ForceCompact(t *testing.T) {
 		}
 
 		err = pageLogger.ForceCompact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -424,7 +424,7 @@ func TestPageLogger_Read(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -475,7 +475,7 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 
 		db := test.MockDatabase(app)
 
-		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
 		pageLogger := dfs.PageLogger
 		rangeManager := dfs.RangeManager
 
@@ -503,7 +503,7 @@ func TestPageLogger_Read_After_Compacting_After_Interval(t *testing.T) {
 
 		// Compaction will run since the compaction interval has passed
 		err := pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -537,7 +537,7 @@ func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 
 		db := test.MockDatabase(app)
 
-		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
 		pageLogger := dfs.PageLogger
 		rangeManager := dfs.RangeManager
 
@@ -561,7 +561,7 @@ func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 
 		// First compaction - this should run since CompactedAt is zero
 		err := pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -587,7 +587,7 @@ func TestPageLogger_Read_After_Compacting_BeforeInterval(t *testing.T) {
 
 		// Immediately try to compact again - this should NOT run because the interval has not passed
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -632,7 +632,7 @@ func TestPageLogger_Release(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -653,7 +653,7 @@ func TestPageLogger_Release(t *testing.T) {
 		pageLogger.Write(1, 1, make([]byte, 4096))
 
 		pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if !pageLogger.CompactedAt.IsZero() {
@@ -663,7 +663,7 @@ func TestPageLogger_Release(t *testing.T) {
 		pageLogger.Release(1)
 
 		pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if pageLogger.CompactedAt.IsZero() {
@@ -678,7 +678,7 @@ func TestPageLogger_Write(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -741,7 +741,7 @@ func TestPageLogger_Write(t *testing.T) {
 
 		pageLogger, err = storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -775,7 +775,7 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -828,7 +828,7 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 		}
 
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -884,7 +884,7 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 		// Test reopening the page logger and writing again
 		pageLogger, err = storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -893,7 +893,7 @@ func TestPageLogger_Write_WhileCompacting(t *testing.T) {
 		}
 
 		err = pageLogger.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -954,7 +954,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1012,7 +1012,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 				}
 
 				err = pageLogger.Compact(
-					app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+					app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 				)
 
 				if err != nil {
@@ -1037,7 +1037,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 					defer wg.Done()
 
 					err := pageLogger.Compact(
-						app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+						app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 					)
 
 					if err != nil {
@@ -1100,7 +1100,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 		// Test reopening the page logger and writing again
 		// pageLogger, err = storage.NewPageLogger(
 		// 	db.DatabaseID,
-		// 	db.BranchID,
+		// 	db.DatabaseBranchID,
 		// 	app.Cluster.LocalFS(),
 		// )
 
@@ -1109,7 +1109,7 @@ func TestPageLogger_Write_WhileCompactingConcurrently(t *testing.T) {
 		// }
 
 		// err = pageLogger.Compact(
-		// 	app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+		// 	app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		// )
 
 		// if err != nil {
@@ -1164,7 +1164,7 @@ func TestPageLoggerCanReadFromLaterVersion(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1234,7 +1234,7 @@ func TestPageLogger_Tombstone(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1301,7 +1301,7 @@ func TestPageLogger_Tombstone(t *testing.T) {
 
 		pageLogger, err = storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1331,7 +1331,7 @@ func TestPageLogger_Tombstone_OnlySpecificVersion(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1442,7 +1442,7 @@ func TestPageLogger_PersistenceAcrossRestarts(t *testing.T) {
 		// Create initial page logger
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1516,7 +1516,7 @@ func TestPageLogger_PersistenceAcrossRestarts(t *testing.T) {
 		// Create a second page logger instance (simulating restart)
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1602,7 +1602,7 @@ func TestPageLogger_PersistenceAcrossRestarts(t *testing.T) {
 		// Create third instance to verify all data is still there
 		pageLogger3, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1655,7 +1655,7 @@ func TestPageLogger_PersistenceWithCompaction(t *testing.T) {
 		// Create initial page logger
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1697,7 +1697,7 @@ func TestPageLogger_PersistenceWithCompaction(t *testing.T) {
 
 		// Force compaction
 		err = pageLogger.ForceCompact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -1714,7 +1714,7 @@ func TestPageLogger_PersistenceWithCompaction(t *testing.T) {
 		// Create a new instance after compaction
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1790,7 +1790,7 @@ func TestPageLogger_RestartWithPartialWrites(t *testing.T) {
 		// Create initial page logger
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1861,7 +1861,7 @@ func TestPageLogger_RestartWithPartialWrites(t *testing.T) {
 		// Create new instance and write the remaining data
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -1939,7 +1939,7 @@ func TestPageLogger_RestartWithoutCompaction_EmptyPageLogs(t *testing.T) {
 		// Create initial page logger
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -2008,7 +2008,7 @@ func TestPageLogger_RestartWithoutCompaction_EmptyPageLogs(t *testing.T) {
 		// Create new instance - this might create empty page logs for new generation
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -2040,7 +2040,7 @@ func TestPageLogger_RestartWithoutCompaction_EmptyPageLogs(t *testing.T) {
 
 		// Now try to compact - this might fail with EOF error if empty page logs exist
 		err = pageLogger2.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -2082,7 +2082,7 @@ func TestPageLogger_EOFErrorDuringCompaction(t *testing.T) {
 		// Create initial page logger
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -2147,7 +2147,7 @@ func TestPageLogger_EOFErrorDuringCompaction(t *testing.T) {
 		// Create new instance and immediately try to compact
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -2164,7 +2164,7 @@ func TestPageLogger_EOFErrorDuringCompaction(t *testing.T) {
 			t.Logf("Compaction attempt %d", i+1)
 
 			err = pageLogger2.Compact(
-				app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 			)
 
 			if err != nil {
@@ -2202,7 +2202,7 @@ func TestPageLogger_EOFErrorDuringCompaction(t *testing.T) {
 func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
 		rangeManager := dfs.RangeManager
 		pageLogger := dfs.PageLogger
 
@@ -2248,7 +2248,7 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 		// Create new instance and immediately try to compact
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -2262,7 +2262,7 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 
 		// This compaction might fail with EOF error if there are incomplete page logs
 		err = pageLogger2.Compact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -2272,7 +2272,7 @@ func TestPageLogger_EOFErrorFromIncompletePageLog(t *testing.T) {
 
 		// Force compaction to see if it handles the issue differently
 		err = pageLogger2.ForceCompact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -2294,7 +2294,7 @@ func TestPageLogger_CompactEmptyPageLogs(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 		if err != nil {
@@ -2352,7 +2352,7 @@ func TestPageLogger_CompactEmptyPageLogs(t *testing.T) {
 
 		// Force compaction to clean up empty logs
 		err = pageLogger.ForceCompact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 		if err != nil {
 			t.Fatalf("Failed to force compact: %v", err)
@@ -2396,7 +2396,7 @@ func TestPageLogger_CompactEmptyPageLogsWithAcquiredLogs(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 		if err != nil {
@@ -2436,7 +2436,7 @@ func TestPageLogger_CompactEmptyPageLogsWithAcquiredLogs(t *testing.T) {
 
 		// Force compaction - should only compact the non-acquired log
 		err = pageLogger.ForceCompact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 		if err != nil {
 			t.Fatalf("Failed to force compact: %v", err)
@@ -2465,7 +2465,7 @@ func TestPageLogger_CompactEmptyPageLogsWithAcquiredLogs(t *testing.T) {
 
 		// Force compaction again - should clean up the remaining empty log
 		err = pageLogger.ForceCompact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 		if err != nil {
 			t.Fatalf("Failed to force compact after release: %v", err)
@@ -2494,7 +2494,7 @@ func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			fileSystem,
 		)
 
@@ -2522,7 +2522,7 @@ func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
 		}
 
 		// Check that page log files exist before compaction
-		logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(db.DatabaseID, db.BranchID))
+		logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(db.DatabaseID, db.DatabaseBranchID))
 
 		files, err := fileSystem.ReadDir(logDir)
 
@@ -2554,7 +2554,7 @@ func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
 
 		// Force compaction to remove the page logs
 		err = pageLogger.ForceCompact(
-			app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -2610,7 +2610,7 @@ func TestPageLogger_CompactionRemovesPageLogAndIndexFiles(t *testing.T) {
 func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
-		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
 		rangeManager := dfs.RangeManager
 		pageLogger := dfs.PageLogger
 
@@ -2671,7 +2671,7 @@ func TestPageLogger_CompactionWithManyPageLogs(t *testing.T) {
 		// Run compaction multiple times like the user scenario
 		for i := range 3 {
 			err := pageLogger.ForceCompact(
-				app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 			)
 
 			if err != nil {
@@ -2707,13 +2707,13 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		// Create mock database
 		db := test.MockDatabase(server1.App)
 
-		dfs := server1.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		dfs := server1.App.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
 		rangeManager := dfs.RangeManager
 
 		// Create page logger with TieredFS (which handles sync to low-tier storage)
 		pageLogger1, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			server1.App.Cluster.TieredFS(),
 		)
 
@@ -2793,7 +2793,7 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		// This should recover any files that were synced to low-tier storage
 		pageLogger2, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			server2.App.Cluster.TieredFS(),
 		)
 
@@ -2839,7 +2839,7 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		t.Logf("Attempting compaction with 17 page logs after restart...")
 
 		err = pageLogger2.ForceCompact(
-			server2.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+			server2.App.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 		)
 
 		if err != nil {
@@ -2854,7 +2854,7 @@ func TestPageLoggerCompaction_AfterRestart(t *testing.T) {
 		// Try multiple compactions to ensure consistency
 		for i := range 3 {
 			err = pageLogger2.ForceCompact(
-				server2.App.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem(),
+				server2.App.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 			)
 
 			if err != nil {
@@ -2900,7 +2900,7 @@ func TestPageLogger_ConcurrentReadsDuringCompaction(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -2911,7 +2911,7 @@ func TestPageLogger_ConcurrentReadsDuringCompaction(t *testing.T) {
 		defer pageLogger.Close()
 
 		// Get a properly initialized durable filesystem
-		durableFS := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		durableFS := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
 
 		// Write multiple versions of the same page to create compaction opportunity
 		pageNumber := int64(1)
@@ -3034,7 +3034,7 @@ func TestPageLogger_ReadDuringReload(t *testing.T) {
 
 		pageLogger, err := storage.NewPageLogger(
 			db.DatabaseID,
-			db.BranchID,
+			db.DatabaseBranchID,
 			app.Cluster.LocalFS(),
 		)
 
@@ -3060,7 +3060,7 @@ func TestPageLogger_ReadDuringReload(t *testing.T) {
 		}
 
 		// Get a properly initialized durable filesystem
-		durableFS := app.DatabaseManager.Resources(db.DatabaseID, db.BranchID).FileSystem()
+		durableFS := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
 
 		// Test that reads work correctly during reload
 		var wg sync.WaitGroup

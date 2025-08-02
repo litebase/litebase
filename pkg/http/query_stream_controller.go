@@ -38,10 +38,10 @@ const (
 )
 
 func QueryStreamController(request *Request) Response {
-	databaseKey := request.DatabaseKey()
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseKey == nil {
-		return ErrValidDatabaseKeyRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
 	}
 
 	requestToken := request.RequestToken("Authorization")
@@ -58,7 +58,7 @@ func QueryStreamController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
 		[]auth.Privilege{auth.DatabasePrivilegeQuery},
 	)
 
@@ -122,7 +122,7 @@ func processInput(
 		!requestQuery.IsTransactionRollback() {
 		transaction, err = request.databaseManager.Resources(
 			databaseKey.DatabaseID,
-			databaseKey.BranchID,
+			databaseKey.DatabaseBranchID,
 		).TransactionManager().Get(string(requestQuery.Input.TransactionId))
 
 		if err != nil {

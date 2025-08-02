@@ -16,7 +16,7 @@ func NewDatabaseShowCmd(config *config.Configuration) *cobra.Command {
 		Short: "Get a database",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := api.Get(config, fmt.Sprintf("/resources/databases/%s", args[0]))
+			res, err := api.Get(config, fmt.Sprintf("/v1/databases/%s", args[0]))
 
 			if err != nil {
 				return err

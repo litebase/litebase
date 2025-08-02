@@ -7,17 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var DatabaseQueryLogCmd = &cobra.Command{
-	Use:   "query-logs",
-	Short: "View database query logs",
-	Args:  cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("Database query logs:", args[0])
-
-		return nil
-	},
-}
-
 func NewDatabaseQueryLogListCmd(config *config.Configuration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
@@ -30,7 +19,17 @@ func NewDatabaseQueryLogListCmd(config *config.Configuration) *cobra.Command {
 }
 
 func NewDatabaseQueryLogCmd(config *config.Configuration) *cobra.Command {
-	DatabaseQueryLogCmd.AddCommand(NewDatabaseQueryLogListCmd(config))
+	cmd := &cobra.Command{
+		Use:   "query-logs",
+		Short: "View database query logs",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("Database query logs:", args[0])
 
-	return DatabaseQueryLogCmd
+			return nil
+		},
+	}
+	cmd.AddCommand(NewDatabaseQueryLogListCmd(config))
+
+	return cmd
 }

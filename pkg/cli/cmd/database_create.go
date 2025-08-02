@@ -12,18 +12,25 @@ import (
 )
 
 func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
-	return &cobra.Command{
-		Use:   "create <name>",
+	cmd := &cobra.Command{
+		Use:   "create <name> --primary-branch <branch_name>",
 		Args:  cobra.ExactArgs(1),
 		Short: "Create a new database",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, _, err := api.Post(config, "/resources/databases", map[string]any{"name": args[0]})
+			data := map[string]any{"name": args[0]}
+
+			if primaryBranch, _ := cmd.Flags().GetString("primary-branch"); primaryBranch != "" {
+				data["primary_branch"] = primaryBranch
+			}
+
+			res, _, err := api.Post(config, "/v1/databases", data)
 
 			if err != nil {
 				fmt.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.ErrorAlert(err.Error())),
 				)
+
 				return err
 			}
 
@@ -38,4 +45,8 @@ func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("primary-branch", "", "The name of the primary branch for the database")
+
+	return cmd
 }

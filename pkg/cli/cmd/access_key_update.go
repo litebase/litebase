@@ -55,7 +55,7 @@ func NewAccessKeyUpdateCmd(config *config.Configuration) *cobra.Command {
 
 				confirmed = true
 			} else {
-				res, err := api.Get(config, fmt.Sprintf("/resources/access-keys/%s", accessKeyId))
+				res, err := api.Get(config, fmt.Sprintf("/v1/access-keys/%s", accessKeyId))
 
 				if err != nil {
 					return err
@@ -153,7 +153,7 @@ func NewAccessKeyUpdateCmd(config *config.Configuration) *cobra.Command {
 				return nil
 			}
 
-			res, _, err := api.Put(config, fmt.Sprintf("/resources/access-keys/%s", accessKeyId), map[string]any{
+			res, _, err := api.Put(config, fmt.Sprintf("/v1/access-keys/%s", accessKeyId), map[string]any{
 				"description": input.Description,
 				"statements":  input.Statements,
 			})

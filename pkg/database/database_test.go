@@ -59,11 +59,11 @@ func TestDatabase(t *testing.T) {
 			db2, err := app.DatabaseManager.Get(db.DatabaseID)
 
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 
-			if db2.Name != "test_UpdateDatabase" {
-				t.Errorf("Expected name to be 'test_UpdateDatabase', got '%s'", db2.Name)
+			if db2.Name != "test2" {
+				t.Errorf("Expected name to be 'test2', got '%s'", db2.Name)
 			}
 		})
 
@@ -101,7 +101,7 @@ func TestDatabase(t *testing.T) {
 				t.Fatal("Expected primary branch to be found, but got nil")
 			}
 
-			branch, err := db.Branch(primaryBranch.DatabaseBranchID)
+			branch, err := db.Branch(primaryBranch.Name)
 
 			if err != nil {
 				t.Fatal(err)
@@ -155,7 +155,7 @@ func TestDatabase(t *testing.T) {
 		t.Run("Database_CreateBranchFromParentWith1Snapshot", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -164,7 +164,7 @@ func TestDatabase(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -177,7 +177,7 @@ func TestDatabase(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -219,7 +219,7 @@ func TestDatabase(t *testing.T) {
 		t.Run("Database_CreateBranchFromParentWithMultipleSnapshots", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+			sourceDb, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -228,7 +228,7 @@ func TestDatabase(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -241,7 +241,7 @@ func TestDatabase(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -255,7 +255,7 @@ func TestDatabase(t *testing.T) {
 					t.Fatalf("Expected no error, got %v", err)
 				}
 
-				err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+				err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 				if err != nil {
 					t.Fatalf("Expected no error, got %v", err)
@@ -372,21 +372,19 @@ func TestDatabase(t *testing.T) {
 				t.Fatal("Expected primary branch to be found, but got nil")
 			}
 
-			branchID := primaryBranch.DatabaseBranchID
-
 			// First, ensure the branch is in cache by calling HasBranch
-			hasBranch := db.HasBranch(branchID)
+			hasBranch := db.HasBranch(primaryBranch.Name)
 
 			if !hasBranch {
 				t.Fatal("Expected database to have branch before invalidation test")
 			}
 
 			// Invalidate the cache entry
-			db.InvalidateBranchCache(branchID)
+			db.InvalidateBranchCache(primaryBranch.Name)
 
 			// The branch should still exist in the database, but the cache should be cleared
 			// We can verify this by checking HasBranch again - it should hit the database
-			hasBranch = db.HasBranch(branchID)
+			hasBranch = db.HasBranch(primaryBranch.Name)
 
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation")
@@ -421,10 +419,10 @@ func TestDatabase(t *testing.T) {
 			// directly by invalidating and then checking that it gets reloaded from DB.
 
 			// Manually invalidate the cache
-			db.InvalidateBranchCache(newBranch.DatabaseBranchID)
+			db.InvalidateBranchCache(newBranch.Name)
 
 			// The branch should still exist in the database after cache invalidation
-			hasBranch = db.HasBranch(newBranch.DatabaseBranchID)
+			hasBranch = db.HasBranch(newBranch.Name)
 
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation")
@@ -446,7 +444,7 @@ func TestDatabase(t *testing.T) {
 			}
 
 			// Verify the branch exists in cache
-			hasBranch := db.HasBranch(secondaryBranch.DatabaseBranchID)
+			hasBranch := db.HasBranch(secondaryBranch.Name)
 
 			if !hasBranch {
 				t.Fatal("Expected database to have newly created secondary branch")
@@ -454,10 +452,10 @@ func TestDatabase(t *testing.T) {
 
 			// Test cache invalidation mechanism - this should clear the cache entry
 			// but the branch should still be reloaded from DB when checked again
-			db.InvalidateBranchCache(secondaryBranch.DatabaseBranchID)
+			db.InvalidateBranchCache(secondaryBranch.Name)
 
 			// The branch should still exist in DB after cache invalidation (reload from DB)
-			hasBranch = db.HasBranch(secondaryBranch.DatabaseBranchID)
+			hasBranch = db.HasBranch(secondaryBranch.Name)
 
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation (should reload from DB)")
@@ -486,27 +484,6 @@ func TestDatabase(t *testing.T) {
 			// This should be a different branch with a different ID
 			if newBranch.DatabaseBranchID == secondaryBranch.DatabaseBranchID {
 				t.Error("Expected new branch to have different ID than deleted branch")
-			}
-		})
-
-		t.Run("Key", func(t *testing.T) {
-			db, err := database.CreateDatabase(app.DatabaseManager, "test_Key", "main")
-
-			if err != nil {
-				t.Fatal(err)
-			}
-			primaryBranch := db.PrimaryBranch()
-
-			if primaryBranch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
-			}
-
-			k := primaryBranch.Key
-
-			key := db.Key(primaryBranch.DatabaseBranchID)
-
-			if key != k {
-				t.Errorf("Expected key to be '%s', got '%s'", k, key)
 			}
 		})
 
@@ -555,11 +532,11 @@ func TestDatabase(t *testing.T) {
 				t.Fatal("Expected primary branch to be found, but got nil")
 			}
 
-			url := db.Url(primaryBranch.DatabaseBranchID)
+			url := db.Url(primaryBranch.Name)
 
 			port := app.Config.Port
 
-			expected := fmt.Sprintf("http://localhost:%s/%s", port, primaryBranch.Key)
+			expected := fmt.Sprintf("http://localhost:%s/v1/databases/%s/%s", port, db.Name, primaryBranch.Name)
 
 			if url != expected {
 				t.Errorf("Expected URL to be '%s', got '%s'", expected, url)

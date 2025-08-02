@@ -9,10 +9,10 @@ import (
 )
 
 func QueryController(request *Request) Response {
-	databaseKey := request.DatabaseKey()
+	databaseKey, errResponse := request.DatabaseKey()
 
-	if databaseKey == nil {
-		return ErrValidDatabaseKeyRequiredResponse
+	if !errResponse.IsEmpty() {
+		return errResponse
 	}
 
 	requestToken := request.RequestToken("Authorization")
@@ -29,7 +29,7 @@ func QueryController(request *Request) Response {
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.BranchID)},
+		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseName, databaseKey.DatabaseBranchName)},
 		[]auth.Privilege{auth.DatabasePrivilegeQuery},
 	)
 
@@ -39,7 +39,7 @@ func QueryController(request *Request) Response {
 
 	db, err := request.databaseManager.ConnectionManager().Get(
 		databaseKey.DatabaseID,
-		databaseKey.BranchID,
+		databaseKey.DatabaseBranchID,
 	)
 
 	if err != nil {
@@ -89,7 +89,7 @@ func QueryController(request *Request) Response {
 		!requestQuery.IsTransactionRollback() {
 		transaction, err := request.databaseManager.Resources(
 			databaseKey.DatabaseID,
-			databaseKey.BranchID,
+			databaseKey.DatabaseBranchID,
 		).TransactionManager().Get(string(requestQuery.Input.TransactionId))
 
 		if err != nil {

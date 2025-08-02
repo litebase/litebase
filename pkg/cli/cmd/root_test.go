@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/server"
 )
 
 func TestRootCmd(t *testing.T) {
-	test.Run(t, func() {
-		cli := test.NewTestCLI(nil)
+	test.RunWithApp(t, func(app *server.App) {
+		cli := test.NewTestCLI(app)
 
 		err := cli.Run("")
 		if err != nil {

@@ -28,7 +28,11 @@ func TestTransactionController(t *testing.T) {
 
 		t.Run("Store", func(t *testing.T) {
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions", database.DatabaseKey.Key),
+				fmt.Sprintf(
+					"/v1/databases/%s/%s/transactions",
+					database.DatabaseName,
+					database.BranchName,
+				),
 				"POST", map[string]any{},
 			)
 
@@ -68,7 +72,12 @@ func TestTransactionController(t *testing.T) {
 			}
 
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions/%s", database.DatabaseKey.Key, transactionId),
+				fmt.Sprintf(
+					"/v1/databases/%s/%s/transactions/%s",
+					database.DatabaseName,
+					database.BranchName,
+					transactionId,
+				),
 				"DELETE", nil,
 			)
 
@@ -100,8 +109,8 @@ func TestTransactionController_2(t *testing.T) {
 		database := test.MockDatabase(server.App)
 
 		con, err := server.App.DatabaseManager.ConnectionManager().Get(
-			database.DatabaseKey.DatabaseID,
-			database.DatabaseKey.BranchID,
+			database.DatabaseID,
+			database.DatabaseBranchID,
 		)
 
 		defer server.App.DatabaseManager.ConnectionManager().Release(con)
@@ -129,7 +138,11 @@ func TestTransactionController_2(t *testing.T) {
 
 		t.Run("Store", func(t *testing.T) {
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions", database.DatabaseKey.Key),
+				fmt.Sprintf(
+					"/v1/databases/%s/%s/transactions",
+					database.DatabaseName,
+					database.BranchName,
+				),
 				"POST", map[string]any{},
 			)
 
@@ -165,7 +178,7 @@ func TestTransactionController_2(t *testing.T) {
 
 		t.Run("Query", func(t *testing.T) {
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/query", database.DatabaseKey.Key),
+				fmt.Sprintf("/v1/databases/%s/%s/query", database.DatabaseName, database.BranchName),
 				"POST",
 				map[string]any{
 					"id":             uuid.NewString(),
@@ -195,7 +208,7 @@ func TestTransactionController_2(t *testing.T) {
 
 			// Query the count of rows in the test table
 			countResponse, countStatusCode, err := client.Send(
-				fmt.Sprintf("/%s/query", database.DatabaseKey.Key),
+				fmt.Sprintf("/v1/databases/%s/%s/query", database.DatabaseName, database.BranchName),
 				"POST",
 				map[string]any{
 					"id":             uuid.NewString(),
@@ -249,7 +262,7 @@ func TestTransactionController_2(t *testing.T) {
 			}
 
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions/%s", database.DatabaseKey.Key, transactionId),
+				fmt.Sprintf("/v1/databases/%s/%s/transactions/%s", database.DatabaseName, database.BranchName, transactionId),
 				"DELETE", nil,
 			)
 
@@ -316,7 +329,7 @@ func TestTransactionDestory_InvalidTransaction(t *testing.T) {
 
 		t.Run("Destroy Invalid Transaction", func(t *testing.T) {
 			response, statusCode, err := client.Send(
-				fmt.Sprintf("/%s/transactions/%s", database.DatabaseKey.Key, transactionId),
+				fmt.Sprintf("/v1/databases/%s/%s/transactions/%s", database.DatabaseName, database.BranchName, transactionId),
 				"DELETE", nil,
 			)
 

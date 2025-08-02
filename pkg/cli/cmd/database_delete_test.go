@@ -20,7 +20,7 @@ func TestDatbaseDelete(t *testing.T) {
 
 		db := test.MockDatabase(server.App)
 
-		err := cli.Run("database", "delete", db.DatabaseID)
+		err := cli.Run("database", "delete", db.DatabaseName)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)

@@ -17,7 +17,7 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 
 		mock := test.MockDatabase(server.App)
 
-		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -59,7 +59,15 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 			},
 		})
 
-		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/snapshots", mock.DatabaseKey.Key), "GET", nil)
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/snapshots",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"GET",
+			nil,
+		)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -82,9 +90,9 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		defer server.Shutdown()
 		mock := test.MockDatabase(server.App)
 
-		snapshotLogger := server.App.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
 
-		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -142,7 +150,16 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 			snapshot = s
 		}
 
-		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/snapshots/%d", mock.DatabaseKey.Key, snapshot.Timestamp), "GET", nil)
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/snapshots/%d",
+				mock.DatabaseName,
+				mock.BranchName,
+				snapshot.Timestamp,
+			),
+			"GET",
+			nil,
+		)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)

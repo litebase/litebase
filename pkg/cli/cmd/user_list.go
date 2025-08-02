@@ -16,7 +16,7 @@ func NewUserListCmd(config *config.Configuration) *cobra.Command {
 		Use:   "list",
 		Short: "List users",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := api.Get(config, "/resources/users")
+			data, err := api.Get(config, "/v1/users")
 
 			if err != nil {
 				return err

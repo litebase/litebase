@@ -25,9 +25,7 @@ var (
 
 func addCommands(cmd *cobra.Command, c *config.Configuration) {
 	cmd.AddCommand(NewAccessKeyCmd(c))
-	cmd.AddCommand(NewClusterCmd(c))
 	cmd.AddCommand(NewDatabaseCmd(c))
-	cmd.AddCommand(NewAuthCmd())
 	cmd.AddCommand(NewProfileCmd(c))
 	cmd.AddCommand(NewServeCmd())
 	cmd.AddCommand(NewSQLCmd(c))

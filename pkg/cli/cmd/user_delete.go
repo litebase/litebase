@@ -15,13 +15,7 @@ func NewUserDeleteCmd(config *config.Configuration) *cobra.Command {
 		Short: "Delete a user",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := api.NewClient(config)
-
-			if err != nil {
-				return err
-			}
-
-			_, _, err = client.Request("DELETE", "/resources/users/"+args[0], nil)
+			_, _, err := api.Delete(config, "/v1/users/"+args[0])
 
 			if err != nil {
 				return err

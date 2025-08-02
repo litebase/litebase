@@ -143,7 +143,7 @@ func (ce *ClusterElection) proposeLeadership() bool {
 			request, err := http.NewRequestWithContext(
 				requestCtx,
 				"POST",
-				fmt.Sprintf("http://%s/cluster/election", nodeAddress),
+				fmt.Sprintf("http://%s/v1/cluster/election", nodeAddress),
 				bytes.NewBuffer(jsonData),
 			)
 

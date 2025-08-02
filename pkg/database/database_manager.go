@@ -1,7 +1,6 @@
 package database
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -16,11 +15,11 @@ import (
 )
 
 type DatabaseManager struct {
-	branchCache            *cache.LFUCache
 	Cluster                *cluster.Cluster
 	connectionManager      *ConnectionManager
 	connectionManagerMutex *sync.Mutex
 	databaseCache          *cache.LFUCache
+	keyCache               *cache.LFUCache
 	mutex                  *sync.Mutex
 	pageLogManager         *storage.PageLogManager
 	resources              map[string]*DatabaseResources
@@ -36,10 +35,10 @@ func NewDatabaseManager(
 	secretsManager *auth.SecretsManager,
 ) *DatabaseManager {
 	dbm := &DatabaseManager{
-		branchCache:            cache.NewLFUCache(100),
 		Cluster:                cluster,
 		connectionManagerMutex: &sync.Mutex{},
 		databaseCache:          cache.NewLFUCache(100),
+		keyCache:               cache.NewLFUCache(100),
 		mutex:                  &sync.Mutex{},
 		resources:              make(map[string]*DatabaseResources),
 		SecretsManager:         secretsManager,
@@ -197,6 +196,7 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 	}
 
 	d.databaseCache.Put(db.DatabaseID, db)
+	d.keyCache.Put(db.Name, db.DatabaseID)
 
 	return db, nil
 }
@@ -234,6 +234,7 @@ func (d *DatabaseManager) Delete(database *Database) error {
 	}
 
 	d.databaseCache.Delete(database.DatabaseID)
+	d.keyCache.Delete(database.Name)
 
 	// TODO: Removing all database storage may require the removal of a lot of files.
 	// How is this going to work with tiered storage? We also need to test that
@@ -277,8 +278,8 @@ func (d *DatabaseManager) Exists(name string) (bool, error) {
 }
 
 // Get a database instance by its ID.
-func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
-	if databaseId == SystemDatabaseID {
+func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
+	if databaseID == SystemDatabaseID {
 		d.mutex.Lock()
 		defer d.mutex.Unlock()
 
@@ -293,7 +294,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	}
 
 	// Check the database cache first
-	if database, found := d.databaseCache.Get(databaseId); found {
+	if database, found := d.databaseCache.Get(databaseID); found {
 		return database.(*Database), nil
 	}
 
@@ -309,7 +310,7 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 
 	err = db.QueryRow(
 		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
-		databaseId,
+		databaseID,
 	).Scan(
 		&database.ID,
 		&database.DatabaseID,
@@ -329,58 +330,77 @@ func (d *DatabaseManager) Get(databaseId string) (*Database, error) {
 	database.branchCache = cache.NewLFUCache(100)
 	d.mutex.Unlock()
 
-	err = d.databaseCache.Put(databaseId, database)
+	err = d.databaseCache.Put(database.DatabaseID, database)
 
 	if err != nil {
-		slog.Warn("Failed to cache database", "error", err, "databaseId", databaseId)
+		slog.Warn("Failed to cache database", "error", err, "databaseID", database.DatabaseID)
 	}
+
+	d.keyCache.Put(database.Name, database.DatabaseID)
 
 	return database, nil
 }
 
-// Get a database key by its key string.
-func (d *DatabaseManager) GetKey(databaseKey string) (*Branch, error) {
-	if value, ok := d.branchCache.Get(databaseKey); ok {
-		if dbKey, valid := value.(*Branch); valid {
-			return dbKey, nil
+func (d *DatabaseManager) GetByName(name string) (*Database, error) {
+	// Check the database cache first
+	if databaseID, found := d.keyCache.Get(name); found {
+		if database, found := d.databaseCache.Get(databaseID.(string)); found {
+			return database.(*Database), nil
 		}
 	}
 
-	db, err := d.SystemDatabase().DB()
+	// Get system database without holding the main mutex to avoid deadlock
+	systemDB := d.SystemDatabase()
+	db, err := systemDB.DB()
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get system database: %w", err)
 	}
 
-	branch := &Branch{}
+	var databaseID string
 
 	err = db.QueryRow(
-		"SELECT id, database_reference_id, parent_database_branch_reference_id,database_id, database_branch_id, name, key, settings, created_at, updated_at FROM database_branches WHERE key = ?",
-		databaseKey,
+		"SELECT database_id FROM databases WHERE name = ?",
+		name,
+	).Scan(&databaseID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	database := NewDatabase(d, "")
+
+	err = db.QueryRow(
+		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+		databaseID,
 	).Scan(
-		&branch.ID,
-		&branch.DatabaseReferenceID,
-		&branch.ParentDatabaseBranchReferenceID,
-		&branch.DatabaseID,
-		&branch.DatabaseBranchID,
-		&branch.Name,
-		&branch.Key,
-		&branch.Settings,
-		&branch.CreatedAt,
-		&branch.UpdatedAt,
+		&database.ID,
+		&database.DatabaseID,
+		&database.Name,
+		&database.PrimaryBranchReferenceID,
+		&database.Settings,
+		&database.CreatedAt,
+		&database.UpdatedAt,
 	)
 
 	if err != nil {
-		slog.Debug("Failed to get database key", "error", err, "key", databaseKey)
-
-		return nil, errors.New("failed to get database key")
+		return nil, err
 	}
 
-	if err := d.branchCache.Put(databaseKey, branch); err != nil {
-		slog.Warn("Failed to cache database key", "error", err)
+	d.mutex.Lock()
+	database.DatabaseManager = d
+	database.branchCache = cache.NewLFUCache(100)
+	d.mutex.Unlock()
+
+	err = d.databaseCache.Put(database.DatabaseID, database)
+
+	if err != nil {
+		slog.Warn("Failed to cache database", "error", err, "databaseID", database.DatabaseID)
 	}
 
-	return branch, nil
+	d.keyCache.Put(name, database.DatabaseID)
+
+	return database, nil
 }
 
 // Return the page log manager instance.

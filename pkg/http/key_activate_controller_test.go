@@ -32,7 +32,7 @@ func TestKeyActivateController(t *testing.T) {
 			},
 		})
 
-		response, statusCode, err := client.Send("/resources/keys/activate", "POST", map[string]any{
+		response, statusCode, err := client.Send("/v1/keys/activate", "POST", map[string]any{
 			"encryption_key": nextKey,
 		})
 

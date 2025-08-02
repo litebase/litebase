@@ -83,13 +83,13 @@ func TestGoWriteHook(t *testing.T) {
 
 		offsets := make([]int64, 0)
 
-		filesystem := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem()
+		filesystem := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
 
 		filesystem.SetWriteHook(func(offset int64, data []byte) {
 			offsets = append(offsets, offset)
 		})
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -109,7 +109,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -139,19 +139,19 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Force the database to checkpoint so data is written to disk
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		path := file.GetDatabaseFileDir(mock.DatabaseID, mock.BranchID)
+		path := file.GetDatabaseFileDir(mock.DatabaseID, mock.DatabaseBranchID)
 		pageCount := db.GetConnection().FileSystem().Metadata().PageCount
 
 		var expectedSize int64 = 4096 * pageCount
 		var directorySize int64
 
-		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
 		fileSystemDriver := dfs.FileSystem().Driver()
 
 		fileSystemDriver.Flush()
@@ -199,13 +199,13 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		}
 
 		// Force the database to checkpoint so data is written to disk
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.BranchID)
+		err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -252,7 +252,7 @@ func TestVfsVacuum(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		db, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -322,7 +322,7 @@ func TestVFSLocking(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		con1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		con1, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)
@@ -330,7 +330,7 @@ func TestVFSLocking(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(con1)
 
-		con2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.BranchID)
+		con2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatal(err)

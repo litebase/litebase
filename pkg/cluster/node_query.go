@@ -7,9 +7,10 @@ import (
 type NodeQueryBuilder interface {
 	Build(
 		accessKeyId string,
-		databaseHash string,
 		databaseId string,
+		databaseName string,
 		branchId string,
+		branchName string,
 		statement string,
 		parameters []sqlite3.StatementParameter,
 		id string,

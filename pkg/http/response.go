@@ -32,3 +32,7 @@ func SuccessResponse(message string, data any, statusCode int) Response {
 		"data":    data,
 	}, statusCode, nil)
 }
+
+func (r Response) IsEmpty() bool {
+	return r.StatusCode == 0 && r.Stream == nil && len(r.Headers) == 0 && r.Body == nil
+}

@@ -42,7 +42,7 @@ func NewUserUpdateCmd(config *config.Configuration) *cobra.Command {
 
 				confirmed = true
 			} else {
-				res, err := api.Get(config, fmt.Sprintf("/resources/users/%s", username))
+				res, err := api.Get(config, fmt.Sprintf("/v1/users/%s", username))
 
 				if err != nil {
 					return err
@@ -123,7 +123,7 @@ func NewUserUpdateCmd(config *config.Configuration) *cobra.Command {
 				return nil
 			}
 
-			res, _, err := api.Put(config, fmt.Sprintf("/resources/users/%s", username), map[string]any{
+			res, _, err := api.Put(config, fmt.Sprintf("/v1/users/%s", username), map[string]any{
 				"statements": input.Statements,
 			})
 

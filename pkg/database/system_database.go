@@ -122,11 +122,43 @@ func (s *SystemDatabase) init() {
 			database_id TEXT,
 			database_branch_id TEXT,
 			name TEXT,
-			key TEXT,
 			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT,
 			FOREIGN KEY (database_reference_id) REFERENCES databases(id) ON DELETE CASCADE
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create index on database_reference_id and the branch name.
+	_, err = db.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_database_branches_database_reference_id_name 
+		ON database_branches (database_reference_id, name)`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create the database backups table if it doesn't exist.
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS database_backups
+		(
+			id INTEGER PRIMARY KEY, 
+			database_reference_id INTEGER,
+			database_branch_reference_id INTEGER,
+			database_id TEXT,
+			database_branch_id TEXT,
+			restore_point_timestamp INTEGER,
+			restore_point_page_count INTEGER,
+			size INTEGER,
+			created_at TEXT,
+			FOREIGN KEY (database_reference_id) REFERENCES databases(id) ON DELETE CASCADE,
+			FOREIGN KEY (database_branch_reference_id) REFERENCES database_branches(id) ON DELETE CASCADE
 		)
 		`,
 	)

@@ -11,7 +11,7 @@ import (
 
 func TestNodeTickMiddleware(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		request, err := http.NewRequest("GET", "/resources/users", nil)
+		request, err := http.NewRequest("GET", "/users", nil)
 
 		lastActive := app.Cluster.Node().LastActive
 

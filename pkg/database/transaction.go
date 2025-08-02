@@ -45,7 +45,7 @@ func NewTransaction(
 ) (*Transaction, error) {
 	connection, err := databaseManager.ConnectionManager().Get(
 		databaseKey.DatabaseID,
-		databaseKey.BranchID,
+		databaseKey.DatabaseBranchID,
 	)
 
 	if err != nil {

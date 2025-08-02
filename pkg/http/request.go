@@ -2,7 +2,9 @@ package http
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -157,31 +159,51 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 }
 
 // Return a database key for this request.
-func (r *Request) DatabaseKey() *auth.DatabaseKey {
+func (r *Request) DatabaseKey() (*auth.DatabaseKey, Response) {
 	if r.databaseKey != nil {
-		return r.databaseKey
+		return r.databaseKey, Response{}
 	}
 
-	// Get the database key from the subdomain
-	key := r.Param("databaseKey")
+	databaseName := r.Param("databaseName")
 
-	if key == "" {
-		return nil
+	if databaseName == "" {
+		return nil, ErrValidDatabaseNameRequiredResponse
 	}
 
-	branch, err := r.databaseManager.GetKey(key)
+	branchName := r.Param("branchName")
+
+	if branchName == "" {
+		return nil, ErrValidBranchNameRequiredResponse
+	}
+
+	db, err := r.databaseManager.GetByName(databaseName)
 
 	if err != nil {
-		return nil
+		if err == sql.ErrNoRows {
+			return nil, NotFoundResponse(errors.New("database not found"))
+		}
+
+		return nil, BadRequestResponse(err)
+	}
+
+	branch, err := db.Branch(branchName)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, NotFoundResponse(errors.New("branch not found"))
+		}
+
+		return nil, BadRequestResponse(err)
 	}
 
 	r.databaseKey = auth.NewDatabaseKey(
-		branch.DatabaseID,
+		db.DatabaseID,
+		db.Name,
 		branch.DatabaseBranchID,
-		branch.Key,
+		branch.Name,
 	)
 
-	return r.databaseKey
+	return r.databaseKey, Response{}
 }
 
 // Get a value from the request body by its key.

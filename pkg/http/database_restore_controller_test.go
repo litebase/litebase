@@ -26,9 +26,9 @@ func TestDatabaseRestoreController(t *testing.T) {
 		source := test.MockDatabase(server.App)
 		target := test.MockDatabase(server.App)
 
-		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
 
-		sourceDb, err := server.App.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+		sourceDb, err := server.App.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -37,7 +37,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		defer server.App.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -50,7 +50,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -67,7 +67,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 			t.Fatalf("failed to insert row: %v", err)
 		}
 
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -111,11 +111,19 @@ func TestDatabaseRestoreController(t *testing.T) {
 			},
 		})
 
-		resp, responseCode, err := client.Send(fmt.Sprintf("/%s/restore", source.DatabaseKey.Key), "POST", map[string]any{
-			"target_database_id":        target.DatabaseID,
-			"target_database_branch_id": target.BranchID,
-			"timestamp":                 strconv.FormatInt(restorePoint.Timestamp, 10),
-		})
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/restore",
+				source.DatabaseName,
+				source.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"target_database":        target.DatabaseName,
+				"target_database_branch": target.BranchName,
+				"timestamp":              strconv.FormatInt(restorePoint.Timestamp, 10),
+			},
+		)
 
 		if err != nil {
 			t.Fatalf("Failed to make request: %v", err)
@@ -131,7 +139,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		}
 
 		// Ensure the target database has the restored data
-		targetDB, err := server.App.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.BranchID)
+		targetDB, err := server.App.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("failed to get target database connection: %v", err)
@@ -179,9 +187,9 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 
 		source := test.MockDatabase(server.App)
 
-		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.BranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
 
-		sourceDb, err := server.App.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.BranchID)
+		sourceDb, err := server.App.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -190,7 +198,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 		defer server.App.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -203,7 +211,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -221,7 +229,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 				t.Fatalf("failed to insert row: %v", err)
 			}
 
-			err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.BranchID)
+			err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
@@ -268,11 +276,19 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 
 			target := test.MockDatabase(server.App)
 
-			resp, responseCode, err := client.Send(fmt.Sprintf("/%s/restore", source.DatabaseKey.Key), "POST", map[string]any{
-				"target_database_id":        target.DatabaseID,
-				"target_database_branch_id": target.BranchID,
-				"timestamp":                 strconv.FormatInt(restorePoint.Timestamp, 10),
-			})
+			resp, responseCode, err := client.Send(
+				fmt.Sprintf(
+					"/v1/databases/%s/%s/restore",
+					source.DatabaseName,
+					source.BranchName,
+				),
+				"POST",
+				map[string]any{
+					"target_database":        target.DatabaseName,
+					"target_database_branch": target.BranchName,
+					"timestamp":              strconv.FormatInt(restorePoint.Timestamp, 10),
+				},
+			)
 
 			if err != nil {
 				t.Fatalf("Failed to make request: %v", err)
@@ -288,7 +304,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			}
 
 			// Ensure the target database has the restored data
-			targetDB, err := server.App.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.BranchID)
+			targetDB, err := server.App.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("failed to get target database connection: %v", err)

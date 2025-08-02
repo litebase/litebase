@@ -13,7 +13,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		request, err := http.NewRequest("GET", "http://localhost/resources/users", nil)
+		request, err := http.NewRequest("GET", "http://localhost/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
@@ -32,7 +32,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
 		}
 
-		request, err = http.NewRequest("GET", "/resources/users", nil)
+		request, err = http.NewRequest("GET", "/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
@@ -51,7 +51,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			t.Fatalf("Expected status code %d, got %d", 400, res.StatusCode)
 		}
 
-		request, err = http.NewRequest("GET", "http://foo.dev/resources/users", nil)
+		request, err = http.NewRequest("GET", "http://foo.dev/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
@@ -70,7 +70,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			t.Fatalf("Expected status code %d, got %d", 403, res.StatusCode)
 		}
 
-		request, err = http.NewRequest("GET", "http://127.0.0.1:1234/resources/users", nil)
+		request, err = http.NewRequest("GET", "http://127.0.0.1:1234/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())
@@ -89,7 +89,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
 		}
 
-		request, err = http.NewRequest("GET", "http://192.168.0.1:1234/resources/users", nil)
+		request, err = http.NewRequest("GET", "http://192.168.0.1:1234/users", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to create request: %s", err.Error())

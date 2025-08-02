@@ -669,7 +669,7 @@ func (n *Node) SendEvent(node *NodeIdentifier, message NodeEvent) error {
 		return nil
 	}
 
-	url := fmt.Sprintf("http://%s/events", node.Address)
+	url := fmt.Sprintf("http://%s/v1/events", node.Address)
 
 	data, err := json.Marshal(message)
 

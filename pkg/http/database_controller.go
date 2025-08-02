@@ -36,15 +36,15 @@ func DatabaseIndexController(request *Request) Response {
 }
 
 func DatabaseShowController(request *Request) Response {
-	databaseId := request.Param("databaseId")
+	databaseName := request.Param("databaseName")
 
-	if databaseId == "" {
+	if databaseName == "" {
 		return ErrValidDatabaseIdRequiredResponse
 	}
 
 	// Authorize the request
 	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s", databaseId)},
+		[]string{fmt.Sprintf("database:%s", databaseName)},
 		[]auth.Privilege{auth.DatabasePrivilegeShow},
 	)
 
@@ -52,7 +52,7 @@ func DatabaseShowController(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	db, err := request.databaseManager.Get(databaseId)
+	db, err := request.databaseManager.GetByName(databaseName)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -70,7 +70,8 @@ func DatabaseShowController(request *Request) Response {
 }
 
 type DatabaseStoreRequest struct {
-	Name database.DatabaseName `json:"name" validate:"required,validateFn"`
+	Name          database.DatabaseName `json:"name" validate:"required,validateFn"`
+	PrimaryBranch string                `json:"primary_branch,omitempty" validate:"omitempty,lowercase,alphanum"`
 }
 
 func DatabaseStoreController(request *Request) Response {
@@ -92,8 +93,10 @@ func DatabaseStoreController(request *Request) Response {
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"name.required":   "The name field is required.",
-		"name.validateFn": "The name field can only contain alpha numeric characters, hyphens, or underscores.",
+		"name.required":            "The name field is required.",
+		"name.validateFn":          "The name field can only contain alpha numeric characters, hyphens, or underscores.",
+		"primary_branch.lowercase": "The primary branch name must be lowercase.",
+		"primary_branch.alphanum":  "The primary branch name can only contain alphanumeric characters.",
 	})
 
 	if validationErrors != nil {
@@ -113,10 +116,13 @@ func DatabaseStoreController(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("database '%s' already exists", databaseName))
 	}
 
-	db, err := request.databaseManager.Create(
-		string(databaseName),
-		request.cluster.Config.DefaultBranchName,
-	)
+	branchName := request.cluster.Config.DefaultBranchName
+
+	if input.(*DatabaseStoreRequest).PrimaryBranch != "" {
+		branchName = input.(*DatabaseStoreRequest).PrimaryBranch
+	}
+
+	db, err := request.databaseManager.Create(string(databaseName), branchName)
 
 	if err != nil {
 		return ServerErrorResponse(err)
@@ -130,23 +136,13 @@ func DatabaseStoreController(request *Request) Response {
 }
 
 func DatabaseDestroyController(request *Request) Response {
-	databaseId := request.Param("databaseId")
+	databaseName := request.Param("databaseName")
 
-	if databaseId == "" {
-		return ErrValidDatabaseIdRequiredResponse
+	if databaseName == "" {
+		return ErrValidDatabaseNameRequiredResponse
 	}
 
-	// Authorize the request
-	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s", databaseId)},
-		[]auth.Privilege{auth.DatabasePrivilegeManage},
-	)
-
-	if err != nil {
-		return ForbiddenResponse(err)
-	}
-
-	db, err := request.databaseManager.Get(databaseId)
+	db, err := request.databaseManager.GetByName(databaseName)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -156,10 +152,21 @@ func DatabaseDestroyController(request *Request) Response {
 		return BadRequestResponse(err)
 	}
 
+	// Authorize the request
+	err = request.Authorize(
+		[]string{fmt.Sprintf("database:%s", db.DatabaseID)},
+		[]auth.Privilege{auth.DatabasePrivilegeManage},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	err = request.databaseManager.Delete(db)
 
 	if err != nil {
 		slog.Error("Failed to delete database", "error", err, "databaseId", db.DatabaseID)
+
 		return ServerErrorResponse(err)
 	}
 

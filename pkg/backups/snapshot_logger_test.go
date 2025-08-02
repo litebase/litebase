@@ -17,7 +17,7 @@ func TestSnapshotLogger(t *testing.T) {
 			logger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			if logger == nil {
@@ -28,8 +28,8 @@ func TestSnapshotLogger(t *testing.T) {
 				t.Fatalf("Expected databaseId %s, got %s", mock.DatabaseID, logger.DatabaseID)
 			}
 
-			if logger.BranchID != mock.BranchID {
-				t.Fatalf("Expected branchId %s, got %s", mock.BranchID, logger.BranchID)
+			if logger.BranchID != mock.DatabaseBranchID {
+				t.Fatalf("Expected branchId %s, got %s", mock.DatabaseBranchID, logger.BranchID)
 			}
 		})
 
@@ -38,7 +38,7 @@ func TestSnapshotLogger(t *testing.T) {
 			logger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 
 			if err := logger.Close(); err != nil {
@@ -49,11 +49,11 @@ func TestSnapshotLogger(t *testing.T) {
 		t.Run("GetSnapshot", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
 			checkpointerLogger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 			defer checkpointerLogger.Close()
 
@@ -82,7 +82,7 @@ func TestSnapshotLogger(t *testing.T) {
 
 		t.Run("GetSnapshots", func(t *testing.T) {
 			mock := test.MockDatabase(app)
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
 			keys := snapshotLogger.Keys()
 
 			if len(keys) != 0 {
@@ -114,7 +114,7 @@ func TestSnapshotLogger(t *testing.T) {
 
 		t.Run("GetSnapshotsWithRestorePoints", func(t *testing.T) {
 			mock := test.MockDatabase(app)
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.BranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
 
 			// Simulate writing a snapshot to the file
 			snapshotLogger.Log(time.Now().UTC().Add(-3*time.Second).UnixNano(), int64(1))
@@ -153,7 +153,7 @@ func TestSnapshotLogger(t *testing.T) {
 			logger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 			timestamps := make([]int64, 0)
 
@@ -214,7 +214,7 @@ func TestSnapshotLogger(t *testing.T) {
 			logger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
-				mock.BranchID,
+				mock.DatabaseBranchID,
 			)
 			timestamps := make([]int64, 0)
 
