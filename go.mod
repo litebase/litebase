@@ -17,7 +17,6 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20250402064820-d479899d8cbe
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.0
-	github.com/litebase/litebase-go/sql v0.0.0-20240630162320-6f3e2a5a5f7c
 	github.com/spf13/afero v1.14.0
 )
 
@@ -53,6 +52,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/litebase/litebase-go/sql v0.0.0-20250725191238-42aa754f0eb8 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/muesli/mango v0.1.0 // indirect
@@ -100,5 +100,3 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 )
-
-replace github.com/litebase/litebase-go/sql => ./pkg/litebase-go/sql

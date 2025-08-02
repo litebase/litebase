@@ -1,3 +1,0 @@
-[submodule "pkg/litebase-go"]
-	path = pkg/litebase-go
-	url = https://github.com/litebase/litebase-go
