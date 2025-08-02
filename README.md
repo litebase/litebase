@@ -8,7 +8,7 @@
 ---
 
 <div align="center">
-<a href="https://github.com/litebase/litebase/actions"><img src="https://github.com/litebase/litebase/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
+<a href="https://github.com/litebase/litebase/actions"><img src="https://github.com/litebase/litebase/actions/workflows/tests.yml/badge.svg" alt="Build Status"></a>
 </div>
 
 <br />
