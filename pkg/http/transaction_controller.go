@@ -59,7 +59,7 @@ func TransactionControllerStore(request *Request) Response {
 			"status":  "success",
 			"message": "Transaction created successfully",
 			"data": map[string]any{
-				"id":          transaction.Id,
+				"id":          transaction.ID,
 				"database_id": databaseKey.DatabaseID,
 				"branch_id":   databaseKey.DatabaseBranchID,
 				"created_at":  transaction.CreatedAt,
@@ -115,7 +115,7 @@ func TransactionControllerDestroy(request *Request) Response {
 		return BadRequestResponse(err)
 	}
 
-	defer transactionManager.Remove(transaction.Id)
+	defer transactionManager.Remove(transaction.ID)
 
 	err = transaction.Rollback()
 

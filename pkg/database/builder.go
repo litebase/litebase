@@ -55,7 +55,7 @@ func (qb *QueryBuilder) Build(
 		auth.NewDatabaseKey(databaseId, databaseName, branchId, branchName),
 		accessKey,
 		&QueryInput{
-			Id:         id,
+			ID:         id,
 			Parameters: parameters,
 			Statement:  statement,
 		},

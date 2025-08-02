@@ -64,7 +64,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 				&database.QueryInput{
 					Statement:  c.statement,
 					Parameters: c.parameters,
-					Id:         "",
+					ID:         "",
 				},
 			)
 

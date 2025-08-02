@@ -25,7 +25,7 @@ type Transaction struct {
 	databaseKey      *auth.DatabaseKey
 	databaseManager  *DatabaseManager
 	EndedAt          time.Time
-	Id               string
+	ID               string
 	queryChannel     chan TransactionQuery
 	StartedAt        time.Time
 	responseChannel  chan *QueryResponse
@@ -62,7 +62,7 @@ func NewTransaction(
 		connection:      connection,
 		databaseKey:     databaseKey,
 		databaseManager: databaseManager,
-		Id:              uuid.NewString(),
+		ID:              uuid.NewString(),
 		CreatedAt:       time.Now().UTC(),
 		queryChannel:    make(chan TransactionQuery, 1),
 		responseChannel: make(chan *QueryResponse, 1),
@@ -164,7 +164,7 @@ func (t *Transaction) ResolveQuery(query *Query, response *QueryResponse) error 
 
 	<-t.responseChannel
 
-	if response.id != query.Input.Id {
+	if response.id != query.Input.ID {
 		return ErrInvalidTransactionResponse
 	}
 

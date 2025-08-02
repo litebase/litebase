@@ -26,7 +26,7 @@ func TestNewQuery(t *testing.T) {
 					Type:  "INTEGER",
 					Value: int64(1),
 				}},
-				Id: "query123",
+				ID: "query123",
 			},
 		)
 
@@ -65,7 +65,7 @@ func TestResolve(t *testing.T) {
 					Type:  "INTEGER",
 					Value: int64(1),
 				}},
-				Id: "query123",
+				ID: "query123",
 			},
 		)
 

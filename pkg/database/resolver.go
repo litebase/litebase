@@ -56,7 +56,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			transaction, err = query.databaseManager.Resources(
 				query.DatabaseKey.DatabaseID,
 				query.DatabaseKey.DatabaseBranchID,
-			).TransactionManager().Get(string(query.Input.TransactionId))
+			).TransactionManager().Get(string(query.Input.TransactionID))
 
 			if err != nil {
 				return nil, err
@@ -68,7 +68,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			transaction, err = query.databaseManager.Resources(
 				query.DatabaseKey.DatabaseID,
 				query.DatabaseKey.DatabaseBranchID,
-			).TransactionManager().Get(string(query.Input.TransactionId))
+			).TransactionManager().Get(string(query.Input.TransactionID))
 
 			if err != nil {
 				return nil, err
@@ -132,14 +132,14 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			}
 		}
 
-		response.SetId(query.Input.Id)
+		response.SetID(query.Input.ID)
 		response.SetLatency(float64(time.Since(start)) / float64(time.Millisecond))
 
 		if transaction != nil || query.IsTransactional() {
 			if transaction != nil {
-				response.SetTransactionId(transaction.Id)
+				response.SetTransactionID(transaction.ID)
 			} else {
-				response.SetTransactionId(query.transaction.Id)
+				response.SetTransactionID(query.transaction.ID)
 			}
 		}
 
@@ -150,7 +150,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		}
 
 		response.SetChanges(changes)
-		response.SetLastInsertRowId(lastInsertRowID)
+		response.SetLastInsertRowID(lastInsertRowID)
 
 		if sqlite3Result != nil {
 			response.SetColumns(sqlite3Result.Columns)
@@ -209,7 +209,7 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryRespons
 				AccessKeyID: query.AccessKey.AccessKeyID,
 				BranchID:    query.DatabaseKey.DatabaseBranchID,
 				DatabaseID:  query.DatabaseKey.DatabaseID,
-				ID:          query.Input.Id,
+				ID:          query.Input.ID,
 				Statement:   query.Input.Statement,
 				Parameters:  query.Input.Parameters,
 			},
@@ -230,9 +230,9 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryRespons
 		response.SetChanges(primaryResponse.Changes)
 		response.SetColumns(primaryResponse.Columns)
 		response.SetError(primaryResponse.Error)
-		response.SetId(primaryResponse.ID)
+		response.SetID(primaryResponse.ID)
 		response.SetLatency(primaryResponse.Latency)
-		response.SetLastInsertRowId(primaryResponse.LastInsertRowID)
+		response.SetLastInsertRowID(primaryResponse.LastInsertRowID)
 		response.SetRowCount(primaryResponse.RowCount)
 		response.SetRows(primaryResponse.Rows)
 		response.SetWALSequence(primaryResponse.WALSequence)
