@@ -25,6 +25,8 @@ jobs:
             { name: 'auth', path: pkg/auth },
             { name: 'backups', path: pkg/backups },
             { name: 'cache', path: pkg/cache },
+            { name: 'cache', path: pkg/cli },
+            { name: 'cache', path: pkg/cli/cmd },
             { name: 'cluster', path: pkg/cluster },
             { name: 'database', path: pkg/database },
             { name: 'http', path: pkg/http },
