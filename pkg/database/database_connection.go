@@ -142,11 +142,11 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		context:           ctx,
 		databaseHash:      databaseHash,
 		databaseId:        databaseId,
-		fileSystem:        connectionManager.databaseManager.Resources(databaseId, branchId).FileSystem(),
+		fileSystem:        resources.FileSystem(),
 		id:                uuid.NewString(),
 		mutex:             &sync.Mutex{},
 		nodeId:            connectionManager.cluster.Node().ID,
-		pageLogger:        connectionManager.databaseManager.Resources(databaseId, branchId).PageLogger(),
+		pageLogger:        resources.PageLogger(),
 		resultPool:        resultPool,
 		statements:        sync.Map{},
 		tmpFileSystem:     connectionManager.cluster.TmpFS(),
@@ -469,32 +469,44 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 		return err
 	}
 
-	con.sqlite3, err = sqlite3.Open(
-		con.context,
-		path,
-		con.VFSHash(),
-		sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE,
-	)
+	// Open SQLite connection within the barriers to prevent corruption
+	err = con.checkpointer.CheckpointPassiveBarrier(func() error {
+		con.sqlite3, err = sqlite3.Open(
+			con.context,
+			path,
+			con.VFSHash(),
+			sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		// Set authorizer immediately after opening
+		con.SetAuthorizer()
+
+		// Set the authorizer for the connection
+		con.setTimestamps()
+
+		return nil
+	})
 
 	if err != nil {
 		log.Println("Error Opening Database Connection:", err)
 		return err
 	}
 
-	con.SetAuthorizer()
-
-	// TODO: Verify if this is the proper way to allow replicas to only read.
+	// TODO: Verify if this is will enforce replicas to only perform reads.
 	if !con.connectionManager.cluster.Node().IsPrimary() {
-		// log.Default().Println("Setting database locking mode to EXCLUSIVE")
 		// configStatements = append(configStatements, "PRAGMA query_only = true")
 	}
 
-	con.setTimestamps()
-
+	// Execute configuration statements with timestamps set
 	for _, statement := range DatabaseConnectionConfigStatements(con.config) {
 		_, err = con.sqliteConnection().Exec(con.context, statement)
 
 		if err != nil {
+			con.releaseTimestamps()
 			return err
 		}
 	}
@@ -560,14 +572,22 @@ func (con *DatabaseConnection) registerVFS() error {
 
 // Release a timestamp from the wal manager and page logger.
 func (con *DatabaseConnection) releaseTimestamps() {
-	// Release the timestamp from the WAL manager
-	con.walManager.Release(con.walTimestamp)
-
-	// Release the timestamp from the page logger
-	con.pageLogger.Release(con.walTimestamp)
+	// Release timestamps in reverse order of acquisition to avoid deadlocks
 
 	// Release the timestamp from the durable database file system
-	con.fileSystem.Release(con.transactionalTimestamp)
+	if con.fileSystem != nil {
+		con.fileSystem.Release(con.transactionalTimestamp)
+	}
+
+	// Release the timestamp from the page logger
+	if con.pageLogger != nil {
+		con.pageLogger.Release(con.walTimestamp)
+	}
+
+	// Release the timestamp from the WAL manager
+	if con.walManager != nil {
+		con.walManager.Release(con.walTimestamp)
+	}
 }
 
 // Return the sqlite3 result pool.
@@ -691,7 +711,10 @@ func (con *DatabaseConnection) setTimestamps() {
 	con.fileSystem.Acquire(con.transactionalTimestamp)
 
 	// Set timestamp on VFS for proper WAL file reading
-	con.vfs.SetTimestamps(con.walTimestamp, con.transactionalTimestamp)
+	// Only set if VFS is available to avoid nil pointer dereference
+	if con.vfs != nil {
+		con.vfs.SetTimestamps(con.walTimestamp, con.transactionalTimestamp)
+	}
 }
 
 // Return the underlying sqlite3 connection of the database connection.

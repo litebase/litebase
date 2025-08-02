@@ -46,7 +46,11 @@ func TestResolve(t *testing.T) {
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		_, err := db.GetConnection().Exec("CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		queryResponse := &database.QueryResponse{}
 		query, err := database.NewQuery(
@@ -83,7 +87,11 @@ func TestStatement(t *testing.T) {
 		db, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		_, err := db.GetConnection().Exec("CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		query := &database.Query{
 			Input: &database.QueryInput{
@@ -106,33 +114,3 @@ func TestStatement(t *testing.T) {
 		}
 	})
 }
-
-// func TestStatementOfBatchQuery(t *testing.T) {
-// 	test.RunWithApp(t, func(app *server.App) {
-// 		mock := test.MockDatabase(app)
-// 		db, _ := database.Get(mock.DatabaseID, mock.DatabaseBranchID, nil, false)
-
-// 		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []interface{}{})
-
-// 		db, _ = database.Get(mock.DatabaseID, mock.DatabaseBranchID, nil, false)
-
-// 		query := &Query{
-// 			Batch: []*Query{{
-// 				Database:           db,
-// 				OriginalStatement:  "SELECT * FROM users LIMIT ?",
-// 				OriginalParameters: "[1]",
-// 			}},
-// 			Database: db,
-// 		}
-
-// 		statement, err := query.Statement()
-
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		if statement != nil {
-// 			t.Fatal("Statement should be nil for a query with the batch field")
-// 		}
-// 	})
-// }

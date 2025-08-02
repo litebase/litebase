@@ -97,7 +97,11 @@ func TestGoWriteHook(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		_, err = db.GetConnection().Exec("CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if len(offsets) == 0 {
 			t.Errorf("SetWriteHook() failed, expected > 0, got %v", len(offsets))
@@ -122,11 +126,17 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		// test of the VFS file size and truncate.
 		for i := 1; i <= 3000; i++ {
 			// Create the table
-			test.RunQuery(db, fmt.Sprintf("CREATE TABLE users_%d (id INT, name TEXT)", i), []sqlite3.StatementParameter{})
+			_, err := db.GetConnection().Exec(
+				fmt.Sprintf("CREATE TABLE users_%d (id INT, name TEXT)", i),
+				[]sqlite3.StatementParameter{},
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			// Insert a row
-			test.RunQuery(
-				db,
+			_, err = db.GetConnection().Exec(
 				fmt.Sprintf("INSERT INTO users_%d (id, name) VALUES (?, ?)", i),
 				[]sqlite3.StatementParameter{{
 					Type:  "INTEGER",
@@ -136,6 +146,10 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 					Value: []byte("user"),
 				}},
 			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 
 		// Force the database to checkpoint so data is written to disk
@@ -198,7 +212,14 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 
 		for i := 3000; i > 2000; i-- {
 			// Drop the table
-			test.RunQuery(db, fmt.Sprintf("DROP TABLE users_%d", i), []sqlite3.StatementParameter{})
+			_, err := db.GetConnection().Exec(
+				fmt.Sprintf("DROP TABLE users_%d", i),
+				[]sqlite3.StatementParameter{},
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 
 		// Force the database to checkpoint so data is written to disk
@@ -271,7 +292,14 @@ func TestVfsVacuum(t *testing.T) {
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
 		// Create a table for users
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		_, err = db.GetConnection().Exec(
+			"CREATE TABLE users (id INT, name TEXT)",
+			[]sqlite3.StatementParameter{},
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// Insert 10000 rows
 		for i := range 10000 {
@@ -291,25 +319,24 @@ func TestVfsVacuum(t *testing.T) {
 			if err != nil {
 				log.Fatalf("Insert %d failed, expected nil, got %v", i, err)
 			}
-			// result := test.RunQuery(db, []byte("INSERT INTO users (id, name) VALUES (?, ?)"), []sqlite3.StatementParameter{
-			// 	{
-			// 		Type:  "INTEGER",
-			// 		Value: int64(i + 1),
-			// 	}, {
-			// 		Type:  "TEXT",
-			// 		Value: []byte("user"),
-			// 	},
-			// })
 		}
 
-		result := test.RunQuery(db, "SELECT * FROM users", []sqlite3.StatementParameter{})
+		result, err := db.GetConnection().Exec("SELECT * FROM users", []sqlite3.StatementParameter{})
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if len(result.Rows) != 10000 {
 			t.Errorf("Expected 10000 rows, got %v", len(result.Rows))
 		}
 
 		// Delete all rows
-		test.RunQuery(db, "DELETE FROM users", []sqlite3.StatementParameter{})
+		_, err = db.GetConnection().Exec("DELETE FROM users", []sqlite3.StatementParameter{})
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		err = db.GetConnection().Vacuum()
 
@@ -318,7 +345,11 @@ func TestVfsVacuum(t *testing.T) {
 		}
 
 		// Check if the database is empty
-		result = test.RunQuery(db, "SELECT * FROM users", []sqlite3.StatementParameter{})
+		result, err = db.GetConnection().Exec("SELECT * FROM users", []sqlite3.StatementParameter{})
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if len(result.Rows) != 0 {
 			t.Errorf("VACUUM failed, expected 0, got %v", len(result.Rows))

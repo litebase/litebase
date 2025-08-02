@@ -122,6 +122,16 @@ func (c *Checkpointer) CheckpointBarrier(f func() error) error {
 	return f()
 }
 
+// Create a passive barrier for checkpoint operations. This allows the provided
+// function to wait for the checkpoint mutex to be available without returning
+// an error if a checkpoint is already in progress.
+func (c *Checkpointer) CheckpointPassiveBarrier(f func() error) error {
+	c.checkpointMutex.Lock()
+	defer c.checkpointMutex.Unlock()
+
+	return f()
+}
+
 // Add a page to the checkpoint.
 func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
 	c.lock.Lock()

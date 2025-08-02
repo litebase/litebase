@@ -23,7 +23,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
-		test.RunQuery(db, "CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		db.GetConnection().Exec("CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
 
 		cases := []struct {
 			statement  string
