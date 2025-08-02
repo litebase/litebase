@@ -181,13 +181,17 @@ func TestTransactionController_2(t *testing.T) {
 				fmt.Sprintf("/v1/databases/%s/%s/query", database.DatabaseName, database.BranchName),
 				"POST",
 				map[string]any{
-					"id":             uuid.NewString(),
-					"transaction_id": transactionId,
-					"statement":      "INSERT INTO test (id, value) VALUES (?, ?)",
-					"parameters": []map[string]any{
+					"queries": []map[string]any{
 						{
-							"type":  "TEXT",
-							"value": "test",
+							"id":             uuid.NewString(),
+							"transaction_id": transactionId,
+							"statement":      "INSERT INTO test (id, value) VALUES (?, ?)",
+							"parameters": []map[string]any{
+								{
+									"type":  "TEXT",
+									"value": "test",
+								},
+							},
 						},
 					},
 				},
@@ -211,10 +215,14 @@ func TestTransactionController_2(t *testing.T) {
 				fmt.Sprintf("/v1/databases/%s/%s/query", database.DatabaseName, database.BranchName),
 				"POST",
 				map[string]any{
-					"id":             uuid.NewString(),
-					"transaction_id": transactionId,
-					"statement":      "SELECT COUNT(*) FROM test",
-					"parameters":     []map[string]any{},
+					"queries": []map[string]any{
+						map[string]any{
+							"id":             uuid.NewString(),
+							"transaction_id": transactionId,
+							"statement":      "SELECT COUNT(*) FROM test",
+							"parameters":     []map[string]any{},
+						},
+					},
 				},
 			)
 
@@ -231,7 +239,7 @@ func TestTransactionController_2(t *testing.T) {
 				t.Errorf("Unexpected response: %v", countResponse)
 			}
 
-			data, ok := countResponse["data"].(map[string]any)
+			data, ok := countResponse["data"].([]any)[0].(map[string]any)
 
 			if !ok {
 				t.Fatal("Count response data is not a map")
