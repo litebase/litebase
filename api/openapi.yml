@@ -1,0 +1,1873 @@
+openapi: 3.1.0
+info:
+  title: Litebase Database API
+  description: |
+    Litebase is a distributed SQLite database management system with branching capabilities.
+    This API provides comprehensive access to database operations, user management, access control,
+    and cluster administration.
+  version: 1.0.0
+  contact:
+    name: Litebase Support
+    url: https://github.com/litebase/litebase
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+security:
+  - AccessKeyAuth: []
+  - BasicAuth: []
+
+paths:
+  /v1/status:
+    get:
+      summary: Get cluster status
+      description: Retrieve the current status and health of the cluster
+      operationId: getClusterStatus
+      tags:
+        - Cluster
+      security:
+        - AccessKeyAuth: []
+      responses:
+        '200':
+          description: Cluster status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/health:
+    get:
+      summary: Health check endpoint
+      description: Check if the service is healthy and responding
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /v1/users:
+    get:
+      summary: List all users
+      description: Retrieve a list of all users in the system
+      operationId: listUsers
+      tags:
+        - Users
+      security:
+        - AccessKeyAuth: []
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      summary: Create a new user
+      description: Create a new user with specified access statements
+      operationId: createUser
+      tags:
+        - Users
+      security:
+        - AccessKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/users/{username}:
+    get:
+      summary: Get user details
+      description: Retrieve details for a specific user
+      operationId: getUser
+      tags:
+        - Users
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          description: Username to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      summary: Update user
+      description: Update an existing user's access statements
+      operationId: updateUser
+      tags:
+        - Users
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          description: Username to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      summary: Delete user
+      description: Delete an existing user
+      operationId: deleteUser
+      tags:
+        - Users
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          description: Username to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: User deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/access-keys:
+    get:
+      summary: List access keys
+      description: Retrieve a list of all access keys
+      operationId: listAccessKeys
+      tags:
+        - Access Keys
+      security:
+        - AccessKeyAuth: []
+      responses:
+        '200':
+          description: Access keys retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            access_key_id:
+                              type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      summary: Create access key
+      description: Create a new access key with specified permissions
+      operationId: createAccessKey
+      tags:
+        - Access Keys
+      security:
+        - AccessKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccessKeyRequest'
+      responses:
+        '201':
+          description: Access key created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          access_key_id:
+                            type: string
+                          access_key_secret:
+                            type: string
+                          description:
+                            type: string
+                          statements:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/AccessKeyStatement'
+                          created_at:
+                            type: string
+                            format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/access-keys/{accessKeyId}:
+    get:
+      summary: Get access key details
+      description: Retrieve details for a specific access key
+      operationId: getAccessKey
+      tags:
+        - Access Keys
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: accessKeyId
+          in: path
+          required: true
+          description: Access key ID to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Access key retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AccessKey'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      summary: Update access key
+      description: Update an existing access key
+      operationId: updateAccessKey
+      tags:
+        - Access Keys
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: accessKeyId
+          in: path
+          required: true
+          description: Access key ID to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAccessKeyRequest'
+      responses:
+        '200':
+          description: Access key updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AccessKey'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      summary: Delete access key
+      description: Delete an existing access key
+      operationId: deleteAccessKey
+      tags:
+        - Access Keys
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: accessKeyId
+          in: path
+          required: true
+          description: Access key ID to delete
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Access key deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/databases:
+    get:
+      summary: List databases
+      description: Retrieve a list of all databases
+      operationId: listDatabases
+      tags:
+        - Databases
+      security:
+        - AccessKeyAuth: []
+      responses:
+        '200':
+          description: Databases retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Database'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      summary: Create database
+      description: Create a new database
+      operationId: createDatabase
+      tags:
+        - Databases
+      security:
+        - AccessKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDatabaseRequest'
+      responses:
+        '200':
+          description: Database created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Database'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/databases/{databaseId}:
+    get:
+      summary: Get database details
+      description: Retrieve details for a specific database
+      operationId: getDatabase
+      tags:
+        - Databases
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseId
+          in: path
+          required: true
+          description: Database ID to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Database retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Database'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete database
+      description: Delete an existing database
+      operationId: deleteDatabase
+      tags:
+        - Databases
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseId
+          in: path
+          required: true
+          description: Database ID to delete
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Database deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/databases/{databaseId}/branches:
+    get:
+      summary: List database branches
+      description: Retrieve a list of all branches for a specific database
+      operationId: listDatabaseBranches
+      tags:
+        - Database Branches
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseId
+          in: path
+          required: true
+          description: Database ID to list branches for
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Database branches retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DatabaseBranch'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    post:
+      summary: Create database branch
+      description: Create a new branch for a database
+      operationId: createDatabaseBranch
+      tags:
+        - Database Branches
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseId
+          in: path
+          required: true
+          description: Database ID to create branch for
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDatabaseBranchRequest'
+      responses:
+        '200':
+          description: Database branch created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DatabaseBranch'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/databases/{databaseName}/{branchName}:
+    get:
+      summary: Get database branch details
+      description: Retrieve details for a specific database branch
+      operationId: getDatabaseBranch
+      tags:
+        - Database Branches
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Database branch retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DatabaseBranch'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete database branch
+      description: Delete an existing database branch
+      operationId: deleteDatabaseBranch
+      tags:
+        - Database Branches
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Database branch deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/databases/{databaseName}/{branchName}/query:
+    post:
+      summary: Execute SQL query
+      description: Execute a SQL query against a specific database branch
+      operationId: executeQuery
+      tags:
+        - Queries
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/QueryResult'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/databases/{databaseName}/{branchName}/query/stream:
+    post:
+      summary: Execute streaming SQL query
+      description: Execute a SQL query with streaming response
+      operationId: executeStreamingQuery
+      tags:
+        - Queries
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+      responses:
+        '200':
+          description: Streaming query initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResult'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/databases/{databaseName}/{branchName}/transactions:
+    post:
+      summary: Begin transaction
+      description: Begin a new database transaction
+      operationId: beginTransaction
+      tags:
+        - Transactions
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transaction started successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Transaction'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/databases/{databaseName}/{branchName}/transactions/{id}:
+    delete:
+      summary: Rollback transaction
+      description: Rollback an existing transaction
+      operationId: rollbackTransaction
+      tags:
+        - Transactions
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transaction rolled back successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/databases/{databaseName}/{branchName}/transactions/{id}/commit:
+    post:
+      summary: Commit transaction
+      description: Commit an existing transaction
+      operationId: commitTransaction
+      tags:
+        - Transactions
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transaction committed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/databases/{databaseName}/{branchName}/backups:
+    post:
+      summary: Create backup
+      description: Create a backup of a database branch
+      operationId: createBackup
+      tags:
+        - Backups
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Backup'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/databases/{databaseName}/{branchName}/backups/{timestamp}:
+    get:
+      summary: Get backup details
+      description: Retrieve details for a specific backup
+      operationId: getBackup
+      tags:
+        - Backups
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+        - name: timestamp
+          in: path
+          required: true
+          description: Backup timestamp
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Backup retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Backup'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete backup
+      description: Delete an existing backup
+      operationId: deleteBackup
+      tags:
+        - Backups
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+        - name: timestamp
+          in: path
+          required: true
+          description: Backup timestamp
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Backup deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/databases/{databaseName}/{branchName}/restore:
+    post:
+      summary: Restore database
+      description: Restore a database branch from a backup
+      operationId: restoreDatabase
+      tags:
+        - Backups
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '200':
+          description: Database restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/databases/{databaseName}/{branchName}/snapshots:
+    get:
+      summary: List snapshots
+      description: Retrieve a list of snapshots for a database branch
+      operationId: listSnapshots
+      tags:
+        - Snapshots
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Snapshots retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Snapshot'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/databases/{databaseName}/{branchName}/snapshots/{timestamp}:
+    get:
+      summary: Get snapshot details
+      description: Retrieve details for a specific snapshot
+      operationId: getSnapshot
+      tags:
+        - Snapshots
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+        - name: timestamp
+          in: path
+          required: true
+          description: Snapshot timestamp
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Snapshot retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Snapshot'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /v1/databases/{databaseName}/{branchName}/metrics/query:
+    get:
+      summary: Get query metrics
+      description: Retrieve query performance metrics for a database branch
+      operationId: getQueryMetrics
+      tags:
+        - Metrics
+      security:
+        - AccessKeyAuth: []
+      parameters:
+        - name: databaseName
+          in: path
+          required: true
+          description: Database name
+          schema:
+            type: string
+        - name: branchName
+          in: path
+          required: true
+          description: Branch name
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          description: Start timestamp
+          schema:
+            type: integer
+            format: int64
+        - name: end
+          in: query
+          required: true
+          description: End timestamp
+          schema:
+            type: integer
+            format: int64
+        - name: step
+          in: query
+          description: 'Step interval (default: 1)'
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Query metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      meta:
+                        type: object
+                        properties:
+                          keys:
+                            type: array
+                            items:
+                              type: string
+                      data:
+                        type: array
+                        items:
+                          type: object
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/keys:
+    post:
+      summary: Store encryption key
+      description: Store a new encryption key for the cluster
+      operationId: storeKey
+      tags:
+        - Keys
+      security:
+        - AccessKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreKeyRequest'
+      responses:
+        '200':
+          description: Key stored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/keys/activate:
+    post:
+      summary: Activate encryption key
+      description: Activate a stored encryption key
+      operationId: activateKey
+      tags:
+        - Keys
+      security:
+        - AccessKeyAuth: []
+      responses:
+        '200':
+          description: Key activated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # Internal cluster operations
+  /v1/cluster/connection:
+    post:
+      summary: Establish cluster connection
+      description: Internal endpoint for establishing connections between cluster nodes
+      operationId: clusterConnection
+      tags:
+        - Cluster
+      security: []
+      responses:
+        '200':
+          description: Connection established successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/cluster/election:
+    post:
+      summary: Cluster leader election
+      description: Internal endpoint for cluster leader election process
+      operationId: clusterElection
+      tags:
+        - Cluster
+      security: []
+      responses:
+        '200':
+          description: Election process completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/cluster/members:
+    post:
+      summary: Add cluster member
+      description: Add a new member to the cluster
+      operationId: addClusterMember
+      tags:
+        - Cluster
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                  description: Address of the new cluster member
+              required:
+                - address
+      responses:
+        '201':
+          description: Cluster member added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/cluster/members/{address}:
+    delete:
+      summary: Remove cluster member
+      description: Remove a member from the cluster
+      operationId: removeClusterMember
+      tags:
+        - Cluster
+      security: []
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: Address of the cluster member to remove
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Cluster member removed successfully
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/cluster/primary:
+    post:
+      summary: Set cluster primary
+      description: Internal endpoint for setting the primary node in the cluster
+      operationId: setClusterPrimary
+      tags:
+        - Cluster
+      security: []
+      responses:
+        '200':
+          description: Primary node set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/events:
+    post:
+      summary: Store event
+      description: Internal endpoint for storing cluster events
+      operationId: storeEvent
+      tags:
+        - Events
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  description: Type of the event
+                data:
+                  type: object
+                  description: Event data
+                  additionalProperties: true
+              required:
+                - type
+                - data
+      responses:
+        '201':
+          description: Event stored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    AccessKeyAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication using access key
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: Basic authentication for root user
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    AccessKeyStatement:
+      type: object
+      properties:
+        effect:
+          type: string
+          enum: [Allow, Deny]
+        resource:
+          type: string
+          description: Resource pattern (e.g., "*", "database:*", "database:mydb:branch:main")
+        actions:
+          type: array
+          items:
+            type: string
+          description: List of allowed/denied actions
+      required:
+        - effect
+        - resource
+        - actions
+
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+        statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessKeyStatement'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 8
+        statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessKeyStatement'
+          minItems: 1
+      required:
+        - username
+        - password
+        - statements
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessKeyStatement'
+          minItems: 1
+      required:
+        - statements
+
+    AccessKey:
+      type: object
+      properties:
+        access_key_id:
+          type: string
+        description:
+          type: string
+        statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessKeyStatement'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateAccessKeyRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 255
+        statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessKeyStatement'
+          minItems: 1
+          maxItems: 100
+      required:
+        - statements
+
+    UpdateAccessKeyRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          maxLength: 255
+        statements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessKeyStatement'
+          minItems: 1
+          maxItems: 100
+      required:
+        - statements
+
+    Database:
+      type: object
+      properties:
+        database_id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateDatabaseRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+      required:
+        - name
+
+    DatabaseBranch:
+      type: object
+      properties:
+        database_branch_id:
+          type: string
+        name:
+          type: string
+        database_id:
+          type: string
+        parent_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateDatabaseBranchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+        parent_name:
+          type: string
+      required:
+        - name
+
+    QueryParameter:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [TEXT, INTEGER, REAL, BLOB]
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: integer
+            - type: boolean
+      required:
+        - type
+        - value
+
+    QueryRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        statement:
+          type: string
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryParameter'
+        transaction_id:
+          type: string
+          description: Optional transaction ID for transactional queries
+      required:
+        - id
+        - statement
+        - parameters
+
+    QueryResult:
+      type: object
+      properties:
+        id:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        rows_affected:
+          type: integer
+        last_insert_row_id:
+          type: integer
+        latency:
+          type: number
+          format: float
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        database_id:
+          type: string
+        branch_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+
+    Backup:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+        database_id:
+          type: string
+        branch_id:
+          type: string
+        size:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+
+    RestoreRequest:
+      type: object
+      properties:
+        target_database_id:
+          type: string
+        target_database_branch_id:
+          type: string
+        timestamp:
+          type: string
+      required:
+        - target_database_id
+        - target_database_branch_id
+        - timestamp
+
+    Snapshot:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+        database_id:
+          type: string
+        branch_id:
+          type: string
+        size:
+          type: integer
+          format: int64
+
+    StoreKeyRequest:
+      type: object
+      properties:
+        encryption_key:
+          type: string
+        signature:
+          type: string
+          description: HMAC signature of the encryption key
+      required:
+        - encryption_key
+        - signature
+
+  responses:
+    BadRequestError:
+      description: Bad request - invalid input or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    UnauthorizedError:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ForbiddenError:
+      description: Forbidden - insufficient privileges
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ValidationError:
+      description: Validation error - invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Cluster
+    description: Cluster management and status operations
+  - name: Users
+    description: User management operations
+  - name: Access Keys
+    description: Access key management for authentication
+  - name: Databases
+    description: Database management operations
+  - name: Database Branches
+    description: Database branch management operations
+  - name: Queries
+    description: SQL query execution operations
+  - name: Transactions
+    description: Database transaction management
+  - name: Backups
+    description: Database backup and restore operations
+  - name: Snapshots
+    description: Database snapshot operations
+  - name: Metrics
+    description: Performance and usage metrics
+  - name: Keys
+    description: Encryption key management
+  - name: Events
+    description: Internal cluster event management
