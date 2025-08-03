@@ -1123,13 +1123,6 @@ func TestDatabaseConnection(t *testing.T) {
 					return err
 				}
 
-				statement, err := connection.GetConnection().Prepare(context.Background(), "INSERT INTO test (name) VALUES ('test')")
-
-				if err != nil {
-					log.Println(err)
-					return err
-				}
-
 				insertingName <- struct{}{}
 
 				<-readingName
@@ -1139,7 +1132,7 @@ func TestDatabaseConnection(t *testing.T) {
 
 				// Insert 1 row
 				err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
-					err = statement.Sqlite3Statement.Exec(nil)
+					_, err = con.Exec("INSERT INTO test (name) VALUES ('test')", nil)
 
 					if err != nil {
 						return err
