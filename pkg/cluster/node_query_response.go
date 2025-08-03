@@ -18,10 +18,10 @@ type NodeQueryResponse interface {
 	Rows() [][]*sqlite3.Column
 	Reset()
 	SetError(err string)
-	SetId(id string)
+	SetID(id string)
 	ToMap() map[string]interface{}
 	ToJSON() ([]byte, error)
-	TransactionId() string
+	TransactionID() string
 	WALSequence() int64
 	WALTimestamp() int64
 	WriteJson(w io.Writer) error

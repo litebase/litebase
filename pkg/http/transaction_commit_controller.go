@@ -57,7 +57,7 @@ func TransactionCommitController(request *Request) Response {
 		return BadRequestResponse(err)
 	}
 
-	defer transactionManager.Remove(transaction.Id)
+	defer transactionManager.Remove(transaction.ID)
 
 	err = transaction.Commit()
 

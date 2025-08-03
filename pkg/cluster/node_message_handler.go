@@ -159,7 +159,7 @@ func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 		Latency:         response.Latency(),
 		RowCount:        response.RowCount(),
 		Rows:            response.Rows(),
-		TransactionID:   response.TransactionId(),
+		TransactionID:   response.TransactionID(),
 		WALSequence:     response.WALSequence(),
 		WALTimestamp:    response.WALTimestamp(),
 	}

@@ -2,6 +2,7 @@ package validation
 
 import (
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ func getValidator() *validator.Validate {
 			if name == "_" {
 				return ""
 			}
+
 			return name
 		})
 	})
@@ -67,7 +69,6 @@ func Validate(input any, messages map[string]string) map[string][]string {
 						if number, err := strconv.Atoi(part); err == nil {
 							parts[i] = "*"
 							partNumbers = append(partNumbers, number)
-							break
 						}
 					}
 
@@ -75,6 +76,7 @@ func Validate(input any, messages map[string]string) map[string][]string {
 					messageKey := fmt.Sprintf("%s.%s", wildcardKey, tag)
 
 					if messages[messageKey] == "" {
+						slog.Debug("Validation error message not found", "key", messageKey)
 						continue
 					}
 

@@ -117,13 +117,13 @@ func processInput(
 
 	defer database.PutQuery(requestQuery)
 
-	if requestQuery.Input.TransactionId != "" &&
+	if requestQuery.Input.TransactionID != "" &&
 		!requestQuery.IsTransactionEnd() &&
 		!requestQuery.IsTransactionRollback() {
 		transaction, err = request.databaseManager.Resources(
 			databaseKey.DatabaseID,
 			databaseKey.DatabaseBranchID,
-		).TransactionManager().Get(string(requestQuery.Input.TransactionId))
+		).TransactionManager().Get(string(requestQuery.Input.TransactionID))
 
 		if err != nil {
 			return err
@@ -297,19 +297,21 @@ func handleQueryStreamRequest(
 	}
 
 	validationErrors := validation.Validate(queryInput, map[string]string{
-		"id.required":                 "The query ID field is required.",
-		"parameters.required":         "The parameters field is required.",
-		"parameters.*.type.required":  "The parameter type field is required.",
-		"parameters.*.type.oneof":     "The parameter type field must be one of the allowed values.",
-		"parameters.*.value.required": "The parameter value field is required.",
-		"statement.required":          "The SQL statement field is required.",
-		"statement.min":               "The SQL statement field must be at least 1 character long.",
+		"id.required":                        "The query ID field is required.",
+		"parameters.required":                "The parameters field is required.",
+		"parameters.*.type.required":         "The parameter type field is required.",
+		"parameters.*.type.oneof":            "The parameter type field must be one of the allowed values.",
+		"parameters.*.value.required":        "The parameter value field is required.",
+		"parameters.*.value.required_unless": "The parameter value field is required unless the type is NULL.",
+		"statement.required":                 "The SQL statement field is required.",
+		"statement.min":                      "The SQL statement field must be at least 1 character long.",
+		"transaction_id.required":            "The transaction ID field is required.",
 	})
 
 	if validationErrors != nil {
 		jsonValidationErrors, _ := json.Marshal(validationErrors)
 
-		response.SetId(queryInput.Id)
+		response.SetID(queryInput.ID)
 		response.SetError(fmt.Sprintf("Invalid input: %s", jsonValidationErrors))
 
 		responseBytes, _ := response.Encode(responseBuffer, rowsBuffer, columnsBuffer)

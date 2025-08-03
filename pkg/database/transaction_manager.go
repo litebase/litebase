@@ -44,7 +44,7 @@ func (d *TransactionManager) Create(
 	}
 
 	d.mutex.Lock()
-	d.transactions[transaction.Id] = transaction
+	d.transactions[transaction.ID] = transaction
 	d.mutex.Unlock()
 
 	return transaction, nil

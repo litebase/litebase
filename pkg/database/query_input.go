@@ -3,6 +3,7 @@ package database
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 
 	"github.com/litebase/litebase/internal/utils"
@@ -24,36 +25,36 @@ QueryInput is a struct that represents the input of a query.
 | 16 + n + m + p  | q      | The transaction id                    |
 */
 type QueryInput struct {
-	Id            string                       `json:"id" validate:"required,min=1"`
-	Parameters    []sqlite3.StatementParameter `json:"parameters" validate:"omitempty,required,dive,required"`
+	ID            string                       `json:"id" validate:"required,min=1"`
+	Parameters    []sqlite3.StatementParameter `json:"parameters" validate:"omitempty,required,dive"`
 	Statement     string                       `json:"statement" validate:"required"`
-	TransactionId string                       `json:"transaction_id" validate:"omitempty,required"`
+	TransactionID string                       `json:"transaction_id" validate:"omitempty,required"`
 }
 
 func NewQueryInput(
 	id string,
 	statement string,
 	parameters []sqlite3.StatementParameter,
-	transactionId string,
+	transactionID string,
 ) *QueryInput {
 	return &QueryInput{
-		Id:            id,
+		ID:            id,
 		Statement:     statement,
 		Parameters:    parameters,
-		TransactionId: transactionId,
+		TransactionID: transactionID,
 	}
 }
 
 func (q *QueryInput) Decode(buffer, parametersBuffer *bytes.Buffer) error {
 	// Read the length of the id
 	idLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
-	q.Id = string(buffer.Next(idLength))
+	q.ID = string(buffer.Next(idLength))
 
 	// Read the length of the transaction id
-	transactionIdLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
+	transactionIDLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
 
-	if transactionIdLength > 0 {
-		q.TransactionId = string(buffer.Next(transactionIdLength))
+	if transactionIDLength > 0 {
+		q.TransactionID = string(buffer.Next(transactionIDLength))
 	}
 
 	// Read the length of the statement
@@ -88,57 +89,13 @@ func (q *QueryInput) Decode(buffer, parametersBuffer *bytes.Buffer) error {
 	return nil
 }
 
-func (q *QueryInput) DecodeFromMap(data map[string]any) error {
-	if data["id"] != nil {
-		q.Id = data["id"].(string)
-	}
-
-	if data["transaction_id"] != nil {
-		q.TransactionId = data["transaction_id"].(string)
-	}
-
-	if data["statement"] != nil {
-		q.Statement = data["statement"].(string)
-	}
-
-	if data["parameters"] != nil {
-		parameters, ok := data["parameters"].([]any)
-
-		if !ok {
-			return fmt.Errorf("invalid parameters format")
-		}
-
-		for _, parameter := range parameters {
-			if _, ok := parameter.(map[string]any)["type"]; !ok {
-				return fmt.Errorf("invalid parameter format")
-			}
-
-			if parameter.(map[string]any)["type"] == "TEXT" {
-				parameter.(map[string]any)["value"] = []byte(parameter.(map[string]any)["value"].(string))
-			}
-
-			// Handle INTEGER values that may be in scientific notation
-			if parameter.(map[string]any)["type"] == "INTEGER" {
-				parameter.(map[string]any)["value"] = int64(parameter.(map[string]any)["value"].(float64))
-			}
-
-			q.Parameters = append(q.Parameters, sqlite3.StatementParameter{
-				Type:  parameter.(map[string]any)["type"].(string),
-				Value: parameter.(map[string]any)["value"],
-			})
-		}
-	}
-
-	return nil
-}
-
 func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 	buffer.Reset()
 
 	// Write the length of the id
 	var idBytes [4]byte
 
-	idLengthUint32, err := utils.SafeIntToUint32(len(q.Id))
+	idLengthUint32, err := utils.SafeIntToUint32(len(q.ID))
 
 	if err != nil {
 		return nil
@@ -148,28 +105,28 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 	buffer.Write(idBytes[:])
 
 	// Write the id
-	buffer.Write([]byte(q.Id))
+	buffer.Write([]byte(q.ID))
 
-	if q.TransactionId != "" {
+	if q.TransactionID != "" {
 		// Write the length of the transaction id
-		var transactionIdLengthBytes [4]byte
+		var transactionIDLengthBytes [4]byte
 
-		transactionIDLenUint32, err := utils.SafeIntToUint32(len(q.TransactionId))
+		transactionIDLenUint32, err := utils.SafeIntToUint32(len(q.TransactionID))
 
 		if err != nil {
 			return nil
 		}
 
-		binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], transactionIDLenUint32)
-		buffer.Write(transactionIdLengthBytes[:])
+		binary.LittleEndian.PutUint32(transactionIDLengthBytes[:], transactionIDLenUint32)
+		buffer.Write(transactionIDLengthBytes[:])
 
 		// Write the transaction id
-		buffer.Write([]byte(q.TransactionId))
+		buffer.Write([]byte(q.TransactionID))
 	} else {
 		// Write the length of the transaction id
-		var transactionIdLengthBytes [4]byte
-		binary.LittleEndian.PutUint32(transactionIdLengthBytes[:], uint32(0))
-		buffer.Write(transactionIdLengthBytes[:])
+		var transactionIDLengthBytes [4]byte
+		binary.LittleEndian.PutUint32(transactionIDLengthBytes[:], uint32(0))
+		buffer.Write(transactionIDLengthBytes[:])
 	}
 
 	// Write the length of the statement
@@ -214,8 +171,82 @@ func (q *QueryInput) Encode(buffer *bytes.Buffer) []byte {
 }
 
 func (q *QueryInput) Reset() {
-	q.Id = ""
+	q.ID = ""
 	q.Statement = ""
 	q.Parameters = q.Parameters[:0]
-	q.TransactionId = ""
+	q.TransactionID = ""
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for QueryInput.
+func (q *QueryInput) UnmarshalJSON(jsonData []byte) error {
+	var data map[string]any
+
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		return fmt.Errorf("failed to unmarshal QueryInput: %w", err)
+	}
+
+	if data["id"] != nil {
+		q.ID = data["id"].(string)
+	}
+
+	if data["transaction_id"] != nil {
+		q.TransactionID = data["transaction_id"].(string)
+	}
+
+	if data["statement"] != nil {
+		if statement, ok := data["statement"].(string); ok {
+			q.Statement = statement
+		}
+	}
+
+	if data["parameters"] != nil {
+		parameters, ok := data["parameters"].([]any)
+
+		if !ok {
+			return fmt.Errorf("invalid parameters format")
+		}
+
+		for _, parameter := range parameters {
+			if _, ok := parameter.(map[string]any)["type"]; !ok {
+				return fmt.Errorf("invalid parameter type")
+			}
+
+			if _, ok := parameter.(map[string]any)["value"]; !ok {
+				continue
+			}
+
+			if parameter.(map[string]any)["type"] == "TEXT" {
+				if textValue, ok := parameter.(map[string]any)["value"].(string); ok {
+					parameter.(map[string]any)["value"] = []byte(textValue)
+				}
+			}
+
+			// Handle INTEGER values that may be in scientific notation
+			if parameter.(map[string]any)["type"] == "INTEGER" {
+				if integerValue, ok := parameter.(map[string]any)["value"].(float64); ok {
+					parameter.(map[string]any)["value"] = int64(integerValue)
+				}
+			}
+
+			if parameter.(map[string]any)["type"] == "FLOAT" {
+				if floatValue, ok := parameter.(map[string]any)["value"].(float64); ok {
+					parameter.(map[string]any)["value"] = floatValue
+				}
+			}
+
+			if parameter.(map[string]any)["type"] == "BLOB" {
+				if blobValue, ok := parameter.(map[string]any)["value"].([]byte); ok {
+					parameter.(map[string]any)["value"] = blobValue
+				}
+			}
+
+			// Append the parameter to the query
+			q.Parameters = append(q.Parameters, sqlite3.StatementParameter{
+				Type:  parameter.(map[string]any)["type"].(string),
+				Value: parameter.(map[string]any)["value"],
+			})
+		}
+	}
+
+	return nil
 }

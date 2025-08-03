@@ -56,7 +56,7 @@ func TestNewQueryResponse(t *testing.T) {
 func TestQueryResponseEncodingWithResults(t *testing.T) {
 	// Setup test data
 	id := "query123"
-	transactionId := "txn456"
+	transactionID := "txn456"
 	columns := []string{"col1", "col2"}
 	rows := [][]*sqlite3.Column{
 		{
@@ -65,7 +65,7 @@ func TestQueryResponseEncodingWithResults(t *testing.T) {
 		},
 	}
 	qr := database.NewQueryResponse(1, columns, id, 12.34, 99, rows)
-	qr.SetTransactionId(transactionId)
+	qr.SetTransactionID(transactionID)
 
 	responseBuffer := new(bytes.Buffer)
 	rowsBuffer := new(bytes.Buffer)
@@ -105,15 +105,15 @@ func TestQueryResponseEncodingWithResults(t *testing.T) {
 	// Transaction ID length
 	txnIdLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
 
-	if txnIdLen != len(transactionId) {
-		t.Errorf("expected transaction id length %d, got %d", len(transactionId), txnIdLen)
+	if txnIdLen != len(transactionID) {
+		t.Errorf("expected transaction id length %d, got %d", len(transactionID), txnIdLen)
 	}
 
 	offset += 4
 
 	// Transaction ID
-	if string(encoded[offset:offset+txnIdLen]) != string(transactionId) {
-		t.Errorf("expected transaction id %q, got %q", transactionId, encoded[offset:offset+txnIdLen])
+	if string(encoded[offset:offset+txnIdLen]) != string(transactionID) {
+		t.Errorf("expected transaction id %q, got %q", transactionID, encoded[offset:offset+txnIdLen])
 	}
 
 	offset += txnIdLen
@@ -198,10 +198,10 @@ func TestQueryResponseEncodingWithResults(t *testing.T) {
 
 func TestQueryResponseEncodingWithError(t *testing.T) {
 	id := "query123"
-	transactionId := "txn456"
+	transactionID := "txn456"
 	errorMsg := "something went wrong"
 	qr := database.NewQueryResponse(0, nil, id, 0, 0, nil)
-	qr.SetTransactionId(transactionId)
+	qr.SetTransactionID(transactionID)
 	qr.SetError(errorMsg)
 
 	responseBuffer := new(bytes.Buffer)
@@ -236,14 +236,14 @@ func TestQueryResponseEncodingWithError(t *testing.T) {
 
 	// Transaction ID length
 	txnIdLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
-	if txnIdLen != len(transactionId) {
-		t.Errorf("expected transaction id length %d, got %d", len(transactionId), txnIdLen)
+	if txnIdLen != len(transactionID) {
+		t.Errorf("expected transaction id length %d, got %d", len(transactionID), txnIdLen)
 	}
 	offset += 4
 
 	// Transaction ID
-	if string(encoded[offset:offset+txnIdLen]) != string(transactionId) {
-		t.Errorf("expected transaction id %q, got %q", transactionId, encoded[offset:offset+txnIdLen])
+	if string(encoded[offset:offset+txnIdLen]) != string(transactionID) {
+		t.Errorf("expected transaction id %q, got %q", transactionID, encoded[offset:offset+txnIdLen])
 	}
 	offset += txnIdLen
 
@@ -288,9 +288,9 @@ func BenchmarkQueryResponseJsonEncoding(b *testing.B) {
 
 		queryResponse.SetChanges(0)
 		queryResponse.SetColumns([]string{"id", "name"})
-		queryResponse.SetId("id")
+		queryResponse.SetID("id")
 		queryResponse.SetLatency(0.01)
-		queryResponse.SetLastInsertRowId(1)
+		queryResponse.SetLastInsertRowID(1)
 		queryResponse.SetRowCount(2)
 		queryResponse.SetRows([][]*sqlite3.Column{
 			{sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("1")), sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("name1"))},
