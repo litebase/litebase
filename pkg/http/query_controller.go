@@ -9,7 +9,7 @@ import (
 )
 
 type QueryRequest struct {
-	Queries []*database.QueryInput `json:"queries" validate:"required,dive"`
+	Queries []*database.QueryInput `json:"queries" validate:"required,min=1,dive"`
 }
 
 func QueryController(request *Request) Response {
