@@ -874,9 +874,13 @@ func (fsd *TieredFileSystemDriver) Shutdown() error {
 
 	fsd.shuttingDown = true
 
+	fsd.mutex.Lock()
+
 	if fsd.watchTicker != nil {
 		fsd.watchTicker.Stop()
 	}
+
+	fsd.mutex.Unlock()
 
 	if !fsd.CanSyncDirtyFiles() {
 		return nil
@@ -1021,8 +1025,9 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 	if fsd.watchTicker != nil {
 		fsd.watchTicker.Stop()
 	}
-
+	fsd.mutex.Lock()
 	fsd.watchTicker = time.NewTicker(fsd.WriteInterval)
+	fsd.mutex.Unlock()
 
 	for {
 		select {
