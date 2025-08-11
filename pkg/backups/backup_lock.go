@@ -9,63 +9,101 @@ type BackupLock struct {
 	lock         *sync.Mutex
 	BranchID     string
 	DatabaseID   string
-	LastLockedAt time.Time
+	lastLockedAt time.Time
+	mu           sync.RWMutex // protects lastLockedAt
 }
 
 var BackupLocks = make(map[string]*BackupLock)
 var BackupLockMutex = &sync.Mutex{}
 var BackupLocksLastCleanedAt = time.Now().UTC()
+var cleanupInProgress = false
 
 func cleanUpOldBackupLocks() {
-	if !BackupLocksLastCleanedAt.IsZero() || time.Since(BackupLocksLastCleanedAt) <= 5*time.Minute {
+	BackupLockMutex.Lock()
+
+	// Check if enough time has passed and no cleanup is already in progress
+	if time.Since(BackupLocksLastCleanedAt) <= 5*time.Minute || cleanupInProgress {
+		BackupLockMutex.Unlock()
 		return
 	}
 
+	// Mark cleanup as in progress
+	cleanupInProgress = true
+	BackupLockMutex.Unlock()
+
+	// Run cleanup in goroutine
 	go func() {
 		BackupLockMutex.Lock()
+		defer BackupLockMutex.Unlock()
 
+		now := time.Now().UTC()
 		for key, lock := range BackupLocks {
-			if time.Since(lock.LastLockedAt) > 5*time.Minute {
+			lock.mu.RLock()
+			lastLocked := lock.lastLockedAt
+			lock.mu.RUnlock()
+
+			if now.Sub(lastLocked) > 5*time.Minute {
 				delete(BackupLocks, key)
 			}
 		}
 
-		BackupLocksLastCleanedAt = time.Now().UTC()
-
-		BackupLockMutex.Unlock()
+		BackupLocksLastCleanedAt = now
+		cleanupInProgress = false
 	}()
 }
 
 func GetBackupLock(databaseHash string) *BackupLock {
 	BackupLockMutex.Lock()
-	defer BackupLockMutex.Unlock()
 
 	lock := BackupLocks[databaseHash]
 
 	if lock == nil {
 		BackupLocks[databaseHash] = &BackupLock{
-			LastLockedAt: time.Now().UTC(),
+			lastLockedAt: time.Now().UTC(),
 			lock:         &sync.Mutex{},
 		}
 	}
 
+	result := BackupLocks[databaseHash]
+	BackupLockMutex.Unlock()
+
+	// Call cleanup after releasing the lock
 	cleanUpOldBackupLocks()
 
-	return BackupLocks[databaseHash]
+	return result
 }
 
-func (b *BackupLock) Lock() {
-	b.LastLockedAt = time.Now().UTC()
-	b.lock.Lock()
+// Lock locks the backup lock.
+func (bl *BackupLock) Lock() {
+	bl.lock.Lock()
+	bl.mu.Lock()
+	bl.lastLockedAt = time.Now()
+	bl.mu.Unlock()
 }
 
 func (b *BackupLock) TryLock() bool {
-	b.LastLockedAt = time.Now().UTC()
+	locked := b.lock.TryLock()
 
-	return b.lock.TryLock()
+	if !locked {
+		return false
+	}
+
+	b.mu.Lock()
+	b.lastLockedAt = time.Now().UTC()
+	b.mu.Unlock()
+
+	return true
 }
 
 func (b *BackupLock) Unlock() {
-	b.LastLockedAt = time.Now().UTC()
 	b.lock.Unlock()
+	b.mu.Lock()
+	b.lastLockedAt = time.Now().UTC()
+	b.mu.Unlock()
+}
+
+func (b *BackupLock) GetLastLockedAt() time.Time {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.lastLockedAt
 }

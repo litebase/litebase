@@ -39,18 +39,14 @@ type ConnectionManager struct {
 
 // Checkpoint a database is necessary.
 func (c *ConnectionManager) checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
+	databaseGroup.mutex.Lock()
+	defer databaseGroup.mutex.Unlock()
+
 	// Skip if the last checkpoint for the database group was performed less
 	// than the checkpoint threshold.
 	if time.Since(databaseGroup.checkpointedAt) <= DatabaseCheckpointThreshold {
 		return false
 	}
-
-	databaseGroup.lockMutex.RLock()
-	lock := databaseGroup.locks[branchId]
-	databaseGroup.lockMutex.RUnlock()
-
-	lock.Lock()
-	defer lock.Unlock()
 
 	// Attempt to checkpoint the database. In cases where there are multiple
 	// connections attempting to write to the database, the checkpoint will
@@ -85,37 +81,52 @@ func (c *ConnectionManager) CheckpointAll() {
 		c.checkpointing = false
 	}()
 
-	for databaseId, databaseGroup := range c.databases {
+	c.mutex.RLock()
+	databases := c.databases
+	c.mutex.RUnlock()
+
+	for databaseId, databaseGroup := range databases {
+		databaseGroup.mutex.Lock()
+
 		for branchId := range databaseGroup.branches {
 			for _, branchConnection := range databaseGroup.branches[branchId] {
+				branchConnection.connection.connection.mutex.Lock()
 				// Skip if the committed at time time stamp for the connection is empty
 				if branchConnection.connection.connection.committedAt.IsZero() {
+					branchConnection.connection.connection.mutex.Unlock()
 					continue
 				}
 
 				// Skip if the committed at time stamp of the connection is before the last
 				// checkpoint of the database group
 				if branchConnection.connection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
+					branchConnection.connection.connection.mutex.Unlock()
+
 					continue
 				}
 
+				branchConnection.connection.connection.mutex.Unlock()
 				// TODO: Does this prevent checkpointing when shutting down?
 				connection, err := c.Get(databaseId, branchId)
 
 				if err != nil {
 					slog.Debug("Error getting connection", "error", err)
-
 					continue
 				}
 
 				go func(databaseGroup *DatabaseGroup, cc *ClientConnection) {
+					c.mutex.RLock()
 					c.checkpoint(databaseGroup, branchId, cc)
+					c.mutex.RUnlock()
 					c.Release(cc)
 				}(databaseGroup, connection)
 
 				break
 			}
 		}
+
+		databaseGroup.mutex.Unlock()
+
 	}
 }
 
@@ -162,8 +173,8 @@ func (c *ConnectionManager) CloseDatabaseBranchConnections(databaseId string, br
 		}
 	}
 
-	c.databases[databaseId].lockMutex.Lock()
-	defer c.databases[databaseId].lockMutex.Unlock()
+	c.databases[databaseId].mutex.Lock()
+	defer c.databases[databaseId].mutex.Unlock()
 
 	delete(c.databases[databaseId].branches, branchId)
 }
@@ -217,8 +228,8 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 	c.mutex.Unlock()
 
 	// Remove the branch from the database group
-	databaseGroup.lockMutex.Lock()
-	defer databaseGroup.lockMutex.Unlock()
+	databaseGroup.mutex.Lock()
+	defer databaseGroup.mutex.Unlock()
 
 	return drained()
 }
@@ -229,13 +240,12 @@ func (c *ConnectionManager) ensureDatabaseBranchExists(databaseId, branchId stri
 
 	if !ok {
 		c.databases[databaseId] = NewDatabaseGroup()
-		c.databases[databaseId].lockMutex.Lock()
-		defer c.databases[databaseId].lockMutex.Unlock()
+		c.databases[databaseId].mutex.Lock()
+		defer c.databases[databaseId].mutex.Unlock()
 	}
 
 	if c.databases[databaseId].branches[branchId] == nil {
 		c.databases[databaseId].branches[branchId] = []*BranchConnection{}
-		c.databases[databaseId].locks[branchId] = &sync.RWMutex{}
 	}
 }
 
@@ -249,19 +259,16 @@ func (c *ConnectionManager) ForceCheckpoint(databaseId string, branchId string) 
 
 	defer c.Release(connection)
 
+	c.mutex.RLock()
 	databaseGroup := c.databases[databaseId]
+	c.mutex.RUnlock()
 
 	if databaseGroup == nil {
 		return fmt.Errorf("database group not found")
 	}
 
-	databaseGroup.lockMutex.RLock()
-	lock := databaseGroup.locks[branchId]
-	databaseGroup.lockMutex.RUnlock()
-
-	// Lock the branch to allow the checkpoint to complete
-	lock.Lock()
-	defer lock.Unlock()
+	databaseGroup.mutex.Lock()
+	defer databaseGroup.mutex.Unlock()
 
 	err = connection.connection.Checkpoint()
 
@@ -316,9 +323,11 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 		return nil, err
 	}
 
-	c.databases[databaseId].branches[branchId] = append(c.databases[databaseId].branches[branchId], NewBranchConnection(
+	databaseGroup := c.databases[databaseId]
+
+	databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId], NewBranchConnection(
 		c.cluster,
-		c.databases[databaseId],
+		databaseGroup,
 		con,
 	))
 
@@ -360,12 +369,16 @@ func (c *ConnectionManager) Release(clientConnection *ClientConnection) {
 // without the mutex lock, so it should be called from within a mutex lock.
 func (c *ConnectionManager) remove(clientConnection *ClientConnection) {
 	// Remove the branch connection from the database group branch
+	c.databases[clientConnection.DatabaseID].mutex.Lock()
+
 	for i, branchConnection := range c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
 			c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] = slices.Delete(c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID], i, i+1)
 			break
 		}
 	}
+
+	c.databases[clientConnection.DatabaseID].mutex.Unlock()
 
 	// If there are no more branches, remove the database
 	if len(c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID]) == 0 {
@@ -459,6 +472,9 @@ func (c *ConnectionManager) Shutdown() {
 
 // Return a state error if the connection manager is not running.
 func (c *ConnectionManager) StateError() error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	switch c.state {
 	case ConnectionManagerStateShutdown:
 		return ErrorConnectionManagerShutdown

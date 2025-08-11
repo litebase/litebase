@@ -90,6 +90,8 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 	}
 
 	for i, parameter := range parameters {
+		// TODO: Support named parameters by checking if parameter.Name is set,
+		// then use sqlite3_bind_parameter_index to get the index.
 		int32Index, err := utils.SafeIntToInt32(i + 1)
 
 		if err != nil {

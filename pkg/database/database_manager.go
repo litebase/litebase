@@ -48,7 +48,7 @@ func NewDatabaseManager(
 
 	dbm.pageLogManager = storage.NewPageLogManager(dbm.Cluster.Node().Context())
 
-	dbm.pageLogManager.SetCompactionFn(dbm.compaction)
+	dbm.pageLogManager.SetCompactionFn(dbm.Compaction)
 
 	RegisterDriver("litebase-internal", dbm.ConnectionManager())
 
@@ -116,7 +116,10 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 // function. The database manager will call the compact function on each open
 // database file system, while coordinating with the check pointer to ensure
 // that pages are not being written to while the compaction is happening.
-func (d *DatabaseManager) compaction() {
+func (d *DatabaseManager) Compaction() {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	for _, resource := range d.resources {
 		walmanager, err := resource.DatabaseWALManager()
 

@@ -628,6 +628,8 @@ func TestBackup(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 
+			var errorsMutex sync.Mutex
+			var bkpsMutex sync.Mutex
 			var errors []error
 			var bkps []*backups.Backup
 
@@ -646,9 +648,13 @@ func TestBackup(t *testing.T) {
 				)
 
 				if err != nil {
+					errorsMutex.Lock()
 					errors = append(errors, err)
+					errorsMutex.Unlock()
 				} else {
+					bkpsMutex.Lock()
 					bkps = append(bkps, backup)
+					bkpsMutex.Unlock()
 				}
 			}()
 
@@ -666,9 +672,13 @@ func TestBackup(t *testing.T) {
 				)
 
 				if err != nil {
+					errorsMutex.Lock()
 					errors = append(errors, err)
+					errorsMutex.Unlock()
 				} else {
+					bkpsMutex.Lock()
 					bkps = append(bkps, backup)
+					bkpsMutex.Unlock()
 				}
 			}()
 

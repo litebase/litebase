@@ -59,6 +59,12 @@ func (b *BranchConnection) Release() {
 
 // Check if the branch connection requires a checkpoint to be created.
 func (b *BranchConnection) RequiresCheckpoint() bool {
+	b.databaseGroup.mutex.Lock()
+	defer b.databaseGroup.mutex.Unlock()
+
+	b.connection.connection.mutex.Lock()
+	defer b.connection.connection.mutex.Unlock()
+
 	return (b.databaseGroup.checkpointedAt.IsZero() && !b.connection.connection.committedAt.IsZero()) ||
 		(b.connection.connection.committedAt.After(b.databaseGroup.checkpointedAt))
 }

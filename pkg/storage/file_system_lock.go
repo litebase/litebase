@@ -37,8 +37,9 @@ func (fsl *FileSystemLock) AcquireAccessLocks(path string) []*FileSystemLockEntr
 
 		currentPath += part
 		entry := fsl.GetLockEntry(currentPath)
-		entry.mutex.RLock()
+		entry.mutex.Lock()
 		entry.count++
+		entry.mutex.Unlock() // Ensure we can read while holding the lock
 		acquired = append(acquired, entry)
 	}
 
@@ -70,8 +71,9 @@ func (fsl *FileSystemLock) AcquireDeleteLocks(path string) []*FileSystemLockEntr
 func (fsl *FileSystemLock) AcquirePathReadLock(path string) *FileSystemLockEntry {
 	lock := fsl.GetLockEntry(path)
 
-	lock.mutex.RLock()
+	lock.mutex.Lock()
 	lock.count++
+	lock.mutex.Unlock() // Ensure we can read while holding the lock
 
 	return lock
 }
@@ -82,6 +84,7 @@ func (fsl *FileSystemLock) AcquirePathWriteLock(path string) *FileSystemLockEntr
 
 	lock.mutex.Lock()
 	lock.count++
+	lock.mutex.Unlock() // Ensure we can write while holding the lock
 
 	return lock
 }
@@ -90,6 +93,9 @@ func (fsl *FileSystemLock) AcquirePathWriteLock(path string) *FileSystemLockEntr
 func (fsl *FileSystemLock) DeleteLockIfUnused(path string) {
 	if entry, ok := fsl.lock.Load(path); ok {
 		lock := entry.(*FileSystemLockEntry)
+
+		lock.mutex.RLock()
+		defer lock.mutex.RUnlock()
 
 		if lock.count == 0 {
 			fsl.lock.Delete(path)
@@ -109,8 +115,9 @@ func (fsl *FileSystemLock) GetLockEntry(path string) *FileSystemLockEntry {
 // Release the access locks acquired for the specified path.
 func (fsl *FileSystemLock) ReleaseAccessLocks(locks []*FileSystemLockEntry) {
 	for _, lock := range locks {
-		lock.mutex.RUnlock()
+		lock.mutex.Lock()
 		lock.count--
+		lock.mutex.Unlock()
 
 		fsl.DeleteLockIfUnused(lock.path)
 	}
@@ -128,14 +135,18 @@ func (fsl *FileSystemLock) ReleaseDeleteLocks(locks []*FileSystemLockEntry) {
 
 // Release the read or write lock for the specified path.
 func (fsl *FileSystemLock) ReleasePathReadLock(lock *FileSystemLockEntry) {
-	lock.mutex.RUnlock()
+	lock.mutex.Lock()
 	lock.count--
+	lock.mutex.Unlock()
+
 	go fsl.DeleteLockIfUnused(lock.path)
 }
 
 // Release the write lock for the specified path.
 func (fsl *FileSystemLock) ReleasePathWriteLock(lock *FileSystemLockEntry) {
-	lock.mutex.Unlock()
+	lock.mutex.Lock()
 	lock.count--
+	lock.mutex.Unlock()
+
 	go fsl.DeleteLockIfUnused(lock.path)
 }

@@ -16,7 +16,7 @@ func TestBackupLock(t *testing.T) {
 
 	lock1.Lock()
 
-	if lock1.LastLockedAt.IsZero() {
+	if lock1.GetLastLockedAt().IsZero() {
 		t.Error("Expected LastLockedAt to be set")
 	}
 

@@ -31,6 +31,7 @@ var rawParameterPool = sync.Pool{
 var jsonParameterDecoderPool = JsonParameterDecoderPool()
 
 type StatementParameter struct {
+	Name  string `json:"name"`
 	Type  string `json:"type" validate:"required,oneof=TEXT INTEGER FLOAT BLOB NULL"`
 	Value any    `json:"value" validate:"required_unless=Type NULL"`
 }

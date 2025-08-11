@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"log/slog"
 	"os"
 	"sync"
@@ -259,7 +260,7 @@ func (f *TieredFile) Read(b []byte) (n int, err error) {
 		}
 	}
 
-	f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+	f.TieredFileSystemDriver.MoveToBack(f.Element)
 
 	n, err = f.File.Read(b)
 
@@ -284,7 +285,7 @@ func (f *TieredFile) ReadAt(p []byte, off int64) (n int, err error) {
 			}
 		}
 
-		f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+		f.TieredFileSystemDriver.MoveToBack(f.Element)
 
 		n, err = f.File.ReadAt(p, off)
 
@@ -326,7 +327,10 @@ func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 // This operation checks if the File should be written to durable storage. The File
 // should be written to durable storage if it has been updated and the last write
 // to durable storage was more than a minute ago.
-func (f *TieredFile) shouldBeWrittenToDurableStorage() bool {
+func (f *TieredFile) ShouldBeWrittenToDurableStorage() bool {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	if f.UpdatedAt.IsZero() {
 		return false
 	}
@@ -349,7 +353,7 @@ func (f *TieredFile) Stat() (fs.FileInfo, error) {
 		}
 	}
 
-	f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+	f.TieredFileSystemDriver.MoveToBack(f.Element)
 
 	return f.File.Stat()
 }
@@ -385,7 +389,7 @@ func (f *TieredFile) Sync() error {
 		}
 	}
 
-	f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+	f.TieredFileSystemDriver.MoveToBack(f.Element)
 
 	f.UpdatedAt = time.Now().UTC()
 
@@ -516,7 +520,7 @@ func (f *TieredFile) WriteTo(w io.Writer) (n int64, err error) {
 		}
 	}
 
-	defer f.TieredFileSystemDriver.FileOrder.MoveToBack(f.Element)
+	defer f.TieredFileSystemDriver.MoveToBack(f.Element)
 
 	n, err = f.File.WriteTo(w)
 
@@ -564,36 +568,29 @@ func (f *TieredFile) reopenFile() error {
 
 	// Try to open the file directly from the high tier file system first
 	// Always open with RDWR since descriptors handle access control
-	file, err := f.TieredFileSystemDriver.highTierFileSystemDriver.OpenFile(f.Key, os.O_RDWR, 0600)
+	lowTierFile, err := f.TieredFileSystemDriver.lowTierFileSystemDriver.OpenFile(f.Key, os.O_CREATE|os.O_RDWR, 0600)
+
 	if err != nil {
-		// If file doesn't exist on high tier, try to copy it from low tier
-		if os.IsNotExist(err) {
-			// Read from low tier storage
-			lowTierFile, err := f.TieredFileSystemDriver.lowTierFileSystemDriver.OpenFile(f.Key, os.O_RDONLY, 0600)
+		log.Println("Error opening low tier file for copy:")
+		return err
+	}
 
-			if err != nil {
-				return err
-			}
+	defer lowTierFile.Close()
 
-			defer lowTierFile.Close()
+	// Create on high tier storage
+	file, err := f.TieredFileSystemDriver.highTierFileSystemDriver.OpenFile(f.Key, os.O_RDWR|os.O_CREATE, 0600)
 
-			// Create on high tier storage
-			file, err = f.TieredFileSystemDriver.highTierFileSystemDriver.OpenFile(f.Key, os.O_RDWR|os.O_CREATE, 0600)
-			if err != nil {
-				return err
-			}
+	if err != nil {
+		return err
+	}
 
-			// Copy data from low tier to high tier
-			_, err = f.TieredFileSystemDriver.CopyFile(file, lowTierFile)
+	// Copy data from low tier to high tier
+	_, err = f.TieredFileSystemDriver.CopyFile(file, lowTierFile)
 
-			if err != nil {
-				file.Close()
+	if err != nil {
+		file.Close()
 
-				return err
-			}
-		} else {
-			return err
-		}
+		return err
 	}
 
 	f.File = file

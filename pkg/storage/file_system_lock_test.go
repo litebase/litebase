@@ -36,8 +36,6 @@ func TestFileSystemLock_AcquireAccessLocks(t *testing.T) {
 		if lock.count != 1 {
 			t.Errorf("Expected lock count to be 1, got %d", lock.count)
 		}
-
-		lock.mutex.RUnlock()
 	}
 }
 

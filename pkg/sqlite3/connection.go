@@ -37,6 +37,7 @@ var (
 type OpenFlags C.int
 type Connection struct {
 	authorizer         Authorizer
+	authorizerHandle   cgo.Handle
 	authorizationError error
 	cName              *C.char
 	context            context.Context
@@ -196,6 +197,12 @@ func (c *Connection) Close() error {
 		return nil
 	}
 
+	// Clean up authorizer handle before closing
+	if c.authorizerHandle != 0 {
+		c.authorizerHandle.Delete()
+		c.authorizerHandle = 0
+	}
+
 	// Close database connection
 	if err := C.sqlite3_close_v2((*C.sqlite3)(c.sqlite3)); err != SQLITE_OK {
 		result = errors.New(C.GoString(C.sqlite3_errstr(err)))
@@ -334,16 +341,33 @@ func (c *Connection) SetLastInsertId(v int64) {
 
 // Register a Go function as an authorizer callback function.
 // https://www.sqlite.org/c3ref/set_authorizer.html
+//
+//go:nocheckptr
 func (c *Connection) Authorizer(authorizer Authorizer) {
+	// Release any existing handle to prevent leaks
+	if c.authorizerHandle != 0 {
+		c.authorizerHandle.Delete()
+	}
+
 	c.authorizer = authorizer
 
-	connectionHandle := cgo.NewHandle(c)
+	if authorizer != nil {
+		c.authorizerHandle = cgo.NewHandle(c)
 
-	C.sqlite3_set_authorizer(
-		(*C.sqlite3)(c.sqlite3),
-		(*[0]byte)(C.go_authorizer),
-		unsafe.Pointer(connectionHandle),
-	)
+		C.sqlite3_set_authorizer(
+			(*C.sqlite3)(c.sqlite3),
+			(*[0]byte)(C.go_authorizer),
+			unsafe.Pointer(uintptr(c.authorizerHandle)),
+		)
+	} else {
+		// Clear the authorizer if nil is passed
+		c.authorizerHandle = 0
+		C.sqlite3_set_authorizer(
+			(*C.sqlite3)(c.sqlite3),
+			nil,
+			nil,
+		)
+	}
 }
 
 //export go_authorizer

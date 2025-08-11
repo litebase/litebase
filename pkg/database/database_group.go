@@ -8,14 +8,12 @@ import (
 type DatabaseGroup struct {
 	checkpointedAt time.Time
 	branches       map[string][]*BranchConnection
-	locks          map[string]*sync.RWMutex
-	lockMutex      *sync.RWMutex
+	mutex          *sync.Mutex
 }
 
 func NewDatabaseGroup() *DatabaseGroup {
 	return &DatabaseGroup{
-		branches:  map[string][]*BranchConnection{},
-		locks:     map[string]*sync.RWMutex{},
-		lockMutex: &sync.RWMutex{},
+		branches: map[string][]*BranchConnection{},
+		mutex:    &sync.Mutex{},
 	}
 }
