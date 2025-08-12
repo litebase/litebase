@@ -408,7 +408,6 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 				slog.Debug("Context is done, skipping write to durable storage", "error", fsd.context.Err())
 				return fsd.context.Err()
 			}
-
 			return err
 		}
 
@@ -435,7 +434,6 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 	}
 
 	file.mutex.Lock()
-	defer file.mutex.Unlock()
 
 	// Check if file needs to be released without holding the lock
 	needsRelease := file.Closed ||
@@ -444,11 +442,13 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 
 	if !needsRelease {
 		// Common case: file is valid, return it with read lock
+		file.mutex.Unlock()
 		fsd.mutex.Unlock()
 		return file, true
 	}
 
-	// Need to release file, upgrade to write lock
+	// Need to release file, release file mutex first to avoid deadlock
+	file.mutex.Unlock()
 	fsd.mutex.Unlock()
 
 	fsd.mutex.Lock()
@@ -461,10 +461,14 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 		return nil, false
 	}
 
-	// Re-check conditions after acquiring write lock
-	if file.Closed ||
+	// Re-check conditions after acquiring write lock (need to lock file mutex again)
+	file.mutex.Lock()
+	shouldRelease := file.Closed ||
 		(file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
-		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
+		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC()))
+	file.mutex.Unlock()
+
+	if shouldRelease {
 
 		err := fsd.releaseFile(file) // already holding lock
 
@@ -690,11 +694,6 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 	// If file needs flushing, flush it first before release (regardless of open descriptors)
 	if file.ShouldBeWrittenToDurableStorage() {
 		fsd.flushFileToDurableStorage(file, true) // force=true to flush even if interval hasn't passed
-
-		// Mark the file as released (descriptors will need to reopen when accessed)
-		file.mutex.Lock()
-		file.Released = true
-		file.mutex.Unlock()
 	}
 
 	// Always close and clean up the actual file handle when releasing - descriptors will reopen if needed
@@ -718,6 +717,11 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 			return nil
 		})
 	}
+
+	// Mark the file as released (descriptors will need to reopen when accessed)
+	file.mutex.Lock()
+	file.Released = true
+	file.mutex.Unlock()
 
 	// If the file should be removed from the map (no descriptors), do it here while holding the lock
 	if descriptorCount == 0 {
