@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -199,6 +200,7 @@ func TestDurableDatabaseFileSystem_CompactWithConcurrentWrites(t *testing.T) {
 		const pageSize = 4096
 
 		// Map to store all written data for verification
+		mutex := &sync.Mutex{}
 		writtenData := make(map[int64][]byte)
 
 		for cycle := range numCompactionCycles {
@@ -219,8 +221,10 @@ func TestDurableDatabaseFileSystem_CompactWithConcurrentWrites(t *testing.T) {
 				rand.Read(data[16:]) // Fill rest with random data
 
 				// Store expected data
+				mutex.Lock()
 				writtenData[offset] = make([]byte, pageSize)
 				copy(writtenData[offset], data)
+				mutex.Unlock()
 
 				// Write to DFS
 				n, err := dfs.WriteAt(timestamp, timestamp, data, offset)
@@ -285,8 +289,10 @@ func TestDurableDatabaseFileSystem_CompactWithConcurrentWrites(t *testing.T) {
 					}
 
 					// Store the data for later verification
+					mutex.Lock()
 					writtenData[offset] = make([]byte, pageSize)
 					copy(writtenData[offset], data)
+					mutex.Unlock()
 
 					writeDone <- nil
 				}(i)
@@ -300,7 +306,7 @@ func TestDurableDatabaseFileSystem_CompactWithConcurrentWrites(t *testing.T) {
 
 			// Wait for all concurrent writes to complete
 			var writeErrors []error
-			for i := 0; i < numConcurrentWrites; i++ {
+			for range numConcurrentWrites {
 				if err := <-writeDone; err != nil {
 					writeErrors = append(writeErrors, err)
 				}
