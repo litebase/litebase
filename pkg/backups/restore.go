@@ -36,10 +36,10 @@ func CopySourceDatabaseToTargetDatabase(
 	targetFileSystem *storage.DurableDatabaseFileSystem,
 	checkpointer Checkpointer,
 ) error {
-	// Prevent the source page logger from writing to the source database range
-	// files during this operation
-	err := sourceFileSystem.PageLogger.CompactionBarrier(func() error {
-		return copySourceDatabaseRangeFilesToTargetDatabase(
+	// Prevent the source DFS from compacting (both page logs and range manager GC) during this operation
+	err := sourceFileSystem.DFSCompactionBarrier(func() error {
+		// Copy range files to the target database
+		err := copySourceDatabaseRangeFilesToTargetDatabase(
 			maxPageNumber,
 			sourceDatabaseUuid,
 			sourceBranchUuid,
@@ -48,23 +48,22 @@ func CopySourceDatabaseToTargetDatabase(
 			sourceFileSystem,
 			targetFileSystem,
 		)
-	})
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	// Prevent the source database from checkpointing from WAL to Page Log
-	// while files are being copied
-	err = checkpointer.CheckpointBarrier(func() error {
-		return copySourceDatabasePageLogsToTargetDatabase(
-			sourceDatabaseUuid,
-			sourceBranchUuid,
-			targetDatabaseUuid,
-			targetBranchUuid,
-			sourceFileSystem,
-			targetFileSystem,
-		)
+		// Copy page logs within the same DFS barrier to prevent range manager GC
+		return checkpointer.CheckpointBarrier(func() error {
+			return copySourceDatabasePageLogsToTargetDatabase(
+				sourceDatabaseUuid,
+				sourceBranchUuid,
+				targetDatabaseUuid,
+				targetBranchUuid,
+				sourceFileSystem,
+				targetFileSystem,
+			)
+		})
 	})
 
 	if err != nil {
