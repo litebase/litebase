@@ -16,18 +16,18 @@ import (
 // OPTIMIZE: Use an LRU cache for page data
 // TODO: Do we need to limit the number of open ranges?
 type DurableDatabaseFileSystem struct {
-	buffers      *sync.Pool
-	branchId     string
-	databaseId   string
-	tieredFS     *FileSystem
-	RangeManager *DataRangeManager
-	metadata     *DatabaseMetadata
-	mutex        *sync.RWMutex
-	compactionMutex *sync.Mutex  // Separate mutex for compaction barriers
-	path         string
-	PageLogger   *PageLogger
-	pageSize     int64
-	writeHook    func(offset int64, data []byte)
+	buffers         *sync.Pool
+	branchId        string
+	databaseId      string
+	tieredFS        *FileSystem
+	RangeManager    *DataRangeManager
+	metadata        *DatabaseMetadata
+	mutex           *sync.RWMutex
+	compactionMutex *sync.Mutex // Separate mutex for compaction barriers
+	path            string
+	PageLogger      *PageLogger
+	pageSize        int64
+	writeHook       func(offset int64, data []byte)
 }
 
 func NewDurableDatabaseFileSystem(
@@ -44,13 +44,13 @@ func NewDurableDatabaseFileSystem(
 				return bytes.NewBuffer(make([]byte, pageSize))
 			},
 		},
-		databaseId: databaseId,
-		tieredFS:   tieredFS,
-		mutex:      &sync.RWMutex{},
+		databaseId:      databaseId,
+		tieredFS:        tieredFS,
+		mutex:           &sync.RWMutex{},
 		compactionMutex: &sync.Mutex{},
-		PageLogger: pageLogger,
-		path:       path,
-		pageSize:   pageSize,
+		PageLogger:      pageLogger,
+		path:            path,
+		pageSize:        pageSize,
 	}
 
 	dfs.RangeManager = NewDataRangeManager(dfs)
