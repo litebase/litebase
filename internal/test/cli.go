@@ -46,6 +46,8 @@ func (c *TestCLI) ClearOutput() {
 	c.outputBuffer.Reset()
 }
 
+// Get a line of text from the CLI output that is prefixed by the follow text
+// returning the text following a colon.
 func (c *TestCLI) GetOutputLine(prefix string) string {
 	lines := bytes.SplitSeq(c.outputBuffer.Bytes(), []byte("\n"))
 
@@ -79,8 +81,6 @@ func (c *TestCLI) Run(args ...string) error {
 
 	c.Cmd.SetArgs(args)
 
-	// Reset all flags to their default values after running the command
-	// This prevents flag values from persisting between command runs
 	defer c.ResetFlagsRecursive(c.Cmd)
 
 	return c.Cmd.Execute()
@@ -91,6 +91,8 @@ func (c *TestCLI) DoesntSee(text string) bool {
 	return !c.Sees(text)
 }
 
+// Reset all flags to their default values after running the command.
+// This prevents flag values from persisting between command runs.
 func (c *TestCLI) ResetFlagsRecursive(cmd *cobra.Command) {
 	// Reset flags for this command
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
