@@ -28,6 +28,7 @@ type Transaction struct {
 	EndedAt          time.Time
 	ID               string
 	queryChannel     chan TransactionQuery
+	rolledBack       bool
 	StartedAt        time.Time
 	responseChannel  chan *QueryResponse
 	writesToDatabase bool
@@ -70,7 +71,7 @@ func NewTransaction(
 		StartedAt:       time.Now().UTC(),
 	}
 
-	err = transaction.Begin()
+	err = transaction.begin()
 
 	if err != nil {
 		log.Println("Error beginning transaction", err)
@@ -83,7 +84,7 @@ func NewTransaction(
 }
 
 // Start a transaction on the database connection.
-func (t *Transaction) Begin() error {
+func (t *Transaction) begin() error {
 	// Set connection timestamp before starting the transaction. This ensures we
 	// have a consistent timestamp for the transaction and the vfs reads from
 	// the proper WAL file and Page Log.
@@ -93,13 +94,17 @@ func (t *Transaction) Begin() error {
 }
 
 // Close a transaction.
-func (t *Transaction) Close() {
+func (t *Transaction) Close() error {
 	if t.closed {
-		return
+		return nil
 	}
 
-	if !t.committed {
-		t.Rollback()
+	if !t.committed && !t.rolledBack {
+		err := t.Rollback()
+
+		if err != nil {
+			return err
+		}
 	}
 
 	t.connection.GetConnection().releaseTimestamps()
@@ -110,6 +115,8 @@ func (t *Transaction) Close() {
 
 	close(t.queryChannel)
 	close(t.responseChannel)
+
+	return nil
 }
 
 // Commit the transaction. This will close the transaction and commit the
@@ -128,6 +135,10 @@ func (t *Transaction) Commit() error {
 // changes to the database. If the transaction has already been committed, this
 // will return an error.
 func (t *Transaction) Rollback() error {
+	defer func() {
+		t.rolledBack = true
+	}()
+
 	return t.connection.GetConnection().Rollback()
 }
 
