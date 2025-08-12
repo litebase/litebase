@@ -19,6 +19,7 @@ type Transaction struct {
 	cancel           context.CancelFunc
 	context          context.Context
 	closed           bool
+	committed        bool
 	cluster          *cluster.Cluster
 	connection       *ClientConnection
 	CreatedAt        time.Time
@@ -92,12 +93,13 @@ func (t *Transaction) Begin() error {
 }
 
 // Close a transaction.
-// TODO: If there are any queries that are still in progress, for example, a
-// write transaction has locked the database and other transactions are waiting,
-// the connection of the transaction should be interrupted.
 func (t *Transaction) Close() {
 	if t.closed {
 		return
+	}
+
+	if !t.committed {
+		t.Rollback()
 	}
 
 	t.connection.GetConnection().releaseTimestamps()
@@ -113,11 +115,11 @@ func (t *Transaction) Close() {
 // Commit the transaction. This will close the transaction and commit the
 // changes to the database.
 func (t *Transaction) Commit() error {
-	defer t.Close()
-
 	if t.writesToDatabase {
 		t.connection.GetConnection().committedAt = time.Now().UTC()
 	}
+
+	t.committed = true
 
 	return t.connection.GetConnection().Commit()
 }
@@ -126,8 +128,6 @@ func (t *Transaction) Commit() error {
 // changes to the database. If the transaction has already been committed, this
 // will return an error.
 func (t *Transaction) Rollback() error {
-	defer t.Close()
-
 	return t.connection.GetConnection().Rollback()
 }
 
@@ -137,7 +137,12 @@ func (t *Transaction) run() {
 		select {
 		case <-t.context.Done():
 			return
-		case transactionQuery := <-t.queryChannel:
+		case transactionQuery, ok := <-t.queryChannel:
+			if !ok {
+				// Channel is closed, exit the goroutine
+				return
+			}
+
 			if transactionQuery.query.IsWrite() {
 				t.writesToDatabase = true
 			}
@@ -150,7 +155,13 @@ func (t *Transaction) run() {
 				log.Println("Error resolving query for transaction", err)
 			}
 
+			// Always try to send the response
 			t.responseChannel <- response.(*QueryResponse)
+
+			// After sending response, check if transaction should end
+			if transactionQuery.query.IsTransactionEnd() || transactionQuery.query.IsTransactionRollback() {
+				return
+			}
 		}
 	}
 }

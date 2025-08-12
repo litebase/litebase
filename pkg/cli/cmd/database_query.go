@@ -15,7 +15,7 @@ import (
 
 func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "query <name> <query> [--parameters <parameters>] [--output <format>]",
+		Use:   "query <name> <query> [--output <format>] [--parameters <parameters>] [--transaction-id <id>]",
 		Short: "Execute a query on a database",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -27,15 +27,26 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 
 			var queryInput *database.QueryInput
 
-			parameters, err := cmd.Flags().GetString("parameters")
-			if err != nil {
-				return fmt.Errorf("failed to get parameters: %w", err)
-			}
-
 			statement := args[1]
 
 			queryInput = &database.QueryInput{
 				Statement: statement,
+			}
+
+			transactionID, err := cmd.Flags().GetString("transaction-id")
+
+			if err != nil {
+				return fmt.Errorf("failed to get transaction ID: %w", err)
+			}
+
+			if transactionID != "" {
+				queryInput.TransactionID = transactionID
+			}
+
+			parameters, err := cmd.Flags().GetString("parameters")
+
+			if err != nil {
+				return fmt.Errorf("failed to get parameters: %w", err)
 			}
 
 			if parameters != "" {
@@ -52,9 +63,10 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			query := map[string]any{
-				"id":         uuid.NewString(),
-				"statement":  queryInput.Statement,
-				"parameters": queryInput.Parameters,
+				"id":             uuid.NewString(),
+				"statement":      queryInput.Statement,
+				"parameters":     queryInput.Parameters,
+				"transaction_id": queryInput.TransactionID,
 			}
 
 			res, apiErrors, err := api.Post(
@@ -75,6 +87,13 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 
 			rows := []components.CardRow{}
 
+			if transactionID, ok := res["data"].([]any)[0].(map[string]any)["transaction_id"].(string); ok && transactionID != "" {
+				rows = append(rows, components.CardRow{
+					Key:   "Transaction ID",
+					Value: transactionID,
+				})
+			}
+
 			if changes, ok := res["data"].([]any)[0].(map[string]any)["changes"].(int64); ok && changes > 0 {
 				rows = append(rows, components.CardRow{
 					Key:   "Changes",
@@ -92,7 +111,7 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 			if latency, ok := res["data"].([]any)[0].(map[string]any)["latency"].(float64); ok {
 				rows = append(rows, components.CardRow{
 					Key:   "Latency",
-					Value: fmt.Sprintf("%.2f ms", latency*1000), // Convert to milliseconds
+					Value: fmt.Sprintf("%.2f ms", latency),
 				})
 			}
 
@@ -160,8 +179,9 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().String("parameters", "", "Query parameters (positional: [{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}]")
 	cmd.Flags().StringP("output", "o", "json", "Output format (json, table)")
+	cmd.Flags().String("parameters", "", "Query parameters (positional: [{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}]")
+	cmd.Flags().String("transaction-id", "", "Transaction ID for the query, if the query is part of a transaction")
 
 	return cmd
 }

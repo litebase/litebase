@@ -75,6 +75,7 @@ func QueryController(request *Request) Response {
 	if validationErrors != nil {
 		return ValidationErrorResponse(validationErrors)
 	}
+
 	responses := []map[string]any{}
 
 	for _, query := range queries.(*QueryRequest).Queries {
@@ -90,20 +91,16 @@ func QueryController(request *Request) Response {
 		defer database.PutQuery(requestQuery)
 
 		response := &database.QueryResponse{}
+		resources := request.databaseManager.Resources(
+			databaseKey.DatabaseID,
+			databaseKey.DatabaseBranchID,
+		)
 
-		if requestQuery.Input.TransactionID != "" &&
-			!requestQuery.IsTransactionEnd() &&
-			!requestQuery.IsTransactionRollback() {
-			transaction, err := request.databaseManager.Resources(
-				databaseKey.DatabaseID,
-				databaseKey.DatabaseBranchID,
-			).TransactionManager().Get(string(requestQuery.Input.TransactionID))
+		if requestQuery.Input.TransactionID != "" {
+			transaction, err := resources.TransactionManager().Get(string(requestQuery.Input.TransactionID))
 
 			if err != nil {
-				return JsonResponse(map[string]interface{}{
-					"message": err.Error(),
-				}, 500, nil,
-				)
+				return ServerErrorResponse(err)
 			}
 
 			if accessKey.AccessKeyID != transaction.AccessKey.AccessKeyID {
@@ -113,18 +110,19 @@ func QueryController(request *Request) Response {
 			err = transaction.ResolveQuery(requestQuery, response)
 
 			if err != nil {
-				return JsonResponse(map[string]interface{}{
-					"message": err.Error(),
-				}, 500, nil,
-				)
+				return ServerErrorResponse(err)
+			}
+
+			// Check if this query ends the transaction (COMMIT or ROLLBACK)
+			if requestQuery.IsTransactionEnd() || requestQuery.IsTransactionRollback() {
+				// Transaction is automatically closed by ResolveQuery, just remove it from manager
+				resources.TransactionManager().Remove(string(requestQuery.Input.TransactionID))
 			}
 		} else {
 			_, err = requestQuery.Resolve(response)
 
 			if err != nil {
-				return JsonResponse(map[string]interface{}{
-					"message": err.Error(),
-				}, 500, nil)
+				return ServerErrorResponse(err)
 			}
 		}
 

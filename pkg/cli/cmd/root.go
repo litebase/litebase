@@ -123,6 +123,8 @@ func NewRoot(version string) error {
 
 func preRun(c *config.Configuration) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		cmd.SetErrPrefix("[Litebase]")
+
 		if accessKeyId != "" {
 			c.SetAccessKeyId(accessKeyId)
 		}
