@@ -223,7 +223,8 @@ func Run(
 	rollbackLogger *RollbackLogger,
 	callbacks ...BackupConfigCallback,
 ) (*Backup, error) {
-	lock := GetBackupLock(file.DatabaseHash(databaseId, branchId))
+	databaseHash := file.DatabaseHash(databaseId, branchId)
+	lock := GetBackupLock(databaseHash)
 
 	if lock.TryLock() {
 		defer lock.Unlock()

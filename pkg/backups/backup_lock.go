@@ -62,22 +62,22 @@ func GetBackupLock(databaseHash string) *BackupLock {
 			lastLockedAt: time.Now().UTC(),
 			lock:         &sync.Mutex{},
 		}
+		lock = BackupLocks[databaseHash]
 	}
 
-	result := BackupLocks[databaseHash]
 	BackupLockMutex.Unlock()
 
 	// Call cleanup after releasing the lock
 	cleanUpOldBackupLocks()
 
-	return result
+	return lock
 }
 
 // Lock locks the backup lock.
 func (bl *BackupLock) Lock() {
 	bl.lock.Lock()
 	bl.mu.Lock()
-	bl.lastLockedAt = time.Now()
+	bl.lastLockedAt = time.Now().UTC()
 	bl.mu.Unlock()
 }
 

@@ -75,6 +75,14 @@ func (c *ConnectionManager) CheckpointAll() {
 		return
 	}
 
+	// Don't checkpoint if the connection manager is being drained/shutdown
+	c.mutex.RLock()
+	if c.state == ConnectionManagerStateDraining {
+		c.mutex.RUnlock()
+		return
+	}
+	c.mutex.RUnlock()
+
 	c.checkpointing = true
 
 	defer func() {
@@ -106,6 +114,8 @@ func (c *ConnectionManager) CheckpointAll() {
 				}
 
 				branchConnection.connection.connection.mutex.Unlock()
+				databaseGroup.mutex.Unlock()
+
 				// TODO: Does this prevent checkpointing when shutting down?
 				connection, err := c.Get(databaseId, branchId)
 
@@ -115,17 +125,13 @@ func (c *ConnectionManager) CheckpointAll() {
 				}
 
 				go func(databaseGroup *DatabaseGroup, cc *ClientConnection) {
-					c.mutex.RLock()
 					c.checkpoint(databaseGroup, branchId, cc)
-					c.mutex.RUnlock()
 					c.Release(cc)
 				}(databaseGroup, connection)
 
 				break
 			}
 		}
-
-		databaseGroup.mutex.Unlock()
 
 	}
 }
@@ -325,11 +331,15 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 
 	databaseGroup := c.databases[databaseId]
 
+	databaseGroup.mutex.Lock()
+
 	databaseGroup.branches[branchId] = append(databaseGroup.branches[branchId], NewBranchConnection(
 		c.cluster,
 		databaseGroup,
 		con,
 	))
+
+	databaseGroup.mutex.Unlock()
 
 	return con, nil
 }
@@ -400,34 +410,52 @@ func (c *ConnectionManager) Remove(databaseId string, branchId string, clientCon
 // Remove idle connections that have not been used for more than a minute.
 func (c *ConnectionManager) RemoveIdleConnections() {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	for databaseId, database := range c.databases {
-		var activeBranches = len(database.branches)
-
+	
+	// First pass: collect all branch connections that might be removable
+	// (do this without calling RequiresCheckpoint to avoid nested locking)
+	candidatesForRemoval := []*BranchConnection{}
+	
+	for _, database := range c.databases {
 		for _, branchConnections := range database.branches {
-			removeableBranches := []*BranchConnection{}
-
 			for _, branchConnection := range branchConnections {
-				// Close the connection if it is not in use and has been idle
-				// for more than a minute. We need to also avoid removing
-				// connections that require a checkpoint. Not doing so can lead
-				// to database corruption.
-				if !branchConnection.RequiresCheckpoint() && !branchConnection.Claimed() && time.Since(branchConnection.lastUsedAt) > DatabaseIdleTimeout {
-					removeableBranches = append(removeableBranches, branchConnection)
+				// Check basic criteria without calling RequiresCheckpoint yet
+				if !branchConnection.Claimed() && time.Since(branchConnection.lastUsedAt) > DatabaseIdleTimeout {
+					candidatesForRemoval = append(candidatesForRemoval, branchConnection)
 				}
 			}
+		}
+	}
+	
+	c.mutex.Unlock()
+	
+	// Second pass: check RequiresCheckpoint for each candidate (without holding ConnectionManager lock)
+	actuallyRemovable := []*BranchConnection{}
+	for _, branchConnection := range candidatesForRemoval {
+		if !branchConnection.RequiresCheckpoint() {
+			actuallyRemovable = append(actuallyRemovable, branchConnection)
+		}
+	}
+	
+	// Third pass: remove the connections (re-acquire lock for modifications)
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-			for _, branchConnection := range removeableBranches {
-				c.remove(branchConnection.connection)
-			}
-
-			if len(database.branches) == 0 {
-				activeBranches--
+	for _, branchConnection := range actuallyRemovable {
+		// Double-check the connection is still idle before removing
+		if !branchConnection.Claimed() && time.Since(branchConnection.lastUsedAt) > DatabaseIdleTimeout {
+			c.remove(branchConnection.connection)
+		}
+	}
+	
+	// Clean up empty databases
+	for databaseId, database := range c.databases {
+		activeBranches := 0
+		for _, branchConnections := range database.branches {
+			if len(branchConnections) > 0 {
+				activeBranches++
 			}
 		}
-
-		// if the database has no more branches, remove the database
+		
 		if activeBranches == 0 {
 			delete(c.databases, databaseId)
 		}
