@@ -93,8 +93,9 @@ func (c *ConnectionManager) CheckpointAll() {
 	databases := c.databases
 	c.mutex.RUnlock()
 
-	for databaseId, databaseGroup := range databases {
+	for _, databaseGroup := range databases {
 		databaseGroup.mutex.Lock()
+		needsCheckpoint := false
 
 		for branchId := range databaseGroup.branches {
 			for _, branchConnection := range databaseGroup.branches[branchId] {
@@ -109,29 +110,31 @@ func (c *ConnectionManager) CheckpointAll() {
 				// checkpoint of the database group
 				if branchConnection.connection.connection.committedAt.Before(databaseGroup.checkpointedAt) {
 					branchConnection.connection.connection.mutex.Unlock()
-
 					continue
 				}
 
 				branchConnection.connection.connection.mutex.Unlock()
-				databaseGroup.mutex.Unlock()
 
-				// TODO: Does this prevent checkpointing when shutting down?
-				connection, err := c.Get(databaseId, branchId)
+				// Use the existing connection directly instead of calling c.Get()
+				// which would cause a deadlock by trying to acquire c.mutex again
+				if !branchConnection.Claimed() {
+					branchConnection.Claim()
+					needsCheckpoint = true
 
-				if err != nil {
-					slog.Debug("Error getting connection", "error", err)
-					continue
+					go func(databaseGroup *DatabaseGroup, branchId string, bc *BranchConnection) {
+						c.checkpoint(databaseGroup, branchId, bc.connection)
+						bc.Release()
+					}(databaseGroup, branchId, branchConnection)
+
+					break
 				}
-
-				go func(databaseGroup *DatabaseGroup, cc *ClientConnection) {
-					c.checkpoint(databaseGroup, branchId, cc)
-					c.Release(cc)
-				}(databaseGroup, connection)
-
+			}
+			if needsCheckpoint {
 				break
 			}
 		}
+
+		databaseGroup.mutex.Unlock()
 
 	}
 }
@@ -410,11 +413,11 @@ func (c *ConnectionManager) Remove(databaseId string, branchId string, clientCon
 // Remove idle connections that have not been used for more than a minute.
 func (c *ConnectionManager) RemoveIdleConnections() {
 	c.mutex.Lock()
-	
+
 	// First pass: collect all branch connections that might be removable
 	// (do this without calling RequiresCheckpoint to avoid nested locking)
 	candidatesForRemoval := []*BranchConnection{}
-	
+
 	for _, database := range c.databases {
 		for _, branchConnections := range database.branches {
 			for _, branchConnection := range branchConnections {
@@ -425,9 +428,9 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 			}
 		}
 	}
-	
+
 	c.mutex.Unlock()
-	
+
 	// Second pass: check RequiresCheckpoint for each candidate (without holding ConnectionManager lock)
 	actuallyRemovable := []*BranchConnection{}
 	for _, branchConnection := range candidatesForRemoval {
@@ -435,7 +438,7 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 			actuallyRemovable = append(actuallyRemovable, branchConnection)
 		}
 	}
-	
+
 	// Third pass: remove the connections (re-acquire lock for modifications)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -446,7 +449,7 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 			c.remove(branchConnection.connection)
 		}
 	}
-	
+
 	// Clean up empty databases
 	for databaseId, database := range c.databases {
 		activeBranches := 0
@@ -455,7 +458,7 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 				activeBranches++
 			}
 		}
-		
+
 		if activeBranches == 0 {
 			delete(c.databases, databaseId)
 		}

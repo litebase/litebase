@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster"
@@ -15,6 +16,7 @@ type BranchConnection struct {
 	databaseGroup *DatabaseGroup
 	inUse         bool
 	lastUsedAt    time.Time
+	mutex         sync.Mutex
 }
 
 // Create a new BranchConnection instance.
@@ -38,11 +40,15 @@ func NewBranchConnection(
 
 // Claim the branch connection for use.
 func (b *BranchConnection) Claim() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.inUse = true
 }
 
 // Check if the branch connection is currently claimed.
 func (b *BranchConnection) Claimed() bool {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	return b.inUse
 }
 
@@ -54,6 +60,8 @@ func (b *BranchConnection) Close() {
 
 // Release the branch connection for reuse.
 func (b *BranchConnection) Release() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.inUse = false
 }
 
