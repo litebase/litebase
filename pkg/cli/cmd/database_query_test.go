@@ -368,12 +368,12 @@ func TestDatabaseQueryCmdWithNamedParameters(t *testing.T) {
 			_, err = con.GetConnection().Exec("INSERT INTO users (name, role) VALUES (:name, :role)", []sqlite3.StatementParameter{
 				{
 					Type:  sqlite3.ParameterTypeText,
-					Name:  "name",
+					Name:  ":name",
 					Value: []byte(uuid.NewString()),
 				},
 				{
 					Type:  sqlite3.ParameterTypeText,
-					Name:  "role",
+					Name:  ":role",
 					Value: []byte("user"),
 				},
 			})
@@ -498,12 +498,12 @@ func TestDatabaseQueryCmdWithInvalidParameters(t *testing.T) {
 			_, err = con.GetConnection().Exec("INSERT INTO users (name, role) VALUES (:name, :role)", []sqlite3.StatementParameter{
 				{
 					Type:  sqlite3.ParameterTypeText,
-					Name:  "name",
+					Name:  ":name",
 					Value: []byte(uuid.NewString()),
 				},
 				{
 					Type:  sqlite3.ParameterTypeText,
-					Name:  "role",
+					Name:  ":role",
 					Value: []byte("user"),
 				},
 			})
