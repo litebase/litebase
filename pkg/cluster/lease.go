@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -15,6 +16,7 @@ var (
 )
 
 type Lease struct {
+	mutex     *sync.Mutex // Mutex to protect the lease state
 	node      *Node
 	ExpiresAt int64
 	RenewedAt time.Time
@@ -22,17 +24,24 @@ type Lease struct {
 
 func NewLease(node *Node) *Lease {
 	return &Lease{
-		node: node,
+		mutex: &sync.Mutex{},
+		node:  node,
 	}
 }
 
 // Check if the lease is up to date based on the current time and the expiration time.
 func (l *Lease) IsUpToDate() bool {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	return time.Now().UTC().Unix() < l.ExpiresAt
 }
 
 // Check if the lease is expired based on the current time and the expiration time.
 func (l *Lease) IsExpired() bool {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	if l.ExpiresAt == 0 {
 		return false
 	}
@@ -43,6 +52,9 @@ func (l *Lease) IsExpired() bool {
 // Release the lease and remove the primary status from the node. This should
 // be called before changing the cluster membership to replica.
 func (l *Lease) Release() error {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	l.ExpiresAt = 0
 
 	if l.node.Membership != ClusterMembershipPrimary {
@@ -167,6 +179,9 @@ func (l *Lease) Renew() error {
 		return ErrLeaseExpired
 	}
 
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	if l.node.Membership != ClusterMembershipPrimary {
 		return fmt.Errorf("node is not a leader")
 	}
@@ -232,6 +247,9 @@ func (l *Lease) ShouldRenew() bool {
 	if l.IsExpired() {
 		return false
 	}
+
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	return (LeaseDuration - time.Since(l.RenewedAt)) < 10*time.Second
 }

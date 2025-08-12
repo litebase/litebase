@@ -76,15 +76,16 @@ func TestDatabaseBackupShowCmd(t *testing.T) {
 			t.Fatal("expected to see 'Database Backup' in output")
 		}
 
-		if cli.DoesntSee(fmt.Sprintf("Database ID %s", db.DatabaseID)) {
+		if cli.GetOutputLine("Database ID") != db.DatabaseID {
+			t.Log("Output was:", cli.GetOutput())
 			t.Fatal("expected to see database ID in output")
 		}
 
-		if cli.DoesntSee(fmt.Sprintf("Database Branch ID %s", db.DatabaseBranchID)) {
+		if cli.GetOutputLine("Database Branch ID") != db.DatabaseBranchID {
 			t.Fatal("expected to see branch ID in output")
 		}
 
-		if cli.DoesntSee(fmt.Sprintf("Timestamp %d", backup.RestorePoint.Timestamp)) {
+		if cli.GetOutputLine("Timestamp") != fmt.Sprintf("%d", backup.RestorePoint.Timestamp) {
 			t.Log("Output was:", cli.GetOutput())
 			t.Fatal("expected to see timestamp in output", backup.RestorePoint.Timestamp)
 		}

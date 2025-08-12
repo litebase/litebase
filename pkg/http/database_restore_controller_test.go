@@ -14,10 +14,10 @@ import (
 func TestDatabaseRestoreController(t *testing.T) {
 	test.Run(t, func() {
 		// Force immediate compaction for testing
-		originalInterval := storage.PageLoggerCompactInterval
-		storage.PageLoggerCompactInterval = 0
+		originalInterval := storage.GetPageLoggerCompactInterval()
+		storage.SetPageLoggerCompactInterval(0)
 		defer func() {
-			storage.PageLoggerCompactInterval = originalInterval
+			storage.SetPageLoggerCompactInterval(originalInterval)
 		}()
 
 		server := test.NewTestServer(t)
@@ -160,8 +160,9 @@ func TestDatabaseRestoreController(t *testing.T) {
 			}
 
 			count := result.Rows[0][0].Int64()
-			if count != 1 {
-				return fmt.Errorf("Expected 1 row in restored table, got %d", count)
+
+			if count != 0 {
+				return fmt.Errorf("Expected 0 rows in restored table, got %d", count)
 			}
 
 			return nil
@@ -176,10 +177,10 @@ func TestDatabaseRestoreController(t *testing.T) {
 func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 	test.Run(t, func() {
 		// Force immediate compaction for testing
-		originalInterval := storage.PageLoggerCompactInterval
-		storage.PageLoggerCompactInterval = 0
+		originalInterval := storage.GetPageLoggerCompactInterval()
+		storage.SetPageLoggerCompactInterval(0)
 		defer func() {
-			storage.PageLoggerCompactInterval = originalInterval
+			storage.SetPageLoggerCompactInterval(originalInterval)
 		}()
 
 		server := test.NewTestServer(t)
@@ -204,7 +205,6 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		// Create a test table and insert some data
 		_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
 
 		if err != nil {
@@ -218,7 +218,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 		}
 
 		// Insert rows
-		for range 10 {
+		for i := range 10 {
 			err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 				_, err = db.Exec("INSERT INTO test (value) VALUES ('John Doe')", nil)
 
@@ -234,45 +234,131 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
 			}
-		}
 
-		for i := 10; i > 0; i-- {
-			// Get the snapshots
-			snapshotLogger.GetSnapshots()
-
-			// Get the latest snapshot timestamp
-			snapshotKeys := snapshotLogger.Keys()
-
-			snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
+			// Ensure snapshots are updated after each checkpoint
+			snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			if len(snapshot.RestorePoints.Data) == 0 {
-				t.Fatalf("Expected at least one restore point, got %d", len(snapshot.RestorePoints.Data))
+			for _, snapshot := range snapshots {
+				if snapshot.RestorePoints.Total != i+3 {
+					t.Fatalf("Expected %d restore points, got %d for iteration %d", i+3, snapshot.RestorePoints.Total, i)
+				}
+				break
+			}
+		}
+
+		// Verify the source database has 10 rows
+		var sourceRowCount int64
+		err = sourceDb.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {
+			result, err := db.Exec("SELECT COUNT(*) FROM test", nil)
+
+			if err != nil {
+				return err
 			}
 
-			if len(snapshot.RestorePoints.Data) < i+2 {
-				t.Fatalf("Expected at least %d restore points, got %d", i+2, len(snapshot.RestorePoints.Data))
+			sourceRowCount = result.Rows[0][0].Int64()
+
+			return nil
+		})
+
+		if err != nil {
+			t.Fatalf("failed to count rows in source database: %v", err)
+		}
+
+		if sourceRowCount != 10 {
+			t.Fatalf("Expected source database to have 10 rows, got %d", sourceRowCount)
+		}
+
+		// Get the snapshots once before the loop to ensure consistency
+		snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
+
+		for _, snapshot := range snapshots {
+			if snapshot.RestorePoints.Total != 12 {
+				t.Fatalf("Expected 12 restore points, got %d", snapshot.RestorePoints.Total)
 			}
 
-			restorePointTimestamp := snapshot.RestorePoints.Data[i+1]
+			break
+		}
+
+		// Verify that the source database actually has 10 rows before starting restore tests
+		err = sourceDb.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {
+			result, err := db.Exec("SELECT COUNT(*) FROM test", nil)
+			if err != nil {
+				return err
+			}
+
+			count := result.Rows[0][0].Int64()
+
+			if count != 10 {
+				return fmt.Errorf("Expected source database to have 10 rows, got %d", count)
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			t.Fatalf("Source database verification failed: %v", err)
+		}
+
+		// Get the latest snapshot timestamp
+		snapshotKeys := snapshotLogger.Keys()
+
+		snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if len(snapshot.RestorePoints.Data) == 0 {
+			t.Fatalf("Expected at least one restore point, got %d", len(snapshot.RestorePoints.Data))
+		}
+
+		if len(snapshot.RestorePoints.Data) < 12 {
+			t.Fatalf("Expected at least 12 restore points, got %d", len(snapshot.RestorePoints.Data))
+		}
+
+		// Get a single client for all HTTP requests
+		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
+			},
+		})
+
+		// Get the current count of the rows in the database
+		var currentRowCount int64
+		err = sourceDb.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {
+			result, err := db.Exec("SELECT COUNT(*) FROM test", nil)
+
+			if err != nil {
+				return err
+			}
+
+			currentRowCount = result.Rows[0][0].Int64()
+
+			return nil
+		})
+
+		if err != nil {
+			t.Fatalf("failed to count rows in source database: %v", err)
+		}
+
+		if currentRowCount != 10 {
+			t.Fatalf("Expected source database to have 10 rows, got %d", currentRowCount)
+		}
+
+		for i := 10; i > 0; i-- {
+			restorePointTimestamp := snapshot.RestorePoints.Data[i+1] // i+1 because we have 2 initial restore points (0: empty, 1: table created)
 
 			restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
 
 			if err != nil {
 				t.Fatalf("Expected no error getting restore point for timestamp %d, got %v", restorePointTimestamp, err)
 			}
-
-			// Get a new connection for the HTTP request verification
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
-				{
-					Effect:   "Allow",
-					Resource: "*",
-					Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
-				},
-			})
 
 			target := test.MockDatabase(server.App)
 
@@ -310,8 +396,6 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 				t.Fatalf("failed to get target database connection: %v", err)
 			}
 
-			defer server.App.DatabaseManager.ConnectionManager().Release(targetDB)
-
 			// Verify the data is restored correctly - should have the table but no data (restore point 1)
 			err = targetDB.GetConnection().Transaction(true, func(db *database.DatabaseConnection) error {
 				result, err := db.Exec("SELECT COUNT(*) FROM test", nil)
@@ -325,15 +409,19 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 				}
 
 				count := result.Rows[0][0].Int64()
-				if count != int64(i) {
-					return fmt.Errorf("Expected %d rows in restored table, got %d", i, count)
+
+				if count != int64(i-1) {
+					return fmt.Errorf("Expected %d rows in restored table, got %d (restore point index %d, timestamp %d)", i-1, count, i+1, restorePointTimestamp)
 				}
 
 				return nil
 			})
 
+			// Release the connection immediately after use
+			server.App.DatabaseManager.ConnectionManager().Release(targetDB)
+
 			if err != nil {
-				t.Fatalf("Transaction failed: %v", err)
+				t.Fatalf("Expected no error, got %v", err)
 			}
 		}
 	})

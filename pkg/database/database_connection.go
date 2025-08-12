@@ -374,6 +374,9 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	return result, checkpointBarrier(func() error {
 		return compactionBarrier(func() error {
+			con.mutex.Lock()
+			defer con.mutex.Unlock()
+
 			// Acquire timestamp inside the checkpoint barrier to ensure atomicity
 			con.setTimestamps()
 			defer con.releaseTimestamps()
@@ -812,7 +815,9 @@ func (con *DatabaseConnection) Transaction(
 			}
 
 			if !readOnly {
+				con.mutex.Lock()
 				con.committedAt = time.Now().UTC()
+				con.mutex.Unlock()
 			}
 
 			return handlerError

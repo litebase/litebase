@@ -151,7 +151,7 @@ func (c *Card) Render() string {
 		}
 
 		// Calculate remaining space for value
-		remainingWidth := contentWidth - len(key) - 1 // -1 for space between key and value
+		remainingWidth := contentWidth - len(key) - 2 // -1 for space between key and value and colon
 
 		// Truncate value if too long
 		if len(value) > remainingWidth && remainingWidth > 0 {
@@ -159,7 +159,7 @@ func (c *Card) Render() string {
 		}
 
 		// Build the row string with exact width control
-		rowContent := lipgloss.NewStyle().Bold(true).Render(key) + " " + value
+		rowContent := lipgloss.NewStyle().Bold(true).Render(key) + ": " + value
 
 		// Ensure the row doesn't exceed content width
 		if lipgloss.Width(rowContent) > contentWidth {

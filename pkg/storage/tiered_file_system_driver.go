@@ -24,6 +24,7 @@ import (
 func (fsd *TieredFileSystemDriver) ReleaseFileWithLock(file *TieredFile) error {
 	fsd.mutex.Lock()
 	defer fsd.mutex.Unlock()
+
 	return fsd.releaseFile(file)
 }
 
@@ -50,6 +51,7 @@ type TieredFileSystemDriver struct {
 	logger                   *TieredFileSystemLogger
 	lowTierFileSystemDriver  FileSystemDriver
 	FileOrder                *list.List
+	fileOrderMutex           *sync.Mutex
 	Files                    map[string]*TieredFile
 	highTierFileSystemDriver FileSystemDriver
 	MaxFilesOpened           int
@@ -86,6 +88,7 @@ func NewTieredFileSystemDriver(
 		},
 		context:                  context,
 		FileOrder:                list.New(),
+		fileOrderMutex:           &sync.Mutex{},
 		Files:                    map[string]*TieredFile{},
 		highTierFileSystemDriver: highTierFileSystemDriver,
 		lowTierFileSystemDriver:  lowTierFileSystemDriver,
@@ -152,6 +155,9 @@ func (fsd *TieredFileSystemDriver) addFile(path string, file internalStorage.Fil
 		flag,
 	)
 
+	fsd.fileOrderMutex.Lock()
+	defer fsd.fileOrderMutex.Unlock()
+
 	element := fsd.FileOrder.PushBack(fsd.Files[path])
 	fsd.Files[path].Element = element
 
@@ -197,7 +203,7 @@ func (fsd *TieredFileSystemDriver) ClearFiles() error {
 	}
 
 	for path, file := range fsd.Files {
-		if file.shouldBeWrittenToDurableStorage() {
+		if file.ShouldBeWrittenToDurableStorage() {
 			fsd.flushFileToDurableStorage(file, true)
 		}
 
@@ -292,9 +298,9 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 	lowTierFile.Close()
 
 	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
 	tieredFile := fsd.addFile(path, highTierFile, os.O_CREATE|os.O_RDWR)
+	fsd.mutex.Unlock()
+
 	tieredFile.MarkUpdated()
 
 	// Create and return a descriptor - addFile already increments usage, so don't double-count
@@ -364,7 +370,7 @@ func (fsd *TieredFileSystemDriver) flushFiles() error {
 // system. This operation is typically performed when the file has been updated
 // and has not been written to durable storage in the last minute.
 func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, force bool) {
-	if !file.shouldBeWrittenToDurableStorage() && !force {
+	if !file.ShouldBeWrittenToDurableStorage() && !force {
 		return
 	}
 
@@ -402,7 +408,6 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 				slog.Debug("Context is done, skipping write to durable storage", "error", fsd.context.Err())
 				return fsd.context.Err()
 			}
-
 			return err
 		}
 
@@ -428,6 +433,8 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 		return nil, false
 	}
 
+	file.mutex.Lock()
+
 	// Check if file needs to be released without holding the lock
 	needsRelease := file.Closed ||
 		(file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
@@ -435,11 +442,13 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 
 	if !needsRelease {
 		// Common case: file is valid, return it with read lock
+		file.mutex.Unlock()
 		fsd.mutex.Unlock()
 		return file, true
 	}
 
-	// Need to release file, upgrade to write lock
+	// Need to release file, release file mutex first to avoid deadlock
+	file.mutex.Unlock()
 	fsd.mutex.Unlock()
 
 	fsd.mutex.Lock()
@@ -452,10 +461,14 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 		return nil, false
 	}
 
-	// Re-check conditions after acquiring write lock
-	if file.Closed ||
+	// Re-check conditions after acquiring write lock (need to lock file mutex again)
+	file.mutex.Lock()
+	shouldRelease := file.Closed ||
 		(file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
-		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) {
+		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC()))
+	file.mutex.Unlock()
+
+	if shouldRelease {
 
 		err := fsd.releaseFile(file) // already holding lock
 
@@ -499,7 +512,7 @@ func (fsd *TieredFileSystemDriver) MkdirAll(path string, perm fs.FileMode) error
 // storage once a primary node assumes control of the cluster.
 func (fsd *TieredFileSystemDriver) MarkFileUpdated(f *TieredFile) error {
 	if f.Element != nil {
-		fsd.FileOrder.MoveToBack(f.Element)
+		fsd.MoveToBack(f.Element)
 	}
 
 	logKey, err := fsd.logger.Put(f.Key)
@@ -513,6 +526,13 @@ func (fsd *TieredFileSystemDriver) MarkFileUpdated(f *TieredFile) error {
 	f.LogKey = logKey
 
 	return nil
+}
+
+func (fsd *TieredFileSystemDriver) MoveToBack(element *list.Element) {
+	fsd.fileOrderMutex.Lock()
+	defer fsd.fileOrderMutex.Unlock()
+
+	fsd.FileOrder.MoveToBack(element)
 }
 
 // See OpenFile
@@ -575,9 +595,8 @@ tryOpen:
 	}
 
 	fsd.mutex.Lock()
-	defer fsd.mutex.Unlock()
-
 	tieredFile := fsd.addFile(path, file, flag)
+	fsd.mutex.Unlock()
 
 	// Create and return a descriptor instead of the TieredFile directly
 	descriptor := NewTieredFileDescriptor(tieredFile, path, flag, generateDescriptorID())
@@ -673,7 +692,7 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 	descriptorCount := file.GetDescriptorCount()
 
 	// If file needs flushing, flush it first before release (regardless of open descriptors)
-	if file.shouldBeWrittenToDurableStorage() {
+	if file.ShouldBeWrittenToDurableStorage() {
 		fsd.flushFileToDurableStorage(file, true) // force=true to flush even if interval hasn't passed
 	}
 
@@ -697,11 +716,12 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 
 			return nil
 		})
-
 	}
 
 	// Mark the file as released (descriptors will need to reopen when accessed)
+	file.mutex.Lock()
 	file.Released = true
+	file.mutex.Unlock()
 
 	// If the file should be removed from the map (no descriptors), do it here while holding the lock
 	if descriptorCount == 0 {
@@ -717,6 +737,39 @@ func (fsd *TieredFileSystemDriver) ReleaseFileFromMap(file *TieredFile) {
 	defer fsd.mutex.Unlock()
 
 	delete(fsd.Files, file.Key)
+}
+
+// releaseFileWithoutFlush releases a file without flushing it to durable storage.
+// This is used when the file is being removed entirely and doesn't need to be preserved.
+func (fsd *TieredFileSystemDriver) releaseFileWithoutFlush(file *TieredFile) error {
+	// Mark the file as released
+	file.mutex.Lock()
+	file.Released = true
+	file.mutex.Unlock()
+
+	// Always close and clean up the actual file handle when releasing
+	if file.File != nil {
+		file.AccessBarrier(func() error {
+			err := file.File.Close()
+
+			if err != nil {
+				return err
+			}
+
+			err = fsd.highTierFileSystemDriver.Remove(file.Key)
+
+			if err != nil && !os.IsNotExist(err) {
+				slog.Error("Error removing file from high tier file system", "error", err)
+				return err
+			}
+
+			file.File = nil
+
+			return nil
+		})
+	}
+
+	return nil
 }
 
 // Removing a file included removing the file from the high tier file system
@@ -745,22 +798,28 @@ func (fsd *TieredFileSystemDriver) Remove(path string) error {
 // low tier file system immediately after.
 func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
 	// Remove any files that are under the path
-	var filesToClose []*TieredFile
+	var filesToRelease []*TieredFile
 	fsd.mutex.Lock()
 
 	for key, file := range fsd.Files {
 		if key == path || (len(key) > len(path) && key[:len(path)] == path) {
-			filesToClose = append(filesToClose, file)
-			delete(fsd.Files, key)
+			filesToRelease = append(filesToRelease, file)
 		}
 	}
 
-	fsd.mutex.Unlock()
+	// Properly release files while holding the lock
+	// Note: No need to flush files since they're being removed entirely
+	for _, file := range filesToRelease {
+		err := fsd.releaseFileWithoutFlush(file) // skip flushing since file is being removed
 
-	// Close files outside the lock
-	for _, file := range filesToClose {
-		go file.closeFile()
+		if err != nil {
+			slog.Error("Error releasing file:", "error", err)
+		}
+
+		delete(fsd.Files, file.Key)
 	}
+
+	fsd.mutex.Unlock()
 
 	// OPTIMIZE: Run concurrently
 	err := fsd.highTierFileSystemDriver.RemoveAll(path)
@@ -801,7 +860,7 @@ func (fsd *TieredFileSystemDriver) releaseOldestFileInternal() error {
 
 	// Skip files that need to be written to durable storage
 	// Files with open descriptors can be released if they're already flushed
-	for file.shouldBeWrittenToDurableStorage() {
+	for file.ShouldBeWrittenToDurableStorage() {
 		element = element.Next()
 
 		if element == nil {
@@ -857,9 +916,13 @@ func (fsd *TieredFileSystemDriver) Shutdown() error {
 
 	fsd.shuttingDown = true
 
+	fsd.mutex.Lock()
+
 	if fsd.watchTicker != nil {
 		fsd.watchTicker.Stop()
 	}
+
+	fsd.mutex.Unlock()
 
 	if !fsd.CanSyncDirtyFiles() {
 		return nil
@@ -1004,8 +1067,9 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 	if fsd.watchTicker != nil {
 		fsd.watchTicker.Stop()
 	}
-
+	fsd.mutex.Lock()
 	fsd.watchTicker = time.NewTicker(fsd.WriteInterval)
+	fsd.mutex.Unlock()
 
 	for {
 		select {
@@ -1034,7 +1098,7 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 			// Now filter for files to flush outside the lock
 			filesToFlush := make([]*TieredFile, 0, len(fileSnapshot))
 			for _, file := range fileSnapshot {
-				if file.shouldBeWrittenToDurableStorage() {
+				if file.ShouldBeWrittenToDurableStorage() {
 					filesToFlush = append(filesToFlush, file)
 				}
 			}

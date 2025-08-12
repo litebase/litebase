@@ -16,17 +16,18 @@ import (
 // OPTIMIZE: Use an LRU cache for page data
 // TODO: Do we need to limit the number of open ranges?
 type DurableDatabaseFileSystem struct {
-	buffers      *sync.Pool
-	branchId     string
-	databaseId   string
-	tieredFS     *FileSystem
-	RangeManager *DataRangeManager
-	metadata     *DatabaseMetadata
-	mutex        *sync.RWMutex
-	path         string
-	PageLogger   *PageLogger
-	pageSize     int64
-	writeHook    func(offset int64, data []byte)
+	buffers         *sync.Pool
+	branchId        string
+	databaseId      string
+	tieredFS        *FileSystem
+	RangeManager    *DataRangeManager
+	metadata        *DatabaseMetadata
+	mutex           *sync.RWMutex
+	compactionMutex *sync.Mutex // Separate mutex for compaction barriers
+	path            string
+	PageLogger      *PageLogger
+	pageSize        int64
+	writeHook       func(offset int64, data []byte)
 }
 
 func NewDurableDatabaseFileSystem(
@@ -43,12 +44,13 @@ func NewDurableDatabaseFileSystem(
 				return bytes.NewBuffer(make([]byte, pageSize))
 			},
 		},
-		databaseId: databaseId,
-		tieredFS:   tieredFS,
-		mutex:      &sync.RWMutex{},
-		PageLogger: pageLogger,
-		path:       path,
-		pageSize:   pageSize,
+		databaseId:      databaseId,
+		tieredFS:        tieredFS,
+		mutex:           &sync.RWMutex{},
+		compactionMutex: &sync.Mutex{},
+		PageLogger:      pageLogger,
+		path:            path,
+		pageSize:        pageSize,
 	}
 
 	dfs.RangeManager = NewDataRangeManager(dfs)
@@ -70,6 +72,9 @@ func (dfs *DurableDatabaseFileSystem) Acquire(timestamp int64) {
 
 // Run compaction on the page logger of the database file system.
 func (dfs *DurableDatabaseFileSystem) Compact() error {
+	dfs.compactionMutex.Lock()
+	defer dfs.compactionMutex.Unlock()
+
 	dfs.mutex.Lock()
 	defer dfs.mutex.Unlock()
 
@@ -82,10 +87,16 @@ func (dfs *DurableDatabaseFileSystem) Compact() error {
 	return dfs.RangeManager.RunGarbageCollection()
 }
 
-// CompactionBarrier runs the given function while preventing compaction from
-// occurring during its execution.
+// CompactionBarrier prevents compaction from occurring while the given function is running.
 func (dfs *DurableDatabaseFileSystem) CompactionBarrier(fn func() error) error {
 	return dfs.PageLogger.CompactionBarrier(fn)
+}
+
+// DFSCompactionBarrier prevents DFS-level compaction (including both page log compaction and range manager GC) from occurring while the given function is running.
+func (dfs *DurableDatabaseFileSystem) DFSCompactionBarrier(fn func() error) error {
+	dfs.compactionMutex.Lock()
+	defer dfs.compactionMutex.Unlock()
+	return fn()
 }
 
 // Compact data to the latest version of a range by creating a copy of the

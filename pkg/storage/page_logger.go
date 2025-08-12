@@ -20,8 +20,23 @@ const (
 )
 
 var (
-	PageLoggerCompactInterval = DefaultPageLoggerCompactInterval
+	PageLoggerCompactInterval      = DefaultPageLoggerCompactInterval
+	pageLoggerCompactIntervalMutex sync.RWMutex
 )
+
+// GetPageLoggerCompactInterval returns the current page logger compact interval safely
+func GetPageLoggerCompactInterval() time.Duration {
+	pageLoggerCompactIntervalMutex.RLock()
+	defer pageLoggerCompactIntervalMutex.RUnlock()
+	return PageLoggerCompactInterval
+}
+
+// SetPageLoggerCompactInterval sets the page logger compact interval safely
+func SetPageLoggerCompactInterval(interval time.Duration) {
+	pageLoggerCompactIntervalMutex.Lock()
+	defer pageLoggerCompactIntervalMutex.Unlock()
+	PageLoggerCompactInterval = interval
+}
 
 type PageGroup int64
 type PageGroupVersion int64
@@ -130,7 +145,8 @@ func (pl *PageLogger) Compact(
 		pl.mutex.Lock()
 		defer pl.mutex.Unlock()
 
-		if PageLoggerCompactInterval != 0 && !pl.CompactedAt.IsZero() && pl.CompactedAt.After(time.Now().UTC().Add(-PageLoggerCompactInterval)) {
+		compactInterval := GetPageLoggerCompactInterval()
+		if compactInterval != 0 && !pl.CompactedAt.IsZero() && pl.CompactedAt.After(time.Now().UTC().Add(-compactInterval)) {
 			return nil
 		}
 

@@ -202,8 +202,8 @@ func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 	file := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
 	vfsIdPtr := uintptr(unsafe.Pointer(file.pVfsId))
 
-	vfsMutex.RLock()
-	defer vfsMutex.RUnlock()
+	vfsMutex.Lock()
+	defer vfsMutex.Unlock()
 
 	for _, vfs := range VfsMap {
 		if vfs.vfsIdPtr == vfsIdPtr {

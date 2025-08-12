@@ -255,6 +255,20 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 		return err
 	}
 
+	// Update in-memory restore points to reflect the new entry
+	s.RestorePoints.Data = append(s.RestorePoints.Data, timestamp)
+	
+	// Update start timestamp if this is the first restore point
+	if s.RestorePoints.Start == 0 || timestamp < s.RestorePoints.Start {
+		s.RestorePoints.Start = timestamp
+	}
+	
+	// Update end timestamp (assuming chronological order)
+	s.RestorePoints.End = timestamp
+	
+	// Increment total count
+	s.RestorePoints.Total++
+
 	// Ensure data is flushed to disk immediately
 	return s.File.Sync()
 }

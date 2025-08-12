@@ -114,10 +114,6 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 	}
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		if responseData["message"] != nil {
-			return nil, nil, fmt.Errorf("%s", responseData["message"].(string))
-		}
-
 		if responseData["errors"] != nil {
 			var errors = make(map[string][]string)
 
@@ -130,6 +126,10 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 			}
 
 			return nil, errors, nil
+		}
+
+		if responseData["message"] != nil {
+			return nil, nil, fmt.Errorf("%s", responseData["message"].(string))
 		}
 
 		return nil, nil, fmt.Errorf("Request Error: %s", res.Status)

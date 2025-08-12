@@ -66,12 +66,17 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 		d.pageLogger = d.createPageLogger()
 	}
 
+	if d.snapshotLogger == nil {
+		d.snapshotLogger = d.createSnapshotLogger()
+	}
+
 	checkpointer, err := NewCheckpointer(
 		d.DatabaseID,
 		d.BranchID,
 		d.fileSystem,
 		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
+		d.snapshotLogger,
 	)
 
 	if err != nil {
@@ -149,12 +154,18 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 	return d.fileSystem, nil
 }
 
+// Create a new page logger instance.
 func (d *DatabaseResources) createPageLogger() *storage.PageLogger {
 	return d.databaseManager.PageLogManager().Get(
 		d.DatabaseID,
 		d.BranchID,
 		d.databaseManager.Cluster.NetworkFS(),
 	)
+}
+
+// Create a ne snapshot logger instance.
+func (d *DatabaseResources) createSnapshotLogger() *backups.SnapshotLogger {
+	return backups.NewSnapshotLogger(d.tieredFS, d.DatabaseID, d.BranchID)
 }
 
 // Return the file system for the database.
@@ -290,7 +301,7 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 		return d.snapshotLogger
 	}
 
-	d.snapshotLogger = backups.NewSnapshotLogger(d.tieredFS, d.DatabaseID, d.BranchID)
+	d.snapshotLogger = d.createSnapshotLogger()
 
 	return d.snapshotLogger
 }

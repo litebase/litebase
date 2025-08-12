@@ -326,6 +326,9 @@ func (n *Node) IsPrimary() bool {
 }
 
 func (n *Node) IsReplica() bool {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
 	// If an election is running, wait for it to finish
 	if n.Election != nil && n.Election.Running() {
 		select {
@@ -827,8 +830,10 @@ func (n *Node) Shutdown() error {
 
 // Start the node and begin monitoring its state and heartbeat.
 func (n *Node) Start() chan bool {
+	n.mutex.Lock()
 	n.startedAt = time.Now().UTC()
 	n.replica = NewNodeReplica(n)
+	n.mutex.Unlock()
 
 	n.heartbeat()
 	n.Tick()

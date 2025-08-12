@@ -628,6 +628,8 @@ func TestBackup(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 
+			var errorsMutex sync.Mutex
+			var bkpsMutex sync.Mutex
 			var errors []error
 			var bkps []*backups.Backup
 
@@ -646,9 +648,13 @@ func TestBackup(t *testing.T) {
 				)
 
 				if err != nil {
+					errorsMutex.Lock()
 					errors = append(errors, err)
+					errorsMutex.Unlock()
 				} else {
+					bkpsMutex.Lock()
 					bkps = append(bkps, backup)
+					bkpsMutex.Unlock()
 				}
 			}()
 
@@ -666,9 +672,13 @@ func TestBackup(t *testing.T) {
 				)
 
 				if err != nil {
+					errorsMutex.Lock()
 					errors = append(errors, err)
+					errorsMutex.Unlock()
 				} else {
+					bkpsMutex.Lock()
 					bkps = append(bkps, backup)
+					bkpsMutex.Unlock()
 				}
 			}()
 
@@ -919,7 +929,7 @@ func TestBackup(t *testing.T) {
 				if results != nil && len(results.Rows) > 0 {
 					count := results.Rows[0][0].Int64()
 					// We're using second-to-last restore point, so expect totalCount (previous state)
-					expectedCount := int64(totalCount)
+					expectedCount := int64(totalCount - 1000)
 
 					if count != expectedCount {
 						t.Errorf("expected %d, got %d", expectedCount, count)

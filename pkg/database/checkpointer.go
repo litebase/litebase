@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/litebase/litebase/pkg/backups"
 	"github.com/litebase/litebase/pkg/file"
@@ -43,6 +42,7 @@ func NewCheckpointer(
 	dfs *storage.DurableDatabaseFileSystem,
 	sharedFileSystem *storage.FileSystem,
 	pageLogger *storage.PageLogger,
+	snapshotLogger *backups.SnapshotLogger,
 ) (*Checkpointer, error) {
 	cp := &Checkpointer{
 		branchId:         branchId,
@@ -52,7 +52,7 @@ func NewCheckpointer(
 		sharedFileSystem: sharedFileSystem,
 		lock:             sync.Mutex{},
 		rollbackLogger:   backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
-		snapshotLogger:   backups.NewSnapshotLogger(dfs.FileSystem(), databaseId, branchId),
+		snapshotLogger:   snapshotLogger,
 		pageLogger:       pageLogger,
 		capturedPages:    make(map[int64]bool), // Initialize the captured pages map
 	}
@@ -216,7 +216,7 @@ func (c *Checkpointer) Commit() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := c.snapshotLogger.Log(time.Now().UTC().UnixNano(), pageCount)
+		err := c.snapshotLogger.Log(c.Checkpoint.Timestamp, pageCount)
 
 		if err != nil {
 			log.Println("Error logging checkpoint", err)

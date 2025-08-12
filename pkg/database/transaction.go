@@ -19,6 +19,7 @@ type Transaction struct {
 	cancel           context.CancelFunc
 	context          context.Context
 	closed           bool
+	committed        bool
 	cluster          *cluster.Cluster
 	connection       *ClientConnection
 	CreatedAt        time.Time
@@ -27,6 +28,7 @@ type Transaction struct {
 	EndedAt          time.Time
 	ID               string
 	queryChannel     chan TransactionQuery
+	rolledBack       bool
 	StartedAt        time.Time
 	responseChannel  chan *QueryResponse
 	writesToDatabase bool
@@ -69,7 +71,7 @@ func NewTransaction(
 		StartedAt:       time.Now().UTC(),
 	}
 
-	err = transaction.Begin()
+	err = transaction.begin()
 
 	if err != nil {
 		log.Println("Error beginning transaction", err)
@@ -82,7 +84,7 @@ func NewTransaction(
 }
 
 // Start a transaction on the database connection.
-func (t *Transaction) Begin() error {
+func (t *Transaction) begin() error {
 	// Set connection timestamp before starting the transaction. This ensures we
 	// have a consistent timestamp for the transaction and the vfs reads from
 	// the proper WAL file and Page Log.
@@ -92,12 +94,17 @@ func (t *Transaction) Begin() error {
 }
 
 // Close a transaction.
-// TODO: If there are any queries that are still in progress, for example, a
-// write transaction has locked the database and other transactions are waiting,
-// the connection of the transaction should be interrupted.
-func (t *Transaction) Close() {
+func (t *Transaction) Close() error {
 	if t.closed {
-		return
+		return nil
+	}
+
+	if !t.committed && !t.rolledBack {
+		err := t.Rollback()
+
+		if err != nil {
+			return err
+		}
 	}
 
 	t.connection.GetConnection().releaseTimestamps()
@@ -108,16 +115,18 @@ func (t *Transaction) Close() {
 
 	close(t.queryChannel)
 	close(t.responseChannel)
+
+	return nil
 }
 
 // Commit the transaction. This will close the transaction and commit the
 // changes to the database.
 func (t *Transaction) Commit() error {
-	defer t.Close()
-
 	if t.writesToDatabase {
 		t.connection.GetConnection().committedAt = time.Now().UTC()
 	}
+
+	t.committed = true
 
 	return t.connection.GetConnection().Commit()
 }
@@ -126,7 +135,9 @@ func (t *Transaction) Commit() error {
 // changes to the database. If the transaction has already been committed, this
 // will return an error.
 func (t *Transaction) Rollback() error {
-	defer t.Close()
+	defer func() {
+		t.rolledBack = true
+	}()
 
 	return t.connection.GetConnection().Rollback()
 }
@@ -137,7 +148,12 @@ func (t *Transaction) run() {
 		select {
 		case <-t.context.Done():
 			return
-		case transactionQuery := <-t.queryChannel:
+		case transactionQuery, ok := <-t.queryChannel:
+			if !ok {
+				// Channel is closed, exit the goroutine
+				return
+			}
+
 			if transactionQuery.query.IsWrite() {
 				t.writesToDatabase = true
 			}
@@ -150,7 +166,13 @@ func (t *Transaction) run() {
 				log.Println("Error resolving query for transaction", err)
 			}
 
+			// Always try to send the response
 			t.responseChannel <- response.(*QueryResponse)
+
+			// After sending response, check if transaction should end
+			if transactionQuery.query.IsTransactionEnd() || transactionQuery.query.IsTransactionRollback() {
+				return
+			}
 		}
 	}
 }

@@ -229,8 +229,8 @@ func (wal *DatabaseWAL) performAsynchronousSync() {
 }
 
 func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
-	wal.mutex.RLock()
-	defer wal.mutex.RUnlock()
+	wal.mutex.Lock()
+	defer wal.mutex.Unlock()
 
 	cacheKey := wal.getCacheKey(off)
 

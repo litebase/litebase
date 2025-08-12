@@ -117,7 +117,6 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 							query.Input.Parameters,
 						)
 					} else {
-						// TODO: Does this need the checkpointer boundary?
 						err = statement.Sqlite3Statement.Exec(
 							sqlite3Result,
 							query.Input.Parameters...,
@@ -183,7 +182,11 @@ func resolveWithQueue(
 	response *QueryResponse,
 	f func(query *Query, response *QueryResponse) (*QueryResponse, error),
 ) (*QueryResponse, error) {
-	if query.IsWrite() {
+	// Writes that are not part of a transaction should be handled by the queue.
+	// Otherwise, queries that are read only should be executed immediately. If
+	// a query is transactional, it can be executed immediately as well since
+	// the database of the transaction will be holding the necessary locks.
+	if (query.IsWrite() && !query.IsTransactional()) || query.IsTransactionStart() {
 		queue := query.databaseManager.WriteQueueManager.GetWriteQueue(query)
 
 		if queue == nil {
@@ -235,6 +238,7 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryRespons
 		response.SetLastInsertRowID(primaryResponse.LastInsertRowID)
 		response.SetRowCount(primaryResponse.RowCount)
 		response.SetRows(primaryResponse.Rows)
+		response.SetTransactionID(primaryResponse.TransactionID)
 		response.SetWALSequence(primaryResponse.WALSequence)
 		response.SetWALTimestamp(primaryResponse.WALTimestamp)
 	default:
@@ -256,7 +260,9 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryRespons
 	return response, nil
 }
 
+// Queries that should be forwarded to the primary node are ones that perform
+// write operations or are part of a transaction.
 func shouldForwardToPrimary(query *Query) bool {
 	return !query.cluster.Node().IsPrimary() &&
-		(query.IsPragma() || query.IsDML())
+		(query.IsPragma() || query.IsDML() || query.IsTransactionStart() || query.IsTransactionEnd() || query.IsTransactionRollback() || query.Input.TransactionID != "")
 }

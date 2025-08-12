@@ -17,6 +17,7 @@ type TransactionManager struct {
 
 var ErrTransactionNotFound = errors.New("transaction not found")
 
+// Create a new instance of a TransactionManager.
 func NewTransactionManager(databaseId, branchId string) *TransactionManager {
 	return &TransactionManager{
 		BranchID:     branchId,
@@ -26,12 +27,16 @@ func NewTransactionManager(databaseId, branchId string) *TransactionManager {
 	}
 }
 
+// Create a new instance of a transaction.
 func (d *TransactionManager) Create(
 	cluster *cluster.Cluster,
 	databaseManager *DatabaseManager,
 	databaseKey *auth.DatabaseKey,
 	accessKey *auth.AccessKey,
 ) (*Transaction, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	transaction, err := NewTransaction(
 		cluster,
 		databaseManager,
@@ -43,9 +48,7 @@ func (d *TransactionManager) Create(
 		return nil, err
 	}
 
-	d.mutex.Lock()
 	d.transactions[transaction.ID] = transaction
-	d.mutex.Unlock()
 
 	return transaction, nil
 }

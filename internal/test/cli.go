@@ -3,11 +3,13 @@ package test
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cli/cmd"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 type TestCLI struct {
@@ -44,6 +46,30 @@ func (c *TestCLI) ClearOutput() {
 	c.outputBuffer.Reset()
 }
 
+// Get a line of text from the CLI output that is prefixed by the follow text
+// returning the text following a colon.
+func (c *TestCLI) GetOutputLine(prefix string) string {
+	lines := bytes.SplitSeq(c.outputBuffer.Bytes(), []byte("\n"))
+
+	for line := range lines {
+		// Remove non-standard (non-ASCII) characters from the line
+		cleanLine := make([]byte, 0, len(line))
+		for _, b := range line {
+			if b >= 32 && b <= 126 { // ASCII printable range
+				cleanLine = append(cleanLine, b)
+			}
+		}
+
+		if bytes.HasPrefix(cleanLine, []byte(prefix+": ")) {
+			result := string(cleanLine[len(prefix)+2:])
+			// Trim whitespace from the result to avoid issues with padding
+			return strings.TrimSpace(result)
+		}
+	}
+
+	return ""
+}
+
 // GetOutput returns the current output buffer content for debugging
 func (c *TestCLI) GetOutput() string {
 	return c.outputBuffer.String()
@@ -55,12 +81,39 @@ func (c *TestCLI) Run(args ...string) error {
 
 	c.Cmd.SetArgs(args)
 
+	defer c.ResetFlagsRecursive(c.Cmd)
+
 	return c.Cmd.Execute()
 }
 
 // Check if the output buffer contains the expected text
 func (c *TestCLI) DoesntSee(text string) bool {
 	return !c.Sees(text)
+}
+
+// Reset all flags to their default values after running the command.
+// This prevents flag values from persisting between command runs.
+func (c *TestCLI) ResetFlagsRecursive(cmd *cobra.Command) {
+	// Reset flags for this command
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Changed {
+			f.Value.Set(f.DefValue)
+			f.Changed = false
+		}
+	})
+
+	// Reset flags for persistent flags (if needed)
+	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+		if f.Changed {
+			f.Value.Set(f.DefValue)
+			f.Changed = false
+		}
+	})
+
+	// Recurse into child commands
+	for _, child := range cmd.Commands() {
+		c.ResetFlagsRecursive(child)
+	}
 }
 
 // Check if the output buffer does not contain the expected text

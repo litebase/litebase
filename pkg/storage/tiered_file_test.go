@@ -32,6 +32,8 @@ func TestNewTieredFile(t *testing.T) {
 			},
 		)
 
+		defer tfsd.Shutdown()
+
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
 
 		if tf == nil {
@@ -83,6 +85,8 @@ func TestTieredFile_Close(t *testing.T) {
 			},
 		)
 
+		defer tfsd.Shutdown()
+
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
 
 		if tf == nil {
@@ -114,6 +118,8 @@ func TestTieredFile_MarkUpdated(t *testing.T) {
 			},
 		)
 
+		defer tfsd.Shutdown()
+
 		tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
 
 		if tf == nil {
@@ -140,6 +146,8 @@ func TestTieredFile_Read(t *testing.T) {
 				}
 			},
 		)
+
+		defer tfsd.Shutdown()
 
 		tf, err := tfsd.Create("test.txt")
 
@@ -232,6 +240,8 @@ func TestTieredFileReadAt(t *testing.T) {
 			},
 		)
 
+		defer tfsd.Shutdown()
+
 		tf, err := tfsd.Create("test.txt")
 
 		if err != nil {
@@ -287,6 +297,8 @@ func TestTieredFile_Seek(t *testing.T) {
 				}
 			},
 		)
+
+		defer tfsd.Shutdown()
 
 		tf, err := tfsd.Create("test.txt")
 
@@ -402,6 +414,8 @@ func TestTieredFile_Sync(t *testing.T) {
 			},
 		)
 
+		defer tfsd.Shutdown()
+
 		tf, err := tfsd.Create("test_sync.txt")
 
 		if err != nil {
@@ -453,6 +467,8 @@ func TestTieredFile_Truncate(t *testing.T) {
 			},
 		)
 
+		defer tfsd.Shutdown()
+
 		tf, err := tfsd.Create("test_truncate.txt")
 
 		if err != nil {
@@ -503,6 +519,8 @@ func TestTieredFileWrite(t *testing.T) {
 				}
 			},
 		)
+
+		defer tfsd.Shutdown()
 
 		tf, err := tfsd.Create("test_write.txt")
 
@@ -558,6 +576,8 @@ func TestTieredFile_WriteAt(t *testing.T) {
 				}
 			},
 		)
+
+		defer tfsd.Shutdown()
 
 		tf, err := tfsd.Create("test_writeat.txt")
 
@@ -615,6 +635,8 @@ func TestTieredFile_WriteAt_Persistence(t *testing.T) {
 				}
 			},
 		)
+
+		defer tfsd.Shutdown()
 
 		tf, err := tfsd.Create("test_writeat.txt")
 
@@ -680,6 +702,8 @@ func TestTieredFile_WriteTo(t *testing.T) {
 				}
 			},
 		)
+
+		defer tfsd.Shutdown()
 
 		tf, err := tfsd.Create("test_writeto.txt")
 

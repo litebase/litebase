@@ -118,16 +118,16 @@ func (cluster *Cluster) ShutdownStorage() {
 	}
 
 	if cluster.tmpTieredFileSystem != nil {
-		err := cluster.tmpTieredFileSystem.ClearFiles()
-
-		if err != nil {
-			log.Println("Clearing tmp tiered file system", err)
-		}
-
-		err = cluster.tmpTieredFileSystem.Shutdown()
+		err := cluster.tmpTieredFileSystem.Shutdown()
 
 		if err != nil {
 			slog.Error("Shutting down tmp tiered file system", "error", err)
+		}
+
+		err = cluster.tmpTieredFileSystem.ClearFiles()
+
+		if err != nil {
+			log.Println("Clearing tmp tiered file system", err)
 		}
 	}
 

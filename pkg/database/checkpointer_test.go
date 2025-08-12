@@ -20,6 +20,7 @@ func TestNewCheckpointer(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -42,6 +43,7 @@ func TestCheckpointer_Begin(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -122,6 +124,7 @@ func TestCheckpointer_CheckpointPage(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -169,6 +172,7 @@ func TestCheckpointer_Commit(t *testing.T) {
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -230,6 +234,7 @@ func TestCheckpointer_Rollback(t *testing.T) {
 			fileSystem,
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
+			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -309,6 +314,7 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
+			app.DatabaseManager.Resources(databaseId, branchId).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -327,6 +333,7 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
+			app.DatabaseManager.Resources(databaseId, branchId).SnapshotLogger(),
 		)
 
 		if err != nil {
