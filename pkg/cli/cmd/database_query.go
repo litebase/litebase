@@ -15,7 +15,7 @@ import (
 
 func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "query <name> <query> [--output <format>] [--parameters <parameters>] [--transaction-id <id>]",
+		Use:   "query <name> <query> [--output <format>] [--parameters <parameters>] [--parameter-sets <parameter-sets>] [--transaction-id <id>]",
 		Short: "Execute a query on a database",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -25,13 +25,7 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 				return fmt.Errorf("invalid database path: %w", err)
 			}
 
-			var queryInput *database.QueryInput
-
 			statement := args[1]
-
-			queryInput = &database.QueryInput{
-				Statement: statement,
-			}
 
 			transactionID, err := cmd.Flags().GetString("transaction-id")
 
@@ -39,41 +33,93 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 				return fmt.Errorf("failed to get transaction ID: %w", err)
 			}
 
-			if transactionID != "" {
-				queryInput.TransactionID = transactionID
+			// Get parameter sets and parameters flags
+			parameterSetsFlag, err := cmd.Flags().GetString("parameter-sets")
+			if err != nil {
+				return fmt.Errorf("failed to get parameter sets: %w", err)
 			}
 
-			parameters, err := cmd.Flags().GetString("parameters")
-
+			parametersFlag, err := cmd.Flags().GetString("parameters")
 			if err != nil {
 				return fmt.Errorf("failed to get parameters: %w", err)
 			}
 
-			if parameters != "" {
-				if err := json.Unmarshal([]byte(parameters), &queryInput.Parameters); err != nil {
-					return fmt.Errorf("failed to unmarshal parameters: %w", err)
+			// Check if both parameters and parameter-sets are provided
+			if parameterSetsFlag != "" && parametersFlag != "" {
+				return fmt.Errorf("cannot specify both parameters and parameter sets")
+			}
+
+			var queries []map[string]any
+
+			if parameterSetsFlag != "" {
+				// Handle parameter sets - create multiple queries
+				var parameterSets [][]database.QueryStatementParameter
+				if err := json.Unmarshal([]byte(parameterSetsFlag), &parameterSets); err != nil {
+					return fmt.Errorf("failed to unmarshal parameter sets: %w", err)
 				}
-			}
 
-			for i, param := range queryInput.Parameters {
-				paramType, paramValue := inferParameterType(param.Value)
-				param.Type = paramType
-				param.Value = paramValue
-				queryInput.Parameters[i] = param
-			}
+				for _, paramSet := range parameterSets {
+					// Process each parameter in the set
+					for i, param := range paramSet {
+						paramType, paramValue := inferParameterType(param.Value)
+						param.Type = paramType
+						param.Value = paramValue
+						paramSet[i] = param
+					}
 
-			query := map[string]any{
-				"id":             uuid.NewString(),
-				"statement":      queryInput.Statement,
-				"parameters":     queryInput.Parameters,
-				"transaction_id": queryInput.TransactionID,
+					query := map[string]any{
+						"id":         uuid.NewString(),
+						"statement":  statement,
+						"parameters": paramSet,
+					}
+
+					if transactionID != "" {
+						query["transaction_id"] = transactionID
+					}
+
+					queries = append(queries, query)
+				}
+			} else {
+				// Handle single parameter set or no parameters
+				var queryInput *database.QueryInput = &database.QueryInput{
+					Statement: statement,
+				}
+
+				if transactionID != "" {
+					queryInput.TransactionID = transactionID
+				}
+
+				if parametersFlag != "" {
+					if err := json.Unmarshal([]byte(parametersFlag), &queryInput.Parameters); err != nil {
+						return fmt.Errorf("failed to unmarshal parameters: %w", err)
+					}
+				}
+
+				for i, param := range queryInput.Parameters {
+					paramType, paramValue := inferParameterType(param.Value)
+					param.Type = paramType
+					param.Value = paramValue
+					queryInput.Parameters[i] = param
+				}
+
+				query := map[string]any{
+					"id":         uuid.NewString(),
+					"statement":  queryInput.Statement,
+					"parameters": queryInput.Parameters,
+				}
+
+				if transactionID != "" {
+					query["transaction_id"] = queryInput.TransactionID
+				}
+
+				queries = append(queries, query)
 			}
 
 			res, apiErrors, err := api.Post(
 				config,
 				fmt.Sprintf("/v1/databases/%s/%s/query", databaseName, branchName),
 				map[string]any{
-					"queries": []map[string]any{query},
+					"queries": queries,
 				},
 			)
 
@@ -181,6 +227,7 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 
 	cmd.Flags().StringP("output", "o", "json", "Output format (json, table)")
 	cmd.Flags().String("parameters", "", "Query parameters (positional: [{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}]")
+	cmd.Flags().String("parameter-sets", "", "Query parameters (sets: [[{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}], [{\"name\":\"param1\", \"value\":\"value3\"}, {\"name\":\"param2\", \"value\":\"value4\"}]]")
 	cmd.Flags().String("transaction-id", "", "Transaction ID for the query, if the query is part of a transaction")
 
 	return cmd

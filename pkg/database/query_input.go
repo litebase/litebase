@@ -31,6 +31,12 @@ type QueryInput struct {
 	TransactionID string                       `json:"transaction_id" validate:"omitempty,required"`
 }
 
+type QueryStatementParameter struct {
+	Name  string `json:"name"`
+	Type  string `json:"type" validate:"required,oneof=TEXT INTEGER FLOAT BLOB NULL"`
+	Value any    `json:"value" validate:"required_unless=Type NULL"`
+}
+
 func NewQueryInput(
 	id string,
 	statement string,
