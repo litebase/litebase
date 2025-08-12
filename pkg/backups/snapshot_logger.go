@@ -160,19 +160,17 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 			return nil, err
 		}
 
-		// if _, ok := sl.logs[timestamp]; ok {
-		// 	continue
-		// }
+		if _, exists := sl.logs[timestamp]; !exists {
+			sl.logs[timestamp] = NewSnapshot(
+				sl.tieredFS,
+				sl.DatabaseID,
+				sl.BranchID,
+				timestamp,
+				0,
+			)
 
-		sl.logs[timestamp] = NewSnapshot(
-			sl.tieredFS,
-			sl.DatabaseID,
-			sl.BranchID,
-			timestamp,
-			0,
-		)
-
-		sl.keys = append(sl.keys, timestamp)
+			sl.keys = append(sl.keys, timestamp)
+		}
 	}
 
 	return sl.logs, nil
@@ -228,5 +226,9 @@ func (sl *SnapshotLogger) Keys() []int64 {
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()
 
-	return sl.keys
+	// Return a copy to avoid memory corruption
+	keys := make([]int64, len(sl.keys))
+	copy(keys, sl.keys)
+
+	return keys
 }
