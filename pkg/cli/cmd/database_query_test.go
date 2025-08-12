@@ -171,6 +171,81 @@ func TestDatabaseQueryCmdWithNamedParameters(t *testing.T) {
 	})
 }
 
+func TestDatabaseQueryCmdWithJSONParameters(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		db := test.MockDatabase(server.App)
+
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get database connection: %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, settings TEXT)", nil)
+
+		if err != nil {
+			t.Fatalf("failed to create table: %v", err)
+		}
+
+		// insert 50 users
+		for range 50 {
+			_, err = con.GetConnection().Exec("INSERT INTO users (name, settings) VALUES (?, ?)", []sqlite3.StatementParameter{
+				{
+					Type:  sqlite3.ParameterTypeText,
+					Value: []byte(uuid.NewString()),
+				},
+				{
+					Type:  sqlite3.ParameterTypeText,
+					Value: []byte(`{"theme": "dark", "notifications": true}`),
+				},
+			})
+
+			if err != nil {
+				t.Fatalf("failed to insert user: %v", err)
+			}
+		}
+
+		cli := test.NewTestCLI(server.App).
+			WithServer(server).
+			WithAccessKey([]auth.AccessKeyStatement{
+				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			})
+
+		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE settings->>'$.theme' = ? LIMIT ?", "--parameters", `[{"value": "dark", "type": "TEXT"}, {"value": 10, "type": "INTEGER"}]`)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if cli.DoesntSee("Row Count: 10") {
+			t.Log(cli.GetOutput())
+			t.Fatal("expected to see 'Row Count: 10', got none")
+		}
+
+		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "UPDATE users SET settings = json_set(settings, '$.theme', ?) WHERE id = ?", "--parameters", "[{\"value\": \"light\", \"type\": \"TEXT\"}, {\"value\": 1, \"type\": \"INTEGER\"}]")
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE settings->>'$.theme' = ? LIMIT ?", "--parameters", "[{\"value\": \"light\", \"type\": \"TEXT\"}, {\"value\": 10, \"type\": \"INTEGER\"}]")
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if cli.DoesntSee("light") {
+			t.Log(cli.GetOutput())
+			t.Fatal("expected to see 'light', got none")
+		}
+	})
+}
+
 func TestDatabaseQueryCmdWithInvalidParameters(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
