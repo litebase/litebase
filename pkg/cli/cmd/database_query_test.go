@@ -63,7 +63,58 @@ func TestDatabaseQueryCmd(t *testing.T) {
 	})
 }
 
-func TestDatabaseQueryCmdTransaction(t *testing.T) {
+func TestDatabaseQueryCmdBatchInsert(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		db := test.MockDatabase(server.App)
+
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get database connection: %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+		_, err = con.GetConnection().Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, role TEXT)", nil)
+
+		if err != nil {
+			t.Fatalf("failed to create table: %v", err)
+		}
+
+		cli := test.NewTestCLI(server.App).
+			WithServer(server).
+			WithAccessKey([]auth.AccessKeyStatement{
+				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			})
+
+		// Insert
+		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "INSERT INTO users (name, role) VALUES ('testuser1', 'user'), ('testuser2', 'user')")
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Show users
+		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users")
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		if cli.DoesntSee("testuser") {
+			t.Fatalf("expected to see 'testuser', but it was not found")
+		}
+
+		if cli.GetOutputLine("Row Count") != "2" {
+			t.Fatalf("expected row count to be 2, got %s", cli.GetOutputLine("Row Count"))
+		}
+	})
+}
+
+func TestDatabaseQueryCmdInteractiveTransaction(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
@@ -97,7 +148,6 @@ func TestDatabaseQueryCmdTransaction(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		// t.Log(cli.GetOutput())
 		transactionID := cli.GetOutputLine("Transaction ID")
 
 		if transactionID == "" {
@@ -284,7 +334,7 @@ func TestDatabaseQueryCmdWithJSONParameters(t *testing.T) {
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE settings->>'$.theme' = ? LIMIT ?", "--parameters", `[{"value": "dark", "type": "TEXT"}, {"value": 10, "type": "INTEGER"}]`)
+		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE settings->>'$.theme' = ? LIMIT ?", "--parameters", "[{\"value\": \"dark\", \"type\": \"TEXT\"}, {\"value\": 10, \"type\": \"INTEGER\"}]")
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
