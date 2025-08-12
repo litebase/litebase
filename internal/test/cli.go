@@ -99,6 +99,7 @@ func (c *TestCLI) ResetFlagsRecursive(cmd *cobra.Command) {
 			f.Changed = false
 		}
 	})
+
 	// Reset flags for persistent flags (if needed)
 	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		if f.Changed {
@@ -106,6 +107,7 @@ func (c *TestCLI) ResetFlagsRecursive(cmd *cobra.Command) {
 			f.Changed = false
 		}
 	})
+
 	// Recurse into child commands
 	for _, child := range cmd.Commands() {
 		c.ResetFlagsRecursive(child)
