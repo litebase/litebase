@@ -183,6 +183,20 @@ func TestDatabase(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
+			// Insert one row
+			_, err = sourceDb.GetConnection().Exec("INSERT INTO test (value) VALUES('test_value')", nil)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Checkpoint
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
 			db, err := app.DatabaseManager.Get(mock.DatabaseID)
 
 			if err != nil {
@@ -298,8 +312,8 @@ func TestDatabase(t *testing.T) {
 				t.Fatal("Expected result set to be non-nil, got nil")
 			}
 
-			if res.Rows[0][0].Int64() != 10 {
-				t.Errorf("Expected 10 rows in 'test' table, got %d", res.Rows[0][0].Int64())
+			if res.Rows[0][0].Int64() != 9 {
+				t.Errorf("Expected 9 rows in 'test' table, got %d", res.Rows[0][0].Int64())
 			}
 		})
 
