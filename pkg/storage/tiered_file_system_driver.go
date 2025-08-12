@@ -735,6 +735,39 @@ func (fsd *TieredFileSystemDriver) ReleaseFileFromMap(file *TieredFile) {
 	delete(fsd.Files, file.Key)
 }
 
+// releaseFileWithoutFlush releases a file without flushing it to durable storage.
+// This is used when the file is being removed entirely and doesn't need to be preserved.
+func (fsd *TieredFileSystemDriver) releaseFileWithoutFlush(file *TieredFile) error {
+	// Mark the file as released
+	file.mutex.Lock()
+	file.Released = true
+	file.mutex.Unlock()
+
+	// Always close and clean up the actual file handle when releasing
+	if file.File != nil {
+		file.AccessBarrier(func() error {
+			err := file.File.Close()
+
+			if err != nil {
+				return err
+			}
+
+			err = fsd.highTierFileSystemDriver.Remove(file.Key)
+
+			if err != nil && !os.IsNotExist(err) {
+				slog.Error("Error removing file from high tier file system", "error", err)
+				return err
+			}
+
+			file.File = nil
+
+			return nil
+		})
+	}
+
+	return nil
+}
+
 // Removing a file included removing the file from the high tier file system
 // and also removing the file from the low tier file system immediately after.
 func (fsd *TieredFileSystemDriver) Remove(path string) error {
@@ -760,24 +793,29 @@ func (fsd *TieredFileSystemDriver) Remove(path string) error {
 // files from the high tier file system and also removing all files from the
 // low tier file system immediately after.
 func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
-	log.Println("Removing all files under path:", path)
 	// Remove any files that are under the path
-	var filesToClose []*TieredFile
+	var filesToRelease []*TieredFile
 	fsd.mutex.Lock()
 
 	for key, file := range fsd.Files {
 		if key == path || (len(key) > len(path) && key[:len(path)] == path) {
-			filesToClose = append(filesToClose, file)
-			delete(fsd.Files, key)
+			filesToRelease = append(filesToRelease, file)
 		}
 	}
 
-	fsd.mutex.Unlock()
+	// Properly release files while holding the lock
+	// Note: No need to flush files since they're being removed entirely
+	for _, file := range filesToRelease {
+		err := fsd.releaseFileWithoutFlush(file) // skip flushing since file is being removed
 
-	// Close files outside the lock
-	for _, file := range filesToClose {
-		go file.closeFile()
+		if err != nil {
+			slog.Error("Error releasing file:", "error", err)
+		}
+
+		delete(fsd.Files, file.Key)
 	}
+
+	fsd.mutex.Unlock()
 
 	// OPTIMIZE: Run concurrently
 	err := fsd.highTierFileSystemDriver.RemoveAll(path)
