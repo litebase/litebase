@@ -72,8 +72,6 @@ func TestFileSystemLock_AcquirePathReadLock(t *testing.T) {
 	if lock.count != 1 {
 		t.Errorf("Expected lock count to be 1, got %d", lock.count)
 	}
-
-	lock.mutex.RUnlock()
 }
 
 func TestFileSystemLock_AcquirePathWriteLock(t *testing.T) {
@@ -89,8 +87,6 @@ func TestFileSystemLock_AcquirePathWriteLock(t *testing.T) {
 	if lock.count != 1 {
 		t.Errorf("Expected lock count to be 1, got %d", lock.count)
 	}
-
-	lock.mutex.Unlock()
 }
 
 func TestFileSystemLock_DeleteLockIfUnused(t *testing.T) {
@@ -101,7 +97,6 @@ func TestFileSystemLock_DeleteLockIfUnused(t *testing.T) {
 	lock := fsl.AcquirePathWriteLock(path)
 
 	// Release the lock
-	lock.mutex.Unlock()
 	lock.count--
 
 	// Attempt to delete the lock
