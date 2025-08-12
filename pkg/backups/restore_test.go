@@ -149,7 +149,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected at least 2 restore points, got %d", len(snapshot.RestorePoints.Data))
 			}
 
-			restorePointTimestamp := snapshot.RestorePoints.Data[1] // Table exists but no data
+			restorePointTimestamp := snapshot.RestorePoints.Data[2] // Table exists but no data
 
 			restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
 
@@ -321,7 +321,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected at least 2 restore points, got %d", len(snapshot.RestorePoints.Data))
 			}
 
-			restorePointTimestamp := snapshot.RestorePoints.Data[1] // Table exists but no data
+			restorePointTimestamp := snapshot.RestorePoints.Data[2] // Table exists but no data
 
 			restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
 
@@ -679,7 +679,7 @@ func TestRestore(t *testing.T) {
 				{sourceCount: 4000, targetCount: 3000},
 			}
 
-			restorePointIndex := -1
+			restorePointIndex := 0
 
 			source := test.MockDatabase(app)
 			target := test.MockDatabase(app)

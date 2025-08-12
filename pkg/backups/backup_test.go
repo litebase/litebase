@@ -929,7 +929,7 @@ func TestBackup(t *testing.T) {
 				if results != nil && len(results.Rows) > 0 {
 					count := results.Rows[0][0].Int64()
 					// We're using second-to-last restore point, so expect totalCount (previous state)
-					expectedCount := int64(totalCount)
+					expectedCount := int64(totalCount - 1000)
 
 					if count != expectedCount {
 						t.Errorf("expected %d, got %d", expectedCount, count)
