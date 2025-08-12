@@ -634,3 +634,351 @@ func TestStatementStep(t *testing.T) {
 		t.Errorf("Expected SQLITE_DONE, got %d", rc)
 	}
 }
+
+func TestStatement_BindNamedParameters(t *testing.T) {
+	ctx := context.Background()
+
+	con, err := sqlite3.Open(ctx, ":memory:", "", sqlite3.SQLITE_OPEN_READWRITE)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer con.Close()
+
+	// Create test table
+	_, err = con.Exec(ctx, "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, email TEXT)")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test named parameter binding
+	statement, errCode, err := sqlite3.NewStatement(ctx, con, "INSERT INTO users (name, age, email) VALUES (:name, :age, :email)")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer statement.Finalize()
+
+	if errCode != 0 {
+		t.Errorf("Expected error code 0, got %d", errCode)
+	}
+
+	// Bind named parameters
+	err = statement.Bind(
+		sqlite3.StatementParameter{
+			Name:  ":name",
+			Type:  sqlite3.ParameterTypeText,
+			Value: []byte("John Doe"),
+		},
+		sqlite3.StatementParameter{
+			Name:  ":age",
+			Type:  sqlite3.ParameterTypeInteger,
+			Value: int64(30),
+		},
+		sqlite3.StatementParameter{
+			Name:  ":email",
+			Type:  sqlite3.ParameterTypeText,
+			Value: []byte("john@example.com"),
+		},
+	)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Execute the statement
+	result := sqlite3.NewResult()
+
+	err = statement.Exec(result)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify the data was inserted by selecting it back
+	selectStmt, _, err := sqlite3.NewStatement(ctx, con, "SELECT name, age, email FROM users WHERE name = :name")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer selectStmt.Finalize()
+
+	err = selectStmt.Bind(sqlite3.StatementParameter{
+		Name:  ":name",
+		Type:  sqlite3.ParameterTypeText,
+		Value: []byte("John Doe"),
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	selectResult := sqlite3.NewResult()
+
+	err = selectStmt.Exec(selectResult)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(selectResult.Rows) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(selectResult.Rows))
+	}
+
+	if len(selectResult.Rows) > 0 {
+		// Check name
+		if string(selectResult.Rows[0][0].ColumnValue) != "John Doe" {
+			t.Errorf("Expected name 'John Doe', got %s", string(selectResult.Rows[0][0].ColumnValue))
+		}
+
+		// Check age
+		var age int64
+		binary.LittleEndian.Uint64(selectResult.Rows[0][1].ColumnValue)
+		expectedAge := int64(30)
+
+		if age != expectedAge {
+			age = int64(binary.LittleEndian.Uint64(selectResult.Rows[0][1].ColumnValue))
+		}
+
+		if age != expectedAge {
+			t.Errorf("Expected age %d, got %d", expectedAge, age)
+		}
+
+		// Check email
+		if string(selectResult.Rows[0][2].ColumnValue) != "john@example.com" {
+			t.Errorf("Expected email 'john@example.com', got %s", string(selectResult.Rows[0][2].ColumnValue))
+		}
+	}
+}
+
+func TestStatement_BindNamedParametersWithDifferentFormats(t *testing.T) {
+	ctx := context.Background()
+
+	con, err := sqlite3.Open(ctx, ":memory:", "", sqlite3.SQLITE_OPEN_READWRITE)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer con.Close()
+
+	// Create test table
+	_, err = con.Exec(ctx, "CREATE TABLE test_params (id INTEGER PRIMARY KEY, value1 TEXT, value2 TEXT, value3 TEXT)")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test different parameter name formats
+	testCases := []struct {
+		name  string
+		query string
+		param string
+	}{
+		{"colon prefix", "INSERT INTO test_params (value1) VALUES (:param)", ":param"},
+		{"at symbol", "INSERT INTO test_params (value1) VALUES (@param)", "@param"},
+		{"dollar sign", "INSERT INTO test_params (value1) VALUES ($param)", "$param"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			statement, _, err := sqlite3.NewStatement(ctx, con, tc.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer statement.Finalize()
+
+			err = statement.Bind(sqlite3.StatementParameter{
+				Name:  tc.param,
+				Type:  sqlite3.ParameterTypeText,
+				Value: []byte("test_value"),
+			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			result := sqlite3.NewResult()
+
+			err = statement.Exec(result)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestStatement_BindNamedParameterNotFound(t *testing.T) {
+	ctx := context.Background()
+
+	con, err := sqlite3.Open(ctx, ":memory:", "", sqlite3.SQLITE_OPEN_READWRITE)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer con.Close()
+
+	// Create test table
+	_, err = con.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	statement, _, err := sqlite3.NewStatement(ctx, con, "INSERT INTO test (name) VALUES (:name)")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer statement.Finalize()
+
+	// Try to bind a parameter that doesn't exist in the query
+	err = statement.Bind(sqlite3.StatementParameter{
+		Name:  ":nonexistent",
+		Type:  sqlite3.ParameterTypeText,
+		Value: []byte("test"),
+	})
+
+	if err == nil {
+		t.Error("Expected error for nonexistent parameter, got nil")
+	}
+
+	expectedError := "named parameter not found: :nonexistent"
+
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+	}
+}
+
+func TestStatement_BindMixedParameters(t *testing.T) {
+	ctx := context.Background()
+
+	con, err := sqlite3.Open(ctx, ":memory:", "", sqlite3.SQLITE_OPEN_READWRITE)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer con.Close()
+
+	// Create test table
+	_, err = con.Exec(ctx, "CREATE TABLE mixed_test (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test mixing positional and named parameters
+	statement, _, err := sqlite3.NewStatement(ctx, con, "INSERT INTO mixed_test (name, age) VALUES (?, :age)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer statement.Finalize()
+
+	// Bind both positional (first parameter) and named (second parameter)
+	err = statement.Bind(
+		sqlite3.StatementParameter{
+			Type:  sqlite3.ParameterTypeText,
+			Value: []byte("Alice"),
+		},
+		sqlite3.StatementParameter{
+			Name:  ":age",
+			Type:  sqlite3.ParameterTypeInteger,
+			Value: int64(25),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result := sqlite3.NewResult()
+	err = statement.Exec(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStatement_ParameterIndex(t *testing.T) {
+	ctx := context.Background()
+
+	con, err := sqlite3.Open(ctx, ":memory:", "", sqlite3.SQLITE_OPEN_READWRITE)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer con.Close()
+
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM sqlite_master WHERE name = :name AND type = :type")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer statement.Finalize()
+
+	// Test parameter index lookup
+	nameIndex := statement.ParameterIndex(":name")
+	if nameIndex == 0 {
+		t.Error("Expected non-zero index for :name parameter")
+	}
+
+	typeIndex := statement.ParameterIndex(":type")
+	if typeIndex == 0 {
+		t.Error("Expected non-zero index for :type parameter")
+	}
+
+	// Test nonexistent parameter
+	nonexistentIndex := statement.ParameterIndex(":nonexistent")
+	if nonexistentIndex != 0 {
+		t.Errorf("Expected index 0 for nonexistent parameter, got %d", nonexistentIndex)
+	}
+
+	// Test empty parameter name
+	emptyIndex := statement.ParameterIndex("")
+	if emptyIndex != 0 {
+		t.Errorf("Expected index 0 for empty parameter name, got %d", emptyIndex)
+	}
+}
+
+func TestStatement_ParameterName(t *testing.T) {
+	ctx := context.Background()
+
+	con, err := sqlite3.Open(ctx, ":memory:", "", sqlite3.SQLITE_OPEN_READWRITE)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer con.Close()
+
+	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM sqlite_master WHERE name = :name AND type = :type")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer statement.Finalize()
+
+	// Test getting parameter names by index
+	param1Name := statement.ParameterName(1)
+
+	if param1Name != ":name" {
+		t.Errorf("Expected parameter name ':name', got '%s'", param1Name)
+	}
+
+	param2Name := statement.ParameterName(2)
+
+	if param2Name != ":type" {
+		t.Errorf("Expected parameter name ':type', got '%s'", param2Name)
+	}
+
+	// Test invalid index
+	invalidParamName := statement.ParameterName(999)
+
+	if invalidParamName != "" {
+		t.Errorf("Expected empty string for invalid index, got '%s'", invalidParamName)
+	}
+}

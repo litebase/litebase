@@ -90,15 +90,23 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 	}
 
 	for i, parameter := range parameters {
-		// TODO: Support named parameters by checking if parameter.Name is set,
-		// then use sqlite3_bind_parameter_index to get the index.
-		int32Index, err := utils.SafeIntToInt32(i + 1)
+		var index C.int
 
-		if err != nil {
-			return err
+		// Support named parameters by checking if parameter.Name is set
+		if parameter.Name != "" {
+			parameterIndex := s.ParameterIndex(parameter.Name)
+			if parameterIndex == 0 {
+				return errors.New("named parameter not found: " + parameter.Name)
+			}
+			index = C.int(parameterIndex)
+		} else {
+			// Use positional parameter (1-based indexing)
+			int32Index, err := utils.SafeIntToInt32(i + 1)
+			if err != nil {
+				return err
+			}
+			index = C.int(int32Index)
 		}
-
-		index := C.int(int32Index)
 
 		var rc C.int
 
@@ -139,7 +147,7 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 
 			cTextLen := C.int(int32Len)
 
-			rc = C.sqlite3_bind_text(s.sqlite3_stmt, C.int(int32Index), cText, cTextLen, C.SQLITE_TRANSIENT)
+			rc = C.sqlite3_bind_text(s.sqlite3_stmt, index, cText, cTextLen, C.SQLITE_TRANSIENT)
 		case "BLOB":
 			value := parameter.Value.([]byte)
 
