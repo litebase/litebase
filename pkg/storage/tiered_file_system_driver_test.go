@@ -36,6 +36,8 @@ func TestNewTieredFileSystemDriver(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		if tieredFileSystemDriver == nil {
 			t.Error("NewTieredFileSystemDriver returned nil")
 		}
@@ -60,6 +62,8 @@ func TestTieredFileSystemDriver_ConcurrentFilesAccess(t *testing.T) {
 				fsd.CanSyncDirtyFiles = func() bool { return true }
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		const numGoroutines = 16
 		const numFiles = 32
@@ -138,12 +142,6 @@ func TestTieredFileSystemDriver_ConcurrentFilesAccess(t *testing.T) {
 		for err := range errCh {
 			t.Error(err)
 		}
-
-		err := tieredFileSystemDriver.Shutdown()
-
-		if err != nil {
-			t.Fatal(err)
-		}
 	})
 }
 
@@ -167,6 +165,8 @@ func TestTieredFileSystem_ClearFiles(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		err := os.WriteFile(app.Config.DataPath+"/local/test_1", []byte("test"), 0600)
 
@@ -247,6 +247,8 @@ func TestTieredFileSystemDriver_Create(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		tieredFile, err := tieredFileSystemDriver.Create("test")
 
 		if err != nil {
@@ -291,6 +293,8 @@ func TestTieredFileSystemDriver_Files(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		tieredFile, err := tieredFileSystemDriver.Create("test")
 
 		if err != nil {
@@ -329,6 +333,8 @@ func TestTieredFileSystemMarkFileUpdated(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		if tieredFileSystemDriver == nil {
 			t.Fatal("NewTieredFileSystemDriver returned nil")
@@ -373,6 +379,8 @@ func TestTieredFileSystemDriver_Mkdir(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		err := tieredFileSystemDriver.Mkdir("test/", 0750)
 
 		if err != nil {
@@ -413,6 +421,8 @@ func TestTieredFileSystemDriver_MkdirAll(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		err := tieredFileSystemDriver.MkdirAll("test/test/test/", 0750)
 
 		if err != nil {
@@ -452,6 +462,8 @@ func TestTieredFileSystemDriver_Open(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		_, err := tieredFileSystemDriver.Open("test")
 
@@ -505,6 +517,8 @@ func TestTieredFileSystemDriver_OpenDurableFile(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		// If the file is not found in local storage or durable storage, the
 		// file system driver should return an os.IsNotExist error.
@@ -578,6 +592,8 @@ func TestTieredFileSystemDriver_OpenFile(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		// Test open read only file that does not exist
 		_, err := tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0600)
@@ -735,6 +751,8 @@ func TestTieredFileSystemDriver_Path(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		path := tieredFileSystemDriver.Path("test")
 
 		if path == "" {
@@ -763,6 +781,8 @@ func TestTieredFileSystemDriver_ReadDir(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		_, err := tieredFileSystemDriver.ReadDir("dir/")
 
@@ -818,6 +838,8 @@ func TestTieredFileSystemDriver_ReadFile(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		_, err := tieredFileSystemDriver.ReadFile("test")
 
@@ -875,6 +897,8 @@ func TestTieredFileSystemDriver_ReleaseOldestFile(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		err := tieredFileSystemDriver.ReleaseOldestFile()
 
@@ -955,6 +979,8 @@ func TestTieredFileSystemDriver_ReleaseOldestFile_WhileReading(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		tieredFile1, _ := tieredFileSystemDriver.OpenFile("test1", os.O_RDWR|os.O_CREATE, 0600)
 
 		tieredFile1.Write([]byte("helloworld"))
@@ -1026,6 +1052,8 @@ func TestTieredFileSystemDriver_Remove(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		err := tieredFileSystemDriver.Remove("test")
 
 		if err == nil || !os.IsNotExist(err) {
@@ -1072,6 +1100,8 @@ func TestTieredFileSystemDriver_RemoveAll(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		err := tieredFileSystemDriver.RemoveAll("dir/")
 
@@ -1162,6 +1192,8 @@ func TestTieredFileSystemDriver_Rename(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		err := tieredFileSystemDriver.Rename("test", "'test2")
 
 		if err == nil || !os.IsNotExist(err) {
@@ -1219,6 +1251,8 @@ func TestTieredFileSystemDriver_Stat(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		_, err := tieredFileSystemDriver.Stat("test")
 
 		if err == nil || !os.IsNotExist(err) {
@@ -1272,6 +1306,8 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 					}
 				},
 			)
+
+			defer tieredFileSystemDriver.Shutdown()
 
 			// Create a file with actual content
 			file, err := tieredFileSystemDriver.Create("test")
@@ -1360,6 +1396,8 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		// Verify the files were synced after restart
 		_, err = fsd.Stat("test")
 		if err != nil {
@@ -1387,12 +1425,6 @@ func TestTieredFileSystemDriver_SyncDirtyFiles(t *testing.T) {
 		if string(data) != "hello world 2" {
 			t.Errorf("Expected 'hello world 2', got '%s'", string(data))
 		}
-
-		// Close the driver
-		err = tieredFileSystemDriver.Shutdown()
-		if err != nil {
-			t.Errorf("Failed to shutdown tiered file system driver: %v", err)
-		}
 	})
 }
 
@@ -1416,6 +1448,8 @@ func TestTieredFileSystemDriver_Truncate(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		err := tieredFileSystemDriver.Truncate("test", 4)
 
@@ -1468,6 +1502,8 @@ func TestTieredFileSystemDriver_WriteFile(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		err := tieredFileSystemDriver.WriteFile("test.txt", []byte("test"), 0600)
 
 		if err != nil {
@@ -1506,6 +1542,8 @@ func TestTieredFileIsReleasedWhenTTLHasPassed(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		now := time.Now().UTC()
 
@@ -1632,6 +1670,8 @@ func TestTieredFileIsFlushedToDurableStorageAfterUpdate(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
 
 		if err != nil {
@@ -1678,6 +1718,8 @@ func TestTieredFileSystemDriverLocalFileWithDifferentAccessFlags(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		// Test open read only file that does not exist
 		_, err := tieredFileSystemDriver.OpenFile("test", os.O_RDONLY, 0600)
@@ -2071,6 +2113,8 @@ func TestTieredFileSystemDriverKeepsCountOfOpenFiles(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		tieredFile, err := tieredFileSystemDriver.Create("test.txt")
 
 		if err != nil {
@@ -2117,6 +2161,8 @@ func TestTieredFileSystemDriverOnlyKeepsMaxFilesOpened(t *testing.T) {
 				}
 			},
 		)
+
+		defer tieredFileSystemDriver.Shutdown()
 
 		files := []string{
 			"test1.txt",
@@ -2193,6 +2239,8 @@ func TestTieredFileSystemDriver_FlushClearsDirtyLog(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		// Create a file with content
 		file, err := tieredFileSystemDriver.Create("test")
 
@@ -2245,12 +2293,6 @@ func TestTieredFileSystemDriver_FlushClearsDirtyLog(t *testing.T) {
 		if string(data) != "hello world" {
 			t.Errorf("Expected 'hello world', got '%s'", string(data))
 		}
-
-		err = tieredFileSystemDriver.Shutdown()
-
-		if err != nil {
-			t.Error(err)
-		}
 	})
 }
 
@@ -2288,42 +2330,46 @@ func TestTieredFileSystemDriver_SyncDirtyFiles_SkipsEmptyFiles(t *testing.T) {
 			},
 		)
 
+		defer tieredFileSystemDriver.Shutdown()
+
 		// Add entries to dirty log manually (simulating what would happen if these were dirty)
 		_, err = tieredFileSystemDriver.Logger().Put("empty_file")
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		_, err = tieredFileSystemDriver.Logger().Put("content_file")
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		// Sync dirty files
 		err = tieredFileSystemDriver.SyncDirtyFiles()
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		// Verify that empty file was NOT synced to low tier
 		lowTierFSD := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+
 		_, err = lowTierFSD.Stat("empty_file")
+
 		if err == nil || !os.IsNotExist(err) {
 			t.Error("Empty file should not have been synced to low tier")
 		}
 
 		// Verify that content file WAS synced to low tier
 		data, err := lowTierFSD.ReadFile("content_file")
+
 		if err != nil {
 			t.Errorf("Content file should have been synced to low tier: %v", err)
 		}
+
 		if string(data) != "content" {
 			t.Errorf("Expected 'content', got '%s'", string(data))
-		}
-
-		err = tieredFileSystemDriver.Shutdown()
-		if err != nil {
-			t.Error(err)
 		}
 	})
 }
@@ -2357,6 +2403,7 @@ func TestTieredFileSystemDriver_FlushAndRestartScenario(t *testing.T) {
 		}
 
 		_, err = file.Write([]byte("test content"))
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2373,6 +2420,7 @@ func TestTieredFileSystemDriver_FlushAndRestartScenario(t *testing.T) {
 
 		// Flush the files (should clear dirty log)
 		err = tieredFileSystemDriver.Flush()
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2384,16 +2432,20 @@ func TestTieredFileSystemDriver_FlushAndRestartScenario(t *testing.T) {
 
 		// Verify file is in low tier storage
 		lowTierFSD := storage.NewLocalFileSystemDriver(app.Config.DataPath + "/object")
+
 		data, err := lowTierFSD.ReadFile("test_file")
+
 		if err != nil {
 			t.Errorf("File should be in low tier storage after flush: %v", err)
 		}
+
 		if string(data) != "test content" {
 			t.Errorf("Expected 'test content', got '%s'", string(data))
 		}
 
 		// Shutdown the first driver
 		err = tieredFileSystemDriver.Shutdown()
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2417,14 +2469,17 @@ func TestTieredFileSystemDriver_FlushAndRestartScenario(t *testing.T) {
 
 		// Verify file is still accessible (should be loaded from low tier)
 		data, err = newTieredFileSystemDriver.ReadFile("test_file")
+
 		if err != nil {
 			t.Errorf("File should be accessible after restart: %v", err)
 		}
+
 		if string(data) != "test content" {
 			t.Errorf("Expected 'test content', got '%s'", string(data))
 		}
 
 		err = newTieredFileSystemDriver.Shutdown()
+
 		if err != nil {
 			t.Fatal(err)
 		}
