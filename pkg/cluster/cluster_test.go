@@ -41,7 +41,7 @@ func TestCluster(t *testing.T) {
 			}
 		})
 
-		t.Run("NewCluster(t *testing.T)", func(t *testing.T) {
+		t.Run("NewCluster", func(t *testing.T) {
 			server := test.NewTestServer(t)
 			defer server.Shutdown()
 
@@ -56,7 +56,7 @@ func TestCluster(t *testing.T) {
 			}
 		})
 
-		t.Run("AddMember(t *testing.T)", func(t *testing.T) {
+		t.Run("AddMember", func(t *testing.T) {
 			server1 := test.NewTestServer(t)
 			defer server1.Shutdown()
 
@@ -270,6 +270,23 @@ func TestCluster(t *testing.T) {
 
 			if path != "_cluster/PRIMARY" {
 				t.Fatalf("Path is not correct: %s", path)
+			}
+		})
+
+		t.Run("LockAndUnlock", func(t *testing.T) {
+			server := test.NewTestServer(t)
+			defer server.Shutdown()
+
+			locked := server.App.Cluster.Lock("test")
+
+			if !locked {
+				t.Fatal("Failed to acquire lock")
+			}
+
+			unlocked := server.App.Cluster.Unlock("test")
+
+			if !unlocked {
+				t.Fatal("Failed to release lock")
 			}
 		})
 	})
