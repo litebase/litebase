@@ -54,18 +54,23 @@ func cleanUpOldBackupLocks() {
 
 func GetBackupLock(databaseHash string) *BackupLock {
 	BackupLockMutex.Lock()
+	lock, ok := BackupLocks[databaseHash]
+	BackupLockMutex.Unlock()
 
-	lock := BackupLocks[databaseHash]
+	if !ok {
+		BackupLockMutex.Lock()
 
-	if lock == nil {
-		BackupLocks[databaseHash] = &BackupLock{
-			lastLockedAt: time.Now().UTC(),
-			lock:         &sync.Mutex{},
+		if BackupLocks[databaseHash] == nil {
+			BackupLocks[databaseHash] = &BackupLock{
+				lastLockedAt: time.Now().UTC(),
+				lock:         &sync.Mutex{},
+			}
 		}
+
+		BackupLockMutex.Unlock()
+
 		lock = BackupLocks[databaseHash]
 	}
-
-	BackupLockMutex.Unlock()
 
 	// Call cleanup after releasing the lock
 	cleanUpOldBackupLocks()
