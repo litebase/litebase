@@ -42,6 +42,8 @@ func NewTestServer(t testing.TB) *TestServer {
 		Started: app.Cluster.Node().Start(),
 	}
 
+	<-server.Started
+
 	return server
 }
 
@@ -72,13 +74,7 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 
 func (ts *TestServer) WithAccessKeyClient(statements []auth.AccessKeyStatement) *TestClient {
 	if ts.Client == nil {
-		accessKey := &auth.AccessKey{
-			AccessKeyID:     CreateHash(32),
-			AccessKeySecret: "accessKeySecret",
-			Statements:      statements,
-		}
-
-		err := ts.App.Auth.SecretsManager.StoreAccessKey(accessKey)
+		accessKey, err := ts.App.Auth.AccessKeyManager.Create("", statements)
 
 		if err != nil {
 			panic(err)

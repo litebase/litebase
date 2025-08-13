@@ -44,21 +44,13 @@ func CreateHash(length int) string {
 }
 
 func MockDatabase(app *server.App) TestDatabase {
-	accessKeyId := CreateHash(32)
-
-	accessKey := &auth.AccessKey{
-		AccessKeyID:     accessKeyId,
-		AccessKeySecret: "accessKeySecret",
-		Statements: []auth.AccessKeyStatement{
-			{
-				Effect:   auth.AccessKeyEffectAllow,
-				Resource: "*",
-				Actions:  []auth.Privilege{"*"},
-			},
+	accessKey, err := app.Auth.AccessKeyManager.Create("", []auth.AccessKeyStatement{
+		{
+			Effect:   auth.AccessKeyEffectAllow,
+			Resource: "*",
+			Actions:  []auth.Privilege{"*"},
 		},
-	}
-
-	err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
+	})
 
 	if err != nil {
 		log.Fatal(err)

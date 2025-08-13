@@ -337,7 +337,7 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 	go func() {
 		defer wg.Done()
 
-		err := rotateAccessKeys(c, secretsManager)
+		err := rotateAccessKeys(secretsManager)
 
 		if err != nil {
 			errors = append(errors, err)
@@ -385,46 +385,16 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 	return nil
 }
 
-func rotateAccessKeys(c *config.Config, secretsManager *SecretsManager) error {
-	accessKeyDir := Path(c.EncryptionKey) + "access_keys/"
-	newAccessKeyDir := Path(c.EncryptionKeyNext) + "access_keys/"
-
-	accessKeys, err := secretsManager.ObjectFS.ReadDir(accessKeyDir)
+func rotateAccessKeys(secretsManager *SecretsManager) error {
+	accessKeys, err := secretsManager.auth.AccessKeyManager.All()
 
 	if err != nil {
-		return err
-	}
-
-	if err := secretsManager.ObjectFS.MkdirAll(newAccessKeyDir, 0750); err != nil {
+		slog.Error("Error listing access keys", "error", err)
 		return err
 	}
 
 	for _, accessKey := range accessKeys {
-		accessKeyBytes, err := secretsManager.ObjectFS.ReadFile(
-			accessKeyDir + accessKey.Name(),
-		)
-
-		if err != nil {
-			return err
-		}
-
-		decryptedAccessKey, err := secretsManager.Decrypt(c.EncryptionKey, accessKeyBytes)
-
-		if err != nil {
-			return err
-		}
-
-		encryptedAccessKey, err := secretsManager.Encrypt(c.EncryptionKeyNext, []byte(decryptedAccessKey.Value))
-
-		if err != nil {
-			return err
-		}
-
-		if err := secretsManager.ObjectFS.WriteFile(
-			newAccessKeyDir+accessKey.Name(),
-			[]byte(encryptedAccessKey),
-			0600,
-		); err != nil {
+		if err := accessKey.Rotate(); err != nil {
 			return err
 		}
 	}

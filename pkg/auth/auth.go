@@ -38,12 +38,10 @@ func NewAuth(
 		tmpTieredFS,
 	)
 
-	auth.AccessKeyManager = NewAccessKeyManager(auth, auth.Config, objectFS)
-
 	return auth
 }
 
-// Broaddcast a an auth event to all listeners.
+// Broadcast an auth event to all listeners.
 func (a *Auth) Broadcast(key string, value string) {
 	if a.broadcaster != nil {
 		a.broadcaster(key, value)
@@ -53,4 +51,15 @@ func (a *Auth) Broadcast(key string, value string) {
 // Set a broadcaster function for auth events.
 func (a *Auth) Broadcaster(f func(key string, value string)) {
 	a.broadcaster = f
+}
+
+// Provide the interface that will manage access key storage and create the
+// AccessKeyManager instance.
+func (a *Auth) ProvideAccessKeyStorage(accessKeyStorage AccessKeyStorage) {
+	a.AccessKeyManager = NewAccessKeyManager(
+		accessKeyStorage,
+		a,
+		a.Config,
+		a.ObjectFS,
+	)
 }

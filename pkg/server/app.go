@@ -49,6 +49,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		clusterInstance.TmpFS(),
 		clusterInstance.TmpTieredFS(),
 	)
+
 	app.DatabaseManager = database.NewDatabaseManager(clusterInstance, app.Auth.SecretsManager)
 	app.LogManager = logs.NewLogManager(app.Cluster.Node().Context())
 	err = clusterInstance.Init(app.Auth)
@@ -91,6 +92,16 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	)
 	app.Cluster.EventsManager().Init()
 	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
+
+	<-app.Cluster.Node().Start()
+
+	app.Auth.ProvideAccessKeyStorage(
+		database.NewSystemDatabaseAccessKeyStorage(
+			app.Config,
+			app.Auth.SecretsManager,
+			app.DatabaseManager.SystemDatabase(),
+		),
+	)
 
 	go app.DatabaseManager.WriteQueueManager.Run()
 	go app.LogManager.Run()

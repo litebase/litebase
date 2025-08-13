@@ -149,24 +149,6 @@ func (s *SecretsManager) Init() error {
 		}
 	}
 
-	// Ensure the access keys path exists
-	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.EncryptionKey, "access_keys/")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.EncryptionKey, "access_keys/"), 0750)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	// Ensure the settings path exists
-	if _, err := s.ObjectFS.Stat(s.SecretsPath(s.config.EncryptionKey, "settings/")); os.IsNotExist(err) {
-		err := s.ObjectFS.MkdirAll(s.SecretsPath(s.config.EncryptionKey, "settings/"), 0750)
-
-		if err != nil {
-			return err
-		}
-	}
-
 	err := s.PurgeExpiredSecrets()
 
 	if err != nil {
@@ -260,37 +242,4 @@ func (s *SecretsManager) SecretsPath(encryptionKey, key string) string {
 		config.EncryptionKeyHash(encryptionKey),
 		key,
 	)
-}
-
-// Store the given access key in the SecretsManager
-func (s *SecretsManager) StoreAccessKey(accessKey *AccessKey) error {
-	jsonValue, err := json.Marshal(accessKey)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	encryptedAccessKey, err := s.Encrypt(
-		s.config.EncryptionKey,
-		jsonValue,
-	)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	err = s.ObjectFS.WriteFile(
-		s.SecretsPath(s.config.EncryptionKey, fmt.Sprintf("access_keys/%s", accessKey.AccessKeyID)),
-		[]byte(encryptedAccessKey),
-		0600,
-	)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	return nil
 }

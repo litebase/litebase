@@ -3,10 +3,7 @@ package auth
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
-	"log"
 	"log/slog"
-	"os"
 	"time"
 )
 
@@ -65,33 +62,26 @@ func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []P
 	return hasAuthorization
 }
 
-// Delete the AccessKey from the filesystem.
+// Delete the AccessKey from storage.
 func (accessKey *AccessKey) Delete() error {
-	keys := AllKeys(
-		accessKey.accessKeyManager.objectFS,
-	)
+	err := accessKey.accessKeyManager.accessKeyStorage.Delete(accessKey.AccessKeyID)
 
-	for _, key := range keys {
-		path := fmt.Sprintf("%s/access_keys/%s", key, accessKey.AccessKeyID)
-
-		err := accessKey.accessKeyManager.objectFS.Remove(path)
-
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		}
+	if err != nil {
+		return err
 	}
 
-	err := accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
+	err = accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
 
 	if err != nil {
 		slog.Error("failed to purge access key", "error", err)
 	}
 
-	accessKey = nil
-
 	return nil
+}
+
+// Rotate the access key.
+func (accessKey *AccessKey) Rotate() error {
+	return accessKey.accessKeyManager.accessKeyStorage.UpdateNext(accessKey)
 }
 
 // Return the hash of the AccessKey.
@@ -124,34 +114,9 @@ func (accessKey *AccessKey) Update(
 	accessKey.Statements = statements
 	accessKey.UpdatedAt = time.Now().UTC()
 
-	jsonValue, err := json.Marshal(accessKey)
+	err := accessKey.accessKeyManager.accessKeyStorage.Update(accessKey)
 
 	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	encryptedAccessKey, err := accessKey.accessKeyManager.auth.SecretsManager.Encrypt(
-		accessKey.accessKeyManager.config.EncryptionKey,
-		jsonValue,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	err = accessKey.accessKeyManager.objectFS.WriteFile(
-		accessKey.accessKeyManager.auth.SecretsManager.SecretsPath(
-			accessKey.accessKeyManager.config.EncryptionKey,
-			fmt.Sprintf("access_keys/%s", accessKey.AccessKeyID),
-		),
-		[]byte(encryptedAccessKey),
-		0600,
-	)
-
-	if err != nil {
-		log.Println(err)
-
 		return err
 	}
 

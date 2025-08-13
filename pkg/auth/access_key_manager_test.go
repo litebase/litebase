@@ -6,6 +6,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/server"
 )
 
@@ -20,14 +21,41 @@ func TestAccessKeyManager(t *testing.T) {
 				app.Cluster.TmpTieredFS(),
 			)
 
-			akm := auth.NewAccessKeyManager(a, a.Config, a.ObjectFS)
+			akm := auth.NewAccessKeyManager(
+				database.NewSystemDatabaseAccessKeyStorage(
+					a.Config,
+					a.SecretsManager,
+					app.DatabaseManager.SystemDatabase(),
+				),
+				a,
+				a.Config,
+				a.ObjectFS,
+			)
 
 			if akm == nil {
 				t.Error("Expected NewAccessKeyManager to return a non-nil AccessKeyManager")
 			}
 		})
 
-		t.Run("AllAccessKeys", func(t *testing.T) {
+		t.Run("AllAccessKeysIDs", func(t *testing.T) {
+			akm := app.Auth.AccessKeyManager
+
+			for i := range 10 {
+				akm.Create(fmt.Sprintf("Description %d", i), []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			}
+
+			accessKeys, err := akm.All()
+
+			if err != nil {
+				t.Error("Expected All to return an empty slice of strings")
+			}
+
+			if len(accessKeys) != 10 {
+				t.Error("Expected All to return 10 access keys")
+			}
+		})
+
+		t.Run("AllAccessKeysIDs", func(t *testing.T) {
 			akm := app.Auth.AccessKeyManager
 
 			for i := range 10 {

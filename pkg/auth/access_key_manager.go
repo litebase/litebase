@@ -1,12 +1,9 @@
 package auth
 
 import (
-	"bytes"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
-	"log"
-	"os"
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -16,23 +13,35 @@ import (
 )
 
 type AccessKeyManager struct {
-	auth     *Auth
-	config   *config.Config
-	mutex    *sync.Mutex
-	objectFS *storage.FileSystem
+	accessKeyStorage AccessKeyStorage
+	auth             *Auth
+	config           *config.Config
+	mutex            *sync.Mutex
+	objectFS         *storage.FileSystem
+}
+
+type AccessKeyStorage interface {
+	Delete(id string) error
+	Get(id string) (*AccessKey, error)
+	List() ([]*AccessKey, error)
+	Store(accessKey *AccessKey) error
+	Update(accessKey *AccessKey) error
+	UpdateNext(accessKey *AccessKey) error
 }
 
 // Create a New Access Key Manager
 func NewAccessKeyManager(
+	accessKeyStorage AccessKeyStorage,
 	auth *Auth,
 	config *config.Config,
 	objectFS *storage.FileSystem,
 ) *AccessKeyManager {
 	return &AccessKeyManager{
-		auth:     auth,
-		config:   config,
-		mutex:    &sync.Mutex{},
-		objectFS: objectFS,
+		accessKeyStorage: accessKeyStorage,
+		auth:             auth,
+		config:           config,
+		mutex:            &sync.Mutex{},
+		objectFS:         objectFS,
 	}
 }
 
@@ -41,26 +50,29 @@ func (akm *AccessKeyManager) accessKeyCacheKey(accessKeyId string) string {
 	return fmt.Sprintf("access_key:%s", accessKeyId)
 }
 
-// Return all access key ids
-func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
-	files, err := akm.objectFS.ReadDir(akm.auth.SecretsManager.SecretsPath(akm.config.EncryptionKey, "access_keys/"))
+// Retrieve all the access keys.
+func (akm *AccessKeyManager) All() ([]*AccessKey, error) {
+	accessKeys, err := akm.accessKeyStorage.List()
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			return []string{}, nil
-		}
+		return nil, err
+	}
 
+	return accessKeys, nil
+}
+
+// Return all access key ids
+func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
+	accessKeys, err := akm.accessKeyStorage.List()
+
+	if err != nil {
 		return nil, err
 	}
 
 	var accessKeyIds []string
 
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
-		accessKeyIds = append(accessKeyIds, file.Name())
+	for _, accessKey := range accessKeys {
+		accessKeyIds = append(accessKeyIds, accessKey.AccessKeyID)
 	}
 
 	return accessKeyIds, nil
@@ -82,10 +94,11 @@ func (akm *AccessKeyManager) Create(description string, statements []AccessKeySt
 		statements,
 	)
 
-	err = akm.auth.SecretsManager.StoreAccessKey(accessKey)
+	err = akm.accessKeyStorage.Store(accessKey)
 
 	if err != nil {
-		log.Println(err)
+		slog.Error("Error creating access key", "error", err)
+
 		return nil, err
 	}
 
@@ -176,36 +189,25 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 		accessKeyManager: akm,
 	}
 
-	value := akm.auth.SecretsManager.cache("map").Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
+	value := akm.auth.SecretsManager.cache("map").
+		Get(akm.accessKeyCacheKey(accessKeyId), accessKey)
 
 	if value != nil {
 		return accessKey, nil
 	}
 
-	path := akm.auth.SecretsManager.SecretsPath(akm.config.EncryptionKey, fmt.Sprintf("access_keys/%s", accessKeyId))
-
-	fileContents, err := akm.objectFS.ReadFile(path)
+	accessKey, err := akm.accessKeyStorage.Get(accessKeyId)
 
 	if err != nil {
 		return nil, err
 	}
 
-	decrypted, err := akm.auth.SecretsManager.Decrypt(akm.config.EncryptionKey, fileContents)
+	accessKey.accessKeyManager = akm
 
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
+	akm.auth.SecretsManager.cache("map").
+		Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
 
-	err = json.NewDecoder(bytes.NewReader([]byte(decrypted.Value))).Decode(accessKey)
-
-	if err != nil {
-		return nil, err
-	}
-
-	akm.auth.SecretsManager.cache("map").Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)
-
-	return accessKey, err
+	return accessKey, nil
 }
 
 // Purge an access key from the cache
@@ -219,15 +221,15 @@ func (akm *AccessKeyManager) Purge(accessKeyId string) error {
 
 // Purge all access keys
 func (akm *AccessKeyManager) PurgeAll() error {
-	// Get all the file names in the access keys directory
-	files, err := akm.objectFS.ReadDir(akm.auth.SecretsManager.SecretsPath(akm.config.EncryptionKey, "access_keys/"))
+	// Get all access key IDs from storage
+	accessKeyIds, err := akm.AllAccessKeyIds()
 
 	if err != nil {
 		return err
 	}
 
-	for _, file := range files {
-		err := akm.Purge(file.Name())
+	for _, accessKeyId := range accessKeyIds {
+		err := akm.Purge(accessKeyId)
 
 		if err != nil {
 			return err

@@ -95,25 +95,22 @@ func TestAccessKey(t *testing.T) {
 		})
 
 		t.Run("DeleteAccessKey", func(t *testing.T) {
-			accessKey := auth.NewAccessKey(
-				app.Auth.AccessKeyManager,
-				"accessKeyId",
-				"accessSecret",
-				"",
+			accessKey, err := app.Auth.AccessKeyManager.Create(
+				"Test description",
 				[]auth.AccessKeyStatement{},
 			)
-
-			err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
 
 			if err != nil {
 				t.Error(err)
 			}
 
+			accessKeyId := accessKey.AccessKeyID
+
 			if err := accessKey.Delete(); err != nil {
 				t.Error(err)
 			}
 
-			accessKey, err = app.Auth.AccessKeyManager.Get("accessKeyId")
+			accessKey, err = app.Auth.AccessKeyManager.Get(accessKeyId)
 
 			if err == nil {
 				t.Error("Expected accessKey to be nil")
@@ -125,20 +122,16 @@ func TestAccessKey(t *testing.T) {
 		})
 
 		t.Run("UpdateAccessKey", func(t *testing.T) {
-			accessKey := auth.NewAccessKey(
-				app.Auth.AccessKeyManager,
-				"accessKeyId",
-				"accessSecret",
+			accessKey, err := app.Auth.AccessKeyManager.Create(
 				"Description",
 				[]auth.AccessKeyStatement{},
 			)
-
-			err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
 
 			if err != nil {
 				t.Error(err)
 			}
 
+			accessKeyId := accessKey.AccessKeyID
 			statements := []auth.AccessKeyStatement{
 				{
 					Resource: "*",
@@ -152,7 +145,7 @@ func TestAccessKey(t *testing.T) {
 				t.Error(err)
 			}
 
-			accessKey, err = app.Auth.AccessKeyManager.Get("accessKeyId")
+			accessKey, err = app.Auth.AccessKeyManager.Get(accessKeyId)
 
 			if err != nil {
 				t.Error(err)

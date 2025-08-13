@@ -28,12 +28,17 @@ type SystemDatabase struct {
 
 // Create a new instance of the system database.
 func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
-	sd := &SystemDatabase{
+	s := &SystemDatabase{
 		databaseManager: databaseManager,
 		mutex:           &sync.Mutex{},
 	}
 
-	return sd
+	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
+		s.init()
+		s.initialized = true
+	}
+
+	return s
 }
 
 // Close the system database.
@@ -55,8 +60,7 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 	}
 
 	// Initialize the system database if this node should manage it and it hasn't been initialized yet
-	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary() || s.databaseManager.Cluster.IsSingleNodeCluster()) {
-		log.Println("Initializing system database...")
+	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
 		s.init()
 		s.initialized = true
 	}
@@ -164,6 +168,62 @@ func (s *SystemDatabase) init() {
 			created_at TEXT,
 			FOREIGN KEY (database_reference_id) REFERENCES databases(id) ON DELETE CASCADE,
 			FOREIGN KEY (database_branch_reference_id) REFERENCES database_branches(id) ON DELETE CASCADE
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a table for access keys
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS access_keys
+		(
+			id INTEGER PRIMARY KEY,
+			access_key_id TEXT UNIQUE,
+			access_key_secret TEXT,
+			description TEXT,
+			statements TEXT,
+			created_at TEXT,
+			updated_at TEXT
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a table for tokens
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS tokens
+		(
+			id INTEGER PRIMARY KEY,
+			token_id TEXT UNIQUE,
+			token_hash TEXT,
+			statements TEXT,
+			created_at TEXT,
+			updated_at TEXT
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a table for users
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS users
+		(
+			id INTEGER PRIMARY KEY,
+			username TEXT UNIQUE,
+			password TEXT,
+			description TEXT,
+			statements TEXT,
+			created_at TEXT,
+			updated_at TEXT
 		)
 		`,
 	)

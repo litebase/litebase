@@ -178,33 +178,5 @@ func TestSecretsManager(t *testing.T) {
 				t.Error("Expected SecretsPath to not return an empty string")
 			}
 		})
-
-		t.Run("StoreAccessKey", func(t *testing.T) {
-			accessKey, err := app.Auth.AccessKeyManager.Create("test", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
-
-			if err != nil {
-				t.Error("Expected Create to return a non-nil error")
-			}
-
-			err = app.Auth.SecretsManager.StoreAccessKey(accessKey)
-
-			if err != nil {
-				t.Error("Expected StoreAccessKey to return a non-nil error")
-			}
-
-			accessKeyCheck, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
-
-			if err != nil {
-				t.Error("Expected GetAccessKeySecret to return a non-nil error")
-			}
-
-			if accessKeyCheck == nil {
-				t.Fatal("Expected GetAccessKeySecret to return the same secret as the access key")
-			}
-
-			if accessKeyCheck.AccessKeyID != accessKey.AccessKeyID {
-				t.Error("Expected AccessKeyID to match")
-			}
-		})
 	})
 }
