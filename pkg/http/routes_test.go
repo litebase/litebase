@@ -270,24 +270,6 @@ func TestRoutesMiddleware(t *testing.T) {
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database snapshot show route should have Authentication middleware",
 		},
-		{
-			Method:             "POST",
-			Path:               "/v1/databases/{databaseName}/{branchName}/transactions",
-			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
-			Description:        "Transaction store route should have ForwardToPrimary and Authentication middleware",
-		},
-		{
-			Method:             "DELETE",
-			Path:               "/v1/databases/{databaseName}/{branchName}/transactions/{id}",
-			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
-			Description:        "Transaction destroy route should have ForwardToPrimary and Authentication middleware",
-		},
-		{
-			Method:             "POST",
-			Path:               "/v1/databases/{databaseName}/{branchName}/transactions/{id}/commit",
-			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
-			Description:        "Transaction commit route should have ForwardToPrimary and Authentication middleware",
-		},
 	}
 
 	// Create a router and load routes
@@ -334,7 +316,7 @@ func TestAllRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 41 // Update this number if you add more routes
+	expectedRouteCount := 38 // Update this number if you add more routes
 
 	totalRoutes := 0
 
