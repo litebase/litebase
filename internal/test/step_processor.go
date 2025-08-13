@@ -244,8 +244,10 @@ func (sp *StepProcessor) handleConnection(conn net.Conn) {
 			sp.connMutex.Lock()
 			sp.connections[processName] = conn
 
+			sp.stepMutex.Lock()
 			// Check if all expected processes are now connected
 			allConnected := len(sp.connections) == len(sp.expectedProcesses)
+			sp.stepMutex.Unlock()
 
 			for expectedProcess := range sp.expectedProcesses {
 				if _, connected := sp.connections[expectedProcess]; !connected {
@@ -403,6 +405,9 @@ func (sp *StepProcessor) Resume(name string) error {
 
 // Setup all of the processes to be run
 func (sp *StepProcessor) setupProcesses() {
+	sp.stepMutex.Lock()
+	defer sp.stepMutex.Unlock()
+
 	// Track expected processes
 	for name := range sp.tests {
 		sp.expectedProcesses[name] = true
@@ -417,9 +422,11 @@ func (sp *StepProcessor) setupProcesses() {
 			fmt.Sprintf("LITEBASE_TEST_ENCRYPTION_KEY=%s", sp.encryptionKey),
 			fmt.Sprintf("LITEBASE_SOCKET_DIR=%s", sp.socketDir))
 
-		// Uncomment to see child process output
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		// Only return output for tests that do not exit with an error
+		if test.process.expectedExitCode == 0 {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
 
 		test.cmd = cmd
 		test.socketPath = filepath.Join(sp.socketDir, "coordinator.sock")
