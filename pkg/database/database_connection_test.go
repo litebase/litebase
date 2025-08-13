@@ -1242,32 +1242,35 @@ func TestDatabaseConnection(t *testing.T) {
 		})
 
 		t.Run("DatabaseConnectionReadSnapshotIsolationOnReplicaServer", func(t *testing.T) {
-			// This test is simplified to avoid deadlocks while still testing the basic concept
-			// The original test had complex channel synchronization that caused deadlocks
-			// between goroutines in database transactions and cluster replication
+			// TODO: This test needs to be refactored with proper a primary/replica.
+			// Writing to the primary while reading from the replica.
 
 			mock := test.MockDatabase(app)
 
 			// Create a database table and add some data
 			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			defer app.DatabaseManager.ConnectionManager().Release(connection)
 
 			_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil)
+
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			// Insert initial data
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				_, err = connection.GetConnection().Exec("INSERT INTO test (name) VALUES (?)", []sqlite3.StatementParameter{
 					{
 						Type:  "TEXT",
 						Value: []byte("test"),
 					},
 				})
+
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -1279,6 +1282,7 @@ func TestDatabaseConnection(t *testing.T) {
 
 				for i := range 3 {
 					result, err := con.Exec("SELECT COUNT(*) FROM test", nil)
+
 					if err != nil {
 						return err
 					}
