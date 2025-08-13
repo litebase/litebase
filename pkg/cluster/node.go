@@ -204,7 +204,7 @@ func (n *Node) heartbeat() {
 			return
 		}
 
-		if n.Lease().ShouldRenew() {
+		if n.Lease() != nil && n.Lease().ShouldRenew() {
 			err := n.Lease().Renew()
 
 			if err != nil {
@@ -216,7 +216,7 @@ func (n *Node) heartbeat() {
 					slog.Debug("Failed to remove primary status", "error", err)
 				}
 			}
-		} else if n.Lease().IsExpired() {
+		} else if n.Lease() != nil && n.Lease().IsExpired() {
 			// Check if lease has expired (e.g., after a pause)
 			slog.Debug("Lease has expired, stepping down")
 

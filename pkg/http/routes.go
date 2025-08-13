@@ -281,27 +281,6 @@ func LoadRoutes(router *Router) {
 		Authentication,
 	})
 
-	router.Post("/v1/databases/{databaseName}/{branchName}/transactions",
-		TransactionControllerStore,
-	).Middleware([]Middleware{
-		ForwardToPrimary,
-		Authentication,
-	})
-
-	router.Delete("/v1/databases/{databaseName}/{branchName}/transactions/{id}",
-		TransactionControllerDestroy,
-	).Middleware([]Middleware{
-		ForwardToPrimary,
-		Authentication,
-	})
-
-	router.Post("/v1/databases/{databaseName}/{branchName}/transactions/{id}/commit",
-		TransactionCommitController,
-	).Middleware([]Middleware{
-		ForwardToPrimary,
-		Authentication,
-	})
-
 	router.Fallback(func(request *Request) Response {
 		return Response{
 			StatusCode: 404,
