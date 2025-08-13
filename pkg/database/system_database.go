@@ -16,7 +16,6 @@ const SystemDatabaseName = "system"
 var TheSystemDatabase Database = Database{
 	DatabaseID: SystemDatabaseID,
 	Name:       SystemDatabaseName,
-	// PrimaryBranchID:   SystemDatabaseBranchID,
 }
 
 // The system database structure that has a connection to the system database.
@@ -34,15 +33,10 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 		mutex:           &sync.Mutex{},
 	}
 
-	if sd.databaseManager.Cluster.Node().IsPrimary() {
-		sd.init()
-	}
-
-	sd.initialized = true
-
 	return sd
 }
 
+// Close the system database.
 func (s *SystemDatabase) Close() error {
 	if s.db != nil {
 		return s.db.Close()
@@ -51,9 +45,20 @@ func (s *SystemDatabase) Close() error {
 	return nil
 }
 
+// Get a singleton instance of the system database.
 func (s *SystemDatabase) DB() (*sql.DB, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if s.db != nil {
 		return s.db, nil
+	}
+
+	// Initialize the system database if this node should manage it and it hasn't been initialized yet
+	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary() || s.databaseManager.Cluster.IsSingleNodeCluster()) {
+		log.Println("Initializing system database...")
+		s.init()
+		s.initialized = true
 	}
 
 	db, err := sql.Open("litebase-internal", "system/system")
