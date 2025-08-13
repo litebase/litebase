@@ -645,6 +645,11 @@ func TestBackup(t *testing.T) {
 					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
 					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+					func(b *backups.Backup) {
+						b.SetOnComplete(func(b *backups.Backup) {
+							time.Sleep(100 * time.Millisecond)
+						})
+					},
 				)
 
 				if err != nil {
@@ -669,6 +674,11 @@ func TestBackup(t *testing.T) {
 					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
 					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
 					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+					func(b *backups.Backup) {
+						b.SetOnComplete(func(b *backups.Backup) {
+							time.Sleep(100 * time.Millisecond)
+						})
+					},
 				)
 
 				if err != nil {

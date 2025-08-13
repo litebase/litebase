@@ -54,23 +54,18 @@ func cleanUpOldBackupLocks() {
 
 func GetBackupLock(databaseHash string) *BackupLock {
 	BackupLockMutex.Lock()
-	lock, ok := BackupLocks[databaseHash]
-	BackupLockMutex.Unlock()
 
-	if !ok {
-		BackupLockMutex.Lock()
+	lock := BackupLocks[databaseHash]
 
-		if BackupLocks[databaseHash] == nil {
-			BackupLocks[databaseHash] = &BackupLock{
-				lastLockedAt: time.Now().UTC(),
-				lock:         &sync.Mutex{},
-			}
+	if lock == nil {
+		BackupLocks[databaseHash] = &BackupLock{
+			lastLockedAt: time.Now().UTC(),
+			lock:         &sync.Mutex{},
 		}
-
-		BackupLockMutex.Unlock()
-
 		lock = BackupLocks[databaseHash]
 	}
+
+	BackupLockMutex.Unlock()
 
 	// Call cleanup after releasing the lock
 	cleanUpOldBackupLocks()
@@ -89,15 +84,13 @@ func (bl *BackupLock) Lock() {
 func (b *BackupLock) TryLock() bool {
 	locked := b.lock.TryLock()
 
-	if !locked {
-		return false
+	if locked {
+		b.mu.Lock()
+		b.lastLockedAt = time.Now().UTC()
+		b.mu.Unlock()
 	}
 
-	b.mu.Lock()
-	b.lastLockedAt = time.Now().UTC()
-	b.mu.Unlock()
-
-	return true
+	return locked
 }
 
 func (b *BackupLock) Unlock() {
