@@ -75,6 +75,7 @@ type StepTest struct {
 	cmd        *exec.Cmd
 	function   func(sp *StepProcess)
 	process    *StepProcess
+	mutex      *sync.Mutex
 	socketPath string
 }
 
@@ -169,6 +170,7 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 func (sp *StepProcessor) Run(name string, fn func(s *StepProcess)) *StepProcess {
 	sp.tests[name] = &StepTest{
 		function: fn,
+		mutex:    &sync.Mutex{},
 		process: &StepProcess{
 			sp:               sp,
 			processName:      name,
@@ -371,6 +373,9 @@ func (sp *StepProcessor) Pause(name string) error {
 		return errors.New("process not found")
 	}
 
+	test.mutex.Lock()
+	defer test.mutex.Unlock()
+
 	// Pause the process
 	err := test.cmd.Process.Signal(syscall.SIGSTOP)
 
@@ -449,7 +454,10 @@ func (sp *StepProcessor) Start(t *testing.T) {
 		go func(testName string, test *StepTest) {
 			defer wg.Done()
 
+			test.mutex.Lock()
 			err := test.cmd.Start()
+			test.mutex.Unlock()
+
 			if err != nil {
 				// Check if context is cancelled before calling t.Errorf to avoid panic
 				select {
