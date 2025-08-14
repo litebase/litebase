@@ -19,7 +19,7 @@ func TestUserUpdate(t *testing.T) {
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		user, err := server.App.Auth.UserManager().Add("Test user", "password", []auth.AccessKeyStatement{
+		user, err := server.App.Auth.UserManager.Add("Test user", "password", []auth.AccessKeyStatement{
 			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 

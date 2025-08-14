@@ -11,9 +11,9 @@ type Auth struct {
 	ObjectFS         *storage.FileSystem
 	SecretsManager   *SecretsManager
 	TmpFS            *storage.FileSystem
+	UserManager      *UserManager
 
 	broadcaster func(key string, value string)
-	userManager *UserManager
 }
 
 func NewAuth(
@@ -61,5 +61,15 @@ func (a *Auth) ProvideAccessKeyStorage(accessKeyStorage AccessKeyStorage) {
 		a,
 		a.Config,
 		a.ObjectFS,
+	)
+}
+
+// Provide the interface that will manage access key storage and create the
+// AccessKeyManager instance.
+func (a *Auth) ProvideUserManagerStorage(userStorage UserStorage) {
+	a.UserManager = NewUserManager(
+		userStorage,
+		a,
+		a.Config,
 	)
 }

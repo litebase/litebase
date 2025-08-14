@@ -9,7 +9,7 @@ func basicAuth(request *Request) bool {
 	username, password, ok := request.BaseRequest.BasicAuth()
 
 	if ok {
-		return request.cluster.Auth.UserManager().Authenticate(username, password)
+		return request.cluster.Auth.UserManager.Authenticate(username, password)
 	}
 
 	return false

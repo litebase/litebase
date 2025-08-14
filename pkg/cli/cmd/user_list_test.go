@@ -22,7 +22,7 @@ func TestUserListCmd(t *testing.T) {
 		var users []*auth.User
 
 		for i := range 20 {
-			user, err := server.App.Auth.UserManager().Add(
+			user, err := server.App.Auth.UserManager.Add(
 				fmt.Sprintf("testuser-%d", i+1),
 				"testpassword123",
 				[]auth.AccessKeyStatement{

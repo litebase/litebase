@@ -79,12 +79,6 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		panic(err)
 	}
 
-	err = app.Auth.UserManager().Init()
-
-	if err != nil {
-		slog.Error("Error initializing user manager", "error", err)
-	}
-
 	app.Cluster.Node().Init(
 		database.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager, app.LogManager),
 		database.ResponsePool(),
@@ -101,6 +95,17 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 				app.DatabaseManager.SystemDatabase(),
 			),
 		)
+
+		app.Auth.ProvideUserManagerStorage(
+			database.NewSystemDatabaseUserStorage(
+				app.DatabaseManager.SystemDatabase(),
+			),
+		)
+
+		err := app.Auth.UserManager.Init()
+		if err != nil {
+			slog.Error("Error initializing user manager", "error", err)
+		}
 	})
 
 	go app.DatabaseManager.WriteQueueManager.Run()

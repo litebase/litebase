@@ -3,11 +3,12 @@ package auth
 import "time"
 
 type User struct {
-	Username   string               `json:"username"`
-	Password   string               `json:"password"`
-	Statements []AccessKeyStatement `json:"statements"`
-	CreatedAt  time.Time            `json:"created_at"`
-	UpdatedAt  time.Time            `json:"updated_at"`
+	Username    string               `json:"username"`
+	Password    string               `json:"password"`
+	Description string               `json:"description"`
+	Statements  []AccessKeyStatement `json:"statements"`
+	CreatedAt   time.Time            `json:"created_at"`
+	UpdatedAt   time.Time            `json:"updated_at"`
 }
 
 type UserResponse struct {

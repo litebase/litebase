@@ -1,9 +1,7 @@
 package auth
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -13,35 +11,68 @@ import (
 )
 
 type UserManager struct {
-	auth   *Auth
-	config *config.Config
-	mutex  *sync.Mutex
-	path   string
-	users  map[string]*User
+	auth        *Auth
+	config      *config.Config
+	mutex       *sync.Mutex
+	users       map[string]*User
+	userStorage UserStorage
+}
+
+type UserStorage interface {
+	Delete(username string) error
+	Get(username string) (*User, error)
+	List() ([]*User, error)
+	Store(user *User) error
+	Update(user *User) error
 }
 
 // Get the UserManager instance
-func (auth *Auth) UserManager() *UserManager {
-	if auth.userManager == nil {
-		auth.userManager = &UserManager{
-			auth:   auth,
-			config: auth.Config,
-			mutex:  &sync.Mutex{},
-			path:   "users.json",
-			users:  map[string]*User{},
-		}
+func NewUserManager(
+	userStorage UserStorage,
+	auth *Auth,
+	config *config.Config,
+) *UserManager {
+	return &UserManager{
+		auth:        auth,
+		config:      config,
+		mutex:       &sync.Mutex{},
+		userStorage: userStorage,
+		users:       map[string]*User{},
 	}
-
-	return auth.userManager
 }
 
-// Add a new user
+// Add a new user or update an existing one
 func (u *UserManager) Add(username, password string, statements []AccessKeyStatement) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
+	// Check if user already exists
+	existingUser, err := u.userStorage.Get(username)
+	isUpdate := err == nil && existingUser != nil
+
 	// Bcrypt the password
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+	if err != nil {
+		return nil, err
+	}
+
+	user := &User{
+		Username:   username,
+		Password:   string(bytes),
+		Statements: statements,
+		UpdatedAt:  time.Now().UTC(),
+	}
+
+	if isUpdate {
+		// Keep the original creation time
+		user.CreatedAt = existingUser.CreatedAt
+		err = u.userStorage.Update(user)
+	} else {
+		// New user
+		user.CreatedAt = time.Now().UTC()
+		err = u.userStorage.Store(user)
+	}
 
 	if err != nil {
 		return nil, err
@@ -51,15 +82,9 @@ func (u *UserManager) Add(username, password string, statements []AccessKeyState
 		u.users = map[string]*User{}
 	}
 
-	u.users[username] = &User{
-		Username:   username,
-		Password:   string(bytes),
-		Statements: statements,
-		CreatedAt:  time.Now().UTC(),
-		UpdatedAt:  time.Now().UTC(),
-	}
+	u.users[username] = user
 
-	return u.users[username], u.writeFile()
+	return user, nil
 }
 
 // Return all users without passwords
@@ -84,30 +109,17 @@ func (u *UserManager) All() []User {
 
 // Read all the users from storage
 func (u *UserManager) allUsers() (map[string]*User, error) {
-	var users map[string]*User
-	file, err := u.auth.ObjectFS.ReadFile(u.path)
-
-	if err != nil && os.IsNotExist(err) {
-		_, err = u.auth.ObjectFS.Create(u.path)
-
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
-	}
-
-	if len(file) == 0 {
-		return users, nil
-	}
-
-	err = json.Unmarshal(file, &users)
-
+	users, err := u.userStorage.List()
 	if err != nil {
 		return nil, err
 	}
 
-	return users, err
+	userMap := make(map[string]*User)
+	for _, user := range users {
+		userMap[user.Username] = user
+	}
+
+	return userMap, nil
 }
 
 // Authenticate a user with username and password
@@ -135,20 +147,26 @@ func (u *UserManager) Get(username string) *User {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
+	fmt.Printf("[DEBUG] UserManager.Get: Looking for user '%s' in memory cache\n", username)
+
 	for _, user := range u.users {
 		if user.Username == username {
+			fmt.Printf("[DEBUG] UserManager.Get: Found user '%s' in memory cache\n", username)
 			return user
 		}
 	}
 
+	fmt.Printf("[DEBUG] UserManager.Get: User '%s' not in cache, reloading from database\n", username)
 	u.users, _ = u.allUsers()
 
 	for _, user := range u.users {
 		if user.Username == username {
+			fmt.Printf("[DEBUG] UserManager.Get: Found user '%s' after reloading from database\n", username)
 			return user
 		}
 	}
 
+	fmt.Printf("[DEBUG] UserManager.Get: User '%s' not found even after database reload\n", username)
 	return nil
 }
 
@@ -195,6 +213,8 @@ func (u *UserManager) Purge(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
+	fmt.Printf("[DEBUG] UserManager.Purge: Purging user '%s' from memory cache (triggered by broadcast event)\n", username)
+
 	// Remove the user from the map
 	delete(u.users, username)
 
@@ -206,11 +226,24 @@ func (u *UserManager) Remove(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
+	fmt.Printf("[DEBUG] UserManager.Remove: Removing user '%s' from memory cache\n", username)
 	delete(u.users, username)
 
-	u.auth.Broadcast("user:purge", username)
+	fmt.Printf("[DEBUG] UserManager.Remove: Deleting user '%s' from database storage\n", username)
+	err := u.userStorage.Delete(username)
+	if err != nil {
+		return err
+	}
 
-	return u.writeFile()
+	// Broadcast purge event to other servers
+	if u.auth != nil {
+		fmt.Printf("[DEBUG] UserManager.Remove: Broadcasting purge event for user '%s'\n", username)
+		u.auth.Broadcast("user:purge", username)
+	} else {
+		fmt.Printf("[DEBUG] UserManager.Remove: No auth instance, cannot broadcast purge event\n")
+	}
+
+	return nil
 }
 
 // Update an existing user
@@ -227,18 +260,5 @@ func (u *UserManager) Update(user *User) error {
 	existingUser.Statements = user.Statements
 	existingUser.UpdatedAt = time.Now().UTC()
 
-	return u.writeFile()
-}
-
-// Write the users to storage
-func (u *UserManager) writeFile() error {
-	data, err := json.MarshalIndent(u.users, "", "  ")
-
-	if err != nil {
-		return err
-	}
-
-	err = u.auth.ObjectFS.WriteFile(u.path, data, 0600)
-
-	return err
+	return u.userStorage.Update(existingUser)
 }

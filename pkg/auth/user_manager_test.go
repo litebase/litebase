@@ -1,7 +1,6 @@
 package auth_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -12,7 +11,7 @@ import (
 func TestUserManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		t.Run("Add", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Test adding a user
 			_, err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
@@ -52,7 +51,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("Add_UpdatesExistingUser", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Add initial user
 			_, err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
@@ -87,7 +86,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("All", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Get all users
 			users := um.All()
@@ -139,7 +138,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("Authenticate", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Add a user
 			_, err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
@@ -170,7 +169,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("Get", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Add a user
 			_, err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
@@ -203,7 +202,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("Remove", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Add users
 			_, err := um.Add("user1", "pass1", []auth.AccessKeyStatement{
@@ -245,7 +244,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("Remove_NonExistentUser", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Try to remove non-existent user
 			err := um.Remove("nonexistent")
@@ -255,7 +254,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("PasswordHandling", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Add a user
 			_, err := um.Add("testuser", "plaintextpass", []auth.AccessKeyStatement{
@@ -285,7 +284,7 @@ func TestUserManager(t *testing.T) {
 		})
 
 		t.Run("Update", func(t *testing.T) {
-			um := app.Auth.UserManager()
+			um := app.Auth.UserManager
 
 			// Add a user
 			_, err := um.Add("usertoupdate", "testpass", []auth.AccessKeyStatement{
@@ -335,7 +334,7 @@ func TestUserManager(t *testing.T) {
 func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
-		um := server.App.Auth.UserManager()
+		um := server.App.Auth.UserManager
 
 		// Add a user first
 		_, err := um.Add("existinguser", "pass", []auth.AccessKeyStatement{
@@ -352,7 +351,7 @@ func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 		defer server.Shutdown()
 
 		// Create new UserManager instance to test Init
-		um2 := server.App.Auth.UserManager()
+		um2 := server.App.Auth.UserManager
 
 		// Test Init with existing users
 		err = um2.Init()
@@ -370,7 +369,7 @@ func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 
 func TestUserManager_Init_WithoutExistingUsers_WithRootCredentials(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		um := app.Auth.UserManager()
+		um := app.Auth.UserManager
 
 		// Test Init without existing users but with root credentials
 		err := um.Init()
@@ -396,7 +395,7 @@ func TestUserManager_Init_WithoutExistingUsers_WithoutRootUsername(t *testing.T)
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		um := server.App.Auth.UserManager()
+		um := server.App.Auth.UserManager
 
 		// Test Init without existing users and without root username
 		err := um.Init()
@@ -419,7 +418,7 @@ func TestUserManager_Init_WithoutExistingUsers_WithoutRootPassword(t *testing.T)
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		um := server.App.Auth.UserManager()
+		um := server.App.Auth.UserManager
 
 		// Test Init without existing users and without root password
 		err := um.Init()
@@ -440,88 +439,44 @@ func TestUserManager_Purge(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		_, user := server1.App.Auth.UserManager().Add("testuser", "testpass", []auth.AccessKeyStatement{
+		_, err := server1.App.Auth.UserManager.Add("testuser", "testpass", []auth.AccessKeyStatement{
 			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
-		if user != nil {
-			t.Error("Expected user to be nil after purge")
+		if err != nil {
+			t.Fatalf("Expected no error when adding user, got %v", err)
 		}
 
-		userFromServer1 := server1.App.Auth.UserManager().Get("testuser")
+		userFromServer1 := server1.App.Auth.UserManager.Get("testuser")
 
 		if userFromServer1 == nil {
 			t.Fatal("Expected user to be found on server1")
 		}
 
-		userFromServer2 := server2.App.Auth.UserManager().Get("testuser")
+		userFromServer2 := server2.App.Auth.UserManager.Get("testuser")
 
 		if userFromServer2 == nil {
 			t.Fatal("Expected user to be found on server2")
 		}
 
-		err := server1.App.Auth.UserManager().Remove("testuser")
+		remErr := server1.App.Auth.UserManager.Remove("testuser")
 
-		if err != nil {
-			t.Fatalf("Expected no error when removing user, got %v", err)
+		if remErr != nil {
+			t.Fatalf("Expected no error when removing user, got %v", remErr)
 		}
 
 		// Verify user is removed from both servers
-		userFromServer1 = server1.App.Auth.UserManager().Get("testuser")
+		userFromServer1 = server1.App.Auth.UserManager.Get("testuser")
 
 		if userFromServer1 != nil {
 			t.Error("Expected user to be nil after removal from server1")
 		}
 
-		userFromServer2 = server2.App.Auth.UserManager().Get("testuser")
+		userFromServer2 = server2.App.Auth.UserManager.Get("testuser")
 
 		if userFromServer2 != nil {
 			t.Error("Expected user to be nil after removal from server2")
 		}
 
-	})
-}
-
-func TestUserManager_WriteFile_Persistence(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		um := app.Auth.UserManager()
-
-		// Add a user
-		_, err := um.Add("testuser", "testpass", []auth.AccessKeyStatement{
-			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-		})
-
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		// Read the file directly to verify persistence
-		data, err := app.Cluster.ObjectFS().ReadFile("users.json")
-
-		if err != nil {
-			t.Fatalf("Expected no error reading file, got %v", err)
-		}
-
-		// Parse the JSON to verify structure
-		var users map[string]*auth.User
-		err = json.Unmarshal(data, &users)
-		if err != nil {
-			t.Fatalf("Expected valid JSON, got %v", err)
-		}
-
-		// Verify user data in file
-		user, exists := users["testuser"]
-		if !exists {
-			t.Error("Expected testuser to exist in file")
-		}
-		if user.Username != "testuser" {
-			t.Errorf("Expected username 'testuser', got '%s'", user.Username)
-		}
-		if user.Password == "" {
-			t.Error("Expected password hash to be stored")
-		}
-		if len(user.Statements) != 1 || user.Statements[0].Actions[0] != "*" {
-			t.Errorf("Expected statements *, got %v", user.Statements[0].Actions)
-		}
 	})
 }

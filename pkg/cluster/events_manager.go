@@ -127,7 +127,7 @@ func (em *EventsManager) Init() {
 
 	em.cluster.Subscribe("user:purge", func(message *EventMessage) {
 		if username, ok := message.Value.(string); ok {
-			err := em.cluster.Auth.UserManager().Purge(username)
+			err := em.cluster.Auth.UserManager.Purge(username)
 
 			if err != nil {
 				slog.Error("Failed to purge user", "error", err)

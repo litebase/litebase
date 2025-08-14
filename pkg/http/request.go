@@ -128,11 +128,11 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 	username, password, ok := r.BaseRequest.BasicAuth()
 
 	if ok {
-		if !r.cluster.Auth.UserManager().Authenticate(username, password) {
+		if !r.cluster.Auth.UserManager.Authenticate(username, password) {
 			return fmt.Errorf("invalid username or password")
 		}
 
-		if r.cluster.Auth.UserManager().Get(username).AuthorizeForResource(
+		if r.cluster.Auth.UserManager.Get(username).AuthorizeForResource(
 			resources,
 			actions,
 		) {
