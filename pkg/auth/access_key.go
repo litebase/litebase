@@ -8,10 +8,10 @@ import (
 )
 
 type AccessKey struct {
-	AccessKeyID      string `json:"access_key_id"`
-	AccessKeySecret  string `json:"access_key_secret"`
-	Description      string `json:"description"`
-	accessKeyManager *AccessKeyManager
+	AccessKeyID      string               `json:"access_key_id"`
+	AccessKeySecret  string               `json:"access_key_secret"`
+	Description      string               `json:"description"`
+	AccessKeyManager *AccessKeyManager    `json:"-"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
 	Statements       []AccessKeyStatement `json:"statements"`
@@ -36,7 +36,7 @@ func NewAccessKey(
 	statements []AccessKeyStatement,
 ) *AccessKey {
 	return &AccessKey{
-		accessKeyManager: accessKeyManager,
+		AccessKeyManager: accessKeyManager,
 		AccessKeyID:      accessKeyId,
 		AccessKeySecret:  accessKeySecret,
 		Description:      description,
@@ -64,13 +64,13 @@ func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []P
 
 // Delete the AccessKey from storage.
 func (accessKey *AccessKey) Delete() error {
-	err := accessKey.accessKeyManager.accessKeyStorage.Delete(accessKey.AccessKeyID)
+	err := accessKey.AccessKeyManager.accessKeyStorage.Delete(accessKey.AccessKeyID)
 
 	if err != nil {
 		return err
 	}
 
-	err = accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
+	err = accessKey.AccessKeyManager.Purge(accessKey.AccessKeyID)
 
 	if err != nil {
 		slog.Error("failed to purge access key", "error", err)
@@ -81,7 +81,7 @@ func (accessKey *AccessKey) Delete() error {
 
 // Rotate the access key.
 func (accessKey *AccessKey) Rotate() error {
-	return accessKey.accessKeyManager.accessKeyStorage.UpdateNext(accessKey)
+	return accessKey.AccessKeyManager.accessKeyStorage.UpdateNext(accessKey)
 }
 
 // Return the hash of the AccessKey.
@@ -114,7 +114,7 @@ func (accessKey *AccessKey) Update(
 	accessKey.Statements = statements
 	accessKey.UpdatedAt = time.Now().UTC()
 
-	err := accessKey.accessKeyManager.accessKeyStorage.Update(accessKey)
+	err := accessKey.AccessKeyManager.accessKeyStorage.Update(accessKey)
 
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func (accessKey *AccessKey) Update(
 
 	accessKey.updateHash()
 
-	return accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
+	return accessKey.AccessKeyManager.Purge(accessKey.AccessKeyID)
 }
 
 // Update the internal hash of the access key.

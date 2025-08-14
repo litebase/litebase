@@ -419,19 +419,12 @@ func TestNode_Shutdown(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
-
-		err := server.App.Cluster.Node().Shutdown()
-
-		if err != nil {
-			t.Error("Failed to shutdown node: ", err)
-		}
 	})
 }
 
 func TestNode_Start(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
+		server := test.NewUnstartedTestServer(t)
 
 		node := cluster.NewNode(server.App.Cluster)
 

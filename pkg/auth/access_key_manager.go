@@ -186,7 +186,7 @@ func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 // Get an access key
 func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	var accessKey = &AccessKey{
-		accessKeyManager: akm,
+		AccessKeyManager: akm,
 	}
 
 	value := akm.auth.SecretsManager.cache("map").
@@ -202,7 +202,7 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 		return nil, err
 	}
 
-	accessKey.accessKeyManager = akm
+	accessKey.AccessKeyManager = akm
 
 	akm.auth.SecretsManager.cache("map").
 		Put(akm.accessKeyCacheKey(accessKeyId), accessKey, time.Second*300)

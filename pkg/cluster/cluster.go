@@ -34,9 +34,8 @@ var (
 )
 
 type Cluster struct {
-	Auth               *auth.Auth             `json:"-"`
-	AccessKeyManager   *auth.AccessKeyManager `json:"-"`
-	Config             *config.Config         `json:"-"`
+	Auth               *auth.Auth     `json:"-"`
+	Config             *config.Config `json:"-"`
 	eventsChannel      chan *EventMessage
 	eventsManager      *EventsManager
 	fileSystemMutex    *sync.Mutex

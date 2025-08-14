@@ -93,15 +93,15 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	app.Cluster.EventsManager().Init()
 	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
 
-	<-app.Cluster.Node().Start()
-
-	app.Auth.ProvideAccessKeyStorage(
-		database.NewSystemDatabaseAccessKeyStorage(
-			app.Config,
-			app.Auth.SecretsManager,
-			app.DatabaseManager.SystemDatabase(),
-		),
-	)
+	app.Cluster.Node().OnStarted(func() {
+		app.Auth.ProvideAccessKeyStorage(
+			database.NewSystemDatabaseAccessKeyStorage(
+				app.Config,
+				app.Auth.SecretsManager,
+				app.DatabaseManager.SystemDatabase(),
+			),
+		)
+	})
 
 	go app.DatabaseManager.WriteQueueManager.Run()
 	go app.LogManager.Run()

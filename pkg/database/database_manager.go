@@ -173,8 +173,6 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 	// Start the connection ticker
 	go func() {
-		time.Sleep(1 * time.Second)
-
 		d.connectionManager.mutex.Lock()
 		d.connectionManager.connectionTicker = time.NewTicker(1 * time.Second)
 		d.connectionManager.mutex.Unlock()

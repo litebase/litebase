@@ -42,8 +42,6 @@ func NewTestServer(t testing.TB) *TestServer {
 		Started: app.Cluster.Node().Start(),
 	}
 
-	<-server.Started
-
 	return server
 }
 

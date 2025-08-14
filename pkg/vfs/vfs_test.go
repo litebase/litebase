@@ -22,8 +22,9 @@ func TestRegisterVFS(t *testing.T) {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
 		}
 
-		if len(vfs.VfsMap) != 1 {
-			t.Errorf("RegisterVFS() failed, expected 1, got %v", len(vfs.VfsMap))
+		// There will be one other vfs registered for the system database
+		if len(vfs.VfsMap) != 2 {
+			t.Errorf("RegisterVFS() failed, expected 2, got %v", len(vfs.VfsMap))
 		}
 
 		if vfs.VfsMap["vfsId"] == nil {
@@ -41,8 +42,9 @@ func TestRegisterVFS(t *testing.T) {
 			t.Errorf("UnregisterVFS() failed, expected nil, got %v", err)
 		}
 
-		if len(vfs.VfsMap) != 0 {
-			t.Errorf("UnregisterVFS() failed, expected 0, got %v", len(vfs.VfsMap))
+		// There will be one other vfs registered for the system database
+		if len(vfs.VfsMap) != 1 {
+			t.Errorf("UnregisterVFS() failed, expected 1, got %v", len(vfs.VfsMap))
 		}
 
 		if vfs.VFSIsRegistered("vfsId") {

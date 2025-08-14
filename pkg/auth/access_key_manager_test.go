@@ -37,7 +37,7 @@ func TestAccessKeyManager(t *testing.T) {
 			}
 		})
 
-		t.Run("AllAccessKeysIDs", func(t *testing.T) {
+		t.Run("AllAccessKeys", func(t *testing.T) {
 			akm := app.Auth.AccessKeyManager
 
 			for i := range 10 {

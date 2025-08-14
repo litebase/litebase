@@ -214,12 +214,13 @@ func (s *SystemDatabaseAccessKeyStorage) List() ([]*auth.AccessKey, error) {
 		}
 
 		accessKey := &auth.AccessKey{
-			AccessKeyID:     accessKeyID,
-			AccessKeySecret: decryptedSecret.Value,
-			Description:     descriptionValue,
-			Statements:      statements,
-			CreatedAt:       createdAt,
-			UpdatedAt:       updatedAt,
+			AccessKeyManager: s.systemDatabase.databaseManager.Cluster.Auth.AccessKeyManager,
+			AccessKeyID:      accessKeyID,
+			AccessKeySecret:  decryptedSecret.Value,
+			Description:      descriptionValue,
+			Statements:       statements,
+			CreatedAt:        createdAt,
+			UpdatedAt:        updatedAt,
 		}
 
 		accessKeys = append(accessKeys, accessKey)

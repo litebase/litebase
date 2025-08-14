@@ -51,6 +51,7 @@ type Node struct {
 	ID                 string
 	Membership         string
 	mutex              *sync.Mutex
+	onStarted          func()
 	primaryAddress     string
 	primary            *NodePrimary
 	PrimaryHeartbeat   time.Time
@@ -842,6 +843,10 @@ func (n *Node) Start() chan bool {
 
 	defer func() {
 		n.started <- true
+
+		if n.onStarted != nil {
+			n.onStarted()
+		}
 	}()
 
 	return n.started
@@ -927,6 +932,11 @@ func (n *Node) Tick() {
 // Return the started at timestamp of the node.
 func (n *Node) Timestamp() time.Time {
 	return n.startedAt
+}
+
+// On started hook.
+func (n *Node) OnStarted(callback func()) {
+	n.onStarted = callback
 }
 
 func (n *Node) WALSynchronizer() NodeWalSynchronizer {
