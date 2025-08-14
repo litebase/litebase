@@ -58,18 +58,28 @@ func TestAccessKeyManager(t *testing.T) {
 		t.Run("AllAccessKeysIDs", func(t *testing.T) {
 			akm := app.Auth.AccessKeyManager
 
-			for i := range 10 {
-				akm.Create(fmt.Sprintf("Description %d", i), []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
-			}
-
 			accessKeys, err := akm.AllAccessKeyIds()
 
 			if err != nil {
 				t.Error("Expected AllAccessKeyIds to return an empty slice of strings")
 			}
 
-			if len(accessKeys) != 10 {
-				t.Error("Expected AllAccessKeyIds to return 10 access keys")
+			currentAccessKeyCount := len(accessKeys)
+
+			for i := range 10 {
+				akm.Create(fmt.Sprintf("Description %d", i), []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			}
+
+			expectedAccessKeyCount := currentAccessKeyCount + 10
+
+			accessKeys, err = akm.AllAccessKeyIds()
+
+			if err != nil {
+				t.Error("Expected AllAccessKeyIds to return an empty slice of strings")
+			}
+
+			if len(accessKeys) != expectedAccessKeyCount {
+				t.Errorf("Expected AllAccessKeyIds to return %d access keys, got %d", expectedAccessKeyCount, len(accessKeys))
 			}
 		})
 
