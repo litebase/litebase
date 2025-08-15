@@ -70,6 +70,18 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 	return server
 }
 
+func (ts *TestServer) WithAccessKey(accessKey *auth.AccessKey) *TestClient {
+	if ts.Client == nil {
+
+		ts.Client = &TestClient{
+			AccessKey: accessKey,
+			URL:       ts.Server.URL,
+		}
+	}
+
+	return ts.Client
+}
+
 func (ts *TestServer) WithAccessKeyClient(statements []auth.AccessKeyStatement) *TestClient {
 	if ts.Client == nil {
 		accessKey, err := ts.App.Auth.AccessKeyManager.Create("", statements)

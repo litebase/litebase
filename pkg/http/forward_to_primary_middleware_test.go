@@ -15,13 +15,19 @@ func TestForwardToPrimary(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		client := server2.WithAccessKeyClient([]auth.AccessKeyStatement{
+		accessKey, err := server1.App.Auth.AccessKeyManager.Create("Test access key", []auth.AccessKeyStatement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
 				Actions:  []auth.Privilege{"access-key:create"},
 			},
 		})
+
+		if err != nil {
+			t.Error("Expected Create to return no error")
+		}
+
+		client := server2.WithAccessKey(accessKey)
 
 		_, statusCode, err := client.Send("/v1/access-keys", "POST", map[string]any{
 			"resource": "*",
