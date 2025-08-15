@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"maps"
+	"os"
 	"slices"
 	"sync"
 )
@@ -443,7 +444,9 @@ func (drm *DataRangeManager) RunGarbageCollection() error {
 		err = r.Delete()
 
 		if err != nil {
-			log.Printf("Error deleting range file during garbage collection: %v", err)
+			if !os.IsNotExist(err) {
+				slog.Debug("Range file not found during garbage collection", "rangeNumber", entry.RangeNumber, "timestamp", entry.Timestamp)
+			}
 		}
 
 		if drm.ranges[entry.RangeNumber] != nil {
