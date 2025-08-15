@@ -75,6 +75,7 @@ type StepTest struct {
 	cmd        *exec.Cmd
 	function   func(sp *StepProcess)
 	process    *StepProcess
+	mutex      *sync.Mutex
 	socketPath string
 }
 
@@ -169,6 +170,7 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 func (sp *StepProcessor) Run(name string, fn func(s *StepProcess)) *StepProcess {
 	sp.tests[name] = &StepTest{
 		function: fn,
+		mutex:    &sync.Mutex{},
 		process: &StepProcess{
 			sp:               sp,
 			processName:      name,
@@ -244,8 +246,10 @@ func (sp *StepProcessor) handleConnection(conn net.Conn) {
 			sp.connMutex.Lock()
 			sp.connections[processName] = conn
 
+			sp.stepMutex.Lock()
 			// Check if all expected processes are now connected
 			allConnected := len(sp.connections) == len(sp.expectedProcesses)
+			sp.stepMutex.Unlock()
 
 			for expectedProcess := range sp.expectedProcesses {
 				if _, connected := sp.connections[expectedProcess]; !connected {
@@ -369,6 +373,9 @@ func (sp *StepProcessor) Pause(name string) error {
 		return errors.New("process not found")
 	}
 
+	test.mutex.Lock()
+	defer test.mutex.Unlock()
+
 	// Pause the process
 	err := test.cmd.Process.Signal(syscall.SIGSTOP)
 
@@ -403,8 +410,8 @@ func (sp *StepProcessor) Resume(name string) error {
 
 // Setup all of the processes to be run
 func (sp *StepProcessor) setupProcesses() {
-	sp.connMutex.Lock()
-	defer sp.connMutex.Unlock()
+	sp.stepMutex.Lock()
+	defer sp.stepMutex.Unlock()
 
 	// Track expected processes
 	for name := range sp.tests {
@@ -420,9 +427,11 @@ func (sp *StepProcessor) setupProcesses() {
 			fmt.Sprintf("LITEBASE_TEST_ENCRYPTION_KEY=%s", sp.encryptionKey),
 			fmt.Sprintf("LITEBASE_SOCKET_DIR=%s", sp.socketDir))
 
-		// Uncomment to see child process output
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		// Only return output for tests that do not exit with an error
+		if test.process.expectedExitCode == 0 {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
 
 		test.cmd = cmd
 		test.socketPath = filepath.Join(sp.socketDir, "coordinator.sock")
@@ -445,9 +454,9 @@ func (sp *StepProcessor) Start(t *testing.T) {
 		go func(testName string, test *StepTest) {
 			defer wg.Done()
 
-			sp.stepMutex.Lock()
+			test.mutex.Lock()
 			err := test.cmd.Start()
-			sp.stepMutex.Unlock()
+			test.mutex.Unlock()
 
 			if err != nil {
 				// Check if context is cancelled before calling t.Errorf to avoid panic

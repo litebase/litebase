@@ -34,6 +34,7 @@ var (
 )
 
 var addressProvider func() string
+var addressProviderMutex sync.Mutex
 
 type Node struct {
 	address            string
@@ -98,9 +99,14 @@ func (n *Node) Address() (string, error) {
 		return n.address, nil
 	}
 
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	addressProviderMutex.Lock()
+	defer addressProviderMutex.Unlock()
+
 	var address string
 	var err error
-
 	if addressProvider != nil {
 		address = addressProvider()
 	} else if n.Cluster.Config.NodeAddressProvider != "" {
@@ -742,6 +748,9 @@ func (n *Node) SendEvent(node *NodeIdentifier, message NodeEvent) error {
 }
 
 func SetAddressProvider(provider func() string) {
+	addressProviderMutex.Lock()
+	defer addressProviderMutex.Unlock()
+
 	addressProvider = provider
 }
 

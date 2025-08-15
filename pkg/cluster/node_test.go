@@ -507,7 +507,7 @@ func TestNode_TickerResumeAfterPause(t *testing.T) {
 		sp.Run("PRIMARY_SERVER", func(s *test.StepProcess) {
 			defaultNodeTickTimeout := cluster.NodeTickTimeout
 			defer func() { cluster.NodeTickTimeout = defaultNodeTickTimeout }()
-			cluster.NodeTickTimeout = 500 * time.Millisecond
+			cluster.NodeTickTimeout = 100 * time.Millisecond
 
 			test.RunWithoutCleanup(t, func(app *server.App) {
 				if !app.Cluster.Node().IsPrimary() {

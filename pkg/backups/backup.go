@@ -41,6 +41,7 @@ type Backup struct {
 	dfs            *storage.DurableDatabaseFileSystem
 	maxPartSize    int64
 	objectFS       *storage.FileSystem
+	onComplete     func(b *Backup)
 	rollbackLogger *RollbackLogger
 }
 
@@ -225,8 +226,12 @@ func Run(
 ) (*Backup, error) {
 	lock := GetBackupLock(file.DatabaseHash(databaseId, branchId))
 
+	var backupTimestamp int64
+
 	if lock.TryLock() {
 		defer lock.Unlock()
+		// Generate timestamp only after lock is acquired
+		backupTimestamp = time.Now().UTC().UnixNano()
 	} else {
 		return nil, fmt.Errorf("backup is already running")
 	}
@@ -240,11 +245,11 @@ func Run(
 	var backup *Backup
 
 	err := dfs.CompactionBarrier(func() error {
-		snapshot, err := snapshotLogger.GetSnapshot(time.Now().UTC().UnixNano())
+		// Use the locked timestamp for snapshot
+		snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
 
 		if err != nil {
 			slog.Error("Error getting snapshot:", "error", err)
-
 			return err
 		}
 
@@ -252,7 +257,6 @@ func Run(
 
 		if err != nil {
 			slog.Error("Error loading snapshot:", "error", err)
-
 			return err
 		}
 
@@ -292,6 +296,10 @@ func Run(
 
 	if err != nil {
 		return nil, err
+	}
+
+	if backup.onComplete != nil {
+		backup.onComplete(backup)
 	}
 
 	return backup, nil
@@ -582,6 +590,11 @@ func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) erro
 	}
 
 	return nil
+}
+
+// Set the callback function to be called when the backup is complete.
+func (backup *Backup) SetOnComplete(callback func(b *Backup)) {
+	backup.onComplete = callback
 }
 
 // Set the maximum part size for a backup. This is the maximum size of each part
