@@ -219,8 +219,9 @@ func TestUserManager(t *testing.T) {
 
 			// Try to remove non-existent user
 			err := um.Remove("nonexistent")
-			if err != nil {
-				t.Fatalf("Expected no error when removing non-existent user, got %v", err)
+
+			if err == nil {
+				t.Fatal("Expected error when removing non-existent user")
 			}
 		})
 
