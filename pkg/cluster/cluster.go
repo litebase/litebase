@@ -271,6 +271,9 @@ func (cluster *Cluster) IsMember(address string, since time.Time) bool {
 func (cluster *Cluster) IsSingleNodeCluster() bool {
 	cluster.GetMembers(true)
 
+	cluster.mutex.Lock()
+	defer cluster.mutex.Unlock()
+
 	return len(cluster.nodes) == 1 && cluster.nodes[0].Address == cluster.node.address
 }
 
