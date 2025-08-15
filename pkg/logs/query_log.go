@@ -297,9 +297,6 @@ func (q *QueryLog) Read(start, end uint32) ([]QueryMetric, error) {
 }
 
 func (q *QueryLog) watch() {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
 	if q.watching {
 		return
 	}
@@ -341,10 +338,9 @@ func (q *QueryLog) watch() {
 
 func (q *QueryLog) Write(accessKeyId string, statement string, latency float64) error {
 	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
 	q.lastLoggedTime = time.Now().UTC()
 	timestamp := time.Now().UTC().Truncate(time.Second)
+	q.mutex.Unlock()
 
 	buffer := queryLogBuffer.Get().(*bytes.Buffer)
 	defer queryLogBuffer.Put(buffer)
@@ -398,16 +394,9 @@ func (q *QueryLog) Write(accessKeyId string, statement string, latency float64) 
 		}
 	}
 
-	q.mutex.Lock()
 	if !q.watching {
-		shouldWatch := !q.watching
-
-		if shouldWatch {
-			q.watch()
-		}
-
+		q.watch()
 	}
-	q.mutex.Unlock()
 
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
