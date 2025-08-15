@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,7 @@ type Transaction struct {
 	databaseManager  *DatabaseManager
 	EndedAt          time.Time
 	ID               string
+	mutex            *sync.Mutex
 	queryChannel     chan TransactionQuery
 	rolledBack       bool
 	StartedAt        time.Time
@@ -166,11 +168,13 @@ func (t *Transaction) run() {
 				log.Println("Error resolving query for transaction", err)
 			}
 
+			shouldEnd := transactionQuery.query.IsTransactionEnd() || transactionQuery.query.IsTransactionRollback()
+
 			// Always try to send the response
 			t.responseChannel <- response.(*QueryResponse)
 
 			// After sending response, check if transaction should end
-			if transactionQuery.query.IsTransactionEnd() || transactionQuery.query.IsTransactionRollback() {
+			if shouldEnd {
 				return
 			}
 		}

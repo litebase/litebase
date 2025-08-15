@@ -57,7 +57,7 @@ func (l *Lease) Release() error {
 
 	l.ExpiresAt = 0
 
-	if l.node.Membership != ClusterMembershipPrimary {
+	if l.node.GetMembership() != ClusterMembershipPrimary {
 		return fmt.Errorf("node is not a leader")
 	}
 
@@ -182,7 +182,7 @@ func (l *Lease) Renew() error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if l.node.Membership != ClusterMembershipPrimary {
+	if l.node.GetMembership() != ClusterMembershipPrimary {
 		return fmt.Errorf("node is not a leader")
 	}
 
@@ -199,7 +199,7 @@ func (l *Lease) Renew() error {
 	}
 
 	if string(primaryAddress) != address {
-		l.node.SetMembership(ClusterMembershipReplica)
+		l.node.setMembership(ClusterMembershipReplica)
 
 		return fmt.Errorf("primary address verification failed")
 	}

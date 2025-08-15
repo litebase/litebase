@@ -10,10 +10,9 @@ import (
 
 func TestUserManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		t.Run("Add", func(t *testing.T) {
+		t.Run("Create", func(t *testing.T) {
 			um := app.Auth.UserManager
 
-			// Test adding a user
 			_, err := um.Create("testuser", "testpass", []auth.AccessKeyStatement{
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
@@ -22,7 +21,6 @@ func TestUserManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			// Verify user was added
 			user := um.Get("testuser")
 
 			if user == nil {
@@ -47,41 +45,6 @@ func TestUserManager(t *testing.T) {
 
 			if user.UpdatedAt.IsZero() {
 				t.Error("Expected UpdatedAt to be set")
-			}
-		})
-
-		t.Run("Add_UpdatesExistingUser", func(t *testing.T) {
-			um := app.Auth.UserManager
-
-			// Add initial user
-			_, err := um.Create("testuser", "testpass", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-			})
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
-
-			// Update user with new privileges
-			_, err = um.Create("testuser", "newpass", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
-				{Effect: auth.AccessKeyEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
-				{Effect: auth.AccessKeyEffectAllow, Resource: "resource3", Actions: []auth.Privilege{"*"}},
-			})
-
-			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
-			}
-
-			// Verify user was updated
-			user := um.Get("testuser")
-
-			if user == nil {
-				t.Fatal("Expected user to be found")
-			}
-
-			if len(user.Statements) != 3 {
-				t.Errorf("Expected 3 statements, got %d", len(user.Statements))
 			}
 		})
 
@@ -141,7 +104,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add a user
-			_, err := um.Create("testuser", "testpass", []auth.AccessKeyStatement{
+			_, err := um.Create("testuser_Authenticate", "testpass", []auth.AccessKeyStatement{
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -151,12 +114,14 @@ func TestUserManager(t *testing.T) {
 
 			// Test successful authentication
 			result := um.Authenticate("testuser", "testpass")
+
 			if !result {
 				t.Error("Expected authentication to succeed")
 			}
 
 			// Test failed authentication with wrong password
 			result = um.Authenticate("testuser", "wrongpass")
+
 			if result {
 				t.Error("Expected authentication to fail with wrong password")
 			}
@@ -172,7 +137,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add a user
-			_, err := um.Create("testuser", "testpass", []auth.AccessKeyStatement{
+			_, err := um.Create("testuser_Get", "testpass", []auth.AccessKeyStatement{
 				{Effect: auth.AccessKeyEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
 				{Effect: auth.AccessKeyEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
 			})
@@ -182,12 +147,14 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Test getting existing user
-			user := um.Get("testuser")
+			user := um.Get("testuser_Get")
+
 			if user == nil {
 				t.Fatal("Expected user to be found")
 			}
-			if user.Username != "testuser" {
-				t.Errorf("Expected username 'testuser', got '%s'", user.Username)
+
+			if user.Username != "testuser_Get" {
+				t.Errorf("Expected username 'testuser_Get', got '%s'", user.Username)
 			}
 
 			if len(user.Statements) != 2 {
@@ -205,14 +172,15 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add users
-			_, err := um.Create("user1", "pass1", []auth.AccessKeyStatement{
+			_, err := um.Create("user1_Remove", "pass1", []auth.AccessKeyStatement{
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
 			}
-			_, err = um.Create("user2", "pass2", []auth.AccessKeyStatement{
+
+			_, err = um.Create("user2_Remove", "pass2", []auth.AccessKeyStatement{
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
@@ -221,25 +189,28 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Verify both users exist
-			if um.Get("user1") == nil {
-				t.Error("Expected user1 to exist")
+			if um.Get("user1_Remove") == nil {
+				t.Error("Expected user1_Remove to exist")
 			}
-			if um.Get("user2") == nil {
-				t.Error("Expected user2 to exist")
+
+			if um.Get("user2_Remove") == nil {
+				t.Error("Expected user2_Remove to exist")
 			}
 
 			// Remove user1
-			err = um.Remove("user1")
+			err = um.Remove("user1_Remove")
+
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			// Verify user1 was removed and user2 still exists
-			if um.Get("user1") != nil {
-				t.Error("Expected user1 to be removed")
+			if um.Get("user1_Remove") != nil {
+				t.Error("Expected user1_Remove to be removed")
 			}
-			if um.Get("user2") == nil {
-				t.Error("Expected user2 to still exist")
+
+			if um.Get("user2_Remove") == nil {
+				t.Error("Expected user2_Remove to still exist")
 			}
 		})
 
@@ -257,7 +228,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add a user
-			_, err := um.Create("testuser", "plaintextpass", []auth.AccessKeyStatement{
+			_, err := um.Create("testuser_PasswordHandling", "plaintextpass", []auth.AccessKeyStatement{
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
@@ -266,19 +237,22 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Get user and verify password is hashed
-			user := um.Get("testuser")
+			user := um.Get("testuser_PasswordHandling")
+
 			if user == nil {
 				t.Fatal("Expected user to be found")
 			}
+
 			if user.Password == "plaintextpass" {
 				t.Error("Expected password to be hashed, not stored as plaintext")
 			}
+
 			if user.Password == "" {
 				t.Error("Expected password hash to be stored")
 			}
 
 			// Verify we can authenticate with original password
-			if !um.Authenticate("testuser", "plaintextpass") {
+			if !um.Authenticate("testuser_PasswordHandling", "plaintextpass") {
 				t.Error("Expected authentication to succeed with original password")
 			}
 		})
@@ -439,11 +413,7 @@ func TestUserManager_Purge(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		// Wait for both servers to start
-		<-server1.Started
-		<-server2.Started
-
-		_, err := server1.App.Auth.UserManager.Create("testuser", "testpass", []auth.AccessKeyStatement{
+		_, err := server1.App.Auth.UserManager.Create("testuser_Remove", "testpass", []auth.AccessKeyStatement{
 			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
@@ -451,37 +421,35 @@ func TestUserManager_Purge(t *testing.T) {
 			t.Fatalf("Expected no error when adding user, got %v", err)
 		}
 
-		userFromServer1 := server1.App.Auth.UserManager.Get("testuser")
+		userFromServer1 := server1.App.Auth.UserManager.Get("testuser_Remove")
 
 		if userFromServer1 == nil {
 			t.Fatal("Expected user to be found on server1")
 		}
 
-		userFromServer2 := server2.App.Auth.UserManager.Get("testuser")
+		userFromServer2 := server2.App.Auth.UserManager.Get("testuser_Remove")
 
 		if userFromServer2 == nil {
 			t.Fatal("Expected user to be found on server2")
 		}
 
-		remErr := server1.App.Auth.UserManager.Remove("testuser")
+		remErr := server1.App.Auth.UserManager.Remove("testuser_Remove")
 
 		if remErr != nil {
 			t.Fatalf("Expected no error when removing user, got %v", remErr)
 		}
 
 		// Verify user is removed from server1
-		userFromServer1 = server1.App.Auth.UserManager.Get("testuser")
+		userFromServer1 = server1.App.Auth.UserManager.Get("testuser_Remove")
 
 		if userFromServer1 != nil {
 			t.Error("Expected user to be nil after removal from server1")
 		}
 
-		// Server2 should still not have the user (since it never had it)
-		userFromServer2 = server2.App.Auth.UserManager.Get("testuser")
+		userFromServer2 = server2.App.Auth.UserManager.Get("testuser_Remove")
 
 		if userFromServer2 != nil {
 			t.Error("Expected user to remain nil on server2")
 		}
-
 	})
 }

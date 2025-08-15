@@ -206,6 +206,7 @@ func (con *DatabaseConnection) Commit() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
 	}
+
 	defer func() {
 		con.vfs.WALUpdated()
 	}()

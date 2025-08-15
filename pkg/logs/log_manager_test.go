@@ -70,7 +70,5 @@ func TestLogManager_Query(t *testing.T) {
 func TestLogManager_Run(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		go app.LogManager.Run()
-
-		app.Cluster.Node().Shutdown()
 	})
 }

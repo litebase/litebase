@@ -645,12 +645,9 @@ func UpdateWALSharedMemory(databaseHash string, senderNodeHash string, timestamp
 			if len(shmMemory.regions) > 0 && shmMemory.regions[0].id == 0 {
 				if shmMemory.regions[0].pData != nil {
 					// Ensure we don't copy more than the available space
-					headerSize := len(headerBytes)
-					if headerSize > int(shmMemory.regions[0].size) {
-						headerSize = int(shmMemory.regions[0].size)
-					}
+					headerSize := min(len(headerBytes), int(shmMemory.regions[0].size))
 
-					// // Debug: Log some key WAL header fields before copying
+					// Debug: Log some key WAL header fields before copying
 					// if len(headerBytes) >= 20 {
 					// 	mxFrame := binary.LittleEndian.Uint32(headerBytes[16:20])
 					// 	iChange := binary.LittleEndian.Uint32(headerBytes[8:12])

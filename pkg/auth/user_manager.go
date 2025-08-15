@@ -78,6 +78,7 @@ func (u *UserManager) Create(username, password string, statements []AccessKeySt
 
 // Return all users without passwords
 func (u *UserManager) All() []User {
+	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	// Remove the password from the users without affecting the original

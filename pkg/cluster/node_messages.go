@@ -19,7 +19,6 @@ func registerNodeMessages() {
 	gob.Register(messages.QueryMessageResponse{})
 
 	// WAL messages
-	gob.Register(messages.WALIndexMessage{})
 	gob.Register(messages.WALIndexHeaderMessage{})
 	gob.Register(messages.WALIndexTimestampMessage{})
 	gob.Register(messages.WALReplicationWriteMessage{})

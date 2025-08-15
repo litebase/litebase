@@ -403,6 +403,9 @@ func (sp *StepProcessor) Resume(name string) error {
 
 // Setup all of the processes to be run
 func (sp *StepProcessor) setupProcesses() {
+	sp.connMutex.Lock()
+	defer sp.connMutex.Unlock()
+
 	// Track expected processes
 	for name := range sp.tests {
 		sp.expectedProcesses[name] = true
@@ -442,7 +445,10 @@ func (sp *StepProcessor) Start(t *testing.T) {
 		go func(testName string, test *StepTest) {
 			defer wg.Done()
 
+			sp.stepMutex.Lock()
 			err := test.cmd.Start()
+			sp.stepMutex.Unlock()
+
 			if err != nil {
 				// Check if context is cancelled before calling t.Errorf to avoid panic
 				select {
@@ -494,6 +500,8 @@ func (sp *StepProcessor) Start(t *testing.T) {
 		t.Errorf("Timeout waiting for all processes to connect (connected %d/%d: %v)",
 			len(connectedProcesses), len(sp.expectedProcesses), connectedProcesses)
 
+		sp.stepMutex.Lock()
+		defer sp.stepMutex.Unlock()
 		// Kill any processes that may have started but not connected
 		for _, test := range sp.tests {
 			if test.cmd != nil && test.cmd.Process != nil {

@@ -49,7 +49,7 @@ type Node struct {
 	lease              *Lease
 	LastActive         time.Time
 	ID                 string
-	Membership         string
+	membership         string
 	mutex              *sync.Mutex
 	onStarted          func()
 	primaryAddress     string
@@ -72,7 +72,7 @@ func NewNode(cluster *Cluster) *Node {
 		address:    "",
 		Cluster:    cluster,
 		LastActive: time.Time{},
-		Membership: ClusterMembershipReplica,
+		membership: ClusterMembershipReplica,
 		mutex:      &sync.Mutex{},
 		started:    make(chan bool, 1),
 		State:      NodeStateActive,
@@ -170,6 +170,14 @@ func (n *Node) ensureNodeAddressStored() error {
 	return nil
 }
 
+func (n *Node) GetMembership() string {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	return n.membership
+}
+
+// Check if a peer node has an election running.
 func (n *Node) HasPeerElectionRunning() bool {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -189,10 +197,12 @@ func (n *Node) heartbeat() {
 		slog.Debug("Failed to ensure node address is stored", "error", err)
 	}
 
-	if n.Membership == ClusterMembershipPrimary {
+	if n.membership == ClusterMembershipPrimary {
 		n.mutex.Unlock()
 
-		if n.Lease() == nil {
+		lease := n.Lease()
+
+		if lease == nil {
 			slog.Error("No lease found for primary node, cannot send heartbeat")
 
 			err := n.removePrimaryStatus()
@@ -201,12 +211,13 @@ func (n *Node) heartbeat() {
 				slog.Debug("Failed to remove primary status", "error", err)
 			}
 
-			n.SetMembership(ClusterMembershipReplica)
+			n.setMembership(ClusterMembershipReplica)
+
 			return
 		}
 
-		if n.Lease().ShouldRenew() {
-			err := n.Lease().Renew()
+		if lease.ShouldRenew() {
+			err := lease.Renew()
 
 			if err != nil {
 				slog.Debug("Failed to renew lease", "error", err)
@@ -217,7 +228,7 @@ func (n *Node) heartbeat() {
 					slog.Debug("Failed to remove primary status", "error", err)
 				}
 			}
-		} else if n.Lease().IsExpired() {
+		} else if lease.IsExpired() {
 			// Check if lease has expired (e.g., after a pause)
 			slog.Debug("Lease has expired, stepping down")
 
@@ -298,6 +309,9 @@ func (n *Node) IsIdle() bool {
 }
 
 func (n *Node) IsPrimary() bool {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
 	// If an election is running, wait for it to finish
 	if n.Election != nil && n.Election.Running() {
 		select {
@@ -312,12 +326,12 @@ func (n *Node) IsPrimary() bool {
 		n.Tick()
 	}
 
-	if n.Membership == ClusterMembershipReplica {
+	if n.membership == ClusterMembershipReplica {
 		return false
 	}
 
 	// If the cluster membership is primary and the lease is still valid
-	if n.Membership == ClusterMembershipPrimary &&
+	if n.membership == ClusterMembershipPrimary &&
 		n.Lease() != nil &&
 		n.Lease().IsUpToDate() {
 		return true
@@ -339,7 +353,7 @@ func (n *Node) IsReplica() bool {
 		}
 	}
 
-	return n.Membership == ClusterMembershipReplica && n.replica != nil
+	return n.membership == ClusterMembershipReplica && n.replica != nil
 }
 
 func (n *Node) JoinCluster() error {
@@ -445,7 +459,12 @@ func (n *Node) PrimaryAddress() string {
 }
 
 func (n *Node) primaryLeaseVerification() bool {
-	if n.IsReplica() && !n.PrimaryHeartbeat.IsZero() && time.Since(n.PrimaryHeartbeat) < 3*time.Second {
+	n.mutex.Lock()
+	primaryHeartBeatIsZero := n.PrimaryHeartbeat.IsZero()
+	timeSincePrimaryHeartbeat := time.Since(n.PrimaryHeartbeat)
+	n.mutex.Unlock()
+
+	if n.IsReplica() && !primaryHeartBeatIsZero && timeSincePrimaryHeartbeat < 3*time.Second {
 		return true
 	}
 
@@ -487,7 +506,7 @@ func (n *Node) primaryLeaseVerification() bool {
 			slog.Debug("Failed to remove primary status", "error", err)
 		}
 
-		n.SetMembership(ClusterMembershipReplica)
+		n.setMembership(ClusterMembershipReplica)
 
 		return false
 	}
@@ -613,7 +632,7 @@ func (n *Node) runElection() (bool, error) {
 		return elected, nil
 	}
 
-	n.SetMembership(ClusterMembershipPrimary)
+	n.setMembership(ClusterMembershipPrimary)
 	n.lease = NewLease(n)
 	err = n.lease.Renew()
 
@@ -747,8 +766,16 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 
 // Set the membership of the node in the cluster.
 func (n *Node) SetMembership(membership string) {
-	prevMembership := n.Membership
-	n.Membership = membership
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	n.setMembership(membership)
+}
+
+// Set the membership of the node in the cluster.
+func (n *Node) setMembership(membership string) {
+	prevMembership := n.membership
+	n.membership = membership
 
 	if membership == ClusterMembershipPrimary {
 		n.primary = NewNodePrimary(n)
@@ -866,7 +893,7 @@ func (n *Node) StepDown() error {
 		n.Primary().Shutdown()
 	}
 
-	n.SetMembership(ClusterMembershipReplica)
+	n.setMembership(ClusterMembershipReplica)
 
 	n.primaryAddress = ""
 

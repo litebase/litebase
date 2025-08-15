@@ -361,7 +361,7 @@ func TestNodeSetMembership(t *testing.T) {
 
 		server.App.Cluster.Node().SetMembership(cluster.ClusterMembershipReplica)
 
-		if server.App.Cluster.Node().Membership != cluster.ClusterMembershipReplica {
+		if server.App.Cluster.Node().GetMembership() != cluster.ClusterMembershipReplica {
 			t.Error("Node membership not set")
 		}
 	})

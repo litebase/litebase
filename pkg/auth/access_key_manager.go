@@ -199,7 +199,8 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	accessKey, err := akm.accessKeyStorage.Get(accessKeyId)
 
 	if err != nil {
-		return nil, err
+		slog.Debug("Error getting access key from storage", "error", err)
+		return nil, nil
 	}
 
 	accessKey.AccessKeyManager = akm

@@ -342,6 +342,9 @@ func (c *Cluster) Node() *Node {
 func (c *Cluster) Nodes() []*NodeIdentifier {
 	c.GetMembers(true)
 
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	return c.nodes
 }
 

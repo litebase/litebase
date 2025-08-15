@@ -155,7 +155,7 @@ func (cluster *Cluster) ShutdownStorage() {
 func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	fileSyncEligibilityFn := func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 		fsd.CanSyncDirtyFiles = func() bool {
-			return cluster.Node().Membership == ClusterMembershipPrimary
+			return cluster.Node().GetMembership() == ClusterMembershipPrimary
 		}
 	}
 
