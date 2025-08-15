@@ -471,6 +471,12 @@ int litebase_is_journal_file(sqlite3_file *pFile)
 
 void logCallback(void *pArg, int iErrCode, const char *zMsg)
 {
+  // Ignore SQLITE_NOTICE_RECOVER_WAL
+  if (iErrCode == SQLITE_NOTICE_RECOVER_WAL)
+  {
+    return;
+  }
+
   fprintf(stderr, "SQLITE_LOG: (%d) %s\n", iErrCode, zMsg);
 }
 
