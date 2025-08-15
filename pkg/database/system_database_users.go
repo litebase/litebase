@@ -24,6 +24,10 @@ func NewSystemDatabaseUserStorage(
 
 // Delete a user from storage.
 func (s *SystemDatabaseUserStorage) Delete(username string) error {
+	if username == "" {
+		return fmt.Errorf("username cannot be empty")
+	}
+
 	db, err := s.systemDatabase.DB()
 
 	if err != nil {
@@ -43,8 +47,7 @@ func (s *SystemDatabaseUserStorage) Delete(username string) error {
 	}
 
 	if rowsAffected == 0 {
-		// User doesn't exist, but that's not an error for this operation
-		return nil
+		return fmt.Errorf("user not found")
 	}
 
 	return nil
@@ -187,6 +190,7 @@ func (s *SystemDatabaseUserStorage) List() ([]*auth.User, error) {
 
 		// Handle NULL description
 		var descriptionValue string
+
 		if description.Valid {
 			descriptionValue = description.String
 		}
@@ -235,7 +239,6 @@ func (s *SystemDatabaseUserStorage) Store(user *auth.User) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to insert user: %w", err)
-
 	}
 
 	return nil

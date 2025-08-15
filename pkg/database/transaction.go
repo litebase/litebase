@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,7 +27,6 @@ type Transaction struct {
 	databaseManager  *DatabaseManager
 	EndedAt          time.Time
 	ID               string
-	mutex            *sync.Mutex
 	queryChannel     chan TransactionQuery
 	rolledBack       bool
 	StartedAt        time.Time

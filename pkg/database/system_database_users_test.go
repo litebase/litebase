@@ -588,7 +588,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 			err := storage.Delete("non_existent_user_for_delete")
 
 			if err == nil {
-				t.Error("Expected error when deleting non-existent user, but got nil")
+				t.Fatal("Expected error when deleting non-existent user, but got nil")
 			}
 
 			expectedErrorSubstring := "not found"
@@ -710,10 +710,10 @@ func TestSystemDatabaseUsers(t *testing.T) {
 			err := storage.Delete("")
 
 			if err == nil {
-				t.Error("Expected error when deleting with empty username, but got nil")
+				t.Fatal("Expected error when deleting with empty username, but got nil")
 			}
 
-			expectedErrorSubstring := "not found"
+			expectedErrorSubstring := "username cannot be empty"
 
 			if !strings.Contains(err.Error(), expectedErrorSubstring) {
 				t.Errorf("Expected error to contain '%s', got: %v", expectedErrorSubstring, err)

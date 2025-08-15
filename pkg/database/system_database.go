@@ -182,11 +182,11 @@ func (s *SystemDatabase) init() {
 		(
 			id INTEGER PRIMARY KEY,
 			access_key_id TEXT UNIQUE,
-			access_key_secret TEXT,
+			access_key_secret TEXT NOT NULL,
 			description TEXT,
-			statements TEXT,
-			created_at TEXT,
-			updated_at TEXT
+			statements TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
 		)
 		`,
 	)
@@ -201,10 +201,11 @@ func (s *SystemDatabase) init() {
 		(
 			id INTEGER PRIMARY KEY,
 			token_id TEXT UNIQUE,
-			token_hash TEXT,
-			statements TEXT,
-			created_at TEXT,
-			updated_at TEXT
+			token_hash TEXT NOT NULL,
+			description TEXT,
+			statements TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
 		)
 		`,
 	)
@@ -219,11 +220,11 @@ func (s *SystemDatabase) init() {
 		(
 			id INTEGER PRIMARY KEY,
 			username TEXT UNIQUE,
-			password TEXT,
+			password TEXT NOT NULL,
 			description TEXT,
-			statements TEXT,
-			created_at TEXT,
-			updated_at TEXT
+			statements TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
 		)
 		`,
 	)
