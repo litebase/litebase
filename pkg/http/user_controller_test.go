@@ -53,7 +53,7 @@ func TestUserController_Show(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		_, err := server.App.Cluster.Auth.UserManager.Add(
+		_, err := server.App.Cluster.Auth.UserManager.Create(
 			"testuser",
 			"password123",
 			[]auth.AccessKeyStatement{
@@ -195,7 +195,7 @@ func TestUserControllerUpdate(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		_, err := server.App.Cluster.Auth.UserManager.Add(
+		_, err := server.App.Cluster.Auth.UserManager.Create(
 			"foo",
 			"bar",
 			[]auth.AccessKeyStatement{
@@ -272,7 +272,7 @@ func TestUserController_Destroy(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		_, err := server.App.Cluster.Auth.UserManager.Add(
+		_, err := server.App.Cluster.Auth.UserManager.Create(
 			"foo",
 			"bar",
 			[]auth.AccessKeyStatement{

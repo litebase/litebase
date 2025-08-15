@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -41,14 +42,9 @@ func NewUserManager(
 	}
 }
 
-// Add a new user or update an existing one
-func (u *UserManager) Add(username, password string, statements []AccessKeyStatement) (*User, error) {
+func (u *UserManager) Create(username, password string, statements []AccessKeyStatement) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
-
-	// Check if user already exists
-	existingUser, err := u.userStorage.Get(username)
-	isUpdate := err == nil && existingUser != nil
 
 	// Bcrypt the password
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -64,15 +60,8 @@ func (u *UserManager) Add(username, password string, statements []AccessKeyState
 		UpdatedAt:  time.Now().UTC(),
 	}
 
-	if isUpdate {
-		// Keep the original creation time
-		user.CreatedAt = existingUser.CreatedAt
-		err = u.userStorage.Update(user)
-	} else {
-		// New user
-		user.CreatedAt = time.Now().UTC()
-		err = u.userStorage.Store(user)
-	}
+	user.CreatedAt = time.Now().UTC()
+	err = u.userStorage.Store(user)
 
 	if err != nil {
 		return nil, err
@@ -89,7 +78,6 @@ func (u *UserManager) Add(username, password string, statements []AccessKeyState
 
 // Return all users without passwords
 func (u *UserManager) All() []User {
-	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	// Remove the password from the users without affecting the original
@@ -147,27 +135,30 @@ func (u *UserManager) Get(username string) *User {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	fmt.Printf("[DEBUG] UserManager.Get: Looking for user '%s' in memory cache\n", username)
-
 	for _, user := range u.users {
 		if user.Username == username {
-			fmt.Printf("[DEBUG] UserManager.Get: Found user '%s' in memory cache\n", username)
 			return user
 		}
 	}
 
-	fmt.Printf("[DEBUG] UserManager.Get: User '%s' not in cache, reloading from database\n", username)
 	u.users, _ = u.allUsers()
 
 	for _, user := range u.users {
 		if user.Username == username {
-			fmt.Printf("[DEBUG] UserManager.Get: Found user '%s' after reloading from database\n", username)
 			return user
 		}
 	}
 
-	fmt.Printf("[DEBUG] UserManager.Get: User '%s' not found even after database reload\n", username)
-	return nil
+	user, err := u.userStorage.Get(username)
+
+	if err != nil {
+		slog.Debug("Error getting user from storage", "error", err)
+		return nil
+	}
+
+	u.users[username] = user
+
+	return user
 }
 
 // Initialize the UserManager
@@ -192,7 +183,7 @@ func (u *UserManager) Init() error {
 			return fmt.Errorf("the LITEBASE_ROOT_PASSWORD environment variable is not set")
 		}
 
-		_, err := u.Add(u.config.RootUsername, u.config.RootPassword, []AccessKeyStatement{
+		_, err := u.Create(u.config.RootUsername, u.config.RootPassword, []AccessKeyStatement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -213,8 +204,6 @@ func (u *UserManager) Purge(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	fmt.Printf("[DEBUG] UserManager.Purge: Purging user '%s' from memory cache (triggered by broadcast event)\n", username)
-
 	// Remove the user from the map
 	delete(u.users, username)
 
@@ -226,10 +215,8 @@ func (u *UserManager) Remove(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	fmt.Printf("[DEBUG] UserManager.Remove: Removing user '%s' from memory cache\n", username)
 	delete(u.users, username)
 
-	fmt.Printf("[DEBUG] UserManager.Remove: Deleting user '%s' from database storage\n", username)
 	err := u.userStorage.Delete(username)
 	if err != nil {
 		return err
@@ -237,10 +224,7 @@ func (u *UserManager) Remove(username string) error {
 
 	// Broadcast purge event to other servers
 	if u.auth != nil {
-		fmt.Printf("[DEBUG] UserManager.Remove: Broadcasting purge event for user '%s'\n", username)
 		u.auth.Broadcast("user:purge", username)
-	} else {
-		fmt.Printf("[DEBUG] UserManager.Remove: No auth instance, cannot broadcast purge event\n")
 	}
 
 	return nil

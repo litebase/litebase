@@ -18,7 +18,7 @@ func TestUserShow(t *testing.T) {
 				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		user, err := server.App.Auth.UserManager.Add(
+		user, err := server.App.Auth.UserManager.Create(
 			"testuser",
 			"testpassword123",
 			[]auth.AccessKeyStatement{

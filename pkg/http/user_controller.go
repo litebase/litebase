@@ -123,7 +123,7 @@ func UserControllerStore(request *Request) Response {
 
 	data := input.(*UserControllerStoreRequest)
 
-	user, err := request.cluster.Auth.UserManager.Add(
+	user, err := request.cluster.Auth.UserManager.Create(
 		data.Username,
 		data.Password,
 		data.Statements,
