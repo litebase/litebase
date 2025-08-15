@@ -12,6 +12,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/cluster/messages"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
@@ -21,12 +22,14 @@ type DatabaseWALManager struct {
 	checkpointMutex         *sync.Mutex
 	checkpointingWAL        *DatabaseWAL
 	connectionManager       *ConnectionManager
+	databaseHash            string
 	DatabaseID              string
 	garbageCollectionMutex  *sync.RWMutex
 	lastCheckpointedVersion int64
 	mutex                   *sync.RWMutex
 	networkFileSystem       *storage.FileSystem
 	node                    *cluster.Node
+	nodeHash                string
 	walIndex                *storage.WALIndex
 	walUsage                map[int64]int64
 	walVersions             map[int64]*DatabaseWAL
@@ -50,11 +53,13 @@ func NewDatabaseWALManager(
 		checkpointing:          false,
 		checkpointMutex:        &sync.Mutex{},
 		connectionManager:      connectionManager,
+		databaseHash:           file.DatabaseHash(databaseId, branchId),
 		DatabaseID:             databaseId,
 		garbageCollectionMutex: &sync.RWMutex{},
 		mutex:                  &sync.RWMutex{},
 		networkFileSystem:      networkFileSystem,
 		node:                   node,
+		nodeHash:               fmt.Sprintf("%s:%s", node.ID, file.DatabaseHash(databaseId, branchId)),
 		walIndex: storage.NewWALIndex(
 			databaseId,
 			branchId,
@@ -683,4 +688,28 @@ func (w *DatabaseWALManager) getLatestVersionUnsafe() int64 {
 		}
 	}
 	return latestVersion
+}
+
+// OnWALUpdate notifies other nodes about WAL updates to update their shared
+// memory indexes for the specific timestamp.
+func (w *DatabaseWALManager) OnWALUpdate(timestamp int64, walIndexHeader []byte) {
+	// Only broadcast from primary nodes
+	if w.node.IsReplica() {
+		return
+	}
+
+	_, errors := w.connectionManager.cluster.Node().Primary().Publish(messages.NodeMessage{
+		Data: messages.WALIndexHeaderMessage{
+			BranchID:       w.BranchID,
+			DatabaseID:     w.DatabaseID,
+			DatabaseHash:   w.databaseHash,
+			NodeHash:       w.nodeHash,
+			Timestamp:      timestamp,
+			WALIndexHeader: walIndexHeader,
+		},
+	})
+
+	if len(errors) > 0 {
+		slog.Error("Failed to broadcast WAL update to replicas", "errors", errors)
+	}
 }

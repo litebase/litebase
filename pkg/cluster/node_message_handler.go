@@ -38,8 +38,8 @@ func (n *Node) HandleMessage(message messages.NodeMessage) (messages.NodeMessage
 	}, nil
 }
 
-func (n *Node) handleBroadcastMessage(message interface{}) (interface{}, error) {
-	var responseMessage interface{}
+func (n *Node) handleBroadcastMessage(message any) (any, error) {
+	var responseMessage any
 	var err error
 
 	switch message := message.(type) {
@@ -51,7 +51,10 @@ func (n *Node) handleBroadcastMessage(message interface{}) (interface{}, error) 
 		err = n.walSynchronizer.SetWALIndexHeader(
 			message.DatabaseID,
 			message.BranchID,
-			message.Header,
+			message.DatabaseHash,
+			message.NodeHash,
+			message.Timestamp,
+			message.WALIndexHeader,
 		)
 	case messages.WALIndexTimestampMessage:
 		log.Println("Received WAL index timestamp message")

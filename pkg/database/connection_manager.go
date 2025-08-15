@@ -34,11 +34,10 @@ type ConnectionManager struct {
 	databases        map[string]*DatabaseGroup
 	mutex            *sync.RWMutex
 	state            int
-	sqlDriver        *LitebaseSQLDriver
 }
 
 // Checkpoint a database is necessary.
-func (c *ConnectionManager) checkpoint(databaseGroup *DatabaseGroup, branchId string, clientConnection *ClientConnection) bool {
+func (c *ConnectionManager) checkpoint(databaseGroup *DatabaseGroup, clientConnection *ClientConnection) bool {
 	databaseGroup.mutex.Lock()
 	defer databaseGroup.mutex.Unlock()
 
@@ -122,7 +121,7 @@ func (c *ConnectionManager) CheckpointAll() {
 					needsCheckpoint = true
 
 					go func(databaseGroup *DatabaseGroup, branchId string, bc *BranchConnection) {
-						c.checkpoint(databaseGroup, branchId, bc.connection)
+						c.checkpoint(databaseGroup, bc.connection)
 						bc.Release()
 					}(databaseGroup, branchId, branchConnection)
 

@@ -759,7 +759,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 							Actions:  []auth.Privilege{"*"},
 						},
 					},
-					CreatedAt: originalUser.CreatedAt,           // Should remain the same
+					CreatedAt: originalUser.CreatedAt,          // Should remain the same
 					UpdatedAt: time.Now().UTC().Add(time.Hour), // Should be updated
 				}
 

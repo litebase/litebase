@@ -37,31 +37,29 @@ var vfsBuffers = &sync.Pool{
 }
 
 type LitebaseVFS struct {
+	connectionHash         string
+	databaseHash           string
 	filename               string
 	fileSystem             *storage.DurableDatabaseFileSystem
-	id                     string
+	nodeHash               string
 	transactionalTimestamp int64
 	vfsIdPtr               uintptr
 	wal                    WAL
-	walHash                string
 	walTimestamp           int64
 	shm                    *ShmMemory
 }
 
 // Register a new VFS instance for a database connection.
 func RegisterVFS(
-	vfsHash string,
-	vfsDatabaseHash string,
+	databaseHash string, // Database ID + Branch ID
+	connectionHash string, // Database ID + Branch ID + Connection ID
+	nodeHash string, // Node ID + Database ID + Branch ID
 	pageSize int64,
 	fileSystem *storage.DurableDatabaseFileSystem,
 	wal WAL,
 ) (*LitebaseVFS, error) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
-
-	if vfsHash == "" {
-		return nil, errors.New("vfsHash cannot be empty")
-	}
 
 	if pageSize < 512 {
 		return nil, errors.New("pageSize must be at least 512")
@@ -73,13 +71,14 @@ func RegisterVFS(
 	}
 
 	// Only register the VFS if it doesn't already exist
-	if lVfs, ok := VfsMap[vfsHash]; ok {
+	if lVfs, ok := VfsMap[connectionHash]; ok {
 		return lVfs, nil
 	}
 
-	cZvfsId, err := utils.SafeCString(vfsHash)
+	cZvfsId, err := utils.SafeCString(connectionHash)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert vfsHash to C string: %v", err)
+		return nil, fmt.Errorf("failed to convert connectionHash to C string: %v", err)
 	}
 	defer C.free(unsafe.Pointer(cZvfsId))
 
@@ -92,24 +91,25 @@ func RegisterVFS(
 	C.newVfs((*C.char)(cZvfsId), C.int(int32PageSize))
 
 	// Check if the WAL is already registered
-	if VfsShmMap[vfsDatabaseHash] == nil {
-		VfsShmMap[vfsDatabaseHash] = &ShmMemory{
-			locks:   make(map[int]int),
-			mutex:   &sync.Mutex{},
-			regions: make([]*ShmRegion, 0),
-			walHash: vfsDatabaseHash,
+	if VfsShmMap[nodeHash] == nil {
+		VfsShmMap[nodeHash] = &ShmMemory{
+			locks:    make(map[int]int),
+			mutex:    &sync.Mutex{},
+			regions:  make([]*ShmRegion, 0),
+			nodeHash: nodeHash,
 		}
 	}
 
 	l := &LitebaseVFS{
-		fileSystem: fileSystem,
-		id:         vfsHash,
-		wal:        wal,
-		walHash:    vfsDatabaseHash,
-		shm:        VfsShmMap[vfsDatabaseHash],
+		connectionHash: connectionHash,
+		databaseHash:   databaseHash,
+		fileSystem:     fileSystem,
+		wal:            wal,
+		nodeHash:       nodeHash,
+		shm:            VfsShmMap[nodeHash],
 	}
 
-	VfsMap[vfsHash] = l
+	VfsMap[connectionHash] = l
 
 	return l, nil
 }
@@ -129,7 +129,7 @@ func UnregisterVFS(vfsId string) error {
 		return errors.New("vfsId not found")
 	}
 
-	var walHash string
+	var nodeHash string
 
 	if vfs == nil {
 		delete(VfsMap, vfsId) // Clean up the map entry
@@ -148,21 +148,21 @@ func UnregisterVFS(vfsId string) error {
 
 	C.unregisterVfs((*C.char)(cvfsId))
 
-	walHash = vfs.walHash
+	nodeHash = vfs.nodeHash
 
 	delete(VfsMap, vfsId)
 
 	var found bool
 
 	for _, vfs := range VfsMap {
-		if vfs != nil && vfs.walHash == walHash {
+		if vfs != nil && vfs.nodeHash == nodeHash {
 			found = true
 			break
 		}
 	}
 
-	if !found && walHash != "" {
-		delete(VfsShmMap, walHash)
+	if !found && nodeHash != "" {
+		delete(VfsShmMap, nodeHash)
 	}
 
 	return nil
@@ -372,7 +372,7 @@ func goXShmMap(pFile *C.sqlite3_file, iPage C.int, pgsz C.int, bExtend C.int, pp
 	newRegion := &ShmRegion{
 		id:    int(iPage),
 		pData: C.malloc(C.size_t(uint64Pgsz)),
-		size:  C.size_t(uint64Pgsz),
+		size:  uintptr(uint64Pgsz),
 	}
 
 	if newRegion.pData == nil {
@@ -464,7 +464,7 @@ func goXShmUnmap(pFile *C.sqlite3_file, deleteFlag C.int) C.int {
 	var found int
 
 	for _, vfsEntry := range VfsMap {
-		if vfsEntry.id != vfs.id && vfsEntry.walHash == vfs.shm.walHash {
+		if vfsEntry.connectionHash != vfs.connectionHash && vfsEntry.nodeHash == vfs.shm.nodeHash {
 			found++
 		}
 	}
@@ -542,15 +542,6 @@ func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.
 		return C.SQLITE_IOERR
 	}
 
-	// buffer := vfsBuffers.Get().(*bytes.Buffer)
-	// defer vfsBuffers.Put(buffer)
-
-	// buffer.Reset()
-
-	// if buffer.Len() < int(iAmt) {
-	// 	buffer.Grow(int(iAmt))
-	// }
-
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
 	_, err = vfs.wal.ReadAt(vfs.walTimestamp, goBuffer, int64(iOfst))
@@ -560,16 +551,8 @@ func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.
 			return C.SQLITE_OK
 		}
 
-		log.Println("Error reading WAL file", err)
 		return C.SQLITE_IOERR
 	}
-
-	// if n < len(goBuffer) && err == io.EOF {
-	// 	for i := n; i < len(goBuffer); i++ {
-	// 		goBuffer[i] = 0
-	// 	}
-
-	// }
 
 	return C.SQLITE_OK
 }
@@ -631,4 +614,74 @@ func goXWALTruncate(pFile *C.sqlite3_file, size C.sqlite3_int64) C.int {
 	}
 
 	return C.SQLITE_OK
+}
+
+// UpdateWALSharedMemory updates specific fields in the WAL index header for replicas
+// This updates the bytes of the WAL INDEX header.
+func UpdateWALSharedMemory(databaseHash string, senderNodeHash string, timestamp int64, headerBytes []byte) error {
+	vfsMutex.Lock()
+	defer vfsMutex.Unlock()
+
+	if len(headerBytes) == 0 {
+		log.Printf("UpdateWALSharedMemory: No header bytes provided")
+		return nil
+	}
+
+	// Find all VFS instances for this database (excluding the sender)
+	for _, vfs := range VfsMap {
+		if vfs.databaseHash != databaseHash {
+			continue
+		}
+
+		if vfs.nodeHash == senderNodeHash {
+			continue
+		}
+
+		for _, shmMemory := range VfsShmMap {
+			// Check if this shared memory belongs to the same database
+			shmMemory.mutex.Lock()
+
+			// Update WAL index header (page 0) with current WAL state
+			if len(shmMemory.regions) > 0 && shmMemory.regions[0].id == 0 {
+				if shmMemory.regions[0].pData != nil {
+					// Ensure we don't copy more than the available space
+					headerSize := len(headerBytes)
+					if headerSize > int(shmMemory.regions[0].size) {
+						headerSize = int(shmMemory.regions[0].size)
+					}
+
+					// // Debug: Log some key WAL header fields before copying
+					// if len(headerBytes) >= 20 {
+					// 	mxFrame := binary.LittleEndian.Uint32(headerBytes[16:20])
+					// 	iChange := binary.LittleEndian.Uint32(headerBytes[8:12])
+					// 	log.Printf("UpdateWALSharedMemory: Header data - mxFrame: %d, iChange: %d", mxFrame, iChange)
+					// }
+
+					target := (*[1 << 16]byte)(shmMemory.regions[0].pData)[:headerSize:headerSize]
+
+					copy(target, headerBytes[:headerSize])
+
+					// Debug: Verify the copy worked by reading back some key fields
+					// if headerSize >= 20 {
+					// 	copiedMxFrame := binary.LittleEndian.Uint32(target[16:20])
+					// 	copiedIChange := binary.LittleEndian.Uint32(target[8:12])
+					// 	log.Printf("UpdateWALSharedMemory: After copy - mxFrame: %d, iChange: %d", copiedMxFrame, copiedIChange)
+					// }
+				}
+			}
+
+			shmMemory.mutex.Unlock()
+		}
+	}
+
+	return nil
+}
+
+// Mark the WAL as updated.
+func (vfs *LitebaseVFS) WALUpdated() {
+	// Notify the WAL about the write so it can broadcast to replicas
+	vfs.wal.OnWALUpdate(
+		vfs.walTimestamp,
+		vfs.shm.GetWALIndexHeader(),
+	)
 }

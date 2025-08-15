@@ -3,6 +3,8 @@ package database
 import (
 	"errors"
 	"log"
+
+	"github.com/litebase/litebase/pkg/vfs"
 )
 
 var ErrDatabaseWALNotFound = errors.New("Database WAL not found")
@@ -57,10 +59,16 @@ func (d *DatabaseWalSynchronizer) SetCurrentTimestamp(
 }
 
 func (d *DatabaseWalSynchronizer) SetWALIndexHeader(
-	databaseId, branchId string,
+	databaseId string,
+	branchId string,
+	databaseHash string,
+	nodeHash string,
+	timestamp int64,
 	header []byte,
 ) error {
-	databaseWALManager, err := d.databaseManager.Resources(databaseId, branchId).DatabaseWALManager()
+	databaseWALManager, err := d.databaseManager.
+		Resources(databaseId, branchId).
+		DatabaseWALManager()
 
 	if err != nil {
 		log.Println(err)
@@ -68,11 +76,22 @@ func (d *DatabaseWalSynchronizer) SetWALIndexHeader(
 		return err
 	}
 
-	if databaseWALManager == nil {
+	wal, err := databaseWALManager.Get(timestamp)
+
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if wal == nil {
 		log.Println(ErrDatabaseWALNotFound)
 		return ErrDatabaseWALNotFound
 	}
 
-	// return databaseWALManager.SetWALIndexHeader(header)
-	return nil
+	return vfs.UpdateWALSharedMemory(
+		databaseWALManager.databaseHash,
+		databaseWALManager.nodeHash,
+		wal.Timestamp(),
+		header,
+	)
 }

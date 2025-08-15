@@ -7,4 +7,5 @@ type WAL interface {
 	Sync(timestamp int64) error
 	Truncate(timestamp, size int64) error
 	WriteAt(timestamp int64, p []byte, off int64) (n int, err error)
+	OnWALUpdate(timestamp int64, walIndexHeader []byte)
 }

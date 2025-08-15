@@ -206,6 +206,9 @@ func (con *DatabaseConnection) Commit() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
 	}
+	defer func() {
+		con.vfs.WALUpdated()
+	}()
 
 	return con.sqliteConnection().Commit()
 }
@@ -393,7 +396,11 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 				return err
 			}
 
-			con.committedAt = time.Now().UTC()
+			if con.sqliteConnection().Changes() > 0 {
+				con.committedAt = time.Now().UTC()
+
+				con.vfs.WALUpdated()
+			}
 
 			return nil
 		})
@@ -557,6 +564,7 @@ func (con *DatabaseConnection) Query(result *sqlite3.Result, statement *sqlite3.
 // Register and instance of the VFS for the database connection.
 func (con *DatabaseConnection) registerVFS() error {
 	vfs, err := vfs.RegisterVFS(
+		con.databaseHash,
 		con.VFSHash(),
 		con.VFSDatabaseHash(),
 		con.config.PageSize,

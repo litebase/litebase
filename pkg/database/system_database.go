@@ -56,7 +56,6 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 	defer s.mutex.Unlock()
 
 	if s.db != nil {
-		fmt.Printf("[DEBUG] SystemDatabase.DB: Returning existing connection for node: %s\n", s.databaseManager.Cluster.Node().ID)
 		return s.db, nil
 	}
 
@@ -66,7 +65,6 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 		s.initialized = true
 	}
 
-	fmt.Printf("[DEBUG] SystemDatabase.DB: Opening new connection for node: %s\n", s.databaseManager.Cluster.Node().ID)
 	db, err := sql.Open("litebase-internal", "system/system")
 
 	if err != nil {

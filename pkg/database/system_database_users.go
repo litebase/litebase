@@ -55,19 +55,16 @@ func (s *SystemDatabaseUserStorage) Get(username string) (*auth.User, error) {
 	db, err := s.systemDatabase.DB()
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get system database connection: %w", err)
+		return nil, err
 	}
 
-	// Add debug logging
-	fmt.Printf("[DEBUG] SystemDatabaseUserStorage.Get: Looking up user '%s'\n", username)
-
 	var (
-		storedUsername   string
-		password         string
-		description      sql.NullString
-		statementsJSON   string
-		createdAtStr     string
-		updatedAtStr     string
+		storedUsername string
+		password       string
+		description    sql.NullString
+		statementsJSON string
+		createdAtStr   string
+		updatedAtStr   string
 	)
 
 	err = db.QueryRow("SELECT username, password, description, statements, created_at, updated_at FROM users WHERE username = ?",
@@ -82,15 +79,8 @@ func (s *SystemDatabaseUserStorage) Get(username string) (*auth.User, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			fmt.Printf("[DEBUG] SystemDatabaseUserStorage.Get: User '%s' not found in database\n", username)
-			return nil, fmt.Errorf("user with username %s not found", username)
-		}
-
-		return nil, fmt.Errorf("failed to query user: %w", err)
+		return nil, err
 	}
-
-	fmt.Printf("[DEBUG] SystemDatabaseUserStorage.Get: Found user '%s' in database\n", username)
 
 	// Unmarshal statements from JSON
 	var statements []auth.AccessKeyStatement
