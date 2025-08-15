@@ -201,8 +201,8 @@ func TestAccessKeyManager(t *testing.T) {
 
 			accessKey1, err = app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
-			if err != nil {
-				t.Error("Expected Get to return no error after Purge")
+			if err == nil {
+				t.Error("Expected Get to return an error after Purge")
 			}
 
 			if accessKey1 != nil {
@@ -211,8 +211,8 @@ func TestAccessKeyManager(t *testing.T) {
 
 			accessKey2, err = server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
-			if err != nil {
-				t.Error("Expected Get to return no error after Purge")
+			if err == nil {
+				t.Error("Expected Get to return an error after Purge")
 			}
 
 			if accessKey2 != nil {
