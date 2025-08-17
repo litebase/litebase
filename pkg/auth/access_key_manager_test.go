@@ -29,7 +29,6 @@ func TestAccessKeyManager(t *testing.T) {
 				),
 				a,
 				a.Config,
-				a.ObjectFS,
 			)
 
 			if akm == nil {

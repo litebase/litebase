@@ -12,6 +12,7 @@ type Auth struct {
 	SecretsManager   *SecretsManager
 	TmpFS            *storage.FileSystem
 	UserManager      *UserManager
+	TokenManager     *TokenManager
 
 	broadcaster func(key string, value string)
 }
@@ -60,7 +61,13 @@ func (a *Auth) ProvideAccessKeyStorage(accessKeyStorage AccessKeyStorage) {
 		accessKeyStorage,
 		a,
 		a.Config,
-		a.ObjectFS,
+	)
+}
+
+func (a *Auth) ProvideTokenStorage(tokenStorage TokenStorage) {
+	a.TokenManager = NewTokenManager(
+		tokenStorage,
+		a,
 	)
 }
 

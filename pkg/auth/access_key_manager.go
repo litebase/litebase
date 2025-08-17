@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/config"
-	"github.com/litebase/litebase/pkg/storage"
 )
 
 type AccessKeyManager struct {
@@ -17,7 +16,6 @@ type AccessKeyManager struct {
 	auth             *Auth
 	config           *config.Config
 	mutex            *sync.Mutex
-	objectFS         *storage.FileSystem
 }
 
 type AccessKeyStorage interface {
@@ -34,14 +32,12 @@ func NewAccessKeyManager(
 	accessKeyStorage AccessKeyStorage,
 	auth *Auth,
 	config *config.Config,
-	objectFS *storage.FileSystem,
 ) *AccessKeyManager {
 	return &AccessKeyManager{
 		accessKeyStorage: accessKeyStorage,
 		auth:             auth,
 		config:           config,
 		mutex:            &sync.Mutex{},
-		objectFS:         objectFS,
 	}
 }
 
@@ -78,7 +74,7 @@ func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
 	return accessKeyIds, nil
 }
 
-// Create a new access key
+// Create a new access key.
 func (akm *AccessKeyManager) Create(description string, statements []AccessKeyStatement) (*AccessKey, error) {
 	accessKeyId, err := akm.GenerateAccessKeyId()
 

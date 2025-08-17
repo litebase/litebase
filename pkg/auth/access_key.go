@@ -8,13 +8,15 @@ import (
 )
 
 type AccessKey struct {
-	AccessKeyID      string               `json:"access_key_id"`
-	AccessKeySecret  string               `json:"access_key_secret"`
-	Description      string               `json:"description"`
-	AccessKeyManager *AccessKeyManager    `json:"-"`
-	CreatedAt        time.Time            `json:"created_at"`
-	UpdatedAt        time.Time            `json:"updated_at"`
-	Statements       []AccessKeyStatement `json:"statements"`
+	ID              int64                `json:"id"`
+	AccessKeyID     string               `json:"access_key_id"`
+	AccessKeySecret string               `json:"access_key_secret"`
+	Description     string               `json:"description"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
+	Statements      []AccessKeyStatement `json:"statements"`
+
+	AccessKeyManager *AccessKeyManager `json:"-"`
 
 	hash [32]byte
 }

@@ -96,6 +96,14 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 			),
 		)
 
+		app.Auth.ProvideTokenStorage(
+			database.NewSystemDatabaseTokenStorage(
+				app.Config,
+				app.Auth.SecretsManager,
+				app.DatabaseManager.SystemDatabase(),
+			),
+		)
+
 		app.Auth.ProvideUserManagerStorage(
 			database.NewSystemDatabaseUserStorage(
 				app.DatabaseManager.SystemDatabase(),
