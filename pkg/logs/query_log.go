@@ -51,10 +51,10 @@ type QueryLog struct {
 }
 
 type QueryLogEntry struct {
-	Cluster                                         *cluster.Cluster
-	DatabaseHash, DatabaseID, BranchID, AccessKeyID string
-	Statement                                       string
-	Latency                                         float64
+	Cluster                                          *cluster.Cluster
+	DatabaseHash, DatabaseID, BranchID, CredentialID string
+	Statement                                        string
+	Latency                                          float64
 }
 
 func (q *QueryLog) Close() error {
