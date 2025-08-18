@@ -73,7 +73,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 		request.Header.Set("Host", request.URL.Host)
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("X-LBDB-Date", fmt.Sprintf("%d", time.Now().UTC().Unix()))
-		request.Header.Set("Authorization", signature)
+		request.Header.Set("Authorization", fmt.Sprintf("Litebase-HMAC-SHA256 %s", signature))
 
 		req = appHttp.NewRequest(
 			server.App.Cluster,
