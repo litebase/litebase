@@ -23,6 +23,7 @@ type TokenStorage interface {
 	Update(token *Token) error
 }
 
+// Create a new instance of a TokenManager.
 func NewTokenManager(tokenStorage TokenStorage, auth *Auth) *TokenManager {
 	return &TokenManager{
 		auth:         auth,
@@ -93,6 +94,7 @@ func (tm *TokenManager) Create(description string, statements []Statement) (*Tok
 	return token, nil
 }
 
+// Generate a random token secret.
 func (tm *TokenManager) GenerateTokenSecret() string {
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
@@ -114,6 +116,7 @@ func (tm *TokenManager) GenerateTokenSecret() string {
 	return string(result)
 }
 
+// Generate a unique token ID.
 func (tm *TokenManager) GenerateTokenID() (string, error) {
 	var (
 		rounds    = 0
@@ -158,6 +161,33 @@ func (tm *TokenManager) GenerateTokenID() (string, error) {
 	return tokenID, nil
 }
 
+// Get a token by ID.
+func (tm *TokenManager) Get(tokenID string) (*Token, error) {
+	token := &Token{
+		TokenManager: tm,
+	}
+
+	value := tm.auth.SecretsManager.cache("map").
+		Get(tm.tokenCacheKey(tokenID), token)
+
+	if value != nil {
+		return token, nil
+	}
+
+	token, err := tm.tokenStorage.Get(tokenID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	token.TokenManager = tm
+
+	tm.auth.SecretsManager.cache("map").
+		Put(tm.tokenCacheKey(tokenID), token, time.Second*300)
+
+	return token, nil
+}
+
 // Purge a token from the cache.
 func (tm *TokenManager) Purge(tokenID string) error {
 	tm.auth.SecretsManager.cache("map").Forget(tm.tokenCacheKey(tokenID))
@@ -185,31 +215,4 @@ func (tm *TokenManager) PurgeAll() error {
 	}
 
 	return nil
-}
-
-// Get a token by ID.
-func (tm *TokenManager) Get(tokenID string) (*Token, error) {
-	token := &Token{
-		TokenManager: tm,
-	}
-
-	value := tm.auth.SecretsManager.cache("map").
-		Get(tm.tokenCacheKey(tokenID), token)
-
-	if value != nil {
-		return token, nil
-	}
-
-	token, err := tm.tokenStorage.Get(tokenID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	token.TokenManager = tm
-
-	tm.auth.SecretsManager.cache("map").
-		Put(tm.tokenCacheKey(tokenID), token, time.Second*300)
-
-	return token, nil
 }
