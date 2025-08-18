@@ -27,7 +27,7 @@ type AccessKeyStorage interface {
 	UpdateNext(accessKey *AccessKey) error
 }
 
-// Create a New Access Key Manager
+// Create a new instance of an AccessKeyManager.
 func NewAccessKeyManager(
 	accessKeyStorage AccessKeyStorage,
 	auth *Auth,
@@ -41,7 +41,7 @@ func NewAccessKeyManager(
 	}
 }
 
-// Return an access key cache key
+// Return an access key cache key.
 func (akm *AccessKeyManager) accessKeyCacheKey(accessKeyId string) string {
 	return fmt.Sprintf("access_key:%s", accessKeyId)
 }
@@ -57,7 +57,7 @@ func (akm *AccessKeyManager) All() ([]*AccessKey, error) {
 	return accessKeys, nil
 }
 
-// Return all access key ids
+// Return all access key ids.
 func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
 	accessKeys, err := akm.accessKeyStorage.List()
 
@@ -101,7 +101,7 @@ func (akm *AccessKeyManager) Create(description string, statements []Statement) 
 	return accessKey, nil
 }
 
-// Generate an access key id
+// Generate an access key id.
 func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 	akm.mutex.Lock()
 	defer akm.mutex.Unlock()
@@ -154,7 +154,7 @@ func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 	}
 }
 
-// Generate an access key secret
+// Generate an access key secret.
 func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 	prefix := "lbdbaks_"
 
@@ -179,7 +179,7 @@ func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
 	return fmt.Sprintf("%s%s", prefix, result)
 }
 
-// Get an access key
+// Get an access key.
 func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	var accessKey = &AccessKey{
 		AccessKeyManager: akm,
@@ -207,7 +207,7 @@ func (akm *AccessKeyManager) Get(accessKeyId string) (*AccessKey, error) {
 	return accessKey, nil
 }
 
-// Purge an access key from the cache
+// Purge an access key from the cache.
 func (akm *AccessKeyManager) Purge(accessKeyId string) error {
 	akm.auth.SecretsManager.cache("map").Forget(akm.accessKeyCacheKey(accessKeyId))
 	akm.auth.SecretsManager.cache("transient").Forget(akm.accessKeyCacheKey(accessKeyId))
@@ -216,7 +216,7 @@ func (akm *AccessKeyManager) Purge(accessKeyId string) error {
 	return nil
 }
 
-// Purge all access keys
+// Purge all access keys.
 func (akm *AccessKeyManager) PurgeAll() error {
 	// Get all access key IDs from storage
 	accessKeyIds, err := akm.AllAccessKeyIds()
