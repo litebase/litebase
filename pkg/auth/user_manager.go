@@ -31,7 +31,7 @@ type UserStorage interface {
 	Update(user *User) error
 }
 
-// Get the UserManager instance
+// Create a new instance of the UserManager.
 func NewUserManager(
 	userStorage UserStorage,
 	auth *Auth,
@@ -46,6 +46,7 @@ func NewUserManager(
 	}
 }
 
+// Create a new user and store it.
 func (u *UserManager) Create(username, password string, statements []Statement) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -80,7 +81,7 @@ func (u *UserManager) Create(username, password string, statements []Statement) 
 	return user, nil
 }
 
-// Return all users without passwords
+// Return all users without passwords.
 func (u *UserManager) All() []User {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -100,7 +101,7 @@ func (u *UserManager) All() []User {
 	return users
 }
 
-// Read all the users from storage
+// Read all the users from storage.
 func (u *UserManager) allUsers() (map[string]*User, error) {
 	users, err := u.userStorage.List()
 	if err != nil {
@@ -115,7 +116,7 @@ func (u *UserManager) allUsers() (map[string]*User, error) {
 	return userMap, nil
 }
 
-// Authenticate a user with username and password
+// Authenticate a user with username and password.
 func (u *UserManager) Authenticate(username, password string) bool {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -135,7 +136,7 @@ func (u *UserManager) Authenticate(username, password string) bool {
 	return false
 }
 
-// Get a user by username
+// Get a user by username.
 func (u *UserManager) Get(username string) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -171,7 +172,7 @@ func (u *UserManager) Get(username string) (*User, error) {
 	return user, nil
 }
 
-// Initialize the UserManager
+// Initialize the UserManager.
 func (u *UserManager) Init() error {
 	// Get the users
 	users, err := u.allUsers()
@@ -209,7 +210,7 @@ func (u *UserManager) Init() error {
 	return nil
 }
 
-// Purge a user by username from memory
+// Purge a user by username from memory.
 func (u *UserManager) Purge(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -220,7 +221,7 @@ func (u *UserManager) Purge(username string) error {
 	return nil
 }
 
-// Remove a user by username
+// Remove a user by username.
 func (u *UserManager) Remove(username string) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -240,7 +241,7 @@ func (u *UserManager) Remove(username string) error {
 	return nil
 }
 
-// Update an existing user
+// Update an existing user.
 func (u *UserManager) Update(user *User) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
