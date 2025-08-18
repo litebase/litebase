@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Token struct {
@@ -48,6 +50,15 @@ func NewToken(
 
 		TokenManager: tokenManager,
 	}
+}
+
+func (t *Token) Authenticate(secret string) bool {
+	// Use bcrypt to compare the token hash
+	if bcrypt.CompareHashAndPassword([]byte(t.Hash()), []byte(secret)) != nil {
+		return false
+	}
+
+	return true
 }
 
 // Delete a token.

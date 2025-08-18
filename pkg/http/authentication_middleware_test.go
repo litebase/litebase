@@ -55,6 +55,39 @@ func TestAuthenticationMiddleware(t *testing.T) {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
 		}
 
+		// Test with token authentication
+		token, err := server.App.Auth.TokenManager.Create(
+			"",
+			[]auth.Statement{{
+				Effect:   auth.StatementEffectAllow,
+				Resource: "*",
+			}})
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tokenValue, err := token.Value()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenValue))
+
+		req = appHttp.NewRequest(
+			server.App.Cluster,
+			server.App.DatabaseManager,
+			server.App.LogManager,
+			request,
+		)
+
+		_, res = appHttp.Authentication(req)
+
+		if res.StatusCode != 0 {
+			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
+		}
+
 		// Test with access key authentication
 		signature := auth.SignRequest(
 			client.AccessKey.AccessKeyID,

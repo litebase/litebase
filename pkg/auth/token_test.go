@@ -77,6 +77,23 @@ func TestToken(t *testing.T) {
 			}
 		})
 
+		t.Run("Authenticate", func(t *testing.T) {
+			token, err := app.Auth.TokenManager.Create(
+				"Test description",
+				[]auth.Statement{},
+			)
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			knownSecret := token.TokenSecret
+
+			if !token.Authenticate(knownSecret) {
+				t.Error("Expected token to be authenticated")
+			}
+		})
+
 		t.Run("DeleteToken", func(t *testing.T) {
 			token, err := app.Auth.TokenManager.Create(
 				"Test description",

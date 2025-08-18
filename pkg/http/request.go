@@ -19,19 +19,19 @@ import (
 )
 
 type Request struct {
-	accessKeyManager *auth.AccessKeyManager
-	BaseRequest      *http.Request
-	Body             map[string]any
-	bodyHash         string
-	databaseKey      *auth.DatabaseKey
-	databaseManager  *database.DatabaseManager
-	logManager       *logs.LogManager
-	cluster          *cluster.Cluster
-	headers          Headers
-	Method           string
-	QueryParams      map[string]string
-	requestToken     auth.RequestCredential
-	Route            Route
+	accessKeyManager  *auth.AccessKeyManager
+	BaseRequest       *http.Request
+	Body              map[string]any
+	bodyHash          string
+	databaseKey       *auth.DatabaseKey
+	databaseManager   *database.DatabaseManager
+	logManager        *logs.LogManager
+	cluster           *cluster.Cluster
+	headers           Headers
+	Method            string
+	QueryParams       map[string]string
+	requestCredential auth.RequestCredential
+	Route             Route
 }
 
 // Create a new Request instance.
@@ -297,14 +297,14 @@ func (request *Request) QueryParam(key string, defaultValue ...string) string {
 
 // Return the request token for this request.
 func (request *Request) RequestCredential() auth.RequestCredential {
-	if !request.requestToken.Valid() {
-		request.requestToken = auth.CaptureRequestCredential(
+	if !request.requestCredential.Valid() {
+		request.requestCredential = auth.CaptureRequestCredential(
 			request.cluster.Auth,
 			request.Headers().Get("Authorization"),
 		)
 	}
 
-	return request.requestToken
+	return request.requestCredential
 }
 
 func (request *Request) Validate(

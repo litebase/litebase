@@ -123,5 +123,5 @@ func RequestSignatureValidator(
 	signatureHash.Write([]byte(signedRequest))
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
-	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestCredential().Signature)) == 1
+	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestCredential().CredentialString)) == 1
 }

@@ -3,8 +3,6 @@ package auth
 import (
 	"encoding/base64"
 	"strings"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type RequestCredentialType string
@@ -17,15 +15,14 @@ const (
 )
 
 type RequestCredential struct {
-	accessKey    *AccessKey
-	auth         *Auth
-	CredentialID string `json:"credential_id"`
-	// accessKeyManager *AccessKeyManager
-	Scheme        string   `json:"scheme"`
-	SignedHeaders []string `json:"signed_headers"`
-	Signature     string   `json:"signature"`
-	token         *Token
-	user          *User
+	accessKey        *AccessKey
+	auth             *Auth
+	CredentialID     string   `json:"credential_id"`
+	CredentialString string   `json:"credential_string"`
+	Scheme           string   `json:"scheme"`
+	SignedHeaders    []string `json:"signed_headers"`
+	token            *Token
+	user             *User
 }
 
 // Capture request credentials from the request.
@@ -89,16 +86,12 @@ func CaptureRequestCredential(auth *Auth, authorizationHeader string) RequestCre
 			return RequestCredential{}
 		}
 
-		// Use bcrypt to compare the token hash
-		if bcrypt.CompareHashAndPassword([]byte(token.Hash()), []byte(tokenSecret)) != nil {
-			return RequestCredential{}
-		}
-
 		return RequestCredential{
-			auth:         auth,
-			CredentialID: tokenID,
-			Scheme:       scheme,
-			token:        token,
+			auth:             auth,
+			CredentialID:     tokenID,
+			CredentialString: tokenSecret,
+			Scheme:           scheme,
+			token:            token,
 		}
 	}
 
@@ -135,11 +128,11 @@ func CaptureRequestCredential(auth *Auth, authorizationHeader string) RequestCre
 	}
 
 	return RequestCredential{
-		auth:          auth,
-		CredentialID:  token["credential"],
-		Scheme:        scheme,
-		SignedHeaders: strings.Split(token["signed_headers"], ","),
-		Signature:     token["signature"],
+		auth:             auth,
+		CredentialID:     token["credential"],
+		Scheme:           scheme,
+		SignedHeaders:    strings.Split(token["signed_headers"], ","),
+		CredentialString: token["signature"],
 	}
 }
 
@@ -216,7 +209,7 @@ func (requestCredential RequestCredential) User() *User {
 func (requestCredential RequestCredential) Valid() bool {
 	switch requestCredential.Type() {
 	case RequestCredentialTypeAccessKey:
-		return requestCredential.CredentialID != "" && len(requestCredential.SignedHeaders) > 0 && requestCredential.Signature != ""
+		return requestCredential.CredentialID != "" && len(requestCredential.SignedHeaders) > 0 && requestCredential.CredentialString != ""
 	case RequestCredentialTypeToken:
 		return requestCredential.CredentialID != ""
 	case RequestCredentialTypeBasicAuth:

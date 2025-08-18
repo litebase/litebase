@@ -33,6 +33,13 @@ func SuccessResponse(message string, data any, statusCode int) Response {
 	}, statusCode, nil)
 }
 
+func UnauthorizedResponse() Response {
+	return JsonResponse(map[string]any{
+		"status":  "error",
+		"message": "Unauthorized",
+	}, 401, nil)
+}
+
 func (r Response) IsEmpty() bool {
 	return r.StatusCode == 0 && r.Stream == nil && len(r.Headers) == 0 && r.Body == nil
 }
