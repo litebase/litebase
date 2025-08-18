@@ -103,7 +103,7 @@ func QueryController(request *Request) Response {
 				return ServerErrorResponse(err)
 			}
 
-			if credential.CredentialID != transaction.Credential.CredentialID {
+			if transaction.Credential != nil && credential.CredentialID != transaction.Credential.CredentialID {
 				return ErrInvalidAccessKeyResponse
 			}
 
