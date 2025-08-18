@@ -17,7 +17,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				// mock.AccessKey,
+				mock.Credential,
 			)
 
 			if err != nil {
@@ -32,7 +32,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				// mock.AccessKey,
+				mock.Credential,
 			)
 
 			if err != nil {
@@ -51,7 +51,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				// mock.AccessKey,
+				mock.Credential,
 			)
 
 			if err != nil {
@@ -85,7 +85,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				// mock.AccessKey,
+				mock.Credential,
 			)
 
 			if err != nil {

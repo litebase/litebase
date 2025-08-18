@@ -43,7 +43,7 @@ func NewTransaction(
 	cluster *cluster.Cluster,
 	databaseManager *DatabaseManager,
 	databaseKey *auth.DatabaseKey,
-	// accessKey *auth.AccessKey,
+	credential *auth.Credential,
 ) (*Transaction, error) {
 	connection, err := databaseManager.ConnectionManager().Get(
 		databaseKey.DatabaseID,
@@ -57,11 +57,11 @@ func NewTransaction(
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 
 	transaction := &Transaction{
-		// AccessKey:       accessKey,
 		cancel:          cancel,
 		cluster:         cluster,
 		context:         ctx,
 		connection:      connection,
+		Credential:      credential,
 		databaseKey:     databaseKey,
 		databaseManager: databaseManager,
 		ID:              uuid.NewString(),
