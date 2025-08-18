@@ -511,6 +511,7 @@ func (sp *StepProcessor) Start(t *testing.T) {
 
 		sp.stepMutex.Lock()
 		defer sp.stepMutex.Unlock()
+
 		// Kill any processes that may have started but not connected
 		for _, test := range sp.tests {
 			if test.cmd != nil && test.cmd.Process != nil {
