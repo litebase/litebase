@@ -65,7 +65,7 @@ func (tm *TokenManager) AllTokenIDs() ([]string, error) {
 }
 
 // Create a new token.
-func (tm *TokenManager) Create(description string, statements []AccessKeyStatement) (*Token, error) {
+func (tm *TokenManager) Create(description string, statements []Statement) (*Token, error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 
@@ -75,23 +75,16 @@ func (tm *TokenManager) Create(description string, statements []AccessKeyStateme
 		return nil, err
 	}
 
-	secret := tm.GenerateTokenSecret()
+	tokenSecret := tm.GenerateTokenSecret()
 
 	// Bcrypt the secret
-	bytes, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
+	tokenHash, err := bcrypt.GenerateFromPassword([]byte(tokenSecret), bcrypt.DefaultCost)
 
 	if err != nil {
 		return nil, err
 	}
 
-	token := &Token{
-		TokenID:      tokenID,
-		TokenHash:    string(bytes),
-		TokenSecret:  secret,
-		Description:  description,
-		Statements:   statements,
-		TokenManager: tm,
-	}
+	token := NewToken(tm, tokenID, tokenSecret, string(tokenHash), description, statements)
 
 	if err := tm.tokenStorage.Store(token); err != nil {
 		return nil, err

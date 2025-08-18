@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/litebase/litebase/pkg/auth"
 )
@@ -125,10 +126,26 @@ func TokenControllerStore(request *Request) Response {
 		}, 500, nil)
 	}
 
+	tokenValue, err := token.Value()
+
+	if err != nil {
+		return JsonResponse(map[string]any{
+			"status":  "error",
+			"message": fmt.Sprintf("Token could not be created: %s", err.Error()),
+		}, 500, nil)
+	}
+
 	return JsonResponse(map[string]any{
 		"status":  "success",
 		"message": "Token created successfully",
-		"data":    token,
+		"data": auth.TokenResponse{
+			TokenID:     token.TokenID,
+			Token:       tokenValue,
+			Statements:  token.Statements,
+			Description: token.Description,
+			CreatedAt:   token.CreatedAt,
+			UpdatedAt:   token.UpdatedAt,
+		},
 	}, 201, nil)
 }
 
@@ -214,7 +231,7 @@ func TokenControllerUpdate(request *Request) Response {
 // Delete a token
 func TokenControllerDestroy(request *Request) Response {
 	tokenId := request.Param("tokenId")
-
+	log.Println("Deleting token:", tokenId)
 	err := request.Authorize(
 		[]string{"*", "token:*", fmt.Sprintf("token:%s", tokenId)},
 		[]auth.Privilege{auth.TokenPrivilegeDelete},

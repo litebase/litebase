@@ -15,6 +15,7 @@ func TestToken(t *testing.T) {
 			token := auth.NewToken(
 				app.Auth.TokenManager,
 				"tokenId",
+				"tokenSecret",
 				"tokenHash",
 				"Description",
 				[]auth.Statement{},
@@ -49,6 +50,7 @@ func TestToken(t *testing.T) {
 			token := auth.NewToken(
 				app.Auth.TokenManager,
 				"tokenId",
+				"tokenSecret",
 				"tokenHash",
 				"Description",
 				[]auth.Statement{},

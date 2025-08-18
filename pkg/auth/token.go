@@ -7,37 +7,40 @@ import (
 )
 
 type Token struct {
-	ID          int64                `json:"id"`
-	TokenID     string               `json:"token_id"`
-	TokenHash   string               `json:"token_hash"`
-	TokenSecret string               `json:"token_secret"`
-	Statements  []AccessKeyStatement `json:"statements"`
-	Description string               `json:"description"`
-	CreatedAt   time.Time            `json:"created_at"`
-	UpdatedAt   time.Time            `json:"updated_at"`
+	ID          int64       `json:"-"`
+	TokenID     string      `json:"-"`
+	TokenHash   string      `json:"-"`
+	TokenSecret string      `json:"-"`
+	Statements  []Statement `json:"-"`
+	Description string      `json:"-"`
+	CreatedAt   time.Time   `json:"-"`
+	UpdatedAt   time.Time   `json:"-"`
 
 	TokenManager *TokenManager `json:"-"`
 }
 
 type TokenResponse struct {
-	TokenID     string               `json:"token_id"`
-	Statements  []AccessKeyStatement `json:"statements"`
-	Description string               `json:"description"`
-	CreatedAt   time.Time            `json:"created_at"`
-	UpdatedAt   time.Time            `json:"updated_at"`
+	TokenID     string      `json:"token_id"`
+	Token       string      `json:"token"`
+	Statements  []Statement `json:"statements"`
+	Description string      `json:"description"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
 // Create a new instance of a token
 func NewToken(
 	tokenManager *TokenManager,
 	tokenID string,
+	tokenSecret string,
 	tokenHash string,
 	description string,
-	statements []AccessKeyStatement,
+	statements []Statement,
 ) *Token {
 	return &Token{
 		TokenID:     tokenID,
 		TokenHash:   tokenHash,
+		TokenSecret: tokenSecret,
 		Statements:  statements,
 		Description: description,
 		CreatedAt:   time.Now().UTC(),
@@ -103,7 +106,7 @@ func (t *Token) ToResponse() *TokenResponse {
 }
 
 // Update the Token statements.
-func (t *Token) Update(description string, statements []AccessKeyStatement) error {
+func (t *Token) Update(description string, statements []Statement) error {
 	t.Description = description
 	t.Statements = statements
 	t.UpdatedAt = time.Now().UTC()
