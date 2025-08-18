@@ -52,7 +52,7 @@ func TestDatabaseQueryCmd(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE role = 'user' LIMIT 1")
@@ -87,7 +87,7 @@ func TestDatabaseQueryCmdBatchInsert(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		// Insert
@@ -138,7 +138,7 @@ func TestDatabaseQueryCmdInteractiveTransaction(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		// Begin transaction
@@ -205,7 +205,7 @@ func TestDatabaseQueryCmdWithParameterSets(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err = cli.Run(
@@ -265,7 +265,7 @@ func TestDatabaseQueryCmdWithParameterSetsAndParametersFails(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		// Test that providing both --parameters and --parameter-sets results in an error
@@ -331,7 +331,7 @@ func TestDatabaseQueryCmdWithPositionalParameters(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE role = ? LIMIT ?", "--parameters", "[{\"value\": \"user\"}, {\"value\": 10}]")
@@ -386,7 +386,7 @@ func TestDatabaseQueryCmdWithNamedParameters(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE role = :role LIMIT :limit", "--parameters", "[{\"name\": \"role\", \"value\": \"user\", \"type\": \"TEXT\"}, {\"name\": \"limit\", \"value\": 10, \"type\": \"INTEGER\"}]")
@@ -439,7 +439,7 @@ func TestDatabaseQueryCmdWithJSONParameters(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE settings->>'$.theme' = ? LIMIT ?", "--parameters", "[{\"value\": \"dark\", \"type\": \"TEXT\"}, {\"value\": 10, \"type\": \"INTEGER\"}]")
@@ -516,7 +516,7 @@ func TestDatabaseQueryCmdWithInvalidParameters(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err = cli.Run("database", "query", fmt.Sprintf("%s/%s", db.DatabaseName, db.BranchName), "SELECT * FROM users WHERE role = :role LIMIT :limit", "--parameters", "[]")

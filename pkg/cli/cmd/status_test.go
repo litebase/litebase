@@ -15,7 +15,7 @@ func TestStatusCmd(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err := cli.Run("status")

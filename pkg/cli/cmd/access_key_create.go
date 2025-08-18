@@ -22,7 +22,7 @@ type AccessKeyInput struct {
 }
 
 type AccessKeyInputStatement struct {
-	Effect   auth.AccessKeyEffect `json:"effect"`
+	Effect   auth.StatementEffect `json:"effect"`
 	Resource string               `json:"resource"`
 	Actions  []string             `json:"actions"`
 }
@@ -38,7 +38,7 @@ func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 				Description: "",
 				Statements: []AccessKeyInputStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []string{"*"},
 					},

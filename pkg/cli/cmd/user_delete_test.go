@@ -15,14 +15,14 @@ func TestUserDeleteCmd(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		_, err := server.App.Auth.UserManager.Create(
 			"username",
 			"password",
 			[]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			},
 		)
 

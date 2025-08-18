@@ -27,7 +27,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "Test access key",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -101,17 +101,17 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "Complex access key with multiple statements",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect},
 					},
 					{
-						Effect:   auth.AccessKeyEffectDeny,
+						Effect:   auth.StatementEffectDeny,
 						Resource: "database:sensitive:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeDelete},
 					},
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:public:table:users",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeUpdate},
 					},
@@ -140,7 +140,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 			// Check first statement
 			stmt := retrievedKey.Statements[0]
 
-			if stmt.Effect != auth.AccessKeyEffectAllow {
+			if stmt.Effect != auth.StatementEffectAllow {
 				t.Errorf("Expected first statement effect Allow, got %s", stmt.Effect)
 			}
 
@@ -154,7 +154,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 
 			stmt = retrievedKey.Statements[1]
 
-			if stmt.Effect != auth.AccessKeyEffectDeny {
+			if stmt.Effect != auth.StatementEffectDeny {
 				t.Errorf("Expected second statement effect Deny, got %s", stmt.Effect)
 			}
 
@@ -164,7 +164,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 
 			stmt = retrievedKey.Statements[2]
 
-			if stmt.Effect != auth.AccessKeyEffectAllow {
+			if stmt.Effect != auth.StatementEffectAllow {
 				t.Errorf("Expected third statement effect Allow, got %s", stmt.Effect)
 			}
 
@@ -180,7 +180,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -242,7 +242,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "Test encryption",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -310,7 +310,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "Single key for list test",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 					},
@@ -370,7 +370,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeySecret: "secret_1",
 					Description:     "First test key",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
 					UpdatedAt: time.Now().UTC(),
@@ -380,7 +380,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeySecret: "secret_2",
 					Description:     "Second test key",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectDeny, Resource: "database:sensitive", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
+						{Effect: auth.StatementEffectDeny, Resource: "database:sensitive", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 					CreatedAt: time.Now().UTC().Add(time.Minute),
 					UpdatedAt: time.Now().UTC().Add(time.Minute),
@@ -390,7 +390,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeySecret: "secret_3",
 					Description:     "Third test key",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "database:public:table:users", Actions: []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeInsert}},
+						{Effect: auth.StatementEffectAllow, Resource: "database:public:table:users", Actions: []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeInsert}},
 					},
 					CreatedAt: time.Now().UTC().Add(2 * time.Minute),
 					UpdatedAt: time.Now().UTC().Add(2 * time.Minute),
@@ -477,17 +477,17 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "Key with complex statements",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:app:branch:main:table:users",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeInsert},
 					},
 					{
-						Effect:   auth.AccessKeyEffectDeny,
+						Effect:   auth.StatementEffectDeny,
 						Resource: "database:app:branch:main:table:users:column:password",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeSelect},
 					},
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*:branch:development:*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -526,7 +526,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 			}
 
 			stmt := foundKey.Statements[0]
-			if stmt.Effect != auth.AccessKeyEffectAllow {
+			if stmt.Effect != auth.StatementEffectAllow {
 				t.Errorf("Expected first statement effect Allow, got %s", stmt.Effect)
 			}
 
@@ -552,7 +552,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "Key to be deleted",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -607,7 +607,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeySecret: "secret1",
 					Description:     "First key",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
 					UpdatedAt: time.Now().UTC(),
@@ -617,7 +617,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeySecret: "secret2",
 					Description:     "Second key",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
 					UpdatedAt: time.Now().UTC(),
@@ -674,7 +674,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				Description:     "Key with special characters",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -730,7 +730,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					Description:     "Original description",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:original",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 						},
@@ -751,12 +751,12 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					Description:     "Updated description",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:updated",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeUpdate},
 						},
 						{
-							Effect:   auth.AccessKeyEffectDeny,
+							Effect:   auth.StatementEffectDeny,
 							Resource: "database:restricted",
 							Actions:  []auth.Privilege{"*"},
 						},
@@ -797,7 +797,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					t.Errorf("Expected first statement action 'database:update', got '%s'", retrievedKey.Statements[0].Actions[0])
 				}
 
-				if retrievedKey.Statements[1].Effect != auth.AccessKeyEffectDeny {
+				if retrievedKey.Statements[1].Effect != auth.StatementEffectDeny {
 					t.Errorf("Expected second statement effect 'Deny', got '%s'", retrievedKey.Statements[1].Effect)
 				}
 
@@ -840,7 +840,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					Description:     "Description",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:test",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 						},
@@ -892,7 +892,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					Description:     "Complex update test",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:simple",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 						},
@@ -909,17 +909,17 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 
 				complexStatements := []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:production/*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect},
 					},
 					{
-						Effect:   auth.AccessKeyEffectDeny,
+						Effect:   auth.StatementEffectDeny,
 						Resource: "database:sensitive/*",
 						Actions:  []auth.Privilege{"*"},
 					},
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:public/*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate},
 					},
@@ -952,7 +952,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 
 				stmt1 := retrievedKey.Statements[0]
 
-				if stmt1.Effect != auth.AccessKeyEffectAllow {
+				if stmt1.Effect != auth.StatementEffectAllow {
 					t.Errorf("Expected first statement effect 'Allow', got '%s'", stmt1.Effect)
 				}
 
@@ -966,7 +966,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 
 				stmt2 := retrievedKey.Statements[1]
 
-				if stmt2.Effect != auth.AccessKeyEffectDeny {
+				if stmt2.Effect != auth.StatementEffectDeny {
 					t.Errorf("Expected second statement effect 'Deny', got '%s'", stmt2.Effect)
 				}
 

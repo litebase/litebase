@@ -12,7 +12,7 @@ func TestDatabase(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		cli := test.NewTestCLI(app).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err := cli.Run("database")

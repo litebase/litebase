@@ -15,13 +15,13 @@ func TestAccessKeyDeleteCmd(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		accessKey, err := server.App.Auth.AccessKeyManager.Create(
 			"test",
 			[]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			},
 		)
 

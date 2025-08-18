@@ -26,7 +26,7 @@ func TestSystemDatabaseTokens(t *testing.T) {
 				Description: "Test token",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -100,17 +100,17 @@ func TestSystemDatabaseTokens(t *testing.T) {
 				Description: "Complex token with multiple statements",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect},
 					},
 					{
-						Effect:   auth.AccessKeyEffectDeny,
+						Effect:   auth.StatementEffectDeny,
 						Resource: "database:sensitive:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeDelete},
 					},
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:public:table:users",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeUpdate},
 					},

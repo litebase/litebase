@@ -5,7 +5,7 @@ import (
 )
 
 type AccessKeyStatement struct {
-	Effect   AccessKeyEffect   `json:"effect" validate:"required,validateFn=IsValid"`
+	Effect   StatementEffect   `json:"effect" validate:"required,validateFn=IsValid"`
 	Resource AccessKeyResource `json:"resource" validate:"required,validateFn=IsValid"`
 	Actions  []Privilege       `json:"actions" validate:"required,min=1,max=100"`
 }

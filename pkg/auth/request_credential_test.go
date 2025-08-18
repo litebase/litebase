@@ -78,7 +78,7 @@ func TestRequestCredential(t *testing.T) {
 				"testuser",
 				"testpassword123",
 				[]auth.AccessKeyStatement{
-					{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				},
 			)
 
@@ -133,7 +133,7 @@ func TestRequestCredential(t *testing.T) {
 			token, err := app.Auth.TokenManager.Create(
 				"",
 				[]auth.AccessKeyStatement{
-					{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				},
 			)
 

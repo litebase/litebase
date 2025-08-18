@@ -15,7 +15,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			_, err := um.Create("testuser", "testpass", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 			if err != nil {
@@ -65,7 +65,7 @@ func TestUserManager(t *testing.T) {
 
 			// Add multiple users
 			_, err := um.Create("user1", "pass1", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 			if err != nil {
@@ -73,7 +73,7 @@ func TestUserManager(t *testing.T) {
 			}
 
 			_, err = um.Create("user2", "pass2", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"write"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"write"}},
 			})
 
 			if err != nil {
@@ -110,7 +110,7 @@ func TestUserManager(t *testing.T) {
 
 			// Add a user
 			_, err := um.Create("testuser_Authenticate", "testpass", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 			if err != nil {
@@ -143,8 +143,8 @@ func TestUserManager(t *testing.T) {
 
 			// Add a user
 			_, err := um.Create("testuser_Get", "testpass", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
-				{Effect: auth.AccessKeyEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
 			})
 
 			if err != nil {
@@ -183,7 +183,7 @@ func TestUserManager(t *testing.T) {
 
 			// Add users
 			_, err := um.Create("user1_Remove", "pass1", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
 			if err != nil {
@@ -191,7 +191,7 @@ func TestUserManager(t *testing.T) {
 			}
 
 			_, err = um.Create("user2_Remove", "pass2", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
 			if err != nil {
@@ -240,7 +240,7 @@ func TestUserManager(t *testing.T) {
 
 			// Add a user
 			_, err := um.Create("testuser_PasswordHandling", "plaintextpass", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
 			if err != nil {
@@ -277,8 +277,8 @@ func TestUserManager(t *testing.T) {
 
 			// Add a user
 			_, err := um.Create("usertoupdate", "testpass", []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
-				{Effect: auth.AccessKeyEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
 			})
 
 			if err != nil {
@@ -296,7 +296,7 @@ func TestUserManager(t *testing.T) {
 			}
 
 			user.Statements = []auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectDeny, Resource: "resource1", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectDeny, Resource: "resource1", Actions: []auth.Privilege{"*"}},
 			}
 
 			// Update the user's statements
@@ -321,7 +321,7 @@ func TestUserManager(t *testing.T) {
 				t.Errorf("Expected 1 statement, got %d", len(user.Statements))
 			}
 
-			if user.Statements[0].Effect != auth.AccessKeyEffectDeny {
+			if user.Statements[0].Effect != auth.StatementEffectDeny {
 				t.Errorf("Expected effect 'Deny', got '%s'", user.Statements[0].Effect)
 			}
 		})
@@ -335,7 +335,7 @@ func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 
 		// Add a user first
 		_, err := um.Create("existinguser", "pass", []auth.AccessKeyStatement{
-			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
 		if err != nil {
@@ -443,7 +443,7 @@ func TestUserManager_Purge(t *testing.T) {
 		defer server2.Shutdown()
 
 		_, err := server1.App.Auth.UserManager.Create("testuser_Remove", "testpass", []auth.AccessKeyStatement{
-			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
 		if err != nil {

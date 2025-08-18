@@ -2,17 +2,17 @@ package auth
 
 import "strings"
 
-type AccessKeyEffect string
+type StatementEffect string
 
 const (
-	AccessKeyEffectAllow AccessKeyEffect = "allow"
-	AccessKeyEffectDeny  AccessKeyEffect = "deny"
+	StatementEffectAllow StatementEffect = "allow"
+	StatementEffectDeny  StatementEffect = "deny"
 )
 
-// Determines if the AccessKeyEffect is valid.
-func (e AccessKeyEffect) IsValid() bool {
+// Determines if the StatementEffect is valid.
+func (e StatementEffect) IsValid() bool {
 	switch strings.ToLower(string(e)) {
-	case string(AccessKeyEffectAllow), string(AccessKeyEffectDeny):
+	case string(StatementEffectAllow), string(StatementEffectDeny):
 		return true
 	default:
 		return false

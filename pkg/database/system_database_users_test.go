@@ -25,7 +25,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "Test user",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -99,17 +99,17 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "Complex user with multiple statements",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect},
 					},
 					{
-						Effect:   auth.AccessKeyEffectDeny,
+						Effect:   auth.StatementEffectDeny,
 						Resource: "database:sensitive:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeDelete},
 					},
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:public:table:users",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeUpdate},
 					},
@@ -138,7 +138,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 			// Check first statement
 			stmt := retrievedUser.Statements[0]
 
-			if stmt.Effect != auth.AccessKeyEffectAllow {
+			if stmt.Effect != auth.StatementEffectAllow {
 				t.Errorf("Expected first statement effect Allow, got %s", stmt.Effect)
 			}
 
@@ -152,7 +152,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 
 			stmt = retrievedUser.Statements[1]
 
-			if stmt.Effect != auth.AccessKeyEffectDeny {
+			if stmt.Effect != auth.StatementEffectDeny {
 				t.Errorf("Expected second statement effect Deny, got %s", stmt.Effect)
 			}
 
@@ -162,7 +162,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 
 			stmt = retrievedUser.Statements[2]
 
-			if stmt.Effect != auth.AccessKeyEffectAllow {
+			if stmt.Effect != auth.StatementEffectAllow {
 				t.Errorf("Expected third statement effect Allow, got %s", stmt.Effect)
 			}
 
@@ -178,7 +178,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -240,7 +240,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "Test password storage",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -308,7 +308,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "Single user for list test",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 					},
@@ -368,7 +368,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Password:    "password_1",
 					Description: "First test user",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
 					UpdatedAt: time.Now().UTC(),
@@ -378,7 +378,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Password:    "password_2",
 					Description: "Second test user",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectDeny, Resource: "database:sensitive", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
+						{Effect: auth.StatementEffectDeny, Resource: "database:sensitive", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 					CreatedAt: time.Now().UTC().Add(time.Minute),
 					UpdatedAt: time.Now().UTC().Add(time.Minute),
@@ -388,7 +388,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Password:    "password_3",
 					Description: "Third test user",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "database:public:table:users", Actions: []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeInsert}},
+						{Effect: auth.StatementEffectAllow, Resource: "database:public:table:users", Actions: []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeInsert}},
 					},
 					CreatedAt: time.Now().UTC().Add(2 * time.Minute),
 					UpdatedAt: time.Now().UTC().Add(2 * time.Minute),
@@ -475,17 +475,17 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "User with complex statements",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:app:branch:main:table:users",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeInsert},
 					},
 					{
-						Effect:   auth.AccessKeyEffectDeny,
+						Effect:   auth.StatementEffectDeny,
 						Resource: "database:app:branch:main:table:users:column:password",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeSelect},
 					},
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*:branch:development:*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -524,7 +524,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 			}
 
 			stmt := foundUser.Statements[0]
-			if stmt.Effect != auth.AccessKeyEffectAllow {
+			if stmt.Effect != auth.StatementEffectAllow {
 				t.Errorf("Expected first statement effect Allow, got %s", stmt.Effect)
 			}
 
@@ -550,7 +550,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "User to be deleted",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -605,7 +605,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Password:    "password1",
 					Description: "First user",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
 					UpdatedAt: time.Now().UTC(),
@@ -615,7 +615,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Password:    "password2",
 					Description: "Second user",
 					Statements: []auth.AccessKeyStatement{
-						{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
 					UpdatedAt: time.Now().UTC(),
@@ -672,7 +672,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Description: "User with special characters",
 				Statements: []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{"*"},
 					},
@@ -728,7 +728,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Description: "Original description",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:original",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 						},
@@ -749,12 +749,12 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Description: "Updated description",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:updated",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeUpdate},
 						},
 						{
-							Effect:   auth.AccessKeyEffectDeny,
+							Effect:   auth.StatementEffectDeny,
 							Resource: "database:restricted",
 							Actions:  []auth.Privilege{"*"},
 						},
@@ -795,7 +795,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					t.Errorf("Expected first statement action 'database:update', got '%s'", retrievedUser.Statements[0].Actions[0])
 				}
 
-				if retrievedUser.Statements[1].Effect != auth.AccessKeyEffectDeny {
+				if retrievedUser.Statements[1].Effect != auth.StatementEffectDeny {
 					t.Errorf("Expected second statement effect 'Deny', got '%s'", retrievedUser.Statements[1].Effect)
 				}
 
@@ -838,7 +838,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Description: "Description",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:test",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 						},
@@ -890,7 +890,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Description: "Complex update test",
 					Statements: []auth.AccessKeyStatement{
 						{
-							Effect:   auth.AccessKeyEffectAllow,
+							Effect:   auth.StatementEffectAllow,
 							Resource: "database:simple",
 							Actions:  []auth.Privilege{auth.DatabasePrivilegeRead},
 						},
@@ -907,17 +907,17 @@ func TestSystemDatabaseUsers(t *testing.T) {
 
 				complexStatements := []auth.AccessKeyStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:production/*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect},
 					},
 					{
-						Effect:   auth.AccessKeyEffectDeny,
+						Effect:   auth.StatementEffectDeny,
 						Resource: "database:sensitive/*",
 						Actions:  []auth.Privilege{"*"},
 					},
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "database:public/*",
 						Actions:  []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeUpdate},
 					},
@@ -950,7 +950,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 
 				stmt1 := retrievedUser.Statements[0]
 
-				if stmt1.Effect != auth.AccessKeyEffectAllow {
+				if stmt1.Effect != auth.StatementEffectAllow {
 					t.Errorf("Expected first statement effect 'Allow', got '%s'", stmt1.Effect)
 				}
 
@@ -964,7 +964,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 
 				stmt2 := retrievedUser.Statements[1]
 
-				if stmt2.Effect != auth.AccessKeyEffectDeny {
+				if stmt2.Effect != auth.StatementEffectDeny {
 					t.Errorf("Expected second statement effect 'Deny', got '%s'", stmt2.Effect)
 				}
 

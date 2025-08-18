@@ -16,7 +16,7 @@ func TestAccessKeyListCmd(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		var accessKeys []*auth.AccessKey
@@ -25,7 +25,7 @@ func TestAccessKeyListCmd(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				fmt.Sprintf("test-%d", i+1),
 				[]auth.AccessKeyStatement{
-					{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				},
 			)
 

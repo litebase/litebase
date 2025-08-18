@@ -16,7 +16,7 @@ func TestUserListCmd(t *testing.T) {
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
 			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		var users []*auth.User
@@ -26,7 +26,7 @@ func TestUserListCmd(t *testing.T) {
 				fmt.Sprintf("testuser-%d", i+1),
 				"testpassword123",
 				[]auth.AccessKeyStatement{
-					{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				},
 			)
 
