@@ -44,7 +44,7 @@ func CreateHash(length int) string {
 }
 
 func MockDatabase(app *server.App) TestDatabase {
-	accessKey, err := app.Auth.AccessKeyManager.Create("", []auth.AccessKeyStatement{
+	accessKey, err := app.Auth.AccessKeyManager.Create("", []auth.Statement{
 		{
 			Effect:   auth.StatementEffectAllow,
 			Resource: "*",

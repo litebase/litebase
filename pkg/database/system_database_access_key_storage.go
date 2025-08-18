@@ -99,7 +99,7 @@ func (s *SystemDatabaseAccessKeyStorage) Get(id string) (*auth.AccessKey, error)
 	}
 
 	// Unmarshal statements from JSON
-	var statements []auth.AccessKeyStatement
+	var statements []auth.Statement
 	err = json.Unmarshal([]byte(statementsJSON), &statements)
 
 	if err != nil {
@@ -187,7 +187,7 @@ func (s *SystemDatabaseAccessKeyStorage) List() ([]*auth.AccessKey, error) {
 			return nil, fmt.Errorf("failed to decrypt access key secret for key %s: %w", accessKeyID, err)
 		}
 
-		var statements []auth.AccessKeyStatement
+		var statements []auth.Statement
 
 		err = json.Unmarshal([]byte(statementsJSON), &statements)
 

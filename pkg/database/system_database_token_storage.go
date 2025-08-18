@@ -65,12 +65,12 @@ func (s *SystemDatabaseTokenStorage) Get(id string) (*auth.Token, error) {
 	}
 
 	var (
-		tokenID       string
-		tokenHash     string
-		description   sql.NullString
+		tokenID        string
+		tokenHash      string
+		description    sql.NullString
 		statementsJSON string
-		createdAtStr  string
-		updatedAtStr  string
+		createdAtStr   string
+		updatedAtStr   string
 	)
 
 	err = db.QueryRow("SELECT token_id, token_hash, description, statements, created_at, updated_at FROM tokens WHERE token_id = ?",
@@ -89,7 +89,7 @@ func (s *SystemDatabaseTokenStorage) Get(id string) (*auth.Token, error) {
 	}
 
 	// Unmarshal statements from JSON
-	var statements []auth.AccessKeyStatement
+	var statements []auth.Statement
 	err = json.Unmarshal([]byte(statementsJSON), &statements)
 
 	if err != nil {
@@ -146,12 +146,12 @@ func (s *SystemDatabaseTokenStorage) List() ([]*auth.Token, error) {
 
 	for rows.Next() {
 		var (
-			tokenID       string
-			tokenHash     string
-			description   sql.NullString
+			tokenID        string
+			tokenHash      string
+			description    sql.NullString
 			statementsJSON string
-			createdAtStr  string
-			updatedAtStr  string
+			createdAtStr   string
+			updatedAtStr   string
 		)
 
 		err := rows.Scan(
@@ -167,7 +167,7 @@ func (s *SystemDatabaseTokenStorage) List() ([]*auth.Token, error) {
 			return nil, fmt.Errorf("failed to scan token row: %w", err)
 		}
 
-		var statements []auth.AccessKeyStatement
+		var statements []auth.Statement
 
 		err = json.Unmarshal([]byte(statementsJSON), &statements)
 

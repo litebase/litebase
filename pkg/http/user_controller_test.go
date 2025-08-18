@@ -13,7 +13,7 @@ func TestUserController(t *testing.T) {
 		defer server.Shutdown()
 
 		t.Run("Index", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -53,7 +53,7 @@ func TestUserController(t *testing.T) {
 			_, err := server.App.Cluster.Auth.UserManager.Create(
 				"testuser",
 				"password123",
-				[]auth.AccessKeyStatement{
+				[]auth.Statement{
 					{
 						Effect:   "Allow",
 						Resource: "*",
@@ -66,7 +66,7 @@ func TestUserController(t *testing.T) {
 				t.Fatalf("Failed to create test user: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -103,7 +103,7 @@ func TestUserController(t *testing.T) {
 		})
 
 		t.Run("Store", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -116,7 +116,7 @@ func TestUserController(t *testing.T) {
 				"POST", map[string]any{
 					"username": "testuser_store",
 					"password": "password123",
-					"statements": []auth.AccessKeyStatement{
+					"statements": []auth.Statement{
 						{
 							Effect:   "Allow",
 							Resource: "*",
@@ -140,7 +140,7 @@ func TestUserController(t *testing.T) {
 		})
 
 		t.Run("StoreWithInvalidData", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -153,7 +153,7 @@ func TestUserController(t *testing.T) {
 				"POST", map[string]any{
 					"username": "testuser",
 					"password": "abc213",
-					"statements": []auth.AccessKeyStatement{
+					"statements": []auth.Statement{
 						{
 							Effect:   "Allow",
 							Resource: "*",
@@ -180,7 +180,7 @@ func TestUserController(t *testing.T) {
 			_, err := server.App.Cluster.Auth.UserManager.Create(
 				"foo_update",
 				"bar",
-				[]auth.AccessKeyStatement{
+				[]auth.Statement{
 					{
 						Effect:   "Allow",
 						Resource: "*",
@@ -193,7 +193,7 @@ func TestUserController(t *testing.T) {
 				t.Fatalf("Failed to create test user: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -205,7 +205,7 @@ func TestUserController(t *testing.T) {
 				"/v1/users/foo_update",
 				"PUT", map[string]any{
 					"password": "newpassword123",
-					"statements": []auth.AccessKeyStatement{
+					"statements": []auth.Statement{
 						{
 							Effect:   "Deny",
 							Resource: "*",
@@ -252,7 +252,7 @@ func TestUserController(t *testing.T) {
 			_, err := server.App.Cluster.Auth.UserManager.Create(
 				"foo_destroy",
 				"bar",
-				[]auth.AccessKeyStatement{
+				[]auth.Statement{
 					{
 						Effect:   "Allow",
 						Resource: "*",
@@ -265,7 +265,7 @@ func TestUserController(t *testing.T) {
 				t.Fatalf("Failed to create test user: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",

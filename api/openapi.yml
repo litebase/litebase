@@ -292,7 +292,7 @@ paths:
                           statements:
                             type: array
                             items:
-                              $ref: '#/components/schemas/AccessKeyStatement'
+                              $ref: '#/components/schemas/Statement'
                           created_at:
                             type: string
                             format: date-time
@@ -1381,7 +1381,7 @@ components:
             items:
               type: string
 
-    AccessKeyStatement:
+    Statement:
       type: object
       properties:
         effect:
@@ -1408,7 +1408,7 @@ components:
         statements:
           type: array
           items:
-            $ref: '#/components/schemas/AccessKeyStatement'
+            $ref: '#/components/schemas/Statement'
         created_at:
           type: string
           format: date-time
@@ -1428,7 +1428,7 @@ components:
         statements:
           type: array
           items:
-            $ref: '#/components/schemas/AccessKeyStatement'
+            $ref: '#/components/schemas/Statement'
           minItems: 1
       required:
         - username
@@ -1441,7 +1441,7 @@ components:
         statements:
           type: array
           items:
-            $ref: '#/components/schemas/AccessKeyStatement'
+            $ref: '#/components/schemas/Statement'
           minItems: 1
       required:
         - statements
@@ -1456,7 +1456,7 @@ components:
         statements:
           type: array
           items:
-            $ref: '#/components/schemas/AccessKeyStatement'
+            $ref: '#/components/schemas/Statement'
         created_at:
           type: string
           format: date-time
@@ -1473,7 +1473,7 @@ components:
         statements:
           type: array
           items:
-            $ref: '#/components/schemas/AccessKeyStatement'
+            $ref: '#/components/schemas/Statement'
           minItems: 1
           maxItems: 100
       required:
@@ -1488,7 +1488,7 @@ components:
         statements:
           type: array
           items:
-            $ref: '#/components/schemas/AccessKeyStatement'
+            $ref: '#/components/schemas/Statement'
           minItems: 1
           maxItems: 100
       required:

@@ -27,10 +27,10 @@ func resourceMatches(pattern, resource string) bool {
 }
 
 // Determine if an Access Key is authorized to perform an action on a resource.
-func Authorized(statements []AccessKeyStatement, resource string, permission Privilege) bool {
+func Authorized(statements []Statement, resource string, permission Privilege) bool {
 	// Order the statements in descending order based on the number of
 	// segmentations in the resource (most specific first)
-	slices.SortFunc(statements, func(a, b AccessKeyStatement) int {
+	slices.SortFunc(statements, func(a, b Statement) int {
 		return strings.Count(string(b.Resource), ":") - strings.Count(string(a.Resource), ":")
 	})
 

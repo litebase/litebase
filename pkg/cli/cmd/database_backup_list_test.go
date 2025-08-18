@@ -110,7 +110,7 @@ func TestNewDatabaseBackupListCmd(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 

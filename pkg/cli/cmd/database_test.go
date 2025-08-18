@@ -11,7 +11,7 @@ import (
 func TestDatabase(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		cli := test.NewTestCLI(app).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 

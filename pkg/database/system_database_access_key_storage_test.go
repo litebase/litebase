@@ -25,7 +25,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "test_access_key_id",
 				AccessKeySecret: "test_access_key_secret",
 				Description:     "Test access key",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -99,7 +99,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "complex_access_key_id",
 				AccessKeySecret: "complex_access_key_secret",
 				Description:     "Complex access key with multiple statements",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
@@ -178,7 +178,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "empty_desc_key",
 				AccessKeySecret: "test_secret",
 				Description:     "",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -211,7 +211,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "no_statements_key",
 				AccessKeySecret: "test_secret",
 				Description:     "Key with no statements",
-				Statements:      []auth.AccessKeyStatement{},
+				Statements:      []auth.Statement{},
 				CreatedAt:       time.Now().UTC(),
 				UpdatedAt:       time.Now().UTC(),
 			}
@@ -240,7 +240,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "encryption_test_key",
 				AccessKeySecret: originalSecret,
 				Description:     "Test encryption",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -308,7 +308,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "list_test_single_key",
 				AccessKeySecret: "list_test_secret",
 				Description:     "Single key for list test",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
@@ -369,7 +369,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "list_test_key_1",
 					AccessKeySecret: "secret_1",
 					Description:     "First test key",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
@@ -379,7 +379,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "list_test_key_2",
 					AccessKeySecret: "secret_2",
 					Description:     "Second test key",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectDeny, Resource: "database:sensitive", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 					CreatedAt: time.Now().UTC().Add(time.Minute),
@@ -389,7 +389,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "list_test_key_3",
 					AccessKeySecret: "secret_3",
 					Description:     "Third test key",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "database:public:table:users", Actions: []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeInsert}},
 					},
 					CreatedAt: time.Now().UTC().Add(2 * time.Minute),
@@ -475,7 +475,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "list_test_complex_key",
 				AccessKeySecret: "complex_secret",
 				Description:     "Key with complex statements",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:app:branch:main:table:users",
@@ -550,7 +550,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     "delete_test_key",
 				AccessKeySecret: "delete_test_secret",
 				Description:     "Key to be deleted",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -606,7 +606,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "multi_delete_key_1",
 					AccessKeySecret: "secret1",
 					Description:     "First key",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
@@ -616,7 +616,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "multi_delete_key_2",
 					AccessKeySecret: "secret2",
 					Description:     "Second key",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
@@ -672,7 +672,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				AccessKeyID:     specialID,
 				AccessKeySecret: "special_secret",
 				Description:     "Key with special characters",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -728,7 +728,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "test-update-key-1",
 					AccessKeySecret: "original-secret",
 					Description:     "Original description",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:original",
@@ -749,7 +749,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "test-update-key-1",
 					AccessKeySecret: "updated-secret",
 					Description:     "Updated description",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:updated",
@@ -815,7 +815,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "non-existent-key",
 					AccessKeySecret: "secret",
 					Description:     "Description",
-					Statements:      []auth.AccessKeyStatement{},
+					Statements:      []auth.Statement{},
 					CreatedAt:       time.Now().UTC(),
 					UpdatedAt:       time.Now().UTC(),
 				}
@@ -838,7 +838,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "test-update-empty-statements",
 					AccessKeySecret: "secret",
 					Description:     "Description",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:test",
@@ -859,7 +859,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "test-update-empty-statements",
 					AccessKeySecret: "updated-secret",
 					Description:     "Updated with empty statements",
-					Statements:      []auth.AccessKeyStatement{}, // Empty statements
+					Statements:      []auth.Statement{}, // Empty statements
 					CreatedAt:       originalKey.CreatedAt,
 					UpdatedAt:       time.Now().UTC().Add(time.Hour),
 				}
@@ -890,7 +890,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					AccessKeyID:     "test-update-complex",
 					AccessKeySecret: "secret",
 					Description:     "Complex update test",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:simple",
@@ -907,7 +907,7 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 					t.Fatalf("Failed to store original key: %v", err)
 				}
 
-				complexStatements := []auth.AccessKeyStatement{
+				complexStatements := []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:production/*",

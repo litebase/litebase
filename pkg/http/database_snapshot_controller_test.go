@@ -51,7 +51,7 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 		db.GetConnection().Checkpoint()
 
 		// Get a new connection for the HTTP request verification
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -136,7 +136,7 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		}
 
 		// Get a new connection for the HTTP request verification
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

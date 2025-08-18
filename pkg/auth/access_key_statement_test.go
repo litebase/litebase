@@ -20,7 +20,7 @@ func TestAccessKeyStatement(t *testing.T) {
 	}
 
 	for _, testCase := range tc {
-		aks := &auth.AccessKeyStatement{
+		aks := &auth.Statement{
 			Effect:   auth.StatementEffectAllow,
 			Resource: auth.AccessKeyResource(testCase.resource),
 			Actions:  testCase.actions,

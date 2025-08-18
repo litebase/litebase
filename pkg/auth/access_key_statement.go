@@ -4,7 +4,7 @@ import (
 	"slices"
 )
 
-type AccessKeyStatement struct {
+type Statement struct {
 	Effect   StatementEffect   `json:"effect" validate:"required,validateFn=IsValid"`
 	Resource AccessKeyResource `json:"resource" validate:"required,validateFn=IsValid"`
 	Actions  []Privilege       `json:"actions" validate:"required,min=1,max=100"`
@@ -12,7 +12,7 @@ type AccessKeyStatement struct {
 
 // This method validates if all of the actions in the statement align with the
 // selected resource.
-func (aks AccessKeyStatement) IsValid() bool {
+func (aks Statement) IsValid() bool {
 	if aks.Resource == "*" {
 		return true
 	}

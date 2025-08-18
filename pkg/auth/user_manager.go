@@ -46,7 +46,7 @@ func NewUserManager(
 	}
 }
 
-func (u *UserManager) Create(username, password string, statements []AccessKeyStatement) (*User, error) {
+func (u *UserManager) Create(username, password string, statements []Statement) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -193,7 +193,7 @@ func (u *UserManager) Init() error {
 			return fmt.Errorf("the LITEBASE_ROOT_PASSWORD environment variable is not set")
 		}
 
-		_, err := u.Create(u.config.RootUsername, u.config.RootPassword, []AccessKeyStatement{
+		_, err := u.Create(u.config.RootUsername, u.config.RootPassword, []Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

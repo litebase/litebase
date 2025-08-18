@@ -23,7 +23,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "test_user",
 				Password:    "test_password_hash",
 				Description: "Test user",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -97,7 +97,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "complex_user",
 				Password:    "complex_password_hash",
 				Description: "Complex user with multiple statements",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
@@ -176,7 +176,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "empty_desc_user",
 				Password:    "test_password",
 				Description: "",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -209,7 +209,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "no_statements_user",
 				Password:    "test_password",
 				Description: "User with no statements",
-				Statements:  []auth.AccessKeyStatement{},
+				Statements:  []auth.Statement{},
 				CreatedAt:   time.Now().UTC(),
 				UpdatedAt:   time.Now().UTC(),
 			}
@@ -238,7 +238,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "password_test_user",
 				Password:    originalPassword,
 				Description: "Test password storage",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -306,7 +306,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "list_test_single_user",
 				Password:    "list_test_password",
 				Description: "Single user for list test",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",
@@ -367,7 +367,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "list_test_user_1",
 					Password:    "password_1",
 					Description: "First test user",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
@@ -377,7 +377,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "list_test_user_2",
 					Password:    "password_2",
 					Description: "Second test user",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectDeny, Resource: "database:sensitive", Actions: []auth.Privilege{auth.DatabasePrivilegeDelete}},
 					},
 					CreatedAt: time.Now().UTC().Add(time.Minute),
@@ -387,7 +387,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "list_test_user_3",
 					Password:    "password_3",
 					Description: "Third test user",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "database:public:table:users", Actions: []auth.Privilege{auth.DatabasePrivilegeRead, auth.DatabasePrivilegeInsert}},
 					},
 					CreatedAt: time.Now().UTC().Add(2 * time.Minute),
@@ -473,7 +473,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "list_test_complex_user",
 				Password:    "complex_password",
 				Description: "User with complex statements",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:app:branch:main:table:users",
@@ -548,7 +548,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    "delete_test_user",
 				Password:    "delete_test_password",
 				Description: "User to be deleted",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -604,7 +604,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "multi_delete_user_1",
 					Password:    "password1",
 					Description: "First user",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
@@ -614,7 +614,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "multi_delete_user_2",
 					Password:    "password2",
 					Description: "Second user",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 					},
 					CreatedAt: time.Now().UTC(),
@@ -670,7 +670,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				Username:    specialUsername,
 				Password:    "special_password",
 				Description: "User with special characters",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -726,7 +726,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "test-update-user-1",
 					Password:    "original-password",
 					Description: "Original description",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:original",
@@ -747,7 +747,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "test-update-user-1",
 					Password:    "updated-password",
 					Description: "Updated description",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:updated",
@@ -813,7 +813,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "non-existent-user",
 					Password:    "password",
 					Description: "Description",
-					Statements:  []auth.AccessKeyStatement{},
+					Statements:  []auth.Statement{},
 					CreatedAt:   time.Now().UTC(),
 					UpdatedAt:   time.Now().UTC(),
 				}
@@ -836,7 +836,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "test-update-empty-statements",
 					Password:    "password",
 					Description: "Description",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:test",
@@ -857,7 +857,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "test-update-empty-statements",
 					Password:    "updated-password",
 					Description: "Updated with empty statements",
-					Statements:  []auth.AccessKeyStatement{}, // Empty statements
+					Statements:  []auth.Statement{}, // Empty statements
 					CreatedAt:   originalUser.CreatedAt,
 					UpdatedAt:   time.Now().UTC().Add(time.Hour),
 				}
@@ -888,7 +888,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					Username:    "test-update-complex",
 					Password:    "password",
 					Description: "Complex update test",
-					Statements: []auth.AccessKeyStatement{
+					Statements: []auth.Statement{
 						{
 							Effect:   auth.StatementEffectAllow,
 							Resource: "database:simple",
@@ -905,7 +905,7 @@ func TestSystemDatabaseUsers(t *testing.T) {
 					t.Fatalf("Failed to store original user: %v", err)
 				}
 
-				complexStatements := []auth.AccessKeyStatement{
+				complexStatements := []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:production/*",

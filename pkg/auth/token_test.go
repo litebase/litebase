@@ -17,7 +17,7 @@ func TestToken(t *testing.T) {
 				"tokenId",
 				"tokenHash",
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if token == nil {
@@ -51,7 +51,7 @@ func TestToken(t *testing.T) {
 				"tokenId",
 				"tokenHash",
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			jsonData, err := json.Marshal(token.ToResponse())
@@ -78,7 +78,7 @@ func TestToken(t *testing.T) {
 		t.Run("DeleteToken", func(t *testing.T) {
 			token, err := app.Auth.TokenManager.Create(
 				"Test description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if err != nil {
@@ -105,7 +105,7 @@ func TestToken(t *testing.T) {
 		t.Run("UpdateToken", func(t *testing.T) {
 			token, err := app.Auth.TokenManager.Create(
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if err != nil {
@@ -113,7 +113,7 @@ func TestToken(t *testing.T) {
 			}
 
 			tokenId := token.TokenID
-			statements := []auth.AccessKeyStatement{
+			statements := []auth.Statement{
 				{
 					Resource: "*",
 					Actions:  []auth.Privilege{"*"},
@@ -164,7 +164,7 @@ func TestToken(t *testing.T) {
 		t.Run("Value", func(t *testing.T) {
 			token, err := app.Auth.TokenManager.Create(
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if err != nil {

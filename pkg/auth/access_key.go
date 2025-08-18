@@ -8,13 +8,13 @@ import (
 )
 
 type AccessKey struct {
-	ID              int64                `json:"id"`
-	AccessKeyID     string               `json:"access_key_id"`
-	AccessKeySecret string               `json:"access_key_secret"`
-	Description     string               `json:"description"`
-	CreatedAt       time.Time            `json:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at"`
-	Statements      []AccessKeyStatement `json:"statements"`
+	ID              int64       `json:"id"`
+	AccessKeyID     string      `json:"access_key_id"`
+	AccessKeySecret string      `json:"access_key_secret"`
+	Description     string      `json:"description"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	Statements      []Statement `json:"statements"`
 
 	AccessKeyManager *AccessKeyManager `json:"-"`
 
@@ -22,11 +22,11 @@ type AccessKey struct {
 }
 
 type AccessKeyResponse struct {
-	AccessKeyID string               `json:"access_key_id"`
-	Description string               `json:"description"`
-	CreatedAt   time.Time            `json:"created_at"`
-	UpdatedAt   time.Time            `json:"updated_at"`
-	Statements  []AccessKeyStatement `json:"statements"`
+	AccessKeyID string      `json:"access_key_id"`
+	Description string      `json:"description"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+	Statements  []Statement `json:"statements"`
 }
 
 // Create a new AccessKey instance.
@@ -35,7 +35,7 @@ func NewAccessKey(
 	accessKeyId string,
 	accessKeySecret string,
 	description string,
-	statements []AccessKeyStatement,
+	statements []Statement,
 ) *AccessKey {
 	return &AccessKey{
 		AccessKeyManager: accessKeyManager,
@@ -110,7 +110,7 @@ func (accessKey *AccessKey) ToResponse() *AccessKeyResponse {
 // Update the AccessKey statements.
 func (accessKey *AccessKey) Update(
 	description string,
-	statements []AccessKeyStatement,
+	statements []Statement,
 ) error {
 	accessKey.Description = description
 	accessKey.Statements = statements

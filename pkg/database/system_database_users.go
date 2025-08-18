@@ -86,7 +86,7 @@ func (s *SystemDatabaseUserStorage) Get(username string) (*auth.User, error) {
 	}
 
 	// Unmarshal statements from JSON
-	var statements []auth.AccessKeyStatement
+	var statements []auth.Statement
 
 	err = json.Unmarshal([]byte(statementsJSON), &statements)
 
@@ -168,7 +168,7 @@ func (s *SystemDatabaseUserStorage) List() ([]*auth.User, error) {
 			return nil, fmt.Errorf("failed to scan user row: %w", err)
 		}
 
-		var statements []auth.AccessKeyStatement
+		var statements []auth.Statement
 
 		err = json.Unmarshal([]byte(statementsJSON), &statements)
 

@@ -24,7 +24,7 @@ func TestKeyActivateController(t *testing.T) {
 			t.Fatalf("Failed to store encryption key: %v", err)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

@@ -17,7 +17,7 @@ func TestAccessKey(t *testing.T) {
 				"accessKeyId",
 				"accessKeySecret",
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if accessKey == nil {
@@ -51,7 +51,7 @@ func TestAccessKey(t *testing.T) {
 				"accessKeyId",
 				"accessKeySecret",
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			hash := accessKey.Hash()
@@ -66,7 +66,7 @@ func TestAccessKey(t *testing.T) {
 				"accessKeyId",
 				"accessKeySecret",
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			jsonData, err := json.Marshal(accessKey.ToResponse())
@@ -97,7 +97,7 @@ func TestAccessKey(t *testing.T) {
 		t.Run("DeleteAccessKey", func(t *testing.T) {
 			accessKey, err := app.Auth.AccessKeyManager.Create(
 				"Test description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if err != nil {
@@ -124,7 +124,7 @@ func TestAccessKey(t *testing.T) {
 		t.Run("UpdateAccessKey", func(t *testing.T) {
 			accessKey, err := app.Auth.AccessKeyManager.Create(
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if err != nil {
@@ -132,7 +132,7 @@ func TestAccessKey(t *testing.T) {
 			}
 
 			accessKeyId := accessKey.AccessKeyID
-			statements := []auth.AccessKeyStatement{
+			statements := []auth.Statement{
 				{
 					Resource: "*",
 					Actions:  []auth.Privilege{"*"},

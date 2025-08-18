@@ -39,7 +39,7 @@ func TestTokenManager(t *testing.T) {
 			tm := app.Auth.TokenManager
 
 			for i := range 10 {
-				tm.Create(fmt.Sprintf("Description %d", i), []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				tm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 			}
 
 			tokens, err := tm.All()
@@ -65,7 +65,7 @@ func TestTokenManager(t *testing.T) {
 			currentTokenCount := len(tokens)
 
 			for i := range 10 {
-				tm.Create(fmt.Sprintf("Description %d", i), []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				tm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 			}
 
 			expectedTokenCount := currentTokenCount + 10
@@ -82,7 +82,7 @@ func TestTokenManager(t *testing.T) {
 		})
 
 		t.Run("Create", func(t *testing.T) {
-			token, err := app.Auth.TokenManager.Create("Test token", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			token, err := app.Auth.TokenManager.Create("Test token", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
@@ -118,7 +118,7 @@ func TestTokenManager(t *testing.T) {
 		})
 
 		t.Run("Get", func(t *testing.T) {
-			token, err := app.Auth.TokenManager.Create("Test token", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			token, err := app.Auth.TokenManager.Create("Test token", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
@@ -144,7 +144,7 @@ func TestTokenManager(t *testing.T) {
 		})
 
 		t.Run("Purge", func(t *testing.T) {
-			token, err := app.Auth.TokenManager.Create("Test token", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			token, err := app.Auth.TokenManager.Create("Test token", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
@@ -191,7 +191,7 @@ func TestTokenManager(t *testing.T) {
 			for i := range 10 {
 				app.Auth.TokenManager.Create(
 					fmt.Sprintf("Test token %d", i),
-					[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+					[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 				)
 			}
 

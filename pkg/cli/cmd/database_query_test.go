@@ -51,7 +51,7 @@ func TestDatabaseQueryCmd(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -86,7 +86,7 @@ func TestDatabaseQueryCmdBatchInsert(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -137,7 +137,7 @@ func TestDatabaseQueryCmdInteractiveTransaction(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -204,7 +204,7 @@ func TestDatabaseQueryCmdWithParameterSets(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -264,7 +264,7 @@ func TestDatabaseQueryCmdWithParameterSetsAndParametersFails(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -330,7 +330,7 @@ func TestDatabaseQueryCmdWithPositionalParameters(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -385,7 +385,7 @@ func TestDatabaseQueryCmdWithNamedParameters(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -438,7 +438,7 @@ func TestDatabaseQueryCmdWithJSONParameters(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -515,7 +515,7 @@ func TestDatabaseQueryCmdWithInvalidParameters(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 

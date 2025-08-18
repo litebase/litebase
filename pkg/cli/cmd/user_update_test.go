@@ -15,11 +15,11 @@ func TestUserUpdate(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
+			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		user, err := server.App.Auth.UserManager.Create("Test user", "password", []auth.AccessKeyStatement{
+		user, err := server.App.Auth.UserManager.Create("Test user", "password", []auth.Statement{
 			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 

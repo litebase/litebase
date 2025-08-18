@@ -24,7 +24,7 @@ func TestSystemDatabaseTokens(t *testing.T) {
 				TokenID:     "test_token_id",
 				TokenHash:   "test_token_hash",
 				Description: "Test token",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
@@ -98,7 +98,7 @@ func TestSystemDatabaseTokens(t *testing.T) {
 				TokenID:     "complex_token_id",
 				TokenHash:   "complex_token_hash",
 				Description: "Complex token with multiple statements",
-				Statements: []auth.AccessKeyStatement{
+				Statements: []auth.Statement{
 					{
 						Effect:   auth.StatementEffectAllow,
 						Resource: "database:*",

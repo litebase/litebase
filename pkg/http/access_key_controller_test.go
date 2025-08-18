@@ -16,14 +16,14 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Destroy", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test access key: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -51,7 +51,7 @@ func TestAccessKeyController(t *testing.T) {
 		})
 
 		t.Run("Destroy_CannotDeleteCurrentAccessKey", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -77,14 +77,14 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Destroy_CannotDeleteWithInvalidAccessKey", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test access key: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "access-key:foobar",
@@ -108,7 +108,7 @@ func TestAccessKeyController(t *testing.T) {
 		})
 
 		t.Run("Index", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -138,14 +138,14 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Show", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test access key: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -193,7 +193,7 @@ func TestAccessKeyController(t *testing.T) {
 		})
 
 		t.Run("Show_WithInvalidAccessKey", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "access-key:foobar",
@@ -217,7 +217,7 @@ func TestAccessKeyController(t *testing.T) {
 		})
 
 		t.Run("Show_WithUnauthorizedAccessKey", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "access-key:*",
@@ -241,7 +241,7 @@ func TestAccessKeyController(t *testing.T) {
 		})
 
 		t.Run("Store", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -282,7 +282,7 @@ func TestAccessKeyController(t *testing.T) {
 		})
 
 		t.Run("Store_WithInvalidAccessKey", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "database:*",
@@ -310,7 +310,7 @@ func TestAccessKeyController(t *testing.T) {
 		})
 
 		t.Run("Store_WithInvalidInput", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -433,14 +433,14 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Update", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"test",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test access key: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -479,14 +479,14 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Update_WithInvalidAccessKey", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test access key: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "access-key:foobar",

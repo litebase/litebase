@@ -24,7 +24,7 @@ func TestDatabaseBranchControllerIndex(t *testing.T) {
 			db.CreateBranch(fmt.Sprintf("branch-%d", i), "main")
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s", db.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeList},
@@ -73,7 +73,7 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 			t.Fatalf("failed to get mock database: %v", err)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:*", db.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
@@ -134,7 +134,7 @@ func TestDatabaseBranchControllerStore(t *testing.T) {
 			t.Fatalf("failed to get mock database: %v", err)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s", mock.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
@@ -188,7 +188,7 @@ func TestDatabaseBranchControllerStore_WithSameNameFails(t *testing.T) {
 			t.Fatalf("failed to get mock database: %v", err)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
@@ -244,7 +244,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				t.Fatalf("failed to create test branch: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+			client := server.WithAccessKeyClient([]auth.Statement{{
 				Effect:   "Allow",
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
@@ -279,7 +279,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 
 			mock := test.MockDatabase(server.App)
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+			client := server.WithAccessKeyClient([]auth.Statement{{
 				Effect:   "Allow",
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
@@ -314,7 +314,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 			server := test.NewTestServer(t)
 			defer server.Shutdown()
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+			client := server.WithAccessKeyClient([]auth.Statement{{
 				Effect:   "Allow",
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},

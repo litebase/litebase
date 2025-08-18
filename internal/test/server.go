@@ -82,7 +82,7 @@ func (ts *TestServer) WithAccessKey(accessKey *auth.AccessKey) *TestClient {
 	return ts.Client
 }
 
-func (ts *TestServer) WithAccessKeyClient(statements []auth.AccessKeyStatement) *TestClient {
+func (ts *TestServer) WithAccessKeyClient(statements []auth.Statement) *TestClient {
 	accessKey, err := ts.App.Auth.AccessKeyManager.Create("", statements)
 
 	if err != nil {

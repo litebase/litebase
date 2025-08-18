@@ -16,7 +16,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 

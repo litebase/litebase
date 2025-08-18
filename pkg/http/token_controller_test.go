@@ -16,14 +16,14 @@ func TestTokenController(t *testing.T) {
 		t.Run("Destroy", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test token: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -49,7 +49,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Destroy_CannotDeleteCurrentToken", func(t *testing.T) {
 			authToken, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Auth token",
-				[]auth.AccessKeyStatement{
+				[]auth.Statement{
 					{
 						Effect:   "Allow",
 						Resource: "*",
@@ -62,7 +62,7 @@ func TestTokenController(t *testing.T) {
 				t.Fatalf("Failed to create auth token: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -84,14 +84,14 @@ func TestTokenController(t *testing.T) {
 		t.Run("Destroy_CannotDeleteWithInvalidToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test token: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "token:foobar",
@@ -115,7 +115,7 @@ func TestTokenController(t *testing.T) {
 		})
 
 		t.Run("Index", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -145,14 +145,14 @@ func TestTokenController(t *testing.T) {
 		t.Run("Show", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test token: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -200,7 +200,7 @@ func TestTokenController(t *testing.T) {
 		})
 
 		t.Run("Show_WithInvalidToken", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "token:foobar",
@@ -226,14 +226,14 @@ func TestTokenController(t *testing.T) {
 		t.Run("Show_WithUnauthorizedToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test token: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "token:*",
@@ -257,7 +257,7 @@ func TestTokenController(t *testing.T) {
 		})
 
 		t.Run("Store", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -294,7 +294,7 @@ func TestTokenController(t *testing.T) {
 		})
 
 		t.Run("Store_WithInvalidToken", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "database:*",
@@ -322,7 +322,7 @@ func TestTokenController(t *testing.T) {
 		})
 
 		t.Run("Store_WithInvalidInput", func(t *testing.T) {
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -441,14 +441,14 @@ func TestTokenController(t *testing.T) {
 		t.Run("Update", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"test",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test token: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "*",
@@ -487,14 +487,14 @@ func TestTokenController(t *testing.T) {
 		t.Run("Update_WithInvalidToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
 				t.Fatalf("Failed to create test token: %v", err)
 			}
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+			client := server.WithAccessKeyClient([]auth.Statement{
 				{
 					Effect:   "Allow",
 					Resource: "token:foobar",

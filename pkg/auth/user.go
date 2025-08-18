@@ -3,19 +3,19 @@ package auth
 import "time"
 
 type User struct {
-	Username    string               `json:"username"`
-	Password    string               `json:"password"`
-	Description string               `json:"description"`
-	Statements  []AccessKeyStatement `json:"statements"`
-	CreatedAt   time.Time            `json:"created_at"`
-	UpdatedAt   time.Time            `json:"updated_at"`
+	Username    string      `json:"username"`
+	Password    string      `json:"password"`
+	Description string      `json:"description"`
+	Statements  []Statement `json:"statements"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
 type UserResponse struct {
-	Username   string               `json:"username"`
-	Statements []AccessKeyStatement `json:"statements"`
-	CreatedAt  time.Time            `json:"created_at"`
-	UpdatedAt  time.Time            `json:"updated_at"`
+	Username   string      `json:"username"`
+	Statements []Statement `json:"statements"`
+	CreatedAt  time.Time   `json:"created_at"`
+	UpdatedAt  time.Time   `json:"updated_at"`
 }
 
 // Check if the user has authorization for the given resources and actions

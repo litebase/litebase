@@ -75,7 +75,7 @@ func (akm *AccessKeyManager) AllAccessKeyIds() ([]string, error) {
 }
 
 // Create a new access key.
-func (akm *AccessKeyManager) Create(description string, statements []AccessKeyStatement) (*AccessKey, error) {
+func (akm *AccessKeyManager) Create(description string, statements []Statement) (*AccessKey, error) {
 	accessKeyId, err := akm.GenerateAccessKeyId()
 
 	if err != nil {
