@@ -32,7 +32,7 @@ func (d *TransactionManager) Create(
 	cluster *cluster.Cluster,
 	databaseManager *DatabaseManager,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	credential *auth.Credential,
 ) (*Transaction, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -41,7 +41,7 @@ func (d *TransactionManager) Create(
 		cluster,
 		databaseManager,
 		databaseKey,
-		accessKey,
+		// accessKey,
 	)
 
 	if err != nil {

@@ -60,7 +60,7 @@ func TestQueryResolver_Handle(t *testing.T) {
 				app.DatabaseManager,
 				app.LogManager,
 				auth.NewDatabaseKey(mock.DatabaseID, mock.DatabaseName, mock.DatabaseBranchID, mock.BranchName),
-				mock.AccessKey,
+				mock.Credential,
 				&database.QueryInput{
 					Statement:  c.statement,
 					Parameters: c.parameters,

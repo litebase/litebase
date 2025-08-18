@@ -49,7 +49,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				query.cluster,
 				query.databaseManager,
 				query.DatabaseKey,
-				query.AccessKey,
+				query.Credential,
 			)
 		} else if query.IsTransactionEnd() {
 			// Handle transaction end
@@ -93,7 +93,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		}
 
 		if db != nil {
-			db = db.WithAccessKey(query.AccessKey)
+			db = db.WithCredential(query.Credential)
 		}
 
 		if !query.IsTransactionStart() && !query.IsTransactionEnd() && !query.IsTransactionRollback() {
@@ -163,8 +163,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				DatabaseHash: query.DatabaseKey.DatabaseHash,
 				DatabaseID:   query.DatabaseKey.DatabaseID,
 				BranchID:     query.DatabaseKey.DatabaseBranchID,
-				// TODO: Need to accept other types of credentials
-				CredentialID: query.AccessKey.AccessKeyID,
+				CredentialID: query.Credential.CredentialID,
 				Statement:    query.Input.Statement,
 				Latency:      response.Latency(),
 			},
@@ -210,12 +209,13 @@ func forwardQueryToPrimary(query *Query, response *QueryResponse) (*QueryRespons
 	responseMessage, err := query.cluster.Node().Send(
 		messages.NodeMessage{
 			Data: messages.QueryMessage{
-				AccessKeyID: query.AccessKey.AccessKeyID,
-				BranchID:    query.DatabaseKey.DatabaseBranchID,
-				DatabaseID:  query.DatabaseKey.DatabaseID,
-				ID:          query.Input.ID,
-				Statement:   query.Input.Statement,
-				Parameters:  query.Input.Parameters,
+				CredentialID:     query.Credential.CredentialID,
+				CredentialScheme: query.Credential.Scheme,
+				BranchID:         query.DatabaseKey.DatabaseBranchID,
+				DatabaseID:       query.DatabaseKey.DatabaseID,
+				ID:               query.Input.ID,
+				Statement:        query.Input.Statement,
+				Parameters:       query.Input.Parameters,
 			},
 		},
 	)

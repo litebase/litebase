@@ -234,7 +234,7 @@ func UserControllerDestroy(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the root user cannot be deleted"))
 	}
 
-	credential := request.RequestCredential()
+	credential := request.Credential()
 
 	if credential.IsBasicAuth() && credential.User().Username == username {
 		return ForbiddenResponse(fmt.Errorf("the user cannot be deleted"))

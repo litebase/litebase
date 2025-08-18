@@ -241,7 +241,7 @@ func TokenControllerDestroy(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	credential := request.RequestCredential()
+	credential := request.Credential()
 
 	if credential.IsToken() && tokenId == credential.Token().TokenID {
 		return ForbiddenResponse(errors.New("cannot delete current token"))

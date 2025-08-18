@@ -12,16 +12,16 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestRequestCredential(t *testing.T) {
+func TestCredential(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		t.Run("CaptureRequestCredential_WithAccessKey", func(t *testing.T) {
+		t.Run("CaptureCredential_WithAccessKey", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
 			databaseUrl := fmt.Sprintf("localhost:8080/databases/%s/%s", db.DatabaseKey.DatabaseName, db.DatabaseKey.DatabaseBranchName)
 
 			token := auth.SignRequest(
-				db.AccessKey.AccessKeyID,
-				db.AccessKey.AccessKeySecret,
+				db.Credential.AccessKey().AccessKeyID,
+				db.Credential.AccessKey().AccessKeySecret,
 				"GET",
 				"/",
 				map[string]string{
@@ -50,12 +50,12 @@ func TestRequestCredential(t *testing.T) {
 				baseRequest,
 			)
 
-			credential := auth.CaptureRequestCredential(
+			credential := auth.CaptureCredential(
 				app.Auth,
 				request.Headers().Get("Authorization"),
 			)
 
-			if credential.Type() != auth.RequestCredentialTypeAccessKey {
+			if credential.Type() != auth.CredentialTypeAccessKey {
 				t.Fatal("Expected AccessKey credential type")
 			}
 
@@ -63,9 +63,9 @@ func TestRequestCredential(t *testing.T) {
 				t.Fatal("Expected AccessKey credential type")
 			}
 
-			if credential.AccessKey().AccessKeyID != db.AccessKey.AccessKeyID {
+			if credential.AccessKey().AccessKeyID != db.Credential.AccessKey().AccessKeyID {
 				t.Errorf("Expected AccessKeyID %s, got %s",
-					db.AccessKey.AccessKeyID, credential.AccessKey().AccessKeyID)
+					db.Credential.AccessKey().AccessKeyID, credential.AccessKey().AccessKeyID)
 			}
 
 			if !credential.Valid() {
@@ -73,7 +73,7 @@ func TestRequestCredential(t *testing.T) {
 			}
 		})
 
-		t.Run("CaptureRequestCredential_WithBasicAuth", func(t *testing.T) {
+		t.Run("CaptureCredential_WithBasicAuth", func(t *testing.T) {
 			user, err := app.Auth.UserManager.Create(
 				"testuser",
 				"testpassword123",
@@ -106,12 +106,12 @@ func TestRequestCredential(t *testing.T) {
 				baseRequest,
 			)
 
-			credential := auth.CaptureRequestCredential(
+			credential := auth.CaptureCredential(
 				app.Auth,
 				request.Headers().Get("Authorization"),
 			)
 
-			if credential.Type() != auth.RequestCredentialTypeBasicAuth {
+			if credential.Type() != auth.CredentialTypeBasicAuth {
 				t.Fatal("Expected BasicAuth credential type")
 			}
 
@@ -129,7 +129,7 @@ func TestRequestCredential(t *testing.T) {
 			}
 		})
 
-		t.Run("CaptureRequestCredential_WithBasicToken", func(t *testing.T) {
+		t.Run("CaptureCredential_WithBasicToken", func(t *testing.T) {
 			token, err := app.Auth.TokenManager.Create(
 				"",
 				[]auth.Statement{
@@ -166,12 +166,12 @@ func TestRequestCredential(t *testing.T) {
 				baseRequest,
 			)
 
-			credential := auth.CaptureRequestCredential(
+			credential := auth.CaptureCredential(
 				app.Auth,
 				request.Headers().Get("Authorization"),
 			)
 
-			if credential.Type() != auth.RequestCredentialTypeToken {
+			if credential.Type() != auth.CredentialTypeToken {
 				t.Fatal("Expected Token credential type")
 			}
 
@@ -189,8 +189,29 @@ func TestRequestCredential(t *testing.T) {
 			}
 		})
 
+		t.Run("Hash", func(t *testing.T) {
+			accessKey := auth.NewAccessKey(
+				app.Auth.AccessKeyManager,
+				"accessKeyId",
+				"accessKeySecret",
+				"Description",
+				[]auth.Statement{},
+			)
+
+			credential := &auth.Credential{
+				CredentialID:  accessKey.AccessKeyID,
+				SignedHeaders: []string{"Authorization"},
+			}
+
+			hash := credential.Hash()
+
+			if hash == [32]byte{} {
+				t.Error("Expected hash to be non-zero")
+			}
+		})
+
 		t.Run("Invalid", func(t *testing.T) {
-			invalidCredential := auth.RequestCredential{}
+			invalidCredential := auth.Credential{}
 
 			if !invalidCredential.Invalid() {
 				t.Fatal("Expected invalid credential")

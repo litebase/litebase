@@ -26,7 +26,7 @@ func TestDatabaseBranchControllerIndex(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
-			Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s", db.DatabaseID)),
+			Resource: auth.Resource(fmt.Sprintf("database:%s", db.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeList},
 		}})
 
@@ -75,7 +75,7 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
-			Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s:branch:*", db.DatabaseID)),
+			Resource: auth.Resource(fmt.Sprintf("database:%s:branch:*", db.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
 		}})
 
@@ -136,7 +136,7 @@ func TestDatabaseBranchControllerStore(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
-			Resource: auth.AccessKeyResource(fmt.Sprintf("database:%s", mock.DatabaseID)),
+			Resource: auth.Resource(fmt.Sprintf("database:%s", mock.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
 		}})
 

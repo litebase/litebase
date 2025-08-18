@@ -29,7 +29,7 @@ type TokenInputStatement struct {
 
 func NewTokenCreateCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create --description <description> --statements <statements>",
 		Short: "Create a new token",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var confirmed bool

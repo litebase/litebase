@@ -55,7 +55,7 @@ func TestLogManager_Query(t *testing.T) {
 				DatabaseHash: db.DatabaseKey.DatabaseHash,
 				DatabaseID:   db.DatabaseID,
 				BranchID:     db.DatabaseBranchID,
-				CredentialID: db.AccessKey.AccessKeyID,
+				CredentialID: db.Credential.CredentialID,
 				Statement:    "SELECT * FROM test",
 				Latency:      0.01,
 			},

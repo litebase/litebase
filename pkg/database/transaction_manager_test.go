@@ -28,7 +28,7 @@ func TestTransactionManager(t *testing.T) {
 		t.Run("CreateGetAndRemoveTransaction", func(t *testing.T) {
 			manager := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).TransactionManager()
 
-			transaction, err := manager.Create(app.Cluster, app.DatabaseManager, mock.DatabaseKey, mock.AccessKey)
+			transaction, err := manager.Create(app.Cluster, app.DatabaseManager, mock.DatabaseKey, mock.Credential)
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -69,7 +69,7 @@ func TestTransactionManager(t *testing.T) {
 		t.Run("Shutdown", func(t *testing.T) {
 			manager := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).TransactionManager()
 
-			transaction, err := manager.Create(app.Cluster, app.DatabaseManager, mock.DatabaseKey, mock.AccessKey)
+			transaction, err := manager.Create(app.Cluster, app.DatabaseManager, mock.DatabaseKey, mock.Credential)
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)

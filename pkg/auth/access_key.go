@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/json"
 	"log/slog"
 	"time"
 )
@@ -17,8 +15,6 @@ type AccessKey struct {
 	Statements      []Statement `json:"statements"`
 
 	AccessKeyManager *AccessKeyManager `json:"-"`
-
-	hash [32]byte
 }
 
 type AccessKeyResponse struct {
@@ -86,17 +82,7 @@ func (accessKey *AccessKey) Rotate() error {
 	return accessKey.AccessKeyManager.accessKeyStorage.UpdateNext(accessKey)
 }
 
-// Return the hash of the AccessKey.
-func (accessKey *AccessKey) Hash() [32]byte {
-	if accessKey.hash != [32]byte{} {
-		return accessKey.hash
-	}
-
-	accessKey.updateHash()
-
-	return accessKey.hash
-}
-
+// Return the response representation of the AccessKey.
 func (accessKey *AccessKey) ToResponse() *AccessKeyResponse {
 	return &AccessKeyResponse{
 		AccessKeyID: accessKey.AccessKeyID,
@@ -122,17 +108,5 @@ func (accessKey *AccessKey) Update(
 		return err
 	}
 
-	accessKey.updateHash()
-
 	return accessKey.AccessKeyManager.Purge(accessKey.AccessKeyID)
-}
-
-// Update the internal hash of the access key.
-func (accessKey *AccessKey) updateHash() {
-	jsonBytes, err := json.Marshal(accessKey)
-	if err != nil {
-		return
-	}
-
-	accessKey.hash = sha256.Sum256(jsonBytes)
 }

@@ -17,7 +17,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				mock.AccessKey,
+				// mock.AccessKey,
 			)
 
 			if err != nil {
@@ -32,7 +32,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				mock.AccessKey,
+				// mock.AccessKey,
 			)
 
 			if err != nil {
@@ -51,7 +51,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				mock.AccessKey,
+				// mock.AccessKey,
 			)
 
 			if err != nil {
@@ -65,7 +65,7 @@ func TestTransaction(t *testing.T) {
 				app.DatabaseManager,
 				app.LogManager,
 				mock.DatabaseKey,
-				mock.AccessKey,
+				mock.Credential,
 				&database.QueryInput{
 					Statement: "CREATE TABLE users_commit (id SERIAL PRIMARY KEY, name TEXT)",
 				},
@@ -85,7 +85,7 @@ func TestTransaction(t *testing.T) {
 				app.Cluster,
 				app.DatabaseManager,
 				mock.DatabaseKey,
-				mock.AccessKey,
+				// mock.AccessKey,
 			)
 
 			if err != nil {
@@ -99,7 +99,7 @@ func TestTransaction(t *testing.T) {
 				app.DatabaseManager,
 				app.LogManager,
 				mock.DatabaseKey,
-				mock.AccessKey,
+				mock.Credential,
 				&database.QueryInput{
 					Statement: "CREATE TABLE users_rollback (id SERIAL PRIMARY KEY, name TEXT)",
 				},

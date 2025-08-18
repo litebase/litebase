@@ -393,8 +393,8 @@ func TestRequest(t *testing.T) {
 			databaseUrl := fmt.Sprintf("localhost:8080/databases/%s/%s", db.DatabaseKey.DatabaseName, db.DatabaseKey.DatabaseBranchName)
 
 			token := auth.SignRequest(
-				db.AccessKey.AccessKeyID,
-				db.AccessKey.AccessKeySecret,
+				db.Credential.AccessKey().AccessKeyID,
+				db.Credential.AccessKey().AccessKeySecret,
 				"GET",
 				"/",
 				map[string]string{
@@ -423,7 +423,7 @@ func TestRequest(t *testing.T) {
 				baseRequest,
 			)
 
-			if !request.RequestCredential().Valid() {
+			if !request.Credential().Valid() {
 				t.Errorf("expected RequestToken to be valid, got invalid")
 			}
 		})

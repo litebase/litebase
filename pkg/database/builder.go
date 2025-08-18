@@ -33,7 +33,8 @@ func NewQueryBuilder(
 }
 
 func (qb *QueryBuilder) Build(
-	accessKeyId string,
+	credentialID string,
+	credentialScheme string,
 	databaseId string,
 	databaseName string,
 	branchId string,
@@ -42,18 +43,20 @@ func (qb *QueryBuilder) Build(
 	parameters []sqlite3.StatementParameter,
 	id string,
 ) (cluster.NodeQuery, error) {
-	accessKey, err := qb.accessKeyManager.Get(accessKeyId)
+	var credential *auth.Credential
+	//TODO: Implement credential fetching...
+	// accessKey, err := qb.accessKeyManager.Get(accessKeyId)
 
-	if err != nil {
-		return &Query{}, err
-	}
+	// if err != nil {
+	// 	return &Query{}, err
+	// }
 
 	return NewQuery(
 		qb.cluster,
 		qb.databaseManager,
 		qb.logManager,
 		auth.NewDatabaseKey(databaseId, databaseName, branchId, branchName),
-		accessKey,
+		credential,
 		&QueryInput{
 			ID:         id,
 			Parameters: parameters,

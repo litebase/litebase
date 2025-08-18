@@ -49,8 +49,8 @@ func TestQueryStreamController(t *testing.T) {
 		)
 
 		connectionPool := sql.NewConnectionPool(
-			testDatabase.AccessKey.AccessKeyID,
-			testDatabase.AccessKey.AccessKeySecret,
+			testDatabase.Credential.AccessKey().AccessKeyID,
+			testDatabase.Credential.AccessKey().AccessKeySecret,
 			url,
 			5,
 		)
@@ -113,8 +113,8 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 		)
 
 		connectionPool := sql.NewConnectionPool(
-			testDatabase.AccessKey.AccessKeyID,
-			testDatabase.AccessKey.AccessKeySecret,
+			testDatabase.Credential.AccessKey().AccessKeyID,
+			testDatabase.Credential.AccessKey().AccessKeySecret,
 			url,
 			5,
 		)
@@ -215,8 +215,8 @@ func TestQueryStreamController_WithValidationErrors(t *testing.T) {
 		)
 
 		connectionPool := sql.NewConnectionPool(
-			testDatabase.AccessKey.AccessKeyID,
-			testDatabase.AccessKey.AccessKeySecret,
+			testDatabase.Credential.AccessKey().AccessKeyID,
+			testDatabase.Credential.AccessKey().AccessKeySecret,
 			url,
 			5,
 		)

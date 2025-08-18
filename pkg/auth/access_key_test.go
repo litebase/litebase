@@ -45,21 +45,6 @@ func TestAccessKey(t *testing.T) {
 			}
 		})
 
-		t.Run("AccessKeyHash", func(t *testing.T) {
-			accessKey := auth.NewAccessKey(
-				app.Auth.AccessKeyManager,
-				"accessKeyId",
-				"accessKeySecret",
-				"Description",
-				[]auth.Statement{},
-			)
-
-			hash := accessKey.Hash()
-
-			if hash == [32]byte{} {
-				t.Error("Expected hash to be non-zero")
-			}
-		})
 		t.Run("AccessKeyResponse", func(t *testing.T) {
 			accessKey := auth.NewAccessKey(
 				app.Auth.AccessKeyManager,

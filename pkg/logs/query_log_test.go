@@ -99,7 +99,7 @@ func TestQueryLog_Flush(t *testing.T) {
 		}
 
 		err = l.Write(
-			db.AccessKey.AccessKeyID,
+			db.Credential.CredentialID,
 			"SELECT * FROM test",
 			0.01,
 		)
@@ -140,7 +140,7 @@ func TestQueryLog_Read(t *testing.T) {
 		startTime := time.Now().UTC().Truncate(time.Second)
 
 		l.Write(
-			db.AccessKey.AccessKeyID,
+			db.Credential.CredentialID,
 			"SELECT * FROM test",
 			0.01,
 		)
@@ -164,7 +164,7 @@ func TestQueryLog_Read(t *testing.T) {
 
 		hash64 := crc64.New(crc64.MakeTable(crc64.ISO))
 
-		hash64.Write(fmt.Appendf(nil, "access_key_id=%s statement=select * from test", db.AccessKey.AccessKeyID))
+		hash64.Write(fmt.Appendf(nil, "credential_id=%s statement=select * from test", db.Credential.CredentialID))
 
 		if queryMetrics[0].Checksum != hash64.Sum64() {
 			t.Fatal("Query metrics checksum is incorrect")
@@ -184,7 +184,7 @@ func TestQueryLog_Write(t *testing.T) {
 		)
 
 		err := l.Write(
-			db.AccessKey.AccessKeyID,
+			db.Credential.CredentialID,
 			"SELECT * FROM test",
 			0.01,
 		)

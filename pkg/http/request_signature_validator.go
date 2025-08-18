@@ -18,7 +18,8 @@ import (
 func RequestSignatureValidator(
 	request *Request,
 ) bool {
-	if !request.RequestCredential().Valid() {
+	credential := request.Credential()
+	if credential == nil || !credential.Valid() {
 		return false
 	}
 
@@ -65,7 +66,7 @@ func RequestSignatureValidator(
 
 	// Remove headers that are not signed
 	for key := range headers {
-		if !slices.Contains(request.RequestCredential().SignedHeaders, key) {
+		if !slices.Contains(request.Credential().SignedHeaders, key) {
 			delete(headers, key)
 		}
 	}
@@ -95,9 +96,7 @@ func RequestSignatureValidator(
 		bodyHash,
 	}, "")
 
-	credential := request.RequestCredential()
-
-	if credential.Type() != auth.RequestCredentialTypeAccessKey || credential.AccessKey() == nil {
+	if credential.Type() != auth.CredentialTypeAccessKey || credential.AccessKey() == nil {
 		return false
 	}
 
@@ -123,5 +122,5 @@ func RequestSignatureValidator(
 	signatureHash.Write([]byte(signedRequest))
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
-	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestCredential().CredentialString)) == 1
+	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.Credential().CredentialString)) == 1
 }

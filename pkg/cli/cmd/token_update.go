@@ -18,7 +18,7 @@ import (
 
 func NewTokenUpdateCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update <id> --description <description> --statements <statements>",
 		Short: "Update an existing token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -39,8 +39,8 @@ func TestRequestSignatureValidator_ValidSignature(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -95,8 +95,8 @@ func TestRequestSignatureValidator_InvalidSignature(t *testing.T) {
 
 		// Generate valid signature for original body
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -157,8 +157,8 @@ func TestRequestSignatureValidator_NoContentLength(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -284,8 +284,8 @@ func TestRequestSignatureValidator_EmptyBody(t *testing.T) {
 
 		// Generate valid signature for empty body
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -341,8 +341,8 @@ func TestRequestSignatureValidator_CaseInsensitiveHeaders(t *testing.T) {
 
 		// Generate signature with standard headers
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -395,8 +395,8 @@ func TestRequestSignatureValidator_PathNormalization(t *testing.T) {
 
 		// Generate signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -452,8 +452,8 @@ func TestRequestSignatureValidator_ComplexQueryParams(t *testing.T) {
 
 		// Generate signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -505,8 +505,8 @@ func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -627,8 +627,8 @@ func TestRequestSignatureValidator_SpecialCharacters(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,

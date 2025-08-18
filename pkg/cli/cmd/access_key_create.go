@@ -29,7 +29,7 @@ type AccessKeyInputStatement struct {
 
 func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
+		Use:   "create --description <description> --statements <statements>",
 		Short: "Create a new access key",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var confirmed bool

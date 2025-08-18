@@ -117,7 +117,8 @@ func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) any {
 // Handle a query message from a replica node.
 func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 	query, err := n.queryBuilder.Build(
-		message.AccessKeyID,
+		message.CredentialID,
+		message.CredentialScheme,
 		message.DatabaseID,
 		message.DatabaseName,
 		message.BranchID,

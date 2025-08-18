@@ -44,7 +44,7 @@ func QueryStreamController(request *Request) Response {
 		return errResponse
 	}
 
-	credential := request.RequestCredential()
+	credential := request.Credential()
 
 	if !credential.Valid() {
 		return ErrInvalidAccessKeyResponse
@@ -89,7 +89,7 @@ func QueryStreamController(request *Request) Response {
 			defer request.BaseRequest.Body.Close()
 			ctx, cancel := context.WithCancel(request.BaseRequest.Context())
 
-			readQueryStream(cancel, request, w, databaseKey, accessKey)
+			readQueryStream(cancel, request, w, databaseKey, credential)
 
 			<-ctx.Done()
 		},
@@ -99,7 +99,7 @@ func QueryStreamController(request *Request) Response {
 func processInput(
 	request *Request,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	credential *auth.Credential,
 	input *database.QueryInput,
 	response cluster.NodeQueryResponse,
 ) error {
@@ -111,7 +111,7 @@ func processInput(
 		request.databaseManager,
 		request.logManager,
 		databaseKey,
-		accessKey,
+		request.Credential(),
 		input,
 	)
 
@@ -129,7 +129,7 @@ func processInput(
 			return err
 		}
 
-		if accessKey.AccessKeyID != transaction.AccessKey.AccessKeyID {
+		if credential.CredentialID != transaction.Credential.CredentialID {
 			return fmt.Errorf("invalid access key")
 		}
 
@@ -146,7 +146,7 @@ func readQueryStream(
 	request *Request,
 	w http.ResponseWriter,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	credential *auth.Credential,
 ) {
 	defer cancel()
 
@@ -228,7 +228,7 @@ func readQueryStream(
 			cancel()
 			return
 		case QueryStreamFrame:
-			err := handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, accessKey)
+			err := handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, credential)
 
 			if err != nil {
 				slog.Error("Error handling query stream frame", "error", err)
@@ -266,7 +266,7 @@ func readQueryStream(
 func handleQueryStreamRequest(
 	request *Request,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	credential *auth.Credential,
 	queryData *bytes.Buffer,
 	queryParameters *bytes.Buffer,
 ) ([]byte, error) {
@@ -319,7 +319,7 @@ func handleQueryStreamRequest(
 		return responseBytes, ErrInvalidInput
 	}
 
-	err = processInput(request, databaseKey, accessKey, queryInput, response)
+	err = processInput(request, databaseKey, credential, queryInput, response)
 
 	if err != nil {
 		response.SetError(err.Error())
@@ -366,7 +366,7 @@ func handleQueryStreamFrame(
 	streamMutex *sync.Mutex,
 	framesBuffer *bytes.Buffer,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	credential *auth.Credential,
 ) error {
 	// The responseBuffer contains multiple frames
 	responseBuffer := bufferPool.Get().(*bytes.Buffer)
@@ -409,7 +409,7 @@ func handleQueryStreamFrame(
 		queryData := framesBuffer.Next(queryLength)
 		queryBuffer.Write(queryData)
 
-		responseBytes, err := handleQueryStreamRequest(request, databaseKey, accessKey, queryBuffer, queryParamsBuffer)
+		responseBytes, err := handleQueryStreamRequest(request, databaseKey, credential, queryBuffer, queryParamsBuffer)
 
 		if err != nil {
 			// Write the type of message

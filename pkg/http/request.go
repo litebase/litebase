@@ -19,19 +19,19 @@ import (
 )
 
 type Request struct {
-	accessKeyManager  *auth.AccessKeyManager
-	BaseRequest       *http.Request
-	Body              map[string]any
-	bodyHash          string
-	databaseKey       *auth.DatabaseKey
-	databaseManager   *database.DatabaseManager
-	logManager        *logs.LogManager
-	cluster           *cluster.Cluster
-	headers           Headers
-	Method            string
-	QueryParams       map[string]string
-	requestCredential auth.RequestCredential
-	Route             Route
+	accessKeyManager *auth.AccessKeyManager
+	BaseRequest      *http.Request
+	Body             map[string]any
+	bodyHash         string
+	credential       *auth.Credential
+	databaseKey      *auth.DatabaseKey
+	databaseManager  *database.DatabaseManager
+	logManager       *logs.LogManager
+	cluster          *cluster.Cluster
+	headers          Headers
+	Method           string
+	QueryParams      map[string]string
+	Route            Route
 }
 
 // Create a new Request instance.
@@ -126,14 +126,14 @@ func (r *Request) BodyHash() string {
 
 // Authorize the request based on the access key and the specified resource and actions.
 func (r *Request) Authorize(resources []string, actions []auth.Privilege) error {
-	credential := r.RequestCredential()
+	credential := r.Credential()
 
 	if credential.Invalid() {
 		return errors.New("invalid request credential")
 	}
 
 	switch credential.Type() {
-	case auth.RequestCredentialTypeBasicAuth:
+	case auth.CredentialTypeBasicAuth:
 		username, password, ok := r.BaseRequest.BasicAuth()
 
 		if ok {
@@ -153,9 +153,9 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 
 			return fmt.Errorf("user is not authorized to perform this request")
 		}
-	case auth.RequestCredentialTypeToken:
+	case auth.CredentialTypeToken:
 		log.Println("Authorizing request with token")
-		token := r.RequestCredential().Token()
+		token := r.Credential().Token()
 
 		if token == nil {
 			return fmt.Errorf("invalid token")
@@ -168,8 +168,8 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 			return fmt.Errorf("token is not authorized to perform this request")
 		}
 
-	case auth.RequestCredentialTypeAccessKey:
-		accessKey := r.RequestCredential().AccessKey()
+	case auth.CredentialTypeAccessKey:
+		accessKey := r.Credential().AccessKey()
 
 		if accessKey == nil {
 			return fmt.Errorf("invalid access key")
@@ -186,6 +186,18 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 	}
 
 	return nil
+}
+
+// Return the authentication credential for this request.
+func (request *Request) Credential() *auth.Credential {
+	if request.credential == nil {
+		request.credential = auth.CaptureCredential(
+			request.cluster.Auth,
+			request.Headers().Get("Authorization"),
+		)
+	}
+
+	return request.credential
 }
 
 // Return a database key for this request.
@@ -293,18 +305,6 @@ func (request *Request) QueryParam(key string, defaultValue ...string) string {
 	}
 
 	return value
-}
-
-// Return the request token for this request.
-func (request *Request) RequestCredential() auth.RequestCredential {
-	if !request.requestCredential.Valid() {
-		request.requestCredential = auth.CaptureRequestCredential(
-			request.cluster.Auth,
-			request.Headers().Get("Authorization"),
-		)
-	}
-
-	return request.requestCredential
 }
 
 func (request *Request) Validate(

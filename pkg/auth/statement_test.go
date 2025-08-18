@@ -6,7 +6,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-func TestAccessKeyStatement(t *testing.T) {
+func TestStatement(t *testing.T) {
 	tc := []struct {
 		resource string
 		actions  []auth.Privilege
@@ -22,7 +22,7 @@ func TestAccessKeyStatement(t *testing.T) {
 	for _, testCase := range tc {
 		aks := &auth.Statement{
 			Effect:   auth.StatementEffectAllow,
-			Resource: auth.AccessKeyResource(testCase.resource),
+			Resource: auth.Resource(testCase.resource),
 			Actions:  testCase.actions,
 		}
 

@@ -661,15 +661,21 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			accessKey := auth.NewAccessKey(app.Auth.AccessKeyManager, "test", "test", "", nil)
+			credential := &auth.Credential{}
 
-			connection.WithAccessKey(accessKey)
+			credential.WithAccessKey(
+				auth.NewAccessKey(
+					app.Auth.AccessKeyManager, "test", "test", "", nil,
+				),
+			)
 
-			if connection.AccessKey == nil {
+			connection.WithCredential(credential)
+
+			if connection.Credential == nil {
 				t.Fatal("Expected connection to have an access key")
 			}
 
-			if connection.AccessKey.AccessKeyID != accessKey.AccessKeyID {
+			if credential.CredentialID != connection.Credential.CredentialID {
 				t.Fatal("Expected connection to have the same access key")
 			}
 		})

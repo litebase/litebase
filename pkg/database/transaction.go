@@ -15,7 +15,6 @@ var ErrInvalidTransactionResponse = errors.New("invalid transaction response")
 var ErrTransactionRolledBack = errors.New("transaction rolled back")
 
 type Transaction struct {
-	AccessKey        *auth.AccessKey
 	cancel           context.CancelFunc
 	context          context.Context
 	closed           bool
@@ -23,6 +22,7 @@ type Transaction struct {
 	cluster          *cluster.Cluster
 	connection       *ClientConnection
 	CreatedAt        time.Time
+	Credential       *auth.Credential
 	databaseKey      *auth.DatabaseKey
 	databaseManager  *DatabaseManager
 	EndedAt          time.Time
@@ -43,7 +43,7 @@ func NewTransaction(
 	cluster *cluster.Cluster,
 	databaseManager *DatabaseManager,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	// accessKey *auth.AccessKey,
 ) (*Transaction, error) {
 	connection, err := databaseManager.ConnectionManager().Get(
 		databaseKey.DatabaseID,
@@ -57,7 +57,7 @@ func NewTransaction(
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 
 	transaction := &Transaction{
-		AccessKey:       accessKey,
+		// AccessKey:       accessKey,
 		cancel:          cancel,
 		cluster:         cluster,
 		context:         ctx,

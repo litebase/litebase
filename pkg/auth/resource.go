@@ -4,15 +4,15 @@ import (
 	"strings"
 )
 
-type AccessKeyResource string
+type Resource string
 
 // Check if the access key resource has a prefix.
-func (r AccessKeyResource) HasPrefix(prefix string) bool {
+func (r Resource) HasPrefix(prefix string) bool {
 	return strings.HasPrefix(string(r), prefix)
 }
 
 // Validate if the access key resource is valid.
-func (r AccessKeyResource) IsValid() bool {
+func (r Resource) IsValid() bool {
 	if r == "*" {
 		return true
 	}
@@ -24,7 +24,7 @@ func (r AccessKeyResource) IsValid() bool {
 		// Check if the base resource (part before first colon) exists
 		baseResource := parts[0]
 
-		_, exists := AccessKeyResources[baseResource]
+		_, exists := Resources[baseResource]
 
 		return exists
 	}

@@ -17,7 +17,7 @@ func basicAuth(request *Request) bool {
 	return false
 }
 
-func tokenAuth(credential auth.RequestCredential) bool {
+func tokenAuth(credential *auth.Credential) bool {
 	token := credential.Token()
 
 	if token == nil {
@@ -28,18 +28,22 @@ func tokenAuth(credential auth.RequestCredential) bool {
 }
 
 func Authentication(request *Request) (*Request, Response) {
-	credential := request.RequestCredential()
+	credential := request.Credential()
+
+	if credential == nil {
+		return request, UnauthorizedResponse()
+	}
 
 	switch credential.Type() {
-	case auth.RequestCredentialTypeBasicAuth:
+	case auth.CredentialTypeBasicAuth:
 		if !basicAuth(request) {
 			return request, UnauthorizedResponse()
 		}
-	case auth.RequestCredentialTypeToken:
+	case auth.CredentialTypeToken:
 		if !tokenAuth(credential) {
 			return request, UnauthorizedResponse()
 		}
-	case auth.RequestCredentialTypeAccessKey:
+	case auth.CredentialTypeAccessKey:
 		if !ensureRequestHasAnAuthorizationHeader(request) ||
 			!ensureRequestIsProperlySigned(request) {
 			return request, UnauthorizedResponse()

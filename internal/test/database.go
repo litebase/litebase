@@ -21,7 +21,7 @@ type TestDatabase struct {
 	DatabaseBranchID string
 	DatabaseKey      *auth.DatabaseKey
 	DatabaseName     string
-	AccessKey        *auth.AccessKey
+	Credential       *auth.Credential
 }
 
 type TestDatabaseAuthorizationCommand struct {
@@ -64,6 +64,9 @@ func MockDatabase(app *server.App) TestDatabase {
 		log.Fatal(err)
 	}
 
+	credential := &auth.Credential{}
+	credential.WithAccessKey(accessKey)
+
 	return TestDatabase{
 		ID:               db.ID,
 		BranchID:         db.PrimaryBranch().ID,
@@ -78,7 +81,6 @@ func MockDatabase(app *server.App) TestDatabase {
 			DatabaseBranchName: db.PrimaryBranch().Name,
 		},
 		DatabaseName: db.Name,
-
-		AccessKey: accessKey,
+		Credential:   credential,
 	}
 }

@@ -5,24 +5,24 @@ import (
 )
 
 type Statement struct {
-	Effect   StatementEffect   `json:"effect" validate:"required,validateFn=IsValid"`
-	Resource AccessKeyResource `json:"resource" validate:"required,validateFn=IsValid"`
-	Actions  []Privilege       `json:"actions" validate:"required,min=1,max=100"`
+	Effect   StatementEffect `json:"effect" validate:"required,validateFn=IsValid"`
+	Resource Resource        `json:"resource" validate:"required,validateFn=IsValid"`
+	Actions  []Privilege     `json:"actions" validate:"required,min=1,max=100"`
 }
 
 // This method validates if all of the actions in the statement align with the
 // selected resource.
-func (aks Statement) IsValid() bool {
-	if aks.Resource == "*" {
+func (s Statement) IsValid() bool {
+	if s.Resource == "*" {
 		return true
 	}
 
 	// Ensure that all of the actions can be applied to the resource. For example,
 	// if the resource is "access-key:*"  or "access-key:<id>" then the actions
 	// must all be scoped to the access key resource.
-	for key, action := range AccessKeyResources {
-		if aks.Resource.HasPrefix(key) {
-			for _, aksAction := range aks.Actions {
+	for key, action := range Resources {
+		if s.Resource.HasPrefix(key) {
+			for _, aksAction := range s.Actions {
 				if !slices.Contains(action, string(aksAction)) {
 					return false
 				}

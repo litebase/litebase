@@ -19,7 +19,7 @@ func TestNewQuery(t *testing.T) {
 			app.DatabaseManager,
 			app.LogManager,
 			auth.NewDatabaseKey(mock.DatabaseID, mock.DatabaseName, mock.DatabaseBranchID, mock.BranchName),
-			mock.AccessKey,
+			mock.Credential,
 			&database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
@@ -58,7 +58,7 @@ func TestResolve(t *testing.T) {
 			app.DatabaseManager,
 			app.LogManager,
 			auth.NewDatabaseKey(mock.DatabaseID, mock.DatabaseName, mock.DatabaseBranchID, mock.BranchName),
-			mock.AccessKey,
+			mock.Credential,
 			&database.QueryInput{
 				Statement: "SELECT * FROM users LIMIT ?",
 				Parameters: []sqlite3.StatementParameter{{
