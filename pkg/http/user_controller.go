@@ -1,6 +1,7 @@
 package http
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -174,8 +175,10 @@ func UserControllerUpdate(request *Request) Response {
 	user, err := request.cluster.Auth.UserManager.Get(username)
 
 	if err != nil {
-		// TODO: handle not found
-		// return NotFoundResponse(fmt.Errorf("the user was not found"))
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(fmt.Errorf("the user was not found"))
+		}
+
 		return ServerErrorResponse(fmt.Errorf("failed to retrieve user: %w", err))
 	}
 
