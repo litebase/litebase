@@ -20,10 +20,10 @@ func NewTokenCmd(c *config.Configuration) *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(NewTokenListCmd(c))
 	cmd.AddCommand(NewTokenCreateCmd(c))
-	cmd.AddCommand(NewTokenShowCmd(c))
 	cmd.AddCommand(NewTokenDeleteCmd(c))
+	cmd.AddCommand(NewTokenListCmd(c))
+	cmd.AddCommand(NewTokenShowCmd(c))
 	cmd.AddCommand(NewTokenUpdateCmd(c))
 
 	return cmd
