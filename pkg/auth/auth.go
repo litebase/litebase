@@ -64,6 +64,8 @@ func (a *Auth) ProvideAccessKeyStorage(accessKeyStorage AccessKeyStorage) {
 	)
 }
 
+// Provide the interface that will manage token storage and create the
+// TokenManager instance.
 func (a *Auth) ProvideTokenStorage(tokenStorage TokenStorage) {
 	a.TokenManager = NewTokenManager(
 		tokenStorage,
