@@ -52,6 +52,7 @@ func NewToken(
 	}
 }
 
+// Authenticate the token using the provided secret.
 func (t *Token) Authenticate(secret string) bool {
 	// Use bcrypt to compare the token hash
 	if bcrypt.CompareHashAndPassword([]byte(t.Hash()), []byte(secret)) != nil {
