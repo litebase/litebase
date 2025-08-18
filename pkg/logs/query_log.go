@@ -336,7 +336,7 @@ func (q *QueryLog) watch() {
 	}()
 }
 
-func (q *QueryLog) Write(accessKeyId string, statement string, latency float64) error {
+func (q *QueryLog) Write(credentialID string, statement string, latency float64) error {
 	q.mutex.Lock()
 	q.lastLoggedTime = time.Now().UTC()
 	timestamp := time.Now().UTC().Truncate(time.Second)
@@ -346,8 +346,8 @@ func (q *QueryLog) Write(accessKeyId string, statement string, latency float64) 
 	defer queryLogBuffer.Put(buffer)
 	buffer.Reset()
 
-	buffer.WriteString("access_key_id=")
-	buffer.WriteString(accessKeyId)
+	buffer.WriteString("credential_id=")
+	buffer.WriteString(credentialID)
 	buffer.WriteString(" statement=")
 
 	// Lowercase the statement
