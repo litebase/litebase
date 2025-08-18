@@ -66,6 +66,7 @@ func (u *UserManager) Create(username, password string, statements []Statement) 
 	}
 
 	user.CreatedAt = time.Now().UTC()
+
 	err = u.userStorage.Store(user)
 
 	if err != nil {
@@ -104,11 +105,13 @@ func (u *UserManager) All() []User {
 // Read all the users from storage.
 func (u *UserManager) allUsers() (map[string]*User, error) {
 	users, err := u.userStorage.List()
+
 	if err != nil {
 		return nil, err
 	}
 
 	userMap := make(map[string]*User)
+
 	for _, user := range users {
 		userMap[user.Username] = user
 	}
