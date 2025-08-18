@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
 
@@ -29,7 +30,7 @@ type Request struct {
 	headers          Headers
 	Method           string
 	QueryParams      map[string]string
-	requestToken     auth.RequestToken
+	requestToken     auth.RequestCredential
 	Route            Route
 }
 
@@ -125,34 +126,63 @@ func (r *Request) BodyHash() string {
 
 // Authorize the request based on the access key and the specified resource and actions.
 func (r *Request) Authorize(resources []string, actions []auth.Privilege) error {
-	username, password, ok := r.BaseRequest.BasicAuth()
+	credential := r.RequestCredential()
 
-	if ok {
-		if !r.cluster.Auth.UserManager.Authenticate(username, password) {
-			return fmt.Errorf("invalid username or password")
+	if credential.Invalid() {
+		return errors.New("invalid request credential")
+	}
+
+	switch credential.Type() {
+	case auth.RequestCredentialTypeBasicAuth:
+		username, password, ok := r.BaseRequest.BasicAuth()
+
+		if ok {
+			if !r.cluster.Auth.UserManager.Authenticate(username, password) {
+				return fmt.Errorf("invalid username or password")
+			}
+
+			user, err := r.cluster.Auth.UserManager.Get(username)
+
+			if err != nil {
+				return fmt.Errorf("failed to get user: %w", err)
+			}
+
+			if user.AuthorizeForResource(resources, actions) {
+				return nil
+			}
+
+			return fmt.Errorf("user is not authorized to perform this request")
+		}
+	case auth.RequestCredentialTypeToken:
+		log.Println("Authorizing request with token")
+		token := r.RequestCredential().Token()
+
+		if token == nil {
+			return fmt.Errorf("invalid token")
 		}
 
-		if r.cluster.Auth.UserManager.Get(username).AuthorizeForResource(
+		if !token.AuthorizeForResource(
 			resources,
 			actions,
 		) {
-			return nil
+			return fmt.Errorf("token is not authorized to perform this request")
 		}
 
-		return fmt.Errorf("user is not authorized to perform this request")
-	}
+	case auth.RequestCredentialTypeAccessKey:
+		accessKey := r.RequestCredential().AccessKey()
 
-	accessKey := r.RequestToken("Authorization").AccessKey()
+		if accessKey == nil {
+			return fmt.Errorf("invalid access key")
+		}
 
-	if accessKey == nil {
-		return fmt.Errorf("invalid access key")
-	}
-
-	if !accessKey.AuthorizeForResource(
-		resources,
-		actions,
-	) {
-		return fmt.Errorf("access key is not authorized to perform this request")
+		if !accessKey.AuthorizeForResource(
+			resources,
+			actions,
+		) {
+			return fmt.Errorf("access key is not authorized to perform this request")
+		}
+	default:
+		return errors.New("unable to authorize the request")
 	}
 
 	return nil
@@ -266,11 +296,11 @@ func (request *Request) QueryParam(key string, defaultValue ...string) string {
 }
 
 // Return the request token for this request.
-func (request *Request) RequestToken(header string) auth.RequestToken {
+func (request *Request) RequestCredential() auth.RequestCredential {
 	if !request.requestToken.Valid() {
-		request.requestToken = auth.CaptureRequestToken(
-			request.accessKeyManager,
-			request.headers.Get(header),
+		request.requestToken = auth.CaptureRequestCredential(
+			request.cluster.Auth,
+			request.Headers().Get("Authorization"),
 		)
 	}
 

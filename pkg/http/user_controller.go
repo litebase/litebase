@@ -57,9 +57,9 @@ func UserControllerShow(request *Request) Response {
 
 	username := request.Param("username")
 
-	user := request.cluster.Auth.UserManager.Get(username)
+	user, err := request.cluster.Auth.UserManager.Get(username)
 
-	if user == nil {
+	if err != nil {
 		return NotFoundResponse(fmt.Errorf("the user was not found"))
 	}
 
@@ -117,13 +117,19 @@ func UserControllerStore(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the username is invalid, 'root' is reserved"))
 	}
 
-	if request.cluster.Auth.UserManager.Get(input.(*UserControllerStoreRequest).Username) != nil {
+	user, err := request.cluster.Auth.UserManager.Get(input.(*UserControllerStoreRequest).Username)
+
+	if err != nil && err != auth.ErrUserNotFound {
+		return ServerErrorResponse(fmt.Errorf("failed to check if user exists: %w", err))
+	}
+
+	if user != nil {
 		return BadRequestResponse(fmt.Errorf("the username already exists"))
 	}
 
 	data := input.(*UserControllerStoreRequest)
 
-	user, err := request.cluster.Auth.UserManager.Create(
+	user, err = request.cluster.Auth.UserManager.Create(
 		data.Username,
 		data.Password,
 		data.Statements,
@@ -165,10 +171,12 @@ func UserControllerUpdate(request *Request) Response {
 
 	username := request.Param("username")
 
-	user := request.cluster.Auth.UserManager.Get(username)
+	user, err := request.cluster.Auth.UserManager.Get(username)
 
-	if user == nil {
-		return NotFoundResponse(fmt.Errorf("the user was not found"))
+	if err != nil {
+		// TODO: handle not found
+		// return NotFoundResponse(fmt.Errorf("the user was not found"))
+		return ServerErrorResponse(fmt.Errorf("failed to retrieve user: %w", err))
 	}
 
 	input, err := request.Input(&UserControllerUpdateRequest{})
@@ -226,8 +234,20 @@ func UserControllerDestroy(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the root user cannot be deleted"))
 	}
 
-	if request.cluster.Auth.UserManager.Get(username) == nil {
-		return BadRequestResponse(fmt.Errorf("the username is invalid"))
+	credential := request.RequestCredential()
+
+	if credential.IsBasicAuth() && credential.User().Username == username {
+		return ForbiddenResponse(fmt.Errorf("the user cannot be deleted"))
+	}
+
+	_, err = request.cluster.Auth.UserManager.Get(username)
+
+	if err != nil {
+		if err == auth.ErrUserNotFound {
+			return NotFoundResponse(fmt.Errorf("the user was not found"))
+		}
+
+		return ServerErrorResponse(fmt.Errorf("failed to retrieve user: %w", err))
 	}
 
 	err = request.cluster.Auth.UserManager.Remove(username)

@@ -242,7 +242,9 @@ func AccessKeyControllerDestroy(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	if accessKeyId == request.RequestToken("Authorization").AccessKeyID {
+	credential := request.RequestCredential()
+
+	if credential.Type() == auth.RequestCredentialTypeAccessKey && accessKeyId == credential.AccessKey().AccessKeyID {
 		return ForbiddenResponse(errors.New("cannot delete current access key"))
 	}
 

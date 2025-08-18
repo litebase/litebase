@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/litebase/litebase/internal/utils"
+	"github.com/litebase/litebase/pkg/auth"
 
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -16,9 +17,8 @@ import (
 
 func RequestSignatureValidator(
 	request *Request,
-	header string,
 ) bool {
-	if !request.RequestToken(header).Valid() {
+	if !request.RequestCredential().Valid() {
 		return false
 	}
 
@@ -65,7 +65,7 @@ func RequestSignatureValidator(
 
 	// Remove headers that are not signed
 	for key := range headers {
-		if !slices.Contains(request.RequestToken(header).SignedHeaders, key) {
+		if !slices.Contains(request.RequestCredential().SignedHeaders, key) {
 			delete(headers, key)
 		}
 	}
@@ -95,7 +95,13 @@ func RequestSignatureValidator(
 		bodyHash,
 	}, "")
 
-	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(request.RequestToken(header).AccessKeyID)
+	credential := request.RequestCredential()
+
+	if credential.Type() != auth.RequestCredentialTypeAccessKey || credential.AccessKey() == nil {
+		return false
+	}
+
+	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(credential.AccessKey().AccessKeyID)
 
 	if err != nil {
 		return false
@@ -117,5 +123,5 @@ func RequestSignatureValidator(
 	signatureHash.Write([]byte(signedRequest))
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
-	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestToken(header).Signature)) == 1
+	return subtle.ConstantTimeCompare([]byte(signature), []byte(request.RequestCredential().Signature)) == 1
 }

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 )
@@ -9,6 +10,7 @@ type Token struct {
 	ID          int64                `json:"id"`
 	TokenID     string               `json:"token_id"`
 	TokenHash   string               `json:"token_hash"`
+	TokenSecret string               `json:"token_secret"`
 	Statements  []AccessKeyStatement `json:"statements"`
 	Description string               `json:"description"`
 	CreatedAt   time.Time            `json:"created_at"`
@@ -113,4 +115,17 @@ func (t *Token) Update(description string, statements []AccessKeyStatement) erro
 	}
 
 	return t.TokenManager.Purge(t.TokenID)
+}
+
+// Return the token value. The token secret must still be available.
+func (t *Token) Value() (string, error) {
+	if t == nil {
+		return "", fmt.Errorf("token is nil")
+	}
+
+	if t.TokenSecret == "" {
+		return "", fmt.Errorf("token secret is not recoverable")
+	}
+
+	return fmt.Sprintf("%s%s", t.TokenID, t.TokenSecret), nil
 }

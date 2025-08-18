@@ -163,7 +163,8 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				DatabaseHash: query.DatabaseKey.DatabaseHash,
 				DatabaseID:   query.DatabaseKey.DatabaseID,
 				BranchID:     query.DatabaseKey.DatabaseBranchID,
-				AccessKeyID:  query.AccessKey.AccessKeyID,
+				// TODO: Need to accept other types of credentials
+				CredentialID: query.AccessKey.AccessKeyID,
 				Statement:    query.Input.Statement,
 				Latency:      response.Latency(),
 			},

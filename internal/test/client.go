@@ -68,7 +68,7 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 			map[string]string{},
 		)
 
-		request.Header.Set("Authorization", signature)
+		request.Header.Set("Authorization", fmt.Sprintf("Litebase-HMAC-SHA256 %s", signature))
 	} else if c.AccessKey == nil {
 		request.SetBasicAuth(
 			c.Username,

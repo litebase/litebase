@@ -114,6 +114,36 @@ func TestRoutesMiddleware(t *testing.T) {
 		},
 		{
 			Method:             "GET",
+			Path:               "/v1/tokens",
+			ExpectedMiddleware: []string{"Authentication"},
+			Description:        "Token index route should have Authentication middleware",
+		},
+		{
+			Method:             "GET",
+			Path:               "/v1/tokens/{tokenId}",
+			ExpectedMiddleware: []string{"Authentication"},
+			Description:        "Token show route should have Authentication middleware",
+		},
+		{
+			Method:             "POST",
+			Path:               "/v1/tokens",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Token store route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "PUT",
+			Path:               "/v1/tokens/{tokenId}",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Token update route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "DELETE",
+			Path:               "/v1/tokens/{tokenId}",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Token destroy route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "GET",
 			Path:               "/v1/databases/{databaseName}/branches",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database Branches index route should have Authentication middleware",
@@ -316,7 +346,7 @@ func TestAllRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 38 // Update this number if you add more routes
+	expectedRouteCount := 43 // Update this number if you add more routes
 
 	totalRoutes := 0
 

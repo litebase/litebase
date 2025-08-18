@@ -44,13 +44,13 @@ func QueryStreamController(request *Request) Response {
 		return errResponse
 	}
 
-	requestToken := request.RequestToken("Authorization")
+	credential := request.RequestCredential()
 
-	if !requestToken.Valid() {
+	if !credential.Valid() {
 		return ErrInvalidAccessKeyResponse
 	}
 
-	accessKey := requestToken.AccessKey()
+	accessKey := credential.AccessKey()
 
 	if accessKey.AccessKeyID == "" {
 		return ErrInvalidAccessKeyResponse

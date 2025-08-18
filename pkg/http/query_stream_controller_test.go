@@ -42,7 +42,7 @@ func TestQueryStreamController(t *testing.T) {
 		}
 
 		url := fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			testDatabase.DatabaseName,
 			testDatabase.BranchName,
@@ -98,7 +98,6 @@ func TestQueryStreamController(t *testing.T) {
 }
 
 func TestQueryStreamController_WithErrors(t *testing.T) {
-
 	test.Run(t, func() {
 		testServer := test.NewTestServer(t)
 		defer testServer.Shutdown()
@@ -107,7 +106,7 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 
 		// Use invalid database key
 		url := fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			"invalid_database_key",
 			testDatabase.BranchName,
@@ -145,7 +144,7 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 
 		// Use invalid access key
 		url = fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			testDatabase.DatabaseName,
 			testDatabase.BranchName,
@@ -209,7 +208,7 @@ func TestQueryStreamController_WithValidationErrors(t *testing.T) {
 		}
 
 		url := fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			testDatabase.DatabaseName,
 			testDatabase.BranchName,

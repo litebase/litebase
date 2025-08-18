@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -21,7 +22,11 @@ func TestUserManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			user := um.Get("testuser")
+			user, err := um.Get("testuser")
+
+			if err != nil {
+				t.Fatal("Expected user to be found")
+			}
 
 			if user == nil {
 				t.Fatal("Expected user to be found")
@@ -147,7 +152,11 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Test getting existing user
-			user := um.Get("testuser_Get")
+			user, err := um.Get("testuser_Get")
+
+			if err != nil {
+				t.Fatal("Expected user to be found")
+			}
 
 			if user == nil {
 				t.Fatal("Expected user to be found")
@@ -162,9 +171,10 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Test getting non-existent user
-			user = um.Get("nonexistent")
-			if user != nil {
-				t.Error("Expected nil for non-existent user")
+			user, err = um.Get("nonexistent")
+
+			if err == nil {
+				t.Error("Expected error for non-existent user")
 			}
 		})
 
@@ -189,11 +199,11 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Verify both users exist
-			if um.Get("user1_Remove") == nil {
+			if user, _ := um.Get("user1_Remove"); user == nil {
 				t.Error("Expected user1_Remove to exist")
 			}
 
-			if um.Get("user2_Remove") == nil {
+			if user, _ := um.Get("user2_Remove"); user == nil {
 				t.Error("Expected user2_Remove to exist")
 			}
 
@@ -205,11 +215,11 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Verify user1 was removed and user2 still exists
-			if um.Get("user1_Remove") != nil {
+			if user, _ := um.Get("user1_Remove"); user != nil {
 				t.Error("Expected user1_Remove to be removed")
 			}
 
-			if um.Get("user2_Remove") == nil {
+			if user, _ := um.Get("user2_Remove"); user == nil {
 				t.Error("Expected user2_Remove to still exist")
 			}
 		})
@@ -238,7 +248,11 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Get user and verify password is hashed
-			user := um.Get("testuser_PasswordHandling")
+			user, err := um.Get("testuser_PasswordHandling")
+
+			if err != nil {
+				t.Fatal("Expected user to be found")
+			}
 
 			if user == nil {
 				t.Fatal("Expected user to be found")
@@ -271,7 +285,11 @@ func TestUserManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			user := um.Get("usertoupdate")
+			user, err := um.Get("usertoupdate")
+
+			if err != nil {
+				t.Fatal("Expected user to be found")
+			}
 
 			if user == nil {
 				t.Fatal("Expected user to be found")
@@ -289,7 +307,11 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Verify the user's statements were updated
-			user = um.Get("usertoupdate")
+			user, err = um.Get("usertoupdate")
+
+			if err != nil {
+				t.Fatal("Expected user to be found")
+			}
 
 			if user == nil {
 				t.Fatal("Expected user to be found")
@@ -335,7 +357,12 @@ func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 		}
 
 		// Verify user was loaded
-		user := um2.Get("existinguser")
+		user, err := um2.Get("existinguser")
+
+		if err != nil {
+			t.Fatal("Expected existing user to be loaded")
+		}
+
 		if user == nil {
 			t.Error("Expected existing user to be loaded")
 		}
@@ -353,8 +380,9 @@ func TestUserManager_Init_WithoutExistingUsers_WithRootCredentials(t *testing.T)
 		}
 
 		// Verify root user was created
-		user := um.Get("root")
-		if user == nil {
+		user, err := um.Get("root")
+
+		if err != nil {
 			t.Fatal("Expected root user to be created")
 		}
 
@@ -422,13 +450,21 @@ func TestUserManager_Purge(t *testing.T) {
 			t.Fatalf("Expected no error when adding user, got %v", err)
 		}
 
-		userFromServer1 := server1.App.Auth.UserManager.Get("testuser_Remove")
+		userFromServer1, err := server1.App.Auth.UserManager.Get("testuser_Remove")
+
+		if err != nil {
+			t.Fatal("Expected user to be found on server1")
+		}
 
 		if userFromServer1 == nil {
 			t.Fatal("Expected user to be found on server1")
 		}
 
-		userFromServer2 := server2.App.Auth.UserManager.Get("testuser_Remove")
+		userFromServer2, err := server2.App.Auth.UserManager.Get("testuser_Remove")
+
+		if err != nil {
+			t.Fatal("Expected user to be found on server2")
+		}
 
 		if userFromServer2 == nil {
 			t.Fatal("Expected user to be found on server2")
@@ -441,13 +477,21 @@ func TestUserManager_Purge(t *testing.T) {
 		}
 
 		// Verify user is removed from server1
-		userFromServer1 = server1.App.Auth.UserManager.Get("testuser_Remove")
+		userFromServer1, err = server1.App.Auth.UserManager.Get("testuser_Remove")
+
+		if err != nil && !errors.Is(err, auth.ErrUserNotFound) {
+			t.Fatal("Expected user to be found on server1")
+		}
 
 		if userFromServer1 != nil {
 			t.Error("Expected user to be nil after removal from server1")
 		}
 
-		userFromServer2 = server2.App.Auth.UserManager.Get("testuser_Remove")
+		userFromServer2, err = server2.App.Auth.UserManager.Get("testuser_Remove")
+
+		if err != nil && !errors.Is(err, auth.ErrUserNotFound) {
+			t.Fatal("Expected user to be found on server2")
+		}
 
 		if userFromServer2 != nil {
 			t.Error("Expected user to remain nil on server2")

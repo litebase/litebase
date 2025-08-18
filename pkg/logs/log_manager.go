@@ -108,7 +108,7 @@ func (lm *LogManager) Query(entry QueryLogEntry) error {
 	}
 
 	go l.Write(
-		entry.AccessKeyID,
+		entry.CredentialID,
 		entry.Statement,
 		entry.Latency,
 	)

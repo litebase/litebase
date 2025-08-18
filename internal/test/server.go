@@ -83,33 +83,25 @@ func (ts *TestServer) WithAccessKey(accessKey *auth.AccessKey) *TestClient {
 }
 
 func (ts *TestServer) WithAccessKeyClient(statements []auth.AccessKeyStatement) *TestClient {
-	if ts.Client == nil {
-		accessKey, err := ts.App.Auth.AccessKeyManager.Create("", statements)
+	accessKey, err := ts.App.Auth.AccessKeyManager.Create("", statements)
 
-		if err != nil {
-			panic(err)
-		}
-
-		ts.Client = &TestClient{
-			AccessKey: accessKey,
-			URL:       ts.Server.URL,
-		}
+	if err != nil {
+		panic(err)
 	}
 
-	return ts.Client
+	return &TestClient{
+		AccessKey: accessKey,
+		URL:       ts.Server.URL,
+	}
 }
 
 func (ts *TestServer) WithBasicAuthClient() *TestClient {
-	if ts.Client == nil {
-		ts.Client = &TestClient{
-			AccessKey: nil, // No access key for basic auth
-			Username:  ts.App.Config.RootUsername,
-			Password:  ts.App.Config.RootPassword,
-			URL:       ts.Server.URL,
-		}
+	return &TestClient{
+		AccessKey: nil, // No access key for basic auth
+		Username:  ts.App.Config.RootUsername,
+		Password:  ts.App.Config.RootPassword,
+		URL:       ts.Server.URL,
 	}
-
-	return ts.Client
 }
 
 func (ts *TestServer) Shutdown() {

@@ -160,5 +160,26 @@ func TestToken(t *testing.T) {
 				t.Error("Expected UpdatedAt to be updated, but it is still the same as before")
 			}
 		})
+
+		t.Run("Value", func(t *testing.T) {
+			token, err := app.Auth.TokenManager.Create(
+				"Description",
+				[]auth.AccessKeyStatement{},
+			)
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			value, err := token.Value()
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			if value == "" {
+				t.Error("Expected non-empty token value")
+			}
+		})
 	})
 }

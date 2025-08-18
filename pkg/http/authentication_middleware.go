@@ -67,5 +67,5 @@ func ensureRequestIsNotExpired(request *Request) bool {
 }
 
 func ensureRequestIsProperlySigned(request *Request) bool {
-	return RequestSignatureValidator(request, "Authorization")
+	return RequestSignatureValidator(request)
 }

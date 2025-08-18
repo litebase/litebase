@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type TokenManager struct {
@@ -73,9 +75,19 @@ func (tm *TokenManager) Create(description string, statements []AccessKeyStateme
 		return nil, err
 	}
 
+	secret := tm.GenerateTokenSecret()
+
+	// Bcrypt the secret
+	bytes, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
+
+	if err != nil {
+		return nil, err
+	}
+
 	token := &Token{
 		TokenID:      tokenID,
-		TokenHash:    tm.GenerateTokenHash(),
+		TokenHash:    string(bytes),
+		TokenSecret:  secret,
 		Description:  description,
 		Statements:   statements,
 		TokenManager: tm,
@@ -88,7 +100,7 @@ func (tm *TokenManager) Create(description string, statements []AccessKeyStateme
 	return token, nil
 }
 
-func (tm *TokenManager) GenerateTokenHash() string {
+func (tm *TokenManager) GenerateTokenSecret() string {
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	result := make([]byte, 32)

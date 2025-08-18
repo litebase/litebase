@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -10,6 +12,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+var ErrUserNotFound = errors.New("user not found")
 
 type UserManager struct {
 	auth        *Auth
@@ -132,13 +136,13 @@ func (u *UserManager) Authenticate(username, password string) bool {
 }
 
 // Get a user by username
-func (u *UserManager) Get(username string) *User {
+func (u *UserManager) Get(username string) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	for _, user := range u.users {
 		if user.Username == username {
-			return user
+			return user, nil
 		}
 	}
 
@@ -146,7 +150,7 @@ func (u *UserManager) Get(username string) *User {
 
 	for _, user := range u.users {
 		if user.Username == username {
-			return user
+			return user, nil
 		}
 	}
 
@@ -154,12 +158,17 @@ func (u *UserManager) Get(username string) *User {
 
 	if err != nil {
 		slog.Debug("Error getting user from storage", "error", err)
-		return nil
+
+		if err == sql.ErrNoRows {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, err
 	}
 
 	u.users[username] = user
 
-	return user
+	return user, nil
 }
 
 // Initialize the UserManager

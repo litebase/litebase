@@ -97,11 +97,11 @@ func TestTokenManager(t *testing.T) {
 			}
 		})
 
-		t.Run("GenerateTokenHash", func(t *testing.T) {
-			hash := app.Auth.TokenManager.GenerateTokenHash()
+		t.Run("GenerateTokenSecret", func(t *testing.T) {
+			secret := app.Auth.TokenManager.GenerateTokenSecret()
 
-			if hash == "" {
-				t.Error("Expected GenerateTokenHash to not return an empty string")
+			if secret == "" {
+				t.Error("Expected GenerateTokenSecret to not return an empty string")
 			}
 		})
 

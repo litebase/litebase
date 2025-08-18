@@ -69,12 +69,12 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 
 		c.defaultHeaders["X-LBDB-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
 		c.defaultHeaders["Host"] = host
-		c.defaultHeaders["Authorization"] = c.accessKeyHeader(
+		c.defaultHeaders["Authorization"] = fmt.Sprintf("Litebase-HMAC-SHA256 %s", c.accessKeyHeader(
 			method,
 			path,
 			c.defaultHeaders,
 			jsonData,
-		)
+		))
 	} else if c.shouldUseBasicAuth() {
 		c.defaultHeaders["Authorization"] = c.basicAuthHeader()
 	}
