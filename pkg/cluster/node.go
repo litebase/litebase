@@ -49,6 +49,7 @@ type Node struct {
 	lastTick           time.Time
 	lease              *Lease
 	LastActive         time.Time
+	lastActiveMutex    *sync.Mutex
 	ID                 string
 	membership         string
 	mutex              *sync.Mutex
@@ -70,13 +71,14 @@ type Node struct {
 // Create a new instance of a node.
 func NewNode(cluster *Cluster) *Node {
 	node := &Node{
-		address:    "",
-		Cluster:    cluster,
-		LastActive: time.Time{},
-		membership: ClusterMembershipReplica,
-		mutex:      &sync.Mutex{},
-		started:    make(chan bool, 1),
-		State:      NodeStateActive,
+		address:         "",
+		Cluster:         cluster,
+		LastActive:      time.Time{},
+		lastActiveMutex: &sync.Mutex{},
+		membership:      ClusterMembershipReplica,
+		mutex:           &sync.Mutex{},
+		started:         make(chan bool, 1),
+		State:           NodeStateActive,
 	}
 
 	address, err := node.Address()
@@ -328,9 +330,13 @@ func (n *Node) IsPrimary() bool {
 	}
 
 	// If the node has not been activated, tick it before running these checks
+	n.lastActiveMutex.Lock()
+
 	if n.LastActive.IsZero() || time.Since(n.LastActive) > 5*time.Minute {
 		n.Tick()
 	}
+
+	n.lastActiveMutex.Unlock()
 
 	if n.membership == ClusterMembershipReplica {
 		return false
@@ -672,16 +678,16 @@ func (n *Node) runTicker() {
 				continue
 			}
 
-			n.mutex.Lock()
+			n.lastActiveMutex.Lock()
 			lastActive := n.LastActive
 
 			// Continue if the node has not been inactive for the idle timeout duration
 			if lastActive.IsZero() || time.Since(lastActive) <= NodeIdleTimeout {
-				n.mutex.Unlock()
+				n.lastActiveMutex.Unlock()
 				continue
 			}
 
-			n.mutex.Unlock()
+			n.lastActiveMutex.Unlock()
 
 			n.Tick()
 		}
@@ -956,9 +962,9 @@ func (n *Node) Tick() {
 		}
 	}
 
-	n.mutex.Lock()
+	n.lastActiveMutex.Lock()
 	n.LastActive = time.Now().UTC()
-	n.mutex.Unlock()
+	n.lastActiveMutex.Unlock()
 
 	if n.State == NodeStateIdle {
 		n.State = NodeStateActive
