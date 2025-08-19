@@ -11,328 +11,320 @@ import (
 	"github.com/litebase/litebase/pkg/storage"
 )
 
-func TestNewDataRangeManager(t *testing.T) {
-	drm := storage.NewDataRangeManager(nil)
-
-	if drm == nil {
-		t.Error("Expected DataRangeManager to be initialized")
-	}
-}
-
-func TestDataRangeManager_Acquire(t *testing.T) {
-	drm := storage.NewDataRangeManager(nil)
-
-	drm.Acquire(12345)
-
-	if usage, ok := drm.RangeUsage()[12345]; !ok || usage != 1 {
-		t.Errorf("Expected range usage for timestamp 12345 to be 1, got %d", usage)
-	}
-
-	drm.Acquire(12345)
-
-	if usage, ok := drm.RangeUsage()[12345]; !ok || usage != 2 {
-		t.Errorf("Expected range usage for timestamp 12345 to be 2, got %d", usage)
-	}
-}
-
-func TestDataRangeManager_Close(t *testing.T) {
-	drm := storage.NewDataRangeManager(nil)
-
-	err := drm.Close()
-
-	if err != nil {
-		t.Errorf("Expected Close to succeed, got error: %v", err)
-	}
-}
-
-func TestDataRangeManager_CopyRange(t *testing.T) {
+func TestDataRangeManager(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+		t.Run("TestNewDataRangeManager", func(t *testing.T) {
+			drm := storage.NewDataRangeManager(nil)
 
-		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-		)
+			if drm == nil {
+				t.Error("Expected DataRangeManager to be initialized")
+			}
+		})
 
-		r1Data := make([]byte, 4096)
+		t.Run("Acquire", func(t *testing.T) {
+			drm := storage.NewDataRangeManager(nil)
 
-		rand.Read(r1Data)
+			drm.Acquire(12345)
 
-		r1, err := drm.Get(1, time.Now().UTC().UnixNano())
+			if usage, ok := drm.RangeUsage()[12345]; !ok || usage != 1 {
+				t.Errorf("Expected range usage for timestamp 12345 to be 1, got %d", usage)
+			}
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			drm.Acquire(12345)
 
-		_, err = r1.WriteAt(1, r1Data)
+			if usage, ok := drm.RangeUsage()[12345]; !ok || usage != 2 {
+				t.Errorf("Expected range usage for timestamp 12345 to be 2, got %d", usage)
+			}
+		})
 
-		if err != nil {
-			t.Errorf("Expected WriteAt to succeed, got error: %v", err)
-		}
+		t.Run("Close", func(t *testing.T) {
+			drm := storage.NewDataRangeManager(nil)
 
-		_, err = drm.CopyRange(1, time.Now().UTC().UnixNano(), nil)
+			err := drm.Close()
 
-		if err != nil {
-			t.Errorf("Expected CopyRange to succeed, got error: %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected Close to succeed, got error: %v", err)
+			}
+		})
 
-		r2, err := drm.Get(1, time.Now().UTC().UnixNano())
+		t.Run("CopyRange", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			drm := storage.NewDataRangeManager(
+				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			)
 
-		if r1.Timestamp == r2.Timestamp {
-			t.Fatalf("Expected timestamps to differ, got %d and %d", r1.Timestamp, r2.Timestamp)
-		}
+			r1Data := make([]byte, 4096)
 
-		r2Data := make([]byte, 4096)
+			rand.Read(r1Data)
 
-		_, err = r2.ReadAt(1, r2Data)
+			r1, err := drm.Get(1, time.Now().UTC().UnixNano())
 
-		if err != nil {
-			t.Errorf("Expected ReadAt to succeed, got error: %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-		if !bytes.Equal(r1Data, r2Data) {
-			t.Errorf("Expected read data to match written data, got %s", r2Data)
-		}
+			_, err = r1.WriteAt(1, r1Data)
 
-		rand.Read(r2Data)
+			if err != nil {
+				t.Errorf("Expected WriteAt to succeed, got error: %v", err)
+			}
 
-		_, err = r2.WriteAt(1, r2Data)
+			_, err = drm.CopyRange(1, time.Now().UTC().UnixNano(), nil)
 
-		if err != nil {
-			t.Errorf("Expected WriteAt to succeed, got error: %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected CopyRange to succeed, got error: %v", err)
+			}
 
-		r12, err := drm.Get(1, r1.Timestamp)
+			r2, err := drm.Get(1, time.Now().UTC().UnixNano())
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-		if r1.Timestamp != r12.Timestamp {
-			t.Errorf("Expected timestamps to match, got %d and %d", r1.Timestamp, r12.Timestamp)
-		}
+			if r1.Timestamp == r2.Timestamp {
+				t.Fatalf("Expected timestamps to differ, got %d and %d", r1.Timestamp, r2.Timestamp)
+			}
 
-		r1Data2 := make([]byte, 4096)
+			r2Data := make([]byte, 4096)
 
-		_, err = r12.ReadAt(1, r1Data2)
+			_, err = r2.ReadAt(1, r2Data)
 
-		if err != nil {
-			t.Errorf("Expected ReadAt to succeed, got error: %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected ReadAt to succeed, got error: %v", err)
+			}
 
-		if bytes.Equal(r1Data2, r2Data) {
-			t.Errorf("Did not expect read data to match overwritten data, got %s", r1Data2)
-		}
-	})
-}
+			if !bytes.Equal(r1Data, r2Data) {
+				t.Errorf("Expected read data to match written data, got %s", r2Data)
+			}
 
-func TestDataRangeManager_Get(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			rand.Read(r2Data)
 
-		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-		)
+			_, err = r2.WriteAt(1, r2Data)
 
-		r, err := drm.Get(1, time.Now().UTC().UnixNano())
+			if err != nil {
+				t.Errorf("Expected WriteAt to succeed, got error: %v", err)
+			}
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			r12, err := drm.Get(1, r1.Timestamp)
 
-		if r == nil {
-			t.Error("Expected Get to return a Range, got nil")
-		}
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-		r, err = drm.Get(2, time.Now().UTC().UnixNano())
+			if r1.Timestamp != r12.Timestamp {
+				t.Errorf("Expected timestamps to match, got %d and %d", r1.Timestamp, r12.Timestamp)
+			}
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			r1Data2 := make([]byte, 4096)
 
-		if r == nil {
-			t.Error("Expected Get to return a Range, got nil")
-		}
-	})
-}
+			_, err = r12.ReadAt(1, r1Data2)
 
-func TestDataRangeManager_GetOldestTimestamp(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			if err != nil {
+				t.Errorf("Expected ReadAt to succeed, got error: %v", err)
+			}
 
-		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-		)
+			if bytes.Equal(r1Data2, r2Data) {
+				t.Errorf("Did not expect read data to match overwritten data, got %s", r1Data2)
+			}
+		})
 
-		drm.Acquire(12345)
-		drm.Acquire(67890)
+		t.Run("Get", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		oldest := drm.GetOldestTimestamp()
+			drm := storage.NewDataRangeManager(
+				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			)
 
-		if oldest != 12345 {
-			t.Errorf("Expected oldest timestamp to be 12345, got %d", oldest)
-		}
-	})
-}
+			r, err := drm.Get(1, time.Now().UTC().UnixNano())
 
-func TestDataRangeManager_RangeUsage(t *testing.T) {
-	drm := storage.NewDataRangeManager(nil)
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-	drm.Acquire(12345)
-	drm.Acquire(67890)
+			if r == nil {
+				t.Error("Expected Get to return a Range, got nil")
+			}
 
-	usage := drm.RangeUsage()
+			r, err = drm.Get(2, time.Now().UTC().UnixNano())
 
-	if len(usage) != 2 {
-		t.Errorf("Expected range usage map to have 2 entries, got %d", len(usage))
-	}
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-	if usage[12345] != 1 {
-		t.Errorf("Expected range usage for timestamp 12345 to be 1, got %d", usage[12345])
-	}
+			if r == nil {
+				t.Error("Expected Get to return a Range, got nil")
+			}
+		})
 
-	if usage[67890] != 1 {
-		t.Errorf("Expected range usage for timestamp 67890 to be 1, got %d", usage[67890])
-	}
-}
+		t.Run("GetOldestTimestamp", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-func TestDataRangeManager_Release(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			drm := storage.NewDataRangeManager(
+				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			)
 
-		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-		)
-		drm.Acquire(12345)
+			drm.Acquire(12345)
+			drm.Acquire(67890)
 
-		if drm.RangeUsage()[12345] != 1 {
-			t.Errorf("Expected range usage for timestamp 12345 to be 1, got %d", drm.RangeUsage()[12345])
-		}
+			oldest := drm.GetOldestTimestamp()
 
-		drm.Release(12345)
+			if oldest != 12345 {
+				t.Errorf("Expected oldest timestamp to be 12345, got %d", oldest)
+			}
+		})
 
-		if drm.RangeUsage()[12345] != 0 {
-			t.Errorf("Expected range usage for timestamp 12345 to be 0, got %d", drm.RangeUsage()[12345])
-		}
-	})
-}
+		t.Run("RangeUsage", func(t *testing.T) {
+			drm := storage.NewDataRangeManager(nil)
 
-func TestDataRangeManager_Remove(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			drm.Acquire(12345)
+			drm.Acquire(67890)
 
-		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-		)
+			usage := drm.RangeUsage()
 
-		r, err := drm.Get(12345, time.Now().UTC().UnixNano())
+			if len(usage) != 2 {
+				t.Errorf("Expected range usage map to have 2 entries, got %d", len(usage))
+			}
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			if usage[12345] != 1 {
+				t.Errorf("Expected range usage for timestamp 12345 to be 1, got %d", usage[12345])
+			}
 
-		err = drm.Remove(12345, r.Timestamp)
+			if usage[67890] != 1 {
+				t.Errorf("Expected range usage for timestamp 67890 to be 1, got %d", usage[67890])
+			}
+		})
 
-		if err != nil {
-			t.Errorf("Expected Remove to succeed, got error: %v", err)
-		}
-	})
-}
+		t.Run("Release", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-func TestDataRangeManager_RunGarbageCollection(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mock := test.MockDatabase(app)
+			drm := storage.NewDataRangeManager(
+				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			)
+			drm.Acquire(12345)
 
-		drm := storage.NewDataRangeManager(
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-		)
+			if drm.RangeUsage()[12345] != 1 {
+				t.Errorf("Expected range usage for timestamp 12345 to be 1, got %d", drm.RangeUsage()[12345])
+			}
 
-		// Create ranges with different timestamps
-		timestamp1 := time.Now().UTC().UnixNano()
-		timestamp2 := timestamp1 + 1000000 // 1ms later
-		timestamp3 := timestamp2 + 1000000 // 2ms later
+			drm.Release(12345)
 
-		// Create ranges - these should be eligible for GC
-		_, err := drm.Get(1, timestamp1)
+			if drm.RangeUsage()[12345] != 0 {
+				t.Errorf("Expected range usage for timestamp 12345 to be 0, got %d", drm.RangeUsage()[12345])
+			}
+		})
 
-		if err != nil {
-			t.Fatalf("Expected Get to succeed, got error: %v", err)
-		}
+		t.Run("Remove", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		_, err = drm.Get(2, timestamp1)
+			drm := storage.NewDataRangeManager(
+				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			)
 
-		if err != nil {
-			t.Fatalf("Expected Get to succeed, got error: %v", err)
-		}
+			r, err := drm.Get(12345, time.Now().UTC().UnixNano())
 
-		// Create a newer range that should NOT be eligible for GC
-		r3, err := drm.Get(1, timestamp3)
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected Get to succeed, got error: %v", err)
-		}
+			err = drm.Remove(12345, r.Timestamp)
 
-		// Acquire timestamp3 to make it the oldest active timestamp
-		// This means ranges with timestamp1 and timestamp2 should be garbage collected
-		drm.Acquire(timestamp3)
+			if err != nil {
+				t.Errorf("Expected Remove to succeed, got error: %v", err)
+			}
+		})
 
-		// Verify ranges exist before GC
-		rangeUsage := drm.RangeUsage()
+		t.Run("RunGarbageCollection", func(t *testing.T) {
+			mock := test.MockDatabase(app)
 
-		if rangeUsage[timestamp3] != 1 {
-			t.Errorf("Expected timestamp3 to have usage 1, got %d", rangeUsage[timestamp3])
-		}
+			drm := storage.NewDataRangeManager(
+				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			)
 
-		_, err = drm.CopyRange(1, time.Now().UTC().UnixNano(), nil) // Create another range with a new timestamp
+			// Create ranges with different timestamps
+			timestamp1 := time.Now().UTC().UnixNano()
+			timestamp2 := timestamp1 + 1000000 // 1ms later
+			timestamp3 := timestamp2 + 1000000 // 2ms later
 
-		if err != nil {
-			t.Fatalf("Expected CopyRange to succeed, got error: %v", err)
-		}
+			// Create ranges - these should be eligible for GC
+			_, err := drm.Get(1, timestamp1)
 
-		// Run garbage collection
-		err = drm.RunGarbageCollection()
+			if err != nil {
+				t.Fatalf("Expected Get to succeed, got error: %v", err)
+			}
 
-		if err != nil {
-			t.Errorf("Expected RunGarbageCollection to succeed, got error: %v", err)
-		}
+			_, err = drm.Get(2, timestamp1)
 
-		// Verify that old ranges were cleaned up
-		// The older ranges (timestamp1) should be removed, but timestamp3 should remain
-		rangeUsageAfter := drm.RangeUsage()
+			if err != nil {
+				t.Fatalf("Expected Get to succeed, got error: %v", err)
+			}
 
-		if rangeUsageAfter[timestamp3] != 1 {
-			t.Errorf("Expected timestamp3 to still have usage 1 after GC, got %d", rangeUsageAfter[timestamp3])
-		}
+			// Create a newer range that should NOT be eligible for GC
+			r3, err := drm.Get(1, timestamp3)
 
-		// Older timestamps should be cleaned up from rangeUsage
-		if _, exists := rangeUsageAfter[timestamp1]; exists {
-			t.Errorf("Expected timestamp1 to be cleaned up from rangeUsage, but it still exists")
-		}
+			if err != nil {
+				t.Fatalf("Expected Get to succeed, got error: %v", err)
+			}
 
-		// Close the remaining range manually to verify no double-close error
-		err = r3.Close()
+			// Acquire timestamp3 to make it the oldest active timestamp
+			// This means ranges with timestamp1 and timestamp2 should be garbage collected
+			drm.Acquire(timestamp3)
 
-		if err != nil {
-			t.Errorf("Expected Close to succeed, got error: %v", err)
-		}
+			// Verify ranges exist before GC
+			rangeUsage := drm.RangeUsage()
 
-		// Test edge case: GC with no active timestamps
-		drm.Release(timestamp3) // Release the last timestamp
+			if rangeUsage[timestamp3] != 1 {
+				t.Errorf("Expected timestamp3 to have usage 1, got %d", rangeUsage[timestamp3])
+			}
 
-		err = drm.RunGarbageCollection()
+			_, err = drm.CopyRange(1, time.Now().UTC().UnixNano(), nil) // Create another range with a new timestamp
 
-		if err != nil {
-			t.Errorf("Expected RunGarbageCollection with no active timestamps to succeed, got error: %v", err)
-		}
+			if err != nil {
+				t.Fatalf("Expected CopyRange to succeed, got error: %v", err)
+			}
 
-		// Ensure the resources are properly cleaned up
-		err = drm.Close()
+			// Run garbage collection
+			err = drm.RunGarbageCollection()
 
-		if err != nil {
-			t.Errorf("Expected Close to succeed, got error: %v", err)
-		}
+			if err != nil {
+				t.Errorf("Expected RunGarbageCollection to succeed, got error: %v", err)
+			}
+
+			// Verify that old ranges were cleaned up
+			// The older ranges (timestamp1) should be removed, but timestamp3 should remain
+			rangeUsageAfter := drm.RangeUsage()
+
+			if rangeUsageAfter[timestamp3] != 1 {
+				t.Errorf("Expected timestamp3 to still have usage 1 after GC, got %d", rangeUsageAfter[timestamp3])
+			}
+
+			// Older timestamps should be cleaned up from rangeUsage
+			if _, exists := rangeUsageAfter[timestamp1]; exists {
+				t.Errorf("Expected timestamp1 to be cleaned up from rangeUsage, but it still exists")
+			}
+
+			// Close the remaining range manually to verify no double-close error
+			err = r3.Close()
+
+			if err != nil {
+				t.Errorf("Expected Close to succeed, got error: %v", err)
+			}
+
+			// Test edge case: GC with no active timestamps
+			drm.Release(timestamp3) // Release the last timestamp
+
+			err = drm.RunGarbageCollection()
+
+			if err != nil {
+				t.Errorf("Expected RunGarbageCollection with no active timestamps to succeed, got error: %v", err)
+			}
+
+			// Ensure the resources are properly cleaned up
+			err = drm.Close()
+
+			if err != nil {
+				t.Errorf("Expected Close to succeed, got error: %v", err)
+			}
+		})
 	})
 }

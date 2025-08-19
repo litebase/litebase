@@ -26,7 +26,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 
 		wg := sync.WaitGroup{}
 
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -41,7 +41,7 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 				for range 10 {
 					result.Reset()
 
-					err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+					err := connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
 						err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
 							Type:  "TEXT",
 							Value: []byte("test"),
@@ -54,6 +54,8 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 						t.Error(err)
 					}
 				}
+
+				connection.GetConnection().ResultPool().Put(result)
 			}()
 		}
 

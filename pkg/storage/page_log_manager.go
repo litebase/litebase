@@ -10,6 +10,7 @@ import (
 	"github.com/litebase/litebase/pkg/file"
 )
 
+// Currently using a lower time to catch bugs and issues
 const PageLogManagerCompactionInterval = time.Second * 2
 
 // const PageLogManagerCompactionInterval = time.Second * 10
@@ -124,6 +125,7 @@ func (plm *PageLogManager) run() {
 	}
 
 	plm.running = true
+
 	defer func() {
 		plm.running = false
 	}()

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -22,6 +23,8 @@ const (
 var (
 	PageLoggerCompactInterval      = DefaultPageLoggerCompactInterval
 	pageLoggerCompactIntervalMutex sync.RWMutex
+
+	ErrCompactionInProgress = errors.New("compaction already in progress")
 )
 
 // GetPageLoggerCompactInterval returns the current page logger compact interval safely
@@ -194,7 +197,6 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 
 		if err != nil {
 			slog.Error("Error compacting page log:", "error", err)
-			// return err
 		}
 	}
 
@@ -242,6 +244,18 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 // Create a barrier for compaction operations. This ensures that only one
 // compaction operation can run at a time.
 func (pl *PageLogger) CompactionBarrier(f func() error) error {
+	if !pl.compactionMutex.TryLock() {
+		return ErrCompactionInProgress
+	}
+
+	defer pl.compactionMutex.Unlock()
+
+	return f()
+}
+
+// Create a passive barrier for compaction operations. This ensures that only one
+// compaction operation can run at a time.
+func (pl *PageLogger) CompactionPassiveBarrier(f func() error) error {
 	pl.compactionMutex.Lock()
 	defer pl.compactionMutex.Unlock()
 
@@ -558,6 +572,31 @@ func (pl *PageLogger) Tombstone(timestamp int64) error {
 
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+// Tombstone all timestamps after a specific timestamp in all page logs. This
+// operation may need to be performed when copying a set of page logs that are
+// part of a restore.
+func (pl *PageLogger) TombstoneAfter(timestamp int64) error {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	// Iterate through all page groups and their versions
+	for _, groupVersions := range pl.logs {
+		for _, pageLog := range groupVersions {
+			// For each page log, tombstone entries that are after the timestamp
+			// The pageGroupVersion is just the organizing timestamp for the log file,
+			// but individual entries within the log can have different timestamps
+			err := pageLog.TombstoneAfterTimestamp(PageVersion(timestamp))
+
+			if err != nil {
+				slog.Error("Error tombstoning entries after timestamp in page log", "error", err)
+				return err
+			}
 		}
 	}
 
