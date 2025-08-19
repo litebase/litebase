@@ -12,8 +12,10 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
+	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
@@ -32,14 +34,14 @@ var (
 )
 
 type Cluster struct {
-	Auth               *auth.Auth             `json:"-"`
-	AccessKeyManager   *auth.AccessKeyManager `json:"-"`
-	Config             *config.Config         `json:"-"`
+	Auth               *auth.Auth     `json:"-"`
+	Config             *config.Config `json:"-"`
 	eventsChannel      chan *EventMessage
 	eventsManager      *EventsManager
 	fileSystemMutex    *sync.Mutex
 	Initialized        bool   `json:"-"`
 	Id                 string `json:"id"`
+	locks              map[string]internalStorage.File
 	QueryPrimary       string `json:"-"`
 	nodes              []*NodeIdentifier
 	MembersRetrievedAt time.Time `json:"-"`
@@ -110,6 +112,7 @@ func NewCluster(config *config.Config) (*Cluster, error) {
 		Config:          config,
 		eventsChannel:   make(chan *EventMessage, 1000),
 		fileSystemMutex: &sync.Mutex{},
+		locks:           map[string]internalStorage.File{},
 		mutex:           &sync.Mutex{},
 		subscriptions:   map[string][]EventHandler{},
 	}
@@ -268,7 +271,64 @@ func (cluster *Cluster) IsMember(address string, since time.Time) bool {
 func (cluster *Cluster) IsSingleNodeCluster() bool {
 	cluster.GetMembers(true)
 
+	cluster.mutex.Lock()
+	defer cluster.mutex.Unlock()
+
 	return len(cluster.nodes) == 1 && cluster.nodes[0].Address == cluster.node.address
+}
+
+// Return the path to the lease file for the cluster, in respect to the node type.
+func (cluster *Cluster) LeasePath() string {
+	return fmt.Sprintf("_cluster/%s", LeaseFile)
+}
+
+// Lock a key for exclusive access at the cluster level.
+func (c *Cluster) Lock(key string) bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+openFile:
+	// Open the lock file on the network file system
+	lockFile, err := c.NetworkFS().OpenFile(c.lockPath(key), os.O_CREATE|os.O_RDWR, 0600)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Create the lock file if it doesn't exist
+			err = c.NetworkFS().MkdirAll(filepath.Dir(c.lockPath(key)), 0750)
+
+			if err != nil {
+				slog.Error("Error creating lock file", "error", err)
+				return false
+			}
+
+			goto openFile
+		}
+
+		slog.Error("Error opening lock file", "error", err)
+
+		return false
+	}
+
+	file, ok := lockFile.(*os.File)
+
+	if !ok {
+		slog.Error("Lock file is not an *os.File, cannot flock", "type", fmt.Sprintf("%T", lockFile))
+		return false
+	}
+
+	// Try to lock the file using syscall.Flock
+	if err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return false
+	}
+
+	c.locks[key] = lockFile
+
+	return true
+}
+
+// Return the path to the lock file shared by the cluster.
+func (cluster *Cluster) lockPath(lockKey string) string {
+	return fmt.Sprintf("_cluster/locks/%s", lockKey)
 }
 
 func (c *Cluster) Node() *Node {
@@ -284,6 +344,9 @@ func (c *Cluster) Node() *Node {
 
 func (c *Cluster) Nodes() []*NodeIdentifier {
 	c.GetMembers(true)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	return c.nodes
 }
@@ -351,11 +414,6 @@ func (cluster *Cluster) RemoveMember(address string, removeHardState bool) error
 	return nil
 }
 
-// Return the path to the lease file for the cluster, in respect to the node type.
-func (cluster *Cluster) LeasePath() string {
-	return fmt.Sprintf("_cluster/%s", LeaseFile)
-}
-
 // Return the path to the current node in repsect to the node type.
 func (cluster *Cluster) NodePath() string {
 	return "_nodes/"
@@ -392,6 +450,36 @@ writefile:
 	}
 
 	return nil
+}
+
+// Unlock a lock that has been acquired.
+func (cluster *Cluster) Unlock(key string) bool {
+	cluster.mutex.Lock()
+	defer cluster.mutex.Unlock()
+
+	lockFile, ok := cluster.locks[key]
+
+	if !ok {
+		slog.Error("No lock found for key", "key", key)
+
+		return false
+	}
+
+	delete(cluster.locks, key)
+
+	file, ok := lockFile.(*os.File)
+
+	if !ok {
+		slog.Error("Lock file is not an *os.File, cannot unlock", "type", fmt.Sprintf("%T", lockFile))
+
+		return false
+	}
+
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_UN); err != nil {
+		return false
+	}
+
+	return true
 }
 
 // Return the path to the cluster configuration file.

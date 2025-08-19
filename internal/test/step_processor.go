@@ -509,6 +509,9 @@ func (sp *StepProcessor) Start(t *testing.T) {
 		t.Errorf("Timeout waiting for all processes to connect (connected %d/%d: %v)",
 			len(connectedProcesses), len(sp.expectedProcesses), connectedProcesses)
 
+		sp.stepMutex.Lock()
+		defer sp.stepMutex.Unlock()
+
 		// Kill any processes that may have started but not connected
 		for _, test := range sp.tests {
 			if test.cmd != nil && test.cmd.Process != nil {

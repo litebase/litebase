@@ -108,7 +108,7 @@ func (lm *LogManager) Query(entry QueryLogEntry) error {
 	}
 
 	go l.Write(
-		entry.AccessKeyID,
+		entry.CredentialID,
 		entry.Statement,
 		entry.Latency,
 	)
@@ -133,7 +133,11 @@ func (lm *LogManager) Run() {
 
 			// Close query logs that have not been used in the last 5 minutes.
 			for _, l := range lm.queryLogs {
-				if time.Since(l.lastLoggedTime) > QueryLogManagerFlushThreshold {
+				l.mutex.Lock()
+				sinceLastLogged := time.Since(l.lastLoggedTime)
+				l.mutex.Unlock()
+
+				if sinceLastLogged > QueryLogManagerFlushThreshold {
 					err := l.Close()
 
 					if err != nil {

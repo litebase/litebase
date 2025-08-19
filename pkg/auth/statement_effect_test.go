@@ -6,7 +6,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-func TestAccessKeyEffect(t *testing.T) {
+func TestStatementEffect(t *testing.T) {
 	tests := []struct {
 		name     string
 		effect   string
@@ -19,7 +19,7 @@ func TestAccessKeyEffect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			effect := auth.AccessKeyEffect(tt.effect)
+			effect := auth.StatementEffect(tt.effect)
 
 			if got := effect.IsValid(); got != tt.expected {
 				t.Errorf("IsValid() = %v, want %v", got, tt.expected)

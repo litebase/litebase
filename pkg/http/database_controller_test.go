@@ -17,7 +17,7 @@ func TestDatabaseControllerIndex(t *testing.T) {
 			test.MockDatabase(server.App)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeList},
@@ -61,7 +61,7 @@ func TestDatabaseControllerShow(t *testing.T) {
 
 		database := test.MockDatabase(server.App)
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
@@ -102,7 +102,7 @@ func TestDatabaseControllerStore(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
@@ -148,7 +148,7 @@ func TestDatabaseControllerStore_WithInvalidName(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
@@ -181,7 +181,7 @@ func TestDatabaseControllerStore_WithSameNameFails(t *testing.T) {
 			t.Fatalf("failed to get mock database: %v", err)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
@@ -223,7 +223,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 
 			mock := test.MockDatabase(server.App)
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+			client := server.WithAccessKeyClient([]auth.Statement{{
 				Effect:   "Allow",
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
@@ -256,7 +256,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 			server := test.NewTestServer(t)
 			defer server.Shutdown()
 
-			client := server.WithAccessKeyClient([]auth.AccessKeyStatement{{
+			client := server.WithAccessKeyClient([]auth.Statement{{
 				Effect:   "Allow",
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},

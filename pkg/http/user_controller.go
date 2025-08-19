@@ -1,6 +1,7 @@
 package http
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -17,7 +18,7 @@ func UserControllerIndex(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	users := request.cluster.Auth.UserManager().All()
+	users := request.cluster.Auth.UserManager.All()
 
 	userResponses := make([]*auth.UserResponse, 0, len(users))
 
@@ -39,9 +40,9 @@ func UserControllerIndex(request *Request) Response {
 }
 
 type UserControllerStoreRequest struct {
-	Username   string                    `json:"username" validate:"required"`
-	Password   string                    `json:"password" validate:"required,min=8"`
-	Statements []auth.AccessKeyStatement `json:"statements" validate:"required"`
+	Username   string           `json:"username" validate:"required"`
+	Password   string           `json:"password" validate:"required,min=8"`
+	Statements []auth.Statement `json:"statements" validate:"required"`
 }
 
 func UserControllerShow(request *Request) Response {
@@ -57,9 +58,9 @@ func UserControllerShow(request *Request) Response {
 
 	username := request.Param("username")
 
-	user := request.cluster.Auth.UserManager().Get(username)
+	user, err := request.cluster.Auth.UserManager.Get(username)
 
-	if user == nil {
+	if err != nil {
 		return NotFoundResponse(fmt.Errorf("the user was not found"))
 	}
 
@@ -117,15 +118,22 @@ func UserControllerStore(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the username is invalid, 'root' is reserved"))
 	}
 
-	if request.cluster.Auth.UserManager().Get(input.(*UserControllerStoreRequest).Username) != nil {
+	user, err := request.cluster.Auth.UserManager.Get(input.(*UserControllerStoreRequest).Username)
+
+	if err != nil && err != auth.ErrUserNotFound {
+		return ServerErrorResponse(fmt.Errorf("failed to check if user exists: %w", err))
+	}
+
+	if user != nil {
 		return BadRequestResponse(fmt.Errorf("the username already exists"))
 	}
 
 	data := input.(*UserControllerStoreRequest)
 
-	user, err := request.cluster.Auth.UserManager().Add(
+	user, err = request.cluster.Auth.UserManager.Create(
 		data.Username,
 		data.Password,
+		"",
 		data.Statements,
 	)
 
@@ -149,7 +157,7 @@ func UserControllerStore(request *Request) Response {
 }
 
 type UserControllerUpdateRequest struct {
-	Statements []auth.AccessKeyStatement `json:"statements" validate:"required"`
+	Statements []auth.Statement `json:"statements" validate:"required"`
 }
 
 func UserControllerUpdate(request *Request) Response {
@@ -165,10 +173,14 @@ func UserControllerUpdate(request *Request) Response {
 
 	username := request.Param("username")
 
-	user := request.cluster.Auth.UserManager().Get(username)
+	user, err := request.cluster.Auth.UserManager.Get(username)
 
-	if user == nil {
-		return NotFoundResponse(fmt.Errorf("the user was not found"))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return NotFoundResponse(fmt.Errorf("the user was not found"))
+		}
+
+		return ServerErrorResponse(fmt.Errorf("failed to retrieve user: %w", err))
 	}
 
 	input, err := request.Input(&UserControllerUpdateRequest{})
@@ -198,7 +210,7 @@ func UserControllerUpdate(request *Request) Response {
 	// Update the user
 	user.Statements = data.Statements
 
-	if err := request.cluster.Auth.UserManager().Update(user); err != nil {
+	if err := request.cluster.Auth.UserManager.Update(user); err != nil {
 		return ServerErrorResponse(err)
 	}
 
@@ -226,11 +238,23 @@ func UserControllerDestroy(request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the root user cannot be deleted"))
 	}
 
-	if request.cluster.Auth.UserManager().Get(username) == nil {
-		return BadRequestResponse(fmt.Errorf("the username is invalid"))
+	credential := request.Credential()
+
+	if credential.IsBasicAuth() && credential.User().Username == username {
+		return ForbiddenResponse(fmt.Errorf("the user cannot be deleted"))
 	}
 
-	err = request.cluster.Auth.UserManager().Remove(username)
+	_, err = request.cluster.Auth.UserManager.Get(username)
+
+	if err != nil {
+		if err == auth.ErrUserNotFound {
+			return NotFoundResponse(fmt.Errorf("the user was not found"))
+		}
+
+		return ServerErrorResponse(fmt.Errorf("failed to retrieve user: %w", err))
+	}
+
+	err = request.cluster.Auth.UserManager.Remove(username)
 
 	if err != nil {
 		return ServerErrorResponse(err)

@@ -14,12 +14,12 @@ func TestAccessKeyUpdate(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			WithAccessKey([]auth.Statement{
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		accessKey, err := server.App.Auth.AccessKeyManager.Create("Test access key", []auth.AccessKeyStatement{
-			{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+		accessKey, err := server.App.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{
+			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
 		if err != nil {

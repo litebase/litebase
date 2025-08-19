@@ -38,8 +38,8 @@ func (n *Node) HandleMessage(message messages.NodeMessage) (messages.NodeMessage
 	}, nil
 }
 
-func (n *Node) handleBroadcastMessage(message interface{}) (interface{}, error) {
-	var responseMessage interface{}
+func (n *Node) handleBroadcastMessage(message any) (any, error) {
+	var responseMessage any
 	var err error
 
 	switch message := message.(type) {
@@ -51,7 +51,10 @@ func (n *Node) handleBroadcastMessage(message interface{}) (interface{}, error) 
 		err = n.walSynchronizer.SetWALIndexHeader(
 			message.DatabaseID,
 			message.BranchID,
-			message.Header,
+			message.DatabaseHash,
+			message.NodeHash,
+			message.Timestamp,
+			message.WALIndexHeader,
 		)
 	case messages.WALIndexTimestampMessage:
 		log.Println("Received WAL index timestamp message")
@@ -100,7 +103,10 @@ func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) any {
 
 	if !n.IsPrimary() {
 		if message.Time > n.PrimaryHeartbeat.Unix() {
+			n.mutex.Lock()
 			n.PrimaryHeartbeat = time.Unix(message.Time, 0).UTC()
+			n.mutex.Unlock()
+
 			responseMessage.Time = n.PrimaryHeartbeat.Unix()
 		}
 	}
@@ -111,7 +117,8 @@ func (n *Node) handleHeartbeatMessage(message messages.HeartbeatMessage) any {
 // Handle a query message from a replica node.
 func (n *Node) handleQueryMessage(message messages.QueryMessage) interface{} {
 	query, err := n.queryBuilder.Build(
-		message.AccessKeyID,
+		message.CredentialID,
+		message.CredentialScheme,
 		message.DatabaseID,
 		message.DatabaseName,
 		message.BranchID,

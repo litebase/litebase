@@ -23,7 +23,7 @@ type UserInput struct {
 }
 
 type UserInputStatement struct {
-	Effect   auth.AccessKeyEffect `json:"effect"`
+	Effect   auth.StatementEffect `json:"effect"`
 	Resource string               `json:"resource"`
 	Actions  []string             `json:"actions"`
 }
@@ -40,7 +40,7 @@ func NewUserCreateCmd(config *config.Configuration) *cobra.Command {
 				Password: "",
 				Statements: []UserInputStatement{
 					{
-						Effect:   auth.AccessKeyEffectAllow,
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []string{string(auth.ClusterPrivilegeManage)},
 					},

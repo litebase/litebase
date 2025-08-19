@@ -19,13 +19,13 @@ func QueryController(request *Request) Response {
 		return errResponse
 	}
 
-	requestToken := request.RequestToken("Authorization")
+	credential := request.Credential()
 
-	if !requestToken.Valid() {
+	if !credential.Valid() {
 		return ErrInvalidAccessKeyResponse
 	}
 
-	accessKey := requestToken.AccessKey()
+	accessKey := credential.AccessKey()
 
 	if accessKey == nil {
 		return ErrInvalidAccessKeyResponse
@@ -84,7 +84,7 @@ func QueryController(request *Request) Response {
 			request.databaseManager,
 			request.logManager,
 			databaseKey,
-			accessKey,
+			credential,
 			query,
 		)
 
@@ -103,7 +103,7 @@ func QueryController(request *Request) Response {
 				return ServerErrorResponse(err)
 			}
 
-			if accessKey.AccessKeyID != transaction.AccessKey.AccessKeyID {
+			if transaction.Credential != nil && credential.CredentialID != transaction.Credential.CredentialID {
 				return ErrInvalidAccessKeyResponse
 			}
 

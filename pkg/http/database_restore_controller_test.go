@@ -103,7 +103,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		}
 
 		// Get a new connection for the HTTP request verification
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -321,7 +321,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 		}
 
 		// Get a single client for all HTTP requests
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

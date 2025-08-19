@@ -147,7 +147,9 @@ func (c *Cluster) runEventLoop() {
 	go func() {
 		defer func() {
 			close(c.eventsChannel)
+			c.mutex.Lock()
 			c.eventsChannel = nil
+			c.mutex.Unlock()
 		}()
 
 		if c.Node() == nil {

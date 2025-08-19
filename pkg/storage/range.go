@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -89,7 +90,7 @@ func (dr *Range) Delete() error {
 	err := dr.fs.Remove(dr.Path())
 
 	if err != nil {
-		log.Println("Error removing range file", err)
+		slog.Debug("Error removing range file", "error", err)
 
 		return err
 	}

@@ -15,7 +15,7 @@ func TestClusterStatusController(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		client := server2.WithAccessKeyClient([]auth.AccessKeyStatement{})
+		client := server2.WithAccessKeyClient([]auth.Statement{})
 
 		data, statusCode, err := client.Send("/v1/status", "GET", nil)
 

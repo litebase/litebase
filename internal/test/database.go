@@ -21,7 +21,7 @@ type TestDatabase struct {
 	DatabaseBranchID string
 	DatabaseKey      *auth.DatabaseKey
 	DatabaseName     string
-	AccessKey        *auth.AccessKey
+	Credential       *auth.Credential
 }
 
 type TestDatabaseAuthorizationCommand struct {
@@ -44,21 +44,13 @@ func CreateHash(length int) string {
 }
 
 func MockDatabase(app *server.App) TestDatabase {
-	accessKeyId := CreateHash(32)
-
-	accessKey := &auth.AccessKey{
-		AccessKeyID:     accessKeyId,
-		AccessKeySecret: "accessKeySecret",
-		Statements: []auth.AccessKeyStatement{
-			{
-				Effect:   auth.AccessKeyEffectAllow,
-				Resource: "*",
-				Actions:  []auth.Privilege{"*"},
-			},
+	accessKey, err := app.Auth.AccessKeyManager.Create("", []auth.Statement{
+		{
+			Effect:   auth.StatementEffectAllow,
+			Resource: "*",
+			Actions:  []auth.Privilege{"*"},
 		},
-	}
-
-	err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
+	})
 
 	if err != nil {
 		log.Fatal(err)
@@ -71,6 +63,9 @@ func MockDatabase(app *server.App) TestDatabase {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	credential := &auth.Credential{}
+	credential.WithAccessKey(accessKey)
 
 	return TestDatabase{
 		ID:               db.ID,
@@ -86,7 +81,6 @@ func MockDatabase(app *server.App) TestDatabase {
 			DatabaseBranchName: db.PrimaryBranch().Name,
 		},
 		DatabaseName: db.Name,
-
-		AccessKey: accessKey,
+		Credential:   credential,
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -24,6 +23,7 @@ const NodeConnectionInactiveTimeout = 5 * time.Second
 type NodeConnection struct {
 	Address         string
 	cancel          context.CancelFunc
+	connectionMutex *sync.Mutex
 	connected       chan struct{}
 	connecting      bool
 	context         context.Context
@@ -34,7 +34,7 @@ type NodeConnection struct {
 	node            *Node
 	open            bool
 	reader          *io.PipeReader
-	response        chan interface{}
+	response        chan any
 	writer          *io.PipeWriter
 	writeBuffer     *bufio.Writer
 }
@@ -42,6 +42,7 @@ type NodeConnection struct {
 func NewNodeConnection(node *Node, address string) *NodeConnection {
 	return &NodeConnection{
 		Address:         address,
+		connectionMutex: &sync.Mutex{},
 		connected:       make(chan struct{}),
 		connecting:      false,
 		errorChan:       make(chan error),
@@ -70,6 +71,13 @@ func (nc *NodeConnection) Close() error {
 // Close the connection to the node. This is done without a mutex lock so it can be
 // called from within a mutex lock.
 func (nc *NodeConnection) closeConnection() {
+	nc.connectionMutex.Lock()
+	defer nc.connectionMutex.Unlock()
+
+	if !nc.open && !nc.connecting {
+		return
+	}
+
 	nc.open = false
 	nc.connecting = false
 
@@ -186,7 +194,7 @@ func (nc *NodeConnection) createHTTPClient() {
 func (nc *NodeConnection) handleError(err error) {
 	if err != nil {
 		if err != io.ErrUnexpectedEOF {
-			// log.Println(err)
+			slog.Debug("Node connection error", "node", nc.Address, "error", err)
 		}
 	}
 
@@ -195,16 +203,16 @@ func (nc *NodeConnection) handleError(err error) {
 
 // Handle the response from the node.
 func (nc *NodeConnection) handleResponse(response *http.Response) {
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		nc.handleError(fmt.Errorf("failed to connect to node: %s", response.Status))
 		return
 	}
 
-	go nc.read(response.Body)
+	defer response.Body.Close()
 
 	nc.inactiveTimeout = time.NewTimer(NodeConnectionInactiveTimeout)
+
+	go nc.read(response.Body)
 
 readMessages:
 	for {
@@ -235,7 +243,10 @@ func (nc *NodeConnection) read(reader io.Reader) {
 			err := decoder.Decode(&response)
 
 			if err != nil {
+				nc.mutex.Lock()
 				nc.handleError(err)
+				nc.mutex.Unlock()
+
 				return
 			}
 
@@ -278,20 +289,23 @@ func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error
 	err := encoder.Encode(&message)
 
 	if err != nil {
-		log.Println("failed to encode message: ", err)
+		slog.Debug("failed to encode message", "error", err)
 		nc.closeConnection()
+
 		return nil, err
 	}
 
 	err = nc.writeBuffer.Flush()
 
 	if err != nil {
-		log.Println("failed to flush request: ", err)
+		slog.Debug("failed to flush request", "error", err)
 		nc.closeConnection()
+
 		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(nc.context, 3*time.Second)
+
 	defer cancel()
 
 	for {
@@ -312,9 +326,14 @@ func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error
 
 // Write the connection request to the node to establish the connection.
 func (nc *NodeConnection) writeConnectionRequest() {
+	nc.connectionMutex.Lock()
+
 	if nc.writer == nil {
+		nc.connectionMutex.Unlock()
 		return
 	}
+
+	nc.connectionMutex.Unlock()
 
 	address, _ := nc.node.Address()
 

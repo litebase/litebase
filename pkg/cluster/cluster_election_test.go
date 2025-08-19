@@ -122,7 +122,7 @@ func TestClusterElection(t *testing.T) {
 								var allObservedPrimary bool = true
 
 								for _, s := range servers {
-									if s.App.Cluster.Node().Membership == cluster.ClusterMembershipPrimary {
+									if s.App.Cluster.Node().GetMembership() == cluster.ClusterMembershipPrimary {
 										electedCount++
 										primaryAddress = s.App.Cluster.Node().PrimaryAddress()
 									}
@@ -130,7 +130,7 @@ func TestClusterElection(t *testing.T) {
 
 								if electedCount == 1 && primaryAddress != "" {
 									for _, s := range servers {
-										if s.App.Cluster.Node().Membership != cluster.ClusterMembershipPrimary {
+										if s.App.Cluster.Node().GetMembership() != cluster.ClusterMembershipPrimary {
 											if s.App.Cluster.Node().PrimaryAddress() != primaryAddress {
 												allObservedPrimary = false
 												break

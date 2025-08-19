@@ -3,42 +3,57 @@ package http
 import (
 	"strconv"
 	"time"
+
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 func basicAuth(request *Request) bool {
 	username, password, ok := request.BaseRequest.BasicAuth()
 
 	if ok {
-		return request.cluster.Auth.UserManager().Authenticate(username, password)
+		return request.cluster.Auth.UserManager.Authenticate(username, password)
 	}
 
 	return false
 }
 
+func tokenAuth(credential *auth.Credential) bool {
+	token := credential.Token()
+
+	if token == nil {
+		return false
+	}
+
+	return token.Authenticate(credential.CredentialString)
+}
+
 func Authentication(request *Request) (*Request, Response) {
-	if basicAuth(request) {
-		return request, Response{}
+	credential := request.Credential()
+
+	if credential == nil {
+		return request, UnauthorizedResponse()
 	}
 
-	if !ensureRequestHasAnAuthorizationHeader(request) ||
-		!ensureRequestIsProperlySigned(request) {
-		return request, Response{
-			StatusCode: 401,
-			Body: map[string]any{
-				"status":  "error",
-				"message": "Unauthorized",
-			},
+	switch credential.Type() {
+	case auth.CredentialTypeBasicAuth:
+		if !basicAuth(request) {
+			return request, UnauthorizedResponse()
 		}
-	}
+	case auth.CredentialTypeToken:
+		if !tokenAuth(credential) {
+			return request, UnauthorizedResponse()
+		}
+	case auth.CredentialTypeAccessKey:
+		if !ensureRequestHasAnAuthorizationHeader(request) ||
+			!ensureRequestIsProperlySigned(request) {
+			return request, UnauthorizedResponse()
+		}
 
-	if !ensureRequestIsNotExpired(request) {
-		return request, Response{
-			StatusCode: 401,
-			Body: map[string]any{
-				"status":  "error",
-				"message": "Unauthorized",
-			},
+		if !ensureRequestIsNotExpired(request) {
+			return request, UnauthorizedResponse()
 		}
+	default:
+		return request, UnauthorizedResponse()
 	}
 
 	return request, Response{}
@@ -67,5 +82,5 @@ func ensureRequestIsNotExpired(request *Request) bool {
 }
 
 func ensureRequestIsProperlySigned(request *Request) bool {
-	return RequestSignatureValidator(request, "Authorization")
+	return RequestSignatureValidator(request)
 }

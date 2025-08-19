@@ -7,13 +7,12 @@ import (
 )
 
 type ClientConnection struct {
-	accessKey  *auth.AccessKey
 	BranchID   string
 	connection *DatabaseConnection
 	DatabaseID string
-	path       string
 }
 
+// Create a new instance of a ClientConnection.
 func NewClientConnection(
 	connectionManager *ConnectionManager,
 	databaseId string,
@@ -36,10 +35,12 @@ func NewClientConnection(
 	}, nil
 }
 
+// Checkpoint the client connection.
 func (d *ClientConnection) Checkpoint() error {
 	return d.connection.Checkpoint()
 }
 
+// Close the client connection.
 func (d *ClientConnection) Close() {
 	if d == nil || d.connection == nil {
 		return
@@ -61,13 +62,9 @@ func (d *ClientConnection) GetConnection() *DatabaseConnection {
 	return d.connection
 }
 
-func (d *ClientConnection) Path() string {
-	return d.path
-}
-
-func (d *ClientConnection) WithAccessKey(accessKey *auth.AccessKey) *ClientConnection {
-	d.accessKey = accessKey
-	d.connection.WithAccessKey(accessKey)
+// Set an access key for the client connection.
+func (d *ClientConnection) WithCredential(credential *auth.Credential) *ClientConnection {
+	d.connection.WithCredential(credential)
 
 	return d
 }

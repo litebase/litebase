@@ -1,33 +1,28 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/json"
-	"fmt"
-	"log"
 	"log/slog"
-	"os"
 	"time"
 )
 
 type AccessKey struct {
-	AccessKeyID      string `json:"access_key_id"`
-	AccessKeySecret  string `json:"access_key_secret"`
-	Description      string `json:"description"`
-	accessKeyManager *AccessKeyManager
-	CreatedAt        time.Time            `json:"created_at"`
-	UpdatedAt        time.Time            `json:"updated_at"`
-	Statements       []AccessKeyStatement `json:"statements"`
+	ID              int64       `json:"id"`
+	AccessKeyID     string      `json:"access_key_id"`
+	AccessKeySecret string      `json:"access_key_secret"`
+	Description     string      `json:"description"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	Statements      []Statement `json:"statements"`
 
-	hash [32]byte
+	AccessKeyManager *AccessKeyManager `json:"-"`
 }
 
 type AccessKeyResponse struct {
-	AccessKeyID string               `json:"access_key_id"`
-	Description string               `json:"description"`
-	CreatedAt   time.Time            `json:"created_at"`
-	UpdatedAt   time.Time            `json:"updated_at"`
-	Statements  []AccessKeyStatement `json:"statements"`
+	AccessKeyID string      `json:"access_key_id"`
+	Description string      `json:"description"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+	Statements  []Statement `json:"statements"`
 }
 
 // Create a new AccessKey instance.
@@ -36,10 +31,10 @@ func NewAccessKey(
 	accessKeyId string,
 	accessKeySecret string,
 	description string,
-	statements []AccessKeyStatement,
+	statements []Statement,
 ) *AccessKey {
 	return &AccessKey{
-		accessKeyManager: accessKeyManager,
+		AccessKeyManager: accessKeyManager,
 		AccessKeyID:      accessKeyId,
 		AccessKeySecret:  accessKeySecret,
 		Description:      description,
@@ -65,46 +60,29 @@ func (accessKey *AccessKey) AuthorizeForResource(resources []string, actions []P
 	return hasAuthorization
 }
 
-// Delete the AccessKey from the filesystem.
+// Delete the AccessKey from storage.
 func (accessKey *AccessKey) Delete() error {
-	keys := AllKeys(
-		accessKey.accessKeyManager.objectFS,
-	)
+	err := accessKey.AccessKeyManager.accessKeyStorage.Delete(accessKey.AccessKeyID)
 
-	for _, key := range keys {
-		path := fmt.Sprintf("%s/access_keys/%s", key, accessKey.AccessKeyID)
-
-		err := accessKey.accessKeyManager.objectFS.Remove(path)
-
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		}
+	if err != nil {
+		return err
 	}
 
-	err := accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
+	err = accessKey.AccessKeyManager.Purge(accessKey.AccessKeyID)
 
 	if err != nil {
 		slog.Error("failed to purge access key", "error", err)
 	}
 
-	accessKey = nil
-
 	return nil
 }
 
-// Return the hash of the AccessKey.
-func (accessKey *AccessKey) Hash() [32]byte {
-	if accessKey.hash != [32]byte{} {
-		return accessKey.hash
-	}
-
-	accessKey.updateHash()
-
-	return accessKey.hash
+// Rotate the access key.
+func (accessKey *AccessKey) Rotate() error {
+	return accessKey.AccessKeyManager.accessKeyStorage.UpdateNext(accessKey)
 }
 
+// Return the response representation of the AccessKey.
 func (accessKey *AccessKey) ToResponse() *AccessKeyResponse {
 	return &AccessKeyResponse{
 		AccessKeyID: accessKey.AccessKeyID,
@@ -118,54 +96,17 @@ func (accessKey *AccessKey) ToResponse() *AccessKeyResponse {
 // Update the AccessKey statements.
 func (accessKey *AccessKey) Update(
 	description string,
-	statements []AccessKeyStatement,
+	statements []Statement,
 ) error {
 	accessKey.Description = description
 	accessKey.Statements = statements
 	accessKey.UpdatedAt = time.Now().UTC()
 
-	jsonValue, err := json.Marshal(accessKey)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	encryptedAccessKey, err := accessKey.accessKeyManager.auth.SecretsManager.Encrypt(
-		accessKey.accessKeyManager.config.EncryptionKey,
-		jsonValue,
-	)
+	err := accessKey.AccessKeyManager.accessKeyStorage.Update(accessKey)
 
 	if err != nil {
 		return err
 	}
 
-	err = accessKey.accessKeyManager.objectFS.WriteFile(
-		accessKey.accessKeyManager.auth.SecretsManager.SecretsPath(
-			accessKey.accessKeyManager.config.EncryptionKey,
-			fmt.Sprintf("access_keys/%s", accessKey.AccessKeyID),
-		),
-		[]byte(encryptedAccessKey),
-		0600,
-	)
-
-	if err != nil {
-		log.Println(err)
-
-		return err
-	}
-
-	accessKey.updateHash()
-
-	return accessKey.accessKeyManager.Purge(accessKey.AccessKeyID)
-}
-
-// Update the internal hash of the access key.
-func (accessKey *AccessKey) updateHash() {
-	jsonBytes, err := json.Marshal(accessKey)
-	if err != nil {
-		return
-	}
-
-	accessKey.hash = sha256.Sum256(jsonBytes)
+	return accessKey.AccessKeyManager.Purge(accessKey.AccessKeyID)
 }

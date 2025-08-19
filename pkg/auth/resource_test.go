@@ -6,7 +6,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-func TestAccessKeyResource(t *testing.T) {
+func TestResource(t *testing.T) {
 	tests := []struct {
 		name     string
 		resource string
@@ -21,7 +21,7 @@ func TestAccessKeyResource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resource := auth.AccessKeyResource(tt.resource)
+			resource := auth.Resource(tt.resource)
 
 			if got := resource.IsValid(); got != tt.expected {
 				t.Errorf("IsValid() = %v, want %v", got, tt.expected)

@@ -11,7 +11,7 @@ import (
 )
 
 func ClusterPrimaryController(request *Request) Response {
-	if request.cluster.Node().Membership != cluster.ClusterMembershipPrimary {
+	if request.cluster.Node().GetMembership() != cluster.ClusterMembershipPrimary {
 		return ForbiddenResponse(errors.New("not a primary node"))
 	}
 

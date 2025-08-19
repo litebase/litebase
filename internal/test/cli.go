@@ -122,7 +122,7 @@ func (c *TestCLI) Sees(text string) bool {
 }
 
 // WithAccessKey sets the access key for the CLI and updates the flags
-func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
+func (c *TestCLI) WithAccessKey(statements []auth.Statement) *TestCLI {
 	accessKey, err := c.App.Auth.AccessKeyManager.Create("Test access key", statements)
 
 	if err != nil {
@@ -147,8 +147,8 @@ func (c *TestCLI) WithAccessKey(statements []auth.AccessKeyStatement) *TestCLI {
 }
 
 // WithBasicAuth sets the username and password for basic authentication
-func (c *TestCLI) WithBasicAuth(username, password string, statements []auth.AccessKeyStatement) *TestCLI {
-	_, err := c.App.Auth.UserManager().Add(username, password, statements)
+func (c *TestCLI) WithBasicAuth(username, password string, statements []auth.Statement) *TestCLI {
+	_, err := c.App.Auth.UserManager.Create(username, password, "", statements)
 
 	if err != nil {
 		panic(err)

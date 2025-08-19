@@ -39,8 +39,8 @@ func TestRequestSignatureValidator_ValidSignature(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -57,7 +57,7 @@ func TestRequestSignatureValidator_ValidSignature(t *testing.T) {
 				Host: databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization": {token},
+				"Authorization": {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 			},
 		}
 
@@ -70,7 +70,7 @@ func TestRequestSignatureValidator_ValidSignature(t *testing.T) {
 		)
 
 		// Test signature validation
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected valid signature to pass validation")
@@ -95,8 +95,8 @@ func TestRequestSignatureValidator_InvalidSignature(t *testing.T) {
 
 		// Generate valid signature for original body
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -114,7 +114,7 @@ func TestRequestSignatureValidator_InvalidSignature(t *testing.T) {
 				Host: databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization":  {token},
+				"Authorization":  {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 				"Content-Type":   {"application/json"},
 				"Content-Length": {"30"},
 			},
@@ -131,7 +131,7 @@ func TestRequestSignatureValidator_InvalidSignature(t *testing.T) {
 		)
 
 		// Test signature validation
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if isValid {
 			t.Error("Expected invalid signature to fail validation")
@@ -157,8 +157,8 @@ func TestRequestSignatureValidator_NoContentLength(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -176,7 +176,7 @@ func TestRequestSignatureValidator_NoContentLength(t *testing.T) {
 				Host:     databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization": {token},
+				"Authorization": {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 			},
 		}
 
@@ -188,7 +188,7 @@ func TestRequestSignatureValidator_NoContentLength(t *testing.T) {
 		)
 
 		// Test signature validation
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected request without Content-Length to pass validation")
@@ -217,7 +217,7 @@ func TestRequestSignatureValidator_InvalidRequestToken(t *testing.T) {
 		)
 
 		// Test signature validation
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if isValid {
 			t.Error("Expected invalid request token to fail validation")
@@ -247,7 +247,7 @@ func TestRequestSignatureValidator_MissingAccessKey(t *testing.T) {
 				Path: "/api/test",
 			},
 			Header: map[string][]string{
-				"Authorization": {token},
+				"Authorization": {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 				"X-LBDB-Date":   {"20240101T000000Z"},
 			},
 		}
@@ -260,7 +260,7 @@ func TestRequestSignatureValidator_MissingAccessKey(t *testing.T) {
 		)
 
 		// Test signature validation
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if isValid {
 			t.Error("Expected missing access key to fail validation")
@@ -284,8 +284,8 @@ func TestRequestSignatureValidator_EmptyBody(t *testing.T) {
 
 		// Generate valid signature for empty body
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -301,7 +301,7 @@ func TestRequestSignatureValidator_EmptyBody(t *testing.T) {
 				Host: databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization":  {token},
+				"Authorization":  {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 				"Content-Type":   {"application/json"},
 				"Content-Length": {"0"},
 			},
@@ -317,7 +317,7 @@ func TestRequestSignatureValidator_EmptyBody(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected empty body request to pass validation")
@@ -341,8 +341,8 @@ func TestRequestSignatureValidator_CaseInsensitiveHeaders(t *testing.T) {
 
 		// Generate signature with standard headers
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -359,7 +359,7 @@ func TestRequestSignatureValidator_CaseInsensitiveHeaders(t *testing.T) {
 				Host: databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization":  {token},
+				"Authorization":  {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 				"content-type":   {"application/json"}, // lowercase
 				"Content-Length": {"0"},
 			},
@@ -372,7 +372,7 @@ func TestRequestSignatureValidator_CaseInsensitiveHeaders(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected case-insensitive headers to pass validation")
@@ -395,8 +395,8 @@ func TestRequestSignatureValidator_PathNormalization(t *testing.T) {
 
 		// Generate signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -413,7 +413,7 @@ func TestRequestSignatureValidator_PathNormalization(t *testing.T) {
 				Host: databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization": {token},
+				"Authorization": {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 			},
 		}
 
@@ -424,7 +424,7 @@ func TestRequestSignatureValidator_PathNormalization(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected path normalization to work correctly")
@@ -452,8 +452,8 @@ func TestRequestSignatureValidator_ComplexQueryParams(t *testing.T) {
 
 		// Generate signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -470,7 +470,7 @@ func TestRequestSignatureValidator_ComplexQueryParams(t *testing.T) {
 				Host:     databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization": {token},
+				"Authorization": {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 			},
 		}
 
@@ -481,7 +481,7 @@ func TestRequestSignatureValidator_ComplexQueryParams(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected complex query parameters to pass validation")
@@ -505,8 +505,8 @@ func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -523,7 +523,7 @@ func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 				Host: databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization":  {token},
+				"Authorization":  {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 				"Content-Type":   {"application/json"},
 				"Content-Length": {fmt.Sprintf("%d", len(body))},
 			},
@@ -539,7 +539,7 @@ func TestRequestSignatureValidator_WithBodyContent(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected request with complex body to pass validation")
@@ -570,7 +570,7 @@ func TestRequestSignatureValidator_EmptyToken(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if isValid {
 			t.Error("Expected empty token to fail validation")
@@ -599,7 +599,7 @@ func TestRequestSignatureValidator_MissingAuthHeader(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if isValid {
 			t.Error("Expected missing authorization header to fail validation")
@@ -627,8 +627,8 @@ func TestRequestSignatureValidator_SpecialCharacters(t *testing.T) {
 
 		// Generate valid signature
 		token := auth.SignRequest(
-			db.AccessKey.AccessKeyID,
-			db.AccessKey.AccessKeySecret,
+			db.Credential.AccessKey().AccessKeyID,
+			db.Credential.AccessKey().AccessKeySecret,
 			method,
 			path,
 			headers,
@@ -645,7 +645,7 @@ func TestRequestSignatureValidator_SpecialCharacters(t *testing.T) {
 				Host:     databaseUrl,
 			},
 			Header: map[string][]string{
-				"Authorization": {token},
+				"Authorization": {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
 			},
 		}
 
@@ -656,7 +656,7 @@ func TestRequestSignatureValidator_SpecialCharacters(t *testing.T) {
 			baseRequest,
 		)
 
-		isValid := appHttp.RequestSignatureValidator(request, "Authorization")
+		isValid := appHttp.RequestSignatureValidator(request)
 
 		if !isValid {
 			t.Error("Expected request with special characters to pass validation")

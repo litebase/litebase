@@ -1,6 +1,8 @@
 module github.com/litebase/litebase
 
-go 1.24
+go 1.24.0
+
+toolchain go1.24.4
 
 require (
 	github.com/aws/aws-sdk-go v1.55.7
@@ -54,7 +56,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/litebase/litebase-go/sql v0.0.0-20250725191238-42aa754f0eb8
+	github.com/litebase/litebase-go/sql v0.0.0-20250818124107-299b0d59e8ca
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/muesli/mango v0.1.0 // indirect
 	github.com/muesli/mango-cobra v1.2.0 // indirect
@@ -67,9 +69,9 @@ require (
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	go.shabbyrobe.org/gocovmerge v0.0.0-20230507111327-fa4f82cfbf4d // indirect
-	golang.org/x/net v0.40.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/tools v0.33.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/term v0.34.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 )
 
 require (
@@ -94,10 +96,10 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.6 // indirect
-	golang.org/x/crypto v0.39.0
-	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	github.com/spf13/pflag v1.0.6
+	golang.org/x/crypto v0.41.0
+	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 )

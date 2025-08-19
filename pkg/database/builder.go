@@ -8,10 +8,10 @@ import (
 )
 
 type QueryBuilder struct {
-	accessKeyManager *auth.AccessKeyManager
-	cluster          *cluster.Cluster
-	databaseManager  *DatabaseManager
-	logManager       *logs.LogManager
+	auth            *auth.Auth
+	cluster         *cluster.Cluster
+	databaseManager *DatabaseManager
+	logManager      *logs.LogManager
 }
 
 type QueryType interface {
@@ -20,20 +20,21 @@ type QueryType interface {
 
 func NewQueryBuilder(
 	cluster *cluster.Cluster,
-	accessKeyManager *auth.AccessKeyManager,
+	auth *auth.Auth,
 	databaseManager *DatabaseManager,
 	logManager *logs.LogManager,
 ) *QueryBuilder {
 	return &QueryBuilder{
-		accessKeyManager: accessKeyManager,
-		cluster:          cluster,
-		databaseManager:  databaseManager,
-		logManager:       logManager,
+		auth:            auth,
+		cluster:         cluster,
+		databaseManager: databaseManager,
+		logManager:      logManager,
 	}
 }
 
 func (qb *QueryBuilder) Build(
-	accessKeyId string,
+	credentialID string,
+	credentialScheme string,
 	databaseId string,
 	databaseName string,
 	branchId string,
@@ -42,7 +43,7 @@ func (qb *QueryBuilder) Build(
 	parameters []sqlite3.StatementParameter,
 	id string,
 ) (cluster.NodeQuery, error) {
-	accessKey, err := qb.accessKeyManager.Get(accessKeyId)
+	credential, err := qb.auth.GetCredential(credentialID, credentialScheme)
 
 	if err != nil {
 		return &Query{}, err
@@ -53,7 +54,7 @@ func (qb *QueryBuilder) Build(
 		qb.databaseManager,
 		qb.logManager,
 		auth.NewDatabaseKey(databaseId, databaseName, branchId, branchName),
-		accessKey,
+		credential,
 		&QueryInput{
 			ID:         id,
 			Parameters: parameters,

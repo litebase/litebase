@@ -26,7 +26,7 @@ func TestCLIAuth(t *testing.T) {
 		t.Run("Test Access Key Auth", func(t *testing.T) {
 			cli := test.NewTestCLI(server.App).
 				WithServer(server).
-				WithAccessKey([]auth.AccessKeyStatement{
+				WithAccessKey([]auth.Statement{
 					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 				})
 
@@ -40,7 +40,7 @@ func TestCLIAuth(t *testing.T) {
 		t.Run("Test Basic Auth", func(t *testing.T) {
 			cli := test.NewTestCLI(server.App).
 				WithServer(server).
-				WithBasicAuth("user", "password", []auth.AccessKeyStatement{
+				WithBasicAuth("user", "password", []auth.Statement{
 					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 				})
 

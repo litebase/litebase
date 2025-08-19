@@ -85,6 +85,28 @@ func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 }
 
 func (cluster *Cluster) ShutdownStorage() {
+	if cluster.tieredFileSystem != nil {
+		err := cluster.tieredFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down tiered file system", "error", err)
+		}
+	}
+
+	if cluster.tmpTieredFileSystem != nil {
+		err := cluster.tmpTieredFileSystem.Shutdown()
+
+		if err != nil {
+			slog.Error("Shutting down tmp tiered file system", "error", err)
+		}
+
+		err = cluster.tmpTieredFileSystem.ClearFiles()
+
+		if err != nil {
+			log.Println("Clearing tmp tiered file system", err)
+		}
+	}
+
 	if cluster.localFileSystem != nil {
 		err := cluster.localFileSystem.Shutdown()
 
@@ -106,28 +128,6 @@ func (cluster *Cluster) ShutdownStorage() {
 
 		if err != nil {
 			slog.Error("Shutting down network file system", "error", err)
-		}
-	}
-
-	if cluster.tieredFileSystem != nil {
-		err := cluster.tieredFileSystem.Shutdown()
-
-		if err != nil {
-			slog.Error("Shutting down tiered file system", "error", err)
-		}
-	}
-
-	if cluster.tmpTieredFileSystem != nil {
-		err := cluster.tmpTieredFileSystem.Shutdown()
-
-		if err != nil {
-			slog.Error("Shutting down tmp tiered file system", "error", err)
-		}
-
-		err = cluster.tmpTieredFileSystem.ClearFiles()
-
-		if err != nil {
-			log.Println("Clearing tmp tiered file system", err)
 		}
 	}
 
@@ -155,7 +155,7 @@ func (cluster *Cluster) ShutdownStorage() {
 func (cluster *Cluster) TieredFS() *storage.FileSystem {
 	fileSyncEligibilityFn := func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 		fsd.CanSyncDirtyFiles = func() bool {
-			return cluster.Node().Membership == ClusterMembershipPrimary
+			return cluster.Node().GetMembership() == ClusterMembershipPrimary
 		}
 	}
 

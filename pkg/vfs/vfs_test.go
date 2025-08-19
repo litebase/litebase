@@ -16,50 +16,52 @@ import (
 
 func TestRegisterVFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		_, err := vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
+		_, err := vfs.RegisterVFS("databaseHash", "connectionHash", "nodeHash", 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
 		}
 
-		if len(vfs.VfsMap) != 1 {
-			t.Errorf("RegisterVFS() failed, expected 1, got %v", len(vfs.VfsMap))
+		// There will be one other vfs registered for the system database
+		if len(vfs.VfsMap) != 2 {
+			t.Errorf("RegisterVFS() failed, expected 2, got %v", len(vfs.VfsMap))
 		}
 
-		if vfs.VfsMap["vfsId"] == nil {
-			t.Errorf("RegisterVFS() failed, expected not nil, got nil")
+		if vfs.VfsMap["connectionHash"] == nil {
+			t.Fatal("RegisterVFS() failed, expected not nil, got nil")
 		}
 
 		// Check SQLite to see if the VFS was registered
-		if !vfs.VFSIsRegistered("vfsId") {
+		if !vfs.VFSIsRegistered("connectionHash") {
 			t.Errorf("RegisterVFS() failed, expected not nil, got nil")
 		}
 
-		err = vfs.UnregisterVFS("vfsId")
+		err = vfs.UnregisterVFS("connectionHash")
 
 		if err != nil {
 			t.Errorf("UnregisterVFS() failed, expected nil, got %v", err)
 		}
 
-		if len(vfs.VfsMap) != 0 {
-			t.Errorf("UnregisterVFS() failed, expected 0, got %v", len(vfs.VfsMap))
+		// There will be one other vfs registered for the system database
+		if len(vfs.VfsMap) != 1 {
+			t.Errorf("UnregisterVFS() failed, expected 1, got %v", len(vfs.VfsMap))
 		}
 
-		if vfs.VFSIsRegistered("vfsId") {
-			t.Errorf("UnregisterVFS() failed, expected nil, got %v", vfs.VFSIsRegistered("vfsId"))
+		if vfs.VFSIsRegistered("connectionHash") {
+			t.Errorf("UnregisterVFS() failed, expected nil, got %v", vfs.VFSIsRegistered("connectionHash"))
 		}
 	})
 }
 
 func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		_, err := vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
+		_, err := vfs.RegisterVFS("databaseHash", "connectionHash", "nodeHash", 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
 		}
 
-		_, err = vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
+		_, err = vfs.RegisterVFS("databaseHash", "connectionHash", "nodeHash", 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
@@ -69,7 +71,7 @@ func TestRegisterVFSTwiceReturnsNoError(t *testing.T) {
 
 func TestNewVfsErrors(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		_, err := vfs.RegisterVFS("vfsId", "test", 4096, nil, nil)
+		_, err := vfs.RegisterVFS("databaseHash", "connectionHash", "nodeHash", 4096, nil, nil)
 
 		if err != nil {
 			t.Error(err)

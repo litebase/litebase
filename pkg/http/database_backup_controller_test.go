@@ -115,7 +115,7 @@ func TestDatabaseBackupIndexController(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -207,7 +207,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 			t.Fatalf("failed to checkpoint database: %v", err)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -293,7 +293,7 @@ func TestDatabaseBackupShowController(t *testing.T) {
 			backup.GetSize(),
 		)
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -397,7 +397,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 			t.Fatalf("failed to create backup: %v", err)
 		}
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

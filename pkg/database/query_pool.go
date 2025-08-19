@@ -23,14 +23,14 @@ func GetQuery(
 	databaseManager *DatabaseManager,
 	logManager *logs.LogManager,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	credential *auth.Credential,
 	input *QueryInput,
 ) *Query {
 	query := queryPool.Get().(*Query)
 
 	query.Reset()
 
-	query.AccessKey = accessKey
+	query.Credential = credential
 	query.DatabaseKey = databaseKey
 	query.Input = input
 	query.cluster = cluster

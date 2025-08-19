@@ -51,10 +51,10 @@ type QueryLog struct {
 }
 
 type QueryLogEntry struct {
-	Cluster                                         *cluster.Cluster
-	DatabaseHash, DatabaseID, BranchID, AccessKeyID string
-	Statement                                       string
-	Latency                                         float64
+	Cluster                                          *cluster.Cluster
+	DatabaseHash, DatabaseID, BranchID, CredentialID string
+	Statement                                        string
+	Latency                                          float64
 }
 
 func (q *QueryLog) Close() error {
@@ -336,16 +336,18 @@ func (q *QueryLog) watch() {
 	}()
 }
 
-func (q *QueryLog) Write(accessKeyId string, statement string, latency float64) error {
+func (q *QueryLog) Write(credentialID string, statement string, latency float64) error {
+	q.mutex.Lock()
 	q.lastLoggedTime = time.Now().UTC()
 	timestamp := time.Now().UTC().Truncate(time.Second)
+	q.mutex.Unlock()
 
 	buffer := queryLogBuffer.Get().(*bytes.Buffer)
 	defer queryLogBuffer.Put(buffer)
 	buffer.Reset()
 
-	buffer.WriteString("access_key_id=")
-	buffer.WriteString(accessKeyId)
+	buffer.WriteString("credential_id=")
+	buffer.WriteString(credentialID)
 	buffer.WriteString(" statement=")
 
 	// Lowercase the statement
@@ -393,14 +395,7 @@ func (q *QueryLog) Write(accessKeyId string, statement string, latency float64) 
 	}
 
 	if !q.watching {
-		q.mutex.Lock()
-		shouldWatch := !q.watching
-
-		if shouldWatch {
-			q.watch()
-		}
-
-		q.mutex.Unlock()
+		q.watch()
 	}
 
 	q.mutex.Lock()

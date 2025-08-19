@@ -6,7 +6,8 @@ import (
 
 type NodeQueryBuilder interface {
 	Build(
-		accessKeyId string,
+		credentialID string,
+		credentialScheme string,
 		databaseId string,
 		databaseName string,
 		branchId string,

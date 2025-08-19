@@ -74,7 +74,6 @@ var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
 }
 
 type DatabaseConnection struct {
-	AccessKey              *auth.AccessKey
 	branchId               string
 	cancel                 context.CancelFunc
 	checkpointer           *Checkpointer
@@ -83,6 +82,7 @@ type DatabaseConnection struct {
 	connectionManager      *ConnectionManager
 	context                context.Context
 	databaseHash           string
+	Credential             *auth.Credential
 	databaseId             string
 	fileSystem             *storage.DurableDatabaseFileSystem
 	id                     string
@@ -102,8 +102,8 @@ type DatabaseConnection struct {
 }
 
 type StatementKey struct {
-	SQLChecksum       uint32
-	AccessKeyCheckSum [32]byte
+	SQLChecksum        uint32
+	CredentialCheckSum [32]byte
 }
 
 // Create a new database connection instance.
@@ -206,6 +206,10 @@ func (con *DatabaseConnection) Commit() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
 	}
+
+	defer func() {
+		con.vfs.WALUpdated()
+	}()
 
 	return con.sqliteConnection().Commit()
 }
@@ -393,7 +397,11 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 				return err
 			}
 
-			con.committedAt = time.Now().UTC()
+			if con.sqliteConnection().Changes() > 0 {
+				con.committedAt = time.Now().UTC()
+
+				con.vfs.WALUpdated()
+			}
 
 			return nil
 		})
@@ -557,6 +565,7 @@ func (con *DatabaseConnection) Query(result *sqlite3.Result, statement *sqlite3.
 // Register and instance of the VFS for the database connection.
 func (con *DatabaseConnection) registerVFS() error {
 	vfs, err := vfs.RegisterVFS(
+		con.databaseHash,
 		con.VFSHash(),
 		con.VFSDatabaseHash(),
 		con.config.PageSize,
@@ -610,7 +619,7 @@ func (con *DatabaseConnection) Rollback() error {
 // Set the authorizer for the database connection.
 func (c *DatabaseConnection) SetAuthorizer() {
 	c.sqliteConnection().Authorizer(func(actionCode int, arg1, arg2, arg3, arg4 string) int32 {
-		if c.AccessKey == nil {
+		if c.Credential == nil {
 			return sqlite3.SQLITE_OK
 		}
 
@@ -619,61 +628,61 @@ func (c *DatabaseConnection) SetAuthorizer() {
 
 		switch actionCode {
 		case sqlite3.SQLITE_ANALYZE:
-			allowed, err = c.AccessKey.CanAnalyze(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanAnalyze(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_ATTACH:
-			allowed, err = c.AccessKey.CanAttach(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanAttach(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_ALTER_TABLE:
-			allowed, err = c.AccessKey.CanAlterTable(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanAlterTable(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_COPY:
 			allowed = false
 		case sqlite3.SQLITE_CREATE_INDEX:
-			allowed, err = c.AccessKey.CanCreateIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TABLE:
-			allowed, err = c.AccessKey.CanCreateTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TABLE:
-			allowed, err = c.AccessKey.CanCreateTempTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateTempTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TRIGGER:
-			allowed, err = c.AccessKey.CanCreateTempTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateTempTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_VIEW:
-			allowed, err = c.AccessKey.CanCreateTempView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateTempView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_TRIGGER:
-			allowed, err = c.AccessKey.CanCreateTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_VIEW:
-			allowed, err = c.AccessKey.CanCreateView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_CREATE_VTABLE:
-			allowed, err = c.AccessKey.CanCreateVTable(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateVTable(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DELETE:
-			allowed, err = c.AccessKey.CanDelete(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDelete(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DETACH:
-			allowed, err = c.AccessKey.CanDetach(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDetach(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_INDEX:
-			allowed, err = c.AccessKey.CanDropIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanDropIndex(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_TABLE:
-			allowed, err = c.AccessKey.CanDropTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDropTable(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_DROP_TRIGGER:
-			allowed, err = c.AccessKey.CanDropTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanDropTrigger(c.databaseId, c.branchId, arg2, arg1)
 		case sqlite3.SQLITE_DROP_VIEW:
-			allowed, err = c.AccessKey.CanDropView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDropView(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_FUNCTION:
-			allowed, err = c.AccessKey.CanFunction(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanFunction(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_INSERT:
-			allowed, err = c.AccessKey.CanInsert(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanInsert(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_PRAGMA:
-			allowed, err = c.AccessKey.CanPragma(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanPragma(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_READ:
-			allowed, err = c.AccessKey.CanRead(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanRead(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_RECURSIVE:
-			allowed, err = c.AccessKey.CanRecursive(c.databaseId, c.branchId)
+			allowed, err = c.Credential.CanRecursive(c.databaseId, c.branchId)
 		case sqlite3.SQLITE_REINDEX:
-			allowed, err = c.AccessKey.CanReindex(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanReindex(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_SAVEPOINT:
-			allowed, err = c.AccessKey.CanSavepoint(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanSavepoint(c.databaseId, c.branchId, arg1, arg2)
 		case sqlite3.SQLITE_SELECT:
-			allowed, err = c.AccessKey.CanSelect(c.databaseId, c.branchId)
+			allowed, err = c.Credential.CanSelect(c.databaseId, c.branchId)
 		case sqlite3.SQLITE_TRANSACTION:
-			allowed, err = c.AccessKey.CanTransaction(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanTransaction(c.databaseId, c.branchId, arg1)
 		case sqlite3.SQLITE_UPDATE:
-			allowed, err = c.AccessKey.CanUpdate(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanUpdate(c.databaseId, c.branchId, arg1, arg2)
 		default:
 			allowed, err = false, nil
 		}
@@ -734,15 +743,16 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 	var err error
 
 	sqlChecksum := crc32.ChecksumIEEE([]byte(queryStatement))
-	accessKeyChecksum := [32]byte{}
 
-	if con.AccessKey != nil {
-		accessKeyChecksum = con.AccessKey.Hash()
+	credentialChecksum := [32]byte{}
+
+	if con.Credential != nil {
+		credentialChecksum = con.Credential.Hash()
 	}
 
 	statementKey := StatementKey{
-		SQLChecksum:       sqlChecksum,
-		AccessKeyCheckSum: accessKeyChecksum,
+		SQLChecksum:        sqlChecksum,
+		CredentialCheckSum: credentialChecksum,
 	}
 
 	statement, ok := con.statements.Load(statementKey)
@@ -852,8 +862,8 @@ func (con *DatabaseConnection) WALTimestamp() int64 {
 }
 
 // Set the access key for the database connection.
-func (con *DatabaseConnection) WithAccessKey(accessKey *auth.AccessKey) *DatabaseConnection {
-	con.AccessKey = accessKey
+func (con *DatabaseConnection) WithCredential(credential *auth.Credential) *DatabaseConnection {
+	con.Credential = credential
 
 	return con
 }

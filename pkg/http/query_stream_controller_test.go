@@ -42,15 +42,15 @@ func TestQueryStreamController(t *testing.T) {
 		}
 
 		url := fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			testDatabase.DatabaseName,
 			testDatabase.BranchName,
 		)
 
 		connectionPool := sql.NewConnectionPool(
-			testDatabase.AccessKey.AccessKeyID,
-			testDatabase.AccessKey.AccessKeySecret,
+			testDatabase.Credential.AccessKey().AccessKeyID,
+			testDatabase.Credential.AccessKey().AccessKeySecret,
 			url,
 			5,
 		)
@@ -98,7 +98,6 @@ func TestQueryStreamController(t *testing.T) {
 }
 
 func TestQueryStreamController_WithErrors(t *testing.T) {
-
 	test.Run(t, func() {
 		testServer := test.NewTestServer(t)
 		defer testServer.Shutdown()
@@ -107,15 +106,15 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 
 		// Use invalid database key
 		url := fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			"invalid_database_key",
 			testDatabase.BranchName,
 		)
 
 		connectionPool := sql.NewConnectionPool(
-			testDatabase.AccessKey.AccessKeyID,
-			testDatabase.AccessKey.AccessKeySecret,
+			testDatabase.Credential.AccessKey().AccessKeyID,
+			testDatabase.Credential.AccessKey().AccessKeySecret,
 			url,
 			5,
 		)
@@ -145,7 +144,7 @@ func TestQueryStreamController_WithErrors(t *testing.T) {
 
 		// Use invalid access key
 		url = fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			testDatabase.DatabaseName,
 			testDatabase.BranchName,
@@ -209,15 +208,15 @@ func TestQueryStreamController_WithValidationErrors(t *testing.T) {
 		}
 
 		url := fmt.Sprintf(
-			"%s/v1/databases/%s/%s/query/stream",
+			"%s/v1/databases/%s/%s",
 			testServer.Server.URL,
 			testDatabase.DatabaseName,
 			testDatabase.BranchName,
 		)
 
 		connectionPool := sql.NewConnectionPool(
-			testDatabase.AccessKey.AccessKeyID,
-			testDatabase.AccessKey.AccessKeySecret,
+			testDatabase.Credential.AccessKey().AccessKeyID,
+			testDatabase.Credential.AccessKey().AccessKeySecret,
 			url,
 			5,
 		)

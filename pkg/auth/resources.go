@@ -1,6 +1,6 @@
 package auth
 
-var AccessKeyResources = map[string][]string{
+var Resources = map[string][]string{
 	"access-key": {
 		string(AccessKeyPrivilegeCreate),
 		string(AccessKeyPrivilegeDelete),

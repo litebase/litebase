@@ -16,7 +16,7 @@ func TestQueryController(t *testing.T) {
 		mock := test.MockDatabase(server.App)
 
 		// Get a new connection for the HTTP request verification
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -127,7 +127,7 @@ func TestQueryControllerMultipleQueries(t *testing.T) {
 
 		mock := test.MockDatabase(server.App)
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -218,7 +218,7 @@ func TestQueryController_Errors(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		client := server.WithAccessKeyClient([]auth.AccessKeyStatement{
+		client := server.WithAccessKeyClient([]auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

@@ -9,8 +9,8 @@ import (
 )
 
 type Query struct {
-	AccessKey       *auth.AccessKey
 	cluster         *cluster.Cluster
+	Credential      *auth.Credential
 	databaseManager *DatabaseManager
 	DatabaseKey     *auth.DatabaseKey
 	Input           *QueryInput
@@ -24,11 +24,11 @@ func NewQuery(
 	databaseManager *DatabaseManager,
 	logManager *logs.LogManager,
 	databaseKey *auth.DatabaseKey,
-	accessKey *auth.AccessKey,
+	credential *auth.Credential,
 	input *QueryInput,
 ) (*Query, error) {
 	return &Query{
-		AccessKey:       accessKey,
+		Credential:      credential,
 		cluster:         cluster,
 		DatabaseKey:     databaseKey,
 		databaseManager: databaseManager,
@@ -102,7 +102,7 @@ func (query *Query) IsWrite() bool {
 }
 
 func (query *Query) Reset() {
-	query.AccessKey = nil
+	query.Credential = nil
 	query.DatabaseKey = nil
 	query.Input = nil
 	query.invalid = false

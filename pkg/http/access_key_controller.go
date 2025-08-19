@@ -78,8 +78,8 @@ func AccessKeyControllerShow(request *Request) Response {
 }
 
 type AccessKeyStoreRequest struct {
-	Description string                    `json:"description" validate:"omitempty,max=255"`
-	Statements  []auth.AccessKeyStatement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
+	Description string           `json:"description" validate:"omitempty,max=255"`
+	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
 }
 
 // Create a new access key
@@ -142,8 +142,8 @@ func AccessKeyControllerStore(request *Request) Response {
 }
 
 type AccessKeyUpdateRequest struct {
-	Description string                    `json:"description" validate:"omitempty,max=255"`
-	Statements  []auth.AccessKeyStatement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
+	Description string           `json:"description" validate:"omitempty,max=255"`
+	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
 }
 
 // Update an existing access key
@@ -242,7 +242,9 @@ func AccessKeyControllerDestroy(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	if accessKeyId == request.RequestToken("Authorization").AccessKeyID {
+	credential := request.Credential()
+
+	if credential.Type() == auth.CredentialTypeAccessKey && accessKeyId == credential.AccessKey().AccessKeyID {
 		return ForbiddenResponse(errors.New("cannot delete current access key"))
 	}
 

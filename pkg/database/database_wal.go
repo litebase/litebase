@@ -243,7 +243,6 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 	file, err := wal.File()
 
 	if err != nil {
-		log.Println(err)
 		return 0, err
 	}
 

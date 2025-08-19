@@ -133,7 +133,11 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 			value := parameter.Value.([]byte)
 
 			if len(value) == 0 {
-				rc = C.sqlite3_bind_text(s.sqlite3_stmt, index, nil, 0, C.SQLITE_STATIC)
+				// For empty strings, we need to pass a pointer to an empty string, not nil
+				// This ensures it's stored as an empty string, not NULL
+				emptyBytes := []byte{0} // null-terminated empty string
+				cText := (*C.char)(unsafe.Pointer(&emptyBytes[0]))
+				rc = C.sqlite3_bind_text(s.sqlite3_stmt, index, cText, 0, C.SQLITE_TRANSIENT)
 				break
 			}
 

@@ -16,7 +16,6 @@ const SystemDatabaseName = "system"
 var TheSystemDatabase Database = Database{
 	DatabaseID: SystemDatabaseID,
 	Name:       SystemDatabaseName,
-	// PrimaryBranchID:   SystemDatabaseBranchID,
 }
 
 // The system database structure that has a connection to the system database.
@@ -29,20 +28,20 @@ type SystemDatabase struct {
 
 // Create a new instance of the system database.
 func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
-	sd := &SystemDatabase{
+	s := &SystemDatabase{
 		databaseManager: databaseManager,
 		mutex:           &sync.Mutex{},
 	}
 
-	if sd.databaseManager.Cluster.Node().IsPrimary() {
-		sd.init()
+	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
+		s.init()
+		s.initialized = true
 	}
 
-	sd.initialized = true
-
-	return sd
+	return s
 }
 
+// Close the system database.
 func (s *SystemDatabase) Close() error {
 	if s.db != nil {
 		return s.db.Close()
@@ -51,9 +50,19 @@ func (s *SystemDatabase) Close() error {
 	return nil
 }
 
+// Get a singleton instance of the system database.
 func (s *SystemDatabase) DB() (*sql.DB, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if s.db != nil {
 		return s.db, nil
+	}
+
+	// Initialize the system database if this node should manage it and it hasn't been initialized yet
+	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
+		s.init()
+		s.initialized = true
 	}
 
 	db, err := sql.Open("litebase-internal", "system/system")
@@ -159,6 +168,63 @@ func (s *SystemDatabase) init() {
 			created_at TEXT,
 			FOREIGN KEY (database_reference_id) REFERENCES databases(id) ON DELETE CASCADE,
 			FOREIGN KEY (database_branch_reference_id) REFERENCES database_branches(id) ON DELETE CASCADE
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a table for access keys
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS access_keys
+		(
+			id INTEGER PRIMARY KEY,
+			access_key_id TEXT UNIQUE,
+			access_key_secret TEXT NOT NULL,
+			description TEXT,
+			statements TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a table for tokens
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS tokens
+		(
+			id INTEGER PRIMARY KEY,
+			token_id TEXT UNIQUE,
+			token_hash TEXT NOT NULL,
+			description TEXT,
+			statements TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a table for users
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS users
+		(
+			id INTEGER PRIMARY KEY,
+			username TEXT UNIQUE,
+			password TEXT NOT NULL,
+			description TEXT,
+			statements TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
 		)
 		`,
 	)

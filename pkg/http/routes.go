@@ -91,6 +91,44 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
+		"/v1/tokens",
+		TokenControllerIndex,
+	).Middleware([]Middleware{
+		Authentication,
+	})
+
+	router.Get(
+		"/v1/tokens/{tokenId}",
+		TokenControllerShow,
+	).Middleware([]Middleware{
+		Authentication,
+	})
+
+	router.Post(
+		"/v1/tokens",
+		TokenControllerStore,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Put(
+		"/v1/tokens/{tokenId}",
+		TokenControllerUpdate,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Delete(
+		"/v1/tokens/{tokenId}",
+		TokenControllerDestroy,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Get(
 		"/v1/databases/{databaseName}/branches",
 		DatabaseBranchIndexController,
 	).Middleware([]Middleware{

@@ -55,7 +55,7 @@ func TestLogManager_Query(t *testing.T) {
 				DatabaseHash: db.DatabaseKey.DatabaseHash,
 				DatabaseID:   db.DatabaseID,
 				BranchID:     db.DatabaseBranchID,
-				AccessKeyID:  db.AccessKey.AccessKeyID,
+				CredentialID: db.Credential.CredentialID,
 				Statement:    "SELECT * FROM test",
 				Latency:      0.01,
 			},
@@ -70,7 +70,5 @@ func TestLogManager_Query(t *testing.T) {
 func TestLogManager_Run(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		go app.LogManager.Run()
-
-		app.Cluster.Node().Shutdown()
 	})
 }

@@ -1,6 +1,7 @@
 package cluster_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -23,9 +24,12 @@ func TestEvents(t *testing.T) {
 			defer server2.Shutdown()
 
 			var receivedMessage *cluster.EventMessage
+			var receivedMutex sync.Mutex
 
 			server2.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
+				receivedMutex.Lock()
 				receivedMessage = message
+				receivedMutex.Unlock()
 			})
 
 			err := server1.App.Cluster.Broadcast("test", "test")
@@ -33,6 +37,9 @@ func TestEvents(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
+
+			receivedMutex.Lock()
+			defer receivedMutex.Unlock()
 
 			if receivedMessage == nil {
 				t.Fatal("Message not received")
@@ -52,9 +59,12 @@ func TestEvents(t *testing.T) {
 			defer server.Shutdown()
 
 			var receivedMessage *cluster.EventMessage
+			var receivedMutex sync.Mutex
 
 			server.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
+				receivedMutex.Lock()
 				receivedMessage = message
+				receivedMutex.Unlock()
 			})
 
 			server.App.Cluster.ReceiveEvent(&cluster.EventMessage{
@@ -63,6 +73,9 @@ func TestEvents(t *testing.T) {
 			})
 
 			time.Sleep(10 * time.Millisecond)
+
+			receivedMutex.Lock()
+			defer receivedMutex.Unlock()
 
 			if receivedMessage == nil {
 				t.Error("Message not received")
@@ -82,9 +95,12 @@ func TestEvents(t *testing.T) {
 			defer server.Shutdown()
 
 			var receivedMessage *cluster.EventMessage
+			var receivedMutex sync.Mutex
 
 			server.App.Cluster.Subscribe("test", func(message *cluster.EventMessage) {
+				receivedMutex.Lock()
 				receivedMessage = message
+				receivedMutex.Unlock()
 			})
 
 			server.App.Cluster.ReceiveEvent(&cluster.EventMessage{
@@ -93,6 +109,9 @@ func TestEvents(t *testing.T) {
 			})
 
 			time.Sleep(10 * time.Millisecond)
+
+			receivedMutex.Lock()
+			defer receivedMutex.Unlock()
 
 			if receivedMessage == nil {
 				t.Error("Message not received")

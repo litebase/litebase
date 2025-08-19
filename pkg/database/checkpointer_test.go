@@ -91,6 +91,7 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
+
 			err = checkpointer.CheckpointBarrier(func() error {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -101,6 +102,7 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
+
 			time.Sleep(1 * time.Millisecond)
 
 			err = checkpointer.CheckpointBarrier(func() error {
@@ -115,6 +117,7 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 		wg.Wait()
 	})
 }
+
 func TestCheckpointer_CheckpointPage(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)

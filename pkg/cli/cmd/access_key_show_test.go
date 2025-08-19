@@ -14,8 +14,8 @@ func TestAccessKeyShow(t *testing.T) {
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).
-			WithAccessKey([]auth.AccessKeyStatement{
-				{Effect: auth.AccessKeyEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			WithAccessKey([]auth.Statement{
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
 		err := cli.Run("access-key", "show", cli.AccessKey.AccessKeyID)

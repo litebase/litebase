@@ -12,7 +12,7 @@ func TestUser(t *testing.T) {
 	user := &auth.User{
 		Username: "testuser",
 		Password: "testpassword",
-		Statements: []auth.AccessKeyStatement{
+		Statements: []auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",
@@ -44,7 +44,7 @@ func TestUser(t *testing.T) {
 func TestUserResponse(t *testing.T) {
 	user := &auth.UserResponse{
 		Username: "testuser",
-		Statements: []auth.AccessKeyStatement{
+		Statements: []auth.Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

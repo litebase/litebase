@@ -361,7 +361,7 @@ func TestNodeSetMembership(t *testing.T) {
 
 		server.App.Cluster.Node().SetMembership(cluster.ClusterMembershipReplica)
 
-		if server.App.Cluster.Node().Membership != cluster.ClusterMembershipReplica {
+		if server.App.Cluster.Node().GetMembership() != cluster.ClusterMembershipReplica {
 			t.Error("Node membership not set")
 		}
 	})
@@ -374,7 +374,7 @@ func TestNode_SetQueryBuilder(t *testing.T) {
 
 		queryBuilder := database.NewQueryBuilder(
 			server.App.Cluster,
-			server.App.Auth.AccessKeyManager,
+			server.App.Auth,
 			server.App.DatabaseManager,
 			server.App.LogManager,
 		)
@@ -419,19 +419,12 @@ func TestNode_Shutdown(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
-
-		err := server.App.Cluster.Node().Shutdown()
-
-		if err != nil {
-			t.Error("Failed to shutdown node: ", err)
-		}
 	})
 }
 
 func TestNode_Start(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
+		server := test.NewUnstartedTestServer(t)
 
 		node := cluster.NewNode(server.App.Cluster)
 

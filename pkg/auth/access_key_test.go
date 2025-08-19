@@ -17,7 +17,7 @@ func TestAccessKey(t *testing.T) {
 				"accessKeyId",
 				"accessKeySecret",
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			if accessKey == nil {
@@ -45,28 +45,13 @@ func TestAccessKey(t *testing.T) {
 			}
 		})
 
-		t.Run("AccessKeyHash", func(t *testing.T) {
-			accessKey := auth.NewAccessKey(
-				app.Auth.AccessKeyManager,
-				"accessKeyId",
-				"accessKeySecret",
-				"Description",
-				[]auth.AccessKeyStatement{},
-			)
-
-			hash := accessKey.Hash()
-
-			if hash == [32]byte{} {
-				t.Error("Expected hash to be non-zero")
-			}
-		})
 		t.Run("AccessKeyResponse", func(t *testing.T) {
 			accessKey := auth.NewAccessKey(
 				app.Auth.AccessKeyManager,
 				"accessKeyId",
 				"accessKeySecret",
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
 
 			jsonData, err := json.Marshal(accessKey.ToResponse())
@@ -95,25 +80,22 @@ func TestAccessKey(t *testing.T) {
 		})
 
 		t.Run("DeleteAccessKey", func(t *testing.T) {
-			accessKey := auth.NewAccessKey(
-				app.Auth.AccessKeyManager,
-				"accessKeyId",
-				"accessSecret",
-				"",
-				[]auth.AccessKeyStatement{},
+			accessKey, err := app.Auth.AccessKeyManager.Create(
+				"Test description",
+				[]auth.Statement{},
 			)
-
-			err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
 
 			if err != nil {
 				t.Error(err)
 			}
 
+			accessKeyId := accessKey.AccessKeyID
+
 			if err := accessKey.Delete(); err != nil {
 				t.Error(err)
 			}
 
-			accessKey, err = app.Auth.AccessKeyManager.Get("accessKeyId")
+			accessKey, err = app.Auth.AccessKeyManager.Get(accessKeyId)
 
 			if err == nil {
 				t.Error("Expected accessKey to be nil")
@@ -125,21 +107,17 @@ func TestAccessKey(t *testing.T) {
 		})
 
 		t.Run("UpdateAccessKey", func(t *testing.T) {
-			accessKey := auth.NewAccessKey(
-				app.Auth.AccessKeyManager,
-				"accessKeyId",
-				"accessSecret",
+			accessKey, err := app.Auth.AccessKeyManager.Create(
 				"Description",
-				[]auth.AccessKeyStatement{},
+				[]auth.Statement{},
 			)
-
-			err := app.Auth.SecretsManager.StoreAccessKey(accessKey)
 
 			if err != nil {
 				t.Error(err)
 			}
 
-			statements := []auth.AccessKeyStatement{
+			accessKeyId := accessKey.AccessKeyID
+			statements := []auth.Statement{
 				{
 					Resource: "*",
 					Actions:  []auth.Privilege{"*"},
@@ -152,7 +130,7 @@ func TestAccessKey(t *testing.T) {
 				t.Error(err)
 			}
 
-			accessKey, err = app.Auth.AccessKeyManager.Get("accessKeyId")
+			accessKey, err = app.Auth.AccessKeyManager.Get(accessKeyId)
 
 			if err != nil {
 				t.Error(err)

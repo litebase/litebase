@@ -49,6 +49,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		clusterInstance.TmpFS(),
 		clusterInstance.TmpTieredFS(),
 	)
+
 	app.DatabaseManager = database.NewDatabaseManager(clusterInstance, app.Auth.SecretsManager)
 	app.LogManager = logs.NewLogManager(app.Cluster.Node().Context())
 	err = clusterInstance.Init(app.Auth)
@@ -78,19 +79,42 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		panic(err)
 	}
 
-	err = app.Auth.UserManager().Init()
-
-	if err != nil {
-		slog.Error("Error initializing user manager", "error", err)
-	}
-
 	app.Cluster.Node().Init(
-		database.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager, app.LogManager),
+		database.NewQueryBuilder(app.Cluster, app.Auth, app.DatabaseManager, app.LogManager),
 		database.ResponsePool(),
 		database.NewDatabaseWALSynchronizer(app.DatabaseManager),
 	)
 	app.Cluster.EventsManager().Init()
 	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
+
+	app.Cluster.Node().OnStarted(func() {
+		app.Auth.ProvideAccessKeyStorage(
+			database.NewSystemDatabaseAccessKeyStorage(
+				app.Config,
+				app.Auth.SecretsManager,
+				app.DatabaseManager.SystemDatabase(),
+			),
+		)
+
+		app.Auth.ProvideTokenStorage(
+			database.NewSystemDatabaseTokenStorage(
+				app.Config,
+				app.Auth.SecretsManager,
+				app.DatabaseManager.SystemDatabase(),
+			),
+		)
+
+		app.Auth.ProvideUserManagerStorage(
+			database.NewSystemDatabaseUserStorage(
+				app.DatabaseManager.SystemDatabase(),
+			),
+		)
+
+		err := app.Auth.UserManager.Init()
+		if err != nil {
+			slog.Error("Error initializing user manager", "error", err)
+		}
+	})
 
 	go app.DatabaseManager.WriteQueueManager.Run()
 	go app.LogManager.Run()

@@ -6,6 +6,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/server"
 )
 
@@ -20,7 +21,15 @@ func TestAccessKeyManager(t *testing.T) {
 				app.Cluster.TmpTieredFS(),
 			)
 
-			akm := auth.NewAccessKeyManager(a, a.Config, a.ObjectFS)
+			akm := auth.NewAccessKeyManager(
+				database.NewSystemDatabaseAccessKeyStorage(
+					a.Config,
+					a.SecretsManager,
+					app.DatabaseManager.SystemDatabase(),
+				),
+				a,
+				a.Config,
+			)
 
 			if akm == nil {
 				t.Error("Expected NewAccessKeyManager to return a non-nil AccessKeyManager")
@@ -31,8 +40,22 @@ func TestAccessKeyManager(t *testing.T) {
 			akm := app.Auth.AccessKeyManager
 
 			for i := range 10 {
-				akm.Create(fmt.Sprintf("Description %d", i), []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 			}
+
+			accessKeys, err := akm.All()
+
+			if err != nil {
+				t.Error("Expected All to return an empty slice of strings")
+			}
+
+			if len(accessKeys) != 10 {
+				t.Error("Expected All to return 10 access keys")
+			}
+		})
+
+		t.Run("AllAccessKeysIDs", func(t *testing.T) {
+			akm := app.Auth.AccessKeyManager
 
 			accessKeys, err := akm.AllAccessKeyIds()
 
@@ -40,16 +63,30 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Error("Expected AllAccessKeyIds to return an empty slice of strings")
 			}
 
-			if len(accessKeys) != 10 {
-				t.Error("Expected AllAccessKeyIds to return 10 access keys")
+			currentAccessKeyCount := len(accessKeys)
+
+			for i := range 10 {
+				akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			}
+
+			expectedAccessKeyCount := currentAccessKeyCount + 10
+
+			accessKeys, err = akm.AllAccessKeyIds()
+
+			if err != nil {
+				t.Error("Expected AllAccessKeyIds to return an empty slice of strings")
+			}
+
+			if len(accessKeys) != expectedAccessKeyCount {
+				t.Errorf("Expected AllAccessKeyIds to return %d access keys, got %d", expectedAccessKeyCount, len(accessKeys))
 			}
 		})
 
 		t.Run("Create", func(t *testing.T) {
-			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
-				t.Error("Expected Create to return a non-nil error")
+				t.Error("Expected Create to return no error")
 			}
 
 			if accessKey == nil {
@@ -69,7 +106,7 @@ func TestAccessKeyManager(t *testing.T) {
 			accessKeyId, err := app.Auth.AccessKeyManager.GenerateAccessKeyId()
 
 			if err != nil {
-				t.Error("Expected GenerateAccessKeyId to return a non-nil error")
+				t.Error("Expected GenerateAccessKeyId to return no error")
 			}
 
 			if accessKeyId == "" {
@@ -86,10 +123,10 @@ func TestAccessKeyManager(t *testing.T) {
 		})
 
 		t.Run("Get", func(t *testing.T) {
-			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
-				t.Error("Expected Create to return a non-nil error")
+				t.Error("Expected Create to return no error")
 			}
 
 			if accessKey == nil {
@@ -99,7 +136,7 @@ func TestAccessKeyManager(t *testing.T) {
 			accessKey2, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
-				t.Error("Expected Get to return a non-nil error")
+				t.Error("Expected Get to return no error")
 			}
 
 			if accessKey2 == nil {
@@ -116,26 +153,23 @@ func TestAccessKeyManager(t *testing.T) {
 		})
 
 		t.Run("Purge", func(t *testing.T) {
-			server1 := test.NewTestServer(t)
-			defer server1.Shutdown()
-
 			server2 := test.NewTestServer(t)
 			defer server2.Shutdown()
 
-			accessKey, err := server1.App.Auth.AccessKeyManager.Create("Test access key", []auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
-				t.Error("Expected Create to return a non-nil error")
+				t.Error("Expected Create to return no error")
 			}
 
 			if accessKey == nil {
 				t.Fatal("Expected Create to return a non-nil AccessKey")
 			}
 
-			accessKey1, err := server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
+			accessKey1, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
-				t.Error("Expected Get to return a non-nil error")
+				t.Errorf("Expected Get to return no error before deletion, got %v", err)
 			}
 
 			if accessKey1 == nil {
@@ -145,7 +179,7 @@ func TestAccessKeyManager(t *testing.T) {
 			accessKey2, err := server2.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
-				t.Error("Expected Get to return a non-nil error")
+				t.Errorf("Expected Get to return no error before deletion, got %v", err)
 			}
 
 			if accessKey2 == nil {
@@ -155,16 +189,16 @@ func TestAccessKeyManager(t *testing.T) {
 			err = accessKey.Delete()
 
 			if err != nil {
-				t.Error("Expected Delete to return a non-nil error")
+				t.Error("Expected Delete to return no error")
 			}
 
-			err = server1.App.Auth.AccessKeyManager.Purge(accessKey.AccessKeyID)
+			err = app.Auth.AccessKeyManager.Purge(accessKey.AccessKeyID)
 
 			if err != nil {
-				t.Error("Expected Purge to return a non-nil error")
+				t.Error("Expected Purge to return no error")
 			}
 
-			accessKey1, err = server1.App.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
+			accessKey1, err = app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err == nil {
 				t.Error("Expected Get to return an error after Purge")
@@ -189,14 +223,14 @@ func TestAccessKeyManager(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				app.Auth.AccessKeyManager.Create(
 					fmt.Sprintf("Test access key %d", i),
-					[]auth.AccessKeyStatement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+					[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 				)
 			}
 
 			err := app.Auth.AccessKeyManager.PurgeAll()
 
 			if err != nil {
-				t.Error("Expected PurgeAll to return a non-nil error")
+				t.Error("Expected PurgeAll to return no error")
 			}
 		})
 	})
