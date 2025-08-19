@@ -47,7 +47,7 @@ func NewUserManager(
 }
 
 // Create a new user and store it.
-func (u *UserManager) Create(username, password string, statements []Statement) (*User, error) {
+func (u *UserManager) Create(username, password, description string, statements []Statement) (*User, error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
@@ -59,10 +59,11 @@ func (u *UserManager) Create(username, password string, statements []Statement) 
 	}
 
 	user := &User{
-		Username:   username,
-		Password:   string(bytes),
-		Statements: statements,
-		UpdatedAt:  time.Now().UTC(),
+		Username:    username,
+		Password:    string(bytes),
+		Description: description,
+		Statements:  statements,
+		UpdatedAt:   time.Now().UTC(),
 	}
 
 	user.CreatedAt = time.Now().UTC()
@@ -197,7 +198,7 @@ func (u *UserManager) Init() error {
 			return fmt.Errorf("the LITEBASE_ROOT_PASSWORD environment variable is not set")
 		}
 
-		_, err := u.Create(u.config.RootUsername, u.config.RootPassword, []Statement{
+		_, err := u.Create(u.config.RootUsername, u.config.RootPassword, "", []Statement{
 			{
 				Effect:   "Allow",
 				Resource: "*",

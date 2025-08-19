@@ -21,6 +21,7 @@ func TestUserShow(t *testing.T) {
 		user, err := server.App.Auth.UserManager.Create(
 			"testuser",
 			"testpassword123",
+			"",
 			[]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			},

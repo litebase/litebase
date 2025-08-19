@@ -133,6 +133,7 @@ func UserControllerStore(request *Request) Response {
 	user, err = request.cluster.Auth.UserManager.Create(
 		data.Username,
 		data.Password,
+		"",
 		data.Statements,
 	)
 

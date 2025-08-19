@@ -80,7 +80,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	}
 
 	app.Cluster.Node().Init(
-		database.NewQueryBuilder(app.Cluster, app.Auth.AccessKeyManager, app.DatabaseManager, app.LogManager),
+		database.NewQueryBuilder(app.Cluster, app.Auth, app.DatabaseManager, app.LogManager),
 		database.ResponsePool(),
 		database.NewDatabaseWALSynchronizer(app.DatabaseManager),
 	)

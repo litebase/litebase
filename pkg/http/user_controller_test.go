@@ -53,6 +53,7 @@ func TestUserController(t *testing.T) {
 			_, err := server.App.Cluster.Auth.UserManager.Create(
 				"testuser",
 				"password123",
+				"",
 				[]auth.Statement{
 					{
 						Effect:   "Allow",
@@ -180,6 +181,7 @@ func TestUserController(t *testing.T) {
 			_, err := server.App.Cluster.Auth.UserManager.Create(
 				"foo_update",
 				"bar",
+				"",
 				[]auth.Statement{
 					{
 						Effect:   "Allow",
@@ -252,6 +254,7 @@ func TestUserController(t *testing.T) {
 			_, err := server.App.Cluster.Auth.UserManager.Create(
 				"foo_destroy",
 				"bar",
+				"",
 				[]auth.Statement{
 					{
 						Effect:   "Allow",

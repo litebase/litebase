@@ -253,10 +253,29 @@ func (c Credential) Valid() bool {
 	return false
 }
 
+// Set the AccessKey for the credential.
 func (c *Credential) WithAccessKey(accessKey *AccessKey) *Credential {
 	c.CredentialID = accessKey.AccessKeyID
 	c.Scheme = "Litebase-HMAC-SHA256"
 	c.accessKey = accessKey
+
+	return c
+}
+
+// Set the Token for the credential.
+func (c *Credential) WithToken(token *Token) *Credential {
+	c.CredentialID = token.TokenID
+	c.Scheme = "Bearer"
+	c.token = token
+
+	return c
+}
+
+// Set the User for the credential.
+func (c *Credential) WithUser(user *User) *Credential {
+	c.CredentialID = user.Username
+	c.Scheme = "Basic"
+	c.user = user
 
 	return c
 }

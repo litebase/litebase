@@ -25,6 +25,7 @@ func TestUserListCmd(t *testing.T) {
 			user, err := server.App.Auth.UserManager.Create(
 				fmt.Sprintf("testuser-%d", i+1),
 				"testpassword123",
+				"",
 				[]auth.Statement{
 					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				},

@@ -77,6 +77,7 @@ func TestCredential(t *testing.T) {
 			user, err := app.Auth.UserManager.Create(
 				"testuser",
 				"testpassword123",
+				"",
 				[]auth.Statement{
 					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				},
@@ -215,6 +216,98 @@ func TestCredential(t *testing.T) {
 
 			if !invalidCredential.Invalid() {
 				t.Fatal("Expected invalid credential")
+			}
+		})
+
+		t.Run("WithAccessKey", func(t *testing.T) {
+			accessKey := auth.NewAccessKey(
+				app.Auth.AccessKeyManager,
+				"accessKeyId",
+				"accessKeySecret",
+				"Description",
+				[]auth.Statement{},
+			)
+
+			c := auth.Credential{}
+
+			c.WithAccessKey(accessKey)
+
+			if c.CredentialID != accessKey.AccessKeyID {
+				t.Errorf("Expected CredentialID %s, got %s",
+					accessKey.AccessKeyID, c.CredentialID)
+			}
+
+			if c.Scheme != "Litebase-HMAC-SHA256" {
+				t.Errorf("Expected Scheme %s, got %s",
+					"Litebase-HMAC-SHA256", c.Scheme)
+			}
+
+			if c.AccessKey().AccessKeyID != accessKey.AccessKeyID {
+				t.Errorf("Expected AccessKeyID %s, got %s",
+					accessKey.AccessKeyID, c.AccessKey().AccessKeyID)
+			}
+		})
+
+		t.Run("WithToken", func(t *testing.T) {
+			token, err := app.Auth.TokenManager.Create(
+				"",
+				[]auth.Statement{
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+				},
+			)
+
+			if err != nil {
+				t.Fatalf("failed to create token: %v", err)
+			}
+
+			c := auth.Credential{}
+			c.WithToken(token)
+
+			if c.CredentialID != token.TokenID {
+				t.Errorf("Expected CredentialID %s, got %s",
+					token.TokenID, c.CredentialID)
+			}
+
+			if c.Scheme != "Bearer" {
+				t.Errorf("Expected Scheme %s, got %s",
+					"Bearer", c.Scheme)
+			}
+
+			if c.Token().TokenID != token.TokenID {
+				t.Errorf("Expected TokenID %s, got %s",
+					token.TokenID, c.Token().TokenID)
+			}
+		})
+
+		t.Run("WithUser", func(t *testing.T) {
+			user, err := app.Auth.UserManager.Create(
+				"username",
+				"password",
+				"Description",
+				[]auth.Statement{},
+			)
+
+			if err != nil {
+				t.Fatalf("failed to create user: %v", err)
+			}
+
+			c := auth.Credential{}
+
+			c.WithUser(user)
+
+			if c.CredentialID != user.Username {
+				t.Errorf("Expected CredentialID %s, got %s",
+					user.Username, c.CredentialID)
+			}
+
+			if c.Scheme != "Basic" {
+				t.Errorf("Expected Scheme %s, got %s",
+					"Basic", c.Scheme)
+			}
+
+			if c.User().Username != user.Username {
+				t.Errorf("Expected Username %s, got %s",
+					user.Username, c.User().Username)
 			}
 		})
 	})

@@ -374,7 +374,7 @@ func TestNode_SetQueryBuilder(t *testing.T) {
 
 		queryBuilder := database.NewQueryBuilder(
 			server.App.Cluster,
-			server.App.Auth.AccessKeyManager,
+			server.App.Auth,
 			server.App.DatabaseManager,
 			server.App.LogManager,
 		)

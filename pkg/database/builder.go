@@ -8,10 +8,10 @@ import (
 )
 
 type QueryBuilder struct {
-	accessKeyManager *auth.AccessKeyManager
-	cluster          *cluster.Cluster
-	databaseManager  *DatabaseManager
-	logManager       *logs.LogManager
+	auth            *auth.Auth
+	cluster         *cluster.Cluster
+	databaseManager *DatabaseManager
+	logManager      *logs.LogManager
 }
 
 type QueryType interface {
@@ -20,15 +20,15 @@ type QueryType interface {
 
 func NewQueryBuilder(
 	cluster *cluster.Cluster,
-	accessKeyManager *auth.AccessKeyManager,
+	auth *auth.Auth,
 	databaseManager *DatabaseManager,
 	logManager *logs.LogManager,
 ) *QueryBuilder {
 	return &QueryBuilder{
-		accessKeyManager: accessKeyManager,
-		cluster:          cluster,
-		databaseManager:  databaseManager,
-		logManager:       logManager,
+		auth:            auth,
+		cluster:         cluster,
+		databaseManager: databaseManager,
+		logManager:      logManager,
 	}
 }
 
@@ -43,13 +43,11 @@ func (qb *QueryBuilder) Build(
 	parameters []sqlite3.StatementParameter,
 	id string,
 ) (cluster.NodeQuery, error) {
-	var credential *auth.Credential
-	//TODO: Implement credential fetching...
-	// accessKey, err := qb.accessKeyManager.Get(accessKeyId)
+	credential, err := qb.auth.GetCredential(credentialID, credentialScheme)
 
-	// if err != nil {
-	// 	return &Query{}, err
-	// }
+	if err != nil {
+		return &Query{}, err
+	}
 
 	return NewQuery(
 		qb.cluster,

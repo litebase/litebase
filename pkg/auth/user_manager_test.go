@@ -14,7 +14,7 @@ func TestUserManager(t *testing.T) {
 		t.Run("Create", func(t *testing.T) {
 			um := app.Auth.UserManager
 
-			_, err := um.Create("testuser", "testpass", []auth.Statement{
+			_, err := um.Create("testuser", "testpass", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -64,7 +64,7 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Add multiple users
-			_, err := um.Create("user1", "pass1", []auth.Statement{
+			_, err := um.Create("user1", "pass1", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -72,7 +72,7 @@ func TestUserManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			_, err = um.Create("user2", "pass2", []auth.Statement{
+			_, err = um.Create("user2", "pass2", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"write"}},
 			})
 
@@ -109,7 +109,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add a user
-			_, err := um.Create("testuser_Authenticate", "testpass", []auth.Statement{
+			_, err := um.Create("testuser_Authenticate", "testpass", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
@@ -142,7 +142,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add a user
-			_, err := um.Create("testuser_Get", "testpass", []auth.Statement{
+			_, err := um.Create("testuser_Get", "testpass", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
 				{Effect: auth.StatementEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
 			})
@@ -182,7 +182,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add users
-			_, err := um.Create("user1_Remove", "pass1", []auth.Statement{
+			_, err := um.Create("user1_Remove", "pass1", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
@@ -190,7 +190,7 @@ func TestUserManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			_, err = um.Create("user2_Remove", "pass2", []auth.Statement{
+			_, err = um.Create("user2_Remove", "pass2", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
@@ -239,7 +239,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add a user
-			_, err := um.Create("testuser_PasswordHandling", "plaintextpass", []auth.Statement{
+			_, err := um.Create("testuser_PasswordHandling", "plaintextpass", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"read"}},
 			})
 
@@ -276,7 +276,7 @@ func TestUserManager(t *testing.T) {
 			um := app.Auth.UserManager
 
 			// Add a user
-			_, err := um.Create("usertoupdate", "testpass", []auth.Statement{
+			_, err := um.Create("usertoupdate", "testpass", "", []auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"*"}},
 				{Effect: auth.StatementEffectAllow, Resource: "resource2", Actions: []auth.Privilege{"*"}},
 			})
@@ -334,7 +334,7 @@ func TestUserManager_Init_WithExistingUsers(t *testing.T) {
 		um := server.App.Auth.UserManager
 
 		// Add a user first
-		_, err := um.Create("existinguser", "pass", []auth.Statement{
+		_, err := um.Create("existinguser", "pass", "", []auth.Statement{
 			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 
@@ -442,7 +442,7 @@ func TestUserManager_Purge(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		_, err := server1.App.Auth.UserManager.Create("testuser_Remove", "testpass", []auth.Statement{
+		_, err := server1.App.Auth.UserManager.Create("testuser_Remove", "testpass", "", []auth.Statement{
 			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 

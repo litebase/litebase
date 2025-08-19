@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
 )
@@ -52,6 +54,32 @@ func (a *Auth) Broadcast(key string, value string) {
 // Set a broadcaster function for auth events.
 func (a *Auth) Broadcaster(f func(key string, value string)) {
 	a.broadcaster = f
+}
+
+// Get the credential by ID and scheme.
+func (a *Auth) GetCredential(id string, scheme string) (*Credential, error) {
+	switch scheme {
+	case "Basic":
+		if user, err := a.UserManager.Get(id); err == nil {
+			credential := &Credential{}
+
+			return credential.WithUser(user), nil
+		}
+	case "Bearer":
+		if token, err := a.TokenManager.Get(id); err == nil {
+			credential := &Credential{}
+
+			return credential.WithToken(token), nil
+		}
+	case "Litebase-HMAC-SHA256":
+		if accessKey, err := a.AccessKeyManager.Get(id); err == nil {
+			credential := &Credential{}
+
+			return credential.WithAccessKey(accessKey), nil
+		}
+	}
+
+	return nil, fmt.Errorf("unsupported credential scheme: %s", scheme)
 }
 
 // Provide the interface that will manage access key storage and create the

@@ -19,7 +19,7 @@ func TestUserUpdate(t *testing.T) {
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		user, err := server.App.Auth.UserManager.Create("Test user", "password", []auth.Statement{
+		user, err := server.App.Auth.UserManager.Create("Test user", "password", "", []auth.Statement{
 			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 		})
 

@@ -21,6 +21,7 @@ func TestUserDeleteCmd(t *testing.T) {
 		_, err := server.App.Auth.UserManager.Create(
 			"username",
 			"password",
+			"",
 			[]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			},

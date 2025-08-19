@@ -148,7 +148,7 @@ func (c *TestCLI) WithAccessKey(statements []auth.Statement) *TestCLI {
 
 // WithBasicAuth sets the username and password for basic authentication
 func (c *TestCLI) WithBasicAuth(username, password string, statements []auth.Statement) *TestCLI {
-	_, err := c.App.Auth.UserManager.Create(username, password, statements)
+	_, err := c.App.Auth.UserManager.Create(username, password, "", statements)
 
 	if err != nil {
 		panic(err)
