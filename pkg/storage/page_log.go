@@ -292,7 +292,7 @@ func (pl *PageLog) File() storage.File {
 // Internal get method without mutex protection - for use within already-locked methods
 func (pl *PageLog) get(page PageNumber, version PageVersion, data []byte) (bool, PageVersion, error) {
 	if pl.size == 0 {
-		return false, 0, nil // Empty log
+		return false, 0, nil
 	}
 
 	// if pl.cache != nil {
@@ -441,6 +441,53 @@ func (pl *PageLog) Tombstone(version PageVersion) error {
 		// Invalidate the cache entry for this tombstoned page
 		if pl.cache != nil {
 			pl.cache.Delete(fmt.Sprintf("%d:%d", pageNumber, version))
+		}
+	}
+
+	return nil
+}
+
+// Mark all pages with versions after the specified timestamp as tombstoned.
+func (pl *PageLog) TombstoneAfterTimestamp(afterTimestamp PageVersion) error {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	entries := pl.index.findPagesAfterVersion(afterTimestamp)
+
+	for _, entry := range entries {
+		err := pl.index.Tombstone(entry.PageNumber, entry.Version)
+
+		if err != nil {
+			return err
+		}
+
+		// Invalidate the cache entry for this tombstoned page
+		if pl.cache != nil {
+			pl.cache.Delete(fmt.Sprintf("%d:%d", entry.PageNumber, entry.Version))
+		}
+	}
+
+	return nil
+}
+
+// Mark all pages in this page log as tombstoned.
+func (pl *PageLog) TombstoneAll() error {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	// Get all entries from the index
+	latestVersions := pl.index.getLatestPageVersions()
+
+	for pageNumber, entry := range latestVersions {
+		err := pl.index.Tombstone(pageNumber, entry.Version)
+
+		if err != nil {
+			return err
+		}
+
+		// Invalidate the cache entry for this tombstoned page
+		if pl.cache != nil {
+			pl.cache.Delete(fmt.Sprintf("%d:%d", pageNumber, entry.Version))
 		}
 	}
 

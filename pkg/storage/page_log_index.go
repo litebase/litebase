@@ -16,6 +16,7 @@ type PageLogIndex struct {
 	path       string
 }
 
+// Create a new instance of the PageLogIndex.
 func NewPageLogIndex(fileSystem *FileSystem, path string) *PageLogIndex {
 	pli := &PageLogIndex{
 		fileSystem: fileSystem,
@@ -34,6 +35,7 @@ func NewPageLogIndex(fileSystem *FileSystem, path string) *PageLogIndex {
 	return pli
 }
 
+// Close the PageLogIndex.
 func (pli *PageLogIndex) Close() error {
 	if pli.file != nil {
 		defer func() {
@@ -46,6 +48,7 @@ func (pli *PageLogIndex) Close() error {
 	return nil
 }
 
+// Delete the page log index file.
 func (pli *PageLogIndex) Delete() error {
 	if pli.file != nil {
 		defer func() {
@@ -56,11 +59,13 @@ func (pli *PageLogIndex) Delete() error {
 	return pli.fileSystem.Remove(pli.path)
 }
 
+// Check if the PageLogIndex is empty.
 func (pli *PageLogIndex) Empty() bool {
 	return len(pli.memory) == 0
 }
 
-// Get the latest version of each page.
+// Get the latest version of each page. This will only return entries that have
+// not been tombstoned.
 func (pli *PageLogIndex) getLatestPageVersions() map[PageNumber]PageLogIndexEntry {
 	latestVersions := make(map[PageNumber]PageLogIndexEntry)
 
@@ -69,6 +74,11 @@ func (pli *PageLogIndex) getLatestPageVersions() map[PageNumber]PageLogIndexEntr
 		index := -1
 
 		for i, entry := range entries {
+			// Skip tombstoned entries
+			if entry.Tombstoned {
+				continue
+			}
+
 			if entry.Version > latestPageVersion {
 				latestPageVersion = entry.Version
 				index = i
@@ -83,6 +93,7 @@ func (pli *PageLogIndex) getLatestPageVersions() map[PageNumber]PageLogIndexEntr
 	return latestVersions
 }
 
+// Return the file of the PageLogIndex.
 func (pli *PageLogIndex) File() storage.File {
 	if pli.file == nil {
 		var err error
@@ -107,6 +118,7 @@ func (pli *PageLogIndex) File() storage.File {
 	return pli.file
 }
 
+// Find a page in the index that is closest to the given page number and version.
 func (pli *PageLogIndex) Find(page PageNumber, version PageVersion) (bool, PageVersion, int64, error) {
 	if entries, ok := pli.memory[page]; ok {
 		for i := len(entries) - 1; i >= 0; i-- {
@@ -123,6 +135,7 @@ func (pli *PageLogIndex) Find(page PageNumber, version PageVersion) (bool, PageV
 	return false, 0, 0, nil
 }
 
+// Find a page in the index that matches the specified version.
 func (pli *PageLogIndex) findPagesByVersion(pageVersion PageVersion) []PageNumber {
 	pages := make([]PageNumber, 0)
 
@@ -137,6 +150,27 @@ func (pli *PageLogIndex) findPagesByVersion(pageVersion PageVersion) []PageNumbe
 	return pages
 }
 
+// Find pages that are in the index that are after a specified version.
+func (pli *PageLogIndex) findPagesAfterVersion(afterVersion PageVersion) []PageLogIndexEntry {
+	entries := make([]PageLogIndexEntry, 0)
+
+	for pageNumber, pageEntries := range pli.memory {
+		for _, entry := range pageEntries {
+			if entry.Version > afterVersion && !entry.Tombstoned {
+				entries = append(entries, PageLogIndexEntry{
+					PageNumber: pageNumber,
+					Version:    entry.Version,
+					Offset:     entry.Offset,
+					Tombstoned: entry.Tombstoned,
+				})
+			}
+		}
+	}
+
+	return entries
+}
+
+// Load the index data from file to memory.
 func (pli *PageLogIndex) load() error {
 	pli.memory = make(map[PageNumber][]PageLogIndexEntry)
 
@@ -195,6 +229,7 @@ func (pli *PageLogIndex) load() error {
 	return nil
 }
 
+// Write a page log index entry.
 func (pli *PageLogIndex) Put(pageNumber PageNumber, versionNumber PageVersion, offset int64, value []byte) error {
 	entry := NewPageLogIndexEntry(
 		pageNumber,
@@ -227,6 +262,7 @@ func (pli *PageLogIndex) Put(pageNumber PageNumber, versionNumber PageVersion, o
 	return nil
 }
 
+// Mark a page in the index as tombstoned to be ignored in future page requests.
 func (pli *PageLogIndex) Tombstone(pageNumber PageNumber, versionNumber PageVersion) error {
 	if entries, ok := pli.memory[pageNumber]; ok {
 		for i := len(entries) - 1; i >= 0; i-- {

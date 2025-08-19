@@ -72,19 +72,18 @@ func (dfs *DurableDatabaseFileSystem) Acquire(timestamp int64) {
 
 // Run compaction on the page logger of the database file system.
 func (dfs *DurableDatabaseFileSystem) Compact() error {
-	dfs.compactionMutex.Lock()
-	defer dfs.compactionMutex.Unlock()
+	return dfs.PageLogger.CompactionBarrier(func() error {
+		dfs.mutex.Lock()
+		defer dfs.mutex.Unlock()
 
-	dfs.mutex.Lock()
-	defer dfs.mutex.Unlock()
+		err := dfs.PageLogger.Compact(dfs)
 
-	err := dfs.PageLogger.Compact(dfs)
+		if err != nil {
+			slog.Error("Error compacting database file system", "error", err)
+		}
 
-	if err != nil {
-		slog.Error("Error compacting database file system", "error", err)
-	}
-
-	return dfs.RangeManager.RunGarbageCollection()
+		return dfs.RangeManager.RunGarbageCollection()
+	})
 }
 
 // CompactionBarrier prevents compaction from occurring while the given function is running.

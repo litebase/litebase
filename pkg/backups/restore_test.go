@@ -37,6 +37,7 @@ func TestRestore(t *testing.T) {
 				sourceDfs,
 				targetDfs,
 				checkpointer,
+				0,
 			)
 
 			if err != nil {

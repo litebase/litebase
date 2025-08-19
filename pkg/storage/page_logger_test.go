@@ -1325,6 +1325,148 @@ func TestPageLogger_Tombstone(t *testing.T) {
 	})
 }
 
+func TestPageLogger_TombstoneAfter(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.DatabaseBranchID,
+			app.Cluster.LocalFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		if pageLogger == nil {
+			t.Fatal("Expected page logger to be created, but got nil")
+		}
+
+		// Create test data with different timestamps
+		testCases := []struct {
+			pageNum   int64
+			timestamp int64
+			data      []byte
+		}{
+			{1, 100, make([]byte, 4096)}, // Should remain
+			{2, 200, make([]byte, 4096)}, // Should remain
+			{3, 300, make([]byte, 4096)}, // Should be tombstoned
+			{4, 400, make([]byte, 4096)}, // Should be tombstoned
+			{1, 500, make([]byte, 4096)}, // Should be tombstoned (newer version of page 1)
+		}
+
+		// Write all test data
+		for _, tc := range testCases {
+			rand.Read(tc.data)
+
+			n, err := pageLogger.Write(tc.pageNum, tc.timestamp, tc.data)
+
+			if err != nil {
+				t.Fatalf("Failed to write page: %v. Page: %d, Timestamp: %d", err, tc.pageNum, tc.timestamp)
+			}
+
+			if n != len(tc.data) {
+				t.Fatalf("Expected to write %d bytes, but wrote %d", len(tc.data), n)
+			}
+		}
+
+		// Tombstone all entries after timestamp 200
+		cutoffTimestamp := int64(200)
+
+		err = pageLogger.TombstoneAfter(cutoffTimestamp)
+
+		if err != nil {
+			t.Fatalf("Failed to tombstone after timestamp %d: %v", cutoffTimestamp, err)
+		}
+
+		// Verify which pages can still be read
+		readData := make([]byte, 4096)
+
+		// These should still be found (timestamps <= 250)
+		shouldFind := []struct {
+			pageNum   int64
+			timestamp int64
+		}{
+			{1, 100}, // Original version
+			{2, 200}, // Should still be found
+		}
+
+		for _, tc := range shouldFind {
+			found, foundVersion, err := pageLogger.Read(tc.pageNum, tc.timestamp, readData)
+
+			if err != nil {
+				t.Fatalf("Failed to read page: %v. Page: %d, Timestamp: %d", err, tc.pageNum, tc.timestamp)
+			}
+
+			if !found {
+				t.Fatalf("Expected to find page data for Page: %d, Timestamp: %d", tc.pageNum, tc.timestamp)
+			}
+
+			if int64(foundVersion) != tc.timestamp {
+				t.Fatalf("Expected to find version %d, but found version %d", tc.timestamp, foundVersion)
+			}
+		}
+
+		// These should not be found because the exact timestamps were tombstoned
+		// and there are no earlier versions
+		shouldNotFind := []struct {
+			pageNum   int64
+			timestamp int64
+		}{
+			{3, 300}, // Should be tombstoned
+			{4, 400}, // Should be tombstoned
+		}
+
+		for _, tc := range shouldNotFind {
+			found, _, err := pageLogger.Read(tc.pageNum, tc.timestamp, readData)
+
+			if err != nil {
+				t.Fatalf("Failed to read page: %v. Page: %d, Timestamp: %d", err, tc.pageNum, tc.timestamp)
+			}
+
+			if found {
+				t.Fatalf("Expected page data to be tombstoned for Page: %d, Timestamp: %d", tc.pageNum, tc.timestamp)
+			}
+		}
+
+		// Test that page 1 with timestamp 500 was tombstoned, but reading falls back to version 100
+		found, foundVersion, err := pageLogger.Read(1, 500, readData)
+		if err != nil {
+			t.Fatalf("Failed to read page 1 with timestamp 500: %v", err)
+		}
+
+		if !found {
+			t.Fatal("Expected to find page 1 when reading with timestamp 500 (should fall back to version 100)")
+		}
+
+		if foundVersion != 100 {
+			t.Fatalf("Expected to find page 1 version 100, but found version %d", foundVersion)
+		}
+
+		// Test that reading page 1 with a later timestamp still returns the earlier version
+		found2, foundVersion2, err := pageLogger.Read(1, 600, readData)
+		if err != nil {
+			t.Fatalf("Failed to read page 1 with timestamp 600: %v", err)
+		}
+
+		if !found2 {
+			t.Fatal("Expected to find page 1 when reading with timestamp 600")
+		}
+
+		// Should find the earlier version (100) since the later version (500) was tombstoned
+		if int64(foundVersion2) != 100 {
+			t.Fatalf("Expected to find version 100 for page 1, but found version %d", foundVersion2)
+		}
+
+		err = pageLogger.Close()
+
+		if err != nil {
+			t.Fatalf("Failed to close page logger: %v", err)
+		}
+	})
+}
+
 func TestPageLogger_Tombstone_OnlySpecificVersion(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
