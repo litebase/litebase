@@ -11,238 +11,231 @@ import (
 	"github.com/litebase/litebase/pkg/storage"
 )
 
-func TestNewDataRangeIndex(t *testing.T) {
-	dri := storage.NewDataRangeIndex(nil)
-
-	if dri == nil {
-		t.Error("Expected DataRangeIndex to be initialized")
-	}
-}
-
-func TestDataRangeIndex_All(t *testing.T) {
+func TestDataRangeIndex(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		mockDatabase := test.MockDatabase(app)
+		t.Run("NewDataRangeIndex", func(t *testing.T) {
+			dri := storage.NewDataRangeIndex(nil)
 
-		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.TieredFS(),
-			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
-			config.StorageModeLocal,
-			mockDatabase.DatabaseID,
-			mockDatabase.DatabaseBranchID,
-			4096,
-		)
+			if dri == nil {
+				t.Error("Expected DataRangeIndex to be initialized")
+			}
+		})
 
-		drm := storage.NewDataRangeManager(dfs)
-		dri := storage.NewDataRangeIndex(drm)
+		t.Run("All", func(t *testing.T) {
+			mockDatabase := test.MockDatabase(app)
 
-		ranges, err := dri.All()
+			dfs := storage.NewDurableDatabaseFileSystem(
+				app.Cluster.TieredFS(),
+				app.Cluster.NetworkFS(),
+				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
+				config.StorageModeLocal,
+				mockDatabase.DatabaseID,
+				mockDatabase.DatabaseBranchID,
+				4096,
+			)
 
-		if err != nil {
-			t.Errorf("Expected All to succeed, got error: %v", err)
-		}
+			drm := storage.NewDataRangeManager(dfs)
+			dri := storage.NewDataRangeIndex(drm)
 
-		if len(ranges) != 1 {
-			t.Errorf("Expected All to return 1 entry, got %d entries", len(ranges))
-		}
+			ranges, err := dri.All()
 
-		dri.Set(2, 12345)
-		dri.Set(3, 67890)
+			if err != nil {
+				t.Errorf("Expected All to succeed, got error: %v", err)
+			}
 
-		ranges, err = dri.All()
+			if len(ranges) != 1 {
+				t.Errorf("Expected All to return 1 entry, got %d entries", len(ranges))
+			}
 
-		if err != nil {
-			t.Errorf("Expected All to succeed, got error: %v", err)
-		}
+			dri.Set(2, 12345)
+			dri.Set(3, 67890)
 
-		if len(ranges) != 3 {
-			t.Errorf("Expected All to return 3 entries, got %d", len(ranges))
-		}
+			ranges, err = dri.All()
 
-		if ranges[2].Version != 12345 {
-			t.Errorf("Expected range 2 to have version 12345, got %d", ranges[2])
-		}
+			if err != nil {
+				t.Errorf("Expected All to succeed, got error: %v", err)
+			}
 
-		if ranges[3].Version != 67890 {
-			t.Errorf("Expected range 3 to have version 67890, got %d", ranges[3])
-		}
-	})
-}
+			if len(ranges) != 3 {
+				t.Errorf("Expected All to return 3 entries, got %d", len(ranges))
+			}
 
-func TestDataRangeIndex_Close(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mockDatabase := test.MockDatabase(app)
+			if ranges[2].Version != 12345 {
+				t.Errorf("Expected range 2 to have version 12345, got %d", ranges[2])
+			}
 
-		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.TieredFS(),
-			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
-			config.StorageModeLocal,
-			mockDatabase.DatabaseID,
-			mockDatabase.DatabaseBranchID,
-			4096,
-		)
+			if ranges[3].Version != 67890 {
+				t.Errorf("Expected range 3 to have version 67890, got %d", ranges[3])
+			}
+		})
 
-		drm := storage.NewDataRangeManager(dfs)
-		dri := storage.NewDataRangeIndex(drm)
+		t.Run("Close", func(t *testing.T) {
 
-		err := dri.Close()
+			mockDatabase := test.MockDatabase(app)
 
-		if err != nil {
-			t.Errorf("Expected Close to succeed, got error: %v", err)
-		}
-	})
-}
+			dfs := storage.NewDurableDatabaseFileSystem(
+				app.Cluster.TieredFS(),
+				app.Cluster.NetworkFS(),
+				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
+				config.StorageModeLocal,
+				mockDatabase.DatabaseID,
+				mockDatabase.DatabaseBranchID,
+				4096,
+			)
 
-func TestDataRangeIndex_File(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mockDatabase := test.MockDatabase(app)
+			drm := storage.NewDataRangeManager(dfs)
+			dri := storage.NewDataRangeIndex(drm)
 
-		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.TieredFS(),
-			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
-			config.StorageModeLocal,
-			mockDatabase.DatabaseID,
-			mockDatabase.DatabaseBranchID,
-			4096,
-		)
+			err := dri.Close()
 
-		drm := storage.NewDataRangeManager(dfs)
-		dri := storage.NewDataRangeIndex(drm)
+			if err != nil {
+				t.Errorf("Expected Close to succeed, got error: %v", err)
+			}
+		})
 
-		file, err := dri.File()
+		t.Run("File", func(t *testing.T) {
+			mockDatabase := test.MockDatabase(app)
 
-		if err != nil {
-			t.Errorf("Expected File to succeed, got error: %v", err)
-		}
+			dfs := storage.NewDurableDatabaseFileSystem(
+				app.Cluster.TieredFS(),
+				app.Cluster.NetworkFS(),
+				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
+				config.StorageModeLocal,
+				mockDatabase.DatabaseID,
+				mockDatabase.DatabaseBranchID,
+				4096,
+			)
 
-		if file == nil {
-			t.Error("Expected File to return a valid file, got nil")
-		}
+			drm := storage.NewDataRangeManager(dfs)
+			dri := storage.NewDataRangeIndex(drm)
 
-		// Clean up
-		dri.Close()
-	})
-}
+			file, err := dri.File()
 
-func TestDataRangeIndex_Get(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mockDatabase := test.MockDatabase(app)
+			if err != nil {
+				t.Errorf("Expected File to succeed, got error: %v", err)
+			}
 
-		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.TieredFS(),
-			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
-			config.StorageModeLocal,
-			mockDatabase.DatabaseID,
-			mockDatabase.DatabaseBranchID,
-			4096,
-		)
+			if file == nil {
+				t.Error("Expected File to return a valid file, got nil")
+			}
 
-		drm := storage.NewDataRangeManager(dfs)
-		dri := storage.NewDataRangeIndex(drm)
+			// Clean up
+			dri.Close()
+		})
 
-		found, version, err := dri.Get(1)
+		t.Run("Get", func(t *testing.T) {
+			mockDatabase := test.MockDatabase(app)
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			dfs := storage.NewDurableDatabaseFileSystem(
+				app.Cluster.TieredFS(),
+				app.Cluster.NetworkFS(),
+				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
+				config.StorageModeLocal,
+				mockDatabase.DatabaseID,
+				mockDatabase.DatabaseBranchID,
+				4096,
+			)
 
-		if !found {
-			t.Error("Expected Get to find the range, got not found")
-		}
+			drm := storage.NewDataRangeManager(dfs)
+			dri := storage.NewDataRangeIndex(drm)
 
-		if version <= 0 {
-			t.Errorf("Expected version to be greater than 0, got %d", version)
-		}
+			found, version, err := dri.Get(1)
 
-		found, version, err = dri.Get(2)
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			if !found {
+				t.Error("Expected Get to find the range, got not found")
+			}
 
-		if found {
-			t.Error("Expected Get to not find the range, got found")
-		}
+			if version <= 0 {
+				t.Errorf("Expected version to be greater than 0, got %d", version)
+			}
 
-		if version != 0 {
-			t.Errorf("Expected version to be 0, got %d", version)
-		}
+			found, version, err = dri.Get(2)
 
-		// Clean up
-		dri.Close()
-	})
-}
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
 
-func TestDataRangeIndex_Path(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mockDatabase := test.MockDatabase(app)
+			if found {
+				t.Error("Expected Get to not find the range, got found")
+			}
 
-		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.TieredFS(),
-			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
-			config.StorageModeLocal,
-			mockDatabase.DatabaseID,
-			mockDatabase.DatabaseBranchID,
-			4096,
-		)
+			if version != 0 {
+				t.Errorf("Expected version to be 0, got %d", version)
+			}
 
-		drm := storage.NewDataRangeManager(dfs)
-		dri := storage.NewDataRangeIndex(drm)
+			// Clean up
+			dri.Close()
+		})
 
-		expectedPath := fmt.Sprintf("%s_RANGE_INDEX", file.GetDatabaseFileDir(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID))
-		actualPath := dri.Path()
+		t.Run("Path", func(t *testing.T) {
+			mockDatabase := test.MockDatabase(app)
 
-		if actualPath != expectedPath {
-			t.Errorf("Expected Path to return %q, got %q", expectedPath, actualPath)
-		}
+			dfs := storage.NewDurableDatabaseFileSystem(
+				app.Cluster.TieredFS(),
+				app.Cluster.NetworkFS(),
+				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
+				config.StorageModeLocal,
+				mockDatabase.DatabaseID,
+				mockDatabase.DatabaseBranchID,
+				4096,
+			)
 
-		// Clean up
-		dri.Close()
-	})
-}
+			drm := storage.NewDataRangeManager(dfs)
+			dri := storage.NewDataRangeIndex(drm)
 
-func TestDataRangeIndex_Set(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		mockDatabase := test.MockDatabase(app)
+			expectedPath := fmt.Sprintf("%s_RANGE_INDEX", file.GetDatabaseFileDir(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID))
+			actualPath := dri.Path()
 
-		dfs := storage.NewDurableDatabaseFileSystem(
-			app.Cluster.TieredFS(),
-			app.Cluster.NetworkFS(),
-			app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
-			config.StorageModeLocal,
-			mockDatabase.DatabaseID,
-			mockDatabase.DatabaseBranchID,
-			4096,
-		)
+			if actualPath != expectedPath {
+				t.Errorf("Expected Path to return %q, got %q", expectedPath, actualPath)
+			}
 
-		drm := storage.NewDataRangeManager(dfs)
-		dri := storage.NewDataRangeIndex(drm)
+			// Clean up
+			dri.Close()
+		})
 
-		err := dri.Set(1, 12345)
+		t.Run("Set", func(t *testing.T) {
+			mockDatabase := test.MockDatabase(app)
 
-		if err != nil {
-			t.Errorf("Expected Set to succeed, got error: %v", err)
-		}
+			dfs := storage.NewDurableDatabaseFileSystem(
+				app.Cluster.TieredFS(),
+				app.Cluster.NetworkFS(),
+				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
+				config.StorageModeLocal,
+				mockDatabase.DatabaseID,
+				mockDatabase.DatabaseBranchID,
+				4096,
+			)
 
-		found, version, err := dri.Get(1)
+			drm := storage.NewDataRangeManager(dfs)
+			dri := storage.NewDataRangeIndex(drm)
 
-		if err != nil {
-			t.Errorf("Expected Get to succeed, got error: %v", err)
-		}
+			err := dri.Set(1, 12345)
 
-		if !found {
-			t.Error("Expected Get to find the range, got not found")
-		}
+			if err != nil {
+				t.Errorf("Expected Set to succeed, got error: %v", err)
+			}
 
-		if version != 12345 {
-			t.Errorf("Expected version to be 12345, got %d", version)
-		}
+			found, version, err := dri.Get(1)
 
-		// Clean up
-		dri.Close()
+			if err != nil {
+				t.Errorf("Expected Get to succeed, got error: %v", err)
+			}
+
+			if !found {
+				t.Error("Expected Get to find the range, got not found")
+			}
+
+			if version != 12345 {
+				t.Errorf("Expected version to be 12345, got %d", version)
+			}
+
+			// Clean up
+			dri.Close()
+		})
 	})
 }
