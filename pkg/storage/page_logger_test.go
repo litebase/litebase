@@ -311,6 +311,75 @@ func TestPageLogger_CompactionBarrier(t *testing.T) {
 			t.Fatal("Expected page logger to be created, but got nil")
 		}
 
+		// Track execution to ensure only one compaction runs at a time
+		var compactionStarted bool
+		var mutex sync.Mutex
+		var firstCompactionErr error
+		var secondCompactionErr error
+
+		wg := sync.WaitGroup{}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			firstCompactionErr = pageLogger.CompactionBarrier(func() error {
+				mutex.Lock()
+				compactionStarted = true
+				mutex.Unlock()
+
+				time.Sleep(20 * time.Millisecond) // Hold the barrier for longer
+				return nil
+			})
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			time.Sleep(5 * time.Millisecond) // Start after first operation has begun
+
+			secondCompactionErr = pageLogger.CompactionBarrier(func() error {
+				// This should not be called since the barrier should fail
+				t.Error("Second compaction function should not have been called")
+				return nil
+			})
+		}()
+
+		wg.Wait()
+
+		if firstCompactionErr != nil {
+			t.Errorf("First CompactionBarrier call should have succeeded: %v", firstCompactionErr)
+		}
+
+		if secondCompactionErr != storage.ErrCompactionInProgress {
+			t.Errorf("Second CompactionBarrier call should have failed with ErrCompactionInProgress, got: %v", secondCompactionErr)
+		}
+
+		mutex.Lock()
+		if !compactionStarted {
+			t.Error("First compaction should have started")
+		}
+		mutex.Unlock()
+	})
+}
+
+func TestPageLogger_CompactionPassiveBarrier(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		pageLogger, err := storage.NewPageLogger(
+			db.DatabaseID,
+			db.DatabaseBranchID,
+			app.Cluster.LocalFS(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
+
+		if pageLogger == nil {
+			t.Fatal("Expected page logger to be created, but got nil")
+		}
+
 		// Track execution order to ensure operations are serialized
 		var executionOrder []int
 		var mutex sync.Mutex
@@ -321,8 +390,7 @@ func TestPageLogger_CompactionBarrier(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err = pageLogger.CompactionBarrier(func() error {
-				// First operation should start immediately
+			err = pageLogger.CompactionPassiveBarrier(func() error {
 				mutex.Lock()
 				executionOrder = append(executionOrder, 1)
 				mutex.Unlock()
@@ -336,7 +404,7 @@ func TestPageLogger_CompactionBarrier(t *testing.T) {
 			})
 
 			if err != nil {
-				t.Errorf("First CompactionBarrier call failed: %v", err)
+				t.Errorf("First CompactionPassiveBarrier call failed: %v", err)
 			}
 		}()
 
@@ -345,8 +413,7 @@ func TestPageLogger_CompactionBarrier(t *testing.T) {
 			defer wg.Done()
 			time.Sleep(5 * time.Millisecond) // Start after first operation has begun
 
-			err = pageLogger.CompactionBarrier(func() error {
-				// Second operation should wait for first to complete
+			err = pageLogger.CompactionPassiveBarrier(func() error {
 				mutex.Lock()
 				executionOrder = append(executionOrder, 3)
 				mutex.Unlock()
@@ -360,7 +427,7 @@ func TestPageLogger_CompactionBarrier(t *testing.T) {
 			})
 
 			if err != nil {
-				t.Errorf("Second CompactionBarrier call failed: %v", err)
+				t.Errorf("Second CompactionPassiveBarrier call failed: %v", err)
 			}
 		}()
 
