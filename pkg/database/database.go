@@ -295,7 +295,7 @@ func (database *Database) copyBranchParentData(branch *Branch) error {
 	// Get the latest snapshot timestamp
 	snapshotKeys := snapshotLogger.Keys()
 
-	// Esnure there is a snapshot to restore from
+	// Ensure there is a snapshot to restore from
 	if len(snapshotKeys) > 0 {
 		snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
 
