@@ -105,352 +105,556 @@ func TestRouterPathTrimming(t *testing.T) {
 	}
 }
 
-func TestRouterFallback(t *testing.T) {
+func TestRouter(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-		called := false
+		t.Run("Fallback", func(t *testing.T) {
+			router := appHttp.NewRouter()
+			called := false
 
-		router.Fallback(func(request *appHttp.Request) appHttp.Response {
-			called = true
-			return appHttp.Response{StatusCode: http.StatusNotFound}
-		})
+			router.Fallback(func(request *appHttp.Request) appHttp.Response {
+				called = true
+				return appHttp.Response{StatusCode: http.StatusNotFound}
+			})
 
-		// Create a mock request to trigger fallback
-		req := httptest.NewRequest("GET", "http://localhost/nonexistent", nil)
-		req.Header.Set("Content-Type", "application/json")
-		mockRequest := appHttp.NewRequest(app.Cluster, app.DatabaseManager, app.LogManager, req)
-		router.DefaultRoute.Handler(mockRequest)
+			// Create a mock request to trigger fallback
+			req := httptest.NewRequest("GET", "http://localhost/nonexistent", nil)
+			req.Header.Set("Content-Type", "application/json")
+			mockRequest := appHttp.NewRequest(app.Cluster, app.DatabaseManager, app.LogManager, req)
+			router.DefaultRoute.Handler(mockRequest)
 
-		if !called {
-			t.Error("Expected fallback handler to be called")
-		}
-	})
-}
-
-func TestRouterServer(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		router.Get("/test", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body:       map[string]any{"message": "test"},
+			if !called {
+				t.Error("Expected fallback handler to be called")
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("Server", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req := httptest.NewRequest("GET", "http://localhost/test", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/test", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body:       map[string]any{"message": "test"},
+				}
+			})
 
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		var response map[string]string
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response: %v", err)
-		}
+			req := httptest.NewRequest("GET", "http://localhost/test", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-		if response["message"] != "test" {
-			t.Errorf("Expected message 'test', got '%s'", response["message"])
-		}
-	})
-}
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
+			}
 
-func TestRouterServerFallbackRoute(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
+			var response map[string]string
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			if err != nil {
+				t.Errorf("Failed to unmarshal response: %v", err)
+			}
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
-
-		router.Fallback(func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       map[string]any{"error": "not found"},
+			if response["message"] != "test" {
+				t.Errorf("Expected message 'test', got '%s'", response["message"])
 			}
 		})
 
-		req := httptest.NewRequest("GET", "http://localhost/nonexistent", nil)
+		t.Run("ServerFallbackRoute", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req.Header.Set("Content-Type", "application/json")
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Fallback(func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusNotFound,
+					Body:       map[string]any{"error": "not found"},
+				}
+			})
 
-		if w.Code != http.StatusNotFound {
-			t.Errorf("Expected status code %d, got %d", http.StatusNotFound, w.Code)
-		}
+			req := httptest.NewRequest("GET", "http://localhost/nonexistent", nil)
 
-		var response map[string]string
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf("Failed to unmarshal response: %v", err)
-		}
+			req.Header.Set("Content-Type", "application/json")
 
-		if response["error"] != "not found" {
-			t.Errorf("Expected error 'not found', got '%s'", response["error"])
-		}
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-		// Get the content length header
-		contentLength := w.Header().Get("Content-Length")
-		if contentLength == "" {
-			t.Error("Expected Content-Length header to be set")
-		}
-	})
-}
+			if w.Code != http.StatusNotFound {
+				t.Errorf("Expected status code %d, got %d", http.StatusNotFound, w.Code)
+			}
 
-func TestRouterServerWithNilBody(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
+			var response map[string]string
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			if err != nil {
+				t.Errorf("Failed to unmarshal response: %v", err)
+			}
 
-		router.Get("/empty", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusNoContent,
-				Body:       nil,
+			if response["error"] != "not found" {
+				t.Errorf("Expected error 'not found', got '%s'", response["error"])
+			}
+
+			// Get the content length header
+			contentLength := w.Header().Get("Content-Length")
+			if contentLength == "" {
+				t.Error("Expected Content-Length header to be set")
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("ServerWithNilBody", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req := httptest.NewRequest("GET", "http://localhost/empty", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/empty", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusNoContent,
+					Body:       nil,
+				}
+			})
 
-		if w.Code != http.StatusNoContent {
-			t.Errorf("Expected status code %d, got %d", http.StatusNoContent, w.Code)
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		// The router writes an empty string when body is nil, which gets JSON marshaled to ""
-		if w.Body.String() != "" {
-			t.Errorf("Expected empty response body, got %s", w.Body.String())
-		}
-	})
-}
+			req := httptest.NewRequest("GET", "http://localhost/empty", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-func TestRouterServerWithHeaders(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
+			if w.Code != http.StatusNoContent {
+				t.Errorf("Expected status code %d, got %d", http.StatusNoContent, w.Code)
+			}
 
-		router.Get("/headers", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Headers: map[string]string{
-					"X-Custom-Header": "test-value",
-					"Content-Type":    "application/json",
-				},
-				Body: map[string]any{"test": "data"},
+			// The router writes an empty string when body is nil, which gets JSON marshaled to ""
+			if w.Body.String() != "" {
+				t.Errorf("Expected empty response body, got %s", w.Body.String())
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("ServerWithHeaders", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req := httptest.NewRequest("GET", "http://localhost/headers", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/headers", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Headers: map[string]string{
+						"X-Custom-Header": "test-value",
+						"Content-Type":    "application/json",
+					},
+					Body: map[string]any{"test": "data"},
+				}
+			})
 
-		if w.Header().Get("X-Custom-Header") != "test-value" {
-			t.Error("Expected custom header to be set")
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		if w.Header().Get("Content-Type") != "application/json" {
-			t.Error("Expected content type header to be set")
-		}
-	})
-}
+			req := httptest.NewRequest("GET", "http://localhost/headers", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-func TestRouterServerWithGzipEncoding(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
+			if w.Header().Get("X-Custom-Header") != "test-value" {
+				t.Error("Expected custom header to be set")
+			}
 
-		router.Get("/gzip", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Headers: map[string]string{
-					"Content-Encoding": "gzip",
-				},
-				Body: map[string]any{"message": "compressed"},
+			if w.Header().Get("Content-Type") != "application/json" {
+				t.Error("Expected content type header to be set")
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("ServerWithGzipEncoding", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req := httptest.NewRequest("GET", "http://localhost/gzip", nil)
-		req.Header.Set("Accept-Encoding", "gzip")
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/gzip", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Headers: map[string]string{
+						"Content-Encoding": "gzip",
+					},
+					Body: map[string]any{"message": "compressed"},
+				}
+			})
 
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		// Verify gzip compression
-		reader, err := gzip.NewReader(w.Body)
-		if err != nil {
-			t.Fatalf("Failed to create gzip reader: %v", err)
-		}
-		defer reader.Close()
+			req := httptest.NewRequest("GET", "http://localhost/gzip", nil)
+			req.Header.Set("Accept-Encoding", "gzip")
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-		var response map[string]string
-		err = json.NewDecoder(reader).Decode(&response)
-		if err != nil {
-			t.Errorf("Failed to decode gzipped response: %v", err)
-		}
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
+			}
 
-		if response["message"] != "compressed" {
-			t.Errorf("Expected message 'compressed', got '%s'", response["message"])
-		}
-	})
-}
+			// Verify gzip compression
+			reader, err := gzip.NewReader(w.Body)
+			if err != nil {
+				t.Fatalf("Failed to create gzip reader: %v", err)
+			}
+			defer reader.Close()
 
-func TestRouterServerWithStream(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
+			var response map[string]string
+			err = json.NewDecoder(reader).Decode(&response)
+			if err != nil {
+				t.Errorf("Failed to decode gzipped response: %v", err)
+			}
 
-		router.Get("/stream", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Stream: func(w http.ResponseWriter) {
-					w.Header().Set("Content-Type", "text/plain")
-					w.WriteHeader(http.StatusOK)
-					w.Write([]byte("streamed response"))
-				},
+			if response["message"] != "compressed" {
+				t.Errorf("Expected message 'compressed', got '%s'", response["message"])
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("ServerWithStream", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req := httptest.NewRequest("GET", "http://localhost/stream", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/stream", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Stream: func(w http.ResponseWriter) {
+						w.Header().Set("Content-Type", "text/plain")
+						w.WriteHeader(http.StatusOK)
+						w.Write([]byte("streamed response"))
+					},
+				}
+			})
 
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		if w.Body.String() != "streamed response" {
-			t.Errorf("Expected 'streamed response', got '%s'", w.Body.String())
-		}
+			req := httptest.NewRequest("GET", "http://localhost/stream", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-		if w.Header().Get("Content-Type") != "text/plain" {
-			t.Error("Expected Content-Type header to be set by stream")
-		}
-	})
-}
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
+			}
 
-func TestRouterServerWithZeroStatusCode(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
+			if w.Body.String() != "streamed response" {
+				t.Errorf("Expected 'streamed response', got '%s'", w.Body.String())
+			}
 
-		router.Get("/zero", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: 0,
-				Body:       map[string]any{"message": "zero status"},
+			if w.Header().Get("Content-Type") != "text/plain" {
+				t.Error("Expected Content-Type header to be set by stream")
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("ServerWithZeroStatusCode", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req := httptest.NewRequest("GET", "http://localhost/zero", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/zero", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: 0,
+					Body:       map[string]any{"message": "zero status"},
+				}
+			})
 
-		// Handler should return early when status code is 0
-		if w.Code != http.StatusOK { // Default status when nothing is written
-			t.Errorf("Expected default status code, got %d", w.Code)
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		if w.Body.Len() != 0 {
-			t.Error("Expected empty body when status code is 0")
-		}
-	})
-}
+			req := httptest.NewRequest("GET", "http://localhost/zero", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-func TestRouterMultipleRoutesOnSamePath(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
+			// Handler should return early when status code is 0
+			if w.Code != http.StatusOK { // Default status when nothing is written
+				t.Errorf("Expected default status code, got %d", w.Code)
+			}
 
-		router.Get("/api", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body:       map[string]any{"method": "GET"},
+			if w.Body.Len() != 0 {
+				t.Error("Expected empty body when status code is 0")
 			}
 		})
 
-		router.Post("/api", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusCreated,
-				Body:       map[string]any{"method": "POST"},
+		t.Run("MultipleRoutesOnSamePath", func(t *testing.T) {
+			router := appHttp.NewRouter()
+
+			router.Get("/api", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body:       map[string]any{"method": "GET"},
+				}
+			})
+
+			router.Post("/api", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusCreated,
+					Body:       map[string]any{"method": "POST"},
+				}
+			})
+
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+
+			// Test GET
+			req := httptest.NewRequest("GET", "http://localhost/api", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected GET status code %d, got %d", http.StatusOK, w.Code)
+			}
+
+			// Test POST
+			req = httptest.NewRequest("POST", "http://localhost/api", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w = httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusCreated {
+				t.Errorf("Expected POST status code %d, got %d", http.StatusCreated, w.Code)
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("ServerWithErrorStatusCode", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		// Test GET
-		req := httptest.NewRequest("GET", "http://localhost/api", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/error", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       map[string]any{"error": "server error"},
+				}
+			})
 
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected GET status code %d, got %d", http.StatusOK, w.Code)
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		// Test POST
-		req = httptest.NewRequest("POST", "http://localhost/api", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w = httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			req := httptest.NewRequest("GET", "http://localhost/error", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
 
-		if w.Code != http.StatusCreated {
-			t.Errorf("Expected POST status code %d, got %d", http.StatusCreated, w.Code)
-		}
-	})
-}
+			if w.Code != http.StatusInternalServerError {
+				t.Errorf("Expected status code %d, got %d", http.StatusInternalServerError, w.Code)
+			}
 
-func TestRouterServerWithErrorStatusCode(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		router.Get("/error", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusInternalServerError,
-				Body:       map[string]any{"error": "server error"},
+			// Verify Connection: close header is set for error responses
+			if w.Header().Get("Connection") != "close" {
+				t.Error("Expected Connection: close header for error response")
 			}
 		})
 
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+		t.Run("EmptyStringBodyResponse", func(t *testing.T) {
+			router := appHttp.NewRouter()
 
-		req := httptest.NewRequest("GET", "http://localhost/error", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
+			router.Get("/empty-string", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body:       nil,
+				}
+			})
 
-		if w.Code != http.StatusInternalServerError {
-			t.Errorf("Expected status code %d, got %d", http.StatusInternalServerError, w.Code)
-		}
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-		// Verify Connection: close header is set for error responses
-		if w.Header().Get("Connection") != "close" {
-			t.Error("Expected Connection: close header for error response")
-		}
+			req := httptest.NewRequest("GET", "http://localhost/empty-string", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
+			}
+
+			if w.Body.String() != "" {
+				t.Errorf("Expected body %s, got %s", "", w.Body.String())
+			}
+		})
+
+		t.Run("ComplexBodyResponse", func(t *testing.T) {
+			router := appHttp.NewRouter()
+
+			router.Get("/complex", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body: map[string]any{
+						"string":  "value",
+						"number":  42,
+						"boolean": true,
+						"array":   []string{"a", "b", "c"},
+						"object": map[string]any{
+							"nested": "value",
+						},
+					},
+				}
+			})
+
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+
+			req := httptest.NewRequest("GET", "http://localhost/complex", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("Expected status code %d, got %d", http.StatusOK, w.Code)
+			}
+
+			var response map[string]any
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			if err != nil {
+				t.Errorf("Failed to unmarshal complex response: %v", err)
+			}
+
+			if response["string"] != "value" {
+				t.Error("Complex response string field mismatch")
+			}
+
+			if response["number"].(float64) != 42 {
+				t.Error("Complex response number field mismatch")
+			}
+		})
+
+		t.Run("GlobalMiddleware", func(t *testing.T) {
+			router := appHttp.NewRouter()
+
+			// Verify default middleware exists
+			if len(router.GlobalMiddleware) == 0 {
+				t.Error("Expected default global middleware to be set")
+			}
+
+			// Test that we can add additional middleware
+			originalCount := len(router.GlobalMiddleware)
+
+			// Note: We can't easily test middleware execution without knowing the internal structure
+			// This test just verifies the middleware list is accessible
+			if originalCount < 1 {
+				t.Error("Expected at least one default middleware")
+			}
+		})
+
+		t.Run("WithURLParameters", func(t *testing.T) {
+			router := appHttp.NewRouter()
+
+			// Test basic path matching
+			router.Get("/users/123", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body:       map[string]any{"userId": "123"},
+				}
+			})
+
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+
+			req := httptest.NewRequest("GET", "http://localhost/users/123", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
+			}
+		})
+
+		t.Run("LargeResponse", func(t *testing.T) {
+			router := appHttp.NewRouter()
+
+			// Create a large response
+			largeData := make(map[string]any)
+			for i := range 1000 {
+				largeData[fmt.Sprintf("key_%d", i)] = fmt.Sprintf("value_%d", i)
+			}
+
+			router.Get("/large", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body:       largeData,
+				}
+			})
+
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+
+			req := httptest.NewRequest("GET", "http://localhost/large", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
+			}
+
+			var response map[string]any
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			if err != nil {
+				t.Errorf("Failed to unmarshal large response: %v", err)
+			}
+
+			if len(response) != 1000 {
+				t.Errorf("Expected 1000 keys in response, got %d", len(response))
+			}
+		})
+
+		t.Run("LoadRoutes", func(t *testing.T) {
+			router := appHttp.NewRouter()
+
+			serveMux := http.NewServeMux()
+
+			// This should call LoadRoutes internally
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+
+			// After LoadRoutes is called, the routes map should have routes
+			// We can't test the exact routes since they're loaded from LoadRoutes function
+			// but we can verify the router.Server call doesn't panic and sets up the server
+			if serveMux == nil {
+				t.Error("Expected serveMux to be properly configured")
+			}
+		})
+
+		t.Run("EdgeCases", func(t *testing.T) {
+			router := appHttp.NewRouter()
+
+			// Test with numeric response body
+			router.Get("/number", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body:       map[string]any{"number": 42},
+				}
+			})
+
+			// Test with boolean response body
+			router.Get("/boolean", func(request *appHttp.Request) appHttp.Response {
+				return appHttp.Response{
+					StatusCode: http.StatusOK,
+					Body:       map[string]any{"boolean": true},
+				}
+			})
+
+			serveMux := http.NewServeMux()
+			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
+
+			// Test numeric response
+			req := httptest.NewRequest("GET", "http://localhost/number", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d for number endpoint, got %d", http.StatusOK, w.Code)
+			}
+
+			if w.Body.String() != `{"number":42}` {
+				t.Errorf("Expected body {\"number\":42}, got '%s'", w.Body.String())
+			}
+
+			// Test boolean response
+			req = httptest.NewRequest("GET", "http://localhost/boolean", nil)
+			req.Header.Set("Content-Type", "application/json")
+			w = httptest.NewRecorder()
+			serveMux.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d for boolean endpoint, got %d", http.StatusOK, w.Code)
+			}
+
+			if w.Body.String() != `{"boolean":true}` {
+				t.Errorf("Expected body {\"boolean\":true}, got '%s'", w.Body.String())
+			}
+		})
 	})
 }
 
@@ -511,238 +715,4 @@ func TestRouterOverwriteRoute(t *testing.T) {
 	if router.Routes["GET"]["/test"] != route2 {
 		t.Error("Expected second route to overwrite first")
 	}
-}
-
-func TestRouterEmptyStringBodyResponse(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		router.Get("/empty-string", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body:       nil,
-			}
-		})
-
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
-
-		req := httptest.NewRequest("GET", "http://localhost/empty-string", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
-		}
-
-		if w.Body.String() != "" {
-			t.Errorf("Expected body %s, got %s", "", w.Body.String())
-		}
-	})
-}
-
-func TestRouterComplexBodyResponse(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		router.Get("/complex", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body: map[string]any{
-					"string":  "value",
-					"number":  42,
-					"boolean": true,
-					"array":   []string{"a", "b", "c"},
-					"object": map[string]any{
-						"nested": "value",
-					},
-				},
-			}
-		})
-
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
-
-		req := httptest.NewRequest("GET", "http://localhost/complex", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Fatalf("Expected status code %d, got %d", http.StatusOK, w.Code)
-		}
-
-		var response map[string]any
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf("Failed to unmarshal complex response: %v", err)
-		}
-
-		if response["string"] != "value" {
-			t.Error("Complex response string field mismatch")
-		}
-
-		if response["number"].(float64) != 42 {
-			t.Error("Complex response number field mismatch")
-		}
-	})
-}
-
-func TestRouterGlobalMiddleware(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		// Verify default middleware exists
-		if len(router.GlobalMiddleware) == 0 {
-			t.Error("Expected default global middleware to be set")
-		}
-
-		// Test that we can add additional middleware
-		originalCount := len(router.GlobalMiddleware)
-
-		// Note: We can't easily test middleware execution without knowing the internal structure
-		// This test just verifies the middleware list is accessible
-		if originalCount < 1 {
-			t.Error("Expected at least one default middleware")
-		}
-	})
-}
-
-func TestRouterWithURLParameters(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		// Test basic path matching
-		router.Get("/users/123", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body:       map[string]any{"userId": "123"},
-			}
-		})
-
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
-
-		req := httptest.NewRequest("GET", "http://localhost/users/123", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
-		}
-	})
-}
-
-func TestRouterLargeResponse(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		// Create a large response
-		largeData := make(map[string]any)
-		for i := range 1000 {
-			largeData[fmt.Sprintf("key_%d", i)] = fmt.Sprintf("value_%d", i)
-		}
-
-		router.Get("/large", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body:       largeData,
-			}
-		})
-
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
-
-		req := httptest.NewRequest("GET", "http://localhost/large", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
-		}
-
-		var response map[string]any
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf("Failed to unmarshal large response: %v", err)
-		}
-
-		if len(response) != 1000 {
-			t.Errorf("Expected 1000 keys in response, got %d", len(response))
-		}
-	})
-}
-
-func TestRouterLoadRoutes(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		serveMux := http.NewServeMux()
-
-		// This should call LoadRoutes internally
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
-
-		// After LoadRoutes is called, the routes map should have routes
-		// We can't test the exact routes since they're loaded from LoadRoutes function
-		// but we can verify the router.Server call doesn't panic and sets up the server
-		if serveMux == nil {
-			t.Error("Expected serveMux to be properly configured")
-		}
-	})
-}
-
-func TestRouterEdgeCases(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		router := appHttp.NewRouter()
-
-		// Test with numeric response body
-		router.Get("/number", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body:       map[string]any{"number": 42},
-			}
-		})
-
-		// Test with boolean response body
-		router.Get("/boolean", func(request *appHttp.Request) appHttp.Response {
-			return appHttp.Response{
-				StatusCode: http.StatusOK,
-				Body:       map[string]any{"boolean": true},
-			}
-		})
-
-		serveMux := http.NewServeMux()
-		router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
-
-		// Test numeric response
-		req := httptest.NewRequest("GET", "http://localhost/number", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d for number endpoint, got %d", http.StatusOK, w.Code)
-		}
-
-		if w.Body.String() != `{"number":42}` {
-			t.Errorf("Expected body {\"number\":42}, got '%s'", w.Body.String())
-		}
-
-		// Test boolean response
-		req = httptest.NewRequest("GET", "http://localhost/boolean", nil)
-		req.Header.Set("Content-Type", "application/json")
-		w = httptest.NewRecorder()
-		serveMux.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d for boolean endpoint, got %d", http.StatusOK, w.Code)
-		}
-
-		if w.Body.String() != `{"boolean":true}` {
-			t.Errorf("Expected body {\"boolean\":true}, got '%s'", w.Body.String())
-		}
-	})
 }

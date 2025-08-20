@@ -15,425 +15,394 @@ import (
 
 func TestObjectFileSystemDriver(t *testing.T) {
 	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
-
-		if driver == nil {
-			t.Fatal("Expected driver to be initialized")
-		}
-	})
-}
-
-func TestObjectFileSystemDriver_ClearFiles(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
-
-		// Test clearing files
-		err := driver.ClearFiles()
-
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		// Check if the bucket is empty
-		resp, err := driver.S3Client.ListObjectsV2(
-			context.TODO(),
-			&s3.ListObjectsV2Input{
-				Bucket:    &app.Config.StorageBucket,
-				Delimiter: aws.String("/"),
-				Prefix:    aws.String(""),
-			},
-		)
-
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		if len(resp.Contents) != 0 {
-			t.Fatal("Expected bucket to be empty")
-		}
-	})
-}
-
-func TestObectFileSystemDriver_Create(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
-
-		// Test creating a file
-		file, err := driver.Create("test.txt")
-
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		if file == nil {
-			t.Fatal("Expected file to be created")
-		}
-	})
-}
-
-func TestObjectFileSystemDriver_EnsureBucketExists(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
-
-		// Ensure the bucket exists
-		driver.EnsureBucketExists()
-
-		s3Client := driver.S3Client
-
-		// Check if the bucket exists
-		_, err := s3Client.HeadBucket(
-			context.TODO(),
-			&s3.HeadBucketInput{
-				Bucket: &app.Config.StorageBucket,
-			},
-		)
-
-		if err != nil {
-			t.Fatalf("Expected bucket to exist, got error: %v", err)
-		}
-	})
-}
-
-func TestObjectFileSystemDriver_Mkdir(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
-
-		// Test creating a directory
-		err := driver.Mkdir("testdir", 0750)
-
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-	})
-}
-
-func TestObjectFileSystemDriver_MkdirAll(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
-
-		// Test creating a directory and all parent directories
-		err := driver.MkdirAll("testdir/subdir", 0750)
-
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-	})
-}
+		t.Run("New", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
+
+			if driver == nil {
+				t.Fatal("Expected driver to be initialized")
+			}
+		})
+
+		t.Run("ClearFiles", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
+
+			// Test clearing files
+			err := driver.ClearFiles()
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Check if the bucket is empty
+			resp, err := driver.S3Client.ListObjectsV2(
+				context.TODO(),
+				&s3.ListObjectsV2Input{
+					Bucket:    &app.Config.StorageBucket,
+					Delimiter: aws.String("/"),
+					Prefix:    aws.String(""),
+				},
+			)
 
-func TestObjectFileSystemDriver_Open(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		// Create a file to open
-		_, err := driver.Create("test.txt")
+			if len(resp.Contents) != 0 {
+				t.Fatal("Expected bucket to be empty")
+			}
+		})
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		t.Run("Create", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		// Test opening the file
-		file, err := driver.Open("test.txt")
+			// Test creating a file
+			file, err := driver.Create("test.txt")
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if file == nil {
-			t.Fatal("Expected file to be opened")
-		}
-	})
-}
+			if file == nil {
+				t.Fatal("Expected file to be created")
+			}
+		})
 
-func TestObjectFileSystemDriver_OpenFile(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+		t.Run("EnsureBucketExists", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		// Create a file to open
-		file, err := driver.Create("test.txt")
+			// Ensure the bucket exists
+			driver.EnsureBucketExists()
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			s3Client := driver.S3Client
 
-		_, err = file.WriteString("Hello, World!")
+			// Check if the bucket exists
+			_, err := s3Client.HeadBucket(
+				context.TODO(),
+				&s3.HeadBucketInput{
+					Bucket: &app.Config.StorageBucket,
+				},
+			)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Fatalf("Expected bucket to exist, got error: %v", err)
+			}
+		})
 
-		// Close the file
-		err = file.Close()
+		t.Run("Mkdir", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Test creating a directory
+			err := driver.Mkdir("testdir", 0750)
 
-		// Test opening the file
-		file, err = driver.OpenFile("test.txt", os.O_CREATE|os.O_RDONLY, 0600)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+		})
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		t.Run("MkdirAll", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		if file == nil {
-			t.Fatal("Expected file to be opened")
-		}
+			// Test creating a directory and all parent directories
+			err := driver.MkdirAll("testdir/subdir", 0750)
 
-		// Read the file content
-		data := make([]byte, 13)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+		})
 
-		n, err := file.Read(data)
+		t.Run("Open", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		if err != nil && err != io.EOF {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Create a file to open
+			_, err := driver.Create("test.txt")
 
-		if n != 13 {
-			t.Fatalf("Expected to read 13 bytes, got %d", n)
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if string(data) != "Hello, World!" {
-			t.Fatalf("Expected file content to be 'Hello, World!', got '%s'", string(data))
-		}
-	})
-}
+			// Test opening the file
+			file, err := driver.Open("test.txt")
 
-func TestObjectFileSystemDriver_Path(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		// Test getting the path
-		path := driver.Path("test")
+			if file == nil {
+				t.Fatal("Expected file to be opened")
+			}
+		})
 
-		if path == "" {
-			t.Error("Path() returned an empty string")
-		}
-	})
-}
+		t.Run("OpenFile", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-func TestObjectFileSystemDriverReadDir(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			// Create a file to open
+			file, err := driver.Create("test.txt")
 
-		// Test reading a directory
-		entries, err := driver.ReadDir("/test")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			_, err = file.WriteString("Hello, World!")
 
-		if len(entries) != 0 {
-			t.Fatal("Expected no entries to be returned")
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		driver.Create("/test/test.txt")
+			// Close the file
+			err = file.Close()
 
-		entries, err = driver.ReadDir("/test")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Test opening the file
+			file, err = driver.OpenFile("test.txt", os.O_CREATE|os.O_RDONLY, 0600)
 
-		if len(entries) == 0 {
-			t.Fatal("Expected some entries to be returned")
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-	})
-}
+			if file == nil {
+				t.Fatal("Expected file to be opened")
+			}
 
-func TestObjectFileSystemDriverReadFile(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			// Read the file content
+			data := make([]byte, 13)
 
-		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
+			n, err := file.Read(data)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if err != nil && err != io.EOF {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		// Test reading the file
-		data, err := driver.ReadFile("test.txt")
+			if n != 13 {
+				t.Fatalf("Expected to read 13 bytes, got %d", n)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if string(data) != "Hello, World!" {
+				t.Fatalf("Expected file content to be 'Hello, World!', got '%s'", string(data))
+			}
+		})
 
-		if err != nil && err != io.EOF {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		t.Run("Path", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		if string(data) != "Hello, World!" {
-			t.Fatalf("Expected file content to be 'Hello, World!', got '%s'", string(data))
-		}
-	})
-}
+			// Test getting the path
+			path := driver.Path("test")
 
-func TestObjectFileSystemDriverRemove(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			if path == "" {
+				t.Error("Path() returned an empty string")
+			}
+		})
 
-		// Create a file to remove
-		_, err := driver.Create("test.txt")
+		t.Run("ReadDir", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Test reading a directory
+			entries, err := driver.ReadDir("/test")
 
-		// Test removing the file
-		err = driver.Remove("test.txt")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-	})
-}
+			if len(entries) != 0 {
+				t.Fatal("Expected no entries to be returned")
+			}
 
-func TestObjectFileSystemDriverRemoveAll(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			driver.Create("/test/test.txt")
 
-		// Create a directory to remove
-		err := driver.Mkdir("testdir", 0750)
+			entries, err = driver.ReadDir("/test")
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		// Create a file in the directory
-		_, err = driver.Create("testdir/test.txt")
+			if len(entries) == 0 {
+				t.Fatal("Expected some entries to be returned")
+			}
+		})
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		t.Run("ReadFile(", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		// Test removing the directory
-		err = driver.RemoveAll("testdir/")
+			err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		// Check if the directory is removed
-		entries, err := driver.ReadDir("testdir/")
+			// Test reading the file
+			data, err := driver.ReadFile("test.txt")
 
-		if err != nil {
-			t.Fatal("Expected error when reading removed directory")
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if len(entries) != 0 {
-			t.Fatalf("Expected no entries, got %d", len(entries))
-		}
-	})
-}
+			if err != nil && err != io.EOF {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-func TestObjectFileSystemDriverRename(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			if string(data) != "Hello, World!" {
+				t.Fatalf("Expected file content to be 'Hello, World!', got '%s'", string(data))
+			}
+		})
 
-		// Create a file to rename
-		_, err := driver.Create("test.txt")
+		t.Run("Remove", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Create a file to remove
+			_, err := driver.Create("test.txt")
 
-		// Test renaming the file
-		err = driver.Rename("test.txt", "test_renamed.txt")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Test removing the file
+			err = driver.Remove("test.txt")
 
-		// Check if the old file name no longer exists
-		_, err = driver.S3Client.GetObject(context.TODO(),
-			&s3.GetObjectInput{
-				Bucket: &app.Config.StorageBucket,
-				Key:    aws.String("test.txt"),
-			},
-		)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+		})
 
-		if err == nil {
-			t.Fatal("Expected error when accessing renamed file")
-		}
+		t.Run("RemoveAll", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		// Check if the new file name exists
-		_, err = driver.S3Client.GetObject(context.TODO(),
-			&s3.GetObjectInput{
-				Bucket: &app.Config.StorageBucket,
-				Key:    aws.String("test_renamed.txt"),
-			},
-		)
+			// Create a directory to remove
+			err := driver.Mkdir("testdir", 0750)
 
-		if err != nil {
-			t.Fatal("Expected renamed file to exist")
-		}
-	})
-}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-func TestObjectFileSystemDriverStat(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			// Create a file in the directory
+			_, err = driver.Create("testdir/test.txt")
 
-		// Create a file to stat
-		_, err := driver.Create("test.txt")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Test removing the directory
+			err = driver.RemoveAll("testdir/")
 
-		// Test statting the file
-		fileInfo, err := driver.Stat("test.txt")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Check if the directory is removed
+			entries, err := driver.ReadDir("testdir/")
 
-		if fileInfo == nil {
-			t.Fatal("Expected file info to be returned")
-		}
-	})
-}
+			if err != nil {
+				t.Fatal("Expected error when reading removed directory")
+			}
 
-func TestObjectFileSystemDriverTruncate(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			if len(entries) != 0 {
+				t.Fatalf("Expected no entries, got %d", len(entries))
+			}
+		})
 
-		// Create a file to truncate
-		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
+		t.Run("Rename", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			// Create a file to rename
+			_, err := driver.Create("test.txt")
 
-		// Test truncating the file
-		err = driver.Truncate("test.txt", 5)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		if err == nil {
-			t.Fatal("Expected error when truncating file")
-		}
-	})
-}
+			// Test renaming the file
+			err = driver.Rename("test.txt", "test_renamed.txt")
 
-func TestObjectFileSystemDriverWriteFile(t *testing.T) {
-	test.RunWithObjectStorage(t, func(app *server.App) {
-		driver := storage.NewObjectFileSystemDriver(app.Config)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
-		// Test writing to a file
-		err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
+			// Check if the old file name no longer exists
+			_, err = driver.S3Client.GetObject(context.TODO(),
+				&s3.GetObjectInput{
+					Bucket: &app.Config.StorageBucket,
+					Key:    aws.String("test.txt"),
+				},
+			)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if err == nil {
+				t.Fatal("Expected error when accessing renamed file")
+			}
 
-		// Check if the file content is correct
-		data, err := driver.ReadFile("test.txt")
+			// Check if the new file name exists
+			_, err = driver.S3Client.GetObject(context.TODO(),
+				&s3.GetObjectInput{
+					Bucket: &app.Config.StorageBucket,
+					Key:    aws.String("test_renamed.txt"),
+				},
+			)
 
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+			if err != nil {
+				t.Fatal("Expected renamed file to exist")
+			}
+		})
 
-		if string(data) != "Hello, World!" {
-			t.Fatalf("Expected file content to be 'Hello, World!', got '%s'", string(data))
-		}
+		t.Run("Stat", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
+
+			// Create a file to stat
+			_, err := driver.Create("test.txt")
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Test statting the file
+			fileInfo, err := driver.Stat("test.txt")
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			if fileInfo == nil {
+				t.Fatal("Expected file info to be returned")
+			}
+		})
+
+		t.Run("Truncate", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
+
+			// Create a file to truncate
+			err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Test truncating the file
+			err = driver.Truncate("test.txt", 5)
+
+			if err == nil {
+				t.Fatal("Expected error when truncating file")
+			}
+		})
+
+		t.Run("WriteFile", func(t *testing.T) {
+			driver := storage.NewObjectFileSystemDriver(app.Config)
+
+			// Test writing to a file
+			err := driver.WriteFile("test.txt", []byte("Hello, World!"), 0600)
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Check if the file content is correct
+			data, err := driver.ReadFile("test.txt")
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			if string(data) != "Hello, World!" {
+				t.Fatalf("Expected file content to be 'Hello, World!', got '%s'", string(data))
+			}
+		})
 	})
 }

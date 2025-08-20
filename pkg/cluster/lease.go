@@ -179,12 +179,12 @@ func (l *Lease) Renew() error {
 		return ErrLeaseExpired
 	}
 
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
 	if l.node.GetMembership() != ClusterMembershipPrimary {
 		return fmt.Errorf("node is not a leader")
 	}
+
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	if err := l.node.context.Err(); err != nil {
 		slog.Debug("Operation canceled before starting")

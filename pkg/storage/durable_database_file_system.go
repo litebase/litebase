@@ -88,7 +88,7 @@ func (dfs *DurableDatabaseFileSystem) Compact() error {
 
 // CompactionBarrier prevents compaction from occurring while the given function is running.
 func (dfs *DurableDatabaseFileSystem) CompactionBarrier(fn func() error) error {
-	return dfs.PageLogger.CompactionBarrier(fn)
+	return dfs.PageLogger.CompactionPassiveBarrier(fn)
 }
 
 // DFSCompactionBarrier prevents DFS-level compaction (including both page log compaction and range manager GC) from occurring while the given function is running.
