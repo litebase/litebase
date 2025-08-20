@@ -10,33 +10,47 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 )
 
-func TestLocalFS(t *testing.T) {
+func TestNodeFileSystem(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		fs := app.Cluster.LocalFS()
+		t.Run("LocalFS", func(t *testing.T) {
+			fs := app.Cluster.LocalFS()
 
-		if fs == nil {
-			t.Error("LocalFS() returned nil")
-		}
-	})
-}
+			if fs == nil {
+				t.Error("LocalFS() returned nil")
+			}
+		})
 
-func TestObjectFS(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		fs := app.Cluster.ObjectFS()
+		t.Run("ObjectFS", func(t *testing.T) {
+			fs := app.Cluster.ObjectFS()
 
-		if fs == nil {
-			t.Error("ObjectFS() returned nil")
-		}
-	})
-}
+			if fs == nil {
+				t.Error("ObjectFS() returned nil")
+			}
+		})
 
-func TestTieredFS(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		fs := app.Cluster.TieredFS()
+		t.Run("TieredFS", func(t *testing.T) {
+			fs := app.Cluster.TieredFS()
 
-		if fs == nil {
-			t.Error("TieredFS() returned nil")
-		}
+			if fs == nil {
+				t.Error("TieredFS() returned nil")
+			}
+		})
+
+		t.Run("TmpFS", func(t *testing.T) {
+			fs := app.Cluster.TmpFS()
+
+			if fs == nil {
+				t.Error("TmpFS() returned nil")
+			}
+		})
+
+		t.Run("TmpTieredFS", func(t *testing.T) {
+			fs := app.Cluster.TmpTieredFS()
+
+			if fs == nil {
+				t.Error("TmpTieredFS() returned nil")
+			}
+		})
 	})
 }
 
@@ -131,25 +145,5 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 				}
 			})
 		})
-	})
-}
-
-func TestTmpFS(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		fs := app.Cluster.TmpFS()
-
-		if fs == nil {
-			t.Error("TmpFS() returned nil")
-		}
-	})
-}
-
-func TestTmpTieredFS(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		fs := app.Cluster.TmpTieredFS()
-
-		if fs == nil {
-			t.Error("TmpTieredFS() returned nil")
-		}
 	})
 }
