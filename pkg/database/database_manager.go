@@ -72,6 +72,7 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -119,6 +120,10 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 func (d *DatabaseManager) Compaction() {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+
+	if !d.Cluster.Node().IsPrimary() {
+		return
+	}
 
 	for _, resource := range d.resources {
 		walmanager, err := resource.DatabaseWALManager()
