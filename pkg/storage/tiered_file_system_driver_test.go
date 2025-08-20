@@ -1485,7 +1485,7 @@ func TestTieredFileSystemDriver(t *testing.T) {
 
 			defer tieredFileSystemDriver.Shutdown()
 
-			tieredFile, err := tieredFileSystemDriver.Create("test.txt")
+			tieredFile, err := tieredFileSystemDriver.Create("test_TieredFileIsFlushedToDurableStorageAfterUpdate.txt")
 
 			if err != nil {
 				t.Error(err)
@@ -1499,7 +1499,7 @@ func TestTieredFileSystemDriver(t *testing.T) {
 
 			time.Sleep(time.Millisecond * 2)
 
-			data, err := fs2.ReadFile("test.txt")
+			data, err := fs2.ReadFile("test_TieredFileIsFlushedToDurableStorageAfterUpdate.txt")
 
 			if err != nil {
 				t.Error(err)

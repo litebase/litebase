@@ -28,7 +28,6 @@ func addCommands(cmd *cobra.Command, c *config.Configuration) {
 	cmd.AddCommand(NewDatabaseCmd(c))
 	cmd.AddCommand(NewProfileCmd(c))
 	cmd.AddCommand(NewServeCmd())
-	cmd.AddCommand(NewSQLCmd(c))
 	cmd.AddCommand(NewStatusCmd(c))
 	cmd.AddCommand(NewTokenCmd(c))
 	cmd.AddCommand(NewUserCmd(c))
