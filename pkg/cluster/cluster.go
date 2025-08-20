@@ -386,10 +386,11 @@ func (cluster *Cluster) RemoveMember(address string, removeHardState bool) error
 
 	// Clear the cache
 	cluster.MembersRetrievedAt = time.Time{}
+	var requiresHeartbeat bool
 
 	if cluster.node.primaryAddress == address {
 		cluster.node.PrimaryHeartbeat = time.Time{}
-		cluster.node.heartbeat()
+		requiresHeartbeat = true
 	}
 
 	for _, member := range cluster.Nodes() {
@@ -409,6 +410,10 @@ func (cluster *Cluster) RemoveMember(address string, removeHardState bool) error
 
 			break
 		}
+	}
+
+	if requiresHeartbeat {
+		cluster.node.heartbeat()
 	}
 
 	return nil
