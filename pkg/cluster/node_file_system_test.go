@@ -75,15 +75,21 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 
 				s.Step("PRIMARY_READY")
 
-				s.WaitForStep("REPLICA_READY")
+				err := s.WaitForStep("REPLICA_READY")
+
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				// Write a file to the tiered filesystem (this will be dirty)
 				file, err := app.Cluster.TieredFS().OpenFile("test", os.O_RDWR|os.O_CREATE, 0600)
+
 				if err != nil {
 					t.Fatal(err)
 				}
 
 				_, err = file.Write([]byte("helloworld"))
+
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -109,10 +115,14 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 
 				s.Step("REPLICA_READY")
 
-				s.WaitForStep("FILE_WRITTEN")
+				err = s.WaitForStep("FILE_WRITTEN")
+
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				// Wait for the node to become primary (after the first server crashes)
-				timeout := time.After(15 * time.Second)
+				timeout := time.After(10 * time.Second)
 
 			waitForPrimary:
 				for {
