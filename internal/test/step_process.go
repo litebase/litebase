@@ -49,13 +49,13 @@ func (s *StepProcess) Step(name string) {
 }
 
 // Wait a step to be broadcast from another process
-func (s *StepProcess) WaitForStep(name string) {
+func (s *StepProcess) WaitForStep(name string) error {
 	if s.sp == nil {
-		return
+		return nil
 	}
 
 	// In both coordinator and child mode, wait for the step message
-	s.sp.WaitForStep(name)
+	return s.sp.WaitForStep(name)
 }
 
 // Pause another process from this process

@@ -86,11 +86,22 @@ func (c *Cluster) ReceiveEvent(message *EventMessage) {
 	}
 
 	if _, ok := c.subscriptions[message.Key]; ok {
-		select {
-		case <-c.node.Context().Done():
-			slog.Debug("Context is cancelled, skipping event processing")
-		case c.eventsChannel <- message:
-			// message sent successfully
+		if c.eventsChannel != nil {
+			select {
+			case <-c.node.Context().Done():
+				slog.Debug("Context is cancelled, skipping event processing")
+			default:
+				// Safely send to channel, recover if closed
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							slog.Debug("Attempted to send on closed eventsChannel")
+						}
+					}()
+
+					c.eventsChannel <- message
+				}()
+			}
 		}
 	}
 }

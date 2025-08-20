@@ -582,14 +582,14 @@ func (sp *StepProcessor) sendAllConnectedSignal() {
 }
 
 // Wait for a specific step to be completed
-func (sp *StepProcessor) WaitForStep(stepName string) {
+func (sp *StepProcessor) WaitForStep(stepName string) error {
 	sp.stepMutex.Lock()
 
 	// Check if step was already completed
 	if sp.completedSteps[stepName] {
 		fmt.Printf("[BROKER] Step %s already completed\n", stepName)
 		sp.stepMutex.Unlock()
-		return
+		return nil
 	}
 
 	// Create waiter if it doesn't exist
@@ -599,12 +599,15 @@ func (sp *StepProcessor) WaitForStep(stepName string) {
 
 	waiter := sp.stepWaiters[stepName]
 	sp.stepMutex.Unlock()
+	timeout := time.After(5 * time.Second)
 
 	select {
 	case <-sp.ctx.Done():
-		return
+		return nil
+	case <-timeout:
+		return errors.New("timeout waiting for step completion")
 	case <-waiter:
-		return
+		return nil
 	}
 }
 
