@@ -318,7 +318,6 @@ func (n *Node) IsIdle() bool {
 
 func (n *Node) IsPrimary() bool {
 	n.mutex.Lock()
-	defer n.mutex.Unlock()
 
 	// If an election is running, wait for it to finish
 	if n.Election != nil && n.Election.Running() {
@@ -329,16 +328,21 @@ func (n *Node) IsPrimary() bool {
 		}
 	}
 
-	// If the node has not been activated, tick it before running these checks
+	// Check if we need to tick, but don't call Tick() while holding mutex
+	var needsTick bool
 	n.lastActiveMutex.Lock()
-
-	if n.LastActive.IsZero() || time.Since(n.LastActive) > 5*time.Minute {
-		n.Tick()
-	}
-
+	needsTick = n.LastActive.IsZero() || time.Since(n.LastActive) > 5*time.Minute
 	n.lastActiveMutex.Unlock()
 
+	// Release mutex before calling Tick()
+	if needsTick {
+		n.mutex.Unlock()
+		n.Tick()
+		n.mutex.Lock() // Re-acquire mutex
+	}
+
 	if n.membership == ClusterMembershipReplica {
+		n.mutex.Unlock()
 		return false
 	}
 
@@ -346,10 +350,13 @@ func (n *Node) IsPrimary() bool {
 	if n.membership == ClusterMembershipPrimary &&
 		n.Lease() != nil &&
 		n.Lease().IsUpToDate() {
+		n.mutex.Unlock()
 		return true
 	}
 
-	return n.primaryFileVerification()
+	isPrimary := n.primaryFileVerification()
+	n.mutex.Unlock()
+	return isPrimary
 }
 
 func (n *Node) IsReplica() bool {
