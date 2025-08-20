@@ -9,334 +9,320 @@ import (
 	"github.com/litebase/litebase/pkg/storage"
 )
 
-func TestNewWALIndex(t *testing.T) {
+func TestWALIndex(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
+		t.Run("New", func(t *testing.T) {
+			db := test.MockDatabase(app)
 
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
 
-		// Check if the WALIndex is initialized correctly
-		if walIndex == nil {
-			t.Fatal("Expected WALIndex to be initialized, but got nil")
-		}
-	})
-}
-
-func TestWALIndex_Close(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
-
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		// Close the WALIndex
-		err := walIndex.Close()
-
-		// Check if there was an error closing the WALIndex
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
-	})
-}
-
-func TestWALIndex_File(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
-
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		// Get the file for the WALIndex
-		file, err := walIndex.File()
-
-		// Check if there was an error getting the file
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
-
-		// Check if the file is not nil
-		if file == nil {
-			t.Fatal("Expected file to be initialized, but got nil")
-		}
-	})
-}
-
-func TestWALIndex_GetClosestVersion(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
-
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		past := time.Now().UTC().Add(-time.Second).UnixNano()
-		present := time.Now().UTC().UnixNano()
-		future := time.Now().UTC().Add(time.Second).UnixNano()
-
-		walIndex.SetVersions([]int64{
-			past,
-			present,
-			future,
+			// Check if the WALIndex is initialized correctly
+			if walIndex == nil {
+				t.Fatal("Expected WALIndex to be initialized, but got nil")
+			}
 		})
 
-		// Get the closest version
-		version := walIndex.GetClosestVersion(time.Now().UTC().UnixNano())
+		t.Run("Close", func(t *testing.T) {
+			db := test.MockDatabase(app)
 
-		if version != present {
-			t.Fatalf("Expected version to be %d, but got: %d", present, version)
-		}
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
 
-		version = walIndex.GetClosestVersion(past)
+			// Close the WALIndex
+			err := walIndex.Close()
 
-		if version != past {
-			t.Fatalf("Expected version to be %d, but got: %d", past, version)
-		}
-
-		version = walIndex.GetClosestVersion(future)
-
-		if version != future {
-			t.Fatalf("Expected version to be %d, but got: %d", future, version)
-		}
-	})
-}
-
-func TestWALIndex_GetClosestVersion_MicroSeconds(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
-
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		past := time.Now().UTC().Add(-time.Microsecond).UnixNano()
-		present := time.Now().UTC().UnixNano()
-		future := time.Now().UTC().Add(time.Microsecond).UnixNano()
-
-		walIndex.SetVersions([]int64{
-			past,
-			present,
-			future,
+			// Check if there was an error closing the WALIndex
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 		})
 
-		// Get the closest version
-		version := walIndex.GetClosestVersion(present)
+		t.Run("File", func(t *testing.T) {
+			db := test.MockDatabase(app)
 
-		if version != present {
-			t.Fatalf("Expected version to be %d, but got: %d", present, version)
-		}
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
 
-		version = walIndex.GetClosestVersion(past)
+			// Get the file for the WALIndex
+			file, err := walIndex.File()
 
-		if version != past {
-			t.Fatalf("Expected version to be %d, but got: %d", past, version)
-		}
+			// Check if there was an error getting the file
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 
-		version = walIndex.GetClosestVersion(future)
-
-		if version != future {
-			t.Fatalf("Expected version to be %d, but got: %d", future, version)
-		}
-	})
-}
-
-func TestWALIndex_GetVersions(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
-
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		walIndex.SetVersions([]int64{
-			1,
-			2,
-			3,
+			// Check if the file is not nil
+			if file == nil {
+				t.Fatal("Expected file to be initialized, but got nil")
+			}
 		})
 
-		// Get the versions
-		versions, err := walIndex.GetVersions()
+		t.Run("GetClosestVersion", func(t *testing.T) {
+			db := test.MockDatabase(app)
 
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
 
-		if len(versions) != 3 {
-			t.Fatalf("Expected 3 versions, but got: %d", len(versions))
-		}
+			past := time.Now().UTC().Add(-time.Second).UnixNano()
+			present := time.Now().UTC().UnixNano()
+			future := time.Now().UTC().Add(time.Second).UnixNano()
 
-		if versions[0] != 1 {
-			t.Fatalf("Expected version 1, but got: %d", versions[0])
-		}
+			walIndex.SetVersions([]int64{
+				past,
+				present,
+				future,
+			})
 
-		if versions[1] != 2 {
-			t.Fatalf("Expected version 2, but got: %d", versions[1])
-		}
+			// Get the closest version
+			version := walIndex.GetClosestVersion(time.Now().UTC().UnixNano())
 
-		if versions[2] != 3 {
-			t.Fatalf("Expected version 3, but got: %d", versions[2])
-		}
-	})
-}
+			if version != present {
+				t.Fatalf("Expected version to be %d, but got: %d", present, version)
+			}
 
-func TestWALIndex_RemoveVersionsFrom(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
+			version = walIndex.GetClosestVersion(past)
 
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
+			if version != past {
+				t.Fatalf("Expected version to be %d, but got: %d", past, version)
+			}
 
-		past := time.Now().UTC().Add(-time.Second).UnixNano()
-		present := time.Now().UTC().UnixNano()
-		future := time.Now().UTC().Add(time.Second).UnixNano()
+			version = walIndex.GetClosestVersion(future)
 
-		walIndex.SetVersions([]int64{
-			past,
-			present,
-			future,
+			if version != future {
+				t.Fatalf("Expected version to be %d, but got: %d", future, version)
+			}
 		})
 
-		removed, err := walIndex.RemoveVersionsFrom(present)
+		t.Run("GetClosestVersion_MicroSeconds", func(t *testing.T) {
+			db := test.MockDatabase(app)
 
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
 
-		if len(removed) != 2 {
-			t.Fatalf("Expected 2 versions, but got: %d", len(removed))
-		}
+			past := time.Now().UTC().Add(-time.Microsecond).UnixNano()
+			present := time.Now().UTC().UnixNano()
+			future := time.Now().UTC().Add(time.Microsecond).UnixNano()
 
-		if removed[0] != past {
-			t.Fatalf("Expected version %d, but got: %d", past, removed[0])
-		}
+			walIndex.SetVersions([]int64{
+				past,
+				present,
+				future,
+			})
 
-		versions, err := walIndex.GetVersions()
+			// Get the closest version
+			version := walIndex.GetClosestVersion(present)
 
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
+			if version != present {
+				t.Fatalf("Expected version to be %d, but got: %d", present, version)
+			}
 
-		if len(versions) != 1 {
-			t.Fatalf("Expected 1 version, but got: %d", len(versions))
-		}
+			version = walIndex.GetClosestVersion(past)
 
-		if versions[0] != future {
-			t.Fatalf("Expected version %d, but got: %d", future, versions[0])
-		}
-	})
-}
+			if version != past {
+				t.Fatalf("Expected version to be %d, but got: %d", past, version)
+			}
 
-func TestWALIndex_SetVersions(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
+			version = walIndex.GetClosestVersion(future)
 
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		// Set versions
-		err := walIndex.SetVersions([]int64{
-			1,
-			2,
-			3,
+			if version != future {
+				t.Fatalf("Expected version to be %d, but got: %d", future, version)
+			}
 		})
 
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
+		t.Run("GetVersions", func(t *testing.T) {
+			db := test.MockDatabase(app)
 
-		// Get the versions
-		versions, err := walIndex.GetVersions()
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
 
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
+			walIndex.SetVersions([]int64{
+				1,
+				2,
+				3,
+			})
 
-		if len(versions) != 3 {
-			t.Fatalf("Expected 3 versions, but got: %d", len(versions))
-		}
+			// Get the versions
+			versions, err := walIndex.GetVersions()
 
-		if versions[0] != 1 {
-			t.Fatalf("Expected version 1, but got: %d", versions[0])
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 
-		if versions[1] != 2 {
-			t.Fatalf("Expected version 2, but got: %d", versions[1])
-		}
+			if len(versions) != 3 {
+				t.Fatalf("Expected 3 versions, but got: %d", len(versions))
+			}
 
-		if versions[2] != 3 {
-			t.Fatalf("Expected version 3, but got: %d", versions[2])
-		}
-	})
-}
+			if versions[0] != 1 {
+				t.Fatalf("Expected version 1, but got: %d", versions[0])
+			}
 
-func TestWALIndex_Truncate(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		db := test.MockDatabase(app)
+			if versions[1] != 2 {
+				t.Fatalf("Expected version 2, but got: %d", versions[1])
+			}
 
-		// Create a new WALIndex instance
-		walIndex := storage.NewWALIndex(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-			app.Cluster.LocalFS(),
-		)
-
-		past1 := time.Now().UTC().Add(-time.Hour * 26).UnixNano()
-		past2 := time.Now().UTC().Add(-time.Hour * 25).UnixNano()
-		present := time.Now().UTC().UnixNano()
-
-		walIndex.SetVersions([]int64{
-			past1,
-			past2,
-			present,
+			if versions[2] != 3 {
+				t.Fatalf("Expected version 3, but got: %d", versions[2])
+			}
 		})
 
-		err := walIndex.Truncate()
+		t.Run("RemoveVersionsFrom", func(t *testing.T) {
+			db := test.MockDatabase(app)
 
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
 
-		versions, err := walIndex.GetVersions()
+			past := time.Now().UTC().Add(-time.Second).UnixNano()
+			present := time.Now().UTC().UnixNano()
+			future := time.Now().UTC().Add(time.Second).UnixNano()
 
-		if err != nil {
-			t.Fatalf("Expected no error, but got: %v", err)
-		}
+			walIndex.SetVersions([]int64{
+				past,
+				present,
+				future,
+			})
 
-		if len(versions) != 1 {
-			t.Fatalf("Expected 1 version, but got: %d", len(versions))
-		}
+			removed, err := walIndex.RemoveVersionsFrom(present)
 
-		if versions[0] != present {
-			t.Fatalf("Expected version %d, but got: %d", present, versions[0])
-		}
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
+
+			if len(removed) != 2 {
+				t.Fatalf("Expected 2 versions, but got: %d", len(removed))
+			}
+
+			if removed[0] != past {
+				t.Fatalf("Expected version %d, but got: %d", past, removed[0])
+			}
+
+			versions, err := walIndex.GetVersions()
+
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
+
+			if len(versions) != 1 {
+				t.Fatalf("Expected 1 version, but got: %d", len(versions))
+			}
+
+			if versions[0] != future {
+				t.Fatalf("Expected version %d, but got: %d", future, versions[0])
+			}
+		})
+
+		t.Run("SetVersions", func(t *testing.T) {
+			db := test.MockDatabase(app)
+
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
+
+			// Set versions
+			err := walIndex.SetVersions([]int64{
+				1,
+				2,
+				3,
+			})
+
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
+
+			// Get the versions
+			versions, err := walIndex.GetVersions()
+
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
+
+			if len(versions) != 3 {
+				t.Fatalf("Expected 3 versions, but got: %d", len(versions))
+			}
+
+			if versions[0] != 1 {
+				t.Fatalf("Expected version 1, but got: %d", versions[0])
+			}
+
+			if versions[1] != 2 {
+				t.Fatalf("Expected version 2, but got: %d", versions[1])
+			}
+
+			if versions[2] != 3 {
+				t.Fatalf("Expected version 3, but got: %d", versions[2])
+			}
+		})
+
+		t.Run("Truncate", func(t *testing.T) {
+			db := test.MockDatabase(app)
+
+			// Create a new WALIndex instance
+			walIndex := storage.NewWALIndex(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
+
+			past1 := time.Now().UTC().Add(-time.Hour * 26).UnixNano()
+			past2 := time.Now().UTC().Add(-time.Hour * 25).UnixNano()
+			present := time.Now().UTC().UnixNano()
+
+			walIndex.SetVersions([]int64{
+				past1,
+				past2,
+				present,
+			})
+
+			err := walIndex.Truncate()
+
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
+
+			versions, err := walIndex.GetVersions()
+
+			if err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
+
+			if len(versions) != 1 {
+				t.Fatalf("Expected 1 version, but got: %d", len(versions))
+			}
+
+			if versions[0] != present {
+				t.Fatalf("Expected version %d, but got: %d", present, versions[0])
+			}
+		})
 	})
 }
