@@ -12,12 +12,25 @@ func TestDatabaseBranchControllerIndex(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
+
 		testDatabase := test.MockDatabase(server.App)
 
 		db, err := server.App.DatabaseManager.Get(testDatabase.DatabaseID)
 
 		if err != nil {
 			t.Fatalf("failed to get mock database: %v", err)
+		}
+
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(testDatabase.DatabaseID, testDatabase.DatabaseBranchID)
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+		if _, err := con.GetConnection().Exec("CREATE TABLE IF NOT EXISTS test_table (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
+			t.Fatalf("failed to create test table: %v", err)
+		}
+
+		if err := con.Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
 		}
 
 		for i := range 3 {
