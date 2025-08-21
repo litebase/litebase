@@ -270,6 +270,10 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 				t.Fatalf("Error acquiring WAL version: %v", err)
 			}
 
+			if i == 0 {
+				walm.Release(walVersion.Timestamp())
+			}
+
 			walVersions[i] = walVersion
 		}
 
@@ -288,10 +292,10 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 
 			if i == 0 {
 				if err == nil {
-					t.Error("File should not exist", err)
+					t.Errorf("File should not exist for index %d, error: %v", i, err)
 				}
 			} else if err != nil {
-				t.Error("File should exist still still in use", err)
+				t.Errorf("File should exist still still in use for index %d, error: %v", i, err)
 			}
 		}
 
@@ -306,10 +310,6 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 		}
 
 		for i := 1; i < 5; i++ {
-			if i == 0 {
-				continue
-			}
-
 			_, err := app.Cluster.NetworkFS().Stat(walVersions[i].Path)
 
 			if err == nil {
