@@ -170,10 +170,6 @@ func TestDatabaseBranchControllerStore(t *testing.T) {
 			t.Fatalf("failed to create checkpoint: %v", err)
 		}
 
-		if err != nil {
-			t.Fatalf("failed to create test table: %v", err)
-		}
-
 		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: auth.Resource(fmt.Sprintf("database:%s", mock.DatabaseID)),
