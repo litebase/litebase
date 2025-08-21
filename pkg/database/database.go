@@ -335,7 +335,7 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 	branch, err := NewBranch(database.DatabaseManager, database.ID, parentBranchName, name)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create branch: %w", err)
+		return nil, err
 	}
 
 	branch.DatabaseID = database.DatabaseID

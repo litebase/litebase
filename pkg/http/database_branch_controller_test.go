@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -22,6 +23,10 @@ func TestDatabaseBranchControllerIndex(t *testing.T) {
 		}
 
 		con, err := server.App.DatabaseManager.ConnectionManager().Get(testDatabase.DatabaseID, testDatabase.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get database connection: %v", err)
+		}
 
 		defer server.App.DatabaseManager.ConnectionManager().Release(con)
 
@@ -149,6 +154,26 @@ func TestDatabaseBranchControllerStore(t *testing.T) {
 			t.Fatalf("failed to get mock database: %v", err)
 		}
 
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get database connection: %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+		if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
+			t.Fatalf("failed to create test table: %v", err)
+		}
+
+		if err := con.Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
+
+		if err != nil {
+			t.Fatalf("failed to create test table: %v", err)
+		}
+
 		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: auth.Resource(fmt.Sprintf("database:%s", mock.DatabaseID)),
@@ -164,13 +189,14 @@ func TestDatabaseBranchControllerStore(t *testing.T) {
 		}
 
 		if statusCode != 200 {
-			t.Fatalf("expected status code 200, got %d", statusCode)
+			t.Errorf("expected status code 200, got %d", statusCode)
 		}
 
 		// Check the response data
 		data, ok := resp["data"].(map[string]any)
 
 		if !ok {
+			t.Logf("response: %v", resp)
 			t.Fatalf("expected data to be an object, got %T", resp["data"])
 		}
 
@@ -197,20 +223,103 @@ func TestDatabaseBranchControllerStore_WithSameNameFails(t *testing.T) {
 
 		mock := test.MockDatabase(server.App)
 
-		database, err := server.App.DatabaseManager.Get(mock.DatabaseID)
+		// database, err := server.App.DatabaseManager.Get(mock.DatabaseID)
+
+		// if err != nil {
+		// 	t.Fatalf("failed to get mock database: %v", err)
+		// }
+
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 		if err != nil {
-			t.Fatalf("failed to get mock database: %v", err)
+			t.Fatalf("failed to get database connection: %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+		if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
+			t.Fatalf("failed to create test table: %v", err)
+		}
+
+		if err := con.Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
+
+		if err != nil {
+			t.Fatalf("failed to create test table: %v", err)
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   "Allow",
 			Resource: "*",
-			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
+			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
 		}})
 
-		resp, statusCode, err := client.Send("/v1/databases", "POST", map[string]any{
-			"name": database.Name,
+		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches", mock.DatabaseName), "POST", map[string]any{
+			"name": "main",
+		})
+
+		if err != nil {
+			t.Fatalf("failed to send request: %v", err)
+		}
+
+		if statusCode != 400 {
+			t.Log(resp)
+			t.Fatalf("expected status code 400, got %d", statusCode)
+		}
+
+		if resp["status"] != "error" {
+			t.Fatalf("expected error status, got %v", resp["status"])
+		}
+
+		if !strings.Contains(resp["message"].(string), "already exists") {
+			t.Log(resp)
+			t.Fatalf("expected error message to contain 'already exists', got %v", resp["message"])
+		}
+
+		databases, err := server.App.DatabaseManager.All()
+
+		if err != nil {
+			t.Fatalf("failed to get databases: %v", err)
+		}
+
+		if len(databases) != 1 {
+			t.Fatalf("expected exactly 1 database, got %d", len(databases))
+		}
+	})
+}
+
+func TestDatabaseBranchControllerStore_WithoutParentSnapshotsFails(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		mock := test.MockDatabase(server.App)
+
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get database connection: %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+		if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
+			t.Fatalf("failed to create test table: %v", err)
+		}
+
+		if err != nil {
+			t.Fatalf("failed to create test table: %v", err)
+		}
+
+		client := server.WithAccessKeyClient([]auth.Statement{{
+			Effect:   "Allow",
+			Resource: "*",
+			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
+		}})
+
+		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches", mock.DatabaseName), "POST", map[string]any{
+			"name": "test_branch",
 		})
 
 		if err != nil {
@@ -223,6 +332,11 @@ func TestDatabaseBranchControllerStore_WithSameNameFails(t *testing.T) {
 
 		if resp["status"] != "error" {
 			t.Fatalf("expected error status, got %v", resp["status"])
+		}
+
+		if !strings.Contains(resp["message"].(string), "snapshots") {
+			t.Log(resp)
+			t.Fatalf("expected error message to contain 'snapshots', got %v", resp["message"])
 		}
 
 		databases, err := server.App.DatabaseManager.All()

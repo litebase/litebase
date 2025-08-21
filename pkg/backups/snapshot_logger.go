@@ -1,8 +1,10 @@
 package backups
 
 import (
+	"errors"
 	"log"
 	"log/slog"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -13,6 +15,8 @@ import (
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
 )
+
+var ErrNoSnapshotsFound = errors.New("no snapshots found")
 
 // The SnapshotLogger is used to manage snapshots of the database. The logs
 // are stored on disk and organized by day. Each log entry contains a timestamp
@@ -151,6 +155,10 @@ func (sl *SnapshotLogger) GetSnapshots() (map[int64]*Snapshot, error) {
 	)
 
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrNoSnapshotsFound
+		}
+
 		return nil, err
 	}
 
