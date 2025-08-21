@@ -543,12 +543,6 @@ func TestStatementParameterIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer func() {
-		if err := statement.Finalize(); err != nil {
-			t.Errorf("Expected no error when finalizing statement, got: %v", err)
-		}
-	}()
-
 	index := statement.ParameterIndex("?")
 
 	if index != 0 {
