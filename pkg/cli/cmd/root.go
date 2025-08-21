@@ -116,7 +116,7 @@ func NewRoot(version string) error {
 	return fang.Execute(
 		context.Background(),
 		cmd,
-		fang.WithTheme(cli.ColorScheme()),
+		fang.WithColorSchemeFunc(cli.ColorScheme),
 		fang.WithVersion(version),
 	)
 }
