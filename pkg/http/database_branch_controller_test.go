@@ -366,6 +366,26 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				t.Fatalf("failed to get mock database: %v", err)
 			}
 
+			con, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("failed to get database connection: %v", err)
+			}
+
+			defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+			if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
+				t.Fatalf("failed to create test table: %v", err)
+			}
+
+			if err := con.Checkpoint(); err != nil {
+				t.Fatalf("failed to create checkpoint: %v", err)
+			}
+
+			if err != nil {
+				t.Fatalf("failed to create test table: %v", err)
+			}
+
 			// Create a test branch to delete (not the primary branch)
 			testBranch, err := db.CreateBranch("test-branch", "main")
 

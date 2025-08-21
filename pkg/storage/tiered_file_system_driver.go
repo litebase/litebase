@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -455,7 +456,7 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 	})
 
 	if err != nil {
-		slog.Error("Error accessing file for flush", "error", err)
+		slog.Debug("Error accessing file for flush", "error", err)
 		return
 	}
 }
@@ -860,7 +861,7 @@ func (fsd *TieredFileSystemDriver) RemoveAll(path string) error {
 	fsd.mutex.Lock()
 
 	for key, file := range fsd.Files {
-		if key == path || (len(key) > len(path) && key[:len(path)] == path) {
+		if strings.HasPrefix(key, path) {
 			filesToRelease = append(filesToRelease, file)
 		}
 	}
