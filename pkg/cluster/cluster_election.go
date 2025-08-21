@@ -179,7 +179,11 @@ func (ce *ClusterElection) proposeLeadership() bool {
 			}
 
 			if resp.Body != nil {
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						slog.Error("Error closing response body", "error", err)
+					}
+				}()
 			}
 
 			jsonData := make(map[string]any)

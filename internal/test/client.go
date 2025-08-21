@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -89,7 +90,11 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 		return nil, response.StatusCode, nil
 	}
 
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Error("Error closing response body:", "error", err)
+		}
+	}()
 
 	var responseData map[string]any
 

@@ -354,6 +354,7 @@ func (c *Connection) Authorizer(authorizer Authorizer) {
 	if authorizer != nil {
 		c.authorizerHandle = cgo.NewHandle(c)
 
+		//nolint:govet
 		C.sqlite3_set_authorizer(
 			(*C.sqlite3)(c.sqlite3),
 			(*[0]byte)(C.go_authorizer),

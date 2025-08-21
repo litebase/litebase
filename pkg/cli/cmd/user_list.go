@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -23,12 +24,12 @@ func NewUserListCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			if data["data"] == nil {
-				lipgloss.Fprint(
+				_, err = lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No users found")),
 				)
 
-				return nil
+				return err
 			}
 
 			rows := [][]string{}
@@ -36,16 +37,16 @@ func NewUserListCmd(config *config.Configuration) *cobra.Command {
 			users, ok := data["data"].([]any)
 
 			if !ok {
-				lipgloss.Fprint(
+				_, err = lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.ErrorAlert("Invalid data format for users")),
 				)
 
-				return nil
+				return err
 			}
 
 			for i, user := range users {
-				var userName string = "-"
+				var userName = "-"
 
 				if a, ok := user.(map[string]any)["username"].(string); ok {
 					userName = a
@@ -63,17 +64,21 @@ func NewUserListCmd(config *config.Configuration) *cobra.Command {
 				"Username",
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewTable(columns, rows).
 						SetHandler(func(row []string) {
-							userShow(cmd, config, row[1])
+							err := userShow(cmd, config, row[1])
+
+							if err != nil {
+								slog.Error("Error showing user:", "error", err)
+							}
 						}).Render(config.GetInteractive()),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

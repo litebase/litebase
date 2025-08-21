@@ -34,7 +34,7 @@ func NewStatusCmd(c *config.Configuration) *cobra.Command {
 				alert = components.InfoAlert(res["status"].(string))
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					alert,
@@ -50,7 +50,7 @@ func NewStatusCmd(c *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"log/slog"
 	"os"
 	"slices"
 	"time"
@@ -44,9 +45,7 @@ func NewObjectFile(fs *ObjectFileSystemDriver, key string, openFlags int, preExi
 
 	fileExists := false
 
-	if (openFlags&os.O_CREATE != 0) && preExists {
-		fileExists = true
-	} else if openFlags&os.O_CREATE != 0 {
+	if openFlags&os.O_CREATE != 0 && !preExists {
 		output, err := fs.S3Client.HeadObject(file.fs.context, &s3.HeadObjectInput{
 			Bucket: aws.String(file.fs.bucket),
 			Key:    aws.String(key),
@@ -108,7 +107,11 @@ func NewObjectFile(fs *ObjectFileSystemDriver, key string, openFlags int, preExi
 				return nil, err
 			}
 
-			defer output.Body.Close()
+			defer func() {
+				if closeErr := output.Body.Close(); closeErr != nil {
+					slog.Error("Error closing file body", "error", closeErr)
+				}
+			}()
 
 			file.Data, err = s2.Decode(nil, body)
 
@@ -180,7 +183,11 @@ func (file *ObjectFile) Read(p []byte) (n int, err error) {
 			return 0, err
 		}
 
-		defer output.Body.Close()
+		defer func() {
+			if closeErr := output.Body.Close(); closeErr != nil {
+				slog.Error("Error closing file body", "error", closeErr)
+			}
+		}()
 
 		file.Data, err = s2.Decode(nil, body)
 

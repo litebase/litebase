@@ -20,7 +20,7 @@ func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewCard(
@@ -39,7 +39,7 @@ func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

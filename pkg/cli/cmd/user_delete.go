@@ -21,14 +21,14 @@ func NewUserDeleteCmd(config *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert("User deleted successfully"),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

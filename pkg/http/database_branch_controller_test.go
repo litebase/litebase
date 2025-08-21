@@ -21,7 +21,9 @@ func TestDatabaseBranchControllerIndex(t *testing.T) {
 		}
 
 		for i := range 3 {
-			db.CreateBranch(fmt.Sprintf("branch-%d", i), "main")
+			if _, err := db.CreateBranch(fmt.Sprintf("branch-%d", i), "main"); err != nil {
+				t.Fatalf("failed to create branch: %v", err)
+			}
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{

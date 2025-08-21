@@ -165,13 +165,13 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 	return con, err
 }
 
-func (con *DatabaseConnection) BusyTimeout(timeout time.Duration) {
+func (con *DatabaseConnection) BusyTimeout(timeout time.Duration) error {
 	if con.Closed() {
-		return
+		return nil
 	}
 
 	// Set the busy timeout for the SQLite connection.
-	con.sqliteConnection().BusyTimeout(timeout)
+	return con.sqliteConnection().BusyTimeout(timeout)
 }
 
 // Begin a transaction on the database connection
@@ -508,9 +508,9 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 	}
 
 	// TODO: Verify if this is will enforce replicas to only perform reads.
-	if !con.connectionManager.cluster.Node().IsPrimary() {
-		// configStatements = append(configStatements, "PRAGMA query_only = true")
-	}
+	// if !con.connectionManager.cluster.Node().IsPrimary() {
+	// configStatements = append(configStatements, "PRAGMA query_only = true")
+	// }
 
 	// Execute configuration statements with timestamps set
 	for _, statement := range DatabaseConnectionConfigStatements(con.config) {
@@ -623,7 +623,7 @@ func (c *DatabaseConnection) SetAuthorizer() {
 			return sqlite3.SQLITE_OK
 		}
 
-		allowed := true
+		var allowed bool
 		var err error
 
 		switch actionCode {

@@ -103,7 +103,9 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 		}).ShouldExitWith(1)
 
 		sp.Run("REPLICA", func(s *test.StepProcess) {
-			s.WaitForStep("PRIMARY_READY")
+			if err := s.WaitForStep("PRIMARY_READY"); err != nil {
+				t.Fatal(err)
+			}
 
 			test.RunWithoutCleanup(t, func(app *server.App) {
 				// Verify file doesn't exist in object storage yet

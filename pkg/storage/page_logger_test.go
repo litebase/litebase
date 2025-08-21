@@ -65,7 +65,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				n, err := pageLogger.Write(tc.pageNum, tc.version, tc.data)
 
@@ -156,7 +158,9 @@ func TestPageLogger(t *testing.T) {
 				{3, 2, make([]byte, 4096)},
 			}
 			for _, write := range writes {
-				rand.Read(write.data)
+				if _, err := rand.Read(write.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				_, err := pageLogger.Write(write.pageNum, write.version, write.data)
 
@@ -204,7 +208,10 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			write := make([]byte, 4096)
-			rand.Read(write)
+
+			if _, err := rand.Read(write); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			// Write some initial data
 			for _, version := range []int64{1, 2, 3} {
@@ -253,7 +260,10 @@ func TestPageLogger(t *testing.T) {
 
 			// Write new data after the second compaction attempt
 			testData := make([]byte, 4096)
-			rand.Read(testData)
+
+			if _, err := rand.Read(testData); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			// testVersion := int64(7)
 
@@ -486,7 +496,10 @@ func TestPageLogger(t *testing.T) {
 
 			write := make([]byte, 4096)
 			read := make([]byte, 4096)
-			rand.Read(write)
+
+			if _, err := rand.Read(write); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			for _, version := range []int64{1, 2, 3} {
 				for i := range 8192 {
@@ -530,12 +543,20 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Ensure the ranges are initialized
-			rangeManager.Get(1, 0)
-			rangeManager.Get(2, 0)
+			if _, err := rangeManager.Get(1, 0); err != nil {
+				t.Fatalf("Failed to get range: %v", err)
+			}
+
+			if _, err := rangeManager.Get(2, 0); err != nil {
+				t.Fatalf("Failed to get range: %v", err)
+			}
 
 			write := make([]byte, 4096)
 			read := make([]byte, 4096)
-			rand.Read(write)
+
+			if _, err := rand.Read(write); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			for _, version := range []int64{1, 2, 3} {
 				for i := range 8192 {
@@ -586,12 +607,20 @@ func TestPageLogger(t *testing.T) {
 			rangeManager := dfs.RangeManager
 
 			// Ensure the ranges are initialized
-			rangeManager.Get(1, 0)
-			rangeManager.Get(2, 0)
+			if _, err := rangeManager.Get(1, 0); err != nil {
+				t.Fatalf("Failed to get range: %v", err)
+			}
+
+			if _, err := rangeManager.Get(2, 0); err != nil {
+				t.Fatalf("Failed to get range: %v", err)
+			}
 
 			write := make([]byte, 4096)
 			read := make([]byte, 4096)
-			rand.Read(write)
+
+			if _, err := rand.Read(write); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			for _, version := range []int64{1, 2, 3} {
 				for i := range 8192 {
@@ -692,11 +721,15 @@ func TestPageLogger(t *testing.T) {
 
 			pageLogger.Acquire(1)
 
-			pageLogger.Write(1, 1, make([]byte, 4096))
+			if _, err := pageLogger.Write(1, 1, make([]byte, 4096)); err != nil {
+				t.Fatalf("Failed to write page: %v", err)
+			}
 
-			pageLogger.Compact(
+			if err := pageLogger.Compact(
 				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
-			)
+			); err != nil {
+				t.Fatalf("Failed to compact page logger: %v", err)
+			}
 
 			if !pageLogger.CompactedAt.IsZero() {
 				t.Fatal("Expected CompactedAt to be zero, but got non-zero value")
@@ -704,9 +737,11 @@ func TestPageLogger(t *testing.T) {
 
 			pageLogger.Release(1)
 
-			pageLogger.Compact(
+			if err := pageLogger.Compact(
 				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
-			)
+			); err != nil {
+				t.Fatalf("Failed to compact page logger: %v", err)
+			}
 
 			if pageLogger.CompactedAt.IsZero() {
 				t.Fatal("Expected CompactedAt to be non-zero, but got zero value")
@@ -744,7 +779,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				n, err := pageLogger.Write(tc.pageNum, tc.version, tc.data)
 
@@ -836,7 +873,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				n, err := pageLogger.Write(tc.pageNum, tc.version, tc.data)
 
@@ -884,7 +923,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				n, err := pageLogger.Write(tc.pageNum, tc.version, tc.data)
 
@@ -949,7 +990,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				n, err := pageLogger.Write(tc.pageNum, tc.version, tc.data)
 
@@ -1016,7 +1059,10 @@ func TestPageLogger(t *testing.T) {
 
 					for _, tc := range testCases {
 						pageLogger.Acquire(tc.version)
-						rand.Read(tc.data)
+
+						if _, err := rand.Read(tc.data); err != nil {
+							t.Fatalf("Failed to read random data: %v", err)
+						}
 
 						n, err := pageLogger.Write(tc.pageNum, tc.version, tc.data)
 
@@ -1090,7 +1136,10 @@ func TestPageLogger(t *testing.T) {
 							data    []byte
 						}) {
 							defer wg.Done()
-							rand.Read(tc.data)
+
+							if _, err := rand.Read(tc.data); err != nil {
+								t.Errorf("Failed to read random data: %v", err)
+							}
 
 							pageLogger.Acquire(tc.version)
 							defer pageLogger.Release(tc.version)
@@ -1292,7 +1341,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				n, err := pageLogger.Write(tc.pageNum, tc.version, tc.data)
 
@@ -1388,7 +1439,9 @@ func TestPageLogger(t *testing.T) {
 
 			// Write all test data
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				n, err := pageLogger.Write(tc.pageNum, tc.timestamp, tc.data)
 
@@ -1515,7 +1568,10 @@ func TestPageLogger(t *testing.T) {
 
 			pageNum := int64(1)
 			pageData := make([]byte, 4096)
-			rand.Read(pageData)
+
+			if _, err := rand.Read(pageData); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			// Write the same page with multiple versions (timestamps)
 			version1 := int64(100)
@@ -1640,7 +1696,9 @@ func TestPageLogger(t *testing.T) {
 
 			// Fill test data with random bytes
 			for i := range testData {
-				rand.Read(testData[i].data)
+				if _, err := rand.Read(testData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			// Write all test data to the first page logger instance
@@ -1726,7 +1784,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for i := range additionalData {
-				rand.Read(additionalData[i].data)
+				if _, err := rand.Read(additionalData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			for _, tc := range additionalData {
@@ -1846,7 +1906,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for i := range testData {
-				rand.Read(testData[i].data)
+				if _, err := rand.Read(testData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			for _, tc := range testData {
@@ -1907,7 +1969,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for i := range newData {
-				rand.Read(newData[i].data)
+				if _, err := rand.Read(newData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			for _, tc := range newData {
@@ -1980,7 +2044,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for i := range testData {
-				rand.Read(testData[i].data)
+				if _, err := rand.Read(testData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			// Write only the first few entries
@@ -2127,7 +2193,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for i := range testData {
-				rand.Read(testData[i].data)
+				if _, err := rand.Read(testData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			for _, tc := range testData {
@@ -2281,7 +2349,9 @@ func TestPageLogger(t *testing.T) {
 
 			// Fill with random data
 			for i := range testData {
-				rand.Read(testData[i].data)
+				if _, err := rand.Read(testData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			// Write all data
@@ -2365,8 +2435,13 @@ func TestPageLogger(t *testing.T) {
 			pageLogger := dfs.PageLogger
 
 			// Initialize the ranges
-			rangeManager.Get(1, 0)
-			rangeManager.Get(2, 0)
+			if _, err := rangeManager.Get(1, 0); err != nil {
+				t.Fatalf("Failed to get range for page 1: %v", err)
+			}
+
+			if _, err := rangeManager.Get(2, 0); err != nil {
+				t.Fatalf("Failed to get range for page 2: %v", err)
+			}
 
 			// Write data to create page logs
 			testData := []struct {
@@ -2380,7 +2455,9 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			for i := range testData {
-				rand.Read(testData[i].data)
+				if _, err := rand.Read(testData[i].data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 			}
 
 			// Write initial data
@@ -2453,10 +2530,16 @@ func TestPageLogger(t *testing.T) {
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
 			)
+
 			if err != nil {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
-			defer pageLogger.Close()
+
+			defer func() {
+				if err := pageLogger.Close(); err != nil {
+					t.Fatalf("Failed to close page logger: %v", err)
+				}
+			}()
 
 			// Create some empty page logs by writing and then tombstoning all data
 			pageData := make([]byte, 4096)
@@ -2556,7 +2639,11 @@ func TestPageLogger(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
-			defer pageLogger.Close()
+			defer func() {
+				if err := pageLogger.Close(); err != nil {
+					t.Fatalf("Failed to close page logger: %v", err)
+				}
+			}()
 
 			// Create some empty page logs
 			pageData := make([]byte, 4096)
@@ -2654,7 +2741,11 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
 
-			defer pageLogger.Close()
+			defer func() {
+				if err := pageLogger.Close(); err != nil {
+					t.Fatalf("Failed to close page logger: %v", err)
+				}
+			}()
 
 			// Write some data to create page logs
 			pageData := make([]byte, 4096)
@@ -2778,7 +2869,9 @@ func TestPageLogger(t *testing.T) {
 				pageNum := int64(i*1000 + 1) // Spread across different page groups
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 				// Initialize the range for this page
-				rangeManager.Get(rangeNumber, 0)
+				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+					t.Fatalf("Failed to get range for page %d: %v", pageNum, err)
+				}
 
 				timestamp := baseTime + int64(i*1000)
 				testData = append(testData, struct {
@@ -2789,7 +2882,9 @@ func TestPageLogger(t *testing.T) {
 
 			// Write data to create the 17 page logs
 			for _, tc := range testData {
-				rand.Read(pageData)
+				if _, err := rand.Read(pageData); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				_, err := pageLogger.Write(tc.pageNum, tc.timestamp, pageData)
 
@@ -2882,11 +2977,19 @@ func TestPageLogger(t *testing.T) {
 			for i := range 10 {
 				pageNum := int64(i*storage.PageLoggerPageGroups + 1) // Different page groups
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
+
 				// Initialize the range for this page
-				rangeManager.Get(rangeNumber, 0)
+				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+					t.Fatalf("Failed to get range %d: %v", rangeNumber, err)
+				}
+
 				timestamp := baseTimestamp + int64(i*1000)
 				data := make([]byte, 4096)
-				rand.Read(data)
+
+				if _, err := rand.Read(data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
+
 				testData = append(testData, struct {
 					pageNum   int64
 					timestamp int64
@@ -2949,7 +3052,11 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to create page logger after restart: %v", err)
 			}
 
-			defer pageLogger2.Close()
+			defer func() {
+				if err := pageLogger2.Close(); err != nil {
+					t.Fatalf("Failed to close page logger after restart: %v", err)
+				}
+			}()
 
 			// Write additional data to create new page logs
 			additionalData := []struct {
@@ -2962,10 +3069,17 @@ func TestPageLogger(t *testing.T) {
 				pageNum := int64(i*storage.PageLoggerPageGroups + 1)
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 				// Initialize the range for this page
-				rangeManager.Get(rangeNumber, 0)
+				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+					t.Fatalf("Failed to get range %d: %v", rangeNumber, err)
+				}
+
 				timestamp := baseTimestamp + int64(i*1000)
 				data := make([]byte, 4096)
-				rand.Read(data)
+
+				if _, err := rand.Read(data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
+
 				additionalData = append(additionalData, struct {
 					pageNum   int64
 					timestamp int64
@@ -3054,7 +3168,11 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
 
-			defer pageLogger.Close()
+			defer func() {
+				if err := pageLogger.Close(); err != nil {
+					t.Error(err)
+				}
+			}()
 
 			// Get a properly initialized durable filesystem
 			durableFS := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
@@ -3186,7 +3304,11 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
 
-			defer pageLogger.Close()
+			defer func() {
+				if err := pageLogger.Close(); err != nil {
+					t.Error(err)
+				}
+			}()
 
 			// Write some data
 			pageNumber := int64(1)

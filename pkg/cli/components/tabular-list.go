@@ -32,7 +32,7 @@ func TabularList(listSlice []map[string]string) string {
 	for _, item := range listSlice {
 		var lineBreak = "\n\n"
 		var spacerLength = maxLength + minSpace - (len(item["key"]) + len(item["value"]))
-		var spacer string = ""
+		var spacer = ""
 		last -= 1
 
 		for i := 0; i < spacerLength; i++ {

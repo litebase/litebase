@@ -20,7 +20,9 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		connection.GetConnection().Exec("CREATE TABLE test (name TEXT)", nil)
+		if _, err := connection.GetConnection().Exec("CREATE TABLE test (name TEXT)", nil); err != nil {
+			t.Fatal(err)
+		}
 
 		app.DatabaseManager.ConnectionManager().Release(connection)
 
@@ -95,7 +97,9 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(connection)
 
-		connection.GetConnection().Exec("CREATE TABLE test (name TEXT)", nil)
+		if _, err := connection.GetConnection().Exec("CREATE TABLE test (name TEXT)", nil); err != nil {
+			t.Fatal(err)
+		}
 
 		for round := range 10 {
 			wg := sync.WaitGroup{}
@@ -119,7 +123,8 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 
 					for range 10 {
 						result.Reset()
-						connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
+
+						err := connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
 							err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
 								Type:  "TEXT",
 								Value: []byte("test"),

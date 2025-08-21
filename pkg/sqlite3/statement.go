@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"log/slog"
 	"math"
 	"sync"
 	"unsafe"
@@ -286,7 +287,11 @@ func (s *Statement) ColumnValue(buffer *bytes.Buffer, columnType ColumnType, ind
 
 // Bind the parameteres to the statement and return the results
 func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error {
-	defer s.Reset()
+	defer func() {
+		if err := s.Reset(); err != nil {
+			slog.Error("Error resetting statement", "error", err)
+		}
+	}()
 
 	if s.sqlite3_stmt == nil {
 		return errors.New("sqlite3 statement is nil")

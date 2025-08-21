@@ -165,7 +165,12 @@ func (router *Router) Server(
 				} else {
 					if response.Headers["Content-Encoding"] == "gzip" {
 						gw := gzip.NewWriter(w)
-						defer gw.Close()
+
+						defer func() {
+							if err := gw.Close(); err != nil {
+								slog.Error("Error closing gzip writer", "error", err)
+							}
+						}()
 
 						err := json.NewEncoder(gw).Encode(response.Body)
 

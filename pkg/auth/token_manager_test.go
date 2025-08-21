@@ -39,7 +39,11 @@ func TestTokenManager(t *testing.T) {
 			tm := app.Auth.TokenManager
 
 			for i := range 10 {
-				tm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				_, err := tm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+
+				if err != nil {
+					t.Fatalf("Expected no error when creating token, got: %v", err)
+				}
 			}
 
 			tokens, err := tm.All()
@@ -65,7 +69,11 @@ func TestTokenManager(t *testing.T) {
 			currentTokenCount := len(tokens)
 
 			for i := range 10 {
-				tm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				_, err := tm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+
+				if err != nil {
+					t.Fatalf("Expected no error when creating token, got: %v", err)
+				}
 			}
 
 			expectedTokenCount := currentTokenCount + 10
@@ -189,10 +197,14 @@ func TestTokenManager(t *testing.T) {
 
 		t.Run("PurgeAll", func(t *testing.T) {
 			for i := range 10 {
-				app.Auth.TokenManager.Create(
+				_, err := app.Auth.TokenManager.Create(
 					fmt.Sprintf("Test token %d", i),
 					[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 				)
+
+				if err != nil {
+					t.Fatalf("Expected no error when creating token, got: %v", err)
+				}
 			}
 
 			err := app.Auth.TokenManager.PurgeAll()

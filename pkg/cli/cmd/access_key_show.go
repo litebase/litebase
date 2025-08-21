@@ -72,7 +72,7 @@ func accessKeyShow(cmd *cobra.Command, config *config.Configuration, accessKeyId
 		cardContent = "```json\n" + string(statementsJSON) + "\n```"
 	}
 
-	lipgloss.Fprint(
+	_, err = lipgloss.Fprint(
 		cmd.OutOrStdout(),
 		components.Container(
 			components.NewCard(
@@ -83,7 +83,7 @@ func accessKeyShow(cmd *cobra.Command, config *config.Configuration, accessKeyId
 		),
 	)
 
-	return nil
+	return err
 }
 
 func NewAccessKeyShowCmd(config *config.Configuration) *cobra.Command {

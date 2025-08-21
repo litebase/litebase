@@ -2,6 +2,7 @@ package backups
 
 import (
 	"log"
+	"log/slog"
 	"strconv"
 	"sync"
 	"time"
@@ -79,7 +80,11 @@ func (sl *SnapshotLogger) Close() error {
 	}
 
 	for _, l := range sl.logs {
-		l.Close()
+		err := l.Close()
+
+		if err != nil {
+			slog.Error("Error closing snapshot log", "error", err)
+		}
 	}
 
 	return nil

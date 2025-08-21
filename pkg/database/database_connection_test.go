@@ -84,7 +84,9 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			connection.Checkpoint()
+			if err := connection.Checkpoint(); err != nil {
+				t.Fatal(err)
+			}
 		})
 
 		t.Run("Checkpointing_WithMultipleConnections", func(t *testing.T) {
@@ -558,7 +560,9 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			connection.Close()
+			if err := connection.Close(); err != nil {
+				t.Fatal(err)
+			}
 
 			err = connection.Transaction(false, func(con *database.DatabaseConnection) error {
 				return nil
@@ -990,7 +994,9 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			connection1.Checkpoint()
+			if err := connection1.Checkpoint(); err != nil {
+				t.Fatal(err)
+			}
 
 			app.DatabaseManager.ConnectionManager().Release(connection1)
 
@@ -1028,7 +1034,9 @@ func TestDatabaseConnection(t *testing.T) {
 					return connection1Error
 				})
 
-				connection1.Checkpoint()
+				if err := connection1.Checkpoint(); err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
 
 				app.DatabaseManager.ConnectionManager().Release(connection1)
 			}()
@@ -1112,7 +1120,9 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			connection1.Checkpoint()
+			if err := connection1.Checkpoint(); err != nil {
+				t.Fatal(err)
+			}
 
 			app.DatabaseManager.ConnectionManager().Release(connection1)
 
@@ -1134,7 +1144,9 @@ func TestDatabaseConnection(t *testing.T) {
 				<-readingName
 
 				// Checkpoint
-				connection.Checkpoint()
+				if err := connection.Checkpoint(); err != nil {
+					return err
+				}
 
 				// Insert 1 row
 				err = connection.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {

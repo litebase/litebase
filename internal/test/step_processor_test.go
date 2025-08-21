@@ -16,7 +16,11 @@ func TestStepProcessor(t *testing.T) {
 
 		// Process B: Waits for the step and exits
 		sp.Run("receiver", func(dp *StepProcess) {
-			dp.WaitForStep("hello")
+			err := dp.WaitForStep("hello")
+
+			if err != nil {
+				t.Fatalf("Expected no error when waiting for step 'hello', got: %v", err)
+			}
 		})
 	})
 }
@@ -32,7 +36,11 @@ func TestStepProcessorTest_MoreSteps(t *testing.T) {
 			s.Step("step_1_completed")
 
 			// Wait for process B to complete its work
-			s.WaitForStep("step_2_completed")
+			err := s.WaitForStep("step_2_completed")
+
+			if err != nil {
+				t.Fatalf("Expected no error when waiting for step 'step_2_completed', got: %v", err)
+			}
 
 			// Continue with final work
 			time.Sleep(50 * time.Millisecond)
@@ -41,7 +49,11 @@ func TestStepProcessorTest_MoreSteps(t *testing.T) {
 		// Process B: Waits for step message and responds
 		sp.Run("process_b", func(s *StepProcess) {
 			// Wait for process A to complete step 1
-			s.WaitForStep("step_1_completed")
+			err := s.WaitForStep("step_1_completed")
+
+			if err != nil {
+				t.Fatalf("Expected no error when waiting for step 'step_1_completed', got: %v", err)
+			}
 
 			// Do some work after receiving the signal
 			time.Sleep(200 * time.Millisecond)
@@ -53,7 +65,11 @@ func TestStepProcessorTest_MoreSteps(t *testing.T) {
 		// Process C: Independent process that also waits for step 1
 		sp.Run("process_c", func(s *StepProcess) {
 			// Wait for process A to complete step 1
-			s.WaitForStep("step_1_completed")
+			err := s.WaitForStep("step_1_completed")
+
+			if err != nil {
+				t.Fatalf("Expected no error when waiting for step 'step_1_completed', got: %v", err)
+			}
 
 			// Do some parallel work
 			time.Sleep(150 * time.Millisecond)
@@ -69,7 +85,9 @@ func TestStepProcessor_WithExpectedFailingSteps(t *testing.T) {
 			s.Step("step_1_completed")
 
 			// Wait for process B to complete its work
-			s.WaitForStep("step_2_completed")
+			if err := s.WaitForStep("step_2_completed"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'step_2_completed', got: %v", err)
+			}
 
 			os.Exit(1)
 		}).ShouldExitWith(1)
@@ -77,7 +95,9 @@ func TestStepProcessor_WithExpectedFailingSteps(t *testing.T) {
 		// Process B: Waits for step message and responds
 		sp.Run("process_b", func(s *StepProcess) {
 			// Wait for process A to complete step 1
-			s.WaitForStep("step_1_completed")
+			if err := s.WaitForStep("step_1_completed"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'step_1_completed', got: %v", err)
+			}
 
 			// Do some work after receiving the signal
 			time.Sleep(200 * time.Millisecond)
@@ -91,7 +111,9 @@ func TestStepProcessor_WithExpectedFailingSteps(t *testing.T) {
 		// Process C: Independent process that also waits for step 1
 		sp.Run("process_c", func(s *StepProcess) {
 			// Wait for process A to complete step 1
-			s.WaitForStep("step_1_completed")
+			if err := s.WaitForStep("step_1_completed"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'step_1_completed', got: %v", err)
+			}
 
 			// Do some parallel work
 			time.Sleep(150 * time.Millisecond)
@@ -114,7 +136,11 @@ func TestStepProcessorPauseResume(t *testing.T) {
 		// Process B: Controls process A by pausing and resuming it
 		sp.Run("process_b", func(dp *StepProcess) {
 			// Wait for process A to start
-			dp.WaitForStep("start")
+			err := dp.WaitForStep("start")
+
+			if err != nil {
+				t.Fatalf("Expected no error when waiting for step 'start', got: %v", err)
+			}
 
 			// Pause process A
 			dp.Pause("process_a")
@@ -126,7 +152,11 @@ func TestStepProcessorPauseResume(t *testing.T) {
 			dp.Resume("process_a")
 
 			// Wait for process A to complete after resuming
-			dp.WaitForStep("after_resume")
+			err = dp.WaitForStep("after_resume")
+
+			if err != nil {
+				t.Fatalf("Expected no error when waiting for step 'after_resume', got: %v", err)
+			}
 		})
 	})
 }
@@ -148,7 +178,11 @@ func TestStepProcessorCrossProcessPauseResume(t *testing.T) {
 		// Process B: Controls process A by pausing and resuming it
 		sp.Run("controller_process", func(dp *StepProcess) {
 			// Wait for controlled process to be ready
-			dp.WaitForStep("ready")
+			err := dp.WaitForStep("ready")
+
+			if err != nil {
+				t.Fatalf("Expected no error when waiting for step 'ready', got: %v", err)
+			}
 
 			// Let it work for a bit
 			time.Sleep(100 * time.Millisecond)
@@ -165,14 +199,25 @@ func TestStepProcessorCrossProcessPauseResume(t *testing.T) {
 			dp.Step("resumed_process")
 
 			// Wait for it to complete its work
-			dp.WaitForStep("work_completed")
+			if err := dp.WaitForStep("work_completed"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'work_completed', got: %v", err)
+			}
 		})
 
 		// Process C: Monitors the control actions
 		sp.Run("monitor_process", func(dp *StepProcess) {
-			dp.WaitForStep("paused_process")
-			dp.WaitForStep("resumed_process")
-			dp.WaitForStep("work_completed")
+			if err := dp.WaitForStep("paused_process"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'paused_process', got: %v", err)
+			}
+
+			if err := dp.WaitForStep("resumed_process"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'resumed_process', got: %v", err)
+			}
+
+			if err := dp.WaitForStep("work_completed"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'work_completed', got: %v", err)
+			}
+
 			dp.Step("monitoring_complete")
 		})
 	})
@@ -192,12 +237,16 @@ func TestStepProcessorPauseAndResumeConvenience(t *testing.T) {
 
 		// Process B: Uses convenience method to pause and resume
 		sp.Run("control_process", func(dp *StepProcess) {
-			dp.WaitForStep("started")
+			if err := dp.WaitForStep("started"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'started', got: %v", err)
+			}
 
 			// Use the convenience method to pause for 200ms then resume
 			dp.PauseAndResume("target_process", 200*time.Millisecond)
 
-			dp.WaitForStep("finished")
+			if err := dp.WaitForStep("finished"); err != nil {
+				t.Fatalf("Expected no error when waiting for step 'finished', got: %v", err)
+			}
 		})
 	})
 }

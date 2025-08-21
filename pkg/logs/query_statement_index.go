@@ -116,7 +116,7 @@ func (q *QueryStatementIndex) Set(key string, value string) error {
 	defer q.mutex.Unlock()
 
 	// Write the entry to the file.
-	_, err := q.file.WriteString(fmt.Sprintf("%s %s\n", key, value))
+	_, err := fmt.Fprintf(q.file, "%s %s\n", key, value)
 
 	if err != nil {
 		return err

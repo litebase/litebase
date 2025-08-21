@@ -30,7 +30,11 @@ func TestRollbackLogNew(t *testing.T) {
 				t.Fatalf("Failed to open RollbackLog: %v", err)
 			}
 
-			defer rollbackLog.Close()
+			defer func() {
+				if err := rollbackLog.Close(); err != nil {
+					t.Fatalf("Failed to close rollback logger: %v", err)
+				}
+			}()
 
 			if rollbackLog.Timestamp != timestampAtHour {
 				t.Fatalf("Expected Timestamp %d, got %d", timestampAtHour, rollbackLog.Timestamp)
@@ -56,7 +60,11 @@ func TestRollbackLogNew(t *testing.T) {
 				t.Fatalf("Failed to open RollbackLog: %v", err)
 			}
 
-			defer rollbackLog.Close()
+			defer func() {
+				if err := rollbackLog.Close(); err != nil {
+					t.Fatalf("Failed to close rollback logger: %v", err)
+				}
+			}()
 
 			offset, size, err := rollbackLog.AppendFrame(timestamp)
 
@@ -89,7 +97,11 @@ func TestRollbackLogNew(t *testing.T) {
 				t.Fatalf("Failed to open RollbackLog: %v", err)
 			}
 
-			defer rollbackLog.Close()
+			defer func() {
+				if err := rollbackLog.Close(); err != nil {
+					t.Fatalf("Failed to close rollback logger: %v", err)
+				}
+			}()
 
 			entry := backups.NewRollbackLogEntry(pageNumber, time.Now().UTC().UnixNano(), []byte("test data"))
 
@@ -142,7 +154,11 @@ func TestRollbackLogNew(t *testing.T) {
 				t.Fatalf("Failed to open RollbackLog: %v", err)
 			}
 
-			defer rollbackLog.Close()
+			defer func() {
+				if err := rollbackLog.Close(); err != nil {
+					t.Fatalf("Failed to close RollbackLog: %v", err)
+				}
+			}()
 
 			offset, size, err := rollbackLog.AppendFrame(timestamp)
 
@@ -242,7 +258,11 @@ func TestRollbackLogNew(t *testing.T) {
 				t.Fatalf("Failed to open RollbackLog: %v", err)
 			}
 
-			defer rollbackLog.Close()
+			defer func() {
+				if err := rollbackLog.Close(); err != nil {
+					t.Fatalf("Failed to close RollbackLog: %v", err)
+				}
+			}()
 
 			for _, tc := range testCases {
 				var entries []*backups.RollbackLogEntry
@@ -290,7 +310,11 @@ func TestRollbackLogNew(t *testing.T) {
 				t.Fatalf("Failed to open RollbackLog: %v", err)
 			}
 
-			defer rollbackLog.Close()
+			defer func() {
+				if err := rollbackLog.Close(); err != nil {
+					t.Fatalf("Failed to close RollbackLog: %v", err)
+				}
+			}()
 
 			offset, size, err := rollbackLog.AppendFrame(timestamp)
 

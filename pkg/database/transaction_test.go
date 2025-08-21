@@ -24,7 +24,11 @@ func TestTransaction(t *testing.T) {
 				t.Fatal("Failed to create new transaction:", err)
 			}
 
-			defer transaction.Close()
+			defer func() {
+				if err := transaction.Close(); err != nil {
+					t.Errorf("error closing transaction: %v", err)
+				}
+			}()
 		})
 
 		t.Run("CloseTransaction", func(t *testing.T) {
@@ -58,7 +62,11 @@ func TestTransaction(t *testing.T) {
 				t.Fatal("Failed to create new transaction:", err)
 			}
 
-			defer transaction.Close()
+			defer func() {
+				if err := transaction.Close(); err != nil {
+					t.Errorf("error closing transaction: %v", err)
+				}
+			}()
 
 			err = transaction.ResolveQuery(database.GetQuery(
 				app.Cluster,
@@ -92,7 +100,11 @@ func TestTransaction(t *testing.T) {
 				t.Fatal("Failed to create new transaction:", err)
 			}
 
-			defer transaction.Close()
+			defer func() {
+				if err := transaction.Close(); err != nil {
+					t.Errorf("error closing transaction: %v", err)
+				}
+			}()
 
 			err = transaction.ResolveQuery(database.GetQuery(
 				app.Cluster,

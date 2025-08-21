@@ -58,7 +58,8 @@ func TestNode(t *testing.T) {
 			testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(200)
-				w.Write([]byte(`{
+
+				_, err := w.Write([]byte(`{
 				"Containers": [
 					{
 						"Networks": [
@@ -71,6 +72,10 @@ func TestNode(t *testing.T) {
 					}
 				]
 			}`))
+
+				if err != nil {
+					t.Fatal(err)
+				}
 			}))
 
 			defer testServer.Close()
@@ -393,7 +398,9 @@ func TestNode(t *testing.T) {
 				break
 			}
 
-			node.Shutdown()
+			if err := node.Shutdown(); err != nil {
+				t.Error("Error shutting down node:", err)
+			}
 		})
 
 		t.Run("StoreAddress", func(t *testing.T) {
@@ -469,7 +476,10 @@ func TestNode_TickerResumeAfterPause(t *testing.T) {
 
 				time.Sleep(1 * time.Second)
 				s.Step("PRIMARY_READY")
-				s.WaitForStep("PRIMARY_RESUMED")
+
+				if err := s.WaitForStep("PRIMARY_RESUMED"); err != nil {
+					t.Fatal(err)
+				}
 
 				if app.Cluster.Node().IsPrimary() {
 					t.Fatal("Node is still primary after pause")
@@ -478,7 +488,10 @@ func TestNode_TickerResumeAfterPause(t *testing.T) {
 		})
 
 		sp.Run("PAUSER", func(s *test.StepProcess) {
-			s.WaitForStep("PRIMARY_READY")
+			if err := s.WaitForStep("PRIMARY_READY"); err != nil {
+				t.Fatal(err)
+			}
+
 			s.PauseAndResume("PRIMARY_SERVER", 1*time.Second)
 			s.Step("PRIMARY_RESUMED")
 		})

@@ -74,12 +74,12 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 				),
 			)
 
-			lipgloss.Fprint(
+			_, err := lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				container,
 			)
 
-			return nil
+			return err
 		},
 	}
 

@@ -139,13 +139,13 @@ func (pl *PageLog) Append(page int64, version int64, value []byte) error {
 	// 	}
 	// }
 
-	// if pl.shouldSync() {
-	// 	err = pl.sync()
+	if pl.shouldSync() {
+		err = pl.sync()
 
-	// 	if err != nil {
-	// 		slog.Warn("Error syncing page log", "error", err)
-	// 	}
-	// }
+		if err != nil {
+			slog.Warn("Error syncing page log", "error", err)
+		}
+	}
 
 	pl.writtenAt = time.Now().UTC()
 
@@ -213,7 +213,7 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNu
 
 	slices.Sort(pageNumbersInSequence)
 
-	durableFileSystem.compactToRange(
+	err := durableFileSystem.compactToRange(
 		rangeNumber,
 		func(newRange *Range) error {
 			for _, pageNumber := range pageNumbersInSequence {
@@ -235,6 +235,10 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNu
 
 			return nil
 		})
+
+	if err != nil {
+		slog.Warn("Error compacting page log", "error", err)
+	}
 
 	pl.compactedAt = time.Now().UTC()
 
@@ -366,8 +370,14 @@ tryOpen:
 	fileinfo, err := pl.file.Stat()
 
 	if err != nil {
-		pl.file.Close()
+		closeErr := pl.file.Close()
+
+		if closeErr != nil {
+			slog.Error("failed to close file after stat error:", "error", closeErr)
+		}
+
 		pl.file = nil
+
 		return fmt.Errorf("failed to stat page log file: %w", err)
 	}
 

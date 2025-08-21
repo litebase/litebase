@@ -674,7 +674,11 @@ func (n *Node) runTicker() {
 			// Check if the ticker is resuming after a pause
 			if !n.lastTick.IsZero() && time.Now().UTC().After(n.lastTick.Add(NodeTickTimeout)) {
 				if n.IsPrimary() {
-					n.StepDown()
+					err := n.StepDown()
+
+					if err != nil {
+						slog.Error("Error stepping down", "error", err)
+					}
 				}
 			}
 
@@ -751,7 +755,11 @@ func (n *Node) SendEvent(node *NodeIdentifier, message NodeEvent) error {
 		return nil
 	}
 
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			slog.Error("Error closing response body", "error", err)
+		}
+	}()
 
 	if res.StatusCode >= 400 {
 		return fmt.Errorf("failed to send message: %d", res.StatusCode)
@@ -909,7 +917,11 @@ func (n *Node) StepDown() error {
 		return nil
 	}
 
-	n.removePrimaryStatus()
+	err := n.removePrimaryStatus()
+
+	if err != nil {
+		slog.Error("Error removing primary status", "error", err)
+	}
 
 	if n.Primary() != nil {
 		n.Primary().Shutdown()

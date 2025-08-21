@@ -65,7 +65,7 @@ func userShow(cmd *cobra.Command, config *config.Configuration, AccessKeyID stri
 		cardContent = "```json\n" + string(statementsJSON) + "\n```"
 	}
 
-	lipgloss.Fprint(
+	_, err = lipgloss.Fprint(
 		cmd.OutOrStdout(),
 		components.Container(
 			components.NewCard(
@@ -76,7 +76,7 @@ func userShow(cmd *cobra.Command, config *config.Configuration, AccessKeyID stri
 		),
 	)
 
-	return nil
+	return err
 }
 
 func NewUserShowCmd(config *config.Configuration) *cobra.Command {

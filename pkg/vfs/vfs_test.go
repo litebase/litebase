@@ -164,13 +164,18 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		path := file.GetDatabaseFileDir(mock.DatabaseID, mock.DatabaseBranchID)
 		pageCount := db.GetConnection().FileSystem().Metadata().PageCount
 
-		var expectedSize int64 = 4096 * pageCount
+		var expectedSize = 4096 * pageCount
 		var directorySize int64
 
 		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
 		fileSystemDriver := dfs.FileSystem().Driver()
 
-		fileSystemDriver.Flush()
+		err = fileSystemDriver.Flush()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		err = dfs.ForceCompact()
 
 		if err != nil {
@@ -241,7 +246,11 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		directorySize = 0
 		expectedSize = 4096 * pageCount
 
-		fileSystemDriver.Flush()
+		err = fileSystemDriver.Flush()
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		rangeIndex = dfs.RangeManager.Index
 
@@ -381,8 +390,17 @@ func TestVFSLocking(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(con2)
 
-		con1.GetConnection().BusyTimeout(0 * time.Second)
-		con2.GetConnection().BusyTimeout(0 * time.Second)
+		err = con1.GetConnection().BusyTimeout(0 * time.Second)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = con2.GetConnection().BusyTimeout(0 * time.Second)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		t.Run("LockintTransactions", func(t *testing.T) {
 			wg := sync.WaitGroup{}

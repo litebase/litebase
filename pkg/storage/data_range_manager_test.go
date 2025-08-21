@@ -56,7 +56,9 @@ func TestDataRangeManager(t *testing.T) {
 
 			r1Data := make([]byte, 4096)
 
-			rand.Read(r1Data)
+			if _, err := rand.Read(r1Data); err != nil {
+				t.Errorf("Expected ReadAt to succeed, got error: %v", err)
+			}
 
 			r1, err := drm.Get(1, time.Now().UTC().UnixNano())
 
@@ -98,7 +100,9 @@ func TestDataRangeManager(t *testing.T) {
 				t.Errorf("Expected read data to match written data, got %s", r2Data)
 			}
 
-			rand.Read(r2Data)
+			if _, err := rand.Read(r2Data); err != nil {
+				t.Errorf("Expected ReadAt to succeed, got error: %v", err)
+			}
 
 			_, err = r2.WriteAt(1, r2Data)
 

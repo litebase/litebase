@@ -208,7 +208,11 @@ func (nc *NodeConnection) handleResponse(response *http.Response) {
 		return
 	}
 
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Error("Error closing response body", "error", err)
+		}
+	}()
 
 	nc.inactiveTimeout = time.NewTimer(NodeConnectionInactiveTimeout)
 

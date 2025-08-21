@@ -40,7 +40,11 @@ func TestAccessKeyManager(t *testing.T) {
 			akm := app.Auth.AccessKeyManager
 
 			for i := range 10 {
-				akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				_, err := akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+
+				if err != nil {
+					t.Fatalf("Expected no error when creating access key, got: %v", err)
+				}
 			}
 
 			accessKeys, err := akm.All()
@@ -66,7 +70,11 @@ func TestAccessKeyManager(t *testing.T) {
 			currentAccessKeyCount := len(accessKeys)
 
 			for i := range 10 {
-				akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				_, err := akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+
+				if err != nil {
+					t.Fatalf("Expected no error when creating access key, got: %v", err)
+				}
 			}
 
 			expectedAccessKeyCount := currentAccessKeyCount + 10
@@ -221,10 +229,14 @@ func TestAccessKeyManager(t *testing.T) {
 
 		t.Run("PurgeAll", func(t *testing.T) {
 			for i := 0; i < 10; i++ {
-				app.Auth.AccessKeyManager.Create(
+				_, err := app.Auth.AccessKeyManager.Create(
 					fmt.Sprintf("Test access key %d", i),
 					[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
 				)
+
+				if err != nil {
+					t.Fatalf("Expected no error when creating access key, got: %v", err)
+				}
 			}
 
 			err := app.Auth.AccessKeyManager.PurgeAll()

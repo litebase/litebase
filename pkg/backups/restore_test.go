@@ -25,7 +25,9 @@ func TestRestore(t *testing.T) {
 			targetDfs := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem()
 
 			for i := 1; i <= 10; i++ {
-				sourceDfs.GetRangeFile(int64(i))
+				if _, err := sourceDfs.GetRangeFile(int64(i)); err != nil {
+					t.Fatalf("Expected no error, got %v", err)
+				}
 			}
 
 			err := backups.CopySourceDatabaseToTargetDatabase(
@@ -75,7 +77,9 @@ func TestRestore(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			sourceDb.GetConnection().Checkpoint()
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Create a test table and insert some data
 			_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
@@ -84,10 +88,12 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			sourceDb.GetConnection().Checkpoint()
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Insert some test data in a transaction for consistency
-			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+			err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 				for range 10 {
 					_, err = db.Exec(
 						"INSERT INTO test (value) VALUES (?)",
@@ -105,10 +111,16 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			sourceDb.GetConnection().Checkpoint()
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Insert more test data in another transaction
-			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+			err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 				for range 10 {
 					_, err = db.Exec(
 						"INSERT INTO test (value) VALUES (?)",
@@ -126,10 +138,18 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			sourceDb.GetConnection().Checkpoint()
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Get the snapshots
-			snapshotLogger.GetSnapshots()
+			if _, err := snapshotLogger.GetSnapshots(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Get the latest snapshot timestamp
 			snapshotKeys := snapshotLogger.Keys()
@@ -247,7 +267,9 @@ func TestRestore(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			sourceDb.GetConnection().Checkpoint()
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Create a test table and insert some data
 			_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
@@ -256,10 +278,12 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			sourceDb.GetConnection().Checkpoint()
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Insert some test data in a transaction for consistency
-			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+			err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 				for range 10 {
 					_, err = db.Exec(
 						"INSERT INTO test (value) VALUES (?)",
@@ -277,10 +301,16 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			sourceDb.GetConnection().Checkpoint()
+			if err != nil {
+				t.Fatalf("Transaction failed: %v", err)
+			}
+
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Insert more test data in another transaction
-			sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+			err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 				for range 10 {
 					_, err = db.Exec(
 						"INSERT INTO test (value) VALUES (?)",
@@ -298,10 +328,18 @@ func TestRestore(t *testing.T) {
 				return nil
 			})
 
-			sourceDb.GetConnection().Checkpoint()
+			if err != nil {
+				t.Fatalf("Transaction failed: %v", err)
+			}
+
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Get the snapshots
-			snapshotLogger.GetSnapshots()
+			if _, err := snapshotLogger.GetSnapshots(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			// Get the latest snapshot timestamp
 			snapshotKeys := snapshotLogger.Keys()
@@ -419,7 +457,11 @@ func TestRestore(t *testing.T) {
 			}
 
 			// Insert some test data
-			db.GetConnection().Exec("BEGIN", nil)
+			_, err = db.GetConnection().Exec("BEGIN", nil)
+
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
 			for range 1000 {
 				_, err = db.GetConnection().Exec(
@@ -437,10 +479,14 @@ func TestRestore(t *testing.T) {
 				}
 			}
 
-			db.GetConnection().Exec("COMMIT", nil)
+			if _, err := db.GetConnection().Exec("COMMIT", nil); err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
 			// Get the snapshots
-			snapshotLogger.GetSnapshots()
+			if _, err := snapshotLogger.GetSnapshots(); err != nil {
+				t.Fatalf("Failed to get snapshots: %v", err)
+			}
 
 			// Get the lastest snapshot timestamp
 			snapshotKeys := snapshotLogger.Keys()
@@ -508,7 +554,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Expected no error, got %v", err)
 					}
 
-					db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+					err = db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 						// Create a test table and insert some data
 						_, err = db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
 
@@ -519,13 +565,17 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
+					if err != nil {
+						t.Fatalf("Expected no error, got %v", err)
+					}
+
 					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
 					}
 
-					db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+					err = db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 						// Insert some test data
 						for range 1000 {
 							result, err := db.Exec(
@@ -551,6 +601,10 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
+					if err != nil {
+						t.Fatalf("Expected no error, got %v", err)
+					}
+
 					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
@@ -558,7 +612,7 @@ func TestRestore(t *testing.T) {
 					}
 
 					// Insert some test data
-					db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+					err = db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 						for range 1000 {
 							result, err := db.Exec(
 								"INSERT INTO test (value) VALUES (?)",
@@ -582,6 +636,10 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
+					if err != nil {
+						t.Fatalf("Expected no error, got %v", err)
+					}
+
 					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
@@ -589,7 +647,9 @@ func TestRestore(t *testing.T) {
 					}
 
 					// Get the snapshots
-					snapshotLogger.GetSnapshots()
+					if _, err := snapshotLogger.GetSnapshots(); err != nil {
+						t.Fatalf("Failed to get snapshots: %v", err)
+					}
 
 					// Get the lastest snapshot timestamp
 					snapshotKeys := snapshotLogger.Keys()
@@ -699,7 +759,9 @@ func TestRestore(t *testing.T) {
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 			// Create an initial checkpoint before creating the table (this will be restore point 0)
-			sourceDb.GetConnection().Checkpoint()
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			restorePointIndex++
 
@@ -710,7 +772,9 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			sourceDb.GetConnection().Checkpoint()
+			if err := sourceDb.GetConnection().Checkpoint(); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			for i, testcase := range testCases {
 				t.Run(fmt.Sprintf("rolling restore: %d", i), func(t *testing.T) {
@@ -718,7 +782,7 @@ func TestRestore(t *testing.T) {
 					defer app.DatabaseManager.ConnectionManager().Release(sourceDb)
 
 					// Insert some test data
-					sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+					err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 						// Insert some test data
 						for range testcase.sourceCount - testcase.targetCount {
 							result, err := db.Exec(
@@ -744,6 +808,10 @@ func TestRestore(t *testing.T) {
 						return nil
 					})
 
+					if err != nil {
+						t.Fatalf("Expected no error, got %v", err)
+					}
+
 					err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
 
 					if err != nil {
@@ -753,7 +821,9 @@ func TestRestore(t *testing.T) {
 					restorePointIndex++
 
 					// Get the snapshots
-					snapshotLogger.GetSnapshots()
+					if _, err := snapshotLogger.GetSnapshots(); err != nil {
+						t.Fatalf("Failed to get snapshots: %v", err)
+					}
 
 					// Get the lastest snapshot timestamp
 					snapshotKeys := snapshotLogger.Keys()
@@ -819,7 +889,7 @@ func TestRestore(t *testing.T) {
 					}
 
 					// ensure the source and target databases have the right count of records
-					sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+					err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
 						result, err := db.Exec("SELECT COUNT(*) FROM test", nil)
 
 						if err != nil {
@@ -832,6 +902,10 @@ func TestRestore(t *testing.T) {
 
 						return nil
 					})
+
+					if err != nil {
+						t.Fatalf("Expected no error, got %v", err)
+					}
 
 					targetDb, err := app.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
 

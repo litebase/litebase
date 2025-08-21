@@ -65,11 +65,16 @@ type TieredFileSystemDriver struct {
 type TieredFileSystemNewFunc func(context.Context, *TieredFileSystemDriver)
 
 // Generate a unique ID for a file descriptor
-func generateDescriptorID() string {
+func generateDescriptorID() (string, error) {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
 
-	return hex.EncodeToString(bytes)
+	_, err := rand.Read(bytes)
+
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(bytes), nil
 }
 
 // Create a new instance of a tiered file system driver. This driver will manage
@@ -289,13 +294,39 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 
 	if err != nil {
 		// If low tier creation fails, clean up the high tier file
-		highTierFile.Close()
-		fsd.highTierFileSystemDriver.Remove(path)
+		closeErr := highTierFile.Close()
+
+		if closeErr != nil {
+			slog.Error("Error closing high tier file:", "error", closeErr)
+		}
+
+		removeErr := fsd.highTierFileSystemDriver.Remove(path)
+
+		if removeErr != nil {
+			slog.Error("Error removing high tier file:", "error", removeErr)
+		}
 
 		return nil, err
 	}
 
-	lowTierFile.Close()
+	err = lowTierFile.Close()
+
+	if err != nil {
+		// If low tier close fails, clean up the high tier file
+		closeErr := highTierFile.Close()
+
+		if closeErr != nil {
+			slog.Error("Error closing high tier file:", "error", closeErr)
+		}
+
+		removeErr := fsd.highTierFileSystemDriver.Remove(path)
+
+		if removeErr != nil {
+			slog.Error("Error removing high tier file:", "error", removeErr)
+		}
+
+		return nil, err
+	}
 
 	fsd.mutex.Lock()
 	tieredFile := fsd.addFile(path, highTierFile, os.O_CREATE|os.O_RDWR)
@@ -303,8 +334,14 @@ func (fsd *TieredFileSystemDriver) Create(path string) (internalStorage.File, er
 
 	tieredFile.MarkUpdated()
 
+	descriptorID, err := generateDescriptorID()
+
+	if err != nil {
+		return nil, err
+	}
+
 	// Create and return a descriptor - addFile already increments usage, so don't double-count
-	descriptor := NewTieredFileDescriptor(tieredFile, path, os.O_CREATE|os.O_RDWR, generateDescriptorID())
+	descriptor := NewTieredFileDescriptor(tieredFile, path, os.O_CREATE|os.O_RDWR, descriptorID)
 
 	return descriptor, nil
 }
@@ -548,7 +585,14 @@ func (fsd *TieredFileSystemDriver) OpenFile(path string, flag int, perm fs.FileM
 	if file, ok := fsd.GetTieredFile(path); ok {
 		// Create and return a new descriptor for this open
 		file.mutex.Lock()
-		descriptor := NewTieredFileDescriptor(file, path, flag, generateDescriptorID())
+
+		descriptorID, err := generateDescriptorID()
+
+		if err != nil {
+			return nil, err
+		}
+
+		descriptor := NewTieredFileDescriptor(file, path, flag, descriptorID)
 		file.mutex.Unlock()
 
 		return descriptor, nil
@@ -598,8 +642,14 @@ tryOpen:
 	tieredFile := fsd.addFile(path, file, flag)
 	fsd.mutex.Unlock()
 
+	descriptorID, err := generateDescriptorID()
+
+	if err != nil {
+		return nil, err
+	}
+
 	// Create and return a descriptor instead of the TieredFile directly
-	descriptor := NewTieredFileDescriptor(tieredFile, path, flag, generateDescriptorID())
+	descriptor := NewTieredFileDescriptor(tieredFile, path, flag, descriptorID)
 
 	return descriptor, nil
 }
@@ -698,7 +748,7 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 
 	// Always close and clean up the actual file handle when releasing - descriptors will reopen if needed
 	if file.File != nil {
-		file.AccessBarrier(func() error {
+		err := file.AccessBarrier(func() error {
 			err := file.File.Close()
 
 			if err != nil {
@@ -716,6 +766,10 @@ func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 
 			return nil
 		})
+
+		if err != nil {
+			return err
+		}
 	}
 
 	// Mark the file as released (descriptors will need to reopen when accessed)
@@ -749,7 +803,7 @@ func (fsd *TieredFileSystemDriver) releaseFileWithoutFlush(file *TieredFile) err
 
 	// Always close and clean up the actual file handle when releasing
 	if file.File != nil {
-		file.AccessBarrier(func() error {
+		err := file.AccessBarrier(func() error {
 			err := file.File.Close()
 
 			if err != nil {
@@ -767,6 +821,10 @@ func (fsd *TieredFileSystemDriver) releaseFileWithoutFlush(file *TieredFile) err
 
 			return nil
 		})
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

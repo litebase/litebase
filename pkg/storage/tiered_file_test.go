@@ -33,7 +33,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
 
@@ -84,7 +88,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
 
@@ -115,7 +123,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf := storage.NewTieredFile(tfsd, "test.txt", file, 0)
 
@@ -142,7 +154,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test.txt")
 
@@ -233,7 +249,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test.txt")
 
@@ -248,7 +268,9 @@ func TestTieredFile(t *testing.T) {
 
 			data := make([]byte, 4096)
 
-			rand.Read(data)
+			if _, err := rand.Read(data); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			_, err = tf.WriteAt(data, 0)
 
@@ -289,7 +311,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test.txt")
 
@@ -368,10 +394,16 @@ func TestTieredFile(t *testing.T) {
 
 		t.Run("Stat", func(t *testing.T) {
 			tf, err := app.Cluster.LocalFS().Create("test_stat.txt")
+
 			if err != nil {
 				t.Error(err)
 			}
-			defer tf.Close()
+
+			defer func() {
+				if err := tf.Close(); err != nil {
+					t.Errorf("error closing tiered file: %v", err)
+				}
+			}()
 
 			data := []byte("Test data for stat")
 			_, err = tf.Write(data)
@@ -401,7 +433,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test_sync.txt")
 
@@ -452,7 +488,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test_truncate.txt")
 
@@ -503,7 +543,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test_write.txt")
 
@@ -529,7 +573,9 @@ func TestTieredFile(t *testing.T) {
 
 			buf := make([]byte, len(data))
 
-			tf.Seek(0, io.SeekStart)
+			if _, err := tf.Seek(0, io.SeekStart); err != nil {
+				t.Error(err)
+			}
 
 			n, err = tf.Read(buf)
 
@@ -558,7 +604,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test_writeat.txt")
 
@@ -583,7 +633,10 @@ func TestTieredFile(t *testing.T) {
 			}
 
 			buf := make([]byte, 20)
-			tf.Seek(0, io.SeekStart)
+
+			if _, err := tf.Seek(0, io.SeekStart); err != nil {
+				t.Error(err)
+			}
 
 			_, err = tf.Read(buf)
 
@@ -615,7 +668,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test_writeat.txt")
 
@@ -680,7 +737,11 @@ func TestTieredFile(t *testing.T) {
 				},
 			)
 
-			defer tfsd.Shutdown()
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
 
 			tf, err := tfsd.Create("test_writeto.txt")
 
@@ -703,7 +764,9 @@ func TestTieredFile(t *testing.T) {
 				t.Error(err)
 			}
 
-			tf.Seek(0, io.SeekStart)
+			if _, err := tf.Seek(0, io.SeekStart); err != nil {
+				t.Error(err)
+			}
 
 			n, err := tf.WriteTo(buf)
 

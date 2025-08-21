@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -119,7 +120,10 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 
 		// Create socket directory
 		sp.socketDir = filepath.Join(sp.dataPath, "sockets")
-		os.MkdirAll(sp.socketDir, 0755)
+
+		if err := os.MkdirAll(sp.socketDir, 0755); err != nil {
+			slog.Error("Error creating socket directory:", "error", err)
+		}
 
 		// Setup Unix socket listener
 		sp.setupSocketListener()
@@ -129,7 +133,9 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 
 		// Cleanup
 		t.Cleanup(func() {
-			os.RemoveAll(sp.dataPath)
+			if err := os.RemoveAll(sp.dataPath); err != nil {
+				slog.Error("Error removing test data directory:", "error", err)
+			}
 		})
 	} else {
 		// Running as a child process - connect to coordinator first
@@ -155,7 +161,9 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 			})
 
 			// Mark this process as completed to prevent re-entry
-			os.Setenv("LITEBASE_TEST_COMPLETED", "1")
+			if err := os.Setenv("LITEBASE_TEST_COMPLETED", "1"); err != nil {
+				slog.Error("Error setting environment variable:", "error", err)
+			}
 
 			// Clean up child process resources
 			sp.Cleanup()
@@ -186,7 +194,9 @@ func (sp *StepProcessor) setupSocketListener() {
 	socketPath := filepath.Join(sp.socketDir, "coordinator.sock")
 
 	// Remove existing socket file if it exists
-	os.Remove(socketPath)
+	if err := os.Remove(socketPath); err != nil {
+		slog.Error("Error removing socket file:", "error", err)
+	}
 
 	listener, err := net.Listen("unix", socketPath)
 
@@ -231,7 +241,11 @@ func (sp *StepProcessor) acceptConnections() {
 
 // Handle connection from a child process
 func (sp *StepProcessor) handleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Error("Error closing connection:", "error", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(conn)
 	var processName string
@@ -515,7 +529,9 @@ func (sp *StepProcessor) Start(t *testing.T) {
 		// Kill any processes that may have started but not connected
 		for _, test := range sp.tests {
 			if test.cmd != nil && test.cmd.Process != nil {
-				test.cmd.Process.Kill()
+				if err := test.cmd.Process.Kill(); err != nil {
+					slog.Error("Error killing process:", "error", err)
+				}
 			}
 		}
 		return
@@ -647,7 +663,11 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 
 	if err != nil {
 		fmt.Printf("[CHILD] Failed to send process name: %v\n", err)
-		conn.Close()
+
+		if err := conn.Close(); err != nil {
+			slog.Debug("Error closing connection:", "error", err)
+		}
+
 		return
 	}
 
@@ -662,7 +682,10 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 			sp.connMutex.Lock()
 			delete(sp.connections, processName)
 			sp.connMutex.Unlock()
-			conn.Close()
+
+			if err := conn.Close(); err != nil {
+				slog.Error("Error closing connection:", "error", err)
+			}
 		}()
 
 		scanner := bufio.NewScanner(conn)
@@ -706,10 +729,6 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 					}
 				}
 			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			// fmt.Printf("[CHILD %s] Scanner error: %v\n", processName, err)
 		}
 	}()
 }
@@ -805,14 +824,18 @@ func (sp *StepProcessor) startMessageBroker() {
 func (sp *StepProcessor) Cleanup() {
 	// Close Unix socket listener
 	if sp.listener != nil {
-		sp.listener.Close()
+		if err := sp.listener.Close(); err != nil {
+			slog.Error("Error closing listener:", "error", err)
+		}
 	}
 
 	// Close all connections
 	sp.connMutex.Lock()
 
 	for _, conn := range sp.connections {
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			slog.Debug("Error closing connection:", "error", err)
+		}
 	}
 
 	sp.connections = make(map[string]net.Conn)
@@ -821,13 +844,21 @@ func (sp *StepProcessor) Cleanup() {
 	// Kill any running processes
 	for _, test := range sp.tests {
 		if test.cmd != nil && test.cmd.Process != nil {
-			test.cmd.Process.Kill()
+			err := test.cmd.Process.Kill()
+
+			if err != nil {
+				fmt.Printf("[COORDINATOR] Error killing process %s: %v\n", test.process.processName, err)
+			}
 		}
 	}
 
 	// Clean up socket files
 	if sp.socketDir != "" {
-		os.RemoveAll(sp.socketDir)
+		err := os.RemoveAll(sp.socketDir)
+
+		if err != nil {
+			fmt.Printf("[COORDINATOR] Error cleaning up socket files: %v\n", err)
+		}
 	}
 }
 

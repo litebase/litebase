@@ -86,7 +86,12 @@ func QueryStreamController(request *Request) Response {
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.Header().Set("Transfer-Encoding", "chunked")
 
-			defer request.BaseRequest.Body.Close()
+			defer func() {
+				if err := request.BaseRequest.Body.Close(); err != nil {
+					slog.Error("Error closing request body", "error", err)
+				}
+			}()
+
 			ctx, cancel := context.WithCancel(request.BaseRequest.Context())
 
 			readQueryStream(cancel, request, w, databaseKey, credential)

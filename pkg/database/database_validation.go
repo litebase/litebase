@@ -15,7 +15,7 @@ func (r DatabaseName) Validate() error {
 
 	// Database names can contain alphanumeric characters, underscores, and hyphens
 	for _, char := range r {
-		if !(('a' <= char && char <= 'z') || ('A' <= char && char <= 'Z') || ('0' <= char && char <= '9') || char == '_' || char == '-') {
+		if ('a' > char || char > 'z') && ('A' > char || char > 'Z') && ('0' > char || char > '9') && char != '_' && char != '-' {
 			return fmt.Errorf("database name can only contain alphanumeric characters, underscores, and hyphens")
 		}
 	}

@@ -37,7 +37,13 @@ func TestStoreEncryptionKey(t *testing.T) {
 			t.Fatalf("Error opening the encryption key file: %s", err)
 		}
 
-		defer file.Close()
+		defer func() {
+			err := file.Close()
+
+			if err != nil {
+				t.Fatalf("Error closing the encryption key file: %s", err)
+			}
+		}()
 
 		encryptionKeyBytes := make([]byte, 64)
 

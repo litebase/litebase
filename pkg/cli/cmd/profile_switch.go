@@ -31,7 +31,7 @@ func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
 					rows = append(rows, []string{profile.Name, profile.Cluster})
 				}
 
-				lipgloss.Fprint(
+				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.NewTable(columns, rows).
 						SetHandler(func(row []string) {
@@ -39,6 +39,10 @@ func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
 						}).
 						Render(c.GetInteractive()),
 				)
+
+				if err != nil {
+					return fmt.Errorf("failed to print profiles: %w", err)
+				}
 			}
 
 			if profileName == "" {
@@ -51,13 +55,14 @@ func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
 				return fmt.Errorf("failed to switch profile: %w", err)
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(fmt.Sprintf("Profile switched successfully to '%s'", profileName)),
 				),
 			)
-			return nil
+
+			return err
 		},
 	}
 }

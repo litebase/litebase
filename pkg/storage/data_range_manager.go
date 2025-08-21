@@ -52,12 +52,20 @@ func (drm *DataRangeManager) Acquire(timestamp int64) {
 
 // Close closes all open ranges and the index file.
 func (drm *DataRangeManager) Close() error {
-	drm.Index.Close()
+	err := drm.Index.Close()
+
+	if err != nil {
+		slog.Error("Error closing index", "error", err)
+	}
 
 	for _, rangeVersions := range drm.ranges {
 		for _, r := range rangeVersions {
 			if r != nil {
-				r.Close()
+				err := r.Close()
+
+				if err != nil {
+					slog.Error("Error closing range", "error", err)
+				}
 			}
 		}
 	}
@@ -125,7 +133,12 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 		panic("CopyRange: existing and new range files are the same")
 	}
 
-	existingRange.file.Sync()
+	err = existingRange.file.Sync()
+
+	if err != nil {
+		slog.Error("Failed to sync existing range file", "error", err)
+		return nil, err
+	}
 
 	// Get the size of the existing range
 	existingSize, err := existingRange.Size()
@@ -155,8 +168,19 @@ func (drm *DataRangeManager) CopyRange(rangeNumber int64, newTimestamp int64, fn
 		return nil, err
 	}
 
-	newRange.file.Sync()
-	existingRange.file.Sync()
+	err = newRange.file.Sync()
+
+	if err != nil {
+		slog.Error("Failed to sync new range file", "error", err)
+		return nil, err
+	}
+
+	err = existingRange.file.Sync()
+
+	if err != nil {
+		slog.Error("Failed to sync existing range file", "error", err)
+		return nil, err
+	}
 
 	newRangeSize, err := newRange.Size()
 

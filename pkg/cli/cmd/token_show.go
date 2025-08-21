@@ -72,7 +72,7 @@ func tokenShow(cmd *cobra.Command, config *config.Configuration, tokenId string)
 		cardContent = "```json\n" + string(statementsJSON) + "\n```"
 	}
 
-	lipgloss.Fprint(
+	_, err = lipgloss.Fprint(
 		cmd.OutOrStdout(),
 		components.Container(
 			components.NewCard(
@@ -83,7 +83,7 @@ func tokenShow(cmd *cobra.Command, config *config.Configuration, tokenId string)
 		),
 	)
 
-	return nil
+	return err
 }
 
 func NewTokenShowCmd(config *config.Configuration) *cobra.Command {

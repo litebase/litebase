@@ -3,6 +3,7 @@ package cluster
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 )
@@ -36,7 +37,12 @@ func AWSECSAddressProvider() (string, error) {
 		return "", errors.New("failed to get metadata from ECS")
 	}
 
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			slog.Error("Error closing response body", "error", err)
+		}
+	}()
+
 	data := map[string]any{}
 
 	decoder := json.NewDecoder(res.Body)

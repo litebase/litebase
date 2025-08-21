@@ -44,7 +44,7 @@ func Validate(input any, messages map[string]string) map[string][]string {
 	if err != nil {
 		if reflect.TypeOf(err) == reflect.TypeOf(validator.ValidationErrors{}) {
 			err := err.(validator.ValidationErrors)
-			var e map[string][]string = make(map[string][]string)
+			var e = make(map[string][]string)
 
 			for _, x := range err {
 				fieldKey := x.Field()
