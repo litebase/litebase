@@ -14,7 +14,7 @@ type KeyActivateRequest struct {
 func KeyActivateController(request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
-		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
 		[]auth.Privilege{auth.ClusterPrivilegeManage},
 	)
 

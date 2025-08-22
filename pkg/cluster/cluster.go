@@ -40,7 +40,7 @@ type Cluster struct {
 	eventsManager      *EventsManager
 	fileSystemMutex    *sync.Mutex
 	Initialized        bool   `json:"-"`
-	Id                 string `json:"id"`
+	ID                 string `json:"id"`
 	locks              map[string]internalStorage.File
 	QueryPrimary       string `json:"-"`
 	nodes              []*NodeIdentifier
@@ -222,7 +222,7 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 			return err
 		}
 
-		cluster.Id = id
+		cluster.ID = id
 
 		err = cluster.Save()
 
