@@ -67,7 +67,6 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 	test.WithSteps(t, func(sp *test.StepProcessor) {
 		sp.Run("PRIMARY", func(s *test.StepProcess) {
 			// Primary will crash
-
 			test.RunWithoutCleanup(t, func(app *server.App) {
 				if !app.Cluster.Node().IsPrimary() {
 					t.Fatal("Server is not primary")

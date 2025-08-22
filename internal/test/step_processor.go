@@ -53,6 +53,8 @@ type StepProcessor struct {
 	// Message buffering
 	childAllConnected  chan struct{}
 	childConnectedOnce sync.Once
+	brokerReady        chan struct{}
+	brokerReadyOnce    sync.Once
 	messagesMutex      sync.Mutex
 	pendingMessages    []Message
 }
@@ -103,6 +105,7 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 		expectedProcesses: make(map[string]bool),
 		allConnected:      make(chan struct{}),
 		childAllConnected: make(chan struct{}),
+		brokerReady:       make(chan struct{}),
 	}
 
 	defer sp.Cleanup()
@@ -149,6 +152,15 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 
 		// Start message handling in background
 		go sp.startMessageBroker()
+
+		// Wait for message broker to be ready before waiting for coordination
+		select {
+		case <-sp.brokerReady:
+		case <-time.After(5 * time.Second):
+			fmt.Printf("[CHILD %s] Timeout waiting for message broker to be ready\n", processName)
+		case <-sp.ctx.Done():
+			return
+		}
 
 		// Child processes should wait for all connections before proceeding
 		sp.waitForAllProcessesToConnect()
@@ -601,7 +613,7 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 
 	// Check if step was already completed
 	if sp.completedSteps[stepName] {
-		fmt.Printf("[BROKER] Step %s already completed\n", stepName)
+		slog.Error("Step already completed", "stepName", stepName, "role", "broker")
 		sp.stepMutex.Unlock()
 		return nil
 	}
@@ -613,7 +625,7 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 
 	waiter := sp.stepWaiters[stepName]
 	sp.stepMutex.Unlock()
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(10 * time.Second)
 
 	select {
 	case <-sp.ctx.Done():
@@ -671,7 +683,7 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 
 	// Store connection for sending messages
 	sp.connMutex.Lock()
-	sp.connections[processName] = conn
+	sp.connections["coordinator"] = conn // Use a consistent key for coordinator connection
 	sp.connMutex.Unlock()
 
 	// Start handling messages in background
@@ -792,6 +804,11 @@ func (sp *StepProcessor) processPendingMessages() {
 
 // Start the message broker to process messages from the queue
 func (sp *StepProcessor) startMessageBroker() {
+	// Signal that the broker is ready to handle messages
+	sp.brokerReadyOnce.Do(func() {
+		close(sp.brokerReady)
+	})
+
 	go func() {
 		for {
 			select {
@@ -823,7 +840,7 @@ func (sp *StepProcessor) Cleanup() {
 	// Close Unix socket listener
 	if sp.listener != nil {
 		if err := sp.listener.Close(); err != nil {
-			slog.Error("Error closing listener:", "error", err)
+			slog.Debug("Error closing listener:", "error", err)
 		}
 	}
 
@@ -845,7 +862,7 @@ func (sp *StepProcessor) Cleanup() {
 			err := test.cmd.Process.Kill()
 
 			if err != nil {
-				fmt.Printf("[COORDINATOR] Error killing process %s: %v\n", test.process.processName, err)
+				slog.Debug("Error killing process:", "processName", test.process.processName, "role", "coordinator", "error", err)
 			}
 		}
 	}
