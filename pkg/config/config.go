@@ -35,7 +35,6 @@ type Config struct {
 	Region                 string
 	RootPassword           string
 	RootUsername           string
-	RouterNodePort         string
 	StorageAccessKeyId     string
 	StorageBucket          string
 	StorageEndpoint        string
@@ -71,7 +70,6 @@ func NewConfig() *Config {
 		Port:                   env("LITEBASE_PORT", "8080").(string),
 		Region:                 env("LITEBASE_REGION", "").(string),
 		NetworkStoragePath:     env("LITEBASE_NETWORK_STORAGE_PATH", "").(string),
-		RouterNodePort:         env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:           env("LITEBASE_ROOT_USERNAME", "").(string),
 		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),
