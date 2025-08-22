@@ -12,12 +12,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewServeCmd() *cobra.Command {
+func NewStartCmd() *cobra.Command {
 	var app *server.App
 
 	cmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Start the Litebase server locally",
+		Use:   "start",
+		Short: "Start Litebase Server",
 		Run: func(cmd *cobra.Command, args []string) {
 			configInstance := config.NewConfig()
 
