@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"log/slog"
 	"sync"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -73,7 +74,9 @@ func (d *TransactionManager) Remove(transactionId string) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	d.transactions[transactionId].Close()
+	if err := d.transactions[transactionId].Close(); err != nil {
+		slog.Error("Error closing transaction", "error", err)
+	}
 
 	delete(d.transactions, transactionId)
 }
@@ -84,7 +87,9 @@ func (d *TransactionManager) Shutdown() {
 	defer d.mutex.Unlock()
 
 	for _, transaction := range d.transactions {
-		transaction.Close()
+		if err := transaction.Close(); err != nil {
+			slog.Error("Error closing transaction", "error", err)
+		}
 	}
 
 	d.transactions = make(map[string]*Transaction)

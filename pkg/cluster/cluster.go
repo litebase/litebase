@@ -12,10 +12,10 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/internal/utils/lock"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
@@ -316,8 +316,14 @@ openFile:
 		return false
 	}
 
-	// Try to lock the file using syscall.Flock
-	if err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	// Try to lock the file using our cross-platform file locking
+	locked, err := lock.LockFile(file)
+	if err != nil {
+		slog.Error("Error locking file", "error", err)
+		return false
+	}
+
+	if !locked {
 		return false
 	}
 
@@ -480,7 +486,8 @@ func (cluster *Cluster) Unlock(key string) bool {
 		return false
 	}
 
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_UN); err != nil {
+	if err := lock.UnlockFile(file); err != nil {
+		slog.Error("Error unlocking file", "error", err)
 		return false
 	}
 

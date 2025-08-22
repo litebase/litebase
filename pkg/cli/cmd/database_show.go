@@ -22,7 +22,7 @@ func NewDatabaseShowCmd(config *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprint(
+			_, err = fmt.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
@@ -32,7 +32,7 @@ func NewDatabaseShowCmd(config *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

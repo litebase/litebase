@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -283,7 +284,11 @@ func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	defer output.Body.Close()
+	defer func() {
+		if closeErr := output.Body.Close(); closeErr != nil {
+			slog.Error("Error closing file body", "error", closeErr)
+		}
+	}()
 
 	decompressed, err := s2.Decode(nil, body)
 

@@ -120,7 +120,11 @@ func (lb *LoadBalancer) checkTarget(target *Target) bool {
 		return false
 	}
 
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Println("Error closing connection:", err)
+		}
+	}()
 
 	return true
 }
@@ -147,12 +151,9 @@ func (lb *LoadBalancer) Handle(w http.ResponseWriter, r *http.Request) {
 func (lb *LoadBalancer) runHealthChecks() {
 	t := time.NewTicker(time.Minute * 2)
 
-	for {
-		select {
-		case <-t.C:
-			log.Println("Starting health check...")
-			lb.HealthCheck()
-			log.Println("Health check completed")
-		}
+	for range t.C {
+		log.Println("Starting health check...")
+		lb.HealthCheck()
+		log.Println("Health check completed")
 	}
 }

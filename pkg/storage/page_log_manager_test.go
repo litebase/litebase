@@ -12,7 +12,12 @@ import (
 
 func TestNewPageLogManager(t *testing.T) {
 	plm := storage.NewPageLogManager(context.Background())
-	defer plm.Close()
+
+	defer func() {
+		if err := plm.Close(); err != nil {
+			t.Fatalf("Failed to close PageLogManager: %v", err)
+		}
+	}()
 
 	if plm == nil {
 		t.Fatal("Expected a new PageLogManager instance, got nil")
@@ -33,7 +38,12 @@ func TestPageLogManager_Get(t *testing.T) {
 		tieredFS := app.Cluster.TieredFS()
 
 		plm := storage.NewPageLogManager(context.Background())
-		defer plm.Close()
+
+		defer func() {
+			if err := plm.Close(); err != nil {
+				t.Fatalf("Failed to close PageLogManager: %v", err)
+			}
+		}()
 
 		databaseId := "test_db"
 		branchId := "test_branch"
@@ -57,7 +67,12 @@ func TestPageLogManager_Release(t *testing.T) {
 		tieredFS := app.Cluster.TieredFS()
 
 		plm := storage.NewPageLogManager(context.Background())
-		defer plm.Close()
+
+		defer func() {
+			if err := plm.Close(); err != nil {
+				t.Fatalf("Failed to close PageLogManager: %v", err)
+			}
+		}()
 
 		databaseId := "test_db"
 		branchId := "test_branch"
@@ -85,7 +100,11 @@ func TestPageLogManager_SetCompactionFn(t *testing.T) {
 			},
 		)
 
-		defer plm.Close()
+		defer func() {
+			if err := plm.Close(); err != nil {
+				t.Error(err)
+			}
+		}()
 
 		compactionCalled := false
 

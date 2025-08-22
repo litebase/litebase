@@ -23,7 +23,9 @@ func TestQueryResolver_Handle(t *testing.T) {
 
 		defer app.DatabaseManager.ConnectionManager().Release(db)
 
-		db.GetConnection().Exec("CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{})
+		if _, err := db.GetConnection().Exec("CREATE TABLE users (id INT, name TEXT)", []sqlite3.StatementParameter{}); err != nil {
+			t.Fatalf("failed to create table: %v", err)
+		}
 
 		cases := []struct {
 			statement  string

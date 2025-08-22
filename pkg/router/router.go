@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -40,13 +39,12 @@ func (router *Router) Start() {
 		}
 	}()
 
-	signalChannel := make(chan os.Signal, 2)
+	signalChannel := make(chan os.Signal, 1)
 
-	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(signalChannel, os.Interrupt)
 
 	for {
 		switch <-signalChannel {
-		case syscall.SIGTERM:
 		case os.Interrupt:
 			close(signalChannel)
 			router.Shutdown()

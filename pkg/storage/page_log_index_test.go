@@ -60,7 +60,9 @@ func TestPageLogIndex(t *testing.T) {
 			}
 
 			// Add an entry to the index
-			pli.Put(storage.PageNumber(1), storage.PageVersion(1), 0, []byte{})
+			if err := pli.Put(storage.PageNumber(1), storage.PageVersion(1), 0, []byte{}); err != nil {
+				t.Fatalf("unexpected error putting entry: %v", err)
+			}
 
 			if pli.Empty() {
 				t.Fatal("expected PageLogIndex not to be empty after adding an entry")
@@ -89,8 +91,13 @@ func TestPageLogIndex(t *testing.T) {
 			pli := storage.NewPageLogIndex(app.Cluster.LocalFS(), "FIND_INDEX")
 
 			// Add some entries
-			pli.Put(storage.PageNumber(1), storage.PageVersion(1), 0, []byte{})
-			pli.Put(storage.PageNumber(2), storage.PageVersion(2), 0, []byte{})
+			if err := pli.Put(storage.PageNumber(1), storage.PageVersion(1), 0, []byte{}); err != nil {
+				t.Fatalf("unexpected error putting entry: %v", err)
+			}
+
+			if err := pli.Put(storage.PageNumber(2), storage.PageVersion(2), 0, []byte{}); err != nil {
+				t.Fatalf("unexpected error putting entry: %v", err)
+			}
 
 			found, version, offset, err := pli.Find(storage.PageNumber(1), storage.PageVersion(1))
 

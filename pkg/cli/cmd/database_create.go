@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -26,15 +27,19 @@ func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
 			res, _, err := api.Post(config, "/v1/databases", data)
 
 			if err != nil {
-				fmt.Fprint(
+				_, fprintErr := fmt.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.ErrorAlert(err.Error())),
 				)
 
+				if fprintErr != nil {
+					slog.Error("Error printing error message", "error", fprintErr)
+				}
+
 				return err
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
@@ -42,7 +47,7 @@ func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 

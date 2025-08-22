@@ -767,7 +767,11 @@ func TestBackup(t *testing.T) {
 
 			// Get the snapshots and find a restore point
 			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
-			snapshotLogger.GetSnapshots()
+
+			if _, err := snapshotLogger.GetSnapshots(); err != nil {
+				t.Fatalf("Expected no error getting snapshots, got %v", err)
+			}
+
 			snapshotKeys := snapshotLogger.Keys()
 
 			if len(snapshotKeys) == 0 {

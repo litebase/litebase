@@ -55,18 +55,33 @@ func TestSnapshotLog(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
-			defer snapshotLogger.Close()
+
+			defer func() {
+				if err := snapshotLogger.Close(); err != nil {
+					t.Fatalf("Failed to close snapshot logger: %v", err)
+				}
+			}()
 
 			checkpointerLogger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 			)
-			defer checkpointerLogger.Close()
+
+			defer func() {
+				if err := checkpointerLogger.Close(); err != nil {
+					t.Fatalf("Failed to close checkpointer logger: %v", err)
+				}
+			}()
 
 			// Simulate writing a snapshot to the file
 			timestamp := time.Now().UTC().UnixNano()
-			checkpointerLogger.Log(timestamp, int64(1))
+
+			err := checkpointerLogger.Log(timestamp, int64(1))
+
+			if err != nil {
+				t.Fatalf("Failed to log snapshot: %v", err)
+			}
 
 			snapshot, err := snapshotLogger.GetSnapshot(timestamp)
 
@@ -90,11 +105,21 @@ func TestSnapshotLog(t *testing.T) {
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 			)
-			defer checkpointerLogger.Close()
+
+			defer func() {
+				if err := checkpointerLogger.Close(); err != nil {
+					t.Fatalf("Failed to close checkpointer logger: %v", err)
+				}
+			}()
 
 			// Simulate writing a snapshot to the file
 			timestamp := time.Now().UTC().Add(time.Duration(-1) * time.Hour).UnixNano()
-			checkpointerLogger.Log(timestamp, 100)
+
+			err := checkpointerLogger.Log(timestamp, 100)
+
+			if err != nil {
+				t.Fatalf("Failed to log snapshot: %v", err)
+			}
 
 			snapshot, err := snapshotLogger.GetSnapshot(timestamp)
 
@@ -129,7 +154,12 @@ func TestSnapshotLog(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
-			defer snapshotLogger.Close()
+
+			defer func() {
+				if err := snapshotLogger.Close(); err != nil {
+					t.Fatalf("Failed to close snapshot logger: %v", err)
+				}
+			}()
 
 			checkpointerLogger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
@@ -137,7 +167,11 @@ func TestSnapshotLog(t *testing.T) {
 				mock.DatabaseBranchID,
 			)
 
-			defer checkpointerLogger.Close()
+			defer func() {
+				if err := checkpointerLogger.Close(); err != nil {
+					t.Fatalf("Failed to close checkpointer logger: %v", err)
+				}
+			}()
 
 			// Create a base time in UTC to ensure both timestamps are on the same day
 			baseTime := time.Now().UTC()
@@ -146,7 +180,12 @@ func TestSnapshotLog(t *testing.T) {
 
 			// Simulate writing a snapshot to the file (2 hours earlier in the same day)
 			timestamp := baseTime.Add(-2 * time.Hour).UnixNano()
-			checkpointerLogger.Log(timestamp, int64(100))
+
+			err := checkpointerLogger.Log(timestamp, int64(100))
+
+			if err != nil {
+				t.Fatalf("Failed to log snapshot: %v", err)
+			}
 
 			snapshot, err := snapshotLogger.GetSnapshot(timestamp)
 
@@ -156,7 +195,10 @@ func TestSnapshotLog(t *testing.T) {
 
 			// Simulate writing another snapshot to the file (1 hour later in the same day)
 			timestamp = baseTime.Add(-1 * time.Hour).UnixNano()
-			checkpointerLogger.Log(timestamp, int64(101))
+
+			if err := checkpointerLogger.Log(timestamp, int64(101)); err != nil {
+				t.Fatalf("Failed to log snapshot: %v", err)
+			}
 
 			if snapshot.RestorePoints.Total != 1 {
 				t.Fatalf("Expected 1 restore point, got %d", snapshot.RestorePoints.Total)
@@ -189,7 +231,12 @@ func TestSnapshotLog(t *testing.T) {
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 			)
-			defer snapshotLogger.Close()
+
+			defer func() {
+				if err := snapshotLogger.Close(); err != nil {
+					t.Fatalf("Failed to close snapshot logger: %v", err)
+				}
+			}()
 
 			// Simulate writing a snapshot to the file
 			timestamp := time.Now().UTC().UnixNano()
@@ -213,7 +260,11 @@ func TestSnapshotLog(t *testing.T) {
 				t.Fatalf("Expected 1 restore point, got %d", snapshot.RestorePoints.Total)
 			}
 
-			snapshot.File.Seek(0, 0)
+			_, err = snapshot.File.Seek(0, 0)
+
+			if err != nil {
+				t.Fatalf("Expected no error on Seek(), got %v", err)
+			}
 
 			entry := make([]byte, 64)
 

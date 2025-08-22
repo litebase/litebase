@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"sync"
 )
 
@@ -84,7 +85,11 @@ func (s *SystemDatabase) init() {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			slog.Error("Error closing database connection", "error", err)
+		}
+	}()
 
 	// Create the metadata table if it doesn't exist.
 	_, err = db.Exec(

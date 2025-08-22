@@ -37,12 +37,12 @@ func NewDatabaseBackupShowCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			if res["data"] == nil {
-				lipgloss.Fprint(
+				_, err = lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No backups found for this database")),
 				)
 
-				return nil
+				return err
 			}
 
 			rows := []components.CardRow{
@@ -64,7 +64,7 @@ func NewDatabaseBackupShowCmd(config *config.Configuration) *cobra.Command {
 				},
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewCard(
@@ -74,7 +74,7 @@ func NewDatabaseBackupShowCmd(config *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -23,12 +24,12 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			if data["data"] == nil {
-				lipgloss.Fprint(
+				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No access keys found")),
 				)
 
-				return nil
+				return err
 			}
 
 			rows := [][]string{}
@@ -36,16 +37,20 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 			accessKeys, ok := data["data"].([]any)
 
 			if !ok {
-				lipgloss.Fprint(
+				_, outputErr := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.ErrorAlert("Invalid data format for access keys")),
 				)
+
+				if outputErr != nil {
+					slog.Error("Error printing access keys", "error", outputErr)
+				}
 
 				return nil
 			}
 
 			for i, accessKey := range accessKeys {
-				var accessKeyId string = "-"
+				var accessKeyId = "-"
 
 				if a, ok := accessKey.(map[string]any)["access_key_id"].(string); ok {
 					accessKeyId = a
@@ -63,17 +68,21 @@ func NewAccessKeyListCmd(config *config.Configuration) *cobra.Command {
 				"Access Key ID",
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewTable(columns, rows).
 						SetHandler(func(row []string) {
-							accessKeyShow(cmd, config, row[1])
+							err := accessKeyShow(cmd, config, row[1])
+
+							if err != nil {
+								slog.Error("Error showing access key", "error", err)
+							}
 						}).Render(config.GetInteractive()),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

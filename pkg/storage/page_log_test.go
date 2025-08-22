@@ -50,7 +50,9 @@ func TestPageLog(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				err := pageLog.Append(tc.pageNum, tc.version, tc.data)
 
@@ -190,7 +192,9 @@ func TestPageLog(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				rand.Read(tc.data)
+				if _, err := rand.Read(tc.data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				err := pageLog.Append(tc.pageNum, tc.version, tc.data)
 
@@ -239,7 +243,10 @@ func TestPageLog(t *testing.T) {
 
 			// Test syncing after appending data
 			data := make([]byte, 4096)
-			rand.Read(data)
+
+			if _, err := rand.Read(data); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			err = pageLog.Append(1, 1, data)
 
@@ -263,7 +270,10 @@ func TestPageLog(t *testing.T) {
 			// Test syncing with multiple pages
 			for i := int64(2); i <= 5; i++ {
 				data := make([]byte, 4096)
-				rand.Read(data)
+
+				if _, err := rand.Read(data); err != nil {
+					t.Fatalf("Failed to read random data: %v", err)
+				}
 
 				err = pageLog.Append(i, 1, data)
 				if err != nil {
@@ -311,7 +321,10 @@ func TestPageLog(t *testing.T) {
 
 			// Add some data
 			data := make([]byte, 4096)
-			rand.Read(data)
+
+			if _, err := rand.Read(data); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			err = pageLog.Append(1, 1, data)
 			if err != nil {
@@ -351,7 +364,9 @@ func TestPageLog(t *testing.T) {
 
 			data := make([]byte, 4096)
 
-			rand.Read(data)
+			if _, err := rand.Read(data); err != nil {
+				t.Fatalf("Failed to read random data: %v", err)
+			}
 
 			err = pageLog.Append(1, 1, data)
 
@@ -397,7 +412,9 @@ func TestPageLog_RestoresAfterClose(t *testing.T) {
 
 		data := make([]byte, 4096)
 
-		rand.Read(data)
+		if _, err := rand.Read(data); err != nil {
+			t.Fatalf("Failed to read random data: %v", err)
+		}
 
 		err = pageLog.Append(1, 1, data)
 
@@ -455,7 +472,10 @@ func TestPageLog_ConcurrentSync(t *testing.T) {
 
 		// Add some data
 		data := make([]byte, 4096)
-		rand.Read(data)
+
+		if _, err := rand.Read(data); err != nil {
+			t.Fatalf("Failed to read random data: %v", err)
+		}
 
 		err = pageLog.Append(1, 1, data)
 

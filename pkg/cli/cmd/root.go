@@ -74,12 +74,12 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 				),
 			)
 
-			lipgloss.Fprint(
+			_, err := lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				container,
 			)
 
-			return nil
+			return err
 		},
 	}
 
@@ -116,7 +116,7 @@ func NewRoot(version string) error {
 	return fang.Execute(
 		context.Background(),
 		cmd,
-		fang.WithTheme(cli.ColorScheme()),
+		fang.WithColorSchemeFunc(cli.ColorScheme),
 		fang.WithVersion(version),
 	)
 }

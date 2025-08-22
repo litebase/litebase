@@ -119,7 +119,7 @@ func TestClusterElection(t *testing.T) {
 							default:
 								var electedCount int
 								var primaryAddress string
-								var allObservedPrimary bool = true
+								var allObservedPrimary = true
 
 								for _, s := range servers {
 									if s.App.Cluster.Node().GetMembership() == cluster.ClusterMembershipPrimary {
@@ -210,7 +210,7 @@ func TestClusterElection(t *testing.T) {
 							default:
 								var electedCount int
 								var primaryAddress string
-								var allObservedPrimary bool = true
+								var allObservedPrimary = true
 
 								for _, s := range servers {
 									if s.App.Cluster.Node().IsPrimary() {
@@ -296,7 +296,7 @@ func TestClusterElection(t *testing.T) {
 						// primary server each time.
 						for {
 							timeout := time.After(10 * time.Second)
-							var electedIndex int = -1
+							var electedIndex = -1
 
 						outerLoop:
 							for {
@@ -306,7 +306,7 @@ func TestClusterElection(t *testing.T) {
 								default:
 									var electedCount int
 									var primaryAddress string
-									var allObservedPrimary bool = true
+									var allObservedPrimary = true
 
 									for i, s := range servers {
 										if s.App.Cluster.Node().IsPrimary() {
@@ -378,7 +378,9 @@ func TestClusterElection_WithStepProcessing(t *testing.T) {
 			}).ShouldExitWith(1)
 
 			sp.Run("SERVER_2", func(s *test.StepProcess) {
-				s.WaitForStep("SERVER_1_READY")
+				if err := s.WaitForStep("SERVER_1_READY"); err != nil {
+					t.Fatal(err)
+				}
 
 				test.RunWithoutCleanup(t, func(app *server.App) {
 					timeout := time.After(15 * time.Second)
@@ -424,7 +426,9 @@ func TestClusterElection_WithStepProcessing(t *testing.T) {
 			}).ShouldExitWith(1)
 
 			sp.Run("REPLICA", func(s *test.StepProcess) {
-				s.WaitForStep("PRIMARY_READY")
+				if err := s.WaitForStep("PRIMARY_READY"); err != nil {
+					t.Fatal(err)
+				}
 
 				test.RunWithoutCleanup(t, func(app *server.App) {
 					timeout := time.After(15 * time.Second)

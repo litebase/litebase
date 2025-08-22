@@ -177,7 +177,7 @@ func NewUserUpdateCmd(config *config.Configuration) *cobra.Command {
 				cardContent = "```json\n" + string(statementsJSON) + "\n```"
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
@@ -189,7 +189,7 @@ func NewUserUpdateCmd(config *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 

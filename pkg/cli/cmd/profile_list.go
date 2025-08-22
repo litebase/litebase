@@ -24,14 +24,14 @@ func NewProfileListCmd(c *config.Configuration) *cobra.Command {
 				rows = append(rows, []string{profile.Name, profile.Cluster})
 			}
 
-			lipgloss.Fprint(
+			_, err := lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewTable(columns, rows).Render(c.GetInteractive()),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

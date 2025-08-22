@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -95,7 +96,11 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 		return nil, nil, err
 	}
 
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			slog.Error("Error closing response body", "error", err)
+		}
+	}()
 
 	body, err := io.ReadAll(res.Body)
 

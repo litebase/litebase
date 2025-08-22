@@ -35,7 +35,7 @@ func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
 				})
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewTable([]string{"Name", "ID"}, rows).
@@ -43,7 +43,7 @@ func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 

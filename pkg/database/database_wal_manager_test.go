@@ -178,7 +178,9 @@ func TestDatabaseWALManager_InUseVersions(t *testing.T) {
 				t.Errorf("Error creating new WAL version: %v", err)
 			}
 
-			walm.Acquire()
+			if _, err := walm.Acquire(); err != nil {
+				t.Errorf("Error acquiring WAL version: %v", err)
+			}
 
 			walVersions[i] = walVersion
 		}
@@ -260,9 +262,13 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 				t.Errorf("Error creating new WAL version: %v", err)
 			}
 
-			walVersion.Size()
+			if _, err := walVersion.Size(); err != nil {
+				t.Fatalf("Error getting WAL version size: %v", err)
+			}
 
-			walm.Acquire()
+			if _, err := walm.Acquire(); err != nil {
+				t.Fatalf("Error acquiring WAL version: %v", err)
+			}
 
 			if i == 0 {
 				walm.Release(walVersion.Timestamp())
@@ -286,10 +292,10 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 
 			if i == 0 {
 				if err == nil {
-					t.Error("File should not exist", err)
+					t.Errorf("File should not exist for index %d, error: %v", i, err)
 				}
 			} else if err != nil {
-				t.Error("File should exist still still in use", err)
+				t.Errorf("File should exist still still in use for index %d, error: %v", i, err)
 			}
 		}
 
@@ -304,10 +310,6 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 		}
 
 		for i := 1; i < 5; i++ {
-			if i == 0 {
-				continue
-			}
-
 			_, err := app.Cluster.NetworkFS().Stat(walVersions[i].Path)
 
 			if err == nil {
@@ -378,9 +380,13 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 				t.Fatalf("Error creating new WAL version: %v", err)
 			}
 
-			walVersion.Size()
+			if _, err := walVersion.Size(); err != nil {
+				t.Fatalf("Error getting WAL version size: %v", err)
+			}
 
-			walm.Acquire()
+			if _, err := walm.Acquire(); err != nil {
+				t.Fatalf("Error acquiring WAL version: %v", err)
+			}
 
 			walVersions[i] = walVersion
 		}
@@ -404,8 +410,13 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 			t.Fatalf("Error creating WAL manager: %v", err)
 		}
 
-		replica1WALManager.Get(walVersions[1].Timestamp())
-		replica2WALManager.Get(walVersions[1].Timestamp())
+		if _, err := replica1WALManager.Get(walVersions[1].Timestamp()); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if _, err := replica2WALManager.Get(walVersions[1].Timestamp()); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		// Run garbage collection on the primary
 		err = walm.RunGarbageCollection()

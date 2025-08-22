@@ -18,7 +18,9 @@ func TestClusterElectionController(t *testing.T) {
 		defer server.Shutdown()
 
 		// Step down the current node to ensure it is not the primary
-		app.Cluster.Node().StepDown()
+		if err := app.Cluster.Node().StepDown(); err != nil {
+			t.Fatalf("failed to step down node: %v", err)
+		}
 
 		// Create a test message to send through the stream
 		testMessage := appHttp.ClusterElectionRequest{

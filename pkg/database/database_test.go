@@ -135,10 +135,28 @@ func TestDatabase(t *testing.T) {
 		})
 
 		t.Run("Database_CreateBranchFromParentWithNoSnapshots", func(t *testing.T) {
-			db, err := database.CreateDatabase(app.DatabaseManager, "test_CreateBranchFromParent", "main")
+			mock := test.MockDatabase(app)
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
 
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("failed to get mock database: %v", err)
+			}
+
+			con, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("failed to get database connection: %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(con)
+
+			if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
+				t.Fatalf("failed to create test table: %v", err)
+			}
+
+			if err := con.Checkpoint(); err != nil {
+				t.Fatalf("failed to create checkpoint: %v", err)
 			}
 
 			branch, err := db.CreateBranch("test_branch", "main")

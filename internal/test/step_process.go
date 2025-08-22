@@ -30,7 +30,7 @@ func (s *StepProcess) Step(name string) {
 		} else {
 			// In child process mode, send sync message via Unix socket
 			s.sp.connMutex.RLock()
-			conn, exists := s.sp.connections[processName]
+			conn, exists := s.sp.connections["coordinator"] // Use consistent coordinator key
 			s.sp.connMutex.RUnlock()
 
 			if exists {
@@ -42,7 +42,7 @@ func (s *StepProcess) Step(name string) {
 					fmt.Printf("[CHILD %s] Error sending sync message: %v\n", processName, err)
 				}
 			} else {
-				fmt.Printf("[CHILD %s] No connection available for sending sync message\n", processName)
+				fmt.Printf("[CHILD %s] No coordinator connection available for sending sync message\n", processName)
 			}
 		}
 	}

@@ -161,7 +161,12 @@ func (drl *DataRangeLogger) Refresh(validEntries []DataRangeLogEntry) error {
 
 	// Close existing file if open
 	if drl.file != nil {
-		drl.file.Close()
+		err := drl.file.Close()
+
+		if err != nil {
+			slog.Error("Error closing data range log file", "error", err)
+		}
+
 		drl.file = nil
 	}
 

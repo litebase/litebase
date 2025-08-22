@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/backups"
 	"github.com/litebase/litebase/pkg/database"
 )
 
@@ -152,6 +153,16 @@ func DatabaseBranchStoreController(request *Request) Response {
 	)
 
 	if err != nil {
+		if errors.Is(err, backups.ErrNoSnapshotsFound) {
+			return BadRequestResponse(errors.New("no snapshots found for the parent branch"))
+		}
+
+		expectedBranchExistsErr := database.ErrBranchAlreadyExists(string(branchName))
+
+		if err.Error() == expectedBranchExistsErr.Error() {
+			return BadRequestResponse(err)
+		}
+
 		return ServerErrorResponse(err)
 	}
 

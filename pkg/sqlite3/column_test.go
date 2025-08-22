@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"math"
 	"testing"
 
@@ -121,7 +120,7 @@ func TestColumnEncode(t *testing.T) {
 			length := int(binary.LittleEndian.Uint32(data[1:5]))
 
 			if length != len(data[5:]) {
-				log.Println(data)
+				t.Logf("unexpected data: %v", data)
 				t.Fatalf(
 					"expected length to be %d, got %d",
 					len(data[5:]),

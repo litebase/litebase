@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -23,12 +24,12 @@ func NewTokenListCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			if data["data"] == nil {
-				lipgloss.Fprint(
+				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No tokens found")),
 				)
 
-				return nil
+				return err
 			}
 
 			rows := [][]string{}
@@ -36,16 +37,16 @@ func NewTokenListCmd(config *config.Configuration) *cobra.Command {
 			tokens, ok := data["data"].([]any)
 
 			if !ok {
-				lipgloss.Fprint(
+				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.ErrorAlert("Invalid data format for tokens")),
 				)
 
-				return nil
+				return err
 			}
 
 			for i, token := range tokens {
-				var tokenId string = "-"
+				var tokenId = "-"
 
 				if t, ok := token.(map[string]any)["token_id"].(string); ok {
 					tokenId = t
@@ -63,17 +64,21 @@ func NewTokenListCmd(config *config.Configuration) *cobra.Command {
 				"Token ID",
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewTable(columns, rows).
 						SetHandler(func(row []string) {
-							tokenShow(cmd, config, row[1])
+							err := tokenShow(cmd, config, row[1])
+
+							if err != nil {
+								slog.Error("Error showing token", "error", err, "token_id", row[1])
+							}
 						}).Render(config.GetInteractive()),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

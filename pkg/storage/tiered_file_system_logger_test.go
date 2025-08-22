@@ -130,7 +130,9 @@ func TestTieredFileSystemLogger(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			logger.Close()
+			if err := logger.Close(); err != nil {
+				t.Fatal(err)
+			}
 
 			logger, err = storage.NewTieredFileSystemLogger(
 				app.Cluster.Node().Cluster.LocalFS(),
@@ -204,7 +206,9 @@ func TestTieredFileSystemLogger(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			logger.Put("test_key")
+			if _, err := logger.Put("test_key"); err != nil {
+				t.Fatal(err)
+			}
 
 			if err := logger.Restart(); err != nil {
 				t.Fatal(err)

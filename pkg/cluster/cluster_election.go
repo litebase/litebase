@@ -14,8 +14,9 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"syscall"
 	"time"
+
+	"github.com/litebase/litebase/internal/utils/lock"
 )
 
 const (
@@ -179,7 +180,11 @@ func (ce *ClusterElection) proposeLeadership() bool {
 			}
 
 			if resp.Body != nil {
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						slog.Error("Error closing response body", "error", err)
+					}
+				}()
 			}
 
 			jsonData := make(map[string]any)
@@ -254,14 +259,14 @@ func (ce *ClusterElection) run() (bool, error) {
 		return false, err
 	}
 
-	// Attempt to lock the primary file using syscall.Flock
+	// Attempt to lock the primary file
 	file := primaryFile.(*os.File)
 
 	locked := false
 
 	defer func() {
 		if locked {
-			err = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+			err = lock.UnlockFile(file)
 
 			if err != nil {
 				slog.Debug("Failed to unlock primary file", "error", err)
@@ -275,18 +280,16 @@ func (ce *ClusterElection) run() (bool, error) {
 		}
 	}()
 
-	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	locked, err = lock.LockFile(file)
 
 	if err != nil {
-		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
-			slog.Debug("Primary file is locked by another process", "error", err)
-			return false, nil // Not an error, just not elected
-		}
-
 		return false, err
 	}
 
-	locked = true
+	if !locked {
+		slog.Debug("Primary file is locked by another process")
+		return false, nil // Not an error, just not elected
+	}
 
 	// Propose leadership to other nodes. If other nodes accept, continue
 	elected := ce.proposeLeadership()

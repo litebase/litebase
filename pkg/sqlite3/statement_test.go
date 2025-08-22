@@ -3,6 +3,7 @@ package sqlite3_test
 import (
 	"context"
 	"encoding/binary"
+	"log/slog"
 	"testing"
 
 	"github.com/litebase/litebase/pkg/sqlite3"
@@ -17,7 +18,11 @@ func TestNewStatement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	statement, errCode, err := sqlite3.NewStatement(ctx, con, "create table test (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -43,7 +48,11 @@ func TestStatement_Bind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -57,7 +66,11 @@ func TestStatement_Bind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	if errCode != 0 {
 		t.Errorf("Expected error code 0, got %d", errCode)
@@ -86,7 +99,11 @@ func TestStatement_ClearBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -100,7 +117,11 @@ func TestStatement_ClearBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	if errCode != 0 {
 		t.Errorf("Expected error code 0, got %d", errCode)
@@ -135,7 +156,11 @@ func TestStatement_ColumnCount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)")
 
@@ -149,7 +174,11 @@ func TestStatement_ColumnCount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	err = statement.Bind(sqlite3.StatementParameter{
 		Type:  sqlite3.ParameterTypeText,
@@ -185,7 +214,11 @@ func TestStatement_ColumnName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)")
 
@@ -199,7 +232,11 @@ func TestStatement_ColumnName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	name := statement.ColumnName(1)
 
@@ -217,7 +254,11 @@ func TestStatement_ColumnNames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT, birthday TEXT)")
 
@@ -231,7 +272,11 @@ func TestStatement_ColumnNames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	names := statement.ColumnNames()
 
@@ -274,7 +319,11 @@ func TestStatement_ColumnValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	result := sqlite3.NewResult()
 
@@ -307,7 +356,11 @@ func TestStatement_Exec(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -348,7 +401,11 @@ func TestStatement_Finalize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			slog.Error("Error closing connection", "error", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -378,7 +435,11 @@ func TestStatement_IsReadonly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Errorf("Error closing connection: %v", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -392,7 +453,11 @@ func TestStatement_IsReadonly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	if !statement.IsReadonly() {
 		t.Error("Expected statement to be readonly")
@@ -408,7 +473,11 @@ func TestStatementParameterCount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Errorf("Error closing connection: %v", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -422,7 +491,11 @@ func TestStatementParameterCount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			slog.Error("Error finalizing statement", "error", err)
+		}
+	}()
 
 	count := statement.ParameterCount()
 
@@ -452,7 +525,11 @@ func TestStatementParameterIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Errorf("Error closing connection: %v", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -465,8 +542,6 @@ func TestStatementParameterIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	defer statement.Finalize()
 
 	index := statement.ParameterIndex("?")
 
@@ -498,7 +573,9 @@ func TestStatementParameterIndex(t *testing.T) {
 		t.Errorf("Expected parameter index to be 2, got %d", index)
 	}
 
-	defer statement.Finalize()
+	if err := statement.Finalize(); err != nil {
+		t.Errorf("Expected no error when finalizing statement, got: %v", err)
+	}
 }
 
 func TestStatementParameterName(t *testing.T) {
@@ -510,7 +587,11 @@ func TestStatementParameterName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Errorf("Error closing connection: %v", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table users (name TEXT, email TEXT)")
 
@@ -536,7 +617,9 @@ func TestStatementParameterName(t *testing.T) {
 		t.Errorf("Expected parameter name to be ':email', got '%s'", name)
 	}
 
-	defer statement.Finalize()
+	if err := statement.Finalize(); err != nil {
+		t.Errorf("Expected no error when finalizing statement, got: %v", err)
+	}
 }
 
 func TestStatementReset(t *testing.T) {
@@ -548,7 +631,11 @@ func TestStatementReset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Errorf("Error closing connection: %v", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -562,7 +649,11 @@ func TestStatementReset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Errorf("Expected no error when finalizing statement, got: %v", err)
+		}
+	}()
 
 	err = statement.Reset()
 
@@ -580,7 +671,11 @@ func TestStatementSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Errorf("Error closing connection: %v", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -594,7 +689,11 @@ func TestStatementSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Errorf("Expected no error when finalizing statement, got: %v", err)
+		}
+	}()
 
 	sql := statement.SQL()
 
@@ -612,7 +711,11 @@ func TestStatementStep(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Error("Error closing connection:", err)
+		}
+	}()
 
 	_, err = con.Exec(ctx, "create table names (id INTEGER PRIMARY KEY, name TEXT)")
 
@@ -626,7 +729,11 @@ func TestStatementStep(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Errorf("Expected no error when finalizing statement, got: %v", err)
+		}
+	}()
 
 	rc := statement.Step()
 
@@ -644,7 +751,11 @@ func TestStatement_BindNamedParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Error("Error closing connection:", err)
+		}
+	}()
 
 	// Create test table
 	_, err = con.Exec(ctx, "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, email TEXT)")
@@ -660,7 +771,11 @@ func TestStatement_BindNamedParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Error("Error finalizing statement:", err)
+		}
+	}()
 
 	if errCode != 0 {
 		t.Errorf("Expected error code 0, got %d", errCode)
@@ -705,7 +820,11 @@ func TestStatement_BindNamedParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer selectStmt.Finalize()
+	defer func() {
+		if err := selectStmt.Finalize(); err != nil {
+			slog.Error("Error finalizing select statement", "error", err)
+		}
+	}()
 
 	err = selectStmt.Bind(sqlite3.StatementParameter{
 		Name:  ":name",
@@ -764,7 +883,11 @@ func TestStatement_BindNamedParametersWithDifferentFormats(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Error("Error closing connection:", err)
+		}
+	}()
 
 	// Create test table
 	_, err = con.Exec(ctx, "CREATE TABLE test_params (id INTEGER PRIMARY KEY, value1 TEXT, value2 TEXT, value3 TEXT)")
@@ -787,10 +910,16 @@ func TestStatement_BindNamedParametersWithDifferentFormats(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			statement, _, err := sqlite3.NewStatement(ctx, con, tc.query)
+
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer statement.Finalize()
+
+			defer func() {
+				if err := statement.Finalize(); err != nil {
+					t.Error("Error finalizing statement:", err)
+				}
+			}()
 
 			err = statement.Bind(sqlite3.StatementParameter{
 				Name:  tc.param,
@@ -822,7 +951,11 @@ func TestStatement_BindNamedParameterNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Error("Error closing connection:", err)
+		}
+	}()
 
 	// Create test table
 	_, err = con.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
@@ -837,7 +970,11 @@ func TestStatement_BindNamedParameterNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Error("Error finalizing statement:", err)
+		}
+	}()
 
 	// Try to bind a parameter that doesn't exist in the query
 	err = statement.Bind(sqlite3.StatementParameter{
@@ -866,7 +1003,11 @@ func TestStatement_BindMixedParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Error("Error closing connection:", err)
+		}
+	}()
 
 	// Create test table
 	_, err = con.Exec(ctx, "CREATE TABLE mixed_test (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
@@ -879,7 +1020,11 @@ func TestStatement_BindMixedParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Error("Error finalizing statement:", err)
+		}
+	}()
 
 	// Bind both positional (first parameter) and named (second parameter)
 	err = statement.Bind(
@@ -911,13 +1056,23 @@ func TestStatement_ParameterIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Error("Error closing connection:", err)
+		}
+	}()
 
 	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM sqlite_master WHERE name = :name AND type = :type")
+
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer statement.Finalize()
+
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Error("Error finalizing statement:", err)
+		}
+	}()
 
 	// Test parameter index lookup
 	nameIndex := statement.ParameterIndex(":name")
@@ -952,7 +1107,11 @@ func TestStatement_ParameterName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer con.Close()
+	defer func() {
+		if err := con.Close(); err != nil {
+			t.Error("Error closing connection:", err)
+		}
+	}()
 
 	statement, _, err := sqlite3.NewStatement(ctx, con, "SELECT * FROM sqlite_master WHERE name = :name AND type = :type")
 
@@ -960,7 +1119,11 @@ func TestStatement_ParameterName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer statement.Finalize()
+	defer func() {
+		if err := statement.Finalize(); err != nil {
+			t.Error("Error finalizing statement:", err)
+		}
+	}()
 
 	// Test getting parameter names by index
 	param1Name := statement.ParameterName(1)

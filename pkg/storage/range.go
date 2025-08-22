@@ -78,9 +78,13 @@ func (dr *Range) Close() error {
 		return nil
 	}
 
-	dr.file.Close()
-
 	dr.closed = true
+
+	err := dr.file.Close()
+
+	if err != nil {
+		return fmt.Errorf("failed to close range file: %w", err)
+	}
 
 	return nil
 }

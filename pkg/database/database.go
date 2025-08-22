@@ -250,7 +250,11 @@ func (database *Database) Branches() ([]*Branch, error) {
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("Error closing rows", "error", err)
+		}
+	}()
 
 	for rows.Next() {
 		var branch Branch
@@ -290,7 +294,11 @@ func (database *Database) copyBranchParentData(branch *Branch) error {
 	}
 
 	// Get the snapshots
-	snapshotLogger.GetSnapshots()
+	_, err = snapshotLogger.GetSnapshots()
+
+	if err != nil {
+		return fmt.Errorf("failed to get snapshots: %w", err)
+	}
 
 	// Get the latest snapshot timestamp
 	snapshotKeys := snapshotLogger.Keys()
@@ -327,7 +335,7 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 	branch, err := NewBranch(database.DatabaseManager, database.ID, parentBranchName, name)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create branch: %w", err)
+		return nil, err
 	}
 
 	branch.DatabaseID = database.DatabaseID

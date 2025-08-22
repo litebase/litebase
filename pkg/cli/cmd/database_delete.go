@@ -23,14 +23,14 @@ func NewDatabaseDeleteCmd(config *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert(res["message"].(string)),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 }

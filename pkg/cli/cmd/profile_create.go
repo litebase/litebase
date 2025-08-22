@@ -171,14 +171,14 @@ func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
 				return err
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.SuccessAlert("Profile stored successfully"),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 

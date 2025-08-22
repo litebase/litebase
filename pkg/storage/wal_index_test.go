@@ -84,11 +84,13 @@ func TestWALIndex(t *testing.T) {
 			present := time.Now().UTC().UnixNano()
 			future := time.Now().UTC().Add(time.Second).UnixNano()
 
-			walIndex.SetVersions([]int64{
+			if err := walIndex.SetVersions([]int64{
 				past,
 				present,
 				future,
-			})
+			}); err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 
 			// Get the closest version
 			version := walIndex.GetClosestVersion(time.Now().UTC().UnixNano())
@@ -124,11 +126,13 @@ func TestWALIndex(t *testing.T) {
 			present := time.Now().UTC().UnixNano()
 			future := time.Now().UTC().Add(time.Microsecond).UnixNano()
 
-			walIndex.SetVersions([]int64{
+			if err := walIndex.SetVersions([]int64{
 				past,
 				present,
 				future,
-			})
+			}); err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 
 			// Get the closest version
 			version := walIndex.GetClosestVersion(present)
@@ -160,11 +164,13 @@ func TestWALIndex(t *testing.T) {
 				app.Cluster.LocalFS(),
 			)
 
-			walIndex.SetVersions([]int64{
+			if err := walIndex.SetVersions([]int64{
 				1,
 				2,
 				3,
-			})
+			}); err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 
 			// Get the versions
 			versions, err := walIndex.GetVersions()
@@ -204,11 +210,13 @@ func TestWALIndex(t *testing.T) {
 			present := time.Now().UTC().UnixNano()
 			future := time.Now().UTC().Add(time.Second).UnixNano()
 
-			walIndex.SetVersions([]int64{
+			if err := walIndex.SetVersions([]int64{
 				past,
 				present,
 				future,
-			})
+			}); err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 
 			removed, err := walIndex.RemoveVersionsFrom(present)
 
@@ -298,11 +306,13 @@ func TestWALIndex(t *testing.T) {
 			past2 := time.Now().UTC().Add(-time.Hour * 25).UnixNano()
 			present := time.Now().UTC().UnixNano()
 
-			walIndex.SetVersions([]int64{
+			if err := walIndex.SetVersions([]int64{
 				past1,
 				past2,
 				present,
-			})
+			}); err != nil {
+				t.Fatalf("Expected no error, but got: %v", err)
+			}
 
 			err := walIndex.Truncate()
 

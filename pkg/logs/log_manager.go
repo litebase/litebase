@@ -66,7 +66,12 @@ func (lm *LogManager) GetQueryLog(cluster *cluster.Cluster, databaseHash, databa
 
 	// If the date has changed, close the current log file and remove to reopen.
 	if log, ok := lm.queryLogs[databaseHash]; ok && lm.queryLogs[databaseHash].timestamp != timestamp.UTC().Unix() {
-		go log.Close()
+		go func() {
+			if err := log.Close(); err != nil {
+				slog.Error("Error closing query log", "error", err)
+			}
+		}()
+
 		delete(lm.queryLogs, databaseHash)
 	}
 
@@ -107,11 +112,15 @@ func (lm *LogManager) Query(entry QueryLogEntry) error {
 		return nil
 	}
 
-	go l.Write(
-		entry.CredentialID,
-		entry.Statement,
-		entry.Latency,
-	)
+	go func() {
+		if err := l.Write(
+			entry.CredentialID,
+			entry.Statement,
+			entry.Latency,
+		); err != nil {
+			slog.Error("Error writing query log", "error", err)
+		}
+	}()
 
 	return nil
 }
