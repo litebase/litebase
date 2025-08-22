@@ -30,7 +30,7 @@ func ClusterConnectionController(request *Request) Response {
 
 			defer func() {
 				if err := request.BaseRequest.Body.Close(); err != nil {
-					slog.Error("Error closing request body", "error", err)
+					slog.Debug("Error closing request body", "error", err)
 				}
 			}()
 
