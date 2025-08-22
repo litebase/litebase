@@ -211,8 +211,6 @@ func (n *Node) heartbeat() {
 		lease := n.Lease()
 
 		if lease == nil {
-			slog.Error("No lease found for primary node, cannot send heartbeat")
-
 			err := n.removePrimaryStatus()
 
 			if err != nil {
