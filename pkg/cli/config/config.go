@@ -25,7 +25,8 @@ var ErrMissingClusterURL = errors.New("missing cluster URL")
 var ErrorCredentialsNotSet = errors.New("credentials were not set, please provide access credentials or a stored profile name")
 var ErrorProfileNotFound = errors.New("profile not found, provide a valid profile name")
 
-// Create a new configuration instance.
+// Create a new configuration instance. If the path is not provided, it defaults
+// to ~/.litebase/config.json which is a global configuration file.
 func NewConfiguration(path string) (*Configuration, error) {
 	var configPath string
 	var configuration *Configuration
