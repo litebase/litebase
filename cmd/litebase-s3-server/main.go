@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
@@ -45,7 +44,7 @@ func main() {
 	log.Println("Server started")
 	signals := make(chan os.Signal, 1)
 
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(signals, os.Interrupt)
 
 	<-signals
 

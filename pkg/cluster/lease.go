@@ -7,8 +7,9 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
+
+	"github.com/litebase/litebase/internal/utils/lock"
 )
 
 var (
@@ -70,14 +71,14 @@ func (l *Lease) Release() error {
 		return err
 	}
 
-	// Attempt to lock the primary file using syscall.Flock
+	// Attempt to lock the primary file using our cross-platform file locking
 	file := primaryFile.(*os.File)
 
 	locked := false
 
 	defer func() {
 		if locked {
-			err = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+			err = lock.UnlockFile(file)
 
 			if err != nil {
 				slog.Debug("Failed to unlock primary file", "error", err)
@@ -91,15 +92,15 @@ func (l *Lease) Release() error {
 		}
 	}()
 
-	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	locked, err = lock.LockFile(file)
 
 	if err != nil {
-		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
-			slog.Debug("Primary file is locked by another process", "error", err)
-			return nil // Not an error, just not elected
-		}
-
 		return err
+	}
+
+	if !locked {
+		slog.Debug("Primary file is locked by another process")
+		return nil // Not an error, just not elected
 	}
 
 	var primaryData []byte
@@ -136,10 +137,10 @@ func (l *Lease) Release() error {
 		return err
 	}
 
-	// Attempt to lock the lease file using syscall.Flock
+	// Attempt to lock the lease file using our cross-platform file locking
 	defer func() {
 		if locked {
-			err = syscall.Flock(int(leaseFile.(*os.File).Fd()), syscall.LOCK_UN)
+			err = lock.UnlockFile(leaseFile.(*os.File))
 
 			if err != nil {
 				slog.Debug("Failed to unlock lease file", "error", err)
@@ -153,15 +154,15 @@ func (l *Lease) Release() error {
 		}
 	}()
 
-	err = syscall.Flock(int(leaseFile.(*os.File).Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	locked, err = lock.LockFile(leaseFile.(*os.File))
 
 	if err != nil {
-		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
-			slog.Debug("Lease file is locked by another process", "error", err)
-			return nil // Not an error, just not elected
-		}
-
 		return err
+	}
+
+	if !locked {
+		slog.Debug("Lease file is locked by another process")
+		return nil // Not an error, just not elected
 	}
 
 	if err := leaseFile.Truncate(0); err != nil {

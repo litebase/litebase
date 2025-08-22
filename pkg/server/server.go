@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/litebase/litebase/pkg/config"
@@ -72,9 +71,9 @@ func (s *Server) Start(startHook func(*http.ServeMux), shutdownHook func()) {
 		}
 	}()
 
-	signalChannel := make(chan os.Signal, 2)
+	signalChannel := make(chan os.Signal, 1)
 
-	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(signalChannel, os.Interrupt)
 
 	// Wait for a signal to shutdown the server
 	sig := <-signalChannel

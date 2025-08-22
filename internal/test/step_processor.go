@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -189,22 +188,21 @@ func (sp *StepProcessor) Run(name string, fn func(s *StepProcess)) *StepProcess 
 	return sp.tests[name].process
 }
 
-// Setup Unix socket listener for coordinator
+// Setup socket listener for coordinator (platform-specific implementation)
 func (sp *StepProcessor) setupSocketListener() {
-	socketPath := filepath.Join(sp.socketDir, "coordinator.sock")
-
-	// Remove existing socket file if it exists
-	if err := os.Remove(socketPath); err != nil {
-		slog.Error("Error removing socket file:", "error", err)
-	}
-
-	listener, err := net.Listen("unix", socketPath)
-
+	listener, socketPath, err := createListener(sp.socketDir)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create Unix socket listener: %v", err))
+		panic(fmt.Sprintf("Failed to create socket listener: %v", err))
 	}
 
 	sp.listener = listener
+
+	// Store the socket path for child processes
+	if len(sp.tests) > 0 {
+		for _, test := range sp.tests {
+			test.socketPath = socketPath
+		}
+	}
 
 	// Start accepting connections in background
 	go sp.acceptConnections()
@@ -390,8 +388,8 @@ func (sp *StepProcessor) Pause(name string) error {
 	test.mutex.Lock()
 	defer test.mutex.Unlock()
 
-	// Pause the process
-	err := test.cmd.Process.Signal(syscall.SIGSTOP)
+	// Pause the process using platform-specific implementation
+	err := pauseProcess(test.cmd)
 
 	if err != nil {
 		return err
@@ -412,8 +410,8 @@ func (sp *StepProcessor) Resume(name string) error {
 		return errors.New("process not found")
 	}
 
-	// Resume the process
-	err := test.cmd.Process.Signal(syscall.SIGCONT)
+	// Resume the process using platform-specific implementation
+	err := resumeProcess(test.cmd)
 
 	if err != nil {
 		return err
@@ -448,7 +446,7 @@ func (sp *StepProcessor) setupProcesses() {
 		}
 
 		test.cmd = cmd
-		test.socketPath = filepath.Join(sp.socketDir, "coordinator.sock")
+		// socketPath will be set in setupSocketListener
 	}
 }
 
@@ -627,24 +625,24 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 	}
 }
 
-// Connect to coordinator's Unix socket as a child process
+// Connect to coordinator's socket as a child process (platform-specific implementation)
 func (sp *StepProcessor) connectToCoordinator(processName string) {
-	// Connect to coordinator's Unix socket
-	socketPath := os.Getenv("LITEBASE_SOCKET_DIR")
+	// Connect to coordinator's socket
+	socketDir := os.Getenv("LITEBASE_SOCKET_DIR")
 
-	if socketPath == "" {
+	if socketDir == "" {
 		fmt.Printf("[CHILD] No socket directory specified\n")
 		return
 	}
 
-	coordSocketPath := filepath.Join(socketPath, "coordinator.sock")
+	coordSocketPath := getSocketPath(socketDir)
 
 	// Retry connection with backoff
 	var conn net.Conn
 	var err error
 
 	for attempt := range 10 {
-		conn, err = net.Dial("unix", coordSocketPath)
+		conn, err = connectToSocket(coordSocketPath)
 		if err == nil {
 			break
 		}
