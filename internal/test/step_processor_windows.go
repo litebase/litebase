@@ -5,6 +5,7 @@ package test
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"sync"
 	"syscall"
@@ -13,8 +14,6 @@ import (
 
 var (
 	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
-	procCreateJobObject          = kernel32.NewProc("CreateJobObjectW")
-	procAssignProcessToJob       = kernel32.NewProc("AssignProcessToJobObject")
 	procSuspendThread            = kernel32.NewProc("SuspendThread")
 	procResumeThread             = kernel32.NewProc("ResumeThread")
 	procOpenThread               = kernel32.NewProc("OpenThread")
@@ -60,20 +59,28 @@ func pauseProcess(cmd *exec.Cmd) error {
 	}
 
 	threadIDs, err := getProcessThreadIDs(pid)
+
 	if err != nil {
 		return fmt.Errorf("failed to get thread IDs: %v", err)
 	}
 
 	var handles []syscall.Handle
+
 	for _, threadID := range threadIDs {
 		handle, _, _ := procOpenThread.Call(uintptr(THREAD_SUSPEND_RESUME), 0, uintptr(threadID))
+
 		if handle != 0 {
-			procSuspendThread.Call(handle)
+			if _, _, err := procSuspendThread.Call(handle); err != nil {
+				slog.Error("Failed to suspend thread", "threadID", threadID, "error", err)
+				continue
+			}
+
 			handles = append(handles, syscall.Handle(handle))
 		}
 	}
 
 	suspendedThreads[pid] = handles
+
 	return nil
 }
 
@@ -89,32 +96,40 @@ func resumeProcess(cmd *exec.Cmd) error {
 	defer suspendMutex.Unlock()
 
 	handles, exists := suspendedThreads[pid]
+
 	if !exists {
 		return nil // Not suspended
 	}
 
 	for _, handle := range handles {
-		procResumeThread.Call(uintptr(handle))
-		procCloseHandle.Call(uintptr(handle))
+		if _, _, err := procResumeThread.Call(uintptr(handle)); err != syscall.Errno(0) {
+			slog.Error("Failed to resume thread", "threadHandle", handle, "error", err)
+		}
+
+		if _, _, err := procCloseHandle.Call(uintptr(handle)); err != syscall.Errno(0) {
+			slog.Error("Failed to close thread handle", "threadHandle", handle, "error", err)
+		}
 	}
 
 	delete(suspendedThreads, pid)
+
 	return nil
 }
 
 // getProcessThreadIDs returns all thread IDs for a given process ID
 func getProcessThreadIDs(processID uint32) ([]uint32, error) {
 	snapshot, _, _ := procCreateToolhelp32Snapshot.Call(TH32CS_SNAPTHREAD, 0)
+
 	if snapshot == uintptr(syscall.InvalidHandle) {
 		return nil, errors.New("failed to create thread snapshot")
 	}
-	defer procCloseHandle.Call(snapshot)
 
 	var threadIDs []uint32
 	var te ThreadEntry32
 	te.dwSize = uint32(unsafe.Sizeof(te))
 
 	ret, _, _ := procThread32First.Call(snapshot, uintptr(unsafe.Pointer(&te)))
+
 	if ret == 0 {
 		return nil, errors.New("failed to get first thread")
 	}
@@ -125,9 +140,14 @@ func getProcessThreadIDs(processID uint32) ([]uint32, error) {
 		}
 
 		ret, _, _ := procThread32Next.Call(snapshot, uintptr(unsafe.Pointer(&te)))
+
 		if ret == 0 {
 			break
 		}
+	}
+
+	if _, _, err := procCloseHandle.Call(snapshot); ret == 0 {
+		return nil, fmt.Errorf("failed to close thread snapshot handle: %v", err)
 	}
 
 	return threadIDs, nil
