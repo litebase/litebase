@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/litebase/litebase/pkg/backups"
@@ -86,7 +87,11 @@ func (s *SystemDatabase) ListDatabaseBackups(
 	if err != nil {
 		return nil, fmt.Errorf("failed to query database backups: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("Error closing rows", "error", err)
+		}
+	}()
 
 	var backupsList []*backups.Backup
 

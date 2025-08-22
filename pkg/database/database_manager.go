@@ -73,7 +73,11 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("Error closing rows", "error", err)
+		}
+	}()
 
 	for rows.Next() {
 		database := &Database{}
@@ -211,8 +215,13 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 		return nil, err
 	}
 
-	d.databaseCache.Put(db.DatabaseID, db)
-	d.keyCache.Put(db.Name, db.DatabaseID)
+	if err := d.databaseCache.Put(db.DatabaseID, db); err != nil {
+		slog.Warn("Failed to cache database by ID", "error", err, "id", db.DatabaseID)
+	}
+
+	if err := d.keyCache.Put(db.Name, db.DatabaseID); err != nil {
+		slog.Warn("Failed to cache database by name", "error", err, "name", db.Name)
+	}
 
 	return db, nil
 }
@@ -352,7 +361,11 @@ func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
 		slog.Warn("Failed to cache database", "error", err, "databaseID", database.DatabaseID)
 	}
 
-	d.keyCache.Put(database.Name, database.DatabaseID)
+	err = d.keyCache.Put(database.Name, database.DatabaseID)
+
+	if err != nil {
+		slog.Warn("Failed to cache database by name", "error", err, "name", database.Name)
+	}
 
 	return database, nil
 }
@@ -414,7 +427,11 @@ func (d *DatabaseManager) GetByName(name string) (*Database, error) {
 		slog.Warn("Failed to cache database", "error", err, "databaseID", database.DatabaseID)
 	}
 
-	d.keyCache.Put(name, database.DatabaseID)
+	err = d.keyCache.Put(name, database.DatabaseID)
+
+	if err != nil {
+		slog.Warn("Failed to cache database by name", "error", err, "name", name)
+	}
 
 	return database, nil
 }

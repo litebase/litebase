@@ -1,0 +1,32 @@
+name: lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  # Required: allow read access to the content for analysis.
+  contents: read
+  # Optional: allow read access to pull request. Use with `only-new-issues` option.
+  pull-requests: read
+  # Optional: allow write access to checks to allow the action to annotate code in the PR.
+  checks: write
+
+jobs:
+  lint:
+    strategy:
+      matrix:
+        go: [stable]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.4

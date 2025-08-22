@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -97,7 +98,10 @@ func (c *TestCLI) ResetFlagsRecursive(cmd *cobra.Command) {
 	// Reset flags for this command
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		if f.Changed {
-			f.Value.Set(f.DefValue)
+			if err := f.Value.Set(f.DefValue); err != nil {
+				slog.Error("Error resetting flag value:", "error", err)
+			}
+
 			f.Changed = false
 		}
 	})
@@ -105,7 +109,10 @@ func (c *TestCLI) ResetFlagsRecursive(cmd *cobra.Command) {
 	// Reset flags for persistent flags (if needed)
 	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		if f.Changed {
-			f.Value.Set(f.DefValue)
+			if err := f.Value.Set(f.DefValue); err != nil {
+				slog.Error("Error resetting flag value:", "error", err)
+			}
+
 			f.Changed = false
 		}
 	})

@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/litebase/litebase/pkg/cluster"
@@ -21,7 +22,11 @@ func ClusterPrimaryController(request *Request) Response {
 			w.Header().Set("Transfer-Encoding", "chunked")
 			w.Header().Set("Content-Type", "application/gob")
 
-			defer request.BaseRequest.Body.Close()
+			defer func() {
+				if err := request.BaseRequest.Body.Close(); err != nil {
+					slog.Error("Error closing request body", "error", err)
+				}
+			}()
 
 			var message messages.NodeMessage
 			decoder := gob.NewDecoder(request.BaseRequest.Body)

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -47,7 +48,11 @@ func NewServeCmd() *cobra.Command {
 
 	// Configuration (setup before command runs)
 	cobra.OnInitialize(func() {
-		godotenv.Load(".env")
+		err := godotenv.Load(".env")
+
+		if err != nil {
+			slog.Debug("Error loading .env file", "error", err)
+		}
 
 		dataPath := cmd.Flag("data-path").Value.String()
 

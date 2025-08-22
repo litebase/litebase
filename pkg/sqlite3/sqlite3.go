@@ -25,5 +25,6 @@ package sqlite3
 
 #cgo linux LDFLAGS: -ldl -lm
 #cgo linux CFLAGS: -std=c99
+#cgo windows CFLAGS: -std=c99
 */
 import "C"

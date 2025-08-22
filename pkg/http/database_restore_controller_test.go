@@ -74,7 +74,9 @@ func TestDatabaseRestoreController(t *testing.T) {
 		}
 
 		// Get the snapshots
-		snapshotLogger.GetSnapshots()
+		if _, err := snapshotLogger.GetSnapshots(); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		// Get the latest snapshot timestamp
 		snapshotKeys := snapshotLogger.Keys()

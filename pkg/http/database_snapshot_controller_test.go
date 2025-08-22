@@ -26,7 +26,9 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 		defer server.App.DatabaseManager.ConnectionManager().Release(db)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
-		db.GetConnection().Checkpoint()
+		if err := db.GetConnection().Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
 
 		// Create a test table and insert some data
 		_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
@@ -35,7 +37,9 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		db.GetConnection().Checkpoint()
+		if err := db.GetConnection().Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
 
 		// Insert a row
 		err = db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
@@ -48,7 +52,9 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 			t.Fatalf("failed to insert row: %v", err)
 		}
 
-		db.GetConnection().Checkpoint()
+		if err := db.GetConnection().Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
 
 		// Get a new connection for the HTTP request verification
 		client := server.WithAccessKeyClient([]auth.Statement{
@@ -101,7 +107,9 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		defer server.App.DatabaseManager.ConnectionManager().Release(db)
 
 		// Create an initial checkpoint before creating the table (this will be restore point 0)
-		db.GetConnection().Checkpoint()
+		if err := db.GetConnection().Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
 
 		// Create a test table and insert some data
 		_, err = db.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
@@ -110,7 +118,9 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		db.GetConnection().Checkpoint()
+		if err := db.GetConnection().Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
 
 		// Insert a row
 		err = db.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
@@ -123,7 +133,9 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 			t.Fatalf("failed to insert row: %v", err)
 		}
 
-		db.GetConnection().Checkpoint()
+		if err := db.GetConnection().Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
 
 		snapshots, err := snapshotLogger.GetSnapshots()
 

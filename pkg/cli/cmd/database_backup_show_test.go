@@ -50,7 +50,7 @@ func TestDatabaseBackupShowCmd(t *testing.T) {
 			t.Fatalf("failed to create backup: %v", err)
 		}
 
-		server.App.DatabaseManager.SystemDatabase().StoreDatabaseBackup(
+		err = server.App.DatabaseManager.SystemDatabase().StoreDatabaseBackup(
 			db.ID,
 			db.BranchID,
 			db.DatabaseID,
@@ -59,6 +59,10 @@ func TestDatabaseBackupShowCmd(t *testing.T) {
 			backup.RestorePoint.PageCount,
 			backup.GetSize(),
 		)
+
+		if err != nil {
+			t.Fatalf("failed to store database backup: %v", err)
+		}
 
 		cli := test.NewTestCLI(server.App).
 			WithServer(server).

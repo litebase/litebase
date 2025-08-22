@@ -288,10 +288,16 @@ func TestRouter(t *testing.T) {
 
 			// Verify gzip compression
 			reader, err := gzip.NewReader(w.Body)
+
 			if err != nil {
 				t.Fatalf("Failed to create gzip reader: %v", err)
 			}
-			defer reader.Close()
+
+			defer func() {
+				if err := reader.Close(); err != nil {
+					t.Error(err)
+				}
+			}()
 
 			var response map[string]string
 			err = json.NewDecoder(reader).Decode(&response)
@@ -313,7 +319,10 @@ func TestRouter(t *testing.T) {
 					Stream: func(w http.ResponseWriter) {
 						w.Header().Set("Content-Type", "text/plain")
 						w.WriteHeader(http.StatusOK)
-						w.Write([]byte("streamed response"))
+
+						if _, err := w.Write([]byte("streamed response")); err != nil {
+							t.Error("expected nil, got", err)
+						}
 					},
 				}
 			})

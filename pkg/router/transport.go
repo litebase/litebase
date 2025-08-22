@@ -5,8 +5,6 @@ import (
 	"net/http"
 )
 
-type targetKey struct{}
-
 type customTransport struct {
 	transport http.Transport
 }

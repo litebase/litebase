@@ -135,8 +135,19 @@ func copySourceDatabasePageLogsToTargetDatabase(
 			return err
 		}
 
-		targetFile.Seek(0, io.SeekStart)
-		sourceFile.Seek(0, io.SeekStart)
+		_, err = targetFile.Seek(0, io.SeekStart)
+
+		if err != nil {
+			slog.Error("Error seeking target file:", "file", targetFilePath, "error", err)
+			return err
+		}
+
+		_, err = sourceFile.Seek(0, io.SeekStart)
+
+		if err != nil {
+			slog.Error("Error seeking source file:", "file", sourceFilePath, "error", err)
+			return err
+		}
 
 		_, err = io.Copy(targetFile, sourceFile)
 
@@ -233,8 +244,19 @@ func copySourceDatabaseRangeFilesToTargetDatabase(
 			return err
 		}
 
-		targetFile.Seek(0, io.SeekStart)
-		sourceFile.Seek(0, io.SeekStart)
+		_, err = targetFile.Seek(0, io.SeekStart)
+
+		if err != nil {
+			slog.Error("Error seeking target file:", "file", targetFilePath, "error", err)
+			return err
+		}
+
+		_, err = sourceFile.Seek(0, io.SeekStart)
+
+		if err != nil {
+			slog.Error("Error seeking source file:", "file", sourceFilePath, "error", err)
+			return err
+		}
 
 		_, err = io.Copy(targetFile, sourceFile)
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"slices"
 	"sort"
@@ -207,7 +208,7 @@ func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 
 		for {
 			// Reset the file pointer to the start of the file
-			offset, err = r.File.Seek(offset, io.SeekStart)
+			_, err = r.File.Seek(offset, io.SeekStart)
 
 			if err != nil {
 				log.Println("Error seeking file:", err)
@@ -215,16 +216,14 @@ func (r *RollbackLog) ReadForTimestamp(timestamp int64) (
 				return
 			}
 
-			n, err := r.File.Read(frameEntryData)
+			_, err := r.File.Read(frameEntryData)
 
 			if err == io.EOF {
 				break
 			}
 
-			offset += int64(n)
-
 			if err != nil {
-				log.Println("Error reading frame entry:", err)
+				slog.Error("Error reading frame entry:", "error", err)
 				errorChannel <- err
 				return
 			}

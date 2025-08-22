@@ -22,7 +22,11 @@ func TestLitebaseDriver(t *testing.T) {
 			t.Fatalf("failed to open system database: %v", err)
 		}
 
-		defer db.Close()
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Error("Error closing database:", err)
+			}
+		}()
 
 		// Test ping with a timeout context to avoid hanging
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -109,7 +113,11 @@ func TestLitebaseDriver(t *testing.T) {
 			t.Fatalf("failed to query users: %v", err)
 		}
 
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				t.Error("Error closing rows:", err)
+			}
+		}()
 
 		var users []struct {
 			ID    int64
@@ -152,7 +160,11 @@ func TestLitebaseDriver(t *testing.T) {
 			t.Fatalf("failed to prepare statement: %v", err)
 		}
 
-		defer stmt.Close()
+		defer func() {
+			if err := stmt.Close(); err != nil {
+				t.Errorf("error closing statement: %v", err)
+			}
+		}()
 
 		var name string
 		err = stmt.QueryRow(lastID).Scan(&name)
@@ -258,7 +270,11 @@ func TestLitebaseDriverSimple(t *testing.T) {
 			t.Fatalf("failed to open system database: %v", err)
 		}
 
-		defer db.Close()
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Errorf("error closing database: %v", err)
+			}
+		}()
 
 		// Test ping with a timeout context to avoid hanging
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -326,7 +342,11 @@ func TestLitebaseDriverDataTypes(t *testing.T) {
 			t.Fatalf("failed to open database: %v", err)
 		}
 
-		defer db.Close()
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Errorf("error closing database: %v", err)
+			}
+		}()
 
 		// Create table with various data types
 		_, err = db.Exec(`

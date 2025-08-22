@@ -47,8 +47,13 @@ func TestDataRangeIndex(t *testing.T) {
 				t.Errorf("Expected All to return 1 entry, got %d entries", len(ranges))
 			}
 
-			dri.Set(2, 12345)
-			dri.Set(3, 67890)
+			if err := dri.Set(2, 12345); err != nil {
+				t.Errorf("error setting range 2: %v", err)
+			}
+
+			if err := dri.Set(3, 67890); err != nil {
+				t.Errorf("error setting range 3: %v", err)
+			}
 
 			ranges, err = dri.All()
 
@@ -120,7 +125,9 @@ func TestDataRangeIndex(t *testing.T) {
 			}
 
 			// Clean up
-			dri.Close()
+			if err := dri.Close(); err != nil {
+				t.Errorf("error closing data range index: %v", err)
+			}
 		})
 
 		t.Run("Get", func(t *testing.T) {
@@ -168,7 +175,9 @@ func TestDataRangeIndex(t *testing.T) {
 			}
 
 			// Clean up
-			dri.Close()
+			if err := dri.Close(); err != nil {
+				t.Errorf("error closing data range index: %v", err)
+			}
 		})
 
 		t.Run("Path", func(t *testing.T) {
@@ -195,7 +204,9 @@ func TestDataRangeIndex(t *testing.T) {
 			}
 
 			// Clean up
-			dri.Close()
+			if err := dri.Close(); err != nil {
+				t.Errorf("error closing data range index: %v", err)
+			}
 		})
 
 		t.Run("Set", func(t *testing.T) {
@@ -235,7 +246,9 @@ func TestDataRangeIndex(t *testing.T) {
 			}
 
 			// Clean up
-			dri.Close()
+			if err := dri.Close(); err != nil {
+				t.Errorf("error closing data range index: %v", err)
+			}
 		})
 	})
 }

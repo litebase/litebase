@@ -55,7 +55,12 @@ func TestSnapshotLogger(t *testing.T) {
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 			)
-			defer checkpointerLogger.Close()
+
+			defer func() {
+				if err := checkpointerLogger.Close(); err != nil {
+					t.Fatalf("Expected no error on close, got %v", err)
+				}
+			}()
 
 			// Simulate writing a snapshot to the file
 			timestamp := time.Now().UTC().UnixNano()
@@ -92,7 +97,12 @@ func TestSnapshotLogger(t *testing.T) {
 			// Simulate writing a snapshot to the file
 			for i := range 5 {
 				timestamp := time.Now().UTC().Add(-time.Duration(5-i) * time.Second).UnixNano()
-				snapshotLogger.Log(timestamp, int64(i))
+
+				err := snapshotLogger.Log(timestamp, int64(i))
+
+				if err != nil {
+					t.Fatalf("Failed to log snapshot: %v", err)
+				}
 			}
 
 			snapshots, err := snapshotLogger.GetSnapshots()
@@ -105,7 +115,11 @@ func TestSnapshotLogger(t *testing.T) {
 
 			snapshot := snapshots[keys[0]]
 
-			snapshot.Load()
+			err = snapshot.Load()
+
+			if err != nil {
+				t.Fatalf("Failed to load snapshot: %v", err)
+			}
 
 			if snapshot.RestorePoints.Total != 5 {
 				t.Fatalf("Expected 5 snapshots, got %d", snapshot.RestorePoints.Total)
@@ -117,9 +131,23 @@ func TestSnapshotLogger(t *testing.T) {
 			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
 
 			// Simulate writing a snapshot to the file
-			snapshotLogger.Log(time.Now().UTC().Add(-3*time.Second).UnixNano(), int64(1))
-			snapshotLogger.Log(time.Now().UTC().Add(-2*time.Second).UnixNano(), int64(2))
-			snapshotLogger.Log(time.Now().UTC().Add(-1*time.Second).UnixNano(), int64(3))
+			err := snapshotLogger.Log(time.Now().UTC().Add(-3*time.Second).UnixNano(), int64(1))
+
+			if err != nil {
+				t.Fatalf("Failed to log snapshot: %v", err)
+			}
+
+			err = snapshotLogger.Log(time.Now().UTC().Add(-2*time.Second).UnixNano(), int64(2))
+
+			if err != nil {
+				t.Fatalf("Failed to log snapshot: %v", err)
+			}
+
+			err = snapshotLogger.Log(time.Now().UTC().Add(-1*time.Second).UnixNano(), int64(3))
+
+			if err != nil {
+				t.Fatalf("Failed to log snapshot: %v", err)
+			}
 
 			snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 

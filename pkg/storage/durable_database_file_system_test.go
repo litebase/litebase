@@ -77,7 +77,10 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					data := make([]byte, pageSize)
 					copy(data[0:8], fmt.Appendf(nil, "cycle%d", cycle))
 					copy(data[8:16], fmt.Appendf(nil, "write%03d", i))
-					rand.Read(data[16:]) // Fill rest with random data
+
+					if _, err := rand.Read(data[16:]); err != nil {
+						t.Fatalf("Failed to read random data for write %d: %v", i, err)
+					}
 
 					// Store expected data
 					writtenData[offset] = make([]byte, pageSize)
@@ -215,7 +218,10 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					data := make([]byte, pageSize)
 					copy(data[0:8], fmt.Appendf(nil, "cycle%d", cycle))
 					copy(data[8:16], fmt.Appendf(nil, "write%03d", i))
-					rand.Read(data[16:]) // Fill rest with random data
+
+					if _, err := rand.Read(data[16:]); err != nil {
+						t.Fatalf("Failed to read random data for write %d: %v", i, err)
+					}
 
 					// Store expected data
 					mutex.Lock()
@@ -271,10 +277,15 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 						data := make([]byte, pageSize)
 						copy(data[0:8], fmt.Appendf(nil, "conc%d", cycle))
 						copy(data[8:16], fmt.Appendf(nil, "wrt%03d", writeIndex))
-						rand.Read(data[16:])
+
+						if _, err := rand.Read(data[16:]); err != nil {
+							writeDone <- fmt.Errorf("concurrent write %d failed to read random data: %v", writeIndex, err)
+							return
+						}
 
 						// Write to DFS
 						n, err := dfs.WriteAt(timestamp, timestamp, data, offset)
+
 						if err != nil {
 							writeDone <- fmt.Errorf("concurrent write %d failed at offset %d: %v", writeIndex, offset, err)
 							return
@@ -607,7 +618,9 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 
 			data := make([]byte, 4096)
 
-			rand.Read(data)
+			if _, err := rand.Read(data); err != nil {
+				t.Error("expected nil, got", err)
+			}
 
 			// Write some data to the file
 			n, err = dfs.WriteAt(int64(0), 0, data, 0)
@@ -736,10 +749,21 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			timestamp := time.Now().UTC().UnixNano()
 
 			// Intialize the ranges
-			rangeManager.Get(1, 0)
-			rangeManager.Get(2, 0)
-			rangeManager.Get(3, 0)
-			rangeManager.Get(4, 0)
+			if _, err := rangeManager.Get(1, 0); err != nil {
+				t.Fatalf("Error getting range 1: %v", err)
+			}
+
+			if _, err := rangeManager.Get(2, 0); err != nil {
+				t.Fatalf("Error getting range 2: %v", err)
+			}
+
+			if _, err := rangeManager.Get(3, 0); err != nil {
+				t.Fatalf("Error getting range 3: %v", err)
+			}
+
+			if _, err := rangeManager.Get(4, 0); err != nil {
+				t.Fatalf("Error getting range 4: %v", err)
+			}
 
 			for i := range storage.RangeMaxPages * 4 {
 				_, err := dfs.WriteAt(timestamp, timestamp, make([]byte, 4096), int64(i*4096))
@@ -818,7 +842,10 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			)
 
 			data := make([]byte, 4096)
-			rand.Read(data)
+
+			if _, err := rand.Read(data); err != nil {
+				t.Error("expected nil, got", err)
+			}
 
 			// Write some data to the file
 			n, err := dfs.WriteAt(0, 0, data, 0)
@@ -871,7 +898,10 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			}
 
 			data := make([]byte, 4096)
-			rand.Read(data)
+
+			if _, err := rand.Read(data); err != nil {
+				t.Error("expected nil, got", err)
+			}
 
 			n, err := dfs.WriteWithoutWriteHook(func() (int, error) {
 				return dfs.WriteAt(0, 0, data, 0)

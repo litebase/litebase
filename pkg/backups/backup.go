@@ -455,7 +455,11 @@ func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) erro
 			// Skip reading RANGE_LOG contents as we do not need to include it
 			// for garbage collection, as we are not copying stale ranges.
 			if fileName != "_RANGE_LOG" {
-				sourceFile.Seek(0, io.SeekStart)
+				_, err := sourceFile.Seek(0, io.SeekStart)
+
+				if err != nil {
+					return err
+				}
 
 				data, err = io.ReadAll(sourceFile)
 

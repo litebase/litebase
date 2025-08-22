@@ -18,13 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -53,6 +53,8 @@ type StepProcessor struct {
 	// Message buffering
 	childAllConnected  chan struct{}
 	childConnectedOnce sync.Once
+	brokerReady        chan struct{}
+	brokerReadyOnce    sync.Once
 	messagesMutex      sync.Mutex
 	pendingMessages    []Message
 }
@@ -103,6 +105,7 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 		expectedProcesses: make(map[string]bool),
 		allConnected:      make(chan struct{}),
 		childAllConnected: make(chan struct{}),
+		brokerReady:       make(chan struct{}),
 	}
 
 	defer sp.Cleanup()
@@ -119,7 +122,10 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 
 		// Create socket directory
 		sp.socketDir = filepath.Join(sp.dataPath, "sockets")
-		os.MkdirAll(sp.socketDir, 0755)
+
+		if err := os.MkdirAll(sp.socketDir, 0755); err != nil {
+			slog.Error("Error creating socket directory:", "error", err)
+		}
 
 		// Setup Unix socket listener
 		sp.setupSocketListener()
@@ -129,7 +135,9 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 
 		// Cleanup
 		t.Cleanup(func() {
-			os.RemoveAll(sp.dataPath)
+			if err := os.RemoveAll(sp.dataPath); err != nil {
+				slog.Error("Error removing test data directory:", "error", err)
+			}
 		})
 	} else {
 		// Running as a child process - connect to coordinator first
@@ -145,6 +153,15 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 		// Start message handling in background
 		go sp.startMessageBroker()
 
+		// Wait for message broker to be ready before waiting for coordination
+		select {
+		case <-sp.brokerReady:
+		case <-time.After(5 * time.Second):
+			fmt.Printf("[CHILD %s] Timeout waiting for message broker to be ready\n", processName)
+		case <-sp.ctx.Done():
+			return
+		}
+
 		// Child processes should wait for all connections before proceeding
 		sp.waitForAllProcessesToConnect()
 
@@ -155,7 +172,9 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 			})
 
 			// Mark this process as completed to prevent re-entry
-			os.Setenv("LITEBASE_TEST_COMPLETED", "1")
+			if err := os.Setenv("LITEBASE_TEST_COMPLETED", "1"); err != nil {
+				slog.Error("Error setting environment variable:", "error", err)
+			}
 
 			// Clean up child process resources
 			sp.Cleanup()
@@ -181,20 +200,21 @@ func (sp *StepProcessor) Run(name string, fn func(s *StepProcess)) *StepProcess 
 	return sp.tests[name].process
 }
 
-// Setup Unix socket listener for coordinator
+// Setup socket listener for coordinator (platform-specific implementation)
 func (sp *StepProcessor) setupSocketListener() {
-	socketPath := filepath.Join(sp.socketDir, "coordinator.sock")
-
-	// Remove existing socket file if it exists
-	os.Remove(socketPath)
-
-	listener, err := net.Listen("unix", socketPath)
-
+	listener, socketPath, err := createListener(sp.socketDir)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create Unix socket listener: %v", err))
+		panic(fmt.Sprintf("Failed to create socket listener: %v", err))
 	}
 
 	sp.listener = listener
+
+	// Store the socket path for child processes
+	if len(sp.tests) > 0 {
+		for _, test := range sp.tests {
+			test.socketPath = socketPath
+		}
+	}
 
 	// Start accepting connections in background
 	go sp.acceptConnections()
@@ -231,7 +251,11 @@ func (sp *StepProcessor) acceptConnections() {
 
 // Handle connection from a child process
 func (sp *StepProcessor) handleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Error("Error closing connection:", "error", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(conn)
 	var processName string
@@ -376,8 +400,8 @@ func (sp *StepProcessor) Pause(name string) error {
 	test.mutex.Lock()
 	defer test.mutex.Unlock()
 
-	// Pause the process
-	err := test.cmd.Process.Signal(syscall.SIGSTOP)
+	// Pause the process using platform-specific implementation
+	err := pauseProcess(test.cmd)
 
 	if err != nil {
 		return err
@@ -398,8 +422,8 @@ func (sp *StepProcessor) Resume(name string) error {
 		return errors.New("process not found")
 	}
 
-	// Resume the process
-	err := test.cmd.Process.Signal(syscall.SIGCONT)
+	// Resume the process using platform-specific implementation
+	err := resumeProcess(test.cmd)
 
 	if err != nil {
 		return err
@@ -434,7 +458,7 @@ func (sp *StepProcessor) setupProcesses() {
 		}
 
 		test.cmd = cmd
-		test.socketPath = filepath.Join(sp.socketDir, "coordinator.sock")
+		// socketPath will be set in setupSocketListener
 	}
 }
 
@@ -515,7 +539,9 @@ func (sp *StepProcessor) Start(t *testing.T) {
 		// Kill any processes that may have started but not connected
 		for _, test := range sp.tests {
 			if test.cmd != nil && test.cmd.Process != nil {
-				test.cmd.Process.Kill()
+				if err := test.cmd.Process.Kill(); err != nil {
+					slog.Error("Error killing process:", "error", err)
+				}
 			}
 		}
 		return
@@ -587,7 +613,7 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 
 	// Check if step was already completed
 	if sp.completedSteps[stepName] {
-		fmt.Printf("[BROKER] Step %s already completed\n", stepName)
+		slog.Error("Step already completed", "stepName", stepName, "role", "broker")
 		sp.stepMutex.Unlock()
 		return nil
 	}
@@ -599,7 +625,7 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 
 	waiter := sp.stepWaiters[stepName]
 	sp.stepMutex.Unlock()
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(10 * time.Second)
 
 	select {
 	case <-sp.ctx.Done():
@@ -611,24 +637,24 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 	}
 }
 
-// Connect to coordinator's Unix socket as a child process
+// Connect to coordinator's socket as a child process (platform-specific implementation)
 func (sp *StepProcessor) connectToCoordinator(processName string) {
-	// Connect to coordinator's Unix socket
-	socketPath := os.Getenv("LITEBASE_SOCKET_DIR")
+	// Connect to coordinator's socket
+	socketDir := os.Getenv("LITEBASE_SOCKET_DIR")
 
-	if socketPath == "" {
+	if socketDir == "" {
 		fmt.Printf("[CHILD] No socket directory specified\n")
 		return
 	}
 
-	coordSocketPath := filepath.Join(socketPath, "coordinator.sock")
+	coordSocketPath := getSocketPath(socketDir)
 
 	// Retry connection with backoff
 	var conn net.Conn
 	var err error
 
 	for attempt := range 10 {
-		conn, err = net.Dial("unix", coordSocketPath)
+		conn, err = connectToSocket(coordSocketPath)
 		if err == nil {
 			break
 		}
@@ -647,13 +673,17 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 
 	if err != nil {
 		fmt.Printf("[CHILD] Failed to send process name: %v\n", err)
-		conn.Close()
+
+		if err := conn.Close(); err != nil {
+			slog.Debug("Error closing connection:", "error", err)
+		}
+
 		return
 	}
 
 	// Store connection for sending messages
 	sp.connMutex.Lock()
-	sp.connections[processName] = conn
+	sp.connections["coordinator"] = conn // Use a consistent key for coordinator connection
 	sp.connMutex.Unlock()
 
 	// Start handling messages in background
@@ -662,7 +692,10 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 			sp.connMutex.Lock()
 			delete(sp.connections, processName)
 			sp.connMutex.Unlock()
-			conn.Close()
+
+			if err := conn.Close(); err != nil {
+				slog.Error("Error closing connection:", "error", err)
+			}
 		}()
 
 		scanner := bufio.NewScanner(conn)
@@ -706,10 +739,6 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 					}
 				}
 			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			// fmt.Printf("[CHILD %s] Scanner error: %v\n", processName, err)
 		}
 	}()
 }
@@ -775,6 +804,11 @@ func (sp *StepProcessor) processPendingMessages() {
 
 // Start the message broker to process messages from the queue
 func (sp *StepProcessor) startMessageBroker() {
+	// Signal that the broker is ready to handle messages
+	sp.brokerReadyOnce.Do(func() {
+		close(sp.brokerReady)
+	})
+
 	go func() {
 		for {
 			select {
@@ -805,14 +839,18 @@ func (sp *StepProcessor) startMessageBroker() {
 func (sp *StepProcessor) Cleanup() {
 	// Close Unix socket listener
 	if sp.listener != nil {
-		sp.listener.Close()
+		if err := sp.listener.Close(); err != nil {
+			slog.Debug("Error closing listener:", "error", err)
+		}
 	}
 
 	// Close all connections
 	sp.connMutex.Lock()
 
 	for _, conn := range sp.connections {
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			slog.Debug("Error closing connection:", "error", err)
+		}
 	}
 
 	sp.connections = make(map[string]net.Conn)
@@ -821,13 +859,21 @@ func (sp *StepProcessor) Cleanup() {
 	// Kill any running processes
 	for _, test := range sp.tests {
 		if test.cmd != nil && test.cmd.Process != nil {
-			test.cmd.Process.Kill()
+			err := test.cmd.Process.Kill()
+
+			if err != nil {
+				slog.Debug("Error killing process:", "processName", test.process.processName, "role", "coordinator", "error", err)
+			}
 		}
 	}
 
 	// Clean up socket files
 	if sp.socketDir != "" {
-		os.RemoveAll(sp.socketDir)
+		err := os.RemoveAll(sp.socketDir)
+
+		if err != nil {
+			fmt.Printf("[COORDINATOR] Error cleaning up socket files: %v\n", err)
+		}
 	}
 }
 

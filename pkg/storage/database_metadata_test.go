@@ -104,7 +104,9 @@ func TestMetaData(t *testing.T) {
 				t.Errorf("error getting database metadata file: %v", err)
 			}
 
-			databaseMetadata.Close()
+			if err := databaseMetadata.Close(); err != nil {
+				t.Errorf("error closing database metadata: %v", err)
+			}
 
 			_, err = databaseMetadata.File()
 
@@ -284,7 +286,9 @@ func TestMetaData(t *testing.T) {
 				mockDatabase.DatabaseBranchID,
 			)
 
-			databaseMetadata.SetPageCount(100)
+			if err := databaseMetadata.SetPageCount(100); err != nil {
+				t.Errorf("error setting page count: %v", err)
+			}
 
 			if databaseMetadata.PageCount != 100 {
 				t.Errorf("expected page count 100, got %d", databaseMetadata.PageCount)

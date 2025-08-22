@@ -12,6 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
+var ErrBranchAlreadyExists = func(name string) error {
+	return fmt.Errorf("branch with name '%s' already exists in this database", name)
+}
+
 type Branch struct {
 	ID                              int64 `json:"id"`
 	database                        *Database
@@ -68,7 +72,7 @@ func NewBranch(databaseManager *DatabaseManager, databaseReferenceID int64, pare
 	}
 
 	if existingBranchCount > 0 {
-		return nil, fmt.Errorf("branch with name '%s' already exists in this database", name)
+		return nil, ErrBranchAlreadyExists(name)
 	}
 
 	return &Branch{

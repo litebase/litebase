@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -29,12 +30,12 @@ func NewDatabaseBackupListCmd(config *config.Configuration) *cobra.Command {
 			}
 
 			if res["data"] == nil {
-				lipgloss.Fprint(
+				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No backups found for this database")),
 				)
 
-				return nil
+				return err
 			}
 
 			rows := [][]string{}
@@ -42,12 +43,12 @@ func NewDatabaseBackupListCmd(config *config.Configuration) *cobra.Command {
 			backups, ok := res["data"].([]any)
 
 			if !ok {
-				lipgloss.Fprint(
+				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.ErrorAlert("Invalid data format for access keys")),
 				)
 
-				return nil
+				return err
 			}
 
 			for _, backup := range backups {
@@ -67,17 +68,21 @@ func NewDatabaseBackupListCmd(config *config.Configuration) *cobra.Command {
 				"Timestamp",
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewTable(columns, rows).
 						SetHandler(func(row []string) {
-							accessKeyShow(cmd, config, row[1])
+							err := accessKeyShow(cmd, config, row[1])
+
+							if err != nil {
+								slog.Error("Error showing access key", "error", err, "access_key_id", row[1])
+							}
 						}).Render(config.GetInteractive()),
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 

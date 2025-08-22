@@ -211,7 +211,11 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 		return messages.NodeMessage{}, err
 	}
 
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Error("Error closing response body", "error", err)
+		}
+	}()
 
 	if response.StatusCode >= 400 {
 		slog.Error("Failed to send message", "status", response.Status)

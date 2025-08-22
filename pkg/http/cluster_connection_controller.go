@@ -28,7 +28,11 @@ func ClusterConnectionController(request *Request) Response {
 			w.Header().Set("Content-Type", "application/gob")
 			w.Header().Set("Transfer-Encoding", "chunked")
 
-			defer request.BaseRequest.Body.Close()
+			defer func() {
+				if err := request.BaseRequest.Body.Close(); err != nil {
+					slog.Debug("Error closing request body", "error", err)
+				}
+			}()
 
 			ctx, cancel := context.WithCancel(request.BaseRequest.Context())
 

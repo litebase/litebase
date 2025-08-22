@@ -209,7 +209,9 @@ func TestObjectFileSystemDriver(t *testing.T) {
 				t.Fatal("Expected no entries to be returned")
 			}
 
-			driver.Create("/test/test.txt")
+			if _, err := driver.Create("/test/test.txt"); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			entries, err = driver.ReadDir("/test")
 

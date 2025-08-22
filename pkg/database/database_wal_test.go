@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"io"
-	"log"
 	"testing"
 	"time"
 
@@ -228,15 +227,24 @@ func TestDatabaseWAL_ReadAt(t *testing.T) {
 		)
 
 		data := make([]byte, 4096)
-		rand.Read(data)
 
-		file, _ := databaseWAL.File()
+		if _, err := rand.Read(data); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
-		file.WriteAt(data, 0)
+		file, err := databaseWAL.File()
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if _, err := file.WriteAt(data, 0); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		readData := make([]byte, 4096)
 
-		_, err := databaseWAL.ReadAt(readData, 0)
+		_, err = databaseWAL.ReadAt(readData, 0)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -275,7 +283,9 @@ func TestDatabaseWAL_RequiresCheckpoint(t *testing.T) {
 			t.Fatal("Expected RequiresCheckpoint to be false")
 		}
 
-		databaseWAL.WriteAt([]byte("test"), 0)
+		if _, err := databaseWAL.WriteAt([]byte("test"), 0); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		if !databaseWAL.RequiresCheckpoint() {
 			t.Fatal("Expected RequiresCheckpoint to be true")
@@ -302,7 +312,9 @@ func TestDatabaseWAL_SetCheckpointing(t *testing.T) {
 			time.Now().UTC().UnixNano(),
 		)
 
-		databaseWAL.SetCheckpointing(true)
+		if err := databaseWAL.SetCheckpointing(true); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		if !databaseWAL.Checkpointing() {
 			t.Fatal("Expected Checkpointing to be true")
@@ -341,7 +353,9 @@ func TestDatabaseWAL_Size(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		databaseWAL.Sync()
+		if err := databaseWAL.Sync(); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		size, _ = databaseWAL.Size()
 
@@ -458,7 +472,10 @@ func TestDatabaseWAL_WriteAt(t *testing.T) {
 		)
 
 		data := make([]byte, 4096)
-		rand.Read(data)
+
+		if _, err := rand.Read(data); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		n, err := databaseWAL.WriteAt(data, 0)
 
@@ -498,7 +515,10 @@ func TestDatabaseWAL_ReadAfterWrite(t *testing.T) {
 		readBytes := make([]byte, sizeOfWrite)
 
 		for i := range numberOfWrites {
-			rand.Read(writeBytes)
+			if _, err := rand.Read(writeBytes); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
 			writes = append(writes, slices.Clone(writeBytes))
 			n, err := databaseWAL.WriteAt(writeBytes, int64(i*sizeOfWrite))
 
@@ -547,7 +567,11 @@ func TestDatabaseWAL_ReadAfterWrite(t *testing.T) {
 			t.Fatalf("Expected file size to be %d, got %d", numberOfWrites*sizeOfWrite, fileSize)
 		}
 
-		file.Seek(0, io.SeekStart)
+		_, err = file.Seek(0, io.SeekStart)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		for i := range numberOfWrites {
 			n, err := file.Read(readBytes)
@@ -561,7 +585,7 @@ func TestDatabaseWAL_ReadAfterWrite(t *testing.T) {
 			}
 
 			if !bytes.Equal(writes[i], readBytes) {
-				log.Println("Expected", writes[i], "got", readBytes)
+				t.Logf("Expected %v got %v", writes[i], readBytes)
 				t.Fatalf("Expected data to be equal for iteration %d", i)
 			}
 		}
@@ -594,7 +618,10 @@ func TestDatabaseWAL_HeavyWrite(t *testing.T) {
 		readBytes := make([]byte, sizeOfWrite)
 
 		for i := range numberOfWrites {
-			rand.Read(writeBytes)
+			if _, err := rand.Read(writeBytes); err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
 			writes = append(writes, slices.Clone(writeBytes))
 			n, err := databaseWAL.WriteAt(writeBytes, int64(i*sizeOfWrite))
 

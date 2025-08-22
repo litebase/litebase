@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -149,7 +150,11 @@ func (s *SystemDatabaseAccessKeyStorage) List() ([]*auth.AccessKey, error) {
 		return nil, fmt.Errorf("failed to query access keys: %w", err)
 	}
 
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("Error closing rows", "error", err)
+		}
+	}()
 
 	// Initialize with empty slice instead of nil
 	accessKeys := make([]*auth.AccessKey, 0)

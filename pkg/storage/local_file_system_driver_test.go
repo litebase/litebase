@@ -118,7 +118,11 @@ func TestLocalFileSystemDriver(t *testing.T) {
 
 		t.Run("Path", func(t *testing.T) {
 			driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))
-			driver.Create("test_Path.txt")
+
+			if _, err := driver.Create("test_Path.txt"); err != nil {
+				t.Errorf("Create() returned an error: %v", err)
+			}
+
 			expectedPath := fmt.Sprintf("%s/%s/test_Path.txt", app.Config.DataPath, config.StorageModeLocal)
 
 			// Test the driver path
@@ -129,7 +133,9 @@ func TestLocalFileSystemDriver(t *testing.T) {
 
 		t.Run("ReadDir", func(t *testing.T) {
 			driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))
-			driver.Mkdir("test_ReadDir", 0750)
+			if err := driver.Mkdir("test_ReadDir", 0750); err != nil {
+				t.Errorf("Mkdir() returned an error: %v", err)
+			}
 
 			// Add some files and folders to the directory
 			directories := []string{"test1", "test2", "test3"}
@@ -280,7 +286,9 @@ func TestLocalFileSystemDriver(t *testing.T) {
 		t.Run("RemoveAll", func(t *testing.T) {
 			driver := storage.NewLocalFileSystemDriver(fmt.Sprintf("%s/%s", app.Config.DataPath, config.StorageModeLocal))
 
-			driver.MkdirAll("removeall", 0750)
+			if err := driver.MkdirAll("removeall", 0750); err != nil {
+				t.Errorf("MkdirAll() returned an error: %v", err)
+			}
 
 			// Create a file
 			_, err := driver.Create("removeall/test.txt")

@@ -171,7 +171,7 @@ func TestUserManager(t *testing.T) {
 			}
 
 			// Test getting non-existent user
-			user, err = um.Get("nonexistent")
+			_, err = um.Get("nonexistent")
 
 			if err == nil {
 				t.Error("Expected error for non-existent user")

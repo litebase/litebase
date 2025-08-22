@@ -194,20 +194,6 @@ func (f *TieredFile) CloseDescriptor(descriptor *TieredFileDescriptor) error {
 	return nil
 }
 
-// Close the file without locking the mutex.
-func (f *TieredFile) closeFile() error {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
-	f.Closed = true
-
-	if f.File == nil {
-		return nil
-	}
-
-	return f.File.Close()
-}
-
 // Return the number of open descriptors
 func (f *TieredFile) GetDescriptorCount() int {
 	f.descriptorsMutex.Lock()
@@ -575,7 +561,11 @@ func (f *TieredFile) reopenFile() error {
 		return err
 	}
 
-	defer lowTierFile.Close()
+	defer func() {
+		if err := lowTierFile.Close(); err != nil {
+			log.Println("Error closing low tier file:", err)
+		}
+	}()
 
 	// Create on high tier storage
 	file, err := f.TieredFileSystemDriver.highTierFileSystemDriver.OpenFile(f.Key, os.O_RDWR|os.O_CREATE, 0600)
@@ -588,7 +578,11 @@ func (f *TieredFile) reopenFile() error {
 	_, err = f.TieredFileSystemDriver.CopyFile(file, lowTierFile)
 
 	if err != nil {
-		file.Close()
+		closeErr := file.Close()
+
+		if closeErr != nil {
+			return fmt.Errorf("failed to close file after copy: %w", closeErr)
+		}
 
 		return err
 	}
@@ -601,14 +595,22 @@ func (f *TieredFile) reopenFile() error {
 		actualPos, err := f.File.Seek(f.position, io.SeekStart)
 
 		if err != nil {
-			f.File.Close()
+			closeErr := f.File.Close()
+
+			if closeErr != nil {
+				slog.Error("Error closing file after seek failure", "error", closeErr)
+			}
 
 			return err
 		}
 
 		// Verify the position was set correctly
 		if actualPos != f.position {
-			f.File.Close()
+			err := f.File.Close()
+
+			if err != nil {
+				return fmt.Errorf("failed to close to reopen tiered file: %w", err)
+			}
 
 			return fmt.Errorf("failed to restore file position: expected %d, got %d", f.position, actualPos)
 		}

@@ -81,7 +81,7 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 				}
 			} else {
 				// Handle single parameter set or no parameters
-				var queryInput *database.QueryInput = &database.QueryInput{
+				var queryInput = &database.QueryInput{
 					Statement: statement,
 				}
 
@@ -209,7 +209,7 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 				cardContent = "```json\n" + string(rowJSON) + "\n```"
 			}
 
-			lipgloss.Fprint(
+			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
 					components.NewCard(
@@ -221,7 +221,7 @@ func NewDatabaseQueryCmd(config *config.Configuration) *cobra.Command {
 				),
 			)
 
-			return nil
+			return err
 		},
 	}
 

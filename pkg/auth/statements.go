@@ -98,20 +98,20 @@ func (credential *Credential) authorizedForColumn(databaseId, branchId, table, c
 }
 
 // Determine if an Access Key is authorized to perform an action on a database.
-func (credential *Credential) authorizedForDatabase(databaseId string, privilege Privilege) bool {
-	// Any resource
-	if Authorized(credential.Statements(), credential.authorizationKey("*"), privilege) {
-		return true
-	}
+// func (credential *Credential) authorizedForDatabase(databaseId string, privilege Privilege) bool {
+// 	// Any resource
+// 	if Authorized(credential.Statements(), credential.authorizationKey("*"), privilege) {
+// 		return true
+// 	}
 
-	// Any database resource
-	if Authorized(credential.Statements(), credential.authorizationKey("database", "*"), privilege) {
-		return true
-	}
+// 	// Any database resource
+// 	if Authorized(credential.Statements(), credential.authorizationKey("database", "*"), privilege) {
+// 		return true
+// 	}
 
-	// A specific database
-	return Authorized(credential.Statements(), credential.authorizationKey("database", databaseId), privilege)
-}
+// 	// A specific database
+// 	return Authorized(credential.Statements(), credential.authorizationKey("database", databaseId), privilege)
+// }
 
 // Determine if an Access Key is authorized to perform an action on a table.
 func (credential *Credential) authorizedForTable(databaseId, branchId, table string, privilege Privilege) bool {

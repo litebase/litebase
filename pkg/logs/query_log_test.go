@@ -139,11 +139,15 @@ func TestQueryLog_Read(t *testing.T) {
 
 		startTime := time.Now().UTC().Truncate(time.Second)
 
-		l.Write(
+		err := l.Write(
 			db.Credential.CredentialID,
 			"SELECT * FROM test",
 			0.01,
 		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		l.Flush(true)
 
