@@ -1,12 +1,14 @@
 package components
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/litebase/litebase/pkg/cli"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss/v2/table"
 	"github.com/charmbracelet/x/term"
 )
 
@@ -87,106 +89,46 @@ func WithCardTitle(title string) CardOption {
 
 func (c *Card) Render() string {
 	content := ""
-	maxKeyLength := 0
-
-	// Calculate available width for content
-	availableWidth := c.Width
-
-	if availableWidth <= 0 {
-		availableWidth = 80 // Default width if not specified
-	}
-
-	// Account for border and padding (border=1, paddingLeft=1)
-	contentWidth := availableWidth - 2
 
 	if c.Title != "" {
-		title := c.Title
-
-		// Truncate title if it's too long
-		if len(title) > contentWidth {
-			title = truncateString(title, contentWidth)
-		}
-
-		content += CardTitleStyle().Render(title)
+		content += CardTitleStyle().Render(c.Title)
 	}
 
 	if c.Description != "" {
 		description := c.Description
 
-		// Wrap description with proper word wrapping
-		wrappedDescription := lipgloss.NewStyle().
-			MarginTop(2).
-			Width(contentWidth - 2).
-			Render(description)
-
-		content += wrappedDescription
-	}
-
-	// Find the optimal key length
-	for _, row := range c.Rows {
-		if len(row.Key) > maxKeyLength {
-			maxKeyLength = len(row.Key)
-		}
-	}
-
-	// Adjust maxKeyLength if it would take up too much space
-	// Reserve at least 20 characters for the value, or half the width, whichever is smaller
-	maxValueWidth := contentWidth - maxKeyLength - 1 // -1 for space between key and value
-
-	if maxValueWidth < 20 && contentWidth > 30 {
-		maxKeyLength = contentWidth - 21 // Reserve 20 chars for value + 1 for space
-	} else if maxKeyLength > contentWidth/2 {
-		maxKeyLength = contentWidth / 2
-	}
-
-	var rowStrings []string
-
-	for _, row := range c.Rows {
-		key := row.Key
-		value := row.Value
-
-		// Truncate key if too long
-		if len(key) > maxKeyLength {
-			key = truncateString(key, maxKeyLength)
-		}
-
-		// Calculate remaining space for value
-		remainingWidth := contentWidth - len(key) - 2 // -1 for space between key and value and colon
-
-		// Truncate value if too long
-		if len(value) > remainingWidth && remainingWidth > 0 {
-			value = truncateString(value, remainingWidth)
-		}
-
-		// Build the row string with exact width control
-		rowContent := lipgloss.NewStyle().Bold(true).Render(key) + ": " + value
-
-		// Ensure the row doesn't exceed content width
-		if lipgloss.Width(rowContent) > contentWidth {
-			// If rendered width is still too long, truncate more aggressively
-			totalLength := len(key) + 1 + len(value)
-
-			if totalLength > contentWidth {
-				newValueLength := contentWidth - len(key) - 1
-
-				if newValueLength > 0 {
-					value = truncateString(value, newValueLength)
-				}
-
-				rowContent = lipgloss.NewStyle().Bold(true).Render(key) + " " + value
-			}
-		}
-
-		rowStrings = append(rowStrings, rowContent)
-	}
-
-	// Join rows with newlines
-	if len(rowStrings) > 0 {
 		content += lipgloss.NewStyle().
 			MarginTop(2).
+			Render(description)
+	}
+
+	rows := [][]string{}
+
+	for _, row := range c.Rows {
+		rows = append(rows, []string{fmt.Sprintf("%s: ", row.Key), row.Value})
+	}
+
+	t := table.New().
+		Border(lipgloss.Border{}).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			switch col {
+			case 0:
+				return lipgloss.NewStyle().MarginTop(1).Bold(true)
+			default:
+				return lipgloss.NewStyle().MarginTop(1)
+			}
+		}).
+		Rows(rows...)
+
+	tableContent := t.Render()
+
+	// Join rows with newlines
+	if len(tableContent) > 0 {
+		content += lipgloss.NewStyle().
+			MarginTop(1).
 			Render(lipgloss.JoinVertical(
 				lipgloss.Left,
-				rowStrings...,
+				tableContent,
 			))
 	}
 
@@ -195,24 +137,15 @@ func (c *Card) Render() string {
 	}
 
 	// Apply the card style with proper width to prevent border breaking
-	return cardStyle().
-		Width(contentWidth).
-		Render(content)
+	return cardStyle().Render(content)
 }
 
 func (c *Card) renderContent() string {
-	// Calculate available width for content (same as in Render method)
-	availableWidth := c.Width
-	if availableWidth <= 0 {
-		availableWidth = 80
-	}
-	contentWidth := availableWidth - 2
-
 	content := lipgloss.NewStyle().Bold(true).MarginTop(2).Render(c.ContentTitle)
 
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(contentWidth),
+		glamour.WithWordWrap(c.Width-2),
 	)
 
 	if err != nil {
