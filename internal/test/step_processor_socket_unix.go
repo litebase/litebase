@@ -35,8 +35,3 @@ func connectToSocket(socketPath string) (net.Conn, error) {
 func getSocketPath(socketDir string) string {
 	return filepath.Join(socketDir, "coordinator.sock")
 }
-
-// cleanupSocket removes the socket file
-func cleanupSocket(socketPath string) error {
-	return os.Remove(socketPath)
-}

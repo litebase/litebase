@@ -54,13 +54,6 @@ func getSocketPath(socketDir string) string {
 	return fmt.Sprintf("127.0.0.1:%d", port)
 }
 
-// cleanupSocket removes the port file on Windows
-func cleanupSocket(socketPath string) error {
-	// socketPath contains the address, but we need to clean up the port file
-	// We'll handle this in the main cleanup function
-	return nil
-}
-
 // writePortFile writes the port number to a file
 func writePortFile(filename string, port int) error {
 	file, err := os.Create(filename)
