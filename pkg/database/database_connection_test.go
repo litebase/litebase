@@ -1004,19 +1004,88 @@ func TestDatabaseConnection(t *testing.T) {
 			var connection1Error error
 			var connection2Error error
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			// Use channels to synchronize the start of transactions
+			readTransactionStarted := make(chan struct{})
+			writeCanStart := make(chan struct{})
+
+			wg.Go(func() {
+				connection2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+				if err != nil {
+					connection2Error = err
+					close(readTransactionStarted)
+					return
+				}
+
+				statement, err := connection2.GetConnection().Prepare(context.Background(), "SELECT name FROM test where id = ?")
+
+				if err != nil {
+					connection2Error = err
+					close(readTransactionStarted)
+					return
+				}
+
+				err = connection2.GetConnection().Transaction(true, func(con *database.DatabaseConnection) error {
+					// Signal that read transaction has started
+					close(readTransactionStarted)
+
+					// Wait for write transaction to be allowed to start
+					<-writeCanStart
+
+					for i := 1; i <= 10000; i++ {
+						result := sqlite3.NewResult()
+
+						err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
+							Type:  "INTEGER",
+							Value: int64(i),
+						})
+
+						if err != nil {
+							return err
+						}
+
+						if len(result.Rows) != 1 {
+							return fmt.Errorf("Expected 1 row, got %d rows", len(result.Rows))
+						}
+
+						if string(result.Rows[0][0].Text()) != "test" {
+							return fmt.Errorf("Expected %s, got %s", "test", result.Rows[0][0].Text())
+						}
+					}
+
+					return nil
+				})
+
+				if err != nil {
+					connection2Error = err
+					return
+				}
+
+				app.DatabaseManager.ConnectionManager().Release(connection2)
+			})
+
+			wg.Go(func() {
+				// Wait for read transaction to start first
+				<-readTransactionStarted
 
 				connection1, err = app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 				if err != nil {
 					connection1Error = err
-
+					close(writeCanStart)
 					return
 				}
 
 				statement, err := connection1.GetConnection().Prepare(context.Background(), "UPDATE test SET name = 'updated' WHERE id = ?")
+
+				if err != nil {
+					connection1Error = err
+					close(writeCanStart)
+					return
+				}
+
+				// Signal that write can start
+				close(writeCanStart)
 
 				err = connection1.GetConnection().Transaction(false, func(con *database.DatabaseConnection) error {
 					for i := 1; i <= 10000; i++ {
@@ -1034,65 +1103,16 @@ func TestDatabaseConnection(t *testing.T) {
 					return connection1Error
 				})
 
+				if err != nil && connection1Error == nil {
+					connection1Error = err
+				}
+
 				if err := connection1.Checkpoint(); err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
 
 				app.DatabaseManager.ConnectionManager().Release(connection1)
-			}()
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				connection2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
-
-				if err != nil {
-					connection2Error = err
-
-					return
-				}
-
-				statement, err := connection2.GetConnection().Prepare(context.Background(), "SELECT name FROM test where id = ?")
-
-				if err != nil {
-					connection2Error = err
-					return
-				}
-
-				result := sqlite3.NewResult()
-
-				err = connection2.GetConnection().Transaction(true, func(con *database.DatabaseConnection) error {
-					for i := 1; i <= 10000; i++ {
-						err = statement.Sqlite3Statement.Exec(result, sqlite3.StatementParameter{
-							Type:  "INTEGER",
-							Value: int64(i),
-						})
-
-						if err != nil {
-							return err
-						}
-
-						if len(result.Rows) != 1 {
-							t.Error("Expected 1 row")
-						}
-
-						if string(result.Rows[0][0].Text()) != "test" {
-							return fmt.Errorf("Expected %s, got %s", "test", result.Rows[0][0].Text())
-						}
-					}
-
-					return nil
-				})
-
-				if err != nil {
-					connection2Error = err
-
-					return
-				}
-
-				app.DatabaseManager.ConnectionManager().Release(connection2)
-			}()
+			})
 
 			wg.Wait()
 
