@@ -1,9 +1,14 @@
 package test
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -14,12 +19,18 @@ import (
 )
 
 type TestCLI struct {
-	AccessKey    *auth.AccessKey
-	App          *server.App
-	Cmd          *cobra.Command
-	outputBuffer *bytes.Buffer
-	Server       *TestServer
+	cancel        context.CancelFunc
+	AccessKey     *auth.AccessKey
+	args          []string
+	App           *server.App
+	Cmd           *cobra.Command
+	outputBuffer  *bytes.Buffer
+	processHandle *ProcessHandle
+	Server        *TestServer
 }
+
+// OutputHandler is a function that processes real-time output from a command
+type OutputHandler func(line string)
 
 func NewTestCLI(app *server.App) *TestCLI {
 	c := &TestCLI{
@@ -27,19 +38,34 @@ func NewTestCLI(app *server.App) *TestCLI {
 		outputBuffer: bytes.NewBuffer(make([]byte, 0)),
 	}
 
-	configPath := fmt.Sprintf("%s/.litebase-cli/config.json", c.App.Config.DataPath)
+	var command *cobra.Command
+	configPath := ""
+	var err error
 
-	cmd, err := cmd.RootCmd(configPath)
+	if c.App != nil {
+		configPath = fmt.Sprintf("%s/.litebase-cli/config.json", c.App.Config.DataPath)
+	}
+
+	command, err = cmd.RootCmd(configPath)
 
 	if err != nil {
 		panic(err)
 	}
 
-	cmd.SetOut(c.outputBuffer)
+	command.SetOut(c.outputBuffer)
 
-	c.Cmd = cmd
+	c.Cmd = command
 
 	return c
+}
+
+// Cancel the running CLI.
+func (c *TestCLI) Cancel() error {
+	if c.processHandle != nil {
+		return c.processHandle.Cancel()
+	}
+
+	return nil
 }
 
 // ClearOutput resets the output buffer for the CLI
@@ -85,6 +111,120 @@ func (c *TestCLI) Run(args ...string) error {
 	defer c.ResetFlagsRecursive(c.Cmd)
 
 	return c.Cmd.Execute()
+}
+
+// RunBackground executes a long-running CLI command in the background and
+// returns a ProcessHandle that can be used to monitor output and cancel the
+// process.
+func (c *TestCLI) RunInBackground(handler func(p *ProcessHandle)) error {
+	// Use context.Background() instead of cancellable context to prevent automatic cancellation
+	ctx := context.Background()
+
+	// Create a new process handle with its own cancellable context
+	handle := NewProcessHandle(ctx)
+
+	// Prepare the command arguments
+	cmdArgs := append([]string{"run", "./../../../cmd/litebase"}, c.args...) // Use -run ^$ to run no tests, just the CLI
+	cmdArgs = append(cmdArgs, "--no-interaction")
+
+	// Create the command WITHOUT context so it doesn't get auto-cancelled
+	cmd := exec.Command("go", cmdArgs...)
+	cmd.Dir, _ = os.Getwd()
+
+	// Set up process group for proper signal handling (cross-platform)
+	setupProcessGroup(cmd)
+
+	// Set up environment variables to run the CLI command
+	cmd.Env = append(os.Environ(), "LITEBASE_TEST_CLI_MODE=true")
+
+	// Create pipes for stdout and stderr
+	stdout, err := cmd.StdoutPipe()
+
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	stderr, err := cmd.StderrPipe()
+
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	handle.cmd = cmd
+
+	// Store the handle for cancellation
+	c.processHandle = handle
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start command: %w", err)
+	}
+
+	handle.mutex.Lock()
+	handle.isRunning = true
+	handle.mutex.Unlock()
+
+	// Start goroutines to handle output
+	go c.handleOutput(handle, stdout)
+	go c.handleOutput(handle, stderr)
+
+	// Start goroutine to wait for command completion
+	go func() {
+		err := cmd.Wait()
+
+		// Update the running status after the command has actually exited
+		handle.mutex.Lock()
+		handle.isRunning = false
+		handle.mutex.Unlock()
+
+		if err != nil && handle.ctx.Err() == nil {
+			select {
+			case handle.errorChan <- err:
+			default:
+			}
+		}
+
+		// Close channels and mark as done
+		handle.closeOnce.Do(func() {
+			handle.mutex.Lock()
+			handle.closed = true
+			handle.mutex.Unlock()
+			close(handle.doneChan)
+			close(handle.outputChan)
+		})
+	}()
+
+	handler(handle)
+
+	<-handle.doneChan
+
+	return nil
+}
+
+// handleOutput processes output from a reader and sends it to the output handler and channels
+func (c *TestCLI) handleOutput(handle *ProcessHandle, reader io.Reader) {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Store the output
+		handle.mutex.Lock()
+		handle.output.WriteString(line + "\n")
+		isClosed := handle.closed
+		handle.mutex.Unlock()
+
+		// Don't try to send if we're closed
+		if !isClosed {
+			// Send to output channel (non-blocking)
+			select {
+			case handle.outputChan <- line:
+			case <-handle.ctx.Done():
+				return
+			default:
+				// Channel is full or blocked, skip this line to avoid blocking
+			}
+		}
+	}
 }
 
 // Check if the output buffer contains the expected text
@@ -149,6 +289,13 @@ func (c *TestCLI) WithAccessKey(statements []auth.Statement) *TestCLI {
 	if err != nil {
 		panic(err)
 	}
+
+	return c
+}
+
+// WithArgs sets the command-line arguments for the CLI command.
+func (c *TestCLI) WithArgs(args ...string) *TestCLI {
+	c.args = args
 
 	return c
 }
