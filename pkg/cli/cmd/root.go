@@ -42,8 +42,7 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 		Example: `
 		litebase database create app_db
 		litebase database list
-		litebase shell
-		litebase sql "SELECT * FROM users"
+		litebase database query app_db/main "SELECT * FROM users"
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			title := lipgloss.NewStyle().Bold(true).
