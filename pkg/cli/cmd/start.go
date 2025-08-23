@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 
@@ -20,29 +22,60 @@ func NewStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start Litebase Server",
 		Run: func(cmd *cobra.Command, args []string) {
+			if err := godotenv.Load(".env"); err != nil {
+				slog.Debug("Server .env file not loaded", "error", err)
+			}
+
 			configInstance := config.NewConfig()
 
-			server.NewServer(configInstance).Start(func(s *http.ServeMux) {
-				app = server.NewApp(configInstance, s)
+			server.NewServer(configInstance).
+				OnStarted(func() {
+					_, err := lipgloss.Fprint(
+						cmd.OutOrStdout(),
+						components.Container(
+							components.NewCard(
+								components.WithCardTitle("Litebase Server"),
+								components.WithCardRows([]components.CardRow{
+									{
+										Key:   "Port",
+										Value: configInstance.Port,
+									},
+									{
+										Key:   "Cluster ID",
+										Value: app.Cluster.ID,
+									},
+									{
+										Key:   "Node ID",
+										Value: app.Cluster.Node().ID,
+									},
+								}),
+							).Render(),
+						),
+					)
 
-				app.Run()
+					if err != nil {
+						log.Fatalf("Error printing server info: %v", err)
+					}
+				}).
+				Start(func(s *http.ServeMux) {
+					app = server.NewApp(configInstance, s)
 
-				err := app.Cluster.Node().Start()
+					app.Run()
 
-				if err != nil {
-					log.Fatalf("Node start: %v", err)
-				}
-			}, func() {
-				if app == nil {
-					return
-				}
+					<-app.Cluster.Node().Start()
+				}, func() {
+					if app == nil {
+						return
+					}
 
-				err := app.Cluster.Node().Shutdown()
+					err := app.Cluster.Node().Shutdown()
 
-				if err != nil {
-					log.Fatalf("Node shutdown: %v", err)
-				}
-			})
+					if err != nil {
+						log.Fatalf("Node shutdown: %v", err)
+					}
+				})
+
+			log.Println("FOOOO")
 		},
 	}
 
@@ -64,6 +97,14 @@ func NewStartCmd() *cobra.Command {
 			}
 		}
 
+		port := cmd.Flag("port").Value.String()
+
+		if port != "" {
+			if err := os.Setenv("LITEBASE_PORT", port); err != nil {
+				panic(err)
+			}
+		}
+
 		debug := cmd.Flag("debug").Value.String()
 
 		if debug != "" {
@@ -80,7 +121,6 @@ func NewStartCmd() *cobra.Command {
 	cmd.Flags().Bool("debug", false, "Run the server in debug mode")
 	cmd.Flags().Bool("primary", true, "Run the server as a primary node")
 	cmd.Flags().String("port", "8080", "The port to run the server on")
-	cmd.Flags().Bool("replica", false, "Run the server as a replica node")
 	cmd.Flags().String("key", "", "The key to use for server encryption")
 	cmd.Flags().String("tmp-path", "./litebase-tmp", "The directory to use for temporary files")
 	cmd.Flags().String("tls-cert", "", "The path to the TLS certificate")
