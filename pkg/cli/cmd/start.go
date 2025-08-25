@@ -126,5 +126,7 @@ func NewStartCmd() *cobra.Command {
 	cmd.Flags().String("tls-cert", "", "The path to the TLS certificate")
 	cmd.Flags().String("tls-key", "", "The path to the TLS key")
 
+	hideAuthFlags(cmd)
+
 	return cmd
 }
