@@ -23,7 +23,7 @@ func (cluster *Cluster) LocalFS() *storage.FileSystem {
 			storage.NewLocalFileSystemDriver(
 				fmt.Sprintf(
 					"%s/%s",
-					cluster.Config.DataPath,
+					cluster.Config.StoragePath,
 					config.StorageModeLocal,
 				),
 			),
@@ -50,8 +50,8 @@ func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 				storage.NewLocalFileSystemDriver(
 					fmt.Sprintf(
 						"%s/%s",
-						cluster.Config.DataPath,
-						config.StorageModeObject,
+						cluster.Config.StoragePath,
+						"_object",
 					),
 				),
 			)
@@ -76,7 +76,7 @@ func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 
 		cluster.networkFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
-				cluster.Config.NetworkStoragePath,
+				cluster.Config.StorageNetworkPath,
 			),
 		)
 	}
@@ -191,7 +191,7 @@ func (cluster *Cluster) TmpFS() *storage.FileSystem {
 
 		cluster.tmpFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
-				fmt.Sprintf("%s/%s", cluster.Config.TmpPath, cluster.Node().ID),
+				fmt.Sprintf("%s/%s", cluster.Config.StorageTmpPath, cluster.Node().ID),
 			),
 		)
 	}

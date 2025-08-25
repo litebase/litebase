@@ -204,11 +204,11 @@ func (cluster *Cluster) GetMembersSince(after time.Time) []*NodeIdentifier {
 // Initialize the cluster.
 func (cluster *Cluster) Init(Auth *auth.Auth) error {
 	// Check if the cluster file already exists
-	_, err := cluster.ObjectFS().Stat(ConfigPath())
+	_, err := cluster.ObjectFS().Stat(ConfigPath(cluster.Config))
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err := cluster.ObjectFS().MkdirAll(filepath.Dir(ConfigPath()), 0750)
+			err := cluster.ObjectFS().MkdirAll(filepath.Dir(ConfigPath(cluster.Config)), 0750)
 
 			if err != nil {
 				return err
@@ -231,7 +231,7 @@ func (cluster *Cluster) Init(Auth *auth.Auth) error {
 		}
 	}
 
-	clusterFile, err := cluster.ObjectFS().ReadFile(ConfigPath())
+	clusterFile, err := cluster.ObjectFS().ReadFile(ConfigPath(cluster.Config))
 
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -444,7 +444,7 @@ func (cluster *Cluster) Save() error {
 	}
 
 writefile:
-	err = cluster.ObjectFS().WriteFile(ConfigPath(), data, 0600)
+	err = cluster.ObjectFS().WriteFile(ConfigPath(cluster.Config), data, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -495,6 +495,7 @@ func (cluster *Cluster) Unlock(key string) bool {
 }
 
 // Return the path to the cluster configuration file.
-func ConfigPath() string {
+func ConfigPath(c *config.Config) string {
+	// return fmt.Sprintf("%s/_cluster/config.json", c.DataPath)
 	return "_cluster/config.json"
 }

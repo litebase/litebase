@@ -43,7 +43,7 @@ func NewTestCLI(app *server.App) *TestCLI {
 	var err error
 
 	if c.App != nil {
-		configPath = fmt.Sprintf("%s/.litebase-cli/config.json", c.App.Config.DataPath)
+		configPath = fmt.Sprintf("%s/.litebase/config.json", c.App.Config.StoragePath)
 	}
 
 	command, err = cmd.RootCmd(configPath)

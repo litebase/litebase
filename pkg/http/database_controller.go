@@ -75,7 +75,6 @@ type DatabaseStoreRequest struct {
 }
 
 func DatabaseStoreController(request *Request) Response {
-	log.Println("DatabaseStoreController called")
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"database:*"},
