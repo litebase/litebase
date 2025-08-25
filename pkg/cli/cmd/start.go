@@ -74,55 +74,61 @@ func NewStartCmd() *cobra.Command {
 						log.Fatalf("Node shutdown: %v", err)
 					}
 				})
-
-			log.Println("FOOOO")
 		},
 	}
 
 	// Configuration (setup before command runs)
 	cobra.OnInitialize(func() {
-		err := godotenv.Load(".env")
-
-		if err != nil {
-			slog.Debug("Error loading .env file", "error", err)
-		}
-
-		dataPath := cmd.Flag("data-path").Value.String()
-
-		if dataPath != "" {
-			err := os.Setenv("LITEBASE_DATA_PATH", dataPath)
-
-			if err != nil {
+		if debug := cmd.Flag("debug").Value.String(); debug != "" {
+			if err := os.Setenv("DEBUG", debug); err != nil {
 				panic(err)
 			}
 		}
 
-		port := cmd.Flag("port").Value.String()
-
-		if port != "" {
+		if port := cmd.Flag("port").Value.String(); port != "" {
 			if err := os.Setenv("LITEBASE_PORT", port); err != nil {
 				panic(err)
 			}
 		}
 
-		debug := cmd.Flag("debug").Value.String()
+		if dataPath := cmd.Flag("storage-path").Value.String(); dataPath != "" {
+			if err := os.Setenv("LITEBASE_DATA_PATH", dataPath); err != nil {
+				panic(err)
+			}
+		}
 
-		if debug != "" {
-			err := os.Setenv("DEBUG", debug)
+		if networkPath := cmd.Flag("storage-network-path").Value.String(); networkPath != "" {
+			if err := os.Setenv("LITEBASE_STORAGE_NETWORK_PATH", networkPath); err != nil {
+				panic(err)
+			}
+		}
 
-			if err != nil {
+		if tmpPath := cmd.Flag("storage-tmp-path").Value.String(); tmpPath != "" {
+			if err := os.Setenv("LITEBASE_STORAGE_TMP_PATH", tmpPath); err != nil {
+				panic(err)
+			}
+		}
+
+		if tlsCert := cmd.Flag("tls-cert").Value.String(); tlsCert != "" {
+			if err := os.Setenv("LITEBASE_TLS_CERT_PATH", tlsCert); err != nil {
+				panic(err)
+			}
+		}
+
+		if tlsKey := cmd.Flag("tls-key").Value.String(); tlsKey != "" {
+			if err := os.Setenv("LITEBASE_TLS_KEY_PATH", tlsKey); err != nil {
 				panic(err)
 			}
 		}
 	})
 
 	// Flags
-	cmd.Flags().String("data-path", "./.litebase", "The path to the data directory")
 	cmd.Flags().Bool("debug", false, "Run the server in debug mode")
-	cmd.Flags().Bool("primary", true, "Run the server as a primary node")
 	cmd.Flags().String("port", "8080", "The port to run the server on")
 	cmd.Flags().String("key", "", "The key to use for server encryption")
-	cmd.Flags().String("tmp-path", "./litebase-tmp", "The directory to use for temporary files")
+	cmd.Flags().String("storage-path", "", "The path to the data directory")
+	cmd.Flags().String("storage-network-path", "", "The path to use for network storage")
+	cmd.Flags().String("storage-tmp-path", "", "The path to use for temporary files")
 	cmd.Flags().String("tls-cert", "", "The path to the TLS certificate")
 	cmd.Flags().String("tls-key", "", "The path to the TLS key")
 

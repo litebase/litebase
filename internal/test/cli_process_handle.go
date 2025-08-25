@@ -134,3 +134,58 @@ func (ph *ProcessHandle) WaitForOutput(expectedText string, timeout time.Duratio
 		}
 	}
 }
+
+// WaitForOutputLine waits for a line with the specified prefix to appear in the output with a timeout
+// Similar to GetOutputLine, it looks for lines that start with prefix followed by ": "
+// Returns the text following the colon and any error encountered
+func (ph *ProcessHandle) WaitForOutputLine(prefix string, timeout time.Duration) (string, error) {
+	deadline := time.Now().Add(timeout)
+
+	// First check if the prefix line is already in the output
+	output := ph.GetOutput()
+
+	lines := strings.SplitSeq(output, "\n")
+
+	for line := range lines {
+		// Remove non-standard (non-ASCII) characters from the line
+		cleanLine := ""
+
+		for _, r := range line {
+			if r >= 32 && r <= 126 { // ASCII printable range
+				cleanLine += string(r)
+			}
+		}
+
+		if strings.HasPrefix(cleanLine, prefix+": ") {
+			result := cleanLine[len(prefix)+2:]
+
+			return strings.TrimSpace(result), nil
+		}
+	}
+
+	for {
+		select {
+		case line := <-ph.outputChan:
+			// Remove non-standard (non-ASCII) characters from the line
+			cleanLine := ""
+
+			for _, r := range line {
+				if r >= 32 && r <= 126 { // ASCII printable range
+					cleanLine += string(r)
+				}
+			}
+
+			if strings.HasPrefix(cleanLine, prefix+": ") {
+				result := cleanLine[len(prefix)+2:]
+
+				return strings.TrimSpace(result), nil
+			}
+		case <-time.After(time.Until(deadline)):
+			if time.Now().After(deadline) {
+				return "", fmt.Errorf("timeout waiting for output line with prefix: %s", prefix)
+			}
+		case <-ph.ctx.Done():
+			return "", ph.ctx.Err()
+		}
+	}
+}

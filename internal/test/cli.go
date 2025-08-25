@@ -81,6 +81,7 @@ func (c *TestCLI) GetOutputLine(prefix string) string {
 	for line := range lines {
 		// Remove non-standard (non-ASCII) characters from the line
 		cleanLine := make([]byte, 0, len(line))
+
 		for _, b := range line {
 			if b >= 32 && b <= 126 { // ASCII printable range
 				cleanLine = append(cleanLine, b)
