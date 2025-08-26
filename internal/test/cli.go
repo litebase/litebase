@@ -62,6 +62,15 @@ func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 	return c
 }
 
+// Clean up a port that may have been used by the CLI.
+func (c *TestCLI) CleanupPort(port string) *TestCLI {
+	c.t.Cleanup(func() {
+		exec.Command("lsof", "-i", fmt.Sprintf(":%s", port), "-t").Run()
+	})
+
+	return c
+}
+
 // Cancel the running CLI.
 func (c *TestCLI) Cancel() error {
 	if c.processHandle != nil {
