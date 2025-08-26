@@ -9,7 +9,7 @@ import (
 
 func TestProfileDeleteCmd(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		cli := test.NewTestCLI(app)
+		cli := test.NewTestCLI(t, app)
 
 		// Create a profile to delete
 		err := cli.Run("profile", "create", "--profile-name", "Test Profile", "--profile-cluster", "http://localhost:8080", "--profile-type", "access_key", "--profile-access-key-id", "test-access-key-id", "--profile-access-key-secret", "test-access-key-secret")

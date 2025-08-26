@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"testing"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cli/cmd"
@@ -27,15 +28,17 @@ type TestCLI struct {
 	outputBuffer  *bytes.Buffer
 	processHandle *ProcessHandle
 	Server        *TestServer
+	t             *testing.T
 }
 
 // OutputHandler is a function that processes real-time output from a command
 type OutputHandler func(line string)
 
-func NewTestCLI(app *server.App) *TestCLI {
+func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 	c := &TestCLI{
 		App:          app,
 		outputBuffer: bytes.NewBuffer(make([]byte, 0)),
+		t:            t,
 	}
 
 	var command *cobra.Command

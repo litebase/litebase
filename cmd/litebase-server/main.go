@@ -38,7 +38,7 @@ func main() {
 	if configInstance.Debug {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	} else {
-		slog.SetLogLoggerLevel(slog.LevelWarn)
+		slog.SetLogLoggerLevel(slog.LevelInfo)
 	}
 
 	server.NewServer(configInstance).Start(func(s *http.ServeMux) {

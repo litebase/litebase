@@ -9,7 +9,7 @@ import (
 
 func TestRootCmd(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		cli := test.NewTestCLI(app)
+		cli := test.NewTestCLI(t, app)
 
 		err := cli.Run("")
 		if err != nil {

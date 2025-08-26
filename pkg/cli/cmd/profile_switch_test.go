@@ -11,7 +11,7 @@ func TestProfileSwitch(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		cli := test.NewTestCLI(server.App).
+		cli := test.NewTestCLI(t, server.App).
 			WithServer(server)
 
 		err := cli.Run("profile", "create", "--profile-name", "profile1", "--profile-cluster", "http://localhost:8080", "--profile-type", "access_key", "--profile-access-key-id", "test-access-key-id", "--profile-access-key-secret", "test-access-key-secret")

@@ -12,7 +12,7 @@ func TestDatabaseCreate(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		cli := test.NewTestCLI(server.App).
+		cli := test.NewTestCLI(t, server.App).
 			WithServer(server).
 			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
@@ -51,7 +51,7 @@ func TestDatabaseCreateWithPrimaryBranch(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		cli := test.NewTestCLI(server.App).
+		cli := test.NewTestCLI(t, server.App).
 			WithServer(server).
 			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
