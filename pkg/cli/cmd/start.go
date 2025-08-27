@@ -90,6 +90,13 @@ func NewStartCmd() *cobra.Command {
 						slog.SetLogLoggerLevel(slog.LevelInfo)
 					}
 
+					if startConfig.TLSCertPath != "" && startConfig.TLSKeyPath != "" {
+						rows = append(rows, components.CardRow{
+							Key:   "TLS",
+							Value: "Enabled",
+						})
+					}
+
 					_, err := lipgloss.Fprint(
 						cmd.OutOrStdout(),
 						components.Container(
@@ -205,7 +212,7 @@ func startLoadEnv() {
 }
 
 func startLoadFlags(cmd *cobra.Command, config *StartConfig) error {
-	if debug, err := cmd.Flags().GetBool("debug"); err != nil {
+	if debug, err := cmd.Flags().GetBool("debug"); err == nil {
 		config.Debug = debug
 	}
 

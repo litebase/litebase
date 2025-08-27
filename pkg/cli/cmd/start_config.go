@@ -65,5 +65,17 @@ func (c *StartConfig) Load() error {
 		}
 	}
 
+	if c.Key != "" {
+		if err := os.Setenv("LITEBASE_KEY", c.Key); err != nil {
+			return fmt.Errorf("failed to set LITEBASE_KEY environment variable: %w", err)
+		}
+	}
+
+	if c.ClusterID != "" {
+		if err := os.Setenv("LITEBASE_CLUSTER_ID", c.ClusterID); err != nil {
+			return fmt.Errorf("failed to set LITEBASE_CLUSTER_ID environment variable: %w", err)
+		}
+	}
+
 	return nil
 }

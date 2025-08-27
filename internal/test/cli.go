@@ -47,7 +47,12 @@ func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 
 	if c.App != nil {
 		configPath = fmt.Sprintf("%s/.litebase/config.yml", c.App.Config.StoragePath)
-		config.NewConfiguration(configPath, true)
+
+		_, err := config.NewConfiguration(configPath, true)
+
+		if err != nil {
+			c.t.Fatalf("failed to load config: %v", err)
+		}
 	}
 
 	command, err = cmd.RootCmd(configPath)

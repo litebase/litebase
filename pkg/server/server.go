@@ -47,9 +47,6 @@ func (s *Server) OnStarted(f func()) *Server {
 
 // Start the server instance.
 func (s *Server) Start(startHook func(*http.ServeMux), shutdownHook func()) {
-	// TODO: Add TLS support using autocert or certmagic if this is a query node
-	// TODO: Wait until a primary node is elected before starting the server with TLS
-	// TODO: Ensure only the primary can renew the TLS certificate
 	port := s.config.Port
 	tlsCertPath := os.Getenv("LITEBASE_TLS_CERT_PATH")
 	tlsKeyPath := os.Getenv("LITEBASE_TLS_KEY_PATH")

@@ -2,7 +2,6 @@ package config
 
 import (
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -209,8 +208,6 @@ func (c *CLIConfiguration) Save() error {
 	err = os.WriteFile(c.path, ymlData, 0600)
 
 	if err != nil {
-		log.Println("Error writing config file:", c.path)
-		panic(err)
 		return err
 	}
 
