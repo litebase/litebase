@@ -32,7 +32,6 @@ func addCommands(cmd *cobra.Command, c *config.CLIConfiguration) {
 	cmd.AddCommand(NewProfileCmd(c))
 	cmd.AddCommand(NewStartCmd())
 	cmd.AddCommand(NewStatusCmd(c))
-	cmd.AddCommand(NewStopCmd())
 	cmd.AddCommand(NewTokenCmd(c))
 	cmd.AddCommand(NewUserCmd(c))
 }
