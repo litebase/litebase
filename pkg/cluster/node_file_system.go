@@ -79,6 +79,10 @@ func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 				cluster.Config.StorageNetworkPath,
 			),
 		)
+
+		if err := cluster.networkFileSystem.MkdirAll("/", 0755); err != nil {
+			slog.Error("Creating network file system directories", "error", err)
+		}
 	}
 
 	return cluster.networkFileSystem
