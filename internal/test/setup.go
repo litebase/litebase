@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -170,6 +171,19 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 			log.Printf("failed to remove data path %s: %v", dataPath, err)
 		}
 	})
+}
+
+// Clean up a port that may have been used by the CLI.
+func CleanupPort(port string) func() {
+	return func() {
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("kill -9 $(lsof -ti tcp:%s) || true", port))
+
+		err := cmd.Run()
+
+		if err != nil {
+			slog.Error("failed to clean up port", "port", port, "error", err)
+		}
+	}
 }
 
 func Run(t testing.TB, callback func()) {

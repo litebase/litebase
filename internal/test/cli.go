@@ -20,7 +20,6 @@ import (
 )
 
 type TestCLI struct {
-	cancel        context.CancelFunc
 	AccessKey     *auth.AccessKey
 	args          []string
 	App           *server.App
@@ -58,15 +57,6 @@ func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 	command.SetOut(c.outputBuffer)
 
 	c.Cmd = command
-
-	return c
-}
-
-// Clean up a port that may have been used by the CLI.
-func (c *TestCLI) CleanupPort(port string) *TestCLI {
-	c.t.Cleanup(func() {
-		exec.Command("lsof", "-i", fmt.Sprintf(":%s", port), "-t").Run()
-	})
 
 	return c
 }
