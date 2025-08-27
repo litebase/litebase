@@ -11,8 +11,9 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 
 	// Add top margin to the form
 	theme.Form.Base = theme.Form.Base.MarginTop(1)
+
 	theme.Focused.Base = theme.Focused.Base.BorderForeground(
-		lipgloss.AdaptiveColor{Light: cli.Gray400.Hex(), Dark: cli.Gray500.Hex()},
+		lipgloss.AdaptiveColor{Light: cli.Gray400.Hex(), Dark: cli.Gray300.Hex()},
 	)
 
 	theme.Blurred.NoteTitle = lipgloss.NewStyle().
@@ -75,8 +76,8 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 			lipgloss.AdaptiveColor{Light: cli.Gray900.Hex(), Dark: cli.Gray100.Hex()},
 		)
 
-	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(lipgloss.Color(cli.Pink500.Hex()))
-	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(lipgloss.Color(cli.Pink500.Hex()))
+	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(lipgloss.Color(cli.Blue.Hex()))
+	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(lipgloss.Color(cli.Blue.Hex()))
 
 	theme.Blurred.Title = theme.Group.Title.
 		MarginBottom(1).
