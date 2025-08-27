@@ -14,6 +14,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cli/cmd"
+	"github.com/litebase/litebase/pkg/cli/config"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -45,7 +46,8 @@ func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 	var err error
 
 	if c.App != nil {
-		configPath = fmt.Sprintf("%s/.litebase/config.json", c.App.Config.StoragePath)
+		configPath = fmt.Sprintf("%s/.litebase/config.yml", c.App.Config.StoragePath)
+		config.NewConfiguration(configPath, true)
 	}
 
 	command, err = cmd.RootCmd(configPath)
@@ -107,7 +109,7 @@ func (c *TestCLI) GetOutput() string {
 
 // Run executes the CLI command with the provided arguments
 func (c *TestCLI) Run(args ...string) error {
-	args = append(args, "--no-interaction")
+	args = append(args, "--interactive=false")
 
 	c.Cmd.SetArgs(args)
 
@@ -128,7 +130,7 @@ func (c *TestCLI) RunInBackground(handler func(p *ProcessHandle)) error {
 
 	// Prepare the command arguments
 	cmdArgs := append([]string{"run", "./../../../cmd/litebase"}, c.args...) // Use -run ^$ to run no tests, just the CLI
-	cmdArgs = append(cmdArgs, "--no-interaction")
+	cmdArgs = append(cmdArgs, "--interactive=false")
 
 	// Create the command WITHOUT context so it doesn't get auto-cancelled
 	cmd := exec.Command("go", cmdArgs...)

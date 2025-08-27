@@ -16,7 +16,7 @@ import (
 var (
 	accessKeyId     string
 	accessKeySecret string
-	noInteraction   bool
+	interactive     bool
 	profile         string
 	token           string
 	url             string
@@ -86,6 +86,13 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 		},
 	}
 
+	// Create configuration with the default path first
+	c, err := config.NewConfiguration(configPath, true)
+
+	if err != nil {
+		return nil, err
+	}
+
 	cmd.PersistentFlags().StringVarP(&accessKeyId, "access-key-id", "k", "", "Access key ID for authentication")
 	cmd.PersistentFlags().StringVarP(&accessKeySecret, "access-key-secret", "s", "", "Access key secret for authentication")
 	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", configPath, "Path to a configuration file")
@@ -95,17 +102,12 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
 	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
 
-	cmd.PersistentFlags().BoolVarP(&noInteraction, "no-interaction", "n", false, "Run without user interaction")
+	cmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", true, "Run with user interaction")
 
-	configuration, err := config.NewConfiguration(configPath)
+	// Add commands with the configuration
+	addCommands(cmd, c)
 
-	if err != nil {
-		return nil, err
-	}
-
-	addCommands(cmd, configuration)
-
-	cmd.PersistentPreRunE = preRun(configuration)
+	cmd.PersistentPreRunE = preRun(c)
 
 	return cmd, nil
 }
@@ -137,7 +139,7 @@ func preRun(c *config.CLIConfiguration) func(cmd *cobra.Command, args []string) 
 			c.SetAccessKeySecret(accessKeySecret)
 		}
 
-		c.SetInteractive(!noInteraction)
+		c.SetInteractive(interactive)
 
 		if password != "" {
 			c.SetPassword(password)

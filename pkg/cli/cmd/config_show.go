@@ -1,0 +1,81 @@
+package cmd
+
+import (
+	"errors"
+	"os"
+
+	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/litebase/litebase/pkg/cli/components"
+	"github.com/litebase/litebase/pkg/cli/config"
+	"github.com/spf13/cobra"
+)
+
+func configShow(cmd *cobra.Command, c *config.CLIConfiguration) error {
+	configPath, err := cmd.Flags().GetString("config")
+
+	if err != nil {
+		return err
+	}
+
+	if configPath != "" {
+		if _, err := os.Stat(configPath); err != nil {
+			if os.IsNotExist(err) {
+				return errors.New("the specified config file does not exist")
+			}
+
+			return err
+		}
+	}
+
+	rows := []components.CardRow{
+		{
+			Key:   "Cluster ID",
+			Value: c.Server.ClusterID,
+		},
+		{
+			Key:   "Port",
+			Value: c.Server.Port,
+		},
+	}
+
+	// Add more configuration fields if they have values
+	if c.Server.Debug {
+		rows = append(rows, components.CardRow{
+			Key:   "Debug",
+			Value: "true",
+		})
+	}
+
+	if c.Server.StoragePath != "" {
+		rows = append(rows, components.CardRow{
+			Key:   "Storage Path",
+			Value: c.Server.StoragePath,
+		})
+	}
+
+	_, err = lipgloss.Fprint(
+		cmd.OutOrStdout(),
+		components.Container(
+			components.NewCard(
+				components.WithCardTitle("Litebase Server Config"),
+				components.WithCardRows(rows),
+			).Render(),
+		),
+	)
+
+	return err
+}
+
+func NewConfigShowCmd(c *config.CLIConfiguration) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "show",
+		Short: "Show Litebase Server configuration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return configShow(cmd, c)
+		},
+	}
+
+	hideAuthFlags(cmd)
+
+	return cmd
+}

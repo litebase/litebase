@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,8 +37,8 @@ type CLIServerConfiguration struct {
 	StoragePath        string `yaml:"storage_path"`
 	StorageNetworkPath string `yaml:"storage_network_path"`
 	StorageTmpPath     string `yaml:"storage_tmp_path"`
-	TlsCertPath        string `yaml:"tls_cert_path"`
-	TlsKeyPath         string `yaml:"tls_key_path"`
+	TLSCertPath        string `yaml:"tls_cert_path"`
+	TLSKeyPath         string `yaml:"tls_key_path"`
 }
 
 var ErrMissingClusterURL = errors.New("missing cluster URL")
@@ -46,7 +47,7 @@ var ErrorProfileNotFound = errors.New("profile not found, provide a valid profil
 
 // Create a new configuration instance. If the path is not provided, it defaults
 // to ~/.litebase/config.yml which is a global configuration file.
-func NewConfiguration(path string) (*CLIConfiguration, error) {
+func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
 	var configPath string
 	var configuration *CLIConfiguration
 
@@ -60,6 +61,16 @@ func NewConfiguration(path string) (*CLIConfiguration, error) {
 		configPath = filepath.Join(homeDir, ".litebase", "config.yml")
 	} else {
 		configPath = path
+
+		if !create {
+			if _, err := os.Stat(configPath); err != nil {
+				if os.IsNotExist(err) {
+					return nil, errors.New("the specified config file does not exist")
+				}
+
+				return nil, err
+			}
+		}
 	}
 
 	err := os.MkdirAll(filepath.Dir(configPath), 0750)
@@ -70,14 +81,16 @@ func NewConfiguration(path string) (*CLIConfiguration, error) {
 
 	_, err = os.Stat(configPath)
 
-	if os.IsNotExist(err) {
-		c := &CLIConfiguration{
-			Version:     CLIConfigurationVersion,
-			path:        configPath,
-			interactive: true,
-		}
+	if err != nil {
+		if os.IsNotExist(err) {
+			c := &CLIConfiguration{
+				Version:     CLIConfigurationVersion,
+				path:        configPath,
+				interactive: true,
+			}
 
-		return c, c.Save()
+			return c, c.Save()
+		}
 	}
 
 	file, err := os.ReadFile(filepath.Clean(configPath))
@@ -91,7 +104,6 @@ func NewConfiguration(path string) (*CLIConfiguration, error) {
 	}
 
 	configuration.path = configPath
-	configuration.interactive = true
 
 	return configuration, nil
 }
@@ -197,6 +209,8 @@ func (c *CLIConfiguration) Save() error {
 	err = os.WriteFile(c.path, ymlData, 0600)
 
 	if err != nil {
+		log.Println("Error writing config file:", c.path)
+		panic(err)
 		return err
 	}
 

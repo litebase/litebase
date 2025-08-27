@@ -18,7 +18,6 @@ func TestAccessKeyCreate(t *testing.T) {
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			})
 
-		// Test non-interactive mode with flags to avoid TTY issues
 		statements := `[{"effect":"allow","resource":"*","actions":["*"]}]`
 		err := cli.Run("access-key", "create", "--description", "Test access key", "--statements", statements)
 
