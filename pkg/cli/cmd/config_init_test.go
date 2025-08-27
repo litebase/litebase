@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -147,8 +148,15 @@ func TestConfigInitWithDefaultPath(t *testing.T) {
 
 		// Set the HOME environment variable to our temp directory
 		originalHome := os.Getenv("HOME")
-		os.Setenv("HOME", tempHomeDir)
-		defer os.Setenv("HOME", originalHome)
+		if err := os.Setenv("HOME", tempHomeDir); err != nil {
+			t.Fatalf("failed to set HOME environment variable: %v", err)
+		}
+
+		defer func() {
+			if err := os.Setenv("HOME", originalHome); err != nil {
+				slog.Error("failed to restore HOME environment variable", "error", err)
+			}
+		}()
 
 		// Create CLI without any pre-existing config by passing empty string
 		// This should prevent automatic config creation
@@ -158,7 +166,9 @@ func TestConfigInitWithDefaultPath(t *testing.T) {
 		configPath := filepath.Join(tempHomeDir, ".litebase", "config.yml")
 		if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 			// If config exists, remove it to start clean
-			os.RemoveAll(filepath.Dir(configPath))
+			if err := os.RemoveAll(filepath.Dir(configPath)); err != nil {
+				t.Errorf("failed to remove existing config directory: %v", err)
+			}
 		}
 
 		// Test with default path (should use ~/.litebase/config.yml)

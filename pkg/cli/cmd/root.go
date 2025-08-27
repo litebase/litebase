@@ -144,6 +144,10 @@ func preRun(c *config.CLIConfiguration) func(cmd *cobra.Command, args []string) 
 			c.SetPassword(password)
 		}
 
+		if token != "" {
+			c.SetToken(token)
+		}
+
 		if url != "" {
 			c.SetUrl(url)
 		}

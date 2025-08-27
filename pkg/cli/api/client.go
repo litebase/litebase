@@ -77,6 +77,8 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 			c.defaultHeaders,
 			jsonData,
 		))
+	} else if c.shouldUseToken() {
+		c.defaultHeaders["Authorization"] = fmt.Sprintf("Bearer %s", c.Config.GetToken())
 	} else if c.shouldUseBasicAuth() {
 		c.defaultHeaders["Authorization"] = c.basicAuthHeader()
 	}
@@ -233,4 +235,8 @@ func (c *Client) shouldUseBasicAuth() bool {
 	}
 
 	return profile.Type == string(config.ProfileTypeBasicAuth)
+}
+
+func (c *Client) shouldUseToken() bool {
+	return c.Config.GetToken() != ""
 }

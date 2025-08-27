@@ -50,5 +50,19 @@ func TestCLIAuth(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 		})
+
+		t.Run("Test Token Auth", func(t *testing.T) {
+			cli := test.NewTestCLI(t, server.App).
+				WithServer(server).
+				WithToken([]auth.Statement{
+					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
+				})
+
+			err := cli.Run("status")
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		})
 	})
 }

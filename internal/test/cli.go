@@ -29,6 +29,7 @@ type TestCLI struct {
 	processHandle *ProcessHandle
 	Server        *TestServer
 	t             *testing.T
+	Token         *auth.Token
 }
 
 // OutputHandler is a function that processes real-time output from a command
@@ -338,6 +339,32 @@ func (c *TestCLI) WithServer(server *TestServer) *TestCLI {
 	c.Server = server
 
 	err := c.Cmd.PersistentFlags().Set("url", server.Server.URL)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return c
+}
+
+// WithToken sets the bearer token for the CLI and updates the Authorization header
+func (c *TestCLI) WithToken(statements []auth.Statement) *TestCLI {
+	token, err := c.App.Auth.TokenManager.Create("Test token", statements)
+
+	if err != nil {
+		slog.Error("Error creating token:", "error", err)
+		return c
+	}
+
+	c.Token = token
+
+	tokenValue, err := token.Value()
+
+	if err != nil {
+		return c
+	}
+
+	err = c.Cmd.PersistentFlags().Set("token", tokenValue)
 
 	if err != nil {
 		panic(err)

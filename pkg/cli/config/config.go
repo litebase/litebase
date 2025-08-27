@@ -22,6 +22,7 @@ type CLIConfiguration struct {
 	interactive     bool
 	password        string
 	path            string
+	token           string
 	url             string
 	username        string
 }
@@ -187,6 +188,10 @@ func (c *CLIConfiguration) GetPassword() string {
 	return c.password
 }
 
+func (c *CLIConfiguration) GetToken() string {
+	return c.token
+}
+
 // Return the URL of the cluster.
 func (c *CLIConfiguration) GetUrl() string {
 	return c.url
@@ -228,6 +233,10 @@ func (c *CLIConfiguration) SetInteractive(interactive bool) {
 
 func (c *CLIConfiguration) SetPassword(password string) {
 	c.password = password
+}
+
+func (c *CLIConfiguration) SetToken(token string) {
+	c.token = token
 }
 
 func (c *CLIConfiguration) SetUrl(url string) {
