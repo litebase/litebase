@@ -9,10 +9,13 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+const CLIConfigurationVersion = "0.1"
+
 type CLIConfiguration struct {
 	CurrentProfile string                 `yaml:"current_profile"`
 	Profiles       []Profile              `yaml:"profiles"`
 	Server         CLIServerConfiguration `yaml:"server"`
+	Version        string                 `yaml:"version"`
 
 	accessKeyId     string
 	accessKeySecret string
@@ -69,6 +72,7 @@ func NewConfiguration(path string) (*CLIConfiguration, error) {
 
 	if os.IsNotExist(err) {
 		c := &CLIConfiguration{
+			Version:     CLIConfigurationVersion,
 			path:        configPath,
 			interactive: true,
 		}
