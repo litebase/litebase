@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"log/slog"
@@ -15,9 +17,23 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// generateEncryptionKey creates a cryptographically secure random encryption key
+func generateEncryptionKey() (string, error) {
+	length := 64
+	randomBytes := make([]byte, (length+1)/2) // Ensure enough bytes for the desired length
+
+	_, err := rand.Read(randomBytes)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return hex.EncodeToString(randomBytes)[:length], nil
+}
+
 func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 	newConfig := &config.CLIConfiguration{
-		Version: config.CLIConfigurationVersion,
+		APIVersion: config.CLIConfigurationVersion,
 	}
 
 	cmd := &cobra.Command{
@@ -38,10 +54,27 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to get default config path: %w", err)
 				}
-			} else {
-				if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
-					return fmt.Errorf("failed to create config directory: %w", err)
+			}
+
+			// Ensure the directory exists for both custom and default paths
+			if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+				return fmt.Errorf("failed to create config directory: %w", err)
+			}
+
+			// Check if config already exists - init should only happen once
+			if _, err := os.Stat(path); err == nil {
+				return fmt.Errorf("configuration file already exists at %s. Configuration can only be initialized once", path)
+			} else if !os.IsNotExist(err) {
+				return fmt.Errorf("failed to check if config file exists: %w", err)
+			}
+
+			// Generate encryption key if not provided via flag
+			if newConfig.Server.Key == "" {
+				generatedKey, err := generateEncryptionKey()
+				if err != nil {
+					return fmt.Errorf("failed to generate encryption key: %w", err)
 				}
+				newConfig.Server.Key = generatedKey
 			}
 
 			// Check if we're in non-interactive mode (flags provided)
@@ -147,7 +180,7 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd.Flags().StringVar(&newConfig.Server.ClusterID, "cluster-id", "", "Cluster ID for the server")
 	cmd.Flags().StringVar(&newConfig.Server.ConfigPath, "config-path", "", "Path to the configuration file")
 	cmd.Flags().BoolVar(&newConfig.Server.Debug, "debug", false, "Enable debug mode")
-	cmd.Flags().StringVar(&newConfig.Server.Key, "key", "", "Encryption key")
+	cmd.Flags().StringVar(&newConfig.Server.Key, "key", "", "Encryption key (if not provided, one will be generated)")
 	cmd.Flags().StringVar(&newConfig.Server.Port, "port", "9876", "Port to run the server on")
 	cmd.Flags().StringVar(&newConfig.Server.StoragePath, "storage-path", "", "Path to the storage directory")
 	cmd.Flags().StringVar(&newConfig.Server.StorageNetworkPath, "storage-network-path", "", "Path to the network storage directory")

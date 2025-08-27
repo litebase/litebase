@@ -12,10 +12,10 @@ import (
 const CLIConfigurationVersion = "0.1"
 
 type CLIConfiguration struct {
+	APIVersion     string                 `yaml:"api_version"`
 	CurrentProfile string                 `yaml:"current_profile"`
 	Profiles       []Profile              `yaml:"profiles"`
 	Server         CLIServerConfiguration `yaml:"server"`
-	Version        string                 `yaml:"version"`
 
 	accessKeyId     string
 	accessKeySecret string
@@ -83,7 +83,7 @@ func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			c := &CLIConfiguration{
-				Version:     CLIConfigurationVersion,
+				APIVersion:  CLIConfigurationVersion,
 				path:        configPath,
 				interactive: true,
 			}

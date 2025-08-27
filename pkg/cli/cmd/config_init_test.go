@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -49,12 +50,116 @@ func TestConfigInit(t *testing.T) {
 		if config.Server.Port != "8080" {
 			t.Errorf("expected port to be '8080', got %v", config.Server.Port)
 		}
+
+		// Verify that an encryption key was generated or used
+		if config.Server.Key == "" {
+			t.Error("expected encryption key to be set")
+		}
+	})
+}
+
+func TestConfigInitGeneratesEncryptionKey(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory for testing
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "test-config-with-key.yml")
+
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--path", configPath)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Read and verify the config file contents
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		// Verify that an encryption key was automatically generated
+		if config.Server.Key == "" {
+			t.Error("expected encryption key to be automatically generated")
+		}
+
+		// Verify the key is of expected length (64 characters)
+		if len(config.Server.Key) != 64 {
+			t.Errorf("expected encryption key to be 64 characters, got %d", len(config.Server.Key))
+		}
+
+		// Verify the key contains only valid characters
+		validChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		for _, char := range config.Server.Key {
+			if !strings.ContainsRune(validChars, char) {
+				t.Errorf("encryption key contains invalid character: %c", char)
+			}
+		}
+	})
+}
+
+func TestConfigInitWithCustomEncryptionKey(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory for testing
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "custom-key-config.yml")
+		customKey := "mycustomencryptionkey123456789"
+
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--key", customKey, "--path", configPath)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Read and verify the config file contents
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		// Verify that the custom encryption key was used
+		if config.Server.Key != customKey {
+			t.Errorf("expected encryption key to be '%s', got '%s'", customKey, config.Server.Key)
+		}
 	})
 }
 
 func TestConfigInitWithDefaultPath(t *testing.T) {
 	test.Run(t, func() {
+		// Create a temporary home directory to avoid conflicts with existing config
+		tempHomeDir := t.TempDir()
+
+		// Set the HOME environment variable to our temp directory
+		originalHome := os.Getenv("HOME")
+		os.Setenv("HOME", tempHomeDir)
+		defer os.Setenv("HOME", originalHome)
+
+		// Create CLI without any pre-existing config by passing empty string
+		// This should prevent automatic config creation
 		cli := test.NewTestCLI(t, nil)
+
+		// Before running init, verify no config exists
+		configPath := filepath.Join(tempHomeDir, ".litebase", "config.yml")
+		if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+			// If config exists, remove it to start clean
+			os.RemoveAll(filepath.Dir(configPath))
+		}
 
 		// Test with default path (should use ~/.litebase/config.yml)
 		err := cli.Run("config", "init", "--cluster-id", "default-cluster", "--port", "9000")
@@ -64,14 +169,6 @@ func TestConfigInitWithDefaultPath(t *testing.T) {
 		}
 
 		// Check that the config file was created at the default path
-		homeDir, err := os.UserHomeDir()
-
-		if err != nil {
-			t.Fatalf("failed to get user home directory: %v", err)
-		}
-
-		configPath := filepath.Join(homeDir, ".litebase", "config.yml")
-
 		if _, err := os.Stat(configPath); os.IsNotExist(err) {
 			t.Error("expected config file to be created at default path")
 		}
@@ -97,9 +194,9 @@ func TestConfigInitWithDefaultPath(t *testing.T) {
 			t.Errorf("expected port to be '9000', got %v", config.Server.Port)
 		}
 
-		// Clean up
-		if err := os.RemoveAll(filepath.Dir(configPath)); err != nil {
-			t.Errorf("failed to clean up test config directory: %v", err)
+		// Verify that an encryption key was generated
+		if config.Server.Key == "" {
+			t.Error("expected encryption key to be set")
 		}
 	})
 }
@@ -144,6 +241,11 @@ func TestConfigInitMinimalFlags(t *testing.T) {
 		// Port should be empty when not provided (flag overrides default)
 		if config.Server.Port != "9876" {
 			t.Errorf("expected port to be empty when not provided, got %v", config.Server.Port)
+		}
+
+		// Verify that an encryption key was generated
+		if config.Server.Key == "" {
+			t.Error("expected encryption key to be set")
 		}
 	})
 }
@@ -226,6 +328,71 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 
 		if config.Server.TLSKeyPath != "/test/key.pem" {
 			t.Errorf("expected tls_key_path to be '/test/key.pem', got %v", config.Server.TLSKeyPath)
+		}
+
+		// Verify that the custom encryption key was used instead of generating one
+		if config.Server.Key != "test-key" {
+			t.Errorf("expected encryption key to be 'test-key', got %v", config.Server.Key)
+		}
+	})
+}
+
+func TestConfigInitPreventsOverwrite(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory for testing
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "existing-config.yml")
+
+		// First, create an initial config
+		err := cli.Run("config", "init", "--cluster-id", "initial-cluster", "--port", "8080", "--path", configPath)
+
+		if err != nil {
+			t.Fatalf("expected no error creating initial config, got %v", err)
+		}
+
+		// Verify the initial config was created
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			t.Error("expected initial config file to be created")
+		}
+
+		// Now try to initialize again (should fail since init can only happen once)
+		err = cli.Run("config", "init", "--cluster-id", "second-cluster", "--port", "9000", "--path", configPath)
+
+		if err == nil {
+			t.Error("expected error when trying to initialize again, but got none")
+		}
+
+		expectedErrorMsg := "configuration file already exists"
+		if !strings.Contains(err.Error(), expectedErrorMsg) {
+			t.Errorf("expected error message to contain '%s', got: %v", expectedErrorMsg, err.Error())
+		}
+
+		expectedErrorMsg2 := "can only be initialized once"
+		if !strings.Contains(err.Error(), expectedErrorMsg2) {
+			t.Errorf("expected error message to contain '%s', got: %v", expectedErrorMsg2, err.Error())
+		}
+
+		// Verify the original config is still intact
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		if config.Server.ClusterID != "initial-cluster" {
+			t.Errorf("expected original cluster_id to be preserved as 'initial-cluster', got %v", config.Server.ClusterID)
+		}
+
+		if config.Server.Port != "8080" {
+			t.Errorf("expected original port to be preserved as '8080', got %v", config.Server.Port)
 		}
 	})
 }
