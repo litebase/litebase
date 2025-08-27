@@ -27,7 +27,7 @@ type TokenInputStatement struct {
 	Actions  []string             `json:"actions"`
 }
 
-func NewTokenCreateCmd(config *config.Configuration) *cobra.Command {
+func NewTokenCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --description <description> --statements <statements>",
 		Short: "Create a new token",

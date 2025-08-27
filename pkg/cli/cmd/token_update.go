@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewTokenUpdateCmd(config *config.Configuration) *cobra.Command {
+func NewTokenUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id> --description <description> --statements <statements>",
 		Short: "Update an existing token",

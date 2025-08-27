@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func tokenShow(cmd *cobra.Command, config *config.Configuration, tokenId string) error {
+func tokenShow(cmd *cobra.Command, config *config.CLIConfiguration, tokenId string) error {
 	res, err := api.Get(config, fmt.Sprintf("/v1/tokens/%s", tokenId))
 
 	if err != nil {
@@ -86,7 +86,7 @@ func tokenShow(cmd *cobra.Command, config *config.Configuration, tokenId string)
 	return err
 }
 
-func NewTokenShowCmd(config *config.Configuration) *cobra.Command {
+func NewTokenShowCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show token details",

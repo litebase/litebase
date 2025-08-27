@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileListCmd(c *config.Configuration) *cobra.Command {
+func NewProfileListCmd(c *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all profiles",

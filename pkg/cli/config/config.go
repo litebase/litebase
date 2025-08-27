@@ -1,16 +1,18 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"go.yaml.in/yaml/v4"
 )
 
-type Configuration struct {
-	CurrentProfile string    `json:"currentProfile"`
-	Profiles       []Profile `json:"profiles"`
+type CLIConfiguration struct {
+	CurrentProfile string                 `yaml:"current_profile"`
+	Profiles       []Profile              `yaml:"profiles"`
+	Server         CLIServerConfiguration `yaml:"server"`
 
 	accessKeyId     string
 	accessKeySecret string
@@ -21,15 +23,29 @@ type Configuration struct {
 	username        string
 }
 
+type CLIServerConfiguration struct {
+	Background         bool   `yaml:"background"`
+	ClusterID          string `yaml:"cluster_id"`
+	ConfigPath         string `yaml:"config_path"`
+	Debug              bool   `yaml:"debug,omitempty"`
+	Key                string `yaml:"key"`
+	Port               string `yaml:"port"`
+	StoragePath        string `yaml:"storage_path"`
+	StorageNetworkPath string `yaml:"storage_network_path"`
+	StorageTmpPath     string `yaml:"storage_tmp_path"`
+	TlsCertPath        string `yaml:"tls_cert_path"`
+	TlsKeyPath         string `yaml:"tls_key_path"`
+}
+
 var ErrMissingClusterURL = errors.New("missing cluster URL")
 var ErrorCredentialsNotSet = errors.New("credentials were not set, please provide access credentials or a stored profile name")
 var ErrorProfileNotFound = errors.New("profile not found, provide a valid profile name")
 
 // Create a new configuration instance. If the path is not provided, it defaults
-// to ~/.litebase/config.json which is a global configuration file.
-func NewConfiguration(path string) (*Configuration, error) {
+// to ~/.litebase/config.yml which is a global configuration file.
+func NewConfiguration(path string) (*CLIConfiguration, error) {
 	var configPath string
-	var configuration *Configuration
+	var configuration *CLIConfiguration
 
 	if path == "" {
 		homeDir, err := os.UserHomeDir()
@@ -38,7 +54,7 @@ func NewConfiguration(path string) (*Configuration, error) {
 			return nil, err
 		}
 
-		configPath = filepath.Join(homeDir, ".litebase", "config.json")
+		configPath = filepath.Join(homeDir, ".litebase", "config.yml")
 	} else {
 		configPath = path
 	}
@@ -52,7 +68,7 @@ func NewConfiguration(path string) (*Configuration, error) {
 	_, err = os.Stat(configPath)
 
 	if os.IsNotExist(err) {
-		c := &Configuration{
+		c := &CLIConfiguration{
 			path:        configPath,
 			interactive: true,
 		}
@@ -66,7 +82,7 @@ func NewConfiguration(path string) (*Configuration, error) {
 		panic(err)
 	}
 
-	if err := json.Unmarshal(file, &configuration); err != nil {
+	if err := yaml.Unmarshal(file, &configuration); err != nil {
 		return nil, err
 	}
 
@@ -77,23 +93,23 @@ func NewConfiguration(path string) (*Configuration, error) {
 }
 
 // Add a new profile to the configuration.
-func (c *Configuration) AddProfile(profile Profile) error {
+func (c *CLIConfiguration) AddProfile(profile Profile) error {
 	c.Profiles = append(c.Profiles, profile)
 
 	return c.Save()
 }
 
-func (c *Configuration) GetInteractive() bool {
+func (c *CLIConfiguration) GetInteractive() bool {
 	return c.interactive
 }
 
 // Get the profiles of the configuration.
-func (c *Configuration) GetProfiles() []Profile {
+func (c *CLIConfiguration) GetProfiles() []Profile {
 	return c.Profiles
 }
 
 // Get a specific profile by name.
-func (c *Configuration) GetProfile(name string) *Profile {
+func (c *CLIConfiguration) GetProfile(name string) *Profile {
 	for _, profile := range c.Profiles {
 		if profile.Name == name {
 			return &profile
@@ -104,7 +120,7 @@ func (c *Configuration) GetProfile(name string) *Profile {
 }
 
 // Delete a profile from the configuration by name.
-func (c *Configuration) DeleteProfile(name string) error {
+func (c *CLIConfiguration) DeleteProfile(name string) error {
 	profiles := []Profile{}
 	var profileFound bool
 
@@ -127,17 +143,17 @@ func (c *Configuration) DeleteProfile(name string) error {
 }
 
 // Return the access key ID used for authentication.
-func (c *Configuration) GetAccessKeyId() string {
+func (c *CLIConfiguration) GetAccessKeyId() string {
 	return c.accessKeyId
 }
 
 // Return the access key secret used for authentication.
-func (c *Configuration) GetAccessKeySecret() string {
+func (c *CLIConfiguration) GetAccessKeySecret() string {
 	return c.accessKeySecret
 }
 
 // Return the current profile or the first profile if no current profile is set.
-func (c *Configuration) GetCurrentProfile() (*Profile, error) {
+func (c *CLIConfiguration) GetCurrentProfile() (*Profile, error) {
 	if c.CurrentProfile == "" {
 		profiles := c.GetProfiles()
 
@@ -152,29 +168,29 @@ func (c *Configuration) GetCurrentProfile() (*Profile, error) {
 }
 
 // Return the password used for authentication.
-func (c *Configuration) GetPassword() string {
+func (c *CLIConfiguration) GetPassword() string {
 	return c.password
 }
 
 // Return the URL of the cluster.
-func (c *Configuration) GetUrl() string {
+func (c *CLIConfiguration) GetUrl() string {
 	return c.url
 }
 
 // Return the username used for authentication.
-func (c *Configuration) GetUsername() string {
+func (c *CLIConfiguration) GetUsername() string {
 	return c.username
 }
 
 // Save the configuration to the file system.
-func (c *Configuration) Save() error {
-	jsonData, err := json.MarshalIndent(c, "", "  ")
+func (c *CLIConfiguration) Save() error {
+	ymlData, err := yaml.Marshal(c)
 
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(c.path, jsonData, 0600)
+	err = os.WriteFile(c.path, ymlData, 0600)
 
 	if err != nil {
 		return err
@@ -183,31 +199,31 @@ func (c *Configuration) Save() error {
 	return nil
 }
 
-func (c *Configuration) SetAccessKeyId(accessKeyId string) {
+func (c *CLIConfiguration) SetAccessKeyId(accessKeyId string) {
 	c.accessKeyId = accessKeyId
 }
 
-func (c *Configuration) SetAccessKeySecret(accessKeySecret string) {
+func (c *CLIConfiguration) SetAccessKeySecret(accessKeySecret string) {
 	c.accessKeySecret = accessKeySecret
 }
 
-func (c *Configuration) SetInteractive(interactive bool) {
+func (c *CLIConfiguration) SetInteractive(interactive bool) {
 	c.interactive = interactive
 }
 
-func (c *Configuration) SetPassword(password string) {
+func (c *CLIConfiguration) SetPassword(password string) {
 	c.password = password
 }
 
-func (c *Configuration) SetUrl(url string) {
+func (c *CLIConfiguration) SetUrl(url string) {
 	c.url = strings.TrimRight(url, "/")
 }
 
-func (c *Configuration) SetUsername(username string) {
+func (c *CLIConfiguration) SetUsername(username string) {
 	c.username = username
 }
 
-func (c *Configuration) SwitchProfile(name string) error {
+func (c *CLIConfiguration) SwitchProfile(name string) error {
 	profile := c.GetProfile(name)
 
 	if profile == nil {

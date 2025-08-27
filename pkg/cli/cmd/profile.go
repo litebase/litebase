@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileCmd(c *config.Configuration) *cobra.Command {
+func NewProfileCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "profile",
 		Short: "Manage your profiles",

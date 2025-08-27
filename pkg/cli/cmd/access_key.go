@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewAccessKeyCmd(config *config.Configuration) *cobra.Command {
+func NewAccessKeyCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "access-key",
 		Short: "Manage access keys",

@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewUserListCmd(config *config.Configuration) *cobra.Command {
+func NewUserListCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List users",

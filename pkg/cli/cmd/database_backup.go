@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseBackupCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseBackupCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Manage database backups",

@@ -11,9 +11,5 @@ var Version = "dev"
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	err := cmd.NewRoot(Version)
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	cmd.NewRoot(Version)
 }

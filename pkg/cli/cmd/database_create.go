@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <name> --primary-branch <branch_name>",
 		Args:  cobra.ExactArgs(1),

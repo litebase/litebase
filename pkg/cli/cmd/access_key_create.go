@@ -27,7 +27,7 @@ type AccessKeyInputStatement struct {
 	Actions  []string             `json:"actions"`
 }
 
-func NewAccessKeyCreateCmd(config *config.Configuration) *cobra.Command {
+func NewAccessKeyCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --description <description> --statements <statements>",
 		Short: "Create a new access key",

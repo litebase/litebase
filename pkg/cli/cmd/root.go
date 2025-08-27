@@ -18,17 +18,21 @@ var (
 	accessKeySecret string
 	noInteraction   bool
 	profile         string
+	token           string
 	url             string
 	username        string
 	password        string
 )
 
-func addCommands(cmd *cobra.Command, c *config.Configuration) {
+func addCommands(cmd *cobra.Command, c *config.CLIConfiguration) {
 	cmd.AddCommand(NewAccessKeyCmd(c))
+	cmd.AddCommand(NewConfigCmd(c))
+	cmd.AddCommand(NewDatabaseCmd(c))
 	cmd.AddCommand(NewDatabaseCmd(c))
 	cmd.AddCommand(NewProfileCmd(c))
 	cmd.AddCommand(NewStartCmd())
 	cmd.AddCommand(NewStatusCmd(c))
+	cmd.AddCommand(NewStopCmd())
 	cmd.AddCommand(NewTokenCmd(c))
 	cmd.AddCommand(NewUserCmd(c))
 }
@@ -87,6 +91,7 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", configPath, "Path to a configuration file")
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "The profile to use during this session")
 	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
+	cmd.PersistentFlags().StringVar(&token, "token", "", "Cluster token")
 	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
 	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
 
@@ -105,22 +110,22 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 	return cmd, nil
 }
 
-func NewRoot(version string) error {
-	cmd, err := RootCmd("")
+func NewRoot(version string) {
+	cmd, _ := RootCmd("")
 
-	if err != nil {
-		return err
-	}
-
-	return fang.Execute(
+	err := fang.Execute(
 		context.Background(),
 		cmd,
 		fang.WithColorSchemeFunc(cli.ColorScheme),
 		fang.WithVersion(version),
 	)
+
+	if err != nil {
+		return
+	}
 }
 
-func preRun(c *config.Configuration) func(cmd *cobra.Command, args []string) error {
+func preRun(c *config.CLIConfiguration) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		cmd.SetErrPrefix("[Litebase]")
 

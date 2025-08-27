@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewTokenCmd(c *config.Configuration) *cobra.Command {
+func NewTokenCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "token",
 		Short: "Manage tokens",

@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileDeleteCmd(c *config.Configuration) *cobra.Command {
+func NewProfileDeleteCmd(c *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <name>",
 		Short: "Delete a profile",

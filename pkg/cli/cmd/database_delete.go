@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseDeleteCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseDeleteCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <name>",
 		Args:  cobra.ExactArgs(1),

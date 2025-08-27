@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseRestoreCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseRestoreCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "restore <id>",
 		Args:  cobra.ExactArgs(1),

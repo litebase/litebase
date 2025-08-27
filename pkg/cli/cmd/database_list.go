@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseListCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseListCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List databases",

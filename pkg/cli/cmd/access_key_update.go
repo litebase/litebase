@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewAccessKeyUpdateCmd(config *config.Configuration) *cobra.Command {
+func NewAccessKeyUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id> --description <description> --statements <statements>",
 		Short: "Update an existing access key",

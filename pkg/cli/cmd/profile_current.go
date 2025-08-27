@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileCurrentCmd(c *config.Configuration) *cobra.Command {
+func NewProfileCurrentCmd(c *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "current",
 		Short: "Get the current profile",

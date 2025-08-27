@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseBackupListCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseBackupListCmd(config *config.CLIConfiguration) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "list <name>",
 		Short: "List database backups",

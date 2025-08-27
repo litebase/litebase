@@ -17,14 +17,14 @@ import (
 
 type Client struct {
 	BaseURL        *url.URL
-	Config         *config.Configuration
+	Config         *config.CLIConfiguration
 	defaultHeaders map[string]string
 	httpClient     *http.Client
 }
 
 type Errors map[string][]string
 
-func NewClient(configuration *config.Configuration) (*Client, error) {
+func NewClient(configuration *config.CLIConfiguration) (*Client, error) {
 	c := &Client{
 		Config: configuration,
 		defaultHeaders: map[string]string{

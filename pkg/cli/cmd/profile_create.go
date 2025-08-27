@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileCreateCmd(c *config.Configuration) *cobra.Command {
+func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new profile",

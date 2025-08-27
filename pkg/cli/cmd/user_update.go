@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewUserUpdateCmd(config *config.Configuration) *cobra.Command {
+func NewUserUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <username>",
 		Short: "Update a user",

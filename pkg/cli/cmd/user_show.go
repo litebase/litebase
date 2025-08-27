@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func userShow(cmd *cobra.Command, config *config.Configuration, AccessKeyID string) error {
+func userShow(cmd *cobra.Command, config *config.CLIConfiguration, AccessKeyID string) error {
 	res, err := api.Get(config, fmt.Sprintf("/v1/users/%s", AccessKeyID))
 
 	if err != nil {
@@ -79,7 +79,7 @@ func userShow(cmd *cobra.Command, config *config.Configuration, AccessKeyID stri
 	return err
 }
 
-func NewUserShowCmd(config *config.Configuration) *cobra.Command {
+func NewUserShowCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <username>",
 		Short: "Show user details",
