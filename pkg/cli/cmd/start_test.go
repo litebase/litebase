@@ -285,7 +285,13 @@ func TestStartCmdWithLocalConfigurationFile(t *testing.T) {
 
 		tmpDirectory := t.TempDir()
 
-		file, err := os.Create(tmpDirectory + "/config.yml")
+		// Create .litebase directory in the temp directory
+		litebaseDir := tmpDirectory + "/.litebase"
+		if err := os.MkdirAll(litebaseDir, 0755); err != nil {
+			t.Fatalf("failed to create .litebase directory: %v", err)
+		}
+
+		file, err := os.Create(litebaseDir + "/config.yml")
 
 		if err != nil {
 			t.Fatalf("failed to create config file: %v", err)
@@ -308,7 +314,7 @@ func TestStartCmdWithLocalConfigurationFile(t *testing.T) {
 			t.Fatalf("failed to close config file: %v", err)
 		}
 
-		err = cli.WithArgs("start").
+		err = cli.WithArgs("start", "--config", litebaseDir+"/config.yml").
 			RunInBackground(func(handle *test.ProcessHandle) {
 				if !handle.IsRunning() {
 					t.Fatal("expected server to be running")
@@ -340,7 +346,6 @@ func TestStartCmdWithLocalConfigurationFile(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to cancel: %v", err)
 				}
-				t.Log(handle.GetOutput())
 			})
 
 		if err != nil {
@@ -355,11 +360,13 @@ func TestStartCmdWithLocalConfigurationFileAndFlags(t *testing.T) {
 
 		tmpDirectory := t.TempDir()
 
-		if err := os.MkdirAll(tmpDirectory+"/.litebase", 0755); err != nil {
-			t.Fatalf("failed to create config directory: %v", err)
+		// Create .litebase directory in the temp directory
+		litebaseDir := tmpDirectory + "/.litebase"
+		if err := os.MkdirAll(litebaseDir, 0755); err != nil {
+			t.Fatalf("failed to create .litebase directory: %v", err)
 		}
 
-		file, err := os.Create(tmpDirectory + "/.litebase/config.yml")
+		file, err := os.Create(litebaseDir + "/config.yml")
 
 		if err != nil {
 			t.Fatalf("failed to create config file: %v", err)
@@ -381,7 +388,7 @@ func TestStartCmdWithLocalConfigurationFileAndFlags(t *testing.T) {
 			t.Fatalf("failed to close config file: %v", err)
 		}
 
-		err = cli.WithArgs("start", "--debug").
+		err = cli.WithArgs("start", "--config", litebaseDir+"/config.yml", "--debug").
 			RunInBackground(func(handle *test.ProcessHandle) {
 				if !handle.IsRunning() {
 					t.Fatal("expected server to be running")
@@ -413,7 +420,6 @@ func TestStartCmdWithLocalConfigurationFileAndFlags(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to cancel: %v", err)
 				}
-				t.Log(handle.GetOutput())
 			})
 
 		if err != nil {
