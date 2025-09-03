@@ -18,12 +18,10 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.0
 	github.com/spf13/afero v1.14.0
+	go.yaml.in/yaml/v4 v4.0.0-rc.1
 )
 
-require (
-	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
-	go.yaml.in/yaml/v4 v4.0.0-rc.1 // indirect
-)
+require github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
