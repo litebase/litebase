@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "log.h"
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
 
 #define LOG_ENABLED 1
 
@@ -18,8 +22,6 @@ void vfs_log(const char *format, ...)
 	time_t now = time(NULL);
 	struct tm *local_time = localtime(&now);
 
-	// Determine the log level name
-	const char *level_name;
 	// Print the log message
 	printf("[%02d:%02d:%02d] [VFS LOG] ", local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
 
@@ -39,13 +41,18 @@ int vfs_log_start()
 		return 0;
 	}
 
-	// Get the current time
-	int starttime;
+#ifdef _WIN32
+	// Windows implementation using QueryPerformanceCounter
+	LARGE_INTEGER frequency, counter;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&counter);
+	return (int)(counter.QuadPart * 1000000000LL / frequency.QuadPart);
+#else
+	// Unix/Linux implementation using clock_gettime
 	struct timespec start;
-
 	clock_gettime(CLOCK_MONOTONIC, &start);
-
 	return start.tv_sec * 1000000000L + start.tv_nsec;
+#endif
 }
 
 void vfs_log_end(int starttime, const char *description, ...)
@@ -57,12 +64,18 @@ void vfs_log_end(int starttime, const char *description, ...)
 
 	int endtime;
 
-	// Get the current time
+#ifdef _WIN32
+	// Windows implementation using QueryPerformanceCounter
+	LARGE_INTEGER frequency, counter;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&counter);
+	endtime = (int)(counter.QuadPart * 1000000000LL / frequency.QuadPart);
+#else
+	// Unix/Linux implementation using clock_gettime
 	struct timespec end;
-
 	clock_gettime(CLOCK_MONOTONIC, &end);
-
 	endtime = end.tv_sec * 1000000000L + end.tv_nsec;
+#endif
 
 	// Print the log message
 	printf("[%s] - took %d nanoseconds\n", description, endtime - starttime);
