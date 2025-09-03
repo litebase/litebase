@@ -14,7 +14,7 @@ func SafeIntToInt32(i int) (int32, error) {
 }
 
 func SafeIntToUint32(i int) (uint32, error) {
-	if i < 0 || i > math.MaxUint32 {
+	if i < 0 || uint64(i) > math.MaxUint32 {
 		return 0, errors.New("integer overflow: value out of uint32 range")
 	}
 
