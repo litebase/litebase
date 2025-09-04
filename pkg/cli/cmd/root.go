@@ -86,7 +86,7 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 	}
 
 	// Create configuration with the default path first
-	c, err := config.NewConfiguration(configPath, true)
+	c, err := config.NewConfiguration(configPath, false)
 
 	if err != nil {
 		return nil, err

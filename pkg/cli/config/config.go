@@ -48,8 +48,10 @@ var ErrorProfileNotFound = errors.New("profile not found, provide a valid profil
 // Create a new configuration instance. If the path is not provided, it defaults
 // to ~/.litebase/config.yml which is a global configuration file.
 func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
-	var configPath string
-	var configuration *CLIConfiguration
+	configuration := &CLIConfiguration{
+		APIVersion:  CLIConfigurationVersion,
+		interactive: true,
+	}
 
 	if path == "" {
 		homeDir, err := os.UserHomeDir()
@@ -58,12 +60,12 @@ func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
 			return nil, err
 		}
 
-		configPath = filepath.Join(homeDir, ".litebase", "config.yml")
+		configuration.path = filepath.Join(homeDir, ".litebase", "config.yml")
 	} else {
-		configPath = path
+		configuration.path = path
 
 		if !create {
-			if _, err := os.Stat(configPath); err != nil {
+			if _, err := os.Stat(configuration.path); err != nil {
 				if os.IsNotExist(err) {
 					return nil, errors.New("the specified config file does not exist")
 				}
@@ -73,37 +75,19 @@ func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
 		}
 	}
 
-	err := os.MkdirAll(filepath.Dir(configPath), 0750)
+	err := os.MkdirAll(filepath.Dir(configuration.path), 0750)
 
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = os.Stat(configPath)
+	_, err = os.Stat(configuration.path)
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			c := &CLIConfiguration{
-				APIVersion:  CLIConfigurationVersion,
-				path:        configPath,
-				interactive: true,
-			}
-
-			return c, c.Save()
+		if os.IsNotExist(err) && create {
+			return configuration, configuration.Save()
 		}
 	}
-
-	file, err := os.ReadFile(filepath.Clean(configPath))
-
-	if err != nil {
-		panic(err)
-	}
-
-	if err := yaml.Unmarshal(file, &configuration); err != nil {
-		return nil, err
-	}
-
-	configuration.path = configPath
 
 	return configuration, nil
 }
