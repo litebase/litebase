@@ -1,0 +1,223 @@
+name: sign
+
+on:
+  workflow_call:
+    inputs:
+      project_name:
+        description: 'Name of the project'
+        required: true
+        type: string
+    secrets:
+      APPLE_CERTIFICATES:
+        description: 'Apple certificates for code signing'
+        required: false
+      APPLE_CERTIFICATES_PASSWORD:
+        description: 'Password for Apple certificates'
+        required: false
+      APPLE_ID_USERNAME:
+        description: 'Apple ID username for notarization'
+        required: false
+      APPLE_ID_APP_SPECIFIC_PASSWORD:
+        description: 'Apple ID app-specific password for notarization'
+        required: false
+      APPLE_TEAM_ID:
+        description: 'Apple Team ID for notarization'
+        required: false
+      AZURE_CERTIFICATE_PROFILE_NAME:
+        description: 'Azure Trusted Signing certificate profile name'
+        required: false
+      AZURE_CLIENT_ID:
+        description: 'Azure client ID for Trusted Signing'
+        required: false
+      AZURE_CLIENT_SECRET:
+        description: 'Azure client secret for Trusted Signing'
+        required: false
+      AZURE_TENANT_ID:
+        description: 'Azure tenant ID for Trusted Signing'
+        required: false
+      AZURE_TRUSTED_SIGNING_ACCOUNT_NAME:
+        description: 'Azure Trusted Signing account name'
+        required: false
+      AZURE_TRUSTED_SIGNING_ENDPOINT:
+        description: 'Azure Trusted Signing endpoint URL'
+        required: false
+      GPG_PRIVATE_KEY:
+        description: 'GPG private key for Linux signing'
+        required: false
+      GPG_PASSPHRASE:
+        description: 'GPG passphrase for Linux signing'
+        required: false
+
+jobs:
+  sign:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+            - goos: linux
+              goarch: amd64
+              runner: ubuntu-latest
+            - goos: linux
+              goarch: arm64
+              runner: ubuntu-latest
+            - goos: darwin
+              goarch: amd64
+              runner: macos-latest
+            - goos: darwin
+              goarch: arm64
+              runner: macos-latest
+            - goos: windows
+              goarch: amd64
+              runner: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set archive name
+        shell: bash
+        run: |
+          # Get version from tag
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            VERSION=${VERSION#v}
+          else
+            VERSION="dev"
+          fi
+
+          # Create archive name
+          ARCH="${{ matrix.goarch }}"
+          if [ "$ARCH" = "amd64" ]; then
+            ARCH="x86_64"
+          fi
+
+          ARCHIVE_NAME="${{ inputs.project_name }}-${VERSION}-${{ matrix.goos }}-${ARCH}"
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARCHIVE_NAME }}
+          path: artifacts
+
+      - name: Extract binary for signing
+        shell: bash
+        run: |
+          cd artifacts
+
+          # List files for debugging
+          echo "Files in artifacts directory:"
+          ls -la
+
+          # Find and extract the tar.gz file (all platforms use tar.gz now)
+          TAR_FILE=$(find . -name "*.tar.gz" -type f | head -1)
+          if [ -n "$TAR_FILE" ]; then
+            echo "Extracting: $TAR_FILE"
+            tar -xzf "$TAR_FILE"
+          else
+            echo "Error: No tar.gz file found"
+            exit 1
+          fi
+
+          BINARY_NAME="${{ inputs.project_name }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+            BINARY_PATH=$(pwsh -Command "[System.IO.Path]::GetFullPath('.')")
+          else
+            BINARY_PATH="$(pwd)"
+          fi
+
+          echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+          echo "BINARY_PATH=$BINARY_PATH" >> $GITHUB_ENV
+
+          # Verify binary exists
+          if [ ! -f "$BINARY_NAME" ]; then
+            echo "Error: Binary $BINARY_NAME not found after extraction"
+            echo "Contents of directory:"
+            ls -la
+            exit 1
+          fi
+
+          echo "Binary found: $BINARY_NAME"
+
+      - name: Sign macOS binary
+        if: matrix.goos == 'darwin'
+        uses: ./.github/actions/sign-macos
+        with:
+          archive_name: ${{ env.ARCHIVE_NAME }}
+          binary_path: ${{ env.BINARY_PATH }}
+          binary_name: ${{ env.BINARY_NAME }}
+          apple_certificates: ${{ secrets.APPLE_CERTIFICATES }}
+          apple_certificates_password: ${{ secrets.APPLE_CERTIFICATES_PASSWORD }}
+          apple_id_username: ${{ secrets.APPLE_ID_USERNAME }}
+          apple_id_app_specific_password: ${{ secrets.APPLE_ID_APP_SPECIFIC_PASSWORD }}
+          apple_team_id: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Sign Windows binary
+        if: matrix.goos == 'windows'
+        uses: ./.github/actions/sign-windows
+        with:
+          binary_path: ${{ env.BINARY_PATH }}
+          binary_name: ${{ env.BINARY_NAME }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          trusted_signing_account_name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          certificate_profile_name: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+          endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+
+      - name: Sign Linux binary
+        if: matrix.goos == 'linux'
+        uses: ./.github/actions/sign-linux
+        with:
+          binary_path: ${{ env.BINARY_PATH }}
+          binary_name: ${{ env.BINARY_NAME }}
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Create signed archive
+        shell: bash
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            # Use PowerShell for Windows to handle paths correctly
+            cd artifacts
+            
+            SIGNED_ARCHIVE_NAME="${{ env.ARCHIVE_NAME }}"
+
+            # Create signed archive using tar.gz for all platforms
+            # Include signature and checksum files if they exist
+            if ls *.asc *.sha256 *.sha512 1> /dev/null 2>&1; then
+              tar -czf "${SIGNED_ARCHIVE_NAME}.tar.gz" ${{ env.BINARY_NAME }} *.asc *.sha256 *.sha512
+            else
+              tar -czf "${SIGNED_ARCHIVE_NAME}.tar.gz" ${{ env.BINARY_NAME }}
+            fi
+            echo "SIGNED_ARCHIVE=${SIGNED_ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          else
+            cd ${{ env.BINARY_PATH }}
+
+            SIGNED_ARCHIVE_NAME="${{ env.ARCHIVE_NAME }}"
+
+            # Create signed archive using tar.gz for all platforms
+            # Include signature and checksum files if they exist
+            if ls *.asc *.sha256 *.sha512 1> /dev/null 2>&1; then
+              tar -czf "${SIGNED_ARCHIVE_NAME}.tar.gz" ${{ env.BINARY_NAME }} *.asc *.sha256 *.sha512
+            else
+              tar -czf "${SIGNED_ARCHIVE_NAME}.tar.gz" ${{ env.BINARY_NAME }}
+            fi
+            echo "SIGNED_ARCHIVE=${SIGNED_ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SIGNED_ARCHIVE }}
+          overwrite: true
+          path: |
+            ${{ matrix.goos == 'windows' && 'artifacts' || env.BINARY_PATH }}/${{ env.SIGNED_ARCHIVE }}
+
+      # - name: Attest signed artifact provenance
+      #   uses: actions/attest-build-provenance@v2
+      #   with:
+      #     subject-path: ${{ matrix.goos == 'windows' && 'artifacts' || env.BINARY_PATH }}/${{ env.SIGNED_ARCHIVE }}
