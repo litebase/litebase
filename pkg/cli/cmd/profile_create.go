@@ -28,6 +28,7 @@ func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 			profile.Credentials.Password, _ = cmd.Flags().GetString("profile-password")
 			profile.Credentials.AccessKeyID, _ = cmd.Flags().GetString("profile-access-key-id")
 			profile.Credentials.AccessKeySecret, _ = cmd.Flags().GetString("profile-access-key-secret")
+			profile.Credentials.Token, _ = cmd.Flags().GetString("profile-token")
 
 			if c.GetInteractive() {
 				form := components.NewForm(
@@ -42,7 +43,7 @@ func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 
 								for _, p := range profiles {
 									if p.Name == str {
-										return errors.New("profile with this name already exists")
+										return errors.New("a profile with this name already exists")
 									}
 								}
 
@@ -160,12 +161,12 @@ func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 
 				for _, p := range profiles {
 					if p.Name == profile.Name {
-						return errors.New("profile with this name already exists")
+						return errors.New("a profile with this name already exists")
 					}
 				}
 
-				if profile.Type != string(config.ProfileTypeAccessKey) && profile.Type != string(config.ProfileTypeBasicAuth) {
-					return fmt.Errorf("invalid profile type, must be either '%s' or '%s', got '%s'", config.ProfileTypeAccessKey, config.ProfileTypeBasicAuth, profile.Type)
+				if profile.Type != string(config.ProfileTypeAccessKey) && profile.Type != string(config.ProfileTypeBasicAuth) && profile.Type != string(config.ProfileTypeToken) {
+					return fmt.Errorf("invalid profile type, must be either '%s', '%s' or '%s', got '%s'", config.ProfileTypeAccessKey, config.ProfileTypeBasicAuth, config.ProfileTypeToken, profile.Type)
 				}
 
 				if profile.Type == string(config.ProfileTypeBasicAuth) {
@@ -176,8 +177,10 @@ func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 					if profile.Credentials.AccessKeyID == "" || profile.Credentials.AccessKeySecret == "" {
 						return errors.New("access key id and secret are required for Access Key type")
 					}
-				} else {
-					return errors.New("invalid profile type, must be either 'Access Key' or 'Basic Auth'")
+				} else if profile.Type == string(config.ProfileTypeToken) {
+					if profile.Credentials.Token == "" {
+						return errors.New("token is required for Token type")
+					}
 				}
 			}
 
@@ -206,6 +209,7 @@ func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd.Flags().String("profile-password", "", "Password for Basic Auth (required if type is Basic Auth)")
 	cmd.Flags().String("profile-access-key-id", "", "Access Key ID (required if type is Access Key)")
 	cmd.Flags().String("profile-access-key-secret", "", "Access Key Secret (required if type is Access Key)")
+	cmd.Flags().String("profile-token", "", "Token value (required if type is Token)")
 
 	return cmd
 }
