@@ -131,9 +131,8 @@ func (c *CLIConfiguration) DeleteProfile(name string) error {
 	for _, profile := range c.Profiles {
 		if profile.Name != name {
 			profiles = append(profiles, profile)
+		} else {
 			profileFound = true
-
-			break
 		}
 	}
 
