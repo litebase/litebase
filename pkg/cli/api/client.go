@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -205,7 +204,6 @@ func (c *Client) clusterURL() (*url.URL, error) {
 
 	if err != nil {
 		if err == config.ErrorProfileNotFound {
-			log.Println("No valid profile found")
 			return nil, config.ErrorCredentialsNotSet
 		}
 
@@ -220,7 +218,17 @@ func (c *Client) clusterURL() (*url.URL, error) {
 }
 
 func (c *Client) shouldUseAccessKey() bool {
-	return c.Config.GetAccessKeyId() != "" && c.Config.GetAccessKeySecret() != ""
+	if c.Config.GetAccessKeyId() != "" && c.Config.GetAccessKeySecret() != "" {
+		return true
+	}
+
+	profile, err := c.Config.GetCurrentProfile()
+
+	if err != nil {
+		return false
+	}
+
+	return profile.Type == string(config.ProfileTypeAccessKey)
 }
 
 func (c *Client) shouldUseBasicAuth() bool {
@@ -238,5 +246,15 @@ func (c *Client) shouldUseBasicAuth() bool {
 }
 
 func (c *Client) shouldUseToken() bool {
-	return c.Config.GetToken() != ""
+	if c.Config.GetToken() != "" {
+		return true
+	}
+
+	profile, err := c.Config.GetCurrentProfile()
+
+	if err != nil {
+		return false
+	}
+
+	return profile.Type == string(config.ProfileTypeToken)
 }
