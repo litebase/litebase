@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"log/slog"
-
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
@@ -27,15 +24,6 @@ func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 			res, _, err := api.Post(config, "/v1/databases", data)
 
 			if err != nil {
-				_, fprintErr := fmt.Fprint(
-					cmd.OutOrStdout(),
-					components.Container(components.ErrorAlert(err.Error())),
-				)
-
-				if fprintErr != nil {
-					slog.Error("Error printing error message", "error", fprintErr)
-				}
-
 				return err
 			}
 
