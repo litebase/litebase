@@ -93,11 +93,10 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				// Signal that file has been written
+				// Signal that file has been written and crash immediately
+				// Following the pattern from other tests that work reliably
 				s.Step("FILE_WRITTEN")
-
-				// Crash the primary node to simulate an unclean shutdown
-				os.Exit(1)
+				os.Exit(1) // Simulate a crash
 			})
 		}).ShouldExitWith(1)
 
