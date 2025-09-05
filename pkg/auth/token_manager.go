@@ -123,7 +123,7 @@ func (tm *TokenManager) GenerateTokenID() (string, error) {
 		maxRounds = 100
 	)
 
-	prefix := "lbdbtk_"
+	prefix := "lbtk_"
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	var tokenID string
 

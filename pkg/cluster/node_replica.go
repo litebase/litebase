@@ -81,7 +81,7 @@ func (nr *NodeReplica) JoinCluster() error {
 		return err
 	}
 
-	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
+	request.Header.Set("X-Litebase-Node", string(encryptedHeader))
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := httpClient.Do(request)
@@ -142,8 +142,8 @@ func (nr *NodeReplica) LeaveCluster() error {
 	}
 
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
+	request.Header.Set("X-Litebase-Node", string(encryptedHeader))
+	request.Header.Set("X-Litebase-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 
 	resp, err := httpClient.Do(request)
 
@@ -200,8 +200,8 @@ func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage,
 		return messages.NodeMessage{}, err
 	}
 
-	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
+	request.Header.Set("X-Litebase-Node", string(encryptedHeader))
+	request.Header.Set("X-Litebase-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 	request.Header.Set("Content-Type", "application/gob")
 
 	response, err := client.Do(request)

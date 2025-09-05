@@ -69,7 +69,7 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 			host = fmt.Sprintf("%s:%s", c.BaseURL.Hostname(), c.BaseURL.Port())
 		}
 
-		c.defaultHeaders["X-LBDB-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
+		c.defaultHeaders["X-Litebase-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
 		c.defaultHeaders["Host"] = host
 		c.defaultHeaders["Authorization"] = fmt.Sprintf("Litebase-HMAC-SHA256 %s", c.accessKeyHeader(
 			method,

@@ -111,7 +111,7 @@ func RequestSignatureValidator(
 	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
 	dateHash := hmac.New(sha256.New, []byte(secret))
-	dateHash.Write([]byte(headers["x-lbdb-date"]))
+	dateHash.Write([]byte(headers["x-litebase-date"]))
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))

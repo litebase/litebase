@@ -6,8 +6,8 @@ import (
 )
 
 func Internal(request *Request) (*Request, Response) {
-	nodeHeader := request.Headers().Get("X-Lbdb-Node")
-	nodeTimestamp := request.Headers().Get("X-Lbdb-Node-Timestamp")
+	nodeHeader := request.Headers().Get("X-Litebase-Node")
+	nodeTimestamp := request.Headers().Get("X-Litebase-Node-Timestamp")
 
 	var nodeAddress string
 

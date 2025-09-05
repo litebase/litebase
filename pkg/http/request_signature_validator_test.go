@@ -229,7 +229,7 @@ func TestRequestSignatureValidator(t *testing.T) {
 				"fake-secret",
 				"GET",
 				"/api/test",
-				map[string]string{"X-LBDB-Date": "20240101T000000Z"},
+				map[string]string{"X-Litebase-Date": "20240101T000000Z"},
 				[]byte{},
 				map[string]string{},
 			)
@@ -240,8 +240,8 @@ func TestRequestSignatureValidator(t *testing.T) {
 					Path: "/api/test",
 				},
 				Header: map[string][]string{
-					"Authorization": {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
-					"X-LBDB-Date":   {"20240101T000000Z"},
+					"Authorization":   {fmt.Sprintf("Litebase-HMAC-SHA256 %s", token)},
+					"X-Litebase-Date": {"20240101T000000Z"},
 				},
 			}
 
