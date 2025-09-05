@@ -66,24 +66,16 @@ func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
 	}
 
 	if !create {
-		if _, err := os.Stat(configuration.path); err != nil {
-			if os.IsNotExist(err) {
-				return nil, errors.New("the specified config file does not exist")
-			}
-
-			return nil, err
-		}
-
 		yamlData, err := os.ReadFile(configuration.path)
 
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			return nil, err
-		}
+		} else if err == nil {
+			err = yaml.Unmarshal(yamlData, configuration)
 
-		err = yaml.Unmarshal(yamlData, configuration)
-
-		if err != nil {
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

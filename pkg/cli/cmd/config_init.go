@@ -61,7 +61,6 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 				return fmt.Errorf("failed to create config directory: %w", err)
 			}
 
-			log.Printf("Initializing configuration at %s\n", path)
 			// Check if config already exists - init should only happen once
 			if _, err := os.Stat(path); err == nil {
 				return fmt.Errorf("configuration file already exists at %s. Configuration can only be initialized once", path)

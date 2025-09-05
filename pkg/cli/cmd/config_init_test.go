@@ -148,6 +148,7 @@ func TestConfigInitWithDefaultPath(t *testing.T) {
 
 		// Set the HOME environment variable to our temp directory
 		originalHome := os.Getenv("HOME")
+
 		if err := os.Setenv("HOME", tempHomeDir); err != nil {
 			t.Fatalf("failed to set HOME environment variable: %v", err)
 		}
