@@ -63,15 +63,27 @@ func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
 		configuration.path = filepath.Join(homeDir, ".litebase", "config.yml")
 	} else {
 		configuration.path = path
+	}
 
-		if !create {
-			if _, err := os.Stat(configuration.path); err != nil {
-				if os.IsNotExist(err) {
-					return nil, errors.New("the specified config file does not exist")
-				}
-
-				return nil, err
+	if !create {
+		if _, err := os.Stat(configuration.path); err != nil {
+			if os.IsNotExist(err) {
+				return nil, errors.New("the specified config file does not exist")
 			}
+
+			return nil, err
+		}
+
+		yamlData, err := os.ReadFile(configuration.path)
+
+		if err != nil {
+			return nil, err
+		}
+
+		err = yaml.Unmarshal(yamlData, configuration)
+
+		if err != nil {
+			return nil, err
 		}
 	}
 
