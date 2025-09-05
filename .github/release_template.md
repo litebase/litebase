@@ -1,6 +1,6 @@
 ## Installation
 
-To install the latest version of Litebase, run the following command or select a binary below for manual installation.
+To install the latest version of Litebase, run the following command or download one of the binaries below for manual installation.
 
 ```shell
 curl -sSL https://litebase.com/install.sh | bash
@@ -11,7 +11,7 @@ curl -sSL https://litebase.com/install.sh | bash
 After downloading the appropriate binary for your platform and system architecture, follow these instructions:
 
 <details>
-<summary>Linux</summary>
+<summary>**Linux**</summary>
 
 Extract the archive and install the binary:
 
@@ -31,9 +31,9 @@ For ARM64 systems, use `litebase-$VERSION-linux-arm64.tar.gz` instead.
 </details>
 
 <details>
-<summary>macOS</summary>
+<summary>**macOS**</summary>
 
-##### Option 1: Using the .pkg installer (Recommended)
+#### Option 1: Using the .pkg installer (Recommended)
 
 ```bash
 # Download and install the .pkg file (signed and notarized)
@@ -42,6 +42,8 @@ sudo installer -pkg litebase-$VERSION-darwin-x86_64.pkg -target /
 # Verify installation
 litebase --version
 ```
+
+For ARM64 systems, use `litebase-$VERSION-darwin-arm64.pkg` instead.
 
 ##### Option 2: Manual installation from archive
 
@@ -55,10 +57,12 @@ sudo mv litebase /usr/local/bin/
 # Verify installation
 litebase --version
 ```
+
+For ARM64 systems, use `litebase-$VERSION-darwin-arm64.tar.gz` instead.
 </details>
 
 <details>
-<summary>Windows</summary>
+<summary>**Windows**</summary>
 
 Extract the archive and install the binary:
 
@@ -87,4 +91,3 @@ All binaries are **code signed for authenticity and integrity verification**, an
 - **All platforms**: Include SLSA build provenance attestation
 
 Code signing ensures you're downloading genuine, unmodified binaries from the official maintainer.
-
