@@ -8,8 +8,8 @@ import (
 func NewProfileCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "profile",
-		Short: "Manage your profiles",
-		Long:  `Manage your profiles`,
+		Short: "Manage Litebase CLI profiles",
+		Long:  `Manage Litebase CLI profiles`,
 		Args:  cobra.MinimumNArgs(1),
 	}
 
