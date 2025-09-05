@@ -496,6 +496,5 @@ func (cluster *Cluster) Unlock(key string) bool {
 
 // Return the path to the cluster configuration file.
 func ConfigPath(c *config.Config) string {
-	// return fmt.Sprintf("%s/_cluster/config.json", c.DataPath)
 	return "_cluster/config.json"
 }
