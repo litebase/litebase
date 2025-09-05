@@ -65,14 +65,15 @@ func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 							Options(
 								huh.NewOption(string(config.ProfileTypeAccessKey), string(config.ProfileTypeAccessKey)),
 								huh.NewOption(string(config.ProfileTypeBasicAuth), string(config.ProfileTypeBasicAuth)),
+								huh.NewOption(string(config.ProfileTypeToken), string(config.ProfileTypeToken)),
 							).
 							Validate(func(str string) error {
 								if str == "" {
 									return errors.New("type cannot be empty")
 								}
 
-								if str != string(config.ProfileTypeAccessKey) && str != string(config.ProfileTypeBasicAuth) {
-									return errors.New("invalid type, must be either 'Access Key' or 'Basic Auth'")
+								if str != string(config.ProfileTypeAccessKey) && str != string(config.ProfileTypeBasicAuth) && str != string(config.ProfileTypeToken) {
+									return errors.New("invalid type, must be either 'Access Key' or 'Basic Auth' or 'Token'")
 								}
 
 								return nil
@@ -129,6 +130,21 @@ func NewProfileCreateCmd(c *config.CLIConfiguration) *cobra.Command {
 							Value(&profile.Credentials.AccessKeySecret),
 					).WithHideFunc(func() bool {
 						return profile.Type != string(config.ProfileTypeAccessKey)
+					}),
+					huh.NewGroup(
+						huh.NewInput().
+							Title("Token").
+							Placeholder("Enter a token value").
+							Validate(func(str string) error {
+								if profile.Type == string(config.ProfileTypeToken) && str == "" {
+									return errors.New("token value cannot be empty for Token")
+								}
+
+								return nil
+							}).
+							Value(&profile.Credentials.Token),
+					).WithHideFunc(func() bool {
+						return profile.Type != string(config.ProfileTypeToken)
 					}),
 				)
 
