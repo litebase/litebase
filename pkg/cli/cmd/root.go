@@ -50,7 +50,7 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			title := lipgloss.NewStyle().Bold(true).
 				Margin(0, 0, 1).
-				Render("Litebase CLI - v0.0.1")
+				Render(fmt.Sprintf("Litebase CLI - %s", cmd.Version))
 
 			listSlice := []map[string]string{
 				{
