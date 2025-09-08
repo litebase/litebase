@@ -15,7 +15,7 @@ import (
 
 func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "query <name> <query> [--output <format>] [--parameters <parameters>] [--parameter-sets <parameter-sets>] [--transaction-id <id>]",
+		Use:   "query <name> <statement>",
 		Short: "Execute a query on a database",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
