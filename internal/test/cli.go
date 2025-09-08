@@ -65,6 +65,7 @@ func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 	command.SetOut(c.outputBuffer)
 
 	c.Cmd = command
+	c.Cmd.Version = "test"
 
 	return c
 }
