@@ -1,0 +1,173 @@
+name: 'Sign macOS Binary'
+description: 'Sign and notarize macOS binary'
+inputs:
+  archive_name:
+    description: 'Name of the archive to create'
+    required: true
+  binary_path:
+    description: 'Path to the binary to sign'
+    required: true
+  binary_name:
+    description: 'Name of the binary file'
+    required: true
+  apple_certificates:
+    description: 'Base64 encoded Apple certificates'
+    required: true
+  apple_certificates_password:
+    description: 'Password for Apple certificates'
+    required: true
+  apple_id_username:
+    description: 'Apple ID username for notarization'
+    required: true
+  apple_id_app_specific_password:
+    description: 'Apple ID app-specific password for notarization'
+    required: true
+  apple_team_id:
+    description: 'Apple Team ID for code signing'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Import Certificates into Keychain
+      uses: apple-actions/import-codesign-certs@v3
+      with:
+        p12-file-base64: ${{ inputs.apple_certificates }}
+        p12-password: ${{ inputs.apple_certificates_password }}
+
+    - name: Sign the binary
+      shell: bash
+      run: |
+        echo "Signing binary at: ${{ inputs.binary_path }}/${{ inputs.binary_name }}"
+
+        # Find the Developer ID Application Certificate
+        CERT_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -n 's/.*"\(.*\)".*/\1/p')
+
+        if [ -z "$CERT_IDENTITY" ]; then
+          echo "Error: No Developer ID Application certificate found"
+          exit 1
+        fi
+
+        echo "Using certificate: $CERT_IDENTITY"
+
+        # Sign the binary with hardened runtime
+        echo "Starting codesign process..."
+        codesign --force --sign "$CERT_IDENTITY" \
+          --options runtime \
+          --timestamp \
+          --verbose \
+          "${{ inputs.binary_path }}/${{ inputs.binary_name }}"
+
+    - name: Bundle a .pkg
+      shell: bash
+      run: |
+        echo "Bundling .pkg at: ${{ inputs.binary_path }}/${{ inputs.archive_name }}"
+        echo "Identifier: com.litebase.cli"
+
+        # Create a temporary directory with only the signed binary
+        PKG_ROOT=$(mktemp -d)
+        install -m 755 "${{ inputs.binary_path }}/${{ inputs.binary_name }}" "$PKG_ROOT/${{ inputs.binary_name }}"
+
+        pkgbuild \
+          --root "$PKG_ROOT" \
+          --identifier "com.litebase.cli" \
+          --install-location "/usr/local/bin" \
+          "${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg"
+
+        # Clean up
+        rm -rf "$PKG_ROOT"
+
+    - name: Sign the .pkg file
+      shell: bash
+      run: |
+        echo "Signing .pkg file at: ${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg"
+
+        # Find the Developer ID Installer certificate using -p basic
+        CERT_IDENTITY=$(security find-identity -v -p basic | grep "Developer ID Installer" | head -1 | sed -n 's/.*\([A-F0-9]\{40\}\).*/\1/p')
+
+        if [ -z "$CERT_IDENTITY" ]; then
+          echo "Error: No Developer ID Installer certificate found"
+          exit 1
+        fi
+
+        # Sign the .pkg file using productsign
+        productsign --sign "$CERT_IDENTITY" \
+          "${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg" \
+          "${{ inputs.binary_path }}/${{ inputs.archive_name }}-signed.pkg"
+
+        # Replace the original .pkg file with the signed one
+        mv "${{ inputs.binary_path }}/${{ inputs.archive_name }}-signed.pkg" \
+          "${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg"
+
+        echo "Signing completed."
+
+        # Verify the signature using pkgutil
+        echo "Verifying .pkg signature..."
+        pkgutil --check-signature "${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg"
+
+    - name: Notarize .pkg file
+      shell: bash
+      run: |
+        # Submit for notarization using notarytool
+        echo "Submitting .pkg file for notarization..."
+        NOTARIZATION_OUTPUT=$(xcrun notarytool submit \
+          "${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg" \
+          --apple-id "${{ inputs.apple_id_username }}" \
+          --password "${{ inputs.apple_id_app_specific_password }}" \
+          --team-id "${{ inputs.apple_team_id }}" \
+          --wait \
+          --output-format json)
+
+        echo "Notarization output: $NOTARIZATION_OUTPUT"
+        NOTARIZATION_UUID=$(echo "$NOTARIZATION_OUTPUT" | jq -r '.id')
+
+        if [ -z "$NOTARIZATION_UUID" ]; then
+          echo "Error: Failed to retrieve Notarization UUID"
+          exit 1
+        fi
+
+        echo "Notarization UUID: $NOTARIZATION_UUID"
+
+        # Check notarization status
+        echo "Checking notarization status..."
+        xcrun notarytool info "$NOTARIZATION_UUID" \
+          --apple-id "${{ inputs.apple_id_username }}" \
+          --password "${{ inputs.apple_id_app_specific_password }}" \
+          --team-id "${{ inputs.apple_team_id }}"
+
+        # Download and print the notarization log
+        echo "Downloading notarization log..."
+        xcrun notarytool log "$NOTARIZATION_UUID" \
+          --apple-id "${{ inputs.apple_id_username }}" \
+          --password "${{ inputs.apple_id_app_specific_password }}" \
+          --team-id "${{ inputs.apple_team_id }}" > notarization-log.json
+
+        echo "Notarization log contents:"
+        cat notarization-log.json
+
+        # If the status is invalid, exit with error
+        NOTARIZATION_STATUS=$(echo "$NOTARIZATION_OUTPUT" | jq -r '.status')
+
+        if [ "$NOTARIZATION_STATUS" != "Accepted" ]; then
+          echo "Error: Notarization failed with status: $NOTARIZATION_STATUS"
+          exit 1
+        fi
+
+    - name: Staple notarization
+      shell: bash
+      run: |
+        # Staple the notarization ticket
+        echo "Stapling notarization ticket..."
+        STAPLE_OUTPUT=$(xcrun stapler staple "${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg")
+        echo "Staple output: $STAPLE_OUTPUT"
+
+        # Verify stapling
+        echo "Validating stapling..."
+        VALIDATE_OUTPUT=$(xcrun stapler validate "${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg")
+        echo "Validation output: $VALIDATE_OUTPUT"
+
+    - name: Upload notarized .pkg artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.archive_name }}.pkg
+        path: ${{ inputs.binary_path }}/${{ inputs.archive_name }}.pkg

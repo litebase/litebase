@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseBackupCreateCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseBackupCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "create <path>",
 		Short: "Create a new database backup",

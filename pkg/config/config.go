@@ -18,8 +18,6 @@ const (
 
 type Config struct {
 	ClusterId              string
-	DataPath               string
-	DatabaseDirectory      string
 	Debug                  bool
 	DefaultBranchName      string
 	EncryptionKey          string
@@ -28,25 +26,25 @@ type Config struct {
 	Env                    string
 	FakeObjectStorage      bool
 	FileSystemDriver       string
-	NetworkStoragePath     string
 	NodeAddressProvider    string
 	PageSize               int64
 	Port                   string
-	Region                 string
 	RootPassword           string
 	RootUsername           string
-	RouterNodePort         string
 	StorageAccessKeyId     string
 	StorageBucket          string
 	StorageEndpoint        string
+	StorageNetworkPath     string
 	StorageObjectMode      string
+	StoragePath            string
 	StorageSecretAccessKey string
 	StoragePort            string
 	StorageRegion          string
 	StorageTieredMode      string
-	TmpPath                string
+	StorageTmpPath         string
 }
 
+// Get an environment variable or return a default value if not set.
 func env(key string, defaultValue string) any {
 	if os.Getenv(key) != "" {
 		return os.Getenv(key)
@@ -55,10 +53,10 @@ func env(key string, defaultValue string) any {
 	return defaultValue
 }
 
+// Create a new Config instance with values from environment variables or defaults.
 func NewConfig() *Config {
 	return &Config{
 		ClusterId:              env("LITEBASE_CLUSTER_ID", "").(string),
-		DataPath:               env("LITEBASE_LOCAL_DATA_PATH", "./data").(string),
 		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
 		EncryptionKey:          env("LITEBASE_ENCRYPTION_KEY", "").(string),
@@ -69,19 +67,18 @@ func NewConfig() *Config {
 		NodeAddressProvider:    env("LITEBASE_NODE_ADDRESS_PROVIDER", "").(string),
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
-		Region:                 env("LITEBASE_REGION", "").(string),
-		NetworkStoragePath:     env("LITEBASE_NETWORK_STORAGE_PATH", "").(string),
-		RouterNodePort:         env("LITEBASE_ROUTER_NODE_PORT", "8080").(string),
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:           env("LITEBASE_ROOT_USERNAME", "").(string),
 		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),
 		StorageBucket:          env("LITEBASE_STORAGE_BUCKET", "").(string),
 		StorageEndpoint:        env("LITEBASE_STORAGE_ENDPOINT", "").(string),
+		StorageNetworkPath:     env("LITEBASE_STORAGE_NETWORK_PATH", "").(string),
 		StorageRegion:          env("LITEBASE_STORAGE_REGION", "").(string),
 		StorageObjectMode:      env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string),
+		StoragePath:            env("LITEBASE_DATA_PATH", "").(string),
 		StorageSecretAccessKey: env("LITEBASE_STORAGE_SECRET_ACCESS_KEY", "").(string),
 		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string)).(string),
-		TmpPath:                env("LITEBASE_TMP_PATH", "").(string),
+		StorageTmpPath:         env("LITEBASE_STORAGE_TMP_PATH", "").(string),
 	}
 }
 

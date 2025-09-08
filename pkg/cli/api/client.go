@@ -17,14 +17,14 @@ import (
 
 type Client struct {
 	BaseURL        *url.URL
-	Config         *config.Configuration
+	Config         *config.CLIConfiguration
 	defaultHeaders map[string]string
 	httpClient     *http.Client
 }
 
 type Errors map[string][]string
 
-func NewClient(configuration *config.Configuration) (*Client, error) {
+func NewClient(configuration *config.CLIConfiguration) (*Client, error) {
 	c := &Client{
 		Config: configuration,
 		defaultHeaders: map[string]string{
@@ -68,7 +68,7 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 			host = fmt.Sprintf("%s:%s", c.BaseURL.Hostname(), c.BaseURL.Port())
 		}
 
-		c.defaultHeaders["X-LBDB-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
+		c.defaultHeaders["X-Litebase-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
 		c.defaultHeaders["Host"] = host
 		c.defaultHeaders["Authorization"] = fmt.Sprintf("Litebase-HMAC-SHA256 %s", c.accessKeyHeader(
 			method,
@@ -76,6 +76,8 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 			c.defaultHeaders,
 			jsonData,
 		))
+	} else if c.shouldUseToken() {
+		c.defaultHeaders["Authorization"] = fmt.Sprintf("Bearer %s", c.Config.GetToken())
 	} else if c.shouldUseBasicAuth() {
 		c.defaultHeaders["Authorization"] = c.basicAuthHeader()
 	}
@@ -216,7 +218,17 @@ func (c *Client) clusterURL() (*url.URL, error) {
 }
 
 func (c *Client) shouldUseAccessKey() bool {
-	return c.Config.GetAccessKeyId() != "" && c.Config.GetAccessKeySecret() != ""
+	if c.Config.GetAccessKeyId() != "" && c.Config.GetAccessKeySecret() != "" {
+		return true
+	}
+
+	profile, err := c.Config.GetCurrentProfile()
+
+	if err != nil {
+		return false
+	}
+
+	return profile.Type == string(config.ProfileTypeAccessKey)
 }
 
 func (c *Client) shouldUseBasicAuth() bool {
@@ -231,4 +243,18 @@ func (c *Client) shouldUseBasicAuth() bool {
 	}
 
 	return profile.Type == string(config.ProfileTypeBasicAuth)
+}
+
+func (c *Client) shouldUseToken() bool {
+	if c.Config.GetToken() != "" {
+		return true
+	}
+
+	profile, err := c.Config.GetCurrentProfile()
+
+	if err != nil {
+		return false
+	}
+
+	return profile.Type == string(config.ProfileTypeToken)
 }

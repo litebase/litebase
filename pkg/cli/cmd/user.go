@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewUserCmd(config *config.Configuration) *cobra.Command {
+func NewUserCmd(config *config.CLIConfiguration) *cobra.Command {
 	UserCmd := &cobra.Command{
 		Use:   "user",
 		Short: "Manage users",

@@ -2,9 +2,7 @@ package test
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
-	"fmt"
-	"io"
+	"encoding/hex"
 	"log"
 
 	"github.com/google/uuid"
@@ -30,17 +28,15 @@ type TestDatabaseAuthorizationCommand struct {
 }
 
 func CreateHash(length int) string {
-	randomBytes := make([]byte, length)
-	_, err := io.ReadFull(rand.Reader, randomBytes)
+	randomBytes := make([]byte, (length+1)/2) // Ensure enough bytes for the desired length
+
+	_, err := rand.Read(randomBytes)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	hash := sha256.New()
-	hash.Write(randomBytes)
-	hashBytes := hash.Sum(nil)
 
-	return fmt.Sprintf("%x", hashBytes)[:length]
+	return hex.EncodeToString(randomBytes)[:length]
 }
 
 func MockDatabase(app *server.App) TestDatabase {

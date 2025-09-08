@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewTokenListCmd(config *config.Configuration) *cobra.Command {
+func NewTokenListCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List tokens",

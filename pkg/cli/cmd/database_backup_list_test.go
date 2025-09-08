@@ -108,7 +108,7 @@ func TestNewDatabaseBackupListCmd(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 		}
 
-		cli := test.NewTestCLI(server.App).
+		cli := test.NewTestCLI(t, server.App).
 			WithServer(server).
 			WithAccessKey([]auth.Statement{
 				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},

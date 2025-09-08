@@ -111,7 +111,7 @@ func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 		maxRounds = 100
 	)
 
-	prefix := "lbdbak_"
+	prefix := "lbaks_"
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	var accessKeyId string
 
@@ -156,7 +156,7 @@ func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 
 // Generate an access key secret.
 func (akm *AccessKeyManager) GenerateAccessKeySecret() string {
-	prefix := "lbdbaks_"
+	prefix := "lbaks_"
 
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 

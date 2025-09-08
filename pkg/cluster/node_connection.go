@@ -161,8 +161,8 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 	}
 
 	request.Header.Set("Content-Type", "application/octet-stream")
-	request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-	request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
+	request.Header.Set("X-Litebase-Node", string(encryptedHeader))
+	request.Header.Set("X-Litebase-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 
 	nc.createHTTPClient()
 

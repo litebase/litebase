@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseBackupDeleteCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseBackupDeleteCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <name> <timestamp>",
 		Short: "Delete a database backup",

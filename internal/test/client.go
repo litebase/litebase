@@ -15,8 +15,9 @@ import (
 
 type TestClient struct {
 	AccessKey *auth.AccessKey
-	Username  string
 	Password  string
+	Token     *auth.Token
+	Username  string
 	URL       string
 }
 
@@ -49,9 +50,9 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 	}
 
 	headers := map[string]string{
-		"Host":         request.URL.Host,
-		"Content-Type": "application/json",
-		"X-LBDB-Date":  fmt.Sprintf("%d", time.Now().UTC().Unix()),
+		"Host":            request.URL.Host,
+		"Content-Type":    "application/json",
+		"X-Litebase-Date": fmt.Sprintf("%d", time.Now().UTC().Unix()),
 	}
 
 	for k, v := range headers {
@@ -70,7 +71,15 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 		)
 
 		request.Header.Set("Authorization", fmt.Sprintf("Litebase-HMAC-SHA256 %s", signature))
-	} else if c.AccessKey == nil {
+	} else if c.Token != nil {
+		value, err := c.Token.Value()
+
+		if err != nil {
+			return nil, 0, err
+		}
+
+		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", value))
+	} else {
 		request.SetBasicAuth(
 			c.Username,
 			c.Password,

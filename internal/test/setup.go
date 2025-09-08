@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ var envDataPath string
 // findProjectRoot searches for the project root by looking for go.mod file
 func findProjectRoot() (string, error) {
 	dir, err := os.Getwd()
+
 	if err != nil {
 		return "", fmt.Errorf("failed to get current working directory: %w", err)
 	}
@@ -32,32 +34,16 @@ func findProjectRoot() (string, error) {
 		}
 
 		parent := filepath.Dir(dir)
+
 		if parent == dir {
 			// We've reached the root of the filesystem
 			break
 		}
+
 		dir = parent
 	}
 
 	return "", fmt.Errorf("could not find go.mod file in any parent directory")
-}
-
-func setupDirectories(dataPath string) error {
-	directories := []string{
-		dataPath,
-		fmt.Sprintf("%s/_tmp", dataPath),
-		fmt.Sprintf("%s/tiered", dataPath),
-		fmt.Sprintf("%s/object", dataPath),
-		fmt.Sprintf("%s/local", dataPath),
-	}
-
-	for _, dir := range directories {
-		if err := os.MkdirAll(dir, 0750); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dir, err)
-		}
-	}
-
-	return nil
 }
 
 func setupTestEnv(t testing.TB) (string, error) {
@@ -66,6 +52,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	var rootDirectory string
+
 	if os.Getenv("LITEBASE_ROOT_DIRECTORY") != "" {
 		rootDirectory = os.Getenv("LITEBASE_ROOT_DIRECTORY")
 	} else {
@@ -89,7 +76,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 	}
 
 	if envDataPath == "" {
-		envDataPath = fmt.Sprintf("%s%s", rootDirectory, os.Getenv("LITEBASE_LOCAL_DATA_PATH"))
+		envDataPath = fmt.Sprintf("%s%s", rootDirectory, os.Getenv("LITEBASE_DATA_PATH"))
 	}
 
 	var dataPath string
@@ -100,18 +87,15 @@ func setupTestEnv(t testing.TB) (string, error) {
 		dataPath = fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
 	}
 
-	networkStoragePath := fmt.Sprintf("%s/_network_storage", dataPath)
+	networkStoragePath := fmt.Sprintf("%s/_network", dataPath)
 	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
 
-	if err := setupDirectories(dataPath); err != nil {
-		t.Fatalf("failed to setup directories: %v", err)
-	}
-
-	t.Setenv("LITEBASE_LOCAL_DATA_PATH", dataPath)
-	t.Setenv("LITEBASE_NETWORK_STORAGE_PATH", networkStoragePath)
-	t.Setenv("LITEBASE_TMP_PATH", tmpPath)
+	t.Setenv("LITEBASE_DATA_PATH", dataPath)
+	t.Setenv("LITEBASE_STORAGE_NETWORK_PATH", networkStoragePath)
+	t.Setenv("LITEBASE_STORAGE_TMP_PATH", tmpPath)
 
 	var encryptionKey string
+
 	if os.Getenv("LITEBASE_TEST_ENCRYPTION_KEY") != "" {
 		encryptionKey = os.Getenv("LITEBASE_TEST_ENCRYPTION_KEY")
 	} else {
@@ -189,6 +173,19 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 	})
 }
 
+// Clean up a port that may have been used by the CLI.
+func CleanupPort(port string) func() {
+	return func() {
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("kill -9 $(lsof -ti tcp:%s) || true", port))
+
+		err := cmd.Run()
+
+		if err != nil {
+			slog.Error("failed to clean up port", "port", port, "error", err)
+		}
+	}
+}
+
 func Run(t testing.TB, callback func()) {
 	cluster.SetAddressProvider(func() string {
 		return "127.0.0.1"
@@ -201,7 +198,7 @@ func Run(t testing.TB, callback func()) {
 		t.Fail()
 	}
 
-	// Teardown the environment
+	// Register teardown to run after the test using t.Cleanup
 	Teardown(t, dataPath, nil)
 
 	// Run the test
@@ -253,8 +250,8 @@ func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 	Teardown(t, dataPath, app, func() {
 		// Remove the bucket
 		err := os.RemoveAll(
-			fmt.Sprintf("%s/_object_storage/%s",
-				os.Getenv("LITEBASE_LOCAL_DATA_PATH"),
+			fmt.Sprintf("%s/_object/%s",
+				os.Getenv("LITEBASE_DATA_PATH"),
 				os.Getenv("LITEBASE_STORAGE_BUCKET")),
 		)
 

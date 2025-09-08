@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseUpdateCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update an existing database",

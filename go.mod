@@ -18,6 +18,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.0
 	github.com/spf13/afero v1.14.0
+	go.yaml.in/yaml/v4 v4.0.0-rc.1
 )
 
 require github.com/microcosm-cc/bluemonday v1.0.27 // indirect
@@ -54,7 +55,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/litebase/litebase-go/sql v0.0.0-20250818124107-299b0d59e8ca
+	github.com/litebase/litebase-go/sql v0.0.0-20250905122517-052ed93cc26a
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/muesli/mango v0.1.0 // indirect
 	github.com/muesli/mango-cobra v1.2.0 // indirect

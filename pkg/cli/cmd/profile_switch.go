@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewProfileSwitchCmd(c *config.Configuration) *cobra.Command {
+func NewProfileSwitchCmd(c *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "switch <name>",
 		Short: "Switch to a different profile",

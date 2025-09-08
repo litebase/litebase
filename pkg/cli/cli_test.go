@@ -14,7 +14,7 @@ func TestCLIAuth(t *testing.T) {
 		defer server.Shutdown()
 
 		t.Run("Test No Auth", func(t *testing.T) {
-			cli := test.NewTestCLI(server.App)
+			cli := test.NewTestCLI(t, server.App)
 
 			err := cli.Run("status")
 
@@ -24,7 +24,7 @@ func TestCLIAuth(t *testing.T) {
 		})
 
 		t.Run("Test Access Key Auth", func(t *testing.T) {
-			cli := test.NewTestCLI(server.App).
+			cli := test.NewTestCLI(t, server.App).
 				WithServer(server).
 				WithAccessKey([]auth.Statement{
 					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
@@ -38,9 +38,23 @@ func TestCLIAuth(t *testing.T) {
 		})
 
 		t.Run("Test Basic Auth", func(t *testing.T) {
-			cli := test.NewTestCLI(server.App).
+			cli := test.NewTestCLI(t, server.App).
 				WithServer(server).
 				WithBasicAuth("user", "password", []auth.Statement{
+					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
+				})
+
+			err := cli.Run("status")
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		})
+
+		t.Run("Test Token Auth", func(t *testing.T) {
+			cli := test.NewTestCLI(t, server.App).
+				WithServer(server).
+				WithToken([]auth.Statement{
 					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
 				})
 

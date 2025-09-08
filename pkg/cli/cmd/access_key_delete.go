@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewAccessKeyDeleteCmd(config *config.Configuration) *cobra.Command {
+func NewAccessKeyDeleteCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete an access key",

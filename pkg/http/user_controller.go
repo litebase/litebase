@@ -10,7 +10,7 @@ import (
 func UserControllerIndex(request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
-		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
 		[]auth.Privilege{auth.ClusterPrivilegeManage},
 	)
 
@@ -48,7 +48,7 @@ type UserControllerStoreRequest struct {
 func UserControllerShow(request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
-		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
 		[]auth.Privilege{auth.ClusterPrivilegeManage},
 	)
 
@@ -81,7 +81,7 @@ func UserControllerShow(request *Request) Response {
 func UserControllerStore(request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
-		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
 		[]auth.Privilege{auth.ClusterPrivilegeManage},
 	)
 
@@ -163,7 +163,7 @@ type UserControllerUpdateRequest struct {
 func UserControllerUpdate(request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
-		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
 		[]auth.Privilege{auth.ClusterPrivilegeManage},
 	)
 
@@ -224,7 +224,7 @@ func UserControllerUpdate(request *Request) Response {
 func UserControllerDestroy(request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
-		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.Id)},
+		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
 		[]auth.Privilege{auth.ClusterPrivilegeManage},
 	)
 

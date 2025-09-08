@@ -48,8 +48,8 @@ func TestInternalMiddleware(t *testing.T) {
 			t.Fatalf("Failed to encrypt header: %s", err.Error())
 		}
 
-		request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-		request.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
+		request.Header.Set("X-Litebase-Node", string(encryptedHeader))
+		request.Header.Set("X-Litebase-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 
 		req = appHttp.NewRequest(
 			server1.App.Cluster,

@@ -16,9 +16,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewTokenUpdateCmd(config *config.Configuration) *cobra.Command {
+func NewTokenUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <id> --description <description> --statements <statements>",
+		Use:   "update <id>",
 		Short: "Update an existing token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -44,7 +44,7 @@ func TestClusterMemberDestroyController(t *testing.T) {
 
 		request.SetPathValue("address", address)
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
+		request.Header.Set("X-Litebase-Node", string(encryptedHeader))
 
 		req := appHttp.NewRequest(
 			app.Cluster,
@@ -85,7 +85,7 @@ func TestClusterMemberDestroyControllerUnauthorized(t *testing.T) {
 
 		request.SetPathValue("address", "invalid-address")
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-Lbdb-Node", "invalid-header")
+		request.Header.Set("X-Litebase-Node", "invalid-header")
 
 		req := appHttp.NewRequest(
 			app.Cluster,
@@ -144,7 +144,7 @@ func TestClusterMemberStoreController(t *testing.T) {
 
 		request.SetPathValue("address", address)
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-Lbdb-Node", string(encryptedHeader))
+		request.Header.Set("X-Litebase-Node", string(encryptedHeader))
 
 		req := appHttp.NewRequest(
 			app.Cluster,
@@ -193,7 +193,7 @@ func TestClusterMemberStoreControllerUnauthorized(t *testing.T) {
 		}
 
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-Lbdb-Node", "invalid-header")
+		request.Header.Set("X-Litebase-Node", "invalid-header")
 
 		req := appHttp.NewRequest(
 			app.Cluster,

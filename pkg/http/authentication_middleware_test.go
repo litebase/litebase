@@ -95,9 +95,9 @@ func TestAuthenticationMiddleware(t *testing.T) {
 			"GET",
 			"/users",
 			map[string]string{
-				"Host":         request.URL.Host,
-				"Content-Type": "application/json",
-				"X-LBDB-Date":  fmt.Sprintf("%d", time.Now().UTC().Unix()),
+				"Host":            request.URL.Host,
+				"Content-Type":    "application/json",
+				"X-Litebase-Date": fmt.Sprintf("%d", time.Now().UTC().Unix()),
 			},
 			nil,
 			map[string]string{},
@@ -105,7 +105,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 
 		request.Header.Set("Host", request.URL.Host)
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-LBDB-Date", fmt.Sprintf("%d", time.Now().UTC().Unix()))
+		request.Header.Set("X-Litebase-Date", fmt.Sprintf("%d", time.Now().UTC().Unix()))
 		request.Header.Set("Authorization", fmt.Sprintf("Litebase-HMAC-SHA256 %s", signature))
 
 		req = appHttp.NewRequest(

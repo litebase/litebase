@@ -13,7 +13,7 @@ func TestProfileCurrent(t *testing.T) {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
-		cli := test.NewTestCLI(server.App).
+		cli := test.NewTestCLI(t, server.App).
 			WithServer(server)
 
 		err := cli.Run("profile", "current")

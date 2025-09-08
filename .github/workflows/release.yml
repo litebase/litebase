@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+  attestations: write
+
+env:
+  PROJECT_NAME: litebase
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      project_name: 'litebase'
+      build_target: './cmd/litebase'
+      go_version: '1.25'
+
+  sign:
+    needs: build
+    uses: ./.github/workflows/sign.yml
+    with:
+      project_name: 'litebase'
+    secrets:
+      APPLE_CERTIFICATES_PASSWORD: ${{ secrets.APPLE_CERTIFICATES_PASSWORD }}
+      APPLE_CERTIFICATES: ${{ secrets.APPLE_CERTIFICATES }}
+      APPLE_ID_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_APP_SPECIFIC_PASSWORD }}
+      APPLE_ID_USERNAME: ${{ secrets.APPLE_ID_USERNAME }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+      AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+  release:
+    needs: sign
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Signed Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: ${{ env.PROJECT_NAME }}-*
+          merge-multiple: false
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+
+          # Copy all signed archives from artifacts directory
+            find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.pkg" \) -exec cp {} release-assets/ \;
+
+          echo "Files in release-assets:"
+          ls -la release-assets/
+          echo "All artifacts structure:"
+          find artifacts -type f
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        run: |
+          # Create release with auto-generated notes
+          gh release create ${{ steps.version.outputs.version }} \
+            --draft \
+            --title "Litebase ${{ steps.version.outputs.version }}" \
+            --generate-notes \
+            release-assets/*
+
+          # Check if release template exists, if so use it
+          if [ -f .github/release_template.md ]; then
+            # Get the auto-generated notes and prepend our template
+            GENERATED_NOTES=$(gh release view ${{ steps.version.outputs.version }} --json body --jq '.body')
+
+            # Create notes with auto-generated content first, then custom template
+            echo "## Release Notes" > temp_notes.md
+            echo "" >> temp_notes.md
+            echo "$GENERATED_NOTES" >> temp_notes.md
+            echo "" >> temp_notes.md
+            echo "---" >> temp_notes.md
+            echo "" >> temp_notes.md
+
+            FLOAT_VERSION=$(echo ${{ steps.version.outputs.version }} | sed 's/^v//')
+            cat .github/release_template.md | sed "s/\$VERSION/$FLOAT_VERSION/g" >> temp_notes.md
+
+            # Update the release with combined notes
+            gh release edit ${{ steps.version.outputs.version }} --notes-file temp_notes.md
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -40,7 +40,7 @@ func SignRequest(
 	}
 
 	for key := range headers {
-		if !slices.Contains([]string{"content-type", "host", "x-lbdb-date"}, key) {
+		if !slices.Contains([]string{"content-type", "host", "x-litebase-date"}, key) {
 			delete(headers, key)
 		}
 	}
@@ -80,7 +80,7 @@ func SignRequest(
 	signedRequest := fmt.Sprintf("%x", signedRequestHash.Sum(nil))
 
 	dateHash := hmac.New(sha256.New, []byte(accessKeySecret))
-	dateHash.Write([]byte(headers["x-lbdb-date"]))
+	dateHash.Write([]byte(headers["x-litebase-date"]))
 	date := fmt.Sprintf("%x", dateHash.Sum(nil))
 
 	serviceHash := hmac.New(sha256.New, []byte(date))
@@ -92,7 +92,7 @@ func SignRequest(
 	signature := fmt.Sprintf("%x", signatureHash.Sum(nil))
 
 	token := base64.StdEncoding.EncodeToString(
-		fmt.Appendf(nil, "credential=%s;signed_headers=content-type,host,x-lbdb-date;signature=%s", accessKeyID, signature),
+		fmt.Appendf(nil, "credential=%s;signed_headers=content-type,host,x-litebase-date;signature=%s", accessKeyID, signature),
 	)
 
 	return token

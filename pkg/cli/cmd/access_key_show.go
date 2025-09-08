@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func accessKeyShow(cmd *cobra.Command, config *config.Configuration, accessKeyId string) error {
+func accessKeyShow(cmd *cobra.Command, config *config.CLIConfiguration, accessKeyId string) error {
 	res, err := api.Get(config, fmt.Sprintf("/v1/access-keys/%s", accessKeyId))
 
 	if err != nil {
@@ -86,7 +86,7 @@ func accessKeyShow(cmd *cobra.Command, config *config.Configuration, accessKeyId
 	return err
 }
 
-func NewAccessKeyShowCmd(config *config.Configuration) *cobra.Command {
+func NewAccessKeyShowCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show access key details",

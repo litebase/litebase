@@ -1,0 +1,84 @@
+name: 'build'
+
+on:
+  workflow_call:
+    inputs:
+      project_name:
+        description: 'Project name for binary'
+        required: false
+        type: string
+        default: 'litebase'
+      build_target:
+        description: 'Build target path'
+        required: false
+        type: string
+        default: './cmd/litebase'
+      go_version:
+        description: 'Go version to use'
+        required: false
+        type: string
+        default: '1.25'
+    outputs:
+      version:
+        description: 'Version extracted from tag or "dev"'
+        value: ${{ jobs.build.outputs.version }}
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+            - goos: linux
+              goarch: amd64
+              runner: ubuntu-latest
+              cc: gcc
+              cxx: g++
+            - goos: linux
+              goarch: arm64
+              runner: ubuntu-latest
+              cc: aarch64-linux-gnu-gcc
+              cxx: aarch64-linux-gnu-g++
+            - goos: darwin
+              goarch: amd64
+              runner: macos-latest
+              cc: clang
+              cxx: clang++
+            - goos: darwin
+              goarch: arm64
+              runner: macos-latest
+              cc: clang
+              cxx: clang++
+            - goos: windows
+              goarch: amd64
+              runner: windows-latest
+              cc: gcc
+              cxx: g++
+
+    outputs:
+      version: ${{ steps.build.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build binary
+        id: build
+        uses: ./.github/actions/build-binary
+        with:
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          cc: ${{ matrix.cc }}
+          cxx: ${{ matrix.cxx }}
+          project_name: ${{ inputs.project_name }}
+          build_target: ${{ inputs.build_target }}
+          go_version: ${{ inputs.go_version }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.archive_name }}
+          path: ${{ steps.build.outputs.archive_path }}

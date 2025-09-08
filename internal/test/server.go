@@ -104,6 +104,13 @@ func (ts *TestServer) WithBasicAuthClient() *TestClient {
 	}
 }
 
+func (ts *TestServer) WithTokenClient(token *auth.Token) *TestClient {
+	return &TestClient{
+		Token: token,
+		URL:   ts.Server.URL,
+	}
+}
+
 func (ts *TestServer) Shutdown() {
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
 	err := ts.App.Cluster.Node().Shutdown()

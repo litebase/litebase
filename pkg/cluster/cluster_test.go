@@ -225,7 +225,7 @@ func TestCluster(t *testing.T) {
 			}
 
 			// Check if the file exists
-			dataBytes, err := server.App.Cluster.ObjectFS().ReadFile(cluster.ConfigPath())
+			dataBytes, err := server.App.Cluster.ObjectFS().ReadFile(cluster.ConfigPath(c.Config))
 
 			if err != nil {
 				t.Fatal(err)
@@ -244,7 +244,7 @@ func TestCluster(t *testing.T) {
 			server := test.NewTestServer(t)
 			defer server.Shutdown()
 
-			path := cluster.ConfigPath()
+			path := cluster.ConfigPath(server.App.Config)
 
 			if path != "_cluster/config.json" {
 				t.Fatal("Path is not correct")

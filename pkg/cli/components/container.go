@@ -33,5 +33,5 @@ func Container(content ...string) string {
 			lipgloss.Left,
 			parts...,
 		),
-	)
+	) + "\n"
 }

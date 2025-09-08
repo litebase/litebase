@@ -64,7 +64,7 @@ func ensureRequestHasAnAuthorizationHeader(request *Request) bool {
 }
 
 func ensureRequestIsNotExpired(request *Request) bool {
-	dateHeader := request.Headers().Get("X-Lbdb-Date")
+	dateHeader := request.Headers().Get("X-Litebase-Date")
 
 	if dateHeader == "" {
 		return false

@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseCmd(config *config.CLIConfiguration) *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "database",
 		Short: "Manage databases",

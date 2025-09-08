@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseBackupShowCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseBackupShowCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		//  litebase database backups show test/test
 		Use:   "show <name> <timestamp>",

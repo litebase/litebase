@@ -211,8 +211,6 @@ func (n *Node) heartbeat() {
 		lease := n.Lease()
 
 		if lease == nil {
-			slog.Error("No lease found for primary node, cannot send heartbeat")
-
 			err := n.removePrimaryStatus()
 
 			if err != nil {
@@ -788,8 +786,8 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Lbdb-Node", string(encryptedHeader))
-	req.Header.Set("X-Lbdb-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
+	req.Header.Set("X-Litebase-Node", string(encryptedHeader))
+	req.Header.Set("X-Litebase-Node-Timestamp", fmt.Sprintf("%d", time.Now().UTC().UnixNano()))
 
 	return nil
 }

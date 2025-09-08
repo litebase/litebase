@@ -1,0 +1,54 @@
+name: 'Sign Linux Binary'
+description: 'Sign Linux binary with GPG and create checksums'
+inputs:
+  binary_path:
+    description: 'Path to the binary to sign'
+    required: true
+  binary_name:
+    description: 'Name of the binary file'
+    required: true
+  gpg_private_key:
+    description: 'GPG private key for signing'
+    required: true
+  gpg_passphrase:
+    description: 'Passphrase for GPG private key'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Import GPG key
+      shell: bash
+      run: |
+        echo "${{ inputs.gpg_private_key }}" | gpg --batch --import
+
+    - name: Sign Linux binary
+      shell: bash
+      run: |
+        echo "Signing binary at: ${{ inputs.binary_path }}/${{ inputs.binary_name }}"
+
+        # Create detached signature
+        gpg --batch --yes --pinentry-mode loopback \
+          --passphrase "${{ inputs.gpg_passphrase }}" \
+          --detach-sign --armor \
+          "${{ inputs.binary_path }}/${{ inputs.binary_name }}"
+
+        # Verify signature
+        gpg --verify "${{ inputs.binary_path }}/${{ inputs.binary_name }}.asc" "${{ inputs.binary_path }}/${{ inputs.binary_name }}"
+
+        echo "Binary signed successfully. Signature file: ${{ inputs.binary_name }}.asc"
+
+    - name: Create checksums
+      shell: bash
+      run: |
+        cd "${{ inputs.binary_path }}"
+
+        # Create SHA256 checksum
+        sha256sum "${{ inputs.binary_name }}" > "${{ inputs.binary_name }}.sha256"
+
+        # Create SHA512 checksum
+        sha512sum "${{ inputs.binary_name }}" > "${{ inputs.binary_name }}.sha512"
+
+        echo "Checksums created:"
+        cat "${{ inputs.binary_name }}.sha256"
+        cat "${{ inputs.binary_name }}.sha512"

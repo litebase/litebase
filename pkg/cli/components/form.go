@@ -11,8 +11,9 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 
 	// Add top margin to the form
 	theme.Form.Base = theme.Form.Base.MarginTop(1)
+
 	theme.Focused.Base = theme.Focused.Base.BorderForeground(
-		lipgloss.AdaptiveColor{Light: cli.Gray400.Hex(), Dark: cli.Gray500.Hex()},
+		lipgloss.AdaptiveColor{Light: cli.Gray400.Hex(), Dark: cli.Gray300.Hex()},
 	)
 
 	theme.Blurred.NoteTitle = lipgloss.NewStyle().
@@ -36,12 +37,12 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 	theme.Focused.Description = theme.Focused.Description.Foreground(lipgloss.AdaptiveColor{Light: "", Dark: "243"})
 	theme.Focused.ErrorIndicator = theme.Focused.ErrorIndicator.Foreground(lipgloss.Color(cli.Red700.Hex()))
 	theme.Focused.ErrorMessage = theme.Focused.ErrorMessage.Foreground(lipgloss.Color(cli.Red700.Hex()))
-	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(lipgloss.Color(cli.Pink500.Hex()))
-	theme.Focused.NextIndicator = theme.Focused.NextIndicator.Foreground(lipgloss.Color(cli.Pink500.Hex()))
-	theme.Focused.PrevIndicator = theme.Focused.PrevIndicator.Foreground(lipgloss.Color(cli.Pink500.Hex()))
+	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(lipgloss.Color(lipgloss.Color(cli.Blue.Hex())))
+	theme.Focused.NextIndicator = theme.Focused.NextIndicator.Foreground(lipgloss.Color(lipgloss.Color(cli.Blue.Hex())))
+	theme.Focused.PrevIndicator = theme.Focused.PrevIndicator.Foreground(lipgloss.Color(lipgloss.Color(cli.Blue.Hex())))
 	theme.Focused.Option = theme.Focused.Option.Foreground(lipgloss.Color(cli.Gray500.Hex()))
-	theme.Focused.MultiSelectSelector = theme.Focused.MultiSelectSelector.Foreground(lipgloss.Color(cli.Pink500.Hex()))
-	theme.Focused.SelectedOption = theme.Focused.SelectedOption.Foreground(lipgloss.Color(cli.Pink500.Hex()))
+	theme.Focused.MultiSelectSelector = theme.Focused.MultiSelectSelector.Foreground(lipgloss.Color(lipgloss.Color(cli.Blue.Hex())))
+	theme.Focused.SelectedOption = theme.Focused.SelectedOption.Foreground(lipgloss.Color(lipgloss.Color(cli.Blue.Hex())))
 	theme.Focused.SelectedPrefix = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#02CF92", Dark: "#02A877"}).SetString("✓ ")
 	theme.Focused.UnselectedPrefix = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "", Dark: "243"}).SetString("• ")
 
@@ -75,8 +76,8 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 			lipgloss.AdaptiveColor{Light: cli.Gray900.Hex(), Dark: cli.Gray100.Hex()},
 		)
 
-	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(lipgloss.Color(cli.Pink500.Hex()))
-	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(lipgloss.Color(cli.Pink500.Hex()))
+	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(lipgloss.Color(cli.Blue.Hex()))
+	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(lipgloss.Color(cli.Blue.Hex()))
 
 	theme.Blurred.Title = theme.Group.Title.
 		MarginBottom(1).

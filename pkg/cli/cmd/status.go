@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewStatusCmd(c *config.Configuration) *cobra.Command {
+func NewStatusCmd(c *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the status of the cluster",

@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"log/slog"
-
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
@@ -12,9 +9,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create <name> --primary-branch <branch_name>",
+		Use:   "create <name>",
 		Args:  cobra.ExactArgs(1),
 		Short: "Create a new database",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -27,15 +24,6 @@ func NewDatabaseCreateCmd(config *config.Configuration) *cobra.Command {
 			res, _, err := api.Post(config, "/v1/databases", data)
 
 			if err != nil {
-				_, fprintErr := fmt.Fprint(
-					cmd.OutOrStdout(),
-					components.Container(components.ErrorAlert(err.Error())),
-				)
-
-				if fprintErr != nil {
-					slog.Error("Error printing error message", "error", fprintErr)
-				}
-
 				return err
 			}
 

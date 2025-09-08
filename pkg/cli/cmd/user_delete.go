@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewUserDeleteCmd(config *config.Configuration) *cobra.Command {
+func NewUserDeleteCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <username>",
 		Short: "Delete a user",

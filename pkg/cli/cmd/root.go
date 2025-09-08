@@ -16,18 +16,20 @@ import (
 var (
 	accessKeyId     string
 	accessKeySecret string
-	noInteraction   bool
+	interactive     bool
 	profile         string
+	token           string
 	url             string
 	username        string
 	password        string
 )
 
-func addCommands(cmd *cobra.Command, c *config.Configuration) {
+func addCommands(cmd *cobra.Command, c *config.CLIConfiguration) {
 	cmd.AddCommand(NewAccessKeyCmd(c))
+	cmd.AddCommand(NewConfigCmd(c))
 	cmd.AddCommand(NewDatabaseCmd(c))
 	cmd.AddCommand(NewProfileCmd(c))
-	cmd.AddCommand(NewServeCmd())
+	cmd.AddCommand(NewStartCmd())
 	cmd.AddCommand(NewStatusCmd(c))
 	cmd.AddCommand(NewTokenCmd(c))
 	cmd.AddCommand(NewUserCmd(c))
@@ -42,13 +44,12 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 		Example: `
 		litebase database create app_db
 		litebase database list
-		litebase shell
-		litebase sql "SELECT * FROM users"
+		litebase database query app_db/main "SELECT * FROM users"
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			title := lipgloss.NewStyle().Bold(true).
 				Margin(0, 0, 1).
-				Render("Litebase CLI - v0.0.1")
+				Render(fmt.Sprintf("Litebase CLI - %s", cmd.Version))
 
 			listSlice := []map[string]string{
 				{
@@ -83,45 +84,48 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 		},
 	}
 
-	cmd.PersistentFlags().StringVarP(&accessKeyId, "access-key-id", "k", "", "Access key ID for authentication")
-	cmd.PersistentFlags().StringVarP(&accessKeySecret, "access-key-secret", "s", "", "Access key secret for authentication")
-	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", configPath, "Path to a configuration file")
-	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "The profile to use during this session")
-	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
-	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
-	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
-
-	cmd.PersistentFlags().BoolVarP(&noInteraction, "no-interaction", "n", false, "Run without user interaction")
-
-	configuration, err := config.NewConfiguration(configPath)
+	// Create configuration with the default path first
+	c, err := config.NewConfiguration(configPath, false)
 
 	if err != nil {
 		return nil, err
 	}
 
-	addCommands(cmd, configuration)
+	cmd.PersistentFlags().StringVarP(&accessKeyId, "access-key-id", "k", "", "Access key ID for authentication")
+	cmd.PersistentFlags().StringVarP(&accessKeySecret, "access-key-secret", "s", "", "Access key secret for authentication")
+	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", configPath, "Path to a configuration file")
+	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "The profile to use during this session")
+	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
+	cmd.PersistentFlags().StringVar(&token, "token", "", "Cluster token")
+	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
+	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
 
-	cmd.PersistentPreRunE = preRun(configuration)
+	cmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", true, "Run with user interaction")
+
+	// Add commands with the configuration
+	addCommands(cmd, c)
+
+	cmd.PersistentPreRunE = preRun(c)
 
 	return cmd, nil
 }
 
-func NewRoot(version string) error {
-	cmd, err := RootCmd("")
+func NewRoot(version string) {
+	cmd, _ := RootCmd("")
 
-	if err != nil {
-		return err
-	}
-
-	return fang.Execute(
+	err := fang.Execute(
 		context.Background(),
 		cmd,
 		fang.WithColorSchemeFunc(cli.ColorScheme),
 		fang.WithVersion(version),
 	)
+
+	if err != nil {
+		return
+	}
 }
 
-func preRun(c *config.Configuration) func(cmd *cobra.Command, args []string) error {
+func preRun(c *config.CLIConfiguration) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		cmd.SetErrPrefix("[Litebase]")
 
@@ -133,10 +137,14 @@ func preRun(c *config.Configuration) func(cmd *cobra.Command, args []string) err
 			c.SetAccessKeySecret(accessKeySecret)
 		}
 
-		c.SetInteractive(!noInteraction)
+		c.SetInteractive(interactive)
 
 		if password != "" {
 			c.SetPassword(password)
+		}
+
+		if token != "" {
+			c.SetToken(token)
 		}
 
 		if url != "" {

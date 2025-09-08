@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseQueryLogListCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseQueryLogListCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List database query logs",
@@ -18,7 +18,7 @@ func NewDatabaseQueryLogListCmd(config *config.Configuration) *cobra.Command {
 	}
 }
 
-func NewDatabaseQueryLogCmd(config *config.Configuration) *cobra.Command {
+func NewDatabaseQueryLogCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "query-logs",
 		Short: "View database query logs",

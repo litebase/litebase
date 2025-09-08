@@ -9,7 +9,7 @@ import (
 
 func TestProfileCreateCmd(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		cli := test.NewTestCLI(app)
+		cli := test.NewTestCLI(t, app)
 
 		err := cli.Run("profile", "create", "--profile-name", "Test Profile", "--profile-cluster", "http://localhost:8080", "--profile-type", "access_key", "--profile-access-key-id", "test-access-key-id", "--profile-access-key-secret", "test-access-key-secret")
 
@@ -19,6 +19,18 @@ func TestProfileCreateCmd(t *testing.T) {
 
 		if cli.DoesntSee("Profile stored successfully") {
 			t.Errorf("expected output to contain 'Profile stored successfully', got %q", cli.GetOutput())
+		}
+
+		cli.ClearOutput()
+
+		err = cli.Run("profile", "create", "--profile-name", "Test Profile", "--profile-cluster", "http://localhost:8080", "--profile-type", "access_key", "--profile-access-key-id", "test-access-key-id", "--profile-access-key-secret", "test-access-key-secret")
+
+		if err == nil {
+			t.Error("expected error, got none")
+		}
+
+		if cli.Sees("Profile stored successfully") {
+			t.Errorf("expected output to not contain 'Profile stored successfully', got %q", cli.GetOutput())
 		}
 	})
 }

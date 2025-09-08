@@ -3,7 +3,6 @@ package http
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/litebase/litebase/pkg/auth"
 )
@@ -231,7 +230,7 @@ func TokenControllerUpdate(request *Request) Response {
 // Delete a token
 func TokenControllerDestroy(request *Request) Response {
 	tokenId := request.Param("tokenId")
-	log.Println("Deleting token:", tokenId)
+
 	err := request.Authorize(
 		[]string{"*", "token:*", fmt.Sprintf("token:%s", tokenId)},
 		[]auth.Privilege{auth.TokenPrivilegeDelete},

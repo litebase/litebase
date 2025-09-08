@@ -1,0 +1,44 @@
+name: 'Sign Windows Binary'
+description: 'Sign Windows binary using Azure Trusted Signing'
+inputs:
+  binary_path:
+    description: 'Path to the binary to sign'
+    required: true
+  binary_name:
+    description: 'Name of the binary file'
+    required: true
+  azure_tenant_id:
+    description: 'Azure tenant ID for Trusted Signing'
+    required: true
+  azure_client_id:
+    description: 'Azure client ID for Trusted Signing'
+    required: true
+  azure_client_secret:
+    description: 'Azure client secret for Trusted Signing'
+    required: true
+  trusted_signing_account_name:
+    description: 'Azure Trusted Signing account name'
+    required: true
+  certificate_profile_name:
+    description: 'Azure Trusted Signing certificate profile name'
+    required: true
+  endpoint:
+    description: 'Azure Trusted Signing endpoint URL'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Sign Windows binary with Azure Trusted Signing
+      uses: azure/trusted-signing-action@v0.4.0
+      with:
+        azure-tenant-id: ${{ inputs.azure_tenant_id }}
+        azure-client-id: ${{ inputs.azure_client_id }}
+        azure-client-secret: ${{ inputs.azure_client_secret }}
+        endpoint: ${{ inputs.endpoint }}
+        trusted-signing-account-name: ${{ inputs.trusted_signing_account_name }}
+        certificate-profile-name: ${{ inputs.certificate_profile_name }}
+        files: ${{ inputs.binary_path }}\${{ inputs.binary_name }}
+        file-digest: SHA256
+        timestamp-rfc3161: http://timestamp.acs.microsoft.com
+        timestamp-digest: SHA256

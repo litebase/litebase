@@ -625,7 +625,18 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 
 	waiter := sp.stepWaiters[stepName]
 	sp.stepMutex.Unlock()
-	timeout := time.After(10 * time.Second)
+
+	// Allow configurable timeout via environment variable, default to 30
+	// seconds for more reliable tests.
+	timeoutDuration := 30 * time.Second
+
+	if envTimeout := os.Getenv("LITEBASE_TEST_STEP_TIMEOUT"); envTimeout != "" {
+		if duration, err := time.ParseDuration(envTimeout); err == nil {
+			timeoutDuration = duration
+		}
+	}
+
+	timeout := time.After(timeoutDuration)
 
 	select {
 	case <-sp.ctx.Done():

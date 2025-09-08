@@ -82,7 +82,7 @@ func GetDatabaseFilePath(databaseId string, branchId string) (string, error) {
 func GetDatabaseFileTmpPath(c *config.Config, nodeId, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s/%s/_databases/%s/%s/%s.db",
-		c.TmpPath,
+		c.StorageTmpPath,
 		nodeId,
 		databaseId,
 		branchId,
@@ -93,7 +93,7 @@ func GetDatabaseFileTmpPath(c *config.Config, nodeId, databaseId string, branchI
 func GetDatabaseFileTmpWALPath(c *config.Config, nodeId, databaseId string, branchId string) (string, error) {
 	return fmt.Sprintf(
 		"%s/%s/%s",
-		c.TmpPath,
+		c.StorageTmpPath,
 		nodeId,
 		WALPath(databaseId, branchId),
 	), nil

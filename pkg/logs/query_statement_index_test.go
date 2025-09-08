@@ -38,7 +38,7 @@ func TestQueryStatementIndex_Close(t *testing.T) {
 		queryLogIndex, err := logs.GetQueryStatementIndex(
 			app.Cluster.TieredFS(),
 			fmt.Sprintf("%slogs/query", file.GetDatabaseFileBaseDir(db.DatabaseID, db.DatabaseBranchID)),
-			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", app.Cluster.Node().Cluster.Id),
+			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", app.Cluster.Node().Cluster.ID),
 			0,
 		)
 

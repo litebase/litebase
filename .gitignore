@@ -1,9 +1,10 @@
+.DS_STORE
+.litebase/
+.test/
+.vscode/
 /build
 /data
 /output
-.DS_STORE
 .env
 .env.*
-.vscode/
 *.prof
-.test/

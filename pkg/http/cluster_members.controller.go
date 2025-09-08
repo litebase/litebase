@@ -8,7 +8,7 @@ import (
 func ClusterMemberDestroyController(request *Request) Response {
 	members := request.cluster.GetMembers(false)
 
-	ipAddress := request.Headers().Get("X-Lbdb-Node")
+	ipAddress := request.Headers().Get("X-Litebase-Node")
 
 	decryptedIp, err := request.cluster.Auth.SecretsManager.Decrypt(
 		request.cluster.Config.EncryptionKey,
@@ -81,7 +81,7 @@ func ClusterMemberStoreController(request *Request) Response {
 
 	queryNodes := request.cluster.GetMembers(false)
 
-	ipAddress := request.Headers().Get("X-Lbdb-Node")
+	ipAddress := request.Headers().Get("X-Litebase-Node")
 
 	if ipAddress == "" {
 		log.Println("Unauthorized node connection attempt: ", ipAddress)

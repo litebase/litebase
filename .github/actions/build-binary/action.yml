@@ -1,0 +1,129 @@
+name: 'Build Binary'
+description: 'Build Go binary for specified platform and architecture'
+inputs:
+  goos:
+    description: 'Target operating system'
+    required: true
+  goarch:
+    description: 'Target architecture'
+    required: true
+  cc:
+    description: 'C compiler to use'
+    required: true
+  cxx:
+    description: 'C++ compiler to use'
+    required: true
+  project_name:
+    description: 'Project name for binary'
+    required: true
+    default: 'litebase'
+  build_target:
+    description: 'Build target path'
+    required: true
+    default: './cmd/litebase'
+  go_version:
+    description: 'Go version to use'
+    required: false
+    default: '1.25'
+
+outputs:
+  archive_name:
+    description: 'Name of the created archive'
+    value: ${{ steps.build.outputs.archive_name }}
+  archive_path:
+    description: 'Path to the created archive'
+    value: ${{ steps.build.outputs.archive_path }}
+  version:
+    description: 'Version extracted from tag or "dev"'
+    value: ${{ steps.build.outputs.version }}
+  binary_name:
+    description: 'Name of the binary file'
+    value: ${{ steps.build.outputs.binary_name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go_version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ runner.os == 'Windows' && '~\AppData\Local\go-build' || '~/.cache/go-build' }}
+          ${{ runner.os == 'Windows' && '~\go\pkg\mod' || '~/go/pkg/mod' }}
+        key: go-${{ runner.os }}-${{ inputs.goarch }}-${{ hashFiles('go.sum') }}
+        restore-keys: |
+          go-${{ runner.os }}-${{ inputs.goarch }}-
+          go-${{ runner.os }}-
+
+    - name: Install cross-compilation toolchain
+      if: runner.os == 'Linux' && inputs.goos == 'linux' && inputs.goarch == 'arm64'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+    - name: Build binary
+      id: build
+      env:
+        CGO_ENABLED: 1
+        GOOS: ${{ inputs.goos }}
+        GOARCH: ${{ inputs.goarch }}
+        CC: ${{ inputs.cc }}
+        CXX: ${{ inputs.cxx }}
+      shell: bash
+      run: |
+        # Get version from tag and remove 'v' prefix if present
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+        else
+          VERSION="dev"
+        fi
+
+        # Set binary name
+        BINARY_NAME="${{ inputs.project_name }}"
+        if [ "${{ inputs.goos }}" = "windows" ]; then
+          BINARY_NAME="${BINARY_NAME}.exe"
+        fi
+
+        # Create build directory
+        BUILD_DIR="build/${{ inputs.goos }}_${{ inputs.goarch }}"
+        mkdir -p "$BUILD_DIR"
+
+        # Build binary
+        go mod tidy
+        
+        go build \
+        -o "$BUILD_DIR/$BINARY_NAME" \
+        -tags=production \
+        -ldflags="-s -w -X 'main.Version=$VERSION'" ${{ inputs.build_target }}
+
+        # Create archive name
+        ARCH="${{ inputs.goarch }}"
+        if [ "$ARCH" = "amd64" ]; then
+          ARCH="x86_64"
+        fi
+
+        ARCHIVE_NAME="${{ inputs.project_name }}-${VERSION}-${{ inputs.goos }}-${ARCH}"
+
+        # Create archive
+        cd "$BUILD_DIR"
+        tar -czf "../${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
+        FINAL_ARCHIVE_PATH="../${ARCHIVE_NAME}.tar.gz"
+
+        # Debug: Show what was created
+        cd ..
+        echo "Created files:"
+        ls -la
+        echo "Archive name: ${ARCHIVE_NAME}"
+        echo "Final archive path: ${FINAL_ARCHIVE_PATH}"
+
+        # Output for next step
+        echo "archive_name=${ARCHIVE_NAME}" >> $GITHUB_OUTPUT
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "binary_name=${BINARY_NAME}" >> $GITHUB_OUTPUT
+        echo "archive_path=build/${ARCHIVE_NAME}.tar.gz" >> $GITHUB_OUTPUT
