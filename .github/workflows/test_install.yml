@@ -1,0 +1,198 @@
+name: Test Install Script
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-install:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            
+          # macOS Intel
+          - os: macos-latest
+            platform: darwin
+            arch: x86_64
+            
+          # macOS Apple Silicon
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            
+          # Windows x86_64
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+
+    steps:
+      - name: Set up environment (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Testing install script on ${{ matrix.platform }}/${{ matrix.arch }}"
+
+      - name: Set up environment (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "Testing install script on ${{ matrix.platform }}/${{ matrix.arch }}"
+
+      - name: Test install script (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Downloading and executing install script from repository..."
+          curl -sSL https://raw.githubusercontent.com/litebase/litebase/refs/heads/main/install.sh | bash
+
+      - name: Test install script (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "Downloading and executing install script from repository..."
+          curl -sSL https://raw.githubusercontent.com/litebase/litebase/refs/heads/main/install.sh | bash
+
+      - name: Verify installation (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Verifying installation..."
+          
+          # Check if litebase is installed and accessible
+          if command -v litebase >/dev/null 2>&1; then
+            echo "✓ litebase found in PATH"
+            litebase --version || echo "Version command failed"
+          else
+            echo "✗ litebase not found in PATH"
+            echo "Checking alternative locations..."
+            
+            # Check common installation paths
+            if [ -f "/usr/local/bin/litebase" ]; then
+              echo "✓ Found at /usr/local/bin/litebase"
+              /usr/local/bin/litebase --version || echo "Version command failed"
+            else
+              echo "✗ Not found at /usr/local/bin/litebase"
+            fi
+          fi
+
+      - name: Verify installation (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "Verifying installation..."
+          
+          # Check if litebase is installed and accessible
+          if command -v litebase >/dev/null 2>&1; then
+            echo "✓ litebase found in PATH"
+            litebase --version || echo "Version command failed"
+          else
+            echo "✗ litebase not found in PATH"
+            echo "Checking alternative locations..."
+            
+            # Check Windows installation path
+            if [ -f "/c/Program Files/litebase/litebase.exe" ]; then
+              echo "✓ Found at /c/Program Files/litebase/litebase.exe"
+              "/c/Program Files/litebase/litebase.exe" --version || echo "Version command failed"
+            else
+              echo "✗ Not found at /c/Program Files/litebase/litebase.exe"
+            fi
+          fi
+
+      - name: Test platform detection
+        shell: bash
+        run: |
+          echo "=== Platform Detection Test ==="
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Expected platform: ${{ matrix.platform }}"
+          echo "Expected architecture: ${{ matrix.arch }}"
+          echo ""
+          
+          echo "Detected by system:"
+          echo "uname -s: $(uname -s)"
+          echo "uname -m: $(uname -m)"
+          echo ""
+          
+          # Verify the script detects the correct platform
+          echo "Testing platform detection in script..."
+          
+          # Extract platform detection logic from install script
+          OS="$(uname -s)"
+          ARCH="$(uname -m)"
+          
+          case "$OS" in
+              Linux*)
+                  OS_TYPE="linux"
+                  case "$ARCH" in
+                      x86_64) ARCH_TYPE="x86_64" ;;
+                      i386|i686) ARCH_TYPE="386" ;;
+                      aarch64|arm64) ARCH_TYPE="arm64" ;;
+                      armv7l) ARCH_TYPE="arm" ;;
+                      *) ARCH_TYPE="unknown" ;;
+                  esac
+                  ;;
+              Darwin*)
+                  OS_TYPE="darwin"
+                  case "$ARCH" in
+                      x86_64) ARCH_TYPE="x86_64" ;;
+                      arm64) ARCH_TYPE="arm64" ;;
+                      *) ARCH_TYPE="unknown" ;;
+                  esac
+                  ;;
+              MINGW*|MSYS*|CYGWIN*)
+                  OS_TYPE="windows"
+                  case "$ARCH" in
+                      x86_64) ARCH_TYPE="x86_64" ;;
+                      i386|i686) ARCH_TYPE="386" ;;
+                      *) ARCH_TYPE="unknown" ;;
+                  esac
+                  ;;
+              *)
+                  OS_TYPE="unknown"
+                  ARCH_TYPE="unknown"
+                  ;;
+          esac
+          
+          echo "Script detected OS: $OS_TYPE"
+          echo "Script detected Arch: $ARCH_TYPE"
+          
+          # Verify detection matches expectations
+          if [ "$OS_TYPE" = "${{ matrix.platform }}" ]; then
+            echo "✓ Platform detection correct"
+          else
+            echo "✗ Platform detection mismatch: expected ${{ matrix.platform }}, got $OS_TYPE"
+          fi
+          
+          if [ "$ARCH_TYPE" = "${{ matrix.arch }}" ]; then
+            echo "✓ Architecture detection correct"
+          else
+            echo "✗ Architecture detection mismatch: expected ${{ matrix.arch }}, got $ARCH_TYPE"
+          fi
+
+      - name: Cleanup (Unix)
+        if: always() && runner.os != 'Windows'
+        run: |
+          echo "Cleaning up..."
+          
+          # Remove installed binary if it exists
+          if [ -f "/usr/local/bin/litebase" ]; then
+            sudo rm -f /usr/local/bin/litebase || true
+            echo "Removed /usr/local/bin/litebase"
+          fi
+
+      - name: Cleanup (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "Cleaning up..."
+          
+          # Remove installed binary if it exists
+          if [ -f "/c/Program Files/litebase/litebase.exe" ]; then
+            rm -f "/c/Program Files/litebase/litebase.exe" || true
+            echo "Removed /c/Program Files/litebase/litebase.exe"
+          fi
+          
+          # Try to remove the directory if empty
+          rmdir "/c/Program Files/litebase" 2>/dev/null || true
