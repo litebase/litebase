@@ -9,6 +9,8 @@
 
 <div align="center">
 <a href="https://github.com/litebase/litebase/actions"><img src="https://github.com/litebase/litebase/actions/workflows/tests.yml/badge.svg" alt="Build Status"></a>
+<a href="https://github.com/litebase/litebase/blob/main/LICENSE.md"><img alt="GitHub License" src="https://img.shields.io/github/license/litebase/litebase"></a>
+
 </div>
 
 <br />
