@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"net"
 	"os"
@@ -166,7 +167,6 @@ func WithSteps(t *testing.T, fn func(sp *StepProcessor)) {
 		sp.waitForAllProcessesToConnect()
 
 		if test, exists := sp.tests[processName]; exists {
-			// var testFailed bool
 			t.Run(processName, func(t *testing.T) {
 				test.function(test.process)
 			})
@@ -452,10 +452,8 @@ func (sp *StepProcessor) setupProcesses() {
 			fmt.Sprintf("LITEBASE_SOCKET_DIR=%s", sp.socketDir))
 
 		// Only return output for tests that do not exit with an error
-		if test.process.expectedExitCode == 0 {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
 		test.cmd = cmd
 		// socketPath will be set in setupSocketListener
@@ -613,7 +611,6 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 
 	// Check if step was already completed
 	if sp.completedSteps[stepName] {
-		slog.Error("Step already completed", "stepName", stepName, "role", "broker")
 		sp.stepMutex.Unlock()
 		return nil
 	}
@@ -628,7 +625,7 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 
 	// Allow configurable timeout via environment variable, default to 30
 	// seconds for more reliable tests.
-	timeoutDuration := 30 * time.Second
+	timeoutDuration := 10 * time.Second
 
 	if envTimeout := os.Getenv("LITEBASE_TEST_STEP_TIMEOUT"); envTimeout != "" {
 		if duration, err := time.ParseDuration(envTimeout); err == nil {
@@ -642,6 +639,7 @@ func (sp *StepProcessor) WaitForStep(stepName string) error {
 	case <-sp.ctx.Done():
 		return nil
 	case <-timeout:
+		log.Println("Was there a waiter for step?", stepName, waiter != nil)
 		return errors.New("timeout waiting for step completion")
 	case <-waiter:
 		return nil
@@ -712,11 +710,10 @@ func (sp *StepProcessor) connectToCoordinator(processName string) {
 		scanner := bufio.NewScanner(conn)
 
 		for scanner.Scan() {
-			select {
-			case <-sp.ctx.Done():
+			// Check if context is cancelled
+			if sp.ctx.Err() != nil {
 				fmt.Printf("[CHILD %s] Context cancelled, stopping message handler\n", processName)
 				return
-			default:
 			}
 
 			line := scanner.Text()
@@ -790,6 +787,26 @@ func (sp *StepProcessor) processStepMessage(msg Message) {
 	}
 }
 
+// Complete a step and notify waiters (idempotent operation)
+func (sp *StepProcessor) completeStep(stepName string) {
+	sp.stepMutex.Lock()
+	defer sp.stepMutex.Unlock()
+
+	// Check if step was already completed (idempotent)
+	if sp.completedSteps[stepName] {
+		return // Already completed, nothing to do
+	}
+
+	// Mark step as completed
+	sp.completedSteps[stepName] = true
+
+	// Notify any waiters for this step
+	if waiter, exists := sp.stepWaiters[stepName]; exists {
+		close(waiter)
+		delete(sp.stepWaiters, stepName)
+	}
+}
+
 // Process all pending messages when all connections are established
 func (sp *StepProcessor) processPendingMessages() {
 	sp.messagesMutex.Lock()
@@ -828,18 +845,7 @@ func (sp *StepProcessor) startMessageBroker() {
 			case msg := <-sp.messageQueue:
 				// Only process step messages in the broker (control messages are handled immediately)
 				if msg.Type == MessageTypeStep {
-					sp.stepMutex.Lock()
-
-					// Mark step as completed
-					sp.completedSteps[msg.StepName] = true
-
-					// Notify any waiters for this step
-					if waiter, exists := sp.stepWaiters[msg.StepName]; exists {
-						close(waiter)
-						delete(sp.stepWaiters, msg.StepName)
-					}
-
-					sp.stepMutex.Unlock()
+					sp.completeStep(msg.StepName)
 				}
 			}
 		}

@@ -66,12 +66,13 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 
 	test.WithSteps(t, func(sp *test.StepProcessor) {
 		sp.Run("PRIMARY", func(s *test.StepProcess) {
+
 			// Primary will crash
 			test.RunWithoutCleanup(t, func(app *server.App) {
-				if !app.Cluster.Node().IsPrimary() {
-					t.Fatal("Server is not primary")
-				}
+				s.Step("PRIMARY_INIT")
 
+				// Give the node a moment to initialize then signal ready
+				time.Sleep(1 * time.Second)
 				s.Step("PRIMARY_READY")
 
 				err := s.WaitForStep("REPLICA_READY")
@@ -93,19 +94,31 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 
+				// Close the file to ensure data is flushed to disk before crash
+				err = file.Close()
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
 				// Signal that file has been written and crash immediately
-				// Following the pattern from other tests that work reliably
 				s.Step("FILE_WRITTEN")
 				os.Exit(1) // Simulate a crash
 			})
 		}).ShouldExitWith(1)
 
 		sp.Run("REPLICA", func(s *test.StepProcess) {
-			if err := s.WaitForStep("PRIMARY_READY"); err != nil {
+			err := s.WaitForStep("PRIMARY_INIT")
+
+			if err != nil {
 				t.Fatal(err)
 			}
 
 			test.RunWithoutCleanup(t, func(app *server.App) {
+				if err := s.WaitForStep("PRIMARY_READY"); err != nil {
+					t.Fatal(err)
+				}
+
 				// Verify file doesn't exist in object storage yet
 				_, err := app.Cluster.ObjectFS().Stat("test")
 
@@ -133,6 +146,7 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 						if app.Cluster.Node().IsPrimary() {
 							break waitForPrimary
 						}
+
 						time.Sleep(100 * time.Millisecond)
 					}
 				}

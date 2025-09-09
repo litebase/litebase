@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -249,4 +250,82 @@ func TestStepProcessorPauseAndResumeConvenience(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestStepProcessorSimulateCrash(t *testing.T) {
+	WithSteps(t, func(sp *StepProcessor) {
+		// Process that crashes after sending a step (similar to PRIMARY in the failing test)
+		sp.Run("primary", func(s *StepProcess) {
+			s.Step("PRIMARY_READY")
+
+			err := s.WaitForStep("REPLICA_READY")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Do some "work" to simulate the original test pattern
+			time.Sleep(500 * time.Millisecond)
+
+			// Send final step and crash immediately (like the failing test)
+			s.Step("FILE_WRITTEN")
+			os.Exit(1)
+		}).ShouldExitWith(1)
+
+		// Process that waits for steps (similar to REPLICA in the failing test)
+		sp.Run("replica", func(s *StepProcess) {
+			time.Sleep(50 * time.Millisecond) // Ensure primary starts first
+
+			if err := s.WaitForStep("PRIMARY_READY"); err != nil {
+				t.Fatal(err)
+			}
+
+			// Do some "work" to simulate checking file system state
+			time.Sleep(5 * time.Millisecond)
+
+			s.Step("REPLICA_READY")
+
+			// This is where the original test would fail - waiting for FILE_WRITTEN
+			err := s.WaitForStep("FILE_WRITTEN")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Simulate additional work after receiving the step
+			time.Sleep(100 * time.Millisecond)
+		})
+	})
+}
+
+func TestStepProcessorRaceCondition(t *testing.T) {
+	// Run multiple iterations to try to trigger race conditions with GOMAXPROCS=1
+	for i := range 5 {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			WithSteps(t, func(sp *StepProcessor) {
+				// Quick process that sends steps and exits
+				sp.Run("sender", func(s *StepProcess) {
+					s.Step("STEP_1")
+					s.Step("STEP_2")
+					s.Step("STEP_3")
+					os.Exit(1)
+				}).ShouldExitWith(1)
+
+				// Receiver that waits for all steps
+				sp.Run("receiver", func(s *StepProcess) {
+					if err := s.WaitForStep("STEP_1"); err != nil {
+						t.Fatal(err)
+					}
+
+					if err := s.WaitForStep("STEP_2"); err != nil {
+						t.Fatal(err)
+					}
+
+					if err := s.WaitForStep("STEP_3"); err != nil {
+						t.Fatal(err)
+					}
+				})
+			})
+		})
+	}
 }

@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 )
 
@@ -40,6 +41,13 @@ func (s *StepProcess) Step(name string) {
 
 				if err != nil {
 					fmt.Printf("[CHILD %s] Error sending sync message: %v\n", processName, err)
+				} else {
+					// Ensure coordinator goroutines get a chance to process the message
+					// This is critical with GOMAXPROCS=1 where goroutine scheduling is limited
+					// Multiple yields increase reliability without blocking
+					for range 3 {
+						runtime.Gosched()
+					}
 				}
 			} else {
 				fmt.Printf("[CHILD %s] No coordinator connection available for sending sync message\n", processName)
