@@ -108,7 +108,11 @@ func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
 		}).ShouldExitWith(1)
 
 		sp.Run("REPLICA", func(s *test.StepProcess) {
-			s.WaitForStep("PRIMARY_INIT")
+			err := s.WaitForStep("PRIMARY_INIT")
+
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			test.RunWithoutCleanup(t, func(app *server.App) {
 				if err := s.WaitForStep("PRIMARY_READY"); err != nil {
