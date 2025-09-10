@@ -9,7 +9,7 @@ import (
 
 func NewDatabaseRestoreCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "restore <id>",
+		Use:   "restore <name>",
 		Args:  cobra.ExactArgs(1),
 		Short: "Restore a database",
 		RunE: func(cmd *cobra.Command, args []string) error {

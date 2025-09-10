@@ -7,7 +7,7 @@ import (
 
 func NewDatabaseUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update <name>",
 		Short: "Update an existing database",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

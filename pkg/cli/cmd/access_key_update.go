@@ -18,7 +18,7 @@ import (
 
 func NewAccessKeyUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <id> --description <description> --statements <statements>",
+		Use:   "update <id>",
 		Short: "Update an existing access key",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -230,7 +230,7 @@ func NewAccessKeyUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 
 	// Add flags
 	cmd.Flags().String("description", "", "Description for the access key")
-	cmd.Flags().String("statements", "", "JSON array of statements")
+	cmd.Flags().String("statements", "", "Define privileges for this access key using JSON")
 
 	return cmd
 }
