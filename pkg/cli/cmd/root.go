@@ -91,14 +91,14 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 		return nil, err
 	}
 
-	cmd.PersistentFlags().StringVarP(&accessKeyId, "access-key-id", "k", "", "Access key ID for authentication")
-	cmd.PersistentFlags().StringVarP(&accessKeySecret, "access-key-secret", "s", "", "Access key secret for authentication")
-	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", configPath, "Path to a configuration file")
-	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "The profile to use during this session")
-	cmd.PersistentFlags().StringVar(&url, "url", "", "Cluster url")
-	cmd.PersistentFlags().StringVar(&token, "token", "", "Cluster token")
-	cmd.PersistentFlags().StringVar(&username, "username", "", "Username for basic authentication")
-	cmd.PersistentFlags().StringVar(&password, "password", "", "Password for basic authentication")
+	cmd.PersistentFlags().StringVarP(&accessKeyId, "access-key-id", "k", "", "The access key ID for authentication")
+	cmd.PersistentFlags().StringVarP(&accessKeySecret, "access-key-secret", "s", "", "The access key secret for authentication")
+	cmd.PersistentFlags().StringVarP(&configPath, "config", "c", configPath, "The path to the CLI configuration file")
+	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "The profile to use from the CLI configuration")
+	cmd.PersistentFlags().StringVar(&url, "url", "", "The URL of the Litebase server to connect to")
+	cmd.PersistentFlags().StringVar(&token, "token", "", "The token to use for authentication")
+	cmd.PersistentFlags().StringVar(&username, "username", "", "The username to use for authentication")
+	cmd.PersistentFlags().StringVar(&password, "password", "", "The password to use for authentication")
 
 	cmd.PersistentFlags().BoolVarP(&interactive, "interactive", "i", true, "Run with user interaction")
 
