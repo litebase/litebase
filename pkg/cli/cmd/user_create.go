@@ -250,7 +250,7 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	// Add flags
 	cmd.Flags().String("new-username", "", "Username for the new user")
 	cmd.Flags().String("new-password", "", "Password for the new user")
-	cmd.Flags().String("statements", "", "JSON array of statements")
+	cmd.Flags().String("statements", "", "Define privileges for this user using JSON")
 
 	return cmd
 }

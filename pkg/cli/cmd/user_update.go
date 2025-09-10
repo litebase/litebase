@@ -194,7 +194,7 @@ func NewUserUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	}
 
 	// Add flags
-	cmd.Flags().String("statements", "", "JSON array of statements")
+	cmd.Flags().String("statements", "", "Define privileges for this user using JSON")
 
 	return cmd
 }
