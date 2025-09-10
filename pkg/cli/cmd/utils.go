@@ -39,7 +39,15 @@ func hideAuthFlags(cmd *cobra.Command) {
 			slog.Error("failed to hide url flag", "error", err)
 		}
 
-		cmd.Parent().HelpFunc()(cmd, args)
+		// Find the root command to get the original styled help function
+		root := cmd
+
+		for root.Parent() != nil {
+			root = root.Parent()
+		}
+
+		// Use the root command's help function to preserve Fang styling
+		root.HelpFunc()(cmd, args)
 	})
 }
 
