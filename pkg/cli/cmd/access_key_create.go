@@ -225,7 +225,7 @@ func NewAccessKeyCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 
 	// Add flags
 	cmd.Flags().String("description", "", "Description for the access key")
-	cmd.Flags().String("statements", "", "JSON array of statements")
+	cmd.Flags().String("statements", "", "Define privileges for this access key using JSON")
 
 	return cmd
 }
