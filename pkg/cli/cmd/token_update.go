@@ -230,7 +230,7 @@ func NewTokenUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 
 	// Add flags
 	cmd.Flags().String("description", "", "Description for the token")
-	cmd.Flags().String("statements", "", "JSON array of statements")
+	cmd.Flags().String("statements", "", "Define privileges for this token using JSON")
 
 	return cmd
 }
