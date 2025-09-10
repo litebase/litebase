@@ -11,6 +11,10 @@ import (
 // Hide authentication-related flags from the help output of the given command.
 func hideAuthFlags(cmd *cobra.Command) {
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		if err := cmd.Flags().MarkHidden("config"); err != nil {
+			slog.Error("failed to hide config flag", "error", err)
+		}
+
 		if err := cmd.Flags().MarkHidden("access-key-id"); err != nil {
 			slog.Error("failed to hide access-key-id flag", "error", err)
 		}
