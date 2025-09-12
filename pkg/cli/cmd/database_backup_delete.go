@@ -13,7 +13,7 @@ import (
 
 func NewDatabaseBackupDeleteCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <name> <timestamp>",
+		Use:   "delete <database/branch> <timestamp>",
 		Short: "Delete a database backup",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

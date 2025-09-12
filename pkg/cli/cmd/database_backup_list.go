@@ -13,7 +13,7 @@ import (
 
 func NewDatabaseBackupListCmd(config *config.CLIConfiguration) *cobra.Command {
 	var cmd = &cobra.Command{
-		Use:   "list <name>",
+		Use:   "list <database/branch>",
 		Short: "List database backups",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

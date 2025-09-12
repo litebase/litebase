@@ -14,7 +14,7 @@ import (
 func NewDatabaseBackupShowCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
 		//  litebase database backups show test/test
-		Use:   "show <name> <timestamp>",
+		Use:   "show <database/branch> <timestamp>",
 		Short: "Show details of a specific database backup",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
