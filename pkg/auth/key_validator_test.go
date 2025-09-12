@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -73,9 +74,13 @@ func TestValidateEncryptionKey(t *testing.T) {
 			testKey := "test_encryption_key_1234567890abcdef1234567890abcdef12345678"
 
 			// Clear the .key file to simulate no stored key
-			objectFS.Remove(".key")
+			err := objectFS.Remove(".key")
 
-			err := auth.ValidateEncryptionKey(testKey, objectFS)
+			if err != nil && !os.IsNotExist(err) {
+				t.Fatalf("failed to remove .key file: %v", err)
+			}
+
+			err = auth.ValidateEncryptionKey(testKey, objectFS)
 
 			if err == nil {
 				t.Error("expected error when no stored key exists")
