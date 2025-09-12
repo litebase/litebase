@@ -239,5 +239,9 @@ func startLoadFlags(cmd *cobra.Command, config *StartConfig) error {
 		config.TLSKeyPath = tlsKeyPath
 	}
 
+	if key, err := cmd.Flags().GetString("key"); err == nil {
+		config.Key = key
+	}
+
 	return nil
 }
