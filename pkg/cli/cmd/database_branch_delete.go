@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
@@ -11,11 +10,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewDatabaseBackupDeleteCmd(config *config.CLIConfiguration) *cobra.Command {
+func NewDatabaseBranchDeleteCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <database/branch> <timestamp>",
-		Short: "Delete a database backup",
-		Args:  cobra.ExactArgs(2),
+		Use:   "delete <database/branch>",
+		Args:  cobra.ExactArgs(1),
+		Short: "Delete a database branch",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			databaseName, branchName, err := splitDatabasePath(args[0])
 
@@ -23,13 +22,7 @@ func NewDatabaseBackupDeleteCmd(config *config.CLIConfiguration) *cobra.Command 
 				return fmt.Errorf("invalid database path: %w", err)
 			}
 
-			timestamp, err := strconv.ParseInt(args[1], 10, 64)
-
-			if err != nil {
-				return fmt.Errorf("invalid timestamp: %w", err)
-			}
-
-			res, _, err := api.Delete(config, fmt.Sprintf("/v1/databases/%s/%s/backups/%d", databaseName, branchName, timestamp))
+			res, _, err := api.Delete(config, fmt.Sprintf("/v1/databases/%s/%s", databaseName, branchName))
 
 			if err != nil {
 				return err

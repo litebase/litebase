@@ -12,7 +12,7 @@ import (
 
 func NewDatabaseBackupCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "create <path>",
+		Use:   "create <database/branch>",
 		Short: "Create a new database backup",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
