@@ -99,8 +99,10 @@ func (ph *ProcessHandle) GetOutputChan() <-chan string {
 }
 
 // Wait waits for the process to complete or be cancelled
-func (ph *ProcessHandle) Wait() error {
+func (ph *ProcessHandle) Wait(timeout time.Duration) error {
 	select {
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout waiting for process to complete")
 	case <-ph.doneChan:
 		return nil
 	case err := <-ph.errorChan:
