@@ -146,10 +146,16 @@ func DatabaseBranchStoreController(request *Request) Response {
 	}
 
 	var branchName = input.(*DatabaseBranchStoreRequest).Name
+	var parentName = input.(*DatabaseBranchStoreRequest).ParentName
+
+	// If no parent name is specified, use the default branch name
+	if parentName == "" {
+		parentName = request.cluster.Config.DefaultBranchName
+	}
 
 	branch, err := db.CreateBranch(
 		string(branchName),
-		request.cluster.Config.DefaultBranchName,
+		parentName,
 	)
 
 	if err != nil {

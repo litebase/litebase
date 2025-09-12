@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -346,4 +347,24 @@ func (b *Branch) Save() error {
 	} else {
 		return InsertBranch(b)
 	}
+}
+
+// MarshalJSON customizes the JSON representation of the Branch struct.
+// It includes the parent branch name if available.
+func (b *Branch) MarshalJSON() ([]byte, error) {
+	type Alias Branch
+
+	result := &struct {
+		*Alias
+		ParentName *string `json:"parent_name,omitempty"`
+	}{
+		Alias: (*Alias)(b),
+	}
+
+	// Add parent name if there's a parent branch
+	if parentBranch := b.ParentBranch(); parentBranch != nil {
+		result.ParentName = &parentBranch.Name
+	}
+
+	return json.Marshal(result)
 }
