@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -276,7 +277,105 @@ func TestStartCmd(t *testing.T) {
 				t.Fatalf("failed to start command in background: %v", err)
 			}
 		})
-	}, test.CleanupPort("9876"), test.CleanupPort("9877"), test.CleanupPort("8888"), test.CleanupPort("8080"))
+
+		t.Run("Start fails without an encryption key", func(t *testing.T) {
+			t.Setenv("LITEBASE_ENCRYPTION_KEY", "")
+
+			cli := test.NewTestCLI(t, nil)
+
+			// Start the server in the background
+			err := cli.WithArgs("start", "--port", "8888").
+				RunInBackground(func(handle *test.ProcessHandle) {
+					if !handle.IsRunning() {
+						t.Fatal("expected server to be running")
+					}
+
+					err := handle.Wait(1 * time.Second)
+
+					if err == nil {
+						t.Fatalf("expected an error due to missing encryption key, but got none")
+					}
+
+					output := handle.GetOutput()
+
+					if !strings.Contains(err.Error(), "exit status") {
+						t.Fatalf("expected process to exit with non-zero status, got: %v", err)
+					}
+
+					expectedPanicMsg := "the LITEBASE_ENCRYPTION_KEY environment variable is not set"
+
+					if !strings.Contains(output, expectedPanicMsg) {
+						t.Fatalf("expected output to contain panic message about encryption key '%s', but got: %s", expectedPanicMsg, output)
+					}
+				})
+
+			if err != nil {
+				t.Fatalf("failed to start command in background: %v", err)
+			}
+		})
+
+		t.Run("Start fails without an encryption key that doesn't match the checksum of the current key", func(t *testing.T) {
+			cli := test.NewTestCLI(t, nil)
+
+			// Start the server once to establish the initial key
+			err := cli.WithArgs("start", "--port", "8889").
+				RunInBackground(func(handle *test.ProcessHandle) {
+					if !handle.IsRunning() {
+						t.Fatal("expected server to be running")
+					}
+
+					// Wait for the server to start
+					err := handle.WaitForOutput("Litebase Server", 3*time.Second)
+
+					if err != nil {
+						t.Log(handle.GetOutput())
+						t.Fatalf("timeout waiting for server to start: %v", err)
+					}
+
+					err = cli.Cancel()
+
+					if err != nil {
+						t.Fatalf("failed to cancel: %v", err)
+					}
+				})
+
+			if err != nil {
+				t.Fatalf("failed to start command in background: %v", err)
+			}
+
+			// Now try to start with a different encryption key using the --key flag
+			differentKey := test.CreateHash(64)
+			cli2 := test.NewTestCLI(t, nil)
+
+			// Start the server in the background with a different key
+			err = cli2.WithArgs("start", "--port", "8889", "--key", differentKey).
+				RunInBackground(func(handle *test.ProcessHandle) {
+					// Don't check if it's running since it will panic and exit quickly
+
+					err := handle.Wait(3 * time.Second)
+
+					if err == nil {
+						t.Fatalf("expected an error due to encryption key mismatch, but got none")
+					}
+
+					output := handle.GetOutput()
+
+					if !strings.Contains(err.Error(), "exit status") {
+						t.Fatalf("expected process to exit with non-zero status, got: %v", err)
+					}
+
+					expectedPanicMsg := "provided encryption key does not match the stored key checksum"
+
+					if !strings.Contains(output, expectedPanicMsg) {
+						t.Fatalf("expected output to contain panic message about encryption key mismatch '%s', but got: %s", expectedPanicMsg, output)
+					}
+				})
+
+			if err != nil {
+				t.Fatalf("failed to start command in background: %v", err)
+			}
+		})
+	}, test.CleanupPort("9876"), test.CleanupPort("9877"), test.CleanupPort("8888"), test.CleanupPort("8889"), test.CleanupPort("8080"))
 }
 
 func TestStartCmdWithLocalConfigurationFile(t *testing.T) {

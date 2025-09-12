@@ -66,8 +66,8 @@ func (c *StartConfig) Load() error {
 	}
 
 	if c.Key != "" {
-		if err := os.Setenv("LITEBASE_KEY", c.Key); err != nil {
-			return fmt.Errorf("failed to set LITEBASE_KEY environment variable: %w", err)
+		if err := os.Setenv("LITEBASE_ENCRYPTION_KEY", c.Key); err != nil {
+			return fmt.Errorf("failed to set LITEBASE_ENCRYPTION_KEY environment variable: %w", err)
 		}
 	}
 

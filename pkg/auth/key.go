@@ -28,8 +28,8 @@ func InitKey(c *config.Config, objectFS *storage.FileSystem) error {
 		return err
 	}
 
-	if config.EncryptionKeyHash(encryptionKey) != encryptionKeyHash {
-		return nil
+	if err := ValidateEncryptionKey(encryptionKey, objectFS); err != nil {
+		return fmt.Errorf("provided encryption key does not match the stored key checksum: %w", err)
 	}
 
 	return nil
@@ -51,7 +51,7 @@ func StoreEncryptionKey(c *config.Config, objectFS *storage.FileSystem, encrypti
 
 writeFile:
 
-	err := objectFS.WriteFile(hashPath, []byte(config.EncryptionKeyHash(encryptionKey)), 0600)
+	err := objectFS.WriteFile(hashPath, []byte(EncryptionKeyHash(encryptionKey)), 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {

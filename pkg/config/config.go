@@ -1,9 +1,6 @@
 package config
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-
 	"os"
 )
 
@@ -80,11 +77,4 @@ func NewConfig() *Config {
 		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string)).(string),
 		StorageTmpPath:         env("LITEBASE_STORAGE_TMP_PATH", "").(string),
 	}
-}
-
-// Generate a hash of the encryption key so that it is not stored in plain text.
-func EncryptionKeyHash(encryptionKey string) string {
-	hash := sha256.Sum256([]byte(encryptionKey))
-
-	return hex.EncodeToString(hash[:])
 }

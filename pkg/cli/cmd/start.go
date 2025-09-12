@@ -25,7 +25,6 @@ func NewStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start Litebase Server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			// Attempt to load configuration from a local configuration file
 			if err := startLoadConfiguration(cmd, startConfig); err != nil {
 				return fmt.Errorf("failed to load configuration: %w", err)
@@ -238,6 +237,10 @@ func startLoadFlags(cmd *cobra.Command, config *StartConfig) error {
 
 	if tlsKeyPath, err := cmd.Flags().GetString("tls-key-path"); err == nil {
 		config.TLSKeyPath = tlsKeyPath
+	}
+
+	if key, err := cmd.Flags().GetString("key"); err == nil {
+		config.Key = key
 	}
 
 	return nil

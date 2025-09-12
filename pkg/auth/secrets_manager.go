@@ -239,7 +239,7 @@ func (s *SecretsManager) PurgeExpiredSecrets() error {
 func (s *SecretsManager) SecretsPath(encryptionKey, key string) string {
 	return fmt.Sprintf(
 		"%s/%s",
-		config.EncryptionKeyHash(encryptionKey),
+		EncryptionKeyHash(encryptionKey),
 		key,
 	)
 }

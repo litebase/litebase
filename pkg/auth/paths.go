@@ -2,8 +2,6 @@ package auth
 
 import (
 	"fmt"
-
-	"github.com/litebase/litebase/pkg/config"
 )
 
 func GetDatabaseKeysPath(key string) string {
@@ -11,5 +9,5 @@ func GetDatabaseKeysPath(key string) string {
 }
 
 func Path(key string) string {
-	return config.EncryptionKeyHash(key) + "/"
+	return EncryptionKeyHash(key) + "/"
 }
