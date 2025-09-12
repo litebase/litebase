@@ -6,7 +6,6 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 )
 
@@ -139,7 +138,7 @@ func TestKeyPath(t *testing.T) {
 			t.Fatalf("Private key path is empty")
 		}
 
-		if privateKeyPath != fmt.Sprintf("%s/private.key", config.EncryptionKeyHash(server.App.Config.EncryptionKey)) {
+		if privateKeyPath != fmt.Sprintf("%s/private.key", auth.EncryptionKeyHash(server.App.Config.EncryptionKey)) {
 			t.Fatalf("Private key path is not correct: %s", privateKeyPath)
 		}
 	})
