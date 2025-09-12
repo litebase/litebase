@@ -21,7 +21,7 @@ func NewDatabaseBranchCmd(config *config.CLIConfiguration) *cobra.Command {
 	}
 
 	cmd.AddCommand(NewDatabaseBranchCreateCmd(config))
-	// cmd.AddCommand(NewDatabaseBranchDeleteCmd(config))
+	cmd.AddCommand(NewDatabaseBranchDeleteCmd(config))
 	// cmd.AddCommand(NewDatabaseBranchListCmd(config))
 	// cmd.AddCommand(NewDatabaseBranchShowCmd(config))
 
