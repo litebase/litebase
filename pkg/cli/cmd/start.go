@@ -25,7 +25,6 @@ func NewStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start Litebase Server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			// Attempt to load configuration from a local configuration file
 			if err := startLoadConfiguration(cmd, startConfig); err != nil {
 				return fmt.Errorf("failed to load configuration: %w", err)

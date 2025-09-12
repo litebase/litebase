@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -269,6 +270,42 @@ func TestStartCmd(t *testing.T) {
 
 					if err != nil {
 						t.Fatalf("failed to cancel: %v", err)
+					}
+				})
+
+			if err != nil {
+				t.Fatalf("failed to start command in background: %v", err)
+			}
+		})
+
+		t.Run("Start fails without an encryption key", func(t *testing.T) {
+			t.Setenv("LITEBASE_ENCRYPTION_KEY", "")
+
+			cli := test.NewTestCLI(t, nil)
+
+			// Start the server in the background
+			err := cli.WithArgs("start", "--port", "8888").
+				RunInBackground(func(handle *test.ProcessHandle) {
+					if !handle.IsRunning() {
+						t.Fatal("expected server to be running")
+					}
+
+					err := handle.Wait()
+
+					if err == nil {
+						t.Fatalf("expected an error due to missing encryption key, but got none")
+					}
+
+					output := handle.GetOutput()
+
+					if !strings.Contains(err.Error(), "exit status") {
+						t.Fatalf("expected process to exit with non-zero status, got: %v", err)
+					}
+
+					expectedPanicMsg := "the LITEBASE_ENCRYPTION_KEY environment variable is not set"
+
+					if !strings.Contains(output, expectedPanicMsg) {
+						t.Fatalf("expected output to contain panic message about encryption key '%s', but got: %s", expectedPanicMsg, output)
 					}
 				})
 
