@@ -212,7 +212,7 @@ func ListBackups(
 // the database and store it in the filesystem. The backup will be based on the
 // current state of the database at the time of backup. As the backup runs,
 // rollback logs will be applied where needed to keep the database in the
-// propert state. This will allow the backup to copy all existing files
+// property state. This will allow the backup to copy all existing files
 // while the database is online and in use.
 func Run(
 	c *config.Config,

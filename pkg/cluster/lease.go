@@ -192,7 +192,7 @@ func (l *Lease) Renew() error {
 		return err
 	}
 
-	// Verify the primary is stil the current node
+	// Verify the primary is still the current node
 	primaryAddress, err := l.node.Cluster.NetworkFS().ReadFile(l.node.Cluster.PrimaryPath())
 
 	if err != nil {

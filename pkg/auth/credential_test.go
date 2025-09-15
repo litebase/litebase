@@ -75,8 +75,8 @@ func TestCredential(t *testing.T) {
 
 		t.Run("CaptureCredential_WithBasicAuth", func(t *testing.T) {
 			user, err := app.Auth.UserManager.Create(
-				"testuser",
-				"testpassword123",
+				"testUser",
+				"testPassword123",
 				"",
 				[]auth.Statement{
 					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
@@ -98,7 +98,7 @@ func TestCredential(t *testing.T) {
 				},
 			}
 
-			baseRequest.SetBasicAuth(user.Username, "testpassword123")
+			baseRequest.SetBasicAuth(user.Username, "testPassword123")
 
 			request := appHttp.NewRequest(
 				app.Cluster,

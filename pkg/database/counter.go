@@ -13,7 +13,7 @@ var QueryCounts = make(map[int64]map[string]map[int64]*QueryCount)
 
 type Counter struct{}
 
-// Add the datbase to the query counter.
+// Add the database to the query counter.
 func AddQueryCount(timestamp int64, databaseId, branchId string) *QueryCount {
 	newlyCreated := false
 	key := Key(databaseId, branchId)

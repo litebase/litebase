@@ -488,7 +488,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Failed to get snapshots: %v", err)
 			}
 
-			// Get the lastest snapshot timestamp
+			// Get the latest snapshot timestamp
 			snapshotKeys := snapshotLogger.Keys()
 
 			snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
@@ -651,7 +651,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Failed to get snapshots: %v", err)
 					}
 
-					// Get the lastest snapshot timestamp
+					// Get the latest snapshot timestamp
 					snapshotKeys := snapshotLogger.Keys()
 
 					snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
@@ -825,7 +825,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Failed to get snapshots: %v", err)
 					}
 
-					// Get the lastest snapshot timestamp
+					// Get the latest snapshot timestamp
 					snapshotKeys := snapshotLogger.Keys()
 
 					snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])

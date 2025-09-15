@@ -37,7 +37,7 @@ var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
 		// checkpointing mechanism that will be used to checkpoint the WAL.
 
 		// It is very important that this setting remain in place as our the
-		// checkpointer is reponsible writing pages to durable storage and
+		// checkpointer is responsible writing pages to durable storage and
 		// properly reporting the page count of the database.
 		"PRAGMA wal_autocheckpoint=0",
 
@@ -304,7 +304,7 @@ func (con *DatabaseConnection) Close() error {
 	var err error
 
 	// Finalize all statements before closing the connection.
-	err = con.finalizeStatments()
+	err = con.finalizestatements()
 
 	if err != nil {
 		return err
@@ -413,7 +413,7 @@ func (con *DatabaseConnection) FileSystem() *storage.DurableDatabaseFileSystem {
 }
 
 // Finalize the statements of the connection.
-func (con *DatabaseConnection) finalizeStatments() error {
+func (con *DatabaseConnection) finalizestatements() error {
 	var err error
 
 	// Ensure all statements are finalized before closing the connection.
@@ -533,7 +533,7 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 		return Statement{}, ErrDatabaseConnectionClosed
 	}
 
-	statment, _, err := con.sqliteConnection().Prepare(ctx, command)
+	statement, _, err := con.sqliteConnection().Prepare(ctx, command)
 
 	if err != nil {
 		return Statement{}, err
@@ -541,7 +541,7 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 
 	return Statement{
 		context:          ctx,
-		Sqlite3Statement: statment,
+		Sqlite3Statement: statement,
 	}, nil
 }
 

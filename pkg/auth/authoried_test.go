@@ -7,7 +7,7 @@ import (
 )
 
 func TestAuthorized(t *testing.T) {
-	testCasses := []struct {
+	testCases := []struct {
 		name       string
 		statements []auth.Statement
 		resource   string
@@ -97,7 +97,7 @@ func TestAuthorized(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCasses {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := auth.Authorized(tc.statements, tc.resource, tc.action)
 

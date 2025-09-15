@@ -33,7 +33,7 @@ func (cluster *Cluster) LocalFS() *storage.FileSystem {
 	return cluster.localFileSystem
 }
 
-// The Object FileSystem is used to reada and write objects directly to the object
+// The Object FileSystem is used to read and write objects directly to the object
 // storage. Using this file system should be avoided in cases where the files being
 // accessed need high performance or strong consistency guarantees.
 func (cluster *Cluster) ObjectFS() *storage.FileSystem {

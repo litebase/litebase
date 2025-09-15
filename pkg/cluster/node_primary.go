@@ -29,7 +29,7 @@ func NewNodePrimary(node *Node) *NodePrimary {
 	return primary
 }
 
-// Send the heatbeat message to the replica nodes.
+// Send the heartbeat message to the replica nodes.
 func (np *NodePrimary) Heartbeat() error {
 	address, err := np.node.Address()
 

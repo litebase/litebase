@@ -119,7 +119,7 @@ func (ts *TestServer) Shutdown() {
 		panic(err)
 	}
 
-	// This may not be neccesary since this will be used in side of test.Run()
+	// This may not be necessary since this will be used in side of test.Run()
 	// storage.Shutdown(ts.App.Config)
 
 	ts.Server.CloseClientConnections()
