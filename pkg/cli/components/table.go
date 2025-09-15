@@ -86,6 +86,7 @@ func NewTable(
 
 	// Assign weights based on column types and content
 	weights := make([]float64, len(columns))
+
 	for i, title := range columns {
 		switch title {
 		case "#", "No", "Index":
