@@ -76,7 +76,7 @@ func TestDatabaseBackupShowCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Database Backup") {
+		if cli.DoesNotSee("Database Backup") {
 			t.Fatal("expected to see 'Database Backup' in output")
 		}
 

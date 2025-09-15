@@ -42,16 +42,16 @@ func TestAccessKeyListCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("#") {
+		if cli.DoesNotSee("#") {
 			t.Errorf("expected output to contain '#' got %q", cli.GetOutput())
 		}
 
-		if cli.DoesntSee("Access Key ID") {
+		if cli.DoesNotSee("Access Key ID") {
 			t.Errorf("expected output to contain 'Access Key ID' got %q", cli.GetOutput())
 		}
 
 		for _, accessKey := range accessKeys {
-			if cli.DoesntSee(accessKey.AccessKeyID) {
+			if cli.DoesNotSee(accessKey.AccessKeyID) {
 				t.Errorf("expected output to contain '%s' got %q", accessKey.AccessKeyID, cli.GetOutput())
 			}
 		}

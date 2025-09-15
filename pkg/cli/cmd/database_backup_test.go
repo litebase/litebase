@@ -24,23 +24,23 @@ func TestDatabaseBackup(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Manage database backups") {
+		if cli.DoesNotSee("Manage database backups") {
 			t.Error("expected output to contain 'Manage database backups'")
 		}
 
-		if cli.DoesntSee("create") {
+		if cli.DoesNotSee("create") {
 			t.Error("expected output to contain 'create'")
 		}
 
-		if cli.DoesntSee("delete") {
+		if cli.DoesNotSee("delete") {
 			t.Error("expected output to contain 'delete'")
 		}
 
-		if cli.DoesntSee("list") {
+		if cli.DoesNotSee("list") {
 			t.Error("expected output to contain 'list'")
 		}
 
-		if cli.DoesntSee("show") {
+		if cli.DoesNotSee("show") {
 			t.Error("expected output to contain 'show'")
 		}
 	})

@@ -34,31 +34,31 @@ func TestTokenUpdate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Token") {
+		if cli.DoesNotSee("Token") {
 			t.Error("expected output to contain 'Token'")
 		}
 
-		if cli.DoesntSee("Token ID") {
+		if cli.DoesNotSee("Token ID") {
 			t.Error("expected output to contain 'Token ID'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statements") {
+		if cli.DoesNotSee("Statements") {
 			t.Error("expected output to contain 'Statements'")
 		}
 
-		if cli.DoesntSee("deny") {
+		if cli.DoesNotSee("deny") {
 			t.Error("expected output to contain 'deny'")
 		}
 
-		if cli.DoesntSee("Updated token") {
+		if cli.DoesNotSee("Updated token") {
 			t.Errorf("expected output to contain 'Updated token', got %q", cli.GetOutput())
 		}
 	})

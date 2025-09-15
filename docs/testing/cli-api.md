@@ -103,7 +103,7 @@ func (c *TestCLI) Sees(text string) bool
 Checks if the output buffer contains the specified text.
 
 ```go
-func (c *TestCLI) DoesntSee(text string) bool
+func (c *TestCLI) DoesNotSee(text string) bool
 ```
 
 Checks if the output buffer does NOT contain the specified text.

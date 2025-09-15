@@ -128,7 +128,7 @@ func TestNewDatabaseBackupListCmd(t *testing.T) {
 		}
 
 		for _, backup := range createdBackups {
-			if cli.DoesntSee(fmt.Sprintf("%d", backup.RestorePoint.Timestamp)) {
+			if cli.DoesNotSee(fmt.Sprintf("%d", backup.RestorePoint.Timestamp)) {
 				t.Errorf("expected output to contain backup timestamp %d and size %d, but it did not", backup.RestorePoint.Timestamp, backup.Size)
 			}
 		}

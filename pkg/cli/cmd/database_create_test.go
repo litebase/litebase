@@ -24,23 +24,23 @@ func TestDatabaseCreate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Database") {
+		if cli.DoesNotSee("Database") {
 			t.Error("expected output to contain 'Database'")
 		}
 
-		if cli.DoesntSee("Name") {
+		if cli.DoesNotSee("Name") {
 			t.Error("expected output to contain 'Name'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("URL") {
+		if cli.DoesNotSee("URL") {
 			t.Error("expected output to contain 'URL'")
 		}
 	})
@@ -63,7 +63,7 @@ func TestDatabaseCreateWithPrimaryBranch(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Database") {
+		if cli.DoesNotSee("Database") {
 			t.Error("expected output to contain 'Database'")
 		}
 

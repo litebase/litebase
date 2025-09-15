@@ -67,7 +67,7 @@ func TestDatabaseBranchDelete(t *testing.T) {
 			t.Fatalf("expected no error deleting branch, got %v", err)
 		}
 
-		if cli.DoesntSee("Database branch deleted successfully") {
+		if cli.DoesNotSee("Database branch deleted successfully") {
 			t.Error("expected output to contain success message")
 		}
 

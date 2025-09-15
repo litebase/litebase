@@ -20,15 +20,15 @@ func TestConfigShow(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			if cli.DoesntSee("Litebase Server Config") {
+			if cli.DoesNotSee("Litebase Server Config") {
 				t.Error("expected output to contain 'Litebase Server Config'")
 			}
 
-			if cli.DoesntSee("Cluster ID") {
+			if cli.DoesNotSee("Cluster ID") {
 				t.Error("expected output to contain 'Cluster ID'")
 			}
 
-			if cli.DoesntSee("Port") {
+			if cli.DoesNotSee("Port") {
 				t.Error("expected output to contain 'Port'")
 			}
 		})
@@ -62,15 +62,15 @@ func TestConfigShow(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			if cli.DoesntSee("Litebase Server Config") {
+			if cli.DoesNotSee("Litebase Server Config") {
 				t.Error("expected output to contain 'Litebase Server Config'")
 			}
 
-			if cli.DoesntSee("Cluster ID") {
+			if cli.DoesNotSee("Cluster ID") {
 				t.Error("expected output to contain 'Cluster ID'")
 			}
 
-			if cli.DoesntSee("Port") {
+			if cli.DoesNotSee("Port") {
 				t.Error("expected output to contain 'Port'")
 			}
 		})

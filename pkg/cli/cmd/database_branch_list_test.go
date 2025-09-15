@@ -67,31 +67,31 @@ func TestDatabaseBranchList(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("main") {
+		if cli.DoesNotSee("main") {
 			t.Error("expected output to contain primary branch 'main'")
 		}
 
-		if cli.DoesntSee("branch-1") {
+		if cli.DoesNotSee("branch-1") {
 			t.Error("expected output to contain 'branch-1'")
 		}
 
-		if cli.DoesntSee("branch-2") {
+		if cli.DoesNotSee("branch-2") {
 			t.Error("expected output to contain 'branch-2'")
 		}
 
-		if cli.DoesntSee("branch-3") {
+		if cli.DoesNotSee("branch-3") {
 			t.Error("expected output to contain 'branch-3'")
 		}
 
-		if cli.DoesntSee(branch1.DatabaseBranchID) {
+		if cli.DoesNotSee(branch1.DatabaseBranchID) {
 			t.Error("expected output to contain branch-1 ID")
 		}
 
-		if cli.DoesntSee(branch2.DatabaseBranchID) {
+		if cli.DoesNotSee(branch2.DatabaseBranchID) {
 			t.Error("expected output to contain branch-2 ID")
 		}
 
-		if cli.DoesntSee(branch3.DatabaseBranchID) {
+		if cli.DoesNotSee(branch3.DatabaseBranchID) {
 			t.Error("expected output to contain branch-3 ID")
 		}
 	})
@@ -200,11 +200,11 @@ func TestDatabaseBranchListWithParentBranches(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("feature-branch") {
+		if cli.DoesNotSee("feature-branch") {
 			t.Error("expected output to contain parent branch 'feature-branch'")
 		}
 
-		if cli.DoesntSee("child-branch") {
+		if cli.DoesNotSee("child-branch") {
 			t.Error("expected output to contain child branch 'child-branch'")
 		}
 
@@ -214,11 +214,11 @@ func TestDatabaseBranchListWithParentBranches(t *testing.T) {
 			t.Error("expected some output from branch list command")
 		}
 
-		if cli.DoesntSee(parentBranch.DatabaseBranchID) {
+		if cli.DoesNotSee(parentBranch.DatabaseBranchID) {
 			t.Error("expected output to contain parent branch ID")
 		}
 
-		if cli.DoesntSee(childBranch.DatabaseBranchID) {
+		if cli.DoesNotSee(childBranch.DatabaseBranchID) {
 			t.Error("expected output to contain child branch ID")
 		}
 	})
@@ -247,7 +247,7 @@ func TestDatabaseBranchListAccessControl(t *testing.T) {
 			t.Fatalf("expected no error with proper access, got %v", err)
 		}
 
-		if cli.DoesntSee("main") {
+		if cli.DoesNotSee("main") {
 			t.Error("expected output to contain primary branch 'main'")
 		}
 	})

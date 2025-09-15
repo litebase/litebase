@@ -24,15 +24,15 @@ func TestDatabaseSnapshot(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("View database snapshots") {
+		if cli.DoesNotSee("View database snapshots") {
 			t.Error("expected output to contain 'View database snapshots'")
 		}
 
-		if cli.DoesntSee("list") {
+		if cli.DoesNotSee("list") {
 			t.Error("expected output to contain 'list'")
 		}
 
-		if cli.DoesntSee("show") {
+		if cli.DoesNotSee("show") {
 			t.Error("expected output to contain 'show'")
 		}
 	})

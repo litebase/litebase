@@ -92,30 +92,30 @@ func TestDatabaseSnapshotShow(t *testing.T) {
 		t.Logf("Looking for timestamp: %d", snapshot.Timestamp)
 
 		// Check that snapshot information is displayed
-		if cli.DoesntSee("Database Snapshot") {
+		if cli.DoesNotSee("Database Snapshot") {
 			t.Error("expected output to contain 'Database Snapshot' card title")
 		}
 
 		// Check for timestamp
 		timestampStr := fmt.Sprintf("%d", snapshot.Timestamp)
-		if cli.DoesntSee(timestampStr) {
+		if cli.DoesNotSee(timestampStr) {
 			t.Errorf("expected output to contain timestamp %s", timestampStr)
 		}
 
-		if cli.DoesntSee(testDatabase.DatabaseID) {
+		if cli.DoesNotSee(testDatabase.DatabaseID) {
 			t.Error("expected output to contain database ID")
 		}
 
-		if cli.DoesntSee(testDatabase.DatabaseBranchID) {
+		if cli.DoesNotSee(testDatabase.DatabaseBranchID) {
 			t.Error("expected output to contain branch ID")
 		}
 
 		// Check for restore points table
-		if cli.DoesntSee("Restore Points") {
+		if cli.DoesNotSee("Restore Points") {
 			t.Error("expected output to contain 'Restore Points' section title")
 		}
 
-		if cli.DoesntSee("Time (UTC)") {
+		if cli.DoesNotSee("Time (UTC)") {
 			t.Error("expected output to contain 'Time (UTC)' column header in restore points table")
 		}
 	})
@@ -284,7 +284,7 @@ func TestDatabaseSnapshotShowAccessControl(t *testing.T) {
 		}
 
 		// Should be able to see the snapshot details
-		if cli.DoesntSee("Database Snapshot") {
+		if cli.DoesNotSee("Database Snapshot") {
 			t.Error("expected output to contain 'Database Snapshot' card title")
 		}
 	})

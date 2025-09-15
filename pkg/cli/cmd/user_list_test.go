@@ -44,16 +44,16 @@ func TestUserListCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("#") {
+		if cli.DoesNotSee("#") {
 			t.Errorf("expected output to contain '#' got %q", cli.GetOutput())
 		}
 
-		if cli.DoesntSee("Username") {
+		if cli.DoesNotSee("Username") {
 			t.Errorf("expected output to contain 'Username' got %q", cli.GetOutput())
 		}
 
 		for _, user := range users {
-			if cli.DoesntSee(user.Username) {
+			if cli.DoesNotSee(user.Username) {
 				t.Errorf("expected output to contain '%s' got %q", user.Username, cli.GetOutput())
 			}
 		}

@@ -35,7 +35,7 @@ func TestTokenDeleteCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Token deleted") {
+		if cli.DoesNotSee("Token deleted") {
 			t.Error("expected output to contain 'Token deleted'")
 		}
 	})

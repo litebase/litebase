@@ -28,11 +28,11 @@ func TestDatabaseList(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee(database1.DatabaseID) {
+		if cli.DoesNotSee(database1.DatabaseID) {
 			t.Error("expected output to contain database1 ID")
 		}
 
-		if cli.DoesntSee(database2.DatabaseID) {
+		if cli.DoesNotSee(database2.DatabaseID) {
 			t.Errorf("expected output to contain database2 ID, got %v", cli.GetOutput())
 		}
 	})

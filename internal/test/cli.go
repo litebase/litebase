@@ -240,7 +240,7 @@ func (c *TestCLI) handleOutput(handle *ProcessHandle, reader io.Reader) {
 }
 
 // Check if the output buffer contains the expected text
-func (c *TestCLI) DoesntSee(text string) bool {
+func (c *TestCLI) DoesNotSee(text string) bool {
 	return !c.Sees(text)
 }
 
