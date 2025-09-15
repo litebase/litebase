@@ -20,6 +20,7 @@ func NewDatabaseCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd.AddCommand(NewDatabaseBackupCmd(config))
 	cmd.AddCommand(NewDatabaseBranchCmd(config))
 	cmd.AddCommand(NewDatabaseRestoreCmd(config))
+	cmd.AddCommand(NewDatabaseSnapshotCmd(config))
 	cmd.AddCommand(NewDatabaseUpdateCmd(config))
 	cmd.AddCommand(NewDatabaseQueryCmd(config))
 	cmd.AddCommand(NewDatabaseQueryLogCmd(config))
