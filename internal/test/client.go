@@ -24,7 +24,7 @@ type TestClient struct {
 
 func (c *TestClient) Send(path string, method string, data any) (map[string]any, int, error) {
 	var requestURL string
-	
+
 	if !strings.Contains(path, "http://") && !strings.Contains(path, "https://") {
 		requestURL = c.URL + path
 	} else {
