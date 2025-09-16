@@ -94,6 +94,17 @@ func DatabaseRestoreController(request *Request) Response {
 	sourceDfs := request.databaseManager.Resources(database.DatabaseID, branch.DatabaseBranchID).FileSystem()
 	targetDfs := request.databaseManager.Resources(targetDatabase.DatabaseID, targetBranch.DatabaseBranchID).FileSystem()
 
+	// Validate that the target database branch is empty before restoring
+	targetSize, err := targetDfs.Size()
+
+	if err != nil {
+		return ServerErrorResponse(fmt.Errorf("failed to check target database size: %w", err))
+	}
+
+	if targetSize > 0 {
+		return BadRequestResponse(fmt.Errorf("target database branch '%s/%s' is not empty (size: %d bytes). Restore can only be performed on empty database branches", targetDatabaseName, targetBranchName, targetSize))
+	}
+
 	err = backups.RestoreFromTimestamp(
 		request.cluster.Config,
 		request.cluster.TieredFS(),
