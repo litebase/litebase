@@ -33,6 +33,7 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 
 	// Parse the URL to separate path and query parameters
 	parsedURL, err := url.Parse(requestURL)
+
 	if err != nil {
 		return nil, 0, err
 	}
@@ -70,6 +71,7 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 	if c.AccessKey != nil {
 		// Parse query parameters for request signing
 		queryParams := make(map[string]string)
+
 		for key, values := range parsedURL.Query() {
 			if len(values) > 0 {
 				queryParams[key] = values[0] // Use the first value if multiple values exist
