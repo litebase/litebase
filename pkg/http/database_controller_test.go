@@ -18,7 +18,7 @@ func TestDatabaseControllerIndex(t *testing.T) {
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeList},
 		}})
@@ -62,7 +62,7 @@ func TestDatabaseControllerShow(t *testing.T) {
 		database := test.MockDatabase(server.App)
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
 		}})
@@ -103,7 +103,7 @@ func TestDatabaseControllerStore(t *testing.T) {
 		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
 		}})
@@ -149,7 +149,7 @@ func TestDatabaseControllerStore_WithInvalidName(t *testing.T) {
 		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
 		}})
@@ -182,7 +182,7 @@ func TestDatabaseControllerStore_WithSameNameFails(t *testing.T) {
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
 		}})
@@ -224,7 +224,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 			mock := test.MockDatabase(server.App)
 
 			client := server.WithAccessKeyClient([]auth.Statement{{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 			}})
@@ -257,7 +257,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 			defer server.Shutdown()
 
 			client := server.WithAccessKeyClient([]auth.Statement{{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 			}})

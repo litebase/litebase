@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -22,14 +23,22 @@ type TestClient struct {
 }
 
 func (c *TestClient) Send(path string, method string, data any) (map[string]any, int, error) {
-	var url string
+	var requestURL string
+
 	if !strings.Contains(path, "http://") && !strings.Contains(path, "https://") {
-		url = c.URL + path
+		requestURL = c.URL + path
 	} else {
-		url = path
+		requestURL = path
 	}
 
-	request, err := http.NewRequest(method, url, nil)
+	// Parse the URL to separate path and query parameters
+	parsedURL, err := url.Parse(requestURL)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	request, err := http.NewRequest(method, requestURL, nil)
 
 	if err != nil {
 		return nil, 0, err
@@ -60,14 +69,23 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 	}
 
 	if c.AccessKey != nil {
+		// Parse query parameters for request signing
+		queryParams := make(map[string]string)
+
+		for key, values := range parsedURL.Query() {
+			if len(values) > 0 {
+				queryParams[key] = values[0] // Use the first value if multiple values exist
+			}
+		}
+
 		signature := auth.SignRequest(
 			c.AccessKey.AccessKeyID,
 			c.AccessKey.AccessKeySecret,
 			method,
-			request.URL.Path,
+			parsedURL.Path,
 			headers,
 			jsonData,
-			map[string]string{},
+			queryParams,
 		)
 
 		request.Header.Set("Authorization", fmt.Sprintf("Litebase-HMAC-SHA256 %s", signature))

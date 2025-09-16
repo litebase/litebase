@@ -45,7 +45,7 @@ func TestDatabaseBranchControllerIndex(t *testing.T) {
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: auth.Resource(fmt.Sprintf("database:%s", db.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeList},
 		}})
@@ -94,7 +94,7 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: auth.Resource(fmt.Sprintf("database:%s:branch:*", db.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
 		}})
@@ -171,7 +171,7 @@ func TestDatabaseBranchControllerStore(t *testing.T) {
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: auth.Resource(fmt.Sprintf("database:%s", mock.DatabaseID)),
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
 		}})
@@ -246,7 +246,7 @@ func TestDatabaseBranchControllerStore_WithSameNameFails(t *testing.T) {
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
 		}})
@@ -309,7 +309,7 @@ func TestDatabaseBranchControllerStore_WithoutParentSnapshotsFails(t *testing.T)
 		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   "Allow",
+			Effect:   auth.StatementEffectAllow,
 			Resource: "*",
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
 		}})
@@ -390,7 +390,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 			}
 
 			client := server.WithAccessKeyClient([]auth.Statement{{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 			}})
@@ -425,7 +425,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 			mock := test.MockDatabase(server.App)
 
 			client := server.WithAccessKeyClient([]auth.Statement{{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 			}})
@@ -460,7 +460,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 			defer server.Shutdown()
 
 			client := server.WithAccessKeyClient([]auth.Statement{{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 			}})

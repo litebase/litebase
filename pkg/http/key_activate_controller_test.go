@@ -26,7 +26,7 @@ func TestKeyActivateController(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 			},

@@ -17,7 +17,7 @@ func TestForwardToPrimary(t *testing.T) {
 
 		accessKey, err := server1.App.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{"access-key:create"},
 			},
