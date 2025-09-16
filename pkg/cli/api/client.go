@@ -148,6 +148,7 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 func (c *Client) accessKeyHeader(method, path string, headers map[string]string, body []byte) string {
 	// Parse query parameters from the path
 	parsedURL, err := url.Parse(path)
+
 	if err != nil {
 		// If parsing fails, fall back to empty query params
 		return auth.SignRequest(
@@ -163,6 +164,7 @@ func (c *Client) accessKeyHeader(method, path string, headers map[string]string,
 
 	// Extract query parameters
 	queryParams := make(map[string]string)
+
 	for key, values := range parsedURL.Query() {
 		if len(values) > 0 {
 			queryParams[key] = values[0] // Use the first value if multiple values exist
