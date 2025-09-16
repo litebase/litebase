@@ -37,7 +37,7 @@ func TestProfileDeleteCmd(t *testing.T) {
 			t.Fatalf("expected no error when deleting profile, got %v", err)
 		}
 
-		if cli.DoesntSee("Profile deleted successfully") {
+		if cli.DoesNotSee("Profile deleted successfully") {
 			t.Errorf("expected output to contain 'Profile deleted successfully', got %q", cli.GetOutput())
 		}
 
@@ -53,11 +53,11 @@ func TestProfileDeleteCmd(t *testing.T) {
 			t.Errorf("expected output to contain 'Test Profile 1', got %q", cli.GetOutput())
 		}
 
-		if cli.DoesntSee("Test Profile 2") {
+		if cli.DoesNotSee("Test Profile 2") {
 			t.Errorf("expected output to contain 'Test Profile 2', got %q", cli.GetOutput())
 		}
 
-		if cli.DoesntSee("Test Profile 3") {
+		if cli.DoesNotSee("Test Profile 3") {
 			t.Errorf("expected output to contain 'Test Profile 3', got %q", cli.GetOutput())
 		}
 	})

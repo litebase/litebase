@@ -232,7 +232,7 @@ func (f *TieredFile) MarkUpdated() {
 //
 // It is important that consumers of this function Seek to the appropriate place
 // in the file before calling Read. This is because the File is not
-// automatically seeked to the beginning of the file when it is opened and the
+// automatically positioned to the beginning of the file when it is opened and
 // its position may be moved by another goroutine.
 func (f *TieredFile) Read(b []byte) (n int, err error) {
 	f.mutex.Lock()

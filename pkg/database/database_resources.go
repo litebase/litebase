@@ -216,7 +216,7 @@ func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 	return d.rollbackLogger
 }
 
-// TODO: Need to investigate how this works separatley from the connections and backups.
+// TODO: Need to investigate how this works separately from the connections and backups.
 // Will the ConnectionManager steal a resource away outside the context of a connection.
 // TODO: Need to investigate how this impacts long running transactions
 func (d *DatabaseResources) Remove() {

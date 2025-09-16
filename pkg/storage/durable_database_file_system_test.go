@@ -748,7 +748,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 
 			timestamp := time.Now().UTC().UnixNano()
 
-			// Intialize the ranges
+			// initialize the ranges
 			if _, err := rangeManager.Get(1, 0); err != nil {
 				t.Fatalf("Error getting range 1: %v", err)
 			}

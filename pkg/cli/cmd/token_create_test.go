@@ -26,19 +26,19 @@ func TestTokenCreate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Token") {
+		if cli.DoesNotSee("Token") {
 			t.Error("expected output to contain 'Token'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statements") {
+		if cli.DoesNotSee("Statements") {
 			t.Error("expected output to contain 'Statements'")
 		}
 	})

@@ -65,19 +65,19 @@ func TestDatabaseSnapshotList(t *testing.T) {
 		}
 
 		// Check that snapshot information is displayed
-		if cli.DoesntSee("Date (UTC)") {
+		if cli.DoesNotSee("Date (UTC)") {
 			t.Error("expected output to contain 'Date (UTC)' column header")
 		}
 
-		if cli.DoesntSee("Restore Points") {
+		if cli.DoesNotSee("Restore Points") {
 			t.Error("expected output to contain 'Restore Points' column header")
 		}
 
-		if cli.DoesntSee("Start Restore Point") {
+		if cli.DoesNotSee("Start Restore Point") {
 			t.Error("expected output to contain 'Start Restore Point' column header")
 		}
 
-		if cli.DoesntSee("Last Restore Point") {
+		if cli.DoesNotSee("Last Restore Point") {
 			t.Error("expected output to contain 'Last Restore Point' column header")
 		}
 
@@ -86,11 +86,11 @@ func TestDatabaseSnapshotList(t *testing.T) {
 		startOfDay := time.Now().UTC().Truncate(24 * time.Hour)
 		expectedDate := startOfDay.Format("2006-01-02")
 
-		if cli.DoesntSee(expectedDate) { // Should contain today's date
+		if cli.DoesNotSee(expectedDate) { // Should contain today's date
 			t.Errorf("expected output to contain date %s", expectedDate)
 		}
 
-		if cli.DoesntSee("3") { // Restore points count
+		if cli.DoesNotSee("3") { // Restore points count
 			t.Error("expected output to contain restore points count")
 		}
 	})
@@ -205,7 +205,7 @@ func TestDatabaseSnapshotListAccessControl(t *testing.T) {
 			t.Logf("Command failed (possibly due to no snapshots): %v", err)
 		} else {
 			// If successful, should show table headers
-			if cli.DoesntSee("Timestamp") {
+			if cli.DoesNotSee("Timestamp") {
 				t.Error("expected output to contain 'Timestamp' column header")
 			}
 		}

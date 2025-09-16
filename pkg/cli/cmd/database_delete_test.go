@@ -7,7 +7,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-func TestDatbaseDelete(t *testing.T) {
+func TestDatabaseDelete(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
@@ -26,7 +26,7 @@ func TestDatbaseDelete(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Database deleted successfully") {
+		if cli.DoesNotSee("Database deleted successfully") {
 			t.Error("expected output to contain 'Database deleted successfully'")
 		}
 	})

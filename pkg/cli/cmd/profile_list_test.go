@@ -31,7 +31,7 @@ func TestProfileListCmd(t *testing.T) {
 		for i := range 10 {
 			profileName := fmt.Sprintf("profile-%d", i)
 
-			if cli.DoesntSee(profileName) {
+			if cli.DoesNotSee(profileName) {
 				t.Errorf("expected output to contain '%s', got %q", profileName, cli.GetOutput())
 			}
 		}

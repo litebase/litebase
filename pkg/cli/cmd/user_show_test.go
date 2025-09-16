@@ -37,11 +37,11 @@ func TestUserShow(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("User") {
+		if cli.DoesNotSee("User") {
 			t.Error("expected output to contain 'User'")
 		}
 
-		if cli.DoesntSee("User Name") {
+		if cli.DoesNotSee("User Name") {
 			t.Error("expected output to contain 'User Name'")
 		}
 
@@ -49,15 +49,15 @@ func TestUserShow(t *testing.T) {
 			t.Error("expected output to not contain 'Password'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statements") {
+		if cli.DoesNotSee("Statements") {
 			t.Errorf("expected output to contain 'Statements' got %q", cli.GetOutput())
 		}
 	})

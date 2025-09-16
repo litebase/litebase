@@ -34,11 +34,11 @@ func TestAccessKeyUpdate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Access Key") {
+		if cli.DoesNotSee("Access Key") {
 			t.Error("expected output to contain 'Access Key'")
 		}
 
-		if cli.DoesntSee("Access Key ID") {
+		if cli.DoesNotSee("Access Key ID") {
 			t.Error("expected output to contain 'Access Key ID'")
 		}
 
@@ -46,23 +46,23 @@ func TestAccessKeyUpdate(t *testing.T) {
 			t.Error("expected output to not contain 'Access Key Secret'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statements") {
+		if cli.DoesNotSee("Statements") {
 			t.Error("expected output to contain 'Statements'")
 		}
 
-		if cli.DoesntSee("deny") {
+		if cli.DoesNotSee("deny") {
 			t.Error("expected output to contain 'deny'")
 		}
 
-		if cli.DoesntSee("Updated access key") {
+		if cli.DoesNotSee("Updated access key") {
 			t.Errorf("expected output to contain 'Updated access key', got %q", cli.GetOutput())
 		}
 	})

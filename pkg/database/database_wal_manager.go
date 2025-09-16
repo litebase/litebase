@@ -160,8 +160,8 @@ func (w *DatabaseWALManager) Checkpoint(fn func(wal *DatabaseWAL) error) error {
 	return nil
 }
 
-// CheckpointBarrier is a conviencene method to insure that transactions are
-// operating in a consisten state around checkpoints to prevent database
+// CheckpointBarrier is a convenience method to ensure that transactions are
+// operating in a consistent state around checkpoints to prevent database
 // corruption or other state inconsistencies
 func (w *DatabaseWALManager) CheckpointBarrier(fn func() error) error {
 	w.checkpointMutex.Lock()

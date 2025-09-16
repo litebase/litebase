@@ -42,16 +42,16 @@ func TestTokenListCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("#") {
+		if cli.DoesNotSee("#") {
 			t.Errorf("expected output to contain '#' got %q", cli.GetOutput())
 		}
 
-		if cli.DoesntSee("Token ID") {
+		if cli.DoesNotSee("Token ID") {
 			t.Errorf("expected output to contain 'Token ID' got %q", cli.GetOutput())
 		}
 
 		for _, token := range tokens {
-			if cli.DoesntSee(token.TokenID) {
+			if cli.DoesNotSee(token.TokenID) {
 				t.Errorf("expected output to contain '%s' got %q", token.TokenID, cli.GetOutput())
 			}
 		}

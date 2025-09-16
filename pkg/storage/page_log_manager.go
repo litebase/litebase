@@ -17,7 +17,7 @@ const PageLogManagerCompactionInterval = time.Second * 2
 
 type PageLogManagerConfig func(*PageLogManager)
 
-// The PageLogManager is responsible for managing page loggers and runnning
+// The PageLogManager is responsible for managing page loggers and running
 // compaction tasks for page logs. There should only be one PageLogManager per
 // to avoid duplicate processing.
 type PageLogManager struct {

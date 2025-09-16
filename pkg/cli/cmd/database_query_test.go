@@ -104,7 +104,7 @@ func TestDatabaseQueryCmdBatchInsert(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("testuser") {
+		if cli.DoesNotSee("testuser") {
 			t.Fatalf("expected to see 'testuser', but it was not found")
 		}
 
@@ -175,7 +175,7 @@ func TestDatabaseQueryCmdInteractiveTransaction(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("testuser") {
+		if cli.DoesNotSee("testuser") {
 			t.Fatalf("expected to see 'testuser', but it was not found")
 		}
 	})
@@ -227,11 +227,11 @@ func TestDatabaseQueryCmdWithParameterSets(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("bob") {
+		if cli.DoesNotSee("bob") {
 			t.Fatalf("expected to see 'bob', but it was not found")
 		}
 
-		if cli.DoesntSee("sally") {
+		if cli.DoesNotSee("sally") {
 			t.Fatalf("expected to see 'sally', but it was not found")
 		}
 
@@ -448,7 +448,7 @@ func TestDatabaseQueryCmdWithJSONParameters(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Row Count: 10") {
+		if cli.DoesNotSee("Row Count: 10") {
 			t.Log(cli.GetOutput())
 			t.Fatal("expected to see 'Row Count: 10', got none")
 		}
@@ -465,7 +465,7 @@ func TestDatabaseQueryCmdWithJSONParameters(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("light") {
+		if cli.DoesNotSee("light") {
 			t.Log(cli.GetOutput())
 			t.Fatal("expected to see 'light', got none")
 		}

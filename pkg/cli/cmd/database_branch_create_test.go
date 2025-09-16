@@ -59,27 +59,27 @@ func TestDatabaseBranchCreate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Database Branch") {
+		if cli.DoesNotSee("Database Branch") {
 			t.Error("expected output to contain 'Database Branch'")
 		}
 
-		if cli.DoesntSee("Name") {
+		if cli.DoesNotSee("Name") {
 			t.Error("expected output to contain 'Name'")
 		}
 
-		if cli.DoesntSee("feature-branch") {
+		if cli.DoesNotSee("feature-branch") {
 			t.Error("expected output to contain 'feature-branch'")
 		}
 
-		if cli.DoesntSee("Database ID") {
+		if cli.DoesNotSee("Database ID") {
 			t.Error("expected output to contain 'Database ID'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 	})
@@ -156,19 +156,19 @@ func TestDatabaseBranchCreateWithParentBranch(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Database Branch") {
+		if cli.DoesNotSee("Database Branch") {
 			t.Error("expected output to contain 'Database Branch'")
 		}
 
-		if cli.DoesntSee("feature-branch") {
+		if cli.DoesNotSee("feature-branch") {
 			t.Error("expected output to contain 'feature-branch'")
 		}
 
-		if cli.DoesntSee("Parent Branch") {
+		if cli.DoesNotSee("Parent Branch") {
 			t.Error("expected output to contain 'Parent Branch'")
 		}
 
-		if cli.DoesntSee("dev-branch") {
+		if cli.DoesNotSee("dev-branch") {
 			t.Error("expected output to contain 'dev-branch'")
 		}
 

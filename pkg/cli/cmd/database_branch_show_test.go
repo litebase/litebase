@@ -55,19 +55,19 @@ func TestDatabaseBranchShow(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee(primaryBranch.Name) {
+		if cli.DoesNotSee(primaryBranch.Name) {
 			t.Error("expected output to contain branch name")
 		}
 
-		if cli.DoesntSee(primaryBranch.DatabaseBranchID) {
+		if cli.DoesNotSee(primaryBranch.DatabaseBranchID) {
 			t.Error("expected output to contain branch ID")
 		}
 
-		if cli.DoesntSee(testDatabase.DatabaseID) {
+		if cli.DoesNotSee(testDatabase.DatabaseID) {
 			t.Error("expected output to contain database ID")
 		}
 
-		if cli.DoesntSee("Database Branch") {
+		if cli.DoesNotSee("Database Branch") {
 			t.Error("expected output to contain 'Database Branch' card title")
 		}
 	})
@@ -120,27 +120,27 @@ func TestDatabaseBranchShowCreatedBranch(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("test-branch") {
+		if cli.DoesNotSee("test-branch") {
 			t.Error("expected output to contain branch name 'test-branch'")
 		}
 
-		if cli.DoesntSee(testBranch.DatabaseBranchID) {
+		if cli.DoesNotSee(testBranch.DatabaseBranchID) {
 			t.Error("expected output to contain branch ID")
 		}
 
-		if cli.DoesntSee(testDatabase.DatabaseID) {
+		if cli.DoesNotSee(testDatabase.DatabaseID) {
 			t.Error("expected output to contain database ID")
 		}
 
-		if cli.DoesntSee("main") {
+		if cli.DoesNotSee("main") {
 			t.Error("expected output to contain parent branch 'main'")
 		}
 
-		if cli.DoesntSee("Database Branch") {
+		if cli.DoesNotSee("Database Branch") {
 			t.Error("expected output to contain 'Database Branch' card title")
 		}
 
-		if cli.DoesntSee("Parent Branch") {
+		if cli.DoesNotSee("Parent Branch") {
 			t.Error("expected output to contain 'Parent Branch' field")
 		}
 	})
@@ -259,11 +259,11 @@ func TestDatabaseBranchShowAccessControl(t *testing.T) {
 			t.Fatalf("expected no error with proper access, got %v", err)
 		}
 
-		if cli.DoesntSee(primaryBranch.Name) {
+		if cli.DoesNotSee(primaryBranch.Name) {
 			t.Error("expected output to contain branch name")
 		}
 
-		if cli.DoesntSee("Database Branch") {
+		if cli.DoesNotSee("Database Branch") {
 			t.Error("expected output to contain 'Database Branch' card title")
 		}
 	})

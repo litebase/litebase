@@ -288,7 +288,7 @@ func RestoreFromBackup(
 	sourceFileSystem *storage.DurableDatabaseFileSystem,
 	targetFileSystem *storage.DurableDatabaseFileSystem,
 ) error {
-	// Check if the souce database file system has the files for the specified timestamp
+	// Check if the source database file system has the files for the specified timestamp
 	sourceDatabasePath := file.GetDatabaseBackupsDirectory(sourceDatabaseUuid, sourceBranchUuid)
 	timestampPath := fmt.Sprintf("%s%d", sourceDatabasePath, timestamp)
 	backupParts := []string{}

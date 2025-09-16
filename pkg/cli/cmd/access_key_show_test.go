@@ -24,11 +24,11 @@ func TestAccessKeyShow(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Access Key") {
+		if cli.DoesNotSee("Access Key") {
 			t.Error("expected output to contain 'Access Key'")
 		}
 
-		if cli.DoesntSee("Access Key ID") {
+		if cli.DoesNotSee("Access Key ID") {
 			t.Error("expected output to contain 'Access Key ID'")
 		}
 
@@ -36,15 +36,15 @@ func TestAccessKeyShow(t *testing.T) {
 			t.Error("expected output to not contain 'Access Key Secret'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statements") {
+		if cli.DoesNotSee("Statements") {
 			t.Errorf("expected output to contain 'Statements' got %q", cli.GetOutput())
 		}
 	})

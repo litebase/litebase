@@ -263,7 +263,7 @@ func (d *DatabaseManager) Delete(database *Database) error {
 
 	// TODO: Removing all database storage may require the removal of a lot of files.
 	// How is this going to work with tiered storage? We also need to test that
-	// removing a database stops any opertaions to the database.
+	// removing a database stops any operations to the database.
 	err = fileSystem.FileSystem().RemoveAll(
 		file.GetDatabaseRootDir(
 			database.DatabaseID,

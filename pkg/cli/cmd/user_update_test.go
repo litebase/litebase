@@ -35,31 +35,31 @@ func TestUserUpdate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("User") {
+		if cli.DoesNotSee("User") {
 			t.Error("expected output to contain 'User'")
 		}
 
-		if cli.DoesntSee("User Name") {
+		if cli.DoesNotSee("User Name") {
 			t.Error("expected output to contain 'User Name'")
 		}
 
-		if cli.DoesntSee("Created At") {
+		if cli.DoesNotSee("Created At") {
 			t.Error("expected output to contain 'Created At'")
 		}
 
-		if cli.DoesntSee("Updated At") {
+		if cli.DoesNotSee("Updated At") {
 			t.Error("expected output to contain 'Updated At'")
 		}
 
-		if cli.DoesntSee("Statements") {
+		if cli.DoesNotSee("Statements") {
 			t.Error("expected output to contain 'Statements'")
 		}
 
-		if cli.DoesntSee("deny") {
+		if cli.DoesNotSee("deny") {
 			t.Error("expected output to contain 'deny'")
 		}
 
-		if cli.DoesntSee(fmt.Sprintf("User '%s' updated successfully", user.Username)) {
+		if cli.DoesNotSee(fmt.Sprintf("User '%s' updated successfully", user.Username)) {
 			t.Errorf("expected output to contain 'User '%s' updated successfully', got %q", user.Username, cli.GetOutput())
 		}
 	})

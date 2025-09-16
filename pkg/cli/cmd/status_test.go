@@ -24,11 +24,11 @@ func TestStatusCmd(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if cli.DoesntSee("Cluster Status") {
+		if cli.DoesNotSee("Cluster Status") {
 			t.Errorf("expected output to contain 'Cluster Status', got %q", cli.GetOutput())
 		}
 
-		if cli.DoesntSee("Node Count") {
+		if cli.DoesNotSee("Node Count") {
 			t.Errorf("expected output to contain 'Node Count', got %q", cli.GetOutput())
 		}
 	})

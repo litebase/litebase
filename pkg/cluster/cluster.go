@@ -425,7 +425,7 @@ func (cluster *Cluster) RemoveMember(address string, removeHardState bool) error
 	return nil
 }
 
-// Return the path to the current node in repsect to the node type.
+// Return the path to the current node in respect to the node type.
 func (cluster *Cluster) NodePath() string {
 	return "_nodes/"
 }

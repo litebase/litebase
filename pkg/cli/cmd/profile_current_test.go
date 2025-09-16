@@ -37,19 +37,19 @@ func TestProfileCurrent(t *testing.T) {
 			t.Fatalf("expected no error when getting current profile, got %v", err)
 		}
 
-		if cli.DoesntSee("Current Profile") {
+		if cli.DoesNotSee("Current Profile") {
 			t.Error("expected output to contain 'Current Profile'")
 		}
 
-		if cli.DoesntSee("Name") {
+		if cli.DoesNotSee("Name") {
 			t.Error("expected output to contain 'Name'")
 		}
 
-		if cli.DoesntSee("profile1") {
+		if cli.DoesNotSee("profile1") {
 			t.Error("expected output to contain 'profile1'")
 		}
 
-		if cli.DoesntSee("Cluster") {
+		if cli.DoesNotSee("Cluster") {
 			t.Error("expected output to contain 'Cluster'")
 		}
 
@@ -67,7 +67,7 @@ func TestProfileCurrent(t *testing.T) {
 			t.Fatalf("expected no error when getting current profile, got %v", err)
 		}
 
-		if cli.DoesntSee("profile1") {
+		if cli.DoesNotSee("profile1") {
 			t.Error("expected output to contain 'profile1'")
 		}
 
