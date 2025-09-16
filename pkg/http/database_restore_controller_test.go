@@ -3,6 +3,7 @@ package http_test
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -425,6 +426,170 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
 			}
+		}
+	})
+}
+
+func TestDatabaseRestoreControllerNonEmptyTarget(t *testing.T) {
+	test.Run(t, func() {
+		// Force immediate compaction for testing
+		originalInterval := storage.GetPageLoggerCompactInterval()
+		storage.SetPageLoggerCompactInterval(0)
+		defer func() {
+			storage.SetPageLoggerCompactInterval(originalInterval)
+		}()
+
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		source := test.MockDatabase(server.App)
+		target := test.MockDatabase(server.App)
+
+		// Set up source database with data
+		sourceDb, err := server.App.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(sourceDb)
+
+		// Create initial checkpoint
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Create table and data in source
+		_, err = sourceDb.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Force checkpoint to create restore point
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Insert data in source
+		err = sourceDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+			_, err = db.Exec("INSERT INTO test (value) VALUES ('source data')", nil)
+			return err
+		})
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Final checkpoint to establish restore point
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Set up target database with existing data (make it non-empty)
+		targetDb, err := server.App.DatabaseManager.ConnectionManager().Get(target.DatabaseID, target.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(targetDb)
+
+		// Add data to target database to make it non-empty
+		_, err = targetDb.GetConnection().Exec("CREATE TABLE existing (id INTEGER PRIMARY KEY, data TEXT)", nil)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		err = targetDb.GetConnection().Transaction(false, func(db *database.DatabaseConnection) error {
+			_, err = db.Exec("INSERT INTO existing (data) VALUES ('existing data')", nil)
+			return err
+		})
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Force checkpoint on target to ensure data is persisted
+		err = server.App.DatabaseManager.ConnectionManager().ForceCheckpoint(target.DatabaseID, target.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		// Get restore point from source
+		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+		snapshotKeys := snapshotLogger.Keys()
+
+		if len(snapshotKeys) == 0 {
+			t.Fatal("No snapshots found")
+		}
+
+		snapshot, err := snapshotLogger.GetSnapshot(snapshotKeys[len(snapshotKeys)-1])
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if len(snapshot.RestorePoints.Data) == 0 {
+			t.Fatal("No restore points found")
+		}
+
+		// Use the last restore point
+		restorePointTimestamp := snapshot.RestorePoints.End
+		restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
+
+		if err != nil {
+			t.Fatalf("Expected no error getting restore point for timestamp %d, got %v", restorePointTimestamp, err)
+		}
+
+		// Attempt to restore to non-empty target - should fail
+		client := server.WithAccessKeyClient([]auth.Statement{
+			{
+				Effect:   "Allow",
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
+			},
+		})
+
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/%s/restore",
+				source.DatabaseName,
+				source.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"target_database":        target.DatabaseName,
+				"target_database_branch": target.BranchName,
+				"timestamp":              strconv.FormatInt(restorePoint.Timestamp, 10),
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to make request: %v", err)
+		}
+
+		// Should return 400 Bad Request due to non-empty target
+		if responseCode != 400 {
+			t.Log("Response:", resp)
+			t.Fatalf("Expected status code 400, got %d", responseCode)
+		}
+
+		// Verify the error message mentions non-empty database
+		if message, ok := resp["message"].(string); ok {
+			if !strings.Contains(message, "not empty") {
+				t.Errorf("Expected error message to mention 'not empty', got: %s", message)
+			}
+		} else {
+			t.Error("Expected error message in response")
 		}
 	})
 }
