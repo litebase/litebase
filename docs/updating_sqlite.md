@@ -6,4 +6,4 @@ Litebase embeds SQLite as the core database engine. As new SQLite versions are r
 ./scripts/update_sqlite.sh
 ```
 
-The `sqlite3.c` and `sqlite3.h` files will be updated. These changes can be commited to a new branch, and a [pull request](https://github.com/litebase/litebase/pulls) opened to ensure all tests pass.
+The `sqlite3.c` and `sqlite3.h` files will be updated. These changes can be committed to a new branch, and a [pull request](https://github.com/litebase/litebase/pulls) opened to ensure all tests pass.

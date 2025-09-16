@@ -285,7 +285,7 @@ func (s *Statement) ColumnValue(buffer *bytes.Buffer, columnType ColumnType, ind
 	}
 }
 
-// Bind the parameteres to the statement and return the results
+// Bind the parameters to the statement and return the results
 func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error {
 	defer func() {
 		if err := s.Reset(); err != nil {
@@ -531,7 +531,7 @@ func (s *Statement) Reset() error {
 	}
 }
 
-// Return the SQL of the satement
+// Return the SQL of the statement
 func (s *Statement) SQL() string {
 	if s.sqlite3_stmt == nil {
 		return ""

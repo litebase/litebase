@@ -16,7 +16,7 @@ type Retry struct{}
 
 type Target struct {
 	alive          int32
-	RevereseProxy  *httputil.ReverseProxy
+	ReverseProxy   *httputil.ReverseProxy
 	transportIndex int64
 	transports     []*customTransport
 	URL            *url.URL
@@ -50,7 +50,7 @@ func NewTarget(lb *LoadBalancer, host, port string) *Target {
 		w.WriteHeader(http.StatusBadGateway)
 	}
 
-	target.RevereseProxy = proxy
+	target.ReverseProxy = proxy
 
 	// Create the transports
 	for i := 0; i < 100; i++ {
@@ -95,6 +95,6 @@ func (target *Target) SetAlive(alive bool) {
 
 func (target *Target) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	target.transportIndex = (target.transportIndex + 1) % int64(len(target.transports))
-	target.RevereseProxy.Transport = target.transports[target.transportIndex]
-	target.RevereseProxy.ServeHTTP(w, r)
+	target.ReverseProxy.Transport = target.transports[target.transportIndex]
+	target.ReverseProxy.ServeHTTP(w, r)
 }

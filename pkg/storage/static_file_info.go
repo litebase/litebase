@@ -11,7 +11,7 @@ import (
 
 /*
 StaticFileInfo is a struct that implements the fs.FileInfo interface and can be
-endcoded/decoded for distributed file operations.
+encoded/decoded for distributed file operations.
 
 When encoded the file info will have the following binary format:
 

@@ -1201,7 +1201,7 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 
 // Writing a file in the tiered file system driver involves writing the file on
 // the high tier file system. Writing the file to low tier storage will take
-// place immmediately after.
+// place immediately after.
 func (fsd *TieredFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
 	var err error
 	var file *TieredFile
