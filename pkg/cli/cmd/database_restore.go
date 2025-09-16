@@ -18,6 +18,12 @@ func NewDatabaseRestoreCmd(config *config.CLIConfiguration) *cobra.Command {
 		Short: "Restore a database from a specific timestamp",
 		Long:  "Restore a database from a specific timestamp to a target database and branch.\n\nThe timestamp should be a Unix timestamp in nanoseconds (int64).\nYou can get available timestamps from the 'database snapshot show' command.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			err := cmd.MarkFlagRequired("timestamp")
+
+			if err != nil {
+				return fmt.Errorf("failed to mark timestamp flag as required: %w", err)
+			}
+
 			sourceDatabaseName, sourceBranchName, err := splitDatabasePath(args[0])
 
 			if err != nil {
@@ -111,8 +117,6 @@ func NewDatabaseRestoreCmd(config *config.CLIConfiguration) *cobra.Command {
 	}
 
 	cmd.Flags().String("timestamp", "", "Unix timestamp in nanoseconds to restore from (required)")
-
-	cmd.MarkFlagRequired("timestamp")
 
 	return cmd
 }
