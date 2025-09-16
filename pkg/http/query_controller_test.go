@@ -18,7 +18,7 @@ func TestQueryController(t *testing.T) {
 		// Get a new connection for the HTTP request verification
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeQuery, auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeTransaction, auth.DatabasePrivilegeUpdate},
 			},
@@ -129,7 +129,7 @@ func TestQueryControllerMultipleQueries(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeQuery, auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeTransaction, auth.DatabasePrivilegeUpdate},
 			},
@@ -220,7 +220,7 @@ func TestQueryController_Errors(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeQuery, auth.DatabasePrivilegeCreateTable, auth.DatabasePrivilegeInsert, auth.DatabasePrivilegeRead, auth.DatabasePrivilegeSelect, auth.DatabasePrivilegeTransaction, auth.DatabasePrivilegeUpdate},
 			},

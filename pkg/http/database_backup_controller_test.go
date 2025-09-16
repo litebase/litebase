@@ -117,7 +117,7 @@ func TestDatabaseBackupIndexController(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeBackup},
 			},
@@ -209,7 +209,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeBackup},
 			},
@@ -299,7 +299,7 @@ func TestDatabaseBackupShowController(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeBackup},
 			},
@@ -403,7 +403,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeBackup},
 			},

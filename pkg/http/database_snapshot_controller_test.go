@@ -59,7 +59,7 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 		// Get a new connection for the HTTP request verification
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeBackup},
 			},
@@ -150,7 +150,7 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		// Get a new connection for the HTTP request verification
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeBackup},
 			},

@@ -25,7 +25,7 @@ func TestAccessKeyController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{"access-key:delete"},
 				},
@@ -53,7 +53,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Destroy_CannotDeleteCurrentAccessKey", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{"access-key:delete"},
 				},
@@ -86,7 +86,7 @@ func TestAccessKeyController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "access-key:foobar",
 					Actions:  []auth.Privilege{"access-key:delete"},
 				},
@@ -110,7 +110,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Index", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{"access-key:list"},
 				},
@@ -147,7 +147,7 @@ func TestAccessKeyController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{"access-key:read"},
 				},
@@ -195,7 +195,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Show_WithInvalidAccessKey", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "access-key:foobar",
 					Actions:  []auth.Privilege{"access-key:read"},
 				},
@@ -219,7 +219,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Show_WithUnauthorizedAccessKey", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "access-key:*",
 					Actions:  []auth.Privilege{"access-key:list"},
 				},
@@ -243,7 +243,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Store", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{"access-key:create"},
 				},
@@ -284,7 +284,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Store_WithInvalidAccessKey", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "database:*",
 					Actions:  []auth.Privilege{"access-key:create"},
 				},
@@ -312,7 +312,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Store_WithInvalidInput", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{"access-key:create"},
 				},
@@ -442,7 +442,7 @@ func TestAccessKeyController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{"access-key:update"},
 				},
@@ -488,7 +488,7 @@ func TestAccessKeyController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "access-key:foobar",
 					Actions:  []auth.Privilege{"access-key:update"},
 				},

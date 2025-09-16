@@ -15,7 +15,7 @@ func TestUserController(t *testing.T) {
 		t.Run("Index", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 				},
@@ -56,7 +56,7 @@ func TestUserController(t *testing.T) {
 				"",
 				[]auth.Statement{
 					{
-						Effect:   "Allow",
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 					},
@@ -69,7 +69,7 @@ func TestUserController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 				},
@@ -106,7 +106,7 @@ func TestUserController(t *testing.T) {
 		t.Run("Store", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 				},
@@ -119,7 +119,7 @@ func TestUserController(t *testing.T) {
 					"password": "password123",
 					"statements": []auth.Statement{
 						{
-							Effect:   "Allow",
+							Effect:   auth.StatementEffectAllow,
 							Resource: "*",
 							Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 						},
@@ -143,7 +143,7 @@ func TestUserController(t *testing.T) {
 		t.Run("StoreWithInvalidData", func(t *testing.T) {
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 				},
@@ -156,7 +156,7 @@ func TestUserController(t *testing.T) {
 					"password": "abc213",
 					"statements": []auth.Statement{
 						{
-							Effect:   "Allow",
+							Effect:   auth.StatementEffectAllow,
 							Resource: "*",
 							Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 						},
@@ -184,7 +184,7 @@ func TestUserController(t *testing.T) {
 				"",
 				[]auth.Statement{
 					{
-						Effect:   "Allow",
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 					},
@@ -197,7 +197,7 @@ func TestUserController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 				},
@@ -257,7 +257,7 @@ func TestUserController(t *testing.T) {
 				"",
 				[]auth.Statement{
 					{
-						Effect:   "Allow",
+						Effect:   auth.StatementEffectAllow,
 						Resource: "*",
 						Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 					},
@@ -270,7 +270,7 @@ func TestUserController(t *testing.T) {
 
 			client := server.WithAccessKeyClient([]auth.Statement{
 				{
-					Effect:   "Allow",
+					Effect:   auth.StatementEffectAllow,
 					Resource: "*",
 					Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 				},

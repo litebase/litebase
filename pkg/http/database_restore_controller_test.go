@@ -108,7 +108,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		// Get a new connection for the HTTP request verification
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
 			},
@@ -326,7 +326,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 		// Get a single client for all HTTP requests
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
 			},
@@ -553,7 +553,7 @@ func TestDatabaseRestoreControllerNonEmptyTarget(t *testing.T) {
 		// Attempt to restore to non-empty target - should fail
 		client := server.WithAccessKeyClient([]auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeRestore},
 			},
