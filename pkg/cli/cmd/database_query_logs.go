@@ -78,8 +78,11 @@ execution count, and timing information for database queries.`,
 			// Build query parameters
 			queryParams := fmt.Sprintf("?start=%d&end=%d&step=%d", start, end, step)
 
-			data, err := api.Get(config, fmt.Sprintf("/v1/databases/%s/%s/metrics/query%s",
-				databaseName, branchName, queryParams))
+			data, err := api.Get(
+				config,
+				fmt.Sprintf("/v1/databases/%s/%s/metrics/query%s", databaseName, branchName, queryParams),
+			)
+
 			if err != nil {
 				return err
 			}
