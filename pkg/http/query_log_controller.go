@@ -2,9 +2,11 @@ package http
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/litebase/litebase/internal/utils"
+	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/logs"
 )
 
@@ -15,10 +17,23 @@ func QueryLogController(request *Request) Response {
 		return errResponse
 	}
 
+	// Authorize the request
+	err := request.Authorize(
+		[]string{
+			fmt.Sprintf("database:%s:branch:*", databaseKey.DatabaseID),
+			fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID),
+		},
+		[]auth.Privilege{auth.DatabaseBranchPrivilegeShow},
+	)
+
+	if err != nil {
+		return ForbiddenResponse(err)
+	}
+
 	step, err := strconv.ParseInt(request.QueryParam("step", "1"), 10, 64)
 
 	if err != nil || step < 1 {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Invalid step value",
 		}, 400, nil)
@@ -27,7 +42,7 @@ func QueryLogController(request *Request) Response {
 	startTimestamp, err := strconv.ParseUint(request.QueryParam("start"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Invalid start timestamp",
 		}, 400, nil)
@@ -36,7 +51,7 @@ func QueryLogController(request *Request) Response {
 	endTimestamp, err := strconv.ParseUint(request.QueryParam("end"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]interface{}{
+		return JsonResponse(map[string]any{
 			"status":  "error",
 			"message": "Invalid end timestamp",
 		}, 400, nil)
