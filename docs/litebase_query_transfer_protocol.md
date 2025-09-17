@@ -68,9 +68,9 @@ Following these headers, the server will also send a `QueryStreamOpenConnection`
 
 <!-- markdownlint-disable MD033 MD041 -->
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/litebase-lqtp-diagram-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/litebase-lqtp-diagram-light.svg">
-  <img alt="LQTP Diagram" src="docs/images/litebase-lqtp-diagram-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="images/litebase-lqtp-diagram-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="images/litebase-lqtp-diagram-light.svg">
+  <img alt="LQTP Diagram" src="images/litebase-lqtp-diagram-light.svg">
 </picture>
 
 ## Protocol Message Format
