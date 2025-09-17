@@ -39,7 +39,7 @@ LQTP is designed to address these limitations by offering a well-defined protoco
 
 ## Protocol Overview
 
-LQTP runs on top of HTTP and implements a simple binary format to encode messages. By using a binary format and a persistent connection, LQTP reduces the overhead associated with HTTP request/response cycles, enabling faster and more efficient communication between clients and the Litebase Server.
+LQTP runs on top of HTTP and implements a simple binary format to encode messages. Unlike traditional HTTP APIs that require a separate request for each query, LQTP uses a single HTTP request that is upgraded to a persistent connection using TCP keep-alive. This allows multiple queries to be sent and received over the same connection without the overhead of establishing new HTTP requests for each operation. By using a binary format and this persistent connection approach, LQTP significantly reduces the overhead associated with HTTP request/response cycles, enabling faster and more efficient communication between clients and the Litebase Server.
 
 To start using LQTP, clients must establish a connection to the Litebase Server's LQTP endpoint, typically at `/v1/databases/<database>/<branch>/query/stream`.
 
@@ -65,7 +65,7 @@ Upgrade: lqtp
 Connection: Upgrade
 ```
 
-Following these headers, the server will also send a `QueryStreamOpenConnection` message to indicate that the connection is ready to accept queries. Once the client receives this message, it can start sending a query stream.
+Following these headers, the server will also send a `QueryStreamOpenConnection` message to indicate that the connection is ready to accept queries. Once the client receives this message, it can start sending a query stream. A query stream consists of one or more `QueryStreamFrame` messages, each containing one or more individual queries.
 
 ## Protocol Message Format
 
