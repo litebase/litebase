@@ -1,6 +1,6 @@
 # Litebase Query Transfer Protocol
 
-Litebase Query Transfer Protocol (LQTP) is a binary protocol designed to work on top of HTTP for efficient communication between clients and the Litebase Server. While Litebase Server generally performs operations using an HTTP JSON API, this protocol is provided specifically for executing database queries. LQTP offers more efficient communication with the ability to stream queries using bi-directional communication over a persistent TCP connection.
+Litebase Query Transfer Protocol (LQTP) is a binary protocol designed to work on top of HTTP for efficient communication between clients and Litebase Server. While Litebase Server generally performs operations using an HTTP JSON API, this protocol is provided specifically for executing database queries. LQTP offers more efficient communication with the ability to stream queries using bi-directional communication over a persistent TCP connection.
 
 ## Why LQTP?
 
@@ -27,7 +27,7 @@ Content-Type: application/json
 
 This method is straightforward and easy to implement, but it has some limitations, especially when dealing with high-frequency query execution. For every query, a new HTTP request must be made, sending the full HTTP headers and body each time. In addition, using JSON as a transport format introduces additional overhead due to serialization and deserialization processes which can be quite wasteful for large volumes of data. Together, these factors can introduce significant overhead, particularly in scenarios where low latency and high throughput are required.
 
-LQTP is designed to address these limitations by offering a well-defined protocol for executing database queries.
+LQTP is designed to address these limitations by offering a well-defined protocol for executing database queries over HTTP.
 
 ### Key Benefits
 
@@ -36,12 +36,10 @@ LQTP is designed to address these limitations by offering a well-defined protoco
 - Avoids costly JSON serialization/deserialization.
 - Enables asynchronous communication and bidirectional streaming.
 - Supports multiplexing of multiple queries over a single connection.
+- Introduces a construct for batching and pipelining queries implicitly from the client to the server.
 
 ## Protocol Overview
-
-LQTP runs on top of HTTP and implements a simple binary format to encode messages. Unlike traditional HTTP APIs that require a separate request for each query, LQTP uses a single HTTP request that is upgraded to a persistent connection using TCP keep-alive. This allows multiple queries to be sent and received over the same connection without the overhead of establishing new HTTP requests for each operation. By using a binary format and this persistent connection approach, LQTP significantly reduces the overhead associated with HTTP request/response cycles, enabling faster and more efficient communication between clients and the Litebase Server.
-
-To start using LQTP, clients must establish a connection to the Litebase Server's LQTP endpoint, typically at `/v1/databases/<database>/<branch>/query/stream`.
+To start using LQTP, clients must establish a connection to Litebase Server's LQTP endpoint, typically at `/v1/databases/<database>/<branch>/query/stream`.
 
 **Create Connection:**
 
@@ -65,14 +63,14 @@ Upgrade: lqtp
 Connection: Upgrade
 ```
 
-Following these headers, the server will also send a `QueryStreamOpenConnection` message to indicate that the connection is ready to accept queries. Once the client receives this message, it can start sending a query stream. A query stream consists of one or more `QueryStreamFrame` messages, each containing one or more individual queries.
+Following these headers, the server will also send a `QueryStreamOpenConnection` message to indicate that the connection is ready to accept queries. Once the client receives this message, it can start sending a query stream. A query stream consists of one or more `QueryStreamFrame` messages, each containing one or more individual queries. In response, the server will send back `QueryStreamFrame` messages containing the results of the executed queries.
 
 
 <!-- markdownlint-disable MD033 MD041 -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/litebase-lqtp-diagram-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/images/litebase-lqtp-diagram-light.svg">
-  <img alt="Fallback image description" src="docs/images/litebase-lqtp-diagram-light.svg">
+  <img alt="LQTP Diagram" src="docs/images/litebase-lqtp-diagram-light.svg">
 </picture>
 
 ## Protocol Message Format
@@ -93,7 +91,7 @@ LQTP defines the following message types:
 - `0x02` - **QueryStreamCloseConnection**: Sent by client to close the connection
 - `0x03` - **QueryStreamError**: Sent by server to indicate an error occurred
 - `0x04` - **QueryStreamFrame**: Contains one or more query frame entries
-- `0x05` - **QueryStreamFrameEntry**: Individual query response within a frame
+- `0x05` - **QueryStreamFrameEntry**: Individual query request/response within a frame
 
 ## Query Stream
 
@@ -153,7 +151,7 @@ Individual queries are encoded using a binary format defined by the `QueryInput`
 
 ### Server Responses
 
-The server responds with `QueryStreamFrame` messages containing `QueryStreamFrameEntry` responses:
+The server responds with a corresponding query stream  comprised of one or more `QueryStreamFrame` messages containing `QueryStreamFrameEntry` responses:
 
 #### Response Frame Format
 
