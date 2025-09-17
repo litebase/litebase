@@ -67,7 +67,11 @@ func QueryStreamController(request *Request) Response {
 	}
 
 	return Response{
-		StatusCode: 200,
+		StatusCode: 101, // HTTP 101 Switching Protocols
+		Headers: map[string]string{
+			"Upgrade":    "lqtp",
+			"Connection": "Upgrade",
+		},
 		Stream: func(w http.ResponseWriter) {
 			// Create a new ResponseController to manage the streaming response
 			rc := http.NewResponseController(w)
