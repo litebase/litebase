@@ -67,6 +67,14 @@ Connection: Upgrade
 
 Following these headers, the server will also send a `QueryStreamOpenConnection` message to indicate that the connection is ready to accept queries. Once the client receives this message, it can start sending a query stream. A query stream consists of one or more `QueryStreamFrame` messages, each containing one or more individual queries.
 
+
+<!-- markdownlint-disable MD033 MD041 -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/litebase-lqtp-diagram-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/litebase-lqtp-diagram-light.svg">
+  <img alt="Fallback image description" src="docs/images/litebase-lqtp-diagram-light.svg">
+</picture>
+
 ## Protocol Message Format
 
 All LQTP messages follow a consistent binary format:
