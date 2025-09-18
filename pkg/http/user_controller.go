@@ -40,9 +40,10 @@ func UserControllerIndex(request *Request) Response {
 }
 
 type UserControllerStoreRequest struct {
-	Username   string           `json:"username" validate:"required"`
-	Password   string           `json:"password" validate:"required,min=8"`
-	Statements []auth.Statement `json:"statements" validate:"required"`
+	Description string           `json:"description" validate:"max=255"`
+	Password    string           `json:"password" validate:"required,min=8"`
+	Statements  []auth.Statement `json:"statements" validate:"required"`
+	Username    string           `json:"username" validate:"required"`
 }
 
 func UserControllerShow(request *Request) Response {
@@ -157,7 +158,8 @@ func UserControllerStore(request *Request) Response {
 }
 
 type UserControllerUpdateRequest struct {
-	Statements []auth.Statement `json:"statements" validate:"required"`
+	Description string           `json:"description" validate:"max=255"`
+	Statements  []auth.Statement `json:"statements" validate:"required"`
 }
 
 func UserControllerUpdate(request *Request) Response {
