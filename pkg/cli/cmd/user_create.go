@@ -17,9 +17,10 @@ import (
 )
 
 type UserInput struct {
-	Username   string               `json:"username"`
-	Password   string               `json:"password"`
-	Statements []UserInputStatement `json:"statements"`
+	Username    string               `json:"username"`
+	Password    string               `json:"password"`
+	Description string               `json:"description"`
+	Statements  []UserInputStatement `json:"statements"`
 }
 
 type UserInputStatement struct {
@@ -36,8 +37,9 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 			var confirmed bool
 
 			input := UserInput{
-				Username: "",
-				Password: "",
+				Username:    "",
+				Password:    "",
+				Description: "",
 				Statements: []UserInputStatement{
 					{
 						Effect:   auth.StatementEffectAllow,
@@ -58,6 +60,11 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
+			description, err := cmd.Flags().GetString("description")
+			if err != nil {
+				return err
+			}
+
 			statements, err := cmd.Flags().GetString("statements")
 
 			if err != nil {
@@ -71,6 +78,7 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				// Non-interactive mode: use provided flags
 				input.Username = username
 				input.Password = password
+				input.Description = description
 
 				if err := json.Unmarshal([]byte(statements), &input.Statements); err != nil {
 					return errors.New("invalid JSON format for statements")
@@ -85,6 +93,10 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 
 				if password != "" {
 					input.Password = password
+				}
+
+				if description != "" {
+					input.Description = description
 				}
 
 				statementsJSON, err := json.MarshalIndent(input.Statements, "", "  ")
@@ -124,6 +136,11 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 								}
 								return nil
 							}),
+						huh.NewInput().
+							Title("Description").
+							Placeholder("Enter a description for the user (optional)").
+							Value(&input.Description).
+							CharLimit(255),
 					),
 					huh.NewGroup(
 						huh.NewText().
@@ -176,9 +193,10 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			res, _, err := api.Post(config, "/v1/users", map[string]any{
-				"username":   input.Username,
-				"password":   input.Password,
-				"statements": input.Statements,
+				"username":    input.Username,
+				"password":    input.Password,
+				"description": input.Description,
+				"statements":  input.Statements,
 			})
 
 			if err != nil {
@@ -250,6 +268,7 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	// Add flags
 	cmd.Flags().String("new-username", "", "Username for the new user")
 	cmd.Flags().String("new-password", "", "Password for the new user")
+	cmd.Flags().String("description", "", "Description for the new user")
 	cmd.Flags().String("statements", "", "Define privileges for this user using JSON")
 
 	return cmd

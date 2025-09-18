@@ -48,6 +48,13 @@ func NewUserUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 					return err
 				}
 
+				// Load existing description if available
+				if res["data"].(map[string]any)["description"] != nil {
+					if desc, ok := res["data"].(map[string]any)["description"].(string); ok {
+						input.Description = desc
+					}
+				}
+
 				if res["data"].(map[string]any)["statements"] != nil {
 					statements := res["data"].(map[string]any)["statements"].([]any)
 					statementsJSON, err := json.MarshalIndent(statements, "", "  ")
@@ -73,7 +80,12 @@ func NewUserUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 					huh.NewGroup(
 						huh.NewNote().
 							Title("Update User").
-							Description("Update the statements for the user"),
+							Description("Update the description and statements for the user"),
+						huh.NewInput().
+							Title("Description").
+							Placeholder("Enter a description for the user (optional)").
+							Value(&input.Description).
+							CharLimit(255),
 						huh.NewText().
 							Title("Statements").
 							Description("Define privileges for this user using JSON").
@@ -124,7 +136,8 @@ func NewUserUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			res, _, err := api.Put(config, fmt.Sprintf("/v1/users/%s", username), map[string]any{
-				"statements": input.Statements,
+				"description": input.Description,
+				"statements":  input.Statements,
 			})
 
 			if err != nil {
@@ -194,6 +207,7 @@ func NewUserUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 	}
 
 	// Add flags
+	cmd.Flags().String("description", "", "Description for the user")
 	cmd.Flags().String("statements", "", "Define privileges for this user using JSON")
 
 	return cmd

@@ -20,7 +20,7 @@ func TestUserCreate(t *testing.T) {
 
 		// Test non-interactive mode with flags to avoid TTY issues
 		statements := `[{"effect":"allow","resource":"*","actions":["cluster:manage"]}]`
-		err := cli.Run("user", "create", "--new-username", "testuser", "--new-password", "testpassword123", "--statements", statements)
+		err := cli.Run("user", "create", "--new-username", "testuser", "--new-password", "testpassword123", "--description", "Test user for CLI testing", "--statements", statements)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -52,6 +52,33 @@ func TestUserCreate(t *testing.T) {
 
 		if cli.DoesNotSee("Statements") {
 			t.Error("expected output to contain 'Statements'")
+		}
+	})
+
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		cli := test.NewTestCLI(t, server.App).
+			WithServer(server).
+			WithAccessKey([]auth.Statement{
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			})
+
+		// Test without description (optional field)
+		statements := `[{"effect":"allow","resource":"*","actions":["cluster:manage"]}]`
+		err := cli.Run("user", "create", "--new-username", "testuser2", "--new-password", "testpassword123", "--statements", statements)
+
+		if err != nil {
+			t.Fatalf("expected no error when creating user without description, got %v", err)
+		}
+
+		if cli.DoesNotSee("User") {
+			t.Error("expected output to contain 'User'")
+		}
+
+		if cli.DoesNotSee("testuser2") {
+			t.Error("expected output to contain 'testuser2'")
 		}
 	})
 }

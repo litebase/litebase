@@ -29,7 +29,7 @@ func TestUserUpdate(t *testing.T) {
 
 		// Test non-interactive mode with flags to avoid TTY issues
 		statements := `[{"effect":"deny","resource":"*","actions":["*"]}]`
-		err = cli.Run("user", "update", user.Username, "--statements", statements)
+		err = cli.Run("user", "update", user.Username, "--description", "Updated test user description", "--statements", statements)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -57,6 +57,41 @@ func TestUserUpdate(t *testing.T) {
 
 		if cli.DoesNotSee("deny") {
 			t.Error("expected output to contain 'deny'")
+		}
+
+		if cli.DoesNotSee(fmt.Sprintf("User '%s' updated successfully", user.Username)) {
+			t.Errorf("expected output to contain 'User '%s' updated successfully', got %q", user.Username, cli.GetOutput())
+		}
+	})
+
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		cli := test.NewTestCLI(t, server.App).
+			WithServer(server).
+			WithAccessKey([]auth.Statement{
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			})
+
+		user, err := server.App.Auth.UserManager.Create("Test user 2", "password", "Original description", []auth.Statement{
+			{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+		})
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Test updating without description (should preserve existing or leave empty)
+		statements := `[{"effect":"allow","resource":"database:test","actions":["database:read"]}]`
+		err = cli.Run("user", "update", user.Username, "--statements", statements)
+
+		if err != nil {
+			t.Fatalf("expected no error when updating user without description, got %v", err)
+		}
+
+		if cli.DoesNotSee("User") {
+			t.Error("expected output to contain 'User'")
 		}
 
 		if cli.DoesNotSee(fmt.Sprintf("User '%s' updated successfully", user.Username)) {
