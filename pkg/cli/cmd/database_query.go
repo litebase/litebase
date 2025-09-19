@@ -35,11 +35,13 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			// Get parameter sets and parameters flags
 			parameterSetsFlag, err := cmd.Flags().GetString("parameter-sets")
+
 			if err != nil {
 				return fmt.Errorf("failed to get parameter sets: %w", err)
 			}
 
 			parametersFlag, err := cmd.Flags().GetString("parameters")
+
 			if err != nil {
 				return fmt.Errorf("failed to get parameters: %w", err)
 			}
@@ -54,6 +56,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 			if parameterSetsFlag != "" {
 				// Handle parameter sets - create multiple queries
 				var parameterSets [][]database.QueryStatementParameter
+
 				if err := json.Unmarshal([]byte(parameterSetsFlag), &parameterSets); err != nil {
 					return fmt.Errorf("failed to unmarshal parameter sets: %w", err)
 				}
@@ -172,6 +175,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			if rows, ok := res["data"].([]any)[0].(map[string]any)["rows"].([]any); ok && len(rows) > 0 {
 				columns, ok := res["data"].([]any)[0].(map[string]any)["columns"].([]any)
+
 				if !ok {
 					columns = []any{"Column"}
 				}
@@ -180,6 +184,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 				for _, row := range rows {
 					rowSlice, ok := row.([]any)
+
 					if !ok {
 						continue // Skip if row is not a slice
 					}
@@ -226,8 +231,8 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 	}
 
 	cmd.Flags().StringP("output", "o", "json", "Output format (json, table)")
-	cmd.Flags().String("parameters", "", "Query parameters (positional: [{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}]")
-	cmd.Flags().String("parameter-sets", "", "Query parameters (sets: [[{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}], [{\"name\":\"param1\", \"value\":\"value3\"}, {\"name\":\"param2\", \"value\":\"value4\"}]]")
+	cmd.Flags().String("parameters", "", "Query parameters in JSON format (positional: [{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}]")
+	cmd.Flags().String("parameter-sets", "", "Multiple sets of query parameters in JSON format (sets: [[{\"name\":\"param1\", \"value\":\"value1\"}, {\"name\":\"param2\", \"value\":\"value2\"}], [{\"name\":\"param1\", \"value\":\"value3\"}, {\"name\":\"param2\", \"value\":\"value4\"}]]")
 	cmd.Flags().String("transaction-id", "", "Transaction ID for the query, if the query is part of a transaction")
 
 	return cmd

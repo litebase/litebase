@@ -11,7 +11,7 @@ import (
 
 func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create <name>",
+		Use:   "create <database>",
 		Args:  cobra.ExactArgs(1),
 		Short: "Create a new database",
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -12,7 +12,7 @@ import (
 
 func NewDatabaseShowCmd(config *config.CLIConfiguration) *cobra.Command {
 	return &cobra.Command{
-		Use:   "show <name>",
+		Use:   "show <database>",
 		Short: "Get a database",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
