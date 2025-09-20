@@ -1,13 +1,14 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-func UserControllerIndex(request *Request) Response {
+func UserControllerIndex(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
@@ -46,7 +47,7 @@ type UserControllerStoreRequest struct {
 	Username    string           `json:"username" validate:"required"`
 }
 
-func UserControllerShow(request *Request) Response {
+func UserControllerShow(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
@@ -79,7 +80,7 @@ func UserControllerShow(request *Request) Response {
 	)
 }
 
-func UserControllerStore(request *Request) Response {
+func UserControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
@@ -162,7 +163,7 @@ type UserControllerUpdateRequest struct {
 	Statements  []auth.Statement `json:"statements" validate:"required"`
 }
 
-func UserControllerUpdate(request *Request) Response {
+func UserControllerUpdate(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
@@ -223,7 +224,7 @@ func UserControllerUpdate(request *Request) Response {
 	)
 }
 
-func UserControllerDestroy(request *Request) Response {
+func UserControllerDestroy(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},

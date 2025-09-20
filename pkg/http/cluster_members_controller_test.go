@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -53,7 +54,7 @@ func TestClusterMemberDestroyController(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterMemberDestroyController(req)
+		res := appHttp.ClusterMemberDestroyController(context.Background(), req)
 
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("expected status code 200, got %d", res.StatusCode)
@@ -94,7 +95,7 @@ func TestClusterMemberDestroyControllerUnauthorized(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterMemberDestroyController(req)
+		res := appHttp.ClusterMemberDestroyController(context.Background(), req)
 
 		if res.StatusCode != http.StatusUnauthorized {
 			t.Errorf("expected status code 401, got %d", res.StatusCode)
@@ -153,7 +154,7 @@ func TestClusterMemberStoreController(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterMemberStoreController(req)
+		res := appHttp.ClusterMemberStoreController(context.Background(), req)
 
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("expected status code 200, got %d", res.StatusCode)
@@ -202,7 +203,7 @@ func TestClusterMemberStoreControllerUnauthorized(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterMemberStoreController(req)
+		res := appHttp.ClusterMemberStoreController(context.Background(), req)
 
 		if res.StatusCode != http.StatusUnauthorized {
 			t.Errorf("expected status code 401, got %d", res.StatusCode)

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/backups"
 )
 
-func DatabaseBackupIndexController(request *Request) Response {
+func DatabaseBackupIndexController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -48,7 +49,7 @@ func DatabaseBackupIndexController(request *Request) Response {
 type DatabaseBackupStoreRequest struct{}
 
 // Create a new database backup
-func DatabaseBackupStoreController(request *Request) Response {
+func DatabaseBackupStoreController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -142,7 +143,7 @@ func DatabaseBackupStoreController(request *Request) Response {
 }
 
 // Show a specific database backup
-func DatabaseBackupShowController(request *Request) Response {
+func DatabaseBackupShowController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -190,7 +191,7 @@ func DatabaseBackupShowController(request *Request) Response {
 	}, 200, nil)
 }
 
-func DatabaseBackupDestroyController(request *Request) Response {
+func DatabaseBackupDestroyController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

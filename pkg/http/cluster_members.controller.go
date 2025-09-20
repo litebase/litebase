@@ -1,11 +1,12 @@
 package http
 
 import (
+	"context"
 	"log"
 )
 
 // Remove a member from the cluster.
-func ClusterMemberDestroyController(request *Request) Response {
+func ClusterMemberDestroyController(ctx context.Context, request *Request) Response {
 	members := request.cluster.GetMembers(false)
 
 	ipAddress := request.Headers().Get("X-Litebase-Node")
@@ -72,7 +73,7 @@ type ClusterMemberStoreRequest struct {
 }
 
 // Add a new member to the cluster.
-func ClusterMemberStoreController(request *Request) Response {
+func ClusterMemberStoreController(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&ClusterMemberStoreRequest{})
 
 	if err != nil {

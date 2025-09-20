@@ -45,41 +45,41 @@ func NewRouter() *Router {
 }
 
 // Add a DELETE route to the router
-func (router *Router) Delete(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Delete(path string, handler RouteHandler) *Route {
 	return router.request("DELETE", path, handler)
 }
 
 // Set the Fallback route to the router
-func (router *Router) Fallback(callback func(request *Request) Response) {
+func (router *Router) Fallback(handler RouteHandler) {
 	router.DefaultRoute = Route{
-		Handler: callback,
+		Handler: handler,
 		router:  router,
 		timeout: 0,
 	}
 }
 
 // Add a GET route on the router
-func (router *Router) Get(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Get(path string, handler RouteHandler) *Route {
 	return router.request("GET", path, handler)
 }
 
 // Add a PATCH route to the router
-func (router *Router) Patch(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Patch(path string, handler RouteHandler) *Route {
 	return router.request("PATCH", path, handler)
 }
 
 // Add a POST route to the router
-func (router *Router) Post(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Post(path string, handler RouteHandler) *Route {
 	return router.request("POST", path, handler)
 }
 
 // Add a PUT route to the router
-func (router *Router) Put(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Put(path string, handler RouteHandler) *Route {
 	return router.request("PUT", path, handler)
 }
 
 // Resolve an incoming request using a route from the Router
-func (router *Router) request(method string, path string, handler func(request *Request) Response) *Route {
+func (router *Router) request(method string, path string, handler RouteHandler) *Route {
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
 	}
@@ -102,6 +102,7 @@ func (router *Router) Server(
 
 	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		response := router.DefaultRoute.Handler(
+			r.Context(),
 			NewRequest(cluster, databaseManager, logManager, r),
 		)
 
@@ -194,4 +195,9 @@ func (router *Router) Server(
 			})
 		}
 	}
+}
+
+// GetRoutes returns all registered routes for OpenAPI generation
+func (router *Router) GetRoutes() map[string]map[string]*Route {
+	return router.Routes
 }

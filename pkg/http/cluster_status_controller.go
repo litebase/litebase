@@ -1,6 +1,8 @@
 package http
 
-func ClusterStatusController(request *Request) Response {
+import "context"
+
+func ClusterStatusController(ctx context.Context, request *Request) Response {
 	return Response{
 		StatusCode: 200,
 		Body: map[string]any{

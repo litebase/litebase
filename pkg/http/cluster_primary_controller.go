@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/gob"
 	"errors"
 	"log"
@@ -11,7 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/cluster/messages"
 )
 
-func ClusterPrimaryController(request *Request) Response {
+func ClusterPrimaryController(ctx context.Context, request *Request) Response {
 	if request.cluster.Node().GetMembership() != cluster.ClusterMembershipPrimary {
 		return ForbiddenResponse(errors.New("not a primary node"))
 	}

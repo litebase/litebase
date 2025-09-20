@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -53,7 +54,7 @@ func TestClusterElectionController(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterElectionController(req)
+		res := appHttp.ClusterElectionController(context.Background(), req)
 
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("expected status code 200, got %d", res.StatusCode)

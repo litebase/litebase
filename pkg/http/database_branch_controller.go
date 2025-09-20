@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -12,7 +13,7 @@ import (
 )
 
 // List all branches for a specific database
-func DatabaseBranchIndexController(request *Request) Response {
+func DatabaseBranchIndexController(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -51,7 +52,7 @@ func DatabaseBranchIndexController(request *Request) Response {
 }
 
 // Show a specific database branch by ID
-func DatabaseBranchShowController(request *Request) Response {
+func DatabaseBranchShowController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -103,7 +104,7 @@ type DatabaseBranchStoreRequest struct {
 }
 
 // Create a new database branch
-func DatabaseBranchStoreController(request *Request) Response {
+func DatabaseBranchStoreController(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -180,7 +181,7 @@ func DatabaseBranchStoreController(request *Request) Response {
 }
 
 // Delete a specific database branch
-func DatabaseBranchDestroyController(request *Request) Response {
+func DatabaseBranchDestroyController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

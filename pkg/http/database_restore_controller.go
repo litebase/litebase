@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -14,7 +15,7 @@ type DatabaseRestoreRequest struct {
 	Timestamp            string `json:"timestamp" validate:"required"`
 }
 
-func DatabaseRestoreController(request *Request) Response {
+func DatabaseRestoreController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

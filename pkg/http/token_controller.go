@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,7 +9,7 @@ import (
 )
 
 // List all tokens
-func TokenControllerIndex(request *Request) Response {
+func TokenControllerIndex(ctx context.Context, request *Request) Response {
 	err := request.Authorize(
 		[]string{"*", "token:*"},
 		[]auth.Privilege{auth.TokenPrivilegeList},
@@ -43,7 +44,7 @@ func TokenControllerIndex(request *Request) Response {
 }
 
 // Show details of a specific token
-func TokenControllerShow(request *Request) Response {
+func TokenControllerShow(ctx context.Context, request *Request) Response {
 	tokenId := request.Param("tokenId")
 
 	err := request.cluster.Auth.SecretsManager.Init()
@@ -78,7 +79,7 @@ func TokenControllerShow(request *Request) Response {
 }
 
 // Create a new token
-func TokenControllerStore(request *Request) Response {
+func TokenControllerStore(ctx context.Context, request *Request) Response {
 	err := request.Authorize(
 		[]string{"*", "token:*"},
 		[]auth.Privilege{auth.TokenPrivilegeCreate},
@@ -149,7 +150,7 @@ func TokenControllerStore(request *Request) Response {
 }
 
 // Update an existing token
-func TokenControllerUpdate(request *Request) Response {
+func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 	tokenId := request.Param("tokenId")
 
 	err := request.cluster.Auth.SecretsManager.Init()
@@ -228,7 +229,7 @@ func TokenControllerUpdate(request *Request) Response {
 }
 
 // Delete a token
-func TokenControllerDestroy(request *Request) Response {
+func TokenControllerDestroy(ctx context.Context, request *Request) Response {
 	tokenId := request.Param("tokenId")
 
 	err := request.Authorize(

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 )
 
-func DatabaseIndexController(request *Request) Response {
+func DatabaseIndexController(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"database:*"},
@@ -35,7 +36,7 @@ func DatabaseIndexController(request *Request) Response {
 	)
 }
 
-func DatabaseShowController(request *Request) Response {
+func DatabaseShowController(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -74,7 +75,7 @@ type DatabaseStoreRequest struct {
 	PrimaryBranch string                `json:"primary_branch,omitempty" validate:"omitempty,lowercase,alphanum"`
 }
 
-func DatabaseStoreController(request *Request) Response {
+func DatabaseStoreController(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"database:*"},
@@ -135,7 +136,7 @@ func DatabaseStoreController(request *Request) Response {
 	)
 }
 
-func DatabaseDestroyController(request *Request) Response {
+func DatabaseDestroyController(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {

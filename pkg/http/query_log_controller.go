@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -10,7 +11,7 @@ import (
 	"github.com/litebase/litebase/pkg/logs"
 )
 
-func QueryLogController(request *Request) Response {
+func QueryLogController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

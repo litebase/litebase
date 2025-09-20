@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -12,7 +13,7 @@ type QueryRequest struct {
 	Queries []*database.QueryInput `json:"queries" validate:"required,min=1,dive"`
 }
 
-func QueryController(request *Request) Response {
+func QueryController(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

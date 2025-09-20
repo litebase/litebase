@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -11,7 +12,7 @@ type KeyActivateRequest struct {
 	EncryptionKey string `json:"encryption_key" validate:"required"`
 }
 
-func KeyActivateController(request *Request) Response {
+func KeyActivateController(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},

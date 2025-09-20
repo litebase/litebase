@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res := appHttp.RequireHost(req)
+		_, res := appHttp.RequireHost(context.Background(), req)
 
 		if res.StatusCode != 0 {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
@@ -45,7 +46,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res = appHttp.RequireHost(req)
+		_, res = appHttp.RequireHost(context.Background(), req)
 
 		if res.StatusCode != 400 {
 			t.Fatalf("Expected status code %d, got %d", 400, res.StatusCode)
@@ -64,7 +65,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res = appHttp.RequireHost(req)
+		_, res = appHttp.RequireHost(context.Background(), req)
 
 		if res.StatusCode != 403 {
 			t.Fatalf("Expected status code %d, got %d", 403, res.StatusCode)
@@ -83,7 +84,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res = appHttp.RequireHost(req)
+		_, res = appHttp.RequireHost(context.Background(), req)
 
 		if res.StatusCode != 0 {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
@@ -102,7 +103,7 @@ func TestRequireHostMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res = appHttp.RequireHost(req)
+		_, res = appHttp.RequireHost(context.Background(), req)
 
 		if res.StatusCode != 403 {
 			t.Fatalf("Expected status code %d, got %d", 403, res.StatusCode)

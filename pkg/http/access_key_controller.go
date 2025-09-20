@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,7 +9,7 @@ import (
 )
 
 // List all access keys
-func AccessKeyControllerIndex(request *Request) Response {
+func AccessKeyControllerIndex(ctx context.Context, request *Request) Response {
 	err := request.Authorize(
 		[]string{"*", "access-key:*"},
 		[]auth.Privilege{auth.AccessKeyPrivilegeList},
@@ -43,7 +44,7 @@ func AccessKeyControllerIndex(request *Request) Response {
 }
 
 // Show details of a specific access key
-func AccessKeyControllerShow(request *Request) Response {
+func AccessKeyControllerShow(ctx context.Context, request *Request) Response {
 	accessKeyId := request.Param("accessKeyId")
 
 	err := request.cluster.Auth.SecretsManager.Init()
@@ -83,7 +84,7 @@ type AccessKeyStoreRequest struct {
 }
 
 // Create a new access key
-func AccessKeyControllerStore(request *Request) Response {
+func AccessKeyControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request for access key creation
 	err := request.Authorize(
 		[]string{"*", "access-key:*"},
@@ -147,7 +148,7 @@ type AccessKeyUpdateRequest struct {
 }
 
 // Update an existing access key
-func AccessKeyControllerUpdate(request *Request) Response {
+func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 	// Get the access key ID from the request parameters
 	accessKeyId := request.Param("accessKeyId")
 
@@ -228,7 +229,7 @@ func AccessKeyControllerUpdate(request *Request) Response {
 	}, 200, nil)
 }
 
-func AccessKeyControllerDestroy(request *Request) Response {
+func AccessKeyControllerDestroy(ctx context.Context, request *Request) Response {
 	// Get the access key ID from the request parameters
 	accessKeyId := request.Param("accessKeyId")
 

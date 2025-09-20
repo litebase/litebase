@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
@@ -13,7 +14,7 @@ type KeyStoreRequest struct {
 	Signature     string `json:"signature" validate:"required"`
 }
 
-func KeyStoreController(request *Request) Response {
+func KeyStoreController(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},

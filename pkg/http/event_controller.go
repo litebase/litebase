@@ -1,10 +1,12 @@
 package http
 
 import (
+	"context"
+
 	"github.com/litebase/litebase/pkg/cluster"
 )
 
-func EventStoreController(request *Request) Response {
+func EventStoreController(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&cluster.EventMessage{})
 
 	if err != nil {

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster"
@@ -12,7 +13,7 @@ type ClusterElectionRequest struct {
 	StartedAt int64  `json:"started_at" validate:"required"`
 }
 
-func ClusterElectionController(request *Request) Response {
+func ClusterElectionController(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&ClusterElectionRequest{})
 
 	if err != nil {

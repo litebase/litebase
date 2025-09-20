@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"net/http"
 	"net/http/httptest"
@@ -50,7 +51,7 @@ func TestClusterConnectionController(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterConnectionController(req)
+		res := appHttp.ClusterConnectionController(context.Background(), req)
 
 		if res.StatusCode != http.StatusOK {
 			t.Fatalf("expected status code 200, got %d", res.StatusCode)

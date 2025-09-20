@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -41,13 +42,13 @@ func TestNewRouter(t *testing.T) {
 
 func TestRouterHTTPMethods(t *testing.T) {
 	router := appHttp.NewRouter()
-	handler := func(request *appHttp.Request) appHttp.Response {
+	handler := func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		return appHttp.Response{StatusCode: http.StatusOK}
 	}
 
 	tests := []struct {
 		name     string
-		method   func(string, func(*appHttp.Request) appHttp.Response) *appHttp.Route
+		method   func(string, appHttp.RouteHandler) *appHttp.Route
 		path     string
 		httpVerb string
 	}{
@@ -75,7 +76,7 @@ func TestRouterHTTPMethods(t *testing.T) {
 
 func TestRouterPathTrimming(t *testing.T) {
 	router := appHttp.NewRouter()
-	handler := func(request *appHttp.Request) appHttp.Response {
+	handler := func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		return appHttp.Response{StatusCode: http.StatusOK}
 	}
 
@@ -111,7 +112,7 @@ func TestRouter(t *testing.T) {
 			router := appHttp.NewRouter()
 			called := false
 
-			router.Fallback(func(request *appHttp.Request) appHttp.Response {
+			router.Fallback(func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				called = true
 				return appHttp.Response{StatusCode: http.StatusNotFound}
 			})
@@ -120,7 +121,7 @@ func TestRouter(t *testing.T) {
 			req := httptest.NewRequest("GET", "http://localhost/nonexistent", nil)
 			req.Header.Set("Content-Type", "application/json")
 			mockRequest := appHttp.NewRequest(app.Cluster, app.DatabaseManager, app.LogManager, req)
-			router.DefaultRoute.Handler(mockRequest)
+			router.DefaultRoute.Handler(req.Context(), mockRequest)
 
 			if !called {
 				t.Error("Expected fallback handler to be called")
@@ -130,7 +131,7 @@ func TestRouter(t *testing.T) {
 		t.Run("Server", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/test", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/test", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body:       map[string]any{"message": "test"},
@@ -166,7 +167,7 @@ func TestRouter(t *testing.T) {
 			serveMux := http.NewServeMux()
 			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-			router.Fallback(func(request *appHttp.Request) appHttp.Response {
+			router.Fallback(func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusNotFound,
 					Body:       map[string]any{"error": "not found"},
@@ -204,7 +205,7 @@ func TestRouter(t *testing.T) {
 		t.Run("ServerWithNilBody", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/empty", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/empty", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusNoContent,
 					Body:       nil,
@@ -232,7 +233,7 @@ func TestRouter(t *testing.T) {
 		t.Run("ServerWithHeaders", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/headers", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/headers", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Headers: map[string]string{
@@ -263,7 +264,7 @@ func TestRouter(t *testing.T) {
 		t.Run("ServerWithGzipEncoding", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/gzip", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/gzip", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Headers: map[string]string{
@@ -313,7 +314,7 @@ func TestRouter(t *testing.T) {
 		t.Run("ServerWithStream", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/stream", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/stream", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Stream: func(w http.ResponseWriter) {
@@ -351,7 +352,7 @@ func TestRouter(t *testing.T) {
 		t.Run("ServerWithZeroStatusCode", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/zero", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/zero", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: 0,
 					Body:       map[string]any{"message": "zero status"},
@@ -379,14 +380,14 @@ func TestRouter(t *testing.T) {
 		t.Run("MultipleRoutesOnSamePath", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/api", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/api", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body:       map[string]any{"method": "GET"},
 				}
 			})
 
-			router.Post("/api", func(request *appHttp.Request) appHttp.Response {
+			router.Post("/api", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusCreated,
 					Body:       map[string]any{"method": "POST"},
@@ -420,7 +421,7 @@ func TestRouter(t *testing.T) {
 		t.Run("ServerWithErrorStatusCode", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/error", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/error", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusInternalServerError,
 					Body:       map[string]any{"error": "server error"},
@@ -448,7 +449,7 @@ func TestRouter(t *testing.T) {
 		t.Run("EmptyStringBodyResponse", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/empty-string", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/empty-string", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body:       nil,
@@ -475,7 +476,7 @@ func TestRouter(t *testing.T) {
 		t.Run("ComplexBodyResponse", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
-			router.Get("/complex", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/complex", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body: map[string]any{
@@ -539,7 +540,7 @@ func TestRouter(t *testing.T) {
 			router := appHttp.NewRouter()
 
 			// Test basic path matching
-			router.Get("/users/123", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/users/123", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body:       map[string]any{"userId": "123"},
@@ -568,7 +569,7 @@ func TestRouter(t *testing.T) {
 				largeData[fmt.Sprintf("key_%d", i)] = fmt.Sprintf("value_%d", i)
 			}
 
-			router.Get("/large", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/large", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body:       largeData,
@@ -618,7 +619,7 @@ func TestRouter(t *testing.T) {
 			router := appHttp.NewRouter()
 
 			// Test with numeric response body
-			router.Get("/number", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/number", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body:       map[string]any{"number": 42},
@@ -626,7 +627,7 @@ func TestRouter(t *testing.T) {
 			})
 
 			// Test with boolean response body
-			router.Get("/boolean", func(request *appHttp.Request) appHttp.Response {
+			router.Get("/boolean", func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 				return appHttp.Response{
 					StatusCode: http.StatusOK,
 					Body:       map[string]any{"boolean": true},
@@ -677,7 +678,7 @@ func TestRouterLazyMapInitialization(t *testing.T) {
 		}
 	}
 
-	handler := func(request *appHttp.Request) appHttp.Response {
+	handler := func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		return appHttp.Response{StatusCode: http.StatusOK}
 	}
 
@@ -696,11 +697,11 @@ func TestRouterLazyMapInitialization(t *testing.T) {
 func TestRouterOverwriteRoute(t *testing.T) {
 	router := appHttp.NewRouter()
 
-	firstHandler := func(request *appHttp.Request) appHttp.Response {
+	firstHandler := func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		return appHttp.Response{StatusCode: http.StatusOK, Body: map[string]any{"handler": "first"}}
 	}
 
-	secondHandler := func(request *appHttp.Request) appHttp.Response {
+	secondHandler := func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		return appHttp.Response{StatusCode: http.StatusOK, Body: map[string]any{"handler": "second"}}
 	}
 
