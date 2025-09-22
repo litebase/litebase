@@ -14,7 +14,7 @@ type KeyStoreRequest struct {
 	Signature     string `json:"signature" validate:"required"`
 }
 
-func KeyStoreController(ctx context.Context, request *Request) Response {
+func KeyControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},

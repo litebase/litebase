@@ -179,10 +179,7 @@ func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&AccessKeyUpdateRequest{})
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": fmt.Sprintf("Invalid input: %s", err.Error()),
-		}, 400, nil)
+		return BadRequestResponse(fmt.Errorf("invalid input: %s", err.Error()))
 	}
 
 	// Validate the input

@@ -13,7 +13,7 @@ type ClusterElectionRequest struct {
 	StartedAt int64  `json:"started_at" validate:"required"`
 }
 
-func ClusterElectionController(ctx context.Context, request *Request) Response {
+func ClusterElectionControllerStore(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&ClusterElectionRequest{})
 
 	if err != nil {

@@ -13,7 +13,8 @@ type QueryRequest struct {
 	Queries []*database.QueryInput `json:"queries" validate:"required,min=1,dive"`
 }
 
-func QueryController(ctx context.Context, request *Request) Response {
+// Execute one or more SQL queries against the specified database and branch.
+func QueryControllerStore(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

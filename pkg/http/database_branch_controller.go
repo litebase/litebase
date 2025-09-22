@@ -13,7 +13,7 @@ import (
 )
 
 // List all branches for a specific database
-func DatabaseBranchIndexController(ctx context.Context, request *Request) Response {
+func DatabaseBranchControllerIndex(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -52,7 +52,7 @@ func DatabaseBranchIndexController(ctx context.Context, request *Request) Respon
 }
 
 // Show a specific database branch by ID
-func DatabaseBranchShowController(ctx context.Context, request *Request) Response {
+func DatabaseBranchControllerShow(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -104,7 +104,7 @@ type DatabaseBranchStoreRequest struct {
 }
 
 // Create a new database branch
-func DatabaseBranchStoreController(ctx context.Context, request *Request) Response {
+func DatabaseBranchControllerStore(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -181,7 +181,7 @@ func DatabaseBranchStoreController(ctx context.Context, request *Request) Respon
 }
 
 // Delete a specific database branch
-func DatabaseBranchDestroyController(ctx context.Context, request *Request) Response {
+func DatabaseBranchControllerDestroy(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

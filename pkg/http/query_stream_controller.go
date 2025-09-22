@@ -37,7 +37,7 @@ const (
 	QueryStreamFrameEntry      QueryStreamMessageType = 0x05
 )
 
-func QueryStreamController(ctx context.Context, request *Request) Response {
+func QueryStreamControllerStore(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

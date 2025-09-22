@@ -15,7 +15,7 @@ type DatabaseRestoreRequest struct {
 	Timestamp            string `json:"timestamp" validate:"required"`
 }
 
-func DatabaseRestoreController(ctx context.Context, request *Request) Response {
+func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

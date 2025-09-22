@@ -12,7 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/backups"
 )
 
-func DatabaseSnapshotIndexController(ctx context.Context, request *Request) Response {
+func DatabaseSnapshotControllerIndex(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -75,7 +75,7 @@ func DatabaseSnapshotIndexController(ctx context.Context, request *Request) Resp
 	}, 200, nil)
 }
 
-func DatabaseSnapshotShowController(ctx context.Context, request *Request) Response {
+func DatabaseSnapshotControllerShow(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

@@ -11,7 +11,7 @@ import (
 	"github.com/litebase/litebase/pkg/logs"
 )
 
-func QueryLogController(ctx context.Context, request *Request) Response {
+func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {

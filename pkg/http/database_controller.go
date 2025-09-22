@@ -12,7 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 )
 
-func DatabaseIndexController(ctx context.Context, request *Request) Response {
+func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"database:*"},
@@ -36,7 +36,7 @@ func DatabaseIndexController(ctx context.Context, request *Request) Response {
 	)
 }
 
-func DatabaseShowController(ctx context.Context, request *Request) Response {
+func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -75,7 +75,7 @@ type DatabaseStoreRequest struct {
 	PrimaryBranch string                `json:"primary_branch,omitempty" validate:"omitempty,lowercase,alphanum"`
 }
 
-func DatabaseStoreController(ctx context.Context, request *Request) Response {
+func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"database:*"},
@@ -136,7 +136,7 @@ func DatabaseStoreController(ctx context.Context, request *Request) Response {
 	)
 }
 
-func DatabaseDestroyController(ctx context.Context, request *Request) Response {
+func DatabaseControllerDestroy(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
