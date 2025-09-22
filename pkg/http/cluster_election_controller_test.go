@@ -54,7 +54,7 @@ func TestClusterElectionController(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterElectionController(context.Background(), req)
+		res := appHttp.ClusterElectionControllerStore(context.Background(), req)
 
 		if res.StatusCode != http.StatusOK {
 			t.Errorf("expected status code 200, got %d", res.StatusCode)

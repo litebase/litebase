@@ -51,7 +51,7 @@ func TestClusterConnectionController(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterConnectionController(context.Background(), req)
+		res := appHttp.ClusterConnectionControllerStore(context.Background(), req)
 
 		if res.StatusCode != http.StatusOK {
 			t.Fatalf("expected status code 200, got %d", res.StatusCode)

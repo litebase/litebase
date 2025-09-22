@@ -74,7 +74,7 @@ func TestClusterPrimaryController(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterPrimaryController(context.Background(), req)
+		res := appHttp.ClusterPrimaryControllerStore(context.Background(), req)
 
 		if res.StatusCode != http.StatusOK {
 			t.Fatalf("expected status code 200, got %d", res.StatusCode)
@@ -172,7 +172,7 @@ func TestClusterPrimaryController_NonPrimaryNode(t *testing.T) {
 			request,
 		)
 
-		res := appHttp.ClusterPrimaryController(context.Background(), req)
+		res := appHttp.ClusterPrimaryControllerStore(context.Background(), req)
 
 		// Should return 403 Forbidden since the node is not primary
 		if res.StatusCode != http.StatusForbidden {
