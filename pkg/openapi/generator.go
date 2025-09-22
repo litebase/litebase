@@ -2108,9 +2108,10 @@ func (g *Generator) convertTypeInfoToSchema(typeInfo *TypeInfo) *Schema {
 			fieldSchema.Format = "date-time"
 
 			if fieldInfo.Description == "" {
-				if jsonName == "created_at" {
+				switch jsonName {
+				case "created_at":
 					fieldSchema.Description = "Creation timestamp"
-				} else if jsonName == "updated_at" {
+				case "updated_at":
 					fieldSchema.Description = "Last update timestamp"
 				}
 			}
