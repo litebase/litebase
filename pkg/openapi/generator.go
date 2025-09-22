@@ -2102,6 +2102,22 @@ func (g *Generator) convertTypeInfoToSchema(typeInfo *TypeInfo) *Schema {
 			Description: fieldInfo.Description,
 		}
 
+		// Handle time.Time fields specially
+		if fieldInfo.Type == "time.Time" || fieldInfo.Type == "*time.Time" {
+			fieldSchema.Type = "string"
+			fieldSchema.Format = "date-time"
+
+			if fieldInfo.Description == "" {
+				if jsonName == "created_at" {
+					fieldSchema.Description = "Creation timestamp"
+				} else if jsonName == "updated_at" {
+					fieldSchema.Description = "Last update timestamp"
+				}
+			}
+
+			fieldSchema.Example = "2023-09-20T14:30:00Z"
+		}
+
 		// Add validation constraints
 		g.applyValidationToSchema(fieldInfo, fieldSchema)
 

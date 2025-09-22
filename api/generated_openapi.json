@@ -3711,9 +3711,9 @@
                   }
                 },
                 "required": [
+                  "password",
                   "statements",
-                  "username",
-                  "password"
+                  "username"
                 ]
               }
             }
