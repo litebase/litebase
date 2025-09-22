@@ -212,7 +212,11 @@ func (b *Branch) Delete() error {
 		return fmt.Errorf("failed to load branch's database: %w", err)
 	}
 
-	primaryBranch := database.PrimaryBranch()
+	primaryBranch, err := database.PrimaryBranch()
+
+	if err != nil {
+		return fmt.Errorf("failed to load primary branch: %w", err)
+	}
 
 	if primaryBranch == nil {
 		return fmt.Errorf("cannot delete branch: primary branch not found")

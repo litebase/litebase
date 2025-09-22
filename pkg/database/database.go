@@ -416,7 +416,11 @@ func (database *Database) InvalidateBranchCache(branchName string) {
 func (database *Database) MarshalJSON() ([]byte, error) {
 	type Alias Database
 
-	primaryBranch := database.PrimaryBranch()
+	primaryBranch, err := database.PrimaryBranch()
+
+	if err != nil {
+		return nil, err
+	}
 
 	if primaryBranch == nil {
 		return nil, errors.New("primary branch not found")
@@ -432,15 +436,15 @@ func (database *Database) MarshalJSON() ([]byte, error) {
 }
 
 // Load and return the primary branch of the database
-func (database *Database) PrimaryBranch() *Branch {
+func (database *Database) PrimaryBranch() (*Branch, error) {
 	if database == nil {
-		return nil
+		return nil, errors.New("database is nil")
 	}
 
 	if database.primaryBranch == nil {
 		// If no primary branch ID is set, return nil
 		if !database.PrimaryBranchReferenceID.Valid || database.PrimaryBranchReferenceID.Int64 == 0 {
-			return nil
+			return nil, errors.New("primary branch not set")
 		}
 
 		// Load the primary branch from the system database using the foreign key
@@ -448,7 +452,7 @@ func (database *Database) PrimaryBranch() *Branch {
 			db, err := database.DatabaseManager.SystemDatabase().DB()
 
 			if err != nil {
-				return nil
+				return nil, err
 			}
 
 			var branch Branch
@@ -478,7 +482,7 @@ func (database *Database) PrimaryBranch() *Branch {
 		}
 	}
 
-	return database.primaryBranch
+	return database.primaryBranch, nil
 }
 
 // Save the database to the system database

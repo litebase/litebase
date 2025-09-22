@@ -43,10 +43,10 @@ func TestDatabaseBranchShow(t *testing.T) {
 			t.Fatalf("failed to create checkpoint: %v", err)
 		}
 
-		primaryBranch := db.PrimaryBranch()
+		primaryBranch, err := db.PrimaryBranch()
 
-		if primaryBranch == nil {
-			t.Fatalf("expected primary branch to be found, got nil")
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		err = cli.Run("database", "branch", "show", fmt.Sprintf("%s/%s", testDatabase.DatabaseName, primaryBranch.Name))
@@ -237,10 +237,10 @@ func TestDatabaseBranchShowAccessControl(t *testing.T) {
 			t.Fatalf("failed to get mock database: %v", err)
 		}
 
-		primaryBranch := db.PrimaryBranch()
+		primaryBranch, err := db.PrimaryBranch()
 
-		if primaryBranch == nil {
-			t.Fatalf("expected primary branch to be found, got nil")
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		cli := test.NewTestCLI(t, server.App).

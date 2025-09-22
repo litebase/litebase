@@ -228,7 +228,11 @@ func (d *DatabaseManager) Create(databaseName, branchName string) (*Database, er
 
 // Delete the given instance of the database.
 func (d *DatabaseManager) Delete(database *Database) error {
-	primaryBranch := database.PrimaryBranch()
+	primaryBranch, err := database.PrimaryBranch()
+
+	if err != nil {
+		return fmt.Errorf("cannot delete database: %w", err)
+	}
 
 	if primaryBranch == nil {
 		return fmt.Errorf("cannot delete database: primary branch not found")

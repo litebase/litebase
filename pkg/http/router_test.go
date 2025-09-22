@@ -19,6 +19,7 @@ func TestNewRouter(t *testing.T) {
 
 	if router == nil {
 		t.Fatal("Failed to create router")
+		return
 	}
 
 	// Test default middleware is set
@@ -28,11 +29,13 @@ func TestNewRouter(t *testing.T) {
 
 	// Test routes map is initialized
 	if router.Routes == nil {
-		t.Error("Expected routes map to be initialized")
+		t.Fatal("Expected routes map to be initialized")
+		return
 	}
 
 	// Test all HTTP methods are initialized
 	methods := []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+
 	for _, method := range methods {
 		if _, exists := router.Routes[method]; !exists {
 			t.Errorf("Expected method %s to be initialized", method)

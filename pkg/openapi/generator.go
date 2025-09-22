@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/litebase/litebase/pkg/http"
 )
 
@@ -20,8 +23,8 @@ import (
 type Generator struct {
 	fileSet      *token.FileSet
 	typeInfo     map[string]*TypeInfo
-	packageCache map[string]*ast.Package // Cache for parsed packages
-	importCache  map[string]string       // Cache for import path -> package name mapping
+	packageCache map[string][]*ast.File // Cache for parsed package files
+	importCache  map[string]string      // Cache for import path -> package name mapping
 }
 
 // TypeInfo holds information about a Go type for OpenAPI schema generation
@@ -94,7 +97,7 @@ func NewGenerator() *Generator {
 	return &Generator{
 		fileSet:      token.NewFileSet(),
 		typeInfo:     make(map[string]*TypeInfo),
-		packageCache: make(map[string]*ast.Package),
+		packageCache: make(map[string][]*ast.File),
 		importCache:  make(map[string]string),
 	}
 }
@@ -350,7 +353,8 @@ func pluralizePart(word string) string {
 	if plural, ok := irregulars[lower]; ok {
 		// Preserve original case
 		if isUpperCase(word[0:1]) {
-			return strings.Title(plural)
+			caser := cases.Title(language.English)
+			return caser.String(plural)
 		}
 		return plural
 	}
@@ -1244,35 +1248,6 @@ func (g *Generator) analyzeMethodParameters(fn *ast.FuncDecl, analysis *MethodAn
 	}
 }
 
-// analyzeMethodResponses analyzes method responses by examining the function body
-func (g *Generator) analyzeMethodResponses(fn *ast.FuncDecl, analysis *MethodAnalysis) {
-	if fn.Body == nil {
-		return
-	}
-
-	// Look for Response{StatusCode: xxx} patterns and helper functions
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		switch node := n.(type) {
-		case *ast.CallExpr:
-			g.analyzeResponseCall(node, analysis)
-		case *ast.CompositeLit:
-			g.analyzeResponseLiteral(node, analysis)
-		}
-
-		return true
-	})
-
-	// Add default responses if none found
-	if len(analysis.Responses) == 0 {
-		g.addDefaultResponses(analysis)
-	}
-}
-
-// analyzeResponseCall analyzes response function calls
-func (g *Generator) analyzeResponseCall(call *ast.CallExpr, analysis *MethodAnalysis) {
-	g.analyzeResponseCallWithContext(call, analysis, nil)
-}
-
 // analyzeResponseCallWithContext analyzes response function calls with variable context
 func (g *Generator) analyzeResponseCallWithContext(call *ast.CallExpr, analysis *MethodAnalysis, variableTypes map[string]string) {
 	if ident, ok := call.Fun.(*ast.Ident); ok {
@@ -1514,9 +1489,9 @@ func (g *Generator) discoverExternalType(qualifiedTypeName string) *Schema {
 	}
 
 	// Parse and analyze the external package
-	if pkg := g.parseExternalPackage(packagePath); pkg != nil {
+	if files := g.parseExternalPackage(packagePath); files != nil {
 		// Look for the type in the parsed package
-		for _, file := range pkg.Files {
+		for _, file := range files {
 			ast.Inspect(file, func(n ast.Node) bool {
 				if genDecl, ok := n.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
 					for _, spec := range genDecl.Specs {
@@ -1572,10 +1547,10 @@ func (g *Generator) resolvePackagePath(importPath string) string {
 }
 
 // parseExternalPackage parses an external package and caches the result
-func (g *Generator) parseExternalPackage(packagePath string) *ast.Package {
+func (g *Generator) parseExternalPackage(packagePath string) []*ast.File {
 	// Check cache first
-	if pkg, exists := g.packageCache[packagePath]; exists {
-		return pkg
+	if files, exists := g.packageCache[packagePath]; exists {
+		return files
 	}
 
 	// Parse the package directory
@@ -1587,9 +1562,14 @@ func (g *Generator) parseExternalPackage(packagePath string) *ast.Package {
 
 	// Usually there's only one package per directory
 	for _, pkg := range pkgs {
-		g.packageCache[packagePath] = pkg
+		// Extract files from the package
+		var files []*ast.File
+		for _, file := range pkg.Files {
+			files = append(files, file)
+		}
+		g.packageCache[packagePath] = files
 
-		return pkg
+		return files
 	}
 
 	return nil
@@ -2161,12 +2141,6 @@ func (g *Generator) applyValidationToSchema(fieldInfo *FieldInfo, schema *Schema
 		switch rule {
 		case "min":
 			if minVal, err := strconv.Atoi(value); err == nil {
-				if schema.Type == "string" {
-					// minLength for strings
-				} else {
-					// minimum for numbers
-				}
-
 				_ = minVal // Use the value as needed
 			}
 		case "max":

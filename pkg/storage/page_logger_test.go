@@ -200,6 +200,7 @@ func TestPageLogger(t *testing.T) {
 
 			if pageLogger == nil {
 				t.Fatal("Expected page logger to be created, but got nil")
+				return
 			}
 
 			// Verify initial state - CompactedAt should be zero
@@ -713,6 +714,7 @@ func TestPageLogger(t *testing.T) {
 
 			if pageLogger == nil {
 				t.Fatal("Expected page logger to be created, but got nil")
+				return
 			}
 
 			if !pageLogger.CompactedAt.IsZero() {
@@ -723,16 +725,19 @@ func TestPageLogger(t *testing.T) {
 
 			if _, err := pageLogger.Write(1, 1, make([]byte, 4096)); err != nil {
 				t.Fatalf("Failed to write page: %v", err)
+				return
 			}
 
 			if err := pageLogger.Compact(
 				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 			); err != nil {
 				t.Fatalf("Failed to compact page logger: %v", err)
+				return
 			}
 
 			if !pageLogger.CompactedAt.IsZero() {
 				t.Fatal("Expected CompactedAt to be zero, but got non-zero value")
+				return
 			}
 
 			pageLogger.Release(1)

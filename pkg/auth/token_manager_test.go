@@ -96,10 +96,6 @@ func TestTokenManager(t *testing.T) {
 				t.Error("Expected Create to return no error")
 			}
 
-			if token == nil {
-				t.Fatal("Expected Create to return a non-nil Token")
-			}
-
 			if token.TokenID == "" {
 				t.Error("Expected TokenID to not be an empty string")
 			}
@@ -132,18 +128,10 @@ func TestTokenManager(t *testing.T) {
 				t.Error("Expected Create to return no error")
 			}
 
-			if token == nil {
-				t.Fatal("Expected Create to return a non-nil Token")
-			}
-
 			token2, err := app.Auth.TokenManager.Get(token.TokenID)
 
 			if err != nil {
 				t.Error("Expected Get to return no error")
-			}
-
-			if token2 == nil {
-				t.Fatal("Expected Get to return a non-nil Token")
 			}
 
 			if token2.TokenID != token.TokenID {
@@ -156,10 +144,6 @@ func TestTokenManager(t *testing.T) {
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
-			}
-
-			if token == nil {
-				t.Fatal("Expected Create to return a non-nil Token")
 			}
 
 			token1, err := app.Auth.TokenManager.Get(token.TokenID)

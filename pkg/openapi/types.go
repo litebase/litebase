@@ -5,7 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -325,7 +325,8 @@ func (ra *RouteAnalyzer) parseHandlerResponses(filename string, handlerName stri
 	responses := make(map[string]Response)
 
 	// Read the file
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
+
 	if err != nil {
 		return responses, err
 	}

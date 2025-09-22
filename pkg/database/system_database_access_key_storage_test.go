@@ -517,10 +517,6 @@ func TestSystemDatabaseAccessKeys(t *testing.T) {
 				}
 			}
 
-			if foundKey == nil {
-				t.Fatal("Expected to find complex test key in list")
-			}
-
 			if len(foundKey.Statements) != 3 {
 				t.Fatalf("Expected 3 statements, got %d", len(foundKey.Statements))
 			}

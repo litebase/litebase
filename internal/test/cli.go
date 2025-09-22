@@ -53,6 +53,7 @@ func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 
 		if err != nil {
 			c.t.Fatalf("failed to load config: %v", err)
+			return nil
 		}
 	}
 

@@ -140,6 +140,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 				schema := response.Content["application/json"].Schema
 				if schema == nil {
 					t.Fatal("Expected schema to exist")
+					return
 				}
 
 				if dataSchema, exists := schema.Properties["data"]; exists {
