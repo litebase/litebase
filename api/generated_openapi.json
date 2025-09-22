@@ -3711,9 +3711,9 @@
                   }
                 },
                 "required": [
-                  "password",
                   "statements",
-                  "username"
+                  "username",
+                  "password"
                 ]
               }
             }
@@ -3732,18 +3732,28 @@
                       "type": "object",
                       "properties": {
                         "created_at": {
-                          "type": "object"
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Creation timestamp",
+                          "example": "2023-09-20T14:30:00Z"
                         },
-                        "statements": {
-                          "type": "array"
+                        "id": {
+                          "type": "string",
+                          "description": "Resource identifier",
+                          "example": "example_id"
                         },
                         "updated_at": {
-                          "type": "object"
-                        },
-                        "username": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last update timestamp",
+                          "example": "2023-09-20T14:30:00Z"
                         }
-                      }
+                      },
+                      "required": [
+                        "id",
+                        "created_at",
+                        "updated_at"
+                      ]
                     },
                     "message": {
                       "type": "string",
@@ -3907,18 +3917,28 @@
                       "type": "object",
                       "properties": {
                         "created_at": {
-                          "type": "object"
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Creation timestamp",
+                          "example": "2023-09-20T14:30:00Z"
                         },
-                        "statements": {
-                          "type": "array"
+                        "id": {
+                          "type": "string",
+                          "description": "Resource identifier",
+                          "example": "example_id"
                         },
                         "updated_at": {
-                          "type": "object"
-                        },
-                        "username": {
-                          "type": "string"
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last update timestamp",
+                          "example": "2023-09-20T14:30:00Z"
                         }
-                      }
+                      },
+                      "required": [
+                        "id",
+                        "created_at",
+                        "updated_at"
+                      ]
                     },
                     "message": {
                       "type": "string",
