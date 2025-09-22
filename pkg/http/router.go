@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/litebase/litebase/pkg/cluster"
@@ -86,9 +88,41 @@ func (router *Router) request(method string, path string, handler RouteHandler) 
 
 	path = strings.TrimRight(path, "/")
 
-	router.Routes[method][path] = NewRoute(router, handler)
+	route := NewRoute(router, handler)
+
+	// Extract handler function name for code analysis
+	if handlerName := getFunctionName(handler); handlerName != "" {
+		route.SetHandlerName(handlerName)
+	}
+
+	router.Routes[method][path] = route
 
 	return router.Routes[method][path]
+}
+
+// getFunctionName extracts the function name from a function value
+func getFunctionName(fn interface{}) string {
+	if fn == nil {
+		return ""
+	}
+
+	// Get the function name using runtime
+	fnPtr := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
+
+	if fnPtr != nil {
+		fullName := fnPtr.Name()
+
+		// Extract just the function name (remove package path)
+		parts := strings.Split(fullName, ".")
+
+		if len(parts) > 0 {
+			return parts[len(parts)-1]
+		}
+
+		return fullName
+	}
+
+	return ""
 }
 
 // Create a server handler for the Router.

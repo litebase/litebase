@@ -8,24 +8,25 @@ import (
 	"io/ioutil"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // OpenAPIMetadata holds the OpenAPI specification metadata for a route
 type OpenAPIMetadata struct {
-	Summary      string            `json:"summary,omitempty"`
-	Description  string            `json:"description,omitempty"`
-	OperationID  string            `json:"operationId,omitempty"`
-	Tags         []string          `json:"tags,omitempty"`
-	Parameters   []Parameter       `json:"parameters,omitempty"`
-	RequestBody  *RequestBody      `json:"requestBody,omitempty"`
-	Responses    map[string]Response `json:"responses,omitempty"`
-	Security     []SecurityRequirement `json:"security,omitempty"`
+	Summary     string                `json:"summary,omitempty"`
+	Description string                `json:"description,omitempty"`
+	OperationID string                `json:"operationId,omitempty"`
+	Tags        []string              `json:"tags,omitempty"`
+	Parameters  []Parameter           `json:"parameters,omitempty"`
+	RequestBody *RequestBody          `json:"requestBody,omitempty"`
+	Responses   map[string]Response   `json:"responses,omitempty"`
+	Security    []SecurityRequirement `json:"security,omitempty"`
 }
 
 // Parameter represents an OpenAPI parameter
 type Parameter struct {
 	Name        string      `json:"name"`
-	In          string      `json:"in"`          // "query", "header", "path", "cookie"
+	In          string      `json:"in"` // "query", "header", "path", "cookie"
 	Description string      `json:"description,omitempty"`
 	Required    bool        `json:"required,omitempty"`
 	Schema      *Schema     `json:"schema,omitempty"`
@@ -34,9 +35,9 @@ type Parameter struct {
 
 // RequestBody represents an OpenAPI request body
 type RequestBody struct {
-	Description string                `json:"description,omitempty"`
-	Content     map[string]MediaType  `json:"content"`
-	Required    bool                  `json:"required,omitempty"`
+	Description string               `json:"description,omitempty"`
+	Content     map[string]MediaType `json:"content"`
+	Required    bool                 `json:"required,omitempty"`
 }
 
 // MediaType represents an OpenAPI media type
@@ -79,13 +80,13 @@ type SecurityRequirement map[string][]string
 
 // OpenAPISpec represents the complete OpenAPI specification
 type OpenAPISpec struct {
-	OpenAPI    string                 `json:"openapi"`
-	Info       Info                   `json:"info"`
-	Servers    []Server               `json:"servers,omitempty"`
-	Paths      map[string]PathItem    `json:"paths"`
-	Components *Components            `json:"components,omitempty"`
-	Security   []SecurityRequirement  `json:"security,omitempty"`
-	Tags       []Tag                  `json:"tags,omitempty"`
+	OpenAPI    string                `json:"openapi"`
+	Info       Info                  `json:"info"`
+	Servers    []Server              `json:"servers,omitempty"`
+	Paths      map[string]PathItem   `json:"paths"`
+	Components *Components           `json:"components,omitempty"`
+	Security   []SecurityRequirement `json:"security,omitempty"`
+	Tags       []Tag                 `json:"tags,omitempty"`
 }
 
 // Info represents OpenAPI info object
@@ -127,57 +128,57 @@ type ServerVariable struct {
 
 // PathItem represents an OpenAPI path item
 type PathItem struct {
-	Summary     string     `json:"summary,omitempty"`
-	Description string     `json:"description,omitempty"`
-	Get         *Operation `json:"get,omitempty"`
-	Put         *Operation `json:"put,omitempty"`
-	Post        *Operation `json:"post,omitempty"`
-	Delete      *Operation `json:"delete,omitempty"`
-	Options     *Operation `json:"options,omitempty"`
-	Head        *Operation `json:"head,omitempty"`
-	Patch       *Operation `json:"patch,omitempty"`
-	Trace       *Operation `json:"trace,omitempty"`
+	Summary     string      `json:"summary,omitempty"`
+	Description string      `json:"description,omitempty"`
+	Get         *Operation  `json:"get,omitempty"`
+	Put         *Operation  `json:"put,omitempty"`
+	Post        *Operation  `json:"post,omitempty"`
+	Delete      *Operation  `json:"delete,omitempty"`
+	Options     *Operation  `json:"options,omitempty"`
+	Head        *Operation  `json:"head,omitempty"`
+	Patch       *Operation  `json:"patch,omitempty"`
+	Trace       *Operation  `json:"trace,omitempty"`
 	Parameters  []Parameter `json:"parameters,omitempty"`
 }
 
 // Operation represents an OpenAPI operation
 type Operation struct {
-	Tags         []string                  `json:"tags,omitempty"`
-	Summary      string                    `json:"summary,omitempty"`
-	Description  string                    `json:"description,omitempty"`
-	OperationID  string                    `json:"operationId,omitempty"`
-	Parameters   []Parameter               `json:"parameters,omitempty"`
-	RequestBody  *RequestBody              `json:"requestBody,omitempty"`
-	Responses    map[string]Response       `json:"responses"`
-	Callbacks    map[string]interface{}    `json:"callbacks,omitempty"`
-	Deprecated   bool                      `json:"deprecated,omitempty"`
-	Security     []SecurityRequirement     `json:"security,omitempty"`
-	Servers      []Server                  `json:"servers,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
+	Summary     string                 `json:"summary,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	OperationID string                 `json:"operationId,omitempty"`
+	Parameters  []Parameter            `json:"parameters,omitempty"`
+	RequestBody *RequestBody           `json:"requestBody,omitempty"`
+	Responses   map[string]Response    `json:"responses"`
+	Callbacks   map[string]interface{} `json:"callbacks,omitempty"`
+	Deprecated  bool                   `json:"deprecated,omitempty"`
+	Security    []SecurityRequirement  `json:"security,omitempty"`
+	Servers     []Server               `json:"servers,omitempty"`
 }
 
 // Components represents OpenAPI components
 type Components struct {
-	Schemas         map[string]*Schema               `json:"schemas,omitempty"`
-	Responses       map[string]Response              `json:"responses,omitempty"`
-	Parameters      map[string]Parameter             `json:"parameters,omitempty"`
-	Examples        map[string]interface{}           `json:"examples,omitempty"`
-	RequestBodies   map[string]RequestBody           `json:"requestBodies,omitempty"`
-	Headers         map[string]Header                `json:"headers,omitempty"`
-	SecuritySchemes map[string]SecurityScheme        `json:"securitySchemes,omitempty"`
-	Links           map[string]interface{}           `json:"links,omitempty"`
-	Callbacks       map[string]interface{}           `json:"callbacks,omitempty"`
+	Schemas         map[string]*Schema        `json:"schemas,omitempty"`
+	Responses       map[string]Response       `json:"responses,omitempty"`
+	Parameters      map[string]Parameter      `json:"parameters,omitempty"`
+	Examples        map[string]interface{}    `json:"examples,omitempty"`
+	RequestBodies   map[string]RequestBody    `json:"requestBodies,omitempty"`
+	Headers         map[string]Header         `json:"headers,omitempty"`
+	SecuritySchemes map[string]SecurityScheme `json:"securitySchemes,omitempty"`
+	Links           map[string]interface{}    `json:"links,omitempty"`
+	Callbacks       map[string]interface{}    `json:"callbacks,omitempty"`
 }
 
 // SecurityScheme represents an OpenAPI security scheme
 type SecurityScheme struct {
-	Type             string            `json:"type"`
-	Description      string            `json:"description,omitempty"`
-	Name             string            `json:"name,omitempty"`
-	In               string            `json:"in,omitempty"`
-	Scheme           string            `json:"scheme,omitempty"`
-	BearerFormat     string            `json:"bearerFormat,omitempty"`
-	Flows            *OAuthFlows       `json:"flows,omitempty"`
-	OpenIDConnectURL string            `json:"openIdConnectUrl,omitempty"`
+	Type             string      `json:"type"`
+	Description      string      `json:"description,omitempty"`
+	Name             string      `json:"name,omitempty"`
+	In               string      `json:"in,omitempty"`
+	Scheme           string      `json:"scheme,omitempty"`
+	BearerFormat     string      `json:"bearerFormat,omitempty"`
+	Flows            *OAuthFlows `json:"flows,omitempty"`
+	OpenIDConnectURL string      `json:"openIdConnectUrl,omitempty"`
 }
 
 // OAuthFlows represents OAuth flows
@@ -224,40 +225,6 @@ func NewRouteAnalyzer() *RouteAnalyzer {
 // AnalyzeHandler analyzes a handler function to extract possible response codes and types
 func (ra *RouteAnalyzer) AnalyzeHandler(handlerName string, sourceDir string) (map[string]Response, error) {
 	responses := make(map[string]Response)
-	
-	// Default responses that most endpoints have
-	responses["400"] = Response{
-		Description: "Bad request - invalid input or parameters",
-		Content: map[string]MediaType{
-			"application/json": {
-				Schema: &Schema{
-					Ref: "#/components/schemas/ErrorResponse",
-				},
-			},
-		},
-	}
-	
-	responses["401"] = Response{
-		Description: "Unauthorized - authentication required",
-		Content: map[string]MediaType{
-			"application/json": {
-				Schema: &Schema{
-					Ref: "#/components/schemas/ErrorResponse",
-				},
-			},
-		},
-	}
-	
-	responses["500"] = Response{
-		Description: "Internal server error",
-		Content: map[string]MediaType{
-			"application/json": {
-				Schema: &Schema{
-					Ref: "#/components/schemas/ErrorResponse",
-				},
-			},
-		},
-	}
 
 	// Try to find and parse the handler function
 	if handlerFile, err := ra.findHandlerFile(handlerName, sourceDir); err == nil {
@@ -268,9 +235,49 @@ func (ra *RouteAnalyzer) AnalyzeHandler(handlerName string, sourceDir string) (m
 		}
 	}
 
-	// Ensure there's always a 200 response if none found
-	if _, exists := responses["200"]; !exists {
-		responses["200"] = Response{
+	// If no specific responses found, add defaults
+	if len(responses) == 0 {
+		responses = ra.getDefaultResponses()
+	}
+
+	return responses, nil
+}
+
+// findHandlerFile finds the file containing the handler function
+func (ra *RouteAnalyzer) findHandlerFile(handlerName string, sourceDir string) (string, error) {
+	// Look for controller files in the HTTP package
+	controllerFile := fmt.Sprintf("%s/pkg/http/%s.go", sourceDir, convertHandlerNameToFileName(handlerName))
+	return controllerFile, nil
+}
+
+// convertHandlerNameToFileName converts a handler function name to likely file name
+func convertHandlerNameToFileName(handlerName string) string {
+	// Convert "UserControllerIndex" to "user_controller"
+	// This is a simplified approach - you might need to enhance this
+	name := handlerName
+	if strings.HasSuffix(name, "Controller") || strings.Contains(name, "Controller") {
+		// Extract the base name before "Controller"
+		parts := strings.Split(name, "Controller")
+		if len(parts) > 0 {
+			base := parts[0]
+			// Convert CamelCase to snake_case
+			result := ""
+			for i, r := range base {
+				if i > 0 && r >= 'A' && r <= 'Z' {
+					result += "_"
+				}
+				result += strings.ToLower(string(r))
+			}
+			return result + "_controller"
+		}
+	}
+	return strings.ToLower(name)
+}
+
+// getDefaultResponses returns default responses for any endpoint
+func (ra *RouteAnalyzer) getDefaultResponses() map[string]Response {
+	return map[string]Response{
+		"200": {
 			Description: "Successful operation",
 			Content: map[string]MediaType{
 				"application/json": {
@@ -279,49 +286,56 @@ func (ra *RouteAnalyzer) AnalyzeHandler(handlerName string, sourceDir string) (m
 					},
 				},
 			},
-		}
+		},
+		"400": {
+			Description: "Bad request - invalid input or parameters",
+			Content: map[string]MediaType{
+				"application/json": {
+					Schema: &Schema{
+						Ref: "#/components/schemas/ErrorResponse",
+					},
+				},
+			},
+		},
+		"401": {
+			Description: "Unauthorized - authentication required",
+			Content: map[string]MediaType{
+				"application/json": {
+					Schema: &Schema{
+						Ref: "#/components/schemas/ErrorResponse",
+					},
+				},
+			},
+		},
+		"500": {
+			Description: "Internal server error",
+			Content: map[string]MediaType{
+				"application/json": {
+					Schema: &Schema{
+						Ref: "#/components/schemas/ErrorResponse",
+					},
+				},
+			},
+		},
 	}
-
-	return responses, nil
-}
-
-// findHandlerFile finds the file containing the handler function
-func (ra *RouteAnalyzer) findHandlerFile(handlerName string, sourceDir string) (string, error) {
-	// This is a simplified implementation - in a real scenario, you'd recursively search
-	// through the source directory for the handler function
-	
-	// For now, assume handlers are in the controller files
-	controllerPatterns := []string{
-		fmt.Sprintf("%s/pkg/http/*controller*.go", sourceDir),
-		fmt.Sprintf("%s/pkg/http/*_controller.go", sourceDir),
-		fmt.Sprintf("%s/pkg/http/controller*.go", sourceDir),
-	}
-	
-	for _, pattern := range controllerPatterns {
-		// This would need actual file system traversal implementation
-		// For now, return a placeholder
-		return pattern, nil
-	}
-	
-	return "", fmt.Errorf("handler file not found for %s", handlerName)
 }
 
 // parseHandlerResponses parses a handler function to extract response codes
 func (ra *RouteAnalyzer) parseHandlerResponses(filename string, handlerName string) (map[string]Response, error) {
 	responses := make(map[string]Response)
-	
+
 	// Read the file
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return responses, err
 	}
-	
+
 	// Parse the file
 	node, err := parser.ParseFile(ra.fileSet, filename, content, parser.ParseComments)
 	if err != nil {
 		return responses, err
 	}
-	
+
 	// Find the handler function
 	ast.Inspect(node, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok && fn.Name.Name == handlerName {
@@ -330,7 +344,7 @@ func (ra *RouteAnalyzer) parseHandlerResponses(filename string, handlerName stri
 		}
 		return true
 	})
-	
+
 	return responses, nil
 }
 
@@ -339,39 +353,148 @@ func (ra *RouteAnalyzer) analyzeFunctionBody(fn *ast.FuncDecl, responses map[str
 	if fn.Body == nil {
 		return
 	}
-	
-	// Look for Response{StatusCode: xxx} patterns
+
+	// Look for Response{StatusCode: xxx} patterns and function calls that return responses
 	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		if cl, ok := n.(*ast.CompositeLit); ok {
-			if ident, ok := cl.Type.(*ast.Ident); ok && ident.Name == "Response" {
-				// Found a Response literal, extract status code
-				for _, elt := range cl.Elts {
-					if kv, ok := elt.(*ast.KeyValueExpr); ok {
-						if key, ok := kv.Key.(*ast.Ident); ok && key.Name == "StatusCode" {
-							if lit, ok := kv.Value.(*ast.BasicLit); ok && lit.Kind == token.INT {
-								if statusCode, err := strconv.Atoi(lit.Value); err == nil {
-									statusCodeStr := fmt.Sprintf("%d", statusCode)
-									if _, exists := responses[statusCodeStr]; !exists {
-										responses[statusCodeStr] = Response{
-											Description: ra.getDefaultResponseDescription(statusCode),
-											Content: map[string]MediaType{
-												"application/json": {
-													Schema: &Schema{
-														Type: "object",
-													},
-												},
-											},
-										}
-									}
-								}
-							}
-						}
-					}
+		switch node := n.(type) {
+		case *ast.CompositeLit:
+			// Handle Response{StatusCode: xxx, Body: {...}} patterns
+			if ra.isResponseLiteral(node) {
+				ra.extractResponseFromLiteral(node, responses)
+			}
+		case *ast.CallExpr:
+			// Handle JsonResponse(), ForbiddenResponse(), etc. function calls
+			ra.extractResponseFromCall(node, responses)
+		case *ast.ReturnStmt:
+			// Handle return statements with response calls
+			for _, result := range node.Results {
+				if call, ok := result.(*ast.CallExpr); ok {
+					ra.extractResponseFromCall(call, responses)
 				}
 			}
 		}
 		return true
 	})
+}
+
+// isResponseLiteral checks if a composite literal is a Response struct
+func (ra *RouteAnalyzer) isResponseLiteral(cl *ast.CompositeLit) bool {
+	if ident, ok := cl.Type.(*ast.Ident); ok {
+		return ident.Name == "Response"
+	}
+	return false
+}
+
+// extractResponseFromLiteral extracts response info from Response{...} literal
+func (ra *RouteAnalyzer) extractResponseFromLiteral(cl *ast.CompositeLit, responses map[string]Response) {
+	statusCode := ""
+	description := ""
+
+	for _, elt := range cl.Elts {
+		if kv, ok := elt.(*ast.KeyValueExpr); ok {
+			if key, ok := kv.Key.(*ast.Ident); ok {
+				switch key.Name {
+				case "StatusCode":
+					if lit, ok := kv.Value.(*ast.BasicLit); ok && lit.Kind == token.INT {
+						statusCode = lit.Value
+					}
+				case "Body":
+					// Could analyze body structure here for more detailed schemas
+					description = ra.getDefaultResponseDescription(parseStatusCode(statusCode))
+				}
+			}
+		}
+	}
+
+	if statusCode != "" {
+		responses[statusCode] = Response{
+			Description: description,
+			Content: map[string]MediaType{
+				"application/json": {
+					Schema: &Schema{
+						Type: "object",
+					},
+				},
+			},
+		}
+	}
+}
+
+// extractResponseFromCall extracts response info from function calls like JsonResponse()
+func (ra *RouteAnalyzer) extractResponseFromCall(call *ast.CallExpr, responses map[string]Response) {
+	if ident, ok := call.Fun.(*ast.Ident); ok {
+		switch ident.Name {
+		case "JsonResponse":
+			// JsonResponse(body, statusCode, headers)
+			if len(call.Args) >= 2 {
+				if lit, ok := call.Args[1].(*ast.BasicLit); ok && lit.Kind == token.INT {
+					statusCode := lit.Value
+					responses[statusCode] = Response{
+						Description: ra.getDefaultResponseDescription(parseStatusCode(statusCode)),
+						Content: map[string]MediaType{
+							"application/json": {
+								Schema: &Schema{
+									Type: "object",
+								},
+							},
+						},
+					}
+				}
+			}
+		case "ForbiddenResponse":
+			responses["403"] = Response{
+				Description: "Forbidden - insufficient permissions",
+				Content: map[string]MediaType{
+					"application/json": {
+						Schema: &Schema{
+							Ref: "#/components/schemas/ErrorResponse",
+						},
+					},
+				},
+			}
+		case "UnauthorizedResponse":
+			responses["401"] = Response{
+				Description: "Unauthorized - authentication required",
+				Content: map[string]MediaType{
+					"application/json": {
+						Schema: &Schema{
+							Ref: "#/components/schemas/ErrorResponse",
+						},
+					},
+				},
+			}
+		case "BadRequestResponse":
+			responses["400"] = Response{
+				Description: "Bad request - invalid input",
+				Content: map[string]MediaType{
+					"application/json": {
+						Schema: &Schema{
+							Ref: "#/components/schemas/ErrorResponse",
+						},
+					},
+				},
+			}
+		case "NotFoundResponse":
+			responses["404"] = Response{
+				Description: "Resource not found",
+				Content: map[string]MediaType{
+					"application/json": {
+						Schema: &Schema{
+							Ref: "#/components/schemas/ErrorResponse",
+						},
+					},
+				},
+			}
+		}
+	}
+}
+
+// parseStatusCode converts string status code to int
+func parseStatusCode(statusCodeStr string) int {
+	if code, err := strconv.Atoi(statusCodeStr); err == nil {
+		return code
+	}
+	return 200
 }
 
 // getDefaultResponseDescription returns a default description for a status code
@@ -407,11 +530,11 @@ func (ra *RouteAnalyzer) getDefaultResponseDescription(statusCode int) string {
 // ExtractPathParameters extracts path parameters from a route path
 func ExtractPathParameters(path string) []Parameter {
 	var parameters []Parameter
-	
+
 	// Find parameters in the format {paramName}
 	re := regexp.MustCompile(`\{([^}]+)\}`)
 	matches := re.FindAllStringSubmatch(path, -1)
-	
+
 	for _, match := range matches {
 		if len(match) > 1 {
 			paramName := match[1]
@@ -426,7 +549,7 @@ func ExtractPathParameters(path string) []Parameter {
 			})
 		}
 	}
-	
+
 	return parameters
 }
 
