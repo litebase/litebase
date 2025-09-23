@@ -33,6 +33,7 @@ type NodeConnection struct {
 	mutex           *sync.Mutex
 	node            *Node
 	open            bool
+	pipesClosed     bool
 	reader          *io.PipeReader
 	response        chan any
 	writer          *io.PipeWriter
@@ -51,6 +52,7 @@ func NewNodeConnection(node *Node, address string) *NodeConnection {
 		mutex:           &sync.Mutex{},
 		node:            node,
 		open:            false,
+		pipesClosed:     false,
 		reader:          nil,
 		response:        make(chan interface{}),
 		writer:          nil,
@@ -85,24 +87,29 @@ func (nc *NodeConnection) closeConnection() {
 		nc.cancel()
 	}
 
-	if nc.reader != nil {
-		err := nc.reader.Close()
+	// Only close pipes once to avoid race conditions
+	if !nc.pipesClosed {
+		nc.pipesClosed = true
 
-		if err != nil {
-			slog.Error("Failed to close reader", "error", err)
+		if nc.reader != nil {
+			err := nc.reader.Close()
+
+			if err != nil {
+				slog.Error("Failed to close reader", "error", err)
+			}
+
+			nc.reader = nil
 		}
 
-		nc.reader = nil
-	}
+		if nc.writer != nil {
+			err := nc.writer.Close()
 
-	if nc.writer != nil {
-		err := nc.writer.Close()
+			if err != nil {
+				slog.Error("Failed to close writer", "error", err)
+			}
 
-		if err != nil {
-			slog.Error("Failed to close writer", "error", err)
+			nc.writer = nil
 		}
-
-		nc.writer = nil
 	}
 }
 
@@ -137,6 +144,7 @@ func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
 	nc.context, nc.cancel = context.WithCancel(context.Background())
 	nc.reader, nc.writer = io.Pipe()
 	nc.writeBuffer = bufio.NewWriterSize(nc.writer, 1024)
+	nc.pipesClosed = false
 
 	request, err := http.NewRequestWithContext(
 		nc.context,
