@@ -36,6 +36,7 @@ type NodeConnection struct {
 	pipesClosed     bool
 	reader          *io.PipeReader
 	response        chan any
+	sendMutex       *sync.Mutex // Serializes all Send operations
 	writer          *io.PipeWriter
 	writeBuffer     *bufio.Writer
 }
@@ -55,6 +56,7 @@ func NewNodeConnection(node *Node, address string) *NodeConnection {
 		pipesClosed:     false,
 		reader:          nil,
 		response:        make(chan interface{}),
+		sendMutex:       &sync.Mutex{},
 		writer:          nil,
 		writeBuffer:     nil,
 	}
@@ -115,7 +117,9 @@ func (nc *NodeConnection) closeConnection() {
 
 // Connect to the node.
 func (nc *NodeConnection) connect() error {
+	nc.connectionMutex.Lock()
 	nc.connecting = true
+	nc.connectionMutex.Unlock()
 
 	response, err := nc.createAndSendRequest()
 
@@ -141,16 +145,22 @@ func (nc *NodeConnection) connect() error {
 
 // Create the node connection request and send it to the node.
 func (nc *NodeConnection) createAndSendRequest() (*http.Response, error) {
+	nc.connectionMutex.Lock()
 	nc.context, nc.cancel = context.WithCancel(context.Background())
 	nc.reader, nc.writer = io.Pipe()
 	nc.writeBuffer = bufio.NewWriterSize(nc.writer, 1024)
 	nc.pipesClosed = false
 
+	// Keep local references while holding the lock
+	ctx := nc.context
+	reader := nc.reader
+	nc.connectionMutex.Unlock()
+
 	request, err := http.NewRequestWithContext(
-		nc.context,
+		ctx,
 		"POST",
 		fmt.Sprintf("http://%s/v1/cluster/connection", nc.Address),
-		nc.reader,
+		reader,
 	)
 
 	if err != nil {
@@ -282,32 +292,46 @@ func (nc *NodeConnection) read(reader io.Reader) {
 
 // Send a request to the node.
 func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error) {
+	// Serialize all Send operations to prevent race conditions
+	nc.sendMutex.Lock()
+	defer nc.sendMutex.Unlock()
+
 	nc.mutex.Lock()
-	defer nc.mutex.Unlock()
 
+	// Check if we need to connect
 	if !nc.open && !nc.connecting {
+		// Release the main mutex before connecting to avoid deadlocks
+		nc.mutex.Unlock()
 		err := nc.connect()
-
 		if err != nil {
 			return nil, err
 		}
+		// Re-acquire the mutex after connection
+		nc.mutex.Lock()
 	}
 
-	if nc.writer == nil {
+	// Check if writer is available after potential connection
+	if nc.writer == nil || nc.writeBuffer == nil {
+		nc.mutex.Unlock()
 		return nil, errors.New("node connection closed")
 	}
 
-	encoder := gob.NewEncoder(nc.writer)
+	// Keep references while holding the lock to avoid race conditions
+	writer := nc.writer
+	writeBuffer := nc.writeBuffer
+
+	nc.mutex.Unlock()
+
+	encoder := gob.NewEncoder(writer)
 	err := encoder.Encode(&message)
 
 	if err != nil {
 		slog.Debug("failed to encode message", "error", err)
 		nc.closeConnection()
-
 		return nil, err
 	}
 
-	err = nc.writeBuffer.Flush()
+	err = writeBuffer.Flush()
 
 	if err != nil {
 		slog.Debug("failed to flush request", "error", err)
@@ -340,16 +364,20 @@ func (nc *NodeConnection) Send(message messages.NodeMessage) (interface{}, error
 func (nc *NodeConnection) writeConnectionRequest() {
 	nc.connectionMutex.Lock()
 
-	if nc.writer == nil {
+	if nc.writer == nil || nc.writeBuffer == nil {
 		nc.connectionMutex.Unlock()
 		return
 	}
+
+	// Keep references while holding the lock to avoid race conditions
+	writer := nc.writer
+	writeBuffer := nc.writeBuffer
 
 	nc.connectionMutex.Unlock()
 
 	address, _ := nc.node.Address()
 
-	encoder := gob.NewEncoder(nc.writer)
+	encoder := gob.NewEncoder(writer)
 
 	err := encoder.Encode(messages.NodeMessage{
 		Data: messages.NodeConnectionMessage{
@@ -362,7 +390,7 @@ func (nc *NodeConnection) writeConnectionRequest() {
 		return
 	}
 
-	err = nc.writeBuffer.Flush()
+	err = writeBuffer.Flush()
 
 	if err != nil {
 		nc.handleError(fmt.Errorf("failed to flush connection request: %w", err))
