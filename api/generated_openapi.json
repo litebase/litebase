@@ -40,8 +40,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -87,8 +87,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -113,8 +113,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -193,8 +193,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -219,8 +219,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -266,8 +266,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -292,8 +292,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -349,8 +349,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -395,8 +395,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -559,8 +559,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -631,8 +631,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -657,8 +657,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -733,8 +733,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -759,8 +759,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -816,8 +816,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -894,8 +894,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -920,8 +920,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -946,8 +946,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1022,8 +1022,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1048,8 +1048,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1074,8 +1074,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1100,8 +1100,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1179,8 +1179,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1205,8 +1205,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1231,8 +1231,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1308,8 +1308,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1334,8 +1334,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1360,8 +1360,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1417,8 +1417,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1496,8 +1496,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1522,8 +1522,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1548,8 +1548,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1625,8 +1625,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1651,8 +1651,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1677,8 +1677,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1703,8 +1703,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1781,8 +1781,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1807,8 +1807,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1833,8 +1833,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1880,8 +1880,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1906,8 +1906,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1932,8 +1932,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1989,8 +1989,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2038,8 +2038,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2064,8 +2064,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2090,8 +2090,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2136,8 +2136,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2162,8 +2162,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2210,8 +2210,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2236,8 +2236,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2262,8 +2262,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2329,8 +2329,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2355,8 +2355,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2412,8 +2412,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2470,8 +2470,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2518,8 +2518,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2544,8 +2544,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2601,8 +2601,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2649,8 +2649,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2675,8 +2675,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2701,8 +2701,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2749,8 +2749,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2775,8 +2775,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2879,8 +2879,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2905,8 +2905,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2962,8 +2962,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3040,8 +3040,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3066,8 +3066,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3123,8 +3123,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3243,8 +3243,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3290,8 +3290,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3316,8 +3316,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3396,8 +3396,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3422,8 +3422,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3469,8 +3469,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3526,8 +3526,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3573,8 +3573,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3664,8 +3664,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3796,8 +3796,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3822,8 +3822,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3879,8 +3879,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3980,8 +3980,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4006,8 +4006,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4127,8 +4127,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4153,8 +4153,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4179,8 +4179,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4236,8 +4236,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4302,8 +4302,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4328,8 +4328,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4354,8 +4354,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4380,8 +4380,8 @@
                     }
                   },
                   "required": [
-                    "status",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4426,11 +4426,6 @@
       "Privilege": {
         "type": "string",
         "enum": [
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update",
           "database:create",
           "database:list",
           "database:show",
@@ -4473,7 +4468,12 @@
           "token:delete",
           "token:list",
           "token:read",
-          "token:update"
+          "token:update",
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update"
         ]
       },
       "Resource": {
@@ -4573,76 +4573,76 @@
   },
   "tags": [
     {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
-    },
-    {
       "name": "Key",
       "description": "Encryption key management"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "User",
-      "description": "User management operations"
-    },
-    {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
     },
     {
       "name": "HealthCheck",
       "description": "Health check endpoints"
     },
     {
-      "name": "DatabaseRestore",
-      "description": "Database restore operations"
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
     },
     {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
-    },
-    {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
+      "name": "User",
+      "description": "User management operations"
     },
     {
       "name": "ClusterPrimary",
       "description": "Primary cluster node operations"
     },
     {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
-    },
-    {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
-    },
-    {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
     },
     {
       "name": "DatabaseBackup",
       "description": "Database backup operations"
     },
     {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
       "name": "Database",
       "description": "Database management operations"
+    },
+    {
+      "name": "QueryStream",
+      "description": "Streaming query operations"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
     },
     {
       "name": "Token",
       "description": "Token management for authentication"
     },
     {
-      "name": "Query",
-      "description": "SQL query execution operations"
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
+    },
+    {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
     }
   ]
 }

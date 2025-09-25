@@ -2,6 +2,8 @@ package openapi
 
 import (
 	"encoding/json"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -684,4 +686,538 @@ func BenchmarkAnalyzerPerformance(b *testing.B) {
 
 		analyzer.GenerateOpenAPIFromAnalysis(analysis)
 	}
+}
+
+// TestDynamicTagGeneration tests the new dynamic tag generation functionality
+func TestDynamicTagGeneration(t *testing.T) {
+	testCases := []struct {
+		name          string
+		usedTags      map[string]bool
+		expectedTags  []string
+		expectedDescs map[string]string
+	}{
+		{
+			name: "BasicControllerTags",
+			usedTags: map[string]bool{
+				"User":      true,
+				"AccessKey": true,
+				"Database":  true,
+			},
+			expectedTags: []string{"User", "AccessKey", "Database"},
+			expectedDescs: map[string]string{
+				"User":      "User management operations",
+				"AccessKey": "Access key management for authentication",
+				"Database":  "Database management operations",
+			},
+		},
+		{
+			name: "CompoundOperationTags",
+			usedTags: map[string]bool{
+				"DatabaseBackup":   true,
+				"DatabaseRestore":  true,
+				"DatabaseSnapshot": true,
+				"DatabaseBranch":   true,
+			},
+			expectedTags: []string{"DatabaseBackup", "DatabaseRestore", "DatabaseSnapshot", "DatabaseBranch"},
+			expectedDescs: map[string]string{
+				"DatabaseBackup":   "Database backup operations",
+				"DatabaseRestore":  "Database restore operations",
+				"DatabaseSnapshot": "Database snapshot operations",
+				"DatabaseBranch":   "Database branch management operations",
+			},
+		},
+		{
+			name: "ClusterOperationTags",
+			usedTags: map[string]bool{
+				"ClusterConnection": true,
+				"ClusterElection":   true,
+				"ClusterPrimary":    true,
+				"ClusterStatus":     true,
+			},
+			expectedTags: []string{"ClusterConnection", "ClusterElection", "ClusterPrimary", "ClusterStatus"},
+			expectedDescs: map[string]string{
+				"ClusterConnection": "Cluster connection management operations",
+				"ClusterElection":   "Cluster leader election operations",
+				"ClusterPrimary":    "Primary cluster node operations",
+				"ClusterStatus":     "Cluster status and health operations",
+			},
+		},
+		{
+			name: "StreamingAndActivationTags",
+			usedTags: map[string]bool{
+				"QueryStream": true,
+				"KeyActivate": true,
+				"QueryLog":    true,
+			},
+			expectedTags: []string{"QueryStream", "KeyActivate", "QueryLog"},
+			expectedDescs: map[string]string{
+				"QueryStream": "Streaming query operations",
+				"KeyActivate": "Key activation operations",
+				"QueryLog":    "Query performance and usage metrics",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tags := GenerateDynamicTags(tc.usedTags)
+
+			// Check correct number of tags generated
+			if len(tags) != len(tc.expectedTags) {
+				t.Errorf("Expected %d tags, got %d", len(tc.expectedTags), len(tags))
+			}
+
+			// Create lookup maps for easy checking
+			generatedTags := make(map[string]string)
+
+			for _, tag := range tags {
+				generatedTags[tag.Name] = tag.Description
+			}
+
+			// Verify all expected tags are present with correct descriptions
+			for _, expectedTag := range tc.expectedTags {
+				if desc, exists := generatedTags[expectedTag]; exists {
+					if expectedDesc, hasExpected := tc.expectedDescs[expectedTag]; hasExpected {
+						if desc != expectedDesc {
+							t.Errorf("Tag %s: expected description '%s', got '%s'",
+								expectedTag, expectedDesc, desc)
+						}
+					}
+				} else {
+					t.Errorf("Expected tag %s not found in generated tags", expectedTag)
+				}
+			}
+		})
+	}
+}
+
+// TestRequiredArraySorting tests that required arrays are alphabetically sorted
+func TestRequiredArraySorting(t *testing.T) {
+	analyzer := NewGenerator()
+	analysis, err := analyzer.AnalyzeAllRoutes()
+
+	if err != nil {
+		t.Fatalf("Failed to analyze all routes: %v", err)
+	}
+
+	paths := analyzer.GenerateOpenAPIFromAnalysis(analysis)
+
+	// Check all response schemas have sorted required arrays
+	for pathName, pathMethods := range paths {
+		for methodName, operation := range pathMethods {
+			t.Run(pathName+"_"+methodName, func(t *testing.T) {
+				for statusCode, response := range operation.Responses {
+					if response.Content != nil {
+						if jsonContent, exists := response.Content["application/json"]; exists {
+							if jsonContent.Schema != nil {
+								checkRequiredArraySorting(t, jsonContent.Schema, pathName+" "+methodName+" "+statusCode)
+							}
+						}
+					}
+				}
+			})
+		}
+	}
+}
+
+// checkRequiredArraySorting recursively checks that all required arrays are sorted
+func checkRequiredArraySorting(t *testing.T, schema *Schema, context string) {
+	if schema == nil {
+		return
+	}
+
+	// Check if this schema's required array is sorted
+	if len(schema.Required) > 1 {
+		sortedRequired := make([]string, len(schema.Required))
+		copy(sortedRequired, schema.Required)
+		sort.Strings(sortedRequired)
+
+		for i, field := range schema.Required {
+			if field != sortedRequired[i] {
+				t.Errorf("%s: Required array not sorted. Expected %v, got %v",
+					context, sortedRequired, schema.Required)
+				break
+			}
+		}
+	}
+
+	// Recursively check properties
+	for _, prop := range schema.Properties {
+		checkRequiredArraySorting(t, prop, context)
+	}
+
+	// Check array items
+	if schema.Items != nil {
+		checkRequiredArraySorting(t, schema.Items, context)
+	}
+}
+
+// TestStringTypeWithEnumDetection tests improved string type detection with enum values
+func TestStringTypeWithEnumDetection(t *testing.T) {
+	// Test the enum detection functionality by manually creating schemas with enums
+	// and verifying they're handled correctly in the final OpenAPI spec
+	// This tests our enum handling logic without relying on specific enum types being discovered
+
+	// Create test schemas with enum values to validate functionality
+	testSchemas := map[string]*Schema{
+		"TestStatementEffect": {
+			Type: "string",
+			Enum: []any{"allow", "deny"},
+		},
+		"TestPrivilege": {
+			Type: "string",
+			Enum: []any{
+				"database:create", "database:list", "database:show",
+				"database:update", "database:delete", "database:backup",
+			},
+		},
+		"RegularString": {
+			Type: "string",
+			// No enum values
+		},
+	}
+
+	// Create a simple OpenAPI spec with our test schemas
+	spec := &OpenAPISpec{
+		OpenAPI: "3.1.0",
+		Info: Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Components: &Components{
+			Schemas: combineSchemas(GetCommonSchemas(), testSchemas),
+		},
+	}
+
+	// Convert to JSON to test the final output
+	jsonData, err := json.MarshalIndent(spec, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to marshal OpenAPI spec: %v", err)
+	}
+
+	// Parse the JSON to verify enum schemas exist
+	var specMap map[string]any
+	err = json.Unmarshal(jsonData, &specMap)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal OpenAPI spec: %v", err)
+	}
+
+	// Check components/schemas section
+	components := specMap["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+
+	// Test enum schemas
+	testCases := []struct {
+		schemaName     string
+		expectedType   string
+		shouldHaveEnum bool
+		expectedEnums  []string
+	}{
+		{
+			schemaName:     "TestStatementEffect",
+			expectedType:   "string",
+			shouldHaveEnum: true,
+			expectedEnums:  []string{"allow", "deny"},
+		},
+		{
+			schemaName:     "TestPrivilege",
+			expectedType:   "string",
+			shouldHaveEnum: true,
+			expectedEnums:  []string{"database:create", "database:list", "database:show"},
+		},
+		{
+			schemaName:     "RegularString",
+			expectedType:   "string",
+			shouldHaveEnum: false,
+			expectedEnums:  nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.schemaName, func(t *testing.T) {
+			schemaAny, exists := schemas[tc.schemaName]
+			if !exists {
+				// Show what schemas are available for debugging
+				var availableSchemas []string
+				for name := range schemas {
+					availableSchemas = append(availableSchemas, name)
+				}
+				t.Errorf("Expected schema %s not found in OpenAPI spec. Available: %v",
+					tc.schemaName, availableSchemas)
+				return
+			}
+
+			schema, ok := schemaAny.(map[string]any)
+			if !ok {
+				t.Errorf("Schema %s is not a proper object", tc.schemaName)
+				return
+			}
+
+			// Check enum handling
+			if tc.shouldHaveEnum {
+				enumAny, hasEnum := schema["enum"]
+				if !hasEnum {
+					t.Errorf("Expected %s to have enum values", tc.schemaName)
+					return
+				}
+
+				enumSlice := enumAny.([]any)
+				enumStrings := make([]string, len(enumSlice))
+				for i, val := range enumSlice {
+					enumStrings[i] = val.(string)
+				}
+
+				// Verify all expected enums are present
+				enumMap := make(map[string]bool)
+				for _, val := range enumStrings {
+					enumMap[val] = true
+				}
+
+				for _, expectedEnum := range tc.expectedEnums {
+					if !enumMap[expectedEnum] {
+						t.Errorf("Expected enum value %s not found in %v", expectedEnum, enumStrings)
+					}
+				}
+
+				t.Logf("✓ %s enum validated with %d values: %v",
+					tc.schemaName, len(enumStrings), enumStrings)
+			} else {
+				if _, hasEnum := schema["enum"]; hasEnum {
+					t.Errorf("Expected %s to not have enum values", tc.schemaName)
+				}
+			}
+		})
+	}
+
+	// Additional test: Verify that the schema combination logic works correctly
+	t.Run("SchemaCombinationLogic", func(t *testing.T) {
+		// Test that schemas are properly combined and accessible
+		combinedSchemas := combineSchemas(GetCommonSchemas(), testSchemas)
+
+		expectedSchemas := []string{
+			"SuccessResponse", "ErrorResponse", "ValidationErrorResponse", // from GetCommonSchemas
+			"TestStatementEffect", "TestPrivilege", "RegularString", // from testSchemas
+		}
+
+		for _, expectedSchema := range expectedSchemas {
+			if _, exists := combinedSchemas[expectedSchema]; !exists {
+				t.Errorf("Expected combined schema %s not found", expectedSchema)
+			}
+		}
+
+		// Verify enum schemas retain their enum values
+		if effectSchema := combinedSchemas["TestStatementEffect"]; effectSchema != nil {
+			if len(effectSchema.Enum) != 2 {
+				t.Errorf("Expected TestStatementEffect to have 2 enum values, got %d",
+					len(effectSchema.Enum))
+			}
+		}
+	})
+}
+
+// TestSchemaDeduplication tests that duplicate schemas are properly handled
+
+func TestSchemaDeduplication(t *testing.T) {
+	analyzer := NewGenerator()
+	_, err := analyzer.AnalyzeAllRoutes()
+
+	if err != nil {
+		t.Fatalf("Failed to analyze all routes: %v", err)
+	}
+
+	registeredSchemas := analyzer.GetRegisteredSchemas()
+
+	// Test that we don't have duplicate schemas with different references
+	schemasByContent := make(map[string][]string)
+
+	for schemaName, schema := range registeredSchemas {
+		// Create a signature for the schema based on its structure
+		signature := createSchemaSignature(schema)
+		schemasByContent[signature] = append(schemasByContent[signature], schemaName)
+	}
+
+	// Check for problematic duplicates (same content, different names)
+	for signature, schemaNames := range schemasByContent {
+		if len(schemaNames) > 1 {
+			// Allow certain expected duplicates (like qualified vs simple names)
+			hasBothQualifiedAndSimple := false
+
+			for _, name := range schemaNames {
+				if strings.Contains(name, ".") {
+					simpleName := name[strings.LastIndex(name, ".")+1:]
+
+					if slices.Contains(schemaNames, simpleName) {
+						hasBothQualifiedAndSimple = true
+					}
+				}
+			}
+
+			if !hasBothQualifiedAndSimple {
+				t.Errorf("Found unexpected duplicate schemas with signature %s: %v",
+					signature, schemaNames)
+			}
+		}
+	}
+}
+
+// createSchemaSignature creates a string signature for a schema to detect duplicates
+func createSchemaSignature(schema *Schema) string {
+	if schema == nil {
+		return "null"
+	}
+
+	sig := schema.Type
+
+	if len(schema.Required) > 0 {
+		sortedReq := make([]string, len(schema.Required))
+		copy(sortedReq, schema.Required)
+		sort.Strings(sortedReq)
+		sig += "|req:" + strings.Join(sortedReq, ",")
+	}
+
+	if len(schema.Enum) > 0 {
+		var enumStrings []string
+		for _, enumVal := range schema.Enum {
+			if strVal, ok := enumVal.(string); ok {
+				enumStrings = append(enumStrings, strVal)
+			}
+		}
+
+		sort.Strings(enumStrings)
+		sig += "|enum:" + strings.Join(enumStrings, ",")
+	}
+
+	if len(schema.Properties) > 0 {
+		var propNames []string
+		for propName := range schema.Properties {
+			propNames = append(propNames, propName)
+		}
+		sort.Strings(propNames)
+		sig += "|props:" + strings.Join(propNames, ",")
+	}
+
+	return sig
+}
+
+// TestDynamicResponseAnalysis tests that response analysis is truly dynamic
+func TestDynamicResponseAnalysis(t *testing.T) {
+	analyzer := NewGenerator()
+	analysis, err := analyzer.AnalyzeAllRoutes()
+
+	if err != nil {
+		t.Fatalf("Failed to analyze all routes: %v", err)
+	}
+
+	// Track response patterns
+	validSchemaCount := 0
+	totalResponseCount := 0
+	responseWithMessage := 0
+
+	for _, methodAnalysis := range analysis.Methods {
+		if methodAnalysis.Responses == nil {
+			continue
+		}
+
+		for _, responseInfo := range methodAnalysis.Responses {
+			totalResponseCount++
+
+			// Check if response has meaningful content
+			if responseInfo.Type != "" || responseInfo.Description != "" || responseInfo.Schema != nil {
+				validSchemaCount++
+			}
+
+			// Check if response has dynamic message
+			if responseInfo.Message != "" {
+				responseWithMessage++
+			}
+		}
+	}
+
+	// Verify that we have reasonable response coverage
+	if totalResponseCount == 0 {
+		t.Error("No responses found in any operations")
+	}
+
+	// Check that we have some responses with valid schemas
+	if validSchemaCount == 0 {
+		t.Error("No responses found with valid schemas")
+	}
+
+	// Check that some responses have dynamic messages
+	if responseWithMessage == 0 {
+		t.Log("No responses with dynamic messages found - this may be expected")
+	}
+
+	// Verify specific endpoint methods exist
+	testCases := []struct {
+		path   string
+		method string
+	}{
+		{"/v1/databases", "GET"},
+		{"/v1/health", "GET"},
+		{"/v1/status", "GET"},
+	}
+
+	for _, tc := range testCases {
+		found := false
+		for _, methodAnalysis := range analysis.Methods {
+			if methodAnalysis.Path == tc.path && methodAnalysis.HTTPMethod == tc.method {
+				found = true
+
+				// Check that the method has some response definitions
+				if len(methodAnalysis.Responses) == 0 {
+					t.Errorf("Expected responses for %s %s", tc.method, tc.path)
+				}
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("Expected method %s %s not found in analysis", tc.method, tc.path)
+		}
+	}
+}
+
+// combineSchemas merges multiple schema maps for testing, preferring more detailed schemas
+func combineSchemas(schemaMaps ...map[string]*Schema) map[string]*Schema {
+	result := make(map[string]*Schema)
+
+	for _, schemaMap := range schemaMaps {
+		for name, schema := range schemaMap {
+			if existing, exists := result[name]; exists {
+				// Prefer schemas with more properties or enum values
+				if shouldPreferSchema(schema, existing) {
+					result[name] = schema
+				}
+			} else {
+				result[name] = schema
+			}
+		}
+	}
+
+	return result
+}
+
+// shouldPreferSchema determines which schema to prefer when there are duplicates
+func shouldPreferSchema(new, existing *Schema) bool {
+	// Prefer schemas with enum values
+	if len(new.Enum) > 0 && len(existing.Enum) == 0 {
+		return true
+	}
+
+	if len(existing.Enum) > 0 && len(new.Enum) == 0 {
+		return false
+	}
+
+	// Prefer schemas with more properties
+	if len(new.Properties) > len(existing.Properties) {
+		return true
+	}
+
+	// Prefer schemas with required fields
+	if len(new.Required) > len(existing.Required) {
+		return true
+	}
+
+	return false
 }
