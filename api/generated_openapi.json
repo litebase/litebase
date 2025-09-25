@@ -3522,43 +3522,29 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "array",
-                      "description": "Array of resource objects",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "created_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Creation timestamp",
-                            "example": "2023-09-20T14:30:00Z"
-                          },
-                          "id": {
-                            "type": "string",
-                            "description": "Resource identifier",
-                            "example": "example_id"
-                          },
-                          "updated_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Last update timestamp",
-                            "example": "2023-09-20T14:30:00Z"
-                          }
-                        },
-                        "required": [
-                          "created_at",
-                          "id",
-                          "updated_at"
-                        ]
+                      "type": "object",
+                      "properties": {
+                        "node_count": {
+                          "type": "integer"
+                        }
                       }
                     },
                     "message": {
-                      "type": "object"
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Cluster status"
                     },
                     "status": {
-                      "type": "object"
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
                     }
-                  }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
@@ -4963,68 +4949,20 @@
   },
   "tags": [
     {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
-    },
-    {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
     },
     {
       "name": "DatabaseRestore",
       "description": "Database restore operations"
     },
     {
-      "name": "Key",
-      "description": "Encryption key management"
-    },
-    {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
-    },
-    {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
+      "name": "KeyActivate",
+      "description": "Key activation operations"
     },
     {
       "name": "Query",
       "description": "SQL query execution operations"
-    },
-    {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
-      "name": "User",
-      "description": "User management operations"
-    },
-    {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
-    },
-    {
-      "name": "Database",
-      "description": "Database management operations"
     },
     {
       "name": "DatabaseBackup",
@@ -5033,6 +4971,54 @@
     {
       "name": "DatabaseSnapshot",
       "description": "Database snapshot operations"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "Key",
+      "description": "Encryption key management"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "QueryStream",
+      "description": "Streaming query operations"
+    },
+    {
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
+    },
+    {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "Database",
+      "description": "Database management operations"
+    },
+    {
+      "name": "User",
+      "description": "User management operations"
     }
   ]
 }
