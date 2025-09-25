@@ -4426,11 +4426,6 @@
       "Privilege": {
         "type": "string",
         "enum": [
-          "token:create",
-          "token:delete",
-          "token:list",
-          "token:read",
-          "token:update",
           "database:create",
           "database:list",
           "database:show",
@@ -4473,7 +4468,12 @@
           "access-key:delete",
           "access-key:list",
           "access-key:read",
-          "access-key:update"
+          "access-key:update",
+          "token:create",
+          "token:delete",
+          "token:list",
+          "token:read",
+          "token:update"
         ]
       },
       "Resource": {
