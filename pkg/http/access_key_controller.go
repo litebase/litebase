@@ -156,7 +156,7 @@ func AccessKeyControllerStore(ctx context.Context, request *Request) Response {
 	)
 
 	if err != nil {
-		return ServerErrorResponse(fmt.Errorf("Access key could not be created: %s", err.Error()))
+		return ServerErrorResponse(fmt.Errorf("access key could not be created: %s", err.Error()))
 	}
 
 	response := AccessKeyStoreResponse{
@@ -251,7 +251,7 @@ func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 	)
 
 	if err != nil {
-		return ServerErrorResponse(fmt.Errorf("Access key could not be updated: %s", err.Error()))
+		return ServerErrorResponse(fmt.Errorf("access key could not be updated: %s", err.Error()))
 	}
 
 	response := AccessKeyUpdateResponse{
