@@ -12,10 +12,10 @@ type User struct {
 }
 
 type UserResponse struct {
-	Username   string      `json:"username"`
-	Statements []Statement `json:"statements"`
-	CreatedAt  time.Time   `json:"created_at"`
-	UpdatedAt  time.Time   `json:"updated_at"`
+	Username   string      `json:"username" example:"admin" description:"The username"`
+	Statements []Statement `json:"statements" description:"List of permission statements defining what the user can access"`
+	CreatedAt  time.Time   `json:"created_at" description:"Creation timestamp"`
+	UpdatedAt  time.Time   `json:"updated_at" description:"Last update timestamp"`
 }
 
 // Check if the user has authorization for the given resources and actions

@@ -10,21 +10,25 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"golang.org/x/tools/go/packages"
 
 	"github.com/litebase/litebase/pkg/http"
 )
 
 // Generator performs deep analysis of Go code to extract OpenAPI information
 type Generator struct {
-	fileSet      *token.FileSet
-	typeInfo     map[string]*TypeInfo
-	packageCache map[string][]*ast.File // Cache for parsed package files
-	importCache  map[string]string      // Cache for import path -> package name mapping
+	fileSet        *token.FileSet
+	typeInfo       map[string]*TypeInfo
+	packageCache   map[string][]*ast.File // Cache for parsed package files
+	importCache    map[string]string      // Cache for import path -> package name mapping
+	schemaRegistry map[string]*Schema     // Registry for analyzed schemas
+	analyzing      map[string]bool        // Track types currently being analyzed to prevent infinite recursion
 }
 
 // TypeInfo holds information about a Go type for OpenAPI schema generation
@@ -95,16 +99,23 @@ type ResponseInfo struct {
 // NewGenerator creates a new generator
 func NewGenerator() *Generator {
 	return &Generator{
-		fileSet:      token.NewFileSet(),
-		typeInfo:     make(map[string]*TypeInfo),
-		packageCache: make(map[string][]*ast.File),
-		importCache:  make(map[string]string),
+		fileSet:        token.NewFileSet(),
+		typeInfo:       make(map[string]*TypeInfo),
+		packageCache:   make(map[string][]*ast.File),
+		importCache:    make(map[string]string),
+		schemaRegistry: make(map[string]*Schema),
+		analyzing:      make(map[string]bool),
 	}
 }
 
 // GetTypeInfo returns the collected type information
 func (g *Generator) GetTypeInfo() map[string]*TypeInfo {
 	return g.typeInfo
+}
+
+// GetRegisteredSchemas returns the schemas registered during analysis
+func (g *Generator) GetRegisteredSchemas() map[string]*Schema {
+	return g.schemaRegistry
 }
 
 // AnalyzeAllRoutes performs comprehensive analysis of all routes and their controllers
@@ -967,19 +978,18 @@ func (g *Generator) collectImports(node *ast.File) {
 func (g *Generator) analyzeTypeSpec(typeSpec *ast.TypeSpec, docGroup *ast.CommentGroup) {
 	typeName := typeSpec.Name.Name
 
-	typeInfo := &TypeInfo{
-		Name:   typeName,
-		Fields: make(map[string]*FieldInfo),
-	}
-
-	// Extract description from comments
-	if docGroup != nil {
-		typeInfo.Description = extractCommentText(docGroup)
-	}
-
-	// Analyze struct type
+	// Only handle struct types in this method - let dynamic analysis handle string types
 	if structType, ok := typeSpec.Type.(*ast.StructType); ok {
-		typeInfo.Type = "object"
+		typeInfo := &TypeInfo{
+			Name:   typeName,
+			Type:   "object",
+			Fields: make(map[string]*FieldInfo),
+		}
+
+		// Extract description from comments
+		if docGroup != nil {
+			typeInfo.Description = extractCommentText(docGroup)
+		}
 
 		for _, field := range structType.Fields.List {
 			fieldInfo := g.analyzeStructField(field)
@@ -988,9 +998,10 @@ func (g *Generator) analyzeTypeSpec(typeSpec *ast.TypeSpec, docGroup *ast.Commen
 				typeInfo.Fields[fieldInfo.Name] = fieldInfo
 			}
 		}
-	}
 
-	g.typeInfo[typeName] = typeInfo
+		g.typeInfo[typeName] = typeInfo
+	}
+	// Skip non-struct types - they will be handled by dynamic analysis if needed
 }
 
 // analyzeStructField analyzes a struct field
@@ -1455,7 +1466,7 @@ func (g *Generator) createSchemaForKnownType(typeName string) *Schema {
 					Example:     "2023-09-20T14:30:00Z",
 				},
 			},
-			Required: []string{"id", "created_at", "updated_at"},
+			Required: []string{"created_at", "id", "updated_at"},
 		}
 	}
 
@@ -1956,6 +1967,9 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 				required = append(required, "message")
 			}
 
+			// Sort the required array for consistency
+			sort.Strings(required)
+
 			schema = &Schema{
 				Type:       "object",
 				Properties: properties,
@@ -1999,7 +2013,7 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 						Description: "Validation errors",
 					},
 				},
-				Required: []string{"status", "message", "errors"},
+				Required: []string{"errors", "message", "status"},
 			}
 		}
 
@@ -2097,30 +2111,7 @@ func (g *Generator) convertTypeInfoToSchema(typeInfo *TypeInfo) *Schema {
 			jsonName = fieldName
 		}
 
-		fieldSchema := &Schema{
-			Type:        g.mapGoTypeToOpenAPI(fieldInfo.Type),
-			Description: fieldInfo.Description,
-		}
-
-		// Handle time.Time fields specially
-		if fieldInfo.Type == "time.Time" || fieldInfo.Type == "*time.Time" {
-			fieldSchema.Type = "string"
-			fieldSchema.Format = "date-time"
-
-			if fieldInfo.Description == "" {
-				switch jsonName {
-				case "created_at":
-					fieldSchema.Description = "Creation timestamp"
-				case "updated_at":
-					fieldSchema.Description = "Last update timestamp"
-				}
-			}
-
-			fieldSchema.Example = "2023-09-20T14:30:00Z"
-		}
-
-		// Add validation constraints
-		g.applyValidationToSchema(fieldInfo, fieldSchema)
+		fieldSchema := g.convertFieldToSchema(fieldInfo)
 
 		schema.Properties[jsonName] = fieldSchema
 
@@ -2129,9 +2120,464 @@ func (g *Generator) convertTypeInfoToSchema(typeInfo *TypeInfo) *Schema {
 		}
 	}
 
+	// Sort required fields alphabetically for consistent output
+	sort.Strings(required)
 	schema.Required = required
 
 	return schema
+}
+
+// convertFieldToSchema converts a field info to an OpenAPI schema
+func (g *Generator) convertFieldToSchema(fieldInfo *FieldInfo) *Schema {
+	fieldSchema := &Schema{
+		Description: fieldInfo.Description,
+	}
+
+	// Handle time.Time fields specially
+	if fieldInfo.Type == "time.Time" || fieldInfo.Type == "*time.Time" {
+		fieldSchema.Type = "string"
+		fieldSchema.Format = "date-time"
+
+		if fieldInfo.Description == "" {
+			switch fieldInfo.JSONName {
+			case "created_at":
+				fieldSchema.Description = "Creation timestamp"
+			case "updated_at":
+				fieldSchema.Description = "Last update timestamp"
+			}
+		}
+
+		fieldSchema.Example = "2023-09-20T14:30:00Z"
+		g.applyValidationToSchema(fieldInfo, fieldSchema)
+
+		return fieldSchema
+	}
+
+	// Handle array types
+	if strings.HasPrefix(fieldInfo.Type, "array[") && strings.HasSuffix(fieldInfo.Type, "]") {
+		fieldSchema.Type = "array"
+
+		// Extract the element type
+		elementType := strings.TrimSuffix(strings.TrimPrefix(fieldInfo.Type, "array["), "]")
+
+		// Check if it's a custom type that needs to be analyzed
+		if g.isCustomType(elementType) {
+			itemSchema := g.analyzeAndRegisterType(elementType)
+
+			if itemSchema != nil {
+				if itemSchema.Ref != "" {
+					fieldSchema.Items = &Schema{Ref: itemSchema.Ref}
+				} else {
+					fieldSchema.Items = itemSchema
+				}
+			}
+		} else {
+			// Handle built-in types
+			fieldSchema.Items = &Schema{
+				Type: g.mapGoTypeToOpenAPI(elementType),
+			}
+		}
+
+		g.applyValidationToSchema(fieldInfo, fieldSchema)
+
+		return fieldSchema
+	}
+
+	// Handle custom types
+	if g.isCustomType(fieldInfo.Type) {
+		customSchema := g.analyzeAndRegisterType(fieldInfo.Type)
+
+		if customSchema != nil && customSchema.Ref != "" {
+			return &Schema{Ref: customSchema.Ref}
+		}
+	}
+
+	// Handle built-in types
+	fieldSchema.Type = g.mapGoTypeToOpenAPI(fieldInfo.Type)
+	g.applyValidationToSchema(fieldInfo, fieldSchema)
+
+	return fieldSchema
+}
+
+// isCustomType determines if a type is a custom type that needs further analysis
+func (g *Generator) isCustomType(typeName string) bool {
+	// Strip pointer prefix
+	if after, ok := strings.CutPrefix(typeName, "*"); ok {
+		typeName = after
+	}
+
+	// Built-in Go types
+	builtinTypes := []string{
+		"string", "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64",
+		"float32", "float64", "bool", "byte", "rune",
+		"time.Time", "interface{}", "map[string]interface{}",
+	}
+
+	return !slices.Contains(builtinTypes, typeName)
+}
+
+// analyzeAndRegisterType analyzes a custom type and registers it in the schema registry
+func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
+	// Strip pointer prefix
+	if after, ok := strings.CutPrefix(typeName, "*"); ok {
+		typeName = after
+	}
+
+	// Check if already registered
+	if schema, exists := g.schemaRegistry[typeName]; exists {
+		return schema
+	}
+
+	// Check if currently being analyzed (prevent infinite recursion)
+	if g.analyzing[typeName] {
+		// Return a reference schema for recursive types
+		return &Schema{
+			Ref: "#/components/schemas/" + typeName,
+		}
+	}
+
+	// Mark as being analyzed
+	g.analyzing[typeName] = true
+
+	defer func() {
+		g.analyzing[typeName] = false
+	}()
+
+	// Try to find and analyze the type definition
+	typeInfo := g.findTypeDefinition(typeName)
+
+	if typeInfo == nil {
+		// Check if the type was registered directly as a simple schema
+		if _, exists := g.schemaRegistry[typeName]; exists {
+			return &Schema{Ref: "#/components/schemas/" + typeName}
+		}
+
+		// If we can't find the type definition, return a generic object schema
+		schema := &Schema{Type: "object"}
+		g.schemaRegistry[typeName] = schema
+
+		return &Schema{Ref: "#/components/schemas/" + typeName}
+	}
+
+	// Convert the type info to schema
+	schema := g.convertTypeInfoToSchema(typeInfo)
+
+	// Register the schema (without $ref since this IS the definition)
+	g.schemaRegistry[typeName] = schema
+
+	// Return a reference to this schema
+	return &Schema{Ref: "#/components/schemas/" + typeName}
+}
+
+// findTypeDefinition attempts to find the definition of a custom type
+func (g *Generator) findTypeDefinition(typeName string) *TypeInfo {
+	// First, check if it's already in our type info cache
+	if typeInfo, exists := g.typeInfo[typeName]; exists {
+		return typeInfo
+	}
+
+	// Try to analyze the type by looking in common packages
+	parts := strings.Split(typeName, ".")
+
+	if len(parts) == 2 {
+		packageName := parts[0]
+		structName := parts[1]
+
+		// Map common package names to their actual file system paths
+		packagePaths := map[string]string{
+			"auth":   "pkg/auth",
+			"http":   "pkg/http",
+			"config": "pkg/config",
+		}
+
+		if packagePath, exists := packagePaths[packageName]; exists {
+			// Try to analyze the package and find the struct
+			return g.analyzeTypeInPackage(packagePath, structName)
+		}
+	}
+
+	// If it's a simple name without package qualifier, it might be in the same package
+	// For now, return nil - we could enhance this further
+	return nil
+}
+
+// analyzeTypeInPackage analyzes a specific type within a package
+func (g *Generator) analyzeTypeInPackage(packagePath, structName string) *TypeInfo {
+	fullTypeName := packagePath[strings.LastIndex(packagePath, "/")+1:] + "." + structName
+
+	// Check if we have it in our cache
+	if typeInfo, exists := g.typeInfo[fullTypeName]; exists {
+		return typeInfo
+	}
+
+	// Instead of static definitions, use actual AST parsing
+	return g.parseAndAnalyzeType(packagePath, structName)
+}
+
+// parseAndAnalyzeType dynamically parses a Go package to find and analyze a specific type
+func (g *Generator) parseAndAnalyzeType(packagePath, typeName string) *TypeInfo {
+	// Use golang.org/x/tools/go/packages for proper package parsing
+	cfg := &packages.Config{
+		Mode:  packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedName | packages.NeedFiles,
+		Dir:   packagePath,
+		Tests: false,
+	}
+
+	pkgs, err := packages.Load(cfg, "./...")
+
+	if err != nil || len(pkgs) == 0 {
+		return nil
+	}
+
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Syntax {
+			// Look for type declarations
+			for _, decl := range file.Decls {
+				if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
+					for _, spec := range genDecl.Specs {
+						if typeSpec, ok := spec.(*ast.TypeSpec); ok && typeSpec.Name.Name == typeName {
+							return g.analyzeTypeFromAST(typeSpec, genDecl.Doc, packagePath)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// analyzeTypeFromAST analyzes a type specification from AST
+func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.CommentGroup, packagePath string) *TypeInfo {
+	packageName := packagePath[strings.LastIndex(packagePath, "/")+1:]
+	fullTypeName := packageName + "." + typeSpec.Name.Name
+
+	switch t := typeSpec.Type.(type) {
+	case *ast.StructType:
+		// Handle struct types
+		typeInfo := &TypeInfo{
+			Name:   typeSpec.Name.Name,
+			Type:   "object",
+			Fields: make(map[string]*FieldInfo),
+		}
+
+		// Extract description from comments
+		if docGroup != nil {
+			typeInfo.Description = strings.TrimSpace(docGroup.Text())
+		} else if typeSpec.Doc != nil {
+			typeInfo.Description = strings.TrimSpace(typeSpec.Doc.Text())
+		}
+
+		// Analyze fields
+		for _, field := range t.Fields.List {
+			for _, name := range field.Names {
+				fieldInfo := g.analyzeASTField(field, name.Name, packagePath)
+
+				if fieldInfo != nil {
+					typeInfo.Fields[fieldInfo.Name] = fieldInfo
+				}
+			}
+		}
+
+		// Cache the type info
+		g.typeInfo[fullTypeName] = typeInfo
+
+		return typeInfo
+
+	case *ast.Ident:
+		// Handle type aliases like "type StatementEffect string"
+		if t.Name == "string" {
+			// This is a string-based type, create a schema for it
+			schema := &Schema{
+				Type: "string",
+			}
+
+			// Add description from comments
+			if docGroup != nil {
+				schema.Description = strings.TrimSpace(docGroup.Text())
+			} else if typeSpec.Doc != nil {
+				schema.Description = strings.TrimSpace(typeSpec.Doc.Text())
+			}
+
+			// Try to find enum values by looking for constants of this type
+			enumValues := g.findEnumValuesInPackage(packagePath, typeSpec.Name.Name)
+
+			if len(enumValues) > 0 {
+				schema.Enum = make([]any, len(enumValues))
+
+				for i, val := range enumValues {
+					schema.Enum[i] = val
+				}
+			}
+
+			// Register the schema directly
+			g.schemaRegistry[fullTypeName] = schema
+
+			return nil // Return nil to indicate this was handled as a schema
+		}
+	}
+
+	return nil
+}
+
+// analyzeASTField analyzes a struct field from AST
+func (g *Generator) analyzeASTField(field *ast.Field, fieldName string, packagePath string) *FieldInfo {
+	fieldInfo := &FieldInfo{
+		Name:       fieldName,
+		Validation: make(map[string]string),
+	}
+
+	// Extract field type
+	fieldInfo.Type = g.extractTypeFromASTExpr(field.Type, packagePath)
+
+	// Parse struct tags
+	if field.Tag != nil {
+		tag := strings.Trim(field.Tag.Value, "`")
+		g.parseASTStructTag(fieldInfo, tag)
+	}
+
+	// Extract description from comments
+	if field.Doc != nil {
+		fieldInfo.Description = strings.TrimSpace(field.Doc.Text())
+	} else if field.Comment != nil {
+		fieldInfo.Description = strings.TrimSpace(field.Comment.Text())
+	}
+
+	return fieldInfo
+}
+
+// extractTypeFromASTExpr extracts type name from AST expressions
+func (g *Generator) extractTypeFromASTExpr(expr ast.Expr, packagePath string) string {
+	packageName := packagePath[strings.LastIndex(packagePath, "/")+1:]
+
+	switch t := expr.(type) {
+	case *ast.Ident:
+		// For simple identifiers, check if it's a built-in type
+		builtinTypes := []string{
+			"string", "int", "int8", "int16", "int32", "int64",
+			"uint", "uint8", "uint16", "uint32", "uint64",
+			"float32", "float64", "bool", "byte", "rune",
+		}
+
+		if slices.Contains(builtinTypes, t.Name) {
+			return t.Name
+		}
+
+		// For custom types in the same package, add package prefix
+		return packageName + "." + t.Name
+	case *ast.ArrayType:
+		elementType := g.extractTypeFromASTExpr(t.Elt, packagePath)
+
+		return "array[" + elementType + "]"
+	case *ast.SelectorExpr:
+		if pkg, ok := t.X.(*ast.Ident); ok {
+			return pkg.Name + "." + t.Sel.Name
+		}
+	case *ast.StarExpr:
+		return "*" + g.extractTypeFromASTExpr(t.X, packagePath)
+	}
+	return "interface{}"
+}
+
+// parseASTStructTag parses struct tags from AST
+func (g *Generator) parseASTStructTag(fieldInfo *FieldInfo, tag string) {
+	// Use reflect.StructTag for proper parsing
+	structTag := reflect.StructTag(tag)
+
+	// Parse JSON tag
+	if jsonTag, ok := structTag.Lookup("json"); ok {
+		parts := strings.Split(jsonTag, ",")
+
+		if len(parts) > 0 && parts[0] != "" {
+			fieldInfo.JSONName = parts[0]
+		}
+
+		for i := 1; i < len(parts); i++ {
+			if parts[i] == "omitempty" {
+				fieldInfo.Required = false
+			}
+		}
+	}
+
+	// Parse validate tag
+	if validateTag, ok := structTag.Lookup("validate"); ok {
+		parts := strings.SplitSeq(validateTag, ",")
+
+		for part := range parts {
+			if part == "required" {
+				fieldInfo.Required = true
+			} else if strings.Contains(part, "=") {
+				kv := strings.SplitN(part, "=", 2)
+
+				if len(kv) == 2 {
+					fieldInfo.Validation[kv[0]] = kv[1]
+				}
+			} else {
+				fieldInfo.Validation[part] = ""
+			}
+		}
+	}
+
+	// Parse description tag
+	if desc, ok := structTag.Lookup("description"); ok {
+		fieldInfo.Description = desc
+	}
+
+	// Parse example tag
+	if example, ok := structTag.Lookup("example"); ok {
+		fieldInfo.Example = example
+	}
+}
+
+// findEnumValuesInPackage finds const declarations that define enum values for a type
+func (g *Generator) findEnumValuesInPackage(packagePath, typeName string) []string {
+	fset := token.NewFileSet()
+
+	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
+	if err != nil {
+		return nil
+	}
+
+	var enumValues []string
+
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.CONST {
+					for _, spec := range genDecl.Specs {
+						if valueSpec, ok := spec.(*ast.ValueSpec); ok {
+							// Check if the const is of our target type
+							if g.isASTConstOfType(valueSpec, typeName) {
+								for i := range valueSpec.Names {
+									if i < len(valueSpec.Values) {
+										if basicLit, ok := valueSpec.Values[i].(*ast.BasicLit); ok && basicLit.Kind == token.STRING {
+											// Remove quotes from string literal
+											value := strings.Trim(basicLit.Value, "\"")
+											enumValues = append(enumValues, value)
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return enumValues
+}
+
+// isASTConstOfType checks if a const declaration is of the specified type
+func (g *Generator) isASTConstOfType(valueSpec *ast.ValueSpec, typeName string) bool {
+	if valueSpec.Type != nil {
+		if ident, ok := valueSpec.Type.(*ast.Ident); ok {
+			return ident.Name == typeName
+		}
+	}
+
+	return false
 }
 
 func (g *Generator) mapGoTypeToOpenAPI(goType string) string {

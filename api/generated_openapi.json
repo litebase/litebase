@@ -143,9 +143,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -322,9 +322,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -506,9 +506,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -604,9 +604,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -706,9 +706,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -789,9 +789,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -867,9 +867,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -995,9 +995,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1152,9 +1152,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1281,9 +1281,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1390,9 +1390,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -1469,9 +1469,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1598,9 +1598,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1754,9 +1754,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -1962,9 +1962,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -2385,9 +2385,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -2574,9 +2574,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -2852,9 +2852,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -2935,9 +2935,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -3013,9 +3013,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3096,9 +3096,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -3184,8 +3184,8 @@
                           }
                         },
                         "required": [
-                          "id",
                           "created_at",
+                          "id",
                           "updated_at"
                         ]
                       }
@@ -3346,9 +3346,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -3499,9 +3499,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -3634,8 +3634,8 @@
                           }
                         },
                         "required": [
-                          "id",
                           "created_at",
+                          "id",
                           "updated_at"
                         ]
                       }
@@ -3704,7 +3704,10 @@
                     "type": "string"
                   },
                   "statements": {
-                    "type": "array"
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Statement"
+                    }
                   },
                   "username": {
                     "type": "string"
@@ -3737,23 +3740,22 @@
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "id": {
-                          "type": "string",
-                          "description": "Resource identifier",
-                          "example": "example_id"
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
                         },
                         "updated_at": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Last update timestamp",
                           "example": "2023-09-20T14:30:00Z"
+                        },
+                        "username": {
+                          "type": "string"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "created_at",
-                        "updated_at"
-                      ]
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -3767,9 +3769,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -3850,9 +3852,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -3922,23 +3924,22 @@
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "id": {
-                          "type": "string",
-                          "description": "Resource identifier",
-                          "example": "example_id"
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Statement"
+                          }
                         },
                         "updated_at": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Last update timestamp",
                           "example": "2023-09-20T14:30:00Z"
+                        },
+                        "username": {
+                          "type": "string"
                         }
-                      },
-                      "required": [
-                        "id",
-                        "created_at",
-                        "updated_at"
-                      ]
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -3952,9 +3953,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4042,7 +4043,30 @@
                     "type": "string"
                   },
                   "statements": {
-                    "type": "array"
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "actions": {
+                          "type": "array",
+                          "description": "List of privileges/actions allowed or denied",
+                          "items": {
+                            "$ref": "#/components/schemas/Privilege"
+                          }
+                        },
+                        "effect": {
+                          "$ref": "#/components/schemas/StatementEffect"
+                        },
+                        "resource": {
+                          "$ref": "#/components/schemas/Resource"
+                        }
+                      },
+                      "required": [
+                        "actions",
+                        "effect",
+                        "resource"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -4076,9 +4100,9 @@
                     }
                   },
                   "required": [
-                    "status",
                     "data",
-                    "message"
+                    "message",
+                    "status"
                   ]
                 }
               }
@@ -4185,9 +4209,9 @@
                     }
                   },
                   "required": [
-                    "status",
+                    "errors",
                     "message",
-                    "errors"
+                    "status"
                   ]
                 }
               }
@@ -4397,6 +4421,92 @@
         "required": [
           "status",
           "message"
+        ]
+      },
+      "Privilege": {
+        "type": "string",
+        "enum": [
+          "token:create",
+          "token:delete",
+          "token:list",
+          "token:read",
+          "token:update",
+          "database:create",
+          "database:list",
+          "database:show",
+          "database:manage",
+          "database:branch:create",
+          "database:branch:list",
+          "database:branch:show",
+          "database:branch:manage",
+          "database:backup",
+          "database:restore",
+          "database:query",
+          "database:analyze",
+          "database:attach",
+          "database:alter_table",
+          "database:create_index",
+          "database:create_table",
+          "database:create_temp_table",
+          "database:create_temp_trigger",
+          "database:create_temp_view",
+          "database:create_trigger",
+          "database:create_view",
+          "database:create_vtable",
+          "database:delete",
+          "database:detach",
+          "database:drop_index",
+          "database:drop_table",
+          "database:drop_trigger",
+          "database:drop_view",
+          "database:function",
+          "database:insert",
+          "database:pragma",
+          "database:read",
+          "database:recursive",
+          "database:reindex",
+          "database:savepoint",
+          "database:select",
+          "database:transaction",
+          "database:update",
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update"
+        ]
+      },
+      "Resource": {
+        "type": "string"
+      },
+      "Statement": {
+        "type": "object",
+        "properties": {
+          "actions": {
+            "type": "array",
+            "description": "List of privileges/actions allowed or denied",
+            "items": {
+              "$ref": "#/components/schemas/Privilege"
+            }
+          },
+          "effect": {
+            "$ref": "#/components/schemas/StatementEffect"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/Resource"
+          }
+        },
+        "required": [
+          "actions",
+          "effect",
+          "resource"
+        ]
+      },
+      "StatementEffect": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "deny"
         ]
       },
       "SuccessResponse": {

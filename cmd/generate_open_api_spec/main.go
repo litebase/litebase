@@ -5,9 +5,163 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/litebase/litebase/pkg/openapi"
 )
+
+// combineSchemas merges multiple schema maps into one, preferring more detailed schemas
+func combineSchemas(schemaMaps ...map[string]*openapi.Schema) map[string]*openapi.Schema {
+	result := make(map[string]*openapi.Schema)
+
+	for _, schemaMap := range schemaMaps {
+		for name, schema := range schemaMap {
+			// Check if we already have a schema with this name
+			if existing, exists := result[name]; exists {
+				// If the new schema is more detailed (has properties) and the existing one doesn't,
+				// or if it's a qualified name (contains .) vs unqualified, prefer the new one
+				if shouldPreferSchema(schema, existing, name) {
+					result[name] = schema
+				}
+				// Otherwise keep the existing one
+			} else {
+				// No conflict, just add it
+				result[name] = schema
+			}
+		}
+	}
+
+	// Handle qualified vs unqualified name conflicts
+	// If we have both "auth.Statement" and "Statement", prefer the simple name with detailed content
+	for qualifiedName, qualifiedSchema := range result {
+		if strings.Contains(qualifiedName, ".") {
+			parts := strings.Split(qualifiedName, ".")
+
+			if len(parts) == 2 {
+				simpleName := parts[1]
+
+				if simpleSchema, exists := result[simpleName]; exists {
+					// If qualified schema is more detailed, use it for the simple name and remove qualified
+					if shouldPreferSchema(qualifiedSchema, simpleSchema, qualifiedName) {
+						result[simpleName] = qualifiedSchema
+						delete(result, qualifiedName)
+					} else {
+						// If simple schema is better or equal, just remove the qualified one
+						delete(result, qualifiedName)
+					}
+				} else {
+					// No simple version exists, add the qualified schema under the simple name
+					result[simpleName] = qualifiedSchema
+					delete(result, qualifiedName)
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// shouldPreferSchema determines if newSchema should be preferred over existing schema
+func shouldPreferSchema(newSchema, existingSchema *openapi.Schema, name string) bool {
+	// Prefer schemas with properties over those without
+	newHasProps := len(newSchema.Properties) > 0
+	existingHasProps := len(existingSchema.Properties) > 0
+
+	if newHasProps && !existingHasProps {
+		return true
+	}
+
+	if !newHasProps && existingHasProps {
+		return false
+	}
+
+	// If both have properties or both don't, prefer qualified names (contain ".")
+	newIsQualified := strings.Contains(name, ".")
+
+	return newIsQualified
+}
+
+// fixSchemaReferences updates all $ref references to use simplified schema names
+func fixSchemaReferences(spec *openapi.OpenAPISpec) {
+	// Create a mapping of qualified names to simple names
+	// We need to map all possible qualified references to their simple versions
+	refMap := make(map[string]string)
+
+	// Look for simple schema names that exist
+	for schemaName := range spec.Components.Schemas {
+		if !strings.Contains(schemaName, ".") {
+			// This is a simple name, create mapping from qualified versions
+			refMap["#/components/schemas/auth."+schemaName] = "#/components/schemas/" + schemaName
+			refMap["#/components/schemas/http."+schemaName] = "#/components/schemas/" + schemaName
+			refMap["#/components/schemas/config."+schemaName] = "#/components/schemas/" + schemaName
+		}
+	}
+
+	// Update references in all paths
+	for _, pathItem := range spec.Paths {
+		fixOperationReferences(pathItem.Get, refMap)
+		fixOperationReferences(pathItem.Post, refMap)
+		fixOperationReferences(pathItem.Put, refMap)
+		fixOperationReferences(pathItem.Delete, refMap)
+		fixOperationReferences(pathItem.Patch, refMap)
+	}
+
+	// Update references in schemas themselves
+	for _, schema := range spec.Components.Schemas {
+		fixSchemaReferencesRecursive(schema, refMap)
+	}
+}
+
+// fixOperationReferences fixes references in an operation
+func fixOperationReferences(op *openapi.Operation, refMap map[string]string) {
+	if op == nil {
+		return
+	}
+
+	// Fix request body references
+	if op.RequestBody != nil && op.RequestBody.Content != nil {
+		for _, mediaType := range op.RequestBody.Content {
+			if mediaType.Schema != nil {
+				fixSchemaReferencesRecursive(mediaType.Schema, refMap)
+			}
+		}
+	}
+
+	// Fix response references
+	for _, response := range op.Responses {
+		if response.Content != nil {
+			for _, mediaType := range response.Content {
+				if mediaType.Schema != nil {
+					fixSchemaReferencesRecursive(mediaType.Schema, refMap)
+				}
+			}
+		}
+	}
+}
+
+// fixSchemaReferencesRecursive recursively fixes references in a schema
+func fixSchemaReferencesRecursive(schema *openapi.Schema, refMap map[string]string) {
+	if schema == nil {
+		return
+	}
+
+	// Fix direct reference
+	if schema.Ref != "" {
+		if newRef, exists := refMap[schema.Ref]; exists {
+			schema.Ref = newRef
+		}
+	}
+
+	// Fix array item references
+	if schema.Items != nil {
+		fixSchemaReferencesRecursive(schema.Items, refMap)
+	}
+
+	// Fix property references
+	for _, prop := range schema.Properties {
+		fixSchemaReferencesRecursive(prop, refMap)
+	}
+}
 
 func main() {
 	// Initialize the dynamic analyzer
@@ -44,10 +198,13 @@ func main() {
 		Paths: pathItems,
 		Components: &openapi.Components{
 			SecuritySchemes: openapi.GetSecuritySchemes(),
-			Schemas:         openapi.GetCommonSchemas(),
+			Schemas:         combineSchemas(openapi.GetCommonSchemas(), analyzer.GetRegisteredSchemas()),
 		},
 		Tags: openapi.GetTags(),
 	}
+
+	// Fix broken references after schema deduplication
+	fixSchemaReferences(spec)
 
 	// Convert to JSON
 	jsonOutput, err := json.MarshalIndent(spec, "", "  ")

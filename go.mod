@@ -24,6 +24,7 @@ require (
 require (
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
+	golang.org/x/mod v0.28.0 // indirect
 )
 
 require (
