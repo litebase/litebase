@@ -4426,6 +4426,11 @@
       "Privilege": {
         "type": "string",
         "enum": [
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update",
           "database:create",
           "database:list",
           "database:show",
@@ -4464,11 +4469,6 @@
           "database:select",
           "database:transaction",
           "database:update",
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update",
           "token:create",
           "token:delete",
           "token:list",
@@ -4573,52 +4573,76 @@
   },
   "tags": [
     {
-      "name": "Health",
-      "description": "Health check endpoints"
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
     },
     {
-      "name": "Cluster",
-      "description": "Cluster management and status operations"
-    },
-    {
-      "name": "Users",
-      "description": "User management operations"
-    },
-    {
-      "name": "Access Keys",
-      "description": "Access key management for authentication"
-    },
-    {
-      "name": "Databases",
-      "description": "Database management operations"
-    },
-    {
-      "name": "Database Branches",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "Queries",
-      "description": "SQL query execution operations"
-    },
-    {
-      "name": "Backups",
-      "description": "Database backup and restore operations"
-    },
-    {
-      "name": "Snapshots",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "Metrics",
-      "description": "Performance and usage metrics"
-    },
-    {
-      "name": "Keys",
+      "name": "Key",
       "description": "Encryption key management"
     },
     {
-      "name": "Events",
-      "description": "Internal cluster event management"
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "User",
+      "description": "User management operations"
+    },
+    {
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
+    },
+    {
+      "name": "QueryStream",
+      "description": "Streaming query operations"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
+    },
+    {
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
+    },
+    {
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
+    },
+    {
+      "name": "Database",
+      "description": "Database management operations"
+    },
+    {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
     }
   ]
 }

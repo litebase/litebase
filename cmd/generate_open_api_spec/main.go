@@ -181,6 +181,21 @@ func main() {
 
 	log.Printf("Generated %d path items", len(pathItems))
 
+	// Collect all tags used in the path items for dynamic tag generation
+	usedTags := make(map[string]bool)
+
+	for _, pathItem := range pathItems {
+		for _, operation := range []*openapi.Operation{
+			pathItem.Get, pathItem.Post, pathItem.Put, pathItem.Delete, pathItem.Patch,
+		} {
+			if operation != nil {
+				for _, tag := range operation.Tags {
+					usedTags[tag] = true
+				}
+			}
+		}
+	}
+
 	// Generate full OpenAPI spec
 	spec := &openapi.OpenAPISpec{
 		OpenAPI: "3.1.0",
@@ -200,7 +215,7 @@ func main() {
 			SecuritySchemes: openapi.GetSecuritySchemes(),
 			Schemas:         combineSchemas(openapi.GetCommonSchemas(), analyzer.GetRegisteredSchemas()),
 		},
-		Tags: openapi.GetTags(),
+		Tags: openapi.GenerateDynamicTags(usedTags),
 	}
 
 	// Fix broken references after schema deduplication
