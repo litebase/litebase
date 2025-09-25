@@ -8,6 +8,14 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
+type AccessKeyIndexResponse struct {
+	AccessKeyID string `json:"access_key_id"`
+}
+
+type AccessKeyListResponse struct {
+	Data []AccessKeyIndexResponse `json:"access_keys"`
+}
+
 // List all access keys
 func AccessKeyControllerIndex(ctx context.Context, request *Request) Response {
 	err := request.Authorize(
@@ -22,25 +30,30 @@ func AccessKeyControllerIndex(ctx context.Context, request *Request) Response {
 	accessKeysIds, err := request.accessKeyManager.AllAccessKeyIds()
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Access keys could not be retrieved",
-		}, 500, nil)
+		return ServerErrorResponse(errors.New("access keys could not be retrieved"))
 	}
 
-	accessKeys := []map[string]any{}
+	accessKeys := []AccessKeyIndexResponse{}
 
 	for _, accessKeyId := range accessKeysIds {
-		accessKeys = append(accessKeys, map[string]any{
-			"access_key_id": accessKeyId,
+		accessKeys = append(accessKeys, AccessKeyIndexResponse{
+			AccessKeyID: accessKeyId,
 		})
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Access keys retrieved successfully",
-		"data":    accessKeys,
-	}, 200, nil)
+	response := AccessKeyListResponse{
+		Data: accessKeys,
+	}
+
+	return SuccessResponse("Access keys retrieved successfully", response, 200)
+}
+
+type AccessKeyShowResponse struct {
+	AccessKeyID string           `json:"access_key_id"`
+	Description string           `json:"description"`
+	CreatedAt   string           `json:"created_at"`
+	UpdatedAt   string           `json:"updated_at"`
+	Statements  []auth.Statement `json:"statements"`
 }
 
 // Show details of a specific access key
@@ -56,10 +69,7 @@ func AccessKeyControllerShow(ctx context.Context, request *Request) Response {
 	accessKey, err := request.accessKeyManager.Get(accessKeyId)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Access key could not be found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("access key could not be found"))
 	}
 
 	err = request.Authorize(
@@ -71,16 +81,33 @@ func AccessKeyControllerShow(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Access key retrieved successfully",
-		"data":    accessKey.ToResponse(),
-	}, 200, nil)
+	response := AccessKeyShowResponse{
+		AccessKeyID: accessKey.AccessKeyID,
+		Description: accessKey.Description,
+		CreatedAt:   accessKey.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   accessKey.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Statements:  accessKey.Statements,
+	}
+
+	return SuccessResponse(
+		"Access key retrieved successfully",
+		response,
+		200,
+	)
 }
 
 type AccessKeyStoreRequest struct {
 	Description string           `json:"description" validate:"omitempty,max=255"`
 	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
+}
+
+type AccessKeyStoreResponse struct {
+	AccessKeyID     string           `json:"access_key_id"`
+	AccessKeySecret string           `json:"access_key_secret"`
+	Description     string           `json:"description"`
+	CreatedAt       string           `json:"created_at"`
+	UpdatedAt       string           `json:"updated_at"`
+	Statements      []auth.Statement `json:"statements"`
 }
 
 // Create a new access key
@@ -129,22 +156,36 @@ func AccessKeyControllerStore(ctx context.Context, request *Request) Response {
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": fmt.Sprintf("Access key could not be created: %s", err.Error()),
-		}, 500, nil)
+		return ServerErrorResponse(fmt.Errorf("Access key could not be created: %s", err.Error()))
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Access key created successfully",
-		"data":    accessKey,
-	}, 201, nil)
+	response := AccessKeyStoreResponse{
+		AccessKeyID:     accessKey.AccessKeyID,
+		AccessKeySecret: accessKey.AccessKeySecret,
+		Description:     accessKey.Description,
+		CreatedAt:       accessKey.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:       accessKey.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Statements:      accessKey.Statements,
+	}
+
+	return SuccessResponse(
+		"Access key created successfully",
+		response,
+		201,
+	)
 }
 
 type AccessKeyUpdateRequest struct {
 	Description string           `json:"description" validate:"omitempty,max=255"`
 	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
+}
+
+type AccessKeyUpdateResponse struct {
+	AccessKeyID string           `json:"access_key_id"`
+	Description string           `json:"description"`
+	CreatedAt   string           `json:"created_at"`
+	UpdatedAt   string           `json:"updated_at"`
+	Statements  []auth.Statement `json:"statements"`
 }
 
 // Update an existing access key
@@ -161,10 +202,7 @@ func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 	accessKey, err := request.accessKeyManager.Get(accessKeyId)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Access key could not be found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("access key could not be found"))
 	}
 
 	err = request.Authorize(
@@ -213,19 +251,25 @@ func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Access key could not be updated",
-		}, 500, nil)
+		return ServerErrorResponse(fmt.Errorf("Access key could not be updated: %s", err.Error()))
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Access key updated successfully.",
-		"data":    accessKey.ToResponse(),
-	}, 200, nil)
+	response := AccessKeyUpdateResponse{
+		AccessKeyID: accessKey.AccessKeyID,
+		Description: accessKey.Description,
+		CreatedAt:   accessKey.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   accessKey.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Statements:  accessKey.Statements,
+	}
+
+	return SuccessResponse(
+		"Access key updated successfully.",
+		response,
+		200,
+	)
 }
 
+// Delete an access key
 func AccessKeyControllerDestroy(ctx context.Context, request *Request) Response {
 	// Get the access key ID from the request parameters
 	accessKeyId := request.Param("accessKeyId")
@@ -264,8 +308,9 @@ func AccessKeyControllerDestroy(ctx context.Context, request *Request) Response 
 		}, 500, nil)
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Access key deleted successfully.",
-	}, 200, nil)
+	return SuccessResponse(
+		"Access key deleted successfully.",
+		nil,
+		200,
+	)
 }
