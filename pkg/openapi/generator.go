@@ -1991,7 +1991,7 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 						Example:     getErrorMessageExample(resp.StatusCode),
 					},
 				},
-				Required: []string{"status", "message"},
+				Required: []string{"message", "status"},
 			}
 		case "validation_error":
 			// Validation error response format (422)
