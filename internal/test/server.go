@@ -3,20 +3,25 @@ package test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/config"
+	httpRouter "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/server"
 )
 
 type TestServer struct {
-	Address string
-	Client  *TestClient
-	App     *server.App
-	Port    string
-	Server  *httptest.Server
-	Started chan bool
+	Address       string
+	Client        *TestClient
+	App           *server.App
+	Port          string
+	Server        *httptest.Server
+	PrivateServer *httptest.Server
+	PrivatePort   string
+	Started       chan bool
 }
 
 /*
@@ -24,22 +29,46 @@ NewTestServer creates a new test server, that fully initializes a node and
 encapsulates the state of the node.
 */
 func NewTestServer(t testing.TB) *TestServer {
-	serveMux := http.NewServeMux()
-	ts := httptest.NewServer(serveMux)
-	port := ts.URL[len(ts.URL)-5:]
+	// Create public server
+	publicMux := http.NewServeMux()
+	publicServer := httptest.NewServer(publicMux)
+	publicPort := publicServer.URL[len(publicServer.URL)-5:]
 
-	t.Setenv("LITEBASE_PORT", port)
+	// Create private server
+	privateMux := http.NewServeMux()
+	privateServer := httptest.NewServer(privateMux)
+	privatePort := privateServer.URL[len(privateServer.URL)-5:]
+
+	t.Setenv("LITEBASE_PORT", publicPort)
+	t.Setenv("LITEBASE_PRIVATE_PORT", privatePort)
 
 	configInstance := config.NewConfig()
-	app := server.NewApp(configInstance, serveMux)
+	app := server.NewApp(configInstance, publicMux)
+	
+	// Set up public routes
 	app.Run()
+	
+	// Set up private routes
+	privateRouter := httpRouter.NewRouter()
+	privateRouter.PrivateServer(app.Cluster, app.DatabaseManager, app.LogManager, privateMux)
+
+	// Set the private port provider so the cluster knows about the private server
+	cluster.SetPrivatePortProvider(func() int {
+		port := privateServer.URL[len(privateServer.URL)-5:]
+		if portInt, err := strconv.Atoi(port); err == nil {
+			return portInt
+		}
+		return 0
+	})
 
 	server := &TestServer{
-		Address: ts.URL[7:],
-		App:     app,
-		Port:    port,
-		Server:  ts,
-		Started: app.Cluster.Node().Start(),
+		Address:       publicServer.URL[7:],
+		App:           app,
+		Port:          publicPort,
+		Server:        publicServer,
+		PrivateServer: privateServer,
+		PrivatePort:   privatePort,
+		Started:       app.Cluster.Node().Start(),
 	}
 
 	return server
@@ -124,4 +153,9 @@ func (ts *TestServer) Shutdown() {
 
 	ts.Server.CloseClientConnections()
 	ts.Server.Close()
+	
+	if ts.PrivateServer != nil {
+		ts.PrivateServer.CloseClientConnections()
+		ts.PrivateServer.Close()
+	}
 }

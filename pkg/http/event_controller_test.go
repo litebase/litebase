@@ -30,18 +30,24 @@ func TestEventStoreController(t *testing.T) {
 		})
 
 		otherNodes := server1.App.Cluster.OtherNodes()
-
 		if len(otherNodes) == 0 {
 			t.Fatalf("Expected at least one other node")
 		}
 
 		var nodeIdentifier *cluster.NodeIdentifier
 
+		// Get server2's node address (private address)
+		server2NodeAddress, _ := server2.App.Cluster.Node().Address()
+
 		for _, node := range otherNodes {
-			if node.Address == server2.Address {
+			if node.Address == server2NodeAddress {
 				nodeIdentifier = node
 				break
 			}
+		}
+
+		if nodeIdentifier == nil {
+			t.Fatalf("Could not find matching node identifier for server2 node address %s", server2NodeAddress)
 		}
 
 		err := server1.App.Cluster.SendEvent(nodeIdentifier, "foo", "bar")
