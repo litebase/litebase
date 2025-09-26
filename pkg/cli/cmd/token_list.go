@@ -23,7 +23,7 @@ func NewTokenListCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			if data["data"] == nil {
+			if data["data"] == nil || len(data["data"].(map[string]any)["data"].([]any)) == 0 {
 				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No tokens found")),
@@ -34,7 +34,7 @@ func NewTokenListCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			rows := [][]string{}
 
-			tokens, ok := data["data"].([]any)
+			tokens, ok := data["data"].(map[string]any)["data"].([]any)
 
 			if !ok {
 				_, err := lipgloss.Fprint(

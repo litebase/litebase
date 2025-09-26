@@ -8,6 +8,10 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
+type TokenControllerIndexResponse struct {
+	Data []auth.TokenResponse `json:"data"`
+}
+
 // List all tokens
 func TokenControllerIndex(ctx context.Context, request *Request) Response {
 	err := request.Authorize(
@@ -19,28 +23,31 @@ func TokenControllerIndex(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	tokenIds, err := request.cluster.Auth.TokenManager.AllTokenIDs()
+	tokens, err := request.cluster.Auth.TokenManager.AllTokens()
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Tokens could not be retrieved",
-		}, 500, nil)
+		return ServerErrorResponse(errors.New("tokens could not be retrieved"))
 	}
 
-	tokens := []map[string]any{}
+	responseTokens := []auth.TokenResponse{}
 
-	for _, tokenId := range tokenIds {
-		tokens = append(tokens, map[string]any{
-			"token_id": tokenId,
-		})
+	for _, token := range tokens {
+		responseTokens = append(responseTokens, *token.ToResponse())
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Tokens retrieved successfully",
-		"data":    tokens,
-	}, 200, nil)
+	return SuccessResponse(
+		"Tokens retrieved successfully",
+		TokenControllerIndexResponse{Data: responseTokens},
+		200,
+	)
+}
+
+type TokenControllerShowResponse struct {
+	TokenID     string           `json:"token_id"`
+	Description string           `json:"description"`
+	CreatedAt   string           `json:"created_at"`
+	UpdatedAt   string           `json:"updated_at"`
+	Statements  []auth.Statement `json:"statements"`
 }
 
 // Show details of a specific token
@@ -56,10 +63,7 @@ func TokenControllerShow(ctx context.Context, request *Request) Response {
 	token, err := request.cluster.Auth.TokenManager.Get(tokenId)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Token could not be found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("token could not be found"))
 	}
 
 	err = request.Authorize(
@@ -71,11 +75,22 @@ func TokenControllerShow(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Token retrieved successfully",
-		"data":    token.ToResponse(),
-	}, 200, nil)
+	return SuccessResponse("Token retrieved successfully", TokenControllerShowResponse{
+		TokenID:     token.TokenID,
+		Description: token.Description,
+		CreatedAt:   token.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   token.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Statements:  token.Statements,
+	}, 200)
+}
+
+type TokenStoreResponse struct {
+	TokenID     string           `json:"token_id"`
+	Token       string           `json:"token"`
+	Description string           `json:"description"`
+	Statements  []auth.Statement `json:"statements"`
+	CreatedAt   string           `json:"created_at"`
+	UpdatedAt   string           `json:"updated_at"`
 }
 
 // Create a new token
@@ -120,33 +135,31 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": fmt.Sprintf("Token could not be created: %s", err.Error()),
-		}, 500, nil)
+		return ServerErrorResponse(fmt.Errorf("token could not be created: %s", err.Error()))
 	}
 
 	tokenValue, err := token.Value()
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": fmt.Sprintf("Token could not be created: %s", err.Error()),
-		}, 500, nil)
+		return ServerErrorResponse(fmt.Errorf("token could not be created: %s", err.Error()))
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Token created successfully",
-		"data": auth.TokenResponse{
-			TokenID:     token.TokenID,
-			Token:       tokenValue,
-			Statements:  token.Statements,
-			Description: token.Description,
-			CreatedAt:   token.CreatedAt,
-			UpdatedAt:   token.UpdatedAt,
-		},
-	}, 201, nil)
+	return SuccessResponse("Token created successfully", auth.TokenResponse{
+		TokenID:     token.TokenID,
+		Token:       tokenValue,
+		Statements:  token.Statements,
+		Description: token.Description,
+		CreatedAt:   token.CreatedAt,
+		UpdatedAt:   token.UpdatedAt,
+	}, 201)
+}
+
+type TokenUpdateResponse struct {
+	TokenID     string           `json:"token_id"`
+	Description string           `json:"description"`
+	Statements  []auth.Statement `json:"statements"`
+	CreatedAt   string           `json:"created_at"`
+	UpdatedAt   string           `json:"updated_at"`
 }
 
 // Update an existing token
@@ -162,10 +175,7 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 	token, err := request.cluster.Auth.TokenManager.Get(tokenId)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Token could not be found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("token could not be found"))
 	}
 
 	err = request.Authorize(
@@ -180,10 +190,7 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&AccessKeyUpdateRequest{})
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": fmt.Sprintf("Invalid input: %s", err.Error()),
-		}, 400, nil)
+		return BadRequestResponse(errors.New("the request input is invalid"))
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
@@ -203,6 +210,7 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 	if validationErrors != nil {
 		return ValidationErrorResponse(validationErrors)
 	}
+
 	description := token.Description
 
 	if input.(*AccessKeyUpdateRequest).Description != "" {
@@ -215,17 +223,16 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Token could not be updated",
-		}, 500, nil)
+		return ServerErrorResponse(fmt.Errorf("token could not be updated: %s", err.Error()))
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Token updated successfully.",
-		"data":    token.ToResponse(),
-	}, 200, nil)
+	return SuccessResponse("Token updated successfully", TokenUpdateResponse{
+		TokenID:     token.TokenID,
+		Description: token.Description,
+		Statements:  token.Statements,
+		CreatedAt:   token.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   token.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}, 200)
 }
 
 // Delete a token
@@ -250,23 +257,15 @@ func TokenControllerDestroy(ctx context.Context, request *Request) Response {
 	token, err := request.cluster.Auth.TokenManager.Get(tokenId)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Token could not be found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("token could not be found"))
 	}
 
 	err = token.Delete()
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Token could not be deleted",
-		}, 500, nil)
+		return ServerErrorResponse(fmt.Errorf("token could not be deleted: %s", err.Error()))
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Token deleted successfully.",
-	}, 200, nil)
+	return SuccessResponse("Token deleted successfully", nil, 200)
+
 }
