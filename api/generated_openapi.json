@@ -146,27 +146,7 @@
                   "statements": {
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "properties": {
-                        "actions": {
-                          "type": "array",
-                          "description": "List of privileges/actions allowed or denied",
-                          "items": {
-                            "$ref": "#/components/schemas/Privilege"
-                          }
-                        },
-                        "effect": {
-                          "$ref": "#/components/schemas/StatementEffect"
-                        },
-                        "resource": {
-                          "$ref": "#/components/schemas/Resource"
-                        }
-                      },
-                      "required": [
-                        "actions",
-                        "effect",
-                        "resource"
-                      ]
+                      "$ref": "#/components/schemas/Statement"
                     }
                   }
                 },
@@ -204,27 +184,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "updated_at": {
@@ -406,27 +366,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "updated_at": {
@@ -565,27 +505,7 @@
                   "statements": {
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "properties": {
-                        "actions": {
-                          "type": "array",
-                          "description": "List of privileges/actions allowed or denied",
-                          "items": {
-                            "$ref": "#/components/schemas/Privilege"
-                          }
-                        },
-                        "effect": {
-                          "$ref": "#/components/schemas/StatementEffect"
-                        },
-                        "resource": {
-                          "$ref": "#/components/schemas/Resource"
-                        }
-                      },
-                      "required": [
-                        "actions",
-                        "effect",
-                        "resource"
-                      ]
+                      "$ref": "#/components/schemas/Statement"
                     }
                   }
                 },
@@ -620,27 +540,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "updated_at": {
@@ -651,7 +551,7 @@
                     "message": {
                       "type": "string",
                       "description": "Response message",
-                      "example": "Access key updated successfully."
+                      "example": "Access key updated successfully"
                     },
                     "status": {
                       "type": "string",
@@ -834,7 +734,7 @@
                     "message": {
                       "type": "string",
                       "description": "Response message",
-                      "example": "Access key deleted successfully."
+                      "example": "Access key deleted successfully"
                     },
                     "status": {
                       "type": "string",
@@ -948,6 +848,7 @@
           "ClusterConnection"
         ],
         "summary": "Create a new cluster connection",
+        "description": "Handle a cluster node connection",
         "operationId": "createClusterConnection",
         "responses": {
           "200": {
@@ -974,6 +875,7 @@
           "ClusterElection"
         ],
         "summary": "Create a new cluster election",
+        "description": "Handle a cluster election request",
         "operationId": "createClusterElection",
         "responses": {
           "200": {
@@ -1077,6 +979,7 @@
           "ClusterPrimary"
         ],
         "summary": "Create a new cluster primary",
+        "description": "Handle a cluster primary node request",
         "operationId": "createClusterPrimary",
         "responses": {
           "200": {
@@ -1236,6 +1139,7 @@
           "Database"
         ],
         "summary": "Create a new database",
+        "description": "Create a new database",
         "operationId": "createDatabase",
         "requestBody": {
           "description": "Database creation data",
@@ -1245,7 +1149,7 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "$ref": "#/components/schemas/database.DatabaseName"
+                    "$ref": "#/components/schemas/DatabaseName"
                   },
                   "primary_branch": {
                     "type": "string"
@@ -1268,12 +1172,41 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "properties": {
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Creation timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        },
+                        "database_id": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "primary_branch": {
+                          "type": "string"
+                        },
+                        "settings": {
+                          "$ref": "#/components/schemas/DatabaseSettings"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last update timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        }
+                      }
                     },
                     "message": {
                       "type": "string",
                       "description": "Response message",
-                      "example": "Database created successfully."
+                      "example": "Database created successfully"
                     },
                     "status": {
                       "type": "string",
@@ -1547,6 +1480,7 @@
           "Database"
         ],
         "summary": "Delete a database",
+        "description": "Delete a database",
         "operationId": "deleteDatabase",
         "responses": {
           "200": {
@@ -1556,13 +1490,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": {
-                      "type": "object"
-                    },
                     "message": {
                       "type": "string",
                       "description": "Response message",
-                      "example": "Database deleted successfully."
+                      "example": "Database deleted successfully"
                     },
                     "status": {
                       "type": "string",
@@ -1571,7 +1502,6 @@
                     }
                   },
                   "required": [
-                    "data",
                     "message",
                     "status"
                   ]
@@ -1847,7 +1777,7 @@
                 "description": "Request payload for creating a new database branch",
                 "properties": {
                   "name": {
-                    "$ref": "#/components/schemas/database.DatabaseBranchName"
+                    "$ref": "#/components/schemas/DatabaseBranchName"
                   },
                   "parent_name": {
                     "type": "string"
@@ -1870,12 +1800,41 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "properties": {
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Creation timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        },
+                        "database_branch_id": {
+                          "type": "string"
+                        },
+                        "database_id": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "settings": {
+                          "$ref": "#/components/schemas/BranchSettings"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last update timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        }
+                      }
                     },
                     "message": {
                       "type": "string",
                       "description": "Response message",
-                      "example": "Database branch created successfully."
+                      "example": "Database branch created successfully"
                     },
                     "status": {
                       "type": "string",
@@ -2187,13 +2146,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": {
-                      "type": "object"
-                    },
                     "message": {
                       "type": "string",
                       "description": "Response message",
-                      "example": "Database branch deleted successfully."
+                      "example": "Database branch deleted successfully"
                     },
                     "status": {
                       "type": "string",
@@ -2202,7 +2158,6 @@
                     }
                   },
                   "required": [
-                    "data",
                     "message",
                     "status"
                   ]
@@ -2489,7 +2444,21 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "properties": {
+                        "database_branch_id": {
+                          "type": "string"
+                        },
+                        "database_id": {
+                          "type": "string"
+                        },
+                        "restore_point": {
+                          "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -2687,7 +2656,7 @@
                           "type": "string"
                         },
                         "restore_point": {
-                          "type": "object"
+                          "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
                         },
                         "size": {
                           "type": "integer"
@@ -3136,15 +3105,41 @@
                   "properties": {
                     "data": {
                       "type": "array",
-                      "description": "Array of unknown objects",
+                      "description": "Array of query responses for one or more queries",
                       "items": {
-                        "type": "object"
+                        "type": "object",
+                        "properties": {
+                          "changes": {
+                            "type": "integer"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "last_insert_row_id": {
+                            "type": "integer"
+                          },
+                          "latency": {
+                            "type": "number"
+                          },
+                          "row_count": {
+                            "type": "integer"
+                          },
+                          "rows": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/any"
+                            }
+                          },
+                          "transaction_id": {
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "message": {
                       "type": "string",
                       "description": "Response message",
-                      "example": "Queries executed successfully."
+                      "example": "Queries executed successfully"
                     },
                     "status": {
                       "type": "string",
@@ -3290,6 +3285,7 @@
           "QueryStream"
         ],
         "summary": "Create a new query stream",
+        "description": "Handle a streaming SQL query connection",
         "operationId": "createQueryStream",
         "responses": {
           "101": {
@@ -3348,6 +3344,7 @@
           "DatabaseRestore"
         ],
         "summary": "Create a new database restore",
+        "description": "Restore a specific database branch to a point in time",
         "operationId": "createDatabaseRestore",
         "responses": {
           "200": {
@@ -3812,6 +3809,7 @@
           "Key"
         ],
         "summary": "Create a new key",
+        "description": "Store the next encryption key for the cluster",
         "operationId": "createKey",
         "requestBody": {
           "description": "Key creation data",
@@ -3844,9 +3842,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": {
-                      "type": "object"
-                    },
                     "message": {
                       "type": "string",
                       "description": "Response message",
@@ -3859,7 +3854,6 @@
                     }
                   },
                   "required": [
-                    "data",
                     "message",
                     "status"
                   ]
@@ -3996,6 +3990,7 @@
           "KeyActivate"
         ],
         "summary": "Create a new key activate",
+        "description": "Activate an encryption key for the cluster",
         "operationId": "createKeyActivate",
         "responses": {
           "200": {
@@ -4005,9 +4000,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": {
-                      "type": "object"
-                    },
                     "message": {
                       "type": "string",
                       "description": "Response message",
@@ -4020,7 +4012,6 @@
                     }
                   },
                   "required": [
-                    "data",
                     "message",
                     "status"
                   ]
@@ -4244,7 +4235,7 @@
                           "statements": {
                             "type": "array",
                             "items": {
-                              "type": "object"
+                              "$ref": "#/components/schemas/Statement"
                             }
                           },
                           "token": {
@@ -4377,7 +4368,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object"
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "token": {
@@ -4565,27 +4556,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "token_id": {
@@ -4734,27 +4705,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "token_id": {
@@ -5082,10 +5033,7 @@
                         "type": "object",
                         "properties": {
                           "created_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Creation timestamp",
-                            "example": "2023-09-20T14:30:00Z"
+                            "type": "string"
                           },
                           "description": {
                             "type": "string"
@@ -5093,14 +5041,11 @@
                           "statements": {
                             "type": "array",
                             "items": {
-                              "type": "object"
+                              "$ref": "#/components/schemas/Statement"
                             }
                           },
                           "updated_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Last update timestamp",
-                            "example": "2023-09-20T14:30:00Z"
+                            "type": "string"
                           },
                           "username": {
                             "type": "string"
@@ -5190,27 +5135,7 @@
                   "statements": {
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "properties": {
-                        "actions": {
-                          "type": "array",
-                          "description": "List of privileges/actions allowed or denied",
-                          "items": {
-                            "$ref": "#/components/schemas/Privilege"
-                          }
-                        },
-                        "effect": {
-                          "$ref": "#/components/schemas/StatementEffect"
-                        },
-                        "resource": {
-                          "$ref": "#/components/schemas/Resource"
-                        }
-                      },
-                      "required": [
-                        "actions",
-                        "effect",
-                        "resource"
-                      ]
+                      "$ref": "#/components/schemas/Statement"
                     }
                   },
                   "username": {
@@ -5247,27 +5172,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "updated_at": {
@@ -5449,27 +5354,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "updated_at": {
@@ -5585,27 +5470,7 @@
                   "statements": {
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "properties": {
-                        "actions": {
-                          "type": "array",
-                          "description": "List of privileges/actions allowed or denied",
-                          "items": {
-                            "$ref": "#/components/schemas/Privilege"
-                          }
-                        },
-                        "effect": {
-                          "$ref": "#/components/schemas/StatementEffect"
-                        },
-                        "resource": {
-                          "$ref": "#/components/schemas/Resource"
-                        }
-                      },
-                      "required": [
-                        "actions",
-                        "effect",
-                        "resource"
-                      ]
+                      "$ref": "#/components/schemas/Statement"
                     }
                   }
                 },
@@ -5637,27 +5502,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "updated_at": {
@@ -5850,6 +5695,11 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "User deleted successfully"
+                    },
                     "status": {
                       "type": "string",
                       "description": "Response status",
@@ -5857,6 +5707,7 @@
                     }
                   },
                   "required": [
+                    "message",
                     "status"
                   ]
                 }
@@ -5984,6 +5835,14 @@
   },
   "components": {
     "schemas": {
+      "BranchSettings": {
+        "type": "object",
+        "properties": {
+          "incrementable_backups": {
+            "type": "boolean"
+          }
+        }
+      },
       "DatabaseBackupRestorePoint": {
         "type": "object",
         "description": "A single restore point within a database backup",
@@ -5996,11 +5855,38 @@
           }
         }
       },
+      "DatabaseBackupSettings": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "incremental": {
+            "$ref": "#/components/schemas/DatabaseIncrementalBackupSettings"
+          }
+        }
+      },
       "DatabaseBranchName": {
-        "type": "object"
+        "type": "string"
+      },
+      "DatabaseIncrementalBackupSettings": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
       },
       "DatabaseName": {
-        "type": "object"
+        "type": "string"
+      },
+      "DatabaseSettings": {
+        "type": "object",
+        "properties": {
+          "backups": {
+            "$ref": "#/components/schemas/DatabaseBackupSettings"
+          }
+        }
       },
       "ErrorResponse": {
         "type": "object",
@@ -6029,6 +5915,11 @@
           "token:list",
           "token:read",
           "token:update",
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update",
           "database:create",
           "database:list",
           "database:show",
@@ -6066,12 +5957,7 @@
           "database:savepoint",
           "database:select",
           "database:transaction",
-          "database:update",
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update"
+          "database:update"
         ]
       },
       "Resource": {
@@ -6147,6 +6033,9 @@
             "example": "error"
           }
         }
+      },
+      "any": {
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -6171,76 +6060,76 @@
   },
   "tags": [
     {
-      "name": "User",
-      "description": "User management operations"
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
     },
     {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
-      "name": "Key",
-      "description": "Encryption key management"
-    },
-    {
-      "name": "DatabaseRestore",
-      "description": "Database restore operations"
-    },
-    {
-      "name": "DatabaseBackup",
-      "description": "Database backup operations"
-    },
-    {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
     },
     {
       "name": "ClusterPrimary",
       "description": "Primary cluster node operations"
     },
     {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
-    },
-    {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
       "name": "Database",
       "description": "Database management operations"
     },
     {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
     },
     {
       "name": "DatabaseBranch",
       "description": "Database branch management operations"
     },
     {
-      "name": "Query",
-      "description": "SQL query execution operations"
+      "name": "QueryStream",
+      "description": "Streaming query operations"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
     },
     {
       "name": "KeyActivate",
       "description": "Key activation operations"
     },
     {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
+      "name": "Key",
+      "description": "Encryption key management"
+    },
+    {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
+    },
+    {
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
+    },
+    {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
+    },
+    {
+      "name": "User",
+      "description": "User management operations"
     }
   ]
 }

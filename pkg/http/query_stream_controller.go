@@ -37,6 +37,7 @@ const (
 	QueryStreamFrameEntry      QueryStreamMessageType = 0x05
 )
 
+// Handle a streaming SQL query connection
 func QueryStreamControllerStore(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 

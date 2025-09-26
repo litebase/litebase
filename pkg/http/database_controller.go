@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/database"
@@ -81,6 +82,17 @@ type DatabaseStoreRequest struct {
 	PrimaryBranch string                `json:"primary_branch,omitempty" validate:"omitempty,lowercase,alphanum"`
 }
 
+type DatabaseStoreResponse struct {
+	ID            int64                      `json:"id"`
+	DatabaseID    string                     `json:"database_id"`
+	Name          string                     `json:"name"`
+	PrimaryBranch string                     `json:"primary_branch"`
+	Settings      *database.DatabaseSettings `json:"settings"`
+	CreatedAt     time.Time                  `json:"created_at"`
+	UpdatedAt     time.Time                  `json:"updated_at"`
+}
+
+// Create a new database
 func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -135,13 +147,30 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
+	primaryBranch, err := db.PrimaryBranch()
+
+	if err != nil {
+		slog.Error("Failed to retrieve primary branch after database creation", "databaseId", db.DatabaseID, "error", err)
+
+		return ServerErrorResponse(errors.New("failed to retrieve primary branch after database creation"))
+	}
+
 	return SuccessResponse(
-		"Database created successfully.",
-		db,
+		"Database created successfully",
+		DatabaseStoreResponse{
+			ID:            db.ID,
+			DatabaseID:    db.DatabaseID,
+			Name:          db.Name,
+			PrimaryBranch: primaryBranch.Name,
+			Settings:      db.Settings,
+			CreatedAt:     db.CreatedAt,
+			UpdatedAt:     db.UpdatedAt,
+		},
 		200,
 	)
 }
 
+// Delete a database
 func DatabaseControllerDestroy(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
@@ -178,8 +207,8 @@ func DatabaseControllerDestroy(ctx context.Context, request *Request) Response {
 	}
 
 	return SuccessResponse(
-		"Database deleted successfully.",
-		map[string]any{},
+		"Database deleted successfully",
+		nil,
 		200,
 	)
 }

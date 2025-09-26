@@ -54,6 +54,13 @@ func DatabaseBackupControllerIndex(ctx context.Context, request *Request) Respon
 
 type DatabaseBackupStoreRequest struct{}
 
+type DatabaseBackupStoreResponse struct {
+	DatabaseBranchID string                     `json:"database_branch_id"`
+	DatabaseID       string                     `json:"database_id"`
+	RestorePoint     DatabaseBackupRestorePoint `json:"restore_point"`
+	Size             int64                      `json:"size"`
+}
+
 // Create a new database backup
 func DatabaseBackupControllerStore(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
@@ -138,7 +145,15 @@ func DatabaseBackupControllerStore(ctx context.Context, request *Request) Respon
 		return ServerErrorResponse(err)
 	}
 
-	return SuccessResponse("Database backup created successfully", backup, 200)
+	return SuccessResponse("Database backup created successfully", DatabaseBackupStoreResponse{
+		DatabaseBranchID: backup.DatabaseBranchID,
+		DatabaseID:       backup.DatabaseID,
+		RestorePoint: DatabaseBackupRestorePoint{
+			Timestamp: backup.RestorePoint.Timestamp,
+			PageCount: backup.RestorePoint.PageCount,
+		},
+		Size: backup.Size,
+	}, 200)
 }
 
 // A single restore point within a database backup

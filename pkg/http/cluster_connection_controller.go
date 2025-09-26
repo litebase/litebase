@@ -21,6 +21,7 @@ var clusterConnectionBufferPool = sync.Pool{
 	},
 }
 
+// Handle a cluster node connection
 func ClusterConnectionControllerStore(ctx context.Context, request *Request) Response {
 	return Response{
 		StatusCode: 200,

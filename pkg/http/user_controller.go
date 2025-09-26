@@ -8,8 +8,16 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
+type UserControllerUserResponse struct {
+	Username    string           `json:"username" example:"admin" description:"The username"`
+	Description string           `json:"description" example:"Administrator user" description:"The user description"`
+	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
+	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+}
+
 // Array of users for list operations
-type UserControllerIndexResponse []auth.UserResponse
+type UserControllerIndexResponse []UserControllerUserResponse
 
 // List all users
 func UserControllerIndex(ctx context.Context, request *Request) Response {
@@ -28,11 +36,11 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 	var response UserControllerIndexResponse
 
 	for _, user := range users {
-		response = append(response, auth.UserResponse{
+		response = append(response, UserControllerUserResponse{
 			Username:   user.Username,
 			Statements: user.Statements,
-			CreatedAt:  user.CreatedAt,
-			UpdatedAt:  user.UpdatedAt,
+			CreatedAt:  user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:  user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 
@@ -294,5 +302,5 @@ func UserControllerDestroy(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	return SuccessResponse("", nil, 204)
+	return SuccessResponse("User deleted successfully", nil, 204)
 }

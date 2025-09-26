@@ -55,7 +55,7 @@ func ClusterMemberControllerDestroy(ctx context.Context, request *Request) Respo
 	}
 
 	return SuccessResponse(
-		"Member removed successfully.",
+		"Member removed successfully",
 		nil,
 		200,
 	)
@@ -124,7 +124,7 @@ func ClusterMemberControllerStore(ctx context.Context, request *Request) Respons
 	}
 
 	return SuccessResponse(
-		"Member added successfully.",
+		"Member added successfully",
 		nil,
 		200,
 	)

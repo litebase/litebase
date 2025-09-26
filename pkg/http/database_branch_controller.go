@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
@@ -112,6 +113,16 @@ type DatabaseBranchStoreRequest struct {
 	ParentName string                      `json:"parent_name,omitempty"`
 }
 
+type DatabaseBranchStoreResponse struct {
+	ID               int64                    `json:"id"`
+	DatabaseBranchID string                   `json:"database_branch_id"`
+	DatabaseID       string                   `json:"database_id"`
+	Name             string                   `json:"name"`
+	Settings         *database.BranchSettings `json:"settings"`
+	CreatedAt        time.Time                `json:"created_at"`
+	UpdatedAt        time.Time                `json:"updated_at"`
+}
+
 // Create a new database branch
 func DatabaseBranchControllerStore(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
@@ -183,8 +194,16 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 	}
 
 	return SuccessResponse(
-		"Database branch created successfully.",
-		branch,
+		"Database branch created successfully",
+		DatabaseBranchStoreResponse{
+			ID:               branch.ID,
+			DatabaseBranchID: branch.DatabaseBranchID,
+			DatabaseID:       branch.DatabaseID,
+			Name:             branch.Name,
+			Settings:         branch.Settings,
+			CreatedAt:        branch.CreatedAt,
+			UpdatedAt:        branch.UpdatedAt,
+		},
 		200,
 	)
 }
@@ -238,8 +257,8 @@ func DatabaseBranchControllerDestroy(ctx context.Context, request *Request) Resp
 	}
 
 	return SuccessResponse(
-		"Database branch deleted successfully.",
-		map[string]any{},
+		"Database branch deleted successfully",
+		nil,
 		200,
 	)
 }

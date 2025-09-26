@@ -259,7 +259,7 @@ func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 	}
 
 	return SuccessResponse(
-		"Access key updated successfully.",
+		"Access key updated successfully",
 		response,
 		200,
 	)
@@ -299,7 +299,7 @@ func AccessKeyControllerDestroy(ctx context.Context, request *Request) Response 
 	}
 
 	return SuccessResponse(
-		"Access key deleted successfully.",
+		"Access key deleted successfully",
 		nil,
 		200,
 	)

@@ -12,6 +12,7 @@ type KeyActivateRequest struct {
 	EncryptionKey string `json:"encryption_key" validate:"required"`
 }
 
+// Activate an encryption key for the cluster
 func KeyActivateControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -57,5 +58,5 @@ func KeyActivateControllerStore(ctx context.Context, request *Request) Response 
 		return ServerErrorResponse(err)
 	}
 
-	return SuccessResponse("encryption key activated successfully", map[string]any{}, 200)
+	return SuccessResponse("encryption key activated successfully", nil, 200)
 }

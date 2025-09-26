@@ -413,7 +413,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				t.Fatalf("expected success status, got %v", resp["status"])
 			}
 
-			if resp["message"] != "Database branch deleted successfully." {
+			if resp["message"] != "Database branch deleted successfully" {
 				t.Fatalf("expected message to be 'Database branch deleted successfully.', got %v", resp["message"])
 			}
 		})

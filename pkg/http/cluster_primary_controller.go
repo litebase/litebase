@@ -12,6 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/cluster/messages"
 )
 
+// Handle a cluster primary node request
 func ClusterPrimaryControllerStore(ctx context.Context, request *Request) Response {
 	if request.cluster.Node().GetMembership() != cluster.ClusterMembershipPrimary {
 		return ForbiddenResponse(errors.New("not a primary node"))

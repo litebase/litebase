@@ -14,6 +14,7 @@ type KeyStoreRequest struct {
 	Signature     string `json:"signature" validate:"required"`
 }
 
+// Store the next encryption key for the cluster
 func KeyControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -59,5 +60,5 @@ func KeyControllerStore(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	return SuccessResponse("next encryption key stored successfully", map[string]any{}, 200)
+	return SuccessResponse("next encryption key stored successfully", nil, 200)
 }

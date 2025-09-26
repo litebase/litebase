@@ -15,6 +15,7 @@ type DatabaseRestoreRequest struct {
 	Timestamp            string `json:"timestamp" validate:"required"`
 }
 
+// Restore a specific database branch to a point in time
 func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 

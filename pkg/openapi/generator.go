@@ -2512,15 +2512,19 @@ func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
 	}
 
 	// Check if already registered
-	if schema, exists := g.schemaRegistry[typeName]; exists {
-		return schema
+	if _, exists := g.schemaRegistry[typeName]; exists {
+		schemaKey := g.getSchemaKey(typeName)
+
+		return &Schema{Ref: "#/components/schemas/" + schemaKey}
 	}
 
 	// Check if currently being analyzed (prevent infinite recursion)
 	if g.analyzing[typeName] {
 		// Return a reference schema for recursive types
+		schemaKey := g.getSchemaKey(typeName)
+
 		return &Schema{
-			Ref: "#/components/schemas/" + typeName,
+			Ref: "#/components/schemas/" + schemaKey,
 		}
 	}
 
@@ -2537,14 +2541,18 @@ func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
 	if typeInfo == nil {
 		// Check if the type was registered directly as a simple schema
 		if _, exists := g.schemaRegistry[typeName]; exists {
-			return &Schema{Ref: "#/components/schemas/" + typeName}
+			schemaKey := g.getSchemaKey(typeName)
+
+			return &Schema{Ref: "#/components/schemas/" + schemaKey}
 		}
 
 		// If we can't find the type definition, return a generic object schema
 		schema := &Schema{Type: "object"}
 		g.schemaRegistry[typeName] = schema
 
-		return &Schema{Ref: "#/components/schemas/" + typeName}
+		schemaKey := g.getSchemaKey(typeName)
+
+		return &Schema{Ref: "#/components/schemas/" + schemaKey}
 	}
 
 	// Convert the type info to schema
@@ -2553,8 +2561,19 @@ func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
 	// Register the schema (without $ref since this IS the definition)
 	g.schemaRegistry[typeName] = schema
 
-	// Return a reference to this schema
-	return &Schema{Ref: "#/components/schemas/" + typeName}
+	// Return a reference to this schema using simple name (for consistency with schema normalization)
+	schemaKey := g.getSchemaKey(typeName)
+
+	return &Schema{Ref: "#/components/schemas/" + schemaKey}
+}
+
+// getSchemaKey extracts the simple name to use as schema key (consistent with combineSchemas normalization)
+func (g *Generator) getSchemaKey(typeName string) string {
+	if strings.Contains(typeName, ".") {
+		parts := strings.Split(typeName, ".")
+		return parts[len(parts)-1]
+	}
+	return typeName
 }
 
 // findTypeDefinition attempts to find the definition of a custom type
@@ -2573,9 +2592,10 @@ func (g *Generator) findTypeDefinition(typeName string) *TypeInfo {
 
 		// Map common package names to their actual file system paths
 		packagePaths := map[string]string{
-			"auth":   "pkg/auth",
-			"http":   "pkg/http",
-			"config": "pkg/config",
+			"auth":     "pkg/auth",
+			"http":     "pkg/http",
+			"config":   "pkg/config",
+			"database": "pkg/database",
 		}
 
 		if packagePath, exists := packagePaths[packageName]; exists {

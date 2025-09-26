@@ -14,6 +14,7 @@ type ClusterElectionRequest struct {
 	StartedAt int64  `json:"started_at" validate:"required"`
 }
 
+// Handle a cluster election request
 func ClusterElectionControllerStore(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&ClusterElectionRequest{})
 
