@@ -253,6 +253,10 @@ func (c *Client) shouldUseAccessKey() bool {
 		return false
 	}
 
+	if profile == nil {
+		return false
+	}
+
 	return profile.Type == string(config.ProfileTypeAccessKey)
 }
 
@@ -267,6 +271,10 @@ func (c *Client) shouldUseBasicAuth() bool {
 		return false
 	}
 
+	if profile == nil {
+		return false
+	}
+
 	return profile.Type == string(config.ProfileTypeBasicAuth)
 }
 
@@ -278,6 +286,10 @@ func (c *Client) shouldUseToken() bool {
 	profile, err := c.Config.GetCurrentProfile()
 
 	if err != nil {
+		return false
+	}
+
+	if profile == nil {
 		return false
 	}
 
