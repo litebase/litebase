@@ -12,6 +12,7 @@ type Response struct {
 	Body       map[string]any    `json:"body"`
 }
 
+// Add a header to the response
 func (r Response) WithHeader(key, value string) Response {
 	if r.Headers == nil {
 		r.Headers = make(map[string]string)
@@ -22,6 +23,7 @@ func (r Response) WithHeader(key, value string) Response {
 	return r
 }
 
+// Add multiple headers to the response
 func (r Response) WithHeaders(headers map[string]string) Response {
 	if r.Headers == nil {
 		r.Headers = make(map[string]string, len(headers))
@@ -32,6 +34,7 @@ func (r Response) WithHeaders(headers map[string]string) Response {
 	return r
 }
 
+// Add a meta field to the response body
 func (r Response) WithMeta(key string, value any) Response {
 	if r.Body == nil {
 		r.Body = make(map[string]any)

@@ -267,6 +267,7 @@ func (g *Generator) AnalyzeControllerWithHandlers(filePath string, handlerNames 
 			// Check if this function is one of our target handlers
 			if handlerSet[fn.Name.Name] {
 				methodAnalysis := g.analyzeControllerMethod(fn, content, node)
+
 				if methodAnalysis != nil {
 					analysis.Methods[fn.Name.Name] = methodAnalysis
 				}
@@ -331,6 +332,7 @@ func extractTagFromControllerName(funcName string) string {
 // pluralizeCompoundWord handles pluralization of compound words by pluralizing the last component
 func pluralizeCompoundWord(word string) string {
 	parts := splitCamelCase(word)
+
 	if len(parts) > 1 {
 		// Pluralize the last part
 		lastIdx := len(parts) - 1
@@ -368,8 +370,10 @@ func pluralizePart(word string) string {
 		// Preserve original case
 		if isUpperCase(word[0:1]) {
 			caser := cases.Title(language.English)
+
 			return caser.String(plural)
 		}
+
 		return plural
 	}
 
@@ -377,11 +381,13 @@ func pluralizePart(word string) string {
 	if strings.HasSuffix(lower, "ch") || strings.HasSuffix(lower, "sh") ||
 		strings.HasSuffix(lower, "s") || strings.HasSuffix(lower, "x") ||
 		strings.HasSuffix(lower, "z") {
+
 		return word + "es"
 	}
 
 	if strings.HasSuffix(lower, "y") && len(word) > 1 {
 		penultimate := strings.ToLower(word[len(word)-2 : len(word)-1])
+
 		if !strings.Contains("aeiou", penultimate) {
 			return word[:len(word)-1] + "ies"
 		}
@@ -454,11 +460,13 @@ func singularize(word string) string {
 func hasCompoundStructure(word string) bool {
 	// Look for internal capital letters (indicating camelCase/PascalCase)
 	capitalCount := 0
+
 	for _, r := range word {
 		if r >= 'A' && r <= 'Z' {
 			capitalCount++
 		}
 	}
+
 	// If we have more than one capital letter, it's likely a compound word
 	// Also check for common compound patterns
 	return capitalCount > 1 || containsCommonCompoundPattern(word)
@@ -484,6 +492,7 @@ func containsCommonCompoundPattern(word string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -491,6 +500,7 @@ func containsCommonCompoundPattern(word string) bool {
 func singularizeCompoundWord(word string) string {
 	// Split camelCase/PascalCase into parts
 	parts := splitCamelCase(word)
+
 	if len(parts) == 0 {
 		return word
 	}
@@ -517,6 +527,7 @@ func splitCamelCase(word string) []string {
 				currentPart.Reset()
 			}
 		}
+
 		currentPart.WriteRune(r)
 	}
 
@@ -550,9 +561,11 @@ func splitByCompoundPatterns(word string) []string {
 	for _, pattern := range patterns {
 		if strings.HasPrefix(lowerWord, pattern.prefix) {
 			remaining := word[len(pattern.prefix):]
+
 			if len(remaining) >= pattern.minSuffixLen {
 				// Preserve original case for both parts
 				prefix := word[:len(pattern.prefix)]
+
 				return []string{prefix, remaining}
 			}
 		}
@@ -591,6 +604,7 @@ func singularizeSimpleWord(word string) string {
 	// Rule 1: Words ending in 'ies' -> change to 'y' (but not if preceded by vowel)
 	if strings.HasSuffix(lowerWord, "ies") && len(lowerWord) > 3 {
 		beforeIes := lowerWord[len(lowerWord)-4]
+
 		if !isVowel(beforeIes) {
 			result := lowerWord[:len(lowerWord)-3] + "y"
 			return preserveCase(original, result)
@@ -601,16 +615,19 @@ func singularizeSimpleWord(word string) string {
 	if strings.HasSuffix(lowerWord, "ves") && len(lowerWord) > 3 {
 		stem := lowerWord[:len(lowerWord)-3]
 		result := stem + "f"
+
 		return preserveCase(original, result)
 	}
 
 	// Rule 3: Words ending in 'es' after s, x, z, ch, sh
 	if strings.HasSuffix(lowerWord, "es") && len(lowerWord) > 2 {
 		beforeEs := lowerWord[len(lowerWord)-3:]
+
 		if strings.HasSuffix(beforeEs, "ses") || strings.HasSuffix(beforeEs, "xes") ||
 			strings.HasSuffix(beforeEs, "zes") || strings.HasSuffix(beforeEs, "ches") ||
 			strings.HasSuffix(beforeEs, "shes") {
 			result := lowerWord[:len(lowerWord)-2]
+
 			return preserveCase(original, result)
 		}
 	}
@@ -618,6 +635,7 @@ func singularizeSimpleWord(word string) string {
 	// Rule 4: Words ending in 'oes' -> usually change to 'o'
 	if strings.HasSuffix(lowerWord, "oes") && len(lowerWord) > 3 {
 		result := lowerWord[:len(lowerWord)-2]
+
 		return preserveCase(original, result)
 	}
 
@@ -625,6 +643,7 @@ func singularizeSimpleWord(word string) string {
 	if strings.HasSuffix(lowerWord, "i") && len(lowerWord) > 1 {
 		if strings.HasSuffix(lowerWord, "alumni") {
 			result := lowerWord[:len(lowerWord)-1] + "us"
+
 			return preserveCase(original, result)
 		}
 	}
@@ -633,6 +652,7 @@ func singularizeSimpleWord(word string) string {
 	if strings.HasSuffix(lowerWord, "a") && len(lowerWord) > 1 {
 		if strings.HasSuffix(lowerWord, "data") || strings.HasSuffix(lowerWord, "criteria") {
 			result := lowerWord[:len(lowerWord)-1] + "um"
+
 			return preserveCase(original, result)
 		}
 	}
@@ -641,10 +661,9 @@ func singularizeSimpleWord(word string) string {
 	if strings.HasSuffix(lowerWord, "s") && len(lowerWord) > 1 {
 		// Don't singularize words that naturally end in 's'
 		naturalSWords := []string{"bass", "pass", "class", "mass", "glass", "grass", "stress", "process", "success", "access", "address", "business", "express", "progress", "congress"}
-		for _, natural := range naturalSWords {
-			if lowerWord == natural {
-				return preserveCase(original, lowerWord)
-			}
+
+		if slices.Contains(naturalSWords, lowerWord) {
+			return preserveCase(original, lowerWord)
 		}
 
 		// Try removing just 's' first
@@ -652,32 +671,32 @@ func singularizeSimpleWord(word string) string {
 
 		// Check for common patterns where removing 's' creates invalid words
 		invalidCandidates := []string{"databas", "addres", "addresse", "busines", "proces", "processe", "succes", "acces", "expres", "progres", "congres", "branche", "classe"}
-		for _, invalid := range invalidCandidates {
-			if candidate == invalid {
-				// These are likely correct patterns, handle them specifically
-				corrections := map[string]string{
-					"databas":  "database",
-					"addres":   "address",
-					"addresse": "address",
-					"busines":  "business",
-					"proces":   "process",
-					"processe": "process",
-					"succes":   "success",
-					"acces":    "access",
-					"expres":   "express",
-					"progres":  "progress",
-					"congres":  "congress",
-					"branche":  "branch",
-					"classe":   "class",
-				}
-				if corrected, exists := corrections[candidate]; exists {
-					candidate = corrected
-				}
-				break
+
+		if slices.Contains(invalidCandidates, candidate) {
+			// These are likely correct patterns, handle them specifically
+			corrections := map[string]string{
+				"databas":  "database",
+				"addres":   "address",
+				"addresse": "address",
+				"busines":  "business",
+				"proces":   "process",
+				"processe": "process",
+				"succes":   "success",
+				"acces":    "access",
+				"expres":   "express",
+				"progres":  "progress",
+				"congres":  "congress",
+				"branche":  "branch",
+				"classe":   "class",
+			}
+
+			if corrected, exists := corrections[candidate]; exists {
+				candidate = corrected
 			}
 		}
 
 		result := candidate
+
 		return preserveCase(original, result)
 	}
 
@@ -688,6 +707,7 @@ func singularizeSimpleWord(word string) string {
 // Helper functions for the singularize function
 func isVowel(c byte) bool {
 	vowels := "aeiou"
+
 	return strings.ContainsRune(vowels, rune(c))
 }
 
@@ -697,6 +717,7 @@ func isAllUpper(s string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -704,7 +725,9 @@ func isCapitalized(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
+
 	first := rune(s[0])
+
 	return first >= 'A' && first <= 'Z'
 }
 
@@ -714,6 +737,7 @@ func preserveCase(original, result string) string {
 	} else if isCapitalized(original) {
 		return capitalizeFirst(result)
 	}
+
 	return result
 }
 
@@ -820,9 +844,11 @@ func convertResourceToDisplayName(resourceName string) string {
 	if hasCompoundStructure(resourceName) {
 		parts := splitCamelCase(resourceName)
 		var displayParts []string
+
 		for _, part := range parts {
 			displayParts = append(displayParts, strings.ToLower(part))
 		}
+
 		return strings.Join(displayParts, " ")
 	}
 
@@ -1650,9 +1676,9 @@ func (g *Generator) discoverExternalType(qualifiedTypeName string) *Schema {
 // resolvePackagePath resolves an import path to actual file system path
 func (g *Generator) resolvePackagePath(importPath string) string {
 	// Handle relative imports within the same project
-	if strings.HasPrefix(importPath, "github.com/litebase/litebase/") {
+	if after, ok := strings.CutPrefix(importPath, "github.com/litebase/litebase/"); ok {
 		// Remove the module prefix and construct relative path
-		relativePath := strings.TrimPrefix(importPath, "github.com/litebase/litebase/")
+		relativePath := after
 
 		// Try different base paths to find the package
 		possiblePaths := []string{
@@ -1679,25 +1705,29 @@ func (g *Generator) parseExternalPackage(packagePath string) []*ast.File {
 	}
 
 	// Parse the package directory
-	pkgs, err := parser.ParseDir(g.fileSet, packagePath, nil, parser.ParseComments)
+	cfg := &packages.Config{
+		Mode:  packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedName | packages.NeedFiles,
+		Dir:   packagePath,
+		Tests: false,
+	}
 
-	if err != nil {
+	pkgs, err := packages.Load(cfg, "./...")
+
+	if err != nil || len(pkgs) == 0 {
 		return nil
 	}
 
-	// Usually there's only one package per directory
+	var files []*ast.File
+
 	for _, pkg := range pkgs {
-		// Extract files from the package
-		var files []*ast.File
-		for _, file := range pkg.Files {
+		for _, file := range pkg.Syntax {
 			files = append(files, file)
 		}
-		g.packageCache[packagePath] = files
-
-		return files
 	}
 
-	return nil
+	g.packageCache[packagePath] = files
+
+	return files
 }
 
 // analyzeTypeSpecWithPrefix analyzes a type spec with a package prefix
@@ -1717,8 +1747,10 @@ func (g *Generator) analyzeTypeSpecWithPrefix(typeSpec *ast.TypeSpec, docGroup *
 	// Analyze struct type
 	if structType, ok := typeSpec.Type.(*ast.StructType); ok {
 		typeInfo.Type = "object"
+
 		for _, field := range structType.Fields.List {
 			fieldInfo := g.analyzeStructField(field)
+
 			if fieldInfo != nil {
 				typeInfo.Fields[fieldInfo.Name] = fieldInfo
 			}
@@ -1824,6 +1856,7 @@ func (g *Generator) analyzeMethodSecurity(fn *ast.FuncDecl, analysis *MethodAnal
 				}
 			}
 		}
+
 		return true
 	})
 }
@@ -2296,6 +2329,7 @@ func convertHeaders(headers map[string]*Schema) map[string]Header {
 	}
 
 	result := make(map[string]Header)
+
 	for headerName, headerSchema := range headers {
 		result[headerName] = Header{
 			Description: headerSchema.Description,
@@ -2303,6 +2337,7 @@ func convertHeaders(headers map[string]*Schema) map[string]Header {
 			Schema:      headerSchema,
 		}
 	}
+
 	return result
 }
 
@@ -2571,8 +2606,10 @@ func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
 func (g *Generator) getSchemaKey(typeName string) string {
 	if strings.Contains(typeName, ".") {
 		parts := strings.Split(typeName, ".")
+
 		return parts[len(parts)-1]
 	}
+
 	return typeName
 }
 
@@ -2839,9 +2876,14 @@ func (g *Generator) parseASTStructTag(fieldInfo *FieldInfo, tag string) {
 
 // findEnumValuesInPackage finds const declarations that define enum values for a type
 func (g *Generator) findEnumValuesInPackage(packagePath, typeName string) []string {
-	fset := token.NewFileSet()
+	cfg := &packages.Config{
+		Mode:  packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedName | packages.NeedFiles,
+		Dir:   packagePath,
+		Tests: false,
+	}
 
-	pkgs, err := parser.ParseDir(fset, packagePath, nil, parser.ParseComments)
+	pkgs, err := packages.Load(cfg, "./...")
+
 	if err != nil {
 		return nil
 	}
@@ -2849,7 +2891,7 @@ func (g *Generator) findEnumValuesInPackage(packagePath, typeName string) []stri
 	var enumValues []string
 
 	for _, pkg := range pkgs {
-		for _, file := range pkg.Files {
+		for _, file := range pkg.Syntax {
 			for _, decl := range file.Decls {
 				if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.CONST {
 					for _, spec := range genDecl.Specs {
@@ -2952,6 +2994,7 @@ func (g *Generator) resolveTypeAlias(typeName string, fileAst *ast.File) string 
 						if g.typeInfo == nil {
 							g.typeInfo = make(map[string]*TypeInfo)
 						}
+
 						g.typeInfo[typeName] = &TypeInfo{
 							UnderlyingType: underlyingType,
 							Description:    description,
@@ -2990,6 +3033,7 @@ func (g *Generator) resolveTypeAlias(typeName string, fileAst *ast.File) string 
 							if g.typeInfo == nil {
 								g.typeInfo = make(map[string]*TypeInfo)
 							}
+
 							g.typeInfo[typeName] = &TypeInfo{
 								UnderlyingType: underlyingType,
 								Description:    description,
@@ -3015,5 +3059,6 @@ func (g *Generator) findArrayTypeDescription(arrayType string) string {
 			return typeInfo.Description
 		}
 	}
+
 	return ""
 }

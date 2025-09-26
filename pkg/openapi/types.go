@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"regexp"
 	"strconv"
@@ -25,12 +26,12 @@ type OpenAPIMetadata struct {
 
 // Parameter represents an OpenAPI parameter
 type Parameter struct {
-	Name        string      `json:"name"`
-	In          string      `json:"in"` // "query", "header", "path", "cookie"
-	Description string      `json:"description,omitempty"`
-	Required    bool        `json:"required,omitempty"`
-	Schema      *Schema     `json:"schema,omitempty"`
-	Example     interface{} `json:"example,omitempty"`
+	Name        string  `json:"name"`
+	In          string  `json:"in"` // "query", "header", "path", "cookie"
+	Description string  `json:"description,omitempty"`
+	Required    bool    `json:"required,omitempty"`
+	Schema      *Schema `json:"schema,omitempty"`
+	Example     any     `json:"example,omitempty"`
 }
 
 // RequestBody represents an OpenAPI request body
@@ -42,9 +43,9 @@ type RequestBody struct {
 
 // MediaType represents an OpenAPI media type
 type MediaType struct {
-	Schema   *Schema                `json:"schema,omitempty"`
-	Example  interface{}            `json:"example,omitempty"`
-	Examples map[string]interface{} `json:"examples,omitempty"`
+	Schema   *Schema        `json:"schema,omitempty"`
+	Example  any            `json:"example,omitempty"`
+	Examples map[string]any `json:"examples,omitempty"`
 }
 
 // Response represents an OpenAPI response
@@ -56,10 +57,10 @@ type Response struct {
 
 // Header represents an OpenAPI header
 type Header struct {
-	Description string      `json:"description,omitempty"`
-	Required    bool        `json:"required,omitempty"`
-	Schema      *Schema     `json:"schema,omitempty"`
-	Example     interface{} `json:"example,omitempty"`
+	Description string  `json:"description,omitempty"`
+	Required    bool    `json:"required,omitempty"`
+	Schema      *Schema `json:"schema,omitempty"`
+	Example     any     `json:"example,omitempty"`
 }
 
 // Schema represents an OpenAPI schema
@@ -70,8 +71,8 @@ type Schema struct {
 	Properties  map[string]*Schema `json:"properties,omitempty"`
 	Items       *Schema            `json:"items,omitempty"`
 	Required    []string           `json:"required,omitempty"`
-	Example     interface{}        `json:"example,omitempty"`
-	Enum        []interface{}      `json:"enum,omitempty"`
+	Example     any                `json:"example,omitempty"`
+	Enum        []any              `json:"enum,omitempty"`
 	Ref         string             `json:"$ref,omitempty"`
 }
 
@@ -143,17 +144,17 @@ type PathItem struct {
 
 // Operation represents an OpenAPI operation
 type Operation struct {
-	Tags        []string               `json:"tags,omitempty"`
-	Summary     string                 `json:"summary,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	OperationID string                 `json:"operationId,omitempty"`
-	Parameters  []Parameter            `json:"parameters,omitempty"`
-	RequestBody *RequestBody           `json:"requestBody,omitempty"`
-	Responses   map[string]Response    `json:"responses"`
-	Callbacks   map[string]interface{} `json:"callbacks,omitempty"`
-	Deprecated  bool                   `json:"deprecated,omitempty"`
-	Security    []SecurityRequirement  `json:"security,omitempty"`
-	Servers     []Server               `json:"servers,omitempty"`
+	Tags        []string              `json:"tags,omitempty"`
+	Summary     string                `json:"summary,omitempty"`
+	Description string                `json:"description,omitempty"`
+	OperationID string                `json:"operationId,omitempty"`
+	Parameters  []Parameter           `json:"parameters,omitempty"`
+	RequestBody *RequestBody          `json:"requestBody,omitempty"`
+	Responses   map[string]Response   `json:"responses"`
+	Callbacks   map[string]any        `json:"callbacks,omitempty"`
+	Deprecated  bool                  `json:"deprecated,omitempty"`
+	Security    []SecurityRequirement `json:"security,omitempty"`
+	Servers     []Server              `json:"servers,omitempty"`
 }
 
 // Components represents OpenAPI components
@@ -161,12 +162,12 @@ type Components struct {
 	Schemas         map[string]*Schema        `json:"schemas,omitempty"`
 	Responses       map[string]Response       `json:"responses,omitempty"`
 	Parameters      map[string]Parameter      `json:"parameters,omitempty"`
-	Examples        map[string]interface{}    `json:"examples,omitempty"`
+	Examples        map[string]any            `json:"examples,omitempty"`
 	RequestBodies   map[string]RequestBody    `json:"requestBodies,omitempty"`
 	Headers         map[string]Header         `json:"headers,omitempty"`
 	SecuritySchemes map[string]SecurityScheme `json:"securitySchemes,omitempty"`
-	Links           map[string]interface{}    `json:"links,omitempty"`
-	Callbacks       map[string]interface{}    `json:"callbacks,omitempty"`
+	Links           map[string]any            `json:"links,omitempty"`
+	Callbacks       map[string]any            `json:"callbacks,omitempty"`
 }
 
 // SecurityScheme represents an OpenAPI security scheme
@@ -229,9 +230,7 @@ func (ra *RouteAnalyzer) AnalyzeHandler(handlerName string, sourceDir string) (m
 	// Try to find and parse the handler function
 	if handlerFile, err := ra.findHandlerFile(handlerName, sourceDir); err == nil {
 		if specificResponses, err := ra.parseHandlerResponses(handlerFile, handlerName); err == nil {
-			for code, response := range specificResponses {
-				responses[code] = response
-			}
+			maps.Copy(responses, specificResponses)
 		}
 	}
 
@@ -247,6 +246,7 @@ func (ra *RouteAnalyzer) AnalyzeHandler(handlerName string, sourceDir string) (m
 func (ra *RouteAnalyzer) findHandlerFile(handlerName string, sourceDir string) (string, error) {
 	// Look for controller files in the HTTP package
 	controllerFile := fmt.Sprintf("%s/pkg/http/%s.go", sourceDir, convertHandlerNameToFileName(handlerName))
+
 	return controllerFile, nil
 }
 
@@ -255,11 +255,14 @@ func convertHandlerNameToFileName(handlerName string) string {
 	// Convert "UserControllerIndex" to "user_controller"
 	// This is a simplified approach - you might need to enhance this
 	name := handlerName
+
 	if strings.HasSuffix(name, "Controller") || strings.Contains(name, "Controller") {
 		// Extract the base name before "Controller"
 		parts := strings.Split(name, "Controller")
+
 		if len(parts) > 0 {
 			base := parts[0]
+
 			// Convert CamelCase to snake_case
 			result := ""
 			for i, r := range base {
@@ -268,9 +271,11 @@ func convertHandlerNameToFileName(handlerName string) string {
 				}
 				result += strings.ToLower(string(r))
 			}
+
 			return result + "_controller"
 		}
 	}
+
 	return strings.ToLower(name)
 }
 
@@ -343,6 +348,7 @@ func (ra *RouteAnalyzer) parseHandlerResponses(filename string, handlerName stri
 			// Analyze the function body for response patterns
 			ra.analyzeFunctionBody(fn, responses)
 		}
+
 		return true
 	})
 
@@ -374,6 +380,7 @@ func (ra *RouteAnalyzer) analyzeFunctionBody(fn *ast.FuncDecl, responses map[str
 				}
 			}
 		}
+
 		return true
 	})
 }
@@ -383,6 +390,7 @@ func (ra *RouteAnalyzer) isResponseLiteral(cl *ast.CompositeLit) bool {
 	if ident, ok := cl.Type.(*ast.Ident); ok {
 		return ident.Name == "Response"
 	}
+
 	return false
 }
 
@@ -495,6 +503,7 @@ func parseStatusCode(statusCodeStr string) int {
 	if code, err := strconv.Atoi(statusCodeStr); err == nil {
 		return code
 	}
+
 	return 200
 }
 

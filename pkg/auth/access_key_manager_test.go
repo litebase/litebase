@@ -97,11 +97,6 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Error("Expected Create to return no error")
 			}
 
-			if accessKey == nil {
-				t.Fatal("Expected Create to return a non-nil AccessKey")
-				return
-			}
-
 			if accessKey.AccessKeyID == "" {
 				t.Error("Expected AccessKeyID to not be an empty string")
 			}
@@ -138,11 +133,6 @@ func TestAccessKeyManager(t *testing.T) {
 				t.Error("Expected Create to return no error")
 			}
 
-			if accessKey == nil {
-				t.Fatal("Expected Create to return a non-nil AccessKey")
-				return
-			}
-
 			accessKey2, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)
 
 			if err != nil {
@@ -166,11 +156,6 @@ func TestAccessKeyManager(t *testing.T) {
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
-			}
-
-			if accessKey == nil {
-				t.Fatal("Expected Create to return a non-nil AccessKey")
-				return
 			}
 
 			accessKey1, err := app.Auth.AccessKeyManager.Get(accessKey.AccessKeyID)

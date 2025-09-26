@@ -140,6 +140,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 			testFunc: func(t *testing.T, response Response) {
 				// Should have data array containing users
 				schema := response.Content["application/json"].Schema
+
 				if schema == nil {
 					t.Fatal("Expected schema to exist")
 					return
@@ -161,6 +162,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 						}
 
 						expectedUserProps := []string{"username", "statements", "created_at", "updated_at"}
+
 						for _, prop := range expectedUserProps {
 							if _, exists := dataSchema.Items.Properties[prop]; !exists {
 								t.Errorf("Expected user item property %s", prop)
@@ -180,6 +182,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 			testFunc: func(t *testing.T, response Response) {
 				// Should have SuccessResponse structure with UserResponse data
 				schema := response.Content["application/json"].Schema
+
 				if schema == nil {
 					t.Fatal("Expected schema to exist")
 				}
@@ -199,6 +202,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 					}
 
 					userResponseProps := []string{"username", "statements", "created_at", "updated_at"}
+
 					for _, prop := range userResponseProps {
 						if _, exists := dataSchema.Properties[prop]; !exists {
 							t.Errorf("Expected UserResponse property %s", prop)
@@ -215,6 +219,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 			testFunc: func(t *testing.T, response Response) {
 				// Should have SuccessResponse structure
 				schema := response.Content["application/json"].Schema
+
 				if schema == nil {
 					t.Fatal("Expected schema to exist")
 				}
@@ -292,6 +297,7 @@ func TestRequestBodySchemaExtraction(t *testing.T) {
 					}
 
 					schema := operation.RequestBody.Content["application/json"].Schema
+
 					if schema == nil {
 						t.Fatal("Expected request body schema to exist")
 					}
@@ -305,13 +311,8 @@ func TestRequestBodySchemaExtraction(t *testing.T) {
 
 					// Check required fields
 					for _, requiredField := range tc.requiredFields {
-						found := false
-						for _, reqField := range schema.Required {
-							if reqField == requiredField {
-								found = true
-								break
-							}
-						}
+						found := slices.Contains(schema.Required, requiredField)
+
 						if !found {
 							t.Errorf("Expected required field %s not found", requiredField)
 						}
@@ -343,14 +344,8 @@ func TestSecurityDetection(t *testing.T) {
 			}
 
 			expectedSecurity := "AccessKeyAuth"
-			found := false
 
-			for _, security := range methodAnalysis.Security {
-				if security == expectedSecurity {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(methodAnalysis.Security, expectedSecurity)
 
 			if !found {
 				t.Errorf("Expected security %s not found in method %s", expectedSecurity, methodName)
@@ -385,6 +380,7 @@ func TestParameterExtraction(t *testing.T) {
 			if pathMethods, exists := paths[tc.path]; exists {
 				if operation, exists := pathMethods[tc.method]; exists {
 					found := false
+
 					for _, param := range operation.Parameters {
 						if param.Name == "username" && param.In == "path" && param.Required {
 							found = true
@@ -428,9 +424,11 @@ func TestAnalyzerRobustness(t *testing.T) {
 
 	t.Run("NonMatchingControllerName", func(t *testing.T) {
 		analysis, err := analyzer.AnalyzeController("../http/user_controller.go", "NonExistentController")
+
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
+
 		// Should return analysis with no methods since controller name doesn't match
 		if len(analysis.Methods) != 0 {
 			t.Errorf("Expected no methods for non-matching controller name, got %d", len(analysis.Methods))
@@ -470,6 +468,7 @@ func TestFullOpenAPIGeneration(t *testing.T) {
 	var unmarshaled map[string]any
 
 	err = json.Unmarshal(jsonData, &unmarshaled)
+
 	if err != nil {
 		t.Fatalf("Generated JSON is invalid: %v", err)
 	}
@@ -539,6 +538,7 @@ func TestAnalyzerConsistencyAcrossControllers(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			analysis, err := analyzer.AnalyzeController(tc.controllerFile, tc.controllerName)
+
 			if err != nil {
 				t.Fatalf("Failed to analyze %s: %v", tc.name, err)
 			}
@@ -906,13 +906,16 @@ func TestStringTypeWithEnumDetection(t *testing.T) {
 
 	// Convert to JSON to test the final output
 	jsonData, err := json.MarshalIndent(spec, "", "  ")
+
 	if err != nil {
 		t.Fatalf("Failed to marshal OpenAPI spec: %v", err)
 	}
 
 	// Parse the JSON to verify enum schemas exist
 	var specMap map[string]any
+
 	err = json.Unmarshal(jsonData, &specMap)
+
 	if err != nil {
 		t.Fatalf("Failed to unmarshal OpenAPI spec: %v", err)
 	}
@@ -951,18 +954,22 @@ func TestStringTypeWithEnumDetection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.schemaName, func(t *testing.T) {
 			schemaAny, exists := schemas[tc.schemaName]
+
 			if !exists {
 				// Show what schemas are available for debugging
 				var availableSchemas []string
+
 				for name := range schemas {
 					availableSchemas = append(availableSchemas, name)
 				}
+
 				t.Errorf("Expected schema %s not found in OpenAPI spec. Available: %v",
 					tc.schemaName, availableSchemas)
 				return
 			}
 
 			schema, ok := schemaAny.(map[string]any)
+
 			if !ok {
 				t.Errorf("Schema %s is not a proper object", tc.schemaName)
 				return
@@ -971,6 +978,7 @@ func TestStringTypeWithEnumDetection(t *testing.T) {
 			// Check enum handling
 			if tc.shouldHaveEnum {
 				enumAny, hasEnum := schema["enum"]
+
 				if !hasEnum {
 					t.Errorf("Expected %s to have enum values", tc.schemaName)
 					return
@@ -978,12 +986,14 @@ func TestStringTypeWithEnumDetection(t *testing.T) {
 
 				enumSlice := enumAny.([]any)
 				enumStrings := make([]string, len(enumSlice))
+
 				for i, val := range enumSlice {
 					enumStrings[i] = val.(string)
 				}
 
 				// Verify all expected enums are present
 				enumMap := make(map[string]bool)
+
 				for _, val := range enumStrings {
 					enumMap[val] = true
 				}
@@ -1031,7 +1041,6 @@ func TestStringTypeWithEnumDetection(t *testing.T) {
 }
 
 // TestSchemaDeduplication tests that duplicate schemas are properly handled
-
 func TestSchemaDeduplication(t *testing.T) {
 	analyzer := NewGenerator()
 	_, err := analyzer.AnalyzeAllRoutes()
@@ -1074,12 +1083,14 @@ func TestSchemaDeduplication(t *testing.T) {
 				} else {
 					// Debug: print the actual schemas to understand why they have the same signature
 					t.Logf("Signature %s matched by schemas: %v", signature, schemaNames)
+
 					for _, schemaName := range schemaNames {
 						if schema, exists := registeredSchemas[schemaName]; exists {
 							t.Logf("Schema %s: Type=%s, Properties=%d, Required=%v",
 								schemaName, schema.Type, len(schema.Properties), schema.Required)
 						}
 					}
+
 					t.Errorf("Found unexpected duplicate schemas with signature %s: %v",
 						signature, schemaNames)
 				}
@@ -1117,9 +1128,11 @@ func createSchemaSignature(schema *Schema) string {
 
 	if len(schema.Properties) > 0 {
 		var propNames []string
+
 		for propName := range schema.Properties {
 			propNames = append(propNames, propName)
 		}
+
 		sort.Strings(propNames)
 		sig += "|props:" + strings.Join(propNames, ",")
 	}

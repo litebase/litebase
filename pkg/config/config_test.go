@@ -53,11 +53,6 @@ func TestGet(t *testing.T) {
 
 	c := config.NewConfig()
 
-	if c == nil {
-		t.Fatalf("The config instance was not created")
-		return
-	}
-
 	if c.EncryptionKey != encryptionKey {
 		t.Fatalf("The encryption key was not set")
 	}

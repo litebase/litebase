@@ -22,12 +22,6 @@ func TestRollbackLogger(t *testing.T) {
 				mock.DatabaseBranchID,
 			)
 
-			// Check if the page logger is not nil
-			if rollbackLogger == nil {
-				t.Fatal("Expected page logger to be not nil")
-				return
-			}
-
 			// Check if the page logger has the correct DatabaseID and BranchID
 			if rollbackLogger.DatabaseID != mock.DatabaseID {
 				t.Errorf("Expected DatabaseID to be %s, got %s", mock.DatabaseID, rollbackLogger.DatabaseID)

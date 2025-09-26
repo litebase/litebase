@@ -65,11 +65,6 @@ func TestDatabaseManager(t *testing.T) {
 				t.Errorf("Expected no error, got %v", err)
 			}
 
-			if database == nil {
-				t.Fatal("Expected non-nil DatabaseKey")
-				return
-			}
-
 			if database.Name != "test_CREATE" {
 				t.Errorf("Expected DatabaseID to be 'test_CREATE', got %s", database.DatabaseID)
 			}
@@ -88,11 +83,6 @@ func TestDatabaseManager(t *testing.T) {
 
 			if err != nil {
 				t.Fatalf("Expected no error, got %v", err)
-			}
-
-			if primaryBranch == nil {
-				t.Fatal("Expected non-nil primary branch")
-				return
 			}
 
 			fileSystem := dm.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID).FileSystem()

@@ -299,7 +299,6 @@ func TestUserManager(t *testing.T) {
 
 			if len(user.Statements) != 1 {
 				t.Errorf("Expected 1 statement, got %d", len(user.Statements))
-				return
 			}
 
 			if user.Statements[0].Effect != auth.StatementEffectDeny {

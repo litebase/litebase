@@ -21,34 +21,24 @@ func TestRollbackLogEntry(t *testing.T) {
 
 			entry := backups.NewRollbackLogEntry(1, timestamp, data)
 
-			if entry == nil {
-				t.Fatal("PageLogEntry is nil")
-				return
-			}
-
 			if entry.Version != backups.RollbackLogVersion {
 				t.Fatalf("Expected Version %d, got %d", backups.RollbackLogVersion, entry.Version)
-				return
 			}
 
 			if len(entry.Data) == 0 {
 				t.Fatal("Data is nil or empty")
-				return
 			}
 
 			if entry.PageNumber != 1 {
 				t.Fatalf("Expected PageNumber 1, got %d", entry.PageNumber)
-				return
 			}
 
 			if entry.Timestamp != timestamp {
 				t.Fatalf("Expected Timestamp %d, got %d", timestamp, entry.Timestamp)
-				return
 			}
 
 			if !bytes.Equal(entry.SHA256, computedSHA256[:]) {
 				t.Fatalf("Expected SHA256 %x, got %x", computedSHA256[:], entry.SHA256)
-				return
 			}
 		})
 

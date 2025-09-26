@@ -7,14 +7,8 @@ import (
 func TestNewFileSystemLock(t *testing.T) {
 	fsl := NewFileSystemLock()
 
-	if fsl == nil {
-		t.Fatal("Expected NewFileSystemLock to return a non-nil value")
-		return
-	}
-
 	if fsl.lock == nil {
 		t.Fatal("Expected lock map to be initialized")
-		return
 	}
 }
 
@@ -67,11 +61,6 @@ func TestFileSystemLock_AcquirePathReadLock(t *testing.T) {
 
 	lock := fsl.AcquirePathReadLock(path)
 
-	if lock == nil {
-		t.Fatal("Expected AcquirePathReadLock to return a non-nil lock")
-		return
-	}
-
 	if lock.count != 1 {
 		t.Errorf("Expected lock count to be 1, got %d", lock.count)
 	}
@@ -82,11 +71,6 @@ func TestFileSystemLock_AcquirePathWriteLock(t *testing.T) {
 	path := "/test/path/to/write"
 
 	lock := fsl.AcquirePathWriteLock(path)
-
-	if lock == nil {
-		t.Fatal("Expected AcquirePathWriteLock to return a non-nil lock")
-		return
-	}
 
 	if lock.count != 1 {
 		t.Errorf("Expected lock count to be 1, got %d", lock.count)
@@ -118,11 +102,6 @@ func TestFileSystemLock_GetLockEntry(t *testing.T) {
 
 	// Get lock entry for the path
 	lockEntry := fsl.GetLockEntry(path)
-
-	if lockEntry == nil {
-		t.Fatal("Expected GetLockEntry to return a non-nil lock entry")
-		return
-	}
 
 	if lockEntry.path != path {
 		t.Errorf("Expected lock entry path to be %s, got %s", path, lockEntry.path)
@@ -173,16 +152,10 @@ func TestFileSystemLock_ReleasePathReadLock(t *testing.T) {
 
 	lock := fsl.AcquirePathReadLock(path)
 
-	if lock == nil {
-		t.Fatal("Expected AcquirePathReadLock to return a non-nil lock")
-		return
-	}
-
 	fsl.ReleasePathReadLock(lock)
 
 	if lock.count != 0 {
 		t.Errorf("Expected lock count to be 0 after release, got %d", lock.count)
-		return
 	}
 }
 
@@ -191,11 +164,6 @@ func TestFileSystemLock_ReleasePathWriteLock(t *testing.T) {
 	path := "/test/path/to/release/write"
 
 	lock := fsl.AcquirePathWriteLock(path)
-
-	if lock == nil {
-		t.Fatal("Expected AcquirePathWriteLock to return a non-nil lock")
-		return
-	}
 
 	fsl.ReleasePathWriteLock(lock)
 

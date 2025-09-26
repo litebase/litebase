@@ -4,10 +4,9 @@ package openapi
 func GetSecuritySchemes() map[string]SecurityScheme {
 	return map[string]SecurityScheme{
 		"AccessKeyAuth": {
-			Type:         "http",
-			Scheme:       "Litebase-HMAC-SHA256",
-			Description:  "HMAC-SHA256 authentication using access id and secret",
-			BearerFormat: "Litebase-HMAC-SHA256",
+			Type:        "http",
+			Scheme:      "litebase-hmac-SHA256",
+			Description: "HMAC-SHA256 authentication using access id and secret",
 		},
 		"BasicAuth": {
 			Type:        "http",
@@ -15,10 +14,9 @@ func GetSecuritySchemes() map[string]SecurityScheme {
 			Description: "Basic authentication for root user",
 		},
 		"TokenAuth": {
-			Type:         "http",
-			Scheme:       "bearer",
-			Description:  "Bearer token authentication using temporary token",
-			BearerFormat: "JWT",
+			Type:        "http",
+			Scheme:      "bearer",
+			Description: "Bearer token authentication using temporary token",
 		},
 	}
 }

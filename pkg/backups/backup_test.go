@@ -164,11 +164,6 @@ func TestBackup(t *testing.T) {
 				t.Errorf("expected no error, got %v", err)
 			}
 
-			if nextBackup == nil {
-				t.Fatal("expected nextBackup to be non-nil")
-				return
-			}
-
 			if nextBackup.DatabaseID != mock.DatabaseID {
 				t.Errorf("expected %s, got %s", mock.DatabaseID, nextBackup.DatabaseID)
 			}

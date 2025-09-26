@@ -198,11 +198,6 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
 
-			if pageLogger == nil {
-				t.Fatal("Expected page logger to be created, but got nil")
-				return
-			}
-
 			// Verify initial state - CompactedAt should be zero
 			if !pageLogger.CompactedAt.IsZero() {
 				t.Fatal("Expected CompactedAt to be zero initially")
@@ -317,30 +312,28 @@ func TestPageLogger(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				firstCompactionErr = pageLogger.CompactionBarrier(func() error {
 					mutex.Lock()
 					compactionStarted = true
 					mutex.Unlock()
 
 					time.Sleep(20 * time.Millisecond) // Hold the barrier for longer
+
 					return nil
 				})
-			}()
+			})
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				time.Sleep(5 * time.Millisecond) // Start after first operation has begun
 
 				secondCompactionErr = pageLogger.CompactionBarrier(func() error {
 					// This should not be called since the barrier should fail
 					t.Error("Second compaction function should not have been called")
+
 					return nil
 				})
-			}()
+			})
 
 			wg.Wait()
 
@@ -396,6 +389,7 @@ func TestPageLogger(t *testing.T) {
 					mutex.Lock()
 					executionOrder = append(executionOrder, 2) // Mark completion of first operation
 					mutex.Unlock()
+
 					return nil
 				})
 
@@ -419,6 +413,7 @@ func TestPageLogger(t *testing.T) {
 					mutex.Lock()
 					executionOrder = append(executionOrder, 4) // Mark completion of second operation
 					mutex.Unlock()
+
 					return nil
 				})
 
@@ -712,11 +707,6 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
 
-			if pageLogger == nil {
-				t.Fatal("Expected page logger to be created, but got nil")
-				return
-			}
-
 			if !pageLogger.CompactedAt.IsZero() {
 				t.Fatal("Expected CompactedAt to be zero, but got non-zero value")
 			}
@@ -725,19 +715,16 @@ func TestPageLogger(t *testing.T) {
 
 			if _, err := pageLogger.Write(1, 1, make([]byte, 4096)); err != nil {
 				t.Fatalf("Failed to write page: %v", err)
-				return
 			}
 
 			if err := pageLogger.Compact(
 				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 			); err != nil {
 				t.Fatalf("Failed to compact page logger: %v", err)
-				return
 			}
 
 			if !pageLogger.CompactedAt.IsZero() {
 				t.Fatal("Expected CompactedAt to be zero, but got non-zero value")
-				return
 			}
 
 			pageLogger.Release(1)
