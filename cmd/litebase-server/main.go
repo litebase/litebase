@@ -5,12 +5,14 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/config"
+	httpRouter "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/server"
 
 	"github.com/joho/godotenv"
 
-	"net/http"
+	netHttp "net/http"
 	// _ "net/http/pprof"
 )
 
@@ -41,30 +43,53 @@ func main() {
 		slog.SetLogLoggerLevel(slog.LevelInfo)
 	}
 
-	server.NewServer(configInstance).Start(func(s *http.ServeMux) {
-		app = server.NewApp(configInstance, s)
+	srv := server.NewServer(configInstance)
 
-		app.Run()
-
-		start := app.Cluster.Node().Start()
-
-		select {
-		case <-start:
-		case <-time.After(1 * time.Second):
-			log.Fatal("Cluster node failed to start within 1 second")
-		}
-	}, func() { // Shutdown hook
-		if app == nil {
-			return
-		}
-
-		// Shutdown all connections
-		app.DatabaseManager.ConnectionManager().Shutdown()
-
-		err = app.Cluster.Node().Shutdown()
-
-		if err != nil {
-			slog.Error("Failed to shutdown cluster node", "error", err)
-		}
+	// IMPORTANT: Set up private port provider BEFORE creating the app
+	// so the node uses the private port from the very beginning
+	cluster.SetPrivatePortProvider(func() int {
+		return srv.GetPrivatePort()
 	})
+
+	srv.StartWithPrivateServer(
+		// Public server setup
+		func(s *netHttp.ServeMux) {
+			// At this point, the private port is already assigned in the server
+			// so our provider will return the correct port
+			app = server.NewApp(configInstance, s)
+			app.Run()
+
+			// Start the node immediately since it now has the correct address
+			start := app.Cluster.Node().Start()
+
+			select {
+			case <-start:
+				// Node started successfully
+			case <-time.After(1 * time.Second):
+				log.Fatal("Cluster node failed to start within 1 second")
+			}
+		},
+		// Private server setup
+		func(privateMux *netHttp.ServeMux) {
+			// Set up private routes
+			if app != nil {
+				router := httpRouter.NewRouter()
+				router.PrivateServer(app.Cluster, app.DatabaseManager, app.LogManager, privateMux)
+			}
+		},
+		// Shutdown hook
+		func() {
+			if app == nil {
+				return
+			}
+
+			// Shutdown all connections
+			app.DatabaseManager.ConnectionManager().Shutdown()
+
+			err = app.Cluster.Node().Shutdown()
+
+			if err != nil {
+				slog.Error("Failed to shutdown cluster node", "error", err)
+			}
+		})
 }

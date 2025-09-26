@@ -35,6 +35,8 @@ var (
 
 var addressProvider func() string
 var addressProviderMutex sync.Mutex
+var privatePortProvider func() int
+var privatePortProviderMutex sync.Mutex
 
 type Node struct {
 	address            string
@@ -128,9 +130,33 @@ func (n *Node) Address() (string, error) {
 		address = "127.0.0.1"
 	}
 
-	n.address = fmt.Sprintf("%s:%s", address, n.Cluster.Config.Port)
+	n.address = fmt.Sprintf("%s:%s", address, n.getPort())
 
 	return n.address, nil
+
+}
+
+// Get the port to use for the node address (private port if available, otherwise public port)
+func (n *Node) getPort() string {
+	// First check if we have a fixed private port configured (non-zero)
+	if n.Cluster.Config.PrivatePort != "" && n.Cluster.Config.PrivatePort != "0" {
+		return n.Cluster.Config.PrivatePort
+	}
+
+	// If private port is 0 (auto-assign), check if we have a provider for the actual assigned port
+	privatePortProviderMutex.Lock()
+	defer privatePortProviderMutex.Unlock()
+
+	if privatePortProvider != nil {
+		privatePort := privatePortProvider()
+
+		if privatePort > 0 {
+			return fmt.Sprintf("%d", privatePort)
+		}
+	}
+
+	// Fallback to public port
+	return n.Cluster.Config.Port
 
 }
 
@@ -140,7 +166,6 @@ func (n *Node) AddressPath() string {
 	address, _ := n.Address()
 
 	address = strings.ReplaceAll(address, ":", "_")
-
 	return fmt.Sprintf("%s%s", n.Cluster.NodePath(), address)
 }
 
@@ -771,6 +796,13 @@ func SetAddressProvider(provider func() string) {
 	defer addressProviderMutex.Unlock()
 
 	addressProvider = provider
+}
+
+func SetPrivatePortProvider(provider func() int) {
+	privatePortProviderMutex.Lock()
+	defer privatePortProviderMutex.Unlock()
+
+	privatePortProvider = provider
 }
 
 func (n *Node) setInternalHeaders(req *http.Request) error {
