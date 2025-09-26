@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/storage"
 )
@@ -253,4 +254,42 @@ func (s *Server) Shutdown(ctx context.Context) {
 			log.Printf("Private server Shutdown: %v", err)
 		}
 	}
+}
+
+// StartWithPrivateRouting starts the server with both public and private servers,
+// automatically setting up the private port provider for cluster communication.
+// This is the recommended way to start a Litebase server.
+func (s *Server) StartWithPrivateRouting(
+	publicSetup func(*http.ServeMux, *App),
+	privateSetup func(*http.ServeMux, *App),
+	shutdownHook func(*App),
+) {
+	var app *App
+
+	// Set up private port provider BEFORE creating the app
+	cluster.SetPrivatePortProvider(func() int {
+		return s.GetPrivatePort()
+	})
+
+	s.StartWithPrivateServer(
+		// Public server setup
+		func(publicMux *http.ServeMux) {
+			app = NewApp(s.config, publicMux)
+			if publicSetup != nil {
+				publicSetup(publicMux, app)
+			}
+		},
+		// Private server setup
+		func(privateMux *http.ServeMux) {
+			if privateSetup != nil && app != nil {
+				privateSetup(privateMux, app)
+			}
+		},
+		// Shutdown hook
+		func() {
+			if shutdownHook != nil && app != nil {
+				shutdownHook(app)
+			}
+		},
+	)
 }

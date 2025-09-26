@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/config"
 	httpRouter "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/server"
@@ -15,8 +14,6 @@ import (
 	netHttp "net/http"
 	// _ "net/http/pprof"
 )
-
-var app *server.App
 
 func main() {
 	// Debugging with pprof
@@ -45,21 +42,12 @@ func main() {
 
 	srv := server.NewServer(configInstance)
 
-	// IMPORTANT: Set up private port provider BEFORE creating the app
-	// so the node uses the private port from the very beginning
-	cluster.SetPrivatePortProvider(func() int {
-		return srv.GetPrivatePort()
-	})
-
-	srv.StartWithPrivateServer(
+	srv.StartWithPrivateRouting(
 		// Public server setup
-		func(s *netHttp.ServeMux) {
-			// At this point, the private port is already assigned in the server
-			// so our provider will return the correct port
-			app = server.NewApp(configInstance, s)
+		func(publicMux *netHttp.ServeMux, app *server.App) {
 			app.Run()
 
-			// Start the node immediately since it now has the correct address
+			// Start the node
 			start := app.Cluster.Node().Start()
 
 			select {
@@ -70,19 +58,13 @@ func main() {
 			}
 		},
 		// Private server setup
-		func(privateMux *netHttp.ServeMux) {
+		func(privateMux *netHttp.ServeMux, app *server.App) {
 			// Set up private routes
-			if app != nil {
-				router := httpRouter.NewRouter()
-				router.PrivateServer(app.Cluster, app.DatabaseManager, app.LogManager, privateMux)
-			}
+			router := httpRouter.NewRouter()
+			router.PrivateServer(app.Cluster, app.DatabaseManager, app.LogManager, privateMux)
 		},
 		// Shutdown hook
-		func() {
-			if app == nil {
-				return
-			}
-
+		func(app *server.App) {
 			// Shutdown all connections
 			app.DatabaseManager.ConnectionManager().Shutdown()
 
@@ -91,5 +73,6 @@ func main() {
 			if err != nil {
 				slog.Error("Failed to shutdown cluster node", "error", err)
 			}
-		})
+		},
+	)
 }
