@@ -8,6 +8,11 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
+type UserControllerIndexResponse struct {
+	Data []*auth.UserResponse `json:"users"`
+}
+
+// List all users
 func UserControllerIndex(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -32,12 +37,13 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 		})
 	}
 
-	return Response{
-		StatusCode: 200,
-		Body: map[string]any{
-			"data": userResponses,
+	return SuccessResponse(
+		"Users retrieved successfully",
+		&UserControllerIndexResponse{
+			Data: userResponses,
 		},
-	}
+		200,
+	)
 }
 
 type UserControllerStoreRequest struct {
@@ -47,6 +53,15 @@ type UserControllerStoreRequest struct {
 	Username    string           `json:"username" validate:"required"`
 }
 
+type UserControllerShowResponse struct {
+	Username    string           `json:"username" example:"admin" description:"The username"`
+	Description string           `json:"description" example:"Administrator user" description:"The user description"`
+	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
+	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+}
+
+// Create a new user
 func UserControllerShow(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -66,20 +81,27 @@ func UserControllerShow(ctx context.Context, request *Request) Response {
 		return NotFoundResponse(fmt.Errorf("the user was not found"))
 	}
 
-	userResponse := &auth.UserResponse{
-		Username:   user.Username,
-		Statements: user.Statements,
-		CreatedAt:  user.CreatedAt,
-		UpdatedAt:  user.UpdatedAt,
-	}
-
 	return SuccessResponse(
 		fmt.Sprintf("User '%s' retrieved successfully", username),
-		userResponse,
+		UserControllerShowResponse{
+			Username:   user.Username,
+			Statements: user.Statements,
+			CreatedAt:  user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:  user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		},
 		200,
 	)
 }
 
+type UserControllerStoreResponse struct {
+	Username    string           `json:"username"`
+	Description string           `json:"description"`
+	Statements  []auth.Statement `json:"statements"`
+	CreatedAt   string           `json:"created_at"`
+	UpdatedAt   string           `json:"updated_at"`
+}
+
+// Create a new user
 func UserControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -143,17 +165,15 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	// Convert the user to a response format
-	userResponse := &auth.UserResponse{
-		Username:   user.Username,
-		Statements: user.Statements,
-		CreatedAt:  user.CreatedAt,
-		UpdatedAt:  user.UpdatedAt,
-	}
-
 	return SuccessResponse(
 		"User created successfully",
-		userResponse,
+		UserControllerStoreResponse{
+			Username:    user.Username,
+			Description: user.Description,
+			Statements:  user.Statements,
+			CreatedAt:   user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:   user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		},
 		201,
 	)
 }
@@ -163,6 +183,15 @@ type UserControllerUpdateRequest struct {
 	Statements  []auth.Statement `json:"statements" validate:"required"`
 }
 
+type UserControllerUpdateResponse struct {
+	Username    string           `json:"username" example:"admin" description:"The username"`
+	Description string           `json:"description" example:"Administrator user" description:"The user description"`
+	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
+	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+}
+
+// Update an existing user
 func UserControllerUpdate(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -219,7 +248,10 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		fmt.Sprintf("User '%s' updated successfully", username),
-		user,
+		UserControllerUpdateResponse{
+			Username:   user.Username,
+			Statements: user.Statements,
+		},
 		200,
 	)
 }

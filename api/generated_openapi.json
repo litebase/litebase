@@ -359,7 +359,27 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/Statement"
+                            "type": "object",
+                            "properties": {
+                              "actions": {
+                                "type": "array",
+                                "description": "List of privileges/actions allowed or denied",
+                                "items": {
+                                  "$ref": "#/components/schemas/Privilege"
+                                }
+                              },
+                              "effect": {
+                                "$ref": "#/components/schemas/StatementEffect"
+                              },
+                              "resource": {
+                                "$ref": "#/components/schemas/Resource"
+                              }
+                            },
+                            "required": [
+                              "actions",
+                              "effect",
+                              "resource"
+                            ]
                           }
                         },
                         "updated_at": {
@@ -3948,6 +3968,7 @@
           "User"
         ],
         "summary": "List all users",
+        "description": "List all users",
         "operationId": "listUsers",
         "responses": {
           "200": {
@@ -3958,37 +3979,32 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "array",
-                      "description": "Array of resource objects",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "created_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Creation timestamp",
-                            "example": "2023-09-20T14:30:00Z"
-                          },
-                          "id": {
-                            "type": "string",
-                            "description": "Resource identifier",
-                            "example": "example_id"
-                          },
-                          "updated_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Last update timestamp",
-                            "example": "2023-09-20T14:30:00Z"
+                      "type": "object",
+                      "properties": {
+                        "users": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/UserResponse"
                           }
-                        },
-                        "required": [
-                          "created_at",
-                          "id",
-                          "updated_at"
-                        ]
+                        }
                       }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Users retrieved successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
                     }
-                  }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
@@ -4037,6 +4053,7 @@
           "User"
         ],
         "summary": "Create a new user",
+        "description": "Create a new user",
         "operationId": "createUser",
         "requestBody": {
           "description": "User creation data",
@@ -4103,22 +4120,39 @@
                       "type": "object",
                       "properties": {
                         "created_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Creation timestamp",
-                          "example": "2023-09-20T14:30:00Z"
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
                         },
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object"
+                            "type": "object",
+                            "properties": {
+                              "actions": {
+                                "type": "array",
+                                "description": "List of privileges/actions allowed or denied",
+                                "items": {
+                                  "$ref": "#/components/schemas/Privilege"
+                                }
+                              },
+                              "effect": {
+                                "$ref": "#/components/schemas/StatementEffect"
+                              },
+                              "resource": {
+                                "$ref": "#/components/schemas/Resource"
+                              }
+                            },
+                            "required": [
+                              "actions",
+                              "effect",
+                              "resource"
+                            ]
                           }
                         },
                         "updated_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Last update timestamp",
-                          "example": "2023-09-20T14:30:00Z"
+                          "type": "string"
                         },
                         "username": {
                           "type": "string"
@@ -4274,6 +4308,7 @@
           "User"
         ],
         "summary": "Show details of a specific user",
+        "description": "Create a new user",
         "operationId": "getUser",
         "responses": {
           "200": {
@@ -4287,22 +4322,39 @@
                       "type": "object",
                       "properties": {
                         "created_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Creation timestamp",
-                          "example": "2023-09-20T14:30:00Z"
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
                         },
                         "statements": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/Statement"
+                            "type": "object",
+                            "properties": {
+                              "actions": {
+                                "type": "array",
+                                "description": "List of privileges/actions allowed or denied",
+                                "items": {
+                                  "$ref": "#/components/schemas/Privilege"
+                                }
+                              },
+                              "effect": {
+                                "$ref": "#/components/schemas/StatementEffect"
+                              },
+                              "resource": {
+                                "$ref": "#/components/schemas/Resource"
+                              }
+                            },
+                            "required": [
+                              "actions",
+                              "effect",
+                              "resource"
+                            ]
                           }
                         },
                         "updated_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Last update timestamp",
-                          "example": "2023-09-20T14:30:00Z"
+                          "type": "string"
                         },
                         "username": {
                           "type": "string"
@@ -4399,6 +4451,7 @@
           "User"
         ],
         "summary": "Update an existing user",
+        "description": "Update an existing user",
         "operationId": "updateUser",
         "requestBody": {
           "description": "User update data",
@@ -4454,7 +4507,47 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "actions": {
+                                "type": "array",
+                                "description": "List of privileges/actions allowed or denied",
+                                "items": {
+                                  "$ref": "#/components/schemas/Privilege"
+                                }
+                              },
+                              "effect": {
+                                "$ref": "#/components/schemas/StatementEffect"
+                              },
+                              "resource": {
+                                "$ref": "#/components/schemas/Resource"
+                              }
+                            },
+                            "required": [
+                              "actions",
+                              "effect",
+                              "resource"
+                            ]
+                          }
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "username": {
+                          "type": "string"
+                        }
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -4900,6 +4993,38 @@
           "status"
         ]
       },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "description": {
+            "type": "string",
+            "description": "The user description"
+          },
+          "statements": {
+            "type": "array",
+            "description": "List of permission statements defining what the user can access",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "username": {
+            "type": "string",
+            "description": "The username"
+          }
+        }
+      },
       "ValidationErrorResponse": {
         "type": "object",
         "properties": {
@@ -4949,8 +5074,60 @@
   },
   "tags": [
     {
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
+    },
+    {
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
+    },
+    {
       "name": "ClusterStatus",
       "description": "Cluster status and health operations"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "Key",
+      "description": "Encryption key management"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "User",
+      "description": "User management operations"
+    },
+    {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
+    },
+    {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
     },
     {
       "name": "DatabaseRestore",
@@ -4961,64 +5138,12 @@
       "description": "Key activation operations"
     },
     {
-      "name": "Query",
-      "description": "SQL query execution operations"
-    },
-    {
-      "name": "DatabaseBackup",
-      "description": "Database backup operations"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
-    },
-    {
-      "name": "Key",
-      "description": "Encryption key management"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
-    },
-    {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
       "name": "QueryStream",
       "description": "Streaming query operations"
     },
     {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
-    },
-    {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
       "name": "Database",
       "description": "Database management operations"
-    },
-    {
-      "name": "User",
-      "description": "User management operations"
     }
   ]
 }
