@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -23,6 +24,24 @@ type Client struct {
 }
 
 type Errors map[string][]string
+
+// Error converts the Errors map into a single error by joining all individual
+// error messages.
+func (e Errors) Error() error {
+	var errs []error
+
+	for field, messages := range e {
+		for _, message := range messages {
+			errs = append(errs, fmt.Errorf("%s: %s", field, message))
+		}
+	}
+
+	if len(errs) == 0 {
+		return nil
+	}
+
+	return errors.Join(errs...)
+}
 
 func NewClient(configuration *config.CLIConfiguration) (*Client, error) {
 	c := &Client{
