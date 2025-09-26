@@ -23,7 +23,7 @@ func NewUserListCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			if data["data"] == nil {
+			if data["data"] == nil || data["data"].(map[string]any)["data"] == nil {
 				_, err = lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No users found")),
@@ -34,7 +34,7 @@ func NewUserListCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			rows := [][]string{}
 
-			users, ok := data["data"].([]any)
+			users, ok := data["data"].(map[string]any)["data"].([]any)
 
 			if !ok {
 				_, err = lipgloss.Fprint(

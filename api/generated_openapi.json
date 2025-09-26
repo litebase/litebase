@@ -359,27 +359,7 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "actions": {
-                                "type": "array",
-                                "description": "List of privileges/actions allowed or denied",
-                                "items": {
-                                  "$ref": "#/components/schemas/Privilege"
-                                }
-                              },
-                              "effect": {
-                                "$ref": "#/components/schemas/StatementEffect"
-                              },
-                              "resource": {
-                                "$ref": "#/components/schemas/Resource"
-                              }
-                            },
-                            "required": [
-                              "actions",
-                              "effect",
-                              "resource"
-                            ]
+                            "$ref": "#/components/schemas/Statement"
                           }
                         },
                         "updated_at": {
@@ -3981,7 +3961,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "users": {
+                        "data": {
                           "type": "array",
                           "items": {
                             "$ref": "#/components/schemas/UserResponse"
@@ -4895,6 +4875,11 @@
       "Privilege": {
         "type": "string",
         "enum": [
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update",
           "database:create",
           "database:list",
           "database:show",
@@ -4937,12 +4922,7 @@
           "token:delete",
           "token:list",
           "token:read",
-          "token:update",
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update"
+          "token:update"
         ]
       },
       "Resource": {
@@ -5010,7 +4990,27 @@
             "type": "array",
             "description": "List of permission statements defining what the user can access",
             "items": {
-              "$ref": "#/components/schemas/Statement"
+              "type": "object",
+              "properties": {
+                "actions": {
+                  "type": "array",
+                  "description": "List of privileges/actions allowed or denied",
+                  "items": {
+                    "$ref": "#/components/schemas/Privilege"
+                  }
+                },
+                "effect": {
+                  "$ref": "#/components/schemas/StatementEffect"
+                },
+                "resource": {
+                  "$ref": "#/components/schemas/Resource"
+                }
+              },
+              "required": [
+                "actions",
+                "effect",
+                "resource"
+              ]
             }
           },
           "updated_at": {
@@ -5074,72 +5074,72 @@
   },
   "tags": [
     {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
-    },
-    {
-      "name": "DatabaseBackup",
-      "description": "Database backup operations"
-    },
-    {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
-    },
-    {
-      "name": "Query",
-      "description": "SQL query execution operations"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "Key",
-      "description": "Encryption key management"
-    },
-    {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
+      "name": "KeyActivate",
+      "description": "Key activation operations"
     },
     {
       "name": "User",
       "description": "User management operations"
     },
     {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
-    },
-    {
       "name": "AccessKey",
       "description": "Access key management for authentication"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
     },
     {
       "name": "DatabaseRestore",
       "description": "Database restore operations"
     },
     {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
+      "name": "Query",
+      "description": "SQL query execution operations"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
+    },
+    {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "Key",
+      "description": "Encryption key management"
     },
     {
       "name": "QueryStream",
       "description": "Streaming query operations"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
     },
     {
       "name": "Database",

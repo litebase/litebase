@@ -38,7 +38,11 @@ func TestUserController(t *testing.T) {
 				t.Fatal("Response does not contain 'data' field")
 			}
 
-			users, ok := response["data"].([]any)
+			if _, ok := response["data"].(map[string]any)["data"]; !ok {
+				t.Fatal("Response does not contain 'data' field")
+			}
+
+			users, ok := response["data"].(map[string]any)["data"].([]any)
 
 			if !ok {
 				t.Fatal("Response 'data' field is not an array")

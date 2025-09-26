@@ -9,7 +9,7 @@ import (
 )
 
 type UserControllerIndexResponse struct {
-	Data []*auth.UserResponse `json:"users"`
+	Data []*auth.UserResponse `json:"data"`
 }
 
 // List all users
@@ -39,7 +39,7 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"Users retrieved successfully",
-		&UserControllerIndexResponse{
+		UserControllerIndexResponse{
 			Data: userResponses,
 		},
 		200,
