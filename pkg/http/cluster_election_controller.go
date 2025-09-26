@@ -33,19 +33,19 @@ func ClusterElectionControllerStore(ctx context.Context, request *Request) Respo
 	}
 
 	if request.cluster.Node().ID == input.(*ClusterElectionRequest).Candidate {
-		return BadRequestResponse(fmt.Errorf("Cannot start election, candidate is the same as the current node"))
+		return BadRequestResponse(fmt.Errorf("cannot start election, candidate is the same as the current node"))
 	}
 
 	// If the current node is the primary, the lease is up to date return error
 	if request.cluster.Node().IsPrimary() &&
 		request.cluster.Node().Lease().IsUpToDate() {
-		return BadRequestResponse(fmt.Errorf("Cannot start election, current node is primary and lease is up to date"))
+		return BadRequestResponse(fmt.Errorf("cannot start election, current node is primary and lease is up to date"))
 	}
 
 	// Check if the node has running elections in progress
 	if request.cluster.Node().Election != nil && request.cluster.Node().Election.Running() {
 		if request.cluster.Node().Election.Seed > input.(*ClusterElectionRequest).Seed {
-			return BadRequestResponse(fmt.Errorf("Election with a higher seed is already running"))
+			return BadRequestResponse(fmt.Errorf("election with a higher seed is already running"))
 		} else {
 			// Stop the current election and start a new one
 			request.cluster.Node().Election.Stop()
@@ -57,7 +57,7 @@ func ClusterElectionControllerStore(ctx context.Context, request *Request) Respo
 		hasRunningPeerElection := len(request.cluster.Node().PeerElections()) > 0
 
 		if hasRunningPeerElection {
-			return BadRequestResponse(fmt.Errorf("A peer election is already running"))
+			return BadRequestResponse(fmt.Errorf("a peer election is already running"))
 		}
 	}
 

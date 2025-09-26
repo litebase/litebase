@@ -78,9 +78,7 @@ func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	var response QueryLogIndexResponse
-
-	response = combineQueryMeticsByStep(metrics, step)
+	response := combineQueryMeticsByStep(metrics, step)
 
 	return SuccessResponse(
 		"Successfully retrieved query logs.",
@@ -92,7 +90,7 @@ func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 // Combine query metrics by step, which is the number of seconds to combine.
 // Start from the first metric and any subsequent metrics that are within the
 // step interval into a single metric.
-func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int64) []logs.QueryMetric {
+func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int64) QueryLogIndexResponse {
 	if step == 1 {
 		return metrics
 	}
