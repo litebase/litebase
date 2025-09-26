@@ -1,96 +1,60 @@
 name: OpenAPI Generator
 
 on:
-  pull_request:
-    paths:
-      - "pkg/http/**"
-      - "cmd/generate_open_api_spec/**"
-      - "pkg/openapi/**"
-    types: [opened, synchronize, reopened]
+    pull_request:
+        branches: [main, develop, openapi-generator]
+        paths:
+            - "pkg/http/**"
+            - "cmd/generate_open_api_spec/**"
+            - "pkg/openapi/**"
+        types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write
-  pull-requests: write
+    contents: write
+    pull-requests: write
 
 jobs:
-  generate-openapi:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check if relevant files changed
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data: files } = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
-            
-            const relevantPaths = ['pkg/http/', 'cmd/generate_open_api_spec/', 'pkg/openapi/'];
-            const changedRelevantFiles = files.filter(file => 
-              relevantPaths.some(path => file.filename.startsWith(path))
-            );
-            
-            console.log(`Total files changed: ${files.length}`);
-            console.log(`Relevant files changed: ${changedRelevantFiles.length}`);
-            
-            if (changedRelevantFiles.length > 0) {
-              console.log('Changed relevant files:');
-              changedRelevantFiles.forEach(file => console.log(`  - ${file.filename}`));
-            } else {
-              console.log('No relevant files changed, but workflow was triggered - proceeding anyway');
-            }
+    generate-openapi:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  fetch-depth: 0
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+            - name: Setup Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: 1.25
+                  cache-dependency-path: go.sum
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.25
-          cache-dependency-path: go.sum
+            - name: Generate OpenAPI specification
+              run: |
+                  echo "Generating OpenAPI specification..."
+                  go run cmd/generate_open_api_spec/main.go
 
-      - name: Generate OpenAPI specification
-        run: |
-          echo "Generating OpenAPI specification..."
-          go run cmd/generate_open_api_spec/main.go
+            - name: Check for changes
+              id: verify-changed-files
+              run: |
+                  if [ -n "$(git status --porcelain)" ]; then
+                    echo "changed=true" >> $GITHUB_OUTPUT
+                    echo "OpenAPI specification has been updated"
+                    git status --porcelain
+                  else
+                    echo "changed=false" >> $GITHUB_OUTPUT
+                    echo "No changes to OpenAPI specification"
+                  fi
 
-      - name: Check for changes
-        id: verify-changed-files
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "OpenAPI specification has been updated"
-            git status --porcelain
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No changes to OpenAPI specification"
-          fi
+            - name: Commit updated OpenAPI spec
+              if: steps.verify-changed-files.outputs.changed == 'true'
+              run: |
+                  git config --local user.email "action@github.com"
+                  git config --local user.name "GitHub Action"
+                  git add api/generated_openapi.json
+                  git commit -m "Auto-update OpenAPI specification
 
-      - name: Commit updated OpenAPI spec
-        if: steps.verify-changed-files.outputs.changed == 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add api/generated_openapi.json
-          git commit -m "Auto-update OpenAPI specification
-          
-          Generated from changes in pkg/http packages.
-          
-          Co-authored-by: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
-          git push origin HEAD:${{ github.head_ref }}
+                  Generated from changes in pkg/http packages.
 
-      - name: Comment on PR
-        if: steps.verify-changed-files.outputs.changed == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '🤖 **OpenAPI Specification Updated**\n\nI\'ve automatically regenerated the OpenAPI specification based on your changes to the HTTP controllers.\n\n📋 **Changes:**\n- Updated `api/generated_openapi.json`\n- Analyzed controller changes in `pkg/http/`\n\n✅ The specification is now up to date with your latest code changes!'
-            })
+                  Co-authored-by: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
+                  git push origin HEAD:${{ github.head_ref }}
