@@ -8,9 +8,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-type TokenControllerIndexResponse struct {
-	Data []auth.TokenResponse `json:"data"`
-}
+type TokenControllerIndexResponse []auth.TokenResponse
 
 // List all tokens
 func TokenControllerIndex(ctx context.Context, request *Request) Response {
@@ -29,7 +27,7 @@ func TokenControllerIndex(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(errors.New("tokens could not be retrieved"))
 	}
 
-	responseTokens := []auth.TokenResponse{}
+	var responseTokens TokenControllerIndexResponse
 
 	for _, token := range tokens {
 		responseTokens = append(responseTokens, *token.ToResponse())
@@ -37,7 +35,7 @@ func TokenControllerIndex(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"Tokens retrieved successfully",
-		TokenControllerIndexResponse{Data: responseTokens},
+		responseTokens,
 		200,
 	)
 }

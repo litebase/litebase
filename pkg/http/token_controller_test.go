@@ -137,7 +137,7 @@ func TestTokenController(t *testing.T) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
-			if response["data"] == nil || response["data"].(map[string]any) == nil || len(response["data"].(map[string]any)["data"].([]any)) == 0 {
+			if response["data"] == nil || len(response["data"].([]any)) == 0 {
 				t.Errorf("Expected at least one token in response, got: %v", response["data"])
 			}
 		})

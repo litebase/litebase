@@ -8,13 +8,13 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
+// Array of access keys for list operations
 type AccessKeyIndexResponse struct {
 	AccessKeyID string `json:"access_key_id"`
 }
 
-type AccessKeyListResponse struct {
-	Data []AccessKeyIndexResponse `json:"data"`
-}
+// Array of access keys for list operations
+type AccessKeyListResponse []AccessKeyIndexResponse
 
 // List all access keys
 func AccessKeyControllerIndex(ctx context.Context, request *Request) Response {
@@ -33,16 +33,12 @@ func AccessKeyControllerIndex(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(errors.New("access keys could not be retrieved"))
 	}
 
-	accessKeys := []AccessKeyIndexResponse{}
+	var response AccessKeyListResponse
 
 	for _, accessKeyId := range accessKeysIds {
-		accessKeys = append(accessKeys, AccessKeyIndexResponse{
+		response = append(response, AccessKeyIndexResponse{
 			AccessKeyID: accessKeyId,
 		})
-	}
-
-	response := AccessKeyListResponse{
-		Data: accessKeys,
 	}
 
 	return SuccessResponse("Access keys retrieved successfully", response, 200)

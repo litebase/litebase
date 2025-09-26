@@ -29,12 +29,14 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "access_keys": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/AccessKeyIndexResponse"
+                      "type": "array",
+                      "description": "Array of access keys for list operations",
+                      "items": {
+                        "type": "object",
+                        "description": "Array of access keys for list operations",
+                        "properties": {
+                          "access_key_id": {
+                            "type": "string"
                           }
                         }
                       }
@@ -3572,6 +3574,64 @@
         "description": "List all tokens",
         "operationId": "listTokens",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "description": "Array of auth.TokenResponse objects",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Creation timestamp",
+                            "example": "2023-09-20T14:30:00Z"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Resource identifier",
+                            "example": "example_id"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last update timestamp",
+                            "example": "2023-09-20T14:30:00Z"
+                          }
+                        },
+                        "required": [
+                          "created_at",
+                          "id",
+                          "updated_at"
+                        ]
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Tokens retrieved successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden - insufficient permissions",
             "content": {
@@ -3583,6 +3643,32 @@
                       "type": "string",
                       "description": "Error message",
                       "example": "Forbidden: insufficient permissions"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: internal server error"
                     },
                     "status": {
                       "type": "string",
@@ -3619,6 +3705,60 @@
         "description": "Create a new token",
         "operationId": "createToken",
         "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Creation timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        },
+                        "id": {
+                          "type": "string",
+                          "description": "Resource identifier",
+                          "example": "example_id"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last update timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        }
+                      },
+                      "required": [
+                        "created_at",
+                        "id",
+                        "updated_at"
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Token created successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request - invalid input",
             "content": {
@@ -3701,6 +3841,32 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: internal server error"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3725,6 +3891,76 @@
         "description": "Show details of a specific token",
         "operationId": "getToken",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "actions": {
+                                "type": "array",
+                                "description": "List of privileges/actions allowed or denied",
+                                "items": {
+                                  "$ref": "#/components/schemas/Privilege"
+                                }
+                              },
+                              "effect": {
+                                "$ref": "#/components/schemas/StatementEffect"
+                              },
+                              "resource": {
+                                "$ref": "#/components/schemas/Resource"
+                              }
+                            },
+                            "required": [
+                              "actions",
+                              "effect",
+                              "resource"
+                            ]
+                          }
+                        },
+                        "token_id": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Token retrieved successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden - insufficient permissions",
             "content": {
@@ -3736,6 +3972,32 @@
                       "type": "string",
                       "description": "Error message",
                       "example": "Forbidden: insufficient permissions"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: resource not found"
                     },
                     "status": {
                       "type": "string",
@@ -3798,6 +4060,102 @@
         "description": "Update an existing token",
         "operationId": "updateToken",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "actions": {
+                                "type": "array",
+                                "description": "List of privileges/actions allowed or denied",
+                                "items": {
+                                  "$ref": "#/components/schemas/Privilege"
+                                }
+                              },
+                              "effect": {
+                                "$ref": "#/components/schemas/StatementEffect"
+                              },
+                              "resource": {
+                                "$ref": "#/components/schemas/Resource"
+                              }
+                            },
+                            "required": [
+                              "actions",
+                              "effect",
+                              "resource"
+                            ]
+                          }
+                        },
+                        "token_id": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Token updated successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: invalid input provided"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden - insufficient permissions",
             "content": {
@@ -3809,6 +4167,32 @@
                       "type": "string",
                       "description": "Error message",
                       "example": "Forbidden: insufficient permissions"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: resource not found"
                     },
                     "status": {
                       "type": "string",
@@ -3902,6 +4286,32 @@
         "description": "Delete a token",
         "operationId": "deleteToken",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Token deleted successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden - insufficient permissions",
             "content": {
@@ -3913,6 +4323,58 @@
                       "type": "string",
                       "description": "Error message",
                       "example": "Forbidden: insufficient permissions"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: resource not found"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: internal server error"
                     },
                     "status": {
                       "type": "string",
@@ -3959,14 +4421,34 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/UserResponse"
+                      "type": "array",
+                      "description": "Array of users for list operations",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Creation timestamp",
+                            "example": "2023-09-20T14:30:00Z"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Resource identifier",
+                            "example": "example_id"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last update timestamp",
+                            "example": "2023-09-20T14:30:00Z"
                           }
-                        }
+                        },
+                        "required": [
+                          "created_at",
+                          "id",
+                          "updated_at"
+                        ]
                       }
                     },
                     "message": {
@@ -4845,14 +5327,6 @@
   },
   "components": {
     "schemas": {
-      "AccessKeyIndexResponse": {
-        "type": "object",
-        "properties": {
-          "access_key_id": {
-            "type": "string"
-          }
-        }
-      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
@@ -4880,6 +5354,11 @@
           "access-key:list",
           "access-key:read",
           "access-key:update",
+          "token:create",
+          "token:delete",
+          "token:list",
+          "token:read",
+          "token:update",
           "database:create",
           "database:list",
           "database:show",
@@ -4917,12 +5396,7 @@
           "database:savepoint",
           "database:select",
           "database:transaction",
-          "database:update",
-          "token:create",
-          "token:delete",
-          "token:list",
-          "token:read",
-          "token:update"
+          "database:update"
         ]
       },
       "Resource": {
@@ -4973,58 +5447,6 @@
           "status"
         ]
       },
-      "UserResponse": {
-        "type": "object",
-        "properties": {
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Creation timestamp",
-            "example": "2023-09-20T14:30:00Z"
-          },
-          "description": {
-            "type": "string",
-            "description": "The user description"
-          },
-          "statements": {
-            "type": "array",
-            "description": "List of permission statements defining what the user can access",
-            "items": {
-              "type": "object",
-              "properties": {
-                "actions": {
-                  "type": "array",
-                  "description": "List of privileges/actions allowed or denied",
-                  "items": {
-                    "$ref": "#/components/schemas/Privilege"
-                  }
-                },
-                "effect": {
-                  "$ref": "#/components/schemas/StatementEffect"
-                },
-                "resource": {
-                  "$ref": "#/components/schemas/Resource"
-                }
-              },
-              "required": [
-                "actions",
-                "effect",
-                "resource"
-              ]
-            }
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Last update timestamp",
-            "example": "2023-09-20T14:30:00Z"
-          },
-          "username": {
-            "type": "string",
-            "description": "The username"
-          }
-        }
-      },
       "ValidationErrorResponse": {
         "type": "object",
         "properties": {
@@ -5074,50 +5496,6 @@
   },
   "tags": [
     {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
-    },
-    {
-      "name": "User",
-      "description": "User management operations"
-    },
-    {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "DatabaseBackup",
-      "description": "Database backup operations"
-    },
-    {
-      "name": "DatabaseRestore",
-      "description": "Database restore operations"
-    },
-    {
-      "name": "Query",
-      "description": "SQL query execution operations"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
       "name": "Key",
       "description": "Encryption key management"
     },
@@ -5126,24 +5504,68 @@
       "description": "Streaming query operations"
     },
     {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
+      "name": "Token",
+      "description": "Token management for authentication"
     },
     {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
+    },
+    {
+      "name": "User",
+      "description": "User management operations"
+    },
+    {
+      "name": "Database",
+      "description": "Database management operations"
     },
     {
       "name": "ClusterStatus",
       "description": "Cluster status and health operations"
     },
     {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
       "name": "ClusterElection",
       "description": "Cluster leader election operations"
     },
     {
-      "name": "Database",
-      "description": "Database management operations"
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
+    },
+    {
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
     }
   ]
 }

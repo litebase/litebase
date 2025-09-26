@@ -33,11 +33,12 @@ type Generator struct {
 
 // TypeInfo holds information about a Go type for OpenAPI schema generation
 type TypeInfo struct {
-	Name        string
-	Type        string
-	Fields      map[string]*FieldInfo
-	Description string
-	Example     interface{}
+	Name           string
+	Type           string
+	Fields         map[string]*FieldInfo
+	Description    string
+	Example        interface{}
+	UnderlyingType string // For type aliases, stores the underlying type
 }
 
 // FieldInfo holds information about struct fields
@@ -263,7 +264,7 @@ func (g *Generator) AnalyzeControllerWithHandlers(filePath string, handlerNames 
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			// Check if this function is one of our target handlers
 			if handlerSet[fn.Name.Name] {
-				methodAnalysis := g.analyzeControllerMethod(fn, content)
+				methodAnalysis := g.analyzeControllerMethod(fn, content, node)
 				if methodAnalysis != nil {
 					analysis.Methods[fn.Name.Name] = methodAnalysis
 				}
@@ -918,7 +919,7 @@ func (g *Generator) AnalyzeController(filePath string, controllerName string) (*
 	ast.Inspect(node, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			if strings.Contains(fn.Name.Name, controllerName) {
-				methodAnalysis := g.analyzeControllerMethod(fn, content)
+				methodAnalysis := g.analyzeControllerMethod(fn, content, node)
 
 				if methodAnalysis != nil {
 					analysis.Methods[fn.Name.Name] = methodAnalysis
@@ -1085,7 +1086,7 @@ func (g *Generator) extractTypeString(expr ast.Expr) string {
 }
 
 // analyzeControllerMethod analyzes a controller method
-func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, source []byte) *MethodAnalysis {
+func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, source []byte, fileAst *ast.File) *MethodAnalysis {
 	methodName := fn.Name.Name
 
 	analysis := &MethodAnalysis{
@@ -1107,7 +1108,7 @@ func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, source []byte) *Me
 	g.analyzeMethodParameters(fn, analysis)
 
 	// First, build a variable type map for this method
-	variableTypes := g.buildVariableTypeMap(fn)
+	variableTypes := g.buildVariableTypeMap(fn, fileAst)
 
 	// Analyze function body for responses (with variable context)
 	g.analyzeMethodResponsesWithContext(fn, analysis, variableTypes)
@@ -1119,7 +1120,7 @@ func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, source []byte) *Me
 }
 
 // buildVariableTypeMap builds a map of variable names to their types within a function
-func (g *Generator) buildVariableTypeMap(fn *ast.FuncDecl) map[string]string {
+func (g *Generator) buildVariableTypeMap(fn *ast.FuncDecl, fileAst *ast.File) map[string]string {
 	variableTypes := make(map[string]string)
 
 	if fn.Body == nil {
@@ -1152,7 +1153,9 @@ func (g *Generator) buildVariableTypeMap(fn *ast.FuncDecl) map[string]string {
 
 							if valueSpec.Type != nil {
 								typeName := g.extractTypeString(valueSpec.Type)
-								variableTypes[varName] = typeName
+								// Resolve type alias to underlying type
+								resolvedTypeName := g.resolveTypeAlias(typeName, fileAst)
+								variableTypes[varName] = resolvedTypeName
 							} else if i < len(valueSpec.Values) {
 								// Infer type from value
 								if typeName := g.extractTypeFromExpression(valueSpec.Values[i]); typeName != "" {
@@ -1418,6 +1421,23 @@ func (g *Generator) extractSchemaFromExpressionWithContext(expr ast.Expr, variab
 
 // createSchemaForKnownType creates a schema for known types
 func (g *Generator) createSchemaForKnownType(typeName string) *Schema {
+	// Handle array types first
+	if strings.HasPrefix(typeName, "array[") && strings.HasSuffix(typeName, "]") {
+		elementType := strings.TrimSuffix(strings.TrimPrefix(typeName, "array["), "]")
+
+		// Try to find a description from the original type alias
+		description := g.findArrayTypeDescription(typeName)
+		if description == "" {
+			description = "Array of " + elementType + " objects"
+		}
+
+		return &Schema{
+			Type:        "array",
+			Description: description,
+			Items:       g.createSchemaForKnownType(elementType),
+		}
+	}
+
 	// First, check if we have type information from our analysis
 	if typeInfo, exists := g.typeInfo[typeName]; exists {
 		return g.convertTypeInfoToSchema(typeInfo)
@@ -2612,4 +2632,101 @@ func (g *Generator) applyValidationToSchema(fieldInfo *FieldInfo, schema *Schema
 			}
 		}
 	}
+}
+
+// resolveTypeAlias resolves a type alias to its underlying type
+func (g *Generator) resolveTypeAlias(typeName string, fileAst *ast.File) string {
+	// Check if we have type information that could resolve this alias
+	if typeInfo, exists := g.typeInfo[typeName]; exists {
+		if typeInfo.UnderlyingType != "" {
+			// If it's an alias to another type, recursively resolve
+			return g.resolveTypeAlias(typeInfo.UnderlyingType, fileAst)
+		}
+	}
+
+	// Look for the type alias definition in the current file first
+	if fileAst != nil {
+		for _, decl := range fileAst.Decls {
+			if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
+				for _, spec := range genDecl.Specs {
+					if typeSpec, ok := spec.(*ast.TypeSpec); ok && typeSpec.Name.Name == typeName {
+						// Found the type alias definition
+						underlyingType := g.extractTypeString(typeSpec.Type)
+
+						// Extract description from comments
+						var description string
+						if typeSpec.Doc != nil {
+							description = strings.TrimSpace(typeSpec.Doc.Text())
+						} else if genDecl.Doc != nil {
+							description = strings.TrimSpace(genDecl.Doc.Text())
+						}
+
+						// Cache the resolved type for future lookups
+						if g.typeInfo == nil {
+							g.typeInfo = make(map[string]*TypeInfo)
+						}
+						g.typeInfo[typeName] = &TypeInfo{
+							UnderlyingType: underlyingType,
+							Description:    description,
+						}
+
+						return underlyingType
+					}
+				}
+			}
+		}
+	}
+
+	// Look for the type alias definition in all cached package files
+	for _, packageFiles := range g.packageCache {
+		for _, fileAst := range packageFiles {
+			if fileAst == nil {
+				continue
+			}
+
+			for _, decl := range fileAst.Decls {
+				if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
+					for _, spec := range genDecl.Specs {
+						if typeSpec, ok := spec.(*ast.TypeSpec); ok && typeSpec.Name.Name == typeName {
+							// Found the type alias definition
+							underlyingType := g.extractTypeString(typeSpec.Type)
+
+							// Extract description from comments
+							var description string
+							if typeSpec.Doc != nil {
+								description = strings.TrimSpace(typeSpec.Doc.Text())
+							} else if genDecl.Doc != nil {
+								description = strings.TrimSpace(genDecl.Doc.Text())
+							}
+
+							// Cache the resolved type for future lookups
+							if g.typeInfo == nil {
+								g.typeInfo = make(map[string]*TypeInfo)
+							}
+							g.typeInfo[typeName] = &TypeInfo{
+								UnderlyingType: underlyingType,
+								Description:    description,
+							}
+
+							return underlyingType
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If we can't resolve it, return the original type name
+	return typeName
+}
+
+// findArrayTypeDescription looks for a description from the original type alias that resolves to an array
+func (g *Generator) findArrayTypeDescription(arrayType string) string {
+	// Look through all cached type info to find a type alias that resolves to this array type
+	for _, typeInfo := range g.typeInfo {
+		if typeInfo.UnderlyingType == arrayType && typeInfo.Description != "" {
+			return typeInfo.Description
+		}
+	}
+	return ""
 }

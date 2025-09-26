@@ -8,9 +8,8 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-type UserControllerIndexResponse struct {
-	Data []*auth.UserResponse `json:"data"`
-}
+// Array of users for list operations
+type UserControllerIndexResponse []auth.UserResponse
 
 // List all users
 func UserControllerIndex(ctx context.Context, request *Request) Response {
@@ -26,10 +25,10 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 
 	users := request.cluster.Auth.UserManager.All()
 
-	userResponses := make([]*auth.UserResponse, 0, len(users))
+	var response UserControllerIndexResponse
 
 	for _, user := range users {
-		userResponses = append(userResponses, &auth.UserResponse{
+		response = append(response, auth.UserResponse{
 			Username:   user.Username,
 			Statements: user.Statements,
 			CreatedAt:  user.CreatedAt,
@@ -39,9 +38,7 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"Users retrieved successfully",
-		UserControllerIndexResponse{
-			Data: userResponses,
-		},
+		response,
 		200,
 	)
 }
