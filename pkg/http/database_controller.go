@@ -113,10 +113,10 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"name.required":            "The name field is required.",
-		"name.validateFn":          "The name field can only contain alpha numeric characters, hyphens, or underscores.",
-		"primary_branch.lowercase": "The primary branch name must be lowercase.",
-		"primary_branch.alphanum":  "The primary branch name can only contain alphanumeric characters.",
+		"name.required":            "The name field is required",
+		"name.validateFn":          "The name field can only contain alpha numeric characters, hyphens, or underscores",
+		"primary_branch.lowercase": "The primary branch name must be lowercase",
+		"primary_branch.alphanum":  "The primary branch name can only contain alphanumeric characters",
 	})
 
 	if validationErrors != nil {

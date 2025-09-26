@@ -52,9 +52,9 @@ func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Respo
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"target_database.required":        "The target database field is required.",
-		"target_database_branch.required": "The target database branch field is required.",
-		"timestamp.required":              "The timestamp field is required.",
+		"target_database.required":        "The target database field is required",
+		"target_database_branch.required": "The target database branch field is required",
+		"timestamp.required":              "The timestamp field is required",
 	})
 
 	if validationErrors != nil {

@@ -31,7 +31,7 @@ func KeyActivateControllerStore(ctx context.Context, request *Request) Response 
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"encryption_key.required": "The encryption key field is required.",
+		"encryption_key.required": "The encryption key field is required",
 	})
 
 	if validationErrors != nil {

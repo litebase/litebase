@@ -77,14 +77,14 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 
 	// Validate the input
 	validationErrors := request.Validate(queries, map[string]string{
-		"queries.*.id.required":                        "The query ID field is required.",
-		"queries.*.parameters.required":                "The parameters field is required.",
-		"queries.*.parameters.*.type.required":         "The parameter type field is required.",
-		"queries.*.parameters.*.type.oneof":            "The parameter type field must be one of the allowed values.",
-		"queries.*.parameters.*.value.required":        "The parameter value field is required.",
-		"queries.*.parameters.*.value.required_unless": "The parameter value field is required unless the type is NULL.",
-		"queries.*.statement.required":                 "The SQL statement field is required.",
-		"queries.*.transaction_id.required":            "The transaction ID field is required.",
+		"queries.*.id.required":                        "The query ID field is required",
+		"queries.*.parameters.required":                "The parameters field is required",
+		"queries.*.parameters.*.type.required":         "The parameter type field is required",
+		"queries.*.parameters.*.type.oneof":            "The parameter type field must be one of the allowed values",
+		"queries.*.parameters.*.value.required":        "The parameter value field is required",
+		"queries.*.parameters.*.value.required_unless": "The parameter value field is required unless the type is NULL",
+		"queries.*.statement.required":                 "The SQL statement field is required",
+		"queries.*.transaction_id.required":            "The transaction ID field is required",
 	})
 
 	if validationErrors != nil {
