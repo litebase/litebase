@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -39,7 +40,13 @@ func findAvailablePort(startPort int) (int, error) {
 			return 0, err
 		}
 
-		defer listener.Close()
+		defer func() {
+			err := listener.Close()
+
+			if err != nil {
+				slog.Error("Failed to close listener", "error", err)
+			}
+		}()
 
 		addr := listener.Addr().(*net.TCPAddr)
 
@@ -51,7 +58,12 @@ func findAvailablePort(startPort int) (int, error) {
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 
 		if err == nil {
-			listener.Close()
+			err := listener.Close()
+
+			if err != nil {
+				return 0, err
+			}
+
 			return port, nil
 		}
 	}
