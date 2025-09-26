@@ -15,17 +15,17 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
-            
+
           # macOS Intel
           - os: macos-latest
             platform: darwin
             arch: x86_64
-            
+
           # macOS Apple Silicon
           - os: macos-latest
             platform: darwin
             arch: arm64
-            
+
           # Windows x86_64
           - os: windows-latest
             platform: windows
@@ -60,7 +60,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           echo "Verifying installation..."
-          
+
           # Check if litebase is installed and accessible
           if command -v litebase >/dev/null 2>&1; then
             echo "✓ litebase found in PATH"
@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           echo "Verifying installation..."
-          
+
           # Check if litebase is installed and accessible
           if command -v litebase >/dev/null 2>&1; then
             echo "✓ litebase found in PATH"
@@ -109,19 +109,19 @@ jobs:
           echo "Expected platform: ${{ matrix.platform }}"
           echo "Expected architecture: ${{ matrix.arch }}"
           echo ""
-          
+
           echo "Detected by system:"
           echo "uname -s: $(uname -s)"
           echo "uname -m: $(uname -m)"
           echo ""
-          
+
           # Verify the script detects the correct platform
           echo "Testing platform detection in script..."
-          
+
           # Extract platform detection logic from install script
           OS="$(uname -s)"
           ARCH="$(uname -m)"
-          
+
           case "$OS" in
               Linux*)
                   OS_TYPE="linux"
@@ -154,17 +154,17 @@ jobs:
                   ARCH_TYPE="unknown"
                   ;;
           esac
-          
+
           echo "Script detected OS: $OS_TYPE"
           echo "Script detected Arch: $ARCH_TYPE"
-          
+
           # Verify detection matches expectations
           if [ "$OS_TYPE" = "${{ matrix.platform }}" ]; then
             echo "✓ Platform detection correct"
           else
             echo "✗ Platform detection mismatch: expected ${{ matrix.platform }}, got $OS_TYPE"
           fi
-          
+
           if [ "$ARCH_TYPE" = "${{ matrix.arch }}" ]; then
             echo "✓ Architecture detection correct"
           else
@@ -175,7 +175,7 @@ jobs:
         if: always() && runner.os != 'Windows'
         run: |
           echo "Cleaning up..."
-          
+
           # Remove installed binary if it exists
           if [ -f "/usr/local/bin/litebase" ]; then
             sudo rm -f /usr/local/bin/litebase || true
@@ -187,12 +187,12 @@ jobs:
         shell: bash
         run: |
           echo "Cleaning up..."
-          
+
           # Remove installed binary if it exists
           if [ -f "/c/Program Files/litebase/litebase.exe" ]; then
             rm -f "/c/Program Files/litebase/litebase.exe" || true
             echo "Removed /c/Program Files/litebase/litebase.exe"
           fi
-          
+
           # Try to remove the directory if empty
           rmdir "/c/Program Files/litebase" 2>/dev/null || true
