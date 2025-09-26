@@ -1523,7 +1523,7 @@ func TestTieredFileSystemDriver(t *testing.T) {
 								0600,
 							)
 							f.Closed = true
-							f.UpdatedAt = now.Add(-time.Minute * 30)
+							f.SetUpdatedAt(now.Add(-time.Minute * 30))
 							f.CreatedAt = now.Add(-time.Hour * 2)
 							return f
 						}(),
@@ -1543,7 +1543,7 @@ func TestTieredFileSystemDriver(t *testing.T) {
 								0600,
 							)
 							f.Closed = false
-							f.UpdatedAt = now.Add(-time.Hour * 25)
+							f.SetUpdatedAt(now.Add(-time.Hour * 25))
 							f.CreatedAt = now.Add(-time.Hour * 26)
 							return f
 						}(),
@@ -1627,6 +1627,11 @@ func TestTieredFileSystemDriver(t *testing.T) {
 			}
 
 			if _, err := tieredFile.Write([]byte("test")); err != nil {
+				t.Error(err)
+			}
+
+			// Ensure the data is synced to the underlying filesystem before the flush process reads it
+			if err := tieredFile.Sync(); err != nil {
 				t.Error(err)
 			}
 

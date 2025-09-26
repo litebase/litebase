@@ -74,7 +74,7 @@ require (
 	go.shabbyrobe.org/gocovmerge v0.0.0-20230507111327-fa4f82cfbf4d // indirect
 	golang.org/x/net v0.44.0 // indirect
 	golang.org/x/term v0.35.0 // indirect
-	golang.org/x/tools v0.37.0 // indirect
+	golang.org/x/tools v0.37.0
 )
 
 require (
@@ -104,5 +104,5 @@ require (
 	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/text v0.29.0
 )
