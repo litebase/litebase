@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -31,7 +32,7 @@ func TestInternalMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res := appHttp.Internal(req)
+		_, res := appHttp.Internal(context.Background(), req)
 
 		if res.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("Expected status code %d, got %d", http.StatusUnauthorized, res.StatusCode)
@@ -58,7 +59,7 @@ func TestInternalMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res = appHttp.Internal(req)
+		_, res = appHttp.Internal(context.Background(), req)
 
 		if res.StatusCode != 0 {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)

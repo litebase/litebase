@@ -20,10 +20,6 @@ func TestAccessKey(t *testing.T) {
 				[]auth.Statement{},
 			)
 
-			if accessKey == nil {
-				t.Fatal("Expected accessKey to be non-nil")
-			}
-
 			if accessKey.AccessKeyID != "accessKeyId" {
 				t.Errorf("Expected accessKeyId to be 'accessKeyId', got %s", accessKey.AccessKeyID)
 			}
@@ -134,10 +130,6 @@ func TestAccessKey(t *testing.T) {
 
 			if err != nil {
 				t.Error(err)
-			}
-
-			if accessKey == nil {
-				t.Fatal("Expected accessKey to be non-nil")
 			}
 
 			if accessKey.Description != "Updated Description" {

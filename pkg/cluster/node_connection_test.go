@@ -13,10 +13,6 @@ func TestNewNodeConnection(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		connection := cluster.NewNodeConnection(app.Cluster.Node(), "localhost:8080")
 
-		if connection == nil {
-			t.Fatalf("expected connection to be not nil")
-		}
-
 		if connection.Address != "localhost:8080" {
 			t.Errorf("expected address to be localhost:8080, got %s", connection.Address)
 		}

@@ -1,8 +1,11 @@
 package http
 
-func HealthCheckController(request *Request) Response {
-	return Response{
-		StatusCode: 200,
-		Body:       nil,
-	}
+import "context"
+
+func HealthCheckControllerShow(ctx context.Context, request *Request) Response {
+	return SuccessResponse(
+		"Service is healthy.",
+		nil,
+		200,
+	)
 }

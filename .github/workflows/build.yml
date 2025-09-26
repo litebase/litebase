@@ -1,23 +1,23 @@
-name: 'build'
+name: "build"
 
 on:
   workflow_call:
     inputs:
       project_name:
-        description: 'Project name for binary'
+        description: "Project name for binary"
         required: false
         type: string
-        default: 'litebase'
+        default: "litebase"
       build_target:
-        description: 'Build target path'
+        description: "Build target path"
         required: false
         type: string
-        default: './cmd/litebase'
+        default: "./cmd/litebase"
       go_version:
-        description: 'Go version to use'
+        description: "Go version to use"
         required: false
         type: string
-        default: '1.25'
+        default: "1.25"
     outputs:
       version:
         description: 'Version extracted from tag or "dev"'
@@ -30,31 +30,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-            - goos: linux
-              goarch: amd64
-              runner: ubuntu-latest
-              cc: gcc
-              cxx: g++
-            - goos: linux
-              goarch: arm64
-              runner: ubuntu-latest
-              cc: aarch64-linux-gnu-gcc
-              cxx: aarch64-linux-gnu-g++
-            - goos: darwin
-              goarch: amd64
-              runner: macos-latest
-              cc: clang
-              cxx: clang++
-            - goos: darwin
-              goarch: arm64
-              runner: macos-latest
-              cc: clang
-              cxx: clang++
-            - goos: windows
-              goarch: amd64
-              runner: windows-latest
-              cc: gcc
-              cxx: g++
+          - goos: linux
+            goarch: amd64
+            runner: ubuntu-latest
+            cc: gcc
+            cxx: g++
+          - goos: linux
+            goarch: arm64
+            runner: ubuntu-latest
+            cc: aarch64-linux-gnu-gcc
+            cxx: aarch64-linux-gnu-g++
+          - goos: darwin
+            goarch: amd64
+            runner: macos-latest
+            cc: clang
+            cxx: clang++
+          - goos: darwin
+            goarch: arm64
+            runner: macos-latest
+            cc: clang
+            cxx: clang++
+          - goos: windows
+            goarch: amd64
+            runner: windows-latest
+            cc: gcc
+            cxx: g++
 
     outputs:
       version: ${{ steps.build.outputs.version }}

@@ -4,48 +4,48 @@ on:
   workflow_call:
     inputs:
       project_name:
-        description: 'Name of the project'
+        description: "Name of the project"
         required: true
         type: string
     secrets:
       APPLE_CERTIFICATES:
-        description: 'Apple certificates for code signing'
+        description: "Apple certificates for code signing"
         required: false
       APPLE_CERTIFICATES_PASSWORD:
-        description: 'Password for Apple certificates'
+        description: "Password for Apple certificates"
         required: false
       APPLE_ID_USERNAME:
-        description: 'Apple ID username for notarization'
+        description: "Apple ID username for notarization"
         required: false
       APPLE_ID_APP_SPECIFIC_PASSWORD:
-        description: 'Apple ID app-specific password for notarization'
+        description: "Apple ID app-specific password for notarization"
         required: false
       APPLE_TEAM_ID:
-        description: 'Apple Team ID for notarization'
+        description: "Apple Team ID for notarization"
         required: false
       AZURE_CERTIFICATE_PROFILE_NAME:
-        description: 'Azure Trusted Signing certificate profile name'
+        description: "Azure Trusted Signing certificate profile name"
         required: false
       AZURE_CLIENT_ID:
-        description: 'Azure client ID for Trusted Signing'
+        description: "Azure client ID for Trusted Signing"
         required: false
       AZURE_CLIENT_SECRET:
-        description: 'Azure client secret for Trusted Signing'
+        description: "Azure client secret for Trusted Signing"
         required: false
       AZURE_TENANT_ID:
-        description: 'Azure tenant ID for Trusted Signing'
+        description: "Azure tenant ID for Trusted Signing"
         required: false
       AZURE_TRUSTED_SIGNING_ACCOUNT_NAME:
-        description: 'Azure Trusted Signing account name'
+        description: "Azure Trusted Signing account name"
         required: false
       AZURE_TRUSTED_SIGNING_ENDPOINT:
-        description: 'Azure Trusted Signing endpoint URL'
+        description: "Azure Trusted Signing endpoint URL"
         required: false
       GPG_PRIVATE_KEY:
-        description: 'GPG private key for Linux signing'
+        description: "GPG private key for Linux signing"
         required: false
       GPG_PASSPHRASE:
-        description: 'GPG passphrase for Linux signing'
+        description: "GPG passphrase for Linux signing"
         required: false
 
 jobs:
@@ -55,21 +55,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-            - goos: linux
-              goarch: amd64
-              runner: ubuntu-latest
-            - goos: linux
-              goarch: arm64
-              runner: ubuntu-latest
-            - goos: darwin
-              goarch: amd64
-              runner: macos-latest
-            - goos: darwin
-              goarch: arm64
-              runner: macos-latest
-            - goos: windows
-              goarch: amd64
-              runner: windows-latest
+          - goos: linux
+            goarch: amd64
+            runner: ubuntu-latest
+          - goos: linux
+            goarch: arm64
+            runner: ubuntu-latest
+          - goos: darwin
+            goarch: amd64
+            runner: macos-latest
+          - goos: darwin
+            goarch: arm64
+            runner: macos-latest
+          - goos: windows
+            goarch: amd64
+            runner: windows-latest
 
     steps:
       - name: Checkout code

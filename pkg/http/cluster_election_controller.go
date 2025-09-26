@@ -1,6 +1,8 @@
 package http
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster"
@@ -12,16 +14,12 @@ type ClusterElectionRequest struct {
 	StartedAt int64  `json:"started_at" validate:"required"`
 }
 
-func ClusterElectionController(request *Request) Response {
+// Handle a cluster election request
+func ClusterElectionControllerStore(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&ClusterElectionRequest{})
 
 	if err != nil {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]any{
-				"message": err,
-			},
-		}
+		return BadRequestResponse(err)
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
@@ -35,34 +33,19 @@ func ClusterElectionController(request *Request) Response {
 	}
 
 	if request.cluster.Node().ID == input.(*ClusterElectionRequest).Candidate {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]any{
-				"message": "Cannot start election, candidate is the same as the current node",
-			},
-		}
+		return BadRequestResponse(fmt.Errorf("cannot start election, candidate is the same as the current node"))
 	}
 
 	// If the current node is the primary, the lease is up to date return error
 	if request.cluster.Node().IsPrimary() &&
 		request.cluster.Node().Lease().IsUpToDate() {
-		return Response{
-			StatusCode: 400,
-			Body: map[string]any{
-				"message": "Cannot start election, current node is primary and lease is up to date",
-			},
-		}
+		return BadRequestResponse(fmt.Errorf("cannot start election, current node is primary and lease is up to date"))
 	}
 
 	// Check if the node has running elections in progress
 	if request.cluster.Node().Election != nil && request.cluster.Node().Election.Running() {
 		if request.cluster.Node().Election.Seed > input.(*ClusterElectionRequest).Seed {
-			return Response{
-				StatusCode: 400,
-				Body: map[string]any{
-					"message": "Election with a higher seed is already running",
-				},
-			}
+			return BadRequestResponse(fmt.Errorf("election with a higher seed is already running"))
 		} else {
 			// Stop the current election and start a new one
 			request.cluster.Node().Election.Stop()
@@ -74,12 +57,7 @@ func ClusterElectionController(request *Request) Response {
 		hasRunningPeerElection := len(request.cluster.Node().PeerElections()) > 0
 
 		if hasRunningPeerElection {
-			return Response{
-				StatusCode: 400,
-				Body: map[string]any{
-					"message": "A peer election is already running",
-				},
-			}
+			return BadRequestResponse(fmt.Errorf("a peer election is already running"))
 		}
 	}
 
@@ -89,14 +67,8 @@ func ClusterElectionController(request *Request) Response {
 		StartedAt: time.Unix(0, input.(*ClusterElectionRequest).StartedAt).UTC(),
 	})
 
-	return Response{
-		StatusCode: 200,
-		Body: map[string]any{
-			"message": "Election acknowledged",
-			"data": map[string]any{
-				"candidate": input.(*ClusterElectionRequest).Candidate,
-				"voted_at":  time.Now().UTC().Unix(),
-			},
-		},
-	}
+	return SuccessResponse("Election acknowledged", map[string]any{
+		"candidate": input.(*ClusterElectionRequest).Candidate,
+		"voted_at":  time.Now().UTC().Unix(),
+	}, 200)
 }

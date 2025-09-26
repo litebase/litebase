@@ -23,7 +23,7 @@ func NewAccessKeyListCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			if data["data"] == nil {
+			if data["data"] == nil || len(data["data"].([]any)) == 0 {
 				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No access keys found")),

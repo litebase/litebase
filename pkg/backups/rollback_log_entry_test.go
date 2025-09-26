@@ -21,10 +21,6 @@ func TestRollbackLogEntry(t *testing.T) {
 
 			entry := backups.NewRollbackLogEntry(1, timestamp, data)
 
-			if entry == nil {
-				t.Fatal("PageLogEntry is nil")
-			}
-
 			if entry.Version != backups.RollbackLogVersion {
 				t.Fatalf("Expected Version %d, got %d", backups.RollbackLogVersion, entry.Version)
 			}

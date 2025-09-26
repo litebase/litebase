@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
@@ -79,13 +80,15 @@ type TieredFile struct {
 	// used in correlation with the CreatedAt and writtenAt values to determine
 	// how long the File has been open and if the File should be written to
 	// durable storage.
-	UpdatedAt time.Time
+	// Stored as atomic int64 nanoseconds since Unix epoch
+	updatedAtNanos int64
 
 	// WrittenAt stores the time the File was last written to durable storage.
 	// This value will be used in correlation with the CreatedAt and updatedAt
 	// values to determine how long the File has been open and if the File
 	// should be written to durable storage.
-	WrittenAt time.Time
+	// Stored as atomic int64 nanoseconds since Unix epoch
+	writtenAtNanos int64
 }
 
 // Create a new instance of a TieredFile.
@@ -104,10 +107,40 @@ func NewTieredFile(
 		position:               0,
 		syncMutex:              &sync.Mutex{},
 		TieredFileSystemDriver: tieredFileSystemDriver,
-		UpdatedAt:              time.Time{},
-		WrittenAt:              time.Time{},
+		updatedAtNanos:         0, // Initialize to zero
+		writtenAtNanos:         0, // Initialize to zero
 		descriptors:            make(map[string]*TieredFileDescriptor),
 	}
+}
+
+// GetUpdatedAt safely retrieves the UpdatedAt timestamp
+func (f *TieredFile) GetUpdatedAt() time.Time {
+	nanos := atomic.LoadInt64(&f.updatedAtNanos)
+
+	if nanos == 0 {
+		return time.Time{}
+	}
+
+	return time.Unix(0, nanos)
+}
+
+// GetWrittenAt safely retrieves the WrittenAt timestamp
+func (f *TieredFile) GetWrittenAt() time.Time {
+	nanos := atomic.LoadInt64(&f.writtenAtNanos)
+	if nanos == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, nanos)
+}
+
+// SetUpdatedAt safely sets the UpdatedAt timestamp (for testing purposes)
+func (f *TieredFile) SetUpdatedAt(t time.Time) {
+	atomic.StoreInt64(&f.updatedAtNanos, t.UnixNano())
+}
+
+// SetWrittenAt safely sets the WrittenAt timestamp (for testing purposes)
+func (f *TieredFile) SetWrittenAt(t time.Time) {
+	atomic.StoreInt64(&f.writtenAtNanos, t.UnixNano())
 }
 
 // Get access to the tiered file with the sync mutex locked. This is useful
@@ -217,7 +250,7 @@ func (f *TieredFile) MarkUpdated() {
 		return
 	}
 
-	f.UpdatedAt = time.Now().UTC()
+	atomic.StoreInt64(&f.updatedAtNanos, time.Now().UTC().UnixNano())
 
 	err := f.TieredFileSystemDriver.MarkFileUpdated(f)
 
@@ -314,15 +347,18 @@ func (f *TieredFile) Seek(offset int64, whence int) (n int64, err error) {
 // should be written to durable storage if it has been updated and the last write
 // to durable storage was more than a minute ago.
 func (f *TieredFile) ShouldBeWrittenToDurableStorage() bool {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
+	updatedAtNanos := atomic.LoadInt64(&f.updatedAtNanos)
+	writtenAtNanos := atomic.LoadInt64(&f.writtenAtNanos)
 
-	if f.UpdatedAt.IsZero() {
+	if updatedAtNanos == 0 {
 		return false
 	}
 
-	return f.UpdatedAt.After(f.WrittenAt) &&
-		(time.Since(f.WrittenAt) >= f.TieredFileSystemDriver.WriteInterval)
+	updatedAt := time.Unix(0, updatedAtNanos)
+	writtenAt := time.Unix(0, writtenAtNanos)
+
+	return updatedAt.After(writtenAt) &&
+		(time.Since(writtenAt) >= f.TieredFileSystemDriver.WriteInterval)
 }
 
 // Stat returns the FileInfo structure describing the File. If the File is
@@ -377,7 +413,7 @@ func (f *TieredFile) Sync() error {
 
 	f.TieredFileSystemDriver.MoveToBack(f.Element)
 
-	f.UpdatedAt = time.Now().UTC()
+	atomic.StoreInt64(&f.updatedAtNanos, time.Now().UTC().UnixNano())
 
 	return nil
 }

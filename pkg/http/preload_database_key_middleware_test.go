@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -38,7 +39,7 @@ func TestPreloadDatabaseKey(t *testing.T) {
 			request,
 		)
 
-		_, res := appHttp.PreloadDatabaseKey(req)
+		_, res := appHttp.PreloadDatabaseKey(context.Background(), req)
 
 		if res.StatusCode != 0 {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)

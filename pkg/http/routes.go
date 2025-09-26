@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"time"
 )
 
@@ -8,7 +9,7 @@ func LoadRoutes(router *Router) {
 	// Administrative routes
 	router.Get(
 		"/v1/status",
-		ClusterStatusController,
+		ClusterStatusControllerIndex,
 	).Middleware([]Middleware{
 		RequireHost,
 		Authentication,
@@ -130,21 +131,21 @@ func LoadRoutes(router *Router) {
 
 	router.Get(
 		"/v1/databases/{databaseName}/branches",
-		DatabaseBranchIndexController,
+		DatabaseBranchControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
 		"/v1/databases/{databaseName}/{branchName}",
-		DatabaseBranchShowController,
+		DatabaseBranchControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
 		"/v1/databases/{databaseName}/branches",
-		DatabaseBranchStoreController,
+		DatabaseBranchControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
@@ -152,7 +153,7 @@ func LoadRoutes(router *Router) {
 
 	router.Delete(
 		"/v1/databases/{databaseName}/{branchName}",
-		DatabaseBranchDestroyController,
+		DatabaseBranchControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
@@ -160,21 +161,21 @@ func LoadRoutes(router *Router) {
 
 	router.Get(
 		"/v1/databases",
-		DatabaseIndexController,
+		DatabaseControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get(
 		"/v1/databases/{databaseName}",
-		DatabaseShowController,
+		DatabaseControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Post(
 		"/v1/databases",
-		DatabaseStoreController,
+		DatabaseControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
@@ -182,7 +183,7 @@ func LoadRoutes(router *Router) {
 
 	router.Delete(
 		"/v1/databases/{databaseName}",
-		DatabaseDestroyController,
+		DatabaseControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
@@ -190,7 +191,7 @@ func LoadRoutes(router *Router) {
 
 	router.Post(
 		"/v1/keys",
-		KeyStoreController,
+		KeyControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
@@ -198,7 +199,7 @@ func LoadRoutes(router *Router) {
 
 	router.Post(
 		"/v1/keys/activate",
-		KeyActivateController,
+		KeyActivateControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
@@ -207,35 +208,35 @@ func LoadRoutes(router *Router) {
 	// Internal routes for cluster operations.
 	router.Post(
 		"/v1/cluster/connection",
-		ClusterConnectionController,
+		ClusterConnectionControllerStore,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(0)
 
 	router.Post(
 		"/v1/cluster/election",
-		ClusterElectionController,
+		ClusterElectionControllerStore,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(3 * time.Second)
 
 	router.Post(
 		"/v1/cluster/members",
-		ClusterMemberStoreController,
+		ClusterMemberControllerStore,
 	).Middleware(
 		[]Middleware{},
 	).Timeout(3 * time.Second)
 
 	router.Delete(
 		"/v1/cluster/members/{address}",
-		ClusterMemberDestroyController,
+		ClusterMemberControllerDestroy,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(3 * time.Second)
 
 	router.Post(
 		"/v1/cluster/primary",
-		ClusterPrimaryController,
+		ClusterPrimaryControllerStore,
 	).Middleware(
 		[]Middleware{Internal},
 	).Timeout(0)
@@ -249,77 +250,77 @@ func LoadRoutes(router *Router) {
 
 	router.Get(
 		"/v1/health",
-		HealthCheckController,
+		HealthCheckControllerShow,
 	).Middleware([]Middleware{
 		Internal,
 	})
 
 	router.Get("/v1/databases/{databaseName}/{branchName}/backups",
-		DatabaseBackupIndexController,
+		DatabaseBackupControllerIndex,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
 	router.Post("/v1/databases/{databaseName}/{branchName}/backups",
-		DatabaseBackupStoreController,
+		DatabaseBackupControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
 	router.Get("/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
-		DatabaseBackupShowController,
+		DatabaseBackupControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Delete("/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
-		DatabaseBackupDestroyController,
+		DatabaseBackupControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
 	router.Get("/v1/databases/{databaseName}/{branchName}/metrics/query",
-		QueryLogController,
+		QueryLogControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	}).Timeout(1 * time.Second)
 
 	router.Post("/v1/databases/{databaseName}/{branchName}/query",
-		QueryController,
+		QueryControllerStore,
 	).Middleware([]Middleware{
 		Authentication,
 	}).Timeout(300 * time.Second)
 
 	router.Post("/v1/databases/{databaseName}/{branchName}/query/stream",
-		QueryStreamController,
+		QueryStreamControllerStore,
 	).Middleware([]Middleware{
 		PreloadDatabaseKey,
 		Authentication,
 	}).Timeout(300 * time.Second)
 
 	router.Post("/v1/databases/{databaseName}/{branchName}/restore",
-		DatabaseRestoreController,
+		DatabaseRestoreControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
 	router.Get("/v1/databases/{databaseName}/{branchName}/snapshots",
-		DatabaseSnapshotIndexController,
+		DatabaseSnapshotControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
 	router.Get("/v1/databases/{databaseName}/{branchName}/snapshots/{timestamp}",
-		DatabaseSnapshotShowController,
+		DatabaseSnapshotControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
-	router.Fallback(func(request *Request) Response {
+	router.Fallback(func(ctx context.Context, request *Request) Response {
 		return Response{
 			StatusCode: 404,
 			Body: map[string]any{
