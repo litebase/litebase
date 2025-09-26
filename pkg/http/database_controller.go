@@ -27,7 +27,9 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	dbs, err := request.databaseManager.All()
+	var response DatabaseIndexResponse
+
+	response, err = request.databaseManager.All()
 
 	if err != nil {
 		return ServerErrorResponse(err)
@@ -35,7 +37,7 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"Successfully retrieved databases.",
-		DatabaseIndexResponse(dbs),
+		response,
 		200,
 	)
 }

@@ -1088,8 +1088,11 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "description": "Return value from .DatabaseIndexResponse()"
+                      "type": "array",
+                      "description": "Array of databases for list operations",
+                      "items": {
+                        "type": "object"
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -1659,8 +1662,11 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "description": "Return value from .DatabaseBranchIndexResponse()"
+                      "type": "array",
+                      "description": "Array of database branches for list operations",
+                      "items": {
+                        "type": "object"
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -2287,8 +2293,11 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "description": "Return value from .DatabaseBackupIndexResponse()"
+                      "type": "array",
+                      "description": "Array of database branches for list operations",
+                      "items": {
+                        "type": "object"
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -3301,8 +3310,11 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "description": "Return value from .DatabaseSnapshotIndexResponse()"
+                      "type": "array",
+                      "description": "Array of database snapshots for list operations",
+                      "items": {
+                        "type": "object"
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -3387,6 +3399,32 @@
                       "type": "string",
                       "description": "Error message",
                       "example": "Error: resource not found"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: internal server error"
                     },
                     "status": {
                       "type": "string",
@@ -3964,20 +4002,10 @@
                             "description": "Creation timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           },
-                          "description": {
-                            "type": "string"
-                          },
-                          "statements": {
-                            "type": "array",
-                            "items": {
-                              "type": "object"
-                            }
-                          },
-                          "token": {
-                            "type": "string"
-                          },
-                          "token_id": {
-                            "type": "string"
+                          "id": {
+                            "type": "string",
+                            "description": "Resource identifier",
+                            "example": "example_id"
                           },
                           "updated_at": {
                             "type": "string",
@@ -3985,7 +4013,12 @@
                             "description": "Last update timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           }
-                        }
+                        },
+                        "required": [
+                          "created_at",
+                          "id",
+                          "updated_at"
+                        ]
                       }
                     },
                     "message": {
@@ -4097,20 +4130,10 @@
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "type": "object"
-                          }
-                        },
-                        "token": {
-                          "type": "string"
-                        },
-                        "token_id": {
-                          "type": "string"
+                        "id": {
+                          "type": "string",
+                          "description": "Resource identifier",
+                          "example": "example_id"
                         },
                         "updated_at": {
                           "type": "string",
@@ -4118,7 +4141,12 @@
                           "description": "Last update timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         }
-                      }
+                      },
+                      "required": [
+                        "created_at",
+                        "id",
+                        "updated_at"
+                      ]
                     },
                     "message": {
                       "type": "string",
@@ -4813,25 +4841,23 @@
                             "description": "Creation timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           },
-                          "description": {
-                            "type": "string"
-                          },
-                          "statements": {
-                            "type": "array",
-                            "items": {
-                              "type": "object"
-                            }
+                          "id": {
+                            "type": "string",
+                            "description": "Resource identifier",
+                            "example": "example_id"
                           },
                           "updated_at": {
                             "type": "string",
                             "format": "date-time",
                             "description": "Last update timestamp",
                             "example": "2023-09-20T14:30:00Z"
-                          },
-                          "username": {
-                            "type": "string"
                           }
-                        }
+                        },
+                        "required": [
+                          "created_at",
+                          "id",
+                          "updated_at"
+                        ]
                       }
                     },
                     "message": {
@@ -5738,11 +5764,6 @@
       "Privilege": {
         "type": "string",
         "enum": [
-          "token:create",
-          "token:delete",
-          "token:list",
-          "token:read",
-          "token:update",
           "access-key:create",
           "access-key:delete",
           "access-key:list",
@@ -5785,7 +5806,12 @@
           "database:savepoint",
           "database:select",
           "database:transaction",
-          "database:update"
+          "database:update",
+          "token:create",
+          "token:delete",
+          "token:list",
+          "token:read",
+          "token:update"
         ]
       },
       "Resource": {
@@ -5885,30 +5911,6 @@
   },
   "tags": [
     {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
-    },
-    {
-      "name": "User",
-      "description": "User management operations"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
-    },
-    {
-      "name": "Query",
-      "description": "SQL query execution operations"
-    },
-    {
       "name": "ClusterConnection",
       "description": "Cluster connection management operations"
     },
@@ -5917,44 +5919,68 @@
       "description": "Database management operations"
     },
     {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
-    },
-    {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
     },
     {
       "name": "AccessKey",
       "description": "Access key management for authentication"
     },
     {
-      "name": "DatabaseRestore",
-      "description": "Database restore operations"
+      "name": "Key",
+      "description": "Encryption key management"
     },
     {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
-      "name": "DatabaseBackup",
-      "description": "Database backup operations"
-    },
-    {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
+      "name": "QueryStream",
+      "description": "Streaming query operations"
     },
     {
       "name": "DatabaseBranch",
       "description": "Database branch management operations"
     },
     {
-      "name": "Key",
-      "description": "Encryption key management"
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
+      "name": "User",
+      "description": "User management operations"
+    },
+    {
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
+    },
+    {
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
+    },
+    {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
     }
   ]
 }

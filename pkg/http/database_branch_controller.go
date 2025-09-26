@@ -39,8 +39,10 @@ func DatabaseBranchControllerIndex(ctx context.Context, request *Request) Respon
 		return ForbiddenResponse(err)
 	}
 
+	var branches DatabaseBranchIndexResponse
+
 	// Get all branches for the database
-	branches, err := db.Branches()
+	branches, err = db.Branches()
 
 	if err != nil {
 		slog.Error("Failed to retrieve database branches", "error", err, "databaseName", db.Name)
@@ -49,7 +51,7 @@ func DatabaseBranchControllerIndex(ctx context.Context, request *Request) Respon
 
 	return SuccessResponse(
 		"Successfully retrieved database branches.",
-		DatabaseBranchIndexResponse(branches),
+		branches,
 		200,
 	)
 }

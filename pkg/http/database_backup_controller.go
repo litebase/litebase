@@ -33,8 +33,10 @@ func DatabaseBackupControllerIndex(ctx context.Context, request *Request) Respon
 		return BadRequestResponse(err)
 	}
 
+	var response DatabaseBackupIndexResponse
+
 	// List the backups for the specified database and branch
-	backupList, err := request.databaseManager.SystemDatabase().ListDatabaseBackups(
+	response, err = request.databaseManager.SystemDatabase().ListDatabaseBackups(
 		databaseKey.DatabaseID,
 		databaseKey.DatabaseBranchID,
 	)
@@ -45,7 +47,7 @@ func DatabaseBackupControllerIndex(ctx context.Context, request *Request) Respon
 
 	return SuccessResponse(
 		"Successfully retrieved database backups.",
-		DatabaseBackupIndexResponse(backupList),
+		response,
 		200,
 	)
 }

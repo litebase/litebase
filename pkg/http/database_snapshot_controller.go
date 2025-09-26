@@ -60,22 +60,19 @@ func DatabaseSnapshotControllerIndex(ctx context.Context, request *Request) Resp
 		SnapshotLogger().
 		GetSnapshots()
 
-	values := make([]*backups.Snapshot, 0)
+	var response DatabaseSnapshotIndexResponse
 
 	for _, snapshot := range snapshots {
-		values = append(values, snapshot)
+		response = append(response, snapshot)
 	}
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Failed to get snapshots",
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
 	return SuccessResponse(
 		"Successfully retrieved database snapshots.",
-		DatabaseSnapshotIndexResponse(values),
+		response,
 		200,
 	)
 }
