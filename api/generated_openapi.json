@@ -2923,50 +2923,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "array",
-                      "description": "Response payload for query logs",
-                      "items": {
-                        "type": "object",
-                        "description": "A query metric is a snapshot of the query performance at a given time. These statistics can be stored on disk and only take 64 bytes of space.",
-                        "properties": {
-                          "checksum": {
-                            "type": "object"
-                          },
-                          "count": {
-                            "type": "object"
-                          },
-                          "latencies": {
-                            "type": "array",
-                            "items": {
-                              "type": "number"
-                            }
-                          },
-                          "latencyIndex": {
-                            "type": "integer"
-                          },
-                          "latency_avg": {
-                            "type": "number"
-                          },
-                          "latency_max": {
-                            "type": "number"
-                          },
-                          "latency_min": {
-                            "type": "number"
-                          },
-                          "latency_p50": {
-                            "type": "number"
-                          },
-                          "latency_p90": {
-                            "type": "number"
-                          },
-                          "latency_p99": {
-                            "type": "number"
-                          },
-                          "timestamp": {
-                            "type": "object"
-                          }
-                        }
-                      }
+                      "type": "object"
                     },
                     "message": {
                       "type": "string",
@@ -4235,10 +4192,20 @@
                             "description": "Creation timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           },
-                          "id": {
-                            "type": "string",
-                            "description": "Resource identifier",
-                            "example": "example_id"
+                          "description": {
+                            "type": "string"
+                          },
+                          "statements": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/Statement"
+                            }
+                          },
+                          "token": {
+                            "type": "string"
+                          },
+                          "token_id": {
+                            "type": "string"
                           },
                           "updated_at": {
                             "type": "string",
@@ -4246,12 +4213,7 @@
                             "description": "Last update timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           }
-                        },
-                        "required": [
-                          "created_at",
-                          "id",
-                          "updated_at"
-                        ]
+                        }
                       }
                     },
                     "message": {
@@ -4363,10 +4325,20 @@
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "id": {
-                          "type": "string",
-                          "description": "Resource identifier",
-                          "example": "example_id"
+                        "description": {
+                          "type": "string"
+                        },
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Statement"
+                          }
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "token_id": {
+                          "type": "string"
                         },
                         "updated_at": {
                           "type": "string",
@@ -4374,12 +4346,7 @@
                           "description": "Last update timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         }
-                      },
-                      "required": [
-                        "created_at",
-                        "id",
-                        "updated_at"
-                      ]
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -5906,11 +5873,11 @@
       "Privilege": {
         "type": "string",
         "enum": [
-          "token:create",
-          "token:delete",
-          "token:list",
-          "token:read",
-          "token:update",
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update",
           "database:create",
           "database:list",
           "database:show",
@@ -5949,11 +5916,11 @@
           "database:select",
           "database:transaction",
           "database:update",
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update"
+          "token:create",
+          "token:delete",
+          "token:list",
+          "token:read",
+          "token:update"
         ]
       },
       "Resource": {
@@ -6056,76 +6023,76 @@
   },
   "tags": [
     {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
+      "name": "Query",
+      "description": "SQL query execution operations"
     },
     {
       "name": "User",
       "description": "User management operations"
     },
     {
-      "name": "Query",
-      "description": "SQL query execution operations"
-    },
-    {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
-    },
-    {
       "name": "AccessKey",
       "description": "Access key management for authentication"
-    },
-    {
-      "name": "Database",
-      "description": "Database management operations"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
-    },
-    {
-      "name": "Key",
-      "description": "Encryption key management"
     },
     {
       "name": "ClusterConnection",
       "description": "Cluster connection management operations"
     },
     {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
-      "name": "DatabaseRestore",
-      "description": "Database restore operations"
-    },
-    {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
       "name": "ClusterStatus",
       "description": "Cluster status and health operations"
+    },
+    {
+      "name": "Key",
+      "description": "Encryption key management"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
     },
     {
       "name": "DatabaseBranch",
       "description": "Database branch management operations"
     },
     {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
+    },
+    {
       "name": "DatabaseBackup",
       "description": "Database backup operations"
+    },
+    {
+      "name": "QueryStream",
+      "description": "Streaming query operations"
+    },
+    {
+      "name": "Database",
+      "description": "Database management operations"
+    },
+    {
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
     }
   ]
 }
