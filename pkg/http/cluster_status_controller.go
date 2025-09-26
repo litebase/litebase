@@ -1,14 +1,19 @@
 package http
 
-func ClusterStatusController(request *Request) Response {
-	return Response{
-		StatusCode: 200,
-		Body: map[string]any{
-			"status":  "ok",
-			"message": "Cluster is functioning normally",
-			"data": map[string]any{
-				"node_count": len(request.cluster.Nodes()),
-			},
+import "context"
+
+// Response payload for cluster status
+type ClusterStatusResponse struct {
+	NodeCount int `json:"node_count"`
+}
+
+// Returns the current status of the cluster
+func ClusterStatusControllerIndex(ctx context.Context, request *Request) Response {
+	return SuccessResponse(
+		"Cluster status",
+		ClusterStatusResponse{
+			NodeCount: len(request.cluster.Nodes()),
 		},
-	}
+		200,
+	)
 }

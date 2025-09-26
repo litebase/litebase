@@ -195,10 +195,10 @@ func TestBranch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			primaryBranch := db.PrimaryBranch()
+			primaryBranch, err := db.PrimaryBranch()
 
-			if primaryBranch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			err = primaryBranch.Delete()
@@ -241,10 +241,6 @@ func TestBranch(t *testing.T) {
 			}
 
 			parentBranch := branch.ParentBranch()
-
-			if parentBranch == nil {
-				t.Fatal("Expected parent branch to not be nil")
-			}
 
 			if parentBranch.Name != "main" {
 				t.Fatalf("Expected parent branch name to be 'main', got '%s'", parentBranch.Name)

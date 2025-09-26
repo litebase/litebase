@@ -86,11 +86,6 @@ func TestDatabaseSnapshotShow(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		// Debug: Print actual output to see what we get
-		output := cli.GetOutput()
-		t.Logf("Show output: %s", output)
-		t.Logf("Looking for timestamp: %d", snapshot.Timestamp)
-
 		// Check that snapshot information is displayed
 		if cli.DoesNotSee("Database Snapshot") {
 			t.Error("expected output to contain 'Database Snapshot' card title")

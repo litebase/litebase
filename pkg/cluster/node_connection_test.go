@@ -15,10 +15,12 @@ func TestNewNodeConnection(t *testing.T) {
 
 		if connection == nil {
 			t.Fatalf("expected connection to be not nil")
+			return
 		}
 
 		if connection.Address != "localhost:8080" {
 			t.Errorf("expected address to be localhost:8080, got %s", connection.Address)
+			return
 		}
 	})
 }

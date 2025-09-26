@@ -1,17 +1,23 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"log/slog"
+	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/database"
 )
 
-func DatabaseIndexController(request *Request) Response {
+// Array of databases for list operations
+type DatabaseIndexResponse []*database.Database
+
+// List all databases
+func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"database:*"},
@@ -22,7 +28,9 @@ func DatabaseIndexController(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	dbs, err := request.databaseManager.All()
+	var response DatabaseIndexResponse
+
+	response, err = request.databaseManager.All()
 
 	if err != nil {
 		return ServerErrorResponse(err)
@@ -30,12 +38,12 @@ func DatabaseIndexController(request *Request) Response {
 
 	return SuccessResponse(
 		"Successfully retrieved databases.",
-		dbs,
+		response,
 		200,
 	)
 }
 
-func DatabaseShowController(request *Request) Response {
+func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -74,7 +82,19 @@ type DatabaseStoreRequest struct {
 	PrimaryBranch string                `json:"primary_branch,omitempty" validate:"omitempty,lowercase,alphanum"`
 }
 
-func DatabaseStoreController(request *Request) Response {
+type DatabaseStoreResponse struct {
+	ID            int64                      `json:"id"`
+	DatabaseID    string                     `json:"database_id"`
+	Name          string                     `json:"name"`
+	PrimaryBranch string                     `json:"primary_branch"`
+	Settings      *database.DatabaseSettings `json:"settings"`
+	CreatedAt     time.Time                  `json:"created_at"`
+	UpdatedAt     time.Time                  `json:"updated_at"`
+	Url           string                     `json:"url"`
+}
+
+// Create a new database
+func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"database:*"},
@@ -128,14 +148,32 @@ func DatabaseStoreController(request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
+	primaryBranch, err := db.PrimaryBranch()
+
+	if err != nil {
+		slog.Error("Failed to retrieve primary branch after database creation", "databaseId", db.DatabaseID, "error", err)
+
+		return ServerErrorResponse(errors.New("failed to retrieve primary branch after database creation"))
+	}
+
 	return SuccessResponse(
-		"Database created successfully.",
-		db,
+		"Database created successfully",
+		DatabaseStoreResponse{
+			ID:            db.ID,
+			DatabaseID:    db.DatabaseID,
+			Name:          db.Name,
+			PrimaryBranch: primaryBranch.Name,
+			Settings:      db.Settings,
+			CreatedAt:     db.CreatedAt,
+			UpdatedAt:     db.UpdatedAt,
+			Url:           db.Url(primaryBranch.Name),
+		},
 		200,
 	)
 }
 
-func DatabaseDestroyController(request *Request) Response {
+// Delete a database
+func DatabaseControllerDestroy(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -171,8 +209,8 @@ func DatabaseDestroyController(request *Request) Response {
 	}
 
 	return SuccessResponse(
-		"Database deleted successfully.",
-		map[string]any{},
+		"Database deleted successfully",
+		nil,
 		200,
 	)
 }

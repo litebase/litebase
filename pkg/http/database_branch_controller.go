@@ -1,18 +1,23 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
 	"github.com/litebase/litebase/pkg/database"
 )
 
+// Array of database branches for list operations
+type DatabaseBranchIndexResponse []*database.Branch
+
 // List all branches for a specific database
-func DatabaseBranchIndexController(request *Request) Response {
+func DatabaseBranchControllerIndex(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -35,8 +40,10 @@ func DatabaseBranchIndexController(request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
+	var branches DatabaseBranchIndexResponse
+
 	// Get all branches for the database
-	branches, err := db.Branches()
+	branches, err = db.Branches()
 
 	if err != nil {
 		slog.Error("Failed to retrieve database branches", "error", err, "databaseName", db.Name)
@@ -50,8 +57,11 @@ func DatabaseBranchIndexController(request *Request) Response {
 	)
 }
 
+// A single database branch response
+type DatabaseBranchShowResponse *database.Branch
+
 // Show a specific database branch by ID
-func DatabaseBranchShowController(request *Request) Response {
+func DatabaseBranchControllerShow(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -92,18 +102,30 @@ func DatabaseBranchShowController(request *Request) Response {
 
 	return SuccessResponse(
 		"Successfully retrieved database branch.",
-		branch,
+		DatabaseBranchShowResponse(branch),
 		200,
 	)
 }
 
+// Request payload for creating a new database branch
 type DatabaseBranchStoreRequest struct {
 	Name       database.DatabaseBranchName `json:"name" validate:"required,validateFn"`
 	ParentName string                      `json:"parent_name,omitempty"`
 }
 
+type DatabaseBranchStoreResponse struct {
+	ID               int64                    `json:"id"`
+	DatabaseBranchID string                   `json:"database_branch_id"`
+	DatabaseID       string                   `json:"database_id"`
+	Name             string                   `json:"name"`
+	ParentName       string                   `json:"parent_name"`
+	Settings         *database.BranchSettings `json:"settings"`
+	CreatedAt        time.Time                `json:"created_at"`
+	UpdatedAt        time.Time                `json:"updated_at"`
+}
+
 // Create a new database branch
-func DatabaseBranchStoreController(request *Request) Response {
+func DatabaseBranchControllerStore(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
 	if databaseName == "" {
@@ -173,14 +195,23 @@ func DatabaseBranchStoreController(request *Request) Response {
 	}
 
 	return SuccessResponse(
-		"Database branch created successfully.",
-		branch,
+		"Database branch created successfully",
+		DatabaseBranchStoreResponse{
+			ID:               branch.ID,
+			DatabaseBranchID: branch.DatabaseBranchID,
+			DatabaseID:       branch.DatabaseID,
+			Name:             branch.Name,
+			ParentName:       parentName,
+			Settings:         branch.Settings,
+			CreatedAt:        branch.CreatedAt,
+			UpdatedAt:        branch.UpdatedAt,
+		},
 		200,
 	)
 }
 
 // Delete a specific database branch
-func DatabaseBranchDestroyController(request *Request) Response {
+func DatabaseBranchControllerDestroy(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -228,8 +259,8 @@ func DatabaseBranchDestroyController(request *Request) Response {
 	}
 
 	return SuccessResponse(
-		"Database branch deleted successfully.",
-		map[string]any{},
+		"Database branch deleted successfully",
+		nil,
 		200,
 	)
 }

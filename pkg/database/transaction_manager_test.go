@@ -15,10 +15,6 @@ func TestTransactionManager(t *testing.T) {
 		t.Run("NewTransactionManager", func(t *testing.T) {
 			manager := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).TransactionManager()
 
-			if manager == nil {
-				t.Fatal("expected transaction manager to be created")
-			}
-
 			if manager.DatabaseID != mock.DatabaseID || manager.BranchID != mock.DatabaseBranchID {
 				t.Fatalf("expected transaction manager with db: %s, branch: %s, got db: %s, branch: %s",
 					mock.DatabaseID, mock.DatabaseBranchID, manager.DatabaseID, manager.BranchID)
@@ -34,18 +30,10 @@ func TestTransactionManager(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			if transaction == nil {
-				t.Fatal("expected transaction to be created")
-			}
-
 			fetchedTransaction, err := manager.Get(transaction.ID)
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
-			}
-
-			if fetchedTransaction == nil {
-				t.Fatal("expected transaction to be fetched")
 			}
 
 			if fetchedTransaction.ID != transaction.ID {
@@ -73,10 +61,6 @@ func TestTransactionManager(t *testing.T) {
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
-			}
-
-			if transaction == nil {
-				t.Fatal("expected transaction to be created")
 			}
 
 			manager.Shutdown()

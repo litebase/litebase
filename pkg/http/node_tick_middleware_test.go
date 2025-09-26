@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestNodeTickMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res := appHttp.NodeTick(req)
+		_, res := appHttp.NodeTick(context.Background(), req)
 
 		if res.StatusCode != 0 {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)

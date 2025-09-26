@@ -45,6 +45,14 @@ func (tm *TokenManager) All() ([]*Token, error) {
 	return tm.tokenStorage.List()
 }
 
+// Retrieve all tokens.
+func (tm *TokenManager) AllTokens() ([]*Token, error) {
+	tm.mutex.Lock()
+	defer tm.mutex.Unlock()
+
+	return tm.tokenStorage.List()
+}
+
 // Retrieve all token IDs.
 func (tm *TokenManager) AllTokenIDs() ([]string, error) {
 	tm.mutex.Lock()

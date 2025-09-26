@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestRequireContentTypeMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res := appHttp.RequireContentType(req)
+		_, res := appHttp.RequireContentType(context.Background(), req)
 
 		if res.StatusCode != 0 {
 			t.Fatalf("Expected status code %d, got %d", 0, res.StatusCode)
@@ -47,7 +48,7 @@ func TestRequireContentTypeMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res = appHttp.RequireContentType(req)
+		_, res = appHttp.RequireContentType(context.Background(), req)
 
 		if res.StatusCode != 400 {
 			t.Fatalf("Expected status code %d, got %d", 400, res.StatusCode)
@@ -67,7 +68,7 @@ func TestRequireContentTypeMiddleware(t *testing.T) {
 			request,
 		)
 
-		_, res = appHttp.RequireContentType(req)
+		_, res = appHttp.RequireContentType(context.Background(), req)
 
 		if res.StatusCode != 415 {
 			t.Fatalf("Expected status code %d, got %d", 415, res.StatusCode)

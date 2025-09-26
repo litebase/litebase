@@ -27,10 +27,10 @@ func TestDatabaseBranchDelete(t *testing.T) {
 			t.Fatalf("expected to get database, got error: %v", err)
 		}
 
-		primaryBranch := db.PrimaryBranch()
+		primaryBranch, err := db.PrimaryBranch()
 
-		if primaryBranch == nil {
-			t.Fatalf("expected primary branch to exist")
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		con, err := server.App.DatabaseManager.ConnectionManager().Get(db.DatabaseID, primaryBranch.DatabaseBranchID)

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/litebase/litebase/pkg/cluster"
@@ -45,50 +47,82 @@ func NewRouter() *Router {
 }
 
 // Add a DELETE route to the router
-func (router *Router) Delete(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Delete(path string, handler RouteHandler) *Route {
 	return router.request("DELETE", path, handler)
 }
 
 // Set the Fallback route to the router
-func (router *Router) Fallback(callback func(request *Request) Response) {
+func (router *Router) Fallback(handler RouteHandler) {
 	router.DefaultRoute = Route{
-		Handler: callback,
+		Handler: handler,
 		router:  router,
 		timeout: 0,
 	}
 }
 
 // Add a GET route on the router
-func (router *Router) Get(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Get(path string, handler RouteHandler) *Route {
 	return router.request("GET", path, handler)
 }
 
 // Add a PATCH route to the router
-func (router *Router) Patch(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Patch(path string, handler RouteHandler) *Route {
 	return router.request("PATCH", path, handler)
 }
 
 // Add a POST route to the router
-func (router *Router) Post(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Post(path string, handler RouteHandler) *Route {
 	return router.request("POST", path, handler)
 }
 
 // Add a PUT route to the router
-func (router *Router) Put(path string, handler func(request *Request) Response) *Route {
+func (router *Router) Put(path string, handler RouteHandler) *Route {
 	return router.request("PUT", path, handler)
 }
 
 // Resolve an incoming request using a route from the Router
-func (router *Router) request(method string, path string, handler func(request *Request) Response) *Route {
+func (router *Router) request(method string, path string, handler RouteHandler) *Route {
 	if router.Routes[method] == nil {
 		router.Routes[method] = make(map[string]*Route)
 	}
 
 	path = strings.TrimRight(path, "/")
 
-	router.Routes[method][path] = NewRoute(router, handler)
+	route := NewRoute(router, handler)
+
+	// Extract handler function name for code analysis
+	if handlerName := getFunctionName(handler); handlerName != "" {
+		route.SetHandlerName(handlerName)
+	}
+
+	router.Routes[method][path] = route
 
 	return router.Routes[method][path]
+}
+
+// getFunctionName extracts the function name from a function value
+func getFunctionName(fn interface{}) string {
+	if fn == nil {
+		return ""
+	}
+
+	// Get the function name using runtime
+	fnPtr := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
+
+	if fnPtr != nil {
+		fullName := fnPtr.Name()
+
+		// Extract just the function name (remove package path)
+		parts := strings.Split(fullName, ".")
+
+		if len(parts) > 0 {
+			return parts[len(parts)-1]
+		}
+
+		return fullName
+	}
+
+	return ""
 }
 
 // Create a server handler for the Router.
@@ -102,6 +136,7 @@ func (router *Router) Server(
 
 	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		response := router.DefaultRoute.Handler(
+			r.Context(),
 			NewRequest(cluster, databaseManager, logManager, r),
 		)
 
@@ -194,4 +229,9 @@ func (router *Router) Server(
 			})
 		}
 	}
+}
+
+// GetRoutes returns all registered routes for OpenAPI generation
+func (router *Router) GetRoutes() map[string]map[string]*Route {
+	return router.Routes
 }

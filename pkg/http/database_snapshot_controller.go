@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,7 +12,11 @@ import (
 	"github.com/litebase/litebase/pkg/backups"
 )
 
-func DatabaseSnapshotIndexController(request *Request) Response {
+// Array of database snapshots for list operations
+type DatabaseSnapshotIndexResponse []*backups.Snapshot
+
+// List all snapshots for a specific database and branch
+func DatabaseSnapshotControllerIndex(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -55,26 +60,24 @@ func DatabaseSnapshotIndexController(request *Request) Response {
 		SnapshotLogger().
 		GetSnapshots()
 
-	values := make([]*backups.Snapshot, 0)
+	var response DatabaseSnapshotIndexResponse
 
 	for _, snapshot := range snapshots {
-		values = append(values, snapshot)
+		response = append(response, snapshot)
 	}
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Failed to get snapshots",
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status": "success",
-		"data":   values,
-	}, 200, nil)
+	return SuccessResponse(
+		"Successfully retrieved database snapshots.",
+		response,
+		200,
+	)
 }
 
-func DatabaseSnapshotShowController(request *Request) Response {
+func DatabaseSnapshotControllerShow(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -106,10 +109,7 @@ func DatabaseSnapshotShowController(request *Request) Response {
 	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Invalid timestamp",
-		}, 500, nil)
+		return BadRequestResponse(errors.New("invalid timestamp"))
 	}
 
 	snapshot, err := request.databaseManager.
@@ -118,21 +118,12 @@ func DatabaseSnapshotShowController(request *Request) Response {
 		GetSnapshot(timestamp)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Failed to get snapshot",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("failed to get snapshot"))
 	}
 
 	if snapshot.IsEmpty() {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Snapshot not found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("snapshot not found"))
 	}
 
-	return JsonResponse(map[string]any{
-		"status": "success",
-		"data":   snapshot,
-	}, 200, nil)
+	return SuccessResponse("Successfully retrieved snapshot.", snapshot, 200)
 }

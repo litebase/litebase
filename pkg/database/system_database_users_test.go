@@ -515,10 +515,6 @@ func TestSystemDatabaseUsers(t *testing.T) {
 				}
 			}
 
-			if foundUser == nil {
-				t.Fatal("Expected to find complex test user in list")
-			}
-
 			if len(foundUser.Statements) != 3 {
 				t.Fatalf("Expected 3 statements, got %d", len(foundUser.Statements))
 			}

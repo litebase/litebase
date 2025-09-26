@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -27,7 +28,7 @@ func tokenAuth(credential *auth.Credential) bool {
 	return token.Authenticate(credential.CredentialString)
 }
 
-func Authentication(request *Request) (*Request, Response) {
+func Authentication(ctx context.Context, request *Request) (*Request, Response) {
 	credential := request.Credential()
 
 	if credential == nil {
