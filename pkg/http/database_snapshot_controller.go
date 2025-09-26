@@ -109,10 +109,7 @@ func DatabaseSnapshotControllerShow(ctx context.Context, request *Request) Respo
 	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Invalid timestamp",
-		}, 500, nil)
+		return BadRequestResponse(errors.New("invalid timestamp"))
 	}
 
 	snapshot, err := request.databaseManager.
@@ -121,21 +118,12 @@ func DatabaseSnapshotControllerShow(ctx context.Context, request *Request) Respo
 		GetSnapshot(timestamp)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Failed to get snapshot",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("failed to get snapshot"))
 	}
 
 	if snapshot.IsEmpty() {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Snapshot not found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("snapshot not found"))
 	}
 
-	return JsonResponse(map[string]any{
-		"status": "success",
-		"data":   snapshot,
-	}, 200, nil)
+	return SuccessResponse("Successfully retrieved snapshot.", snapshot, 200)
 }

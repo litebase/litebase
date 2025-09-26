@@ -289,19 +289,13 @@ func AccessKeyControllerDestroy(ctx context.Context, request *Request) Response 
 	accessKey, err := request.accessKeyManager.Get(accessKeyId)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Access key could not be found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("access key could not be found"))
 	}
 
 	err = accessKey.Delete()
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Access key could not be deleted",
-		}, 500, nil)
+		return ServerErrorResponse(errors.New("access key could not be deleted"))
 	}
 
 	return SuccessResponse(

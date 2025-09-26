@@ -124,14 +124,8 @@ func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Respo
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Database restored successfully",
-	}, 200, nil)
+	return SuccessResponse("Database restored successfully", nil, 200)
 }

@@ -119,10 +119,7 @@ func DatabaseBackupControllerStore(ctx context.Context, request *Request) Respon
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
 	// Store the database backup in the system database.
@@ -141,11 +138,21 @@ func DatabaseBackupControllerStore(ctx context.Context, request *Request) Respon
 		return ServerErrorResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Database backup created successfully",
-		"data":    backup,
-	}, 200, nil)
+	return SuccessResponse("Database backup created successfully", backup, 200)
+}
+
+// A single restore point within a database backup
+type DatabaseBackupRestorePoint struct {
+	Timestamp int64 `json:"timestamp,string"`
+	PageCount int64 `json:"page_count"`
+}
+
+// A single database branch response
+type DatabaseBackupShowResponse struct {
+	DatabaseBranchID string                     `json:"database_branch_id"`
+	DatabaseID       string                     `json:"database_id"`
+	RestorePoint     DatabaseBackupRestorePoint `json:"restore_point"`
+	Size             int64                      `json:"size"`
 }
 
 // Show a specific database backup
@@ -169,10 +176,7 @@ func DatabaseBackupControllerShow(ctx context.Context, request *Request) Respons
 	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Invalid timestamp",
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
 	backup, err := request.databaseManager.SystemDatabase().GetDatabaseBackup(
@@ -191,12 +195,18 @@ func DatabaseBackupControllerShow(ctx context.Context, request *Request) Respons
 		return ServerErrorResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status": "success",
-		"data":   backup,
-	}, 200, nil)
+	return SuccessResponse("Database backup retrieved successfully", DatabaseBackupShowResponse{
+		DatabaseBranchID: backup.DatabaseBranchID,
+		DatabaseID:       backup.DatabaseID,
+		RestorePoint: DatabaseBackupRestorePoint{
+			Timestamp: backup.RestorePoint.Timestamp,
+			PageCount: backup.RestorePoint.PageCount,
+		},
+		Size: backup.Size,
+	}, 200)
 }
 
+// Delete a specific database backup
 func DatabaseBackupControllerDestroy(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
@@ -217,10 +227,7 @@ func DatabaseBackupControllerDestroy(ctx context.Context, request *Request) Resp
 	timestamp, err := strconv.ParseInt(request.Param("timestamp"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
 	backup, err := backups.GetBackup(
@@ -234,17 +241,11 @@ func DatabaseBackupControllerDestroy(ctx context.Context, request *Request) Resp
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
 	if backup == nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Backup not found",
-		}, 404, nil)
+		return NotFoundResponse(errors.New("backup not found"))
 	}
 
 	err = backup.Delete()
@@ -266,8 +267,5 @@ func DatabaseBackupControllerDestroy(ctx context.Context, request *Request) Resp
 		return ServerErrorResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Database backup deleted successfully",
-	}, 200, nil)
+	return SuccessResponse("Database backup deleted successfully", nil, 200)
 }

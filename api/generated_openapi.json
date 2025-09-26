@@ -875,6 +875,58 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: resource not found"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: internal server error"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2429,6 +2481,36 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database backup created successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request - invalid input",
             "content": {
@@ -2587,6 +2669,51 @@
         "description": "Show a specific database backup",
         "operationId": "getDatabaseBackup",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "A single database branch response",
+                      "properties": {
+                        "database_branch_id": {
+                          "type": "string"
+                        },
+                        "database_id": {
+                          "type": "string"
+                        },
+                        "restore_point": {
+                          "type": "object"
+                        },
+                        "size": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database backup retrieved successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden - insufficient permissions",
             "content": {
@@ -2683,8 +2810,35 @@
           "DatabaseBackup"
         ],
         "summary": "Delete a database backup",
+        "description": "Delete a specific database backup",
         "operationId": "deleteDatabaseBackup",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database backup deleted successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden - insufficient permissions",
             "content": {
@@ -2696,6 +2850,32 @@
                       "type": "string",
                       "description": "Error message",
                       "example": "Forbidden: insufficient permissions"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: resource not found"
                     },
                     "status": {
                       "type": "string",
@@ -3170,6 +3350,32 @@
         "summary": "Create a new database restore",
         "operationId": "createDatabaseRestore",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database restored successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request - invalid input",
             "content": {
@@ -3462,6 +3668,36 @@
         "summary": "Show details of a specific database snapshot",
         "operationId": "getDatabaseSnapshot",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Successfully retrieved snapshot."
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request - invalid input",
             "content": {
@@ -4002,10 +4238,20 @@
                             "description": "Creation timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           },
-                          "id": {
-                            "type": "string",
-                            "description": "Resource identifier",
-                            "example": "example_id"
+                          "description": {
+                            "type": "string"
+                          },
+                          "statements": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
+                          },
+                          "token": {
+                            "type": "string"
+                          },
+                          "token_id": {
+                            "type": "string"
                           },
                           "updated_at": {
                             "type": "string",
@@ -4013,12 +4259,7 @@
                             "description": "Last update timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           }
-                        },
-                        "required": [
-                          "created_at",
-                          "id",
-                          "updated_at"
-                        ]
+                        }
                       }
                     },
                     "message": {
@@ -4130,10 +4371,20 @@
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "id": {
-                          "type": "string",
-                          "description": "Resource identifier",
-                          "example": "example_id"
+                        "description": {
+                          "type": "string"
+                        },
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "token_id": {
+                          "type": "string"
                         },
                         "updated_at": {
                           "type": "string",
@@ -4141,12 +4392,7 @@
                           "description": "Last update timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         }
-                      },
-                      "required": [
-                        "created_at",
-                        "id",
-                        "updated_at"
-                      ]
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -4841,23 +5087,25 @@
                             "description": "Creation timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           },
-                          "id": {
-                            "type": "string",
-                            "description": "Resource identifier",
-                            "example": "example_id"
+                          "description": {
+                            "type": "string"
+                          },
+                          "statements": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
                           },
                           "updated_at": {
                             "type": "string",
                             "format": "date-time",
                             "description": "Last update timestamp",
                             "example": "2023-09-20T14:30:00Z"
+                          },
+                          "username": {
+                            "type": "string"
                           }
-                        },
-                        "required": [
-                          "created_at",
-                          "id",
-                          "updated_at"
-                        ]
+                        }
                       }
                     },
                     "message": {
@@ -5736,6 +5984,18 @@
   },
   "components": {
     "schemas": {
+      "DatabaseBackupRestorePoint": {
+        "type": "object",
+        "description": "A single restore point within a database backup",
+        "properties": {
+          "page_count": {
+            "type": "integer"
+          },
+          "timestamp": {
+            "type": "integer"
+          }
+        }
+      },
       "DatabaseBranchName": {
         "type": "object"
       },
@@ -5764,11 +6024,11 @@
       "Privilege": {
         "type": "string",
         "enum": [
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update",
+          "token:create",
+          "token:delete",
+          "token:list",
+          "token:read",
+          "token:update",
           "database:create",
           "database:list",
           "database:show",
@@ -5807,11 +6067,11 @@
           "database:select",
           "database:transaction",
           "database:update",
-          "token:create",
-          "token:delete",
-          "token:list",
-          "token:read",
-          "token:update"
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update"
         ]
       },
       "Resource": {
@@ -5911,76 +6171,76 @@
   },
   "tags": [
     {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
-    },
-    {
-      "name": "Database",
-      "description": "Database management operations"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
-    },
-    {
-      "name": "Key",
-      "description": "Encryption key management"
-    },
-    {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
-    },
-    {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
-    },
-    {
       "name": "User",
       "description": "User management operations"
-    },
-    {
-      "name": "DatabaseBackup",
-      "description": "Database backup operations"
-    },
-    {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
     },
     {
       "name": "Token",
       "description": "Token management for authentication"
     },
     {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
+      "name": "Key",
+      "description": "Encryption key management"
     },
     {
       "name": "DatabaseRestore",
       "description": "Database restore operations"
     },
     {
-      "name": "Query",
-      "description": "SQL query execution operations"
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
+    },
+    {
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "QueryStream",
+      "description": "Streaming query operations"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
     },
     {
       "name": "QueryLog",
       "description": "Query performance and usage metrics"
     },
     {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
+      "name": "Database",
+      "description": "Database management operations"
+    },
+    {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
+    },
+    {
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
+      "name": "ClusterConnection",
+      "description": "Cluster connection management operations"
     }
   ]
 }
