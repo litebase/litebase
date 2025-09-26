@@ -118,6 +118,7 @@ type DatabaseBranchStoreResponse struct {
 	DatabaseBranchID string                   `json:"database_branch_id"`
 	DatabaseID       string                   `json:"database_id"`
 	Name             string                   `json:"name"`
+	ParentName       string                   `json:"parent_name"`
 	Settings         *database.BranchSettings `json:"settings"`
 	CreatedAt        time.Time                `json:"created_at"`
 	UpdatedAt        time.Time                `json:"updated_at"`
@@ -200,6 +201,7 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 			DatabaseBranchID: branch.DatabaseBranchID,
 			DatabaseID:       branch.DatabaseID,
 			Name:             branch.Name,
+			ParentName:       parentName,
 			Settings:         branch.Settings,
 			CreatedAt:        branch.CreatedAt,
 			UpdatedAt:        branch.UpdatedAt,

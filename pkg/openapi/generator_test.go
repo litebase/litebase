@@ -138,7 +138,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 			method:     "get",
 			statusCode: "200",
 			testFunc: func(t *testing.T, response Response) {
-				// Should have data object containing a nested data array
+				// Should have data array containing users
 				schema := response.Content["application/json"].Schema
 				if schema == nil {
 					t.Fatal("Expected schema to exist")
@@ -146,21 +146,26 @@ func TestResponseSchemaExtraction(t *testing.T) {
 				}
 
 				if dataSchema, exists := schema.Properties["data"]; exists {
-					// The outer data should be an object
-					if dataSchema.Type != "object" {
-						t.Errorf("Expected outer data to be object, got %s", dataSchema.Type)
+					// The data should be an array of users
+					if dataSchema.Type != "array" {
+						t.Errorf("Expected data to be array, got %s", dataSchema.Type)
 					}
 
-					// Check for nested data property which should be an array
-					if nestedDataSchema, exists := dataSchema.Properties["data"]; exists {
-						if nestedDataSchema.Type != "array" {
-							t.Errorf("Expected nested data to be array, got %s", nestedDataSchema.Type)
-						}
-						if nestedDataSchema.Items == nil {
-							t.Error("Expected nested data array to have items schema")
-						}
+					// Check that the array has items schema
+					if dataSchema.Items == nil {
+						t.Error("Expected data array to have items schema")
 					} else {
-						t.Error("Expected nested data property in data object")
+						// Verify the items are user objects with expected properties
+						if dataSchema.Items.Type != "object" {
+							t.Errorf("Expected data array items to be objects, got %s", dataSchema.Items.Type)
+						}
+						
+						expectedUserProps := []string{"username", "statements", "created_at", "updated_at"}
+						for _, prop := range expectedUserProps {
+							if _, exists := dataSchema.Items.Properties[prop]; !exists {
+								t.Errorf("Expected user item property %s", prop)
+							}
+						}
 					}
 				} else {
 					t.Error("Expected data property in response schema")

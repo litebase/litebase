@@ -90,6 +90,7 @@ type DatabaseStoreResponse struct {
 	Settings      *database.DatabaseSettings `json:"settings"`
 	CreatedAt     time.Time                  `json:"created_at"`
 	UpdatedAt     time.Time                  `json:"updated_at"`
+	Url           string                     `json:"url"`
 }
 
 // Create a new database
@@ -165,6 +166,7 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 			Settings:      db.Settings,
 			CreatedAt:     db.CreatedAt,
 			UpdatedAt:     db.UpdatedAt,
+			Url:           db.Url(primaryBranch.Name),
 		},
 		200,
 	)

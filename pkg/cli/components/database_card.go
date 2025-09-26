@@ -36,13 +36,15 @@ func DatabaseCard(data map[string]any) string {
 		}
 	}
 
-	rows = append(rows, CardRow{
-		Key:   "",
-		Value: "",
-	}, CardRow{
-		Key:   "URL",
-		Value: data["url"].(string),
-	})
+	if url, ok := data["url"].(string); ok && url != "" {
+		rows = append(rows, CardRow{
+			Key:   "",
+			Value: "",
+		}, CardRow{
+			Key:   "URL",
+			Value: data["url"].(string),
+		})
+	}
 
 	return NewCard(
 		WithCardTitle("Database"),
