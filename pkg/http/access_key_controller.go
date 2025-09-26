@@ -13,7 +13,7 @@ type AccessKeyIndexResponse struct {
 }
 
 type AccessKeyListResponse struct {
-	Data []AccessKeyIndexResponse `json:"access_keys"`
+	Data []AccessKeyIndexResponse `json:"data"`
 }
 
 // List all access keys

@@ -130,7 +130,7 @@ func TestAccessKeyController(t *testing.T) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
-			if response["data"] == nil || len(response["data"].([]any)) == 0 {
+			if response["data"] == nil || len(response["data"].(map[string]any)["data"].([]any)) == 0 {
 				t.Errorf("Expected at least one access key in response, got: %v", response["data"])
 			}
 		})
