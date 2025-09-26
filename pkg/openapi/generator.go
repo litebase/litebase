@@ -1720,9 +1720,7 @@ func (g *Generator) parseExternalPackage(packagePath string) []*ast.File {
 	var files []*ast.File
 
 	for _, pkg := range pkgs {
-		for _, file := range pkg.Syntax {
-			files = append(files, file)
-		}
+		files = append(files, pkg.Syntax...)
 	}
 
 	g.packageCache[packagePath] = files
