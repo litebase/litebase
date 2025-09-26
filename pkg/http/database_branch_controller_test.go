@@ -99,10 +99,10 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 			Actions:  []auth.Privilege{auth.DatabasePrivilegeShow},
 		}})
 
-		primaryBranch := db.PrimaryBranch()
+		primaryBranch, err := db.PrimaryBranch()
 
-		if primaryBranch == nil {
-			t.Fatalf("expected primary branch to be found, got nil")
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/%s", database.DatabaseName, primaryBranch.Name), "GET", nil)
@@ -129,10 +129,10 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 			t.Fatalf("expected data to be an object, got %T", resp["data"])
 		}
 
-		primaryBranch = db.PrimaryBranch()
+		primaryBranch, err = db.PrimaryBranch()
 
-		if primaryBranch == nil {
-			t.Fatalf("expected primary branch to be found, got nil")
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		if data["database_branch_id"] != primaryBranch.DatabaseBranchID {
@@ -413,7 +413,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				t.Fatalf("expected success status, got %v", resp["status"])
 			}
 
-			if resp["message"] != "Database branch deleted successfully." {
+			if resp["message"] != "Database branch deleted successfully" {
 				t.Fatalf("expected message to be 'Database branch deleted successfully.', got %v", resp["message"])
 			}
 		})

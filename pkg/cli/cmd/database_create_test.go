@@ -73,8 +73,14 @@ func TestDatabaseCreateWithPrimaryBranch(t *testing.T) {
 			t.Fatalf("expected to get database, got error: %v", err)
 		}
 
-		if db.PrimaryBranch().Name != "primary" {
-			t.Errorf("expected primary branch to be 'primary', got '%s'", db.PrimaryBranch().Name)
+		primaryBranch, err := db.PrimaryBranch()
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if primaryBranch.Name != "primary" {
+			t.Errorf("expected primary branch to be 'primary', got '%s'", primaryBranch.Name)
 		}
 	})
 }

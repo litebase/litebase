@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -10,7 +11,11 @@ import (
 	"github.com/litebase/litebase/pkg/logs"
 )
 
-func QueryLogController(request *Request) Response {
+// Response payload for query logs
+type QueryLogIndexResponse []logs.QueryMetric
+
+// List query logs for a specific database and branch
+func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -33,28 +38,19 @@ func QueryLogController(request *Request) Response {
 	step, err := strconv.ParseInt(request.QueryParam("step", "1"), 10, 64)
 
 	if err != nil || step < 1 {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Invalid step value",
-		}, 400, nil)
+		return BadRequestResponse(errors.New("invalid step value"))
 	}
 
 	startTimestamp, err := strconv.ParseUint(request.QueryParam("start"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Invalid start timestamp",
-		}, 400, nil)
+		return BadRequestResponse(errors.New("invalid start timestamp"))
 	}
 
 	endTimestamp, err := strconv.ParseUint(request.QueryParam("end"), 10, 64)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": "Invalid end timestamp",
-		}, 400, nil)
+		return BadRequestResponse(errors.New("invalid end timestamp"))
 	}
 
 	queryLog := request.logManager.GetQueryLog(
@@ -82,21 +78,19 @@ func QueryLogController(request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	metrics = combineQueryMeticsByStep(metrics, step)
+	response := combineQueryMeticsByStep(metrics, step)
 
-	return JsonResponse(map[string]any{
-		"status": "success",
-		"meta": map[string]any{
-			"keys": logs.QueryMetricKeys(),
-		},
-		"data": metrics,
-	}, 200, nil)
+	return SuccessResponse(
+		"Successfully retrieved query logs.",
+		response,
+		200,
+	).WithMeta("keys", logs.QueryMetricKeys())
 }
 
 // Combine query metrics by step, which is the number of seconds to combine.
 // Start from the first metric and any subsequent metrics that are within the
 // step interval into a single metric.
-func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int64) []logs.QueryMetric {
+func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int64) QueryLogIndexResponse {
 	if step == 1 {
 		return metrics
 	}

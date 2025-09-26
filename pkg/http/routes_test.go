@@ -326,6 +326,7 @@ func TestRoutesMiddleware(t *testing.T) {
 
 			if foundRoute == nil {
 				t.Fatalf("Route %s %s not found", test.Method, test.Path)
+				return
 			}
 
 			// Get the actual middleware names

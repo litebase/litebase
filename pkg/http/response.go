@@ -12,6 +12,43 @@ type Response struct {
 	Body       map[string]any    `json:"body"`
 }
 
+func (r Response) WithHeader(key, value string) Response {
+	if r.Headers == nil {
+		r.Headers = make(map[string]string)
+	}
+
+	r.Headers[key] = value
+
+	return r
+}
+
+func (r Response) WithHeaders(headers map[string]string) Response {
+	if r.Headers == nil {
+		r.Headers = make(map[string]string, len(headers))
+	}
+
+	maps.Copy(r.Headers, headers)
+
+	return r
+}
+
+func (r Response) WithMeta(key string, value any) Response {
+	if r.Body == nil {
+		r.Body = make(map[string]any)
+	}
+
+	meta, ok := r.Body["meta"].(map[string]any)
+
+	if !ok {
+		meta = make(map[string]any)
+		r.Body["meta"] = meta
+	}
+
+	meta[key] = value
+
+	return r
+}
+
 func JsonResponse(body map[string]any, statusCode int, headers map[string]string) Response {
 	responseHeaders := make(map[string]string, len(headers)+1)
 	responseHeaders["Content-Type"] = "application/json"

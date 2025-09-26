@@ -33,10 +33,6 @@ func TestNewDatabaseWAL(t *testing.T) {
 			time.Now().UTC().UnixNano(),
 		)
 
-		if databaseWAL == nil {
-			t.Fatal("Expected databaseWAL to be created")
-		}
-
 		if databaseWAL.DatabaseID != mock.DatabaseID {
 			t.Fatalf("Expected DatabaseID to be %s, got %s", mock.DatabaseID, databaseWAL.DatabaseID)
 		}

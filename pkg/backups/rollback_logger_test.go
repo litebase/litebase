@@ -25,6 +25,7 @@ func TestRollbackLogger(t *testing.T) {
 			// Check if the page logger is not nil
 			if rollbackLogger == nil {
 				t.Fatal("Expected page logger to be not nil")
+				return
 			}
 
 			// Check if the page logger has the correct DatabaseID and BranchID
@@ -102,10 +103,6 @@ func TestRollbackLogger(t *testing.T) {
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
-			}
-
-			if rollbackLog == nil {
-				t.Fatal("Expected rollback log to be not nil")
 			}
 
 			startOfHourTimestamp := time.Now().UTC().Truncate(time.Hour).UnixNano()

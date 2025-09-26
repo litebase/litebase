@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -11,7 +12,8 @@ type KeyActivateRequest struct {
 	EncryptionKey string `json:"encryption_key" validate:"required"`
 }
 
-func KeyActivateController(request *Request) Response {
+// Activate an encryption key for the cluster
+func KeyActivateControllerStore(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
 		[]string{"*", fmt.Sprintf("cluster:%s", request.cluster.ID)},
@@ -56,5 +58,5 @@ func KeyActivateController(request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	return SuccessResponse("encryption key activated successfully", map[string]any{}, 200)
+	return SuccessResponse("encryption key activated successfully", nil, 200)
 }

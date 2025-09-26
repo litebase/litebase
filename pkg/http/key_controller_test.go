@@ -47,7 +47,7 @@ func TestKeyControllerStore(t *testing.T) {
 		}
 
 		if response["message"] != "next encryption key stored successfully" {
-			t.Errorf("Unexpected message: %s, expected 'next encryption key stored successfully'", response["message"])
+			t.Errorf("Unexpected message: %s, expected 'next encryption key stored successfully", response["message"])
 		}
 	})
 }

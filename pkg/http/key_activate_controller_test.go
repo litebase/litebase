@@ -50,7 +50,7 @@ func TestKeyActivateController(t *testing.T) {
 		}
 
 		if response["message"] != "encryption key activated successfully" {
-			t.Errorf("Unexpected message: %s, expected 'encryption key activated successfully'", response["message"])
+			t.Errorf("Unexpected message: %s, expected 'encryption key activated successfully", response["message"])
 		}
 	})
 }

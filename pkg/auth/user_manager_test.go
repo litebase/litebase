@@ -28,10 +28,6 @@ func TestUserManager(t *testing.T) {
 				t.Fatal("Expected user to be found")
 			}
 
-			if user == nil {
-				t.Fatal("Expected user to be found")
-			}
-
 			if user.Username != "testuser" {
 				t.Errorf("Expected username 'testuser', got '%s'", user.Username)
 			}
@@ -158,10 +154,6 @@ func TestUserManager(t *testing.T) {
 				t.Fatal("Expected user to be found")
 			}
 
-			if user == nil {
-				t.Fatal("Expected user to be found")
-			}
-
 			if user.Username != "testuser_Get" {
 				t.Errorf("Expected username 'testuser_Get', got '%s'", user.Username)
 			}
@@ -254,10 +246,6 @@ func TestUserManager(t *testing.T) {
 				t.Fatal("Expected user to be found")
 			}
 
-			if user == nil {
-				t.Fatal("Expected user to be found")
-			}
-
 			if user.Password == "plaintextpass" {
 				t.Error("Expected password to be hashed, not stored as plaintext")
 			}
@@ -291,10 +279,6 @@ func TestUserManager(t *testing.T) {
 				t.Fatal("Expected user to be found")
 			}
 
-			if user == nil {
-				t.Fatal("Expected user to be found")
-			}
-
 			user.Statements = []auth.Statement{
 				{Effect: auth.StatementEffectDeny, Resource: "resource1", Actions: []auth.Privilege{"*"}},
 			}
@@ -313,12 +297,9 @@ func TestUserManager(t *testing.T) {
 				t.Fatal("Expected user to be found")
 			}
 
-			if user == nil {
-				t.Fatal("Expected user to be found")
-			}
-
 			if len(user.Statements) != 1 {
 				t.Errorf("Expected 1 statement, got %d", len(user.Statements))
+				return
 			}
 
 			if user.Statements[0].Effect != auth.StatementEffectDeny {

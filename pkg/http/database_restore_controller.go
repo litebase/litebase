@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -14,7 +15,8 @@ type DatabaseRestoreRequest struct {
 	Timestamp            string `json:"timestamp" validate:"required"`
 }
 
-func DatabaseRestoreController(request *Request) Response {
+// Restore a specific database branch to a point in time
+func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -123,14 +125,8 @@ func DatabaseRestoreController(request *Request) Response {
 	)
 
 	if err != nil {
-		return JsonResponse(map[string]any{
-			"status":  "error",
-			"message": err.Error(),
-		}, 500, nil)
+		return ServerErrorResponse(err)
 	}
 
-	return JsonResponse(map[string]any{
-		"status":  "success",
-		"message": "Database restored successfully",
-	}, 200, nil)
+	return SuccessResponse("Database restored successfully", nil, 200)
 }

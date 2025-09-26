@@ -255,7 +255,11 @@ func TestQueryController_Errors(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		primaryBranch := db.PrimaryBranch()
+		primaryBranch, err := db.PrimaryBranch()
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		if primaryBranch == nil {
 			t.Fatal("Expected primary branch to be found, but got nil")

@@ -20,10 +20,6 @@ func TestDatabaseKey(t *testing.T) {
 				mock.BranchName,
 			)
 
-			if databaseKey == nil {
-				t.Fatal("database key is nil")
-			}
-
 			if databaseKey.DatabaseID != mock.DatabaseID {
 				t.Errorf("expected DatabaseID %s, got %s", mock.DatabaseID, databaseKey.DatabaseID)
 			}

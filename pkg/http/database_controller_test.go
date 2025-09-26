@@ -247,7 +247,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 				t.Fatalf("expected success status, got %v", resp["status"])
 			}
 
-			if resp["message"] != "Database deleted successfully." {
+			if resp["message"] != "Database deleted successfully" {
 				t.Fatalf("expected message to be 'Database deleted successfully.', got %v", resp["message"])
 			}
 		})

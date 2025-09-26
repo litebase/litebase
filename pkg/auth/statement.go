@@ -5,9 +5,9 @@ import (
 )
 
 type Statement struct {
-	Effect   StatementEffect `json:"effect" validate:"required,validateFn=IsValid"`
-	Resource Resource        `json:"resource" validate:"required,validateFn=IsValid"`
-	Actions  []Privilege     `json:"actions" validate:"required,min=1,max=100"`
+	Effect   StatementEffect `json:"effect" validate:"required,validateFn=IsValid" example:"allow" description:"Allow or deny effect for the statement"`
+	Resource Resource        `json:"resource" validate:"required,validateFn=IsValid" example:"database:*" description:"Resource identifier or pattern"`
+	Actions  []Privilege     `json:"actions" validate:"required,min=1,max=100" example:"read,write" description:"List of privileges/actions allowed or denied"`
 }
 
 // This method validates if all of the actions in the statement align with the

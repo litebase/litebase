@@ -1,11 +1,12 @@
 package http
 
 import (
+	"context"
 	"strconv"
 	"time"
 )
 
-func Internal(request *Request) (*Request, Response) {
+func Internal(ctx context.Context, request *Request) (*Request, Response) {
 	nodeHeader := request.Headers().Get("X-Litebase-Node")
 	nodeTimestamp := request.Headers().Get("X-Litebase-Node-Timestamp")
 
