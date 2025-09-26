@@ -24,7 +24,7 @@ func NewDatabaseSnapshotListCmd(config *config.CLIConfiguration) *cobra.Command 
 				return fmt.Errorf("invalid database path: %w", err)
 			}
 
-			data, err := api.Get(config, fmt.Sprintf("/v1/databases/%s/%s/snapshots", databaseName, branchName))
+			data, err := api.Get(config, fmt.Sprintf("/v1/databases/%s/branches/%s/snapshots", databaseName, branchName))
 
 			if err != nil {
 				return err

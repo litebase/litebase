@@ -1,6 +1,8 @@
 package components
 
-import "time"
+import (
+	"time"
+)
 
 func DatabaseCard(data map[string]any) string {
 	rows := []CardRow{
@@ -38,9 +40,6 @@ func DatabaseCard(data map[string]any) string {
 
 	if url, ok := data["url"].(string); ok && url != "" {
 		rows = append(rows, CardRow{
-			Key:   "",
-			Value: "",
-		}, CardRow{
 			Key:   "URL",
 			Value: data["url"].(string),
 		})

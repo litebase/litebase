@@ -24,7 +24,7 @@ func NewDatabaseSnapshotShowCmd(config *config.CLIConfiguration) *cobra.Command 
 
 			timestamp := args[1]
 
-			res, err := api.Get(config, fmt.Sprintf("/v1/databases/%s/%s/snapshots/%s", databaseName, branchName, timestamp))
+			res, err := api.Get(config, fmt.Sprintf("/v1/databases/%s/branches/%s/snapshots/%s", databaseName, branchName, timestamp))
 
 			if err != nil {
 				return err

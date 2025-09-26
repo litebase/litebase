@@ -60,7 +60,7 @@ func NewDatabaseRestoreCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			res, apiErrors, err := api.Post(
 				config,
-				fmt.Sprintf("/v1/databases/%s/%s/restore", sourceDatabaseName, sourceBranchName),
+				fmt.Sprintf("/v1/databases/%s/branches/%s/restore", sourceDatabaseName, sourceBranchName),
 				requestData,
 			)
 

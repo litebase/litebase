@@ -137,7 +137,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Get(
-		"/v1/databases/{databaseName}/{branchName}",
+		"/v1/databases/{databaseName}/branches/{branchName}",
 		DatabaseBranchControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
@@ -152,7 +152,7 @@ func LoadRoutes(router *Router) {
 	})
 
 	router.Delete(
-		"/v1/databases/{databaseName}/{branchName}",
+		"/v1/databases/{databaseName}/branches/{branchName}",
 		DatabaseBranchControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
@@ -255,66 +255,66 @@ func LoadRoutes(router *Router) {
 		Internal,
 	})
 
-	router.Get("/v1/databases/{databaseName}/{branchName}/backups",
+	router.Get("/v1/databases/{databaseName}/branches/{branchName}/backups",
 		DatabaseBackupControllerIndex,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Post("/v1/databases/{databaseName}/{branchName}/backups",
+	router.Post("/v1/databases/{databaseName}/branches/{branchName}/backups",
 		DatabaseBackupControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Get("/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
+	router.Get("/v1/databases/{databaseName}/branches/{branchName}/backups/{timestamp}",
 		DatabaseBackupControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
-	router.Delete("/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
+	router.Delete("/v1/databases/{databaseName}/branches/{branchName}/backups/{timestamp}",
 		DatabaseBackupControllerDestroy,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Get("/v1/databases/{databaseName}/{branchName}/metrics/query",
+	router.Get("/v1/databases/{databaseName}/branches/{branchName}/metrics/query",
 		QueryLogControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	}).Timeout(1 * time.Second)
 
-	router.Post("/v1/databases/{databaseName}/{branchName}/query",
+	router.Post("/v1/databases/{databaseName}/branches/{branchName}/query",
 		QueryControllerStore,
 	).Middleware([]Middleware{
 		Authentication,
 	}).Timeout(300 * time.Second)
 
-	router.Post("/v1/databases/{databaseName}/{branchName}/query/stream",
+	router.Post("/v1/databases/{databaseName}/branches/{branchName}/query/stream",
 		QueryStreamControllerStore,
 	).Middleware([]Middleware{
 		PreloadDatabaseKey,
 		Authentication,
 	}).Timeout(300 * time.Second)
 
-	router.Post("/v1/databases/{databaseName}/{branchName}/restore",
+	router.Post("/v1/databases/{databaseName}/branches/{branchName}/restore",
 		DatabaseRestoreControllerStore,
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
 	})
 
-	router.Get("/v1/databases/{databaseName}/{branchName}/snapshots",
+	router.Get("/v1/databases/{databaseName}/branches/{branchName}/snapshots",
 		DatabaseSnapshotControllerIndex,
 	).Middleware([]Middleware{
 		Authentication,
 	})
 
-	router.Get("/v1/databases/{databaseName}/{branchName}/snapshots/{timestamp}",
+	router.Get("/v1/databases/{databaseName}/branches/{branchName}/snapshots/{timestamp}",
 		DatabaseSnapshotControllerShow,
 	).Middleware([]Middleware{
 		Authentication,
