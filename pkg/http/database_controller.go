@@ -12,6 +12,10 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 )
 
+// Array of databases for list operations
+type DatabaseIndexResponse []*database.Database
+
+// List all databases
 func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 	// Authorize the request
 	err := request.Authorize(
@@ -31,7 +35,7 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"Successfully retrieved databases.",
-		dbs,
+		DatabaseIndexResponse(dbs),
 		200,
 	)
 }

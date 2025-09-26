@@ -12,6 +12,10 @@ import (
 	"github.com/litebase/litebase/pkg/backups"
 )
 
+// Array of database snapshots for list operations
+type DatabaseSnapshotIndexResponse []*backups.Snapshot
+
+// List all snapshots for a specific database and branch
 func DatabaseSnapshotControllerIndex(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
@@ -69,10 +73,11 @@ func DatabaseSnapshotControllerIndex(ctx context.Context, request *Request) Resp
 		}, 500, nil)
 	}
 
-	return JsonResponse(map[string]any{
-		"status": "success",
-		"data":   values,
-	}, 200, nil)
+	return SuccessResponse(
+		"Successfully retrieved database snapshots.",
+		DatabaseSnapshotIndexResponse(values),
+		200,
+	)
 }
 
 func DatabaseSnapshotControllerShow(ctx context.Context, request *Request) Response {

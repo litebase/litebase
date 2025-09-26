@@ -131,11 +131,9 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 		responses = append(responses, response.ToMap())
 	}
 
-	return Response{
-		StatusCode: 200,
-		Body: map[string]any{
-			"status": "success",
-			"data":   responses,
-		},
-	}
+	return SuccessResponse(
+		"Queries executed successfully.",
+		responses,
+		200,
+	)
 }

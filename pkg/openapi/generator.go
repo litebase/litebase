@@ -94,7 +94,9 @@ type ResponseInfo struct {
 	Description string
 	Schema      *Schema
 	Type        string
-	Message     string // Actual success message extracted from SuccessResponse calls
+	Message     string             // Actual success message extracted from SuccessResponse calls
+	MetaFields  map[string]*Schema // Meta fields added via WithMeta() calls
+	Headers     map[string]*Schema // Headers added via WithHeader() calls
 }
 
 // NewGenerator creates a new generator
@@ -1211,6 +1213,11 @@ func (g *Generator) analyzeMethodResponsesWithContext(fn *ast.FuncDecl, analysis
 			g.analyzeResponseCallWithContext(node, analysis, variableTypes)
 		case *ast.CompositeLit:
 			g.analyzeResponseLiteral(node, analysis)
+		case *ast.ReturnStmt:
+			// Analyze return statements for method chaining patterns
+			for _, result := range node.Results {
+				g.analyzeReturnExpressionForChaining(result, analysis, variableTypes)
+			}
 		}
 
 		return true
@@ -1347,12 +1354,24 @@ func (g *Generator) analyzeResponseCallWithContext(call *ast.CallExpr, analysis 
 
 			statusCodeStr := fmt.Sprintf("%d", statusCode)
 
+			// Check if we already have a response info for this status code (might have meta fields)
+			existingResponse := analysis.Responses[statusCodeStr]
+			var metaFields map[string]*Schema
+			var headers map[string]*Schema
+
+			if existingResponse != nil {
+				metaFields = existingResponse.MetaFields
+				headers = existingResponse.Headers
+			}
+
 			analysis.Responses[statusCodeStr] = &ResponseInfo{
 				StatusCode:  statusCode,
 				Description: "Successful operation",
 				Type:        "success",
 				Schema:      dataSchema,
 				Message:     successMessage, // Store the actual success message
+				MetaFields:  metaFields,     // Preserve any existing meta fields
+				Headers:     headers,        // Preserve any existing headers
 			}
 		}
 	}
@@ -1371,17 +1390,57 @@ func (g *Generator) extractSchemaFromExpressionWithContext(expr ast.Expr, variab
 		if e.Op == token.AND {
 			return g.extractSchemaFromExpressionWithContext(e.X, variableTypes)
 		}
+	case *ast.BasicLit:
+		// Handle basic literals (strings, numbers, etc.)
+		switch e.Kind {
+		case token.STRING:
+			return &Schema{
+				Type:        "string",
+				Description: "String value",
+			}
+		case token.INT:
+			return &Schema{
+				Type:        "integer",
+				Description: "Integer value",
+			}
+		case token.FLOAT:
+			return &Schema{
+				Type:        "number",
+				Description: "Number value",
+			}
+		default:
+			return &Schema{
+				Type:        "string",
+				Description: "Literal value",
+			}
+		}
 	case *ast.CompositeLit:
 		// Handle composite literals (struct literals)
 		if sel, ok := e.Type.(*ast.SelectorExpr); ok {
 			// Package.Type reference
 			if ident, ok := sel.X.(*ast.Ident); ok {
 				typeName := ident.Name + "." + sel.Sel.Name
+
 				return g.createSchemaForKnownType(typeName)
 			}
 		} else if ident, ok := e.Type.(*ast.Ident); ok {
 			// Local type reference
 			return g.createSchemaForKnownType(ident.Name)
+		}
+	case *ast.CallExpr:
+		// Handle function calls like logs.QueryMetricKeys()
+		if sel, ok := e.Fun.(*ast.SelectorExpr); ok {
+			// Package.Function call
+			if ident, ok := sel.X.(*ast.Ident); ok {
+				packageName := ident.Name
+				functionName := sel.Sel.Name
+
+				// Handle known function calls and their return types
+				return g.inferReturnTypeFromFunctionCall(packageName, functionName)
+			}
+		} else if ident, ok := e.Fun.(*ast.Ident); ok {
+			// Local function call
+			return g.inferReturnTypeFromFunctionCall("", ident.Name)
 		}
 	case *ast.Ident:
 		// Check if we have variable type information
@@ -1419,6 +1478,40 @@ func (g *Generator) extractSchemaFromExpressionWithContext(expr ast.Expr, variab
 	return &Schema{Type: "object"}
 }
 
+// inferReturnTypeFromFunctionCall infers the return type of known function calls
+func (g *Generator) inferReturnTypeFromFunctionCall(packageName, functionName string) *Schema {
+	// Handle known function calls and their return types
+	switch packageName {
+	case "logs":
+		switch functionName {
+		case "QueryMetricKeys":
+			// QueryMetricKeys() returns []string
+			return &Schema{
+				Type: "array",
+				Items: &Schema{
+					Type: "string",
+				},
+				Description: "Array of query metric keys",
+			}
+		}
+	}
+
+	// Handle string literals in function arguments (like "100" for header values)
+	if functionName == "" {
+		// This might be a string literal or similar
+		return &Schema{
+			Type:        "string",
+			Description: "String value",
+		}
+	}
+
+	// For unknown function calls, default to generic object
+	return &Schema{
+		Type:        "object",
+		Description: fmt.Sprintf("Return value from %s.%s()", packageName, functionName),
+	}
+}
+
 // createSchemaForKnownType creates a schema for known types
 func (g *Generator) createSchemaForKnownType(typeName string) *Schema {
 	// Handle array types first
@@ -1427,6 +1520,7 @@ func (g *Generator) createSchemaForKnownType(typeName string) *Schema {
 
 		// Try to find a description from the original type alias
 		description := g.findArrayTypeDescription(typeName)
+
 		if description == "" {
 			description = "Array of " + elementType + " objects"
 		}
@@ -1734,6 +1828,127 @@ func (g *Generator) analyzeMethodSecurity(fn *ast.FuncDecl, analysis *MethodAnal
 	})
 }
 
+// analyzeReturnExpressionForChaining analyzes return expressions for method chaining patterns like SuccessResponse().WithMeta()
+func (g *Generator) analyzeReturnExpressionForChaining(expr ast.Expr, analysis *MethodAnalysis, variableTypes map[string]string) {
+	// Debug: log the expression type we're analyzing
+	// fmt.Printf("Analyzing return expression in %s: %T\n", analysis.Name, expr)
+
+	// Look for method chaining patterns
+	callExpr, ok := expr.(*ast.CallExpr)
+	if !ok {
+		return
+	}
+
+	// Check if this is a method call (selector expression)
+	selExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
+
+	if !ok {
+		// This might be a direct function call like SuccessResponse(...)
+		// We should still analyze it via the regular path
+		g.analyzeResponseCallWithContext(callExpr, analysis, variableTypes)
+		return
+	}
+
+	// This is a method call - check the method name and analyze the chain
+	switch selExpr.Sel.Name {
+	case "WithMeta":
+		// Debug: log that we found a WithMeta call
+		// fmt.Printf("Found WithMeta call in %s\n", analysis.Name)
+		// This is a WithMeta call - we need to find the base response and enhance it
+		g.enhanceResponseWithMeta(selExpr.X, callExpr, analysis, variableTypes)
+	case "WithHeader":
+		// This is a WithHeader call - we need to find the base response and enhance it
+		g.enhanceResponseWithHeader(selExpr.X, callExpr, analysis, variableTypes)
+	default:
+		// Check if the base expression itself is a response call
+		g.analyzeReturnExpressionForChaining(selExpr.X, analysis, variableTypes)
+	}
+}
+
+// enhanceResponseWithMeta enhances existing response information with meta field information
+func (g *Generator) enhanceResponseWithMeta(baseExpr ast.Expr, withMetaCall *ast.CallExpr, analysis *MethodAnalysis, variableTypes map[string]string) {
+	// First, ensure the base response is analyzed
+	g.analyzeReturnExpressionForChaining(baseExpr, analysis, variableTypes)
+
+	// Extract the meta key and value type from WithMeta arguments
+	if len(withMetaCall.Args) >= 2 {
+		var metaKey string
+
+		// Extract meta key (first argument)
+		if basicLit, ok := withMetaCall.Args[0].(*ast.BasicLit); ok && basicLit.Kind == token.STRING {
+			metaKey = strings.Trim(basicLit.Value, `"`)
+		}
+
+		// For now, we'll enhance the success response (200) with meta information
+		if responseInfo, exists := analysis.Responses["200"]; exists && responseInfo.Type == "success" {
+			// Initialize MetaFields if needed
+			if responseInfo.MetaFields == nil {
+				responseInfo.MetaFields = make(map[string]*Schema)
+			}
+
+			// Try to determine the type of the meta value from the second argument
+			metaValueSchema := g.extractSchemaFromExpressionWithContext(withMetaCall.Args[1], variableTypes)
+
+			if metaValueSchema == nil {
+				// Default to generic object if we can't determine the type
+				metaValueSchema = &Schema{
+					Type:        "object",
+					Description: fmt.Sprintf("Meta information for %s", metaKey),
+				}
+			} else {
+				metaValueSchema.Description = fmt.Sprintf("Meta information for %s", metaKey)
+			}
+
+			responseInfo.MetaFields[metaKey] = metaValueSchema
+
+			// Ensure the modified responseInfo is stored back in the map
+			analysis.Responses["200"] = responseInfo
+		}
+	}
+}
+
+// enhanceResponseWithHeader enhances existing response information with header information
+func (g *Generator) enhanceResponseWithHeader(baseExpr ast.Expr, withHeaderCall *ast.CallExpr, analysis *MethodAnalysis, variableTypes map[string]string) {
+	// First, ensure the base response is analyzed
+	g.analyzeReturnExpressionForChaining(baseExpr, analysis, variableTypes)
+
+	// Extract the header key and value from WithHeader arguments
+	if len(withHeaderCall.Args) >= 2 {
+		var headerKey string
+
+		// Extract header key (first argument)
+		if basicLit, ok := withHeaderCall.Args[0].(*ast.BasicLit); ok && basicLit.Kind == token.STRING {
+			headerKey = strings.Trim(basicLit.Value, `"`)
+		}
+
+		// For now, we'll enhance the success response (200) with header information
+		if responseInfo, exists := analysis.Responses["200"]; exists && responseInfo.Type == "success" {
+			// Initialize Headers if needed
+			if responseInfo.Headers == nil {
+				responseInfo.Headers = make(map[string]*Schema)
+			}
+
+			// Try to determine the type of the header value from the second argument
+			headerValueSchema := g.extractSchemaFromExpressionWithContext(withHeaderCall.Args[1], variableTypes)
+
+			if headerValueSchema == nil {
+				// Default to string type for headers
+				headerValueSchema = &Schema{
+					Type:        "string",
+					Description: fmt.Sprintf("Response header: %s", headerKey),
+				}
+			} else {
+				headerValueSchema.Description = fmt.Sprintf("Response header: %s", headerKey)
+			}
+
+			responseInfo.Headers[headerKey] = headerValueSchema
+
+			// Ensure the modified responseInfo is stored back in the map
+			analysis.Responses["200"] = responseInfo
+		}
+	}
+}
+
 // addDefaultResponses adds default responses based on HTTP method
 func (g *Generator) addDefaultResponses(analysis *MethodAnalysis) {
 	switch analysis.HTTPMethod {
@@ -1987,6 +2202,16 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 				required = append(required, "message")
 			}
 
+			// Check if this response has meta information
+			// This is detected during chaining analysis
+			if hasMetaFields(resp) {
+				properties["meta"] = &Schema{
+					Type:        "object",
+					Description: "Additional metadata",
+					Properties:  extractMetaProperties(resp),
+				}
+			}
+
 			// Sort the required array for consistency
 			sort.Strings(required)
 
@@ -2039,6 +2264,7 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 
 		result[code] = Response{
 			Description: resp.Description,
+			Headers:     convertHeaders(resp.Headers),
 			Content: map[string]MediaType{
 				"application/json": {
 					Schema: schema,
@@ -2047,6 +2273,36 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 		}
 	}
 
+	return result
+}
+
+// hasMetaFields checks if a response has meta field information
+func hasMetaFields(resp *ResponseInfo) bool {
+	return len(resp.MetaFields) > 0
+}
+
+// extractMetaProperties extracts meta field properties from response info
+func extractMetaProperties(resp *ResponseInfo) map[string]*Schema {
+	if resp.MetaFields == nil {
+		return make(map[string]*Schema)
+	}
+	return resp.MetaFields
+}
+
+// convertHeaders converts ResponseInfo headers to OpenAPI headers
+func convertHeaders(headers map[string]*Schema) map[string]Header {
+	if len(headers) == 0 {
+		return nil
+	}
+
+	result := make(map[string]Header)
+	for headerName, headerSchema := range headers {
+		result[headerName] = Header{
+			Description: headerSchema.Description,
+			Required:    false, // Headers are typically optional
+			Schema:      headerSchema,
+		}
+	}
 	return result
 }
 
@@ -2080,34 +2336,45 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 	displayName := convertResourceToDisplayName(resourceName)
 
 	if strings.HasSuffix(analysis.Name, "Store") {
-		// Look for request struct in type info
-		requestTypeName := analysis.Name + "Request"
+		// Try multiple naming patterns for request structs
+		potentialNames := []string{
+			analysis.Name + "Request", // DatabaseBranchControllerStoreRequest
+			strings.Replace(analysis.Name, "Controller", "", 1) + "Request", // DatabaseBranchStoreRequest
+		}
 
-		if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
-			return &RequestBody{
-				Description: fmt.Sprintf("%s creation data", capitalizeFirst(displayName)),
-				Required:    true,
-				Content: map[string]MediaType{
-					"application/json": {
-						Schema: g.convertTypeInfoToSchema(typeInfo),
+		for _, requestTypeName := range potentialNames {
+			if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
+				return &RequestBody{
+					Description: fmt.Sprintf("%s creation data", capitalizeFirst(displayName)),
+					Required:    true,
+					Content: map[string]MediaType{
+						"application/json": {
+							Schema: g.convertTypeInfoToSchema(typeInfo),
+						},
 					},
-				},
+				}
 			}
 		}
 	}
 
 	if strings.HasSuffix(analysis.Name, "Update") {
-		// Look for request struct in type info
-		requestTypeName := analysis.Name + "Request"
-		if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
-			return &RequestBody{
-				Description: fmt.Sprintf("%s update data", capitalizeFirst(displayName)),
-				Required:    true,
-				Content: map[string]MediaType{
-					"application/json": {
-						Schema: g.convertTypeInfoToSchema(typeInfo),
+		// Try multiple naming patterns for request structs
+		potentialNames := []string{
+			analysis.Name + "Request", // DatabaseBranchControllerUpdateRequest
+			strings.Replace(analysis.Name, "Controller", "", 1) + "Request", // DatabaseBranchUpdateRequest
+		}
+
+		for _, requestTypeName := range potentialNames {
+			if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
+				return &RequestBody{
+					Description: fmt.Sprintf("%s update data", capitalizeFirst(displayName)),
+					Required:    true,
+					Content: map[string]MediaType{
+						"application/json": {
+							Schema: g.convertTypeInfoToSchema(typeInfo),
+						},
 					},
-				},
+				}
 			}
 		}
 	}

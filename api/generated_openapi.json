@@ -133,6 +133,51 @@
         "summary": "Create a new access key",
         "description": "Create a new access key",
         "operationId": "createAccessKey",
+        "requestBody": {
+          "description": "Access key creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "statements": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "actions": {
+                          "type": "array",
+                          "description": "List of privileges/actions allowed or denied",
+                          "items": {
+                            "$ref": "#/components/schemas/Privilege"
+                          }
+                        },
+                        "effect": {
+                          "$ref": "#/components/schemas/StatementEffect"
+                        },
+                        "resource": {
+                          "$ref": "#/components/schemas/Resource"
+                        }
+                      },
+                      "required": [
+                        "actions",
+                        "effect",
+                        "resource"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "statements"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "description": "Successful operation",
@@ -361,7 +406,27 @@
                         "statements": {
                           "type": "array",
                           "items": {
-                            "$ref": "#/components/schemas/Statement"
+                            "type": "object",
+                            "properties": {
+                              "actions": {
+                                "type": "array",
+                                "description": "List of privileges/actions allowed or denied",
+                                "items": {
+                                  "$ref": "#/components/schemas/Privilege"
+                                }
+                              },
+                              "effect": {
+                                "$ref": "#/components/schemas/StatementEffect"
+                              },
+                              "resource": {
+                                "$ref": "#/components/schemas/Resource"
+                              }
+                            },
+                            "required": [
+                              "actions",
+                              "effect",
+                              "resource"
+                            ]
                           }
                         },
                         "updated_at": {
@@ -487,6 +552,51 @@
         "summary": "Update an existing access key",
         "description": "Update an existing access key",
         "operationId": "updateAccessKey",
+        "requestBody": {
+          "description": "Access key update data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "statements": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "actions": {
+                          "type": "array",
+                          "description": "List of privileges/actions allowed or denied",
+                          "items": {
+                            "$ref": "#/components/schemas/Privilege"
+                          }
+                        },
+                        "effect": {
+                          "$ref": "#/components/schemas/StatementEffect"
+                        },
+                        "resource": {
+                          "$ref": "#/components/schemas/Resource"
+                        }
+                      },
+                      "required": [
+                        "actions",
+                        "effect",
+                        "resource"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "statements"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -825,24 +935,47 @@
                       "type": "object"
                     },
                     "message": {
-                      "type": "object"
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Election acknowledged"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
                     }
-                  }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
           },
           "400": {
-            "description": "Bad request",
+            "description": "Bad request - invalid input",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "message": {
-                      "type": "object"
+                      "type": "string",
+                      "description": "Error message",
+                      "example": "Error: invalid input provided"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "error"
                     }
-                  }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
@@ -944,6 +1077,7 @@
           "Database"
         ],
         "summary": "List all databases",
+        "description": "List all databases",
         "operationId": "listDatabases",
         "responses": {
           "200": {
@@ -954,7 +1088,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "description": "Return value from .DatabaseIndexResponse()"
                     },
                     "message": {
                       "type": "string",
@@ -1047,6 +1182,28 @@
         ],
         "summary": "Create a new database",
         "operationId": "createDatabase",
+        "requestBody": {
+          "description": "Database creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "$ref": "#/components/schemas/database.DatabaseName"
+                  },
+                  "primary_branch": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -1502,7 +1659,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "description": "Return value from .DatabaseBranchIndexResponse()"
                     },
                     "message": {
                       "type": "string",
@@ -1622,6 +1780,29 @@
         "summary": "Create a new database branch",
         "description": "Create a new database branch",
         "operationId": "createDatabaseBranch",
+        "requestBody": {
+          "description": "Database branch creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Request payload for creating a new database branch",
+                "properties": {
+                  "name": {
+                    "$ref": "#/components/schemas/database.DatabaseBranchName"
+                  },
+                  "parent_name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -1819,7 +2000,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "description": "Return value from .DatabaseBranchShowResponse()"
                     },
                     "message": {
                       "type": "string",
@@ -2094,6 +2276,7 @@
           "DatabaseBackup"
         ],
         "summary": "List all database backups",
+        "description": "List all backups for a specific database and branch",
         "operationId": "listDatabaseBackups",
         "responses": {
           "200": {
@@ -2104,7 +2287,8 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "description": "Return value from .DatabaseBackupIndexResponse()"
                     },
                     "message": {
                       "type": "string",
@@ -2224,6 +2408,17 @@
         "summary": "Create a new database backup",
         "description": "Create a new database backup",
         "operationId": "createDatabaseBackup",
+        "requestBody": {
+          "description": "Database backup creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "400": {
             "description": "Bad request - invalid input",
@@ -2553,8 +2748,95 @@
           "QueryLog"
         ],
         "summary": "List all query logs",
+        "description": "List query logs for a specific database and branch",
         "operationId": "listQueryLogs",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "description": "Response payload for query logs",
+                      "items": {
+                        "type": "object",
+                        "description": "A query metric is a snapshot of the query performance at a given time. These statistics can be stored on disk and only take 64 bytes of space.",
+                        "properties": {
+                          "checksum": {
+                            "type": "object"
+                          },
+                          "count": {
+                            "type": "object"
+                          },
+                          "latencies": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            }
+                          },
+                          "latencyIndex": {
+                            "type": "integer"
+                          },
+                          "latency_avg": {
+                            "type": "number"
+                          },
+                          "latency_max": {
+                            "type": "number"
+                          },
+                          "latency_min": {
+                            "type": "number"
+                          },
+                          "latency_p50": {
+                            "type": "number"
+                          },
+                          "latency_p90": {
+                            "type": "number"
+                          },
+                          "latency_p99": {
+                            "type": "number"
+                          },
+                          "timestamp": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Successfully retrieved query logs."
+                    },
+                    "meta": {
+                      "type": "object",
+                      "description": "Additional metadata",
+                      "properties": {
+                        "keys": {
+                          "type": "array",
+                          "description": "Meta information for keys",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request - invalid input",
             "content": {
@@ -2664,12 +2946,28 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "array",
+                      "description": "Array of unknown objects",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Queries executed successfully."
                     },
                     "status": {
-                      "type": "object"
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
                     }
-                  }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
@@ -2992,8 +3290,40 @@
           "DatabaseSnapshot"
         ],
         "summary": "List all database snapshots",
+        "description": "List all snapshots for a specific database and branch",
         "operationId": "listDatabaseSnapshots",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "Return value from .DatabaseSnapshotIndexResponse()"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Successfully retrieved database snapshots."
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request - invalid input",
             "content": {
@@ -3173,7 +3503,23 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Service is healthy."
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
@@ -3193,6 +3539,29 @@
         ],
         "summary": "Create a new key",
         "operationId": "createKey",
+        "requestBody": {
+          "description": "Key creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "encryption_key": {
+                    "type": "string"
+                  },
+                  "signature": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "encryption_key",
+                  "signature"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -3514,6 +3883,7 @@
           "ClusterStatus"
         ],
         "summary": "List all cluster statuses",
+        "description": "Returns the current status of the cluster",
         "operationId": "listClusterStatuses",
         "responses": {
           "200": {
@@ -3525,6 +3895,7 @@
                   "properties": {
                     "data": {
                       "type": "object",
+                      "description": "Response payload for cluster status",
                       "properties": {
                         "node_count": {
                           "type": "integer"
@@ -3593,10 +3964,20 @@
                             "description": "Creation timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           },
-                          "id": {
-                            "type": "string",
-                            "description": "Resource identifier",
-                            "example": "example_id"
+                          "description": {
+                            "type": "string"
+                          },
+                          "statements": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
+                          },
+                          "token": {
+                            "type": "string"
+                          },
+                          "token_id": {
+                            "type": "string"
                           },
                           "updated_at": {
                             "type": "string",
@@ -3604,12 +3985,7 @@
                             "description": "Last update timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           }
-                        },
-                        "required": [
-                          "created_at",
-                          "id",
-                          "updated_at"
-                        ]
+                        }
                       }
                     },
                     "message": {
@@ -3721,10 +4097,20 @@
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "id": {
-                          "type": "string",
-                          "description": "Resource identifier",
-                          "example": "example_id"
+                        "description": {
+                          "type": "string"
+                        },
+                        "statements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "token_id": {
+                          "type": "string"
                         },
                         "updated_at": {
                           "type": "string",
@@ -3732,12 +4118,7 @@
                           "description": "Last update timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         }
-                      },
-                      "required": [
-                        "created_at",
-                        "id",
-                        "updated_at"
-                      ]
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -4432,23 +4813,25 @@
                             "description": "Creation timestamp",
                             "example": "2023-09-20T14:30:00Z"
                           },
-                          "id": {
-                            "type": "string",
-                            "description": "Resource identifier",
-                            "example": "example_id"
+                          "description": {
+                            "type": "string"
+                          },
+                          "statements": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            }
                           },
                           "updated_at": {
                             "type": "string",
                             "format": "date-time",
                             "description": "Last update timestamp",
                             "example": "2023-09-20T14:30:00Z"
+                          },
+                          "username": {
+                            "type": "string"
                           }
-                        },
-                        "required": [
-                          "created_at",
-                          "id",
-                          "updated_at"
-                        ]
+                        }
                       }
                     },
                     "message": {
@@ -5327,6 +5710,12 @@
   },
   "components": {
     "schemas": {
+      "DatabaseBranchName": {
+        "type": "object"
+      },
+      "DatabaseName": {
+        "type": "object"
+      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
@@ -5349,16 +5738,16 @@
       "Privilege": {
         "type": "string",
         "enum": [
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update",
           "token:create",
           "token:delete",
           "token:list",
           "token:read",
           "token:update",
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update",
           "database:create",
           "database:list",
           "database:show",
@@ -5496,28 +5885,32 @@
   },
   "tags": [
     {
-      "name": "Key",
-      "description": "Encryption key management"
+      "name": "ClusterElection",
+      "description": "Cluster leader election operations"
     },
     {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
+      "name": "User",
+      "description": "User management operations"
     },
     {
       "name": "Token",
       "description": "Token management for authentication"
     },
     {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
+      "name": "ClusterPrimary",
+      "description": "Primary cluster node operations"
+    },
+    {
+      "name": "Query",
+      "description": "SQL query execution operations"
     },
     {
       "name": "ClusterConnection",
       "description": "Cluster connection management operations"
-    },
-    {
-      "name": "User",
-      "description": "User management operations"
     },
     {
       "name": "Database",
@@ -5528,44 +5921,40 @@
       "description": "Cluster status and health operations"
     },
     {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
+      "name": "QueryStream",
+      "description": "Streaming query operations"
     },
     {
       "name": "AccessKey",
       "description": "Access key management for authentication"
     },
     {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
       "name": "DatabaseRestore",
       "description": "Database restore operations"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
     },
     {
       "name": "DatabaseBackup",
       "description": "Database backup operations"
     },
     {
-      "name": "Query",
-      "description": "SQL query execution operations"
+      "name": "HealthCheck",
+      "description": "Health check endpoints"
+    },
+    {
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "Key",
+      "description": "Encryption key management"
     }
   ]
 }

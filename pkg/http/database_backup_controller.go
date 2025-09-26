@@ -12,6 +12,10 @@ import (
 	"github.com/litebase/litebase/pkg/backups"
 )
 
+// Array of database branches for list operations
+type DatabaseBackupIndexResponse []*backups.Backup
+
+// List all backups for a specific database and branch
 func DatabaseBackupControllerIndex(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
@@ -41,7 +45,7 @@ func DatabaseBackupControllerIndex(ctx context.Context, request *Request) Respon
 
 	return SuccessResponse(
 		"Successfully retrieved database backups.",
-		backupList,
+		DatabaseBackupIndexResponse(backupList),
 		200,
 	)
 }

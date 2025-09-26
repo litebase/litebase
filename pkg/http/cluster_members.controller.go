@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"log"
 )
 
@@ -17,9 +18,7 @@ func ClusterMemberControllerDestroy(ctx context.Context, request *Request) Respo
 	)
 
 	if err != nil {
-		return Response{
-			StatusCode: 401,
-		}
+		return UnauthorizedResponse()
 	}
 
 	nodePresent := false
@@ -32,9 +31,7 @@ func ClusterMemberControllerDestroy(ctx context.Context, request *Request) Respo
 	}
 
 	if !nodePresent {
-		return Response{
-			StatusCode: 400,
-		}
+		return BadRequestResponse(errors.New("node is not eligible to remove a member"))
 	}
 
 	address := request.Param("address")
@@ -42,17 +39,13 @@ func ClusterMemberControllerDestroy(ctx context.Context, request *Request) Respo
 	if address == "" {
 		log.Println("Address not provided")
 
-		return Response{
-			StatusCode: 400,
-		}
+		return BadRequestResponse(errors.New("address not provided"))
 	}
 
 	if address != decryptedIp.Value {
 		log.Println("Unauthorized node connection attempt: ", decryptedIp.Value)
 
-		return Response{
-			StatusCode: 401,
-		}
+		return UnauthorizedResponse()
 	}
 
 	err = request.cluster.RemoveMember(address, false)
@@ -61,10 +54,11 @@ func ClusterMemberControllerDestroy(ctx context.Context, request *Request) Respo
 		return ServerErrorResponse(err)
 	}
 
-	return Response{
-		StatusCode: 200,
-		Body:       nil,
-	}
+	return SuccessResponse(
+		"Member removed successfully.",
+		nil,
+		200,
+	)
 }
 
 type ClusterMemberStoreRequest struct {
@@ -94,9 +88,7 @@ func ClusterMemberControllerStore(ctx context.Context, request *Request) Respons
 	)
 
 	if err != nil {
-		return Response{
-			StatusCode: 401,
-		}
+		return UnauthorizedResponse()
 	}
 
 	nodePresent := false
@@ -111,9 +103,7 @@ func ClusterMemberControllerStore(ctx context.Context, request *Request) Respons
 	if !nodePresent {
 		log.Println("Node is not eligible to join the cluster: ", decryptedIp.Value)
 
-		return Response{
-			StatusCode: 400,
-		}
+		return BadRequestResponse(errors.New("node is not eligible to join the cluster"))
 	}
 
 	validationErrors := request.Validate(input, map[string]string{})
@@ -130,13 +120,12 @@ func ClusterMemberControllerStore(ctx context.Context, request *Request) Respons
 	if err != nil {
 		log.Println("Failed to add member: ", err)
 
-		return Response{
-			StatusCode: 500,
-		}
+		return ServerErrorResponse(err)
 	}
 
-	return Response{
-		StatusCode: 200,
-		Body:       nil,
-	}
+	return SuccessResponse(
+		"Member added successfully.",
+		nil,
+		200,
+	)
 }

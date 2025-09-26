@@ -12,6 +12,9 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 )
 
+// Array of database branches for list operations
+type DatabaseBranchIndexResponse []*database.Branch
+
 // List all branches for a specific database
 func DatabaseBranchControllerIndex(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
@@ -46,10 +49,13 @@ func DatabaseBranchControllerIndex(ctx context.Context, request *Request) Respon
 
 	return SuccessResponse(
 		"Successfully retrieved database branches.",
-		branches,
+		DatabaseBranchIndexResponse(branches),
 		200,
 	)
 }
+
+// A single database branch response
+type DatabaseBranchShowResponse *database.Branch
 
 // Show a specific database branch by ID
 func DatabaseBranchControllerShow(ctx context.Context, request *Request) Response {
@@ -93,11 +99,12 @@ func DatabaseBranchControllerShow(ctx context.Context, request *Request) Respons
 
 	return SuccessResponse(
 		"Successfully retrieved database branch.",
-		branch,
+		DatabaseBranchShowResponse(branch),
 		200,
 	)
 }
 
+// Request payload for creating a new database branch
 type DatabaseBranchStoreRequest struct {
 	Name       database.DatabaseBranchName `json:"name" validate:"required,validateFn"`
 	ParentName string                      `json:"parent_name,omitempty"`
