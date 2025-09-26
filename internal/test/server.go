@@ -14,14 +14,15 @@ import (
 )
 
 type TestServer struct {
-	Address       string
-	Client        *TestClient
-	App           *server.App
-	Port          string
-	Server        *httptest.Server
-	PrivateServer *httptest.Server
-	PrivatePort   string
-	Started       chan bool
+	Address        string
+	Client         *TestClient
+	App            *server.App
+	Port           string
+	Server         *httptest.Server
+	PrivateAddress string
+	PrivateServer  *httptest.Server
+	PrivatePort    string
+	Started        chan bool
 }
 
 /*
@@ -29,6 +30,57 @@ NewTestServer creates a new test server, that fully initializes a node and
 encapsulates the state of the node.
 */
 func NewTestServer(t testing.TB) *TestServer {
+	// Create public server
+	publicMux := http.NewServeMux()
+	publicServer := httptest.NewServer(publicMux)
+	publicPort := publicServer.URL[len(publicServer.URL)-5:]
+
+	// Create private server
+	privateMux := http.NewServeMux()
+	privateServer := httptest.NewServer(privateMux)
+	privatePort := privateServer.URL[len(privateServer.URL)-5:]
+
+	t.Setenv("LITEBASE_PORT", publicPort)
+	t.Setenv("LITEBASE_PRIVATE_PORT", privatePort)
+
+	configInstance := config.NewConfig()
+	app := server.NewApp(configInstance, publicMux)
+
+	// Set up public routes
+	app.Run()
+
+	// Set up private routes
+	privateRouter := httpRouter.NewRouter()
+	privateRouter.PrivateServer(app.Cluster, app.DatabaseManager, app.LogManager, privateMux)
+
+	// Set the private port provider so the cluster knows about the private server
+	cluster.SetPrivatePortProvider(func() int {
+		port := privateServer.URL[len(privateServer.URL)-5:]
+		if portInt, err := strconv.Atoi(port); err == nil {
+			return portInt
+		}
+		return 0
+	})
+
+	server := &TestServer{
+		Address:        publicServer.URL[7:],
+		App:            app,
+		Port:           publicPort,
+		Server:         publicServer,
+		PrivateAddress: privateServer.URL[7:],
+		PrivateServer:  privateServer,
+		PrivatePort:    privatePort,
+		Started:        app.Cluster.Node().Start(),
+	}
+
+	return server
+}
+
+/*
+Create a new test server that is not started. This is useful for testing
+scenarios where the server needs to be started in a specific way.
+*/
+func NewUnstartedTestServer(t *testing.T) *TestServer {
 	// Create public server
 	publicMux := http.NewServeMux()
 	publicServer := httptest.NewServer(publicMux)
@@ -62,38 +114,14 @@ func NewTestServer(t testing.TB) *TestServer {
 	})
 
 	server := &TestServer{
-		Address:       publicServer.URL[7:],
-		App:           app,
-		Port:          publicPort,
-		Server:        publicServer,
-		PrivateServer: privateServer,
-		PrivatePort:   privatePort,
-		Started:       app.Cluster.Node().Start(),
-	}
-
-	return server
-}
-
-/*
-Create a new test server that is not started. This is useful for testing
-scenarios where the server needs to be started in a specific way.
-*/
-func NewUnstartedTestServer(t *testing.T) *TestServer {
-	serveMux := http.NewServeMux()
-	ts := httptest.NewServer(serveMux)
-	port := ts.URL[len(ts.URL)-5:]
-
-	t.Setenv("LITEBASE_PORT", port)
-
-	configInstance := config.NewConfig()
-	app := server.NewApp(configInstance, serveMux)
-	app.Run()
-
-	server := &TestServer{
-		Address: ts.URL,
-		App:     app,
-		Port:    port,
-		Server:  ts,
+		Address:        publicServer.URL[7:],
+		App:            app,
+		Port:           publicPort,
+		Server:         publicServer,
+		PrivateAddress: privateServer.URL[7:],
+		PrivateServer:  privateServer,
+		PrivatePort:    privatePort,
+		// Note: Started channel is not set - this server is not started
 	}
 
 	return server
@@ -153,7 +181,7 @@ func (ts *TestServer) Shutdown() {
 
 	ts.Server.CloseClientConnections()
 	ts.Server.Close()
-	
+
 	if ts.PrivateServer != nil {
 		ts.PrivateServer.CloseClientConnections()
 		ts.PrivateServer.Close()

@@ -73,7 +73,7 @@ func TestCluster(t *testing.T) {
 
 			err = c.AddMember(
 				"1",
-				server2.Address,
+				server2.PrivateAddress,
 			)
 
 			if err != nil {
@@ -89,14 +89,14 @@ func TestCluster(t *testing.T) {
 			found := false
 
 			for _, node := range members {
-				if node.Address == server2.Address {
+				if node.Address == server2.PrivateAddress {
 					found = true
 					break
 				}
 			}
 
 			if !found {
-				t.Fatalf("Member %s not found", server2.Address)
+				t.Fatalf("Member %s not found", server2.PrivateAddress)
 			}
 		})
 
@@ -144,7 +144,7 @@ func TestCluster(t *testing.T) {
 				t.Fatalf("Error adding query node: %s", err)
 			}
 
-			if !server1.App.Cluster.IsMember(server2.Address, time.Now().UTC()) {
+			if !server1.App.Cluster.IsMember(server2.PrivateAddress, time.Now().UTC()) {
 				t.Fatal("Node should be a member")
 			}
 		})
@@ -156,24 +156,24 @@ func TestCluster(t *testing.T) {
 			server2 := test.NewTestServer(t)
 			defer server2.Shutdown()
 
-			err := server1.App.Cluster.AddMember("1", server2.Address)
+			err := server1.App.Cluster.AddMember("1", server2.PrivateAddress)
 
 			if err != nil {
 				t.Fatalf("Error adding query node: %s", err)
 			}
 
 			// Verify is a member
-			if !server1.App.Cluster.IsMember(server2.Address, time.Now().UTC()) {
+			if !server1.App.Cluster.IsMember(server2.PrivateAddress, time.Now().UTC()) {
 				t.Fatal("Node should be a member")
 			}
 
-			err = server1.App.Cluster.RemoveMember(server2.Address, false)
+			err = server1.App.Cluster.RemoveMember(server2.PrivateAddress, false)
 
 			if err != nil {
 				t.Fatalf("Error removing query node: %s", err)
 			}
 
-			_, err = server1.App.Cluster.NetworkFS().Stat(server1.App.Cluster.NodePath() + strings.ReplaceAll(server2.Address, ":", "_"))
+			_, err = server1.App.Cluster.NetworkFS().Stat(server1.App.Cluster.NodePath() + strings.ReplaceAll(server2.PrivateAddress, ":", "_"))
 
 			if err != nil {
 				t.Error("Query node file should still exist, but got error:", err)
@@ -187,24 +187,24 @@ func TestCluster(t *testing.T) {
 			server2 := test.NewTestServer(t)
 			defer server2.Shutdown()
 
-			err := server1.App.Cluster.AddMember("1", server2.Address)
+			err := server1.App.Cluster.AddMember("1", server2.PrivateAddress)
 
 			if err != nil {
 				t.Fatalf("Error adding query node: %s", err)
 			}
 
 			// Verify is a member
-			if !server1.App.Cluster.IsMember(server2.Address, time.Now().UTC()) {
+			if !server1.App.Cluster.IsMember(server2.PrivateAddress, time.Now().UTC()) {
 				t.Fatal("Node should be a member")
 			}
 
-			err = server1.App.Cluster.RemoveMember(server2.Address, true)
+			err = server1.App.Cluster.RemoveMember(server2.PrivateAddress, true)
 
 			if err != nil {
 				t.Fatalf("Error removing query node: %s", err)
 			}
 
-			_, err = server1.App.Cluster.NetworkFS().Stat(server1.App.Cluster.NodePath() + strings.ReplaceAll(server2.Address, ":", "_"))
+			_, err = server1.App.Cluster.NetworkFS().Stat(server1.App.Cluster.NodePath() + strings.ReplaceAll(server2.PrivateAddress, ":", "_"))
 
 			if err == nil {
 				t.Error("Query node file should not exist")
