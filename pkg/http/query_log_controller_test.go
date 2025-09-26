@@ -162,7 +162,7 @@ func TestQueryLogControllerMissingParameters(t *testing.T) {
 			t.Errorf("Expected status 'error', got %v", resp["status"])
 		}
 
-		expectedMessage := "Invalid start timestamp"
+		expectedMessage := "Error: invalid start timestamp"
 
 		if resp["message"] != expectedMessage {
 			t.Errorf("Expected message '%s', got %v", expectedMessage, resp["message"])
@@ -193,22 +193,22 @@ func TestQueryLogControllerInvalidParameters(t *testing.T) {
 			{
 				name:          "Invalid step value",
 				queryParams:   "?start=1000&end=2000&step=0",
-				expectedError: "Invalid step value",
+				expectedError: "Error: invalid step value",
 			},
 			{
 				name:          "Non-numeric start",
 				queryParams:   "?start=invalid&end=2000&step=1",
-				expectedError: "Invalid start timestamp",
+				expectedError: "Error: invalid start timestamp",
 			},
 			{
 				name:          "Non-numeric end",
 				queryParams:   "?start=1000&end=invalid&step=1",
-				expectedError: "Invalid end timestamp",
+				expectedError: "Error: invalid end timestamp",
 			},
 			{
 				name:          "Negative step",
 				queryParams:   "?start=1000&end=2000&step=-1",
-				expectedError: "Invalid step value",
+				expectedError: "Error: invalid step value",
 			},
 		}
 

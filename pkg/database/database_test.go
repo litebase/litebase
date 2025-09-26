@@ -95,20 +95,16 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			primaryBranch := db.PrimaryBranch()
+			primaryBranch, err := db.PrimaryBranch()
 
-			if primaryBranch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			branch, err := db.Branch(primaryBranch.Name)
 
 			if err != nil {
 				t.Fatal(err)
-			}
-
-			if branch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
 			}
 
 			if branch.Name != "main" {
@@ -228,10 +224,6 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if branch == nil {
-				t.Fatal("Expected branch to be created, but got nil")
-			}
-
 			targetDB, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, branch.DatabaseBranchID)
 
 			if err != nil {
@@ -307,10 +299,6 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if branch == nil {
-				t.Fatal("Expected branch to be created, but got nil")
-			}
-
 			targetDB, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, branch.DatabaseBranchID)
 
 			if err != nil {
@@ -326,10 +314,6 @@ func TestDatabase(t *testing.T) {
 				t.Fatalf("Expected table 'test' to exist in new branch, got error: %v", err)
 			}
 
-			if res == nil {
-				t.Fatal("Expected result set to be non-nil, got nil")
-			}
-
 			if res.Rows[0][0].Int64() != 9 {
 				t.Errorf("Expected 9 rows in 'test' table, got %d", res.Rows[0][0].Int64())
 			}
@@ -342,10 +326,10 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			primaryBranch := db.PrimaryBranch()
+			primaryBranch, err := db.PrimaryBranch()
 
-			if primaryBranch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			hasBranch := db.HasBranch(primaryBranch.DatabaseBranchID)
@@ -362,10 +346,10 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			primaryBranch := db.PrimaryBranch()
+			primaryBranch, err := db.PrimaryBranch()
 
-			if primaryBranch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			// Test updating cache with a branch that exists
@@ -398,10 +382,10 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			primaryBranch := db.PrimaryBranch()
+			primaryBranch, err := db.PrimaryBranch()
 
-			if primaryBranch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			// First, ensure the branch is in cache by calling HasBranch
@@ -526,10 +510,10 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			branch := db.PrimaryBranch()
+			branch, err := db.PrimaryBranch()
 
-			if branch == nil {
-				t.Fatal("Expected database to have a primary branch")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			if branch.Name != "main" {
@@ -558,10 +542,10 @@ func TestDatabase(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			primaryBranch := db.PrimaryBranch()
+			primaryBranch, err := db.PrimaryBranch()
 
-			if primaryBranch == nil {
-				t.Fatal("Expected primary branch to be found, but got nil")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
 			}
 
 			url := db.Url(primaryBranch.Name)

@@ -20,10 +20,6 @@ func TestSnapshotLogger(t *testing.T) {
 				mock.DatabaseBranchID,
 			)
 
-			if logger == nil {
-				t.Fatal("Expected logger to be created, got nil")
-			}
-
 			if logger.DatabaseID != mock.DatabaseID {
 				t.Fatalf("Expected databaseId %s, got %s", mock.DatabaseID, logger.DatabaseID)
 			}
@@ -199,15 +195,11 @@ func TestSnapshotLogger(t *testing.T) {
 			// read the file to verify the logs were written
 			snapshot, err := logger.GetSnapshot(timestamps[0])
 
-			if snapshot == nil {
-				t.Fatalf("Expected snapshot to be created, got nil")
-			}
-
-			file := snapshot.File
-
 			if err != nil {
 				t.Fatalf("Expected no error on File(), got %v", err)
 			}
+
+			file := snapshot.File
 
 			entry := make([]byte, 64)
 
@@ -260,15 +252,11 @@ func TestSnapshotLogger(t *testing.T) {
 			// read the file to verify the logs were written
 			snapshot, err := logger.GetSnapshot(timestamps[0])
 
-			if snapshot == nil {
-				t.Fatalf("Expected snapshot to be created, got nil")
-			}
-
-			file := snapshot.File
-
 			if err != nil {
 				t.Fatalf("Expected no error on File(), got %v", err)
 			}
+
+			file := snapshot.File
 
 			entry := make([]byte, 64)
 

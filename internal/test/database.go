@@ -63,18 +63,24 @@ func MockDatabase(app *server.App) TestDatabase {
 	credential := &auth.Credential{}
 	credential.WithAccessKey(accessKey)
 
+	primaryBranch, err := db.PrimaryBranch()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return TestDatabase{
 		ID:               db.ID,
-		BranchID:         db.PrimaryBranch().ID,
-		BranchName:       db.PrimaryBranch().Name,
+		BranchID:         primaryBranch.ID,
+		BranchName:       primaryBranch.Name,
 		DatabaseID:       db.DatabaseID,
-		DatabaseBranchID: db.PrimaryBranch().DatabaseBranchID,
+		DatabaseBranchID: primaryBranch.DatabaseBranchID,
 		DatabaseKey: &auth.DatabaseKey{
-			DatabaseHash:       file.DatabaseHash(db.DatabaseID, db.PrimaryBranch().DatabaseBranchID),
+			DatabaseHash:       file.DatabaseHash(db.DatabaseID, primaryBranch.DatabaseBranchID),
 			DatabaseID:         db.DatabaseID,
 			DatabaseName:       db.Name,
-			DatabaseBranchID:   db.PrimaryBranch().DatabaseBranchID,
-			DatabaseBranchName: db.PrimaryBranch().Name,
+			DatabaseBranchID:   primaryBranch.DatabaseBranchID,
+			DatabaseBranchName: primaryBranch.Name,
 		},
 		DatabaseName: db.Name,
 		Credential:   credential,

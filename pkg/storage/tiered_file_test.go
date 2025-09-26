@@ -61,11 +61,11 @@ func TestTieredFile(t *testing.T) {
 				t.Error("CreatedAt is zero")
 			}
 
-			if !tf.UpdatedAt.IsZero() {
+			if !tf.GetUpdatedAt().IsZero() {
 				t.Error("UpdatedAt is not zero")
 			}
 
-			if !tf.WrittenAt.IsZero() {
+			if !tf.GetWrittenAt().IsZero() {
 				t.Error("WrittenAt is not zero")
 			}
 		})
@@ -137,7 +137,7 @@ func TestTieredFile(t *testing.T) {
 
 			tf.MarkUpdated()
 
-			if tf != nil && tf.UpdatedAt.IsZero() {
+			if tf != nil && tf.GetUpdatedAt().IsZero() {
 				t.Error("UpdatedAt is zero")
 			}
 		})

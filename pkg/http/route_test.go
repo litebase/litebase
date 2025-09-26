@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -11,7 +12,7 @@ import (
 func TestNewRoute(t *testing.T) {
 	router := appHttp.NewRouter()
 
-	route := appHttp.NewRoute(router, func(request *appHttp.Request) appHttp.Response {
+	route := appHttp.NewRoute(router, func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		return appHttp.Response{}
 	})
 
@@ -26,7 +27,7 @@ func TestRoute_Handle(t *testing.T) {
 
 	router.GlobalMiddleware = []appHttp.Middleware{}
 
-	route := appHttp.NewRoute(router, func(request *appHttp.Request) appHttp.Response {
+	route := appHttp.NewRoute(router, func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		handleCalled = true
 		return appHttp.Response{}
 	})
@@ -52,10 +53,10 @@ func TestRoute_Middleware(t *testing.T) {
 
 	router.GlobalMiddleware = []appHttp.Middleware{}
 
-	route := appHttp.NewRoute(router, func(request *appHttp.Request) appHttp.Response {
+	route := appHttp.NewRoute(router, func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		return appHttp.Response{}
 	}).Middleware([]appHttp.Middleware{
-		func(request *appHttp.Request) (newRequest *appHttp.Request, response appHttp.Response) {
+		func(ctx context.Context, request *appHttp.Request) (newRequest *appHttp.Request, response appHttp.Response) {
 			middlewareCalled = true
 			return request, appHttp.Response{}
 		},
@@ -81,7 +82,7 @@ func TestRoute_Timeout(t *testing.T) {
 
 	router.GlobalMiddleware = []appHttp.Middleware{}
 
-	route := appHttp.NewRoute(router, func(request *appHttp.Request) appHttp.Response {
+	route := appHttp.NewRoute(router, func(ctx context.Context, request *appHttp.Request) appHttp.Response {
 		time.Sleep(10 * time.Millisecond)
 		return appHttp.Response{}
 	}).Timeout(5 * time.Millisecond)

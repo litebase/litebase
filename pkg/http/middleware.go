@@ -1,3 +1,5 @@
 package http
 
-type Middleware func(request *Request) (*Request, Response)
+import "context"
+
+type Middleware func(ctx context.Context, request *Request) (*Request, Response)

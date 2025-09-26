@@ -1,8 +1,11 @@
 package http
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
-func RequireContentType(req *Request) (*Request, Response) {
+func RequireContentType(ctx context.Context, req *Request) (*Request, Response) {
 	contentTypes := []string{"application/gob", "application/json", "application/octet-stream"}
 	contentType := req.BaseRequest.Header.Get("Content-Type")
 

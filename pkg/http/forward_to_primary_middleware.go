@@ -1,13 +1,14 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 )
 
-func ForwardToPrimary(request *Request) (*Request, Response) {
+func ForwardToPrimary(ctx context.Context, request *Request) (*Request, Response) {
 	if request.cluster.Node().IsPrimary() {
 		return request, Response{}
 	}

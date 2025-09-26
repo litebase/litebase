@@ -21,10 +21,6 @@ func TestToken(t *testing.T) {
 				[]auth.Statement{},
 			)
 
-			if token == nil {
-				t.Fatal("Expected token to be non-nil")
-			}
-
 			if token.TokenID != "tokenId" {
 				t.Errorf("Expected tokenId to be 'tokenId', got %s", token.TokenID)
 			}
@@ -149,10 +145,6 @@ func TestToken(t *testing.T) {
 
 			if err != nil {
 				t.Error(err)
-			}
-
-			if token == nil {
-				t.Fatal("Expected token to be non-nil")
 			}
 
 			if token.Description != "Updated Description" {

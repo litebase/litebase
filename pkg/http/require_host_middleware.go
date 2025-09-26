@@ -1,11 +1,12 @@
 package http
 
 import (
+	"context"
 	"strings"
 )
 
 // Protect server from host header attacks by matching the configured hostname.
-func RequireHost(request *Request) (*Request, Response) {
+func RequireHost(ctx context.Context, request *Request) (*Request, Response) {
 	hostname := request.cluster.Config.HostName
 	hostHeader := request.BaseRequest.Host
 

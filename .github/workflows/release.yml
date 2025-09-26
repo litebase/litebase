@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   id-token: write
@@ -19,15 +19,15 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
-      project_name: 'litebase'
-      build_target: './cmd/litebase'
-      go_version: '1.25'
+      project_name: "litebase"
+      build_target: "./cmd/litebase"
+      go_version: "1.25"
 
   sign:
     needs: build
     uses: ./.github/workflows/sign.yml
     with:
-      project_name: 'litebase'
+      project_name: "litebase"
     secrets:
       APPLE_CERTIFICATES_PASSWORD: ${{ secrets.APPLE_CERTIFICATES_PASSWORD }}
       APPLE_CERTIFICATES: ${{ secrets.APPLE_CERTIFICATES }}

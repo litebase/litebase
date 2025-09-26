@@ -14,7 +14,7 @@ import (
 // A query metric is a snapshot of the query performance at a given time. These
 // statistics can be stored on disk and only take 64 bytes of space.
 type QueryMetric struct {
-	Checksum     uint64
+	Checksum     uint64 `json:"checksum"`
 	Count        uint32 `json:"count"`
 	latencies    []float64
 	latencyIndex int

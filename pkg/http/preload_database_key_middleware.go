@@ -1,6 +1,8 @@
 package http
 
-func PreloadDatabaseKey(request *Request) (*Request, Response) {
+import "context"
+
+func PreloadDatabaseKey(ctx context.Context, request *Request) (*Request, Response) {
 	request.loadDatabaseKey()
 
 	return request, Response{}
