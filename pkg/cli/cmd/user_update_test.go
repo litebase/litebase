@@ -29,6 +29,7 @@ func TestUserUpdate(t *testing.T) {
 
 		// Test non-interactive mode with flags to avoid TTY issues
 		statements := `[{"effect":"deny","resource":"*","actions":["*"]}]`
+
 		err = cli.Run("user", "update", user.Username, "--description", "Updated test user description", "--statements", statements)
 
 		if err != nil {

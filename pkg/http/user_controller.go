@@ -251,6 +251,8 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 		UserControllerUpdateResponse{
 			Username:   user.Username,
 			Statements: user.Statements,
+			CreatedAt:  user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:  user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
 		200,
 	)
