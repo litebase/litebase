@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func LoadRoutes(router *Router) {
+func LoadPublicRoutes(router *Router) {
 	// Administrative routes
 	router.Get(
 		"/v1/status",
@@ -203,56 +203,6 @@ func LoadRoutes(router *Router) {
 	).Middleware([]Middleware{
 		ForwardToPrimary,
 		Authentication,
-	})
-
-	// Internal routes for cluster operations.
-	router.Post(
-		"/v1/cluster/connection",
-		ClusterConnectionControllerStore,
-	).Middleware(
-		[]Middleware{Internal},
-	).Timeout(0)
-
-	router.Post(
-		"/v1/cluster/election",
-		ClusterElectionControllerStore,
-	).Middleware(
-		[]Middleware{Internal},
-	).Timeout(3 * time.Second)
-
-	router.Post(
-		"/v1/cluster/members",
-		ClusterMemberControllerStore,
-	).Middleware(
-		[]Middleware{},
-	).Timeout(3 * time.Second)
-
-	router.Delete(
-		"/v1/cluster/members/{address}",
-		ClusterMemberControllerDestroy,
-	).Middleware(
-		[]Middleware{Internal},
-	).Timeout(3 * time.Second)
-
-	router.Post(
-		"/v1/cluster/primary",
-		ClusterPrimaryControllerStore,
-	).Middleware(
-		[]Middleware{Internal},
-	).Timeout(0)
-
-	router.Post(
-		"/v1/events",
-		EventStoreController,
-	).Middleware([]Middleware{
-		Internal,
-	})
-
-	router.Get(
-		"/v1/health",
-		HealthCheckControllerShow,
-	).Middleware([]Middleware{
-		Internal,
 	})
 
 	router.Get("/v1/databases/{databaseName}/branches/{branchName}/backups",

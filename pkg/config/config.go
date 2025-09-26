@@ -26,6 +26,7 @@ type Config struct {
 	NodeAddressProvider    string
 	PageSize               int64
 	Port                   string
+	PrivatePort            string
 	RootPassword           string
 	RootUsername           string
 	StorageAccessKeyId     string
@@ -64,6 +65,7 @@ func NewConfig() *Config {
 		NodeAddressProvider:    env("LITEBASE_NODE_ADDRESS_PROVIDER", "").(string),
 		PageSize:               4096,
 		Port:                   env("LITEBASE_PORT", "8080").(string),
+		PrivatePort:            env("LITEBASE_PRIVATE_PORT", "0").(string), // 0 means auto-assign
 		RootPassword:           env("LITEBASE_ROOT_PASSWORD", "").(string),
 		RootUsername:           env("LITEBASE_ROOT_USERNAME", "").(string),
 		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),

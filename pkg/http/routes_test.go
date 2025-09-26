@@ -304,7 +304,7 @@ func TestRoutesMiddleware(t *testing.T) {
 
 	// Create a router and load routes
 	router := appHttp.NewRouter()
-	appHttp.LoadRoutes(router)
+	appHttp.LoadPublicRoutes(router)
 
 	// Test each route
 	for _, test := range routeTests {
@@ -343,7 +343,7 @@ func TestRoutesMiddleware(t *testing.T) {
 // TestAllRoutesHaveMiddleware tests that we haven't missed any routes in our test cases
 func TestAllRoutesHaveMiddleware(t *testing.T) {
 	router := appHttp.NewRouter()
-	appHttp.LoadRoutes(router)
+	appHttp.LoadPublicRoutes(router)
 
 	// Count total routes defined in our test cases
 	expectedRouteCount := 43 // Update this number if you add more routes
