@@ -105,7 +105,7 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/%s", database.DatabaseName, primaryBranch.Name), "GET", nil)
+		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches/%s", database.DatabaseName, primaryBranch.Name), "GET", nil)
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)
@@ -395,7 +395,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 			}})
 
-			resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/%s", mock.DatabaseName, testBranch.Name), "DELETE", nil)
+			resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches/%s", mock.DatabaseName, testBranch.Name), "DELETE", nil)
 
 			if err != nil {
 				t.Fatalf("failed to send request: %v", err)
@@ -431,7 +431,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 			}})
 
 			// Try to delete the primary branch (should fail)
-			resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/%s", mock.DatabaseName, mock.BranchName), "DELETE", nil)
+			resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches/%s", mock.DatabaseName, mock.BranchName), "DELETE", nil)
 
 			if err != nil {
 				t.Fatalf("failed to send request: %v", err)
@@ -465,7 +465,7 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
 			}})
 
-			resp, statusCode, err := client.Send("/v1/databases/non-existing-name/main", "DELETE", nil)
+			resp, statusCode, err := client.Send("/v1/databases/non-existing-name/branches/main", "DELETE", nil)
 
 			if err != nil {
 				t.Fatalf("failed to send request: %v", err)

@@ -116,7 +116,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/restore",
+				"/v1/databases/%s/branches/%s/restore",
 				source.DatabaseName,
 				source.BranchName,
 			),
@@ -367,7 +367,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 
 			resp, responseCode, err := client.Send(
 				fmt.Sprintf(
-					"/v1/databases/%s/%s/restore",
+					"/v1/databases/%s/branches/%s/restore",
 					source.DatabaseName,
 					source.BranchName,
 				),
@@ -561,7 +561,7 @@ func TestDatabaseRestoreControllerNonEmptyTarget(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/restore",
+				"/v1/databases/%s/branches/%s/restore",
 				source.DatabaseName,
 				source.BranchName,
 			),
