@@ -62,6 +62,15 @@ func NewTestServer(t testing.TB) *TestServer {
 		return 0
 	})
 
+	// Set the public port provider so the cluster knows about the public server
+	cluster.SetPublicPortProvider(func() int {
+		port := publicServer.URL[len(publicServer.URL)-5:]
+		if portInt, err := strconv.Atoi(port); err == nil {
+			return portInt
+		}
+		return 0
+	})
+
 	server := &TestServer{
 		Address:        publicServer.URL[7:],
 		App:            app,
@@ -96,10 +105,10 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 
 	configInstance := config.NewConfig()
 	app := server.NewApp(configInstance, publicMux)
-	
+
 	// Set up public routes
 	app.Run()
-	
+
 	// Set up private routes
 	privateRouter := httpRouter.NewRouter()
 	privateRouter.PrivateServer(app.Cluster, app.DatabaseManager, app.LogManager, privateMux)
@@ -107,6 +116,15 @@ func NewUnstartedTestServer(t *testing.T) *TestServer {
 	// Set the private port provider so the cluster knows about the private server
 	cluster.SetPrivatePortProvider(func() int {
 		port := privateServer.URL[len(privateServer.URL)-5:]
+		if portInt, err := strconv.Atoi(port); err == nil {
+			return portInt
+		}
+		return 0
+	})
+
+	// Set the public port provider so the cluster knows about the public server
+	cluster.SetPublicPortProvider(func() int {
+		port := publicServer.URL[len(publicServer.URL)-5:]
 		if portInt, err := strconv.Atoi(port); err == nil {
 			return portInt
 		}
