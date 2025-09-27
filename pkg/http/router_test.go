@@ -602,16 +602,16 @@ func TestRouter(t *testing.T) {
 			}
 		})
 
-		t.Run("LoadRoutes", func(t *testing.T) {
+		t.Run("LoadPublicRoutes", func(t *testing.T) {
 			router := appHttp.NewRouter()
 
 			serveMux := http.NewServeMux()
 
-			// This should call LoadRoutes internally
+			// This should call LoadPublicRoutes internally
 			router.Server(app.Cluster, app.DatabaseManager, app.LogManager, serveMux)
 
-			// After LoadRoutes is called, the routes map should have routes
-			// We can't test the exact routes since they're loaded from LoadRoutes function
+			// After LoadPublicRoutes is called, the routes map should have routes
+			// We can't test the exact routes since they're loaded from LoadPublicRoutes function
 			// but we can verify the router.Server call doesn't panic and sets up the server
 			if serveMux == nil {
 				t.Error("Expected serveMux to be properly configured")

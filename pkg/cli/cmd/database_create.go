@@ -21,10 +21,14 @@ func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				data["primary_branch"] = primaryBranch
 			}
 
-			res, _, err := api.Post(config, "/v1/databases", data)
+			res, apiErrors, err := api.Post(config, "/v1/databases", data)
 
 			if err != nil {
 				return err
+			}
+
+			if len(apiErrors) > 0 {
+				return apiErrors.Error()
 			}
 
 			_, err = lipgloss.Fprint(

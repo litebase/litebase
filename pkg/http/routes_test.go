@@ -150,7 +150,7 @@ func TestRoutesMiddleware(t *testing.T) {
 		},
 		{
 			Method:             "GET",
-			Path:               "/v1/databases/{databaseName}/{branchName}",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database Branch show route should have Authentication middleware",
 		},
@@ -162,7 +162,7 @@ func TestRoutesMiddleware(t *testing.T) {
 		},
 		{
 			Method:             "DELETE",
-			Path:               "/v1/databases/{databaseName}/{branchName}",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}",
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Database Branch destroy route should have ForwardToPrimary and Authentication middleware",
 		},
@@ -248,55 +248,55 @@ func TestRoutesMiddleware(t *testing.T) {
 		// Database routes
 		{
 			Method:             "POST",
-			Path:               "/v1/databases/{databaseName}/{branchName}/backups",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/backups",
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Database backup store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "GET",
-			Path:               "/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/backups/{timestamp}",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database backup show route should have Authentication middleware",
 		},
 		{
 			Method:             "DELETE",
-			Path:               "/v1/databases/{databaseName}/{branchName}/backups/{timestamp}",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/backups/{timestamp}",
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Database backup destroy route should have Authentication middleware",
 		},
 		{
 			Method:             "GET",
-			Path:               "/v1/databases/{databaseName}/{branchName}/metrics/query",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/metrics/query",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Query log route should have Authentication middleware",
 		},
 		{
 			Method:             "POST",
-			Path:               "/v1/databases/{databaseName}/{branchName}/query",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/query",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Query route should have Authentication and NodeTick middleware",
 		},
 		{
 			Method:             "POST",
-			Path:               "/v1/databases/{databaseName}/{branchName}/query/stream",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/query/stream",
 			ExpectedMiddleware: []string{"PreloadDatabaseKey", "Authentication"},
 			Description:        "Query stream route should have PreloadDatabaseKey, Authentication and NodeTick middleware",
 		},
 		{
 			Method:             "POST",
-			Path:               "/v1/databases/{databaseName}/{branchName}/restore",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/restore",
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Database restore route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
 			Method:             "GET",
-			Path:               "/v1/databases/{databaseName}/{branchName}/snapshots",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/snapshots",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database snapshot index route should have Authentication middleware",
 		},
 		{
 			Method:             "GET",
-			Path:               "/v1/databases/{databaseName}/{branchName}/snapshots/{timestamp}",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/snapshots/{timestamp}",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database snapshot show route should have Authentication middleware",
 		},
@@ -304,7 +304,8 @@ func TestRoutesMiddleware(t *testing.T) {
 
 	// Create a router and load routes
 	router := appHttp.NewRouter()
-	appHttp.LoadRoutes(router)
+	appHttp.LoadPublicRoutes(router)
+	appHttp.LoadPrivateRoutes(router)
 
 	// Test each route
 	for _, test := range routeTests {
@@ -340,13 +341,42 @@ func TestRoutesMiddleware(t *testing.T) {
 	}
 }
 
-// TestAllRoutesHaveMiddleware tests that we haven't missed any routes in our test cases
-func TestAllRoutesHaveMiddleware(t *testing.T) {
+// TestPublicRoutesHaveMiddleware tests that we haven't missed any routes in our test cases
+func TestPublicRoutesHaveMiddleware(t *testing.T) {
 	router := appHttp.NewRouter()
-	appHttp.LoadRoutes(router)
+	appHttp.LoadPublicRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 43 // Update this number if you add more routes
+	expectedRouteCount := 36 // Update this number if you add more routes
+
+	totalRoutes := 0
+
+	for method, methodRoutes := range router.Routes {
+		totalRoutes += len(methodRoutes)
+		t.Logf("Method %s has %d routes", method, len(methodRoutes))
+	}
+
+	if totalRoutes != expectedRouteCount {
+		t.Errorf(
+			"Expected %d routes in test cases, but found %d total routes in router. Please update test cases.",
+			expectedRouteCount, totalRoutes,
+		)
+
+		// List all routes for debugging
+		for method, methodRoutes := range router.Routes {
+			for path := range methodRoutes {
+				t.Logf("Found route: %s %s", method, path)
+			}
+		}
+	}
+}
+
+func TestPrivateRoutesHaveMiddleware(t *testing.T) {
+	router := appHttp.NewRouter()
+	appHttp.LoadPrivateRoutes(router)
+
+	// Count total routes defined in our test cases
+	expectedRouteCount := 7 // Update this number if you add more routes
 
 	totalRoutes := 0
 

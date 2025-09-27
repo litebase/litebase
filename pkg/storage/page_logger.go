@@ -145,27 +145,38 @@ func (pl *PageLogger) Compact(
 	durableDatabaseFileSystem *DurableDatabaseFileSystem,
 ) error {
 	return pl.CompactionBarrier(func() error {
-		pl.mutex.Lock()
-		defer pl.mutex.Unlock()
-
-		compactInterval := GetPageLoggerCompactInterval()
-		if compactInterval != 0 && !pl.CompactedAt.IsZero() && pl.CompactedAt.After(time.Now().UTC().Add(-compactInterval)) {
-			return nil
-		}
-
-		if pl.writtenAt.IsZero() || pl.writtenAt.Before(pl.CompactedAt) {
-			return nil
-		}
-
-		compactionErr := pl.compaction(durableDatabaseFileSystem)
-
-		if compactionErr != nil {
-			slog.Error("Error during page logger compaction", "error", compactionErr)
-			return compactionErr
-		}
-
-		return nil
+		return pl.compactInternal(durableDatabaseFileSystem)
 	})
+}
+
+// compactInternal performs the actual compaction without acquiring the
+// compaction barrier. This should only be called when the compaction barrier
+// is already held.
+func (pl *PageLogger) compactInternal(
+	durableDatabaseFileSystem *DurableDatabaseFileSystem,
+) error {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	compactInterval := GetPageLoggerCompactInterval()
+
+	if compactInterval != 0 && !pl.CompactedAt.IsZero() && pl.CompactedAt.After(time.Now().UTC().Add(-compactInterval)) {
+		return nil
+	}
+
+	if pl.writtenAt.IsZero() || pl.writtenAt.Before(pl.CompactedAt) {
+		return nil
+	}
+
+	compactionErr := pl.compaction(durableDatabaseFileSystem)
+
+	if compactionErr != nil {
+		slog.Error("Error during page logger compaction", "error", compactionErr)
+
+		return compactionErr
+	}
+
+	return nil
 }
 
 // Run the page logger compaction process.

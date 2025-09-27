@@ -22,7 +22,7 @@ func NewDatabaseBranchDeleteCmd(config *config.CLIConfiguration) *cobra.Command 
 				return fmt.Errorf("invalid database path: %w", err)
 			}
 
-			res, _, err := api.Delete(config, fmt.Sprintf("/v1/databases/%s/%s", databaseName, branchName))
+			res, _, err := api.Delete(config, fmt.Sprintf("/v1/databases/%s/branches/%s", databaseName, branchName))
 
 			if err != nil {
 				return err

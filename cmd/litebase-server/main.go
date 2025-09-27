@@ -6,15 +6,14 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/config"
+	httpRouter "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/server"
 
 	"github.com/joho/godotenv"
 
-	"net/http"
+	netHttp "net/http"
 	// _ "net/http/pprof"
 )
-
-var app *server.App
 
 func main() {
 	// Debugging with pprof
@@ -41,30 +40,39 @@ func main() {
 		slog.SetLogLoggerLevel(slog.LevelInfo)
 	}
 
-	server.NewServer(configInstance).Start(func(s *http.ServeMux) {
-		app = server.NewApp(configInstance, s)
+	srv := server.NewServer(configInstance)
 
-		app.Run()
+	srv.StartWithPrivateRouting(
+		// Public server setup
+		func(publicMux *netHttp.ServeMux, app *server.App) {
+			app.Run()
 
-		start := app.Cluster.Node().Start()
+			// Start the node
+			start := app.Cluster.Node().Start()
 
-		select {
-		case <-start:
-		case <-time.After(1 * time.Second):
-			log.Fatal("Cluster node failed to start within 1 second")
-		}
-	}, func() { // Shutdown hook
-		if app == nil {
-			return
-		}
+			select {
+			case <-start:
+				// Node started successfully
+			case <-time.After(1 * time.Second):
+				log.Fatal("Cluster node failed to start within 1 second")
+			}
+		},
+		// Private server setup
+		func(privateMux *netHttp.ServeMux, app *server.App) {
+			// Set up private routes
+			router := httpRouter.NewRouter()
+			router.PrivateServer(app.Cluster, app.DatabaseManager, app.LogManager, privateMux)
+		},
+		// Shutdown hook
+		func(app *server.App) {
+			// Shutdown all connections
+			app.DatabaseManager.ConnectionManager().Shutdown()
 
-		// Shutdown all connections
-		app.DatabaseManager.ConnectionManager().Shutdown()
+			err = app.Cluster.Node().Shutdown()
 
-		err = app.Cluster.Node().Shutdown()
-
-		if err != nil {
-			slog.Error("Failed to shutdown cluster node", "error", err)
-		}
-	})
+			if err != nil {
+				slog.Error("Failed to shutdown cluster node", "error", err)
+			}
+		},
+	)
 }

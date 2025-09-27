@@ -124,7 +124,7 @@ func TestDatabaseBackupIndexController(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			fmt.Sprintf("/v1/databases/%s/%s/backups", mock.DatabaseName, mock.BranchName),
+			fmt.Sprintf("/v1/databases/%s/branches/%s/backups", mock.DatabaseName, mock.BranchName),
 			"GET",
 			nil,
 		)
@@ -216,7 +216,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 		})
 
 		response, statusCode, err := client.Send(
-			fmt.Sprintf("/v1/databases/%s/%s/backups",
+			fmt.Sprintf("/v1/databases/%s/branches/%s/backups",
 				db.DatabaseName,
 				db.BranchName,
 			),
@@ -307,7 +307,7 @@ func TestDatabaseBackupShowController(t *testing.T) {
 
 		response, statusCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/backups/%d",
+				"/v1/databases/%s/branches/%s/backups/%d",
 				db.DatabaseName,
 				db.BranchName,
 				backup.RestorePoint.Timestamp,
@@ -411,7 +411,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 
 		response, statusCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/backups/%d",
+				"/v1/databases/%s/branches/%s/backups/%d",
 				db.DatabaseName,
 				db.BranchName,
 				backup.RestorePoint.Timestamp,
@@ -438,7 +438,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 
 		response, statusCode, err = client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/backups/%d",
+				"/v1/databases/%s/branches/%s/backups/%d",
 				db.DatabaseName,
 				db.BranchName,
 				backup.RestorePoint.Timestamp,
@@ -462,7 +462,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 		// Try to retrieve the deleted backup
 		response, statusCode, err = client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/backups/%d",
+				"/v1/databases/%s/branches/%s/backups/%d",
 				db.DatabaseName,
 				db.BranchName,
 				backup.RestorePoint.Timestamp,

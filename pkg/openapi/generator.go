@@ -125,7 +125,7 @@ func (g *Generator) GetRegisteredSchemas() map[string]*Schema {
 func (g *Generator) AnalyzeAllRoutes() (*ControllerAnalysis, error) {
 	// Create a router and load all routes
 	router := http.NewRouter()
-	http.LoadRoutes(router)
+	http.LoadPublicRoutes(router)
 
 	analysis := &ControllerAnalysis{
 		Methods: make(map[string]*MethodAnalysis),

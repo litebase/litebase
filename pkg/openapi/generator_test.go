@@ -1195,7 +1195,6 @@ func TestDynamicResponseAnalysis(t *testing.T) {
 		method string
 	}{
 		{"/v1/databases", "GET"},
-		{"/v1/health", "GET"},
 		{"/v1/status", "GET"},
 	}
 

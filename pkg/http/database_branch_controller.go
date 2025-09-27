@@ -159,8 +159,8 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"name.required":   "The name field is required.",
-		"name.validateFn": "The name field can only contain alpha numeric characters, hyphens, or underscores.",
+		"name.required":   "The name field is required",
+		"name.validateFn": "The name field can only contain alpha numeric characters, hyphens, or underscores",
 	})
 
 	if validationErrors != nil {

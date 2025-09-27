@@ -125,11 +125,11 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"username.required":                "The username field is required.",
-		"password.required":                "The password field is required.",
-		"password.min":                     "The password field should be a minimum of 8 characters.",
+		"username.required":                "The username field is required",
+		"password.required":                "The password field is required",
+		"password.min":                     "The password field should be a minimum of 8 characters",
 		"statements.required":              "The statements field is required",
-		"statements.*.validateFn":          "This statement is not valid. All actions must match the resource.",
+		"statements.*.validateFn":          "This statement is not valid. All actions must match the resource",
 		"statements.*.effect.required":     "Each statement must have an effect",
 		"statements.*.effect.validateFn":   "The effect of the statement must be one of 'Allow' or 'Deny'",
 		"statements.*.resource.required":   "This statement is missing a resource",
@@ -228,7 +228,7 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 
 	validationErrors := request.Validate(input, map[string]string{
 		"statements.required":              "The statements field is required",
-		"statements.*.validateFn":          "This statement is not valid. All actions must match the resource.",
+		"statements.*.validateFn":          "This statement is not valid. All actions must match the resource",
 		"statements.*.effect.required":     "Each statement must have an effect",
 		"statements.*.effect.validateFn":   "The effect of the statement must be one of 'Allow' or 'Deny'",
 		"statements.*.resource.required":   "This statement is missing a resource",

@@ -132,7 +132,38 @@ func (router *Router) Server(
 	logManager *logs.LogManager,
 	serveMux *http.ServeMux,
 ) {
-	LoadRoutes(router)
+	router.PublicServer(cluster, databaseManager, logManager, serveMux)
+}
+
+// Create a public server handler for the Router.
+func (router *Router) PublicServer(
+	cluster *cluster.Cluster,
+	databaseManager *database.DatabaseManager,
+	logManager *logs.LogManager,
+	serveMux *http.ServeMux,
+) {
+	LoadPublicRoutes(router)
+	router.setupServerHandlers(cluster, databaseManager, logManager, serveMux)
+}
+
+// Create a private server handler for the Router.
+func (router *Router) PrivateServer(
+	cluster *cluster.Cluster,
+	databaseManager *database.DatabaseManager,
+	logManager *logs.LogManager,
+	serveMux *http.ServeMux,
+) {
+	LoadPrivateRoutes(router)
+	router.setupServerHandlers(cluster, databaseManager, logManager, serveMux)
+}
+
+// setupServerHandlers sets up the HTTP handlers for the router
+func (router *Router) setupServerHandlers(
+	cluster *cluster.Cluster,
+	databaseManager *database.DatabaseManager,
+	logManager *logs.LogManager,
+	serveMux *http.ServeMux,
+) {
 
 	serveMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		response := router.DefaultRoute.Handler(

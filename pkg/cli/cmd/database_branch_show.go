@@ -22,7 +22,7 @@ func NewDatabaseBranchShowCmd(config *config.CLIConfiguration) *cobra.Command {
 				return fmt.Errorf("invalid database path: %w", err)
 			}
 
-			res, err := api.Get(config, fmt.Sprintf("/v1/databases/%s/%s", databaseName, branchName))
+			res, err := api.Get(config, fmt.Sprintf("/v1/databases/%s/branches/%s", databaseName, branchName))
 
 			if err != nil {
 				return err

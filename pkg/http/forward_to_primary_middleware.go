@@ -13,8 +13,8 @@ func ForwardToPrimary(ctx context.Context, request *Request) (*Request, Response
 		return request, Response{}
 	}
 
-	// Get the primary node address
-	primaryAddress := request.cluster.Node().PrimaryAddress()
+	// Get the primary node's public address (for API requests)
+	primaryAddress := request.cluster.Node().PrimaryPublicAddress()
 
 	if primaryAddress == "" {
 		return request, Response{
@@ -26,8 +26,8 @@ func ForwardToPrimary(ctx context.Context, request *Request) (*Request, Response
 		}
 	}
 
-	// Continue if the primary address is the same as the current node's address
-	if address, _ := request.cluster.Node().Address(); primaryAddress == address {
+	// Continue if the primary address is the same as the current node's public address
+	if address, _ := request.cluster.Node().PublicAddress(); primaryAddress == address {
 		return request, Response{}
 	}
 

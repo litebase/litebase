@@ -29,7 +29,7 @@ func NewDatabaseBackupDeleteCmd(config *config.CLIConfiguration) *cobra.Command 
 				return fmt.Errorf("invalid timestamp: %w", err)
 			}
 
-			res, _, err := api.Delete(config, fmt.Sprintf("/v1/databases/%s/%s/backups/%d", databaseName, branchName, timestamp))
+			res, _, err := api.Delete(config, fmt.Sprintf("/v1/databases/%s/branches/%s/backups/%d", databaseName, branchName, timestamp))
 
 			if err != nil {
 				return err

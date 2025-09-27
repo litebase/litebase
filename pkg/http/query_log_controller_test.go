@@ -71,7 +71,7 @@ func TestQueryLogControllerSuccess(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/metrics/query?start=%d&end=%d&step=1",
+				"/v1/databases/%s/branches/%s/metrics/query?start=%d&end=%d&step=1",
 				mock.DatabaseName,
 				mock.BranchName,
 				start,
@@ -141,7 +141,7 @@ func TestQueryLogControllerMissingParameters(t *testing.T) {
 		// Test missing start parameter
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/metrics/query?end=%d&step=1",
+				"/v1/databases/%s/branches/%s/metrics/query?end=%d&step=1",
 				mock.DatabaseName,
 				mock.BranchName,
 				time.Now().Unix(),
@@ -216,7 +216,7 @@ func TestQueryLogControllerInvalidParameters(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				resp, responseCode, err := client.Send(
 					fmt.Sprintf(
-						"/v1/databases/%s/%s/metrics/query%s",
+						"/v1/databases/%s/branches/%s/metrics/query%s",
 						mock.DatabaseName,
 						mock.BranchName,
 						tc.queryParams,
@@ -268,7 +268,7 @@ func TestQueryLogControllerWithStepCombining(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/metrics/query?start=%d&end=%d&step=%d",
+				"/v1/databases/%s/branches/%s/metrics/query?start=%d&end=%d&step=%d",
 				mock.DatabaseName,
 				mock.BranchName,
 				start,
@@ -330,7 +330,7 @@ func TestQueryLogControllerForbidden(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/metrics/query?start=%d&end=%d&step=1",
+				"/v1/databases/%s/branches/%s/metrics/query?start=%d&end=%d&step=1",
 				mock.DatabaseName,
 				mock.BranchName,
 				start,
@@ -369,7 +369,7 @@ func TestQueryLogControllerNonExistentDatabase(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/nonexistent/main/metrics/query?start=%d&end=%d&step=1",
+				"/v1/databases/nonexistent/branches/main/metrics/query?start=%d&end=%d&step=1",
 				start,
 				end,
 			),

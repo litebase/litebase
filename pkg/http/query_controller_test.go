@@ -27,7 +27,7 @@ func TestQueryController(t *testing.T) {
 		// Create a table
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/query",
+				"/v1/databases/%s/branches/%s/query",
 				mock.DatabaseName,
 				mock.BranchName,
 			),
@@ -51,7 +51,7 @@ func TestQueryController(t *testing.T) {
 
 		// Insert a row
 		resp, responseCode, err = client.Send(fmt.Sprintf(
-			"/v1/databases/%s/%s/query",
+			"/v1/databases/%s/branches/%s/query",
 			mock.DatabaseName,
 			mock.BranchName,
 		),
@@ -84,7 +84,7 @@ func TestQueryController(t *testing.T) {
 		// Select the row
 		resp, responseCode, err = client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/query",
+				"/v1/databases/%s/branches/%s/query",
 				mock.DatabaseName,
 				mock.BranchName,
 			),
@@ -137,7 +137,7 @@ func TestQueryControllerMultipleQueries(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/query",
+				"/v1/databases/%s/branches/%s/query",
 				mock.DatabaseName,
 				mock.BranchName,
 			),
@@ -227,7 +227,7 @@ func TestQueryController_Errors(t *testing.T) {
 		})
 
 		// Test invalid database key
-		resp, responseCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/%s/query", "invalidDatabase", "invalidBranch"), "POST", map[string]any{
+		resp, responseCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches/%s/query", "invalidDatabase", "invalidBranch"), "POST", map[string]any{
 			"queries": []map[string]any{{
 				"id":         "1",
 				"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
@@ -265,7 +265,7 @@ func TestQueryController_Errors(t *testing.T) {
 			t.Fatal("Expected primary branch to be found, but got nil")
 		}
 
-		resp, responseCode, err = client.Send(fmt.Sprintf("/v1/databases/%s/%s/query", "test", "main"), "POST", map[string]any{
+		resp, responseCode, err = client.Send(fmt.Sprintf("/v1/databases/%s/branches/%s/query", "test", "main"), "POST", map[string]any{
 			"queries": []map[string]any{{
 				"id":         "1",
 				"statement":  "CREATE table test (id INTEGER PRIMARY KEY, value TEXT);",
@@ -286,7 +286,7 @@ func TestQueryController_Errors(t *testing.T) {
 
 		resp, responseCode, err = client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/query",
+				"/v1/databases/%s/branches/%s/query",
 				mock.DatabaseName,
 				mock.BranchName,
 			),
@@ -311,7 +311,7 @@ func TestQueryController_Errors(t *testing.T) {
 		// Test invalid input
 		resp, responseCode, err = client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/query",
+				"/v1/databases/%s/branches/%s/query",
 				mock.DatabaseName,
 				mock.BranchName,
 			),

@@ -67,7 +67,7 @@ func TestDatabaseSnapshotIndexController(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/snapshots",
+				"/v1/databases/%s/branches/%s/snapshots",
 				mock.DatabaseName,
 				mock.BranchName,
 			),
@@ -164,7 +164,7 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 
 		resp, responseCode, err := client.Send(
 			fmt.Sprintf(
-				"/v1/databases/%s/%s/snapshots/%d",
+				"/v1/databases/%s/branches/%s/snapshots/%d",
 				mock.DatabaseName,
 				mock.BranchName,
 				snapshot.Timestamp,

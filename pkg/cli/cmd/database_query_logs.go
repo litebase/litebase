@@ -80,7 +80,7 @@ execution count, and timing information for database queries.`,
 
 			data, err := api.Get(
 				config,
-				fmt.Sprintf("/v1/databases/%s/%s/metrics/query%s", databaseName, branchName, queryParams),
+				fmt.Sprintf("/v1/databases/%s/branches/%s/metrics/query%s", databaseName, branchName, queryParams),
 			)
 
 			if err != nil {

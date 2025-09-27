@@ -43,6 +43,17 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 	)
 }
 
+type DatabaseShowResponse struct {
+	ID            int64                      `json:"id"`
+	DatabaseID    string                     `json:"database_id"`
+	Name          string                     `json:"name"`
+	PrimaryBranch string                     `json:"primary_branch"`
+	Settings      *database.DatabaseSettings `json:"settings"`
+	CreatedAt     time.Time                  `json:"created_at"`
+	UpdatedAt     time.Time                  `json:"updated_at"`
+	Url           string                     `json:"url"`
+}
+
 func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 	databaseName := request.Param("databaseName")
 
@@ -70,9 +81,26 @@ func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(err)
 	}
 
+	primaryBranch, err := db.PrimaryBranch()
+
+	if err != nil {
+		slog.Error("Failed to retrieve primary branch", "databaseId", db.DatabaseID, "error", err)
+
+		return ServerErrorResponse(errors.New("failed to retrieve primary branch"))
+	}
+
 	return SuccessResponse(
 		"Successfully retrieved database.",
-		db,
+		DatabaseShowResponse{
+			ID:            db.ID,
+			DatabaseID:    db.DatabaseID,
+			Name:          db.Name,
+			PrimaryBranch: primaryBranch.Name,
+			Settings:      db.Settings,
+			CreatedAt:     db.CreatedAt,
+			UpdatedAt:     db.UpdatedAt,
+			Url:           db.Url(primaryBranch.Name),
+		},
 		200,
 	)
 }
@@ -113,10 +141,10 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"name.required":            "The name field is required.",
-		"name.validateFn":          "The name field can only contain alpha numeric characters, hyphens, or underscores.",
-		"primary_branch.lowercase": "The primary branch name must be lowercase.",
-		"primary_branch.alphanum":  "The primary branch name can only contain alphanumeric characters.",
+		"name.required":            "The name field is required",
+		"name.validateFn":          "The name field can only contain alpha numeric characters, hyphens, or underscores",
+		"primary_branch.lowercase": "The primary branch name must be lowercase",
+		"primary_branch.alphanum":  "The primary branch name can only contain alphanumeric characters",
 	})
 
 	if validationErrors != nil {

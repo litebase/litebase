@@ -18,7 +18,6 @@ import (
 )
 
 func NewStartCmd() *cobra.Command {
-	var app *server.App
 	startConfig := &StartConfig{}
 
 	cmd := &cobra.Command{
@@ -60,13 +59,25 @@ func NewStartCmd() *cobra.Command {
 			// TODO: Validate the configuration to ensure all required fields are set
 
 			serverConfig := config.NewConfig()
+			srv := server.NewServer(serverConfig)
 
-			server.NewServer(serverConfig).
-				OnStarted(func() {
+			srv.StartWithPrivateRouting(
+				// Public server setup
+				func(publicMux *http.ServeMux, app *server.App) {
+					app.Run()
+
+					// Start the node
+					<-app.Cluster.Node().Start()
+
+					// Display server info after node starts
 					rows := []components.CardRow{
 						{
 							Key:   "Port",
 							Value: serverConfig.Port,
+						},
+						{
+							Key:   "Private Port",
+							Value: fmt.Sprintf("%d", srv.GetPrivatePort()),
 						},
 						{
 							Key:   "Cluster ID",
@@ -109,24 +120,20 @@ func NewStartCmd() *cobra.Command {
 					if err != nil {
 						log.Fatalf("Error printing server info: %v", err)
 					}
-				}).
-				Start(func(s *http.ServeMux) {
-					app = server.NewApp(serverConfig, s)
-
-					app.Run()
-
-					<-app.Cluster.Node().Start()
-				}, func() {
-					if app == nil {
-						return
-					}
-
+				},
+				// Private server setup
+				func(privateMux *http.ServeMux, app *server.App) {
+					// Private routes are automatically set up by the server
+				},
+				// Shutdown hook
+				func(app *server.App) {
 					err := app.Cluster.Node().Shutdown()
 
 					if err != nil {
 						log.Fatalf("Node shutdown: %v", err)
 					}
-				})
+				},
+			)
 
 			return nil
 		},

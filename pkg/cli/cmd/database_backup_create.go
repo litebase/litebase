@@ -22,7 +22,7 @@ func NewDatabaseBackupCreateCmd(config *config.CLIConfiguration) *cobra.Command 
 				return fmt.Errorf("invalid database path: %w", err)
 			}
 
-			res, apiErrors, err := api.Post(config, fmt.Sprintf("/v1/databases/%s/%s/backups", databaseName, branchName), map[string]any{})
+			res, apiErrors, err := api.Post(config, fmt.Sprintf("/v1/databases/%s/branches/%s/backups", databaseName, branchName), map[string]any{})
 
 			if err != nil {
 				return err
