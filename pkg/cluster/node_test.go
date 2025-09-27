@@ -1,6 +1,7 @@
 package cluster_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,6 +17,9 @@ import (
 
 func TestNode(t *testing.T) {
 	test.Run(t, func() {
+		// Reset port providers to avoid interference from other tests
+		cluster.ResetPortProviders()
+		
 		t.Run("NewNode", func(t *testing.T) {
 			c := config.NewConfig()
 			clusterInstance, err := cluster.NewCluster(c)
@@ -34,8 +38,14 @@ func TestNode(t *testing.T) {
 		t.Run("Address", func(t *testing.T) {
 			c := config.NewConfig()
 			clusterInstance, err := cluster.NewCluster(c)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			node := cluster.NewNode(clusterInstance)
-			address, _ := node.Address()
+
+			address, err := node.Address()
 
 			if err != nil {
 				t.Fatal(err)
@@ -45,14 +55,13 @@ func TestNode(t *testing.T) {
 				t.Error("Node address not set")
 			}
 
-			if address != "127.0.0.1:8080" {
-				t.Errorf("Invalid node address: %s expected 127.0.0.1:8080", address)
+			if address != fmt.Sprintf("127.0.0.1:%s", c.PrivatePort) {
+				t.Errorf("Invalid node address: %s expected 127.0.0.1:%s", address, c.PrivatePort)
 			}
 		})
 
 		t.Run("Address_WithAWSEcsProvider", func(t *testing.T) {
 			serverAddress := "192.168.1.1"
-			expectedAddress := serverAddress + ":8080"
 
 			// Create a mock server to simulate the AWS ECS metadata endpoint
 			testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +96,8 @@ func TestNode(t *testing.T) {
 
 				c := config.NewConfig()
 				c.NodeAddressProvider = "aws_ecs"
+				expectedAddress := fmt.Sprintf("%s:%s", serverAddress, c.PrivatePort)
+
 				clusterInstance, err := cluster.NewCluster(c)
 
 				if err != nil {
@@ -442,6 +453,8 @@ func TestNode(t *testing.T) {
 
 func TestNode_StepDown(t *testing.T) {
 	test.Run(t, func() {
+		// Reset port providers to avoid interference from other tests
+		cluster.ResetPortProviders()
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
@@ -463,6 +476,9 @@ func TestNode_StepDown(t *testing.T) {
 	})
 }
 func TestNode_TickerResumeAfterPause(t *testing.T) {
+	// Reset port providers to avoid interference from other tests
+	cluster.ResetPortProviders()
+	
 	test.WithSteps(t, func(sp *test.StepProcessor) {
 		sp.Run("PRIMARY_SERVER", func(s *test.StepProcess) {
 			defaultNodeTickTimeout := cluster.NodeTickTimeout

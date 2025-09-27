@@ -157,8 +157,7 @@ func (n *Node) getPort() string {
 		}
 	}
 
-	// Fallback to public port
-	return n.Cluster.Config.Port
+	return n.Cluster.Config.PrivatePort
 
 }
 
@@ -562,11 +561,11 @@ func (n *Node) PrimaryPublicAddress() string {
 	// Parse the private address to get the host
 	if colonIndex := strings.LastIndex(primaryPrivateAddress, ":"); colonIndex != -1 {
 		primaryHost := primaryPrivateAddress[:colonIndex]
-		
+
 		// Use the public port provider to get the primary's public port
 		publicPortProviderMutex.Lock()
 		defer publicPortProviderMutex.Unlock()
-		
+
 		if publicPortProvider != nil {
 			// For now, we assume the public port is configured in the config
 			// In a more sophisticated setup, we might need to store both addresses
@@ -888,6 +887,17 @@ func SetPublicPortProvider(provider func() int) {
 	defer publicPortProviderMutex.Unlock()
 
 	publicPortProvider = provider
+}
+
+// ResetPortProviders clears all port providers (useful for testing)
+func ResetPortProviders() {
+	privatePortProviderMutex.Lock()
+	publicPortProviderMutex.Lock()
+	defer privatePortProviderMutex.Unlock()
+	defer publicPortProviderMutex.Unlock()
+
+	privatePortProvider = nil
+	publicPortProvider = nil
 }
 
 func (n *Node) setInternalHeaders(req *http.Request) error {
