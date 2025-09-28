@@ -32,20 +32,18 @@ type Range struct {
 	closed     bool
 	file       internalStorage.File
 	fs         *FileSystem
-	number     int64
 	pageSize   int64
-	Timestamp  int64
+	number     int64
 }
 
 // NewRange creates a new range for the specified path.
-func NewRange(databaseId, branchId string, fs *FileSystem, rangeNumber int64, pageSize int64, timestamp int64) (*Range, error) {
+func NewRange(databaseId, branchId string, fs *FileSystem, rangeNumber int64, pageSize int64) (*Range, error) {
 	dr := &Range{
 		branchId:   branchId,
 		databaseId: databaseId,
 		fs:         fs,
 		pageSize:   pageSize,
 		number:     rangeNumber,
-		Timestamp:  timestamp,
 	}
 
 tryOpen:
@@ -56,7 +54,8 @@ tryOpen:
 			err = fs.MkdirAll(filepath.Dir(dr.Path()), 0750)
 
 			if err != nil {
-				log.Println("Error creating range directory", err)
+				slog.Error("Error creating range directory", "error", err)
+
 				return nil, err
 			}
 
@@ -72,7 +71,6 @@ tryOpen:
 	return dr, nil
 }
 
-// Close the range file.
 func (dr *Range) Close() error {
 	if dr.closed {
 		return nil
@@ -89,7 +87,6 @@ func (dr *Range) Close() error {
 	return nil
 }
 
-// Delete the range file from disk.
 func (dr *Range) Delete() error {
 	err := dr.fs.Remove(dr.Path())
 
@@ -104,7 +101,7 @@ func (dr *Range) Delete() error {
 
 // The unique identifier for the range file.
 func (dr *Range) ID() string {
-	return fmt.Sprintf("%010d_%d", dr.number, dr.Timestamp)
+	return fmt.Sprintf("%010d", dr.number)
 }
 
 // The number of pages in the range file.

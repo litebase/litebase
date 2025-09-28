@@ -539,11 +539,11 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Ensure the ranges are initialized
-			if _, err := rangeManager.Get(1, 0); err != nil {
+			if _, err := rangeManager.Get(1); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
-			if _, err := rangeManager.Get(2, 0); err != nil {
+			if _, err := rangeManager.Get(2); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
@@ -603,11 +603,11 @@ func TestPageLogger(t *testing.T) {
 			rangeManager := dfs.RangeManager
 
 			// Ensure the ranges are initialized
-			if _, err := rangeManager.Get(1, 0); err != nil {
+			if _, err := rangeManager.Get(1); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
-			if _, err := rangeManager.Get(2, 0); err != nil {
+			if _, err := rangeManager.Get(2); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
@@ -2427,11 +2427,11 @@ func TestPageLogger(t *testing.T) {
 			pageLogger := dfs.PageLogger
 
 			// Initialize the ranges
-			if _, err := rangeManager.Get(1, 0); err != nil {
+			if _, err := rangeManager.Get(1); err != nil {
 				t.Fatalf("Failed to get range for page 1: %v", err)
 			}
 
-			if _, err := rangeManager.Get(2, 0); err != nil {
+			if _, err := rangeManager.Get(2); err != nil {
 				t.Fatalf("Failed to get range for page 2: %v", err)
 			}
 
@@ -2861,7 +2861,7 @@ func TestPageLogger(t *testing.T) {
 				pageNum := int64(i*1000 + 1) // Spread across different page groups
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 				// Initialize the range for this page
-				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+				if _, err := rangeManager.Get(rangeNumber); err != nil {
 					t.Fatalf("Failed to get range for page %d: %v", pageNum, err)
 				}
 
@@ -2971,7 +2971,7 @@ func TestPageLogger(t *testing.T) {
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 
 				// Initialize the range for this page
-				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+				if _, err := rangeManager.Get(rangeNumber); err != nil {
 					t.Fatalf("Failed to get range %d: %v", rangeNumber, err)
 				}
 
@@ -3061,7 +3061,7 @@ func TestPageLogger(t *testing.T) {
 				pageNum := int64(i*storage.PageLoggerPageGroups + 1)
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 				// Initialize the range for this page
-				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+				if _, err := rangeManager.Get(rangeNumber); err != nil {
 					t.Fatalf("Failed to get range %d: %v", rangeNumber, err)
 				}
 

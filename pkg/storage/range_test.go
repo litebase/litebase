@@ -3,7 +3,6 @@ package storage_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/server"
@@ -12,7 +11,7 @@ import (
 
 func TestNewRange(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096, time.Now().UTC().UnixNano())
+		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096)
 
 		if err != nil {
 			t.Errorf("NewRange() failed, expected nil, got %s", err)
@@ -33,7 +32,7 @@ func TestNewRange(t *testing.T) {
 
 func TestRangeWriteAtAndReadAt(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096, time.Now().UTC().UnixNano())
+		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096)
 
 		if err != nil {
 			t.Errorf("NewRange() failed, expected nil, got %s", err)
@@ -82,7 +81,7 @@ func TestRangeWriteAtAndReadAt(t *testing.T) {
 
 func TestRangeClose(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096, time.Now().UTC().UnixNano())
+		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096)
 
 		if err != nil {
 			t.Errorf("NewRange() failed, expected nil, got %s", err)
@@ -130,7 +129,7 @@ func TestRangeClose(t *testing.T) {
 
 func TestRangePageCount(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096, time.Now().UTC().UnixNano())
+		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096)
 
 		if err != nil {
 			t.Errorf("NewRange() failed, expected nil, got %s", err)
@@ -169,7 +168,7 @@ func TestRangePageCount(t *testing.T) {
 
 func TestRangeRemove(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096, time.Now().UTC().UnixNano())
+		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096)
 
 		if err != nil {
 			t.Errorf("NewRange() failed, expected nil, got %s", err)
@@ -196,7 +195,7 @@ func TestRangeRemove(t *testing.T) {
 
 func TestRangeSize(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096, time.Now().UTC().UnixNano())
+		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096)
 
 		if err != nil {
 			t.Errorf("NewRange() failed, expected nil, got %s", err)
@@ -243,7 +242,7 @@ func TestRangeSize(t *testing.T) {
 
 func TestRangeTruncate(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096, time.Now().UTC().UnixNano())
+		r, err := storage.NewRange("databaseId", "branchId", app.Cluster.LocalFS(), 1, 4096)
 
 		if err != nil {
 			t.Errorf("NewRange() failed, expected nil, got %s", err)

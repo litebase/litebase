@@ -146,14 +146,7 @@ func (d *DatabaseManager) Compaction() {
 			}
 
 			checkpointer.WithLock(func() {
-				// Use the page logger's compaction barrier to coordinate with page operations
-				pageLogger := resource.PageLogger()
-
-				err = pageLogger.CompactionBarrier(func() error {
-					err := resource.FileSystem().Compact()
-
-					return err
-				})
+				err := resource.FileSystem().Compact()
 
 				if err != nil {
 					slog.Debug("Error in compaction barrier", "error", err)

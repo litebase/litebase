@@ -244,55 +244,48 @@ func Run(
 
 	var backup *Backup
 
-	err := dfs.CompactionBarrier(func() error {
-		// Use the locked timestamp for snapshot
-		snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
+	// Use the locked timestamp for snapshot
+	snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
 
-		if err != nil {
-			slog.Error("Error getting snapshot:", "error", err)
-			return err
-		}
+	if err != nil {
+		slog.Error("Error getting snapshot:", "error", err)
+		return nil, err
+	}
 
-		err = snapshot.Load()
+	err = snapshot.Load()
 
-		if err != nil {
-			slog.Error("Error loading snapshot:", "error", err)
-			return err
-		}
+	if err != nil {
+		slog.Error("Error loading snapshot:", "error", err)
+		return nil, err
+	}
 
-		restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
+	restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.End)
 
-		if err != nil {
-			log.Println("Error getting restorePoint:", err)
-			return err
-		}
+	if err != nil {
+		slog.Error("Error getting restore point:", "error", err)
 
-		if restorePoint == (RestorePoint{}) {
-			return ErrBackupNoRestorePoint
-		}
+		return nil, err
+	}
 
-		backup = &Backup{
-			config:           c,
-			DatabaseBranchID: branchId,
-			DatabaseID:       databaseId,
-			dfs:              dfs,
-			objectFS:         objectFS,
-			RestorePoint:     restorePoint,
-			rollbackLogger:   rollbackLogger,
-		}
+	if restorePoint == (RestorePoint{}) {
+		return nil, ErrBackupNoRestorePoint
+	}
 
-		for _, callback := range callbacks {
-			callback(backup)
-		}
+	backup = &Backup{
+		config:           c,
+		DatabaseBranchID: branchId,
+		DatabaseID:       databaseId,
+		dfs:              dfs,
+		objectFS:         objectFS,
+		RestorePoint:     restorePoint,
+		rollbackLogger:   rollbackLogger,
+	}
 
-		err = backup.packageBackup(dfs)
+	for _, callback := range callbacks {
+		callback(backup)
+	}
 
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	err = backup.packageBackup(dfs)
 
 	if err != nil {
 		return nil, err
@@ -400,7 +393,7 @@ func (backup *Backup) packageBackup(dfs *storage.DurableDatabaseFileSystem) erro
 		return err
 	}
 
-	systemFiles := []string{"_METADATA", "_RANGE_INDEX", "_RANGE_LOG"}
+	systemFiles := []string{"_METADATA", "_RANGE_INDEX"}
 
 	// Create a map for quick lookup of range numbers by filename
 	rangeNumberMap := make(map[string]int64)
