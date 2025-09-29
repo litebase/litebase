@@ -117,6 +117,9 @@ func (q *QueryLog) GetFile() internalStorage.File {
 }
 
 func (q *QueryLog) GetStatementIndex() (*QueryStatementIndex, error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
 	if q.statementIndex == nil {
 		statementIndex, err := GetQueryStatementIndex(
 			q.tieredFS,
@@ -305,11 +308,14 @@ func (q *QueryLog) Read(start, end uint32) ([]QueryMetric, error) {
 }
 
 func (q *QueryLog) watch() {
+	q.mutex.Lock()
 	if q.watching {
+		q.mutex.Unlock()
 		return
 	}
 
 	q.watching = true
+	q.mutex.Unlock()
 
 	go func() {
 		ticker := time.NewTicker(QueryLogFlushInterval)
@@ -371,6 +377,18 @@ func (q *QueryLog) Write(credentialID string, statement string, latency float64)
 	}
 
 	logData := buffer.Bytes()
+
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	// Ensure watching is started
+	if !q.watching {
+		q.mutex.Unlock()
+		q.watch()
+		q.mutex.Lock()
+	}
+
+	// Reset and use shared hasher and key buffer under mutex protection
 	q.queryHasher.Reset()
 
 	_, err := q.queryHasher.Write(logData)
@@ -401,13 +419,6 @@ func (q *QueryLog) Write(credentialID string, statement string, latency float64)
 			return err
 		}
 	}
-
-	if !q.watching {
-		q.watch()
-	}
-
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
 
 	if _, ok := q.queue[timestamp]; !ok {
 		q.queue[timestamp] = map[uint64]*QueryMetric{}
