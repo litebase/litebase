@@ -15,6 +15,15 @@ func TestForwardToPrimary(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
+		// Verify cluster setup
+		if !server1.App.Cluster.Node().IsPrimary() {
+			t.Fatal("Server1 should be primary")
+		}
+
+		if !server2.App.Cluster.Node().IsReplica() {
+			t.Fatal("Server2 should be replica")
+		}
+
 		accessKey, err := server1.App.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{
 			{
 				Effect:   auth.StatementEffectAllow,
