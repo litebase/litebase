@@ -1,7 +1,9 @@
 package http_test
 
 import (
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/cluster"
@@ -15,7 +17,7 @@ func TestEventStoreController(t *testing.T) {
 		server2 := test.NewTestServer(t)
 		defer server2.Shutdown()
 
-		var eventReceived bool
+		var eventReceived int32
 
 		server2.App.Cluster.Subscribe("foo", func(message *cluster.EventMessage) {
 			if message.Key != "foo" {
@@ -26,7 +28,7 @@ func TestEventStoreController(t *testing.T) {
 				t.Errorf("Expected event 'bar', got %s", message.Value)
 			}
 
-			eventReceived = true
+			atomic.StoreInt32(&eventReceived, 1)
 		})
 
 		otherNodes := server1.App.Cluster.OtherNodes()
@@ -56,7 +58,15 @@ func TestEventStoreController(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		if !eventReceived {
+		// Wait a bit for the event to be processed
+		for i := 0; i < 100; i++ {
+			if atomic.LoadInt32(&eventReceived) == 1 {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		if atomic.LoadInt32(&eventReceived) != 1 {
 			t.Fatalf("Expected event to be received")
 		}
 	})
