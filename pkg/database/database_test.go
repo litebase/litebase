@@ -552,7 +552,7 @@ func TestDatabase(t *testing.T) {
 
 			port := app.Config.Port
 
-			expected := fmt.Sprintf("http://localhost:%s/v1/databases/%s/%s", port, db.Name, primaryBranch.Name)
+			expected := fmt.Sprintf("http://localhost:%s/v1/databases/%s/branches/%s", port, db.Name, primaryBranch.Name)
 
 			if url != expected {
 				t.Errorf("Expected URL to be '%s', got '%s'", expected, url)

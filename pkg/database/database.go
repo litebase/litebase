@@ -522,7 +522,7 @@ func (database *Database) Url(branchName string) string {
 	}
 
 	return fmt.Sprintf(
-		"%s%s%s/v1/databases/%s/%s",
+		"%s%s%s/v1/databases/%s/branches/%s",
 		protocol,
 		database.DatabaseManager.Cluster.Config.HostName,
 		port,
