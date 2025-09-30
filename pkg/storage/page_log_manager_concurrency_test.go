@@ -148,7 +148,9 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 
 			// Clean up
 			for _, logger := range pageLoggers {
-				logger.Close()
+				if err := logger.Close(); err != nil {
+					t.Errorf("Failed to close page logger: %v", err)
+				}
 			}
 		})
 
@@ -279,7 +281,11 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 			ctx := t.Context()
 
 			plm := storage.NewPageLogManager(ctx, storage.WithMaxConcurrentCompactions(5))
-			defer plm.Close()
+			defer func() {
+				if err := plm.Close(); err != nil {
+					t.Errorf("Failed to close PageLogManager: %v", err)
+				}
+			}()
 
 			// Create multiple databases
 			numDatabases := 5
