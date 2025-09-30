@@ -19,14 +19,174 @@ const (
 	DefaultPageLoggerCompactInterval = time.Hour
 	PageLoggerMaxPages               = 4294967295
 	PageLoggerPageGroups             = 4096
+	// Size-based compaction thresholds
+	DefaultPageLogSizeThreshold  = 100 * 1024 * 1024 // 100MB per page log
+	DefaultPageLogCountThreshold = 10000             // 10,000 pages per log
 )
 
 var (
 	PageLoggerCompactInterval      = DefaultPageLoggerCompactInterval
 	pageLoggerCompactIntervalMutex sync.RWMutex
 
+	// Size-based compaction thresholds
+	PageLogSizeThreshold  = int64(DefaultPageLogSizeThreshold)
+	PageLogCountThreshold = DefaultPageLogCountThreshold
+	pageLogThresholdMutex sync.RWMutex
+
 	ErrCompactionInProgress = errors.New("compaction already in progress")
 )
+
+// CheckSizeBasedCompactionNeeded checks if any page logs exceed size thresholds
+// and returns the timestamp groups that need compaction due to size constraints.
+func (pl *PageLogger) CheckSizeBasedCompactionNeeded() ([]PageGroupVersion, error) {
+	sizeThreshold := GetPageLogSizeThreshold()
+	countThreshold := GetPageLogCountThreshold()
+
+	var oversizedTimestamps []PageGroupVersion
+	timestampSizes := make(map[PageGroupVersion]int64)
+	timestampCounts := make(map[PageGroupVersion]int)
+
+	// Aggregate sizes and counts by timestamp across all page groups
+	for _, group := range pl.logs {
+		for pageGroupVersion, pageLog := range group {
+			// Get page log size from the size field
+			pageLog.mutex.Lock()
+			size := pageLog.size
+			pageLog.mutex.Unlock()
+
+			// Get page count from index entries
+			var count int
+
+			if pageLog.index != nil && pageLog.index.memory != nil {
+				for _, entries := range pageLog.index.memory {
+					count += len(entries)
+				}
+			}
+
+			timestampSizes[pageGroupVersion] += size
+			timestampCounts[pageGroupVersion] += count
+		}
+	}
+
+	// Check which timestamps exceed thresholds
+	for timestamp, totalSize := range timestampSizes {
+		totalCount := timestampCounts[timestamp]
+
+		if totalSize > sizeThreshold || totalCount > countThreshold {
+			oversizedTimestamps = append(oversizedTimestamps, timestamp)
+
+			slog.Info("Page log timestamp exceeds size threshold",
+				"timestamp", timestamp,
+				"total_size", totalSize,
+				"total_count", totalCount,
+				"size_threshold", sizeThreshold,
+				"count_threshold", countThreshold)
+		}
+	}
+
+	return oversizedTimestamps, nil
+}
+
+// compactSpecificTimestamps compacts page logs for specific timestamps only
+func (pl *PageLogger) compactSpecificTimestamps(durableDatabaseFileSystem *DurableDatabaseFileSystem, timestamps []PageGroupVersion) error {
+	err := pl.reload()
+
+	if err != nil {
+		slog.Error("Error reloading page logger for size-based compaction", "error", err)
+		return err
+	}
+
+	if len(pl.logs) == 0 {
+		return nil
+	}
+
+	// Filter page logs to only include the specified timestamps
+	var pageLogs []PageLogEntry
+
+	for pageGroup, group := range pl.logs {
+		for pageGroupVersion, pageLog := range group {
+			// Only include logs for the specified timestamps
+			for _, targetTimestamp := range timestamps {
+				if pageGroupVersion == targetTimestamp {
+					pageLogs = append(pageLogs, PageLogEntry{
+						pageGroup:        pageGroup,
+						pageGroupVersion: pageGroupVersion,
+						pageLog:          pageLog,
+					})
+
+					break
+				}
+			}
+		}
+	}
+
+	if len(pageLogs) == 0 {
+		return nil
+	}
+
+	// Compact the filtered page logs
+	for _, logEntry := range pageLogs {
+		if logEntry.pageLog.index.Empty() {
+			continue
+		}
+
+		rangeNumber := int64(logEntry.pageGroup)
+		err := logEntry.pageLog.compact(durableDatabaseFileSystem, rangeNumber)
+
+		if err != nil {
+			slog.Error("Error compacting oversized page log", "error", err)
+		}
+	}
+
+	// Delete compacted logs
+	allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs))
+
+	for _, logEntry := range pageLogs {
+		if !logEntry.pageLog.index.Empty() {
+			allLogsToDelete = append(allLogsToDelete, logEntry)
+		}
+	}
+
+	if len(allLogsToDelete) == 0 {
+		return nil
+	}
+
+	for _, logEntry := range allLogsToDelete {
+		err := logEntry.pageLog.Delete()
+
+		if err != nil {
+			log.Println("Error deleting compacted page log:", err)
+		}
+
+		delete(pl.logs[logEntry.pageGroup], logEntry.pageGroupVersion)
+
+		if len(pl.logs[logEntry.pageGroup]) == 0 {
+			delete(pl.logs, logEntry.pageGroup)
+		}
+	}
+
+	err = pl.index.removePageLogs(allLogsToDelete)
+
+	if err != nil {
+		return err
+	}
+
+	// Update CompactedAt timestamp and persist
+	pl.CompactedAt = time.Now().UTC()
+	pl.index.boundary = PageGroupVersion(pl.CompactedAt.UnixNano())
+
+	err = pl.index.SetLastCompactionAt(pl.CompactedAt)
+
+	if err != nil {
+		slog.Error("Failed to persist last compaction timestamp after size-based compaction", "error", err)
+	}
+
+	slog.Info("Size-based compaction completed",
+		"compacted_logs", len(allLogsToDelete),
+		"timestamps", timestamps)
+
+	return nil
+}
 
 // GetPageLoggerCompactInterval returns the current page logger compact interval safely
 func GetPageLoggerCompactInterval() time.Duration {
@@ -40,6 +200,38 @@ func SetPageLoggerCompactInterval(interval time.Duration) {
 	pageLoggerCompactIntervalMutex.Lock()
 	defer pageLoggerCompactIntervalMutex.Unlock()
 	PageLoggerCompactInterval = interval
+}
+
+// GetPageLogSizeThreshold returns the current page log size threshold safely
+func GetPageLogSizeThreshold() int64 {
+	pageLogThresholdMutex.RLock()
+	defer pageLogThresholdMutex.RUnlock()
+
+	return PageLogSizeThreshold
+}
+
+// SetPageLogSizeThreshold sets the page log size threshold safely
+func SetPageLogSizeThreshold(threshold int64) {
+	pageLogThresholdMutex.Lock()
+	defer pageLogThresholdMutex.Unlock()
+
+	PageLogSizeThreshold = threshold
+}
+
+// GetPageLogCountThreshold returns the current page log count threshold safely
+func GetPageLogCountThreshold() int {
+	pageLogThresholdMutex.RLock()
+	defer pageLogThresholdMutex.RUnlock()
+
+	return PageLogCountThreshold
+}
+
+// SetPageLogCountThreshold sets the page log count threshold safely
+func SetPageLogCountThreshold(threshold int) {
+	pageLogThresholdMutex.Lock()
+	defer pageLogThresholdMutex.Unlock()
+
+	PageLogCountThreshold = threshold
 }
 
 type PageGroup int64
@@ -58,6 +250,7 @@ type PageLogger struct {
 	logUsage        map[int64]int64
 	mutex           *sync.Mutex
 	nodePublisher   NodePublisher
+	sizeCheckNeeded bool // flag to indicate size-based compaction check is needed
 	writtenAt       time.Time
 }
 
@@ -197,6 +390,24 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 
 	if len(pl.logs) == 0 {
 		return nil
+	}
+
+	// Check if size-based compaction is needed
+	if pl.sizeCheckNeeded {
+		pl.sizeCheckNeeded = false // Reset the flag
+
+		err := pl.triggerSizeBasedCompaction(durableDatabaseFileSystem)
+
+		if err != nil {
+			slog.Warn("Size-based compaction check failed", "error", err)
+		}
+
+		// Reload logs after potential size-based compaction
+		err = pl.reload()
+
+		if err != nil {
+			slog.Error("Error reloading page logger after size-based compaction", "error", err)
+		}
 	}
 
 	// Get non-empty page logs for regular compaction
@@ -446,6 +657,11 @@ func (pl *PageLogger) GetInUseVersions() []int64 {
 	}
 
 	return versions
+}
+
+// Check if size-based compaction is needed.
+func (pl *PageLogger) IsSizeCheckNeeded() bool {
+	return pl.sizeCheckNeeded
 }
 
 // Load the page logger index and all associated page logs. This is called when
@@ -701,6 +917,63 @@ func (pl *PageLogger) TombstoneAfter(timestamp int64) error {
 	return nil
 }
 
+// triggerSizeBasedCompaction triggers compaction for oversized page logs if safe to do so
+func (pl *PageLogger) triggerSizeBasedCompaction(durableDatabaseFileSystem *DurableDatabaseFileSystem) error {
+	oversizedTimestamps, err := pl.CheckSizeBasedCompactionNeeded()
+
+	if err != nil {
+		return err
+	}
+
+	if len(oversizedTimestamps) == 0 {
+		return nil // No oversized logs
+	}
+
+	// Get the effective oldest timestamp (local + replica coordination)
+	lowestLocalTimestamp := int64(0)
+
+	for timestamp := range pl.logUsage {
+		if lowestLocalTimestamp == 0 || timestamp < lowestLocalTimestamp {
+			lowestLocalTimestamp = timestamp
+		}
+	}
+
+	oldestReplicaTimestamp := pl.getOldestReplicaTimestamp()
+	effectiveOldestTimestamp := lowestLocalTimestamp
+
+	if oldestReplicaTimestamp != 0 && (effectiveOldestTimestamp == 0 || oldestReplicaTimestamp < effectiveOldestTimestamp) {
+		effectiveOldestTimestamp = oldestReplicaTimestamp
+	}
+
+	// Only compact oversized timestamps that are safe (older than effective oldest timestamp)
+	var safeToCompactTimestamps []PageGroupVersion
+
+	for _, timestamp := range oversizedTimestamps {
+		if effectiveOldestTimestamp == 0 || timestamp < PageGroupVersion(effectiveOldestTimestamp) {
+			safeToCompactTimestamps = append(safeToCompactTimestamps, timestamp)
+		} else {
+			slog.Warn("Oversized page log cannot be compacted due to active usage",
+				"timestamp", timestamp,
+				"effective_oldest", effectiveOldestTimestamp)
+		}
+	}
+
+	if len(safeToCompactTimestamps) == 0 {
+		return nil // No safe compactions available
+	}
+
+	// Trigger compaction for safe timestamps
+	slog.Info("Triggering size-based compaction",
+		"timestamps_count", len(safeToCompactTimestamps),
+		"oversized_count", len(oversizedTimestamps))
+
+	// Perform compaction using the existing compaction logic
+	// This will respect all safety checks and distributed coordination
+	return pl.CompactionBarrier(func() error {
+		return pl.compactSpecificTimestamps(durableDatabaseFileSystem, safeToCompactTimestamps)
+	})
+}
+
 // Write data to the appropriate page log. Page logs are distributed into shards
 // based on the page number and segmented by timestamp.
 func (pl *PageLogger) Write(
@@ -765,6 +1038,10 @@ func (pl *PageLogger) Write(
 	}
 
 	pl.writtenAt = time.Now().UTC()
+
+	// Mark that a size-based compaction check is needed
+	// This will be processed during the next regular compaction cycle
+	pl.sizeCheckNeeded = true
 
 	return len(data), nil
 }
