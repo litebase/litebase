@@ -362,12 +362,12 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 }
 
 // Check if a branch exists for the database.
-func (database *Database) HasBranch(branchName string) bool {
-	if database.DatabaseID == SystemDatabaseID && branchName == SystemDatabaseBranchID {
+func (database *Database) HasBranch(branchId string) bool {
+	if database.DatabaseID == SystemDatabaseID && branchId == SystemDatabaseBranchID {
 		return true
 	}
 
-	if found, exists := database.branchCache.Get(branchName); exists {
+	if found, exists := database.branchCache.Get(branchId); exists {
 		return found.(bool)
 	}
 
@@ -384,15 +384,15 @@ func (database *Database) HasBranch(branchName string) bool {
 	var id int64
 
 	err = db.QueryRow(
-		`SELECT id FROM database_branches WHERE database_reference_id = ? AND name = ?`,
+		`SELECT id FROM database_branches WHERE database_reference_id = ? AND database_branch_id = ?`,
 		database.ID,
-		branchName,
+		branchId,
 	).Scan(&id)
 
 	exists := err == nil
 
 	// Cache the result
-	if err := database.branchCache.Put(branchName, exists); err != nil {
+	if err := database.branchCache.Put(branchId, exists); err != nil {
 		slog.Warn("Failed to cache branch existence", "error", err)
 	}
 
@@ -404,11 +404,11 @@ func (database *Database) HasBranch(branchName string) bool {
 }
 
 // InvalidateBranchCache removes a branch from the cache
-func (database *Database) InvalidateBranchCache(branchName string) {
+func (database *Database) InvalidateBranchCache(branchId string) {
 	database.cacheMutex.Lock()
 	defer database.cacheMutex.Unlock()
 
-	database.branchCache.Delete(branchName)
+	database.branchCache.Delete(branchId)
 }
 
 // MarshalJSON customizes the JSON representation of the Database struct.

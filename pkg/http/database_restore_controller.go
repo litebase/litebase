@@ -67,17 +67,13 @@ func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Respo
 		return BadRequestResponse(err)
 	}
 
-	targetDatabaseName := request.Get("target_database").(string)
-	targetBranchName := request.Get("target_database_branch").(string)
+	targetDatabaseName := input.(*DatabaseRestoreRequest).TargetDatabase
+	targetBranchName := input.(*DatabaseRestoreRequest).TargetDatabaseBranch
 
 	targetDatabase, err := request.databaseManager.GetByName(targetDatabaseName)
 
 	if err != nil {
 		return BadRequestResponse(err)
-	}
-
-	if !targetDatabase.HasBranch(targetBranchName) {
-		return BadRequestResponse(fmt.Errorf("target branch '%s' does not exist in target database '%s'", targetBranchName, targetDatabaseName))
 	}
 
 	targetBranch, err := targetDatabase.Branch(targetBranchName)
