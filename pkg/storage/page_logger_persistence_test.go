@@ -74,7 +74,11 @@ func TestPageLoggerCompactionTimePersistence(t *testing.T) {
 				t.Fatalf("Failed to create second page logger: %v", err)
 			}
 
-			defer pageLogger2.Close()
+			defer func() {
+				if err := pageLogger2.Close(); err != nil {
+					t.Errorf("Failed to close second page logger: %v", err)
+				}
+			}()
 
 			// Check that the compaction time was loaded from the index
 			loadedCompactionTime := pageLogger2.CompactedAt
@@ -103,7 +107,11 @@ func TestPageLoggerCompactionTimePersistence(t *testing.T) {
 				t.Fatalf("Failed to create page logger: %v", err)
 			}
 
-			defer pageLogger.Close()
+			defer func() {
+				if err := pageLogger.Close(); err != nil {
+					t.Errorf("Failed to close page logger: %v", err)
+				}
+			}()
 
 			// Test the index setter/getter directly
 			// Note: We can't access index directly, so we'll test through compaction

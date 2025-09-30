@@ -63,7 +63,13 @@ func TestPageLogger_SizeBasedCompactionIntegration(t *testing.T) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		err := os.RemoveAll(tempDir)
+
+		if err != nil {
+			t.Errorf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create file system
 	driver := storage.NewLocalFileSystemDriver(tempDir)
@@ -79,7 +85,13 @@ func TestPageLogger_SizeBasedCompactionIntegration(t *testing.T) {
 		t.Fatalf("Failed to create page logger: %v", err)
 	}
 
-	defer pageLogger.Close()
+	defer func() {
+		err := pageLogger.Close()
+
+		if err != nil {
+			t.Errorf("Failed to close page logger: %v", err)
+		}
+	}()
 
 	// Initially the size check flag should not be set
 	if pageLogger.IsSizeCheckNeeded() {

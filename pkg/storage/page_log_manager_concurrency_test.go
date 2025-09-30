@@ -22,7 +22,12 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 
 			plm := storage.NewPageLogManager(ctx,
 				storage.WithMaxConcurrentCompactions(maxConcurrent))
-			defer plm.Close()
+
+			defer func() {
+				if err := plm.Close(); err != nil {
+					t.Errorf("Failed to close PageLogManager: %v", err)
+				}
+			}()
 
 			// Create multiple databases and populate them with data
 			numDatabases := 10
@@ -151,7 +156,12 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 			ctx := t.Context()
 
 			plm := storage.NewPageLogManager(ctx, storage.WithMaxConcurrentCompactions(5))
-			defer plm.Close()
+
+			defer func() {
+				if err := plm.Close(); err != nil {
+					t.Errorf("Failed to close PageLogManager: %v", err)
+				}
+			}()
 
 			// Initially should be 0
 			active := plm.GetActiveCompactions()
@@ -224,7 +234,11 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 			customLimit := 7
 			plm := storage.NewPageLogManager(ctx, storage.WithMaxConcurrentCompactions(customLimit))
 
-			defer plm.Close()
+			defer func() {
+				if err := plm.Close(); err != nil {
+					t.Errorf("Failed to close PageLogManager: %v", err)
+				}
+			}()
 
 			// The actual limit is hard to test directly without accessing private fields,
 			// but we can test that the configuration option exists and doesn't crash
@@ -269,11 +283,9 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 
 			// Create multiple databases
 			numDatabases := 5
-			var databases []test.TestDatabase
 
 			for i := range numDatabases {
 				db := test.MockDatabase(app)
-				databases = append(databases, db)
 
 				// Get logger through manager and write some data
 				logger := plm.Get(db.DatabaseID, db.DatabaseBranchID, app.Cluster.LocalFS())
