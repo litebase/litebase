@@ -223,6 +223,20 @@ func (g *Generator) AnalyzeAllRoutes() (*ControllerAnalysis, error) {
 				methodAnalysis.HTTPMethod = routeInfo.HTTPMethod
 				methodAnalysis.Path = routeInfo.Path
 				methodAnalysis.Security = extractSecurityFromMiddleware(routeInfo.Middleware)
+
+				// Add path parameters based on the actual route path
+				pathParams := extractPathParameters(routeInfo.Path)
+
+				for _, param := range pathParams {
+					methodAnalysis.Parameters = append(methodAnalysis.Parameters, &ParameterInfo{
+						Name:        param,
+						In:          "path",
+						Type:        "string",
+						Required:    true,
+						Description: fmt.Sprintf("The %s parameter", param),
+						Example:     "example_value",
+					})
+				}
 			}
 
 			analysis.Methods[methodName] = methodAnalysis
@@ -1279,20 +1293,6 @@ func (g *Generator) analyzeMethodParameters(fn *ast.FuncDecl, analysis *MethodAn
 			analysis.Parameters = append(analysis.Parameters, paramInfo)
 		}
 	}
-
-	// Add path parameters based on the path
-	pathParams := extractPathParameters(analysis.Path)
-
-	for _, param := range pathParams {
-		analysis.Parameters = append(analysis.Parameters, &ParameterInfo{
-			Name:        param,
-			In:          "path",
-			Type:        "string",
-			Required:    true,
-			Description: fmt.Sprintf("The %s parameter", param),
-			Example:     "example_value",
-		})
-	}
 }
 
 // analyzeResponseCallWithContext analyzes response function calls with variable context
@@ -2204,9 +2204,10 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 			schema = &Schema{Type: "object"}
 		}
 
-		// For SuccessResponse, wrap the data schema in the standard response format
+		// For SuccessResponse, create inline schemas since all responses are complex
 		switch resp.Type {
 		case "success":
+			// Create custom inline schema for success responses
 			properties := map[string]*Schema{
 				"status": {
 					Type:        "string",
@@ -2252,44 +2253,14 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 				Required:   required,
 			}
 		case "error":
-			// Standard error response format
+			// Use reference to the common ErrorResponse schema
 			schema = &Schema{
-				Type: "object",
-				Properties: map[string]*Schema{
-					"status": {
-						Type:        "string",
-						Description: "Response status",
-						Example:     "error",
-					},
-					"message": {
-						Type:        "string",
-						Description: "Error message",
-						Example:     getErrorMessageExample(resp.StatusCode),
-					},
-				},
-				Required: []string{"message", "status"},
+				Ref: "#/components/schemas/ErrorResponse",
 			}
 		case "validation_error":
-			// Validation error response format (422)
+			// Use reference to the common ValidationErrorResponse schema
 			schema = &Schema{
-				Type: "object",
-				Properties: map[string]*Schema{
-					"status": {
-						Type:        "string",
-						Description: "Response status",
-						Example:     "error",
-					},
-					"message": {
-						Type:        "string",
-						Description: "Error message",
-						Example:     "Error: the request input is invalid",
-					},
-					"errors": {
-						Type:        "object",
-						Description: "Validation errors",
-					},
-				},
-				Required: []string{"errors", "message", "status"},
+				Ref: "#/components/schemas/ValidationErrorResponse",
 			}
 		}
 
