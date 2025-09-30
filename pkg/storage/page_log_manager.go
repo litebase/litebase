@@ -27,6 +27,7 @@ type PageLogManager struct {
 	context            context.Context
 	loggers            map[string]*PageLogger
 	mutex              *sync.Mutex
+	nodePublisher      NodePublisher
 	running            bool
 }
 
@@ -82,7 +83,12 @@ func (plm *PageLogManager) Get(
 		return logger
 	}
 
-	logger, err := NewPageLogger(databaseId, branchId, networkFS)
+	logger, err := NewPageLogger(
+		databaseId,
+		branchId,
+		networkFS,
+		plm.nodePublisher,
+	)
 
 	if err != nil {
 		log.Println("Error creating page logger", err)

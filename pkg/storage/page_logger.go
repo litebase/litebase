@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/pkg/file"
 )
 
@@ -56,6 +57,7 @@ type PageLogger struct {
 	logs            map[PageGroup]map[PageGroupVersion]*PageLog
 	logUsage        map[int64]int64
 	mutex           *sync.Mutex
+	nodePublisher   NodePublisher
 	writtenAt       time.Time
 }
 
@@ -70,6 +72,7 @@ func NewPageLogger(
 	databaseId string,
 	branchId string,
 	networkFS *FileSystem,
+	nodePublisher NodePublisher,
 ) (*PageLogger, error) {
 	path := file.GetDatabaseFileBaseDir(databaseId, branchId)
 	pli, err := NewPageLoggerIndex(networkFS, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
@@ -87,6 +90,7 @@ func NewPageLogger(
 		logs:            make(map[PageGroup]map[PageGroupVersion]*PageLog),
 		logUsage:        make(map[int64]int64),
 		mutex:           &sync.Mutex{},
+		nodePublisher:   nodePublisher,
 	}
 
 	err = pl.load()
@@ -319,18 +323,30 @@ func (pl *PageLogger) getLogGroupNumber(pageNumber int64) int64 {
 func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 	pageLogs := make([]PageLogEntry, 0)
 
-	// Get the lowest timestamp in log usage
-	lowestTimestamp := int64(0)
+	// Get the lowest timestamp in log usage (local transactions)
+	lowestLocalTimestamp := int64(0)
 
 	for timestamp := range pl.logUsage {
-		if lowestTimestamp == 0 || timestamp < lowestTimestamp {
-			lowestTimestamp = timestamp
+		if lowestLocalTimestamp == 0 || timestamp < lowestLocalTimestamp {
+			lowestLocalTimestamp = timestamp
 		}
+	}
+
+	// Get oldest timestamp from replicas to ensure consistency across the cluster
+	oldestReplicaTimestamp := pl.getOldestReplicaTimestamp()
+
+	// Use the earlier of local lowest timestamp or replica timestamp to be safe
+	// If there are no local transactions, we still need to respect replica constraints
+	effectiveOldestTimestamp := lowestLocalTimestamp
+
+	if oldestReplicaTimestamp != 0 && (effectiveOldestTimestamp == 0 || oldestReplicaTimestamp < effectiveOldestTimestamp) {
+		effectiveOldestTimestamp = oldestReplicaTimestamp
 	}
 
 	for pageGroup, group := range pl.logs {
 		for pageGroupVersion, pageLog := range group {
-			if lowestTimestamp != 0 && pageGroupVersion >= PageGroupVersion(lowestTimestamp) {
+			// Skip if this version is still in use locally or by replicas
+			if effectiveOldestTimestamp != 0 && pageGroupVersion >= PageGroupVersion(effectiveOldestTimestamp) {
 				continue
 			}
 
@@ -346,8 +362,6 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 		return nil
 	}
 
-	// TODO: Coordinate with replicas to get their in use logs
-
 	slices.SortFunc(pageLogs, func(a, b PageLogEntry) int {
 		if a.pageGroupVersion < b.pageGroupVersion {
 			return -1
@@ -359,6 +373,69 @@ func (pl *PageLogger) getPageLogsForCompaction() []PageLogEntry {
 	})
 
 	return pageLogs
+}
+
+// getOldestReplicaTimestamp queries replicas for their oldest timestamps to ensure
+// safe compaction across the distributed system
+func (pl *PageLogger) getOldestReplicaTimestamp() int64 {
+	// Skip replica coordination for replica nodes
+	if pl.nodePublisher == nil || pl.nodePublisher.IsReplica() {
+		return 0
+	}
+
+	// Create message using our internal types to avoid circular dependencies
+	message := messages.PageLoggerVersionUsageRequest{
+		BranchID:   pl.BranchID,
+		DatabaseID: pl.DatabaseID,
+	}
+
+	responseMap, errorMap := pl.nodePublisher.Publish(message)
+
+	// Log errors but don't fail the operation
+	for _, err := range errorMap {
+		if err != nil {
+			slog.Error("failed to get page logger version usage from replica", "error", err)
+		}
+	}
+
+	// Find the oldest timestamp from all replica responses
+	var oldestTimestamp int64
+
+	for _, response := range responseMap {
+		// Skip nil responses
+		if response == nil {
+			continue
+		}
+
+		// The NodeAdapter should have already unwrapped the NodeMessage, so we expect
+		// the response to be the actual PageLoggerVersionUsageResponse
+		if responseData, ok := response.(messages.PageLoggerVersionUsageResponse); ok {
+			for _, version := range responseData.Versions {
+				if oldestTimestamp == 0 || version < oldestTimestamp {
+					oldestTimestamp = version
+				}
+			}
+		}
+	}
+
+	return oldestTimestamp
+}
+
+// GetInUseVersions returns all timestamps currently in use by local transactions.
+// This is used to respond to requests from primary nodes during distributed compaction.
+func (pl *PageLogger) GetInUseVersions() []int64 {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	var versions []int64
+
+	for timestamp, usage := range pl.logUsage {
+		if usage > 0 {
+			versions = append(versions, timestamp)
+		}
+	}
+
+	return versions
 }
 
 // Load the page logger index and all associated page logs. This is called when

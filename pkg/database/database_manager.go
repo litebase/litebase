@@ -46,7 +46,10 @@ func NewDatabaseManager(
 		WriteQueueManager:      NewWriteQueueManager(cluster.Node().Context()),
 	}
 
-	dbm.pageLogManager = storage.NewPageLogManager(dbm.Cluster.Node().Context())
+	dbm.pageLogManager = storage.NewPageLogManager(
+		dbm.Cluster.Node().Context(),
+		storage.WithNodePublisher(NewNodeAdapter(dbm.Cluster.Node())),
+	)
 
 	dbm.pageLogManager.SetCompactionFn(dbm.Compaction)
 

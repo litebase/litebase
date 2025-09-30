@@ -84,6 +84,12 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		database.ResponsePool(),
 		database.NewDatabaseWALSynchronizer(app.DatabaseManager),
 	)
+	
+	// Set the page logger accessor for distributed page compaction coordination
+	app.Cluster.Node().SetPageLoggerAccessor(
+		database.NewDatabasePageLoggerAccessor(app.DatabaseManager),
+	)
+	
 	app.Cluster.EventsManager().Init()
 	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
 
