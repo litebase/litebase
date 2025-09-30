@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultPageLoggerCompactInterval = time.Second * 2
+	DefaultPageLoggerCompactInterval = time.Hour
 	PageLoggerMaxPages               = 4294967295
 	PageLoggerPageGroups             = 4096
 )
@@ -99,6 +99,9 @@ func NewPageLogger(
 		log.Println("Error loading page logger:", err)
 		return nil, err
 	}
+
+	// Load last compaction time from the index
+	pl.CompactedAt = pl.index.GetLastCompactionAt()
 
 	return pl, nil
 }
@@ -252,6 +255,13 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 
 	pl.CompactedAt = time.Now().UTC()
 	pl.index.boundary = PageGroupVersion(pl.CompactedAt.UnixNano())
+
+	// Persist the compaction timestamp to the index
+	err = pl.index.SetLastCompactionAt(pl.CompactedAt)
+
+	if err != nil {
+		slog.Error("Failed to persist last compaction timestamp", "error", err)
+	}
 
 	return nil
 }

@@ -2,6 +2,7 @@ package storage_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/server"
@@ -260,6 +261,105 @@ func TestPageLoggerIndex(t *testing.T) {
 			}
 
 			err = pli2.Close()
+
+			if err != nil {
+				t.Fatalf("unexpected error closing PageLoggerIndex: %v", err)
+			}
+		})
+
+		t.Run("LastCompactionAtPersistence", func(t *testing.T) {
+			pli, err := storage.NewPageLoggerIndex(
+				app.Cluster.NetworkFS(),
+				"COMPACTION_TIME_INDEX",
+			)
+
+			if err != nil {
+				t.Fatal("expected no error, got:", err)
+			}
+
+			// Initially, lastCompactionAt should be zero
+			initialTime := pli.GetLastCompactionAt()
+
+			if !initialTime.IsZero() {
+				t.Fatalf("expected initial lastCompactionAt to be zero, got: %v", initialTime)
+			}
+
+			// Set a specific compaction time
+			testTime := time.Now().UTC().Truncate(time.Nanosecond)
+			err = pli.SetLastCompactionAt(testTime)
+
+			if err != nil {
+				t.Fatalf("unexpected error setting lastCompactionAt: %v", err)
+			}
+
+			// Verify it was set correctly
+			retrievedTime := pli.GetLastCompactionAt()
+
+			if !retrievedTime.Equal(testTime) {
+				t.Fatalf("expected lastCompactionAt %v, got %v", testTime, retrievedTime)
+			}
+
+			// Close and reopen to test persistence
+			err = pli.Close()
+
+			if err != nil {
+				t.Fatalf("unexpected error closing PageLoggerIndex: %v", err)
+			}
+
+			// Reopen the index
+			pli2, err := storage.NewPageLoggerIndex(
+				app.Cluster.NetworkFS(),
+				"COMPACTION_TIME_INDEX",
+			)
+
+			if err != nil {
+				t.Fatalf("unexpected error reopening PageLoggerIndex: %v", err)
+			}
+
+			// Verify that the lastCompactionAt was persisted and loaded correctly
+			loadedTime := pli2.GetLastCompactionAt()
+
+			if !loadedTime.Equal(testTime) {
+				t.Fatalf("expected loaded lastCompactionAt %v, got %v", testTime, loadedTime)
+			}
+
+			// Test setting to zero time (clearing the timestamp)
+			err = pli2.SetLastCompactionAt(time.Time{})
+
+			if err != nil {
+				t.Fatalf("unexpected error setting lastCompactionAt to zero: %v", err)
+			}
+
+			zeroTime := pli2.GetLastCompactionAt()
+
+			if !zeroTime.IsZero() {
+				t.Fatalf("expected lastCompactionAt to be zero after setting to zero time, got: %v", zeroTime)
+			}
+
+			// Close and reopen again to test zero time persistence
+			err = pli2.Close()
+
+			if err != nil {
+				t.Fatalf("unexpected error closing PageLoggerIndex: %v", err)
+			}
+
+			pli3, err := storage.NewPageLoggerIndex(
+				app.Cluster.NetworkFS(),
+				"COMPACTION_TIME_INDEX",
+			)
+
+			if err != nil {
+				t.Fatalf("unexpected error reopening PageLoggerIndex: %v", err)
+			}
+
+			// Verify zero time was persisted
+			finalTime := pli3.GetLastCompactionAt()
+
+			if !finalTime.IsZero() {
+				t.Fatalf("expected final lastCompactionAt to be zero after reload, got: %v", finalTime)
+			}
+
+			err = pli3.Close()
 
 			if err != nil {
 				t.Fatalf("unexpected error closing PageLoggerIndex: %v", err)

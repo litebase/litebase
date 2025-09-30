@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/internal/utils"
@@ -18,8 +19,9 @@ import (
 // This index is used to track the versions of pages in the distributed log.
 // On disk, the format is as follows:
 // 1. PageLoggerIndex Version (uint32)
-// 2. Number of PageGroups (uint32)
-// 3. For each PageGroup:
+// 2. Last Compaction Timestamp (int64)
+// 3. Number of PageGroups (uint32)
+// 4. For each PageGroup:
 //    1. PageGroup (uint64)
 //    2. The length of each page group (uint32)
 //    3. For each page in the group:
@@ -30,12 +32,13 @@ import (
 const PageLoggerIndexVersion uint32 = 1
 
 type PageLoggerIndex struct {
-	boundary   PageGroupVersion
-	mutex      *sync.Mutex
-	file       storage.File
-	tieredFS   *FileSystem
-	path       string
-	pageGroups map[PageGroup]map[PageGroupVersion][]PageNumber
+	boundary         PageGroupVersion
+	mutex            *sync.Mutex
+	file             storage.File
+	lastCompactionAt time.Time
+	tieredFS         *FileSystem
+	path             string
+	pageGroups       map[PageGroup]map[PageGroupVersion][]PageNumber
 }
 
 type PageGroupVersionByTimestamp struct {
@@ -132,6 +135,15 @@ func (pli *PageLoggerIndex) Find(pageGroup PageGroup, pageNumber PageNumber, ver
 	return 0, false, nil
 }
 
+// GetLastCompactionAt returns the last compaction timestamp
+func (pli *PageLoggerIndex) GetLastCompactionAt() time.Time {
+	pli.mutex.Lock()
+	defer pli.mutex.Unlock()
+
+	return pli.lastCompactionAt
+}
+
+// Return the page group and version for a given timestamp
 func (pli *PageLoggerIndex) getPageGroupByTimestamp(pageVersion PageVersion) []PageGroupVersionByTimestamp {
 	versions := []PageGroupVersionByTimestamp{}
 
@@ -159,8 +171,8 @@ func (pli *PageLoggerIndex) load() error {
 
 	pli.pageGroups = make(map[PageGroup]map[PageGroupVersion][]PageNumber)
 
-	// Read total length, page group count, and metadata for first page group
-	buffer := make([]byte, 24)
+	// Read version, last compaction timestamp, total length, page group count, and metadata for first page group
+	buffer := make([]byte, 32) // Increased to include lastCompactionAt (8 bytes)
 
 	_, err := file.Seek(0, io.SeekStart)
 
@@ -179,24 +191,41 @@ func (pli *PageLoggerIndex) load() error {
 		return err
 	}
 
-	pageGroupSize := binary.LittleEndian.Uint32(buffer[4:8])
+	// Read version (first 4 bytes)
+	version := binary.LittleEndian.Uint32(buffer[0:4])
+
+	if version != PageLoggerIndexVersion {
+		// Handle version mismatch if needed
+		slog.Warn("Page logger index version mismatch", "expected", PageLoggerIndexVersion, "found", version)
+	}
+
+	// Read lastCompactionAt timestamp (next 8 bytes)
+	lastCompactionUnix := int64(binary.LittleEndian.Uint64(buffer[4:12]))
+
+	if lastCompactionUnix > 0 {
+		pli.lastCompactionAt = time.Unix(0, lastCompactionUnix).UTC()
+	}
+
+	pageGroupSize := binary.LittleEndian.Uint32(buffer[12:16])
 
 	if pageGroupSize == 0 {
 		return nil
 	}
 
-	pageGroupCount := binary.LittleEndian.Uint32(buffer[8:12])
+	pageGroupCount := binary.LittleEndian.Uint32(buffer[16:20])
 
-	nextPageGroupIdInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(buffer[12:20]))
+	nextPageGroupIdInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(buffer[20:28]))
+
 	if err != nil {
 		slog.Error("Error reading next page group ID from index", "error", err)
 		return err
 	}
+
 	nextPageGroupId := PageGroup(nextPageGroupIdInt64)
 
-	nextPageGroupLength := binary.LittleEndian.Uint32(buffer[20:24])
+	nextPageGroupLength := binary.LittleEndian.Uint32(buffer[28:32])
 
-	for i := uint32(0); i < pageGroupCount; i++ {
+	for i := range pageGroupCount {
 		if pli.pageGroups[nextPageGroupId] == nil {
 			pli.pageGroups[nextPageGroupId] = make(map[PageGroupVersion][]PageNumber)
 		}
@@ -217,10 +246,7 @@ func (pli *PageLoggerIndex) load() error {
 		}
 
 		// Ensure we only process the bytes that were actually read
-		actualDataLength := n
-		if actualDataLength > int(nextPageGroupLength) {
-			actualDataLength = int(nextPageGroupLength)
-		}
+		actualDataLength := min(n, int(nextPageGroupLength))
 
 		pageGroupBytesProcessed := 0
 
@@ -231,10 +257,13 @@ func (pli *PageLoggerIndex) load() error {
 			}
 
 			pageGroupVersionNumberInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
+
 			if err != nil {
 				slog.Error("Error reading next page group version from index", "error", err)
+
 				return err
 			}
+
 			pageGroupVersionNumber := PageGroupVersion(pageGroupVersionNumberInt64)
 			pageGroupBytesProcessed += 8
 
@@ -257,13 +286,16 @@ func (pli *PageLoggerIndex) load() error {
 				}
 
 				pageNumberInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(data[pageGroupBytesProcessed : pageGroupBytesProcessed+8]))
+
 				if err != nil {
 					slog.Error("Error reading page number from index", "error", err)
 					return err
 				}
+
 				pageNumber := PageNumber(pageNumberInt64)
 				pageGroupBytesProcessed += 8
 				pli.pageGroups[nextPageGroupId][pageGroupVersionNumber] = append(pli.pageGroups[nextPageGroupId][pageGroupVersionNumber], pageNumber)
+
 			}
 
 			slices.Sort(pli.pageGroups[nextPageGroupId][pageGroupVersionNumber])
@@ -276,7 +308,7 @@ func (pli *PageLoggerIndex) load() error {
 			n, err := file.Read(nextPageGroupMetadata)
 
 			if err != nil && err != io.EOF {
-				log.Println("Error reading next page group metadata:", err)
+				slog.Error("Error reading next page group metadata", "error", err)
 				return err
 			}
 
@@ -285,16 +317,20 @@ func (pli *PageLoggerIndex) load() error {
 			}
 
 			pageGroupInt64, err := utils.SafeUint64ToInt64(binary.LittleEndian.Uint64(nextPageGroupMetadata[0:8]))
+
 			if err != nil {
 				slog.Error("Error reading page group ID from index", "error", err)
+
 				return err
 			}
 
 			nextPageGroupId = PageGroup(pageGroupInt64)
 
 			nextPageGroupLengthInt32, err := utils.SafeUint32ToInt32(binary.LittleEndian.Uint32(nextPageGroupMetadata[8:12]))
+
 			if err != nil {
 				slog.Error("Error reading next page group length from index", "error", err)
+
 				return err
 			}
 
@@ -316,6 +352,7 @@ func (pli *PageLoggerIndex) load() error {
 	return nil
 }
 
+// Push a new page log entry to the index
 func (pli *PageLoggerIndex) Push(pageGroup PageGroup, pageNumber PageNumber, version PageGroupVersion) error {
 	pli.mutex.Lock()
 	defer pli.mutex.Unlock()
@@ -338,6 +375,7 @@ func (pli *PageLoggerIndex) Push(pageGroup PageGroup, pageNumber PageNumber, ver
 	return pli.store()
 }
 
+// Remove page log entries from the index
 func (pli *PageLoggerIndex) removePageLogs(pageLogEntries []PageLogEntry) error {
 	for _, entry := range pageLogEntries {
 		if pli.pageGroups[entry.pageGroup] == nil {
@@ -354,6 +392,16 @@ func (pli *PageLoggerIndex) removePageLogs(pageLogEntries []PageLogEntry) error 
 	return pli.store()
 }
 
+// SetLastCompactionAt sets the last compaction timestamp and persists it
+func (pli *PageLoggerIndex) SetLastCompactionAt(t time.Time) error {
+	pli.mutex.Lock()
+	defer pli.mutex.Unlock()
+
+	pli.lastCompactionAt = t
+
+	return pli.store()
+}
+
 // Store the index data as binary data. Each version is uint64. We need to store
 // the length of the version list as uint64 followed by the versions.
 func (pli *PageLoggerIndex) store() error {
@@ -361,6 +409,7 @@ func (pli *PageLoggerIndex) store() error {
 
 	// Calculate total size
 	totalSize := 4 // Version field
+	totalSize += 8 // Last compaction timestamp field
 	totalSize += 4 // Total length field
 	totalSize += 4 // Page group count field
 
@@ -380,6 +429,16 @@ func (pli *PageLoggerIndex) store() error {
 	// Write version
 	binary.LittleEndian.PutUint32(binaryData[offset:offset+4], PageLoggerIndexVersion)
 	offset += 4
+
+	// Write last compaction timestamp
+	lastCompactionUnix := int64(0)
+
+	if !pli.lastCompactionAt.IsZero() {
+		lastCompactionUnix = pli.lastCompactionAt.UnixNano()
+	}
+
+	binary.LittleEndian.PutUint64(binaryData[offset:offset+8], uint64(lastCompactionUnix))
+	offset += 8
 
 	// Write total length
 	uint32TotalSize, err := utils.SafeIntToUint32(totalSize)
