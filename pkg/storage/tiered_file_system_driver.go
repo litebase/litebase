@@ -450,9 +450,7 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 		}
 
 		// Update the last written time to indicate the file is synced
-		// This is safe to do here since AccessBarrier protects us from
-		// concurrent access to the file operations
-		atomic.StoreInt64(&file.writtenAtNanos, time.Now().UTC().UnixNano())
+		file.WrittenToDurableStorageAt = time.Now().UTC()
 
 		return nil
 	})
@@ -476,10 +474,9 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 	file.mutex.Lock()
 
 	// Check if file needs to be released without holding the lock
-	updatedAt := file.GetUpdatedAt()
 	needsRelease := file.Closed ||
-		(!updatedAt.IsZero() && updatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
-		(updatedAt.IsZero() && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC()))
+		(file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
+		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC()))
 
 	if !needsRelease {
 		// Common case: file is valid, return it with read lock
@@ -504,10 +501,11 @@ func (fsd *TieredFileSystemDriver) GetTieredFile(path string) (*TieredFile, bool
 
 	// Re-check conditions after acquiring write lock (need to lock file mutex again)
 	file.mutex.Lock()
-	updatedAtCheck := file.GetUpdatedAt()
+
 	shouldRelease := file.Closed ||
-		(!updatedAtCheck.IsZero() && updatedAtCheck.Add(TieredFileTTL).Before(time.Now().UTC())) ||
-		(updatedAtCheck.IsZero() && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC()))
+		(file.UpdatedAt != (time.Time{}) && file.UpdatedAt.Add(TieredFileTTL).Before(time.Now().UTC())) ||
+		(file.UpdatedAt.Equal((time.Time{})) && file.CreatedAt.Add(TieredFileTTL).Before(time.Now().UTC()))
+
 	file.mutex.Unlock()
 
 	if shouldRelease {
@@ -1130,6 +1128,7 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 	if fsd.watchTicker != nil {
 		fsd.watchTicker.Stop()
 	}
+
 	fsd.mutex.Lock()
 	fsd.watchTicker = time.NewTicker(fsd.WriteInterval)
 	fsd.mutex.Unlock()

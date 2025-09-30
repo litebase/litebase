@@ -586,11 +586,6 @@ func (con *DatabaseConnection) registerVFS() error {
 func (con *DatabaseConnection) releaseTimestamps() {
 	// Release timestamps in reverse order of acquisition to avoid deadlocks
 
-	// Release the timestamp from the durable database file system
-	if con.fileSystem != nil {
-		con.fileSystem.Release(con.transactionalTimestamp)
-	}
-
 	// Release the timestamp from the page logger
 	if con.pageLogger != nil {
 		con.pageLogger.Release(con.walTimestamp)
@@ -719,9 +714,6 @@ func (con *DatabaseConnection) setTimestamps() {
 	// Acquire the timestamp on the page logger
 	con.pageLogger.Acquire(con.walTimestamp)
 
-	// Acquire the timestamp on the durable database file system
-	con.fileSystem.Acquire(con.transactionalTimestamp)
-
 	// Set timestamp on VFS for proper WAL file reading
 	// Only set if VFS is available to avoid nil pointer dereference
 	if con.vfs != nil {
@@ -784,54 +776,52 @@ func (con *DatabaseConnection) Transaction(
 	}
 
 	return con.walManager.CheckpointBarrier(func() error {
-		return con.fileSystem.CompactionBarrier(func() error {
-			var err error
+		var err error
 
-			// Acquire timestamp inside the checkpoint barrier to ensure atomicity
-			con.setTimestamps()
+		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
+		con.setTimestamps()
 
-			defer func() {
-				con.releaseTimestamps()
-			}()
+		defer func() {
+			con.releaseTimestamps()
+		}()
 
-			if !readOnly {
-				// Start the transaction with a write lock.
-				err = con.sqliteConnection().BeginImmediate()
-			} else {
-				err = con.sqliteConnection().BeginDeferred()
-			}
+		if !readOnly {
+			// Start the transaction with a write lock.
+			err = con.sqliteConnection().BeginImmediate()
+		} else {
+			err = con.sqliteConnection().BeginDeferred()
+		}
 
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return err
+		}
 
-			handlerError := handler(con)
+		handlerError := handler(con)
 
-			if handlerError != nil {
-				err = con.sqliteConnection().Rollback()
-
-				if err != nil {
-					log.Println("Transaction Error:", err)
-				}
-
-				return handlerError
-			}
-
-			err = con.sqliteConnection().Commit()
+		if handlerError != nil {
+			err = con.sqliteConnection().Rollback()
 
 			if err != nil {
 				log.Println("Transaction Error:", err)
-				return err
-			}
-
-			if !readOnly {
-				con.mutex.Lock()
-				con.committedAt = time.Now().UTC()
-				con.mutex.Unlock()
 			}
 
 			return handlerError
-		})
+		}
+
+		err = con.sqliteConnection().Commit()
+
+		if err != nil {
+			log.Println("Transaction Error:", err)
+			return err
+		}
+
+		if !readOnly {
+			con.mutex.Lock()
+			con.committedAt = time.Now().UTC()
+			con.mutex.Unlock()
+		}
+
+		return handlerError
 	})
 }
 

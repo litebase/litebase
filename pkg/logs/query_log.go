@@ -117,6 +117,9 @@ func (q *QueryLog) GetFile() internalStorage.File {
 }
 
 func (q *QueryLog) GetStatementIndex() (*QueryStatementIndex, error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
 	if q.statementIndex == nil {
 		statementIndex, err := GetQueryStatementIndex(
 			q.tieredFS,
@@ -305,11 +308,14 @@ func (q *QueryLog) Read(start, end uint32) ([]QueryMetric, error) {
 }
 
 func (q *QueryLog) watch() {
+	q.mutex.Lock()
 	if q.watching {
+		q.mutex.Unlock()
 		return
 	}
 
 	q.watching = true
+	q.mutex.Unlock()
 
 	go func() {
 		ticker := time.NewTicker(QueryLogFlushInterval)
@@ -371,9 +377,35 @@ func (q *QueryLog) Write(credentialID string, statement string, latency float64)
 	}
 
 	logData := buffer.Bytes()
+
+	// Get statement index outside the critical section to avoid deadlock
+	statementIndex, err := q.GetStatementIndex()
+
+	if err != nil {
+		slog.Error("error getting statement index", "error", err)
+
+		return err
+	}
+
+	q.mutex.Lock()
+
+	// Check if we need to start watching, but don't hold the lock while calling watch()
+	needsWatching := !q.watching
+
+	q.mutex.Unlock()
+
+	// Start watching without holding the lock
+	if needsWatching {
+		q.watch()
+	}
+
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	// Reset and use shared hasher and key buffer under mutex protection
 	q.queryHasher.Reset()
 
-	_, err := q.queryHasher.Write(logData)
+	_, err = q.queryHasher.Write(logData)
 
 	if err != nil {
 		slog.Error("error writing to query hasher", "error", err)
@@ -385,12 +417,6 @@ func (q *QueryLog) Write(credentialID string, statement string, latency float64)
 	q.keyBuffer.Reset()
 
 	q.keyBuffer.Write(strconv.AppendUint(q.keyBuffer.Bytes()[:0], checksum, 16))
-	statementIndex, err := q.GetStatementIndex()
-
-	if err != nil {
-		slog.Error("error getting statement index", "error", err)
-		return err
-	}
 
 	// Check if the statement is already in the dictionary
 	if _, ok := statementIndex.Get(q.keyBuffer.String()); !ok {
@@ -401,13 +427,6 @@ func (q *QueryLog) Write(credentialID string, statement string, latency float64)
 			return err
 		}
 	}
-
-	if !q.watching {
-		q.watch()
-	}
-
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
 
 	if _, ok := q.queue[timestamp]; !ok {
 		q.queue[timestamp] = map[uint64]*QueryMetric{}

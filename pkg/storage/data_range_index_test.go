@@ -146,7 +146,7 @@ func TestDataRangeIndex(t *testing.T) {
 			drm := storage.NewDataRangeManager(dfs)
 			dri := storage.NewDataRangeIndex(drm)
 
-			found, version, err := dri.Get(1)
+			found, err := dri.Get(1)
 
 			if err != nil {
 				t.Errorf("Expected Get to succeed, got error: %v", err)
@@ -156,11 +156,7 @@ func TestDataRangeIndex(t *testing.T) {
 				t.Error("Expected Get to find the range, got not found")
 			}
 
-			if version <= 0 {
-				t.Errorf("Expected version to be greater than 0, got %d", version)
-			}
-
-			found, version, err = dri.Get(2)
+			found, err = dri.Get(2)
 
 			if err != nil {
 				t.Errorf("Expected Get to succeed, got error: %v", err)
@@ -168,10 +164,6 @@ func TestDataRangeIndex(t *testing.T) {
 
 			if found {
 				t.Error("Expected Get to not find the range, got found")
-			}
-
-			if version != 0 {
-				t.Errorf("Expected version to be 0, got %d", version)
 			}
 
 			// Clean up
@@ -231,7 +223,7 @@ func TestDataRangeIndex(t *testing.T) {
 				t.Errorf("Expected Set to succeed, got error: %v", err)
 			}
 
-			found, version, err := dri.Get(1)
+			found, err := dri.Get(1)
 
 			if err != nil {
 				t.Errorf("Expected Get to succeed, got error: %v", err)
@@ -239,10 +231,6 @@ func TestDataRangeIndex(t *testing.T) {
 
 			if !found {
 				t.Error("Expected Get to find the range, got not found")
-			}
-
-			if version != 12345 {
-				t.Errorf("Expected version to be 12345, got %d", version)
 			}
 
 			// Clean up

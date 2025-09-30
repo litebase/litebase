@@ -389,18 +389,18 @@ func TestDatabase(t *testing.T) {
 			}
 
 			// First, ensure the branch is in cache by calling HasBranch
-			hasBranch := db.HasBranch(primaryBranch.Name)
+			hasBranch := db.HasBranch(primaryBranch.DatabaseBranchID)
 
 			if !hasBranch {
 				t.Fatal("Expected database to have branch before invalidation test")
 			}
 
 			// Invalidate the cache entry
-			db.InvalidateBranchCache(primaryBranch.Name)
+			db.InvalidateBranchCache(primaryBranch.DatabaseBranchID)
 
 			// The branch should still exist in the database, but the cache should be cleared
 			// We can verify this by checking HasBranch again - it should hit the database
-			hasBranch = db.HasBranch(primaryBranch.Name)
+			hasBranch = db.HasBranch(primaryBranch.DatabaseBranchID)
 
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation")
@@ -425,6 +425,7 @@ func TestDatabase(t *testing.T) {
 
 			// The cache should be updated when the branch is created
 			hasBranch := db.HasBranch(newBranch.DatabaseBranchID)
+
 			if !hasBranch {
 				t.Error("Expected database to have newly created branch in cache")
 			}
@@ -435,10 +436,10 @@ func TestDatabase(t *testing.T) {
 			// directly by invalidating and then checking that it gets reloaded from DB.
 
 			// Manually invalidate the cache
-			db.InvalidateBranchCache(newBranch.Name)
+			db.InvalidateBranchCache(newBranch.DatabaseBranchID)
 
 			// The branch should still exist in the database after cache invalidation
-			hasBranch = db.HasBranch(newBranch.Name)
+			hasBranch = db.HasBranch(newBranch.DatabaseBranchID)
 
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation")
@@ -460,7 +461,7 @@ func TestDatabase(t *testing.T) {
 			}
 
 			// Verify the branch exists in cache
-			hasBranch := db.HasBranch(secondaryBranch.Name)
+			hasBranch := db.HasBranch(secondaryBranch.DatabaseBranchID)
 
 			if !hasBranch {
 				t.Fatal("Expected database to have newly created secondary branch")
@@ -468,10 +469,10 @@ func TestDatabase(t *testing.T) {
 
 			// Test cache invalidation mechanism - this should clear the cache entry
 			// but the branch should still be reloaded from DB when checked again
-			db.InvalidateBranchCache(secondaryBranch.Name)
+			db.InvalidateBranchCache(secondaryBranch.DatabaseBranchID)
 
 			// The branch should still exist in DB after cache invalidation (reload from DB)
-			hasBranch = db.HasBranch(secondaryBranch.Name)
+			hasBranch = db.HasBranch(secondaryBranch.DatabaseBranchID)
 
 			if !hasBranch {
 				t.Error("Expected database to still have branch after cache invalidation (should reload from DB)")
@@ -493,6 +494,7 @@ func TestDatabase(t *testing.T) {
 
 			// Verify that we can create a branch with the same name again
 			newBranch, err := db.CreateBranch("secondary", "")
+
 			if err != nil {
 				t.Fatalf("Failed to create new branch with same name: %v", err)
 			}
@@ -552,7 +554,7 @@ func TestDatabase(t *testing.T) {
 
 			port := app.Config.Port
 
-			expected := fmt.Sprintf("http://localhost:%s/v1/databases/%s/%s", port, db.Name, primaryBranch.Name)
+			expected := fmt.Sprintf("http://localhost:%s/v1/databases/%s/branches/%s", port, db.Name, primaryBranch.Name)
 
 			if url != expected {
 				t.Errorf("Expected URL to be '%s', got '%s'", expected, url)

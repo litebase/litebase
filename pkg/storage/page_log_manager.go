@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"maps"
 	"sync"
 	"time"
 
@@ -13,6 +14,9 @@ import (
 // Currently using a lower time to catch bugs and issues
 const PageLogManagerCompactionInterval = time.Second * 2
 
+// Maximum number of databases that can run compaction simultaneously
+const MaxConcurrentCompactions = 10
+
 // const PageLogManagerCompactionInterval = time.Second * 10
 
 type PageLogManagerConfig func(*PageLogManager)
@@ -21,23 +25,26 @@ type PageLogManagerConfig func(*PageLogManager)
 // compaction tasks for page logs. There should only be one PageLogManager per
 // to avoid duplicate processing.
 type PageLogManager struct {
-	compacting         bool
-	compactionFn       func()
-	CompactionInterval time.Duration
-	context            context.Context
-	loggers            map[string]*PageLogger
-	mutex              *sync.Mutex
-	running            bool
+	compacting          bool
+	compactionFn        func()
+	compactionSemaphore chan struct{} // Limits concurrent compactions
+	CompactionInterval  time.Duration
+	context             context.Context
+	loggers             map[string]*PageLogger
+	mutex               *sync.Mutex
+	nodePublisher       NodePublisher
+	running             bool
 }
 
 // Create a new instance of the PageLogManager.
 func NewPageLogManager(ctx context.Context, config ...PageLogManagerConfig) *PageLogManager {
 	plm := &PageLogManager{
-		CompactionInterval: PageLogManagerCompactionInterval,
-		compactionFn:       func() {},
-		context:            ctx,
-		loggers:            make(map[string]*PageLogger),
-		mutex:              &sync.Mutex{},
+		CompactionInterval:  PageLogManagerCompactionInterval,
+		compactionFn:        func() {},
+		compactionSemaphore: make(chan struct{}, MaxConcurrentCompactions),
+		context:             ctx,
+		loggers:             make(map[string]*PageLogger),
+		mutex:               &sync.Mutex{},
 	}
 
 	for _, cfg := range config {
@@ -47,6 +54,15 @@ func NewPageLogManager(ctx context.Context, config ...PageLogManagerConfig) *Pag
 	go plm.run()
 
 	return plm
+}
+
+// WithMaxConcurrentCompactions sets the maximum number of concurrent compactions
+func WithMaxConcurrentCompactions(maxConcurrent int) PageLogManagerConfig {
+	return func(plm *PageLogManager) {
+		if maxConcurrent > 0 {
+			plm.compactionSemaphore = make(chan struct{}, maxConcurrent)
+		}
+	}
 }
 
 // Close the PageLogManager and all its PageLogger instances.
@@ -82,7 +98,12 @@ func (plm *PageLogManager) Get(
 		return logger
 	}
 
-	logger, err := NewPageLogger(databaseId, branchId, networkFS)
+	logger, err := NewPageLogger(
+		databaseId,
+		branchId,
+		networkFS,
+		plm.nodePublisher,
+	)
 
 	if err != nil {
 		log.Println("Error creating page logger", err)
@@ -163,4 +184,85 @@ func (plm *PageLogManager) SetCompactionFn(
 	defer plm.mutex.Unlock()
 
 	plm.compactionFn = fn
+}
+
+// CompactDatabase attempts to compact a specific database's PageLogger.
+// Returns true if compaction was attempted, false if skipped due to concurrency limits.
+func (plm *PageLogManager) CompactDatabase(
+	databaseId string,
+	branchId string,
+	durableDatabaseFileSystem *DurableDatabaseFileSystem,
+) (bool, error) {
+	plm.mutex.Lock()
+	key := file.DatabaseHash(databaseId, branchId)
+	logger, exists := plm.loggers[key]
+	plm.mutex.Unlock()
+
+	if !exists {
+		return false, nil // No logger for this database
+	}
+
+	// Try to acquire a compaction slot (non-blocking)
+	select {
+	case plm.compactionSemaphore <- struct{}{}:
+		// Got a slot, proceed with compaction
+		defer func() {
+			<-plm.compactionSemaphore // Release the slot
+		}()
+
+		err := logger.Compact(durableDatabaseFileSystem)
+
+		return true, err
+
+	default:
+		// All compaction slots are busy, skip this database for now
+		slog.Debug("Skipping compaction for database due to concurrency limit",
+			"database_id", databaseId,
+			"branch_id", branchId,
+			"active_compactions", len(plm.compactionSemaphore),
+			"max_concurrent", MaxConcurrentCompactions)
+
+		return false, nil
+	}
+}
+
+// GetActiveCompactions returns the number of currently active compactions
+func (plm *PageLogManager) GetActiveCompactions() int {
+	return len(plm.compactionSemaphore)
+}
+
+// CompactAllDatabases attempts to compact all managed databases with concurrency control.
+// This is intended to be used as the compaction function for the periodic ticker.
+func (plm *PageLogManager) CompactAllDatabases(durableDatabaseFileSystemProvider func(databaseId, branchId string) *DurableDatabaseFileSystem) {
+	plm.mutex.Lock()
+	// Make a copy of the loggers map to avoid holding the lock during compaction
+	loggersCopy := make(map[string]*PageLogger)
+	maps.Copy(loggersCopy, plm.loggers)
+	plm.mutex.Unlock()
+
+	// Attempt to compact each database
+	for _, logger := range loggersCopy {
+		// Extract database and branch IDs from the logger
+		databaseId := logger.DatabaseID
+		branchId := logger.BranchID
+
+		if durableDatabaseFileSystemProvider != nil {
+			dfs := durableDatabaseFileSystemProvider(databaseId, branchId)
+
+			if dfs != nil {
+				attempted, err := plm.CompactDatabase(databaseId, branchId, dfs)
+
+				if err != nil {
+					slog.Error("Compaction failed during periodic compaction",
+						"database_id", databaseId,
+						"branch_id", branchId,
+						"error", err)
+				} else if !attempted {
+					slog.Debug("Compaction skipped during periodic compaction due to concurrency limit",
+						"database_id", databaseId,
+						"branch_id", branchId)
+				}
+			}
+		}
+	}
 }

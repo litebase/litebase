@@ -10,6 +10,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/litebase/litebase/internal/validation"
 	"github.com/litebase/litebase/pkg/auth"
@@ -25,6 +26,7 @@ type Request struct {
 	bodyHash         string
 	credential       *auth.Credential
 	databaseKey      *auth.DatabaseKey
+	databaseKeyMutex sync.RWMutex
 	databaseManager  *database.DatabaseManager
 	logManager       *logs.LogManager
 	cluster          *cluster.Cluster
@@ -202,6 +204,17 @@ func (request *Request) Credential() *auth.Credential {
 
 // Return a database key for this request.
 func (r *Request) DatabaseKey() (*auth.DatabaseKey, Response) {
+	r.databaseKeyMutex.RLock()
+	if r.databaseKey != nil {
+		defer r.databaseKeyMutex.RUnlock()
+		return r.databaseKey, Response{}
+	}
+	r.databaseKeyMutex.RUnlock()
+
+	r.databaseKeyMutex.Lock()
+	defer r.databaseKeyMutex.Unlock()
+
+	// Double-check pattern: another goroutine might have set it while we waited for the lock
 	if r.databaseKey != nil {
 		return r.databaseKey, Response{}
 	}
@@ -281,8 +294,12 @@ func (request *Request) Input(input any) (any, error) {
 
 // Load the database key if it is not already loaded.
 func (request *Request) loadDatabaseKey() {
+	request.databaseKeyMutex.RLock()
 	if request.databaseKey == nil {
+		request.databaseKeyMutex.RUnlock()
 		go request.DatabaseKey()
+	} else {
+		request.databaseKeyMutex.RUnlock()
 	}
 }
 

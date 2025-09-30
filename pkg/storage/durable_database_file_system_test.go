@@ -87,7 +87,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					copy(writtenData[offset], data)
 
 					// Write to DFS
-					n, err := dfs.WriteAt(timestamp, timestamp, data, offset)
+					n, err := dfs.WriteAt(timestamp, data, offset)
 
 					if err != nil {
 						t.Fatalf("Failed to write at offset %d: %v", offset, err)
@@ -100,7 +100,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					// Immediately read back and verify
 					readBuffer := make([]byte, pageSize)
 
-					n, err = dfs.ReadAt(timestamp, timestamp, readBuffer, offset, pageSize)
+					n, err = dfs.ReadAt(timestamp, readBuffer, offset, pageSize)
 
 					if err != nil {
 						t.Fatalf("Failed to read at offset %d: %v", offset, err)
@@ -126,7 +126,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					// timestamp := baseTimestamp + int64(len(writtenData)) // Use latest timestamp
 					timestamp := time.Now().UTC().UnixNano()
 
-					n, err := dfs.ReadAt(timestamp, timestamp, readBuffer, offset, pageSize)
+					n, err := dfs.ReadAt(timestamp, readBuffer, offset, pageSize)
 					if err != nil {
 						t.Fatalf("Failed to read at offset %d before compaction in cycle %d: %v", offset, cycle, err)
 					}
@@ -154,7 +154,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					readBuffer := make([]byte, pageSize)
 					timestamp := time.Now().UTC().UnixNano() // Use fresh timestamp for post-compaction read
 
-					n, err := dfs.ReadAt(timestamp, timestamp, readBuffer, offset, pageSize)
+					n, err := dfs.ReadAt(timestamp, readBuffer, offset, pageSize)
 					if err != nil {
 						t.Fatalf("Failed to read at offset %d after compaction in cycle %d: %v", offset, cycle, err)
 					}
@@ -230,7 +230,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					mutex.Unlock()
 
 					// Write to DFS
-					n, err := dfs.WriteAt(timestamp, timestamp, data, offset)
+					n, err := dfs.WriteAt(timestamp, data, offset)
 					if err != nil {
 						t.Fatalf("Failed to write at offset %d: %v", offset, err)
 					}
@@ -241,7 +241,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 
 					// Immediately read back and verify
 					readBuffer := make([]byte, pageSize)
-					n, err = dfs.ReadAt(timestamp, timestamp, readBuffer, offset, pageSize)
+					n, err = dfs.ReadAt(timestamp, readBuffer, offset, pageSize)
 
 					if err != nil {
 						t.Fatalf("Failed to read at offset %d: %v", offset, err)
@@ -284,7 +284,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 						}
 
 						// Write to DFS
-						n, err := dfs.WriteAt(timestamp, timestamp, data, offset)
+						n, err := dfs.WriteAt(timestamp, data, offset)
 
 						if err != nil {
 							writeDone <- fmt.Errorf("concurrent write %d failed at offset %d: %v", writeIndex, offset, err)
@@ -341,7 +341,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 					readBuffer := make([]byte, pageSize)
 					timestamp := time.Now().UTC().UnixNano()
 
-					n, err := dfs.ReadAt(timestamp, timestamp, readBuffer, offset, pageSize)
+					n, err := dfs.ReadAt(timestamp, readBuffer, offset, pageSize)
 					if err != nil {
 						t.Fatalf("Failed to read at offset %d after compaction in cycle %d: %v", offset, cycle, err)
 					}
@@ -606,7 +606,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 
 			buffer := make([]byte, 4096)
 
-			n, err := dfs.ReadAt(0, 0, buffer, 0, 4096)
+			n, err := dfs.ReadAt(0, buffer, 0, 4096)
 
 			if err != nil {
 				t.Error("expected nil, got", err)
@@ -623,7 +623,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			}
 
 			// Write some data to the file
-			n, err = dfs.WriteAt(int64(0), 0, data, 0)
+			n, err = dfs.WriteAt(int64(0), data, 0)
 
 			if err != nil {
 				t.Error("expected nil, got", err)
@@ -634,7 +634,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			}
 
 			// Read the data back
-			n, err = dfs.ReadAt(0, 0, buffer, 0, 4096)
+			n, err = dfs.ReadAt(0, buffer, 0, 4096)
 
 			if err != nil {
 				t.Error("expected nil, got", err)
@@ -749,24 +749,24 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			timestamp := time.Now().UTC().UnixNano()
 
 			// initialize the ranges
-			if _, err := rangeManager.Get(1, 0); err != nil {
+			if _, err := rangeManager.Get(1); err != nil {
 				t.Fatalf("Error getting range 1: %v", err)
 			}
 
-			if _, err := rangeManager.Get(2, 0); err != nil {
+			if _, err := rangeManager.Get(2); err != nil {
 				t.Fatalf("Error getting range 2: %v", err)
 			}
 
-			if _, err := rangeManager.Get(3, 0); err != nil {
+			if _, err := rangeManager.Get(3); err != nil {
 				t.Fatalf("Error getting range 3: %v", err)
 			}
 
-			if _, err := rangeManager.Get(4, 0); err != nil {
+			if _, err := rangeManager.Get(4); err != nil {
 				t.Fatalf("Error getting range 4: %v", err)
 			}
 
 			for i := range storage.RangeMaxPages * 4 {
-				_, err := dfs.WriteAt(timestamp, timestamp, make([]byte, 4096), int64(i*4096))
+				_, err := dfs.WriteAt(timestamp, make([]byte, 4096), int64(i*4096))
 
 				if err != nil {
 					t.Error("expected nil, got", err)
@@ -848,7 +848,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			}
 
 			// Write some data to the file
-			n, err := dfs.WriteAt(0, 0, data, 0)
+			n, err := dfs.WriteAt(0, data, 0)
 
 			if err != nil {
 				t.Error("expected nil, got", err)
@@ -861,7 +861,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			// Read the data back
 			buffer := make([]byte, 4096)
 
-			n, err = dfs.ReadAt(0, 0, buffer, 0, 4096)
+			n, err = dfs.ReadAt(0, buffer, 0, 4096)
 
 			if err != nil {
 				t.Error("expected nil, got", err)
@@ -904,7 +904,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 			}
 
 			n, err := dfs.WriteWithoutWriteHook(func() (int, error) {
-				return dfs.WriteAt(0, 0, data, 0)
+				return dfs.WriteAt(0, data, 0)
 			})
 
 			if err != nil {

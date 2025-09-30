@@ -46,7 +46,10 @@ func NewDatabaseManager(
 		WriteQueueManager:      NewWriteQueueManager(cluster.Node().Context()),
 	}
 
-	dbm.pageLogManager = storage.NewPageLogManager(dbm.Cluster.Node().Context())
+	dbm.pageLogManager = storage.NewPageLogManager(
+		dbm.Cluster.Node().Context(),
+		storage.WithNodePublisher(NewNodeAdapter(dbm.Cluster.Node())),
+	)
 
 	dbm.pageLogManager.SetCompactionFn(dbm.Compaction)
 
@@ -146,14 +149,7 @@ func (d *DatabaseManager) Compaction() {
 			}
 
 			checkpointer.WithLock(func() {
-				// Use the page logger's compaction barrier to coordinate with page operations
-				pageLogger := resource.PageLogger()
-
-				err = pageLogger.CompactionBarrier(func() error {
-					err := resource.FileSystem().Compact()
-
-					return err
-				})
+				err := resource.FileSystem().Compact()
 
 				if err != nil {
 					slog.Debug("Error in compaction barrier", "error", err)

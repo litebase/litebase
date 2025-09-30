@@ -21,7 +21,7 @@ type DataRangeIndexEntry struct {
 }
 
 func (dri *DataRangeIndexEntry) Name() string {
-	return fmt.Sprintf("%010d_%d", dri.Number, dri.Version)
+	return fmt.Sprintf("%010d", dri.Number)
 }
 
 // Create a new instance of the data range index.
@@ -116,14 +116,14 @@ func (dri *DataRangeIndex) File() (internalStorage.File, error) {
 }
 
 // Return the version of the specified range number from the index file.
-func (dri *DataRangeIndex) Get(rangeNumber int64) (bool, int64, error) {
+func (dri *DataRangeIndex) Get(rangeNumber int64) (bool, error) {
 	var err error
 	var rangeVersion int64
 
 	file, err := dri.File()
 
 	if err != nil {
-		return false, 0, err
+		return false, err
 	}
 
 	// The position in the index file is (rangeNumber - 1) * 8 because range
@@ -135,23 +135,23 @@ func (dri *DataRangeIndex) Get(rangeNumber int64) (bool, int64, error) {
 
 	if err != nil {
 		if err == io.EOF {
-			return false, 0, nil
+			return false, nil
 		}
 
-		return false, 0, err
+		return false, err
 	}
 
 	err = binary.Read(file, binary.LittleEndian, &rangeVersion)
 
 	if err != nil {
 		if err == io.EOF {
-			return false, 0, nil
+			return false, nil
 		}
 
-		return false, 0, err
+		return false, err
 	}
 
-	return true, rangeVersion, nil
+	return true, nil
 }
 
 // Return the path of the data range index file.

@@ -92,8 +92,8 @@ func QueryStreamControllerStore(ctx context.Context, request *Request) Response 
 			w.Header().Set("Transfer-Encoding", "chunked")
 
 			defer func() {
-				if err := request.BaseRequest.Body.Close(); err != nil {
-					slog.Error("Error closing request body", "error", err)
+				if err := request.BaseRequest.Body.Close(); err != nil && err.Error() != "unexpected EOF" {
+					slog.Debug("Error closing request body", "error", err)
 				}
 			}()
 

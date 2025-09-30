@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	internalStorage "github.com/litebase/litebase/internal/test/storage"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
@@ -20,7 +21,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("New", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -38,7 +39,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Acquire", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -108,7 +109,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Close", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -132,7 +133,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Compact", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -180,15 +181,15 @@ func TestPageLogger(t *testing.T) {
 
 		t.Run("Compact_NoNewWrites", func(t *testing.T) {
 			// Set compaction interval to a low value for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = time.Millisecond
+			originalInterval := storage.GetPageLoggerCompactInterval()
+			storage.SetPageLoggerCompactInterval(time.Millisecond)
 			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
+				storage.SetPageLoggerCompactInterval(originalInterval)
 			}()
 
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -290,7 +291,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("CompactionBarrier", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -355,7 +356,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("CompactionPassiveBarrier", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -376,10 +377,8 @@ func TestPageLogger(t *testing.T) {
 			wg := sync.WaitGroup{}
 			startTime := time.Now()
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				err = pageLogger.CompactionPassiveBarrier(func() error {
+			wg.Go(func() {
+				err := pageLogger.CompactionPassiveBarrier(func() error {
 					mutex.Lock()
 					executionOrder = append(executionOrder, 1)
 					mutex.Unlock()
@@ -396,14 +395,12 @@ func TestPageLogger(t *testing.T) {
 				if err != nil {
 					t.Errorf("First CompactionPassiveBarrier call failed: %v", err)
 				}
-			}()
+			})
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				time.Sleep(5 * time.Millisecond) // Start after first operation has begun
 
-				err = pageLogger.CompactionPassiveBarrier(func() error {
+				err := pageLogger.CompactionPassiveBarrier(func() error {
 					mutex.Lock()
 					executionOrder = append(executionOrder, 3)
 					mutex.Unlock()
@@ -420,7 +417,7 @@ func TestPageLogger(t *testing.T) {
 				if err != nil {
 					t.Errorf("Second CompactionPassiveBarrier call failed: %v", err)
 				}
-			}()
+			})
 
 			wg.Wait()
 			totalTime := time.Since(startTime)
@@ -450,7 +447,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("ForceCompact", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -476,7 +473,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Read", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -523,9 +520,9 @@ func TestPageLogger(t *testing.T) {
 		})
 
 		t.Run("Read_After_Compacting_After_Interval", func(t *testing.T) {
-			storage.PageLoggerCompactInterval = 0
+			storage.SetPageLoggerCompactInterval(0)
 			defer func() {
-				storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
+				storage.SetPageLoggerCompactInterval(storage.DefaultPageLoggerCompactInterval)
 			}()
 
 			db := test.MockDatabase(app)
@@ -539,11 +536,11 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Ensure the ranges are initialized
-			if _, err := rangeManager.Get(1, 0); err != nil {
+			if _, err := rangeManager.Get(1); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
-			if _, err := rangeManager.Get(2, 0); err != nil {
+			if _, err := rangeManager.Get(2); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
@@ -589,25 +586,36 @@ func TestPageLogger(t *testing.T) {
 		})
 
 		t.Run("Read_After_Compacting_BeforeInterval", func(t *testing.T) {
-			// Set a short compaction interval for testing
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = time.Second // 1 second interval
+			// Set a long compaction interval for testing (to ensure it doesn't elapse during race detection)
+			originalInterval := storage.GetPageLoggerCompactInterval()
+			storage.SetPageLoggerCompactInterval(30 * time.Second) // 30 second interval
+
 			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
+				storage.SetPageLoggerCompactInterval(originalInterval)
 			}()
 
 			db := test.MockDatabase(app)
 
+			// Use testing PageLogger to avoid cluster coordination delays
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
+				db.DatabaseID,
+				db.DatabaseBranchID,
+				app.Cluster.LocalFS(),
+			)
+
+			if err != nil {
+				t.Fatalf("Failed to create page logger: %v", err)
+			}
+
 			dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
-			pageLogger := dfs.PageLogger
 			rangeManager := dfs.RangeManager
 
 			// Ensure the ranges are initialized
-			if _, err := rangeManager.Get(1, 0); err != nil {
+			if _, err := rangeManager.Get(1); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
-			if _, err := rangeManager.Get(2, 0); err != nil {
+			if _, err := rangeManager.Get(2); err != nil {
 				t.Fatalf("Failed to get range: %v", err)
 			}
 
@@ -629,7 +637,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// First compaction - this should run since CompactedAt is zero
-			err := pageLogger.Compact(
+			err = pageLogger.Compact(
 				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
 			)
 
@@ -691,13 +699,13 @@ func TestPageLogger(t *testing.T) {
 
 		t.Run("Release", func(t *testing.T) {
 			db := test.MockDatabase(app)
-			storage.PageLoggerCompactInterval = 0
+			storage.SetPageLoggerCompactInterval(0)
 
 			defer func() {
-				storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
+				storage.SetPageLoggerCompactInterval(storage.DefaultPageLoggerCompactInterval)
 			}()
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -743,7 +751,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Write", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -808,7 +816,7 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to close page logger: %v", err)
 			}
 
-			pageLogger, err = storage.NewPageLogger(
+			pageLogger, err = internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -840,7 +848,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Write_WhileCompacting", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -953,7 +961,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Test reopening the page logger and writing again
-			pageLogger, err = storage.NewPageLogger(
+			pageLogger, err = internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1017,13 +1025,13 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Write_WhileCompactingConcurrently", func(t *testing.T) {
 			db := test.MockDatabase(app)
 			// Set the compact interval to 0 for testing
-			storage.PageLoggerCompactInterval = 0
+			storage.SetPageLoggerCompactInterval(0)
 
 			defer func() {
-				storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
+				storage.SetPageLoggerCompactInterval(storage.DefaultPageLoggerCompactInterval)
 			}()
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1175,7 +1183,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Test reopening the page logger and writing again
-			// pageLogger, err = storage.NewPageLogger(
+			// pageLogger, err = internalStorage.NewPageLoggerForTesting(
 			// 	db.DatabaseID,
 			// 	db.DatabaseBranchID,
 			// 	app.Cluster.LocalFS(),
@@ -1237,7 +1245,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("CanReadFromLaterVersion", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1305,7 +1313,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Tombstone", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1374,7 +1382,7 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to close page logger: %v", err)
 			}
 
-			pageLogger, err = storage.NewPageLogger(
+			pageLogger, err = internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1402,7 +1410,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("TombstoneAfter", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1544,7 +1552,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("Tombstone_OnlySpecificVersion", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1656,7 +1664,7 @@ func TestPageLogger(t *testing.T) {
 			db := test.MockDatabase(app)
 
 			// Create initial page logger
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1732,7 +1740,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Create a second page logger instance (simulating restart)
-			pageLogger2, err := storage.NewPageLogger(
+			pageLogger2, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1820,7 +1828,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Create third instance to verify all data is still there
-			pageLogger3, err := storage.NewPageLogger(
+			pageLogger3, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1862,16 +1870,16 @@ func TestPageLogger(t *testing.T) {
 
 		t.Run("PersistenceWithCompaction", func(t *testing.T) {
 			// Set compaction interval to 0 to allow immediate compaction
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = 0
+			originalInterval := storage.GetPageLoggerCompactInterval()
+			storage.SetPageLoggerCompactInterval(0)
 			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
+				storage.SetPageLoggerCompactInterval(originalInterval)
 			}()
 
 			db := test.MockDatabase(app)
 
 			// Create initial page logger
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -1932,7 +1940,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Create a new instance after compaction
-			pageLogger2, err := storage.NewPageLogger(
+			pageLogger2, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2008,7 +2016,7 @@ func TestPageLogger(t *testing.T) {
 			db := test.MockDatabase(app)
 
 			// Create initial page logger
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2081,7 +2089,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Create new instance and write the remaining data
-			pageLogger2, err := storage.NewPageLogger(
+			pageLogger2, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2157,7 +2165,7 @@ func TestPageLogger(t *testing.T) {
 			db := test.MockDatabase(app)
 
 			// Create initial page logger
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2228,7 +2236,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Create new instance - this might create empty page logs for new generation
-			pageLogger2, err := storage.NewPageLogger(
+			pageLogger2, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2300,7 +2308,7 @@ func TestPageLogger(t *testing.T) {
 			db := test.MockDatabase(app)
 
 			// Create initial page logger
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2367,7 +2375,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Create new instance and immediately try to compact
-			pageLogger2, err := storage.NewPageLogger(
+			pageLogger2, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2427,11 +2435,11 @@ func TestPageLogger(t *testing.T) {
 			pageLogger := dfs.PageLogger
 
 			// Initialize the ranges
-			if _, err := rangeManager.Get(1, 0); err != nil {
+			if _, err := rangeManager.Get(1); err != nil {
 				t.Fatalf("Failed to get range for page 1: %v", err)
 			}
 
-			if _, err := rangeManager.Get(2, 0); err != nil {
+			if _, err := rangeManager.Get(2); err != nil {
 				t.Fatalf("Failed to get range for page 2: %v", err)
 			}
 
@@ -2473,7 +2481,7 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Create new instance and immediately try to compact
-			pageLogger2, err := storage.NewPageLogger(
+			pageLogger2, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2517,7 +2525,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("CompactEmptyPageLogs", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2623,7 +2631,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("CompactEmptyPageLogsWithAcquiredLogs", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -2723,7 +2731,7 @@ func TestPageLogger(t *testing.T) {
 			db := test.MockDatabase(app)
 			fileSystem := app.Cluster.LocalFS()
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				fileSystem,
@@ -2861,7 +2869,7 @@ func TestPageLogger(t *testing.T) {
 				pageNum := int64(i*1000 + 1) // Spread across different page groups
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 				// Initialize the range for this page
-				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+				if _, err := rangeManager.Get(rangeNumber); err != nil {
 					t.Fatalf("Failed to get range for page %d: %v", pageNum, err)
 				}
 
@@ -2928,10 +2936,10 @@ func TestPageLogger(t *testing.T) {
 
 		t.Run("Compaction_AfterRestart", func(t *testing.T) {
 			// Set compaction interval to 0 to test compaction behavior after restart
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = time.Millisecond
+			originalInterval := storage.GetPageLoggerCompactInterval()
+			storage.SetPageLoggerCompactInterval(time.Millisecond)
 			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
+				storage.SetPageLoggerCompactInterval(originalInterval)
 			}()
 
 			// Create first server instance
@@ -2946,7 +2954,7 @@ func TestPageLogger(t *testing.T) {
 			rangeManager := dfs.RangeManager
 
 			// Create page logger with TieredFS (which handles sync to low-tier storage)
-			pageLogger1, err := storage.NewPageLogger(
+			pageLogger1, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				server1.App.Cluster.TieredFS(),
@@ -2971,7 +2979,7 @@ func TestPageLogger(t *testing.T) {
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 
 				// Initialize the range for this page
-				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+				if _, err := rangeManager.Get(rangeNumber); err != nil {
 					t.Fatalf("Failed to get range %d: %v", rangeNumber, err)
 				}
 
@@ -3034,7 +3042,7 @@ func TestPageLogger(t *testing.T) {
 
 			// Create a new page logger instance with the same database ID (simulating restart)
 			// This should recover any files that were synced to low-tier storage
-			pageLogger2, err := storage.NewPageLogger(
+			pageLogger2, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				server2.App.Cluster.TieredFS(),
@@ -3061,7 +3069,7 @@ func TestPageLogger(t *testing.T) {
 				pageNum := int64(i*storage.PageLoggerPageGroups + 1)
 				rangeNumber := file.PageRange(pageNum, storage.PageLoggerPageGroups)
 				// Initialize the range for this page
-				if _, err := rangeManager.Get(rangeNumber, 0); err != nil {
+				if _, err := rangeManager.Get(rangeNumber); err != nil {
 					t.Fatalf("Failed to get range %d: %v", rangeNumber, err)
 				}
 
@@ -3144,13 +3152,13 @@ func TestPageLogger(t *testing.T) {
 			db := test.MockDatabase(app)
 
 			// Set a very short compaction interval to trigger compaction frequently
-			originalInterval := storage.PageLoggerCompactInterval
-			storage.PageLoggerCompactInterval = time.Millisecond * 10
+			originalInterval := storage.GetPageLoggerCompactInterval()
+			storage.SetPageLoggerCompactInterval(time.Millisecond * 10)
 			defer func() {
-				storage.PageLoggerCompactInterval = originalInterval
+				storage.SetPageLoggerCompactInterval(originalInterval)
 			}()
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
@@ -3286,7 +3294,7 @@ func TestPageLogger(t *testing.T) {
 		t.Run("ReadDuringReload", func(t *testing.T) {
 			db := test.MockDatabase(app)
 
-			pageLogger, err := storage.NewPageLogger(
+			pageLogger, err := internalStorage.NewPageLoggerForTesting(
 				db.DatabaseID,
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),

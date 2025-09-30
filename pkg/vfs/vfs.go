@@ -259,7 +259,6 @@ func goXRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sql
 	}
 
 	_, err = vfs.fileSystem.ReadAt(
-		vfs.walTimestamp,
 		vfs.transactionalTimestamp,
 		goBuffer,
 		int64(iOfst),
@@ -288,7 +287,7 @@ func goXWrite(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sq
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.fileSystem.WriteAt(vfs.walTimestamp, vfs.transactionalTimestamp, goBuffer, int64(iOfst))
+	_, err = vfs.fileSystem.WriteAt(vfs.transactionalTimestamp, goBuffer, int64(iOfst))
 
 	if err != nil {
 		return C.SQLITE_IOERR_WRITE

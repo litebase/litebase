@@ -24,7 +24,7 @@ var ErrorRestoreBackupNotFound = errors.New("restore backup not found")
 // OPTIMIZE: Use copy commands instead of reading and writing files
 // Copying the source database to the target database requires the following:
 // 1. Copy all of the range files
-// 2. Copy the _METADATA, _RANGE_INDEX, and _RANGE_LOG files
+// 2. Copy the _METADATA and _RANGE_INDEX files
 // 3. Copy any page logs and their indexes
 func CopySourceDatabaseToTargetDatabase(
 	maxPageNumber int64,
@@ -52,16 +52,19 @@ func CopySourceDatabaseToTargetDatabase(
 		return err
 	}
 
-	// Copy page logs
-	err = copySourceDatabasePageLogsToTargetDatabase(
-		sourceDatabaseUuid,
-		sourceBranchUuid,
-		targetDatabaseUuid,
-		targetBranchUuid,
-		sourceFileSystem,
-		targetFileSystem,
-		restoreTimestamp,
-	)
+	// Copy page logs within a compaction barrier to prevent page logs from being
+	// compacted/deleted while we're copying them during restore operations
+	err = sourceFileSystem.CompactionBarrier(func() error {
+		return copySourceDatabasePageLogsToTargetDatabase(
+			sourceDatabaseUuid,
+			sourceBranchUuid,
+			targetDatabaseUuid,
+			targetBranchUuid,
+			sourceFileSystem,
+			targetFileSystem,
+			restoreTimestamp,
+		)
+	})
 
 	if err != nil {
 		return err
@@ -69,12 +72,12 @@ func CopySourceDatabaseToTargetDatabase(
 
 	// Run garbage collection on the target database to remove any
 	// unused ranges and ensure the database is compacted
-	err = targetFileSystem.RangeManager.RunGarbageCollection()
+	// err = targetFileSystem.RangeManager.RunGarbageCollection()
 
-	if err != nil {
-		slog.Error("Error running garbage collection:", "error", err)
-		return err
-	}
+	// if err != nil {
+	// 	slog.Error("Error running garbage collection:", "error", err)
+	// 	return err
+	// }
 
 	err = targetFileSystem.ForceCompact()
 
@@ -434,148 +437,148 @@ func RestoreFromTimestamp(
 	onComplete func(func() error) error,
 ) error {
 	// Prevent the source DFS from compacting and checkpointing during the entire restore operation
-	return sourceFileSystem.DFSCompactionBarrier(func() error {
-		return checkpointer.CheckpointBarrier(func() error {
-			// Truncate the timestamp to the start of the hour
-			startOfHourTimestamp := time.Unix(0, backupTimestamp).UTC().Truncate(time.Hour).UnixNano()
-			rollbackLogger := NewRollbackLogger(tieredFS, sourceDatabaseUuid, sourceBranchUuid)
+	// return sourceFileSystem.DFSCompactionBarrier(func() error {
+	return checkpointer.CheckpointBarrier(func() error {
+		// Truncate the timestamp to the start of the hour
+		startOfHourTimestamp := time.Unix(0, backupTimestamp).UTC().Truncate(time.Hour).UnixNano()
+		rollbackLogger := NewRollbackLogger(tieredFS, sourceDatabaseUuid, sourceBranchUuid)
 
-			snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
+		snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
+
+		if err != nil {
+			return err
+		}
+
+		restorePoint, err := snapshot.GetRestorePoint(backupTimestamp)
+
+		if err != nil {
+			return err
+		}
+
+		// Walk the files in the rollback logs directory
+		directory := file.GetDatabaseRollbackDirectory(sourceDatabaseUuid, sourceBranchUuid)
+
+		entries, err := tieredFS.ReadDir(directory)
+
+		if err != nil {
+			log.Println("Error reading rollback logs directory:", "directory", directory, "error", err)
+			return err
+		}
+
+		rollbackLogTimestamps := make([]int64, 0)
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+
+			entryTimeNano, err := strconv.ParseInt(entry.Name(), 10, 64) // Convert string to int64
 
 			if err != nil {
+				slog.Error("Error parsing entry name as timestamp:", "file", entry.Name(), "error", err)
 				return err
 			}
 
-			restorePoint, err := snapshot.GetRestorePoint(backupTimestamp)
+			entryTimestamp := time.Unix(0, entryTimeNano).UTC().UnixNano()
+
+			if startOfHourTimestamp < entryTimestamp {
+				continue
+			}
+
+			rollbackLogTimestamps = append(rollbackLogTimestamps, entryTimestamp)
+		}
+
+		if len(rollbackLogTimestamps) == 0 {
+			slog.Warn("No rollback logs found for the specified timestamp")
+			return nil
+		}
+
+		// Sort the timestamps in descending order
+		sort.Slice(rollbackLogTimestamps, func(i, j int) bool {
+			return rollbackLogTimestamps[i] > rollbackLogTimestamps[j]
+		})
+
+		// Copy the source database files to the target database
+		err = CopySourceDatabaseToTargetDatabase(
+			restorePoint.PageCount,
+			sourceDatabaseUuid,
+			sourceBranchUuid,
+			targetDatabaseUuid,
+			targetBranchUuid,
+			sourceFileSystem,
+			targetFileSystem,
+			checkpointer,
+			backupTimestamp,
+		)
+
+		if err != nil {
+			slog.Error("Error copying source database to target database", "error", err)
+			return err
+		}
+
+		// Open the rollback logs and restore the pages
+		for _, entryTimestamp := range rollbackLogTimestamps {
+			rollbackLog, err := rollbackLogger.GetLog(entryTimestamp)
 
 			if err != nil {
+				slog.Error("Error opening rollback log:", "error", err)
 				return err
 			}
 
-			// Walk the files in the rollback logs directory
-			directory := file.GetDatabaseRollbackDirectory(sourceDatabaseUuid, sourceBranchUuid)
+			rollbackLogEntries, doneChannel, errorChannel := rollbackLog.ReadForTimestamp(backupTimestamp)
 
-			entries, err := tieredFS.ReadDir(directory)
-
-			if err != nil {
-				log.Println("Error reading rollback logs directory:", "directory", directory, "error", err)
-				return err
-			}
-
-			rollbackLogTimestamps := make([]int64, 0)
-
-			for _, entry := range entries {
-				if entry.IsDir() {
-					continue
-				}
-
-				entryTimeNano, err := strconv.ParseInt(entry.Name(), 10, 64) // Convert string to int64
-
-				if err != nil {
-					slog.Error("Error parsing entry name as timestamp:", "file", entry.Name(), "error", err)
+		rollbackLogTimestampsLoop:
+			for {
+				select {
+				case <-doneChannel:
+					break rollbackLogTimestampsLoop
+				case err := <-errorChannel:
+					slog.Error("Error reading rollback log:", "error", err)
 					return err
-				}
+				case frame := <-rollbackLogEntries:
+					for _, rollbackLogEntry := range frame {
+						// Only apply rollback logs for pages within the restore point's page count
+						if rollbackLogEntry.PageNumber > restorePoint.PageCount {
+							continue
+						}
 
-				entryTimestamp := time.Unix(0, entryTimeNano).UTC().UnixNano()
+						err := targetFileSystem.WriteToRange(
+							rollbackLogEntry.PageNumber,
+							rollbackLogEntry.Data,
+						)
 
-				if startOfHourTimestamp < entryTimestamp {
-					continue
-				}
-
-				rollbackLogTimestamps = append(rollbackLogTimestamps, entryTimestamp)
-			}
-
-			if len(rollbackLogTimestamps) == 0 {
-				slog.Warn("No rollback logs found for the specified timestamp")
-				return nil
-			}
-
-			// Sort the timestamps in descending order
-			sort.Slice(rollbackLogTimestamps, func(i, j int) bool {
-				return rollbackLogTimestamps[i] > rollbackLogTimestamps[j]
-			})
-
-			// Copy the source database files to the target database
-			err = CopySourceDatabaseToTargetDatabase(
-				restorePoint.PageCount,
-				sourceDatabaseUuid,
-				sourceBranchUuid,
-				targetDatabaseUuid,
-				targetBranchUuid,
-				sourceFileSystem,
-				targetFileSystem,
-				checkpointer,
-				backupTimestamp,
-			)
-
-			if err != nil {
-				slog.Error("Error copying source database to target database", "error", err)
-				return err
-			}
-
-			// Open the rollback logs and restore the pages
-			for _, entryTimestamp := range rollbackLogTimestamps {
-				rollbackLog, err := rollbackLogger.GetLog(entryTimestamp)
-
-				if err != nil {
-					slog.Error("Error opening rollback log:", "error", err)
-					return err
-				}
-
-				rollbackLogEntries, doneChannel, errorChannel := rollbackLog.ReadForTimestamp(backupTimestamp)
-
-			rollbackLogTimestampsLoop:
-				for {
-					select {
-					case <-doneChannel:
-						break rollbackLogTimestampsLoop
-					case err := <-errorChannel:
-						slog.Error("Error reading rollback log:", "error", err)
-						return err
-					case frame := <-rollbackLogEntries:
-						for _, rollbackLogEntry := range frame {
-							// Only apply rollback logs for pages within the restore point's page count
-							if rollbackLogEntry.PageNumber > restorePoint.PageCount {
-								continue
-							}
-
-							err := targetFileSystem.WriteToRange(
-								rollbackLogEntry.PageNumber,
-								rollbackLogEntry.Data,
-							)
-
-							if err != nil {
-								slog.Error("Error writing page:", "page", rollbackLogEntry.PageNumber, "error", err)
-								return err
-							}
+						if err != nil {
+							slog.Error("Error writing page:", "page", rollbackLogEntry.PageNumber, "error", err)
+							return err
 						}
 					}
 				}
 			}
+		}
 
-			// Truncate the database file
-			err = targetFileSystem.Truncate(int64(restorePoint.PageCount) * c.PageSize)
+		// Truncate the database file
+		err = targetFileSystem.Truncate(int64(restorePoint.PageCount) * c.PageSize)
 
-			if err != nil {
-				slog.Error("Error truncating database file:", "error", err)
-				return err
-			}
+		if err != nil {
+			slog.Error("Error truncating database file:", "error", err)
+			return err
+		}
 
-			err = targetFileSystem.Metadata().SetPageCount(restorePoint.PageCount)
+		err = targetFileSystem.Metadata().SetPageCount(restorePoint.PageCount)
 
-			if err != nil {
-				slog.Error("Error setting page count:", "error", err)
-				return err
-			}
+		if err != nil {
+			slog.Error("Error setting page count:", "error", err)
+			return err
+		}
 
-			if onComplete == nil {
-				return nil
-			}
+		if onComplete == nil {
+			return nil
+		}
 
-			// Wrap things up after running this callback
-			return onComplete(func() error {
-				return nil
-			})
+		// Wrap things up after running this callback
+		return onComplete(func() error {
+			return nil
 		})
 	})
+	// })
 }

@@ -185,9 +185,6 @@ func (pl *PageLog) Close() error {
 
 // Compact the page log contents into the durable file system.
 func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNumber int64) error {
-	pl.mutex.Lock()
-	defer pl.mutex.Unlock()
-
 	// TODO: The page log needs to be durably marked as compacted to avoid
 	// overwrites. This also will allow us to retry compaction if it fails due
 	// to a crash or other error.
@@ -215,7 +212,7 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNu
 
 	err := durableFileSystem.compactToRange(
 		rangeNumber,
-		func(newRange *Range) error {
+		func(r *Range) error {
 			for _, pageNumber := range pageNumbersInSequence {
 				entry := latestVersions[PageNumber(pageNumber)]
 				found, _, err := pl.get(entry.PageNumber, entry.Version, data)
@@ -225,7 +222,7 @@ func (pl *PageLog) compact(durableFileSystem *DurableDatabaseFileSystem, rangeNu
 				}
 
 				if found {
-					_, err := newRange.WriteAt(int64(entry.PageNumber), data)
+					_, err := r.WriteAt(int64(entry.PageNumber), data)
 
 					if err != nil {
 						return err

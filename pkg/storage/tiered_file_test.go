@@ -61,12 +61,12 @@ func TestTieredFile(t *testing.T) {
 				t.Error("CreatedAt is zero")
 			}
 
-			if !tf.GetUpdatedAt().IsZero() {
+			if !tf.UpdatedAt.IsZero() {
 				t.Error("UpdatedAt is not zero")
 			}
 
-			if !tf.GetWrittenAt().IsZero() {
-				t.Error("WrittenAt is not zero")
+			if !tf.WrittenToDurableStorageAt.IsZero() {
+				t.Error("WrittenToDurableStorageAt is not zero")
 			}
 		})
 
@@ -137,7 +137,7 @@ func TestTieredFile(t *testing.T) {
 
 			tf.MarkUpdated()
 
-			if tf != nil && tf.GetUpdatedAt().IsZero() {
+			if tf != nil && tf.UpdatedAt.IsZero() {
 				t.Error("UpdatedAt is zero")
 			}
 		})
@@ -789,6 +789,122 @@ func TestTieredFile(t *testing.T) {
 
 		t.Run("WriteString", func(t *testing.T) {
 
+		})
+
+		t.Run("ShouldBeWrittenToDurableStorage", func(t *testing.T) {
+			file, err := app.Cluster.LocalFS().Create("test_should_be_written.txt")
+
+			if err != nil {
+				t.Error(err)
+			}
+
+			tfsd := storage.NewTieredFileSystemDriver(
+				context.Background(),
+				app.Cluster.NetworkFS(),
+				app.Cluster.ObjectFS(),
+				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
+					fsd.CanSyncDirtyFiles = func() bool {
+						return true
+					}
+				},
+			)
+
+			defer func() {
+				if err := tfsd.Shutdown(); err != nil {
+					t.Errorf("error shutting down tiered file system driver: %v", err)
+				}
+			}()
+
+			tf := storage.NewTieredFile(tfsd, "test_should_be_written.txt", file, 0)
+
+			t.Run("NoUpdates", func(t *testing.T) {
+				if tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File with no updates should not need to be written to durable storage")
+				}
+			})
+
+			t.Run("UpdatedNeverWritten", func(t *testing.T) {
+				now := time.Now()
+				tf.SetUpdatedAt(now.Add(-2 * tfsd.WriteInterval)) // Updated 2 intervals ago
+				tf.SetWrittenAt(time.Time{})                      // Never written (zero time)
+
+				if !tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File that has been updated but never written should need to be written to durable storage")
+				}
+			})
+
+			t.Run("UpdatedRecently", func(t *testing.T) {
+				now := time.Now()
+				// File was written to durable storage recently (half interval ago)
+				tf.SetWrittenAt(now.Add(-tfsd.WriteInterval / 2))
+				// File was updated even more recently (quarter interval ago), after being written
+				tf.SetUpdatedAt(now.Add(-tfsd.WriteInterval / 4))
+
+				// Should NOT need writing because even though the file was updated after being written,
+				// not enough time has passed since the write (< WriteInterval)
+				if tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File updated recently but written to durable storage within WriteInterval should not need to be written to durable storage")
+				}
+			})
+
+			t.Run("UpdatedAfterWrittenWithEnoughTime", func(t *testing.T) {
+				now := time.Now()
+				tf.SetWrittenAt(now.Add(-2 * tfsd.WriteInterval)) // Written 2 intervals ago
+				tf.SetUpdatedAt(now.Add(-tfsd.WriteInterval))     // Updated 1 interval ago (after being written)
+
+				if !tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File updated after being written with enough time passed should need to be written to durable storage")
+				}
+			})
+
+			t.Run("UpdatedAfterWrittenNotEnoughTime", func(t *testing.T) {
+				now := time.Now()
+				tf.SetWrittenAt(now.Add(-tfsd.WriteInterval / 2)) // Written half interval ago
+				tf.SetUpdatedAt(now.Add(-tfsd.WriteInterval / 4)) // Updated quarter interval ago (after being written)
+
+				if tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File updated after being written but not enough time passed should not need to be written to durable storage")
+				}
+			})
+
+			t.Run("WrittenAfterUpdated", func(t *testing.T) {
+				now := time.Now()
+				tf.SetUpdatedAt(now.Add(-2 * tfsd.WriteInterval)) // Updated 2 intervals ago
+				tf.SetWrittenAt(now.Add(-tfsd.WriteInterval))     // Written 1 interval ago (after being updated)
+
+				if tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File that was written after being updated should not need to be written to durable storage")
+				}
+			})
+
+			t.Run("UpdatedAndWrittenSameTime", func(t *testing.T) {
+				now := time.Now().Add(-2 * tfsd.WriteInterval)
+				tf.SetUpdatedAt(now)
+				tf.SetWrittenAt(now)
+
+				if tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File updated and written at the same time should not need to be written to durable storage")
+				}
+			})
+
+			t.Run("RealTimingBehavior", func(t *testing.T) {
+				// Reset timestamps
+				tf.SetUpdatedAt(time.Time{})
+				tf.SetWrittenAt(time.Time{})
+
+				// Mark as updated
+				tf.MarkUpdated()
+
+				// Simulate that the file was updated long ago and has an old write timestamp
+				oldTime := time.Now().Add(-2 * tfsd.WriteInterval)
+				tf.SetUpdatedAt(oldTime.Add(tfsd.WriteInterval)) // Updated 1 interval ago
+				tf.SetWrittenAt(oldTime)                         // Written 2 intervals ago
+
+				// Now it should need writing since it was updated after being written AND enough time has passed since the update
+				if !tf.ShouldBeWrittenToDurableStorage() {
+					t.Error("File updated with old write timestamp should need to be written to durable storage")
+				}
+			})
 		})
 	})
 }

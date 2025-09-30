@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"log"
+	"log/slog"
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster/messages"
@@ -65,6 +66,8 @@ func (n *Node) handleBroadcastMessage(message any) (any, error) {
 		// )
 	case messages.WALVersionUsageRequest:
 		responseMessage, err = n.handleWALVersionUsageRequest(message)
+	case messages.PageLoggerVersionUsageRequest:
+		responseMessage, err = n.handlePageLoggerVersionUsageRequest(message)
 	case messages.WALReplicationWriteMessage:
 		err = n.handleWALReplicationWriteMessage(message)
 	default:
@@ -210,6 +213,35 @@ func (n *Node) handleWALVersionUsageRequest(message messages.WALVersionUsageRequ
 	}
 
 	return messages.WALVersionUsageResponse{
+		BranchID:   message.BranchID,
+		DatabaseID: message.DatabaseID,
+		Versions:   versions,
+	}, nil
+}
+
+// Handle a PageLoggerVersionUsageRequest message from a replica node.
+func (n *Node) handlePageLoggerVersionUsageRequest(message messages.PageLoggerVersionUsageRequest) (interface{}, error) {
+	// Use the page logger accessor to get in-use versions
+	if n.pageLoggerAccessor == nil {
+		return messages.PageLoggerVersionUsageResponse{
+			BranchID:   message.BranchID,
+			DatabaseID: message.DatabaseID,
+			Versions:   []int64{},
+		}, nil
+	}
+
+	versions, err := n.pageLoggerAccessor.GetPageLoggerInUseVersions(
+		message.DatabaseID,
+		message.BranchID,
+	)
+
+	if err != nil {
+		slog.Error("Failed to get page logger versions", "error", err)
+
+		return nil, err
+	}
+
+	return messages.PageLoggerVersionUsageResponse{
 		BranchID:   message.BranchID,
 		DatabaseID: message.DatabaseID,
 		Versions:   versions,

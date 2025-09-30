@@ -58,6 +58,7 @@ type Node struct {
 	membership         string
 	mutex              *sync.Mutex
 	onStarted          func()
+	pageLoggerAccessor NodePageLoggerAccessor
 	primaryAddress     string
 	primary            *NodePrimary
 	PrimaryHeartbeat   time.Time
@@ -182,6 +183,10 @@ func (n *Node) getPublicPort() string {
 
 	// Fallback to the configured port
 	return n.Cluster.Config.Port
+}
+
+func (n *Node) PageLoggerAccessor() NodePageLoggerAccessor {
+	return n.pageLoggerAccessor
 }
 
 // Get the public address for API requests (as opposed to the private address used for cluster communication)
@@ -509,6 +514,11 @@ func (n *Node) monitorPrimary() {
 			return
 		}
 	}
+}
+
+// On started hook.
+func (n *Node) OnStarted(callback func()) {
+	n.onStarted = callback
 }
 
 // Return the peer elections that the node is aware of.
@@ -961,6 +971,11 @@ func (n *Node) setMembership(membership string) {
 	}
 }
 
+// Set the page logger accessor for the node.
+func (n *Node) SetPageLoggerAccessor(pageLoggerAccessor NodePageLoggerAccessor) {
+	n.pageLoggerAccessor = pageLoggerAccessor
+}
+
 // Set the query builder for the node.
 func (n *Node) SetQueryBuilder(queryBuilder NodeQueryBuilder) {
 	n.queryBuilder = queryBuilder
@@ -1118,11 +1133,6 @@ func (n *Node) Tick() {
 // Return the started at timestamp of the node.
 func (n *Node) Timestamp() time.Time {
 	return n.startedAt
-}
-
-// On started hook.
-func (n *Node) OnStarted(callback func()) {
-	n.onStarted = callback
 }
 
 func (n *Node) WALSynchronizer() NodeWalSynchronizer {
