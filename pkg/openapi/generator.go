@@ -223,6 +223,20 @@ func (g *Generator) AnalyzeAllRoutes() (*ControllerAnalysis, error) {
 				methodAnalysis.HTTPMethod = routeInfo.HTTPMethod
 				methodAnalysis.Path = routeInfo.Path
 				methodAnalysis.Security = extractSecurityFromMiddleware(routeInfo.Middleware)
+
+				// Add path parameters based on the actual route path
+				pathParams := extractPathParameters(routeInfo.Path)
+
+				for _, param := range pathParams {
+					methodAnalysis.Parameters = append(methodAnalysis.Parameters, &ParameterInfo{
+						Name:        param,
+						In:          "path",
+						Type:        "string",
+						Required:    true,
+						Description: fmt.Sprintf("The %s parameter", param),
+						Example:     "example_value",
+					})
+				}
 			}
 
 			analysis.Methods[methodName] = methodAnalysis
@@ -1279,20 +1293,6 @@ func (g *Generator) analyzeMethodParameters(fn *ast.FuncDecl, analysis *MethodAn
 			analysis.Parameters = append(analysis.Parameters, paramInfo)
 		}
 	}
-
-	// Add path parameters based on the path
-	pathParams := extractPathParameters(analysis.Path)
-
-	for _, param := range pathParams {
-		analysis.Parameters = append(analysis.Parameters, &ParameterInfo{
-			Name:        param,
-			In:          "path",
-			Type:        "string",
-			Required:    true,
-			Description: fmt.Sprintf("The %s parameter", param),
-			Example:     "example_value",
-		})
-	}
 }
 
 // analyzeResponseCallWithContext analyzes response function calls with variable context
@@ -2204,9 +2204,10 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 			schema = &Schema{Type: "object"}
 		}
 
-		// For SuccessResponse, wrap the data schema in the standard response format
+		// For SuccessResponse, create inline schemas since all responses are complex
 		switch resp.Type {
 		case "success":
+			// Create custom inline schema for success responses
 			properties := map[string]*Schema{
 				"status": {
 					Type:        "string",
@@ -2252,44 +2253,14 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 				Required:   required,
 			}
 		case "error":
-			// Standard error response format
+			// Use reference to the common ErrorResponse schema
 			schema = &Schema{
-				Type: "object",
-				Properties: map[string]*Schema{
-					"status": {
-						Type:        "string",
-						Description: "Response status",
-						Example:     "error",
-					},
-					"message": {
-						Type:        "string",
-						Description: "Error message",
-						Example:     getErrorMessageExample(resp.StatusCode),
-					},
-				},
-				Required: []string{"message", "status"},
+				Ref: "#/components/schemas/ErrorResponse",
 			}
 		case "validation_error":
-			// Validation error response format (422)
+			// Use reference to the common ValidationErrorResponse schema
 			schema = &Schema{
-				Type: "object",
-				Properties: map[string]*Schema{
-					"status": {
-						Type:        "string",
-						Description: "Response status",
-						Example:     "error",
-					},
-					"message": {
-						Type:        "string",
-						Description: "Error message",
-						Example:     "Error: the request input is invalid",
-					},
-					"errors": {
-						Type:        "object",
-						Description: "Validation errors",
-					},
-				},
-				Required: []string{"errors", "message", "status"},
+				Ref: "#/components/schemas/ValidationErrorResponse",
 			}
 		}
 
@@ -2339,22 +2310,6 @@ func convertHeaders(headers map[string]*Schema) map[string]Header {
 	return result
 }
 
-// getErrorMessageExample returns appropriate example error messages for different status codes
-func getErrorMessageExample(statusCode int) string {
-	switch statusCode {
-	case 400:
-		return "Error: invalid input provided"
-	case 403:
-		return "Forbidden: insufficient permissions"
-	case 404:
-		return "Error: resource not found"
-	case 500:
-		return "Error: internal server error"
-	default:
-		return "Error: request failed"
-	}
-}
-
 func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 	// Extract resource name from the tags
 	resourceName := "resource"
@@ -2373,6 +2328,16 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 		potentialNames := []string{
 			analysis.Name + "Request", // DatabaseBranchControllerStoreRequest
 			strings.Replace(analysis.Name, "Controller", "", 1) + "Request", // DatabaseBranchStoreRequest
+		}
+
+		// Extract controller prefix for additional pattern matching
+		// e.g., "QueryControllerStore" -> "Query"
+		if strings.Contains(analysis.Name, "Controller") {
+			parts := strings.Split(analysis.Name, "Controller")
+			if len(parts) > 0 {
+				controllerPrefix := parts[0]
+				potentialNames = append(potentialNames, controllerPrefix+"Request") // QueryRequest
+			}
 		}
 
 		for _, requestTypeName := range potentialNames {
@@ -2395,6 +2360,15 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 		potentialNames := []string{
 			analysis.Name + "Request", // DatabaseBranchControllerUpdateRequest
 			strings.Replace(analysis.Name, "Controller", "", 1) + "Request", // DatabaseBranchUpdateRequest
+		}
+
+		// Extract controller prefix for additional pattern matching
+		if strings.Contains(analysis.Name, "Controller") {
+			parts := strings.Split(analysis.Name, "Controller")
+			if len(parts) > 0 {
+				controllerPrefix := parts[0]
+				potentialNames = append(potentialNames, controllerPrefix+"Request") // e.g., UserRequest
+			}
 		}
 
 		for _, requestTypeName := range potentialNames {
@@ -2479,17 +2453,18 @@ func (g *Generator) convertFieldToSchema(fieldInfo *FieldInfo) *Schema {
 
 		// Extract the element type
 		elementType := strings.TrimSuffix(strings.TrimPrefix(fieldInfo.Type, "array["), "]")
+		// Defensive: strip any trailing ']' that may remain
+		elementType = strings.TrimSuffix(elementType, "]")
 
 		// Check if it's a custom type that needs to be analyzed
 		if g.isCustomType(elementType) {
 			itemSchema := g.analyzeAndRegisterType(elementType)
 
 			if itemSchema != nil {
-				if itemSchema.Ref != "" {
-					fieldSchema.Items = &Schema{Ref: itemSchema.Ref}
-				} else {
-					fieldSchema.Items = itemSchema
-				}
+				refName := itemSchema.Ref
+				// Defensive: strip any trailing ']' from refName
+				refName = strings.TrimSuffix(refName, "]")
+				fieldSchema.Items = &Schema{Ref: refName}
 			}
 		} else {
 			// Handle built-in types

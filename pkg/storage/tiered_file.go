@@ -68,6 +68,10 @@ type TieredFile struct {
 	// Descriptors can still be "open" but will need to reopen the file when accessed.
 	Released bool
 
+	// isBeingFlushed indicates that the file is currently being flushed to durable storage
+	// to prevent race conditions between flush and release operations.
+	isBeingFlushed bool
+
 	// Mutex that needs to be checked when flushing the file to durable storage
 	// to prevent multiple goroutines from flushing the file at the same time.
 	syncMutex *sync.Mutex
@@ -130,6 +134,16 @@ func (f *TieredFile) SetWrittenAt(t time.Time) {
 // for performing multiple operations on the file without having to lock and
 // unlock the mutex each time or worry about the file being modified during flush.
 func (f *TieredFile) AccessBarrier(fn func() error) error {
+	// Check for nil pointer to prevent panic
+	if f == nil {
+		return fmt.Errorf("cannot access nil TieredFile")
+	}
+
+	// Check if syncMutex is nil to prevent panic
+	if f.syncMutex == nil {
+		return fmt.Errorf("syncMutex is nil for file %s", f.Key)
+	}
+
 	f.syncMutex.Lock()
 	defer f.syncMutex.Unlock()
 
@@ -339,6 +353,31 @@ func (f *TieredFile) ShouldBeWrittenToDurableStorage() bool {
 
 	return f.UpdatedAt.After(f.WrittenToDurableStorageAt) &&
 		(time.Since(f.WrittenToDurableStorageAt) >= f.TieredFileSystemDriver.WriteInterval)
+}
+
+// SetBeingFlushed marks the file as currently being flushed to prevent race conditions
+func (f *TieredFile) SetBeingFlushed(flushing bool) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	f.isBeingFlushed = flushing
+}
+
+// IsBeingFlushed returns true if the file is currently being flushed
+func (f *TieredFile) IsBeingFlushed() bool {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	return f.isBeingFlushed
+}
+
+// CanBeReleased returns true if the file can safely be released (not being flushed and doesn't need flushing)
+func (f *TieredFile) CanBeReleased() bool {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	return !f.isBeingFlushed && (!f.UpdatedAt.After(f.WrittenToDurableStorageAt) ||
+		time.Since(f.WrittenToDurableStorageAt) < f.TieredFileSystemDriver.WriteInterval)
 }
 
 // Stat returns the FileInfo structure describing the File. If the File is

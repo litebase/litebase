@@ -66,23 +66,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -92,23 +76,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -217,23 +185,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -243,23 +195,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -269,28 +205,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -300,23 +215,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -399,23 +298,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -425,23 +308,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -451,23 +318,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -573,23 +424,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -599,23 +434,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -625,23 +444,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -651,28 +454,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -682,23 +464,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -755,23 +521,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -781,23 +531,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -807,23 +541,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -840,191 +558,19 @@
             "TokenAuth": []
           }
         ]
-      }
-    },
-    "/v1/cluster/connection": {
-      "post": {
-        "tags": [
-          "ClusterConnection"
-        ],
-        "summary": "Create a new cluster connection",
-        "description": "Handle a cluster node connection",
-        "operationId": "createClusterConnection",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+      },
+      "parameters": [
+        {
+          "name": "accessKeyId",
+          "in": "path",
+          "description": "The accessKeyId parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
           }
-        },
-        "security": [
-          {
-            "InternalAuth": []
-          }
-        ]
-      }
-    },
-    "/v1/cluster/election": {
-      "post": {
-        "tags": [
-          "ClusterElection"
-        ],
-        "summary": "Create a new cluster election",
-        "description": "Handle a cluster election request",
-        "operationId": "createClusterElection",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "Election acknowledged"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "InternalAuth": []
-          }
-        ]
-      }
-    },
-    "/v1/cluster/primary": {
-      "post": {
-        "tags": [
-          "ClusterPrimary"
-        ],
-        "summary": "Create a new cluster primary",
-        "description": "Handle a cluster primary node request",
-        "operationId": "createClusterPrimary",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "InternalAuth": []
-          }
-        ]
-      }
+        }
+      ]
     },
     "/v1/databases": {
       "get": {
@@ -1074,23 +620,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1100,23 +630,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1231,23 +745,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1257,23 +755,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1283,28 +765,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -1314,23 +775,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1365,7 +810,39 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "properties": {
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Creation timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        },
+                        "database_id": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "primary_branch": {
+                          "type": "string"
+                        },
+                        "settings": {
+                          "$ref": "#/components/schemas/DatabaseSettings"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last update timestamp",
+                          "example": "2023-09-20T14:30:00Z"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      }
                     },
                     "message": {
                       "type": "string",
@@ -1392,23 +869,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1418,23 +879,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1444,23 +889,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1517,23 +956,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1543,23 +966,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1569,23 +976,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1595,23 +986,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1628,7 +1003,19 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
     "/v1/databases/{databaseName}/branches": {
       "get": {
@@ -1678,23 +1065,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1704,23 +1075,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1730,23 +1085,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1862,23 +1201,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1888,23 +1211,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1914,23 +1221,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1940,28 +1231,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -1971,23 +1241,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2004,9 +1258,21 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}": {
+    "/v1/databases/{databaseName}/branches/{branchName}": {
       "get": {
         "tags": [
           "DatabaseBranch"
@@ -2051,23 +1317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2077,23 +1327,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2103,23 +1337,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2176,23 +1394,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2202,23 +1404,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2228,23 +1414,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2254,23 +1424,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2287,9 +1441,31 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/backups": {
+    "/v1/databases/{databaseName}/branches/{branchName}/backups": {
       "get": {
         "tags": [
           "DatabaseBackup"
@@ -2337,23 +1513,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2363,23 +1523,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2389,23 +1533,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2491,23 +1619,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2517,23 +1629,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2543,23 +1639,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2569,28 +1649,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -2600,23 +1659,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2633,9 +1676,31 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/backups/{timestamp}": {
+    "/v1/databases/{databaseName}/branches/{branchName}/backups/{timestamp}": {
       "get": {
         "tags": [
           "DatabaseBackup"
@@ -2694,23 +1759,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2720,23 +1769,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2746,23 +1779,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2819,23 +1836,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2845,23 +1846,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2871,23 +1856,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2904,9 +1873,41 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "timestamp",
+          "in": "path",
+          "description": "The timestamp parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/metrics/query": {
+    "/v1/databases/{databaseName}/branches/{branchName}/metrics/query": {
       "get": {
         "tags": [
           "QueryLog"
@@ -2963,23 +1964,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2989,23 +1974,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3015,23 +1984,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3048,9 +2001,31 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/query": {
+    "/v1/databases/{databaseName}/branches/{branchName}/query": {
       "post": {
         "tags": [
           "Query"
@@ -3058,6 +2033,28 @@
         "summary": "Create a new query",
         "description": "Execute one or more SQL queries against the specified database and branch.",
         "operationId": "createQuery",
+        "requestBody": {
+          "description": "Query creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "queries": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/QueryInput"
+                    }
+                  }
+                },
+                "required": [
+                  "queries"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -3075,6 +2072,12 @@
                           "changes": {
                             "type": "integer"
                           },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "id": {
                             "type": "string"
                           },
@@ -3090,7 +2093,7 @@
                           "rows": {
                             "type": "array",
                             "items": {
-                              "$ref": "#/components/schemas/any"
+                              "$ref": "#/components/schemas/Column"
                             }
                           },
                           "transaction_id": {
@@ -3124,23 +2127,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3150,23 +2137,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3176,28 +2147,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -3207,23 +2157,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3240,9 +2174,31 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/query/stream": {
+    "/v1/databases/{databaseName}/branches/{branchName}/query/stream": {
       "post": {
         "tags": [
           "QueryStream"
@@ -3266,23 +2222,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3299,9 +2239,31 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/restore": {
+    "/v1/databases/{databaseName}/branches/{branchName}/restore": {
       "post": {
         "tags": [
           "DatabaseRestore"
@@ -3309,6 +2271,33 @@
         "summary": "Create a new database restore",
         "description": "Restore a specific database branch to a point in time",
         "operationId": "createDatabaseRestore",
+        "requestBody": {
+          "description": "Database restore creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "target_database": {
+                    "type": "string"
+                  },
+                  "target_database_branch": {
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "target_database",
+                  "target_database_branch",
+                  "timestamp"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -3341,23 +2330,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3367,23 +2340,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3393,28 +2350,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -3424,23 +2360,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3457,9 +2377,31 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/snapshots": {
+    "/v1/databases/{databaseName}/branches/{branchName}/snapshots": {
       "get": {
         "tags": [
           "DatabaseSnapshot"
@@ -3507,23 +2449,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3533,23 +2459,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3559,23 +2469,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3585,23 +2479,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3618,9 +2496,31 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
-    "/v1/databases/{databaseName}/{branchName}/snapshots/{timestamp}": {
+    "/v1/databases/{databaseName}/branches/{branchName}/snapshots/{timestamp}": {
       "get": {
         "tags": [
           "DatabaseSnapshot"
@@ -3663,23 +2563,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3689,23 +2573,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3722,49 +2590,39 @@
             "TokenAuth": []
           }
         ]
-      }
-    },
-    "/v1/health": {
-      "get": {
-        "tags": [
-          "HealthCheck"
-        ],
-        "summary": "Show details of a specific health check",
-        "operationId": "getHealthCheck",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "Service is healthy."
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
           }
         },
-        "security": [
-          {
-            "InternalAuth": []
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
           }
-        ]
-      }
+        },
+        {
+          "name": "timestamp",
+          "in": "path",
+          "description": "The timestamp parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
     "/v1/keys": {
       "post": {
@@ -3829,23 +2687,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3855,23 +2697,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3881,28 +2707,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -3912,23 +2717,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3955,6 +2744,25 @@
         "summary": "Create a new key activate",
         "description": "Activate an encryption key for the cluster",
         "operationId": "createKeyActivate",
+        "requestBody": {
+          "description": "Key activate creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "encryption_key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "encryption_key"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -3987,23 +2795,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4013,23 +2805,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4039,28 +2815,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -4070,23 +2825,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4241,23 +2980,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4267,23 +2990,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4373,23 +3080,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4399,23 +3090,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4425,28 +3100,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -4456,23 +3110,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4555,23 +3193,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4581,23 +3203,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4607,23 +3213,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4704,23 +3294,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4730,23 +3304,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4756,23 +3314,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4782,28 +3324,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -4813,23 +3334,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4886,23 +3391,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4912,23 +3401,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4938,23 +3411,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4971,7 +3428,19 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "tokenId",
+          "in": "path",
+          "description": "The tokenId parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     },
     "/v1/users": {
       "get": {
@@ -5041,23 +3510,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5171,23 +3624,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5197,23 +3634,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5223,28 +3644,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -5254,23 +3654,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5353,23 +3737,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5379,23 +3747,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5501,23 +3853,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5527,23 +3863,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5553,23 +3873,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5579,28 +3883,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "errors": {
-                      "type": "object",
-                      "description": "Validation errors"
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: the request input is invalid"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "errors",
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -5610,23 +3893,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5682,23 +3949,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: invalid input provided"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5708,23 +3959,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Forbidden: insufficient permissions"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5734,23 +3969,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: resource not found"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5760,23 +3979,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Error message",
-                      "example": "Error: internal server error"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "error"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5793,7 +3996,19 @@
             "TokenAuth": []
           }
         ]
-      }
+      },
+      "parameters": [
+        {
+          "name": "username",
+          "in": "path",
+          "description": "The username parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
     }
   },
   "components": {
@@ -5805,6 +4020,9 @@
             "type": "boolean"
           }
         }
+      },
+      "Column": {
+        "type": "object"
       },
       "DatabaseBackupRestorePoint": {
         "type": "object",
@@ -5873,6 +4091,11 @@
       "Privilege": {
         "type": "string",
         "enum": [
+          "access-key:create",
+          "access-key:delete",
+          "access-key:list",
+          "access-key:read",
+          "access-key:update",
           "database:create",
           "database:list",
           "database:show",
@@ -5911,16 +4134,38 @@
           "database:select",
           "database:transaction",
           "database:update",
-          "access-key:create",
-          "access-key:delete",
-          "access-key:list",
-          "access-key:read",
-          "access-key:update",
           "token:create",
           "token:delete",
           "token:list",
           "token:read",
           "token:update"
+        ]
+      },
+      "QueryInput": {
+        "type": "object",
+        "description": "QueryInput is a struct that represents the input of a query.\n\n| Offset          | Length | Description                           |\n|-----------------|--------|---------------------------------------|\n| 0               | 4      | The length of the id                  |\n| 4               | n      | The unique identifier for the query   |\n| 4 + n           | 4      | The length of the statement           |\n| 8 + n           | m      | The statement to execute              |\n| 8 + n + m       | 4      | The length of the parameters array    |\n| 12 + n + m      | p      | The parameters to bind to the statement |\n| 12 + n + m + p  | 4      | The length of the transaction id       |\n| 16 + n + m + p  | q      | The transaction id                    |",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatementParameter"
+            }
+          },
+          "statement": {
+            "type": "string"
+          },
+          "transaction_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parameters",
+          "statement",
+          "transaction_id"
         ]
       },
       "Resource": {
@@ -5956,20 +4201,8 @@
           "deny"
         ]
       },
-      "SuccessResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "object"
-          },
-          "status": {
-            "type": "string",
-            "example": "success"
-          }
-        },
-        "required": [
-          "status"
-        ]
+      "StatementParameter": {
+        "type": "object"
       },
       "ValidationErrorResponse": {
         "type": "object",
@@ -5996,17 +4229,13 @@
             "example": "error"
           }
         }
-      },
-      "any": {
-        "type": "object"
       }
     },
     "securitySchemes": {
       "AccessKeyAuth": {
         "type": "http",
         "description": "HMAC-SHA256 authentication using access id and secret",
-        "scheme": "Litebase-HMAC-SHA256",
-        "bearerFormat": "Litebase-HMAC-SHA256"
+        "scheme": "litebase-hmac-SHA256"
       },
       "BasicAuth": {
         "type": "http",
@@ -6016,19 +4245,46 @@
       "TokenAuth": {
         "type": "http",
         "description": "Bearer token authentication using temporary token",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "scheme": "bearer"
       }
     }
   },
   "tags": [
     {
-      "name": "DatabaseBackup",
-      "description": "Database backup operations"
+      "name": "QueryStream",
+      "description": "Streaming query operations"
+    },
+    {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
     },
     {
       "name": "User",
       "description": "User management operations"
+    },
+    {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
+      "name": "KeyActivate",
+      "description": "Key activation operations"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
+    },
+    {
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
+    },
+    {
+      "name": "DatabaseBranch",
+      "description": "Database branch management operations"
+    },
+    {
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
     },
     {
       "name": "Database",
@@ -6039,60 +4295,16 @@
       "description": "SQL query execution operations"
     },
     {
-      "name": "HealthCheck",
-      "description": "Health check endpoints"
-    },
-    {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
-      "name": "Key",
-      "description": "Encryption key management"
-    },
-    {
-      "name": "DatabaseBranch",
-      "description": "Database branch management operations"
-    },
-    {
-      "name": "DatabaseRestore",
-      "description": "Database restore operations"
-    },
-    {
-      "name": "ClusterElection",
-      "description": "Cluster leader election operations"
-    },
-    {
-      "name": "ClusterConnection",
-      "description": "Cluster connection management operations"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "ClusterPrimary",
-      "description": "Primary cluster node operations"
-    },
-    {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
-    },
-    {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
-    },
-    {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
+      "name": "DatabaseBackup",
+      "description": "Database backup operations"
     },
     {
       "name": "AccessKey",
       "description": "Access key management for authentication"
+    },
+    {
+      "name": "Key",
+      "description": "Encryption key management"
     }
   ]
 }

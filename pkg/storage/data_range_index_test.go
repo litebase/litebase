@@ -27,7 +27,7 @@ func TestDataRangeIndex(t *testing.T) {
 			dfs := storage.NewDurableDatabaseFileSystem(
 				app.Cluster.TieredFS(),
 				app.Cluster.NetworkFS(),
-				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.TieredFS()),
+				app.DatabaseManager.PageLogManager().Get(mockDatabase.DatabaseID, mockDatabase.DatabaseBranchID, app.Cluster.NetworkFS()),
 				config.StorageModeLocal,
 				mockDatabase.DatabaseID,
 				mockDatabase.DatabaseBranchID,

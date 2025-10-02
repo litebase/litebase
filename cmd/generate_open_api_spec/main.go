@@ -254,6 +254,33 @@ func convertToPathItems(paths map[string]map[string]*openapi.Operation) map[stri
 	for path, methods := range paths {
 		pathItem := openapi.PathItem{}
 
+		// Extract path parameters from all operations and move to path level
+		pathParameters := make(map[string]openapi.Parameter)
+
+		// First pass: collect all path parameters from operations
+		for _, operation := range methods {
+			if operation != nil {
+				var nonPathParams []openapi.Parameter
+
+				for _, param := range operation.Parameters {
+					if param.In == "path" {
+						pathParameters[param.Name] = param
+					} else {
+						nonPathParams = append(nonPathParams, param)
+					}
+				}
+
+				// Remove path parameters from operation-level parameters
+				operation.Parameters = nonPathParams
+			}
+		}
+
+		// Convert path parameters map to slice for path item
+		for _, param := range pathParameters {
+			pathItem.Parameters = append(pathItem.Parameters, param)
+		}
+
+		// Second pass: assign operations to path item
 		for method, operation := range methods {
 			switch method {
 			case "get":

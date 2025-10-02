@@ -10,11 +10,14 @@ func GetCommonSchemas() map[string]*Schema {
 					Type:    "string",
 					Example: "success",
 				},
+				"message": {
+					Type: "string",
+				},
 				"data": {
 					Type: "object",
 				},
 			},
-			Required: []string{"status"},
+			Required: []string{"status", "message"},
 		},
 		"ErrorResponse": {
 			Type: "object",
