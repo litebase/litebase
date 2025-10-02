@@ -3,6 +3,22 @@ package openapi
 // GetCommonSchemas returns the common schema definitions for the OpenAPI specification
 func GetCommonSchemas() map[string]*Schema {
 	return map[string]*Schema{
+		"SuccessResponse": {
+			Type: "object",
+			Properties: map[string]*Schema{
+				"status": {
+					Type:    "string",
+					Example: "success",
+				},
+				"message": {
+					Type: "string",
+				},
+				"data": {
+					Type: "object",
+				},
+			},
+			Required: []string{"status", "message"},
+		},
 		"ErrorResponse": {
 			Type: "object",
 			Properties: map[string]*Schema{
