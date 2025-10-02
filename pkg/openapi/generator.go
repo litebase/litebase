@@ -2469,17 +2469,18 @@ func (g *Generator) convertFieldToSchema(fieldInfo *FieldInfo) *Schema {
 
 		// Extract the element type
 		elementType := strings.TrimSuffix(strings.TrimPrefix(fieldInfo.Type, "array["), "]")
+		// Defensive: strip any trailing ']' that may remain
+		elementType = strings.TrimSuffix(elementType, "]")
 
 		// Check if it's a custom type that needs to be analyzed
 		if g.isCustomType(elementType) {
 			itemSchema := g.analyzeAndRegisterType(elementType)
 
 			if itemSchema != nil {
-				if itemSchema.Ref != "" {
-					fieldSchema.Items = &Schema{Ref: itemSchema.Ref}
-				} else {
-					fieldSchema.Items = itemSchema
-				}
+				refName := itemSchema.Ref
+				// Defensive: strip any trailing ']' from refName
+				refName = strings.TrimSuffix(refName, "]")
+				fieldSchema.Items = &Schema{Ref: refName}
 			}
 		} else {
 			// Handle built-in types
