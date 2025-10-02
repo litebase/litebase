@@ -1876,6 +1876,16 @@
       },
       "parameters": [
         {
+          "name": "timestamp",
+          "in": "path",
+          "description": "The timestamp parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
           "name": "databaseName",
           "in": "path",
           "description": "The databaseName parameter",
@@ -1889,16 +1899,6 @@
           "name": "branchName",
           "in": "path",
           "description": "The branchName parameter",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "example": "example_value"
-          }
-        },
-        {
-          "name": "timestamp",
-          "in": "path",
-          "description": "The timestamp parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2004,9 +2004,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2014,9 +2014,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2033,6 +2033,28 @@
         "summary": "Create a new query",
         "description": "Execute one or more SQL queries against the specified database and branch.",
         "operationId": "createQuery",
+        "requestBody": {
+          "description": "Query creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "queries": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/QueryInput"
+                    }
+                  }
+                },
+                "required": [
+                  "queries"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -2243,6 +2265,33 @@
         "summary": "Create a new database restore",
         "description": "Restore a specific database branch to a point in time",
         "operationId": "createDatabaseRestore",
+        "requestBody": {
+          "description": "Database restore creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "target_database": {
+                    "type": "string"
+                  },
+                  "target_database_branch": {
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "target_database",
+                  "target_database_branch",
+                  "timestamp"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -2444,9 +2493,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2454,9 +2503,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2689,6 +2738,25 @@
         "summary": "Create a new key activate",
         "description": "Activate an encryption key for the cluster",
         "operationId": "createKeyActivate",
+        "requestBody": {
+          "description": "Key activate creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "encryption_key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "encryption_key"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -4064,6 +4132,33 @@
           "token:update"
         ]
       },
+      "QueryInput": {
+        "type": "object",
+        "description": "QueryInput is a struct that represents the input of a query.\n\n| Offset          | Length | Description                           |\n|-----------------|--------|---------------------------------------|\n| 0               | 4      | The length of the id                  |\n| 4               | n      | The unique identifier for the query   |\n| 4 + n           | 4      | The length of the statement           |\n| 8 + n           | m      | The statement to execute              |\n| 8 + n + m       | 4      | The length of the parameters array    |\n| 12 + n + m      | p      | The parameters to bind to the statement |\n| 12 + n + m + p  | 4      | The length of the transaction id       |\n| 16 + n + m + p  | q      | The transaction id                    |",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatementParameter"
+            }
+          },
+          "statement": {
+            "type": "string"
+          },
+          "transaction_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parameters",
+          "statement",
+          "transaction_id"
+        ]
+      },
       "Resource": {
         "type": "string"
       },
@@ -4096,6 +4191,9 @@
           "allow",
           "deny"
         ]
+      },
+      "StatementParameter": {
+        "type": "object"
       },
       "ValidationErrorResponse": {
         "type": "object",
@@ -4147,16 +4245,16 @@
   },
   "tags": [
     {
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
+    },
+    {
       "name": "User",
       "description": "User management operations"
     },
     {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
-    },
-    {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
+      "name": "KeyActivate",
+      "description": "Key activation operations"
     },
     {
       "name": "Database",
@@ -4167,40 +4265,40 @@
       "description": "Database restore operations"
     },
     {
-      "name": "Key",
-      "description": "Encryption key management"
-    },
-    {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
+      "name": "Token",
+      "description": "Token management for authentication"
     },
     {
       "name": "DatabaseBackup",
       "description": "Database backup operations"
     },
     {
+      "name": "Key",
+      "description": "Encryption key management"
+    },
+    {
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
+    },
+    {
       "name": "DatabaseBranch",
       "description": "Database branch management operations"
-    },
-    {
-      "name": "KeyActivate",
-      "description": "Key activation operations"
-    },
-    {
-      "name": "QueryLog",
-      "description": "Query performance and usage metrics"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
     },
     {
       "name": "Query",
       "description": "SQL query execution operations"
     },
     {
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
+    },
+    {
       "name": "QueryStream",
       "description": "Streaming query operations"
+    },
+    {
+      "name": "QueryLog",
+      "description": "Query performance and usage metrics"
     }
   ]
 }

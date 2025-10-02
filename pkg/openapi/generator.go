@@ -2346,6 +2346,16 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 			strings.Replace(analysis.Name, "Controller", "", 1) + "Request", // DatabaseBranchStoreRequest
 		}
 
+		// Extract controller prefix for additional pattern matching
+		// e.g., "QueryControllerStore" -> "Query"
+		if strings.Contains(analysis.Name, "Controller") {
+			parts := strings.Split(analysis.Name, "Controller")
+			if len(parts) > 0 {
+				controllerPrefix := parts[0]
+				potentialNames = append(potentialNames, controllerPrefix+"Request") // QueryRequest
+			}
+		}
+
 		for _, requestTypeName := range potentialNames {
 			if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
 				return &RequestBody{
@@ -2366,6 +2376,15 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 		potentialNames := []string{
 			analysis.Name + "Request", // DatabaseBranchControllerUpdateRequest
 			strings.Replace(analysis.Name, "Controller", "", 1) + "Request", // DatabaseBranchUpdateRequest
+		}
+
+		// Extract controller prefix for additional pattern matching
+		if strings.Contains(analysis.Name, "Controller") {
+			parts := strings.Split(analysis.Name, "Controller")
+			if len(parts) > 0 {
+				controllerPrefix := parts[0]
+				potentialNames = append(potentialNames, controllerPrefix+"Request") // e.g., UserRequest
+			}
 		}
 
 		for _, requestTypeName := range potentialNames {
