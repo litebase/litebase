@@ -1876,16 +1876,6 @@
       },
       "parameters": [
         {
-          "name": "timestamp",
-          "in": "path",
-          "description": "The timestamp parameter",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "example": "example_value"
-          }
-        },
-        {
           "name": "databaseName",
           "in": "path",
           "description": "The databaseName parameter",
@@ -1899,6 +1889,16 @@
           "name": "branchName",
           "in": "path",
           "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "timestamp",
+          "in": "path",
+          "description": "The timestamp parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2072,6 +2072,12 @@
                           "changes": {
                             "type": "integer"
                           },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "id": {
                             "type": "string"
                           },
@@ -2087,7 +2093,7 @@
                           "rows": {
                             "type": "array",
                             "items": {
-                              "$ref": "#/components/schemas/any"
+                              "$ref": "#/components/schemas/Column]"
                             }
                           },
                           "transaction_id": {
@@ -2171,9 +2177,9 @@
       },
       "parameters": [
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2181,9 +2187,9 @@
           }
         },
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -4015,6 +4021,9 @@
           }
         }
       },
+      "Column]": {
+        "type": "object"
+      },
       "DatabaseBackupRestorePoint": {
         "type": "object",
         "description": "A single restore point within a database backup",
@@ -4220,9 +4229,6 @@
             "example": "error"
           }
         }
-      },
-      "any": {
-        "type": "object"
       }
     },
     "securitySchemes": {
@@ -4245,40 +4251,36 @@
   },
   "tags": [
     {
-      "name": "DatabaseSnapshot",
-      "description": "Database snapshot operations"
-    },
-    {
-      "name": "User",
-      "description": "User management operations"
+      "name": "ClusterStatus",
+      "description": "Cluster status and health operations"
     },
     {
       "name": "KeyActivate",
       "description": "Key activation operations"
     },
     {
+      "name": "Token",
+      "description": "Token management for authentication"
+    },
+    {
       "name": "Database",
       "description": "Database management operations"
     },
     {
-      "name": "DatabaseRestore",
-      "description": "Database restore operations"
-    },
-    {
-      "name": "Token",
-      "description": "Token management for authentication"
+      "name": "AccessKey",
+      "description": "Access key management for authentication"
     },
     {
       "name": "DatabaseBackup",
       "description": "Database backup operations"
     },
     {
-      "name": "Key",
-      "description": "Encryption key management"
+      "name": "QueryStream",
+      "description": "Streaming query operations"
     },
     {
-      "name": "ClusterStatus",
-      "description": "Cluster status and health operations"
+      "name": "DatabaseRestore",
+      "description": "Database restore operations"
     },
     {
       "name": "DatabaseBranch",
@@ -4289,12 +4291,16 @@
       "description": "SQL query execution operations"
     },
     {
-      "name": "AccessKey",
-      "description": "Access key management for authentication"
+      "name": "DatabaseSnapshot",
+      "description": "Database snapshot operations"
     },
     {
-      "name": "QueryStream",
-      "description": "Streaming query operations"
+      "name": "User",
+      "description": "User management operations"
+    },
+    {
+      "name": "Key",
+      "description": "Encryption key management"
     },
     {
       "name": "QueryLog",

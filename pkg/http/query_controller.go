@@ -6,6 +6,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/database"
+	"github.com/litebase/litebase/pkg/sqlite3"
 	"golang.org/x/exp/slog"
 )
 
@@ -14,17 +15,18 @@ type QueryRequest struct {
 }
 
 type QueryResponse struct {
-	Changes         int64   `json:"changes"`
-	ID              string  `json:"id"`
-	Latency         float64 `json:"latency"`
-	LastInsertRowId int64   `json:"last_insert_row_id"`
-	RowCount        int     `json:"row_count"`
-	Rows            []any   `json:"rows"`
-	TransactionID   string  `json:"transaction_id,omitempty"`
+	Changes         int64               `json:"changes"`
+	Columns         []string            `json:"columns"`
+	ID              string              `json:"id"`
+	Latency         float64             `json:"latency"`
+	LastInsertRowId int64               `json:"last_insert_row_id"`
+	RowCount        int                 `json:"row_count"`
+	Rows            [][]*sqlite3.Column `json:"rows"`
+	TransactionID   string              `json:"transaction_id,omitempty"`
 }
 
 // Array of query responses for one or more queries
-type QueryControllerStoreResponse []*database.QueryResponse
+type QueryControllerStoreResponse []QueryResponse
 
 // Execute one or more SQL queries against the specified database and branch.
 func QueryControllerStore(ctx context.Context, request *Request) Response {
@@ -141,7 +143,16 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 			}
 		}
 
-		responses = append(responses, response)
+		responses = append(responses, QueryResponse{
+			Changes:         response.Changes(),
+			Columns:         response.Columns(),
+			ID:              response.Id(),
+			Latency:         response.Latency(),
+			LastInsertRowId: response.LastInsertRowId(),
+			RowCount:        response.RowCount(),
+			Rows:            response.Rows(),
+			TransactionID:   response.TransactionID(),
+		})
 	}
 
 	return SuccessResponse(
