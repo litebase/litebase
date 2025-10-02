@@ -2310,22 +2310,6 @@ func convertHeaders(headers map[string]*Schema) map[string]Header {
 	return result
 }
 
-// getErrorMessageExample returns appropriate example error messages for different status codes
-func getErrorMessageExample(statusCode int) string {
-	switch statusCode {
-	case 400:
-		return "Error: invalid input provided"
-	case 403:
-		return "Forbidden: insufficient permissions"
-	case 404:
-		return "Error: resource not found"
-	case 500:
-		return "Error: internal server error"
-	default:
-		return "Error: request failed"
-	}
-}
-
 func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 	// Extract resource name from the tags
 	resourceName := "resource"
