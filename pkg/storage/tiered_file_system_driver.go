@@ -408,6 +408,18 @@ func (fsd *TieredFileSystemDriver) flushFiles() error {
 // system. This operation is typically performed when the file has been updated
 // and has not been written to durable storage in the last minute.
 func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, force bool) {
+	// Check if file is nil to prevent panic
+	if file == nil {
+		slog.Error("Cannot flush nil file to durable storage")
+		return
+	}
+
+	// Check if file is already being flushed
+	if file.IsBeingFlushed() {
+		slog.Debug("File is already being flushed, skipping", "file", file.Key)
+		return
+	}
+
 	if !file.ShouldBeWrittenToDurableStorage() && !force {
 		return
 	}
@@ -417,7 +429,16 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 		return
 	}
 
+	file.SetBeingFlushed(true)
+	defer file.SetBeingFlushed(false)
+
 	err := file.AccessBarrier(func() error {
+		if file.File == nil {
+			slog.Debug("File was closed during flush, skipping", "file", file.Key)
+
+			return nil
+		}
+
 		_, err := file.File.Seek(0, io.SeekStart)
 
 		if err != nil {
@@ -919,9 +940,9 @@ func (fsd *TieredFileSystemDriver) releaseOldestFileInternal() error {
 
 	file := element.Value.(*TieredFile)
 
-	// Skip files that need to be written to durable storage
+	// Skip files that are being flushed or need to be written to durable storage
 	// Files with open descriptors can be released if they're already flushed
-	for file.ShouldBeWrittenToDurableStorage() {
+	for !file.CanBeReleased() {
 		element = element.Next()
 
 		if element == nil {
@@ -1181,6 +1202,17 @@ func (fsd *TieredFileSystemDriver) watchForFileChanges() {
 				go func(f *TieredFile) {
 					defer wg.Done()
 					defer func() { <-semaphore }() // Release semaphore slot
+
+					// Verify file is still valid before flushing
+					fsd.mutex.Lock()
+					_, exists := fsd.Files[f.Key]
+					fsd.mutex.Unlock()
+
+					if !exists {
+						slog.Debug("File no longer exists, skipping flush", "file", f.Key)
+						return
+					}
+
 					fsd.flushFileToDurableStorage(f, false)
 				}(file)
 			}
