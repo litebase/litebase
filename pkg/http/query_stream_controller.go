@@ -48,13 +48,13 @@ func QueryStreamControllerStore(ctx context.Context, request *Request) Response 
 	credential := request.Credential()
 
 	if !credential.Valid() {
-		return ErrInvalidAccessKeyResponse
+		return ErrInvalidCredentialResponse
 	}
 
 	accessKey := credential.AccessKey()
 
 	if accessKey.AccessKeyID == "" {
-		return ErrInvalidAccessKeyResponse
+		return ErrInvalidCredentialResponse
 	}
 
 	// Authorize the request

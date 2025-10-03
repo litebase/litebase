@@ -4,8 +4,8 @@ import (
 	"errors"
 )
 
-var ErrInvalidAccessKey = errors.New("a valid access key is required to make this request")
-var ErrInvalidAccessKeyResponse = BadRequestResponse(ErrInvalidAccessKey)
+var ErrInvalidCredential = errors.New("a valid credential is required to make this request")
+var ErrInvalidCredentialResponse = BadRequestResponse(ErrInvalidCredential)
 var ErrValidDatabaseIdRequired = errors.New("a valid database ID is required")
 var ErrValidDatabaseIdRequiredResponse = BadRequestResponse(ErrValidDatabaseIdRequired)
 var ErrValidDatabaseNameRequired = errors.New("a valid database name is required")

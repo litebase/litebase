@@ -39,13 +39,7 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 	credential := request.Credential()
 
 	if !credential.Valid() {
-		return ErrInvalidAccessKeyResponse
-	}
-
-	accessKey := credential.AccessKey()
-
-	if accessKey == nil {
-		return ErrInvalidAccessKeyResponse
+		return ErrInvalidCredentialResponse
 	}
 
 	// Authorize the request
@@ -121,7 +115,7 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 			}
 
 			if transaction.Credential != nil && credential.CredentialID != transaction.Credential.CredentialID {
-				return ErrInvalidAccessKeyResponse
+				return ErrInvalidCredentialResponse
 			}
 
 			err = transaction.ResolveQuery(requestQuery, response)
