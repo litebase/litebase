@@ -2234,8 +2234,25 @@ func convertParameters(params []*ParameterInfo) []Parameter {
 		})
 	}
 
-	// Sort parameters lexicographically by name for consistent output
+	// Sort parameters by type first (path, query, header), then alphabetically by name
+	// This ensures a consistent and logical order
 	sort.Slice(result, func(i, j int) bool {
+		// Define priority order for parameter locations
+		priority := map[string]int{
+			"path":   1,
+			"query":  2,
+			"header": 3,
+		}
+		
+		priI := priority[result[i].In]
+		priJ := priority[result[j].In]
+		
+		// Sort by location type first
+		if priI != priJ {
+			return priI < priJ
+		}
+		
+		// Within the same location type, sort alphabetically by name
 		return result[i].Name < result[j].Name
 	})
 

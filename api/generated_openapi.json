@@ -1444,9 +1444,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -1454,9 +1454,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -1679,9 +1679,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -1689,9 +1689,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -1876,9 +1876,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -1886,9 +1886,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2004,9 +2004,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2014,9 +2014,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2177,9 +2177,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2187,9 +2187,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2253,9 +2253,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2263,9 +2263,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2391,9 +2391,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2401,9 +2401,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2510,9 +2510,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2520,9 +2520,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2604,9 +2604,9 @@
       },
       "parameters": [
         {
-          "name": "branchName",
+          "name": "databaseName",
           "in": "path",
-          "description": "The branchName parameter",
+          "description": "The databaseName parameter",
           "required": true,
           "schema": {
             "type": "string",
@@ -2614,9 +2614,9 @@
           }
         },
         {
-          "name": "databaseName",
+          "name": "branchName",
           "in": "path",
-          "description": "The databaseName parameter",
+          "description": "The branchName parameter",
           "required": true,
           "schema": {
             "type": "string",
