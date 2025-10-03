@@ -51,12 +51,6 @@ func QueryStreamControllerStore(ctx context.Context, request *Request) Response 
 		return ErrInvalidCredentialResponse
 	}
 
-	accessKey := credential.AccessKey()
-
-	if accessKey.AccessKeyID == "" {
-		return ErrInvalidCredentialResponse
-	}
-
 	// Authorize the request
 	err := request.Authorize(
 		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
