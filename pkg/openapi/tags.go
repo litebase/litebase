@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -24,6 +25,11 @@ func GenerateDynamicTags(usedTags map[string]bool) []Tag {
 			Description: generateTagDescription(tagName),
 		})
 	}
+
+	// Sort tags lexicographically by name for consistent output
+	sort.Slice(tags, func(i, j int) bool {
+		return tags[i].Name < tags[j].Name
+	})
 
 	return tags
 }

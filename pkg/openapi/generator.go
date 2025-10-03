@@ -1763,6 +1763,7 @@ func (g *Generator) analyzeResponseLiteral(lit *ast.CompositeLit, analysis *Meth
 	if ident, ok := lit.Type.(*ast.Ident); ok && ident.Name == "Response" {
 		statusCode := 200
 		var bodySchema *Schema
+		var headers map[string]*Schema
 
 		for _, elt := range lit.Elts {
 			if kv, ok := elt.(*ast.KeyValueExpr); ok {
@@ -1777,6 +1778,9 @@ func (g *Generator) analyzeResponseLiteral(lit *ast.CompositeLit, analysis *Meth
 					case "Body":
 						// Extract schema from the Body field
 						bodySchema = g.extractSchemaFromResponseBody(kv.Value, analysis)
+					case "Headers":
+						// Extract headers from the Headers field
+						headers = g.extractHeadersFromResponseHeaders(kv.Value)
 					}
 				}
 			}
@@ -1790,6 +1794,7 @@ func (g *Generator) analyzeResponseLiteral(lit *ast.CompositeLit, analysis *Meth
 				Description: getDefaultResponseDescription(statusCode),
 				Type:        "custom",
 				Schema:      bodySchema,
+				Headers:     headers,
 			}
 		}
 	}
@@ -1834,6 +1839,40 @@ func (g *Generator) extractSchemaFromResponseBody(expr ast.Expr, analysis *Metho
 	}
 
 	return g.extractSchemaFromExpression(expr)
+}
+
+// extractHeadersFromResponseHeaders extracts headers from Response.Headers field
+func (g *Generator) extractHeadersFromResponseHeaders(expr ast.Expr) map[string]*Schema {
+	headers := make(map[string]*Schema)
+
+	// Handle map[string]string{...} literals
+	if compositeLit, ok := expr.(*ast.CompositeLit); ok {
+		for _, elt := range compositeLit.Elts {
+			if kv, ok := elt.(*ast.KeyValueExpr); ok {
+				// Extract header name
+				if keyLit, ok := kv.Key.(*ast.BasicLit); ok && keyLit.Kind == token.STRING {
+					headerName := strings.Trim(keyLit.Value, "\"")
+
+					// Create a string schema for the header value
+					// In the future, we could extract the actual value for documentation
+					headerSchema := &Schema{
+						Type:        "string",
+						Description: fmt.Sprintf("%s header", headerName),
+					}
+
+					// If the value is a literal string, add it as an example
+					if valueLit, ok := kv.Value.(*ast.BasicLit); ok && valueLit.Kind == token.STRING {
+						headerValue := strings.Trim(valueLit.Value, "\"")
+						headerSchema.Example = headerValue
+					}
+
+					headers[headerName] = headerSchema
+				}
+			}
+		}
+	}
+
+	return headers
 }
 
 // analyzeMethodSecurity analyzes authorization calls to determine security requirements
@@ -2070,11 +2109,16 @@ func (g *Generator) GenerateOpenAPIFromAnalysis(analysis *ControllerAnalysis) ma
 			paths[path] = make(map[string]*Operation)
 		}
 
+		// Sort tags lexicographically for consistent output
+		tags := make([]string, len(methodAnalysis.Tags))
+		copy(tags, methodAnalysis.Tags)
+		sort.Strings(tags)
+
 		operation := &Operation{
 			Summary:     generateOperationSummary(methodAnalysis),
 			Description: methodAnalysis.Description,
 			OperationID: generateOperationID(methodAnalysis),
-			Tags:        methodAnalysis.Tags,
+			Tags:        tags,
 			Parameters:  convertParameters(methodAnalysis.Parameters),
 			Responses:   convertResponses(methodAnalysis.Responses),
 		}
@@ -2190,6 +2234,11 @@ func convertParameters(params []*ParameterInfo) []Parameter {
 		})
 	}
 
+	// Sort parameters lexicographically by name for consistent output
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+
 	return result
 }
 
@@ -2264,15 +2313,36 @@ func convertResponses(responses map[string]*ResponseInfo) map[string]Response {
 			}
 		}
 
-		result[code] = Response{
+		// Build the response
+		response := Response{
 			Description: resp.Description,
 			Headers:     convertHeaders(resp.Headers),
-			Content: map[string]MediaType{
-				"application/json": {
+		}
+
+		// Only include content for non-protocol-upgrade responses
+		// HTTP 101 (Switching Protocols) should not have a content body
+		if resp.StatusCode != 101 {
+			// Determine content type from headers, default to application/json
+			contentType := "application/json"
+			if resp.Headers != nil {
+				if ctHeader, hasContentType := resp.Headers["Content-Type"]; hasContentType {
+					// Use the example value if available, otherwise use the header description
+					if ctHeader.Example != nil {
+						if ct, ok := ctHeader.Example.(string); ok {
+							contentType = ct
+						}
+					}
+				}
+			}
+
+			response.Content = map[string]MediaType{
+				contentType: {
 					Schema: schema,
 				},
-			},
+			}
 		}
+
+		result[code] = response
 	}
 
 	return result
@@ -2292,6 +2362,7 @@ func extractMetaProperties(resp *ResponseInfo) map[string]*Schema {
 }
 
 // convertHeaders converts ResponseInfo headers to OpenAPI headers
+// Content-Type is excluded as it's used to determine the media type in the content field
 func convertHeaders(headers map[string]*Schema) map[string]Header {
 	if len(headers) == 0 {
 		return nil
@@ -2300,11 +2371,20 @@ func convertHeaders(headers map[string]*Schema) map[string]Header {
 	result := make(map[string]Header)
 
 	for headerName, headerSchema := range headers {
+		// Skip Content-Type header as it's represented in the content media type
+		if headerName == "Content-Type" {
+			continue
+		}
+
 		result[headerName] = Header{
 			Description: headerSchema.Description,
 			Required:    false, // Headers are typically optional
 			Schema:      headerSchema,
 		}
+	}
+
+	if len(result) == 0 {
+		return nil
 	}
 
 	return result
