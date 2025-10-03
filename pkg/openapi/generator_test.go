@@ -1277,8 +1277,8 @@ func TestHTTP101ResponseHeaders(t *testing.T) {
 	// Find the QueryStreamControllerStore function
 	var storeMethod *MethodAnalysis
 	for _, method := range analysis.Methods {
-		if strings.Contains(method.Name, "QueryStreamControllerStore") || 
-		   (method.HTTPMethod == "POST" && strings.Contains(method.Path, "/query/stream")) {
+		if strings.Contains(method.Name, "QueryStreamControllerStore") ||
+			(method.HTTPMethod == "POST" && strings.Contains(method.Path, "/query/stream")) {
 			storeMethod = method
 			break
 		}
