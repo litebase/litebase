@@ -2243,15 +2243,15 @@ func convertParameters(params []*ParameterInfo) []Parameter {
 			"query":  2,
 			"header": 3,
 		}
-		
+
 		priI := priority[result[i].In]
 		priJ := priority[result[j].In]
-		
+
 		// Sort by location type first
 		if priI != priJ {
 			return priI < priJ
 		}
-		
+
 		// Within the same location type, sort alphabetically by name
 		return result[i].Name < result[j].Name
 	})
