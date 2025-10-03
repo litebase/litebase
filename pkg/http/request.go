@@ -136,13 +136,9 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 
 	switch credential.Type() {
 	case auth.CredentialTypeBasicAuth:
-		username, password, ok := r.BaseRequest.BasicAuth()
+		username, _, ok := r.BaseRequest.BasicAuth()
 
 		if ok {
-			if !r.cluster.Auth.UserManager.Authenticate(username, password) {
-				return fmt.Errorf("invalid username or password")
-			}
-
 			user, err := r.cluster.Auth.UserManager.Get(username)
 
 			if err != nil {
