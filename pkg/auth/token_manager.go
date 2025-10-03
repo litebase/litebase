@@ -2,11 +2,11 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type TokenManager struct {
@@ -86,14 +86,11 @@ func (tm *TokenManager) Create(description string, statements []Statement) (*Tok
 
 	tokenSecret := tm.GenerateTokenSecret()
 
-	// Bcrypt the secret
-	tokenHash, err := bcrypt.GenerateFromPassword([]byte(tokenSecret), bcrypt.DefaultCost)
+	// Hash with SHA256
+	tokenHashBytes := sha256.Sum256([]byte(tokenSecret))
+	tokenHash := hex.EncodeToString(tokenHashBytes[:])
 
-	if err != nil {
-		return nil, err
-	}
-
-	token := NewToken(tm, tokenID, tokenSecret, string(tokenHash), description, statements)
+	token := NewToken(tm, tokenID, tokenSecret, tokenHash, description, statements)
 
 	if err := tm.tokenStorage.Store(token); err != nil {
 		return nil, err
@@ -106,7 +103,7 @@ func (tm *TokenManager) Create(description string, statements []Statement) (*Tok
 func (tm *TokenManager) GenerateTokenSecret() string {
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-	result := make([]byte, 32)
+	result := make([]byte, 48)
 	for i := range result {
 		randomBytes := make([]byte, 1)
 
@@ -137,7 +134,7 @@ func (tm *TokenManager) GenerateTokenID() (string, error) {
 
 	// Generate a random token ID, a-zA-Z1-9
 	for {
-		result := make([]byte, 32)
+		result := make([]byte, 16)
 
 		for i := range result {
 			randomBytes := make([]byte, 1)

@@ -39,7 +39,7 @@ func (store *MapSecretsStore) Forget(key string) {
 	delete(store.data, key)
 }
 
-func (store *MapSecretsStore) Get(key string, cacheItemType interface{}) interface{} {
+func (store *MapSecretsStore) Get(key string, cacheItemType any) any {
 	store.mutex.RLock()
 	secret, ok := store.data[key]
 	store.mutex.RUnlock()
@@ -60,7 +60,7 @@ func (store *MapSecretsStore) Get(key string, cacheItemType interface{}) interfa
 	return cacheItemType
 }
 
-func (store *MapSecretsStore) Put(key string, value interface{}, seconds time.Duration) bool {
+func (store *MapSecretsStore) Put(key string, value any, seconds time.Duration) bool {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 

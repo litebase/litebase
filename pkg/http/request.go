@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -152,7 +151,6 @@ func (r *Request) Authorize(resources []string, actions []auth.Privilege) error 
 			return fmt.Errorf("user is not authorized to perform this request")
 		}
 	case auth.CredentialTypeToken:
-		log.Println("Authorizing request with token")
 		token := r.Credential().Token()
 
 		if token == nil {
