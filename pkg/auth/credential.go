@@ -79,8 +79,8 @@ func CaptureCredential(auth *Auth, authorizationHeader string) *Credential {
 	}
 
 	if scheme == "Bearer" {
-		//tokenID = lbtk_ + 32 characters
-		tokenIDLength := len("lbtk_") + 32
+		//tokenID = lbtk_ + 16 characters
+		tokenIDLength := len("lbtk_") + 16
 		tokenID := credentialValue[0:tokenIDLength]
 		tokenSecret := strings.TrimSpace(credentialValue[tokenIDLength:])
 

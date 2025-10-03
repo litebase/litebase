@@ -1,22 +1,23 @@
 package auth
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type Token struct {
-	ID          int64       `json:"-"`
-	TokenID     string      `json:"-"`
-	TokenHash   string      `json:"-"`
-	TokenSecret string      `json:"-"`
-	Statements  []Statement `json:"-"`
-	Description string      `json:"-"`
-	CreatedAt   time.Time   `json:"-"`
-	UpdatedAt   time.Time   `json:"-"`
+	ID          int64       `json:"id"`
+	TokenID     string      `json:"token_id"`
+	TokenHash   string      `json:"token_hash"`
+	TokenSecret string      `json:"token_secret,omitempty"`
+	Statements  []Statement `json:"statements"`
+	Description string      `json:"description"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
 
 	TokenManager *TokenManager `json:"-"`
 }
@@ -54,12 +55,11 @@ func NewToken(
 
 // Authenticate the token using the provided secret.
 func (t *Token) Authenticate(secret string) bool {
-	// Use bcrypt to compare the token hash
-	if bcrypt.CompareHashAndPassword([]byte(t.Hash()), []byte(secret)) != nil {
-		return false
-	}
+	// Use sha256 to hash the provided secret and compare with stored hash
+	hashedSecret := sha256.Sum256([]byte(secret))
+	hashedSecretHex := hex.EncodeToString(hashedSecret[:])
 
-	return true
+	return subtle.ConstantTimeCompare([]byte(t.TokenHash), []byte(hashedSecretHex)) == 1
 }
 
 // Delete a token.
