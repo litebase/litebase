@@ -1261,3 +1261,117 @@ func shouldPreferSchema(new, existing *Schema) bool {
 
 	return false
 }
+
+// TestHTTP101ResponseHeaders verifies that HTTP 101 Switching Protocols responses
+// include the appropriate protocol upgrade headers
+func TestHTTP101ResponseHeaders(t *testing.T) {
+	analyzer := NewGenerator()
+
+	// Analyze the query stream controller which uses HTTP 101
+	analysis, err := analyzer.AnalyzeController("../http/query_stream_controller.go", "QueryStreamController")
+
+	if err != nil {
+		t.Fatalf("Failed to analyze query stream controller: %v", err)
+	}
+
+	// Find the QueryStreamControllerStore function
+	var storeMethod *MethodAnalysis
+	for _, method := range analysis.Methods {
+		if strings.Contains(method.Name, "QueryStreamControllerStore") ||
+			(method.HTTPMethod == "POST" && strings.Contains(method.Path, "/query/stream")) {
+			storeMethod = method
+			break
+		}
+	}
+
+	if storeMethod == nil {
+		// List all methods for debugging
+		t.Log("Available methods:")
+		for _, method := range analysis.Methods {
+			t.Logf("  - %s: %s %s", method.Name, method.HTTPMethod, method.Path)
+		}
+		t.Fatal("QueryStreamControllerStore method not found")
+	}
+
+	// Verify the 101 response exists
+	response101, exists := storeMethod.Responses["101"]
+	if !exists {
+		t.Fatal("Expected 101 response not found")
+	}
+
+	// Verify headers are present
+	if len(response101.Headers) == 0 {
+		t.Fatal("Expected headers in 101 response, but none were found")
+	}
+
+	// Verify the Upgrade header
+	upgradeHeader, hasUpgrade := response101.Headers["Upgrade"]
+	if !hasUpgrade {
+		t.Error("Expected 'Upgrade' header in 101 response")
+	} else {
+		if upgradeHeader.Type != "string" {
+			t.Errorf("Expected Upgrade header type to be 'string', got '%s'", upgradeHeader.Type)
+		}
+		if upgradeHeader.Example != "lqtp" {
+			t.Errorf("Expected Upgrade header example to be 'lqtp', got '%v'", upgradeHeader.Example)
+		}
+	}
+
+	// Verify the Connection header
+	connectionHeader, hasConnection := response101.Headers["Connection"]
+	if !hasConnection {
+		t.Error("Expected 'Connection' header in 101 response")
+	} else {
+		if connectionHeader.Type != "string" {
+			t.Errorf("Expected Connection header type to be 'string', got '%s'", connectionHeader.Type)
+		}
+		if connectionHeader.Example != "Upgrade" {
+			t.Errorf("Expected Connection header example to be 'Upgrade', got '%v'", connectionHeader.Example)
+		}
+	}
+
+	t.Logf("✓ HTTP 101 response validated with %d headers: Upgrade=%v, Connection=%v",
+		len(response101.Headers),
+		upgradeHeader.Example,
+		connectionHeader.Example)
+}
+
+// TestContentTypeExtraction verifies that Content-Type headers are extracted
+// and used to determine media type, not included in response headers
+func TestContentTypeExtraction(t *testing.T) {
+	analyzer := NewGenerator()
+
+	// Analyze a controller that returns JSON responses
+	analysis, err := analyzer.AnalyzeController("../http/user_controller.go", "UserController")
+
+	if err != nil {
+		t.Fatalf("Failed to analyze user controller: %v", err)
+	}
+
+	// Find a method that should have a 200 response
+	var method *MethodAnalysis
+	for _, m := range analysis.Methods {
+		if m.HTTPMethod == "GET" && len(m.Responses) > 0 {
+			if _, has200 := m.Responses["200"]; has200 {
+				method = m
+				break
+			}
+		}
+	}
+
+	if method == nil {
+		t.Fatal("No suitable method with 200 response found")
+	}
+
+	response200 := method.Responses["200"]
+
+	// Verify that Content-Type is NOT in the headers (it should be filtered out)
+	if response200.Headers != nil {
+		if _, hasContentType := response200.Headers["Content-Type"]; hasContentType {
+			t.Error("Content-Type should not be in response headers - it should be in the content media type")
+		}
+	}
+
+	t.Logf("✓ Content-Type correctly excluded from response headers for %s %s",
+		method.HTTPMethod, method.Path)
+}

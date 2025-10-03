@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/litebase/litebase/pkg/openapi"
@@ -279,6 +280,15 @@ func convertToPathItems(paths map[string]map[string]*openapi.Operation) map[stri
 		for _, param := range pathParameters {
 			pathItem.Parameters = append(pathItem.Parameters, param)
 		}
+
+		// Sort path-level parameters by their position in the path
+		// This ensures parameters appear in the order they're defined in the path
+		sort.Slice(pathItem.Parameters, func(i, j int) bool {
+			// Find the position of each parameter in the path string
+			posI := strings.Index(path, "{"+pathItem.Parameters[i].Name+"}")
+			posJ := strings.Index(path, "{"+pathItem.Parameters[j].Name+"}")
+			return posI < posJ
+		})
 
 		// Second pass: assign operations to path item
 		for method, operation := range methods {
