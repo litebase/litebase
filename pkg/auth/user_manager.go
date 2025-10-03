@@ -125,16 +125,28 @@ func (u *UserManager) Authenticate(username, password string) bool {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
-	for _, user := range u.users {
-		if user.Username == username {
-			err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if _, loaded := u.users[username]; !loaded {
+		u.users, _ = u.allUsers()
 
-			if err != nil {
-				return false
-			}
-
-			return true // Password matches
+		if _, loaded := u.users[username]; !loaded {
+			return false
 		}
+	}
+
+	user := u.users[username]
+
+	if user == nil {
+		return false
+	}
+
+	if user.Username == username {
+		err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+
+		if err != nil {
+			return false
+		}
+
+		return true // Password matches
 	}
 
 	return false
