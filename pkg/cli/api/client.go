@@ -254,6 +254,10 @@ func (c *Client) clusterURL() (*url.URL, error) {
 		return nil, err
 	}
 
+	if profile == nil {
+		return nil, config.ErrorCredentialsNotSet
+	}
+
 	if profile.Cluster == "" {
 		return nil, fmt.Errorf("cluster URL not found")
 	}

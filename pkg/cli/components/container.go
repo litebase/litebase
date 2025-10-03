@@ -24,14 +24,9 @@ func Container(content ...string) string {
 		}
 	}
 
-	// Add bottom spacing
-	parts = append(parts, "")
-
 	// Join with newlines to create consistent spacing
-	return lipgloss.NewStyle().MarginBottom(1).Render(
-		lipgloss.JoinVertical(
-			lipgloss.Left,
-			parts...,
-		),
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		parts...,
 	) + "\n"
 }

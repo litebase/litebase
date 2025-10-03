@@ -91,6 +91,5 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 		)
 
 	return huh.NewForm(groups...).
-		WithHeight(20).
 		WithTheme(theme)
 }

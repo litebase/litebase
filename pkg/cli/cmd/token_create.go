@@ -157,6 +157,10 @@ func NewTokenCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			rows := []components.CardRow{
 				{
+					Key:   "Token ID",
+					Value: res["data"].(map[string]any)["token_id"].(string),
+				},
+				{
 					Key:   "Token",
 					Value: res["data"].(map[string]any)["token"].(string),
 				},

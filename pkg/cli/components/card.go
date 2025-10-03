@@ -95,11 +95,10 @@ func (c *Card) Render() string {
 	}
 
 	if c.Description != "" {
-		description := c.Description
-
 		content += lipgloss.NewStyle().
 			MarginTop(2).
-			Render(description)
+			Width(c.Width - 4).
+			Render(c.Description)
 	}
 
 	rows := [][]string{}
@@ -113,9 +112,9 @@ func (c *Card) Render() string {
 		StyleFunc(func(row, col int) lipgloss.Style {
 			switch col {
 			case 0:
-				return lipgloss.NewStyle().MarginTop(1).Bold(true)
+				return lipgloss.NewStyle().Bold(true)
 			default:
-				return lipgloss.NewStyle().MarginTop(1)
+				return lipgloss.NewStyle()
 			}
 		}).
 		Rows(rows...)
