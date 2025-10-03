@@ -2,7 +2,7 @@ name: OpenAPI Generator
 
 on:
     push:
-        branches: [develop]
+        branches: [main]
         paths:
             - "pkg/http/**"
             - "cmd/generate_open_api_spec/**"
