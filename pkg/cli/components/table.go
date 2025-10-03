@@ -156,7 +156,7 @@ func NewTable(
 	var height int
 
 	if term.IsTerminal(os.Stdout.Fd()) {
-		height = min(10, len(rows))
+		height = min(3, len(rows))
 	} else {
 		height = len(rows) + 3 // Reserve space for headers
 	}

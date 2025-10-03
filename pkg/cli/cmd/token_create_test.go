@@ -26,6 +26,10 @@ func TestTokenCreate(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
+		if cli.DoesNotSee("Token ID") {
+			t.Error("expected output to contain 'Token ID'")
+		}
+
 		if cli.DoesNotSee("Token") {
 			t.Error("expected output to contain 'Token'")
 		}
