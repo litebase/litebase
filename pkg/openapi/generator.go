@@ -2703,6 +2703,7 @@ func (g *Generator) findTypeDefinition(typeName string) *TypeInfo {
 			"http":     "pkg/http",
 			"config":   "pkg/config",
 			"database": "pkg/database",
+			"sqlite3":  "pkg/sqlite3",
 		}
 
 		if packagePath, exists := packagePaths[packageName]; exists {
@@ -3028,6 +3029,16 @@ func (g *Generator) applyValidationToSchema(fieldInfo *FieldInfo, schema *Schema
 		case "max":
 			if maxVal, err := strconv.Atoi(value); err == nil {
 				_ = maxVal // Use the value as needed
+			}
+		case "oneof":
+			// Handle oneof validation - convert to enum
+			// The value will be like "TEXT INTEGER FLOAT BLOB NULL"
+			enumValues := strings.Fields(value)
+			if len(enumValues) > 0 {
+				schema.Enum = make([]any, len(enumValues))
+				for i, v := range enumValues {
+					schema.Enum[i] = v
+				}
 			}
 		}
 	}

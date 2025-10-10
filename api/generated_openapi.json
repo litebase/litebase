@@ -4213,7 +4213,28 @@
         ]
       },
       "StatementParameter": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "INTEGER",
+              "FLOAT",
+              "BLOB",
+              "NULL"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/any"
+          }
+        },
+        "required": [
+          "type"
+        ]
       },
       "SuccessResponse": {
         "type": "object",
@@ -4259,6 +4280,9 @@
             "example": "error"
           }
         }
+      },
+      "any": {
+        "type": "object"
       }
     },
     "securitySchemes": {
