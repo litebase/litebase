@@ -6,6 +6,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
 func TestQueryController(t *testing.T) {
@@ -187,7 +188,7 @@ func TestQueryControllerMultipleQueries(t *testing.T) {
 			t.Fatalf("Expected 3 responses, got %d", len(responseData))
 		}
 
-		if responseData[0].(map[string]any)["rows"] != nil {
+		if len(responseData[0].(map[string]any)["rows"].([]any)) != 0 {
 			t.Fatalf("Expected no rows for CREATE statement, got %v", responseData[0])
 		}
 
@@ -479,15 +480,28 @@ func TestQueryControllerColumnsInResponse(t *testing.T) {
 			t.Fatalf("Expected columns to be a slice, got %T", columns)
 		}
 
-		expectedColumns := []string{"user_id", "username", "email"}
+		expectedColumns := []sqlite3.ColumnDefinition{
+			{ColumnName: "user_id", ColumnType: sqlite3.ColumnTypeInteger},
+			{ColumnName: "username", ColumnType: sqlite3.ColumnTypeText},
+			{ColumnName: "email", ColumnType: sqlite3.ColumnTypeText},
+		}
 
 		if len(columnsList) != len(expectedColumns) {
 			t.Fatalf("Expected %d columns, got %d", len(expectedColumns), len(columnsList))
 		}
 
 		for i, expectedCol := range expectedColumns {
-			if columnsList[i] != expectedCol {
-				t.Fatalf("Expected column %d to be '%s', got '%v'", i, expectedCol, columnsList[i])
+			colDef, ok := columnsList[i].(map[string]any)
+			if !ok {
+				t.Fatalf("Expected column definition to be a map, got %T", columnsList[i])
+			}
+
+			if colDef["name"] != expectedCol.ColumnName {
+				t.Fatalf("Expected column %d name to be '%s', got '%v'", i, expectedCol.ColumnName, colDef["name"])
+			}
+
+			if int(colDef["type"].(float64)) != int(expectedCol.ColumnType) {
+				t.Fatalf("Expected column %d type to be '%d', got '%v'", i, expectedCol.ColumnType, colDef["type"])
 			}
 		}
 
@@ -683,15 +697,29 @@ func TestQueryControllerResponseStructureConsistency(t *testing.T) {
 						}
 
 						// Verify columns match expected structure
-						expectedColumns := []string{"id", "name", "score"}
+						expectedColumns := []sqlite3.ColumnDefinition{
+							{ColumnName: "id", ColumnType: sqlite3.ColumnTypeInteger},
+							{ColumnName: "name", ColumnType: sqlite3.ColumnTypeText},
+							{ColumnName: "score", ColumnType: sqlite3.ColumnTypeFloat},
+						}
 
 						if len(columnsArray) != len(expectedColumns) {
 							t.Errorf("Expected %d columns, got %d", len(expectedColumns), len(columnsArray))
 						}
 
 						for i, expectedCol := range expectedColumns {
-							if columnsArray[i] != expectedCol {
-								t.Errorf("Expected column %d to be '%s', got '%v'", i, expectedCol, columnsArray[i])
+							colDef, ok := columnsArray[i].(map[string]any)
+
+							if !ok {
+								t.Fatalf("Expected column definition to be a map, got %T", columnsArray[i])
+							}
+
+							if colDef["name"] != expectedCol.ColumnName {
+								t.Fatalf("Expected column %d name to be '%s', got '%v'", i, expectedCol.ColumnName, colDef["name"])
+							}
+
+							if int(colDef["type"].(float64)) != int(expectedCol.ColumnType) {
+								t.Fatalf("Expected column %d type to be '%d', got '%v'", i, expectedCol.ColumnType, colDef["type"])
 							}
 						}
 					}
@@ -811,15 +839,29 @@ func TestQueryControllerVsStreamControllerConsistency(t *testing.T) {
 			t.Fatalf("Expected columns to be an array, got %T", columns)
 		}
 
-		expectedColumns := []string{"id", "name", "active"}
+		expectedColumns := []sqlite3.ColumnDefinition{
+			{ColumnName: "id", ColumnType: sqlite3.ColumnTypeInteger},
+			{ColumnName: "name", ColumnType: sqlite3.ColumnTypeText},
+			{ColumnName: "active", ColumnType: sqlite3.ColumnTypeInteger},
+		}
 
 		if len(columnsArray) != len(expectedColumns) {
 			t.Fatalf("Expected %d columns, got %d", len(expectedColumns), len(columnsArray))
 		}
 
 		for i, expectedCol := range expectedColumns {
-			if columnsArray[i] != expectedCol {
-				t.Errorf("Expected column %d to be '%s', got '%v'", i, expectedCol, columnsArray[i])
+			colDef, ok := columnsArray[i].(map[string]any)
+
+			if !ok {
+				t.Fatalf("Expected column definition to be a map, got %T", columnsArray[i])
+			}
+
+			if colDef["name"] != expectedCol.ColumnName {
+				t.Fatalf("Expected column %d name to be '%s', got '%v'", i, expectedCol.ColumnName, colDef["name"])
+			}
+
+			if int(colDef["type"].(float64)) != int(expectedCol.ColumnType) {
+				t.Fatalf("Expected column %d type to be '%d', got '%v'", i, expectedCol.ColumnType, colDef["type"])
 			}
 		}
 
