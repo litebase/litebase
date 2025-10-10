@@ -1,59 +1,60 @@
 name: OpenAPI Generator
 
 on:
-    push:
-        branches: [main]
-        paths:
-            - "pkg/http/**"
-            - "cmd/generate_open_api_spec/**"
-            - "pkg/openapi/**"
+  push:
+    branches: [main]
+    paths:
+      - "pkg/http/**"
+      - "cmd/generate_open_api_spec/**"
+      - "pkg/openapi/**"
+  workflow_dispatch:
 
 permissions:
-    contents: write
-    pull-requests: write
+  contents: write
+  pull-requests: write
 
 jobs:
-    generate-openapi:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-              with:
-                  token: ${{ secrets.GITHUB_TOKEN }}
-                  fetch-depth: 0
+  generate-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-            - name: Setup Go
-              uses: actions/setup-go@v5
-              with:
-                  go-version: 1.25
-                  cache-dependency-path: go.sum
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+          cache-dependency-path: go.sum
 
-            - name: Generate OpenAPI specification
-              run: |
-                  echo "Generating OpenAPI specification..."
-                  go run cmd/generate_open_api_spec/main.go
+      - name: Generate OpenAPI specification
+        run: |
+          echo "Generating OpenAPI specification..."
+          go run cmd/generate_open_api_spec/main.go
 
-            - name: Check for changes
-              id: verify-changed-files
-              run: |
-                  if [ -n "$(git status --porcelain)" ]; then
-                    echo "changed=true" >> $GITHUB_OUTPUT
-                    echo "OpenAPI specification has been updated"
-                    git status --porcelain
-                  else
-                    echo "changed=false" >> $GITHUB_OUTPUT
-                    echo "No changes to OpenAPI specification"
-                  fi
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "OpenAPI specification has been updated"
+            git status --porcelain
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes to OpenAPI specification"
+          fi
 
-            - name: Commit updated OpenAPI spec
-              if: steps.verify-changed-files.outputs.changed == 'true'
-              run: |
-                  git config --local user.email "action@github.com"
-                  git config --local user.name "GitHub Action"
-                  git add api/generated_openapi.json
-                  git commit -m "Auto-update OpenAPI specification
+      - name: Commit updated OpenAPI spec
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add api/generated_openapi.json
+          git commit -m "Auto-update OpenAPI specification
 
-                  Generated from changes in pkg/http packages.
+          Generated from changes in pkg/http packages.
 
-                  Co-authored-by: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
-                  git push origin HEAD:${{ github.head_ref }}
+          Co-authored-by: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
+          git push
