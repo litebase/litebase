@@ -61,5 +61,17 @@ func GetCommonSchemas() map[string]*Schema {
 				},
 			},
 		},
+		"any": {
+			Description: "A dynamic value that can be a string, number, boolean, null, array, or object. The actual type should be inferred from the associated ColumnDefinition type field.",
+			OneOf: []*Schema{
+				{Type: "string"},
+				{Type: "number"},
+				{Type: "integer"},
+				{Type: "boolean"},
+				{Type: "array", Items: &Schema{}},
+				{Type: "object"},
+				{Type: "null"},
+			},
+		},
 	}
 }

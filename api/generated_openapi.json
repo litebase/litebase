@@ -2075,7 +2075,7 @@
                           "columns": {
                             "type": "array",
                             "items": {
-                              "type": "string"
+                              "$ref": "#/components/schemas/ColumnDefinition"
                             }
                           },
                           "id": {
@@ -2093,7 +2093,7 @@
                           "rows": {
                             "type": "array",
                             "items": {
-                              "$ref": "#/components/schemas/Column"
+                              "$ref": "#/components/schemas/ColumnValue"
                             }
                           },
                           "transaction_id": {
@@ -4032,8 +4032,22 @@
           }
         }
       },
-      "Column": {
-        "type": "object"
+      "ColumnDefinition": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ColumnType"
+          }
+        }
+      },
+      "ColumnType": {
+        "type": "integer"
+      },
+      "ColumnValue": {
+        "description": "Type with custom JSON marshaling - actual type determined at runtime"
       },
       "DatabaseBackupRestorePoint": {
         "type": "object",
@@ -4282,7 +4296,31 @@
         }
       },
       "any": {
-        "type": "object"
+        "description": "A dynamic value that can be a string, number, boolean, null, array, or object. The actual type should be inferred from the associated ColumnDefinition type field.",
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "array",
+            "items": {}
+          },
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "securitySchemes": {

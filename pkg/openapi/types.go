@@ -74,6 +74,9 @@ type Schema struct {
 	Example     any                `json:"example,omitempty"`
 	Enum        []any              `json:"enum,omitempty"`
 	Ref         string             `json:"$ref,omitempty"`
+	OneOf       []*Schema          `json:"oneOf,omitempty"`
+	AnyOf       []*Schema          `json:"anyOf,omitempty"`
+	AllOf       []*Schema          `json:"allOf,omitempty"`
 }
 
 // SecurityRequirement represents an OpenAPI security requirement

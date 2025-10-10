@@ -2487,6 +2487,13 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 }
 
 func (g *Generator) convertTypeInfoToSchema(typeInfo *TypeInfo) *Schema {
+	// Check if this is a type with custom JSON marshaling that we should handle specially
+	if g.typeHasCustomMarshaling(typeInfo.Name) {
+		return &Schema{
+			Description: typeInfo.Description,
+		}
+	}
+	
 	schema := &Schema{
 		Type:        typeInfo.Type,
 		Description: typeInfo.Description,
@@ -2516,6 +2523,23 @@ func (g *Generator) convertTypeInfoToSchema(typeInfo *TypeInfo) *Schema {
 	schema.Required = required
 
 	return schema
+}
+
+// typeHasCustomMarshaling checks if a type name indicates it has custom JSON marshaling
+func (g *Generator) typeHasCustomMarshaling(typeName string) bool {
+	// Types that have custom MarshalJSON methods that change their JSON representation
+	customMarshalingTypes := []string{
+		"ColumnValue",
+		"Column",
+	}
+	
+	for _, customType := range customMarshalingTypes {
+		if strings.HasSuffix(typeName, customType) {
+			return true
+		}
+	}
+	
+	return false
 }
 
 // convertFieldToSchema converts a field info to an OpenAPI schema
@@ -2651,6 +2675,16 @@ func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
 			return &Schema{Ref: "#/components/schemas/" + schemaKey}
 		}
 
+		// Check if this is a type with custom marshaling before defaulting to object
+		if g.typeHasCustomMarshaling(typeName) {
+			schema := &Schema{
+				Description: "Type with custom JSON marshaling - actual type determined at runtime",
+			}
+			g.schemaRegistry[typeName] = schema
+			schemaKey := g.getSchemaKey(typeName)
+			return &Schema{Ref: "#/components/schemas/" + schemaKey}
+		}
+
 		// If we can't find the type definition, return a generic object schema
 		schema := &Schema{Type: "object"}
 		g.schemaRegistry[typeName] = schema
@@ -2770,7 +2804,34 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 
 	switch t := typeSpec.Type.(type) {
 	case *ast.StructType:
-		// Handle struct types
+		// Check if this type has a custom MarshalJSON method by looking for it in the package
+		hasCustomMarshaling := g.hasCustomMarshalJSON(packagePath, typeSpec.Name.Name)
+		
+		if hasCustomMarshaling {
+			// For types with custom JSON marshaling, create an empty schema
+			// since we can't determine the actual runtime type from static analysis
+			schema := &Schema{
+				Description: "Type with custom JSON marshaling - actual type determined at runtime",
+			}
+			
+			// Add description from comments if available
+			if docGroup != nil {
+				desc := strings.TrimSpace(docGroup.Text())
+				if desc != "" {
+					schema.Description = desc
+				}
+			} else if typeSpec.Doc != nil {
+				desc := strings.TrimSpace(typeSpec.Doc.Text())
+				if desc != "" {
+					schema.Description = desc
+				}
+			}
+			
+			g.schemaRegistry[fullTypeName] = schema
+			return nil // Return nil to indicate this was handled as a schema
+		}
+		
+		// Handle struct types normally
 		typeInfo := &TypeInfo{
 			Name:   typeSpec.Name.Name,
 			Type:   "object",
@@ -2801,7 +2862,7 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 		return typeInfo
 
 	case *ast.Ident:
-		// Handle type aliases like "type StatementEffect string"
+		// Handle type aliases like "type StatementEffect string" or "type ColumnType int"
 		if t.Name == "string" {
 			// This is a string-based type, create a schema for it
 			schema := &Schema{
@@ -2822,6 +2883,35 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 				schema.Enum = make([]any, len(enumValues))
 
 				for i, val := range enumValues {
+					schema.Enum[i] = val
+				}
+			}
+
+			// Register the schema directly
+			g.schemaRegistry[fullTypeName] = schema
+
+			return nil // Return nil to indicate this was handled as a schema
+		} else if t.Name == "int" {
+			// This is an int-based type (like ColumnType), create a schema for it
+			schema := &Schema{
+				Type: "integer",
+			}
+
+			// Add description from comments
+			if docGroup != nil {
+				schema.Description = strings.TrimSpace(docGroup.Text())
+			} else if typeSpec.Doc != nil {
+				schema.Description = strings.TrimSpace(typeSpec.Doc.Text())
+			}
+
+			// Try to find enum values by looking for constants of this type
+			enumValues := g.findEnumValuesInPackage(packagePath, typeSpec.Name.Name)
+
+			if len(enumValues) > 0 {
+				schema.Enum = make([]any, len(enumValues))
+
+				for i, val := range enumValues {
+					// Convert string enum values to integers if they look like numbers
 					schema.Enum[i] = val
 				}
 			}
@@ -2994,6 +3084,55 @@ func (g *Generator) isASTConstOfType(valueSpec *ast.ValueSpec, typeName string) 
 	if valueSpec.Type != nil {
 		if ident, ok := valueSpec.Type.(*ast.Ident); ok {
 			return ident.Name == typeName
+		}
+	}
+
+	return false
+}
+
+// hasCustomMarshalJSON checks if a type has a custom MarshalJSON method
+func (g *Generator) hasCustomMarshalJSON(packagePath, typeName string) bool {
+	cfg := &packages.Config{
+		Mode:  packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedName | packages.NeedFiles,
+		Dir:   packagePath,
+		Tests: false,
+	}
+
+	pkgs, err := packages.Load(cfg, "./...")
+
+	if err != nil {
+		return false
+	}
+
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Syntax {
+			for _, decl := range file.Decls {
+				// Look for function declarations
+				if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+					// Check if it's a method (has a receiver)
+					if funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
+						// Check if the method name is MarshalJSON
+						if funcDecl.Name.Name == "MarshalJSON" {
+							// Check if the receiver type matches our type
+							recvType := funcDecl.Recv.List[0].Type
+							
+							// Handle pointer receivers (*TypeName) and value receivers (TypeName)
+							var recvTypeName string
+							if starExpr, ok := recvType.(*ast.StarExpr); ok {
+								if ident, ok := starExpr.X.(*ast.Ident); ok {
+									recvTypeName = ident.Name
+								}
+							} else if ident, ok := recvType.(*ast.Ident); ok {
+								recvTypeName = ident.Name
+							}
+							
+							if recvTypeName == typeName {
+								return true
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
