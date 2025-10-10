@@ -177,7 +177,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 				columns, ok := res["data"].([]any)[0].(map[string]any)["columns"].([]any)
 
 				if !ok {
-					columns = []any{"Column"}
+					columns = []any{map[string]any{"name": "Column"}}
 				}
 
 				rowData := []map[string]any{}
@@ -192,10 +192,20 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 					rowMap := make(map[string]any)
 
 					for i, col := range columns {
-						colName, ok := col.(string)
-
-						if !ok {
-							continue // Skip if column name is not a string
+						var colName string
+						
+						// Handle both old string format and new object format
+						switch c := col.(type) {
+						case string:
+							colName = c
+						case map[string]any:
+							if name, ok := c["name"].(string); ok {
+								colName = name
+							} else {
+								continue // Skip if column name is not available
+							}
+						default:
+							continue // Skip if column format is unknown
 						}
 
 						value := rowSlice[i]

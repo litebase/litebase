@@ -9,7 +9,7 @@ import (
 
 type NodeQueryResponse interface {
 	Changes() int64
-	Columns() []string
+	Columns() []sqlite3.ColumnDefinition
 	Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes.Buffer) ([]byte, error)
 	Error() string
 	LastInsertRowId() int64

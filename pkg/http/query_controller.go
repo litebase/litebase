@@ -15,14 +15,14 @@ type QueryRequest struct {
 }
 
 type QueryResponse struct {
-	Changes         int64               `json:"changes"`
-	Columns         []string            `json:"columns"`
-	ID              string              `json:"id"`
-	Latency         float64             `json:"latency"`
-	LastInsertRowId int64               `json:"last_insert_row_id"`
-	RowCount        int                 `json:"row_count"`
-	Rows            [][]*sqlite3.Column `json:"rows"`
-	TransactionID   string              `json:"transaction_id,omitempty"`
+	Changes         int64                      `json:"changes"`
+	Columns         []sqlite3.ColumnDefinition `json:"columns"`
+	ID              string                     `json:"id"`
+	Latency         float64                    `json:"latency"`
+	LastInsertRowId int64                      `json:"last_insert_row_id"`
+	RowCount        int                        `json:"row_count"`
+	Rows            [][]*sqlite3.ColumnValue   `json:"rows"`
+	TransactionID   string                     `json:"transaction_id,omitempty"`
 }
 
 // Array of query responses for one or more queries
@@ -144,7 +144,7 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 			Latency:         response.Latency(),
 			LastInsertRowId: response.LastInsertRowId(),
 			RowCount:        response.RowCount(),
-			Rows:            response.Rows(),
+			Rows:            response.RowValues(),
 			TransactionID:   response.TransactionID(),
 		})
 	}

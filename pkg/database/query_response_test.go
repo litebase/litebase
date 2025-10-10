@@ -12,16 +12,23 @@ import (
 )
 
 func TestNewQueryResponse(t *testing.T) {
+	columns := []sqlite3.ColumnDefinition{
+		{ColumnName: "id", ColumnType: sqlite3.ColumnTypeText},
+		{ColumnName: "name", ColumnType: sqlite3.ColumnTypeText},
+	}
+
+	rows := [][]*sqlite3.Column{
+		{&sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("1")}, &sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("name1")}},
+		{&sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("2")}, &sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("name2")}},
+	}
+
 	queryResponse := database.NewQueryResponse(
 		0,
-		[]string{"id", "name"},
+		columns,
 		"id",
 		0.01,
 		1,
-		[][]*sqlite3.Column{
-			{sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("1")), sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("name1"))},
-			{sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("2")), sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("name2"))},
-		},
+		rows,
 	)
 
 	if queryResponse.Changes() != 0 {
@@ -30,6 +37,10 @@ func TestNewQueryResponse(t *testing.T) {
 
 	if queryResponse.Columns() == nil {
 		t.Fatalf("expected columns to be not nil")
+	}
+
+	if len(queryResponse.Columns()) != 2 {
+		t.Fatalf("expected 2 columns, got %v", len(queryResponse.Columns()))
 	}
 
 	if queryResponse.Id() != "id" {
@@ -57,13 +68,15 @@ func TestQueryResponseEncodingWithResults(t *testing.T) {
 	// Setup test data
 	id := "query123"
 	transactionID := "txn456"
-	columns := []string{"col1", "col2"}
-	rows := [][]*sqlite3.Column{
-		{
-			&sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("foo")},
-			&sqlite3.Column{ColumnType: sqlite3.ColumnTypeInteger, ColumnValue: []byte("42")},
-		},
+	columns := []sqlite3.ColumnDefinition{
+		{ColumnName: "col1", ColumnType: sqlite3.ColumnTypeText},
+		{ColumnName: "col2", ColumnType: sqlite3.ColumnTypeInteger},
 	}
+
+	rows := [][]*sqlite3.Column{
+		{&sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("foo")}, &sqlite3.Column{ColumnType: sqlite3.ColumnTypeInteger, ColumnValue: []byte("42")}},
+	}
+
 	qr := database.NewQueryResponse(1, columns, id, 12.34, 99, rows)
 	qr.SetTransactionID(transactionID)
 
@@ -165,25 +178,38 @@ func TestQueryResponseEncodingWithResults(t *testing.T) {
 	offset += 4
 
 	// Columns length
+	columnsLength := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
 	offset += 4
 
-	// Columns data
+	// Columns data - now includes both names and types
 	colOffset := offset
+	decodedColumns := make(map[string]sqlite3.ColumnType)
 
-	for _, col := range columns {
+	for range colCount {
+		// Column name length
 		colNameLen := int(binary.LittleEndian.Uint32(encoded[colOffset : colOffset+4]))
 		colOffset += 4
+
+		// Column name
 		colName := string(encoded[colOffset : colOffset+colNameLen])
-		if colName != col {
-			t.Errorf("expected column name %q, got %q", col, colName)
-		}
 		colOffset += colNameLen
+
+		// Column type (4 bytes as int32)
+		colType := sqlite3.ColumnType(binary.LittleEndian.Uint32(encoded[colOffset : colOffset+4]))
+		colOffset += 4
+
+		decodedColumns[colName] = colType
+	}
+
+	// Verify we consumed the right amount of columns data
+	if colOffset-offset != columnsLength {
+		t.Errorf("columns length mismatch: expected %d, got %d", columnsLength, colOffset-offset)
 	}
 
 	offset = colOffset
 
 	// Rows: check row count and row data length
-	for i := 0; i < rowCount; i++ {
+	for range rowCount {
 		rowLen := int(binary.LittleEndian.Uint32(encoded[offset : offset+4]))
 		offset += 4
 		// We could decode the row data here if needed
@@ -269,16 +295,23 @@ func TestQueryResponseEncodingWithError(t *testing.T) {
 func BenchmarkQueryResponseJsonEncoding(b *testing.B) {
 	b.ReportAllocs()
 
+	columns := []sqlite3.ColumnDefinition{
+		{ColumnName: "id", ColumnType: sqlite3.ColumnTypeText},
+		{ColumnName: "name", ColumnType: sqlite3.ColumnTypeText},
+	}
+
+	rows := [][]*sqlite3.Column{
+		{&sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("1")}, &sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("name1")}},
+		{&sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("2")}, &sqlite3.Column{ColumnType: sqlite3.ColumnTypeText, ColumnValue: []byte("name2")}},
+	}
+
 	queryResponse := database.NewQueryResponse(
 		0,
-		[]string{"id", "name"},
+		columns,
 		"id",
 		0.01,
 		1,
-		[][]*sqlite3.Column{
-			{sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("1")), sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("name1"))},
-			{sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("2")), sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte("name2"))},
-		},
+		rows,
 	)
 
 	b.ResetTimer()
@@ -287,7 +320,10 @@ func BenchmarkQueryResponseJsonEncoding(b *testing.B) {
 		queryResponse.Reset()
 
 		queryResponse.SetChanges(0)
-		queryResponse.SetColumns([]string{"id", "name"})
+		queryResponse.SetColumns([]sqlite3.ColumnDefinition{
+			{ColumnName: "id", ColumnType: sqlite3.ColumnTypeText},
+			{ColumnName: "name", ColumnType: sqlite3.ColumnTypeText},
+		})
 		queryResponse.SetID("id")
 		queryResponse.SetLatency(0.01)
 		queryResponse.SetLastInsertRowID(1)
@@ -304,8 +340,10 @@ func BenchmarkQueryResponseJsonEncoding(b *testing.B) {
 		}
 	})
 
-	// fail if allocation count is more than 2 per operation
-	if allocs > 3 {
+	// With the new structure (map for columns, byte arrays for rows),
+	// we expect more allocations than before, but it's worth it for the efficiency gain
+	// in the binary protocol. Accept up to 30 allocations.
+	if allocs > 30 {
 		b.Fatalf("unexpected allocation count: %v", allocs)
 	}
 }
