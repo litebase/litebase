@@ -2075,7 +2075,7 @@
                           "columns": {
                             "type": "array",
                             "items": {
-                              "type": "string"
+                              "$ref": "#/components/schemas/ColumnDefinition"
                             }
                           },
                           "id": {
@@ -2093,7 +2093,7 @@
                           "rows": {
                             "type": "array",
                             "items": {
-                              "$ref": "#/components/schemas/Column"
+                              "$ref": "#/components/schemas/ColumnValue"
                             }
                           },
                           "transaction_id": {
@@ -4032,7 +4032,21 @@
           }
         }
       },
-      "Column": {
+      "ColumnDefinition": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ColumnType"
+          }
+        }
+      },
+      "ColumnType": {
+        "type": "object"
+      },
+      "ColumnValue": {
         "type": "object"
       },
       "DatabaseBackupRestorePoint": {
