@@ -2493,7 +2493,7 @@ func (g *Generator) convertTypeInfoToSchema(typeInfo *TypeInfo) *Schema {
 			Description: typeInfo.Description,
 		}
 	}
-	
+
 	schema := &Schema{
 		Type:        typeInfo.Type,
 		Description: typeInfo.Description,
@@ -2532,13 +2532,13 @@ func (g *Generator) typeHasCustomMarshaling(typeName string) bool {
 		"ColumnValue",
 		"Column",
 	}
-	
+
 	for _, customType := range customMarshalingTypes {
 		if strings.HasSuffix(typeName, customType) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -2806,14 +2806,14 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 	case *ast.StructType:
 		// Check if this type has a custom MarshalJSON method by looking for it in the package
 		hasCustomMarshaling := g.hasCustomMarshalJSON(packagePath, typeSpec.Name.Name)
-		
+
 		if hasCustomMarshaling {
 			// For types with custom JSON marshaling, create an empty schema
 			// since we can't determine the actual runtime type from static analysis
 			schema := &Schema{
 				Description: "Type with custom JSON marshaling - actual type determined at runtime",
 			}
-			
+
 			// Add description from comments if available
 			if docGroup != nil {
 				desc := strings.TrimSpace(docGroup.Text())
@@ -2826,11 +2826,11 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 					schema.Description = desc
 				}
 			}
-			
+
 			g.schemaRegistry[fullTypeName] = schema
 			return nil // Return nil to indicate this was handled as a schema
 		}
-		
+
 		// Handle struct types normally
 		typeInfo := &TypeInfo{
 			Name:   typeSpec.Name.Name,
@@ -2863,7 +2863,8 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 
 	case *ast.Ident:
 		// Handle type aliases like "type StatementEffect string" or "type ColumnType int"
-		if t.Name == "string" {
+		switch t.Name {
+		case "string":
 			// This is a string-based type, create a schema for it
 			schema := &Schema{
 				Type: "string",
@@ -2891,7 +2892,7 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 			g.schemaRegistry[fullTypeName] = schema
 
 			return nil // Return nil to indicate this was handled as a schema
-		} else if t.Name == "int" {
+		case "int":
 			// This is an int-based type (like ColumnType), create a schema for it
 			schema := &Schema{
 				Type: "integer",
@@ -3115,7 +3116,7 @@ func (g *Generator) hasCustomMarshalJSON(packagePath, typeName string) bool {
 						if funcDecl.Name.Name == "MarshalJSON" {
 							// Check if the receiver type matches our type
 							recvType := funcDecl.Recv.List[0].Type
-							
+
 							// Handle pointer receivers (*TypeName) and value receivers (TypeName)
 							var recvTypeName string
 							if starExpr, ok := recvType.(*ast.StarExpr); ok {
@@ -3125,7 +3126,7 @@ func (g *Generator) hasCustomMarshalJSON(packagePath, typeName string) bool {
 							} else if ident, ok := recvType.(*ast.Ident); ok {
 								recvTypeName = ident.Name
 							}
-							
+
 							if recvTypeName == typeName {
 								return true
 							}
