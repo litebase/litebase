@@ -473,28 +473,6 @@ func (qr *QueryResponse) SetRows(rows [][]*sqlite3.Column) {
 	}
 }
 
-// func (qr *QueryResponse) SetRowsFromValues(rows [][]sqlite3.Column) {
-// 	if cap(qr.rows) >= len(rows) {
-// 		// Reuse the existing slice's capacity
-// 		qr.rows = qr.rows[:len(rows)]
-// 	} else {
-// 		// Allocate a new slice with the required capacity
-// 		qr.rows = make([][]sqlite3.ColumnValue, len(rows))
-// 	}
-
-// 	for i, row := range rows {
-// 		if cap(qr.rows[i]) >= len(row) {
-// 			// Reuse the existing slice's capacity
-// 			qr.rows[i] = qr.rows[i][:len(row)]
-// 		} else {
-// 			// Allocate a new slice with the required capacity
-// 			qr.rows[i] = make([]sqlite3.ColumnValue, len(row))
-// 		}
-
-// 		copy(qr.rows[i], row)
-// 	}
-// }
-
 func (qr *QueryResponse) SetTransactionID(transactionID string) {
 	qr.transactionID = transactionID
 }
