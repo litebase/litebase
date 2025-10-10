@@ -59,7 +59,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/litebase/litebase-go/sql v0.0.0-20250905122517-052ed93cc26a
+	github.com/litebase/litebase-go/sql v0.0.0-20251010134425-89452b1f1cbb
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/muesli/mango v0.1.0 // indirect
 	github.com/muesli/mango-cobra v1.2.0 // indirect
