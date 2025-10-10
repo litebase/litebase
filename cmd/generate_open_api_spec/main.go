@@ -68,11 +68,22 @@ func shouldPreferSchema(newSchema, existingSchema *openapi.Schema, name string) 
 	newHasProps := len(newSchema.Properties) > 0
 	existingHasProps := len(existingSchema.Properties) > 0
 
-	if newHasProps && !existingHasProps {
+	// Also consider schemas with composition (OneOf, AnyOf, AllOf) as having structure
+	newHasComposition := len(newSchema.OneOf) > 0 || len(newSchema.AnyOf) > 0 || len(newSchema.AllOf) > 0
+	existingHasComposition := len(existingSchema.OneOf) > 0 || len(existingSchema.AnyOf) > 0 || len(existingSchema.AllOf) > 0
+
+	// Also consider schemas with enums as having structure
+	newHasEnum := len(newSchema.Enum) > 0
+	existingHasEnum := len(existingSchema.Enum) > 0
+
+	newHasStructure := newHasProps || newHasComposition || newHasEnum
+	existingHasStructure := existingHasProps || existingHasComposition || existingHasEnum
+
+	if newHasStructure && !existingHasStructure {
 		return true
 	}
 
-	if !newHasProps && existingHasProps {
+	if !newHasStructure && existingHasStructure {
 		return false
 	}
 

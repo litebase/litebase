@@ -163,6 +163,11 @@ func (nr *NodeReplica) LeaveCluster() error {
 func (nr *NodeReplica) Send(message messages.NodeMessage) (messages.NodeMessage, error) {
 	data := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(data)
+
+	if nr.node == nil {
+		return messages.NodeMessage{}, errors.New("node is nil")
+	}
+
 	address, err := nr.node.Address()
 
 	if err != nil {
