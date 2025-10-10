@@ -64,7 +64,7 @@ type Row interface {
 
 type QueryResponse struct {
 	changes         int64
-	columns         []string
+	columns         []sqlite3.ColumnDefinition
 	err             string
 	id              string
 	latency         float64
@@ -83,7 +83,7 @@ type QueryJsonResponse struct {
 
 func NewQueryResponse(
 	changes int64,
-	columns []string,
+	columns []sqlite3.ColumnDefinition,
 	id string,
 	latency float64,
 	lastInsertRowId int64,
@@ -105,7 +105,7 @@ func (qr *QueryResponse) Changes() int64 {
 	return qr.changes
 }
 
-func (qr *QueryResponse) Columns() []string {
+func (qr *QueryResponse) Columns() []sqlite3.ColumnDefinition {
 	return qr.columns
 }
 
@@ -210,10 +210,11 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 
 		// Calculate the length of the columns data to be written and write it
 		// to the response buffer before writing the columns data.
+		// Format: for each column: name_length(4) + name + type(4)
 		columnDataLength := 0
 
-		for _, column := range qr.columns {
-			columnDataLength = columnDataLength + 4 + len(column)
+		for _, col := range qr.columns {
+			columnDataLength = columnDataLength + 4 + len(col.ColumnName) + 4 // name_length + name + type(int32)
 		}
 
 		// Columns length
@@ -228,29 +229,34 @@ func (qr *QueryResponse) Encode(responseBuffer, rowsBuffer, columnsBuffer *bytes
 		binary.LittleEndian.PutUint32(columnsLengthBytes[:], uint32ColumnsLength)
 		responseBuffer.Write(columnsLengthBytes[:])
 
-		// Encode the columns
+		// Encode the columns with their types
 		var columnLengthBytes [4]byte
+		var columnTypeBytes [4]byte
 
-		for _, column := range qr.columns {
-			// Column length
-			columnLengthUint32, err := utils.SafeInt64ToUint32(int64(len(column)))
+		for _, col := range qr.columns {
+			// Column name length
+			columnNameLengthUint32, err := utils.SafeInt64ToUint32(int64(len(col.ColumnName)))
 
 			if err != nil {
 				return nil, err
 			}
 
-			binary.LittleEndian.PutUint32(columnLengthBytes[:], columnLengthUint32)
+			binary.LittleEndian.PutUint32(columnLengthBytes[:], columnNameLengthUint32)
 			responseBuffer.Write(columnLengthBytes[:])
 
-			// Column
-			responseBuffer.Write([]byte(column))
+			// Column name
+			responseBuffer.Write([]byte(col.ColumnName))
+
+			// Column type as int32
+			binary.LittleEndian.PutUint32(columnTypeBytes[:], uint32(col.ColumnType))
+			responseBuffer.Write(columnTypeBytes[:])
 		}
 
-		// Rows
+		// Rows - encode ColumnValue objects
 		for _, row := range qr.rows {
 			rowsBuffer.Reset()
 
-			// Encode each row in the column
+			// Encode each value in the row
 			for _, column := range row {
 				err := column.Encode(columnsBuffer)
 
@@ -305,15 +311,19 @@ func (qr *QueryResponse) Latency() float64 {
 }
 
 func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
-	type Alias QueryResponse
 	buffer := queryResponseJsonBufferPool.Get().(*bytes.Buffer)
 	defer queryResponseJsonBufferPool.Put(buffer)
 	buffer.Reset()
 
-	encoder := json.NewEncoder(buffer)
+	// Extract column names from ColumnDefinition slice for JSON
+	columnNames := make([]string, len(qr.columns))
+	for i, col := range qr.columns {
+		columnNames[i] = col.ColumnName
+	}
 
-	err := encoder.Encode(&struct {
-		*Alias
+	// The rows already contain ColumnValue which has proper MarshalJSON
+	// So we can use them directly
+	type jsonResponse struct {
 		Changes         int64               `json:"changes"`
 		Columns         []string            `json:"columns"`
 		ID              string              `json:"id"`
@@ -322,10 +332,12 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 		RowCount        int                 `json:"row_count"`
 		Rows            [][]*sqlite3.Column `json:"rows"`
 		TransactionID   string              `json:"transaction_id"`
-	}{
-		Alias:           (*Alias)(qr),
+	}
+
+	encoder := json.NewEncoder(buffer)
+	err := encoder.Encode(jsonResponse{
 		Changes:         qr.changes,
-		Columns:         qr.columns,
+		Columns:         columnNames,
 		ID:              qr.id,
 		Latency:         qr.latency,
 		LastInsertRowID: qr.lastInsertRowId,
@@ -343,6 +355,7 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 
 func (qr *QueryResponse) Reset() {
 	qr.changes = 0
+	// Clear slice without reallocating
 	qr.columns = qr.columns[:0]
 	qr.err = ""
 	qr.id = ""
@@ -361,20 +374,61 @@ func (qr *QueryResponse) Rows() [][]*sqlite3.Column {
 	return qr.rows
 }
 
+func (qr *QueryResponse) RowValues() [][]*sqlite3.ColumnValue {
+	values := make([][]*sqlite3.ColumnValue, len(qr.rows))
+
+	for i, row := range qr.rows {
+		values[i] = make([]*sqlite3.ColumnValue, len(row))
+
+		for j, col := range row {
+			values[i][j] = sqlite3.NewColumnValue(col)
+		}
+	}
+
+	return values
+}
+
 func (qr *QueryResponse) SetChanges(changes int64) {
 	qr.changes = changes
 }
 
-func (qr *QueryResponse) SetColumns(columns []string) {
+func (qr *QueryResponse) SetColumns(columns []sqlite3.ColumnDefinition) {
+	// Reuse slice capacity if possible
 	if cap(qr.columns) >= len(columns) {
-		// Reuse the existing slice's capacity
 		qr.columns = qr.columns[:len(columns)]
 	} else {
-		// Allocate a new slice with the required capacity
-		qr.columns = make([]string, len(columns))
+		qr.columns = make([]sqlite3.ColumnDefinition, len(columns))
 	}
 
 	copy(qr.columns, columns)
+}
+
+func (qr *QueryResponse) SetColumnsFromResult(columnNames []string, firstRow []*sqlite3.Column) {
+	// Build ColumnDefinition slice from names and first row types
+	if cap(qr.columns) >= len(columnNames) {
+		qr.columns = qr.columns[:len(columnNames)]
+	} else {
+		qr.columns = make([]sqlite3.ColumnDefinition, len(columnNames))
+	}
+
+	if len(firstRow) > 0 {
+		for i, colName := range columnNames {
+			if i < len(firstRow) {
+				qr.columns[i] = sqlite3.ColumnDefinition{
+					ColumnName: colName,
+					ColumnType: firstRow[i].ColumnType,
+				}
+			}
+		}
+	} else {
+		// If no rows, infer from column names only (type unknown)
+		for i, colName := range columnNames {
+			qr.columns[i] = sqlite3.ColumnDefinition{
+				ColumnName: colName,
+				ColumnType: sqlite3.ColumnTypeUnknown,
+			}
+		}
+	}
 }
 
 func (qr *QueryResponse) SetError(err string) {
@@ -418,6 +472,28 @@ func (qr *QueryResponse) SetRows(rows [][]*sqlite3.Column) {
 		copy(qr.rows[i], row)
 	}
 }
+
+// func (qr *QueryResponse) SetRowsFromValues(rows [][]sqlite3.Column) {
+// 	if cap(qr.rows) >= len(rows) {
+// 		// Reuse the existing slice's capacity
+// 		qr.rows = qr.rows[:len(rows)]
+// 	} else {
+// 		// Allocate a new slice with the required capacity
+// 		qr.rows = make([][]sqlite3.ColumnValue, len(rows))
+// 	}
+
+// 	for i, row := range rows {
+// 		if cap(qr.rows[i]) >= len(row) {
+// 			// Reuse the existing slice's capacity
+// 			qr.rows[i] = qr.rows[i][:len(row)]
+// 		} else {
+// 			// Allocate a new slice with the required capacity
+// 			qr.rows[i] = make([]sqlite3.ColumnValue, len(row))
+// 		}
+
+// 		copy(qr.rows[i], row)
+// 	}
+// }
 
 func (qr *QueryResponse) SetTransactionID(transactionID string) {
 	qr.transactionID = transactionID

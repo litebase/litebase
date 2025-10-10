@@ -4,7 +4,7 @@ import "github.com/litebase/litebase/pkg/sqlite3"
 
 type QueryMessageResponse struct {
 	Changes         int64
-	Columns         []string
+	Columns         []sqlite3.ColumnDefinition
 	Error           string
 	ID              string
 	Latency         float64

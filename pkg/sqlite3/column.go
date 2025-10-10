@@ -43,8 +43,13 @@ const (
 var ErrInvalidColumnValue = errors.New("invalid column value")
 
 type Column struct {
-	ColumnType  ColumnType
-	ColumnValue []byte
+	ColumnType  ColumnType `json:"type"`
+	ColumnValue []byte     `json:"value"`
+}
+
+type ColumnDefinition struct {
+	ColumnName string     `json:"name"`
+	ColumnType ColumnType `json:"type"`
 }
 
 func NewColumn(columnType ColumnType, columnValue []byte) *Column {

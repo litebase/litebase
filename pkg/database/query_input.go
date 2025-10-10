@@ -213,6 +213,10 @@ func (q *QueryInput) UnmarshalJSON(jsonData []byte) error {
 		}
 
 		for _, parameter := range parameters {
+			if _, ok := parameter.(map[string]any); !ok {
+				return fmt.Errorf("invalid parameter format")
+			}
+
 			if _, ok := parameter.(map[string]any)["type"]; !ok {
 				return fmt.Errorf("invalid parameter type")
 			}

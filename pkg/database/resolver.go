@@ -152,7 +152,14 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		response.SetLastInsertRowID(lastInsertRowID)
 
 		if sqlite3Result != nil {
-			response.SetColumns(sqlite3Result.Columns)
+			var firstRow []*sqlite3.Column
+
+			if len(sqlite3Result.Rows) > 0 {
+				firstRow = sqlite3Result.Rows[0]
+			}
+
+			// Use SetColumnsFromResult to avoid allocating a temporary map
+			response.SetColumnsFromResult(sqlite3Result.Columns, firstRow)
 			response.SetRows(sqlite3Result.Rows)
 			response.SetRowCount(len(sqlite3Result.Rows))
 		}
