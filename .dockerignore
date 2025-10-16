@@ -1,0 +1,13 @@
+.git
+.github
+.litebase
+.test
+.vscode
+data
+dist
+docs
+install.sh
+scripts
+test
+*.md
+*.log
