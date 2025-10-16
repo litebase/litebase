@@ -12,6 +12,7 @@ After downloading the appropriate binary for your platform and system architectu
 
 <details>
 <summary>**Linux**</summary>
+<summary>Linux</summary>
 
 Extract the archive and install the binary:
 
@@ -32,6 +33,7 @@ For ARM64 systems, use `litebase-$VERSION-linux-arm64.tar.gz` instead.
 
 <details>
 <summary>**macOS**</summary>
+<summary>macOS</summary>
 
 #### Option 1: Using the .pkg installer (Recommended)
 
@@ -63,6 +65,7 @@ For ARM64 systems, use `litebase-$VERSION-darwin-arm64.tar.gz` instead.
 
 <details>
 <summary>**Windows**</summary>
+<summary>Windows</summary>
 
 Extract the archive and install the binary:
 
