@@ -11,7 +11,6 @@ curl -sSL https://litebase.com/install.sh | bash
 After downloading the appropriate binary for your platform and system architecture, follow these instructions:
 
 <details>
-<summary>**Linux**</summary>
 <summary>Linux</summary>
 
 Extract the archive and install the binary:
@@ -32,7 +31,6 @@ For ARM64 systems, use `litebase-$VERSION-linux-arm64.tar.gz` instead.
 </details>
 
 <details>
-<summary>**macOS**</summary>
 <summary>macOS</summary>
 
 #### Option 1: Using the .pkg installer (Recommended)
@@ -64,7 +62,6 @@ For ARM64 systems, use `litebase-$VERSION-darwin-arm64.tar.gz` instead.
 </details>
 
 <details>
-<summary>**Windows**</summary>
 <summary>Windows</summary>
 
 Extract the archive and install the binary:
@@ -94,3 +91,19 @@ All binaries are **code signed for authenticity and integrity verification**, an
 - **All platforms**: Include SLSA build provenance attestation
 
 Code signing ensures you're downloading genuine, unmodified binaries from the official maintainer.
+
+## Docker Images
+
+Images for this release are available at:
+
+**DockerHub:**
+
+```shell
+docker pull litebase/litebase:$VERSION
+```
+
+**GitHub Container Registry:**
+
+```shell
+docker pull ghcr.io/litebase/litebase:$VERSION
+```

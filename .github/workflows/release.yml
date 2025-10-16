@@ -16,12 +16,35 @@ env:
   PROJECT_NAME: litebase
 
 jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
   build:
     uses: ./.github/workflows/build.yml
+    needs: get-version
     with:
       project_name: "litebase"
       build_target: "./cmd/litebase"
       go_version: "1.25"
+
+  build-docker:
+    needs: get-version
+    uses: ./.github/workflows/build-and-push-docker-image.yml
+    with:
+      project_name: "litebase"
+      version: ${{ needs.get-version.outputs.version }}
+      dockerfile: Dockerfile
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   sign:
     needs: build
@@ -44,7 +67,7 @@ jobs:
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
 
   release:
-    needs: sign
+    needs: [get-version, build, build-docker, sign]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -64,46 +87,44 @@ jobs:
           mkdir -p release-assets
 
           # Copy all signed archives from artifacts directory
-            find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.pkg" \) -exec cp {} release-assets/ \;
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.pkg" \) -exec cp {} release-assets/ \;
 
           echo "Files in release-assets:"
           ls -la release-assets/
-          echo "All artifacts structure:"
-          find artifacts -type f
-
-      - name: Get version
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         run: |
           # Create release with auto-generated notes
-          gh release create ${{ steps.version.outputs.version }} \
+          gh release create ${{ needs.get-version.outputs.version }} \
             --draft \
-            --title "Litebase ${{ steps.version.outputs.version }}" \
+            --title "Litebase ${{ needs.get-version.outputs.version }}" \
+            --target ${{ github.sha }} \
             --generate-notes \
             release-assets/*
-
-          # Check if release template exists, if so use it
-          if [ -f .github/release_template.md ]; then
-            # Get the auto-generated notes and prepend our template
-            GENERATED_NOTES=$(gh release view ${{ steps.version.outputs.version }} --json body --jq '.body')
-
-            # Create notes with auto-generated content first, then custom template
-            echo "## Release Notes" > temp_notes.md
-            echo "" >> temp_notes.md
-            echo "$GENERATED_NOTES" >> temp_notes.md
-            echo "" >> temp_notes.md
-            echo "---" >> temp_notes.md
-            echo "" >> temp_notes.md
-
-            FLOAT_VERSION=$(echo ${{ steps.version.outputs.version }} | sed 's/^v//')
-            cat .github/release_template.md | sed "s/\$VERSION/$FLOAT_VERSION/g" >> temp_notes.md
-
-            # Update the release with combined notes
-            gh release edit ${{ steps.version.outputs.version }} --notes-file temp_notes.md
-          fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Update release notes with template
+        if: hashFiles('.github/release_template.md') != ''
+        run: |
+          # Get the auto-generated notes
+          GENERATED_NOTES=$(gh release view ${{ needs.get-version.outputs.version }} --json body --jq '.body')
+
+          # Create notes with auto-generated content first, then custom template
+          echo "## Release Notes" > temp_notes.md
+          echo "" >> temp_notes.md
+          echo "$GENERATED_NOTES" >> temp_notes.md
+          echo "" >> temp_notes.md
+          echo "---" >> temp_notes.md
+          echo "" >> temp_notes.md
+
+          # Get version without 'v' prefix
+          FLOAT_VERSION=$(echo ${{ needs.get-version.outputs.version }} | sed 's/^v//')
+
+          # Replace $VERSION in template with actual version
+          cat .github/release_template.md | sed "s/\$VERSION/$FLOAT_VERSION/g" >> temp_notes.md
+
+          # Update the release with combined notes
+          gh release edit ${{ needs.get-version.outputs.version }} --notes-file temp_notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
