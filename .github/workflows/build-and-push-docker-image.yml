@@ -1,0 +1,78 @@
+name: Build and Push Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      project_name:
+        description: "Project name for tagging the Docker image"
+        required: true
+        type: string
+      version:
+        description: "Version tag for the Docker image"
+        required: true
+        type: string
+      dockerfile:
+        description: "Path to the Dockerfile"
+        required: false
+        type: string
+        default: "Dockerfile"
+    secrets:
+      DOCKERHUB_USERNAME:
+        description: "DockerHub username"
+        required: false
+      DOCKERHUB_TOKEN:
+        description: "DockerHub authentication token"
+        required: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: |
+            litebase/litebase
+            ghcr.io/${{ github.repository }}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ inputs.version }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
