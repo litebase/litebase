@@ -1,4 +1,4 @@
-FROM golang:1.25 as builder
+FROM golang:1.25 AS builder
 
 # Accept VERSION as a build argument
 ARG VERSION=dev
@@ -12,8 +12,12 @@ COPY . .
 # Build the static Go binary
 RUN CGO_ENABLED=1 go build -o litebase -tags=production -ldflags="-s -w -X 'main.Version=$VERSION'" ./cmd/litebase
 
-# --- STAGE 2: FINAL IMAGE (Secure and Minimal) ---
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
+
+# Install required runtime dependencies for CGO/SQLite
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Security: Create a dedicated, non-root user (appuser) and group (appgroup).
 # This prevents the application from running with elevated permissions.
@@ -25,7 +29,11 @@ WORKDIR /app
 COPY --from=builder /app/litebase /app/litebase
 
 # Ensure the non-root user owns the binary (important if the app needs to write to its working dir)
-RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appgroup /app && \
+    chmod -R 755 /app
+
+# Create home directory for appuser with proper permissions
+RUN mkdir -p /home/appuser && chown -R appuser:appgroup /home/appuser && chmod 755 /home/appuser
 
 # Switch to the non-root user
 USER appuser
@@ -35,3 +43,4 @@ EXPOSE 8080
 
 # Command to run the application
 ENTRYPOINT ["/app/litebase"]
+CMD ["start"]

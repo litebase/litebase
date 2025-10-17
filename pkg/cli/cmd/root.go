@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/litebase/litebase/pkg/cli"
 	"github.com/litebase/litebase/pkg/cli/components"
@@ -111,9 +112,14 @@ func RootCmd(configPath string) (*cobra.Command, error) {
 }
 
 func NewRoot(version string) {
-	cmd, _ := RootCmd("")
+	cmd, err := RootCmd("")
 
-	err := fang.Execute(
+	if err != nil {
+		slog.Error("Error creating root command", "error", err.Error())
+		return
+	}
+
+	err = fang.Execute(
 		context.Background(),
 		cmd,
 		fang.WithColorSchemeFunc(cli.ColorScheme),
