@@ -46,16 +46,12 @@ func GetCommonSchemas() map[string]*Schema {
 					Type: "string",
 				},
 				"errors": {
-					Type: "array",
-					Items: &Schema{
-						Type: "object",
-						Properties: map[string]*Schema{
-							"field": {
-								Type: "string",
-							},
-							"message": {
-								Type: "string",
-							},
+					Type: "object",
+					// Map of fieldName: ["error message", ...]
+					AdditionalProperties: &Schema{
+						Type: "array",
+						Items: &Schema{
+							Type: "string",
 						},
 					},
 				},

@@ -70,6 +70,10 @@ type Schema struct {
 	Description string             `json:"description,omitempty"`
 	Properties  map[string]*Schema `json:"properties,omitempty"`
 	Items       *Schema            `json:"items,omitempty"`
+	// AdditionalProperties represents OpenAPI's `additionalProperties` which
+	// is used to describe map-like objects where property names are not known
+	// ahead of time. For example: { "errors": { "field": ["msg"] } }
+	AdditionalProperties *Schema `json:"additionalProperties,omitempty"`
 	Required    []string           `json:"required,omitempty"`
 	Example     any                `json:"example,omitempty"`
 	Enum        []any              `json:"enum,omitempty"`
