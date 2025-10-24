@@ -51,7 +51,7 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add api/generated_openapi.json
+          git add api/generated_open_api.json
           git commit -m "Auto-update OpenAPI specification
 
           Generated from changes in pkg/http packages.

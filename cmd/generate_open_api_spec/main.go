@@ -243,7 +243,7 @@ func main() {
 	log.Printf("JSON conversion complete, output size: %d bytes", len(jsonOutput))
 
 	// Write to file
-	outputPath := filepath.Join("api", "generated_openapi.json")
+	outputPath := filepath.Join("api", "generated_open_api.json")
 
 	log.Printf("Writing to file: %s", outputPath)
 

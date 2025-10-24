@@ -234,19 +234,19 @@ The OpenAPI specification is **automatically updated** when HTTP controllers cha
 go run cmd/generate_open_api_spec/main.go
 ```
 
-**Output**: `api/generated_openapi.json` (188KB+ with 50+ schemas)
+**Output**: `api/generated_open_api.json` (188KB+ with 50+ schemas)
 
 ### View Generated File
 
 ```bash
 # View the complete generated OpenAPI spec
-cat api/generated_openapi.json | jq .
+cat api/generated_open_api.json | jq .
 
 # View just the schemas section
-cat api/generated_openapi.json | jq '.components.schemas'
+cat api/generated_open_api.json | jq '.components.schemas'
 
 # Check specific controller endpoints
-cat api/generated_openapi.json | jq '.paths."/v1/databases/{databaseName}/branches".post'
+cat api/generated_open_api.json | jq '.paths."/v1/databases/{databaseName}/branches".post'
 ```
 
 ### Testing Generated Specification
