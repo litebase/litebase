@@ -6,7 +6,7 @@ func DatabaseBranchCard(data map[string]any) string {
 	rows := []CardRow{
 		{
 			Key:   "ID",
-			Value: data["database_branch_id"].(string),
+			Value: data["databaseBranchId"].(string),
 		},
 		{
 			Key:   "Name",
@@ -14,19 +14,19 @@ func DatabaseBranchCard(data map[string]any) string {
 		},
 		{
 			Key:   "Database ID",
-			Value: data["database_id"].(string),
+			Value: data["databaseId"].(string),
 		},
 	}
 
-	if data["parent_name"] != nil {
+	if data["parentName"] != nil {
 		rows = append(rows, CardRow{
 			Key:   "Parent Branch",
-			Value: data["parent_name"].(string),
+			Value: data["parentName"].(string),
 		})
 	}
 
-	if data["created_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, data["created_at"].(string))
+	if data["createdAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, data["createdAt"].(string))
 
 		if err == nil {
 			rows = append(rows, CardRow{
@@ -36,8 +36,8 @@ func DatabaseBranchCard(data map[string]any) string {
 		}
 	}
 
-	if data["updated_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, data["updated_at"].(string))
+	if data["updatedAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, data["updatedAt"].(string))
 
 		if err == nil {
 			rows = append(rows, CardRow{

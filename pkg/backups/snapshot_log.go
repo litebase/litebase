@@ -18,10 +18,10 @@ import (
 
 type Snapshot struct {
 	// The UUID of the branch the snapshot is for.
-	DatabaseBranchID string `json:"database_branch_id"`
+	DatabaseBranchID string `json:"databaseBranchId"`
 
 	// The UUID of the database the snapshot is for.
-	DatabaseID string `json:"database_id"`
+	DatabaseID string `json:"databaseId"`
 
 	// The file to write the snapshot log to.
 	File internalStorage.File `json:"-"`
@@ -36,7 +36,7 @@ type Snapshot struct {
 	mutex sync.Mutex
 
 	// A list of restore points for the snapshot.
-	RestorePoints SnapshotRestorePoints `json:"restore_points,omitempty"`
+	RestorePoints SnapshotRestorePoints `json:"restorePoints"`
 
 	// The UTC start of the day of the snapshot.
 	Timestamp int64 `json:"timestamp"`
@@ -53,7 +53,7 @@ type SnapshotRestorePoints struct {
 
 type RestorePoint struct {
 	Timestamp int64 `json:"timestamp,string"`
-	PageCount int64 `json:"page_count"`
+	PageCount int64 `json:"pageCount"`
 }
 
 // Create a new instance of a snapshot.
@@ -257,15 +257,15 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 
 	// Update in-memory restore points to reflect the new entry
 	s.RestorePoints.Data = append(s.RestorePoints.Data, timestamp)
-	
+
 	// Update start timestamp if this is the first restore point
 	if s.RestorePoints.Start == 0 || timestamp < s.RestorePoints.Start {
 		s.RestorePoints.Start = timestamp
 	}
-	
+
 	// Update end timestamp (assuming chronological order)
 	s.RestorePoints.End = timestamp
-	
+
 	// Increment total count
 	s.RestorePoints.Total++
 

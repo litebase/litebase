@@ -7,21 +7,21 @@ import (
 
 type AccessKey struct {
 	ID              int64       `json:"id"`
-	AccessKeyID     string      `json:"access_key_id"`
-	AccessKeySecret string      `json:"access_key_secret"`
+	AccessKeyID     string      `json:"accessKeyId"`
+	AccessKeySecret string      `json:"accessKeySecret"`
 	Description     string      `json:"description"`
-	CreatedAt       time.Time   `json:"created_at"`
-	UpdatedAt       time.Time   `json:"updated_at"`
+	CreatedAt       time.Time   `json:"createdAt"`
+	UpdatedAt       time.Time   `json:"updatedAt"`
 	Statements      []Statement `json:"statements"`
 
 	AccessKeyManager *AccessKeyManager `json:"-"`
 }
 
 type AccessKeyResponse struct {
-	AccessKeyID string      `json:"access_key_id"`
+	AccessKeyID string      `json:"accessKeyId"`
 	Description string      `json:"description"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
 	Statements  []Statement `json:"statements"`
 }
 

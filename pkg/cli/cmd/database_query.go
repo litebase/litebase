@@ -77,7 +77,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 					}
 
 					if transactionID != "" {
-						query["transaction_id"] = transactionID
+						query["transactionId"] = transactionID
 					}
 
 					queries = append(queries, query)
@@ -112,7 +112,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 				}
 
 				if transactionID != "" {
-					query["transaction_id"] = queryInput.TransactionID
+					query["transactionId"] = queryInput.TransactionID
 				}
 
 				queries = append(queries, query)
@@ -136,7 +136,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			rows := []components.CardRow{}
 
-			if transactionID, ok := res["data"].([]any)[0].(map[string]any)["transaction_id"].(string); ok && transactionID != "" {
+			if transactionID, ok := res["data"].([]any)[0].(map[string]any)["transactionId"].(string); ok && transactionID != "" {
 				rows = append(rows, components.CardRow{
 					Key:   "Transaction ID",
 					Value: transactionID,
@@ -150,7 +150,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 				})
 			}
 
-			if lastInsertRowID, ok := res["data"].([]any)[0].(map[string]any)["last_insert_rowid"].(int64); ok && lastInsertRowID > 0 {
+			if lastInsertRowID, ok := res["data"].([]any)[0].(map[string]any)["lastInsertRowId"].(int64); ok && lastInsertRowID > 0 {
 				rows = append(rows, components.CardRow{
 					Key:   "Last Insert Row ID",
 					Value: fmt.Sprintf("%d", lastInsertRowID),
@@ -164,7 +164,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 				})
 			}
 
-			if rowCount := res["data"].([]any)[0].(map[string]any)["row_count"].(float64); rowCount > 0 {
+			if rowCount := res["data"].([]any)[0].(map[string]any)["rowCount"].(float64); rowCount > 0 {
 				rows = append(rows, components.CardRow{
 					Key:   "Row Count",
 					Value: fmt.Sprintf("%d", int64(rowCount)),
@@ -193,7 +193,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 					for i, col := range columns {
 						var colName string
-						
+
 						// Handle both old string format and new object format
 						switch c := col.(type) {
 						case string:

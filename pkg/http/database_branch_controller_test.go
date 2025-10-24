@@ -135,8 +135,8 @@ func TestDatabaseBranchControllerShow(t *testing.T) {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		if data["database_branch_id"] != primaryBranch.DatabaseBranchID {
-			t.Fatalf("expected database branch id to be %s, got %v", primaryBranch.DatabaseBranchID, data["database_branch_id"])
+		if data["databaseBranchId"] != primaryBranch.DatabaseBranchID {
+			t.Fatalf("expected database branch id to be %s, got %v", primaryBranch.DatabaseBranchID, data["databaseBranchId"])
 		}
 	})
 }

@@ -192,8 +192,8 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		}
 
 		// The snapshot should have 3 restore points
-		if len(resp["data"].(map[string]any)["restore_points"].(map[string]any)["data"].([]any)) != 3 {
-			t.Fatalf("Expected snapshot to have 3 restore points, got %d", len(resp["data"].(map[string]any)["restore_points"].(map[string]any)["data"].([]any)))
+		if len(resp["data"].(map[string]any)["restorePoints"].(map[string]any)["data"].([]any)) != 3 {
+			t.Fatalf("Expected snapshot to have 3 restore points, got %d", len(resp["data"].(map[string]any)["restorePoints"].(map[string]any)["data"].([]any)))
 		}
 	})
 }

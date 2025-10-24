@@ -28,7 +28,7 @@ type QueryInput struct {
 	ID            string                       `json:"id" validate:"required,min=1"`
 	Parameters    []sqlite3.StatementParameter `json:"parameters" validate:"omitempty,required,dive"`
 	Statement     string                       `json:"statement" validate:"required"`
-	TransactionID string                       `json:"transaction_id" validate:"omitempty,required"`
+	TransactionID string                       `json:"transactionId" validate:"omitempty,required"`
 }
 
 type QueryStatementParameter struct {
@@ -195,8 +195,8 @@ func (q *QueryInput) UnmarshalJSON(jsonData []byte) error {
 		q.ID = data["id"].(string)
 	}
 
-	if data["transaction_id"] != nil {
-		q.TransactionID = data["transaction_id"].(string)
+	if data["transactionId"] != nil {
+		q.TransactionID = data["transactionId"].(string)
 	}
 
 	if data["statement"] != nil {

@@ -35,7 +35,7 @@
                         "type": "object",
                         "description": "Array of access keys for list operations",
                         "properties": {
-                          "access_key_id": {
+                          "accessKeyId": {
                             "type": "string"
                           }
                         }
@@ -137,13 +137,13 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "access_key_id": {
+                        "accessKeyId": {
                           "type": "string"
                         },
-                        "access_key_secret": {
+                        "accessKeySecret": {
                           "type": "string"
                         },
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -155,7 +155,7 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         }
                       }
@@ -253,10 +253,10 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "access_key_id": {
+                        "accessKeyId": {
                           "type": "string"
                         },
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -268,7 +268,7 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         }
                       }
@@ -379,10 +379,10 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "access_key_id": {
+                        "accessKeyId": {
                           "type": "string"
                         },
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -394,7 +394,7 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         }
                       }
@@ -665,7 +665,7 @@
                   "name": {
                     "$ref": "#/components/schemas/DatabaseName"
                   },
-                  "primary_branch": {
+                  "primaryBranch": {
                     "type": "string"
                   }
                 },
@@ -688,13 +688,13 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "database_id": {
+                        "databaseId": {
                           "type": "string"
                         },
                         "id": {
@@ -703,13 +703,13 @@
                         "name": {
                           "type": "string"
                         },
-                        "primary_branch": {
+                        "primaryBranch": {
                           "type": "string"
                         },
                         "settings": {
                           "$ref": "#/components/schemas/DatabaseSettings"
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Last update timestamp",
@@ -812,13 +812,13 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "database_id": {
+                        "databaseId": {
                           "type": "string"
                         },
                         "id": {
@@ -827,13 +827,13 @@
                         "name": {
                           "type": "string"
                         },
-                        "primary_branch": {
+                        "primaryBranch": {
                           "type": "string"
                         },
                         "settings": {
                           "$ref": "#/components/schemas/DatabaseSettings"
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Last update timestamp",
@@ -1121,7 +1121,7 @@
                   "name": {
                     "$ref": "#/components/schemas/DatabaseBranchName"
                   },
-                  "parent_name": {
+                  "parentName": {
                     "type": "string"
                   }
                 },
@@ -1144,16 +1144,16 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Creation timestamp",
                           "example": "2023-09-20T14:30:00Z"
                         },
-                        "database_branch_id": {
+                        "databaseBranchId": {
                           "type": "string"
                         },
-                        "database_id": {
+                        "databaseId": {
                           "type": "string"
                         },
                         "id": {
@@ -1162,13 +1162,13 @@
                         "name": {
                           "type": "string"
                         },
-                        "parent_name": {
+                        "parentName": {
                           "type": "string"
                         },
                         "settings": {
                           "$ref": "#/components/schemas/BranchSettings"
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Last update timestamp",
@@ -1580,13 +1580,13 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "database_branch_id": {
+                        "databaseBranchId": {
                           "type": "string"
                         },
-                        "database_id": {
+                        "databaseId": {
                           "type": "string"
                         },
-                        "restore_point": {
+                        "restorePoint": {
                           "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
                         },
                         "size": {
@@ -1720,13 +1720,13 @@
                       "type": "object",
                       "description": "A single database branch response",
                       "properties": {
-                        "database_branch_id": {
+                        "databaseBranchId": {
                           "type": "string"
                         },
-                        "database_id": {
+                        "databaseId": {
                           "type": "string"
                         },
-                        "restore_point": {
+                        "restorePoint": {
                           "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
                         },
                         "size": {
@@ -2081,13 +2081,13 @@
                           "id": {
                             "type": "string"
                           },
-                          "last_insert_row_id": {
+                          "lastInsertRowId": {
                             "type": "integer"
                           },
                           "latency": {
                             "type": "number"
                           },
-                          "row_count": {
+                          "rowCount": {
                             "type": "integer"
                           },
                           "rows": {
@@ -2096,7 +2096,7 @@
                               "$ref": "#/components/schemas/ColumnValue"
                             }
                           },
-                          "transaction_id": {
+                          "transactionId": {
                             "type": "string"
                           }
                         }
@@ -2289,10 +2289,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "target_database": {
+                  "targetDatabase": {
                     "type": "string"
                   },
-                  "target_database_branch": {
+                  "targetDatabaseBranch": {
                     "type": "string"
                   },
                   "timestamp": {
@@ -2300,8 +2300,8 @@
                   }
                 },
                 "required": [
-                  "target_database",
-                  "target_database_branch",
+                  "targetDatabase",
+                  "targetDatabaseBranch",
                   "timestamp"
                 ]
               }
@@ -2650,7 +2650,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "encryption_key": {
+                  "encryptionKey": {
                     "type": "string"
                   },
                   "signature": {
@@ -2658,7 +2658,7 @@
                   }
                 },
                 "required": [
-                  "encryption_key",
+                  "encryptionKey",
                   "signature"
                 ]
               }
@@ -2762,12 +2762,12 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "encryption_key": {
+                  "encryptionKey": {
                     "type": "string"
                   }
                 },
                 "required": [
-                  "encryption_key"
+                  "encryptionKey"
                 ]
               }
             }
@@ -2875,7 +2875,7 @@
                       "type": "object",
                       "description": "Response payload for cluster status",
                       "properties": {
-                        "node_count": {
+                        "nodeCount": {
                           "type": "integer"
                         }
                       }
@@ -2936,7 +2936,7 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "created_at": {
+                          "createdAt": {
                             "type": "string",
                             "format": "date-time",
                             "description": "Creation timestamp",
@@ -2954,10 +2954,10 @@
                           "token": {
                             "type": "string"
                           },
-                          "token_id": {
+                          "tokenId": {
                             "type": "string"
                           },
-                          "updated_at": {
+                          "updatedAt": {
                             "type": "string",
                             "format": "date-time",
                             "description": "Last update timestamp",
@@ -3037,7 +3037,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Creation timestamp",
@@ -3055,10 +3055,10 @@
                         "token": {
                           "type": "string"
                         },
-                        "token_id": {
+                        "tokenId": {
                           "type": "string"
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string",
                           "format": "date-time",
                           "description": "Last update timestamp",
@@ -3159,7 +3159,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -3171,10 +3171,10 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "token_id": {
+                        "tokenId": {
                           "type": "string"
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         }
                       }
@@ -3260,7 +3260,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -3272,10 +3272,10 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "token_id": {
+                        "tokenId": {
                           "type": "string"
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         }
                       }
@@ -3475,7 +3475,7 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "created_at": {
+                          "createdAt": {
                             "type": "string"
                           },
                           "description": {
@@ -3487,7 +3487,7 @@
                               "$ref": "#/components/schemas/Statement"
                             }
                           },
-                          "updated_at": {
+                          "updatedAt": {
                             "type": "string"
                           },
                           "username": {
@@ -3590,7 +3590,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -3602,7 +3602,7 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         },
                         "username": {
@@ -3703,7 +3703,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -3715,7 +3715,7 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         },
                         "username": {
@@ -3819,7 +3819,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "created_at": {
+                        "createdAt": {
                           "type": "string"
                         },
                         "description": {
@@ -3831,7 +3831,7 @@
                             "$ref": "#/components/schemas/Statement"
                           }
                         },
-                        "updated_at": {
+                        "updatedAt": {
                           "type": "string"
                         },
                         "username": {
@@ -4027,7 +4027,7 @@
       "BranchSettings": {
         "type": "object",
         "properties": {
-          "incrementable_backups": {
+          "incrementableBackups": {
             "type": "boolean"
           }
         }
@@ -4053,7 +4053,7 @@
         "type": "object",
         "description": "A single restore point within a database backup",
         "properties": {
-          "page_count": {
+          "pageCount": {
             "type": "integer"
           },
           "timestamp": {
@@ -4183,7 +4183,7 @@
           "statement": {
             "type": "string"
           },
-          "transaction_id": {
+          "transactionId": {
             "type": "string"
           }
         },
@@ -4191,7 +4191,7 @@
           "id",
           "parameters",
           "statement",
-          "transaction_id"
+          "transactionId"
         ]
       },
       "Resource": {

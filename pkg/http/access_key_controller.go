@@ -10,7 +10,7 @@ import (
 
 // Array of access keys for list operations
 type AccessKeyIndexResponse struct {
-	AccessKeyID string `json:"access_key_id"`
+	AccessKeyID string `json:"accessKeyId"`
 }
 
 // Array of access keys for list operations
@@ -45,10 +45,10 @@ func AccessKeyControllerIndex(ctx context.Context, request *Request) Response {
 }
 
 type AccessKeyShowResponse struct {
-	AccessKeyID string           `json:"access_key_id"`
+	AccessKeyID string           `json:"accessKeyId"`
 	Description string           `json:"description"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 	Statements  []auth.Statement `json:"statements"`
 }
 
@@ -98,11 +98,11 @@ type AccessKeyStoreRequest struct {
 }
 
 type AccessKeyStoreResponse struct {
-	AccessKeyID     string           `json:"access_key_id"`
-	AccessKeySecret string           `json:"access_key_secret"`
+	AccessKeyID     string           `json:"accessKeyId"`
+	AccessKeySecret string           `json:"accessKeySecret"`
 	Description     string           `json:"description"`
-	CreatedAt       string           `json:"created_at"`
-	UpdatedAt       string           `json:"updated_at"`
+	CreatedAt       string           `json:"createdAt"`
+	UpdatedAt       string           `json:"updatedAt"`
 	Statements      []auth.Statement `json:"statements"`
 }
 
@@ -177,10 +177,10 @@ type AccessKeyUpdateRequest struct {
 }
 
 type AccessKeyUpdateResponse struct {
-	AccessKeyID string           `json:"access_key_id"`
+	AccessKeyID string           `json:"accessKeyId"`
 	Description string           `json:"description"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 	Statements  []auth.Statement `json:"statements"`
 }
 

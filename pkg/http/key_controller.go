@@ -10,7 +10,7 @@ import (
 )
 
 type KeyStoreRequest struct {
-	EncryptionKey string `json:"encryption_key" validate:"required"`
+	EncryptionKey string `json:"encryptionKey" validate:"required"`
 	Signature     string `json:"signature" validate:"required"`
 }
 

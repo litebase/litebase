@@ -28,8 +28,8 @@ func userShow(cmd *cobra.Command, config *config.CLIConfiguration, AccessKeyID s
 		},
 	}
 
-	if res["data"].(map[string]any)["created_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["created_at"].(string))
+	if res["data"].(map[string]any)["createdAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["createdAt"].(string))
 
 		if err != nil {
 			return err
@@ -41,8 +41,8 @@ func userShow(cmd *cobra.Command, config *config.CLIConfiguration, AccessKeyID s
 		})
 	}
 
-	if res["data"].(map[string]any)["updated_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updated_at"].(string))
+	if res["data"].(map[string]any)["updatedAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updatedAt"].(string))
 
 		if err != nil {
 			return err

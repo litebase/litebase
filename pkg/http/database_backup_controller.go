@@ -55,9 +55,9 @@ func DatabaseBackupControllerIndex(ctx context.Context, request *Request) Respon
 type DatabaseBackupStoreRequest struct{}
 
 type DatabaseBackupStoreResponse struct {
-	DatabaseBranchID string                     `json:"database_branch_id"`
-	DatabaseID       string                     `json:"database_id"`
-	RestorePoint     DatabaseBackupRestorePoint `json:"restore_point"`
+	DatabaseBranchID string                     `json:"databaseBranchId"`
+	DatabaseID       string                     `json:"databaseId"`
+	RestorePoint     DatabaseBackupRestorePoint `json:"restorePoint"`
 	Size             int64                      `json:"size"`
 }
 
@@ -159,14 +159,14 @@ func DatabaseBackupControllerStore(ctx context.Context, request *Request) Respon
 // A single restore point within a database backup
 type DatabaseBackupRestorePoint struct {
 	Timestamp int64 `json:"timestamp,string"`
-	PageCount int64 `json:"page_count"`
+	PageCount int64 `json:"pageCount"`
 }
 
 // A single database branch response
 type DatabaseBackupShowResponse struct {
-	DatabaseBranchID string                     `json:"database_branch_id"`
-	DatabaseID       string                     `json:"database_id"`
-	RestorePoint     DatabaseBackupRestorePoint `json:"restore_point"`
+	DatabaseBranchID string                     `json:"databaseBranchId"`
+	DatabaseID       string                     `json:"databaseId"`
+	RestorePoint     DatabaseBackupRestorePoint `json:"restorePoint"`
 	Size             int64                      `json:"size"`
 }
 

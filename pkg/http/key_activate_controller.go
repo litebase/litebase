@@ -9,7 +9,7 @@ import (
 )
 
 type KeyActivateRequest struct {
-	EncryptionKey string `json:"encryption_key" validate:"required"`
+	EncryptionKey string `json:"encryptionKey" validate:"required"`
 }
 
 // Activate an encryption key for the cluster

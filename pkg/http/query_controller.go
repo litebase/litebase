@@ -19,10 +19,10 @@ type QueryResponse struct {
 	Columns         []sqlite3.ColumnDefinition `json:"columns"`
 	ID              string                     `json:"id"`
 	Latency         float64                    `json:"latency"`
-	LastInsertRowId int64                      `json:"last_insert_row_id"`
-	RowCount        int                        `json:"row_count"`
+	LastInsertRowId int64                      `json:"lastInsertRowId"`
+	RowCount        int                        `json:"rowCount"`
 	Rows            [][]*sqlite3.ColumnValue   `json:"rows"`
-	TransactionID   string                     `json:"transaction_id,omitempty"`
+	TransactionID   string                     `json:"transactionId,omitempty"`
 }
 
 // Array of query responses for one or more queries

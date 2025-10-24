@@ -53,9 +53,9 @@ func NewDatabaseRestoreCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			requestData := map[string]any{
-				"target_database":        targetDatabaseName,
-				"target_database_branch": targetBranchName,
-				"timestamp":              timestampStr,
+				"targetDatabase":       targetDatabaseName,
+				"targetDatabaseBranch": targetBranchName,
+				"timestamp":            timestampStr,
 			}
 
 			res, apiErrors, err := api.Post(

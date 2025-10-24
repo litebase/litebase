@@ -45,7 +45,7 @@ func TestAccessKeyController(t *testing.T) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
-			if response["data"] != nil && (response["data"].(map[string]any)["access_key_id"] == nil || response["data"].(map[string]any)["access_key_secret"] == nil) {
+			if response["data"] != nil && (response["data"].(map[string]any)["accessKeyId"] == nil || response["data"].(map[string]any)["accessKeySecret"] == nil) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 		})
@@ -171,7 +171,7 @@ func TestAccessKeyController(t *testing.T) {
 				t.Fatal("Expected data in response, got nil")
 			}
 
-			if response["data"].(map[string]any)["access_key_id"] == nil {
+			if response["data"].(map[string]any)["accessKeyId"] == nil {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
@@ -183,12 +183,12 @@ func TestAccessKeyController(t *testing.T) {
 				t.Errorf("Expected statements in response, got: %v", response["data"])
 			}
 
-			if response["data"].(map[string]any)["created_at"] == nil {
-				t.Errorf("Expected created_at in response, got: %v", response["data"])
+			if response["data"].(map[string]any)["createdAt"] == nil {
+				t.Errorf("Expected createdAt in response, got: %v", response["data"])
 			}
 
-			if response["data"].(map[string]any)["updated_at"] == nil {
-				t.Errorf("Expected updated_at in response, got: %v", response["data"])
+			if response["data"].(map[string]any)["updatedAt"] == nil {
+				t.Errorf("Expected updatedAt in response, got: %v", response["data"])
 			}
 		})
 
@@ -272,7 +272,7 @@ func TestAccessKeyController(t *testing.T) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
-			if response["data"] != nil && (response["data"].(map[string]any)["access_key_id"] == nil || response["data"].(map[string]any)["access_key_secret"] == nil) {
+			if response["data"] != nil && (response["data"].(map[string]any)["accessKeyId"] == nil || response["data"].(map[string]any)["accessKeySecret"] == nil) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
@@ -421,7 +421,7 @@ func TestAccessKeyController(t *testing.T) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
-			if response["data"] != nil && (response["data"].(map[string]any)["access_key_id"] == nil || response["data"].(map[string]any)["access_key_secret"] == nil) {
+			if response["data"] != nil && (response["data"].(map[string]any)["accessKeyId"] == nil || response["data"].(map[string]any)["accessKeySecret"] == nil) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
@@ -471,7 +471,7 @@ func TestAccessKeyController(t *testing.T) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
-			if response["data"] == nil || response["data"].(map[string]any)["access_key_id"] == nil || response["data"].(map[string]any)["statements"] == nil {
+			if response["data"] == nil || response["data"].(map[string]any)["accessKeyId"] == nil || response["data"].(map[string]any)["statements"] == nil {
 				t.Errorf("Unexpected response: %v", response)
 			}
 		})

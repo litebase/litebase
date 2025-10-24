@@ -214,7 +214,7 @@ func (s *SecretsManager) PurgeExpiredSecrets() error {
 			continue
 		}
 
-		rotatedAt := int(jsonManifest["rotated_at"].(float64))
+		rotatedAt := int(jsonManifest["rotatedAt"].(float64))
 		rotatedAtTime, err := time.Parse(time.RFC3339, time.Unix(int64(rotatedAt), 0).UTC().Format(time.RFC3339))
 
 		if err != nil {

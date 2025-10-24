@@ -59,7 +59,7 @@ func NewDatabaseBackupListCmd(config *config.CLIConfiguration) *cobra.Command {
 				}
 
 				rows = append(rows, []string{
-					backupData["restore_point"].(map[string]any)["timestamp"].(string),
+					backupData["restorePoint"].(map[string]any)["timestamp"].(string),
 				})
 			}
 
@@ -76,7 +76,7 @@ func NewDatabaseBackupListCmd(config *config.CLIConfiguration) *cobra.Command {
 							err := accessKeyShow(cmd, config, row[1])
 
 							if err != nil {
-								slog.Error("Error showing access key", "error", err, "access_key_id", row[1])
+								slog.Error("Error showing access key", "error", err, "accessKeyId", row[1])
 							}
 						}).Render(config.GetInteractive()),
 				),

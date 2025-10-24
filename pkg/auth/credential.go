@@ -20,11 +20,11 @@ const (
 type Credential struct {
 	accessKey        *AccessKey
 	auth             *Auth
-	CredentialID     string `json:"credential_id"`
-	CredentialString string `json:"credential_string"`
+	CredentialID     string `json:"credentialId"`
+	CredentialString string `json:"credentialString"`
 	hash             [32]byte
 	Scheme           string   `json:"scheme"`
-	SignedHeaders    []string `json:"signed_headers"`
+	SignedHeaders    []string `json:"signedHeaders"`
 	token            *Token
 	user             *User
 }

@@ -41,10 +41,10 @@ func TokenControllerIndex(ctx context.Context, request *Request) Response {
 }
 
 type TokenControllerShowResponse struct {
-	TokenID     string           `json:"token_id"`
+	TokenID     string           `json:"tokenId"`
 	Description string           `json:"description"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 	Statements  []auth.Statement `json:"statements"`
 }
 
@@ -83,12 +83,12 @@ func TokenControllerShow(ctx context.Context, request *Request) Response {
 }
 
 type TokenStoreResponse struct {
-	TokenID     string           `json:"token_id"`
+	TokenID     string           `json:"tokenId"`
 	Token       string           `json:"token"`
 	Description string           `json:"description"`
 	Statements  []auth.Statement `json:"statements"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 }
 
 // Create a new token
@@ -153,11 +153,11 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 }
 
 type TokenUpdateResponse struct {
-	TokenID     string           `json:"token_id"`
+	TokenID     string           `json:"tokenId"`
 	Description string           `json:"description"`
 	Statements  []auth.Statement `json:"statements"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 }
 
 // Update an existing token

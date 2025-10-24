@@ -167,7 +167,7 @@ func NewTokenUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 			rows := []components.CardRow{
 				{
 					Key:   "Token ID",
-					Value: res["data"].(map[string]any)["token_id"].(string),
+					Value: res["data"].(map[string]any)["tokenId"].(string),
 				},
 				{
 					Key:   "Description",
@@ -175,8 +175,8 @@ func NewTokenUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 				},
 			}
 
-			if res["data"].(map[string]any)["created_at"] != nil {
-				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["created_at"].(string))
+			if res["data"].(map[string]any)["createdAt"] != nil {
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["createdAt"].(string))
 
 				if err != nil {
 					return err
@@ -188,8 +188,8 @@ func NewTokenUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 				})
 			}
 
-			if res["data"].(map[string]any)["updated_at"] != nil {
-				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updated_at"].(string))
+			if res["data"].(map[string]any)["updatedAt"] != nil {
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updatedAt"].(string))
 
 				if err != nil {
 					return err

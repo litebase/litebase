@@ -20,16 +20,16 @@ var ErrBranchAlreadyExists = func(name string) error {
 type Branch struct {
 	ID                              int64 `json:"id"`
 	database                        *Database
-	DatabaseBranchID                string           `json:"database_branch_id"`
-	DatabaseID                      string           `json:"database_id"`
+	DatabaseBranchID                string           `json:"databaseBranchId"`
+	DatabaseID                      string           `json:"databaseId"`
 	DatabaseManager                 *DatabaseManager `json:"-"`
 	DatabaseReferenceID             sql.NullInt64    `json:"-"`
 	Name                            string           `json:"name"`
 	parentBranch                    *Branch          `json:"-"`
 	ParentDatabaseBranchReferenceID sql.NullInt64    `json:"-"`
 	Settings                        *BranchSettings  `json:"settings"`
-	CreatedAt                       time.Time        `json:"created_at"`
-	UpdatedAt                       time.Time        `json:"updated_at"`
+	CreatedAt                       time.Time        `json:"createdAt"`
+	UpdatedAt                       time.Time        `json:"updatedAt"`
 
 	Exists bool `json:"-"`
 }
@@ -360,7 +360,7 @@ func (b *Branch) MarshalJSON() ([]byte, error) {
 
 	result := &struct {
 		*Alias
-		ParentName *string `json:"parent_name,omitempty"`
+		ParentName *string `json:"parentName,omitempty"`
 	}{
 		Alias: (*Alias)(b),
 	}

@@ -43,7 +43,7 @@ func NewStatusCmd(c *config.CLIConfiguration) *cobra.Command {
 						components.WithCardRows([]components.CardRow{
 							{
 								Key:   "Node Count",
-								Value: fmt.Sprintf("%d", int(res["data"].(map[string]any)["node_count"].(float64))),
+								Value: fmt.Sprintf("%d", int(res["data"].(map[string]any)["nodeCount"].(float64))),
 							},
 						}),
 					).Render(),

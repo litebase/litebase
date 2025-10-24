@@ -62,7 +62,7 @@ func NewDatabaseSnapshotListCmd(config *config.CLIConfiguration) *cobra.Command 
 				startRestorePoint := "-"
 				lastRestorePoint := "-"
 
-				if restorePoints, exists := snapshotData["restore_points"]; exists && restorePoints != nil {
+				if restorePoints, exists := snapshotData["restorePoints"]; exists && restorePoints != nil {
 					if rpMap, ok := restorePoints.(map[string]any); ok {
 						if total, totalExists := rpMap["total"]; totalExists {
 							restorePointsCount = fmt.Sprintf("%v", total)

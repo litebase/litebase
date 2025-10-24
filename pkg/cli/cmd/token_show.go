@@ -24,7 +24,7 @@ func tokenShow(cmd *cobra.Command, config *config.CLIConfiguration, tokenId stri
 	rows := []components.CardRow{
 		{
 			Key:   "Token ID",
-			Value: res["data"].(map[string]any)["token_id"].(string),
+			Value: res["data"].(map[string]any)["tokenId"].(string),
 		},
 	}
 
@@ -35,8 +35,8 @@ func tokenShow(cmd *cobra.Command, config *config.CLIConfiguration, tokenId stri
 		})
 	}
 
-	if res["data"].(map[string]any)["created_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["created_at"].(string))
+	if res["data"].(map[string]any)["createdAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["createdAt"].(string))
 
 		if err != nil {
 			return err
@@ -48,8 +48,8 @@ func tokenShow(cmd *cobra.Command, config *config.CLIConfiguration, tokenId stri
 		})
 	}
 
-	if res["data"].(map[string]any)["updated_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updated_at"].(string))
+	if res["data"].(map[string]any)["updatedAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updatedAt"].(string))
 
 		if err != nil {
 			return err

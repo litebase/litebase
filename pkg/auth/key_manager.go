@@ -363,8 +363,8 @@ func rotate(c *config.Config, secretsManager *SecretsManager) error {
 	}
 
 	manifest := map[string]any{
-		"encryption_key": c.EncryptionKeyNext,
-		"rotated_at":     time.Now().UTC().Unix(),
+		"encryptionKey": c.EncryptionKeyNext,
+		"rotatedAt":     time.Now().UTC().Unix(),
 	}
 
 	manifestBytes, err := json.Marshal(manifest)

@@ -18,7 +18,7 @@ func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 			data := map[string]any{"name": args[0]}
 
 			if primaryBranch, _ := cmd.Flags().GetString("primary-branch"); primaryBranch != "" {
-				data["primary_branch"] = primaryBranch
+				data["primaryBranch"] = primaryBranch
 			}
 
 			res, apiErrors, err := api.Post(config, "/v1/databases", data)

@@ -4,7 +4,7 @@ import "context"
 
 // Response payload for cluster status
 type ClusterStatusResponse struct {
-	NodeCount int `json:"node_count"`
+	NodeCount int `json:"nodeCount"`
 }
 
 // Returns the current status of the cluster

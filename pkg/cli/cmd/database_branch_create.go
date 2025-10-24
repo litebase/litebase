@@ -29,7 +29,7 @@ func NewDatabaseBranchCreateCmd(config *config.CLIConfiguration) *cobra.Command 
 			}
 
 			if parentBranchName != "" {
-				data["parent_name"] = parentBranchName
+				data["parentName"] = parentBranchName
 			}
 
 			res, _, err := api.Post(config, fmt.Sprintf("/v1/databases/%s/branches", databaseName), data)

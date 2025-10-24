@@ -66,11 +66,11 @@ func TestAccessKey(t *testing.T) {
 				t.Errorf("Failed to unmarshal JSON: %v", err)
 			}
 
-			if result["access_key_id"] != "accessKeyId" {
-				t.Errorf("Expected accessKeyId to be 'accessKeyId', got %v", result["access_key_id"])
+			if result["accessKeyId"] != "accessKeyId" {
+				t.Errorf("Expected accessKeyId to be 'accessKeyId', got %v", result["accessKeyId"])
 			}
 
-			if _, ok := result["access_key_secret"]; ok {
+			if _, ok := result["accessKeySecret"]; ok {
 				t.Error("Expected accessKeySecret to be omitted from JSON, but it was included")
 			}
 		})

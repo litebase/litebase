@@ -122,9 +122,9 @@ func TestDatabaseRestoreController(t *testing.T) {
 			),
 			"POST",
 			map[string]any{
-				"target_database":        target.DatabaseName,
-				"target_database_branch": target.BranchName,
-				"timestamp":              strconv.FormatInt(restorePoint.Timestamp, 10),
+				"targetDatabase":       target.DatabaseName,
+				"targetDatabaseBranch": target.BranchName,
+				"timestamp":            strconv.FormatInt(restorePoint.Timestamp, 10),
 			},
 		)
 
@@ -373,9 +373,9 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 				),
 				"POST",
 				map[string]any{
-					"target_database":        target.DatabaseName,
-					"target_database_branch": target.BranchName,
-					"timestamp":              strconv.FormatInt(restorePoint.Timestamp, 10),
+					"targetDatabase":       target.DatabaseName,
+					"targetDatabaseBranch": target.BranchName,
+					"timestamp":            strconv.FormatInt(restorePoint.Timestamp, 10),
 				},
 			)
 
@@ -567,9 +567,9 @@ func TestDatabaseRestoreControllerNonEmptyTarget(t *testing.T) {
 			),
 			"POST",
 			map[string]any{
-				"target_database":        target.DatabaseName,
-				"target_database_branch": target.BranchName,
-				"timestamp":              strconv.FormatInt(restorePoint.Timestamp, 10),
+				"targetDatabase":       target.DatabaseName,
+				"targetDatabaseBranch": target.BranchName,
+				"timestamp":            strconv.FormatInt(restorePoint.Timestamp, 10),
 			},
 		)
 

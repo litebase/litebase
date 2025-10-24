@@ -101,9 +101,9 @@ func (ce *ClusterElection) proposeLeadership() bool {
 	}
 
 	data := map[string]any{
-		"candidate":  ce.node.ID,
-		"seed":       ce.Seed,
-		"started_at": ce.StartedAt.UnixNano(),
+		"candidate": ce.node.ID,
+		"seed":      ce.Seed,
+		"startedAt": ce.StartedAt.UnixNano(),
 	}
 
 	jsonData, err := json.Marshal(data)

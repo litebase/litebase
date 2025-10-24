@@ -12,8 +12,8 @@ type UserControllerUserResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
-	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
-	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+	CreatedAt   string           `json:"createdAt" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updatedAt" description:"Last update timestamp"`
 }
 
 // Array of users for list operations
@@ -62,8 +62,8 @@ type UserControllerShowResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
-	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
-	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+	CreatedAt   string           `json:"createdAt" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updatedAt" description:"Last update timestamp"`
 }
 
 // Create a new user
@@ -102,8 +102,8 @@ type UserControllerStoreResponse struct {
 	Username    string           `json:"username"`
 	Description string           `json:"description"`
 	Statements  []auth.Statement `json:"statements"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 }
 
 // Create a new user
@@ -192,8 +192,8 @@ type UserControllerUpdateResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
-	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
-	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+	CreatedAt   string           `json:"createdAt" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updatedAt" description:"Last update timestamp"`
 }
 
 // Update an existing user

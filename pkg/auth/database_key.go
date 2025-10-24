@@ -22,11 +22,11 @@ const (
 // - 16 bytes for the database ID
 // - 16 bytes for the branch ID
 type DatabaseKey struct {
-	DatabaseBranchID   string `json:"database_branch_id"`
-	DatabaseBranchName string `json:"database_branch_name"`
-	DatabaseHash       string `json:"database_hash"`
-	DatabaseID         string `json:"database_id"`
-	DatabaseName       string `json:"database_name"`
+	DatabaseBranchID   string `json:"databaseBranchId"`
+	DatabaseBranchName string `json:"databaseBranchName"`
+	DatabaseHash       string `json:"databaseHash"`
+	DatabaseID         string `json:"databaseId"`
+	DatabaseName       string `json:"databaseName"`
 }
 
 func NewDatabaseKey(databaseID, databaseName, branchID, branchName string) *DatabaseKey {

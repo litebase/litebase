@@ -68,8 +68,8 @@ func TestToken(t *testing.T) {
 				t.Errorf("Failed to unmarshal JSON: %v", err)
 			}
 
-			if result["token_id"] != "tokenId" {
-				t.Errorf("Expected tokenId to be 'tokenId', got %v", result["token_id"])
+			if result["tokenId"] != "tokenId" {
+				t.Errorf("Expected tokenId to be 'tokenId', got %v", result["tokenId"])
 			}
 		})
 

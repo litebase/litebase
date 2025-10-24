@@ -19,16 +19,15 @@ type Database struct {
 	ID                       int64             `json:"-"`
 	DatabaseManager          *DatabaseManager  `json:"-"`
 	Name                     string            `json:"name"`
-	DatabaseID               string            `json:"database_id"`
+	DatabaseID               string            `json:"databaseId"`
 	PrimaryBranchReferenceID sql.NullInt64     `json:"-"`
 	Settings                 *DatabaseSettings `json:"settings"`
-	CreatedAt                time.Time         `json:"created_at"`
-	UpdatedAt                time.Time         `json:"updated_at"`
-
-	exists        bool
-	primaryBranch *Branch
-	branchCache   *cache.LFUCache
-	cacheMutex    sync.Mutex
+	CreatedAt                time.Time         `json:"createdAt"`
+	UpdatedAt                time.Time         `json:"updatedAt"`
+	exists                   bool
+	primaryBranch            *Branch
+	branchCache              *cache.LFUCache
+	cacheMutex               sync.Mutex
 }
 
 func NewDatabase(databaseManager *DatabaseManager, databaseName string) *Database {

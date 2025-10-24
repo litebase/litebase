@@ -48,7 +48,7 @@ func NewTokenListCmd(config *config.CLIConfiguration) *cobra.Command {
 			for i, token := range tokens {
 				var tokenId = "-"
 
-				if t, ok := token.(map[string]any)["token_id"].(string); ok {
+				if t, ok := token.(map[string]any)["tokenId"].(string); ok {
 					tokenId = t
 				}
 

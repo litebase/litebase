@@ -110,18 +110,18 @@ func DatabaseBranchControllerShow(ctx context.Context, request *Request) Respons
 // Request payload for creating a new database branch
 type DatabaseBranchStoreRequest struct {
 	Name       database.DatabaseBranchName `json:"name" validate:"required,validateFn"`
-	ParentName string                      `json:"parent_name,omitempty"`
+	ParentName string                      `json:"parentName,omitempty"`
 }
 
 type DatabaseBranchStoreResponse struct {
 	ID               int64                    `json:"id"`
-	DatabaseBranchID string                   `json:"database_branch_id"`
-	DatabaseID       string                   `json:"database_id"`
+	DatabaseBranchID string                   `json:"databaseBranchId"`
+	DatabaseID       string                   `json:"databaseId"`
 	Name             string                   `json:"name"`
-	ParentName       string                   `json:"parent_name"`
+	ParentName       string                   `json:"parentName"`
 	Settings         *database.BranchSettings `json:"settings"`
-	CreatedAt        time.Time                `json:"created_at"`
-	UpdatedAt        time.Time                `json:"updated_at"`
+	CreatedAt        time.Time                `json:"createdAt"`
+	UpdatedAt        time.Time                `json:"updatedAt"`
 }
 
 // Create a new database branch

@@ -1593,20 +1593,20 @@ func (g *Generator) createSchemaForKnownType(typeName string) *Schema {
 					Description: "Resource identifier",
 					Example:     "example_id",
 				},
-				"created_at": {
+				"createdAt": {
 					Type:        "string",
 					Format:      "date-time",
 					Description: "Creation timestamp",
 					Example:     "2023-09-20T14:30:00Z",
 				},
-				"updated_at": {
+				"updatedAt": {
 					Type:        "string",
 					Format:      "date-time",
 					Description: "Last update timestamp",
 					Example:     "2023-09-20T14:30:00Z",
 				},
 			},
-			Required: []string{"created_at", "id", "updated_at"},
+			Required: []string{"createdAt", "id", "updatedAt"},
 		}
 	}
 
@@ -2555,9 +2555,9 @@ func (g *Generator) convertFieldToSchema(fieldInfo *FieldInfo) *Schema {
 
 		if fieldInfo.Description == "" {
 			switch fieldInfo.JSONName {
-			case "created_at":
+			case "createdAt":
 				fieldSchema.Description = "Creation timestamp"
-			case "updated_at":
+			case "updatedAt":
 				fieldSchema.Description = "Last update timestamp"
 			}
 		}

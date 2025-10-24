@@ -530,8 +530,8 @@ func (pl *PageLog) Validate() error {
 				"page", pageNumber,
 				"version", entry.Version,
 				"offset", entry.Offset,
-				"file_size", fileSize,
-				"required_size", entry.Offset+PageSize)
+				"fileSize", fileSize,
+				"requiredSize", entry.Offset+PageSize)
 			invalidEntries++
 			continue
 		}

@@ -161,7 +161,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 							t.Errorf("Expected data array items to be objects, got %s", dataSchema.Items.Type)
 						}
 
-						expectedUserProps := []string{"username", "statements", "created_at", "updated_at"}
+						expectedUserProps := []string{"username", "statements", "createdAt", "updatedAt"}
 
 						for _, prop := range expectedUserProps {
 							if _, exists := dataSchema.Items.Properties[prop]; !exists {
@@ -201,7 +201,7 @@ func TestResponseSchemaExtraction(t *testing.T) {
 						t.Error("Expected data schema to have UserResponse properties")
 					}
 
-					userResponseProps := []string{"username", "statements", "created_at", "updated_at"}
+					userResponseProps := []string{"username", "statements", "createdAt", "updatedAt"}
 
 					for _, prop := range userResponseProps {
 						if _, exists := dataSchema.Properties[prop]; !exists {

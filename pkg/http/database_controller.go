@@ -45,12 +45,12 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 
 type DatabaseShowResponse struct {
 	ID            int64                      `json:"id"`
-	DatabaseID    string                     `json:"database_id"`
+	DatabaseID    string                     `json:"databaseId"`
 	Name          string                     `json:"name"`
-	PrimaryBranch string                     `json:"primary_branch"`
+	PrimaryBranch string                     `json:"primaryBranch"`
 	Settings      *database.DatabaseSettings `json:"settings"`
-	CreatedAt     time.Time                  `json:"created_at"`
-	UpdatedAt     time.Time                  `json:"updated_at"`
+	CreatedAt     time.Time                  `json:"createdAt"`
+	UpdatedAt     time.Time                  `json:"updatedAt"`
 	Url           string                     `json:"url"`
 }
 
@@ -107,17 +107,17 @@ func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 
 type DatabaseStoreRequest struct {
 	Name          database.DatabaseName `json:"name" validate:"required,validateFn"`
-	PrimaryBranch string                `json:"primary_branch,omitempty" validate:"omitempty,lowercase,alphanum"`
+	PrimaryBranch string                `json:"primaryBranch,omitempty" validate:"omitempty,lowercase,alphanum"`
 }
 
 type DatabaseStoreResponse struct {
 	ID            int64                      `json:"id"`
-	DatabaseID    string                     `json:"database_id"`
+	DatabaseID    string                     `json:"databaseId"`
 	Name          string                     `json:"name"`
-	PrimaryBranch string                     `json:"primary_branch"`
+	PrimaryBranch string                     `json:"primaryBranch"`
 	Settings      *database.DatabaseSettings `json:"settings"`
-	CreatedAt     time.Time                  `json:"created_at"`
-	UpdatedAt     time.Time                  `json:"updated_at"`
+	CreatedAt     time.Time                  `json:"createdAt"`
+	UpdatedAt     time.Time                  `json:"updatedAt"`
 	Url           string                     `json:"url"`
 }
 
@@ -141,10 +141,10 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	}
 
 	validationErrors := request.Validate(input, map[string]string{
-		"name.required":            "The name field is required",
-		"name.validateFn":          "The name field can only contain alpha numeric characters, hyphens, or underscores",
-		"primary_branch.lowercase": "The primary branch name must be lowercase",
-		"primary_branch.alphanum":  "The primary branch name can only contain alphanumeric characters",
+		"name.required":           "The name field is required",
+		"name.validateFn":         "The name field can only contain alpha numeric characters, hyphens, or underscores",
+		"primaryBranch.lowercase": "The primary branch name must be lowercase",
+		"primaryBranch.alphanum":  "The primary branch name can only contain alphanumeric characters",
 	})
 
 	if validationErrors != nil {
