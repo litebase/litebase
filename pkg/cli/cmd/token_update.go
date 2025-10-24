@@ -153,7 +153,7 @@ func NewTokenUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 				return nil
 			}
 
-			res, _, err := api.Put(config, fmt.Sprintf("/v1/tokens/%s", tokenId), map[string]any{
+			res, _, err := api.Patch(config, fmt.Sprintf("/v1/tokens/%s", tokenId), map[string]any{
 				"description": input.Description,
 				"statements":  input.Statements,
 			})

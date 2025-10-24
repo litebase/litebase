@@ -45,7 +45,7 @@ func LoadPublicRoutes(router *Router) {
 		Authentication,
 	})
 
-	router.Put(
+	router.Patch(
 		"/v1/users/{username}",
 		UserControllerUpdate,
 	).Middleware([]Middleware{
@@ -75,7 +75,7 @@ func LoadPublicRoutes(router *Router) {
 		Authentication,
 	})
 
-	router.Put(
+	router.Patch(
 		"/v1/access-keys/{accessKeyId}",
 		AccessKeyControllerUpdate,
 	).Middleware([]Middleware{
@@ -113,7 +113,7 @@ func LoadPublicRoutes(router *Router) {
 		Authentication,
 	})
 
-	router.Put(
+	router.Patch(
 		"/v1/tokens/{tokenId}",
 		TokenControllerUpdate,
 	).Middleware([]Middleware{

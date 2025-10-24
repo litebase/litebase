@@ -255,7 +255,7 @@ func TestUserController(t *testing.T) {
 
 			response, statusCode, err := client.Send(
 				"/v1/users/foo_update",
-				"PUT", map[string]any{
+				"PATCH", map[string]any{
 					"description": "Updated test user description",
 					"statements": []auth.Statement{
 						{

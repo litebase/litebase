@@ -11,8 +11,13 @@ func DatabaseCard(data map[string]any) string {
 			Value: data["databaseId"].(string),
 		},
 		{
-			Key:   "Name",
-			Value: data["name"].(string),
+			Key:   "Database Name",
+			Value: data["databaseName"].(string),
+		},
+
+		{
+			Key:   "Branch Name",
+			Value: data["branchName"].(string),
 		},
 	}
 

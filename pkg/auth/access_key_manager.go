@@ -111,7 +111,7 @@ func (akm *AccessKeyManager) GenerateAccessKeyId() (string, error) {
 		maxRounds = 100
 	)
 
-	prefix := "lbaks_"
+	prefix := "lbakid_"
 	dictionary := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	var accessKeyId string
 

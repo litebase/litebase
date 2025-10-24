@@ -127,7 +127,7 @@ func TestDatabaseControllerStore(t *testing.T) {
 			t.Fatalf("expected data to be an object, got %T", resp["data"])
 		}
 
-		if data["name"] != "test_db" {
+		if data["databaseName"] != "test_db" {
 			t.Fatalf("expected database name to be 'test_db', got %v", data["name"])
 		}
 

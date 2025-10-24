@@ -173,7 +173,7 @@ func AccessKeyControllerStore(ctx context.Context, request *Request) Response {
 
 type AccessKeyUpdateRequest struct {
 	Description string           `json:"description" validate:"omitempty,max=255"`
-	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive,validateFn=IsValid"`
+	Statements  []auth.Statement `json:"statements" validate:"omitempty,required,min=1,max=100,dive,validateFn=IsValid"`
 }
 
 type AccessKeyUpdateResponse struct {

@@ -280,7 +280,7 @@ func (g *Generator) AnalyzeControllerWithHandlers(filePath string, handlerNames 
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			// Check if this function is one of our target handlers
 			if handlerSet[fn.Name.Name] {
-				methodAnalysis := g.analyzeControllerMethod(fn, content, node)
+				methodAnalysis := g.analyzeControllerMethod(fn, node)
 
 				if methodAnalysis != nil {
 					analysis.Methods[fn.Name.Name] = methodAnalysis
@@ -961,7 +961,7 @@ func (g *Generator) AnalyzeController(filePath string, controllerName string) (*
 	ast.Inspect(node, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			if strings.Contains(fn.Name.Name, controllerName) {
-				methodAnalysis := g.analyzeControllerMethod(fn, content, node)
+				methodAnalysis := g.analyzeControllerMethod(fn, node)
 
 				if methodAnalysis != nil {
 					analysis.Methods[fn.Name.Name] = methodAnalysis
@@ -1128,7 +1128,7 @@ func (g *Generator) extractTypeString(expr ast.Expr) string {
 }
 
 // analyzeControllerMethod analyzes a controller method
-func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, source []byte, fileAst *ast.File) *MethodAnalysis {
+func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, fileAst *ast.File) *MethodAnalysis {
 	methodName := fn.Name.Name
 
 	analysis := &MethodAnalysis{
@@ -2034,7 +2034,7 @@ func (g *Generator) addDefaultResponses(analysis *MethodAnalysis) {
 			Description: "Resource created successfully",
 			Type:        "success",
 		}
-	case "PUT":
+	case "PATCH":
 		analysis.Responses["200"] = &ResponseInfo{
 			StatusCode:  200,
 			Description: "Resource updated successfully",
@@ -2132,8 +2132,8 @@ func (g *Generator) GenerateOpenAPIFromAnalysis(analysis *ControllerAnalysis) ma
 			}
 		}
 
-		// Add request body for POST/PUT operations
-		if httpMethod == "post" || httpMethod == "put" {
+		// Add request body for POST/PATCH operations
+		if httpMethod == "post" || httpMethod == "patch" {
 			if requestBody := g.generateRequestBody(methodAnalysis); requestBody != nil {
 				operation.RequestBody = requestBody
 			}

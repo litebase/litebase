@@ -153,7 +153,7 @@ func NewAccessKeyUpdateCmd(config *config.CLIConfiguration) *cobra.Command {
 				return nil
 			}
 
-			res, _, err := api.Put(config, fmt.Sprintf("/v1/access-keys/%s", accessKeyId), map[string]any{
+			res, _, err := api.Patch(config, fmt.Sprintf("/v1/access-keys/%s", accessKeyId), map[string]any{
 				"description": input.Description,
 				"statements":  input.Statements,
 			})

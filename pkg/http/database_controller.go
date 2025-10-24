@@ -46,7 +46,7 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 type DatabaseShowResponse struct {
 	ID            int64                      `json:"id"`
 	DatabaseID    string                     `json:"databaseId"`
-	Name          string                     `json:"name"`
+	DatabaseName  string                     `json:"databaseName"`
 	PrimaryBranch string                     `json:"primaryBranch"`
 	Settings      *database.DatabaseSettings `json:"settings"`
 	CreatedAt     time.Time                  `json:"createdAt"`
@@ -94,7 +94,7 @@ func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 		DatabaseShowResponse{
 			ID:            db.ID,
 			DatabaseID:    db.DatabaseID,
-			Name:          db.Name,
+			DatabaseName:  db.Name,
 			PrimaryBranch: primaryBranch.Name,
 			Settings:      db.Settings,
 			CreatedAt:     db.CreatedAt,
@@ -111,14 +111,14 @@ type DatabaseStoreRequest struct {
 }
 
 type DatabaseStoreResponse struct {
-	ID            int64                      `json:"id"`
-	DatabaseID    string                     `json:"databaseId"`
-	Name          string                     `json:"name"`
-	PrimaryBranch string                     `json:"primaryBranch"`
-	Settings      *database.DatabaseSettings `json:"settings"`
-	CreatedAt     time.Time                  `json:"createdAt"`
-	UpdatedAt     time.Time                  `json:"updatedAt"`
-	Url           string                     `json:"url"`
+	ID           int64                      `json:"id"`
+	DatabaseID   string                     `json:"databaseId"`
+	DatabaseName string                     `json:"databaseName"`
+	BranchName   string                     `json:"branchName"`
+	Settings     *database.DatabaseSettings `json:"settings"`
+	CreatedAt    time.Time                  `json:"createdAt"`
+	UpdatedAt    time.Time                  `json:"updatedAt"`
+	Url          string                     `json:"url"`
 }
 
 // Create a new database
@@ -187,14 +187,14 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	return SuccessResponse(
 		"Database created successfully",
 		DatabaseStoreResponse{
-			ID:            db.ID,
-			DatabaseID:    db.DatabaseID,
-			Name:          db.Name,
-			PrimaryBranch: primaryBranch.Name,
-			Settings:      db.Settings,
-			CreatedAt:     db.CreatedAt,
-			UpdatedAt:     db.UpdatedAt,
-			Url:           db.Url(primaryBranch.Name),
+			ID:           db.ID,
+			DatabaseID:   db.DatabaseID,
+			DatabaseName: db.Name,
+			BranchName:   primaryBranch.Name,
+			Settings:     db.Settings,
+			CreatedAt:    db.CreatedAt,
+			UpdatedAt:    db.UpdatedAt,
+			Url:          db.Url(primaryBranch.Name),
 		},
 		200,
 	)

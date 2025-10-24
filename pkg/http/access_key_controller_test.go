@@ -448,7 +448,7 @@ func TestAccessKeyController(t *testing.T) {
 				},
 			})
 
-			response, statusCode, err := client.Send(fmt.Sprintf("/v1/access-keys/%s", accessKey.AccessKeyID), "PUT", map[string]any{
+			response, statusCode, err := client.Send(fmt.Sprintf("/v1/access-keys/%s", accessKey.AccessKeyID), "PATCH", map[string]any{
 				"description": "Updated description",
 				"statements": []map[string]any{
 					{
@@ -494,7 +494,7 @@ func TestAccessKeyController(t *testing.T) {
 				},
 			})
 
-			response, statusCode, err := client.Send(fmt.Sprintf("/v1/access-keys/%s", accessKey.AccessKeyID), "PUT", map[string]any{
+			response, statusCode, err := client.Send(fmt.Sprintf("/v1/access-keys/%s", accessKey.AccessKeyID), "PATCH", map[string]any{
 				"statements": []map[string]any{
 					{
 						"effect":   "allow",

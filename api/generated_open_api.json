@@ -336,7 +336,84 @@
           }
         ]
       },
-      "put": {
+      "delete": {
+        "tags": [
+          "AccessKey"
+        ],
+        "summary": "Delete an access key",
+        "description": "Delete an access key",
+        "operationId": "deleteAccessKey",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Access key deleted successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "patch": {
         "tags": [
           "AccessKey"
         ],
@@ -455,83 +532,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "AccessKeyAuth": []
-          },
-          {
-            "BasicAuth": []
-          },
-          {
-            "TokenAuth": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "AccessKey"
-        ],
-        "summary": "Delete an access key",
-        "description": "Delete an access key",
-        "operationId": "deleteAccessKey",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "Access key deleted successfully"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -688,6 +688,9 @@
                     "data": {
                       "type": "object",
                       "properties": {
+                        "branchName": {
+                          "type": "string"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -697,14 +700,11 @@
                         "databaseId": {
                           "type": "string"
                         },
+                        "databaseName": {
+                          "type": "string"
+                        },
                         "id": {
                           "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "primaryBranch": {
-                          "type": "string"
                         },
                         "settings": {
                           "$ref": "#/components/schemas/DatabaseSettings"
@@ -821,11 +821,11 @@
                         "databaseId": {
                           "type": "string"
                         },
+                        "databaseName": {
+                          "type": "string"
+                        },
                         "id": {
                           "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
                         },
                         "primaryBranch": {
                           "type": "string"
@@ -1154,6 +1154,9 @@
                           "type": "string"
                         },
                         "databaseId": {
+                          "type": "string"
+                        },
+                        "databaseName": {
                           "type": "string"
                         },
                         "id": {
@@ -3242,7 +3245,84 @@
           }
         ]
       },
-      "put": {
+      "delete": {
+        "tags": [
+          "Token"
+        ],
+        "summary": "Delete a token",
+        "description": "Delete a token",
+        "operationId": "deleteToken",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Token deleted successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "patch": {
         "tags": [
           "Token"
         ],
@@ -3336,83 +3416,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "AccessKeyAuth": []
-          },
-          {
-            "BasicAuth": []
-          },
-          {
-            "TokenAuth": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "Token"
-        ],
-        "summary": "Delete a token",
-        "description": "Delete a token",
-        "operationId": "deleteToken",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "Token deleted successfully"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3776,7 +3779,93 @@
           }
         ]
       },
-      "put": {
+      "delete": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Delete a user",
+        "operationId": "deleteUser",
+        "responses": {
+          "204": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "User deleted successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "patch": {
         "tags": [
           "User"
         ],
@@ -3895,92 +3984,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "AccessKeyAuth": []
-          },
-          {
-            "BasicAuth": []
-          },
-          {
-            "TokenAuth": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "User"
-        ],
-        "summary": "Delete a user",
-        "operationId": "deleteUser",
-        "responses": {
-          "204": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "User deleted successfully"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

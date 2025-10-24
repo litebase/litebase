@@ -456,7 +456,7 @@ func TestTokenController(t *testing.T) {
 				},
 			})
 
-			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PUT", map[string]any{
+			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PATCH", map[string]any{
 				"description": "Updated description",
 				"statements": []map[string]any{
 					{
@@ -502,7 +502,7 @@ func TestTokenController(t *testing.T) {
 				},
 			})
 
-			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PUT", map[string]any{
+			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PATCH", map[string]any{
 				"statements": []map[string]any{
 					{
 						"effect":   "allow",
