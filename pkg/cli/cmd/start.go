@@ -56,6 +56,11 @@ func NewStartCmd() *cobra.Command {
 				return fmt.Errorf("failed to load flags: %w", err)
 			}
 
+			// Load startConfig into environment variables (only for non-empty values)
+			if err := startConfig.Load(); err != nil {
+				return fmt.Errorf("failed to load start config: %w", err)
+			}
+
 			// TODO: Validate the configuration to ensure all required fields are set
 
 			serverConfig := config.NewConfig()
@@ -145,16 +150,15 @@ func NewStartCmd() *cobra.Command {
 			startConfig.Debug = cmd.Flags().Lookup("debug").Value.String() == "true"
 		}
 
-		if err := startConfig.Load(); err != nil {
-			slog.Error("failed to load start config", "error", err)
-		}
+		// Only load config if it was explicitly set (don't override environment variables)
+		// The Load() method will be called later in RunE after flags are parsed
 	})
 
 	// Flags
 	cmd.Flags().StringVar(&startConfig.ConfigPath, "config", "", "Path to the configuration file")
 	cmd.Flags().BoolVarP(&startConfig.Debug, "debug", "d", false, "Run the server in debug mode")
 	cmd.Flags().StringVar(&startConfig.Key, "key", "", "The key to use for server encryption")
-	cmd.Flags().StringVar(&startConfig.Port, "port", "8080", "The port to run the server on")
+	cmd.Flags().StringVar(&startConfig.Port, "port", "", "The port to run the server on (defaults to LITEBASE_PORT env var or 8080)")
 	cmd.Flags().StringVar(&startConfig.StoragePath, "storage-path", "", "The path to the data directory")
 	cmd.Flags().StringVar(&startConfig.StorageNetworkPath, "storage-network-path", "", "The path to use for network storage")
 	cmd.Flags().StringVar(&startConfig.StorageTmpPath, "storage-tmp-path", "", "The path to use for temporary files")
@@ -218,12 +222,17 @@ func startLoadEnv() {
 }
 
 func startLoadFlags(cmd *cobra.Command, config *StartConfig) error {
-	if debug, err := cmd.Flags().GetBool("debug"); err == nil {
-		config.Debug = debug
+	if cmd.Flags().Changed("debug") {
+		if debug, err := cmd.Flags().GetBool("debug"); err == nil {
+			config.Debug = debug
+		}
 	}
 
-	if port, err := cmd.Flags().GetString("port"); err == nil {
-		config.Port = port
+	// Only set port if the flag was explicitly changed from default
+	if cmd.Flags().Changed("port") {
+		if port, err := cmd.Flags().GetString("port"); err == nil {
+			config.Port = port
+		}
 	}
 
 	if storagePath, err := cmd.Flags().GetString("storage-path"); err == nil {
