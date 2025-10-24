@@ -73,14 +73,14 @@ type Schema struct {
 	// AdditionalProperties represents OpenAPI's `additionalProperties` which
 	// is used to describe map-like objects where property names are not known
 	// ahead of time. For example: { "errors": { "field": ["msg"] } }
-	AdditionalProperties *Schema `json:"additionalProperties,omitempty"`
-	Required    []string           `json:"required,omitempty"`
-	Example     any                `json:"example,omitempty"`
-	Enum        []any              `json:"enum,omitempty"`
-	Ref         string             `json:"$ref,omitempty"`
-	OneOf       []*Schema          `json:"oneOf,omitempty"`
-	AnyOf       []*Schema          `json:"anyOf,omitempty"`
-	AllOf       []*Schema          `json:"allOf,omitempty"`
+	AdditionalProperties *Schema   `json:"additionalProperties,omitempty"`
+	Required             []string  `json:"required,omitempty"`
+	Example              any       `json:"example,omitempty"`
+	Enum                 []any     `json:"enum,omitempty"`
+	Ref                  string    `json:"$ref,omitempty"`
+	OneOf                []*Schema `json:"oneOf,omitempty"`
+	AnyOf                []*Schema `json:"anyOf,omitempty"`
+	AllOf                []*Schema `json:"allOf,omitempty"`
 }
 
 // SecurityRequirement represents an OpenAPI security requirement

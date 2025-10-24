@@ -4159,6 +4159,7 @@
           "database:select",
           "database:transaction",
           "database:update",
+          "*",
           "token:create",
           "token:delete",
           "token:list",
