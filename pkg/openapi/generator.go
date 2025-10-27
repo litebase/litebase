@@ -2132,8 +2132,8 @@ func (g *Generator) GenerateOpenAPIFromAnalysis(analysis *ControllerAnalysis) ma
 			}
 		}
 
-		// Add request body for POST/PATCH operations
-		if httpMethod == "post" || httpMethod == "patch" {
+		// Add request body for POST/PATCH/PUT operations
+		if httpMethod == "post" || httpMethod == "patch" || httpMethod == "put" {
 			if requestBody := g.generateRequestBody(methodAnalysis); requestBody != nil {
 				operation.RequestBody = requestBody
 			}
@@ -2439,12 +2439,25 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 
 		for _, requestTypeName := range potentialNames {
 			if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
+				schema := g.convertTypeInfoToSchema(typeInfo)
+
+				// If the schema has no properties (empty struct), return RequestBody with empty content
+				if schema.Type == "object" && len(schema.Properties) == 0 {
+					return &RequestBody{
+						Description: fmt.Sprintf("%s creation data", capitalizeFirst(displayName)),
+						Required:    true,
+						Content: map[string]MediaType{
+							"application/json": {},
+						},
+					}
+				}
+
 				return &RequestBody{
 					Description: fmt.Sprintf("%s creation data", capitalizeFirst(displayName)),
 					Required:    true,
 					Content: map[string]MediaType{
 						"application/json": {
-							Schema: g.convertTypeInfoToSchema(typeInfo),
+							Schema: schema,
 						},
 					},
 				}
@@ -2470,12 +2483,25 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 
 		for _, requestTypeName := range potentialNames {
 			if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
+				schema := g.convertTypeInfoToSchema(typeInfo)
+
+				// If the schema has no properties (empty struct), return RequestBody with empty content
+				if schema.Type == "object" && len(schema.Properties) == 0 {
+					return &RequestBody{
+						Description: fmt.Sprintf("%s update data", capitalizeFirst(displayName)),
+						Required:    true,
+						Content: map[string]MediaType{
+							"application/json": {},
+						},
+					}
+				}
+
 				return &RequestBody{
 					Description: fmt.Sprintf("%s update data", capitalizeFirst(displayName)),
 					Required:    true,
 					Content: map[string]MediaType{
 						"application/json": {
-							Schema: g.convertTypeInfoToSchema(typeInfo),
+							Schema: schema,
 						},
 					},
 				}

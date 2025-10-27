@@ -273,10 +273,6 @@ func (request *Request) Input(input any) (any, error) {
 		return nil, err
 	}
 
-	if string(jsonData) == "null" || len(jsonData) == 0 {
-		return nil, fmt.Errorf("request body is empty")
-	}
-
 	err = json.Unmarshal(jsonData, &input)
 
 	if err != nil {
