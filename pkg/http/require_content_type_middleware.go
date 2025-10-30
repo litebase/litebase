@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"slices"
 )
 
 func RequireContentType(ctx context.Context, req *Request) (*Request, Response) {
@@ -13,10 +14,8 @@ func RequireContentType(ctx context.Context, req *Request) (*Request, Response) 
 		return req, BadRequestResponse(errors.New("missing Content-Type header"))
 	}
 
-	for _, ct := range contentTypes {
-		if contentType == ct {
-			return req, Response{}
-		}
+	if slices.Contains(contentTypes, contentType) {
+		return req, Response{}
 	}
 
 	return req, Response{
