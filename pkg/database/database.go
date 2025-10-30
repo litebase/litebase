@@ -217,7 +217,7 @@ func (database *Database) Branch(name string) (*Branch, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("branch with name %s not found", name)
+			return nil, err
 		}
 
 		return nil, fmt.Errorf("failed to query branch: %w", err)
