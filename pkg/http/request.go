@@ -9,6 +9,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/litebase/litebase/internal/validation"
@@ -31,7 +34,7 @@ type Request struct {
 	cluster          *cluster.Cluster
 	headers          Headers
 	Method           string
-	QueryParams      map[string]string
+	queryParams      map[string]string
 	Route            Route
 }
 
@@ -65,7 +68,7 @@ func NewRequest(
 		headers:          NewHeaders(headers),
 		logManager:       logManager,
 		Method:           request.Method,
-		QueryParams:      queryParams,
+		queryParams:      queryParams,
 	}
 }
 
@@ -305,13 +308,151 @@ func (request *Request) Path() string {
 
 // Return a query parameter from the request by its key.
 func (request *Request) QueryParam(key string, defaultValue ...string) string {
-	value := request.QueryParams[key]
+	value := request.queryParams[key]
 
 	if value == "" && len(defaultValue) > 0 {
 		return defaultValue[0]
 	}
 
 	return value
+}
+
+func (request *Request) QueryParams(queryParamStruct any) (any, error) {
+	// Prepare a map[string]any that will contain typed values (not only strings)
+	// so that unmarshalling into the target struct preserves numeric/bool types
+	// when the struct tags don't expect JSON strings.
+	params := make(map[string]any)
+
+	// Copy existing query params as raw strings first
+	for k, v := range request.queryParams {
+		params[k] = v
+	}
+
+	// We want to inspect the target struct's fields to fill defaults and
+	// convert values to the appropriate types prior to JSON unmarshalling.
+	rv := reflect.ValueOf(queryParamStruct)
+	if rv.Kind() != reflect.Ptr {
+		return nil, fmt.Errorf("QueryParams requires a pointer to a struct")
+	}
+
+	rv = rv.Elem()
+	rt := rv.Type()
+
+	if rt.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("QueryParams requires a pointer to a struct")
+	}
+
+	for i := 0; i < rt.NumField(); i++ {
+		field := rt.Field(i)
+
+		// Skip unexported fields
+		if field.PkgPath != "" {
+			continue
+		}
+
+		// Determine JSON name
+		jsonTag := field.Tag.Get("json")
+		jsonName := ""
+		encodeAsString := false
+		if jsonTag != "" {
+			parts := strings.Split(jsonTag, ",")
+			if parts[0] != "" {
+				jsonName = parts[0]
+			}
+			for _, p := range parts[1:] {
+				if p == "string" {
+					encodeAsString = true
+				}
+			}
+		}
+
+		if jsonName == "" {
+			jsonName = field.Name
+		}
+
+		// Default value from tag
+		defaultVal := field.Tag.Get("default")
+
+		// Check if a value is present
+		rawVal, has := request.queryParams[jsonName]
+
+		if !has || rawVal == "" {
+			if defaultVal != "" {
+				rawVal = defaultVal
+				// Place default into params map as string for now; we'll convert below
+				params[jsonName] = rawVal
+				has = true
+			} else {
+				// nothing to do
+				continue
+			}
+		}
+
+		// Convert rawVal (string) into appropriate typed value in params map,
+		// taking into account the field type and whether it uses `,string`.
+		if !has {
+			continue
+		}
+
+		// If the field is expected to be encoded as a JSON string (",string"),
+		// leave it as string so encoding/json will decode it properly into
+		// numeric fields that declare the ,string option.
+		if encodeAsString {
+			params[jsonName] = rawVal
+			continue
+		}
+
+		// Otherwise attempt to convert to native types where sensible.
+		kind := field.Type.Kind()
+		switch kind {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if iv, err := strconv.ParseInt(rawVal, 10, 64); err == nil {
+				params[jsonName] = iv
+			} else {
+				// keep as string to let unmarshal produce an error later
+				params[jsonName] = rawVal
+			}
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			if uv, err := strconv.ParseUint(rawVal, 10, 64); err == nil {
+				params[jsonName] = uv
+			} else {
+				params[jsonName] = rawVal
+			}
+		case reflect.Float32, reflect.Float64:
+			if fv, err := strconv.ParseFloat(rawVal, 64); err == nil {
+				params[jsonName] = fv
+			} else {
+				params[jsonName] = rawVal
+			}
+		case reflect.Bool:
+			if bv, err := strconv.ParseBool(rawVal); err == nil {
+				params[jsonName] = bv
+			} else {
+				params[jsonName] = rawVal
+			}
+		case reflect.Slice:
+			// For slices, keep the raw string. Advanced parsing (comma-separated)
+			// could be added later.
+			params[jsonName] = rawVal
+		default:
+			// string, struct, map, etc.: keep as string and let json.Unmarshal
+			// handle the conversion where possible (e.g., nested Input)
+			params[jsonName] = rawVal
+		}
+	}
+
+	// Marshal the typed params map to JSON and unmarshal into the struct
+	jsonData, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(jsonData, &queryParamStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	return queryParamStruct, nil
 }
 
 func (request *Request) Validate(

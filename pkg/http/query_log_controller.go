@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/auth"
@@ -13,6 +12,17 @@ import (
 
 // Response payload for query logs
 type QueryLogIndexResponse []logs.QueryMetric
+
+type QueryLogIndexQueryParameters struct {
+	// The start timestamp for the query logs to retrieve (in seconds since epoch).
+	Start uint64 `json:"start,string" default:"0"`
+
+	// The end timestamp for the query logs to retrieve (in seconds since epoch).
+	End uint64 `json:"end,string"`
+
+	// The step interval (in seconds) to combine query metrics. For example, if step is 60, then all query metrics that occur within the same minute will be combined into a single metric. This is useful for reducing the number of query metrics returned when there are many queries executed within a short period of time.
+	Step int `json:"step" default:"1"`
+}
 
 // List query logs for a specific database and branch
 func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
@@ -35,22 +45,27 @@ func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	step, err := strconv.ParseInt(request.QueryParam("step", "1"), 10, 64)
+	// Validate and map the request query parameters to the QueryLogIndexQueryParameters struct
+	// (we don't need the resulting value here because the controller extracts
+	// specific params manually below; this call will validate/decode types)
+	queryParams, err := request.QueryParams(&QueryLogIndexQueryParameters{})
 
-	if err != nil || step < 1 {
+	if err != nil {
+		return BadRequestResponse(errors.New("the request query parameters are invalid"))
+	}
+
+	step := queryParams.(*QueryLogIndexQueryParameters).Step
+
+	if step < 1 {
 		return BadRequestResponse(errors.New("invalid step value"))
 	}
 
-	startTimestamp, err := strconv.ParseUint(request.QueryParam("start"), 10, 64)
+	startTimestamp := queryParams.(*QueryLogIndexQueryParameters).Start
 
-	if err != nil {
-		return BadRequestResponse(errors.New("invalid start timestamp"))
-	}
+	endTimestamp := queryParams.(*QueryLogIndexQueryParameters).End
 
-	endTimestamp, err := strconv.ParseUint(request.QueryParam("end"), 10, 64)
-
-	if err != nil {
-		return BadRequestResponse(errors.New("invalid end timestamp"))
+	if endTimestamp < startTimestamp {
+		return BadRequestResponse(errors.New("end timestamp must be greater than or equal to start timestamp"))
 	}
 
 	queryLog := request.logManager.GetQueryLog(
@@ -90,7 +105,7 @@ func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 // Combine query metrics by step, which is the number of seconds to combine.
 // Start from the first metric and any subsequent metrics that are within the
 // step interval into a single metric.
-func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int64) QueryLogIndexResponse {
+func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int) QueryLogIndexResponse {
 	if step == 1 {
 		return metrics
 	}
@@ -104,7 +119,7 @@ func combineQueryMeticsByStep(metrics []logs.QueryMetric, step int64) QueryLogIn
 			continue
 		}
 
-		uint32Step, err := utils.SafeInt64ToUint32(step)
+		uint32Step, err := utils.SafeIntToUint32(step)
 
 		if err != nil {
 			return nil

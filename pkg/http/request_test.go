@@ -366,6 +366,11 @@ func TestRequest(t *testing.T) {
 		})
 
 		t.Run("QueryParams", func(t *testing.T) {
+			type QueryParamsTest struct {
+				Bar string `json:"bar"`
+				Baz string `json:"baz" default:"buzz"`
+			}
+
 			baseRequest := &http.Request{
 				Header: map[string][]string{"Content-Type": {"application/json"}},
 				Host:   "foo.bar.litebase.test",
@@ -383,8 +388,30 @@ func TestRequest(t *testing.T) {
 				baseRequest,
 			)
 
+			// simple single param accessor
 			if request.QueryParam("foo") != "bar" {
 				t.Errorf("expected QueryParam(foo) to be %s, got %s", "bar", request.QueryParam("foo"))
+			}
+
+			// verify Request.QueryParams populates the provided struct and returns typed values
+			qp, err := request.QueryParams(&QueryParamsTest{})
+
+			if err != nil {
+				t.Errorf("expected no error from QueryParams, got %v", err)
+			}
+
+			if qp == nil {
+				t.Fatalf("expected QueryParams to return a non-nil struct")
+			}
+
+			qpTyped := qp.(*QueryParamsTest)
+
+			if qpTyped.Bar != "baz" {
+				t.Errorf("expected QueryParams.Bar to be %s, got %s", "baz", qpTyped.Bar)
+			}
+
+			if qpTyped.Baz != "buzz" {
+				t.Errorf("expected QueryParams.Baz to be %s, got %s", "buzz", qpTyped.Baz)
 			}
 		})
 
