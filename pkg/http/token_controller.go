@@ -132,7 +132,7 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-		token, err := request.cluster.Auth.TokenManager.Create(
+	token, err := request.cluster.Auth.TokenManager.Create(
 		input.(*TokenStoreRequest).Description,
 		input.(*TokenStoreRequest).Statements,
 	)

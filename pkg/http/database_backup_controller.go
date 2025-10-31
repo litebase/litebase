@@ -52,8 +52,6 @@ func DatabaseBackupControllerIndex(ctx context.Context, request *Request) Respon
 	)
 }
 
-type DatabaseBackupStoreRequest struct{}
-
 type DatabaseBackupStoreResponse struct {
 	DatabaseBranchID string                     `json:"databaseBranchId"`
 	DatabaseID       string                     `json:"databaseId"`
@@ -99,20 +97,6 @@ func DatabaseBackupControllerStore(ctx context.Context, request *Request) Respon
 
 	if err != nil {
 		return ForbiddenResponse(err)
-	}
-
-	// Parse the input
-	input, err := request.Input(&DatabaseBackupStoreRequest{})
-
-	if err != nil {
-		return BadRequestResponse(err)
-	}
-
-	// Validate the input
-	validationErrors := request.Validate(input, map[string]string{})
-
-	if validationErrors != nil {
-		return ValidationErrorResponse(validationErrors)
 	}
 
 	backup, err := backups.Run(
