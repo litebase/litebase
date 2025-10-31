@@ -9,7 +9,6 @@ import (
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
-	appHttp "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
@@ -221,7 +220,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 				db.BranchName,
 			),
 			"POST",
-			appHttp.DatabaseBackupStoreRequest{},
+			nil,
 		)
 
 		if err != nil {
@@ -417,7 +416,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 				backup.RestorePoint.Timestamp,
 			),
 			"DELETE",
-			appHttp.DatabaseBackupStoreRequest{},
+			nil,
 		)
 
 		if err != nil {
