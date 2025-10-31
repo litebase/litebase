@@ -20,7 +20,11 @@ type QueryLogIndexQueryParameters struct {
 	// The end timestamp for the query logs to retrieve (in seconds since epoch).
 	End uint64 `json:"end,string"`
 
-	// The step interval (in seconds) to combine query metrics. For example, if step is 60, then all query metrics that occur within the same minute will be combined into a single metric. This is useful for reducing the number of query metrics returned when there are many queries executed within a short period of time.
+	// The step interval (in seconds) to combine query metrics. For example, if
+	// step is 60, then all query metrics that occur within the same minute will
+	// be combined into a single metric. This is useful for reducing the number
+	// of query metrics returned when there are many queries executed within a
+	// short period of time.
 	Step int `json:"step" default:"1"`
 }
 
