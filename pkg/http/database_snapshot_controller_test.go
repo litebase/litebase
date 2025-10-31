@@ -187,7 +187,7 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		}
 
 		// The snapshot timestamp should match
-		if int64(resp["data"].(map[string]any)["timestamp"].(float64)) != snapshot.Timestamp {
+		if (resp["data"].(map[string]any)["timestamp"].(string)) != fmt.Sprintf("%d", snapshot.Timestamp) {
 			t.Fatalf("Expected snapshot timestamp to be %d, got %d", snapshot.Timestamp, resp["data"].(map[string]any)["timestamp"])
 		}
 

@@ -38,6 +38,16 @@ type Request struct {
 	Route            Route
 }
 
+// ParamError represents a validation/conversion error for a single query parameter.
+type ParamError struct {
+	Field   string // JSON name of the field
+	Message string // Human friendly message (without the "Error: " prefix)
+}
+
+func (e ParamError) Error() string {
+	return fmt.Sprintf("Error: %s", e.Message)
+}
+
 // Create a new Request instance.
 func NewRequest(
 	cluster *cluster.Cluster,
@@ -331,7 +341,8 @@ func (request *Request) QueryParams(queryParamStruct any) (any, error) {
 	// We want to inspect the target struct's fields to fill defaults and
 	// convert values to the appropriate types prior to JSON unmarshalling.
 	rv := reflect.ValueOf(queryParamStruct)
-	if rv.Kind() != reflect.Ptr {
+
+	if rv.Kind() != reflect.Pointer {
 		return nil, fmt.Errorf("QueryParams requires a pointer to a struct")
 	}
 
@@ -354,11 +365,14 @@ func (request *Request) QueryParams(queryParamStruct any) (any, error) {
 		jsonTag := field.Tag.Get("json")
 		jsonName := ""
 		encodeAsString := false
+
 		if jsonTag != "" {
 			parts := strings.Split(jsonTag, ",")
+
 			if parts[0] != "" {
 				jsonName = parts[0]
 			}
+
 			for _, p := range parts[1:] {
 				if p == "string" {
 					encodeAsString = true
@@ -404,31 +418,70 @@ func (request *Request) QueryParams(queryParamStruct any) (any, error) {
 
 		// Otherwise attempt to convert to native types where sensible.
 		kind := field.Type.Kind()
+
 		switch kind {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			if iv, err := strconv.ParseInt(rawVal, 10, 64); err == nil {
 				params[jsonName] = iv
 			} else {
-				// keep as string to let unmarshal produce an error later
-				params[jsonName] = rawVal
+				// Try to provide a specific error message if possible
+				errMsg := field.Tag.Get("error")
+
+				if errMsg == "" {
+					// Heuristics for common parameter names
+					switch strings.ToLower(jsonName) {
+					case "start":
+						errMsg = "invalid start timestamp"
+					case "end":
+						errMsg = "invalid end timestamp"
+					case "step":
+						errMsg = "invalid step value"
+					default:
+						errMsg = fmt.Sprintf("invalid %s", jsonName)
+					}
+				}
+
+				return nil, ParamError{Field: jsonName, Message: errMsg}
 			}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			if uv, err := strconv.ParseUint(rawVal, 10, 64); err == nil {
 				params[jsonName] = uv
 			} else {
-				params[jsonName] = rawVal
+				errMsg := field.Tag.Get("error")
+				if errMsg == "" {
+					switch strings.ToLower(jsonName) {
+					case "start":
+						errMsg = "invalid start timestamp"
+					case "end":
+						errMsg = "invalid end timestamp"
+					default:
+						errMsg = fmt.Sprintf("invalid %s", jsonName)
+					}
+				}
+
+				return nil, ParamError{Field: jsonName, Message: errMsg}
 			}
 		case reflect.Float32, reflect.Float64:
 			if fv, err := strconv.ParseFloat(rawVal, 64); err == nil {
 				params[jsonName] = fv
 			} else {
-				params[jsonName] = rawVal
+				errMsg := field.Tag.Get("error")
+				if errMsg == "" {
+					errMsg = fmt.Sprintf("invalid %s", jsonName)
+				}
+
+				return nil, ParamError{Field: jsonName, Message: errMsg}
 			}
 		case reflect.Bool:
 			if bv, err := strconv.ParseBool(rawVal); err == nil {
 				params[jsonName] = bv
 			} else {
-				params[jsonName] = rawVal
+				errMsg := field.Tag.Get("error")
+				if errMsg == "" {
+					errMsg = fmt.Sprintf("invalid %s", jsonName)
+				}
+
+				return nil, ParamError{Field: jsonName, Message: errMsg}
 			}
 		case reflect.Slice:
 			// For slices, keep the raw string. Advanced parsing (comma-separated)
@@ -443,11 +496,13 @@ func (request *Request) QueryParams(queryParamStruct any) (any, error) {
 
 	// Marshal the typed params map to JSON and unmarshal into the struct
 	jsonData, err := json.Marshal(params)
+
 	if err != nil {
 		return nil, err
 	}
 
 	err = json.Unmarshal(jsonData, &queryParamStruct)
+
 	if err != nil {
 		return nil, err
 	}

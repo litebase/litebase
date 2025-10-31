@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/auth"
@@ -15,7 +16,7 @@ type QueryLogIndexResponse []logs.QueryMetric
 
 type QueryLogIndexQueryParameters struct {
 	// The start timestamp for the query logs to retrieve (in seconds since epoch).
-	Start uint64 `json:"start,string" default:"0"`
+	Start uint64 `json:"start,string"`
 
 	// The end timestamp for the query logs to retrieve (in seconds since epoch).
 	End uint64 `json:"end,string"`
@@ -66,7 +67,15 @@ func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 
 	startTimestamp := queryParams.(*QueryLogIndexQueryParameters).Start
 
+	if startTimestamp == 0 {
+		startTimestamp = uint64(time.Now().UTC().Truncate(time.Hour).Unix())
+	}
+
 	endTimestamp := queryParams.(*QueryLogIndexQueryParameters).End
+
+	if endTimestamp == 0 {
+		endTimestamp = uint64(time.Now().UTC().Unix())
+	}
 
 	if endTimestamp < startTimestamp {
 		return BadRequestResponse(errors.New("end timestamp must be greater than or equal to start timestamp"))

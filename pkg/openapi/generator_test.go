@@ -503,7 +503,7 @@ func TestFullOpenAPIGeneration(t *testing.T) {
 		OpenAPI: "3.1.0",
 		Info: Info{
 			Title:   "Test API",
-			Version: "1.0.0",
+			Version: "0.0.0",
 		},
 		Paths: convertToPathItems(paths),
 	}
@@ -948,7 +948,7 @@ func TestStringTypeWithEnumDetection(t *testing.T) {
 		OpenAPI: "3.1.0",
 		Info: Info{
 			Title:   "Test API",
-			Version: "1.0.0",
+			Version: "0.0.0",
 		},
 		Components: &Components{
 			Schemas: combineSchemas(GetCommonSchemas(), testSchemas),

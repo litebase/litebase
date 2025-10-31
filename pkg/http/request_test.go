@@ -377,7 +377,7 @@ func TestRequest(t *testing.T) {
 				Method: http.MethodGet,
 				URL: &url.URL{
 					Host:     "foo.bar.litebase.test",
-					RawQuery: "foo=bar",
+					RawQuery: "foo=bar&bar=baz",
 				},
 			}
 
