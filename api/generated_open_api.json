@@ -1510,17 +1510,6 @@
         "summary": "Create a new database backup",
         "description": "Create a new database backup",
         "operationId": "createDatabaseBackup",
-        "requestBody": {
-          "description": "Database backup creation data",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DatabaseBackupStoreRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -1592,16 +1581,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -4020,9 +3999,6 @@
             "$ref": "#/components/schemas/DatabaseIncrementalBackupSettings"
           }
         }
-      },
-      "DatabaseBackupStoreRequest": {
-        "type": "object"
       },
       "DatabaseBranchName": {
         "type": "string"
