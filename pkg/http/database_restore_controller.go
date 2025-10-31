@@ -12,7 +12,7 @@ import (
 type DatabaseRestoreRequest struct {
 	TargetDatabase       string `json:"targetDatabase" validate:"required" `
 	TargetDatabaseBranch string `json:"targetDatabaseBranch" validate:"required"`
-	Timestamp            string `json:"timestamp" validate:"required"`
+	Timestamp            string `json:"timestamp" validate:"required,number"`
 }
 
 // Restore a specific database branch to a point in time

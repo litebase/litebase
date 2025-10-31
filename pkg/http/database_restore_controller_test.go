@@ -357,7 +357,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 		for i := 10; i > 0; i-- {
 			restorePointTimestamp := snapshot.RestorePoints.Data[i+1] // i+1 because we have 2 initial restore points (0: empty, 1: table created)
 
-			restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
+			restorePoint, err := snapshot.GetRestorePoint(int64(restorePointTimestamp))
 
 			if err != nil {
 				t.Fatalf("Expected no error getting restore point for timestamp %d, got %v", restorePointTimestamp, err)

@@ -39,16 +39,36 @@ type Snapshot struct {
 	RestorePoints SnapshotRestorePoints `json:"restorePoints"`
 
 	// The UTC start of the day of the snapshot.
-	Timestamp int64 `json:"timestamp"`
+	Timestamp int64 `json:"timestamp,string"`
 
 	tieredFS *storage.FileSystem
 }
 
 type SnapshotRestorePoints struct {
-	Data  []int64 `json:"data"`
-	Start int64   `json:"start"`
-	End   int64   `json:"end"`
-	Total int     `json:"total"`
+	Data  []SnapshotRestorePoint `json:"data"`
+	Start int64                  `json:"start,string"`
+	End   int64                  `json:"end,string"`
+	Total int                    `json:"total"`
+}
+
+type SnapshotRestorePoint int64
+
+func (srp SnapshotRestorePoint) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%d", int64(srp))), nil
+}
+
+func (srp *SnapshotRestorePoint) UnmarshalJSON(data []byte) error {
+	var timestamp int64
+
+	_, err := fmt.Sscanf(string(data), "%d", &timestamp)
+
+	if err != nil {
+		return err
+	}
+
+	*srp = SnapshotRestorePoint(timestamp)
+
+	return nil
 }
 
 type RestorePoint struct {
@@ -63,7 +83,7 @@ func NewSnapshot(tieredFS *storage.FileSystem, databaseId string, databaseBranch
 		DatabaseID:       databaseId,
 		LastAccessedAt:   time.Now().UTC().UnixNano(),
 		RestorePoints: SnapshotRestorePoints{
-			Data:  []int64{},
+			Data:  []SnapshotRestorePoint{},
 			Start: timestamp,
 			End:   timestamp,
 			Total: 0,
@@ -160,7 +180,7 @@ func (s *Snapshot) Load() error {
 		}
 	}
 
-	s.RestorePoints.Data = []int64{}
+	s.RestorePoints.Data = []SnapshotRestorePoint{}
 	s.RestorePoints.Start = 0
 	s.RestorePoints.End = 0
 	s.RestorePoints.Total = 0
@@ -197,7 +217,7 @@ func (s *Snapshot) Load() error {
 		}
 
 		// Get the start of the day of the timestamp
-		s.RestorePoints.Data = append(s.RestorePoints.Data, t)
+		s.RestorePoints.Data = append(s.RestorePoints.Data, SnapshotRestorePoint(t))
 
 		if s.RestorePoints.Start == 0 || t < s.RestorePoints.Start {
 			s.RestorePoints.Start = t
@@ -256,7 +276,7 @@ func (s *Snapshot) Log(timestamp, pageCount int64) error {
 	}
 
 	// Update in-memory restore points to reflect the new entry
-	s.RestorePoints.Data = append(s.RestorePoints.Data, timestamp)
+	s.RestorePoints.Data = append(s.RestorePoints.Data, SnapshotRestorePoint(timestamp))
 
 	// Update start timestamp if this is the first restore point
 	if s.RestorePoints.Start == 0 || timestamp < s.RestorePoints.Start {
