@@ -214,7 +214,7 @@ func main() {
 		Info: openapi.Info{
 			Title:       "Litebase Server API",
 			Description: "Litebase Server OpenAPI specification",
-			Version:     "1.0.0",
+			Version:     "0.5.0",
 		},
 		Servers: []openapi.Server{
 			{
@@ -267,13 +267,13 @@ func filterInternalSchemas(in map[string]*openapi.Schema) map[string]*openapi.Sc
 
 	// List of type names (simple or qualified) that should be excluded
 	excludedTypes := map[string]bool{
-		"Context":            true, // context.Context from stdlib
-		"Connection":         true, // net.Conn or similar - if used only as header, not needed as schema
-		"StatementReadonly":  true, // internal sqlite3 helper type
-		"Column":             true, // sqlite3.Column - unused in API responses (ColumnValue is used instead)
-		"Authorizer":         true, // sqlite3.Authorizer - internal function type for cgo callbacks
-		"Handle":             true, // cgo.Handle - internal cgo type, not exposed in API
-		"error":              true, // builtin error type that got analyzed
+		"Context":           true, // context.Context from stdlib
+		"Connection":        true, // net.Conn or similar - if used only as header, not needed as schema
+		"StatementReadonly": true, // internal sqlite3 helper type
+		"Column":            true, // sqlite3.Column - unused in API responses (ColumnValue is used instead)
+		"Authorizer":        true, // sqlite3.Authorizer - internal function type for cgo callbacks
+		"Handle":            true, // cgo.Handle - internal cgo type, not exposed in API
+		"error":             true, // builtin error type that got analyzed
 		// Add more as needed
 	}
 
