@@ -22,9 +22,17 @@ type Token struct {
 	TokenManager *TokenManager `json:"-"`
 }
 
-type TokenResponse struct {
+type TokenCreatedResponse struct {
 	TokenID     string      `json:"tokenId"`
 	Token       string      `json:"token"`
+	Statements  []Statement `json:"statements"`
+	Description string      `json:"description"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
+}
+
+type TokenResponse struct {
+	TokenID     string      `json:"tokenId"`
 	Statements  []Statement `json:"statements"`
 	Description string      `json:"description"`
 	CreatedAt   time.Time   `json:"createdAt"`

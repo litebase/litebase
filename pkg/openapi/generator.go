@@ -2597,18 +2597,39 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 		}
 
 		for _, requestTypeName := range potentialNames {
-			if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
-				schema := g.convertTypeInfoToSchema(typeInfo)
+			if _, exists := g.typeInfo[requestTypeName]; exists {
+				// Register/analyze the type so it appears under components/schemas and use a $ref
+				refSchema := g.analyzeAndRegisterType(requestTypeName)
 
-				// If the schema has no properties (empty struct), return RequestBody with empty content
-				if schema.Type == "object" && len(schema.Properties) == 0 {
-					return &RequestBody{
-						Description: fmt.Sprintf("%s creation data", capitalizeFirst(displayName)),
-						Required:    true,
-						Content: map[string]MediaType{
-							"application/json": {},
-						},
+				// If analysis failed and we didn't get a ref, fall back to inline conversion
+				if refSchema == nil || refSchema.Ref == "" {
+					// best-effort inline fallback
+					if ti, ok := g.typeInfo[requestTypeName]; ok {
+						schema := g.convertTypeInfoToSchema(ti)
+
+						if schema.Type == "object" && len(schema.Properties) == 0 {
+							return &RequestBody{
+								Description: fmt.Sprintf("%s creation data", capitalizeFirst(displayName)),
+								Required:    true,
+								Content: map[string]MediaType{
+									"application/json": {},
+								},
+							}
+						}
+
+						return &RequestBody{
+							Description: fmt.Sprintf("%s creation data", capitalizeFirst(displayName)),
+							Required:    true,
+							Content: map[string]MediaType{
+								"application/json": {
+									Schema: schema,
+								},
+							},
+						}
 					}
+
+					// Nothing more to do
+					return nil
 				}
 
 				return &RequestBody{
@@ -2616,7 +2637,7 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 					Required:    true,
 					Content: map[string]MediaType{
 						"application/json": {
-							Schema: schema,
+							Schema: refSchema,
 						},
 					},
 				}
@@ -2641,18 +2662,37 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 		}
 
 		for _, requestTypeName := range potentialNames {
-			if typeInfo, exists := g.typeInfo[requestTypeName]; exists {
-				schema := g.convertTypeInfoToSchema(typeInfo)
+			if _, exists := g.typeInfo[requestTypeName]; exists {
+				// Prefer a registered component $ref for request types
+				refSchema := g.analyzeAndRegisterType(requestTypeName)
 
-				// If the schema has no properties (empty struct), return RequestBody with empty content
-				if schema.Type == "object" && len(schema.Properties) == 0 {
-					return &RequestBody{
-						Description: fmt.Sprintf("%s update data", capitalizeFirst(displayName)),
-						Required:    true,
-						Content: map[string]MediaType{
-							"application/json": {},
-						},
+				if refSchema == nil || refSchema.Ref == "" {
+					// fallback to inline
+					if ti, ok := g.typeInfo[requestTypeName]; ok {
+						schema := g.convertTypeInfoToSchema(ti)
+
+						if schema.Type == "object" && len(schema.Properties) == 0 {
+							return &RequestBody{
+								Description: fmt.Sprintf("%s update data", capitalizeFirst(displayName)),
+								Required:    true,
+								Content: map[string]MediaType{
+									"application/json": {},
+								},
+							}
+						}
+
+						return &RequestBody{
+							Description: fmt.Sprintf("%s update data", capitalizeFirst(displayName)),
+							Required:    true,
+							Content: map[string]MediaType{
+								"application/json": {
+									Schema: schema,
+								},
+							},
+						}
 					}
+
+					return nil
 				}
 
 				return &RequestBody{
@@ -2660,7 +2700,7 @@ func (g *Generator) generateRequestBody(analysis *MethodAnalysis) *RequestBody {
 					Required:    true,
 					Content: map[string]MediaType{
 						"application/json": {
-							Schema: schema,
+							Schema: refSchema,
 						},
 					},
 				}

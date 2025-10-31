@@ -51,7 +51,7 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 	)
 }
 
-type UserControllerStoreRequest struct {
+type UserStoreRequest struct {
 	Description string           `json:"description" validate:"max=255"`
 	Password    string           `json:"password" validate:"required,min=8"`
 	Statements  []auth.Statement `json:"statements" validate:"required"`
@@ -118,7 +118,7 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&UserControllerStoreRequest{})
+	input, err := request.Input(&UserStoreRequest{})
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("invalid input: %w", err))
@@ -143,12 +143,11 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	if input.(*UserControllerStoreRequest).Username == "root" {
+	if input.(*UserStoreRequest).Username == "root" {
 		return BadRequestResponse(fmt.Errorf("the username is invalid, 'root' is reserved"))
 	}
 
-	user, err := request.cluster.Auth.UserManager.Get(input.(*UserControllerStoreRequest).Username)
-
+	user, err := request.cluster.Auth.UserManager.Get(input.(*UserStoreRequest).Username)
 	if err != nil && err != auth.ErrUserNotFound {
 		return ServerErrorResponse(fmt.Errorf("failed to check if user exists: %w", err))
 	}
@@ -157,7 +156,7 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the username already exists"))
 	}
 
-	data := input.(*UserControllerStoreRequest)
+	data := input.(*UserStoreRequest)
 
 	user, err = request.cluster.Auth.UserManager.Create(
 		data.Username,
@@ -183,7 +182,7 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 	)
 }
 
-type UserControllerUpdateRequest struct {
+type UserUpdateRequest struct {
 	Description string           `json:"description" validate:"max=255"`
 	Statements  []auth.Statement `json:"statements" validate:"required"`
 }
@@ -220,7 +219,7 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(fmt.Errorf("failed to retrieve user: %w", err))
 	}
 
-	input, err := request.Input(&UserControllerUpdateRequest{})
+	input, err := request.Input(&UserUpdateRequest{})
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("invalid input: %w", err))
@@ -242,7 +241,7 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	data := input.(*UserControllerUpdateRequest)
+	data := input.(*UserUpdateRequest)
 
 	// Update the user
 	user.Statements = data.Statements

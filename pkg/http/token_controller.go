@@ -82,6 +82,11 @@ func TokenControllerShow(ctx context.Context, request *Request) Response {
 	}, 200)
 }
 
+type TokenStoreRequest struct {
+	Description string           `json:"description" validate:"max=255"`
+	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive"`
+}
+
 type TokenStoreResponse struct {
 	TokenID     string           `json:"tokenId"`
 	Token       string           `json:"token"`
@@ -102,7 +107,7 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&AccessKeyStoreRequest{})
+	input, err := request.Input(&TokenStoreRequest{})
 
 	if err != nil {
 		return BadRequestResponse(errors.New("the request input is invalid"))
@@ -127,9 +132,9 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	token, err := request.cluster.Auth.TokenManager.Create(
-		input.(*AccessKeyStoreRequest).Description,
-		input.(*AccessKeyStoreRequest).Statements,
+		token, err := request.cluster.Auth.TokenManager.Create(
+		input.(*TokenStoreRequest).Description,
+		input.(*TokenStoreRequest).Statements,
 	)
 
 	if err != nil {
@@ -142,7 +147,7 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(fmt.Errorf("token could not be created: %s", err.Error()))
 	}
 
-	return SuccessResponse("Token created successfully", auth.TokenResponse{
+	return SuccessResponse("Token created successfully", auth.TokenCreatedResponse{
 		TokenID:     token.TokenID,
 		Token:       tokenValue,
 		Statements:  token.Statements,
@@ -150,6 +155,11 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		CreatedAt:   token.CreatedAt,
 		UpdatedAt:   token.UpdatedAt,
 	}, 201)
+}
+
+type TokenUpdateRequest struct {
+	Description string           `json:"description" validate:"max=255"`
+	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive"`
 }
 
 type TokenUpdateResponse struct {
@@ -185,7 +195,7 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&AccessKeyUpdateRequest{})
+	input, err := request.Input(&TokenUpdateRequest{})
 
 	if err != nil {
 		return BadRequestResponse(errors.New("the request input is invalid"))
@@ -211,13 +221,13 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 
 	description := token.Description
 
-	if input.(*AccessKeyUpdateRequest).Description != "" {
-		description = input.(*AccessKeyUpdateRequest).Description
+	if input.(*TokenUpdateRequest).Description != "" {
+		description = input.(*TokenUpdateRequest).Description
 	}
 
 	err = token.Update(
 		description,
-		input.(*AccessKeyUpdateRequest).Statements,
+		input.(*TokenUpdateRequest).Statements,
 	)
 
 	if err != nil {

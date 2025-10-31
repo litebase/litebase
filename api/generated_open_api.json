@@ -3,7 +3,7 @@
   "info": {
     "title": "Litebase Server API",
     "description": "Litebase Server OpenAPI specification",
-    "version": "1.0.0"
+    "version": "0.5.0"
   },
   "servers": [
     {
@@ -106,21 +106,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  }
-                },
-                "required": [
-                  "statements"
-                ]
+                "$ref": "#/components/schemas/AccessKeyStoreRequest"
               }
             }
           },
@@ -425,21 +411,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  }
-                },
-                "required": [
-                  "statements"
-                ]
+                "$ref": "#/components/schemas/AccessKeyUpdateRequest"
               }
             }
           },
@@ -660,18 +632,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "$ref": "#/components/schemas/DatabaseName"
-                  },
-                  "primaryBranch": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name"
-                ]
+                "$ref": "#/components/schemas/DatabaseStoreRequest"
               }
             }
           },
@@ -1115,19 +1076,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "description": "Request payload for creating a new database branch",
-                "properties": {
-                  "name": {
-                    "$ref": "#/components/schemas/DatabaseBranchName"
-                  },
-                  "parentName": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name"
-                ]
+                "$ref": "#/components/schemas/DatabaseBranchStoreRequest"
               }
             }
           },
@@ -1564,7 +1513,11 @@
         "requestBody": {
           "description": "Database backup creation data",
           "content": {
-            "application/json": {}
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBackupStoreRequest"
+              }
+            }
           },
           "required": true
         },
@@ -1914,6 +1867,32 @@
         "summary": "List all query logs",
         "description": "List query logs for a specific database and branch",
         "operationId": "listQueryLogs",
+        "parameters": [
+          {
+            "name": "end",
+            "in": "query",
+            "description": "The end timestamp for the query logs to retrieve (in seconds since epoch).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "The start timestamp for the query logs to retrieve (in seconds since epoch).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "step",
+            "in": "query",
+            "description": "The step interval (in seconds) to combine query metrics. For example, if step is 60, then all query metrics that occur within the same minute will be combined into a single metric. This is useful for reducing the number of query metrics returned when there are many queries executed within a short period of time.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -2037,18 +2016,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "queries": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/QueryInput"
-                    }
-                  }
-                },
-                "required": [
-                  "queries"
-                ]
+                "$ref": "#/components/schemas/QueryRequest"
               }
             }
           },
@@ -2286,23 +2254,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "targetDatabase": {
-                    "type": "string"
-                  },
-                  "targetDatabaseBranch": {
-                    "type": "string"
-                  },
-                  "timestamp": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "targetDatabase",
-                  "targetDatabaseBranch",
-                  "timestamp"
-                ]
+                "$ref": "#/components/schemas/DatabaseRestoreRequest"
               }
             }
           },
@@ -2647,19 +2599,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "encryptionKey": {
-                    "type": "string"
-                  },
-                  "signature": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "encryptionKey",
-                  "signature"
-                ]
+                "$ref": "#/components/schemas/KeyStoreRequest"
               }
             }
           },
@@ -2759,15 +2699,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "encryptionKey": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "encryptionKey"
-                ]
+                "$ref": "#/components/schemas/KeyActivateRequest"
               }
             }
           },
@@ -2950,9 +2882,6 @@
                               "$ref": "#/components/schemas/Statement"
                             }
                           },
-                          "token": {
-                            "type": "string"
-                          },
                           "tokenId": {
                             "type": "string"
                           },
@@ -3025,6 +2954,17 @@
         "summary": "Create a new token",
         "description": "Create a new token",
         "operationId": "createToken",
+        "requestBody": {
+          "description": "Token creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "description": "Successful operation",
@@ -3325,6 +3265,17 @@
         "summary": "Update an existing token",
         "description": "Update an existing token",
         "operationId": "updateToken",
+        "requestBody": {
+          "description": "Token update data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -3550,29 +3501,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "password": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  },
-                  "username": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "password",
-                  "statements",
-                  "username"
-                ]
+                "$ref": "#/components/schemas/UserStoreRequest"
               }
             }
           },
@@ -3873,21 +3802,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  }
-                },
-                "required": [
-                  "statements"
-                ]
+                "$ref": "#/components/schemas/UserUpdateRequest"
               }
             }
           },
@@ -4023,6 +3938,40 @@
   },
   "components": {
     "schemas": {
+      "AccessKeyStoreRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
+      "AccessKeyUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
       "BranchSettings": {
         "type": "object",
         "properties": {
@@ -4056,7 +4005,8 @@
             "type": "integer"
           },
           "timestamp": {
-            "type": "integer"
+            "type": "string",
+            "example": "123"
           }
         }
       },
@@ -4071,8 +4021,26 @@
           }
         }
       },
+      "DatabaseBackupStoreRequest": {
+        "type": "object"
+      },
       "DatabaseBranchName": {
         "type": "string"
+      },
+      "DatabaseBranchStoreRequest": {
+        "type": "object",
+        "description": "Request payload for creating a new database branch",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/DatabaseBranchName"
+          },
+          "parentName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "DatabaseIncrementalBackupSettings": {
         "type": "object",
@@ -4085,6 +4053,25 @@
       "DatabaseName": {
         "type": "string"
       },
+      "DatabaseRestoreRequest": {
+        "type": "object",
+        "properties": {
+          "targetDatabase": {
+            "type": "string"
+          },
+          "targetDatabaseBranch": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetDatabase",
+          "targetDatabaseBranch",
+          "timestamp"
+        ]
+      },
       "DatabaseSettings": {
         "type": "object",
         "properties": {
@@ -4092,6 +4079,20 @@
             "$ref": "#/components/schemas/DatabaseBackupSettings"
           }
         }
+      },
+      "DatabaseStoreRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/DatabaseName"
+          },
+          "primaryBranch": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "ErrorResponse": {
         "type": "object",
@@ -4110,6 +4111,32 @@
         "required": [
           "status",
           "message"
+        ]
+      },
+      "KeyActivateRequest": {
+        "type": "object",
+        "properties": {
+          "encryptionKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "encryptionKey"
+        ]
+      },
+      "KeyStoreRequest": {
+        "type": "object",
+        "properties": {
+          "encryptionKey": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "encryptionKey",
+          "signature"
         ]
       },
       "Privilege": {
@@ -4193,6 +4220,20 @@
           "transactionId"
         ]
       },
+      "QueryRequest": {
+        "type": "object",
+        "properties": {
+          "queries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryInput"
+            }
+          }
+        },
+        "required": [
+          "queries"
+        ]
+      },
       "Resource": {
         "type": "string"
       },
@@ -4267,6 +4308,82 @@
         "required": [
           "status",
           "message"
+        ]
+      },
+      "TokenStoreRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
+      "TokenUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
+      "UserStoreRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "statements",
+          "username"
+        ]
+      },
+      "UserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
         ]
       },
       "ValidationErrorResponse": {
