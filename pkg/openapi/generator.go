@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -50,6 +51,9 @@ type FieldInfo struct {
 	Validation  map[string]string
 	Description string
 	Example     interface{}
+	// EncodeAsString indicates the field is marshaled/unmarshaled as a JSON string
+	// even though the Go type may be numeric (e.g. `json:"timestamp,string"`).
+	EncodeAsString bool
 }
 
 // ControllerAnalysis holds the complete analysis of a controller
@@ -246,6 +250,15 @@ func (g *Generator) AnalyzeAllRoutes() (*ControllerAnalysis, error) {
 	return analysis, nil
 }
 
+// extractPackagePath extracts the package path from a file path
+// e.g., "pkg/http/controller.go" -> "pkg/http"
+func extractPackagePath(filePath string) string {
+	// Get directory of the file
+	dir := filepath.Dir(filePath)
+	// Normalize path separators
+	return strings.ReplaceAll(dir, string(filepath.Separator), "/")
+}
+
 // AnalyzeControllerWithHandlers analyzes a controller file for specific handler function names
 func (g *Generator) AnalyzeControllerWithHandlers(filePath string, handlerNames []string) (*ControllerAnalysis, error) {
 	content, err := os.ReadFile(filePath)
@@ -275,12 +288,15 @@ func (g *Generator) AnalyzeControllerWithHandlers(filePath string, handlerNames 
 	// First pass: collect type information
 	g.collectTypeInfo(node)
 
+	// Extract package path from file path (e.g., "pkg/http" from "pkg/http/controller.go")
+	packagePath := extractPackagePath(filePath)
+
 	// Second pass: analyze only the specific handler functions
 	ast.Inspect(node, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			// Check if this function is one of our target handlers
 			if handlerSet[fn.Name.Name] {
-				methodAnalysis := g.analyzeControllerMethod(fn, node)
+				methodAnalysis := g.analyzeControllerMethod(fn, node, packagePath)
 
 				if methodAnalysis != nil {
 					analysis.Methods[fn.Name.Name] = methodAnalysis
@@ -498,7 +514,9 @@ func containsCommonCompoundPattern(word string) bool {
 	}{
 		{"database", 10}, // "databases" = 9, so 10+ means real compound like "databasebackup"
 		{"access", 8},    // "accesskey" would be 9
-		{"health", 8},    // "healthcheck" would be 11
+
+		// Populate the handler set
+		{"health", 8}, // "healthcheck" would be 11
 	}
 
 	for _, indicator := range compoundIndicators {
@@ -569,7 +587,9 @@ func splitByCompoundPatterns(word string) []string {
 	}{
 		{"database", 3}, // Need at least 3 characters after "database"
 		{"access", 3},   // Need at least 3 characters after "access"
-		{"health", 3},   // Need at least 3 characters after "health"
+
+		// Second pass: analyze only the specific handler functions
+		{"health", 3}, // Need at least 3 characters after "health"
 	}
 
 	for _, pattern := range patterns {
@@ -957,11 +977,14 @@ func (g *Generator) AnalyzeController(filePath string, controllerName string) (*
 	// First pass: collect type information
 	g.collectTypeInfo(node)
 
+	// Extract package path from file path
+	packagePath := extractPackagePath(filePath)
+
 	// Second pass: analyze controller methods
 	ast.Inspect(node, func(n ast.Node) bool {
 		if fn, ok := n.(*ast.FuncDecl); ok {
 			if strings.Contains(fn.Name.Name, controllerName) {
-				methodAnalysis := g.analyzeControllerMethod(fn, node)
+				methodAnalysis := g.analyzeControllerMethod(fn, node, packagePath)
 
 				if methodAnalysis != nil {
 					analysis.Methods[fn.Name.Name] = methodAnalysis
@@ -1088,23 +1111,29 @@ func (g *Generator) parseStructTags(tagValue string, fieldInfo *FieldInfo) {
 
 		// Check for omitempty
 		for _, part := range jsonParts[1:] {
-			if part == "omitempty" {
+			switch part {
+			case "omitempty":
 				fieldInfo.Required = false
+			case "string":
+				// The field is encoded as a JSON string even if the Go type is numeric.
+				fieldInfo.EncodeAsString = true
 			}
 		}
 	}
 
 	// Parse validation tag
 	if validateMatch := regexp.MustCompile(`validate:"([^"]+)"`).FindStringSubmatch(tagValue); len(validateMatch) > 1 {
-		validationRules := strings.SplitSeq(validateMatch[1], ",")
+		validationRules := strings.Split(validateMatch[1], ",")
 
-		for rule := range validationRules {
+		for _, rule := range validationRules {
 			if rule == "required" {
 				fieldInfo.Required = true
 			} else if strings.Contains(rule, "=") {
 				parts := strings.SplitN(rule, "=", 2)
-				fieldInfo.Validation[parts[0]] = parts[1]
-			} else {
+				if len(parts) == 2 {
+					fieldInfo.Validation[parts[0]] = parts[1]
+				}
+			} else if rule != "" {
 				fieldInfo.Validation[rule] = "true"
 			}
 		}
@@ -1128,7 +1157,7 @@ func (g *Generator) extractTypeString(expr ast.Expr) string {
 }
 
 // analyzeControllerMethod analyzes a controller method
-func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, fileAst *ast.File) *MethodAnalysis {
+func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, fileAst *ast.File, packagePath string) *MethodAnalysis {
 	methodName := fn.Name.Name
 
 	analysis := &MethodAnalysis{
@@ -1147,7 +1176,7 @@ func (g *Generator) analyzeControllerMethod(fn *ast.FuncDecl, fileAst *ast.File)
 	analysis.HTTPMethod, analysis.Path = "GET", "/api"
 
 	// Analyze function parameters
-	g.analyzeMethodParameters(fn, analysis)
+	g.analyzeMethodParameters(fn, analysis, packagePath)
 
 	// First, build a variable type map for this method
 	variableTypes := g.buildVariableTypeMap(fn, fileAst)
@@ -1270,7 +1299,7 @@ func (g *Generator) analyzeMethodResponsesWithContext(fn *ast.FuncDecl, analysis
 }
 
 // analyzeMethodParameters analyzes method parameters
-func (g *Generator) analyzeMethodParameters(fn *ast.FuncDecl, analysis *MethodAnalysis) {
+func (g *Generator) analyzeMethodParameters(fn *ast.FuncDecl, analysis *MethodAnalysis, packagePath string) {
 	if fn.Type.Params == nil {
 		return
 	}
@@ -1293,6 +1322,136 @@ func (g *Generator) analyzeMethodParameters(fn *ast.FuncDecl, analysis *MethodAn
 			analysis.Parameters = append(analysis.Parameters, paramInfo)
 		}
 	}
+
+	// Inspect function body for calls to request.QueryParams(&SomeStruct{}) to extract query parameters
+	if fn.Body == nil {
+		return
+	}
+
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+
+		if !ok {
+			return true
+		}
+
+		// Look for selector expressions like request.QueryParams
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+
+		if !ok {
+			return true
+		}
+
+		if sel.Sel == nil {
+			return true
+		}
+
+		if sel.Sel.Name != "QueryParams" {
+			return true
+		}
+
+		// Ensure the receiver is named 'request' (common pattern)
+		if ident, ok := sel.X.(*ast.Ident); !ok || ident.Name != "request" {
+			// still proceed - receiver may be something else, but prefer "request"
+		}
+
+		// Expect at least one argument which should be a pointer to a composite literal: &Type{}
+		if len(call.Args) == 0 {
+			return true
+		}
+
+		arg := call.Args[0]
+
+		var typeExpr ast.Expr
+
+		switch a := arg.(type) {
+		case *ast.UnaryExpr:
+			// &Type{} form
+			if a.Op.String() == "&" {
+				if cl, ok := a.X.(*ast.CompositeLit); ok {
+					typeExpr = cl.Type
+				}
+			}
+		case *ast.CompositeLit:
+			// Type{} form (no &). We still can use it.
+			typeExpr = a.Type
+		}
+
+		if typeExpr == nil {
+			return true
+		}
+
+		// Extract a type name string from the AST expression
+		typeName := g.extractTypeFromASTExpr(typeExpr, packagePath)
+
+		if typeName == "" {
+			return true
+		}
+
+		// Try to find the type WITHOUT registering it as a component schema
+		// (we only need field info for query parameters, not a reusable schema)
+
+		// First check typeInfo cache (for types in same package)
+		simpleName := g.getSchemaKey(typeName)
+		var tInfo *TypeInfo
+
+		if ti, ok := g.typeInfo[typeName]; ok {
+			tInfo = ti
+		} else if ti, ok := g.typeInfo[simpleName]; ok {
+			tInfo = ti
+		} else {
+			// Not in cache, try to find/parse it
+			tInfo = g.findTypeDefinition(typeName)
+			if tInfo == nil {
+				tInfo = g.parseAndAnalyzeType("", typeName)
+			}
+		}
+
+		if tInfo == nil {
+			// nothing more we can do
+			return true
+		}
+
+		// Helper to avoid duplicate parameter names
+		hasParam := func(name string) bool {
+			for _, p := range analysis.Parameters {
+				if p.Name == name && p.In == "query" {
+					return true
+				}
+			}
+
+			return false
+		}
+
+		// Add each field as a query parameter
+		for _, f := range tInfo.Fields {
+			paramName := f.JSONName
+
+			if paramName == "" {
+				paramName = f.Name
+			}
+
+			if hasParam(paramName) {
+				continue
+			}
+
+			ptype := g.mapGoTypeToOpenAPI(f.Type)
+			if f.EncodeAsString {
+				ptype = "string"
+			}
+
+			analysis.Parameters = append(analysis.Parameters, &ParameterInfo{
+				Name:        paramName,
+				In:          "query",
+				Type:        ptype,
+				Required:    f.Required,
+				Description: f.Description,
+				Example:     f.Example,
+			})
+		}
+
+		return true
+	})
 }
 
 // analyzeResponseCallWithContext analyzes response function calls with variable context
@@ -2635,7 +2794,29 @@ func (g *Generator) convertFieldToSchema(fieldInfo *FieldInfo) *Schema {
 	}
 
 	// Handle built-in types
-	fieldSchema.Type = g.mapGoTypeToOpenAPI(fieldInfo.Type)
+	mappedType := g.mapGoTypeToOpenAPI(fieldInfo.Type)
+
+	// If the field is encoded as a JSON string (e.g. `json:"...,string"`),
+	// represent it as a string in the OpenAPI schema even if the Go type
+	// is numeric.
+	if fieldInfo.EncodeAsString {
+		fieldSchema.Type = "string"
+		// Keep an example that indicates numeric content encoded as string if
+		// possible.
+		if fieldSchema.Example == nil {
+			switch mappedType {
+			case "integer":
+				fieldSchema.Example = "123"
+			case "number":
+				fieldSchema.Example = "123.45"
+			default:
+				// leave Example nil
+			}
+		}
+	} else {
+		fieldSchema.Type = mappedType
+	}
+
 	g.applyValidationToSchema(fieldInfo, fieldSchema)
 
 	return fieldSchema
@@ -2673,6 +2854,28 @@ func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
 		return &Schema{Ref: "#/components/schemas/" + schemaKey}
 	}
 
+	// Handle malformed type names that start with "." (from empty packagePath)
+	// Try to find the correctly qualified version BEFORE attempting to analyze
+	if strings.HasPrefix(typeName, ".") {
+		simpleName := typeName[1:] // Remove leading dot
+		// Search for any qualified version of this type in the registry
+		for qualifiedName := range g.schemaRegistry {
+			if strings.HasSuffix(qualifiedName, "."+simpleName) {
+				// Found a qualified version, use it
+				typeName = qualifiedName
+				schemaKey := g.getSchemaKey(typeName)
+				return &Schema{Ref: "#/components/schemas/" + schemaKey}
+			}
+		}
+		// If not found in registry, try to find it in type cache
+		for qualifiedName := range g.typeInfo {
+			if strings.HasSuffix(qualifiedName, "."+simpleName) {
+				// Found in type cache, recursively analyze it with the correct name
+				return g.analyzeAndRegisterType(qualifiedName)
+			}
+		}
+	}
+
 	// Check if currently being analyzed (prevent infinite recursion)
 	if g.analyzing[typeName] {
 		// Return a reference schema for recursive types
@@ -2693,11 +2896,15 @@ func (g *Generator) analyzeAndRegisterType(typeName string) *Schema {
 	// Try to find and analyze the type definition
 	typeInfo := g.findTypeDefinition(typeName)
 
+	// If not found, attempt to parse and analyze the type from packages
 	if typeInfo == nil {
-		// Check if the type was registered directly as a simple schema
+		typeInfo = g.parseAndAnalyzeType("", typeName)
+	}
+
+	if typeInfo == nil {
+		// Check if the type was registered directly as a simple schema (e.g., type aliases like "type ColumnType int")
 		if _, exists := g.schemaRegistry[typeName]; exists {
 			schemaKey := g.getSchemaKey(typeName)
-
 			return &Schema{Ref: "#/components/schemas/" + schemaKey}
 		}
 
@@ -2812,7 +3019,10 @@ func (g *Generator) parseAndAnalyzeType(packagePath, typeName string) *TypeInfo 
 				if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
 					for _, spec := range genDecl.Specs {
 						if typeSpec, ok := spec.(*ast.TypeSpec); ok && typeSpec.Name.Name == typeName {
-							return g.analyzeTypeFromAST(typeSpec, genDecl.Doc, packagePath)
+							// Use the actual package path from the discovered package
+							actualPackagePath := pkg.PkgPath
+							// Pass all files from the package so we can find constants across all files
+							return g.analyzeTypeFromAST(typeSpec, genDecl.Doc, actualPackagePath, pkg.Syntax)
 						}
 					}
 				}
@@ -2824,7 +3034,7 @@ func (g *Generator) parseAndAnalyzeType(packagePath, typeName string) *TypeInfo 
 }
 
 // analyzeTypeFromAST analyzes a type specification from AST
-func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.CommentGroup, packagePath string) *TypeInfo {
+func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.CommentGroup, packagePath string, packageFiles []*ast.File) *TypeInfo {
 	packageName := packagePath[strings.LastIndex(packagePath, "/")+1:]
 	fullTypeName := packageName + "." + typeSpec.Name.Name
 
@@ -2903,8 +3113,8 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 				schema.Description = strings.TrimSpace(typeSpec.Doc.Text())
 			}
 
-			// Try to find enum values by looking for constants of this type
-			enumValues := g.findEnumValuesInPackage(packagePath, typeSpec.Name.Name)
+			// Try to find enum values by looking for constants of this type across all package files
+			enumValues := g.findEnumValuesInPackageFiles(packageFiles, typeSpec.Name.Name)
 
 			if len(enumValues) > 0 {
 				schema.Enum = make([]any, len(enumValues))
@@ -2931,8 +3141,8 @@ func (g *Generator) analyzeTypeFromAST(typeSpec *ast.TypeSpec, docGroup *ast.Com
 				schema.Description = strings.TrimSpace(typeSpec.Doc.Text())
 			}
 
-			// Try to find enum values by looking for constants of this type
-			enumValues := g.findEnumValuesInPackage(packagePath, typeSpec.Name.Name)
+			// Try to find enum values by looking for constants of this type across all package files
+			enumValues := g.findEnumValuesInPackageFiles(packageFiles, typeSpec.Name.Name)
 
 			if len(enumValues) > 0 {
 				schema.Enum = make([]any, len(enumValues))
@@ -2997,7 +3207,8 @@ func (g *Generator) extractTypeFromASTExpr(expr ast.Expr, packagePath string) st
 		}
 
 		// For custom types in the same package, add package prefix
-		return packageName + "." + t.Name
+		result := packageName + "." + t.Name
+		return result
 	case *ast.ArrayType:
 		elementType := g.extractTypeFromASTExpr(t.Elt, packagePath)
 
@@ -3060,6 +3271,53 @@ func (g *Generator) parseASTStructTag(fieldInfo *FieldInfo, tag string) {
 	if example, ok := structTag.Lookup("example"); ok {
 		fieldInfo.Example = example
 	}
+}
+
+// findEnumValuesInPackageFiles finds const declarations that define enum values for a type across all package files
+func (g *Generator) findEnumValuesInPackageFiles(files []*ast.File, typeName string) []string {
+	var enumValues []string
+	var hasNonLiteralValues bool
+
+	for _, file := range files {
+		for _, decl := range file.Decls {
+			if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.CONST {
+				for _, spec := range genDecl.Specs {
+					if valueSpec, ok := spec.(*ast.ValueSpec); ok {
+						// Check if the const is of our target type
+						if g.isASTConstOfType(valueSpec, typeName) {
+							for i := range valueSpec.Names {
+								if i < len(valueSpec.Values) {
+									// Handle string literals
+									if basicLit, ok := valueSpec.Values[i].(*ast.BasicLit); ok {
+										if basicLit.Kind == token.STRING {
+											// Remove quotes from string literal
+											value := strings.Trim(basicLit.Value, "\"")
+											enumValues = append(enumValues, value)
+										} else if basicLit.Kind == token.INT {
+											// Integer literal - use the value as-is
+											enumValues = append(enumValues, basicLit.Value)
+										}
+									} else {
+										// For integer enums with identifiers (like SQLITE_INTEGER),
+										// we can't resolve the value, so mark that we have non-literals
+										hasNonLiteralValues = true
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If we have a mix of literals and non-literals (unresolvable), don't return partial enum
+	// This is common for integer enums that reference C constants
+	if hasNonLiteralValues && len(enumValues) > 0 {
+		return nil
+	}
+
+	return enumValues
 }
 
 // findEnumValuesInPackage finds const declarations that define enum values for a type

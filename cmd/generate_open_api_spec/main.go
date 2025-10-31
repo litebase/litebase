@@ -225,7 +225,7 @@ func main() {
 		Paths: pathItems,
 		Components: &openapi.Components{
 			SecuritySchemes: openapi.GetSecuritySchemes(),
-			Schemas:         combineSchemas(openapi.GetCommonSchemas(), analyzer.GetRegisteredSchemas()),
+			Schemas:         combineSchemas(openapi.GetCommonSchemas(), filterInternalSchemas(analyzer.GetRegisteredSchemas())),
 		},
 		Tags: openapi.GenerateDynamicTags(usedTags),
 	}
@@ -258,6 +258,47 @@ func main() {
 	}
 
 	log.Printf("OpenAPI generation complete! File written to %s", outputPath)
+}
+
+// filterInternalSchemas removes internal/stdlib schemas that shouldn't be exposed in the API spec
+// This includes: cgo types (_Ctype*), stdlib types (Context, Connection), and internal helper types
+func filterInternalSchemas(in map[string]*openapi.Schema) map[string]*openapi.Schema {
+	out := make(map[string]*openapi.Schema)
+
+	// List of type names (simple or qualified) that should be excluded
+	excludedTypes := map[string]bool{
+		"Context":            true, // context.Context from stdlib
+		"Connection":         true, // net.Conn or similar - if used only as header, not needed as schema
+		"StatementReadonly":  true, // internal sqlite3 helper type
+		"Column":             true, // sqlite3.Column - unused in API responses (ColumnValue is used instead)
+		"Authorizer":         true, // sqlite3.Authorizer - internal function type for cgo callbacks
+		"Handle":             true, // cgo.Handle - internal cgo type, not exposed in API
+		"error":              true, // builtin error type that got analyzed
+		// Add more as needed
+	}
+
+	for k, v := range in {
+		// If the simple name (after last dot) starts with _Ctype, skip it
+		simple := k
+		if strings.Contains(k, ".") {
+			parts := strings.Split(k, ".")
+			simple = parts[len(parts)-1]
+		}
+
+		// Skip cgo internal types
+		if strings.HasPrefix(k, "_Ctype") || strings.HasPrefix(simple, "_Ctype") {
+			continue
+		}
+
+		// Skip explicitly excluded types
+		if excludedTypes[k] || excludedTypes[simple] {
+			continue
+		}
+
+		out[k] = v
+	}
+
+	return out
 }
 
 func convertToPathItems(paths map[string]map[string]*openapi.Operation) map[string]openapi.PathItem {

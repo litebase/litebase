@@ -282,7 +282,7 @@ func TestRequestBodySchemaExtraction(t *testing.T) {
 		{
 			name:           "UserUpdateRequestBody",
 			path:           "/v1/users/{username}",
-			method:         "put",
+			method:         "patch",
 			expectedFields: []string{"statements", "description"},
 			requiredFields: []string{"statements"},
 		},
@@ -394,6 +394,57 @@ func TestParameterExtraction(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestQueryParamsExtraction ensures that request.QueryParams(&Type{}) usage is
+// detected and the referenced struct's fields are emitted as query parameters
+// in the analysis / generated OpenAPI.
+func TestQueryParamsExtraction(t *testing.T) {
+	analyzer := NewGenerator()
+
+	analysis, err := analyzer.AnalyzeController("../http/query_log_controller.go", "QueryLogController")
+
+	if err != nil {
+		t.Fatalf("Failed to analyze QueryLogController: %v", err)
+	}
+
+	method, exists := analysis.Methods["QueryLogControllerIndex"]
+
+	if !exists {
+		t.Fatalf("Expected QueryLogControllerIndex to be analyzed")
+	}
+
+	// Collect query parameters
+	queryParams := map[string]*ParameterInfo{}
+
+	for _, p := range method.Parameters {
+		if p.In == "query" {
+			queryParams[p.Name] = p
+		}
+	}
+
+	// Expect start, end, step
+	expected := []struct {
+		name     string
+		typeName string
+	}{
+		{"start", "string"},
+		{"end", "string"},
+		{"step", "integer"},
+	}
+
+	for _, e := range expected {
+		p, ok := queryParams[e.name]
+
+		if !ok {
+			t.Errorf("Expected query parameter %s not found", e.name)
+			continue
+		}
+
+		if p.Type != e.typeName {
+			t.Errorf("Parameter %s: expected type %s, got %s", e.name, e.typeName, p.Type)
+		}
 	}
 }
 
