@@ -99,19 +99,6 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 			return nil, err
 		}
 
-		// // Parse timestamps if they exist
-		// if database.CreatedAtRaw.Valid && database.CreatedAtRaw.String != "" {
-		// 	if parsedTime, err := time.Parse(time.RFC3339, database.CreatedAtRaw.String); err == nil {
-		// 		database.CreatedAt = parsedTime
-		// 	}
-		// }
-
-		// if database.UpdatedAtRaw.Valid && database.UpdatedAtRaw.String != "" {
-		// 	if parsedTime, err := time.Parse(time.RFC3339, database.UpdatedAtRaw.String); err == nil {
-		// 		database.UpdatedAt = parsedTime
-		// 	}
-		// }
-
 		database.DatabaseManager = d
 		database.branchCache = cache.NewLFUCache(100)
 		databases = append(databases, database)

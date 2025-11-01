@@ -13,8 +13,19 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 )
 
+type DatabaseResponse struct {
+	ID           int64                      `json:"id"`
+	DatabaseID   string                     `json:"databaseId"`
+	DatabaseName string                     `json:"databaseName"`
+	BranchName   string                     `json:"branchName"`
+	Settings     *database.DatabaseSettings `json:"settings"`
+	CreatedAt    time.Time                  `json:"createdAt"`
+	UpdatedAt    time.Time                  `json:"updatedAt"`
+	Url          string                     `json:"url"`
+}
+
 // Array of databases for list operations
-type DatabaseIndexResponse []*database.Database
+type DatabaseIndexResponse []DatabaseResponse
 
 // List all databases
 func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
@@ -30,10 +41,31 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 
 	var response DatabaseIndexResponse
 
-	response, err = request.databaseManager.All()
+	databases, err := request.databaseManager.All()
 
 	if err != nil {
 		return ServerErrorResponse(err)
+	}
+
+	for _, db := range databases {
+		primaryBranch, err := db.PrimaryBranch()
+
+		if err != nil {
+			slog.Error("Failed to retrieve primary branch", "databaseId", db.DatabaseID, "error", err)
+
+			return ServerErrorResponse(errors.New("failed to retrieve primary branch"))
+		}
+
+		response = append(response, DatabaseResponse{
+			ID:           db.ID,
+			DatabaseID:   db.DatabaseID,
+			DatabaseName: db.Name,
+			BranchName:   primaryBranch.Name,
+			Settings:     db.Settings,
+			CreatedAt:    db.CreatedAt,
+			UpdatedAt:    db.UpdatedAt,
+			Url:          db.Url(primaryBranch.Name),
+		})
 	}
 
 	return SuccessResponse(
@@ -44,14 +76,14 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 }
 
 type DatabaseShowResponse struct {
-	ID            int64                      `json:"id"`
-	DatabaseID    string                     `json:"databaseId"`
-	DatabaseName  string                     `json:"databaseName"`
-	PrimaryBranch string                     `json:"primaryBranch"`
-	Settings      *database.DatabaseSettings `json:"settings"`
-	CreatedAt     time.Time                  `json:"createdAt"`
-	UpdatedAt     time.Time                  `json:"updatedAt"`
-	Url           string                     `json:"url"`
+	ID           int64                      `json:"id"`
+	DatabaseID   string                     `json:"databaseId"`
+	DatabaseName string                     `json:"databaseName"`
+	BranchName   string                     `json:"branchName"`
+	Settings     *database.DatabaseSettings `json:"settings"`
+	CreatedAt    time.Time                  `json:"createdAt"`
+	UpdatedAt    time.Time                  `json:"updatedAt"`
+	Url          string                     `json:"url"`
 }
 
 func DatabaseControllerShow(ctx context.Context, request *Request) Response {
@@ -92,14 +124,14 @@ func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 	return SuccessResponse(
 		"Successfully retrieved database.",
 		DatabaseShowResponse{
-			ID:            db.ID,
-			DatabaseID:    db.DatabaseID,
-			DatabaseName:  db.Name,
-			PrimaryBranch: primaryBranch.Name,
-			Settings:      db.Settings,
-			CreatedAt:     db.CreatedAt,
-			UpdatedAt:     db.UpdatedAt,
-			Url:           db.Url(primaryBranch.Name),
+			ID:           db.ID,
+			DatabaseID:   db.DatabaseID,
+			DatabaseName: db.Name,
+			BranchName:   primaryBranch.Name,
+			Settings:     db.Settings,
+			CreatedAt:    db.CreatedAt,
+			UpdatedAt:    db.UpdatedAt,
+			Url:          db.Url(primaryBranch.Name),
 		},
 		200,
 	)

@@ -30,7 +30,7 @@ func NewDatabaseListCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			for _, database := range data["data"].([]any) {
 				rows = append(rows, []string{
-					database.(map[string]any)["name"].(string),
+					database.(map[string]any)["databaseName"].(string),
 					database.(map[string]any)["databaseId"].(string),
 				})
 			}
