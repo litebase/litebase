@@ -1350,11 +1350,6 @@ func (g *Generator) analyzeMethodParameters(fn *ast.FuncDecl, analysis *MethodAn
 			return true
 		}
 
-		// Ensure the receiver is named 'request' (common pattern)
-		if ident, ok := sel.X.(*ast.Ident); !ok || ident.Name != "request" {
-			// still proceed - receiver may be something else, but prefer "request"
-		}
-
 		// Expect at least one argument which should be a pointer to a composite literal: &Type{}
 		if len(call.Args) == 0 {
 			return true
