@@ -1718,8 +1718,9 @@ func (g *Generator) createSchemaForKnownType(typeName string) *Schema {
 	}
 
 	// First, check if we have type information from our analysis
-	if typeInfo, exists := g.typeInfo[typeName]; exists {
-		return g.convertTypeInfoToSchema(typeInfo)
+	if _, exists := g.typeInfo[typeName]; exists {
+		// Prefer registering this type as a component and returning a $ref
+		return g.analyzeAndRegisterType(typeName)
 	}
 
 	// If it's a qualified type (package.Type), try to discover it dynamically
@@ -1737,9 +1738,9 @@ func (g *Generator) createSchemaForKnownType(typeName string) *Schema {
 		simpleName = parts[len(parts)-1]
 	}
 
-	// Try to find by simple name
-	if typeInfo, exists := g.typeInfo[simpleName]; exists {
-		return g.convertTypeInfoToSchema(typeInfo)
+	// Try to find by simple name and register as component
+	if _, exists := g.typeInfo[simpleName]; exists {
+		return g.analyzeAndRegisterType(simpleName)
 	}
 
 	// Look for common response patterns and create generic schemas

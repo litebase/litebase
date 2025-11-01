@@ -16,7 +16,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Destroy", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -77,7 +77,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Destroy_CannotDeleteWithInvalidAccessKey", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -138,7 +138,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Show", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -253,7 +253,7 @@ func TestAccessKeyController(t *testing.T) {
 				"description": "test",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -402,7 +402,7 @@ func TestAccessKeyController(t *testing.T) {
 				"resource": "*",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -433,7 +433,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Update", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"test",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -452,7 +452,7 @@ func TestAccessKeyController(t *testing.T) {
 				"description": "Updated description",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -479,7 +479,7 @@ func TestAccessKeyController(t *testing.T) {
 		t.Run("Update_WithInvalidAccessKey", func(t *testing.T) {
 			accessKey, err := server.App.Auth.AccessKeyManager.Create(
 				"Test access key",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -497,7 +497,7 @@ func TestAccessKeyController(t *testing.T) {
 			response, statusCode, err := client.Send(fmt.Sprintf("/v1/access-keys/%s", accessKey.AccessKeyID), "PATCH", map[string]any{
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},

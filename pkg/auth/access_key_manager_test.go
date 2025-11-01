@@ -40,7 +40,7 @@ func TestAccessKeyManager(t *testing.T) {
 			akm := app.Auth.AccessKeyManager
 
 			for i := range 10 {
-				_, err := akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				_, err := akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 				if err != nil {
 					t.Fatalf("Expected no error when creating access key, got: %v", err)
@@ -70,7 +70,7 @@ func TestAccessKeyManager(t *testing.T) {
 			currentAccessKeyCount := len(accessKeys)
 
 			for i := range 10 {
-				_, err := akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+				_, err := akm.Create(fmt.Sprintf("Description %d", i), []auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 				if err != nil {
 					t.Fatalf("Expected no error when creating access key, got: %v", err)
@@ -91,7 +91,7 @@ func TestAccessKeyManager(t *testing.T) {
 		})
 
 		t.Run("Create", func(t *testing.T) {
-			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
@@ -127,7 +127,7 @@ func TestAccessKeyManager(t *testing.T) {
 		})
 
 		t.Run("Get", func(t *testing.T) {
-			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
@@ -152,7 +152,7 @@ func TestAccessKeyManager(t *testing.T) {
 			server2 := test.NewTestServer(t)
 			defer server2.Shutdown()
 
-			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}})
+			accessKey, err := app.Auth.AccessKeyManager.Create("Test access key", []auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}})
 
 			if err != nil {
 				t.Error("Expected Create to return no error")
@@ -215,7 +215,7 @@ func TestAccessKeyManager(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				_, err := app.Auth.AccessKeyManager.Create(
 					fmt.Sprintf("Test access key %d", i),
-					[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+					[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 				)
 
 				if err != nil {

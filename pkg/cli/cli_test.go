@@ -27,7 +27,7 @@ func TestCLIAuth(t *testing.T) {
 			cli := test.NewTestCLI(t, server.App).
 				WithServer(server).
 				WithAccessKey([]auth.Statement{
-					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				})
 
 			err := cli.Run("status")
@@ -41,7 +41,7 @@ func TestCLIAuth(t *testing.T) {
 			cli := test.NewTestCLI(t, server.App).
 				WithServer(server).
 				WithBasicAuth("user", "password", []auth.Statement{
-					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				})
 
 			err := cli.Run("status")
@@ -55,7 +55,7 @@ func TestCLIAuth(t *testing.T) {
 			cli := test.NewTestCLI(t, server.App).
 				WithServer(server).
 				WithToken([]auth.Statement{
-					{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
+					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 				})
 
 			err := cli.Run("status")

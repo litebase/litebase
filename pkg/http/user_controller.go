@@ -8,7 +8,7 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-type UserControllerUserResponse struct {
+type UserResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
@@ -17,7 +17,7 @@ type UserControllerUserResponse struct {
 }
 
 // Array of users for list operations
-type UserControllerIndexResponse []UserControllerUserResponse
+type UserIndexResponse []UserResponse
 
 // List all users
 func UserControllerIndex(ctx context.Context, request *Request) Response {
@@ -33,10 +33,10 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 
 	users := request.cluster.Auth.UserManager.All()
 
-	var response UserControllerIndexResponse
+	var response UserIndexResponse
 
 	for _, user := range users {
-		response = append(response, UserControllerUserResponse{
+		response = append(response, UserResponse{
 			Username:   user.Username,
 			Statements: user.Statements,
 			CreatedAt:  user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),

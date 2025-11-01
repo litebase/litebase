@@ -16,7 +16,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Destroy", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -84,7 +84,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Destroy_CannotDeleteWithInvalidToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -145,7 +145,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Show", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -226,7 +226,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Show_WithUnauthorizedToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -269,7 +269,7 @@ func TestTokenController(t *testing.T) {
 				"description": "test",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -414,7 +414,7 @@ func TestTokenController(t *testing.T) {
 				"resource": "*",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -441,7 +441,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Update", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"test",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -460,7 +460,7 @@ func TestTokenController(t *testing.T) {
 				"description": "Updated description",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -487,7 +487,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Update_WithInvalidToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -505,7 +505,7 @@ func TestTokenController(t *testing.T) {
 			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PATCH", map[string]any{
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},

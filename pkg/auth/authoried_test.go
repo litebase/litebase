@@ -17,7 +17,7 @@ func TestAuthorized(t *testing.T) {
 		{
 			name: "Allow all actions on all resources",
 			statements: []auth.Statement{
-				{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}},
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
 			},
 			resource: "*",
 			action:   "read",
@@ -35,7 +35,7 @@ func TestAuthorized(t *testing.T) {
 		{
 			name: "Allow specific action on specific resource",
 			statements: []auth.Statement{
-				{Effect: "Allow", Resource: "resource1", Actions: []auth.Privilege{"read"}},
+				{Effect: auth.StatementEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"read"}},
 			},
 			resource: "resource1",
 			action:   "read",
@@ -53,7 +53,7 @@ func TestAuthorized(t *testing.T) {
 		{
 			name: "Allow action on resource with wildcard",
 			statements: []auth.Statement{
-				{Effect: "Allow", Resource: "resource:*", Actions: []auth.Privilege{"read"}},
+				{Effect: auth.StatementEffectAllow, Resource: "resource:*", Actions: []auth.Privilege{"read"}},
 			},
 			resource: "resource:123",
 			action:   "read",
@@ -71,7 +71,7 @@ func TestAuthorized(t *testing.T) {
 		{
 			name: "Allow action on specific resource with wildcard",
 			statements: []auth.Statement{
-				{Effect: "Allow", Resource: "resource1", Actions: []auth.Privilege{"read"}},
+				{Effect: auth.StatementEffectAllow, Resource: "resource1", Actions: []auth.Privilege{"read"}},
 			},
 			resource: "resource1",
 			action:   "read",
@@ -89,7 +89,7 @@ func TestAuthorized(t *testing.T) {
 		{
 			name: "Allow action on specific resource with parent wildcard",
 			statements: []auth.Statement{
-				{Effect: "Allow", Resource: "a:*", Actions: []auth.Privilege{"write"}},
+				{Effect: auth.StatementEffectAllow, Resource: "a:*", Actions: []auth.Privilege{"write"}},
 			},
 			resource: "a:b:c:d",
 			action:   "write",
