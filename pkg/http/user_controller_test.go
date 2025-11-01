@@ -294,7 +294,7 @@ func TestUserController(t *testing.T) {
 			} else {
 				statement, ok := statements[0].(map[string]any)
 
-				if !ok || statement["effect"] != auth.StatementEffectDeny {
+				if !ok || statement["effect"] != string(auth.StatementEffectDeny) {
 					t.Fatal("User statements were not updated correctly")
 				}
 			}
