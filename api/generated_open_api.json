@@ -495,7 +495,7 @@
                       "type": "array",
                       "description": "Array of databases for list operations",
                       "items": {
-                        "type": "object"
+                        "$ref": "#/components/schemas/DatabaseResponse"
                       }
                     },
                     "message": {
@@ -3782,6 +3782,41 @@
       "DatabaseName": {
         "type": "string"
       },
+      "DatabaseResponse": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/DatabaseSettings"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "DatabaseRestoreRequest": {
         "type": "object",
         "properties": {
@@ -3812,6 +3847,9 @@
       "DatabaseShowResponse": {
         "type": "object",
         "properties": {
+          "branchName": {
+            "type": "string"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -3826,9 +3864,6 @@
           },
           "id": {
             "type": "integer"
-          },
-          "primaryBranch": {
-            "type": "string"
           },
           "settings": {
             "$ref": "#/components/schemas/DatabaseSettings"

@@ -5,7 +5,6 @@
         "name": "Create test token",
         "model": "Token",
         "operation": "createToken",
-        "method": "POST",
         "body": {
           "description": "test_token",
           "statements": [
@@ -40,7 +39,6 @@
                 "name": "Create AccessKey",
                 "model": "AccessKey",
                 "operation": "createAccessKey",
-                "method": "POST",
                 "body": {
                   "description": "test-access",
                   "statements": [
@@ -75,7 +73,6 @@
                 "name": "Create test AccessKey",
                 "model": "AccessKey",
                 "operation": "createAccessKey",
-                "method": "POST",
                 "body": {
                   "description": "test-access",
                   "statements": [
@@ -103,7 +100,6 @@
                 "name": "Delete AccessKey",
                 "model": "AccessKey",
                 "operation": "deleteAccessKey",
-                "method": "DELETE",
                 "parameters": [
                   "accessKeyId"
                 ]
@@ -117,7 +113,6 @@
                 "name": "Verify AccessKey is deleted",
                 "model": "AccessKey",
                 "operation": "getAccessKey",
-                "method": "GET",
                 "parameters": [
                   "accessKeyId"
                 ]
@@ -138,7 +133,6 @@
                 "name": "Create test AccessKey",
                 "model": "AccessKey",
                 "operation": "createAccessKey",
-                "method": "POST",
                 "body": {
                   "description": "test-access",
                   "statements": [
@@ -166,7 +160,6 @@
                 "name": "Get AccessKey by ID",
                 "model": "AccessKey",
                 "operation": "getAccessKey",
-                "method": "GET",
                 "parameters": [
                   "accessKeyId"
                 ]
@@ -187,7 +180,6 @@
                 "name": "Create test AccessKey",
                 "model": "AccessKey",
                 "operation": "createAccessKey",
-                "method": "POST",
                 "body": {
                   "description": "test-access",
                   "statements": [
@@ -214,8 +206,7 @@
               "request": {
                 "name": "List AccessKeys",
                 "model": "AccessKey",
-                "operation": "listAccessKeys",
-                "method": "GET"
+                "operation": "listAccessKeys"
               },
               "response": {
                 "statusCode": 200,
@@ -236,7 +227,6 @@
                 "name": "Create test AccessKey",
                 "model": "AccessKey",
                 "operation": "createAccessKey",
-                "method": "POST",
                 "body": {
                   "description": "test-access",
                   "statements": [
@@ -264,7 +254,6 @@
                 "name": "Update AccessKey",
                 "model": "AccessKey",
                 "operation": "updateAccessKey",
-                "method": "PATCH",
                 "body": {
                   "description": "Updated test access key",
                   "statements": [
@@ -301,8 +290,7 @@
               "request": {
                 "name": "List ClusterStatuses",
                 "model": "ClusterStatus",
-                "operation": "listClusterStatuses",
-                "method": "GET"
+                "operation": "listClusterStatuses"
               },
               "response": {
                 "statusCode": 200,
@@ -327,9 +315,8 @@
                 "name": "Create Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_1e16986fbd22b83d"
+                  "name": "test_db_67400ed2bd87a329"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -353,9 +340,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_5720c6800d633ba2"
+                  "name": "test_db_3414e9a1e28d7186"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -372,7 +358,6 @@
                 "name": "Delete Database",
                 "model": "Database",
                 "operation": "deleteDatabase",
-                "method": "DELETE",
                 "parameters": [
                   "databaseName"
                 ]
@@ -386,7 +371,6 @@
                 "name": "Verify Database is deleted",
                 "model": "Database",
                 "operation": "getDatabase",
-                "method": "GET",
                 "parameters": [
                   "databaseName"
                 ]
@@ -407,9 +391,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_f44965eaeae4a4a0"
+                  "name": "test_db_97f428606b7c5088"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -426,7 +409,6 @@
                 "name": "Get Database by ID",
                 "model": "Database",
                 "operation": "getDatabase",
-                "method": "GET",
                 "parameters": [
                   "databaseName"
                 ]
@@ -447,9 +429,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_9bf454dede67c064"
+                  "name": "test_db_1a7d6014d5cba7bb"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -465,8 +446,7 @@
               "request": {
                 "name": "List Databases",
                 "model": "Database",
-                "operation": "listDatabases",
-                "method": "GET"
+                "operation": "listDatabases"
               },
               "response": {
                 "statusCode": 200,
@@ -491,9 +471,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_be221fd895fd99cd"
+                  "name": "test_db_6040d8a5c1b34a32"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -510,11 +489,10 @@
                 "name": "Write data to database to trigger snapshot",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-626111000",
+                      "id": "query-236503000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -542,7 +520,6 @@
                 "name": "List DatabaseSnapshots to capture restore point",
                 "model": "DatabaseSnapshot",
                 "operation": "listDatabaseSnapshots",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -563,7 +540,6 @@
                 "name": "Create DatabaseBackup",
                 "model": "DatabaseBackup",
                 "operation": "createDatabaseBackup",
-                "method": "POST",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -588,9 +564,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_4463352e4bba4421"
+                  "name": "test_db_4a5574b121682b55"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -607,11 +582,10 @@
                 "name": "Write data to database to trigger snapshot",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-626118000",
+                      "id": "query-236532000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -639,7 +613,6 @@
                 "name": "List DatabaseSnapshots to capture restore point",
                 "model": "DatabaseSnapshot",
                 "operation": "listDatabaseSnapshots",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -660,7 +633,6 @@
                 "name": "Create DatabaseBackup",
                 "model": "DatabaseBackup",
                 "operation": "createDatabaseBackup",
-                "method": "POST",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -678,7 +650,6 @@
                 "name": "Delete DatabaseBackup",
                 "model": "DatabaseBackup",
                 "operation": "deleteDatabaseBackup",
-                "method": "DELETE",
                 "parameters": [
                   "databaseName",
                   "branchName",
@@ -694,7 +665,6 @@
                 "name": "Verify DatabaseBackup is deleted",
                 "model": "DatabaseBackup",
                 "operation": "getDatabaseBackup",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName",
@@ -717,9 +687,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_b10a478224b49772"
+                  "name": "test_db_6f874144ec14d7ad"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -736,11 +705,10 @@
                 "name": "Write data to database to trigger snapshot",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-626113000",
+                      "id": "query-236538000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -768,7 +736,6 @@
                 "name": "List DatabaseSnapshots to capture restore point",
                 "model": "DatabaseSnapshot",
                 "operation": "listDatabaseSnapshots",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -789,7 +756,6 @@
                 "name": "Create test DatabaseBackup",
                 "model": "DatabaseBackup",
                 "operation": "createDatabaseBackup",
-                "method": "POST",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -807,7 +773,6 @@
                 "name": "Get DatabaseBackup by ID",
                 "model": "DatabaseBackup",
                 "operation": "getDatabaseBackup",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName",
@@ -830,9 +795,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_6366a9fc765acdb6"
+                  "name": "test_db_46638be54e21c516"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -849,11 +813,10 @@
                 "name": "Write data to database to trigger snapshot",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-626107000",
+                      "id": "query-236499000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -881,7 +844,6 @@
                 "name": "List DatabaseSnapshots to capture restore point",
                 "model": "DatabaseSnapshot",
                 "operation": "listDatabaseSnapshots",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -902,7 +864,6 @@
                 "name": "List DatabaseBackups",
                 "model": "DatabaseBackup",
                 "operation": "listDatabaseBackups",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -931,9 +892,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_15a660b9f746378f"
+                  "name": "test_db_e97b20925f20f963"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -950,11 +910,10 @@
                 "name": "Write data to database before creating branch",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-625989000",
+                      "id": "query-236524000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -982,7 +941,6 @@
                 "name": "Create DatabaseBranch",
                 "model": "DatabaseBranch",
                 "operation": "createDatabaseBranch",
-                "method": "POST",
                 "body": {
                   "name": "test-branch"
                 },
@@ -1011,9 +969,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_79a1b008bc075a55"
+                  "name": "test_db_16ac8574721b16bd"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1030,11 +987,10 @@
                 "name": "Write data to database before creating branch",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-626103000",
+                      "id": "query-236527000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1062,7 +1018,6 @@
                 "name": "Create test DatabaseBranch",
                 "model": "DatabaseBranch",
                 "operation": "createDatabaseBranch",
-                "method": "POST",
                 "body": {
                   "name": "test-branch"
                 },
@@ -1084,7 +1039,6 @@
                 "name": "Delete DatabaseBranch",
                 "model": "DatabaseBranch",
                 "operation": "deleteDatabaseBranch",
-                "method": "DELETE",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -1099,7 +1053,6 @@
                 "name": "Verify DatabaseBranch is deleted",
                 "model": "DatabaseBranch",
                 "operation": "getDatabaseBranch",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -1121,9 +1074,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_a078167039b432ae"
+                  "name": "test_db_1748864f5f63500b"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1140,11 +1092,10 @@
                 "name": "Write data to database before creating branch",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-626100000",
+                      "id": "query-236531000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1172,7 +1123,6 @@
                 "name": "Get DatabaseBranch by ID",
                 "model": "DatabaseBranch",
                 "operation": "getDatabaseBranch",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -1194,9 +1144,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_94055551cc3be19d"
+                  "name": "test_db_871c29895df04f26"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1213,11 +1162,10 @@
                 "name": "Write data to database before creating branch",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-625991000",
+                      "id": "query-236522000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1245,7 +1193,6 @@
                 "name": "List DatabaseBranches",
                 "model": "DatabaseBranch",
                 "operation": "listDatabaseBranches",
-                "method": "GET",
                 "parameters": [
                   "databaseName"
                 ]
@@ -1273,9 +1220,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_e0f1fa9045445b1d"
+                  "name": "test_db_e738cb87f2f24494"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1292,11 +1238,10 @@
                 "name": "Write data to database to trigger snapshot",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-625954000",
+                      "id": "query-236472000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1324,7 +1269,6 @@
                 "name": "List DatabaseSnapshots to capture restore point",
                 "model": "DatabaseSnapshot",
                 "operation": "listDatabaseSnapshots",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -1345,9 +1289,8 @@
                 "name": "Create target Database for restore",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_b56f799938713858"
+                  "name": "test_db_1119d9919fd08a05"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1364,7 +1307,6 @@
                 "name": "Create DatabaseRestore",
                 "model": "DatabaseRestore",
                 "operation": "createDatabaseRestore",
-                "method": "POST",
                 "body": {
                   "targetDatabase": "{{targetDatabaseName}}",
                   "targetDatabaseBranch": "{{targetBranchName}}",
@@ -1396,9 +1338,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_5e3a112ce8e83335"
+                  "name": "test_db_4eb97cd9de47f38f"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1415,11 +1356,10 @@
                 "name": "Write data to database to trigger snapshot",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-626094000",
+                      "id": "query-236506000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1447,7 +1387,6 @@
                 "name": "List DatabaseSnapshots to capture timestamp",
                 "model": "DatabaseSnapshot",
                 "operation": "listDatabaseSnapshots",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -1468,7 +1407,6 @@
                 "name": "Get DatabaseSnapshot by ID",
                 "model": "DatabaseSnapshot",
                 "operation": "getDatabaseSnapshot",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName",
@@ -1491,9 +1429,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_425129d3285c470c"
+                  "name": "test_db_cfea85290987cf47"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1510,11 +1447,10 @@
                 "name": "Write data to database to trigger snapshot",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-625973000",
+                      "id": "query-236550000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1542,7 +1478,6 @@
                 "name": "List DatabaseSnapshots",
                 "model": "DatabaseSnapshot",
                 "operation": "listDatabaseSnapshots",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -1571,7 +1506,6 @@
                 "name": "Create Key",
                 "model": "Key",
                 "operation": "createKey",
-                "method": "POST",
                 "body": {
                   "encryptionKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                   "signature": "f6cbb37b326d36f2f27d294ac3bb46a6aac29c1c9936b985576041bfb338ae70"
@@ -1598,7 +1532,6 @@
                 "name": "Create KeyActivate",
                 "model": "KeyActivate",
                 "operation": "createKeyActivate",
-                "method": "POST",
                 "body": {
                   "encryptionKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                 },
@@ -1624,9 +1557,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_16ab49f92f0f3604"
+                  "name": "test_db_a8bda686f06921ce"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1643,11 +1575,10 @@
                 "name": "Write data to database before creating branch",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-625918000",
+                      "id": "query-236541000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1675,7 +1606,6 @@
                 "name": "Create test DatabaseBranch",
                 "model": "DatabaseBranch",
                 "operation": "createDatabaseBranch",
-                "method": "POST",
                 "body": {
                   "name": "test-branch"
                 },
@@ -1697,11 +1627,10 @@
                 "name": "Create Query",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-625920000",
+                      "id": "query-236543000",
                       "parameters": {},
                       "statement": "SELECT 1"
                     }
@@ -1736,9 +1665,8 @@
                 "name": "Create test Database",
                 "model": "Database",
                 "operation": "createDatabase",
-                "method": "POST",
                 "body": {
-                  "name": "test_db_9a06e38b12f9cb4b"
+                  "name": "test_db_63bb73a23da88c63"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1755,11 +1683,10 @@
                 "name": "Write data to database to trigger query log",
                 "model": "Query",
                 "operation": "createQuery",
-                "method": "POST",
                 "body": {
                   "queries": [
                     {
-                      "id": "query-625951000",
+                      "id": "query-236586000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1780,7 +1707,6 @@
                 "name": "List QueryLogs",
                 "model": "QueryLog",
                 "operation": "listQueryLogs",
-                "method": "GET",
                 "parameters": [
                   "databaseName",
                   "branchName"
@@ -1809,7 +1735,6 @@
                 "name": "Create Token",
                 "model": "Token",
                 "operation": "createToken",
-                "method": "POST",
                 "body": {
                   "description": "Test token for SDK testing",
                   "statements": [
@@ -1844,7 +1769,6 @@
                 "name": "Create test Token",
                 "model": "Token",
                 "operation": "createToken",
-                "method": "POST",
                 "body": {
                   "description": "Test token for SDK testing",
                   "statements": [
@@ -1872,7 +1796,6 @@
                 "name": "Delete Token",
                 "model": "Token",
                 "operation": "deleteToken",
-                "method": "DELETE",
                 "parameters": [
                   "tokenId"
                 ]
@@ -1886,7 +1809,6 @@
                 "name": "Verify Token is deleted",
                 "model": "Token",
                 "operation": "getToken",
-                "method": "GET",
                 "parameters": [
                   "tokenId"
                 ]
@@ -1907,7 +1829,6 @@
                 "name": "Create test Token",
                 "model": "Token",
                 "operation": "createToken",
-                "method": "POST",
                 "body": {
                   "description": "Test token for SDK testing",
                   "statements": [
@@ -1935,7 +1856,6 @@
                 "name": "Get Token by ID",
                 "model": "Token",
                 "operation": "getToken",
-                "method": "GET",
                 "parameters": [
                   "tokenId"
                 ]
@@ -1956,7 +1876,6 @@
                 "name": "Create test Token",
                 "model": "Token",
                 "operation": "createToken",
-                "method": "POST",
                 "body": {
                   "description": "Test token for SDK testing",
                   "statements": [
@@ -1983,8 +1902,7 @@
               "request": {
                 "name": "List Tokens",
                 "model": "Token",
-                "operation": "listTokens",
-                "method": "GET"
+                "operation": "listTokens"
               },
               "response": {
                 "statusCode": 200,
@@ -2005,7 +1923,6 @@
                 "name": "Create test Token",
                 "model": "Token",
                 "operation": "createToken",
-                "method": "POST",
                 "body": {
                   "description": "Test token for SDK testing",
                   "statements": [
@@ -2033,7 +1950,6 @@
                 "name": "Update Token",
                 "model": "Token",
                 "operation": "updateToken",
-                "method": "PATCH",
                 "body": {
                   "description": "Updated test token",
                   "statements": [
@@ -2071,7 +1987,6 @@
                 "name": "Create User",
                 "model": "User",
                 "operation": "createUser",
-                "method": "POST",
                 "body": {
                   "description": "Test user for SDK testing",
                   "password": "test_password_123",
@@ -2084,7 +1999,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_625943000"
+                  "username": "test_user_sdk_236484000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2107,7 +2022,6 @@
                 "name": "Create test User",
                 "model": "User",
                 "operation": "createUser",
-                "method": "POST",
                 "body": {
                   "description": "Test user for SDK testing",
                   "password": "test_password_123",
@@ -2120,7 +2034,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_625960000"
+                  "username": "test_user_sdk_236512000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2136,7 +2050,6 @@
                 "name": "Delete User",
                 "model": "User",
                 "operation": "deleteUser",
-                "method": "DELETE",
                 "parameters": [
                   "username"
                 ]
@@ -2150,7 +2063,6 @@
                 "name": "Verify User is deleted",
                 "model": "User",
                 "operation": "getUser",
-                "method": "GET",
                 "parameters": [
                   "username"
                 ]
@@ -2171,7 +2083,6 @@
                 "name": "Create test User",
                 "model": "User",
                 "operation": "createUser",
-                "method": "POST",
                 "body": {
                   "description": "Test user for SDK testing",
                   "password": "test_password_123",
@@ -2184,7 +2095,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_625969000"
+                  "username": "test_user_sdk_236510000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2200,7 +2111,6 @@
                 "name": "Get User by ID",
                 "model": "User",
                 "operation": "getUser",
-                "method": "GET",
                 "parameters": [
                   "username"
                 ]
@@ -2221,7 +2131,6 @@
                 "name": "Create test User",
                 "model": "User",
                 "operation": "createUser",
-                "method": "POST",
                 "body": {
                   "description": "Test user for SDK testing",
                   "password": "test_password_123",
@@ -2234,7 +2143,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_625936000"
+                  "username": "test_user_sdk_236479000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2249,8 +2158,7 @@
               "request": {
                 "name": "List Users",
                 "model": "User",
-                "operation": "listUsers",
-                "method": "GET"
+                "operation": "listUsers"
               },
               "response": {
                 "statusCode": 200,
@@ -2271,7 +2179,6 @@
                 "name": "Create test User",
                 "model": "User",
                 "operation": "createUser",
-                "method": "POST",
                 "body": {
                   "description": "Test user for SDK testing",
                   "password": "test_password_123",
@@ -2284,7 +2191,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_625965000"
+                  "username": "test_user_sdk_236516000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2300,7 +2207,6 @@
                 "name": "Update User",
                 "model": "User",
                 "operation": "updateUser",
-                "method": "PATCH",
                 "body": {
                   "description": "Updated test user",
                   "statements": [
