@@ -3330,11 +3330,12 @@ func (g *Generator) findEnumValuesInPackageFiles(files []*ast.File, typeName str
 								if i < len(valueSpec.Values) {
 									// Handle string literals
 									if basicLit, ok := valueSpec.Values[i].(*ast.BasicLit); ok {
-										if basicLit.Kind == token.STRING {
+										switch basicLit.Kind {
+										case token.STRING:
 											// Remove quotes from string literal
 											value := strings.Trim(basicLit.Value, "\"")
 											enumValues = append(enumValues, value)
-										} else if basicLit.Kind == token.INT {
+										case token.INT:
 											// Integer literal - use the value as-is
 											enumValues = append(enumValues, basicLit.Value)
 										}
@@ -3356,50 +3357,6 @@ func (g *Generator) findEnumValuesInPackageFiles(files []*ast.File, typeName str
 	// This is common for integer enums that reference C constants
 	if hasNonLiteralValues && len(enumValues) > 0 {
 		return nil
-	}
-
-	return enumValues
-}
-
-// findEnumValuesInPackage finds const declarations that define enum values for a type
-func (g *Generator) findEnumValuesInPackage(packagePath, typeName string) []string {
-	cfg := &packages.Config{
-		Mode:  packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedName | packages.NeedFiles,
-		Dir:   packagePath,
-		Tests: false,
-	}
-
-	pkgs, err := packages.Load(cfg, "./...")
-
-	if err != nil {
-		return nil
-	}
-
-	var enumValues []string
-
-	for _, pkg := range pkgs {
-		for _, file := range pkg.Syntax {
-			for _, decl := range file.Decls {
-				if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.CONST {
-					for _, spec := range genDecl.Specs {
-						if valueSpec, ok := spec.(*ast.ValueSpec); ok {
-							// Check if the const is of our target type
-							if g.isASTConstOfType(valueSpec, typeName) {
-								for i := range valueSpec.Names {
-									if i < len(valueSpec.Values) {
-										if basicLit, ok := valueSpec.Values[i].(*ast.BasicLit); ok && basicLit.Kind == token.STRING {
-											// Remove quotes from string literal
-											value := strings.Trim(basicLit.Value, "\"")
-											enumValues = append(enumValues, value)
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
 	}
 
 	return enumValues

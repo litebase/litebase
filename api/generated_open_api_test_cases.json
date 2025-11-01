@@ -1,0 +1,2331 @@
+{
+  "beforeAll": [
+    {
+      "request": {
+        "name": "Create test token",
+        "model": "Token",
+        "operation": "createToken",
+        "method": "POST",
+        "body": {
+          "description": "test_token",
+          "statements": [
+            {
+              "actions": [
+                "*"
+              ],
+              "effect": "allow",
+              "resource": "*"
+            }
+          ]
+        }
+      },
+      "response": {
+        "statusCode": 201,
+        "captures": [
+          "token"
+        ]
+      }
+    }
+  ],
+  "apis": {
+    "AccessKey": {
+      "tests": {
+        "createAccessKey": {
+          "operationId": "createAccessKey",
+          "name": "Test createAccessKey - Create resource",
+          "description": "Creates a new AccessKey and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create AccessKey",
+                "model": "AccessKey",
+                "operation": "createAccessKey",
+                "method": "POST",
+                "body": {
+                  "description": "test-access",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "AccessKeyStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "accessKeyId",
+                  "accessKeySecret"
+                ]
+              }
+            }
+          ]
+        },
+        "deleteAccessKey": {
+          "operationId": "deleteAccessKey",
+          "name": "Test deleteAccessKey - Create, delete and verify",
+          "description": "Creates a AccessKey, deletes it, and verifies deletion",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test AccessKey",
+                "model": "AccessKey",
+                "operation": "createAccessKey",
+                "method": "POST",
+                "body": {
+                  "description": "test-access",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "AccessKeyStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "accessKeyId",
+                  "accessKeySecret"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Delete AccessKey",
+                "model": "AccessKey",
+                "operation": "deleteAccessKey",
+                "method": "DELETE",
+                "parameters": [
+                  "accessKeyId"
+                ]
+              },
+              "response": {
+                "statusCode": 204
+              }
+            },
+            {
+              "request": {
+                "name": "Verify AccessKey is deleted",
+                "model": "AccessKey",
+                "operation": "getAccessKey",
+                "method": "GET",
+                "parameters": [
+                  "accessKeyId"
+                ]
+              },
+              "response": {
+                "statusCode": 404
+              }
+            }
+          ]
+        },
+        "getAccessKey": {
+          "operationId": "getAccessKey",
+          "name": "Test getAccessKey - Create and retrieve resource",
+          "description": "Creates a AccessKey and retrieves it by ID",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test AccessKey",
+                "model": "AccessKey",
+                "operation": "createAccessKey",
+                "method": "POST",
+                "body": {
+                  "description": "test-access",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "AccessKeyStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "accessKeyId",
+                  "accessKeySecret"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Get AccessKey by ID",
+                "model": "AccessKey",
+                "operation": "getAccessKey",
+                "method": "GET",
+                "parameters": [
+                  "accessKeyId"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        },
+        "listAccessKeys": {
+          "operationId": "listAccessKeys",
+          "name": "Test listAccessKeys - List and verify created resource",
+          "description": "Creates a AccessKey and verifies it appears in the list",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test AccessKey",
+                "model": "AccessKey",
+                "operation": "createAccessKey",
+                "method": "POST",
+                "body": {
+                  "description": "test-access",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "AccessKeyStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "accessKeyId",
+                  "accessKeySecret"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "List AccessKeys",
+                "model": "AccessKey",
+                "operation": "listAccessKeys",
+                "method": "GET"
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        },
+        "updateAccessKey": {
+          "operationId": "updateAccessKey",
+          "name": "Test updateAccessKey - Create, update and verify",
+          "description": "Creates a AccessKey, updates it, and verifies the changes",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test AccessKey",
+                "model": "AccessKey",
+                "operation": "createAccessKey",
+                "method": "POST",
+                "body": {
+                  "description": "test-access",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "AccessKeyStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "accessKeyId",
+                  "accessKeySecret"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Update AccessKey",
+                "model": "AccessKey",
+                "operation": "updateAccessKey",
+                "method": "PATCH",
+                "body": {
+                  "description": "Updated test access key",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "AccessKeyUpdateRequest",
+                "parameters": [
+                  "accessKeyId"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ClusterStatus": {
+      "tests": {
+        "listClusterStatuses": {
+          "operationId": "listClusterStatuses",
+          "name": "Test listClusterStatuses - List resources",
+          "description": "Verifies the ClusterStatus list operation works (read-only resource)",
+          "steps": [
+            {
+              "request": {
+                "name": "List ClusterStatuses",
+                "model": "ClusterStatus",
+                "operation": "listClusterStatuses",
+                "method": "GET"
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Database": {
+      "tests": {
+        "createDatabase": {
+          "operationId": "createDatabase",
+          "name": "Test createDatabase - Create resource",
+          "description": "Creates a new Database and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_1e16986fbd22b83d"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            }
+          ]
+        },
+        "deleteDatabase": {
+          "operationId": "deleteDatabase",
+          "name": "Test deleteDatabase - Create, delete and verify",
+          "description": "Creates a Database, deletes it, and verifies deletion",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_5720c6800d633ba2"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Delete Database",
+                "model": "Database",
+                "operation": "deleteDatabase",
+                "method": "DELETE",
+                "parameters": [
+                  "databaseName"
+                ]
+              },
+              "response": {
+                "statusCode": 204
+              }
+            },
+            {
+              "request": {
+                "name": "Verify Database is deleted",
+                "model": "Database",
+                "operation": "getDatabase",
+                "method": "GET",
+                "parameters": [
+                  "databaseName"
+                ]
+              },
+              "response": {
+                "statusCode": 404
+              }
+            }
+          ]
+        },
+        "getDatabase": {
+          "operationId": "getDatabase",
+          "name": "Test getDatabase - Create and retrieve resource",
+          "description": "Creates a Database and retrieves it by ID",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_f44965eaeae4a4a0"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Get Database by ID",
+                "model": "Database",
+                "operation": "getDatabase",
+                "method": "GET",
+                "parameters": [
+                  "databaseName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        },
+        "listDatabases": {
+          "operationId": "listDatabases",
+          "name": "Test listDatabases - List and verify created resource",
+          "description": "Creates a Database and verifies it appears in the list",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_9bf454dede67c064"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "List Databases",
+                "model": "Database",
+                "operation": "listDatabases",
+                "method": "GET"
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DatabaseBackup": {
+      "tests": {
+        "createDatabaseBackup": {
+          "operationId": "createDatabaseBackup",
+          "name": "Test createDatabaseBackup - Create resource",
+          "description": "Creates a new DatabaseBackup and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_be221fd895fd99cd"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger snapshot",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-626111000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database snapshots are only created after a checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseSnapshots to capture restore point",
+                "model": "DatabaseSnapshot",
+                "operation": "listDatabaseSnapshots",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                },
+                "captures": [
+                  "data[0].timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Create DatabaseBackup",
+                "model": "DatabaseBackup",
+                "operation": "createDatabaseBackup",
+                "method": "POST",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "restorePoint.timestamp AS timestamp"
+                ]
+              }
+            }
+          ]
+        },
+        "deleteDatabaseBackup": {
+          "operationId": "deleteDatabaseBackup",
+          "name": "Test deleteDatabaseBackup - Create, delete and verify",
+          "description": "Creates a DatabaseBackup, deletes it, and verifies deletion",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_4463352e4bba4421"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger snapshot",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-626118000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database snapshots are only created after a checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseSnapshots to capture restore point",
+                "model": "DatabaseSnapshot",
+                "operation": "listDatabaseSnapshots",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                },
+                "captures": [
+                  "data[0].timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Create DatabaseBackup",
+                "model": "DatabaseBackup",
+                "operation": "createDatabaseBackup",
+                "method": "POST",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "restorePoint.timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Delete DatabaseBackup",
+                "model": "DatabaseBackup",
+                "operation": "deleteDatabaseBackup",
+                "method": "DELETE",
+                "parameters": [
+                  "databaseName",
+                  "branchName",
+                  "timestamp"
+                ]
+              },
+              "response": {
+                "statusCode": 204
+              }
+            },
+            {
+              "request": {
+                "name": "Verify DatabaseBackup is deleted",
+                "model": "DatabaseBackup",
+                "operation": "getDatabaseBackup",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName",
+                  "timestamp"
+                ]
+              },
+              "response": {
+                "statusCode": 404
+              }
+            }
+          ]
+        },
+        "getDatabaseBackup": {
+          "operationId": "getDatabaseBackup",
+          "name": "Test getDatabaseBackup - Create and retrieve resource",
+          "description": "Creates a DatabaseBackup and retrieves it by ID",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_b10a478224b49772"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger snapshot",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-626113000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database snapshots are only created after a checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseSnapshots to capture restore point",
+                "model": "DatabaseSnapshot",
+                "operation": "listDatabaseSnapshots",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                },
+                "captures": [
+                  "data[0].timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Create test DatabaseBackup",
+                "model": "DatabaseBackup",
+                "operation": "createDatabaseBackup",
+                "method": "POST",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "restorePoint.timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Get DatabaseBackup by ID",
+                "model": "DatabaseBackup",
+                "operation": "getDatabaseBackup",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName",
+                  "timestamp"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        },
+        "listDatabaseBackups": {
+          "operationId": "listDatabaseBackups",
+          "name": "Test listDatabaseBackups - List and verify created resource",
+          "description": "Creates a DatabaseBackup and verifies it appears in the list",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_6366a9fc765acdb6"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger snapshot",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-626107000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database snapshots are only created after a checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseSnapshots to capture restore point",
+                "model": "DatabaseSnapshot",
+                "operation": "listDatabaseSnapshots",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                },
+                "captures": [
+                  "data[0].timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseBackups",
+                "model": "DatabaseBackup",
+                "operation": "listDatabaseBackups",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DatabaseBranch": {
+      "tests": {
+        "createDatabaseBranch": {
+          "operationId": "createDatabaseBranch",
+          "name": "Test createDatabaseBranch - Create resource",
+          "description": "Creates a new DatabaseBranch and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_15a660b9f746378f"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database before creating branch",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-625989000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database branches are created from the latest checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "Create DatabaseBranch",
+                "model": "DatabaseBranch",
+                "operation": "createDatabaseBranch",
+                "method": "POST",
+                "body": {
+                  "name": "test-branch"
+                },
+                "requestModel": "DatabaseBranchStoreRequest",
+                "parameters": [
+                  "databaseName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "name AS branchName"
+                ]
+              }
+            }
+          ]
+        },
+        "deleteDatabaseBranch": {
+          "operationId": "deleteDatabaseBranch",
+          "name": "Test deleteDatabaseBranch - Create, delete and verify",
+          "description": "Creates a DatabaseBranch, deletes it, and verifies deletion",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_79a1b008bc075a55"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database before creating branch",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-626103000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database branches are created from the latest checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "Create test DatabaseBranch",
+                "model": "DatabaseBranch",
+                "operation": "createDatabaseBranch",
+                "method": "POST",
+                "body": {
+                  "name": "test-branch"
+                },
+                "requestModel": "DatabaseBranchStoreRequest",
+                "parameters": [
+                  "databaseName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "name AS branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Delete DatabaseBranch",
+                "model": "DatabaseBranch",
+                "operation": "deleteDatabaseBranch",
+                "method": "DELETE",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 204
+              }
+            },
+            {
+              "request": {
+                "name": "Verify DatabaseBranch is deleted",
+                "model": "DatabaseBranch",
+                "operation": "getDatabaseBranch",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 404
+              }
+            }
+          ]
+        },
+        "getDatabaseBranch": {
+          "operationId": "getDatabaseBranch",
+          "name": "Test getDatabaseBranch - Create and retrieve resource",
+          "description": "Creates a DatabaseBranch and retrieves it by ID",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_a078167039b432ae"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database before creating branch",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-626100000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database branches are created from the latest checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "Get DatabaseBranch by ID",
+                "model": "DatabaseBranch",
+                "operation": "getDatabaseBranch",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        },
+        "listDatabaseBranches": {
+          "operationId": "listDatabaseBranches",
+          "name": "Test listDatabaseBranches - List and verify created resource",
+          "description": "Creates a DatabaseBranch and verifies it appears in the list",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_94055551cc3be19d"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database before creating branch",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-625991000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database branches are created from the latest checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseBranches",
+                "model": "DatabaseBranch",
+                "operation": "listDatabaseBranches",
+                "method": "GET",
+                "parameters": [
+                  "databaseName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DatabaseRestore": {
+      "tests": {
+        "createDatabaseRestore": {
+          "operationId": "createDatabaseRestore",
+          "name": "Test createDatabaseRestore - Create resource",
+          "description": "Creates a new DatabaseRestore and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_e0f1fa9045445b1d"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger snapshot",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-625954000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint and snapshot",
+                "duration": 1000,
+                "reason": "Database snapshots are only created after a checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseSnapshots to capture restore point",
+                "model": "DatabaseSnapshot",
+                "operation": "listDatabaseSnapshots",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                },
+                "captures": [
+                  "data[0].timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Create target Database for restore",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_b56f799938713858"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName AS targetDatabaseName",
+                  "branchName AS targetBranchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Create DatabaseRestore",
+                "model": "DatabaseRestore",
+                "operation": "createDatabaseRestore",
+                "method": "POST",
+                "body": {
+                  "targetDatabase": "{{targetDatabaseName}}",
+                  "targetDatabaseBranch": "{{targetBranchName}}",
+                  "timestamp": "{{timestamp}}"
+                },
+                "requestModel": "DatabaseRestoreRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DatabaseSnapshot": {
+      "tests": {
+        "getDatabaseSnapshot": {
+          "operationId": "getDatabaseSnapshot",
+          "name": "Test getDatabaseSnapshot - Create and retrieve resource",
+          "description": "Creates a DatabaseSnapshot and retrieves it by ID",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_5e3a112ce8e83335"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger snapshot",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-626094000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint and snapshot",
+                "duration": 1000,
+                "reason": "Database snapshots are only created after a checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseSnapshots to capture timestamp",
+                "model": "DatabaseSnapshot",
+                "operation": "listDatabaseSnapshots",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                },
+                "captures": [
+                  "data[0].timestamp AS timestamp"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Get DatabaseSnapshot by ID",
+                "model": "DatabaseSnapshot",
+                "operation": "getDatabaseSnapshot",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName",
+                  "timestamp"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        },
+        "listDatabaseSnapshots": {
+          "operationId": "listDatabaseSnapshots",
+          "name": "Test listDatabaseSnapshots - List and verify created resource",
+          "description": "Creates a DatabaseSnapshot and verifies it appears in the list",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_425129d3285c470c"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger snapshot",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-625973000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint and snapshot",
+                "duration": 1000,
+                "reason": "Database snapshots are only created after a checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "List DatabaseSnapshots",
+                "model": "DatabaseSnapshot",
+                "operation": "listDatabaseSnapshots",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Key": {
+      "tests": {
+        "createKey": {
+          "operationId": "createKey",
+          "name": "Test createKey - Create resource",
+          "description": "Creates a new Key and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create Key",
+                "model": "Key",
+                "operation": "createKey",
+                "method": "POST",
+                "body": {
+                  "encryptionKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "signature": "f6cbb37b326d36f2f27d294ac3bb46a6aac29c1c9936b985576041bfb338ae70"
+                },
+                "requestModel": "KeyStoreRequest"
+              },
+              "response": {
+                "statusCode": 201
+              }
+            }
+          ]
+        }
+      }
+    },
+    "KeyActivate": {
+      "tests": {
+        "createKeyActivate": {
+          "operationId": "createKeyActivate",
+          "name": "Test createKeyActivate - Create resource",
+          "description": "Creates a new KeyActivate and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create KeyActivate",
+                "model": "KeyActivate",
+                "operation": "createKeyActivate",
+                "method": "POST",
+                "body": {
+                  "encryptionKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                },
+                "requestModel": "KeyActivateRequest"
+              },
+              "response": {
+                "statusCode": 201
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Query": {
+      "tests": {
+        "createQuery": {
+          "operationId": "createQuery",
+          "name": "Test createQuery - Create resource",
+          "description": "Creates a new Query and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_16ab49f92f0f3604"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database before creating branch",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-625918000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "wait": {
+                "name": "Wait for database checkpoint",
+                "duration": 1000,
+                "reason": "Database branches are created from the latest checkpoint, which occurs every 1 second after writes"
+              }
+            },
+            {
+              "request": {
+                "name": "Create test DatabaseBranch",
+                "model": "DatabaseBranch",
+                "operation": "createDatabaseBranch",
+                "method": "POST",
+                "body": {
+                  "name": "test-branch"
+                },
+                "requestModel": "DatabaseBranchStoreRequest",
+                "parameters": [
+                  "databaseName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "name AS branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Create Query",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-625920000",
+                      "parameters": {},
+                      "statement": "SELECT 1"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "data[0].id"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "QueryLog": {
+      "tests": {
+        "listQueryLogs": {
+          "operationId": "listQueryLogs",
+          "name": "Test listQueryLogs - List resources",
+          "description": "Verifies the QueryLog list operation works (read-only resource)",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "method": "POST",
+                "body": {
+                  "name": "test_db_9a06e38b12f9cb4b"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database to trigger query log",
+                "model": "Query",
+                "operation": "createQuery",
+                "method": "POST",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-625951000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "request": {
+                "name": "List QueryLogs",
+                "model": "QueryLog",
+                "operation": "listQueryLogs",
+                "method": "GET",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "Token": {
+      "tests": {
+        "createToken": {
+          "operationId": "createToken",
+          "name": "Test createToken - Create resource",
+          "description": "Creates a new Token and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create Token",
+                "model": "Token",
+                "operation": "createToken",
+                "method": "POST",
+                "body": {
+                  "description": "Test token for SDK testing",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "TokenStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "tokenId",
+                  "token"
+                ]
+              }
+            }
+          ]
+        },
+        "deleteToken": {
+          "operationId": "deleteToken",
+          "name": "Test deleteToken - Create, delete and verify",
+          "description": "Creates a Token, deletes it, and verifies deletion",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Token",
+                "model": "Token",
+                "operation": "createToken",
+                "method": "POST",
+                "body": {
+                  "description": "Test token for SDK testing",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "TokenStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "tokenId",
+                  "token"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Delete Token",
+                "model": "Token",
+                "operation": "deleteToken",
+                "method": "DELETE",
+                "parameters": [
+                  "tokenId"
+                ]
+              },
+              "response": {
+                "statusCode": 204
+              }
+            },
+            {
+              "request": {
+                "name": "Verify Token is deleted",
+                "model": "Token",
+                "operation": "getToken",
+                "method": "GET",
+                "parameters": [
+                  "tokenId"
+                ]
+              },
+              "response": {
+                "statusCode": 404
+              }
+            }
+          ]
+        },
+        "getToken": {
+          "operationId": "getToken",
+          "name": "Test getToken - Create and retrieve resource",
+          "description": "Creates a Token and retrieves it by ID",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Token",
+                "model": "Token",
+                "operation": "createToken",
+                "method": "POST",
+                "body": {
+                  "description": "Test token for SDK testing",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "TokenStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "tokenId",
+                  "token"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Get Token by ID",
+                "model": "Token",
+                "operation": "getToken",
+                "method": "GET",
+                "parameters": [
+                  "tokenId"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        },
+        "listTokens": {
+          "operationId": "listTokens",
+          "name": "Test listTokens - List and verify created resource",
+          "description": "Creates a Token and verifies it appears in the list",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Token",
+                "model": "Token",
+                "operation": "createToken",
+                "method": "POST",
+                "body": {
+                  "description": "Test token for SDK testing",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "TokenStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "tokenId",
+                  "token"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "List Tokens",
+                "model": "Token",
+                "operation": "listTokens",
+                "method": "GET"
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        },
+        "updateToken": {
+          "operationId": "updateToken",
+          "name": "Test updateToken - Create, update and verify",
+          "description": "Creates a Token, updates it, and verifies the changes",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Token",
+                "model": "Token",
+                "operation": "createToken",
+                "method": "POST",
+                "body": {
+                  "description": "Test token for SDK testing",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "TokenStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "tokenId",
+                  "token"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Update Token",
+                "model": "Token",
+                "operation": "updateToken",
+                "method": "PATCH",
+                "body": {
+                  "description": "Updated test token",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ]
+                },
+                "requestModel": "TokenUpdateRequest",
+                "parameters": [
+                  "tokenId"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        }
+      }
+    },
+    "User": {
+      "tests": {
+        "createUser": {
+          "operationId": "createUser",
+          "name": "Test createUser - Create resource",
+          "description": "Creates a new User and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create User",
+                "model": "User",
+                "operation": "createUser",
+                "method": "POST",
+                "body": {
+                  "description": "Test user for SDK testing",
+                  "password": "test_password_123",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ],
+                  "username": "test_user_sdk_625943000"
+                },
+                "requestModel": "UserStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "username"
+                ]
+              }
+            }
+          ]
+        },
+        "deleteUser": {
+          "operationId": "deleteUser",
+          "name": "Test deleteUser - Create, delete and verify",
+          "description": "Creates a User, deletes it, and verifies deletion",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test User",
+                "model": "User",
+                "operation": "createUser",
+                "method": "POST",
+                "body": {
+                  "description": "Test user for SDK testing",
+                  "password": "test_password_123",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ],
+                  "username": "test_user_sdk_625960000"
+                },
+                "requestModel": "UserStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "username"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Delete User",
+                "model": "User",
+                "operation": "deleteUser",
+                "method": "DELETE",
+                "parameters": [
+                  "username"
+                ]
+              },
+              "response": {
+                "statusCode": 204
+              }
+            },
+            {
+              "request": {
+                "name": "Verify User is deleted",
+                "model": "User",
+                "operation": "getUser",
+                "method": "GET",
+                "parameters": [
+                  "username"
+                ]
+              },
+              "response": {
+                "statusCode": 404
+              }
+            }
+          ]
+        },
+        "getUser": {
+          "operationId": "getUser",
+          "name": "Test getUser - Create and retrieve resource",
+          "description": "Creates a User and retrieves it by ID",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test User",
+                "model": "User",
+                "operation": "createUser",
+                "method": "POST",
+                "body": {
+                  "description": "Test user for SDK testing",
+                  "password": "test_password_123",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ],
+                  "username": "test_user_sdk_625969000"
+                },
+                "requestModel": "UserStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "username"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Get User by ID",
+                "model": "User",
+                "operation": "getUser",
+                "method": "GET",
+                "parameters": [
+                  "username"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        },
+        "listUsers": {
+          "operationId": "listUsers",
+          "name": "Test listUsers - List and verify created resource",
+          "description": "Creates a User and verifies it appears in the list",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test User",
+                "model": "User",
+                "operation": "createUser",
+                "method": "POST",
+                "body": {
+                  "description": "Test user for SDK testing",
+                  "password": "test_password_123",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ],
+                  "username": "test_user_sdk_625936000"
+                },
+                "requestModel": "UserStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "username"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "List Users",
+                "model": "User",
+                "operation": "listUsers",
+                "method": "GET"
+              },
+              "response": {
+                "statusCode": 200,
+                "content": {
+                  "data": []
+                }
+              }
+            }
+          ]
+        },
+        "updateUser": {
+          "operationId": "updateUser",
+          "name": "Test updateUser - Create, update and verify",
+          "description": "Creates a User, updates it, and verifies the changes",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test User",
+                "model": "User",
+                "operation": "createUser",
+                "method": "POST",
+                "body": {
+                  "description": "Test user for SDK testing",
+                  "password": "test_password_123",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ],
+                  "username": "test_user_sdk_625965000"
+                },
+                "requestModel": "UserStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "username"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Update User",
+                "model": "User",
+                "operation": "updateUser",
+                "method": "PATCH",
+                "body": {
+                  "description": "Updated test user",
+                  "statements": [
+                    {
+                      "actions": [
+                        "*"
+                      ],
+                      "effect": "allow",
+                      "resource": "*"
+                    }
+                  ],
+                  "username": "{{username}}"
+                },
+                "requestModel": "UserUpdateRequest",
+                "parameters": [
+                  "username"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
