@@ -259,7 +259,7 @@ func TestUserController(t *testing.T) {
 					"description": "Updated test user description",
 					"statements": []auth.Statement{
 						{
-							Effect:   "Deny",
+							Effect:   auth.StatementEffectDeny,
 							Resource: "*",
 							Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 						},
@@ -294,7 +294,7 @@ func TestUserController(t *testing.T) {
 			} else {
 				statement, ok := statements[0].(map[string]any)
 
-				if !ok || statement["effect"] != "Deny" {
+				if !ok || statement["effect"] != auth.StatementEffectDeny {
 					t.Fatal("User statements were not updated correctly")
 				}
 			}
