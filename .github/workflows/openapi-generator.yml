@@ -52,9 +52,28 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add api/generated_open_api.json
-          git commit -m "Auto-update OpenAPI specification
+          git commit -m "(generate) OpenAPI specification
 
           Generated from changes in pkg/http packages.
+
+          Co-authored-by: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
+          git push
+
+      - name: Generate OpenAPI Test Cases
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          echo "Generating OpenAPI test cases..."
+          go run cmd/generate_open_api_test/main.go
+
+      - name: Commit updated OpenAPI test cases
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add api/generated_open_api_test_cases.json
+          git commit -m "(generate) OpenAPI test cases
+
+          Generated from changes to OpenAPI specification.
 
           Co-authored-by: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
           git push
