@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -81,6 +82,7 @@ var skipOperations = map[string]string{
 func buildOperationRegistry(paths map[string]any) {
 	for _, methods := range paths {
 		methodMap, ok := methods.(map[string]any)
+
 		if !ok {
 			continue
 		}
@@ -91,6 +93,7 @@ func buildOperationRegistry(paths map[string]any) {
 			}
 
 			detailMap, ok := details.(map[string]any)
+
 			if !ok {
 				continue
 			}
@@ -112,6 +115,7 @@ func operationExists(operationID string) bool {
 // shouldSkipOperation checks if an operation should be skipped during test generation
 func shouldSkipOperation(operationID string) bool {
 	_, skip := skipOperations[operationID]
+
 	return skip
 }
 
@@ -119,12 +123,14 @@ func main() {
 	// Load OpenAPI spec
 	filePath := "./api/generated_open_api.json"
 	file, err := os.ReadFile(filePath)
+
 	if err != nil {
 		fmt.Printf("Error reading OpenAPI spec: %v\n", err)
 		os.Exit(1)
 	}
 
 	var openAPISpec map[string]any
+
 	if err := json.Unmarshal(file, &openAPISpec); err != nil {
 		fmt.Printf("Error parsing OpenAPI spec: %v\n", err)
 		os.Exit(1)
@@ -132,6 +138,7 @@ func main() {
 
 	// Extract paths
 	paths, ok := openAPISpec["paths"].(map[string]any)
+
 	if !ok {
 		fmt.Println("Invalid OpenAPI spec: missing paths")
 		os.Exit(1)
@@ -153,12 +160,14 @@ func main() {
 	// Generate test cases for each operation, grouped by tag
 	for path, methods := range paths {
 		methodMap, ok := methods.(map[string]any)
+
 		if !ok {
 			continue
 		}
 
 		// Extract path-level parameters (shared across all methods)
 		var pathLevelParams []any
+
 		if params, ok := methodMap["parameters"].([]any); ok {
 			pathLevelParams = params
 		}
@@ -169,6 +178,7 @@ func main() {
 			}
 
 			detailMap, ok := details.(map[string]any)
+
 			if !ok {
 				continue
 			}
@@ -176,9 +186,7 @@ func main() {
 			// Merge path-level parameters into operation details
 			if len(pathLevelParams) > 0 {
 				detailMapCopy := make(map[string]any)
-				for k, v := range detailMap {
-					detailMapCopy[k] = v
-				}
+				maps.Copy(detailMapCopy, detailMap)
 				detailMapCopy["pathParameters"] = pathLevelParams
 				detailMap = detailMapCopy
 			}
@@ -194,9 +202,11 @@ func main() {
 
 			// Extract tag (API class name)
 			tags := extractTags(detailMap)
+
 			if len(tags) == 0 {
 				continue // Skip operations without tags
 			}
+
 			tag := tags[0] // Use first tag as API class name
 
 			// Initialize API class if not exists
@@ -239,6 +249,7 @@ func main() {
 	// Write to JSON file
 	outputFile := "./api/generated_open_api_test_cases.json"
 	output, err := json.MarshalIndent(testSuite, "", "  ")
+
 	if err != nil {
 		fmt.Printf("Error generating JSON: %v\n", err)
 		os.Exit(1)
@@ -350,12 +361,14 @@ func getOperationParameters(operationID string) []string {
 	// Find the operation in the OpenAPI spec
 	for _, methods := range openAPIPaths {
 		methodMap, ok := methods.(map[string]any)
+
 		if !ok {
 			continue
 		}
 
 		// Extract path-level parameters
 		var pathLevelParams []any
+
 		if params, ok := methodMap["parameters"].([]any); ok {
 			pathLevelParams = params
 		}
@@ -366,6 +379,7 @@ func getOperationParameters(operationID string) []string {
 			}
 
 			detailMap, ok := details.(map[string]any)
+
 			if !ok {
 				continue
 			}
@@ -374,9 +388,7 @@ func getOperationParameters(operationID string) []string {
 				// Found the operation - merge path-level parameters
 				if len(pathLevelParams) > 0 {
 					detailMapCopy := make(map[string]any)
-					for k, v := range detailMap {
-						detailMapCopy[k] = v
-					}
+					maps.Copy(detailMapCopy, detailMap)
 					detailMapCopy["pathParameters"] = pathLevelParams
 					detailMap = detailMapCopy
 				}
@@ -393,6 +405,7 @@ func getOperationParameters(operationID string) []string {
 // extractTags extracts tags from operation details
 func extractTags(details map[string]any) []string {
 	var tags []string
+
 	if tagsArray, ok := details["tags"].([]any); ok {
 		for _, tag := range tagsArray {
 			if tagStr, ok := tag.(string); ok {
@@ -400,6 +413,7 @@ func extractTags(details map[string]any) []string {
 			}
 		}
 	}
+
 	return tags
 }
 
@@ -467,6 +481,7 @@ func getPluralResourceName(resourceType string) string {
 	if plural, ok := pluralMap[resourceType]; ok {
 		return plural
 	}
+
 	return resourceType + "s"
 }
 
@@ -742,7 +757,7 @@ func generateCreateTestCase(operationID, resourceType string, details map[string
 				Body: map[string]any{
 					"queries": []any{
 						map[string]any{
-							"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+							"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 							"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
 							"parameters": map[string]any{},
 						},
@@ -795,7 +810,7 @@ func generateCreateTestCase(operationID, resourceType string, details map[string
 				Body: map[string]any{
 					"queries": []any{
 						map[string]any{
-							"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+							"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 							"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
 							"parameters": map[string]any{},
 						},
@@ -883,7 +898,7 @@ func generateDatabaseBackupPrerequisites() []TestStep {
 			Body: map[string]any{
 				"queries": []any{
 					map[string]any{
-						"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 						"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
 						"parameters": map[string]any{},
 					},
@@ -960,7 +975,7 @@ func generateDatabaseBranchPrerequisites() []TestStep {
 			Body: map[string]any{
 				"queries": []any{
 					map[string]any{
-						"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 						"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
 						"parameters": map[string]any{},
 					},
@@ -1017,7 +1032,7 @@ func generateDatabaseRestorePrerequisites() []TestStep {
 			Body: map[string]any{
 				"queries": []any{
 					map[string]any{
-						"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 						"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
 						"parameters": map[string]any{},
 					},
@@ -1111,7 +1126,7 @@ func generateDatabaseSnapshotPrerequisites() []TestStep {
 			Body: map[string]any{
 				"queries": []any{
 					map[string]any{
-						"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 						"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
 						"parameters": map[string]any{},
 					},
@@ -1166,7 +1181,7 @@ func generateQueryLogPrerequisites() []TestStep {
 			Body: map[string]any{
 				"queries": []any{
 					map[string]any{
-						"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 						"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
 						"parameters": map[string]any{},
 					},
@@ -1479,12 +1494,12 @@ func generateGenericTestCase(operationID, resourceType string) TestCase {
 	}
 }
 
-// Helper functions
-
+// getCreateOperationID returns the create operation ID for a given resource type
 func getCreateOperationID(resourceType string) string {
 	return "create" + resourceType
 }
 
+// getGetOperationID returns the get operation ID for a given resource type
 func getGetOperationID(resourceType string) string {
 	return "get" + resourceType
 }
@@ -1493,6 +1508,7 @@ func getGetOperationID(resourceType string) string {
 func generateRandomDatabaseName() string {
 	// Generate 8 random bytes
 	bytes := make([]byte, 8)
+
 	if _, err := rand.Read(bytes); err != nil {
 		// Fallback to a simple timestamp-based name if random fails
 		return fmt.Sprintf("test_db_%d", len(bytes))
@@ -1534,6 +1550,7 @@ func generateCapturesForCreate(resourceType string) []string {
 	}
 }
 
+// generateRequestBody generates a request body for create and update operations
 func generateRequestBody(resourceType, operation string) map[string]any {
 	lowerResource := strings.ToLower(resourceType)
 
@@ -1612,7 +1629,7 @@ func generateRequestBody(resourceType, operation string) map[string]any {
 	case "user":
 		if operation == "create" {
 			return map[string]any{
-				"username":    fmt.Sprintf("test_user_sdk_%d", time.Now().Nanosecond()),
+				"username":    fmt.Sprintf("test_user_sdk_%d", time.Now().UTC().Nanosecond()),
 				"password":    "test_password_123",
 				"description": "Test user for SDK testing",
 				"statements": []map[string]any{
@@ -1642,7 +1659,7 @@ func generateRequestBody(resourceType, operation string) map[string]any {
 		return map[string]any{
 			"queries": []any{
 				map[string]any{
-					"id":         fmt.Sprintf("query-%d", time.Now().Nanosecond()),
+					"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 					"statement":  "SELECT 1",
 					"parameters": map[string]any{},
 				},

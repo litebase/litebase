@@ -24,7 +24,6 @@ func combineSchemas(schemaMaps ...map[string]*openapi.Schema) map[string]*openap
 				if shouldPreferSchema(schema, existing, name) {
 					result[name] = schema
 				}
-				// Otherwise keep the existing one
 			} else {
 				// No conflict, just add it
 				result[name] = schema
@@ -280,6 +279,7 @@ func filterInternalSchemas(in map[string]*openapi.Schema) map[string]*openapi.Sc
 	for k, v := range in {
 		// If the simple name (after last dot) starts with _Ctype, skip it
 		simple := k
+
 		if strings.Contains(k, ".") {
 			parts := strings.Split(k, ".")
 			simple = parts[len(parts)-1]
