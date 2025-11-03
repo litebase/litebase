@@ -1,7 +1,7 @@
 package database
 
 type BranchSettings struct {
-	IncrementableBackups bool `json:"incrementable_backups"`
+	IncrementableBackups bool `json:"incrementableBackups"`
 }
 
 // // database/sql Scanner interface

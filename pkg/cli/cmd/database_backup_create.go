@@ -45,14 +45,14 @@ func NewDatabaseBackupCreateCmd(config *config.CLIConfiguration) *cobra.Command 
 				},
 			}
 
-			if databaseID, ok := data["database_id"].(string); ok {
+			if databaseID, ok := data["databaseId"].(string); ok {
 				rows = append(rows, components.CardRow{
 					Key:   "Database ID",
 					Value: databaseID,
 				})
 			}
 
-			if branchID, ok := data["database_branch_id"].(string); ok {
+			if branchID, ok := data["databaseBranchId"].(string); ok {
 				rows = append(rows, components.CardRow{
 					Key:   "Branch ID",
 					Value: branchID,

@@ -44,11 +44,11 @@ func Authorized(statements []Statement, resource string, permission Privilege) b
 
 		// Check if the statement allows all actions
 		if len(statement.Actions) == 1 && statement.Actions[0] == "*" {
-			if strings.ToLower(string(statement.Effect)) == "deny" {
+			if strings.ToLower(string(statement.Effect)) == string(StatementEffectDeny) {
 				return false // Deny always takes precedence
 			}
 
-			if strings.ToLower(string(statement.Effect)) == "allow" {
+			if strings.ToLower(string(statement.Effect)) == string(StatementEffectAllow) {
 				allowFound = true
 			}
 
@@ -57,11 +57,11 @@ func Authorized(statements []Statement, resource string, permission Privilege) b
 
 		// Check if the statement allows the specific permission
 		if slices.Contains(statement.Actions, permission) {
-			if strings.ToLower(string(statement.Effect)) == "deny" {
+			if strings.ToLower(string(statement.Effect)) == string(StatementEffectDeny) {
 				return false // Deny always takes precedence
 			}
 
-			if strings.ToLower(string(statement.Effect)) == "allow" {
+			if strings.ToLower(string(statement.Effect)) == string(StatementEffectAllow) {
 				allowFound = true
 			}
 		}

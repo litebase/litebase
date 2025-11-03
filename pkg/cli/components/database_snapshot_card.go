@@ -22,17 +22,17 @@ func DatabaseSnapshotCard(data map[string]any) string {
 		},
 		{
 			Key:   "Database ID",
-			Value: data["database_id"].(string),
+			Value: data["databaseId"].(string),
 		},
 		{
 			Key:   "Branch ID",
-			Value: data["database_branch_id"].(string),
+			Value: data["databaseBranchId"].(string),
 		},
 	}
 
 	// Add restore points summary information
 	var restorePointsTable string
-	if restorePoints, exists := data["restore_points"]; exists && restorePoints != nil {
+	if restorePoints, exists := data["restorePoints"]; exists && restorePoints != nil {
 		if rpMap, ok := restorePoints.(map[string]any); ok {
 			if total, totalExists := rpMap["total"]; totalExists {
 				rows = append(rows, CardRow{
@@ -64,13 +64,13 @@ func DatabaseSnapshotCard(data map[string]any) string {
 			if rpData, dataExists := rpMap["data"]; dataExists {
 				if dataArray, ok := rpData.([]any); ok && len(dataArray) > 0 {
 					restorePointRows := [][]string{}
-					
+
 					for i, rp := range dataArray {
 						if rpTimestamp, ok := rp.(float64); ok {
 							timestamp := fmt.Sprintf("%.0f", rpTimestamp)
 							rpTime := time.Unix(0, int64(rpTimestamp)).UTC()
 							timeFormatted := rpTime.Format(time.RFC3339)
-							
+
 							restorePointRows = append(restorePointRows, []string{
 								fmt.Sprintf("%d", i+1),
 								timestamp,
@@ -78,7 +78,7 @@ func DatabaseSnapshotCard(data map[string]any) string {
 							})
 						}
 					}
-					
+
 					if len(restorePointRows) > 0 {
 						restorePointsTable = NewTable(
 							[]string{"#", "Timestamp", "Time (UTC)"},

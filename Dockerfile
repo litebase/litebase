@@ -38,9 +38,6 @@ RUN mkdir -p /home/appuser && chown -R appuser:appgroup /home/appuser && chmod 7
 # Switch to the non-root user
 USER appuser
 
-# Expose the application port
-EXPOSE 8080
-
 # Command to run the application
 ENTRYPOINT ["/app/litebase"]
 CMD ["start"]

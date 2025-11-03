@@ -9,7 +9,6 @@ import (
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/backups"
-	appHttp "github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
@@ -161,7 +160,7 @@ func TestDatabaseBackupIndexController(t *testing.T) {
 					continue
 				}
 
-				timestampInt64, err := strconv.ParseInt(backupData["restore_point"].(map[string]any)["timestamp"].(string), 10, 64)
+				timestampInt64, err := strconv.ParseInt(backupData["restorePoint"].(map[string]any)["timestamp"].(string), 10, 64)
 
 				if err != nil {
 					continue
@@ -221,7 +220,7 @@ func TestDatabaseBackupStoreController(t *testing.T) {
 				db.BranchName,
 			),
 			"POST",
-			appHttp.DatabaseBackupStoreRequest{},
+			nil,
 		)
 
 		if err != nil {
@@ -332,7 +331,7 @@ func TestDatabaseBackupShowController(t *testing.T) {
 			t.Fatalf("expected data to be present, got %v", response["data"])
 		}
 
-		timestamp, err := strconv.ParseInt(response["data"].(map[string]any)["restore_point"].(map[string]any)["timestamp"].(string), 10, 64)
+		timestamp, err := strconv.ParseInt(response["data"].(map[string]any)["restorePoint"].(map[string]any)["timestamp"].(string), 10, 64)
 
 		if err != nil {
 			t.Fatalf("failed to parse timestamp: %v", err)
@@ -350,12 +349,12 @@ func TestDatabaseBackupShowController(t *testing.T) {
 			t.Fatalf("expected size to be greater than 0, got %v", response["data"].(map[string]any)["size"])
 		}
 
-		if response["data"].(map[string]any)["database_id"] != db.DatabaseID {
-			t.Fatalf("expected database_id to be present, got %v", response["data"].(map[string]any)["database_id"])
+		if response["data"].(map[string]any)["databaseId"] != db.DatabaseID {
+			t.Fatalf("expected databaseId to be present, got %v", response["data"].(map[string]any)["databaseId"])
 		}
 
-		if response["data"].(map[string]any)["database_branch_id"] != db.DatabaseBranchID {
-			t.Fatalf("expected database_branch_id to be present, got %v", response["data"].(map[string]any)["database_branch_id"])
+		if response["data"].(map[string]any)["databaseBranchId"] != db.DatabaseBranchID {
+			t.Fatalf("expected databaseBranchId to be present, got %v", response["data"].(map[string]any)["databaseBranchId"])
 		}
 	})
 }
@@ -417,7 +416,7 @@ func TestDatabaseBackupControllerDestroy(t *testing.T) {
 				backup.RestorePoint.Timestamp,
 			),
 			"DELETE",
-			appHttp.DatabaseBackupStoreRequest{},
+			nil,
 		)
 
 		if err != nil {

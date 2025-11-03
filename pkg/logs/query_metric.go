@@ -18,12 +18,12 @@ type QueryMetric struct {
 	Count        uint32 `json:"count"`
 	latencies    []float64
 	latencyIndex int
-	LatencyAvg   float64 `json:"latency_avg"`
-	LatencyMin   float64 `json:"latency_min"`
-	LatencyMax   float64 `json:"latency_max"`
-	LatencyP50   float64 `json:"latency_p50"`
-	LatencyP90   float64 `json:"latency_p90"`
-	LatencyP99   float64 `json:"latency_p99"`
+	LatencyAvg   float64 `json:"latencyAvg"`
+	LatencyMin   float64 `json:"latencyMin"`
+	LatencyMax   float64 `json:"latencyMax"`
+	LatencyP50   float64 `json:"latencyP50"`
+	LatencyP90   float64 `json:"latencyP90"`
+	LatencyP99   float64 `json:"latencyP99"`
 	Timestamp    uint32  `json:"timestamp"`
 }
 
@@ -238,12 +238,12 @@ func QueryMetricKeys() []string {
 	return []string{
 		"id",
 		"count",
-		"latency_avg",
-		"latency_min",
-		"latency_max",
-		"latency_p50",
-		"latency_p90",
-		"latency_p99",
+		"latencyAvg",
+		"latencyMin",
+		"latencyMax",
+		"latencyP50",
+		"latencyP90",
+		"latencyP99",
 		"timestamp",
 	}
 }

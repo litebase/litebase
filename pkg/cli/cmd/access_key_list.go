@@ -52,7 +52,7 @@ func NewAccessKeyListCmd(config *config.CLIConfiguration) *cobra.Command {
 			for i, accessKey := range accessKeys {
 				var accessKeyId = "-"
 
-				if a, ok := accessKey.(map[string]any)["access_key_id"].(string); ok {
+				if a, ok := accessKey.(map[string]any)["accessKeyId"].(string); ok {
 					accessKeyId = a
 				}
 

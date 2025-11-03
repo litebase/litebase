@@ -123,53 +123,6 @@ func TestQueryLogControllerSuccess(t *testing.T) {
 	})
 }
 
-func TestQueryLogControllerMissingParameters(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
-
-		mock := test.MockDatabase(server.App)
-
-		client := server.WithAccessKeyClient([]auth.Statement{
-			{
-				Effect:   auth.StatementEffectAllow,
-				Resource: "*",
-				Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeShow},
-			},
-		})
-
-		// Test missing start parameter
-		resp, responseCode, err := client.Send(
-			fmt.Sprintf(
-				"/v1/databases/%s/branches/%s/metrics/query?end=%d&step=1",
-				mock.DatabaseName,
-				mock.BranchName,
-				time.Now().Unix(),
-			),
-			"GET",
-			nil,
-		)
-
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		if responseCode != 400 {
-			t.Fatalf("Expected response code 400, got %d. Response: %v", responseCode, resp)
-		}
-
-		if resp["status"] != "error" {
-			t.Errorf("Expected status 'error', got %v", resp["status"])
-		}
-
-		expectedMessage := "Error: invalid start timestamp"
-
-		if resp["message"] != expectedMessage {
-			t.Errorf("Expected message '%s', got %v", expectedMessage, resp["message"])
-		}
-	})
-}
-
 func TestQueryLogControllerInvalidParameters(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
@@ -198,12 +151,12 @@ func TestQueryLogControllerInvalidParameters(t *testing.T) {
 			{
 				name:          "Non-numeric start",
 				queryParams:   "?start=invalid&end=2000&step=1",
-				expectedError: "Error: invalid start timestamp",
+				expectedError: "Error: the request query parameters are invalid",
 			},
 			{
 				name:          "Non-numeric end",
 				queryParams:   "?start=1000&end=invalid&step=1",
-				expectedError: "Error: invalid end timestamp",
+				expectedError: "Error: the request query parameters are invalid",
 			},
 			{
 				name:          "Negative step",

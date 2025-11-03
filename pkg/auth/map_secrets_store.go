@@ -13,7 +13,7 @@ type MapSecretsStore struct {
 
 type MapSecret struct {
 	Value     string    `json:"value"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 func NewMapSecretsStore() *MapSecretsStore {

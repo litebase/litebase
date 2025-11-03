@@ -101,7 +101,7 @@ func TestRoutesMiddleware(t *testing.T) {
 			Description:        "Access key store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
-			Method:             "PUT",
+			Method:             "PATCH",
 			Path:               "/v1/access-keys/{accessKeyId}",
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Access key update route should have ForwardToPrimary and Authentication middleware",
@@ -131,7 +131,7 @@ func TestRoutesMiddleware(t *testing.T) {
 			Description:        "Token store route should have ForwardToPrimary and Authentication middleware",
 		},
 		{
-			Method:             "PUT",
+			Method:             "PATCH",
 			Path:               "/v1/tokens/{tokenId}",
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Token update route should have ForwardToPrimary and Authentication middleware",

@@ -16,7 +16,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Destroy", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -84,7 +84,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Destroy_CannotDeleteWithInvalidToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -145,7 +145,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Show", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -178,7 +178,7 @@ func TestTokenController(t *testing.T) {
 				t.Fatal("Expected data in response, got nil")
 			}
 
-			if response["data"].(map[string]any)["token_id"] == nil {
+			if response["data"].(map[string]any)["tokenId"] == nil {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
@@ -190,12 +190,12 @@ func TestTokenController(t *testing.T) {
 				t.Errorf("Expected statements in response, got: %v", response["data"])
 			}
 
-			if response["data"].(map[string]any)["created_at"] == nil {
-				t.Errorf("Expected created_at in response, got: %v", response["data"])
+			if response["data"].(map[string]any)["createdAt"] == nil {
+				t.Errorf("Expected createdAt in response, got: %v", response["data"])
 			}
 
-			if response["data"].(map[string]any)["updated_at"] == nil {
-				t.Errorf("Expected updated_at in response, got: %v", response["data"])
+			if response["data"].(map[string]any)["updatedAt"] == nil {
+				t.Errorf("Expected updatedAt in response, got: %v", response["data"])
 			}
 		})
 
@@ -226,7 +226,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Show_WithUnauthorizedToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -269,7 +269,7 @@ func TestTokenController(t *testing.T) {
 				"description": "test",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -414,7 +414,7 @@ func TestTokenController(t *testing.T) {
 				"resource": "*",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -441,7 +441,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Update", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"test",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -456,11 +456,11 @@ func TestTokenController(t *testing.T) {
 				},
 			})
 
-			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PUT", map[string]any{
+			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PATCH", map[string]any{
 				"description": "Updated description",
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},
@@ -479,7 +479,7 @@ func TestTokenController(t *testing.T) {
 				t.Errorf("Unexpected response: %v", response)
 			}
 
-			if response["data"] == nil || response["data"].(map[string]any)["token_id"] == nil || response["data"].(map[string]any)["statements"] == nil {
+			if response["data"] == nil || response["data"].(map[string]any)["tokenId"] == nil || response["data"].(map[string]any)["statements"] == nil {
 				t.Errorf("Unexpected response: %v", response)
 			}
 		})
@@ -487,7 +487,7 @@ func TestTokenController(t *testing.T) {
 		t.Run("Update_WithInvalidToken", func(t *testing.T) {
 			token, err := server.App.Cluster.Auth.TokenManager.Create(
 				"Test token",
-				[]auth.Statement{{Effect: "Allow", Resource: "*", Actions: []auth.Privilege{"*"}}},
+				[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},
 			)
 
 			if err != nil {
@@ -502,10 +502,10 @@ func TestTokenController(t *testing.T) {
 				},
 			})
 
-			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PUT", map[string]any{
+			response, statusCode, err := client.Send(fmt.Sprintf("/v1/tokens/%s", token.TokenID), "PATCH", map[string]any{
 				"statements": []map[string]any{
 					{
-						"effect":   "allow",
+						"effect":   auth.StatementEffectAllow,
 						"resource": "*",
 						"actions":  []auth.Privilege{"*"},
 					},

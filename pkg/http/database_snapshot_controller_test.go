@@ -187,13 +187,13 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		}
 
 		// The snapshot timestamp should match
-		if int64(resp["data"].(map[string]any)["timestamp"].(float64)) != snapshot.Timestamp {
+		if (resp["data"].(map[string]any)["timestamp"].(string)) != fmt.Sprintf("%d", snapshot.Timestamp) {
 			t.Fatalf("Expected snapshot timestamp to be %d, got %d", snapshot.Timestamp, resp["data"].(map[string]any)["timestamp"])
 		}
 
 		// The snapshot should have 3 restore points
-		if len(resp["data"].(map[string]any)["restore_points"].(map[string]any)["data"].([]any)) != 3 {
-			t.Fatalf("Expected snapshot to have 3 restore points, got %d", len(resp["data"].(map[string]any)["restore_points"].(map[string]any)["data"].([]any)))
+		if len(resp["data"].(map[string]any)["restorePoints"].(map[string]any)["data"].([]any)) != 3 {
+			t.Fatalf("Expected snapshot to have 3 restore points, got %d", len(resp["data"].(map[string]any)["restorePoints"].(map[string]any)["data"].([]any)))
 		}
 	})
 }

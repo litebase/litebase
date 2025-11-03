@@ -91,8 +91,8 @@ func TestDatabaseControllerShow(t *testing.T) {
 			t.Fatalf("expected data to be an object, got %T", resp["data"])
 		}
 
-		if data["database_id"] != database.DatabaseID {
-			t.Fatalf("expected database id to be %s, got %v", database.DatabaseID, data["database_id"])
+		if data["databaseId"] != database.DatabaseID {
+			t.Fatalf("expected database id to be %s, got %v", database.DatabaseID, data["databaseId"])
 		}
 	})
 }
@@ -127,11 +127,11 @@ func TestDatabaseControllerStore(t *testing.T) {
 			t.Fatalf("expected data to be an object, got %T", resp["data"])
 		}
 
-		if data["name"] != "test_db" {
+		if data["databaseName"] != "test_db" {
 			t.Fatalf("expected database name to be 'test_db', got %v", data["name"])
 		}
 
-		database, err := server.App.DatabaseManager.Get(data["database_id"].(string))
+		database, err := server.App.DatabaseManager.Get(data["databaseId"].(string))
 
 		if err != nil {
 			t.Fatalf("failed to get database: %v", err)

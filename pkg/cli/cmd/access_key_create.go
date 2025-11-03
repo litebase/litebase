@@ -157,11 +157,11 @@ func NewAccessKeyCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 			rows := []components.CardRow{
 				{
 					Key:   "Access Key ID",
-					Value: res["data"].(map[string]any)["access_key_id"].(string),
+					Value: res["data"].(map[string]any)["accessKeyId"].(string),
 				},
 				{
 					Key:   "Access Key Secret",
-					Value: res["data"].(map[string]any)["access_key_secret"].(string),
+					Value: res["data"].(map[string]any)["accessKeySecret"].(string),
 				},
 				{
 					Key:   "Description",
@@ -169,8 +169,8 @@ func NewAccessKeyCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				},
 			}
 
-			if res["data"].(map[string]any)["created_at"] != nil {
-				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["created_at"].(string))
+			if res["data"].(map[string]any)["createdAt"] != nil {
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["createdAt"].(string))
 
 				if err != nil {
 					return err
@@ -182,8 +182,8 @@ func NewAccessKeyCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				})
 			}
 
-			if res["data"].(map[string]any)["updated_at"] != nil {
-				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updated_at"].(string))
+			if res["data"].(map[string]any)["updatedAt"] != nil {
+				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updatedAt"].(string))
 
 				if err != nil {
 					return err

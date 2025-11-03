@@ -77,10 +77,10 @@ func (pl *PageLogger) CheckSizeBasedCompactionNeeded() ([]PageGroupVersion, erro
 
 			slog.Info("Page log timestamp exceeds size threshold",
 				"timestamp", timestamp,
-				"total_size", totalSize,
-				"total_count", totalCount,
-				"size_threshold", sizeThreshold,
-				"count_threshold", countThreshold)
+				"totalSize", totalSize,
+				"totalCount", totalCount,
+				"sizeThreshold", sizeThreshold,
+				"countThreshold", countThreshold)
 		}
 	}
 
@@ -182,7 +182,7 @@ func (pl *PageLogger) compactSpecificTimestamps(durableDatabaseFileSystem *Durab
 	}
 
 	slog.Info("Size-based compaction completed",
-		"compacted_logs", len(allLogsToDelete),
+		"compactedLogs", len(allLogsToDelete),
 		"timestamps", timestamps)
 
 	return nil
@@ -954,7 +954,7 @@ func (pl *PageLogger) triggerSizeBasedCompaction(durableDatabaseFileSystem *Dura
 		} else {
 			slog.Warn("Oversized page log cannot be compacted due to active usage",
 				"timestamp", timestamp,
-				"effective_oldest", effectiveOldestTimestamp)
+				"effectiveOldest", effectiveOldestTimestamp)
 		}
 	}
 
@@ -964,8 +964,8 @@ func (pl *PageLogger) triggerSizeBasedCompaction(durableDatabaseFileSystem *Dura
 
 	// Trigger compaction for safe timestamps
 	slog.Info("Triggering size-based compaction",
-		"timestamps_count", len(safeToCompactTimestamps),
-		"oversized_count", len(oversizedTimestamps))
+		"timestampsCount", len(safeToCompactTimestamps),
+		"oversizedCount", len(oversizedTimestamps))
 
 	// Perform compaction using the existing compaction logic
 	// This will respect all safety checks and distributed coordination

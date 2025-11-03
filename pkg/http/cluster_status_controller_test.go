@@ -39,11 +39,11 @@ func TestClusterStatusController(t *testing.T) {
 			t.Fatal("Expected data to contain 'data' key")
 		}
 
-		if count, ok := data["data"].(map[string]any)["node_count"]; !ok {
-			t.Fatal("Expected data['data'] to contain 'node_count' key")
+		if count, ok := data["data"].(map[string]any)["nodeCount"]; !ok {
+			t.Fatal("Expected data['data'] to contain 'nodeCount' key")
 		} else {
 			if count.(float64) != 2 {
-				t.Fatalf("Expected node_count to be 2, got %f", count)
+				t.Fatalf("Expected nodeCount to be 2, got %f", count)
 			}
 		}
 	})

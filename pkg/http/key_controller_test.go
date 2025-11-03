@@ -29,8 +29,8 @@ func TestKeyControllerStore(t *testing.T) {
 		hmacHexSignature := fmt.Sprintf("%x", hash.Sum(nil))
 
 		response, statusCode, err := client.Send("/v1/keys", "POST", map[string]any{
-			"encryption_key": encryptionKey,
-			"signature":      hmacHexSignature,
+			"encryptionKey": encryptionKey,
+			"signature":     hmacHexSignature,
 		})
 
 		if err != nil {

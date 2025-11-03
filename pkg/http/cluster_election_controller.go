@@ -11,7 +11,7 @@ import (
 type ClusterElectionRequest struct {
 	Candidate string `json:"candidate" validate:"required"`
 	Seed      int64  `json:"seed" validate:"required"`
-	StartedAt int64  `json:"started_at" validate:"required"`
+	StartedAt int64  `json:"startedAt" validate:"required"`
 }
 
 // Handle a cluster election request
@@ -69,6 +69,6 @@ func ClusterElectionControllerStore(ctx context.Context, request *Request) Respo
 
 	return SuccessResponse("Election acknowledged", map[string]any{
 		"candidate": input.(*ClusterElectionRequest).Candidate,
-		"voted_at":  time.Now().UTC().Unix(),
+		"votedAt":   time.Now().UTC().Unix(),
 	}, 200)
 }

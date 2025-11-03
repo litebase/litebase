@@ -41,10 +41,10 @@ func TokenControllerIndex(ctx context.Context, request *Request) Response {
 }
 
 type TokenControllerShowResponse struct {
-	TokenID     string           `json:"token_id"`
+	TokenID     string           `json:"tokenId"`
 	Description string           `json:"description"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 	Statements  []auth.Statement `json:"statements"`
 }
 
@@ -82,13 +82,18 @@ func TokenControllerShow(ctx context.Context, request *Request) Response {
 	}, 200)
 }
 
+type TokenStoreRequest struct {
+	Description string           `json:"description" validate:"max=255"`
+	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive"`
+}
+
 type TokenStoreResponse struct {
-	TokenID     string           `json:"token_id"`
+	TokenID     string           `json:"tokenId"`
 	Token       string           `json:"token"`
 	Description string           `json:"description"`
 	Statements  []auth.Statement `json:"statements"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 }
 
 // Create a new token
@@ -102,7 +107,7 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&AccessKeyStoreRequest{})
+	input, err := request.Input(&TokenStoreRequest{})
 
 	if err != nil {
 		return BadRequestResponse(errors.New("the request input is invalid"))
@@ -128,8 +133,8 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 	}
 
 	token, err := request.cluster.Auth.TokenManager.Create(
-		input.(*AccessKeyStoreRequest).Description,
-		input.(*AccessKeyStoreRequest).Statements,
+		input.(*TokenStoreRequest).Description,
+		input.(*TokenStoreRequest).Statements,
 	)
 
 	if err != nil {
@@ -142,7 +147,7 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(fmt.Errorf("token could not be created: %s", err.Error()))
 	}
 
-	return SuccessResponse("Token created successfully", auth.TokenResponse{
+	return SuccessResponse("Token created successfully", auth.TokenCreatedResponse{
 		TokenID:     token.TokenID,
 		Token:       tokenValue,
 		Statements:  token.Statements,
@@ -152,12 +157,17 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 	}, 201)
 }
 
+type TokenUpdateRequest struct {
+	Description string           `json:"description" validate:"max=255"`
+	Statements  []auth.Statement `json:"statements" validate:"required,min=1,max=100,dive"`
+}
+
 type TokenUpdateResponse struct {
-	TokenID     string           `json:"token_id"`
+	TokenID     string           `json:"tokenId"`
 	Description string           `json:"description"`
 	Statements  []auth.Statement `json:"statements"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 }
 
 // Update an existing token
@@ -185,7 +195,7 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&AccessKeyUpdateRequest{})
+	input, err := request.Input(&TokenUpdateRequest{})
 
 	if err != nil {
 		return BadRequestResponse(errors.New("the request input is invalid"))
@@ -211,13 +221,13 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 
 	description := token.Description
 
-	if input.(*AccessKeyUpdateRequest).Description != "" {
-		description = input.(*AccessKeyUpdateRequest).Description
+	if input.(*TokenUpdateRequest).Description != "" {
+		description = input.(*TokenUpdateRequest).Description
 	}
 
 	err = token.Update(
 		description,
-		input.(*AccessKeyUpdateRequest).Statements,
+		input.(*TokenUpdateRequest).Statements,
 	)
 
 	if err != nil {

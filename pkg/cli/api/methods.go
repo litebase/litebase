@@ -34,6 +34,16 @@ func Delete(config *config.CLIConfiguration, path string) (map[string]any, Error
 	return client.Request("DELETE", path, nil)
 }
 
+func Patch(config *config.CLIConfiguration, path string, body map[string]any) (map[string]any, Errors, error) {
+	client, err := NewClient(config)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return client.Request("PATCH", path, body)
+}
+
 func Put(config *config.CLIConfiguration, path string, body map[string]any) (map[string]any, Errors, error) {
 	client, err := NewClient(config)
 

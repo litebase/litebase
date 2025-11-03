@@ -7,16 +7,16 @@ type User struct {
 	Password    string      `json:"password"`
 	Description string      `json:"description"`
 	Statements  []Statement `json:"statements"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
 }
 
 type UserResponse struct {
 	Username    string      `json:"username" example:"admin" description:"The username"`
 	Description string      `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []Statement `json:"statements" description:"List of permission statements defining what the user can access"`
-	CreatedAt   time.Time   `json:"created_at" description:"Creation timestamp"`
-	UpdatedAt   time.Time   `json:"updated_at" description:"Last update timestamp"`
+	CreatedAt   time.Time   `json:"createdAt" description:"Creation timestamp"`
+	UpdatedAt   time.Time   `json:"updatedAt" description:"Last update timestamp"`
 }
 
 // Check if the user has authorization for the given resources and actions

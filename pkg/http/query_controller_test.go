@@ -78,8 +78,8 @@ func TestQueryController(t *testing.T) {
 		}
 
 		responseData := resp["data"].([]any)[0].(map[string]any)
-		if responseData["last_insert_row_id"].(float64) != 1 {
-			t.Fatalf("Expected last_insert_row_id to be 1, got %v", responseData["last_insert_row_id"])
+		if responseData["lastInsertRowId"].(float64) != 1 {
+			t.Fatalf("Expected lastInsertRowId to be 1, got %v", responseData["lastInsertRowId"])
 		}
 
 		// Select the row
@@ -192,8 +192,8 @@ func TestQueryControllerMultipleQueries(t *testing.T) {
 			t.Fatalf("Expected no rows for CREATE statement, got %v", responseData[0])
 		}
 
-		if responseData[1].(map[string]any)["last_insert_row_id"].(float64) != 1 {
-			t.Fatalf("Expected last_insert_row_id to be 1, got %v", responseData[1])
+		if responseData[1].(map[string]any)["lastInsertRowId"].(float64) != 1 {
+			t.Fatalf("Expected lastInsertRowId to be 1, got %v", responseData[1])
 		}
 
 		rows := responseData[2].(map[string]any)["rows"].([]any)
@@ -542,10 +542,10 @@ func TestQueryControllerColumnsInResponse(t *testing.T) {
 		}
 
 		// Verify row_count field
-		rowCount, exists := responseData["row_count"]
+		rowCount, exists := responseData["rowCount"]
 
 		if !exists {
-			t.Fatal("Expected 'row_count' field to be present in response")
+			t.Fatal("Expected 'rowCount' field to be present in response")
 		}
 
 		if int(rowCount.(float64)) != 1 {
@@ -630,7 +630,7 @@ func TestQueryControllerResponseStructureConsistency(t *testing.T) {
 				responseData := resp["data"].([]any)[0].(map[string]any)
 
 				// Verify all required fields are present
-				requiredFields := []string{"changes", "id", "latency", "last_insert_row_id", "row_count", "rows", "columns"}
+				requiredFields := []string{"changes", "id", "latency", "lastInsertRowId", "rowCount", "rows", "columns"}
 
 				for _, field := range requiredFields {
 					if _, exists := responseData[field]; !exists {
@@ -651,12 +651,12 @@ func TestQueryControllerResponseStructureConsistency(t *testing.T) {
 					t.Errorf("Expected 'latency' to be a number for %s", query.name)
 				}
 
-				if _, ok := responseData["last_insert_row_id"].(float64); !ok {
-					t.Errorf("Expected 'last_insert_row_id' to be a number for %s", query.name)
+				if _, ok := responseData["lastInsertRowId"].(float64); !ok {
+					t.Errorf("Expected 'lastInsertRowId' to be a number for %s", query.name)
 				}
 
-				if _, ok := responseData["row_count"].(float64); !ok {
-					t.Errorf("Expected 'row_count' to be a number for %s", query.name)
+				if _, ok := responseData["rowCount"].(float64); !ok {
+					t.Errorf("Expected 'rowCount' to be a number for %s", query.name)
 				}
 
 				// For rows and columns, they might be null for non-SELECT queries
@@ -818,7 +818,7 @@ func TestQueryControllerVsStreamControllerConsistency(t *testing.T) {
 		queryResponseData := queryControllerResp["data"].([]any)[0].(map[string]any)
 
 		// Verify that the query controller response includes all expected fields
-		expectedFields := []string{"changes", "columns", "id", "latency", "last_insert_row_id", "row_count", "rows"}
+		expectedFields := []string{"changes", "columns", "id", "latency", "lastInsertRowId", "rowCount", "rows"}
 
 		for _, field := range expectedFields {
 			if _, exists := queryResponseData[field]; !exists {
@@ -902,10 +902,10 @@ func TestQueryControllerVsStreamControllerConsistency(t *testing.T) {
 		}
 
 		// Verify row_count matches actual data
-		rowCount, exists := queryResponseData["row_count"]
+		rowCount, exists := queryResponseData["rowCount"]
 
 		if !exists {
-			t.Fatal("Query controller response missing 'row_count' field")
+			t.Fatal("Query controller response missing 'rowCount' field")
 		}
 
 		if int(rowCount.(float64)) != 1 {

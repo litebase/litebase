@@ -173,7 +173,7 @@ func TestRestore(t *testing.T) {
 
 			restorePointTimestamp := snapshot.RestorePoints.Data[2] // Table exists but no data
 
-			restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
+			restorePoint, err := snapshot.GetRestorePoint(int64(restorePointTimestamp))
 
 			if err != nil {
 				t.Fatalf("Expected no error getting restore point for timestamp %d, got %v", restorePointTimestamp, err)
@@ -363,7 +363,7 @@ func TestRestore(t *testing.T) {
 
 			restorePointTimestamp := snapshot.RestorePoints.Data[2] // Table exists but no data
 
-			restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
+			restorePoint, err := snapshot.GetRestorePoint(int64(restorePointTimestamp))
 
 			if err != nil {
 				t.Fatalf("Expected no error getting restore point for timestamp %d, got %v", restorePointTimestamp, err)
@@ -502,7 +502,7 @@ func TestRestore(t *testing.T) {
 				t.Fatalf("Expected at least one restore point, got %d", len(snapshot.RestorePoints.Data))
 			}
 
-			restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.Data[0])
+			restorePoint, err := snapshot.GetRestorePoint(int64(snapshot.RestorePoints.Data[0]))
 
 			if err != nil {
 				t.Errorf("Expected no error, got %v", err)
@@ -665,7 +665,7 @@ func TestRestore(t *testing.T) {
 						t.Fatalf("Expected at least one restore point, got %d", len(snapshot.RestorePoints.Data))
 					}
 
-					restorePoint, err := snapshot.GetRestorePoint(snapshot.RestorePoints.Data[0])
+					restorePoint, err := snapshot.GetRestorePoint(int64(snapshot.RestorePoints.Data[0]))
 
 					if err != nil {
 						t.Fatalf("Expected no error, got %v", err)
@@ -846,7 +846,7 @@ func TestRestore(t *testing.T) {
 
 					restorePointTimestamp := snapshot.RestorePoints.Data[restorePointIndex]
 
-					restorePoint, err := snapshot.GetRestorePoint(restorePointTimestamp)
+					restorePoint, err := snapshot.GetRestorePoint(int64(restorePointTimestamp))
 
 					if err != nil {
 						t.Fatalf("Expected no error getting restore point for timestamp %d, got %v", restorePointTimestamp, err)

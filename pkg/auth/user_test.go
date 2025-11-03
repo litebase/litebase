@@ -14,7 +14,7 @@ func TestUser(t *testing.T) {
 		Password: "testpassword",
 		Statements: []auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{"*"},
 			},
@@ -46,7 +46,7 @@ func TestUserResponse(t *testing.T) {
 		Username: "testuser",
 		Statements: []auth.Statement{
 			{
-				Effect:   "Allow",
+				Effect:   auth.StatementEffectAllow,
 				Resource: "*",
 				Actions:  []auth.Privilege{"*"},
 			},

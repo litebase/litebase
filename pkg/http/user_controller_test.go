@@ -255,11 +255,11 @@ func TestUserController(t *testing.T) {
 
 			response, statusCode, err := client.Send(
 				"/v1/users/foo_update",
-				"PUT", map[string]any{
+				"PATCH", map[string]any{
 					"description": "Updated test user description",
 					"statements": []auth.Statement{
 						{
-							Effect:   "Deny",
+							Effect:   auth.StatementEffectDeny,
 							Resource: "*",
 							Actions:  []auth.Privilege{auth.ClusterPrivilegeManage},
 						},
@@ -294,7 +294,7 @@ func TestUserController(t *testing.T) {
 			} else {
 				statement, ok := statements[0].(map[string]any)
 
-				if !ok || statement["effect"] != "Deny" {
+				if !ok || statement["effect"] != string(auth.StatementEffectDeny) {
 					t.Fatal("User statements were not updated correctly")
 				}
 			}

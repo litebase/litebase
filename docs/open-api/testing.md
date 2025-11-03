@@ -160,7 +160,7 @@ Generate the OpenAPI specification to verify it works:
 go run cmd/generate_open_api_spec/main.go
 ```
 
-This will create `api/generated_openapi.json` with the complete specification.
+This will create `api/generated_open_api.json` with the complete specification.
 
 ### Validation
 
@@ -168,13 +168,13 @@ Verify the generated specification:
 
 ```bash
 # View the generated spec
-cat api/generated_openapi.json | jq .
+cat api/generated_open_api.json | jq .
 
 # Check specific controllers
-grep -o '"tags": \["[^"]*"\]' api/generated_openapi.json | sort | uniq
+grep -o '"tags": \["[^"]*"\]' api/generated_open_api.json | sort | uniq
 
 # Check operation summaries
-grep -o '"summary": "[^"]*"' api/generated_openapi.json
+grep -o '"summary": "[^"]*"' api/generated_open_api.json
 ```
 
 ## Debugging

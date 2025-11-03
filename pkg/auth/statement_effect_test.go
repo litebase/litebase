@@ -12,8 +12,8 @@ func TestStatementEffect(t *testing.T) {
 		effect   string
 		expected bool
 	}{
-		{"Valid Allow Effect", "allow", true},
-		{"Valid Deny Effect", "deny", true},
+		{"Valid Allow Effect", string(auth.StatementEffectAllow), true},
+		{"Valid Deny Effect", string(auth.StatementEffectDeny), true},
 		{"Invalid Effect", "invalid", false},
 	}
 

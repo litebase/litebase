@@ -212,7 +212,7 @@ func (u *UserManager) Init() error {
 
 		_, err := u.Create(u.config.RootUsername, u.config.RootPassword, "", []Statement{
 			{
-				Effect:   "Allow",
+				Effect:   StatementEffectAllow,
 				Resource: "*",
 				Actions:  []Privilege{"*"},
 			},

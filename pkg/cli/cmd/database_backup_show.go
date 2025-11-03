@@ -48,15 +48,15 @@ func NewDatabaseBackupShowCmd(config *config.CLIConfiguration) *cobra.Command {
 			rows := []components.CardRow{
 				{
 					Key:   "Database ID",
-					Value: res["data"].(map[string]any)["database_id"].(string),
+					Value: res["data"].(map[string]any)["databaseId"].(string),
 				},
 				{
 					Key:   "Database Branch ID",
-					Value: res["data"].(map[string]any)["database_branch_id"].(string),
+					Value: res["data"].(map[string]any)["databaseBranchId"].(string),
 				},
 				{
 					Key:   "Timestamp",
-					Value: res["data"].(map[string]any)["restore_point"].(map[string]any)["timestamp"].(string),
+					Value: res["data"].(map[string]any)["restorePoint"].(map[string]any)["timestamp"].(string),
 				},
 				{
 					Key:   "Size",

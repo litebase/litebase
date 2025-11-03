@@ -47,7 +47,7 @@ func RequestSignatureValidator(
 		body[strings.ToLower(key)] = value
 	}
 
-	queryParams := request.QueryParams
+	queryParams := request.queryParams
 
 	// Change all the keys to lower case
 	for key, value := range queryParams {

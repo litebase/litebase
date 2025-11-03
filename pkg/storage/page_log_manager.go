@@ -217,10 +217,10 @@ func (plm *PageLogManager) CompactDatabase(
 	default:
 		// All compaction slots are busy, skip this database for now
 		slog.Debug("Skipping compaction for database due to concurrency limit",
-			"database_id", databaseId,
-			"branch_id", branchId,
-			"active_compactions", len(plm.compactionSemaphore),
-			"max_concurrent", MaxConcurrentCompactions)
+			"databaseId", databaseId,
+			"branchId", branchId,
+			"activeCompactions", len(plm.compactionSemaphore),
+			"maxConcurrent", MaxConcurrentCompactions)
 
 		return false, nil
 	}
@@ -254,13 +254,13 @@ func (plm *PageLogManager) CompactAllDatabases(durableDatabaseFileSystemProvider
 
 				if err != nil {
 					slog.Error("Compaction failed during periodic compaction",
-						"database_id", databaseId,
-						"branch_id", branchId,
+						"databaseId", databaseId,
+						"branchId", branchId,
 						"error", err)
 				} else if !attempted {
 					slog.Debug("Compaction skipped during periodic compaction due to concurrency limit",
-						"database_id", databaseId,
-						"branch_id", branchId)
+						"databaseId", databaseId,
+						"branchId", branchId)
 				}
 			}
 		}

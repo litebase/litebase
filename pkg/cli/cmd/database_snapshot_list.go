@@ -51,9 +51,17 @@ func NewDatabaseSnapshotListCmd(config *config.CLIConfiguration) *cobra.Command 
 
 				// Convert timestamp to UTC date for display
 				var dateUTC string
-				if ts, ok := snapshotData["timestamp"].(float64); ok {
-					t := time.Unix(0, int64(ts)).UTC()
-					dateUTC = t.Format("2006-01-02 15:04:05")
+
+				if tsStr, ok := snapshotData["timestamp"].(string); ok {
+					// Parse the string timestamp
+					var ts int64
+
+					if _, err := fmt.Sscanf(tsStr, "%d", &ts); err == nil {
+						t := time.Unix(0, ts).UTC()
+						dateUTC = t.Format("2006-01-02 15:04:05")
+					} else {
+						dateUTC = "Unknown"
+					}
 				} else {
 					dateUTC = "Unknown"
 				}
@@ -62,20 +70,26 @@ func NewDatabaseSnapshotListCmd(config *config.CLIConfiguration) *cobra.Command 
 				startRestorePoint := "-"
 				lastRestorePoint := "-"
 
-				if restorePoints, exists := snapshotData["restore_points"]; exists && restorePoints != nil {
+				if restorePoints, exists := snapshotData["restorePoints"]; exists && restorePoints != nil {
 					if rpMap, ok := restorePoints.(map[string]any); ok {
 						if total, totalExists := rpMap["total"]; totalExists {
 							restorePointsCount = fmt.Sprintf("%v", total)
 						}
-						if start, startExists := rpMap["start"]; startExists {
-							if startInt, ok := start.(float64); ok {
-								startTime := time.Unix(0, int64(startInt)).UTC()
+
+						if startStr, startExists := rpMap["start"].(string); startExists {
+							var startInt int64
+
+							if _, err := fmt.Sscanf(startStr, "%d", &startInt); err == nil {
+								startTime := time.Unix(0, startInt).UTC()
 								startRestorePoint = startTime.Format("2006-01-02 15:04:05")
 							}
 						}
-						if end, endExists := rpMap["end"]; endExists {
-							if endInt, ok := end.(float64); ok {
-								endTime := time.Unix(0, int64(endInt)).UTC()
+
+						if endStr, endExists := rpMap["end"].(string); endExists {
+							var endInt int64
+
+							if _, err := fmt.Sscanf(endStr, "%d", &endInt); err == nil {
+								endTime := time.Unix(0, endInt).UTC()
 								lastRestorePoint = endTime.Format("2006-01-02 15:04:05")
 							}
 						}

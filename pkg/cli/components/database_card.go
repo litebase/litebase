@@ -8,16 +8,21 @@ func DatabaseCard(data map[string]any) string {
 	rows := []CardRow{
 		{
 			Key:   "ID",
-			Value: data["database_id"].(string),
+			Value: data["databaseId"].(string),
 		},
 		{
-			Key:   "Name",
-			Value: data["name"].(string),
+			Key:   "Database Name",
+			Value: data["databaseName"].(string),
+		},
+
+		{
+			Key:   "Branch Name",
+			Value: data["branchName"].(string),
 		},
 	}
 
-	if data["created_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, data["created_at"].(string))
+	if data["createdAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, data["createdAt"].(string))
 
 		if err == nil {
 			rows = append(rows, CardRow{
@@ -27,8 +32,8 @@ func DatabaseCard(data map[string]any) string {
 		}
 	}
 
-	if data["updated_at"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, data["updated_at"].(string))
+	if data["updatedAt"] != nil {
+		parsedDate, err := time.Parse(time.RFC3339, data["updatedAt"].(string))
 
 		if err == nil {
 			rows = append(rows, CardRow{

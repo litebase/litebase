@@ -8,16 +8,16 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-type UserControllerUserResponse struct {
+type UserResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
-	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
-	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+	CreatedAt   string           `json:"createdAt" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updatedAt" description:"Last update timestamp"`
 }
 
 // Array of users for list operations
-type UserControllerIndexResponse []UserControllerUserResponse
+type UserIndexResponse []UserResponse
 
 // List all users
 func UserControllerIndex(ctx context.Context, request *Request) Response {
@@ -33,10 +33,10 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 
 	users := request.cluster.Auth.UserManager.All()
 
-	var response UserControllerIndexResponse
+	var response UserIndexResponse
 
 	for _, user := range users {
-		response = append(response, UserControllerUserResponse{
+		response = append(response, UserResponse{
 			Username:   user.Username,
 			Statements: user.Statements,
 			CreatedAt:  user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -51,7 +51,7 @@ func UserControllerIndex(ctx context.Context, request *Request) Response {
 	)
 }
 
-type UserControllerStoreRequest struct {
+type UserStoreRequest struct {
 	Description string           `json:"description" validate:"max=255"`
 	Password    string           `json:"password" validate:"required,min=8"`
 	Statements  []auth.Statement `json:"statements" validate:"required"`
@@ -62,8 +62,8 @@ type UserControllerShowResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
-	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
-	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+	CreatedAt   string           `json:"createdAt" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updatedAt" description:"Last update timestamp"`
 }
 
 // Create a new user
@@ -102,8 +102,8 @@ type UserControllerStoreResponse struct {
 	Username    string           `json:"username"`
 	Description string           `json:"description"`
 	Statements  []auth.Statement `json:"statements"`
-	CreatedAt   string           `json:"created_at"`
-	UpdatedAt   string           `json:"updated_at"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 }
 
 // Create a new user
@@ -118,7 +118,7 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&UserControllerStoreRequest{})
+	input, err := request.Input(&UserStoreRequest{})
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("invalid input: %w", err))
@@ -143,12 +143,11 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	if input.(*UserControllerStoreRequest).Username == "root" {
+	if input.(*UserStoreRequest).Username == "root" {
 		return BadRequestResponse(fmt.Errorf("the username is invalid, 'root' is reserved"))
 	}
 
-	user, err := request.cluster.Auth.UserManager.Get(input.(*UserControllerStoreRequest).Username)
-
+	user, err := request.cluster.Auth.UserManager.Get(input.(*UserStoreRequest).Username)
 	if err != nil && err != auth.ErrUserNotFound {
 		return ServerErrorResponse(fmt.Errorf("failed to check if user exists: %w", err))
 	}
@@ -157,7 +156,7 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the username already exists"))
 	}
 
-	data := input.(*UserControllerStoreRequest)
+	data := input.(*UserStoreRequest)
 
 	user, err = request.cluster.Auth.UserManager.Create(
 		data.Username,
@@ -183,7 +182,7 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 	)
 }
 
-type UserControllerUpdateRequest struct {
+type UserUpdateRequest struct {
 	Description string           `json:"description" validate:"max=255"`
 	Statements  []auth.Statement `json:"statements" validate:"required"`
 }
@@ -192,8 +191,8 @@ type UserControllerUpdateResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
-	CreatedAt   string           `json:"created_at" description:"Creation timestamp"`
-	UpdatedAt   string           `json:"updated_at" description:"Last update timestamp"`
+	CreatedAt   string           `json:"createdAt" description:"Creation timestamp"`
+	UpdatedAt   string           `json:"updatedAt" description:"Last update timestamp"`
 }
 
 // Update an existing user
@@ -220,7 +219,7 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(fmt.Errorf("failed to retrieve user: %w", err))
 	}
 
-	input, err := request.Input(&UserControllerUpdateRequest{})
+	input, err := request.Input(&UserUpdateRequest{})
 
 	if err != nil {
 		return BadRequestResponse(fmt.Errorf("invalid input: %w", err))
@@ -242,7 +241,7 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	data := input.(*UserControllerUpdateRequest)
+	data := input.(*UserUpdateRequest)
 
 	// Update the user
 	user.Statements = data.Statements

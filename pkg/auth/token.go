@@ -11,24 +11,32 @@ import (
 
 type Token struct {
 	ID          int64       `json:"id"`
-	TokenID     string      `json:"token_id"`
-	TokenHash   string      `json:"token_hash"`
-	TokenSecret string      `json:"token_secret,omitempty"`
+	TokenID     string      `json:"tokenId"`
+	TokenHash   string      `json:"tokenHash"`
+	TokenSecret string      `json:"tokenSecret,omitempty"`
 	Statements  []Statement `json:"statements"`
 	Description string      `json:"description"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
 
 	TokenManager *TokenManager `json:"-"`
 }
 
-type TokenResponse struct {
-	TokenID     string      `json:"token_id"`
+type TokenCreatedResponse struct {
+	TokenID     string      `json:"tokenId"`
 	Token       string      `json:"token"`
 	Statements  []Statement `json:"statements"`
 	Description string      `json:"description"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
+}
+
+type TokenResponse struct {
+	TokenID     string      `json:"tokenId"`
+	Statements  []Statement `json:"statements"`
+	Description string      `json:"description"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
 }
 
 // Create a new instance of a token

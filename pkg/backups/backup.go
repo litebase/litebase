@@ -32,9 +32,9 @@ var ErrBackupNoRestorePoint = fmt.Errorf("no restore point found")
 // A Backup is a complete logical snapshot of a database at a given point in time.
 // This data is derived from a Snapshot and can be used to restore a database.
 type Backup struct {
-	DatabaseBranchID string       `json:"database_branch_id"`
-	DatabaseID       string       `json:"database_id"`
-	RestorePoint     RestorePoint `json:"restore_point"`
+	DatabaseBranchID string       `json:"databaseBranchId"`
+	DatabaseID       string       `json:"databaseId"`
+	RestorePoint     RestorePoint `json:"restorePoint"`
 	Size             int64        `json:"size"`
 
 	config         *config.Config

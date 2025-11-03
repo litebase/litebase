@@ -328,10 +328,10 @@ func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 		Columns         []string            `json:"columns"`
 		ID              string              `json:"id"`
 		Latency         float64             `json:"latency"`
-		LastInsertRowID int64               `json:"last_insert_row_id"`
-		RowCount        int                 `json:"row_count"`
+		LastInsertRowID int64               `json:"lastInsertRowId"`
+		RowCount        int                 `json:"rowCount"`
 		Rows            [][]*sqlite3.Column `json:"rows"`
-		TransactionID   string              `json:"transaction_id"`
+		TransactionID   string              `json:"transactionId"`
 	}
 
 	encoder := json.NewEncoder(buffer)
@@ -494,14 +494,14 @@ func (qr *QueryResponse) ToJSON() ([]byte, error) {
 
 func (qr QueryResponse) ToMap() map[string]any {
 	return map[string]any{
-		"changes":            qr.changes,
-		"id":                 string(qr.id),
-		"latency":            qr.latency,
-		"last_insert_row_id": qr.lastInsertRowId,
-		"columns":            qr.columns,
-		"rows":               qr.rows,
-		"row_count":          qr.rowCount,
-		"transaction_id":     qr.transactionID,
+		"changes":         qr.changes,
+		"id":              string(qr.id),
+		"latency":         qr.latency,
+		"lastInsertRowId": qr.lastInsertRowId,
+		"columns":         qr.columns,
+		"rows":            qr.rows,
+		"rowCount":        qr.rowCount,
+		"transactionId":   qr.transactionID,
 	}
 }
 

@@ -3,7 +3,7 @@
   "info": {
     "title": "Litebase Server API",
     "description": "Litebase Server OpenAPI specification",
-    "version": "1.0.0"
+    "version": "0.5.0"
   },
   "servers": [
     {
@@ -32,13 +32,7 @@
                       "type": "array",
                       "description": "Array of access keys for list operations",
                       "items": {
-                        "type": "object",
-                        "description": "Array of access keys for list operations",
-                        "properties": {
-                          "access_key_id": {
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/AccessKeyIndexResponse"
                       }
                     },
                     "message": {
@@ -106,21 +100,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  }
-                },
-                "required": [
-                  "statements"
-                ]
+                "$ref": "#/components/schemas/AccessKeyStoreRequest"
               }
             }
           },
@@ -135,30 +115,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "access_key_id": {
-                          "type": "string"
-                        },
-                        "access_key_secret": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      }
+                      "$ref": "#/components/schemas/AccessKeyStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -251,27 +208,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "access_key_id": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      }
+                      "$ref": "#/components/schemas/AccessKeyShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -309,152 +246,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "AccessKeyAuth": []
-          },
-          {
-            "BasicAuth": []
-          },
-          {
-            "TokenAuth": []
-          }
-        ]
-      },
-      "put": {
-        "tags": [
-          "AccessKey"
-        ],
-        "summary": "Update an existing access key",
-        "description": "Update an existing access key",
-        "operationId": "updateAccessKey",
-        "requestBody": {
-          "description": "Access key update data",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  }
-                },
-                "required": [
-                  "statements"
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "access_key_id": {
-                          "type": "string"
-                        },
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "Access key updated successfully"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -559,6 +350,118 @@
           }
         ]
       },
+      "patch": {
+        "tags": [
+          "AccessKey"
+        ],
+        "summary": "Update an existing access key",
+        "description": "Update an existing access key",
+        "operationId": "updateAccessKey",
+        "requestBody": {
+          "description": "Access key update data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessKeyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccessKeyUpdateResponse"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Access key updated successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
       "parameters": [
         {
           "name": "accessKeyId",
@@ -592,7 +495,7 @@
                       "type": "array",
                       "description": "Array of databases for list operations",
                       "items": {
-                        "type": "object"
+                        "$ref": "#/components/schemas/DatabaseResponse"
                       }
                     },
                     "message": {
@@ -660,18 +563,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "$ref": "#/components/schemas/DatabaseName"
-                  },
-                  "primary_branch": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name"
-                ]
+                "$ref": "#/components/schemas/DatabaseStoreRequest"
               }
             }
           },
@@ -686,39 +578,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Creation timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        },
-                        "database_id": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "primary_branch": {
-                          "type": "string"
-                        },
-                        "settings": {
-                          "$ref": "#/components/schemas/DatabaseSettings"
-                        },
-                        "updated_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Last update timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        },
-                        "url": {
-                          "type": "string"
-                        }
-                      }
+                      "$ref": "#/components/schemas/DatabaseStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -810,39 +670,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Creation timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        },
-                        "database_id": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "primary_branch": {
-                          "type": "string"
-                        },
-                        "settings": {
-                          "$ref": "#/components/schemas/DatabaseSettings"
-                        },
-                        "updated_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Last update timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        },
-                        "url": {
-                          "type": "string"
-                        }
-                      }
+                      "$ref": "#/components/schemas/DatabaseShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -1115,19 +943,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "description": "Request payload for creating a new database branch",
-                "properties": {
-                  "name": {
-                    "$ref": "#/components/schemas/DatabaseBranchName"
-                  },
-                  "parent_name": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name"
-                ]
+                "$ref": "#/components/schemas/DatabaseBranchStoreRequest"
               }
             }
           },
@@ -1142,39 +958,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Creation timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        },
-                        "database_branch_id": {
-                          "type": "string"
-                        },
-                        "database_id": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "integer"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "parent_name": {
-                          "type": "string"
-                        },
-                        "settings": {
-                          "$ref": "#/components/schemas/BranchSettings"
-                        },
-                        "updated_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Last update timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        }
-                      }
+                      "$ref": "#/components/schemas/DatabaseBranchStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -1558,17 +1342,6 @@
         "summary": "Create a new database backup",
         "description": "Create a new database backup",
         "operationId": "createDatabaseBackup",
-        "requestBody": {
-          "description": "Database backup creation data",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -1578,21 +1351,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "database_branch_id": {
-                          "type": "string"
-                        },
-                        "database_id": {
-                          "type": "string"
-                        },
-                        "restore_point": {
-                          "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
-                        },
-                        "size": {
-                          "type": "integer"
-                        }
-                      }
+                      "$ref": "#/components/schemas/DatabaseBackupStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -1640,16 +1399,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -1717,22 +1466,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "description": "A single database branch response",
-                      "properties": {
-                        "database_branch_id": {
-                          "type": "string"
-                        },
-                        "database_id": {
-                          "type": "string"
-                        },
-                        "restore_point": {
-                          "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
-                        },
-                        "size": {
-                          "type": "integer"
-                        }
-                      }
+                      "$ref": "#/components/schemas/DatabaseBackupShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -1915,6 +1649,32 @@
         "summary": "List all query logs",
         "description": "List query logs for a specific database and branch",
         "operationId": "listQueryLogs",
+        "parameters": [
+          {
+            "name": "end",
+            "in": "query",
+            "description": "The end timestamp for the query logs to retrieve (in seconds since epoch).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "The start timestamp for the query logs to retrieve (in seconds since epoch).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "step",
+            "in": "query",
+            "description": "The step interval (in seconds) to combine query metrics. For example, if step is 60, then all query metrics that occur within the same minute will be combined into a single metric. This is useful for reducing the number of query metrics returned when there are many queries executed within a short period of time.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -2038,18 +1798,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "queries": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/QueryInput"
-                    }
-                  }
-                },
-                "required": [
-                  "queries"
-                ]
+                "$ref": "#/components/schemas/QueryRequest"
               }
             }
           },
@@ -2067,39 +1816,7 @@
                       "type": "array",
                       "description": "Array of query responses for one or more queries",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "changes": {
-                            "type": "integer"
-                          },
-                          "columns": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/components/schemas/ColumnDefinition"
-                            }
-                          },
-                          "id": {
-                            "type": "string"
-                          },
-                          "last_insert_row_id": {
-                            "type": "integer"
-                          },
-                          "latency": {
-                            "type": "number"
-                          },
-                          "row_count": {
-                            "type": "integer"
-                          },
-                          "rows": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/components/schemas/ColumnValue"
-                            }
-                          },
-                          "transaction_id": {
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/QueryResponse"
                       }
                     },
                     "message": {
@@ -2287,23 +2004,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "target_database": {
-                    "type": "string"
-                  },
-                  "target_database_branch": {
-                    "type": "string"
-                  },
-                  "timestamp": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "target_database",
-                  "target_database_branch",
-                  "timestamp"
-                ]
+                "$ref": "#/components/schemas/DatabaseRestoreRequest"
               }
             }
           },
@@ -2648,19 +2349,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "encryption_key": {
-                    "type": "string"
-                  },
-                  "signature": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "encryption_key",
-                  "signature"
-                ]
+                "$ref": "#/components/schemas/KeyStoreRequest"
               }
             }
           },
@@ -2760,15 +2449,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "encryption_key": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "encryption_key"
-                ]
+                "$ref": "#/components/schemas/KeyActivateRequest"
               }
             }
           },
@@ -2872,13 +2553,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "description": "Response payload for cluster status",
-                      "properties": {
-                        "node_count": {
-                          "type": "integer"
-                        }
-                      }
+                      "$ref": "#/components/schemas/ClusterStatusResponse"
                     },
                     "message": {
                       "type": "string",
@@ -2934,36 +2609,7 @@
                       "type": "array",
                       "description": "Array of auth.TokenResponse objects",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "created_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Creation timestamp",
-                            "example": "2023-09-20T14:30:00Z"
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "statements": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/components/schemas/Statement"
-                            }
-                          },
-                          "token": {
-                            "type": "string"
-                          },
-                          "token_id": {
-                            "type": "string"
-                          },
-                          "updated_at": {
-                            "type": "string",
-                            "format": "date-time",
-                            "description": "Last update timestamp",
-                            "example": "2023-09-20T14:30:00Z"
-                          }
-                        }
+                        "$ref": "#/components/schemas/TokenResponse"
                       }
                     },
                     "message": {
@@ -3026,6 +2672,17 @@
         "summary": "Create a new token",
         "description": "Create a new token",
         "operationId": "createToken",
+        "requestBody": {
+          "description": "Token creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "description": "Successful operation",
@@ -3035,36 +2692,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Creation timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "token": {
-                          "type": "string"
-                        },
-                        "token_id": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string",
-                          "format": "date-time",
-                          "description": "Last update timestamp",
-                          "example": "2023-09-20T14:30:00Z"
-                        }
-                      }
+                      "$ref": "#/components/schemas/TokenCreatedResponse"
                     },
                     "message": {
                       "type": "string",
@@ -3157,27 +2785,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "token_id": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      }
+                      "$ref": "#/components/schemas/TokenControllerShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -3215,127 +2823,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "AccessKeyAuth": []
-          },
-          {
-            "BasicAuth": []
-          },
-          {
-            "TokenAuth": []
-          }
-        ]
-      },
-      "put": {
-        "tags": [
-          "Token"
-        ],
-        "summary": "Update an existing token",
-        "description": "Update an existing token",
-        "operationId": "updateToken",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "token_id": {
-                          "type": "string"
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "Token updated successfully"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -3440,6 +2927,118 @@
           }
         ]
       },
+      "patch": {
+        "tags": [
+          "Token"
+        ],
+        "summary": "Update an existing token",
+        "description": "Update an existing token",
+        "operationId": "updateToken",
+        "requestBody": {
+          "description": "Token update data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TokenUpdateResponse"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Token updated successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
       "parameters": [
         {
           "name": "tokenId",
@@ -3473,27 +3072,7 @@
                       "type": "array",
                       "description": "Array of users for list operations",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "created_at": {
-                            "type": "string"
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "statements": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/components/schemas/Statement"
-                            }
-                          },
-                          "updated_at": {
-                            "type": "string"
-                          },
-                          "username": {
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/UserResponse"
                       }
                     },
                     "message": {
@@ -3551,29 +3130,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "password": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  },
-                  "username": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "password",
-                  "statements",
-                  "username"
-                ]
+                "$ref": "#/components/schemas/UserStoreRequest"
               }
             }
           },
@@ -3588,27 +3145,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        },
-                        "username": {
-                          "type": "string"
-                        }
-                      }
+                      "$ref": "#/components/schemas/UserControllerStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -3701,27 +3238,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        },
-                        "username": {
-                          "type": "string"
-                        }
-                      }
+                      "$ref": "#/components/schemas/UserControllerShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -3755,152 +3272,6 @@
           },
           "404": {
             "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "AccessKeyAuth": []
-          },
-          {
-            "BasicAuth": []
-          },
-          {
-            "TokenAuth": []
-          }
-        ]
-      },
-      "put": {
-        "tags": [
-          "User"
-        ],
-        "summary": "Update an existing user",
-        "description": "Update an existing user",
-        "operationId": "updateUser",
-        "requestBody": {
-          "description": "User update data",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "statements": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Statement"
-                    }
-                  }
-                },
-                "required": [
-                  "statements"
-                ]
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "created_at": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        },
-                        "statements": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Statement"
-                          }
-                        },
-                        "updated_at": {
-                          "type": "string"
-                        },
-                        "username": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Response message",
-                      "example": "Successful operation"
-                    },
-                    "status": {
-                      "type": "string",
-                      "description": "Response status",
-                      "example": "success"
-                    }
-                  },
-                  "required": [
-                    "data",
-                    "message",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - invalid input",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -4008,6 +3379,118 @@
           }
         ]
       },
+      "patch": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Update an existing user",
+        "description": "Update an existing user",
+        "operationId": "updateUser",
+        "requestBody": {
+          "description": "User update data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/UserControllerUpdateResponse"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Successful operation"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
       "parameters": [
         {
           "name": "username",
@@ -4024,11 +3507,135 @@
   },
   "components": {
     "schemas": {
+      "AccessKeyIndexResponse": {
+        "type": "object",
+        "description": "Array of access keys for list operations",
+        "properties": {
+          "accessKeyId": {
+            "type": "string"
+          }
+        }
+      },
+      "AccessKeyShowResponse": {
+        "type": "object",
+        "properties": {
+          "accessKeyId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "AccessKeyStoreRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
+      "AccessKeyStoreResponse": {
+        "type": "object",
+        "properties": {
+          "accessKeyId": {
+            "type": "string"
+          },
+          "accessKeySecret": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "AccessKeyUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
+      "AccessKeyUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "accessKeyId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
       "BranchSettings": {
         "type": "object",
         "properties": {
-          "incrementable_backups": {
+          "incrementableBackups": {
             "type": "boolean"
+          }
+        }
+      },
+      "ClusterStatusResponse": {
+        "type": "object",
+        "description": "Response payload for cluster status",
+        "properties": {
+          "nodeCount": {
+            "type": "integer"
           }
         }
       },
@@ -4053,11 +3660,12 @@
         "type": "object",
         "description": "A single restore point within a database backup",
         "properties": {
-          "page_count": {
+          "pageCount": {
             "type": "integer"
           },
           "timestamp": {
-            "type": "integer"
+            "type": "string",
+            "example": "123"
           }
         }
       },
@@ -4072,8 +3680,96 @@
           }
         }
       },
+      "DatabaseBackupShowResponse": {
+        "type": "object",
+        "description": "A single database branch response",
+        "properties": {
+          "databaseBranchId": {
+            "type": "string"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "restorePoint": {
+            "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
+          },
+          "size": {
+            "type": "integer"
+          }
+        }
+      },
+      "DatabaseBackupStoreResponse": {
+        "type": "object",
+        "properties": {
+          "databaseBranchId": {
+            "type": "string"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "restorePoint": {
+            "$ref": "#/components/schemas/DatabaseBackupRestorePoint"
+          },
+          "size": {
+            "type": "integer"
+          }
+        }
+      },
       "DatabaseBranchName": {
         "type": "string"
+      },
+      "DatabaseBranchStoreRequest": {
+        "type": "object",
+        "description": "Request payload for creating a new database branch",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/DatabaseBranchName"
+          },
+          "parentName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "DatabaseBranchStoreResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "databaseBranchId": {
+            "type": "string"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentName": {
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/BranchSettings"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          }
+        }
       },
       "DatabaseIncrementalBackupSettings": {
         "type": "object",
@@ -4086,11 +3782,149 @@
       "DatabaseName": {
         "type": "string"
       },
+      "DatabaseResponse": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/DatabaseSettings"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "DatabaseRestoreRequest": {
+        "type": "object",
+        "properties": {
+          "targetDatabase": {
+            "type": "string"
+          },
+          "targetDatabaseBranch": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetDatabase",
+          "targetDatabaseBranch",
+          "timestamp"
+        ]
+      },
       "DatabaseSettings": {
         "type": "object",
         "properties": {
           "backups": {
             "$ref": "#/components/schemas/DatabaseBackupSettings"
+          }
+        }
+      },
+      "DatabaseShowResponse": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/DatabaseSettings"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "DatabaseStoreRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/DatabaseName"
+          },
+          "primaryBranch": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "DatabaseStoreResponse": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/DatabaseSettings"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "url": {
+            "type": "string"
           }
         }
       },
@@ -4111,6 +3945,32 @@
         "required": [
           "status",
           "message"
+        ]
+      },
+      "KeyActivateRequest": {
+        "type": "object",
+        "properties": {
+          "encryptionKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "encryptionKey"
+        ]
+      },
+      "KeyStoreRequest": {
+        "type": "object",
+        "properties": {
+          "encryptionKey": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "encryptionKey",
+          "signature"
         ]
       },
       "Privilege": {
@@ -4159,6 +4019,7 @@
           "database:select",
           "database:transaction",
           "database:update",
+          "*",
           "token:create",
           "token:delete",
           "token:list",
@@ -4182,7 +4043,7 @@
           "statement": {
             "type": "string"
           },
-          "transaction_id": {
+          "transactionId": {
             "type": "string"
           }
         },
@@ -4190,8 +4051,57 @@
           "id",
           "parameters",
           "statement",
-          "transaction_id"
+          "transactionId"
         ]
+      },
+      "QueryRequest": {
+        "type": "object",
+        "properties": {
+          "queries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryInput"
+            }
+          }
+        },
+        "required": [
+          "queries"
+        ]
+      },
+      "QueryResponse": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "type": "integer"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnDefinition"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastInsertRowId": {
+            "type": "integer"
+          },
+          "latency": {
+            "type": "number"
+          },
+          "rowCount": {
+            "type": "integer"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnValue"
+            }
+          },
+          "transactionId": {
+            "type": "string"
+          }
+        }
       },
       "Resource": {
         "type": "string"
@@ -4269,20 +4179,290 @@
           "message"
         ]
       },
+      "TokenControllerShowResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "tokenId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "TokenCreatedResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "token": {
+            "type": "string"
+          },
+          "tokenId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "tokenId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          }
+        }
+      },
+      "TokenStoreRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
+      "TokenUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
+      "TokenUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "tokenId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "UserControllerShowResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "UserControllerStoreResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "UserControllerUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "UserStoreRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "statements",
+          "username"
+        ]
+      },
+      "UserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          }
+        },
+        "required": [
+          "statements"
+        ]
+      },
       "ValidationErrorResponse": {
         "type": "object",
         "properties": {
           "errors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "field": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                }
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
             }
           },

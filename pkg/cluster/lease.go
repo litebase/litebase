@@ -176,7 +176,7 @@ func (l *Lease) Renew() error {
 	address, _ := l.node.Address()
 
 	if l.IsExpired() {
-		slog.Error("Lease expired, cannot renew", "expires_at", l.ExpiresAt)
+		slog.Error("Lease expired, cannot renew", "expiresAt", l.ExpiresAt)
 		return ErrLeaseExpired
 	}
 

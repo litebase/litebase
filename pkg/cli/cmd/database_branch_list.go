@@ -34,11 +34,11 @@ func NewDatabaseBranchListCmd(config *config.CLIConfiguration) *cobra.Command {
 			for _, branch := range data["data"].([]any) {
 				branchData := branch.(map[string]any)
 				name := branchData["name"].(string)
-				branchID := branchData["database_branch_id"].(string)
+				branchID := branchData["databaseBranchId"].(string)
 
 				parentName := ""
 
-				if parentNameValue, exists := branchData["parent_name"]; exists && parentNameValue != nil {
+				if parentNameValue, exists := branchData["parentName"]; exists && parentNameValue != nil {
 					parentName = parentNameValue.(string)
 				}
 
