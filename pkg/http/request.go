@@ -327,6 +327,7 @@ func (request *Request) QueryParam(key string, defaultValue ...string) string {
 	return value
 }
 
+// Map the query parameters to a struct of the type queryParamStruct.
 func (request *Request) QueryParams(queryParamStruct any) (any, error) {
 	// Prepare a map[string]any that will contain typed values (not only strings)
 	// so that unmarshalling into the target struct preserves numeric/bool types
