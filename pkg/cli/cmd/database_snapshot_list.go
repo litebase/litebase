@@ -75,6 +75,7 @@ func NewDatabaseSnapshotListCmd(config *config.CLIConfiguration) *cobra.Command 
 						if total, totalExists := rpMap["total"]; totalExists {
 							restorePointsCount = fmt.Sprintf("%v", total)
 						}
+
 						if startStr, startExists := rpMap["start"].(string); startExists {
 							var startInt int64
 
@@ -83,8 +84,10 @@ func NewDatabaseSnapshotListCmd(config *config.CLIConfiguration) *cobra.Command 
 								startRestorePoint = startTime.Format("2006-01-02 15:04:05")
 							}
 						}
+
 						if endStr, endExists := rpMap["end"].(string); endExists {
 							var endInt int64
+
 							if _, err := fmt.Sscanf(endStr, "%d", &endInt); err == nil {
 								endTime := time.Unix(0, endInt).UTC()
 								lastRestorePoint = endTime.Format("2006-01-02 15:04:05")
