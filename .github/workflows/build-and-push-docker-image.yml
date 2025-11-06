@@ -41,15 +41,15 @@ jobs:
       - name: Extract binaries
         run: |
           mkdir -p ./extracted-binaries/linux ./extracted-binaries/windows
-          
+
           # Remove 'v' prefix from version if present for matching artifact names
           VERSION="${{ inputs.version }}"
           VERSION="${VERSION#v}"
-          
+
           echo "Looking for artifacts with version: $VERSION"
           echo "Contents of ./binaries:"
           ls -la ./binaries/
-          
+
           # Extract Linux amd64 binary
           AMD64_ARTIFACT="./binaries/${{ inputs.project_name }}-${VERSION}-linux-x86_64"
           if [ -d "$AMD64_ARTIFACT" ]; then
@@ -60,7 +60,7 @@ jobs:
             echo "ERROR: Linux amd64 artifact not found at $AMD64_ARTIFACT"
             exit 1
           fi
-          
+
           # Extract Linux arm64 binary
           ARM64_ARTIFACT="./binaries/${{ inputs.project_name }}-${VERSION}-linux-arm64"
           if [ -d "$ARM64_ARTIFACT" ]; then
@@ -71,7 +71,7 @@ jobs:
             echo "ERROR: Linux arm64 artifact not found at $ARM64_ARTIFACT"
             exit 1
           fi
-          
+
           # Extract Windows binary (if exists - optional for now)
           WINDOWS_ARTIFACT="./binaries/${{ inputs.project_name }}-${VERSION}-windows-x86_64"
           if [ -d "$WINDOWS_ARTIFACT" ]; then
@@ -81,9 +81,11 @@ jobs:
           else
             echo "Windows artifact not found (optional): $WINDOWS_ARTIFACT"
           fi
-          
+
           echo "Extracted binaries:"
-          ls -lah ./extracted-binaries/*/      - name: Set up QEMU
+          ls -lah ./extracted-binaries/*/
+
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
