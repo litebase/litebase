@@ -67,8 +67,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64,windows/amd64
           build-args: |
             VERSION=${{ inputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v3

@@ -1,3 +1,8 @@
+# Build arguments for cross-platform builds
+ARG TARGETOS
+
+# Builder stage - uses golang base image that supports multi-OS
+# We use the target platform directly for CGO compatibility
 FROM golang:1.25 AS builder
 
 # Accept VERSION as a build argument
@@ -9,10 +14,14 @@ RUN go mod download
 
 COPY . .
 
-# Build the static Go binary
-RUN CGO_ENABLED=1 go build -o litebase -tags=production -ldflags="-s -w -X 'main.Version=$VERSION'" ./cmd/litebase
+# Build the Go binary for the target platform
+# CGO_ENABLED=1 is required for SQLite
+RUN CGO_ENABLED=1 go build -o litebase -tags=production \
+    -ldflags="-s -w -X 'main.Version=$VERSION'" \
+    ./cmd/litebase
 
-FROM debian:bookworm-slim
+# Linux runtime stage
+FROM debian:bookworm-slim AS runtime-linux
 
 # Install required runtime dependencies for CGO/SQLite
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,7 +29,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Security: Create a dedicated, non-root user (appuser) and group (appgroup).
-# This prevents the application from running with elevated permissions.
 RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 
 WORKDIR /app
@@ -28,7 +36,7 @@ WORKDIR /app
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/litebase /app/litebase
 
-# Ensure the non-root user owns the binary (important if the app needs to write to its working dir)
+# Ensure the non-root user owns the binary
 RUN chown -R appuser:appgroup /app && \
     chmod -R 755 /app
 
@@ -41,3 +49,21 @@ USER appuser
 # Command to run the application
 ENTRYPOINT ["/app/litebase"]
 CMD ["start"]
+
+# Windows runtime stage
+FROM mcr.microsoft.com/windows/nanoserver:ltsc2025 AS runtime-windows
+
+WORKDIR /app
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /app/litebase /app/litebase.exe
+
+# Windows containers don't support USER directive in the same way
+# The application will run as ContainerUser by default in nanoserver
+
+# Command to run the application
+ENTRYPOINT ["C:\\app\\litebase.exe"]
+CMD ["start"]
+
+# Final stage - select the appropriate runtime based on target OS
+FROM runtime-${TARGETOS} AS final
