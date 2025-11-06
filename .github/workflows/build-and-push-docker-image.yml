@@ -31,7 +31,59 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
+      - name: Download pre-built binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ./binaries
+          pattern: ${{ inputs.project_name }}-*
+          merge-multiple: false
+
+      - name: Extract binaries
+        run: |
+          mkdir -p ./extracted-binaries/linux ./extracted-binaries/windows
+          
+          # Remove 'v' prefix from version if present for matching artifact names
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION#v}"
+          
+          echo "Looking for artifacts with version: $VERSION"
+          echo "Contents of ./binaries:"
+          ls -la ./binaries/
+          
+          # Extract Linux amd64 binary
+          AMD64_ARTIFACT="./binaries/${{ inputs.project_name }}-${VERSION}-linux-x86_64"
+          if [ -d "$AMD64_ARTIFACT" ]; then
+            echo "Found Linux amd64 artifact: $AMD64_ARTIFACT"
+            tar -xzf "$AMD64_ARTIFACT/${{ inputs.project_name }}-${VERSION}-linux-x86_64.tar.gz" -C ./extracted-binaries/linux/
+            mv ./extracted-binaries/linux/${{ inputs.project_name }} ./extracted-binaries/linux/${{ inputs.project_name }}-amd64
+          else
+            echo "ERROR: Linux amd64 artifact not found at $AMD64_ARTIFACT"
+            exit 1
+          fi
+          
+          # Extract Linux arm64 binary
+          ARM64_ARTIFACT="./binaries/${{ inputs.project_name }}-${VERSION}-linux-arm64"
+          if [ -d "$ARM64_ARTIFACT" ]; then
+            echo "Found Linux arm64 artifact: $ARM64_ARTIFACT"
+            tar -xzf "$ARM64_ARTIFACT/${{ inputs.project_name }}-${VERSION}-linux-arm64.tar.gz" -C ./extracted-binaries/linux/
+            mv ./extracted-binaries/linux/${{ inputs.project_name }} ./extracted-binaries/linux/${{ inputs.project_name }}-arm64
+          else
+            echo "ERROR: Linux arm64 artifact not found at $ARM64_ARTIFACT"
+            exit 1
+          fi
+          
+          # Extract Windows binary (if exists - optional for now)
+          WINDOWS_ARTIFACT="./binaries/${{ inputs.project_name }}-${VERSION}-windows-x86_64"
+          if [ -d "$WINDOWS_ARTIFACT" ]; then
+            echo "Found Windows artifact: $WINDOWS_ARTIFACT"
+            tar -xzf "$WINDOWS_ARTIFACT/${{ inputs.project_name }}-${VERSION}-windows-x86_64.tar.gz" -C ./extracted-binaries/windows/
+            mv ./extracted-binaries/windows/${{ inputs.project_name }}.exe ./extracted-binaries/windows/${{ inputs.project_name }}-amd64.exe
+          else
+            echo "Windows artifact not found (optional): $WINDOWS_ARTIFACT"
+          fi
+          
+          echo "Extracted binaries:"
+          ls -lah ./extracted-binaries/*/      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx

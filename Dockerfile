@@ -1,24 +1,6 @@
 # Build arguments for cross-platform builds
 ARG TARGETOS
-
-# Builder stage - uses golang base image that supports multi-OS
-# We use the target platform directly for CGO compatibility
-FROM golang:1.25 AS builder
-
-# Accept VERSION as a build argument
-ARG VERSION=dev
-
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY . .
-
-# Build the Go binary for the target platform
-# CGO_ENABLED=1 is required for SQLite
-RUN CGO_ENABLED=1 go build -o litebase -tags=production \
-    -ldflags="-s -w -X 'main.Version=$VERSION'" \
-    ./cmd/litebase
+ARG TARGETARCH
 
 # Linux runtime stage
 FROM debian:bookworm-slim AS runtime-linux
@@ -33,8 +15,11 @@ RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/litebase /app/litebase
+# Accept TARGETARCH to determine which pre-built binary to copy
+ARG TARGETARCH
+
+# Copy the pre-built Linux binary based on architecture
+COPY ./extracted-binaries/linux/litebase-${TARGETARCH} /app/litebase
 
 # Ensure the non-root user owns the binary
 RUN chown -R appuser:appgroup /app && \
@@ -55,11 +40,11 @@ FROM mcr.microsoft.com/windows/nanoserver:ltsc2025 AS runtime-windows
 
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/litebase /app/litebase.exe
+# Accept TARGETARCH to determine which pre-built binary to copy
+ARG TARGETARCH
 
-# Windows containers don't support USER directive in the same way
-# The application will run as ContainerUser by default in nanoserver
+# Copy the pre-built Windows binary
+COPY ./extracted-binaries/windows/litebase-${TARGETARCH}.exe /app/litebase.exe
 
 # Command to run the application
 ENTRYPOINT ["C:\\app\\litebase.exe"]

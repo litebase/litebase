@@ -36,7 +36,7 @@ jobs:
       go_version: "1.25"
 
   build-docker:
-    needs: get-version
+    needs: [get-version, build]
     uses: ./.github/workflows/build-and-push-docker-image.yml
     with:
       project_name: "litebase"
