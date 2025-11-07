@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Security: Create a dedicated, non-root user (appuser) and group (appgroup).
-RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
+# Security: Create a dedicated, non-root user (litebase) and group (litebase).
+RUN groupadd --system litebase && useradd --system --gid litebase litebase
 
 WORKDIR /app
 
@@ -22,14 +22,14 @@ ARG TARGETARCH
 COPY ./extracted-binaries/linux/litebase-${TARGETARCH} /app/litebase
 
 # Ensure the non-root user owns the binary
-RUN chown -R appuser:appgroup /app && \
+RUN chown -R litebase:litebase /app && \
     chmod -R 755 /app
 
-# Create home directory for appuser with proper permissions
-RUN mkdir -p /home/appuser && chown -R appuser:appgroup /home/appuser && chmod 755 /home/appuser
+# Create home directory for litebase with proper permissions
+RUN mkdir -p /home/litebase && chown -R litebase:litebase /home/litebase && chmod 755 /home/litebase
 
 # Switch to the non-root user
-USER appuser
+USER litebase
 
 # Command to run the application
 ENTRYPOINT ["/app/litebase"]
