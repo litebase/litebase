@@ -39,19 +39,38 @@ LQTP is designed to address these limitations by offering a well-defined protoco
 - Introduces a construct for batching and pipelining queries implicitly from the client to the server.
 
 ## Protocol Overview
+
 To start using LQTP, clients must establish a connection to Litebase Server's LQTP endpoint, typically at `/v1/databases/<database>/<branch>/query/stream`.
+
+### Authentication with Chunked Signatures
+
+LQTP uses a chunked signature scheme similar to AWS Signature Version 4 for secure streaming.
+
+**Important**: LQTP requires authentication using **access keys** (access key ID and secret). Other authentication methods like tokens or basic auth are not supported for LQTP connections because the chunked signature scheme requires the access key secret to sign each frame.
+
+The client must:
+
+1. Sign the initial HTTP request with a special payload hash: `STREAMING-LITEBASE-HMAC-SHA256-PAYLOAD`
+2. Sign each subsequent frame with a chunk signature that chains to the previous signature
 
 **Create Connection:**
 
 ```http
 POST /v1/databases/<database>/<branch>/query/stream HTTP/1.1 
-Authorization: Bearer <token>
+Authorization: Litebase-HMAC-SHA256 <credential-token>
 Content-Type: application/octet-stream
+X-Litebase-Date: <unix-timestamp>
 Upgrade: lqtp
 Connection: Upgrade
 
 ...
 ```
+
+The authorization token must be generated using the chunked signing scheme, which includes:
+
+- **Credential**: Access key ID
+- **Signed Headers**: `content-type,host,x-litebase-date`
+- **Signature**: HMAC-SHA256 signature with the streaming payload hash
 
 Once the request is authenticated and authorized the server will respond with a `101 Switching Protocols` status code, indicating that the connection has been upgraded to support LQTP.
 
@@ -64,7 +83,6 @@ Connection: Upgrade
 ```
 
 Following these headers, the server will also send a `QueryStreamOpenConnection` message to indicate that the connection is ready to accept queries. Once the client receives this message, it can start sending a query stream. A query stream consists of one or more `QueryStreamFrame` messages, each containing one or more individual queries. In response, the server will send back `QueryStreamFrame` messages containing the results of the executed queries.
-
 
 <!-- markdownlint-disable MD033 MD041 -->
 <picture>
@@ -113,11 +131,15 @@ Clients send queries using `QueryStreamFrame` messages. Each frame contains one 
 
 #### Frame Format
 
-| Field        | Type   | Length | Description            |
-| ------------ | ------ | ------ | ---------------------- |
-| Message Type | uint8  | 1      | `0x04`                 |
-| Length       | uint32 | 4      | Length of frame data   |
-| Frame Data   | bytes  | n      | Multiple query entries |
+Frames must include a chunk signature that chains from the previous signature (or seed signature for the first frame):
+
+| Field            | Type   | Length | Description                           |
+| ---------------- | ------ | ------ | ------------------------------------- |
+| Message Type     | uint8  | 1      | `0x04`                                |
+| Length           | uint32 | 4      | Total length (signature + frame data) |
+| Signature Length | uint32 | 4      | Length of chunk signature             |
+| Signature        | string | n      | Hex-encoded chunk signature           |
+| Frame Data       | bytes  | m      | Multiple query entries                |
 
 #### Frame Data Structure
 
@@ -192,10 +214,41 @@ To close the connection, the client sends a `QueryStreamCloseConnection` message
 
 ## Limitations
 
+- **Access Key Authentication Only**: LQTP requires authentication with access keys (access key ID and secret). Bearer tokens and basic authentication are not supported due to the chunked signature validation mechanism
 - **Single Database per Connection**: Each LQTP connection is bound to a specific database and branch
-- **Authentication Required**: All connections must be authenticated with valid access keys
 - **HTTP Dependency**: The protocol runs over HTTP and requires HTTP/1.1 upgrade support
 - **Connection State**: Connections maintain state and must be properly closed to avoid resource leaks
+
+## Chunked Signature Validation
+
+LQTP implements a chunked signature scheme to ensure data integrity and authenticity for streaming requests:
+
+### Signature Chain
+
+1. **Seed Signature**: The signature from the initial HTTP request authorization header serves as the seed
+2. **Chunk Signatures**: Each frame's signature is calculated using the previous signature and the frame data hash
+3. **Signature Formula**: `HMAC-SHA256(SigningKey, PreviousSignature + SHA256(ChunkData))`
+
+### Signature Calculation Process
+
+For each frame chunk:
+
+```text
+1. Calculate chunk hash: chunkHash = SHA256(frameData)
+2. Create string to sign: stringToSign = previousSignature + chunkHash
+3. Generate signing key chain:
+   - dateKey = HMAC-SHA256(accessKeySecret, unixTimestamp)
+   - serviceKey = HMAC-SHA256(dateKey, "litebase_request")
+4. Calculate signature: signature = HMAC-SHA256(serviceKey, stringToSign)
+5. Update previousSignature = signature for next chunk
+```
+
+### Security Benefits
+
+- **Replay Protection**: Each chunk is tied to the previous chunk via signature chaining
+- **Integrity Verification**: Server validates each chunk's signature before processing
+- **Order Enforcement**: Chunks must be sent in the correct order due to chaining
+- **Man-in-the-Middle Protection**: HMAC signatures prevent tampering
 
 ## Implementation Notes
 
@@ -204,3 +257,5 @@ To close the connection, the client sends a `QueryStreamCloseConnection` message
 - All operations are protected by mutexes for thread safety
 - Context cancellation is supported for graceful connection termination
 - The protocol supports full-duplex communication for bidirectional streaming
+- Chunk signatures are validated before query execution
+- Invalid signatures result in connection termination with a `QueryStreamError` message
