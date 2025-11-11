@@ -3,7 +3,7 @@
 To install the latest version of Litebase, run the following command or download one of the binaries below for manual installation.
 
 ```shell
-curl -sSL https://litebase.com/install.sh | bash
+curl -sSL https://litebase.com/install.sh | sh
 ```
 
 ### Manual Installation
