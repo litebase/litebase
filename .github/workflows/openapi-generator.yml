@@ -49,8 +49,8 @@ jobs:
       - name: Commit updated OpenAPI spec
         if: steps.verify-changed-files.outputs.changed == 'true'
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add api/generated_open_api.json
           git commit -m "(generate) OpenAPI specification
 
