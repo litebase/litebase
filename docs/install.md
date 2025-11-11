@@ -7,7 +7,7 @@
 **For all platforms** (macOS, Linux, Windows with Git Bash/WSL):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
 ```
 
 ### Alternative Installation Methods
@@ -22,7 +22,7 @@ wget -qO- https://raw.githubusercontent.com/litebase/litebase/main/install.sh | 
 
 ```bash
 # Download the script
-curl -fsSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh -o install.sh
+curl -sSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh -o install.sh
 
 # Make it executable
 chmod +x install.sh
@@ -195,5 +195,5 @@ If you encounter issues:
 ## Security Notes
 
 - The installation script downloads binaries from official GitHub releases
-- Always verify the script content before running: `curl -fsSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh`
+- Always verify the script content before running: `curl -sSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh`
 - The script requires `sudo` privileges on Linux/macOS for system-wide installation
