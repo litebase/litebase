@@ -97,7 +97,7 @@ jobs:
           # Create release with auto-generated notes
           gh release create ${{ needs.get-version.outputs.version }} \
             --draft \
-            --title "Litebase ${{ needs.get-version.outputs.version }}" \
+            --title "Litebase ${{ needs.get-version.outputs.version }}" (Alpha) \
             --target ${{ github.sha }} \
             --generate-notes \
             release-assets/*
