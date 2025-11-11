@@ -7,7 +7,7 @@
 **For all platforms** (macOS, Linux, Windows with Git Bash/WSL):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
 ```
 
 ### Alternative Installation Methods
@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh |
 #### Using wget
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/litebase/litebase/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
 ```
 
 #### Manual Download and Execute
@@ -117,7 +117,7 @@ If the download fails:
 3. **Try using wget instead of curl**:
 
    ```bash
-   wget -qO- https://raw.githubusercontent.com/litebase/litebase/main/install.sh | bash
+   wget -qO- https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
    ```
 
 ### Architecture Not Supported
