@@ -290,7 +290,11 @@ func TestGetPreviousSignature(t *testing.T) {
 	chunkData := []byte("test data")
 	newSignature := signChunkForTest("secret", "1699718400", seedSignature, chunkData)
 
-	validator.ValidateChunk(chunkData, newSignature)
+	err := validator.ValidateChunk(chunkData, newSignature)
+
+	if err != nil {
+		t.Fatalf("Validation failed: %v", err)
+	}
 
 	if validator.GetPreviousSignature() != newSignature {
 		t.Errorf("Expected previousSignature to update to %s, got %s", newSignature, validator.GetPreviousSignature())
