@@ -159,6 +159,19 @@ func readQueryStream(
 
 	streamMutex := &sync.Mutex{}
 
+	// Initialize the chunked signature validator with the seed signature
+	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(credential.AccessKey().AccessKeyID)
+
+	if err != nil {
+		slog.Error("Error getting access key secret", "error", err)
+		cancel()
+
+		return
+	}
+
+	dateHeader := request.Headers().Get("X-Litebase-Date")
+	seedSignature := credential.CredentialString // This is the signature from the initial request
+	chunkValidator := NewChunkedSignatureValidator(secret, dateHeader, seedSignature)
 	messageHeaderBytes := make([]byte, 5)
 
 	for {
@@ -232,7 +245,7 @@ func readQueryStream(
 			cancel()
 			return
 		case QueryStreamFrame:
-			err := handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, credential)
+			err := handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, credential, chunkValidator)
 
 			if err != nil {
 				slog.Error("Error handling query stream frame", "error", err)
@@ -371,7 +384,36 @@ func handleQueryStreamFrame(
 	framesBuffer *bytes.Buffer,
 	databaseKey *auth.DatabaseKey,
 	credential *auth.Credential,
+	chunkValidator *ChunkedSignatureValidator,
 ) error {
+	// First, extract and validate the chunk signature
+	// Format: [SignatureLength:4][Signature:N][FrameData]
+
+	if framesBuffer.Len() < 4 {
+		return fmt.Errorf("insufficient data for signature length")
+	}
+
+	signatureLengthBytes := framesBuffer.Next(4)
+	signatureLength := int(binary.LittleEndian.Uint32(signatureLengthBytes))
+
+	if framesBuffer.Len() < signatureLength {
+		return fmt.Errorf("insufficient data for signature")
+	}
+
+	signatureBytes := framesBuffer.Next(signatureLength)
+	chunkSignature := string(signatureBytes)
+
+	// The remaining buffer contains the actual frame data
+	frameData := framesBuffer.Bytes()
+
+	// Validate the chunk signature
+	err := chunkValidator.ValidateChunk(frameData, chunkSignature)
+
+	if err != nil {
+		return fmt.Errorf("chunk signature validation failed: %w", err)
+	}
+
+	// Now process the validated frame data
 	// The responseBuffer contains multiple frames
 	responseBuffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(responseBuffer)
