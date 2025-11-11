@@ -36,9 +36,22 @@ func RequestSignatureValidator(
 	bodyHash := request.BodyHash()
 
 	if bodyHash == "" {
-		// Hash of empty body if no body was provided
-		emptyBodyHashSum := sha256.Sum256(nil)
-		bodyHash = fmt.Sprintf("%x", emptyBodyHashSum)
+		// Check if this is a streaming request (for query stream connections)
+		// In streaming mode, the client sends "STREAMING-LITEBASE-HMAC-SHA256-PAYLOAD"
+		// as the body hash to indicate chunked upload with signature validation
+		contentType := request.Headers().Get("Content-Type")
+		path := request.Path()
+		isStreamingRequest := contentType == "application/octet-stream" && strings.Contains(path, "/query/stream")
+		
+		if isStreamingRequest {
+			// For streaming requests, use the special streaming payload hash
+			streamingPayloadHashSum := sha256.Sum256([]byte("STREAMING-LITEBASE-HMAC-SHA256-PAYLOAD"))
+			bodyHash = fmt.Sprintf("%x", streamingPayloadHashSum)
+		} else {
+			// Hash of empty body if no body was provided
+			emptyBodyHashSum := sha256.Sum256(nil)
+			bodyHash = fmt.Sprintf("%x", emptyBodyHashSum)
+		}
 	}
 
 	// Change all the keys to lower case for other processing

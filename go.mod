@@ -24,7 +24,7 @@ require (
 require (
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	golang.org/x/mod v0.28.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
 )
 
 require (
@@ -59,7 +59,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/litebase/litebase-go/sql v0.0.0-20251010134425-89452b1f1cbb
+	github.com/litebase/litebase-go/sql v0.0.0-20251111212100-2d5737b9acdb
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/muesli/mango v0.1.0 // indirect
 	github.com/muesli/mango-cobra v1.2.0 // indirect
@@ -72,9 +72,9 @@ require (
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	go.shabbyrobe.org/gocovmerge v0.0.0-20230507111327-fa4f82cfbf4d // indirect
-	golang.org/x/net v0.44.0 // indirect
-	golang.org/x/term v0.35.0 // indirect
-	golang.org/x/tools v0.37.0
+	golang.org/x/net v0.46.0 // indirect
+	golang.org/x/term v0.36.0 // indirect
+	golang.org/x/tools v0.38.0
 )
 
 require (
@@ -100,9 +100,9 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
-	golang.org/x/crypto v0.42.0
-	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.29.0
+	golang.org/x/crypto v0.43.0
+	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
+	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/text v0.30.0
 )
