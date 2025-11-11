@@ -47,14 +47,14 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           echo "Downloading and executing install script from repository..."
-          curl -sSL https://raw.githubusercontent.com/litebase/litebase/refs/heads/main/install.sh | bash
+          curl -sSL https://raw.githubusercontent.com/litebase/litebase/refs/heads/main/install.sh | sh
 
       - name: Test install script (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           echo "Downloading and executing install script from repository..."
-          curl -sSL https://raw.githubusercontent.com/litebase/litebase/refs/heads/main/install.sh | bash
+          curl -sSL https://raw.githubusercontent.com/litebase/litebase/refs/heads/main/install.sh | sh
 
       - name: Verify installation (Unix)
         if: runner.os != 'Windows'

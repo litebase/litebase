@@ -97,7 +97,7 @@ jobs:
           # Create release with auto-generated notes
           gh release create ${{ needs.get-version.outputs.version }} \
             --draft \
-            --title "Litebase ${{ needs.get-version.outputs.version }}" \
+            --title "Litebase ${{ needs.get-version.outputs.version }}" (Alpha) \
             --target ${{ github.sha }} \
             --generate-notes \
             release-assets/*
@@ -128,3 +128,21 @@ jobs:
           gh release edit ${{ needs.get-version.outputs.version }} --notes-file temp_notes.md
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Update install script version
+        run: |
+          # Get version without 'v' prefix
+          FLOAT_VERSION=$(echo ${{ needs.get-version.outputs.version }} | sed 's/^v//')
+
+          # Update the VERSION variable in install.sh
+          sed -i.bak "s/^VERSION=\".*\"/VERSION=\"$FLOAT_VERSION\"/" install.sh
+          rm install.sh.bak
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Commit and push the change
+          git add install.sh
+          git commit -m "chore: update install.sh to version $FLOAT_VERSION" || echo "No changes to commit"
+          git push origin HEAD:main || echo "Failed to push to main branch"
