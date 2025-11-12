@@ -1945,6 +1945,22 @@
               }
             }
           },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "String value"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden - insufficient permissions",
             "content": {
