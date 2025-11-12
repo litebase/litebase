@@ -52,6 +52,10 @@ func NewQueryInput(
 }
 
 func (q *QueryInput) Decode(buffer, parametersBuffer *bytes.Buffer) error {
+	if buffer.Len() < 16 {
+		return fmt.Errorf("invalid query input length")
+	}
+
 	// Read the length of the id
 	idLength := int(binary.LittleEndian.Uint32(buffer.Next(4)))
 	q.ID = string(buffer.Next(idLength))
