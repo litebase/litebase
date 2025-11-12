@@ -51,6 +51,17 @@ func QueryStreamControllerStore(ctx context.Context, request *Request) Response 
 		return ErrInvalidCredentialResponse
 	}
 
+	// Query stream controller only accepts access key authentication
+	// because it requires the access key secret for chunked signature validation
+	if credential.Type() != auth.CredentialTypeAccessKey {
+		return Response{
+			StatusCode: 400,
+			Body: map[string]any{
+				"error": "Query stream connections require access key authentication. Token and basic auth are not supported for LQTP protocol.",
+			},
+		}
+	}
+
 	// Authorize the request
 	err := request.Authorize(
 		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
@@ -159,8 +170,15 @@ func readQueryStream(
 
 	streamMutex := &sync.Mutex{}
 
+	accessKey := credential.AccessKey()
+
+	if accessKey == nil {
+		slog.Error("Access key not found for query stream")
+		return
+	}
+
 	// Initialize the chunked signature validator with the seed signature
-	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(credential.AccessKey().AccessKeyID)
+	secret, err := request.cluster.Auth.SecretsManager.GetAccessKeySecret(accessKey.AccessKeyID)
 
 	if err != nil {
 		slog.Error("Error getting access key secret", "error", err)

@@ -3,12 +3,15 @@ package http_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/litebase/litebase-go/sql"
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/auth"
 )
 
 func TestQueryStreamController(t *testing.T) {
@@ -275,5 +278,97 @@ func TestQueryStreamController_WithValidationErrors(t *testing.T) {
 		}
 
 		connectionPool.Put(connection)
+	})
+}
+
+func TestQueryStreamController_RequiresAccessKeyAuth(t *testing.T) {
+	test.Run(t, func() {
+		testServer := test.NewTestServer(t)
+		defer testServer.Shutdown()
+
+		testDatabase := test.MockDatabase(testServer.App)
+
+		// Create a token credential instead of access key
+		token, err := testServer.App.Cluster.Auth.TokenManager.Create(
+			"Test token",
+			[]auth.Statement{
+				{
+					Effect:   auth.StatementEffectAllow,
+					Resource: auth.Resource(fmt.Sprintf("database:%s:branch:%s", testDatabase.DatabaseID, testDatabase.DatabaseBranchID)),
+					Actions:  []auth.Privilege{auth.DatabasePrivilegeQuery},
+				},
+			},
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tokenValue, err := token.Value()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		url := fmt.Sprintf(
+			"%s/v1/databases/%s/branches/%s/query/stream",
+			testServer.Server.URL,
+			testDatabase.DatabaseName,
+			testDatabase.BranchName,
+		)
+
+		// Try to connect with token authentication
+		client := &http.Client{}
+
+		req, err := http.NewRequest("POST", url, nil)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenValue))
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Upgrade", "lqtp")
+		req.Header.Set("Connection", "Upgrade")
+
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer resp.Body.Close()
+
+		// Should return 400 Bad Request
+		if resp.StatusCode != 400 {
+			t.Fatalf("expected status code 400, got %d", resp.StatusCode)
+		}
+
+		// Check error message
+		body, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var errorResponse map[string]any
+
+		err = json.Unmarshal(body, &errorResponse)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		errorMsg, ok := errorResponse["error"].(string)
+
+		if !ok {
+			t.Fatal("expected error field in response")
+		}
+
+		expectedError := "Query stream connections require access key authentication. Token and basic auth are not supported for LQTP protocol."
+
+		if errorMsg != expectedError {
+			t.Fatalf("expected error message '%s', got '%s'", expectedError, errorMsg)
+		}
 	})
 }
