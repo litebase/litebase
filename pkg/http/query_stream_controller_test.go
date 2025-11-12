@@ -337,7 +337,13 @@ func TestQueryStreamController_RequiresAccessKeyAuth(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer resp.Body.Close()
+		defer func() {
+			err := resp.Body.Close()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		}()
 
 		// Should return 400 Bad Request
 		if resp.StatusCode != 400 {
