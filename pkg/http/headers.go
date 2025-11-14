@@ -6,14 +6,14 @@ type Headers struct {
 	values map[string]string
 }
 
-func NewHeaders(headers map[string]string) Headers {
+func NewHeaders(headers map[string]string) *Headers {
 	h := make(map[string]string, len(headers))
 
 	for key, value := range headers {
 		h[utils.TransformHeaderKey(key)] = value
 	}
 
-	return Headers{values: h}
+	return &Headers{values: h}
 }
 
 func (headers Headers) All() map[string]string {

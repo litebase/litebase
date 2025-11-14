@@ -30,6 +30,12 @@ func KeyActivateControllerStore(ctx context.Context, request *Request) Response 
 		return BadRequestResponse(err)
 	}
 
+	req, ok := input.(*KeyActivateRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	validationErrors := request.Validate(input, map[string]string{
 		"encryption_key.required": "The encryption key field is required",
 	})
@@ -38,21 +44,21 @@ func KeyActivateControllerStore(ctx context.Context, request *Request) Response 
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	if !auth.HasKey(input.(*KeyActivateRequest).EncryptionKey, request.cluster.ObjectFS()) {
+	if !auth.HasKey(req.EncryptionKey, request.cluster.ObjectFS()) {
 		return BadRequestResponse(errors.New("the encryption key is invalid"))
 	}
 
 	err = auth.StoreEncryptionKey(
 		request.cluster.Config,
 		request.cluster.ObjectFS(),
-		input.(*KeyActivateRequest).EncryptionKey,
+		req.EncryptionKey,
 	)
 
 	if err != nil {
 		return ServerErrorResponse(err)
 	}
 
-	err = request.cluster.Broadcast("key:activate", input.(*KeyActivateRequest).EncryptionKey)
+	err = request.cluster.Broadcast("key:activate", req.EncryptionKey)
 
 	if err != nil {
 		return ServerErrorResponse(err)

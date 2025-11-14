@@ -125,6 +125,12 @@ func AccessKeyControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(errors.New("the request input is invalid"))
 	}
 
+	req, ok := input.(*AccessKeyStoreRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	// Validate the input
 	validationErrors := request.Validate(input, map[string]string{
 		"description.max":                  "The description field must be at most 255 characters long",
@@ -147,8 +153,8 @@ func AccessKeyControllerStore(ctx context.Context, request *Request) Response {
 
 	// Create the access key
 	accessKey, err := request.accessKeyManager.Create(
-		input.(*AccessKeyStoreRequest).Description,
-		input.(*AccessKeyStoreRequest).Statements,
+		req.Description,
+		req.Statements,
 	)
 
 	if err != nil {
@@ -216,6 +222,12 @@ func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("invalid input: %s", err.Error()))
 	}
 
+	req, ok := input.(*AccessKeyUpdateRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	// Validate the input
 	validationErrors := request.Validate(input, map[string]string{
 		"statements.max":                   "The statements field must contain at most 100 items",
@@ -237,13 +249,13 @@ func AccessKeyControllerUpdate(ctx context.Context, request *Request) Response {
 
 	description := accessKey.Description
 
-	if input.(*AccessKeyUpdateRequest).Description != "" {
-		description = input.(*AccessKeyUpdateRequest).Description
+	if req.Description != "" {
+		description = req.Description
 	}
 
 	err = accessKey.Update(
 		description,
-		input.(*AccessKeyUpdateRequest).Statements,
+		req.Statements,
 	)
 
 	if err != nil {

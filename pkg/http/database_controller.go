@@ -172,6 +172,12 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(err)
 	}
 
+	req, ok := input.(*DatabaseStoreRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	validationErrors := request.Validate(input, map[string]string{
 		"name.required":           "The name field is required",
 		"name.validateFn":         "The name field can only contain alpha numeric characters, hyphens, or underscores",
@@ -183,7 +189,7 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	var databaseName = input.(*DatabaseStoreRequest).Name
+	var databaseName = req.Name
 
 	// check if the database exists
 	exists, err := request.databaseManager.Exists(string(databaseName))
@@ -198,8 +204,8 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 
 	branchName := request.cluster.Config.DefaultBranchName
 
-	if input.(*DatabaseStoreRequest).PrimaryBranch != "" {
-		branchName = input.(*DatabaseStoreRequest).PrimaryBranch
+	if req.PrimaryBranch != "" {
+		branchName = req.PrimaryBranch
 	}
 
 	db, err := request.databaseManager.Create(string(databaseName), branchName)

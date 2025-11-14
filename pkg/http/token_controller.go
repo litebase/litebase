@@ -113,6 +113,12 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(errors.New("the request input is invalid"))
 	}
 
+	req, ok := input.(*TokenStoreRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	validationErrors := request.Validate(input, map[string]string{
 		"description.max":                  "The description field must be at most 255 characters long",
 		"statements.max":                   "The statements field must contain at most 100 items",
@@ -133,8 +139,8 @@ func TokenControllerStore(ctx context.Context, request *Request) Response {
 	}
 
 	token, err := request.cluster.Auth.TokenManager.Create(
-		input.(*TokenStoreRequest).Description,
-		input.(*TokenStoreRequest).Statements,
+		req.Description,
+		req.Statements,
 	)
 
 	if err != nil {
@@ -201,6 +207,12 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(errors.New("the request input is invalid"))
 	}
 
+	req, ok := input.(*TokenUpdateRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	validationErrors := request.Validate(input, map[string]string{
 		"statements.max":                   "The statements field must contain at most 100 items",
 		"statements.min":                   "The statements field must contain at least 1 item",
@@ -221,13 +233,13 @@ func TokenControllerUpdate(ctx context.Context, request *Request) Response {
 
 	description := token.Description
 
-	if input.(*TokenUpdateRequest).Description != "" {
-		description = input.(*TokenUpdateRequest).Description
+	if req.Description != "" {
+		description = req.Description
 	}
 
 	err = token.Update(
 		description,
-		input.(*TokenUpdateRequest).Statements,
+		req.Statements,
 	)
 
 	if err != nil {

@@ -159,7 +159,13 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 		return BadRequestResponse(err)
 	}
 
-	validationErrors := request.Validate(input, map[string]string{
+	req, ok := input.(*DatabaseBranchStoreRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
+	validationErrors := request.Validate(req, map[string]string{
 		"name.required":   "The name field is required",
 		"name.validateFn": "The name field can only contain alpha numeric characters, hyphens, or underscores",
 	})
@@ -168,8 +174,8 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	var branchName = input.(*DatabaseBranchStoreRequest).Name
-	var parentName = input.(*DatabaseBranchStoreRequest).ParentName
+	var branchName = req.Name
+	var parentName = req.ParentName
 
 	// If no parent name is specified, use the default branch name
 	if parentName == "" {

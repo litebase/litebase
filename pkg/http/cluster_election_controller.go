@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -22,6 +23,12 @@ func ClusterElectionControllerStore(ctx context.Context, request *Request) Respo
 		return BadRequestResponse(err)
 	}
 
+	req, ok := input.(*ClusterElectionRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	validationErrors := request.Validate(input, map[string]string{
 		"candidate.required":  "The candidate field is required",
 		"seed.required":       "The seed field is required",
@@ -32,7 +39,7 @@ func ClusterElectionControllerStore(ctx context.Context, request *Request) Respo
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	if request.cluster.Node().ID == input.(*ClusterElectionRequest).Candidate {
+	if request.cluster.Node().ID == req.Candidate {
 		return BadRequestResponse(fmt.Errorf("cannot start election, candidate is the same as the current node"))
 	}
 
@@ -44,7 +51,7 @@ func ClusterElectionControllerStore(ctx context.Context, request *Request) Respo
 
 	// Check if the node has running elections in progress
 	if request.cluster.Node().Election != nil && request.cluster.Node().Election.Running() {
-		if request.cluster.Node().Election.Seed > input.(*ClusterElectionRequest).Seed {
+		if request.cluster.Node().Election.Seed > req.Seed {
 			return BadRequestResponse(fmt.Errorf("election with a higher seed is already running"))
 		} else {
 			// Stop the current election and start a new one
@@ -62,13 +69,13 @@ func ClusterElectionControllerStore(ctx context.Context, request *Request) Respo
 	}
 
 	request.cluster.Node().AddPeerElection(&cluster.ClusterElection{
-		Candidate: input.(*ClusterElectionRequest).Candidate,
-		Seed:      input.(*ClusterElectionRequest).Seed,
-		StartedAt: time.Unix(0, input.(*ClusterElectionRequest).StartedAt).UTC(),
+		Candidate: req.Candidate,
+		Seed:      req.Seed,
+		StartedAt: time.Unix(0, req.StartedAt).UTC(),
 	})
 
 	return SuccessResponse("Election acknowledged", map[string]any{
-		"candidate": input.(*ClusterElectionRequest).Candidate,
+		"candidate": req.Candidate,
 		"votedAt":   time.Now().UTC().Unix(),
 	}, 200)
 }
