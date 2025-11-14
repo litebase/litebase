@@ -23,7 +23,9 @@ func NewAccessKeyListCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			if data["data"] == nil || len(data["data"].([]any)) == 0 {
+			accessKeys, ok := data["data"].([]any)
+
+			if !ok || len(accessKeys) == 0 {
 				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No access keys found")),
@@ -33,21 +35,6 @@ func NewAccessKeyListCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			rows := [][]string{}
-
-			accessKeys, ok := data["data"].([]any)
-
-			if !ok {
-				_, outputErr := lipgloss.Fprint(
-					cmd.OutOrStdout(),
-					components.Container(components.ErrorAlert("Invalid data format for access keys")),
-				)
-
-				if outputErr != nil {
-					slog.Error("Error printing access keys", "error", outputErr)
-				}
-
-				return nil
-			}
 
 			for i, accessKey := range accessKeys {
 				var accessKeyId = "-"

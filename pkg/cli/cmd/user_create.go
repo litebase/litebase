@@ -72,7 +72,7 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			// Check if we're in non-interactive mode (flags provided)
-			nonInteractive := username != "" && password != "" && statements != ""
+			nonInteractive := !config.GetInteractive() || (description != "" && statements != "")
 
 			if nonInteractive {
 				// Non-interactive mode: use provided flags
@@ -203,56 +203,60 @@ func NewUserCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
+			dataMap, ok := res["data"].(map[string]any)
+
+			if !ok {
+				return errors.New("invalid response format")
+			}
+
 			var cardContent string
+			rows := []components.CardRow{}
 
-			rows := []components.CardRow{
-				{
+			if username, ok := dataMap["username"].(string); ok {
+				rows = append(rows, components.CardRow{
 					Key:   "Username",
-					Value: res["data"].(map[string]any)["username"].(string),
-				},
-			}
-
-			if res["data"].(map[string]any)["createdAt"] != nil {
-				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["createdAt"].(string))
-
-				if err != nil {
-					return err
-				}
-
-				rows = append(rows, components.CardRow{
-					Key:   "Created At",
-					Value: parsedDate.Format(time.RFC3339),
+					Value: username,
 				})
 			}
 
-			if res["data"].(map[string]any)["updatedAt"] != nil {
-				parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updatedAt"].(string))
+			if createdAt, ok := dataMap["createdAt"].(string); ok && createdAt != "" {
+				parsedDate, err := time.Parse(time.RFC3339, createdAt)
 
-				if err != nil {
-					return err
+				if err == nil {
+					rows = append(rows, components.CardRow{
+						Key:   "Created At",
+						Value: parsedDate.Format(time.RFC3339),
+					})
 				}
-
-				rows = append(rows, components.CardRow{
-					Key:   "Updated At",
-					Value: parsedDate.Format(time.RFC3339),
-				})
 			}
 
-			if res["data"].(map[string]any)["statements"] != nil {
-				statements := res["data"].(map[string]any)["statements"].([]any)
+			if updatedAt, ok := dataMap["updatedAt"].(string); ok && updatedAt != "" {
+				parsedDate, err := time.Parse(time.RFC3339, updatedAt)
+				if err == nil {
+					rows = append(rows, components.CardRow{
+						Key:   "Updated At",
+						Value: parsedDate.Format(time.RFC3339),
+					})
+				}
+			}
+
+			if statements, ok := dataMap["statements"].([]any); ok && statements != nil {
 				statementsJSON, err := json.MarshalIndent(statements, "", "  ")
-
-				if err != nil {
-					return err
+				if err == nil {
+					cardContent = "```json\n" + string(statementsJSON) + "\n```"
 				}
+			}
 
-				cardContent = "```json\n" + string(statementsJSON) + "\n```"
+			message := "User created successfully"
+
+			if msg, ok := res["message"].(string); ok {
+				message = msg
 			}
 
 			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
-					components.SuccessAlert(res["message"].(string)),
+					components.SuccessAlert(message),
 					components.NewCard(
 						components.WithCardTitle("User"),
 						components.WithCardRows(rows),

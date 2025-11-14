@@ -19,57 +19,72 @@ func tokenShow(cmd *cobra.Command, config *config.CLIConfiguration, tokenId stri
 		return err
 	}
 
+	dataMap, ok := res["data"].(map[string]any)
+
+	if !ok {
+		return fmt.Errorf("invalid response format")
+	}
+
 	var cardContent string
 
-	rows := []components.CardRow{
-		{
+	rows := []components.CardRow{}
+
+	if tokenIdStr, ok := dataMap["tokenId"].(string); ok {
+		rows = append(rows, components.CardRow{
 			Key:   "Token ID",
-			Value: res["data"].(map[string]any)["tokenId"].(string),
-		},
-	}
-
-	if res["data"].(map[string]any)["description"] != nil {
-		rows = append(rows, components.CardRow{
-			Key:   "Description",
-			Value: res["data"].(map[string]any)["description"].(string),
+			Value: tokenIdStr,
 		})
 	}
 
-	if res["data"].(map[string]any)["createdAt"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["createdAt"].(string))
-
-		if err != nil {
-			return err
+	if dataMap["description"] != nil {
+		if description, ok := dataMap["description"].(string); ok {
+			rows = append(rows, components.CardRow{
+				Key:   "Description",
+				Value: description,
+			})
 		}
-
-		rows = append(rows, components.CardRow{
-			Key:   "Created At",
-			Value: parsedDate.Format(time.RFC3339),
-		})
 	}
 
-	if res["data"].(map[string]any)["updatedAt"] != nil {
-		parsedDate, err := time.Parse(time.RFC3339, res["data"].(map[string]any)["updatedAt"].(string))
+	if dataMap["createdAt"] != nil {
+		if createdAtStr, ok := dataMap["createdAt"].(string); ok {
+			parsedDate, err := time.Parse(time.RFC3339, createdAtStr)
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+
+			rows = append(rows, components.CardRow{
+				Key:   "Created At",
+				Value: parsedDate.Format(time.RFC3339),
+			})
 		}
-
-		rows = append(rows, components.CardRow{
-			Key:   "Updated At",
-			Value: parsedDate.Format(time.RFC3339),
-		})
 	}
 
-	if res["data"].(map[string]any)["statements"] != nil {
-		statements := res["data"].(map[string]any)["statements"].([]any)
-		statementsJSON, err := json.MarshalIndent(statements, "", "  ")
+	if dataMap["updatedAt"] != nil {
+		if updatedAtStr, ok := dataMap["updatedAt"].(string); ok {
+			parsedDate, err := time.Parse(time.RFC3339, updatedAtStr)
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+
+			rows = append(rows, components.CardRow{
+				Key:   "Updated At",
+				Value: parsedDate.Format(time.RFC3339),
+			})
 		}
+	}
 
-		cardContent = "```json\n" + string(statementsJSON) + "\n```"
+	if dataMap["statements"] != nil {
+		if statements, ok := dataMap["statements"].([]any); ok {
+			statementsJSON, err := json.MarshalIndent(statements, "", "  ")
+
+			if err != nil {
+				return err
+			}
+
+			cardContent = "```json\n" + string(statementsJSON) + "\n```"
+		}
 	}
 
 	_, err = lipgloss.Fprint(

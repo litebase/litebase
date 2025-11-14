@@ -58,8 +58,16 @@ func NewDatabaseBackupListCmd(config *config.CLIConfiguration) *cobra.Command {
 					continue
 				}
 
+				timestamp := "-"
+
+				if restorePoint, ok := backupData["restorePoint"].(map[string]any); ok {
+					if ts, ok := restorePoint["timestamp"].(string); ok {
+						timestamp = ts
+					}
+				}
+
 				rows = append(rows, []string{
-					backupData["restorePoint"].(map[string]any)["timestamp"].(string),
+					timestamp,
 				})
 			}
 

@@ -22,13 +22,23 @@ func NewDatabaseShowCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
+			dataMap, ok := res["data"].(map[string]any)
+
+			if !ok {
+				return fmt.Errorf("invalid response format")
+			}
+
+			message := ""
+
+			if msg, ok := res["message"].(string); ok {
+				message = msg
+			}
+
 			_, err = fmt.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
-					components.SuccessAlert(res["message"].(string)),
-					components.DatabaseCard(
-						res["data"].(map[string]any),
-					),
+					components.SuccessAlert(message),
+					components.DatabaseCard(dataMap),
 				),
 			)
 

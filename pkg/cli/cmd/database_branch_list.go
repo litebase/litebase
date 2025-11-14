@@ -31,15 +31,36 @@ func NewDatabaseBranchListCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			rows := [][]string{}
 
-			for _, branch := range data["data"].([]any) {
-				branchData := branch.(map[string]any)
-				name := branchData["name"].(string)
-				branchID := branchData["databaseBranchId"].(string)
+			branches, ok := data["data"].([]any)
+
+			if !ok {
+				return fmt.Errorf("invalid response format: expected array of branches")
+			}
+
+			for _, branch := range branches {
+				branchData, ok := branch.(map[string]any)
+
+				if !ok {
+					continue
+				}
+
+				name := "-"
+
+				if n, ok := branchData["name"].(string); ok {
+					name = n
+				}
+
+				branchID := "-"
+
+				if id, ok := branchData["databaseBranchId"].(string); ok {
+					branchID = id
+				}
 
 				parentName := ""
-
 				if parentNameValue, exists := branchData["parentName"]; exists && parentNameValue != nil {
-					parentName = parentNameValue.(string)
+					if pn, ok := parentNameValue.(string); ok {
+						parentName = pn
+					}
 				}
 
 				rows = append(rows, []string{
