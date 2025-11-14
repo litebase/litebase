@@ -23,7 +23,9 @@ func NewTokenListCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			if data["data"] == nil || len(data["data"].([]any)) == 0 {
+			tokens, ok := data["data"].([]any)
+
+			if !ok || len(tokens) == 0 {
 				_, err := lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No tokens found")),
@@ -33,17 +35,6 @@ func NewTokenListCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			rows := [][]string{}
-
-			tokens, ok := data["data"].([]any)
-
-			if !ok {
-				_, err := lipgloss.Fprint(
-					cmd.OutOrStdout(),
-					components.Container(components.ErrorAlert("Invalid data format for tokens")),
-				)
-
-				return err
-			}
 
 			for i, token := range tokens {
 				var tokenId = "-"

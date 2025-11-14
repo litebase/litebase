@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -71,6 +72,12 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(ErrInvalidInput)
 	}
 
+	req, ok := queries.(*QueryRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	// Validate the input
 	validationErrors := request.Validate(queries, map[string]string{
 		"queries.*.id.required":                        "The query ID field is required",
@@ -89,7 +96,7 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 
 	var responses QueryControllerStoreResponse
 
-	for _, query := range queries.(*QueryRequest).Queries {
+	for _, query := range req.Queries {
 		requestQuery := database.GetQuery(
 			request.cluster,
 			request.databaseManager,

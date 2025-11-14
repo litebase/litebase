@@ -32,7 +32,7 @@ type Request struct {
 	databaseManager  *database.DatabaseManager
 	logManager       *logs.LogManager
 	cluster          *cluster.Cluster
-	headers          Headers
+	headers          *Headers
 	Method           string
 	queryParams      map[string]string
 	Route            Route
@@ -55,14 +55,6 @@ func NewRequest(
 	logManager *logs.LogManager,
 	request *http.Request,
 ) *Request {
-	headers := make(map[string]string, len(request.Header))
-
-	for key, value := range request.Header {
-		headers[key] = value[0]
-	}
-
-	headers["host"] = request.Host
-
 	queryParams := make(map[string]string, len(request.URL.Query()))
 
 	for key, value := range request.URL.Query() {
@@ -75,7 +67,6 @@ func NewRequest(
 		Body:             nil,
 		cluster:          cluster,
 		databaseManager:  databaseManager,
-		headers:          NewHeaders(headers),
 		logManager:       logManager,
 		Method:           request.Method,
 		queryParams:      queryParams,
@@ -85,6 +76,7 @@ func NewRequest(
 // Return all of the data from the request body as a map.
 func (r *Request) All() map[string]any {
 	if r.Body == nil &&
+		r.BaseRequest != nil &&
 		r.BaseRequest.Body != nil &&
 		r.Headers().Get("Content-Type") == "application/json" &&
 		r.Headers().Get("Content-Length") != "0" {
@@ -274,7 +266,19 @@ func (r *Request) Get(key string) any {
 }
 
 // Return the headers for the request.
-func (request *Request) Headers() Headers {
+func (request *Request) Headers() *Headers {
+	if request.headers == nil {
+		headers := make(map[string]string, len(request.BaseRequest.Header))
+
+		for key, value := range request.BaseRequest.Header {
+			headers[key] = value[0]
+		}
+
+		headers["host"] = request.BaseRequest.Host
+
+		request.headers = NewHeaders(headers)
+	}
+
 	return request.headers
 }
 
@@ -284,6 +288,10 @@ func (request *Request) Input(input any) (any, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if input == nil {
+		return nil, errors.New("input cannot be nil")
 	}
 
 	err = json.Unmarshal(jsonData, &input)

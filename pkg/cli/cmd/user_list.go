@@ -23,7 +23,9 @@ func NewUserListCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			if data["data"] == nil || len(data["data"].([]any)) == 0 {
+			users, ok := data["data"].([]any)
+
+			if !ok || len(users) == 0 {
 				_, err = lipgloss.Fprint(
 					cmd.OutOrStdout(),
 					components.Container(components.WarningAlert("No users found")),
@@ -33,17 +35,6 @@ func NewUserListCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			rows := [][]string{}
-
-			users, ok := data["data"].([]any)
-
-			if !ok {
-				_, err = lipgloss.Fprint(
-					cmd.OutOrStdout(),
-					components.Container(components.ErrorAlert("Invalid data format for users")),
-				)
-
-				return err
-			}
 
 			for i, user := range users {
 				var userName = "-"

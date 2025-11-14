@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
@@ -31,11 +33,23 @@ func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				return apiErrors.Error()
 			}
 
+			message := "Database created successfully"
+
+			if msg, ok := res["message"].(string); ok {
+				message = msg
+			}
+
+			// Safely extract data map
+			dataMap, ok := res["data"].(map[string]any)
+			if !ok {
+				return errors.New("invalid response format")
+			}
+
 			_, err = lipgloss.Fprint(
 				cmd.OutOrStdout(),
 				components.Container(
-					components.SuccessAlert(res["message"].(string)),
-					components.DatabaseCard(res["data"].(map[string]any)),
+					components.SuccessAlert(message),
+					components.DatabaseCard(dataMap),
 				),
 			)
 

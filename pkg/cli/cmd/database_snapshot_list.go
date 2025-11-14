@@ -46,8 +46,18 @@ func NewDatabaseSnapshotListCmd(config *config.CLIConfiguration) *cobra.Command 
 
 			rows := [][]string{}
 
-			for _, snapshot := range data["data"].([]any) {
-				snapshotData := snapshot.(map[string]any)
+			snapshots, ok := data["data"].([]any)
+
+			if !ok {
+				return fmt.Errorf("invalid response format: expected array of snapshots")
+			}
+
+			for _, snapshot := range snapshots {
+				snapshotData, ok := snapshot.(map[string]any)
+
+				if !ok {
+					continue
+				}
 
 				// Convert timestamp to UTC date for display
 				var dateUTC string

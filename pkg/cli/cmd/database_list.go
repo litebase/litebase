@@ -22,17 +22,25 @@ func NewDatabaseListCmd(config *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			if data["data"] == nil {
+			databases, ok := data["data"].([]any)
+
+			if !ok || len(databases) == 0 {
 				return fmt.Errorf("no databases found")
 			}
 
 			rows := [][]string{}
 
-			for _, database := range data["data"].([]any) {
-				rows = append(rows, []string{
-					database.(map[string]any)["databaseName"].(string),
-					database.(map[string]any)["databaseId"].(string),
-				})
+			for _, database := range databases {
+				dbMap, ok := database.(map[string]any)
+
+				if !ok {
+					continue
+				}
+
+				name, _ := dbMap["databaseName"].(string)
+				id, _ := dbMap["databaseId"].(string)
+
+				rows = append(rows, []string{name, id})
 			}
 
 			_, err = lipgloss.Fprint(

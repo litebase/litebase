@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -51,6 +52,12 @@ func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Respo
 		return BadRequestResponse(err)
 	}
 
+	req, ok := input.(*DatabaseRestoreRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	validationErrors := request.Validate(input, map[string]string{
 		"target_database.required":        "The target database field is required",
 		"target_database_branch.required": "The target database branch field is required",
@@ -61,14 +68,14 @@ func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Respo
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	timestamp, err := strconv.ParseInt(input.(*DatabaseRestoreRequest).Timestamp, 10, 64)
+	timestamp, err := strconv.ParseInt(req.Timestamp, 10, 64)
 
 	if err != nil {
 		return BadRequestResponse(err)
 	}
 
-	targetDatabaseName := input.(*DatabaseRestoreRequest).TargetDatabase
-	targetBranchName := input.(*DatabaseRestoreRequest).TargetDatabaseBranch
+	targetDatabaseName := req.TargetDatabase
+	targetBranchName := req.TargetDatabaseBranch
 
 	targetDatabase, err := request.databaseManager.GetByName(targetDatabaseName)
 

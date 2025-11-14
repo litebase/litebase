@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -124,7 +125,13 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("invalid input: %w", err))
 	}
 
-	validationErrors := request.Validate(input, map[string]string{
+	req, ok := input.(*UserStoreRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
+	validationErrors := request.Validate(req, map[string]string{
 		"username.required":                "The username field is required",
 		"password.required":                "The password field is required",
 		"password.min":                     "The password field should be a minimum of 8 characters",
@@ -143,11 +150,12 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return ValidationErrorResponse(validationErrors)
 	}
 
-	if input.(*UserStoreRequest).Username == "root" {
+	if req.Username == "root" {
 		return BadRequestResponse(fmt.Errorf("the username is invalid, 'root' is reserved"))
 	}
 
-	user, err := request.cluster.Auth.UserManager.Get(input.(*UserStoreRequest).Username)
+	user, err := request.cluster.Auth.UserManager.Get(req.Username)
+
 	if err != nil && err != auth.ErrUserNotFound {
 		return ServerErrorResponse(fmt.Errorf("failed to check if user exists: %w", err))
 	}
@@ -156,13 +164,11 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(fmt.Errorf("the username already exists"))
 	}
 
-	data := input.(*UserStoreRequest)
-
 	user, err = request.cluster.Auth.UserManager.Create(
-		data.Username,
-		data.Password,
+		req.Username,
+		req.Password,
 		"",
-		data.Statements,
+		req.Statements,
 	)
 
 	if err != nil {

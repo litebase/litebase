@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 
 	"github.com/litebase/litebase/pkg/auth"
@@ -32,6 +33,12 @@ func KeyControllerStore(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(err)
 	}
 
+	req, ok := input.(*KeyStoreRequest)
+
+	if !ok {
+		return ServerErrorResponse(errors.New("invalid request format"))
+	}
+
 	validationErrors := request.Validate(input, map[string]string{
 		"encryption_key.required": "The encryption key field is required.",
 		"signature.required":      "The signature field is required",
@@ -43,17 +50,17 @@ func KeyControllerStore(ctx context.Context, request *Request) Response {
 
 	// Calculate expected HMAC signature
 	hash := hmac.New(sha256.New, []byte(request.cluster.Config.EncryptionKey))
-	hash.Write([]byte(input.(*KeyStoreRequest).EncryptionKey))
+	hash.Write([]byte(req.EncryptionKey))
 	expectedSignature := fmt.Sprintf("%x", hash.Sum(nil))
 
-	if input.(*KeyStoreRequest).Signature != expectedSignature {
+	if req.Signature != expectedSignature {
 		return ForbiddenResponse(fmt.Errorf("invalid signature"))
 	}
 
 	err = auth.NextEncryptionKey(
 		request.cluster.Auth,
 		request.cluster.Config,
-		input.(*KeyStoreRequest).EncryptionKey,
+		req.EncryptionKey,
 	)
 
 	if err != nil {

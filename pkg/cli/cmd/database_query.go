@@ -136,35 +136,47 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			rows := []components.CardRow{}
 
-			if transactionID, ok := res["data"].([]any)[0].(map[string]any)["transactionId"].(string); ok && transactionID != "" {
+			dataArray, ok := res["data"].([]any)
+
+			if !ok || len(dataArray) == 0 {
+				return fmt.Errorf("invalid or empty response data")
+			}
+
+			firstResult, ok := dataArray[0].(map[string]any)
+
+			if !ok {
+				return fmt.Errorf("invalid result format")
+			}
+
+			if transactionID, ok := firstResult["transactionId"].(string); ok && transactionID != "" {
 				rows = append(rows, components.CardRow{
 					Key:   "Transaction ID",
 					Value: transactionID,
 				})
 			}
 
-			if changes, ok := res["data"].([]any)[0].(map[string]any)["changes"].(int64); ok && changes > 0 {
+			if changes, ok := firstResult["changes"].(int64); ok && changes > 0 {
 				rows = append(rows, components.CardRow{
 					Key:   "Changes",
 					Value: fmt.Sprintf("%d", changes),
 				})
 			}
 
-			if lastInsertRowID, ok := res["data"].([]any)[0].(map[string]any)["lastInsertRowId"].(int64); ok && lastInsertRowID > 0 {
+			if lastInsertRowID, ok := firstResult["lastInsertRowId"].(int64); ok && lastInsertRowID > 0 {
 				rows = append(rows, components.CardRow{
 					Key:   "Last Insert Row ID",
 					Value: fmt.Sprintf("%d", lastInsertRowID),
 				})
 			}
 
-			if latency, ok := res["data"].([]any)[0].(map[string]any)["latency"].(float64); ok {
+			if latency, ok := firstResult["latency"].(float64); ok {
 				rows = append(rows, components.CardRow{
 					Key:   "Latency",
 					Value: fmt.Sprintf("%.2f ms", latency),
 				})
 			}
 
-			if rowCount := res["data"].([]any)[0].(map[string]any)["rowCount"].(float64); rowCount > 0 {
+			if rowCount, ok := firstResult["rowCount"].(float64); ok && rowCount > 0 {
 				rows = append(rows, components.CardRow{
 					Key:   "Row Count",
 					Value: fmt.Sprintf("%d", int64(rowCount)),
@@ -173,8 +185,8 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 			var cardContent string
 
-			if rows, ok := res["data"].([]any)[0].(map[string]any)["rows"].([]any); ok && len(rows) > 0 {
-				columns, ok := res["data"].([]any)[0].(map[string]any)["columns"].([]any)
+			if resultRows, ok := firstResult["rows"].([]any); ok && len(resultRows) > 0 {
+				columns, ok := firstResult["columns"].([]any)
 
 				if !ok {
 					columns = []any{map[string]any{"name": "Column"}}
@@ -182,7 +194,7 @@ func NewDatabaseQueryCmd(config *config.CLIConfiguration) *cobra.Command {
 
 				rowData := []map[string]any{}
 
-				for _, row := range rows {
+				for _, row := range resultRows {
 					rowSlice, ok := row.([]any)
 
 					if !ok {
