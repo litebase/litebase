@@ -403,15 +403,30 @@ func (qr *QueryResponse) SetColumns(columns []sqlite3.ColumnDefinition) {
 	copy(qr.columns, columns)
 }
 
-func (qr *QueryResponse) SetColumnsFromResult(columnNames []string, firstRow []*sqlite3.Column) {
-	// Build ColumnDefinition slice from names and first row types
+func (qr *QueryResponse) SetColumnsFromResult(columnNames []string, columnTypes []sqlite3.ColumnType, firstRow []*sqlite3.Column) {
+	// Build ColumnDefinition slice from names and types
 	if cap(qr.columns) >= len(columnNames) {
 		qr.columns = qr.columns[:len(columnNames)]
 	} else {
 		qr.columns = make([]sqlite3.ColumnDefinition, len(columnNames))
 	}
 
-	if len(firstRow) > 0 {
+	// Prefer using columnTypes from the Result if available (works for zero-row queries)
+	if len(columnTypes) > 0 {
+		for i, colName := range columnNames {
+			colType := sqlite3.ColumnTypeUnknown
+
+			if i < len(columnTypes) {
+				colType = columnTypes[i]
+			}
+
+			qr.columns[i] = sqlite3.ColumnDefinition{
+				ColumnName: colName,
+				ColumnType: colType,
+			}
+		}
+	} else if len(firstRow) > 0 {
+		// Fall back to firstRow if columnTypes isn't available
 		for i, colName := range columnNames {
 			if i < len(firstRow) {
 				qr.columns[i] = sqlite3.ColumnDefinition{
@@ -421,7 +436,7 @@ func (qr *QueryResponse) SetColumnsFromResult(columnNames []string, firstRow []*
 			}
 		}
 	} else {
-		// If no rows, infer from column names only (type unknown)
+		// If no types available, use unknown
 		for i, colName := range columnNames {
 			qr.columns[i] = sqlite3.ColumnDefinition{
 				ColumnName: colName,

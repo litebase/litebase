@@ -311,6 +311,7 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 	}
 
 	rowIndex := -1
+	columnTypesInitialized := false
 
 	for {
 		select {
@@ -321,15 +322,21 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 
 			switch rc {
 			case SQLITE_DONE:
+				// For queries with zero rows, we still need to set column types
+				if !columnTypesInitialized && result != nil {
+					s.setColumnTypes(result)
+				}
+
 				return nil
 			case SQLITE_BUSY:
 				return errors.New("database is locked")
 			case SQLITE_ROW:
 				rowIndex++
 
-				// Set the column types slice to the length of the result columns
-				if len(s.columnTypes) == 0 {
+				// Set the column types on the first row
+				if !columnTypesInitialized {
 					s.setColumnTypes(result)
+					columnTypesInitialized = true
 				}
 
 				if result == nil {
@@ -565,6 +572,15 @@ func (s *Statement) setColumnTypes(result *Result) {
 			s.columnTypes[i] = ColumnType(C.sqlite3_column_type(s.sqlite3_stmt, C.int(int32Index)))
 		}
 	}
+
+	// Copy column types to result so they're available even for zero-row results
+	if cap(result.ColumnTypes) >= len(result.Columns) {
+		result.ColumnTypes = result.ColumnTypes[:len(result.Columns)]
+	} else {
+		result.ColumnTypes = make([]ColumnType, len(result.Columns))
+	}
+
+	copy(result.ColumnTypes, s.columnTypes)
 }
 
 // Step the statement
