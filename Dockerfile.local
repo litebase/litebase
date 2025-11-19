@@ -1,0 +1,45 @@
+FROM golang:1.25 AS builder
+
+WORKDIR /build
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the binary with CGO enabled (required for SQLite)
+RUN CGO_ENABLED=1 GOOS=linux \
+    go build -o litebase \
+    -ldflags="-s -w" \
+    ./cmd/litebase
+
+# Runtime stage - smaller final image
+FROM debian:bookworm-slim
+
+# Install runtime dependencies for SQLite
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd --system litebase && \
+    useradd --system --gid litebase --home /home/litebase litebase && \
+    mkdir -p /home/litebase && \
+    chown -R litebase:litebase /home/litebase
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /build/litebase /app/litebase
+
+# Set ownership
+RUN chown -R litebase:litebase /app && \
+    chmod 755 /app/litebase
+
+# Switch to non-root user
+USER litebase
+
+ENTRYPOINT ["/app/litebase"]
+CMD ["start"]

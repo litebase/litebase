@@ -159,7 +159,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			}
 
 			// Use SetColumnsFromResult to avoid allocating a temporary map
-			response.SetColumnsFromResult(sqlite3Result.Columns, firstRow)
+			response.SetColumnsFromResult(sqlite3Result.Columns, sqlite3Result.ColumnTypes, firstRow)
 			response.SetRows(sqlite3Result.Rows)
 			response.SetRowCount(len(sqlite3Result.Rows))
 		}

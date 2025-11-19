@@ -18,18 +18,20 @@ var resultColumnPool = &sync.Pool{
 }
 
 type Result struct {
-	buffers []*bytes.Buffer
-	columns []*Column
-	Columns []string
-	Rows    [][]*Column
+	buffers     []*bytes.Buffer
+	columns     []*Column
+	Columns     []string
+	ColumnTypes []ColumnType
+	Rows        [][]*Column
 }
 
 func NewResult() *Result {
 	return &Result{
-		buffers: []*bytes.Buffer{},
-		columns: []*Column{},
-		Columns: []string{},
-		Rows:    [][]*Column{},
+		buffers:     []*bytes.Buffer{},
+		columns:     []*Column{},
+		Columns:     []string{},
+		ColumnTypes: []ColumnType{},
+		Rows:        [][]*Column{},
 	}
 }
 
@@ -92,6 +94,7 @@ func (r *Result) Reset() {
 	r.ReleaseColumns()
 
 	r.Columns = r.Columns[:0]
+	r.ColumnTypes = r.ColumnTypes[:0]
 	r.Rows = r.Rows[:0]
 }
 
