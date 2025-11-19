@@ -20,7 +20,13 @@ func TestQueryResponse_ZeroRowsHasColumnTypes(t *testing.T) {
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+
+		if err != nil {
+			t.Fatalf("Failed to close database: %v", err)
+		}
+	}()
 
 	// Query that returns zero rows (no views exist in empty database)
 	query := "SELECT name, 'main' as schema, sql as definition FROM sqlite_master WHERE type = 'view'"
@@ -75,7 +81,7 @@ func TestQueryResponse_ZeroRowsHasColumnTypes(t *testing.T) {
 		}
 
 		t.Logf("Column %d (%s): type = %d", i, col.ColumnName, col.ColumnType)
-		
+
 		// CRITICAL: This was the bug - column type was 0 (ColumnTypeUnknown) for ALL zero-row queries
 		// Now table columns (0, 2) should have types from schema
 		// Literal expressions (1) may still be ColumnTypeUnknown, which is acceptable

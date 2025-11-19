@@ -18,7 +18,13 @@ func TestResult_ViewQueryColumns(t *testing.T) {
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+
+		if err != nil {
+			t.Fatalf("Failed to close database: %v", err)
+		}
+	}()
 
 	// Create a test view
 	_, err = conn.Exec(ctx, "CREATE VIEW test_view AS SELECT 1 as id, 'test' as name")
@@ -72,7 +78,13 @@ func TestResult_ColumnTypes(t *testing.T) {
 		t.Fatalf("Failed to open database: %v", err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+
+		if err != nil {
+			t.Fatalf("Failed to close database: %v", err)
+		}
+	}()
 
 	testCases := []struct {
 		name         string
@@ -150,7 +162,13 @@ func TestResult_ZeroRowsColumnTypes(t *testing.T) {
 		t.Fatalf("Failed to open connection: %v", err)
 	}
 
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+
+		if err != nil {
+			t.Fatalf("Failed to close database: %v", err)
+		}
+	}()
 
 	// Query that returns zero rows (no views exist in empty database)
 	query := "SELECT name, 'main' as schema, sql as definition FROM sqlite_master WHERE type = 'view'"
