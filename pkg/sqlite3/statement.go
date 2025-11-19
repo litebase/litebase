@@ -322,9 +322,9 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 
 			switch rc {
 			case SQLITE_DONE:
-				// For queries with zero rows, we still need to set column types
+				// For queries with zero rows, use declared types from schema
 				if !columnTypesInitialized && result != nil {
-					s.setColumnTypes(result)
+					s.setColumnTypesFromDeclType(result)
 				}
 
 				return nil
@@ -581,6 +581,86 @@ func (s *Statement) setColumnTypes(result *Result) {
 	}
 
 	copy(result.ColumnTypes, s.columnTypes)
+}
+
+// Set column types using declared types from schema (for zero-row queries)
+// Uses sqlite3_column_decltype which returns the declared type, not the value type
+func (s *Statement) setColumnTypesFromDeclType(result *Result) {
+	if result == nil {
+		return
+	}
+
+	for i := range result.Columns {
+		if i >= len(s.columnTypes) {
+			// Expand the columnTypes slice to accommodate the new index
+			newColumnTypes := make([]ColumnType, i+1)
+			copy(newColumnTypes, s.columnTypes)
+			s.columnTypes = newColumnTypes
+		}
+
+		if s.columnTypes[i] == 0 {
+			int32Index, err := utils.SafeIntToInt32(i)
+
+			if err != nil {
+				return
+			}
+
+			// Get declared type from schema
+			declType := C.sqlite3_column_decltype(s.sqlite3_stmt, C.int(int32Index))
+
+			if declType != nil {
+				declTypeStr := C.GoString(declType)
+				// Map SQL types to ColumnType
+				s.columnTypes[i] = sqlTypeToColumnType(declTypeStr)
+			} else {
+				// No declared type available, mark as unknown
+				s.columnTypes[i] = ColumnTypeUnknown
+			}
+		}
+	}
+
+	// Copy column types to result
+	if cap(result.ColumnTypes) >= len(result.Columns) {
+		result.ColumnTypes = result.ColumnTypes[:len(result.Columns)]
+	} else {
+		result.ColumnTypes = make([]ColumnType, len(result.Columns))
+	}
+
+	copy(result.ColumnTypes, s.columnTypes)
+}
+
+// Map SQL type strings to ColumnType
+func sqlTypeToColumnType(sqlType string) ColumnType {
+	// SQLite type affinity rules: https://www.sqlite.org/datatype3.html
+	// Convert to uppercase for comparison
+	sqlType = string(bytes.ToUpper([]byte(sqlType)))
+
+	// INTEGER affinity
+	if bytes.Contains([]byte(sqlType), []byte("INT")) {
+		return ColumnTypeInteger
+	}
+
+	// TEXT affinity
+	if bytes.Contains([]byte(sqlType), []byte("CHAR")) ||
+		bytes.Contains([]byte(sqlType), []byte("CLOB")) ||
+		bytes.Contains([]byte(sqlType), []byte("TEXT")) {
+		return ColumnTypeText
+	}
+
+	// BLOB affinity
+	if bytes.Contains([]byte(sqlType), []byte("BLOB")) {
+		return ColumnTypeBlob
+	}
+
+	// REAL affinity
+	if bytes.Contains([]byte(sqlType), []byte("REAL")) ||
+		bytes.Contains([]byte(sqlType), []byte("FLOA")) ||
+		bytes.Contains([]byte(sqlType), []byte("DOUB")) {
+		return ColumnTypeFloat
+	}
+
+	// Default to BLOB for unrecognized types per SQLite rules
+	return ColumnTypeBlob
 }
 
 // Step the statement
