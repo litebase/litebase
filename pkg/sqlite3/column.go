@@ -2,9 +2,11 @@ package sqlite3
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -32,12 +34,13 @@ var columnJsonBufferPool = sync.Pool{
 type ColumnType int
 
 const (
-	ColumnTypeUnknown ColumnType = 0
-	ColumnTypeInteger ColumnType = SQLITE_INTEGER
-	ColumnTypeFloat   ColumnType = SQLITE_FLOAT
-	ColumnTypeText    ColumnType = SQLITE_TEXT
-	ColumnTypeBlob    ColumnType = SQLITE_BLOB
-	ColumnTypeNull    ColumnType = SQLITE_NULL
+	ColumnTypeUnknown      ColumnType = 0
+	ColumnTypeInteger      ColumnType = SQLITE_INTEGER
+	ColumnTypeFloat        ColumnType = SQLITE_FLOAT
+	ColumnTypeText         ColumnType = SQLITE_TEXT
+	ColumnTypeBlob         ColumnType = SQLITE_BLOB
+	ColumnTypeNull         ColumnType = SQLITE_NULL
+	ColumnTypeIntegerLarge ColumnType = 101 // Large integer (beyond ±2^53-1) encoded as string in JSON
 )
 
 var ErrInvalidColumnValue = errors.New("invalid column value")
@@ -237,13 +240,28 @@ func (c *Column) MarshalJSON() ([]byte, error) {
 
 	switch c.ColumnType {
 	case ColumnTypeInteger:
-		err = encoder.Encode(c.Int64())
+		// For JavaScript compatibility: return large integers as strings
+		// to avoid precision loss beyond Number.MAX_SAFE_INTEGER (2^53 - 1)
+		intValue := c.Int64()
+		const maxSafeInteger = 9007199254740991  // 2^53 - 1
+		const minSafeInteger = -9007199254740991 // -(2^53 - 1)
+
+		if intValue > maxSafeInteger || intValue < minSafeInteger {
+			// Return as string to preserve precision
+			// Note: The column type in metadata will be set to INTEGER_LARGE (101)
+			// by the HTTP response builder
+			err = encoder.Encode(fmt.Sprintf("%d", intValue))
+		} else {
+			// Return as number for backward compatibility
+			err = encoder.Encode(intValue)
+		}
 	case ColumnTypeFloat:
 		err = encoder.Encode(c.Float64())
 	case ColumnTypeText:
 		err = encoder.Encode(string(c.ColumnValue))
 	case ColumnTypeBlob:
-		err = encoder.Encode(string(c.ColumnValue))
+		// Encode blob as base64 string for JSON transport
+		err = encoder.Encode(base64.StdEncoding.EncodeToString(c.ColumnValue))
 	case ColumnTypeNull:
 		err = encoder.Encode(nil)
 	default:

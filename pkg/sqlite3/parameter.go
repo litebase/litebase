@@ -71,7 +71,19 @@ func (sp StatementParameter) Encode(buffer *bytes.Buffer) []byte {
 		buffer.WriteByte(uint8(ColumnTypeText))
 
 		var valueLengthBytes [4]byte
-		uint32ValueLen, err := utils.SafeIntToUint32(len(sp.Value.(string)))
+		var textBytes []byte
+
+		// Handle both string and []byte for TEXT type
+		switch v := sp.Value.(type) {
+		case string:
+			textBytes = []byte(v)
+		case []byte:
+			textBytes = v
+		default:
+			return nil
+		}
+
+		uint32ValueLen, err := utils.SafeIntToUint32(len(textBytes))
 
 		if err != nil {
 			return nil
@@ -80,7 +92,7 @@ func (sp StatementParameter) Encode(buffer *bytes.Buffer) []byte {
 		binary.LittleEndian.PutUint32(valueLengthBytes[:], uint32ValueLen)
 		buffer.Write(valueLengthBytes[:])
 
-		buffer.Write([]byte(sp.Value.(string)))
+		buffer.Write(textBytes)
 	case "BLOB":
 		buffer.WriteByte(uint8(ColumnTypeBlob))
 

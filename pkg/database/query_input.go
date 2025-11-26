@@ -2,9 +2,11 @@ package database
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/sqlite3"
@@ -225,8 +227,20 @@ func (q *QueryInput) UnmarshalJSON(jsonData []byte) error {
 				return fmt.Errorf("invalid parameter type")
 			}
 
-			if _, ok := parameter.(map[string]any)["value"]; !ok {
+			// Handle NULL type - no value field
+			paramType := parameter.(map[string]any)["type"].(string)
+
+			if paramType == "NULL" {
+				q.Parameters = append(q.Parameters, sqlite3.StatementParameter{
+					Type:  "NULL",
+					Value: nil,
+				})
 				continue
+			}
+
+			// For non-NULL types, value field is required
+			if _, ok := parameter.(map[string]any)["value"]; !ok {
+				return fmt.Errorf("value field required for non-NULL parameter")
 			}
 
 			if parameter.(map[string]any)["type"] == "TEXT" {
@@ -235,10 +249,19 @@ func (q *QueryInput) UnmarshalJSON(jsonData []byte) error {
 				}
 			}
 
-			// Handle INTEGER values that may be in scientific notation
+			// Handle INTEGER values - support both numbers and strings
+			// Strings are used for large integers beyond JavaScript's safe integer range
 			if parameter.(map[string]any)["type"] == "INTEGER" {
 				if integerValue, ok := parameter.(map[string]any)["value"].(float64); ok {
+					// JSON number format
 					parameter.(map[string]any)["value"] = int64(integerValue)
+				} else if stringValue, ok := parameter.(map[string]any)["value"].(string); ok {
+					// String format for large integers
+					parsedInt, err := strconv.ParseInt(stringValue, 10, 64)
+					if err != nil {
+						return fmt.Errorf("failed to parse integer string value: %w", err)
+					}
+					parameter.(map[string]any)["value"] = parsedInt
 				}
 			}
 
@@ -249,12 +272,19 @@ func (q *QueryInput) UnmarshalJSON(jsonData []byte) error {
 			}
 
 			if parameter.(map[string]any)["type"] == "BLOB" {
-				if blobValue, ok := parameter.(map[string]any)["value"].([]byte); ok {
+				if blobValue, ok := parameter.(map[string]any)["value"].(string); ok {
+					// Base64 decode the blob value
+					decodedBlob, err := base64.StdEncoding.DecodeString(blobValue)
+
+					if err != nil {
+						return fmt.Errorf("failed to decode base64 blob: %w", err)
+					}
+					parameter.(map[string]any)["value"] = decodedBlob
+				} else if blobValue, ok := parameter.(map[string]any)["value"].([]byte); ok {
+					// Already in byte format
 					parameter.(map[string]any)["value"] = blobValue
 				}
-			}
-
-			// Append the parameter to the query
+			} // Append the parameter to the query
 			q.Parameters = append(q.Parameters, sqlite3.StatementParameter{
 				Type:  parameter.(map[string]any)["type"].(string),
 				Value: parameter.(map[string]any)["value"],

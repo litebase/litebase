@@ -373,8 +373,201 @@ func TestQueryStreamController_RequiresAccessKeyAuth(t *testing.T) {
 
 		expectedError := "Query stream connections require access key authentication. Token and basic auth are not supported for LQTP protocol."
 
-		if errorMsg != expectedError {
-			t.Fatalf("expected error message '%s', got '%s'", expectedError, errorMsg)
+	if errorMsg != expectedError {
+		t.Fatalf("expected error message '%s', got '%s'", expectedError, errorMsg)
+	}
+})
+}
+
+func TestQueryStreamControllerBlobHandling(t *testing.T) {
+	test.Run(t, func() {
+		testServer := test.NewTestServer(t)
+		defer testServer.Shutdown()
+
+		testDatabase := test.MockDatabase(testServer.App)
+
+		url := fmt.Sprintf(
+			"%s/v1/databases/%s/branches/%s",
+			testServer.Server.URL,
+			testDatabase.DatabaseName,
+			testDatabase.BranchName,
+		)
+
+		connectionPool := sql.NewConnectionPool(
+			testDatabase.Credential.AccessKey().AccessKeyID,
+			testDatabase.Credential.AccessKey().AccessKeySecret,
+			url,
+			5,
+		)
+
+		defer connectionPool.Close()
+
+		connection, err := connectionPool.Get()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer connectionPool.Put(connection)
+
+		// Create a table with a BLOB column
+		createTableQuery := sql.Query{
+			ID:         uuid.NewString(),
+			Statement:  "CREATE TABLE files (id INTEGER PRIMARY KEY, name TEXT, content BLOB)",
+			Parameters: nil,
+		}
+
+		result, err := connection.Send(createTableQuery)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result.Error != nil {
+			t.Fatal(string(result.Error))
+		}
+
+	// Test 1: Insert a blob with binary data (client library will base64 encode it)
+	binaryData := []byte("Hello World")
+
+	insertQuery := sql.Query{
+		ID:        uuid.NewString(),
+		Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
+		Parameters: []sql.Parameter{
+			{
+				Type:  "TEXT",
+				Value: "test.bin",
+			},
+			{
+				Type:  "BLOB",
+				Value: binaryData,
+			},
+		},
+	}
+
+	result, err = connection.Send(insertQuery)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result.Error != nil {
+			t.Fatalf("Failed to insert blob: %s", string(result.Error))
+		}
+
+		if result.Data.LastInsertRowID != 1 {
+			t.Fatalf("Expected lastInsertRowId to be 1, got %d", result.Data.LastInsertRowID)
+		}
+
+		// Test 2: Select the blob and verify it was stored correctly
+		selectQuery := sql.Query{
+			ID:        uuid.NewString(),
+			Statement: "SELECT name, content FROM files WHERE id = ?",
+			Parameters: []sql.Parameter{
+				{
+					Type:  "INTEGER",
+					Value: 1,
+				},
+			},
+		}
+
+		result, err = connection.Send(selectQuery)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result.Error != nil {
+			t.Fatalf("Failed to select blob: %s", string(result.Error))
+		}
+
+		rows := result.Data.Rows
+		if len(rows) != 1 {
+			t.Fatalf("Expected 1 row, got %d", len(rows))
+		}
+
+		// Test 3: Insert empty blob
+		emptyBlobQuery := sql.Query{
+			ID:        uuid.NewString(),
+			Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
+			Parameters: []sql.Parameter{
+			{
+				Type:  "TEXT",
+				Value: "empty.bin",
+			},
+			{
+				Type:  "BLOB",
+				Value: []byte{},
+			},
+		},
+	}
+
+	result, err = connection.Send(emptyBlobQuery)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result.Error != nil {
+			t.Fatalf("Failed to insert empty blob: %s", string(result.Error))
+		}
+
+		// Test 4: Insert large blob (1KB of data)
+		largeData := make([]byte, 1024)
+		for i := range largeData {
+			largeData[i] = byte(i % 256)
+	}
+
+	largeBlobQuery := sql.Query{
+		ID:        uuid.NewString(),
+		Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
+		Parameters: []sql.Parameter{
+			{
+				Type:  "TEXT",
+				Value: "large.bin",
+			},
+			{
+				Type:  "BLOB",
+				Value: largeData,
+			},
+		},
+	}
+
+	result, err = connection.Send(largeBlobQuery)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result.Error != nil {
+			t.Fatalf("Failed to insert large blob: %s", string(result.Error))
+		}
+
+		// Verify the large blob was stored correctly by checking its length
+		lengthQuery := sql.Query{
+			ID:        uuid.NewString(),
+			Statement: "SELECT LENGTH(content) FROM files WHERE name = ?",
+			Parameters: []sql.Parameter{
+				{
+					Type:  "TEXT",
+					Value: "large.bin",
+				},
+			},
+		}
+
+		result, err = connection.Send(lengthQuery)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if result.Error != nil {
+			t.Fatalf("Failed to get blob length: %s", string(result.Error))
+		}
+
+		lengthRows := result.Data.Rows
+		if len(lengthRows) != 1 {
+			t.Fatalf("Expected 1 row for length query, got %d", len(lengthRows))
 		}
 	})
 }
