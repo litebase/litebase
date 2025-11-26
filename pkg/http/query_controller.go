@@ -128,6 +128,7 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 			err = transaction.ResolveQuery(requestQuery, response)
 
 			if err != nil {
+				// TODO: BadRequestResponse instead
 				return ServerErrorResponse(err)
 			}
 
@@ -140,13 +141,14 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 			_, err = requestQuery.Resolve(response)
 
 			if err != nil {
+				// TODO: BadRequestResponse instead
 				return ServerErrorResponse(err)
 			}
 		}
 
 		responses = append(responses, QueryResponse{
 			Changes:         response.Changes(),
-			Columns:         response.Columns(),
+			Columns:         adjustColumnTypesForLargeIntegers(response.Columns(), response.Rows()),
 			ID:              response.Id(),
 			Latency:         response.Latency(),
 			LastInsertRowId: response.LastInsertRowId(),
@@ -161,4 +163,50 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 		responses,
 		200,
 	)
+}
+
+// adjustColumnTypesForLargeIntegers scans the result rows and updates column types
+// to INTEGER_LARGE (6) for any INTEGER columns that contain values beyond JavaScript's
+// safe integer range (±2^53-1). This allows clients to know which integer values
+// are encoded as strings in the JSON response.
+func adjustColumnTypesForLargeIntegers(columns []sqlite3.ColumnDefinition, rows [][]*sqlite3.Column) []sqlite3.ColumnDefinition {
+	if len(rows) == 0 || len(columns) == 0 {
+		return columns
+	}
+
+	const maxSafeInteger = 9007199254740991  // 2^53 - 1
+	const minSafeInteger = -9007199254740991 // -(2^53 - 1)
+
+	// Track which columns have large integers
+	hasLargeInt := make([]bool, len(columns))
+
+	// Scan all rows to find large integers
+	for _, row := range rows {
+		for colIdx, col := range row {
+			if colIdx >= len(columns) {
+				continue
+			}
+
+			// Only check INTEGER columns
+			if columns[colIdx].ColumnType == sqlite3.ColumnTypeInteger {
+				intValue := col.Int64()
+
+				if intValue > maxSafeInteger || intValue < minSafeInteger {
+					hasLargeInt[colIdx] = true
+				}
+			}
+		}
+	}
+
+	// Create a new column definitions slice with updated types
+	adjustedColumns := make([]sqlite3.ColumnDefinition, len(columns))
+	copy(adjustedColumns, columns)
+
+	for i, hasLarge := range hasLargeInt {
+		if hasLarge {
+			adjustedColumns[i].ColumnType = sqlite3.ColumnTypeIntegerLarge
+		}
+	}
+
+	return adjustedColumns
 }

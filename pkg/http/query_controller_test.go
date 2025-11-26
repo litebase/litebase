@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"encoding/base64"
 	"fmt"
 	"testing"
 
@@ -910,6 +911,560 @@ func TestQueryControllerVsStreamControllerConsistency(t *testing.T) {
 
 		if int(rowCount.(float64)) != 1 {
 			t.Errorf("Expected row_count to be 1, got %v", rowCount)
+		}
+	})
+}
+
+func TestQueryControllerBlobHandling(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		mock := test.MockDatabase(server.App)
+
+		client := server.WithAccessKeyClient([]auth.Statement{
+			{
+				Effect:   auth.StatementEffectAllow,
+				Resource: "*",
+				Actions:  []auth.Privilege{"*"},
+			},
+		}) // Create a table with a BLOB column
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":         "1",
+					"statement":  "CREATE TABLE files (id INTEGER PRIMARY KEY, name TEXT, content BLOB);",
+					"parameters": []map[string]any{},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		// Test 1: Insert a blob with base64-encoded data
+		base64Data := "SGVsbG8gV29ybGQ=" // base64 of "Hello World"
+
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "2",
+					"statement": "INSERT INTO files (name, content) VALUES (?, ?);",
+					"parameters": []map[string]any{
+						{
+							"type":  "TEXT",
+							"value": "test.bin",
+						},
+						{
+							"type":  "BLOB",
+							"value": base64Data,
+						},
+					},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		responseData := resp["data"].([]any)[0].(map[string]any)
+		if responseData["lastInsertRowId"].(float64) != 1 {
+			t.Fatalf("Expected lastInsertRowId to be 1, got %v", responseData["lastInsertRowId"])
+		}
+
+		// Test 2: Select the blob and verify it was stored correctly
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "3",
+					"statement": "SELECT name, content FROM files WHERE id = ?;",
+					"parameters": []map[string]any{{
+						"type":  "INTEGER",
+						"value": 1,
+					}},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		responseData = resp["data"].([]any)[0].(map[string]any)
+		rows := responseData["rows"].([]any)
+
+		if len(rows) != 1 {
+			t.Fatalf("Expected 1 row, got %d", len(rows))
+		}
+
+		row := rows[0].([]any)
+		if row[0] != "test.bin" {
+			t.Fatalf("Expected name to be 'test.bin', got %v", row[0])
+		}
+
+		// The blob should be returned as base64-encoded string in JSON
+		if row[1] != base64Data {
+			t.Fatalf("Expected blob content to be '%s', got %v", base64Data, row[1])
+		}
+
+		// Test 3: Insert empty blob
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "4",
+					"statement": "INSERT INTO files (name, content) VALUES (?, ?);",
+					"parameters": []map[string]any{
+						{
+							"type":  "TEXT",
+							"value": "empty.bin",
+						},
+						{
+							"type":  "BLOB",
+							"value": "",
+						},
+					},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		// Test 4: Insert large blob (1KB of data)
+		largeData := make([]byte, 1024)
+		for i := range largeData {
+			largeData[i] = byte(i % 256)
+		}
+		// Base64 encode for transmission
+		largeBase64 := base64.StdEncoding.EncodeToString(largeData)
+
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "5",
+					"statement": "INSERT INTO files (name, content) VALUES (?, ?);",
+					"parameters": []map[string]any{
+						{
+							"type":  "TEXT",
+							"value": "large.bin",
+						},
+						{
+							"type":  "BLOB",
+							"value": largeBase64,
+						},
+					},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		// Verify the large blob was stored correctly
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "6",
+					"statement": "SELECT LENGTH(content) FROM files WHERE name = ?;",
+					"parameters": []map[string]any{{
+						"type":  "TEXT",
+						"value": "large.bin",
+					}},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		responseData = resp["data"].([]any)[0].(map[string]any)
+		rows = responseData["rows"].([]any)
+
+		if len(rows) != 1 {
+			t.Fatalf("Expected 1 row, got %d", len(rows))
+		}
+
+		blobLength := int(rows[0].([]any)[0].(float64))
+		if blobLength != 1024 {
+			t.Fatalf("Expected blob length to be 1024, got %d", blobLength)
+		}
+	})
+}
+
+func TestQueryControllerIntegerAsString(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		mock := test.MockDatabase(server.App)
+
+		client := server.WithAccessKeyClient([]auth.Statement{
+			{
+				Effect:   auth.StatementEffectAllow,
+				Resource: "*",
+				Actions: []auth.Privilege{
+					auth.DatabasePrivilegeQuery,
+					auth.DatabasePrivilegeCreateTable,
+					auth.DatabasePrivilegeInsert,
+					auth.DatabasePrivilegeRead,
+					auth.DatabasePrivilegeSelect,
+					auth.DatabasePrivilegeTransaction,
+					auth.DatabasePrivilegeUpdate,
+					auth.DatabasePrivilegeDelete,
+				},
+			},
+		})
+
+		// Create a table with a BIGINT column
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":         "1",
+					"statement":  "CREATE TABLE large_ids (id INTEGER PRIMARY KEY, name TEXT);",
+					"parameters": []map[string]any{},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		// Test 1: Insert a large integer beyond JavaScript's safe range (as string)
+		largeIntStr := "9007199254740993" // 2^53 + 1 - beyond Number.MAX_SAFE_INTEGER
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "2",
+					"statement": "INSERT INTO large_ids (id, name) VALUES (?, ?);",
+					"parameters": []map[string]any{
+						{
+							"type":  "INTEGER",
+							"value": largeIntStr, // String format
+						},
+						{
+							"type":  "TEXT",
+							"value": "Large ID",
+						},
+					},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		// Test 2: Query using the large integer (as string)
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "3",
+					"statement": "SELECT * FROM large_ids WHERE id = ?;",
+					"parameters": []map[string]any{{
+						"type":  "INTEGER",
+						"value": largeIntStr, // String format
+					}},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		responseData := resp["data"].([]any)[0].(map[string]any)
+		rows := responseData["rows"].([]any)
+
+		if len(rows) != 1 {
+			t.Fatalf("Expected 1 row, got %d", len(rows))
+		}
+
+		row := rows[0].([]any)
+		// Large integers are now returned as strings to preserve precision
+		// beyond JavaScript's safe integer range
+		retrievedIDStr, ok := row[0].(string)
+
+		if !ok {
+			t.Fatalf("Expected large integer to be returned as string, got %T: %v", row[0], row[0])
+		}
+
+		if retrievedIDStr != largeIntStr {
+			t.Fatalf("Expected ID '%s', got '%s'", largeIntStr, retrievedIDStr)
+		}
+
+		// Verify the column type is INTEGER_LARGE (101)
+		columns := responseData["columns"].([]any)
+
+		if len(columns) == 0 {
+			t.Fatalf("Expected columns metadata, got none")
+		}
+
+		idColumn := columns[0].(map[string]any)
+		columnType := int(idColumn["type"].(float64))
+
+		if columnType != int(sqlite3.ColumnTypeIntegerLarge) { // INTEGER_LARGE
+			t.Fatalf("Expected column type %d (INTEGER_LARGE), got %d", int(sqlite3.ColumnTypeIntegerLarge), columnType)
+		}
+
+		retrievedName := row[1].(string)
+		if retrievedName != "Large ID" {
+			t.Fatalf("Expected name 'Large ID', got %s", retrievedName)
+		}
+
+		// Test 3: Insert negative large integer (as string)
+		negativeIntStr := "-9223372036854775808" // Minimum int64 value
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "4",
+					"statement": "INSERT INTO large_ids (id, name) VALUES (?, ?);",
+					"parameters": []map[string]any{
+						{
+							"type":  "INTEGER",
+							"value": negativeIntStr,
+						},
+						{
+							"type":  "TEXT",
+							"value": "Min Int64",
+						},
+					},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		// Test 4: Verify traditional numeric format still works
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "5",
+					"statement": "INSERT INTO large_ids (id, name) VALUES (?, ?);",
+					"parameters": []map[string]any{
+						{
+							"type":  "INTEGER",
+							"value": 42, // Traditional number format
+						},
+						{
+							"type":  "TEXT",
+							"value": "Normal ID",
+						},
+					},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		// Verify small integers are still returned as numbers (backward compatibility)
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "6",
+					"statement": "SELECT * FROM large_ids WHERE id = ?;",
+					"parameters": []map[string]any{{
+						"type":  "INTEGER",
+						"value": 42,
+					}},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected response code 200, got %d: %s", responseCode, resp)
+		}
+
+		responseData = resp["data"].([]any)[0].(map[string]any)
+		rows = responseData["rows"].([]any)
+
+		if len(rows) != 1 {
+			t.Fatalf("Expected 1 row, got %d", len(rows))
+		}
+
+		row = rows[0].([]any)
+
+		// Small integers should be returned as numbers for backward compatibility
+		smallInt, ok := row[0].(float64)
+
+		if !ok {
+			t.Fatalf("Expected small integer to be returned as number, got %T: %v", row[0], row[0])
+		}
+
+		if int(smallInt) != 42 {
+			t.Fatalf("Expected small integer 42, got %v", smallInt)
+		}
+
+		// Verify the column type is still INTEGER (1) for small integers
+		columns = responseData["columns"].([]any)
+		idColumn = columns[0].(map[string]any)
+		columnType = int(idColumn["type"].(float64))
+
+		if columnType != int(sqlite3.ColumnTypeInteger) { // INTEGER
+			t.Fatalf("Expected column type %d (INTEGER), got %d", int(sqlite3.ColumnTypeInteger), columnType)
+		}
+
+		// Test 5: Invalid integer string should fail
+		resp, responseCode, err = client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/query",
+				mock.DatabaseName,
+				mock.BranchName,
+			),
+			"POST",
+			map[string]any{
+				"queries": []map[string]any{{
+					"id":        "7",
+					"statement": "INSERT INTO large_ids (id, name) VALUES (?, ?);",
+					"parameters": []map[string]any{
+						{
+							"type":  "INTEGER",
+							"value": "not-a-number",
+						},
+						{
+							"type":  "TEXT",
+							"value": "Invalid",
+						},
+					},
+				}},
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode == 200 {
+			t.Fatalf("Expected error for invalid integer string, got success: %s", resp)
 		}
 	})
 }
