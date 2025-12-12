@@ -5,6 +5,7 @@ const (
 	DatabasePrivilegeList   Privilege = "database:list"
 	DatabasePrivilegeShow   Privilege = "database:show"
 	DatabasePrivilegeManage Privilege = "database:manage"
+	DatabasePrivilegeImport Privilege = "database:import"
 
 	DatabaseBranchPrivilegeCreate Privilege = "database:branch:create"
 	DatabaseBranchPrivilegeList   Privilege = "database:branch:list"
