@@ -1,6 +1,10 @@
 package database_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"slices"
+	"sync"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -173,7 +177,7 @@ func TestDatabaseImportManager(t *testing.T) {
 
 			// Add some chunks
 			for i := range int64(3) {
-				_, err = manager.AddChunk(importRecord.ID, i, 16*1024*1024, "")
+				_, err = manager.AddChunk(importRecord.ID, i, make([]byte, 16*1024*1024), "")
 
 				if err != nil {
 					t.Fatal(err)
@@ -298,13 +302,32 @@ func TestDatabaseImportManager(t *testing.T) {
 			if !imports[0].CreatedAt.After(imports[len(imports)-1].CreatedAt) && !imports[0].CreatedAt.Equal(imports[len(imports)-1].CreatedAt) {
 				t.Fatal("Expected imports to be ordered by created_at DESC")
 			}
+
+			// Find our created imports in the list and verify they're in the correct order
+			foundImports := make([]*database.DatabaseImport, 0, 3)
+
+			for _, imp := range imports {
+				if slices.Contains(createdIDs, imp.ID) {
+					foundImports = append(foundImports, imp)
+				}
+			}
+
+			if len(foundImports) != 3 {
+				t.Fatalf("Expected to find 3 imports, found %d", len(foundImports))
+			}
+
+			// Verify they appear in DESC order (newest first)
+			for i := 0; i < len(foundImports)-1; i++ {
+				if foundImports[i].CreatedAt.Before(foundImports[i+1].CreatedAt) {
+					t.Fatal("Expected imports to be ordered by created_at DESC")
+				}
+			}
 		})
 
 		t.Run("AddChunk", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			db, err := app.DatabaseManager.Get(mock.DatabaseID)
-
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -324,8 +347,15 @@ func TestDatabaseImportManager(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			// Create actual chunk data (16MB)
+			chunkData := make([]byte, 16*1024*1024)
+
+			for i := range chunkData {
+				chunkData[i] = byte(i % 256)
+			}
+
 			// Add a chunk
-			chunk, err := manager.AddChunk(importRecord.ID, 0, 16*1024*1024, "")
+			chunk, err := manager.AddChunk(importRecord.ID, 0, chunkData, "")
 
 			if err != nil {
 				t.Fatal(err)
@@ -368,10 +398,18 @@ func TestDatabaseImportManager(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// Add a chunk with checksum
-			checksum := "abc123def456"
+			// Create chunk data and calculate checksum
+			chunkData := make([]byte, 16*1024*1024)
 
-			chunk, err := manager.AddChunk(importRecord.ID, 0, 16*1024*1024, checksum)
+			for i := range chunkData {
+				chunkData[i] = byte(i % 256)
+			}
+
+			hash := sha256.Sum256(chunkData)
+			checksum := hex.EncodeToString(hash[:])
+
+			// Add a chunk with checksum
+			chunk, err := manager.AddChunk(importRecord.ID, 0, chunkData, checksum)
 
 			if err != nil {
 				t.Fatal(err)
@@ -379,6 +417,116 @@ func TestDatabaseImportManager(t *testing.T) {
 
 			if !chunk.Checksum.Valid || chunk.Checksum.String != checksum {
 				t.Fatalf("Expected checksum %s, got %s", checksum, chunk.Checksum.String)
+			}
+		})
+
+		t.Run("AddChunk_InvalidChecksum", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch, err := db.Branch(mock.BranchName)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			manager := database.NewDatabaseImportManager(app.DatabaseManager)
+
+			// Create an import
+			importRecord, err := manager.Create(db.ID, branch.ID, 5)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Create chunk data
+			chunkData := make([]byte, 16*1024*1024)
+
+			for i := range chunkData {
+				chunkData[i] = byte(i % 256)
+			}
+
+			// Use wrong checksum
+			wrongChecksum := "0000000000000000000000000000000000000000000000000000000000000000"
+
+			// Should fail with checksum mismatch
+			_, err = manager.AddChunk(importRecord.ID, 0, chunkData, wrongChecksum)
+
+			if err == nil {
+				t.Fatal("Expected error for invalid checksum, got nil")
+			}
+		})
+
+		t.Run("AddChunk_ParallelUploads", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch, err := db.Branch(mock.BranchName)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			manager := database.NewDatabaseImportManager(app.DatabaseManager)
+
+			// Create an import with 10 chunks
+			importRecord, err := manager.Create(db.ID, branch.ID, 10)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Upload all chunks in parallel
+			var wg sync.WaitGroup
+			errors := make(chan error, 10)
+
+			for i := int64(0); i < 10; i++ {
+				wg.Add(1)
+				go func(chunkIndex int64) {
+					defer wg.Done()
+
+					// Create chunk data
+					chunkData := make([]byte, 16*1024*1024)
+
+					for j := range chunkData {
+						chunkData[j] = byte((chunkIndex + int64(j)) % 256)
+					}
+
+					_, err := manager.AddChunk(importRecord.ID, chunkIndex, chunkData, "")
+
+					if err != nil {
+						errors <- err
+					}
+				}(i)
+			}
+
+			wg.Wait()
+			close(errors)
+
+			// Check for errors
+			for err := range errors {
+				t.Fatal(err)
+			}
+
+			// Verify import is completed
+			importRecord, err = manager.Get(importRecord.ID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if importRecord.Status != database.DatabaseImportStatusCompleted {
+				t.Fatalf("Expected status completed, got %s", importRecord.Status)
 			}
 		})
 
@@ -421,7 +569,13 @@ func TestDatabaseImportManager(t *testing.T) {
 			uploadedIndices := []int64{0, 2, 4}
 
 			for _, idx := range uploadedIndices {
-				_, err = manager.AddChunk(importRecord.ID, idx, 16*1024*1024, "")
+				chunkData := make([]byte, 16*1024*1024)
+
+				for j := range chunkData {
+					chunkData[j] = byte((idx + int64(j)) % 256)
+				}
+
+				_, err = manager.AddChunk(importRecord.ID, idx, chunkData, "")
 
 				if err != nil {
 					t.Fatal(err)
@@ -473,8 +627,14 @@ func TestDatabaseImportManager(t *testing.T) {
 			}
 
 			// Upload all chunks
-			for i := range int64(3) {
-				_, err = manager.AddChunk(importRecord.ID, i, 16*1024*1024, "")
+			for i := int64(0); i < 3; i++ {
+				chunkData := make([]byte, 16*1024*1024)
+
+				for j := range chunkData {
+					chunkData[j] = byte((i + int64(j)) % 256)
+				}
+
+				_, err = manager.AddChunk(importRecord.ID, i, chunkData, "")
 
 				if err != nil {
 					t.Fatal(err)
@@ -556,8 +716,14 @@ func TestDatabaseImportManager(t *testing.T) {
 			}
 
 			// Simulate partial upload (upload chunks 0-4)
-			for i := range 5 {
-				_, err = manager.AddChunk(importRecord.ID, int64(i), 16*1024*1024, "")
+			for i := int64(0); i < 5; i++ {
+				chunkData := make([]byte, 16*1024*1024)
+
+				for j := range chunkData {
+					chunkData[j] = byte((i + int64(j)) % 256)
+				}
+
+				_, err = manager.AddChunk(importRecord.ID, i, chunkData, "")
 
 				if err != nil {
 					t.Fatal(err)
@@ -588,7 +754,13 @@ func TestDatabaseImportManager(t *testing.T) {
 
 			// Resume upload (upload remaining chunks)
 			for _, idx := range missing {
-				_, err = manager.AddChunk(importRecord.ID, idx, 16*1024*1024, "")
+				chunkData := make([]byte, 16*1024*1024)
+
+				for j := range chunkData {
+					chunkData[j] = byte((idx + int64(j)) % 256)
+				}
+
+				_, err = manager.AddChunk(importRecord.ID, idx, chunkData, "")
 
 				if err != nil {
 					t.Fatal(err)
@@ -597,7 +769,6 @@ func TestDatabaseImportManager(t *testing.T) {
 
 			// Verify complete
 			complete, err = importRecord.IsComplete()
-
 			if err != nil {
 				t.Fatal(err)
 			}
