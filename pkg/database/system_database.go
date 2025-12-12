@@ -237,4 +237,58 @@ func (s *SystemDatabase) init() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Create a table for database imports
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS database_imports
+		(
+			id INTEGER PRIMARY KEY,
+			database_reference_id INTEGER,
+			database_branch_reference_id INTEGER,
+			status TEXT NOT NULL,
+			total_size INTEGER,
+			chunk_count INTEGER NOT NULL,
+			error_message TEXT,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			completed_at TEXT,
+			FOREIGN KEY (database_reference_id) REFERENCES databases(id) ON DELETE CASCADE,
+			FOREIGN KEY (database_branch_reference_id) REFERENCES database_branches(id) ON DELETE CASCADE
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create a table for database import chunks
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS database_import_chunks
+		(
+			id INTEGER PRIMARY KEY,
+			import_reference_id INTEGER NOT NULL,
+			chunk_index INTEGER NOT NULL,
+			chunk_size INTEGER NOT NULL,
+			checksum TEXT,
+			uploaded_at TEXT NOT NULL,
+			FOREIGN KEY (import_reference_id) REFERENCES database_imports(id) ON DELETE CASCADE,
+			UNIQUE(import_reference_id, chunk_index)
+		)
+		`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Create index on import_reference_id for database_import_chunks
+	_, err = db.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_database_import_chunks_import_reference_id 
+		ON database_import_chunks (import_reference_id)`,
+	)
+
+	if err != nil {
+		panic(err)
+	}
 }
