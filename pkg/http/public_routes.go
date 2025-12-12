@@ -190,6 +190,46 @@ func LoadPublicRoutes(router *Router) {
 	})
 
 	router.Post(
+		"/v1/imports",
+		ImportControllerStore,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Get(
+		"/v1/imports/{importId}",
+		ImportControllerShow,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Patch(
+		"/v1/imports/{importId}",
+		ImportControllerUpdate,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Delete(
+		"/v1/imports/{importId}",
+		ImportControllerDestroy,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Post(
+		"/v1/imports/{importId}/chunks",
+		ImportChunkControllerStore,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Post(
 		"/v1/keys",
 		KeyControllerStore,
 	).Middleware([]Middleware{
