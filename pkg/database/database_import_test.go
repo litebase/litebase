@@ -189,7 +189,7 @@ func TestDatabaseImport(t *testing.T) {
 			}
 
 			// Add some chunks
-			for i := int64(0); i < 3; i++ {
+			for i := range int64(3) {
 				chunk := database.NewDatabaseImportChunk(app.DatabaseManager, importRecord.ID, i, 16*1024*1024)
 
 				err = chunk.Save()
@@ -241,7 +241,7 @@ func TestDatabaseImport(t *testing.T) {
 			}
 
 			// Add 3 chunks
-			for i := int64(0); i < 3; i++ {
+			for i := range int64(3) {
 				chunk := database.NewDatabaseImportChunk(app.DatabaseManager, importRecord.ID, i, 16*1024*1024)
 
 				err = chunk.Save()
@@ -297,7 +297,7 @@ func TestDatabaseImport(t *testing.T) {
 			}
 
 			// Add all chunks
-			for i := int64(0); i < 3; i++ {
+			for i := range int64(3) {
 				chunk := database.NewDatabaseImportChunk(app.DatabaseManager, importRecord.ID, i, 16*1024*1024)
 
 				err = chunk.Save()
@@ -343,7 +343,7 @@ func TestDatabaseImport(t *testing.T) {
 			}
 
 			// Add 2 chunks
-			for i := int64(0); i < 2; i++ {
+			for i := range int64(2) {
 				chunk := database.NewDatabaseImportChunk(app.DatabaseManager, importRecord.ID, i, 16*1024*1024)
 
 				err = chunk.Save()

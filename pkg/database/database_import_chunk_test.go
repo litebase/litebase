@@ -233,7 +233,7 @@ func TestDatabaseImportChunk(t *testing.T) {
 			}
 
 			// Create multiple chunks with different indices
-			for i := int64(0); i < 5; i++ {
+			for i := range int64(5) {
 				chunk := database.NewDatabaseImportChunk(app.DatabaseManager, importRecord.ID, i, 16*1024*1024)
 
 				err = chunk.Save()
@@ -351,7 +351,7 @@ func TestDatabaseImportChunk(t *testing.T) {
 			}
 
 			// Create chunks
-			for i := int64(0); i < 3; i++ {
+			for i := range int64(3) {
 				chunk := database.NewDatabaseImportChunk(app.DatabaseManager, importRecord.ID, i, 16*1024*1024)
 
 				err = chunk.Save()
