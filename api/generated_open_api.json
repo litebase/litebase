@@ -2352,6 +2352,501 @@
         }
       ]
     },
+    "/v1/imports": {
+      "post": {
+        "tags": [
+          "Import"
+        ],
+        "summary": "Create a new import",
+        "operationId": "createImport",
+        "requestBody": {
+          "description": "Import creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportControllerStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImportControllerStoreResponse"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database import created successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/imports/{importId}": {
+      "get": {
+        "tags": [
+          "Import"
+        ],
+        "summary": "Show details of an specific import",
+        "operationId": "getImport",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImportControllerShowResponse"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database import retrieved successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Import"
+        ],
+        "summary": "Delete an import",
+        "operationId": "deleteImport",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database import deleted successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Import"
+        ],
+        "summary": "Update an existing import",
+        "operationId": "updateImport",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database import updated successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "importId",
+          "in": "path",
+          "description": "The importId parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
+    },
+    "/v1/imports/{importId}/chunks": {
+      "post": {
+        "tags": [
+          "ImportChunk"
+        ],
+        "summary": "Create a new import chunk",
+        "description": "Store a chunk of data for database import",
+        "operationId": "createImportChunk",
+        "requestBody": {
+          "description": "Import chunk creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportChunkControllerStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImportChunkControllerStoreResponse"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Import chunk stored successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "importId",
+          "in": "path",
+          "description": "The importId parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
+    },
     "/v1/keys": {
       "post": {
         "tags": [
@@ -3963,6 +4458,137 @@
           "message"
         ]
       },
+      "ImportChunkControllerStoreRequest": {
+        "type": "object",
+        "properties": {
+          "checksum": {
+            "type": "string"
+          },
+          "chunkData": {
+            "type": "string"
+          },
+          "chunkIndex": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chunkData",
+          "chunkIndex"
+        ]
+      },
+      "ImportChunkControllerStoreResponse": {
+        "type": "object",
+        "properties": {
+          "chunkIndex": {
+            "type": "integer"
+          },
+          "importId": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ImportControllerShowResponse": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "importId": {
+            "type": "integer"
+          },
+          "missingChunks": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "totalSize": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "uploadedChunks": {
+            "type": "integer"
+          }
+        }
+      },
+      "ImportControllerStoreRequest": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "databaseName": {
+            "$ref": "#/components/schemas/DatabaseName"
+          }
+        },
+        "required": [
+          "chunkCount",
+          "databaseName"
+        ]
+      },
+      "ImportControllerStoreResponse": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "importId": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "KeyActivateRequest": {
         "type": "object",
         "properties": {
@@ -4001,6 +4627,7 @@
           "database:list",
           "database:show",
           "database:manage",
+          "database:import",
           "database:branch:create",
           "database:branch:list",
           "database:branch:show",
@@ -4565,6 +5192,14 @@
     {
       "name": "DatabaseSnapshot",
       "description": "Database snapshot operations"
+    },
+    {
+      "name": "Import",
+      "description": "Import operations"
+    },
+    {
+      "name": "ImportChunk",
+      "description": "Import Chunk operations"
     },
     {
       "name": "Key",
