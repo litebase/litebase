@@ -20,12 +20,13 @@ type DatabaseResources struct {
 	DatabaseHash       string
 	DatabaseID         string
 	databaseManager    *DatabaseManager
-	snapshotLogger     *backups.SnapshotLogger
 	fileSystem         *storage.DurableDatabaseFileSystem
+	importManager      *DatabaseImportManager
 	mutex              *sync.Mutex
 	pageLogger         *storage.PageLogger
 	resultPool         *sqlite3.ResultPool
 	rollbackLogger     *backups.RollbackLogger
+	snapshotLogger     *backups.SnapshotLogger
 	tieredFS           *storage.FileSystem
 	transactionManager *TransactionManager
 	tmpFS              *storage.FileSystem
@@ -190,6 +191,22 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 	return d.fileSystem
 }
 
+// Return the DatabaseImportManager for the database.
+func (d *DatabaseResources) ImportManager() (*DatabaseImportManager, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if d.importManager != nil {
+		return d.importManager, nil
+	}
+
+	d.importManager = NewDatabaseImportManager(d.databaseManager)
+
+	return d.importManager, nil
+}
+
+// Return the PageLogger for the database.
+
 func (d *DatabaseResources) PageLogger() *storage.PageLogger {
 	if d.pageLogger != nil {
 		return d.pageLogger
@@ -268,6 +285,7 @@ func (d *DatabaseResources) Remove() {
 	d.snapshotLogger = nil
 	d.checkpointer = nil
 	d.fileSystem = nil
+	d.importManager = nil
 	d.resultPool = nil
 	d.rollbackLogger = nil
 	d.walManager = nil
