@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"time"
 
@@ -168,7 +167,6 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 	input, err := request.Input(&DatabaseStoreRequest{})
 
 	if err != nil {
-		log.Println(err)
 		return BadRequestResponse(err)
 	}
 

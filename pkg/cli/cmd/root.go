@@ -29,6 +29,7 @@ func addCommands(cmd *cobra.Command, c *config.CLIConfiguration) {
 	cmd.AddCommand(NewAccessKeyCmd(c))
 	cmd.AddCommand(NewConfigCmd(c))
 	cmd.AddCommand(NewDatabaseCmd(c))
+	cmd.AddCommand(NewImportCmd(c))
 	cmd.AddCommand(NewProfileCmd(c))
 	cmd.AddCommand(NewStartCmd())
 	cmd.AddCommand(NewStatusCmd(c))

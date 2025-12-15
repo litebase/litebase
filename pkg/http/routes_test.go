@@ -192,6 +192,36 @@ func TestRoutesMiddleware(t *testing.T) {
 		},
 		{
 			Method:             "POST",
+			Path:               "/v1/imports",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Import store route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "GET",
+			Path:               "/v1/imports/{importId}",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Import show route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "PATCH",
+			Path:               "/v1/imports/{importId}",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Import update route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "DELETE",
+			Path:               "/v1/imports/{importId}",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Import destroy route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "POST",
+			Path:               "/v1/imports/{importId}/chunks",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Import chunk store route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "POST",
 			Path:               "/v1/keys",
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Key store route should have ForwardToPrimary and Authentication middleware",
@@ -347,7 +377,7 @@ func TestPublicRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadPublicRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 36 // Update this number if you add more routes
+	expectedRouteCount := 41 // Update this number if you add more routes
 
 	totalRoutes := 0
 

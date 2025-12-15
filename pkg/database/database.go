@@ -88,6 +88,7 @@ func InsertDatabase(database *Database) error {
 	}
 
 	var primaryBranchId sql.NullInt64
+
 	if database.PrimaryBranchReferenceID.Valid {
 		primaryBranchId = database.PrimaryBranchReferenceID
 	}
