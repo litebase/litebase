@@ -71,14 +71,21 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 			fileSize := fileInfo.Size()
 			chunkCount := (fileSize + chunkSize - 1) / chunkSize
 
+			chunkWord := "chunks"
+
+			if chunkCount == 1 {
+				chunkWord = "chunk"
+			}
+
 			_, err = fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"Importing %s (%d bytes) to %s/%s in %d chunks...\n",
+				"Importing %s (%d bytes) to %s/%s in %d %s...\n",
 				filepath.Base(filePath),
 				fileSize,
 				databaseName,
 				branchName,
 				chunkCount,
+				chunkWord,
 			)
 
 			if err != nil {
