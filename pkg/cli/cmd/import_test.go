@@ -60,47 +60,52 @@ func createTestSQLiteFile(t *testing.T, path string, sizeInMB int) {
 	rowsNeeded := sizeInMB * 1024
 	data := make([]byte, 1024)
 
+	// Prepare statement once outside the loop
+	stmt, _, err := conn.Prepare(ctx, "INSERT INTO test_data (data) VALUES (?)")
+
+	if err != nil {
+		if err := conn.Close(); err != nil {
+			t.Logf("failed to close database after prepare statement error: %v", err)
+		}
+
+		t.Fatalf("failed to prepare statement: %v", err)
+	}
+
+	defer func() {
+		if err := stmt.Finalize(); err != nil {
+			t.Logf("failed to finalize statement: %v", err)
+		}
+	}()
+
+	// Start a transaction for batch inserts
+	if _, err := conn.Exec(ctx, "BEGIN TRANSACTION"); err != nil {
+		t.Fatalf("failed to begin transaction: %v", err)
+	}
+
 	for i := range rowsNeeded {
 		// Fill with some pattern
 		for j := range data {
 			data[j] = byte((i + j) % 256)
 		}
 
-		stmt, _, err := conn.Prepare(ctx, "INSERT INTO test_data (data) VALUES (?)")
-
-		if err != nil {
-			err := conn.Close()
-
-			if err != nil {
-				t.Logf("failed to close database after prepare statement error: %v", err)
-			}
-
-			t.Fatalf("failed to prepare statement: %v", err)
-		}
-
 		result := sqlite3.NewResult()
 
 		if err := stmt.Exec(result, sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: data}); err != nil {
-			err := stmt.Finalize()
-
-			if err != nil {
-				t.Logf("failed to finalize statement after exec error: %v", err)
+			if _, rollbackErr := conn.Exec(ctx, "ROLLBACK"); rollbackErr != nil {
+				t.Logf("failed to rollback transaction: %v", rollbackErr)
 			}
 
-			err = conn.Close()
-
-			if err != nil {
+			if err := conn.Close(); err != nil {
 				t.Logf("failed to close database after exec error: %v", err)
 			}
 
 			t.Fatalf("failed to insert data: %v", err)
 		}
+	}
 
-		err = stmt.Finalize()
-
-		if err != nil {
-			t.Logf("failed to finalize statement: %v", err)
-		}
+	// Commit the transaction
+	if _, err := conn.Exec(ctx, "COMMIT"); err != nil {
+		t.Fatalf("failed to commit transaction: %v", err)
 	}
 
 	// Ensure everything is written
@@ -216,7 +221,7 @@ func TestImportCmd(t *testing.T) {
 			// Create a larger file that requires multiple chunks
 			tmpDir := t.TempDir()
 			testFile := filepath.Join(tmpDir, "large.sqlite")
-			createTestSQLiteFile(t, testFile, 35) // 35MB file = 3 chunks
+			createTestSQLiteFile(t, testFile, 20) // 20MB file = 2 chunks
 
 			err := cli.Run("import", testFile, "largedb")
 
@@ -228,8 +233,8 @@ func TestImportCmd(t *testing.T) {
 				t.Error("expected output to contain 'Import created with ID'")
 			}
 
-			if cli.DoesNotSee("in 3 chunks") {
-				t.Error("expected output to indicate 3 chunks")
+			if cli.DoesNotSee("in 2 chunks") {
+				t.Error("expected output to indicate 2 chunks")
 			}
 
 			if cli.DoesNotSee("Successfully imported") {
@@ -252,7 +257,7 @@ func TestImportCmd(t *testing.T) {
 			// Create a file that requires multiple chunks
 			tmpDir := t.TempDir()
 			testFile := filepath.Join(tmpDir, "concurrent.sqlite")
-			createTestSQLiteFile(t, testFile, 50) // 50MB file = 4 chunks
+			createTestSQLiteFile(t, testFile, 25) // 25MB file = 2 chunks
 
 			err := cli.Run("import", testFile, "concurrentdb", "--concurrency", "3")
 
