@@ -49,36 +49,17 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 		Short: "Import a SQLite database file",
 		Long:  "Import a SQLite database file to a new database and branch.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			filePath := args[0]
-			databasePath := args[1]
+			filePath, databaseName, branchName, err := parseImportArguments(args)
 
-			// Parse database/branch from path
-			parts := strings.Split(databasePath, "/")
-
-			if len(parts) < 1 || len(parts) > 2 {
-				return errors.New("database path must be in format: database or database/branch")
-			}
-
-			databaseName := parts[0]
-			branchName := "main"
-
-			if len(parts) == 2 {
-				branchName = parts[1]
+			if err != nil {
+				return fmt.Errorf("failed to parse arguments: %w", err)
 			}
 
 			// Check if file exists
-			fileInfo, err := os.Stat(filePath)
+			fileInfo, err := parseFileInfo(filePath)
 
 			if err != nil {
-				if os.IsNotExist(err) {
-					return fmt.Errorf("file not found: %s", filePath)
-				}
-
-				return fmt.Errorf("failed to access file: %w", err)
-			}
-
-			if fileInfo.IsDir() {
-				return fmt.Errorf("path is a directory, not a file: %s", filePath)
+				return fmt.Errorf("file access failed: %w", err)
 			}
 
 			// Validate the SQLite file
@@ -120,179 +101,13 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			// Upload chunks concurrently
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Uploading %d chunks with concurrency=%d...\n", chunkCount, concurrency)
-
-			if err != nil {
-				return fmt.Errorf("failed to print upload message: %w", err)
-			}
-
-			var (
-				uploadedCount atomic.Int64
-				errorsMu      sync.Mutex
-				uploadErrors  []error
-				wg            sync.WaitGroup
-				fileMu        sync.Mutex
-			)
-
-			// Open file once for all workers to share
-			file, err := os.Open(filePath)
-
-			if err != nil {
-				return fmt.Errorf("failed to open file: %w", err)
-			}
-
-			defer func() {
-				err := file.Close()
-
-				if err != nil {
-					slog.Error("failed to close file", "error", err)
-				}
-			}()
-
-			// Create worker pool with chunk indices
-			jobQueue := make(chan int64, concurrency*2)
-
-			// Start workers
-			for w := 0; w < concurrency; w++ {
-				wg.Add(1)
-
-				go func(workerID int) {
-					defer wg.Done()
-
-					buffer := make([]byte, chunkSize)
-
-					for chunkIndex := range jobQueue {
-						// Read chunk from file (with synchronization)
-						fileMu.Lock()
-						offset := chunkIndex * chunkSize
-						_, err := file.Seek(offset, 0)
-
-						if err != nil {
-							fileMu.Unlock()
-							errorsMu.Lock()
-							uploadErrors = append(uploadErrors, fmt.Errorf("failed to seek to chunk %d: %w", chunkIndex, err))
-							errorsMu.Unlock()
-
-							continue
-						}
-
-						n, err := io.ReadFull(file, buffer)
-
-						if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-							fileMu.Unlock()
-							errorsMu.Lock()
-							uploadErrors = append(uploadErrors, fmt.Errorf("failed to read chunk %d: %w", chunkIndex, err))
-							errorsMu.Unlock()
-
-							continue
-						}
-
-						fileMu.Unlock()
-
-						// Copy the bytes actually read
-						chunkData := make([]byte, n)
-						copy(chunkData, buffer[:n])
-
-						// Calculate checksum
-						hash := sha256.Sum256(chunkData)
-						checksum := fmt.Sprintf("%x", hash)
-
-						// Encode to base64
-						encodedData := base64.StdEncoding.EncodeToString(chunkData)
-
-						// Upload chunk
-						chunkPayload := map[string]any{
-							"chunkData":  encodedData,
-							"chunkIndex": chunkIndex,
-							"checksum":   checksum,
-						}
-
-						_, apiErrors, err := api.Post(config, fmt.Sprintf("/v1/imports/%d/chunks", importID), chunkPayload)
-
-						if err != nil {
-							errorsMu.Lock()
-							uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", chunkIndex, err))
-							errorsMu.Unlock()
-
-							continue
-						}
-
-						if len(apiErrors) > 0 {
-							errorsMu.Lock()
-							uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", chunkIndex, apiErrors.Error()))
-							errorsMu.Unlock()
-
-							continue
-						}
-
-						// Update progress
-						uploaded := uploadedCount.Add(1)
-
-						_, err = fmt.Fprintf(
-							cmd.OutOrStdout(),
-							"Uploaded chunk %d/%d (%.1f%%)\n",
-							uploaded,
-							chunkCount,
-							float64(uploaded)/float64(chunkCount)*100,
-						)
-
-						if err != nil {
-							_, err := fmt.Fprintf(cmd.OutOrStderr(), "failed to print upload progress: %v\n", err)
-
-							slog.Error("failed to print upload progress", "error", err)
-						}
-					}
-				}(w)
-			}
-
-			// Send chunk indices to the queue
-			for i := range chunkCount {
-				jobQueue <- i
-			}
-
-			close(jobQueue)
-
-			// Wait for all uploads to complete
-			wg.Wait()
-
-			// Check for errors
-			if len(uploadErrors) > 0 {
-				return fmt.Errorf("failed to upload %d chunks: %v", len(uploadErrors), uploadErrors[0])
+			if err := uploadChunksConcurrently(cmd, config, importID, filePath, chunkCount, concurrency); err != nil {
+				return fmt.Errorf("failed to upload chunks: %w", err)
 			}
 
 			// Wait for import to complete
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Waiting for import to complete...\n")
-
-			if err != nil {
-				return fmt.Errorf("failed to print waiting message: %w", err)
-			}
-
-			for {
-				time.Sleep(1 * time.Second)
-
-				statusRes, err := api.Get(config, fmt.Sprintf("/v1/imports/%d", importID))
-
-				if err != nil {
-					return fmt.Errorf("failed to check import status: %w", err)
-				}
-
-				statusData, ok := statusRes["data"].(map[string]any)
-
-				if !ok {
-					return errors.New("invalid status response format")
-				}
-
-				status, ok := statusData["status"].(string)
-
-				if !ok {
-					return errors.New("status not found in response")
-				}
-
-				if status == "completed" {
-					break
-				} else if status == "failed" {
-					return errors.New("import failed")
-				}
+			if err := checkImportStatus(config, importID); err != nil {
+				return fmt.Errorf("failed to wait for import to complete: %w", err)
 			}
 
 			message := fmt.Sprintf(
@@ -316,6 +131,38 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd.Flags().IntVarP(&concurrency, "concurrency", "n", 3, "Number of chunks to upload concurrently")
 
 	return cmd
+}
+
+func checkImportStatus(config *config.CLIConfiguration, importID int64) error {
+	for {
+		time.Sleep(1 * time.Second)
+
+		statusRes, err := api.Get(config, fmt.Sprintf("/v1/imports/%d", importID))
+
+		if err != nil {
+			return fmt.Errorf("failed to check import status: %w", err)
+		}
+
+		statusData, ok := statusRes["data"].(map[string]any)
+
+		if !ok {
+			return errors.New("invalid status response format")
+		}
+
+		status, ok := statusData["status"].(string)
+
+		if !ok {
+			return errors.New("status not found in response")
+		}
+
+		if status == "completed" {
+			break
+		} else if status == "failed" {
+			return errors.New("import failed")
+		}
+	}
+
+	return nil
 }
 
 // Create a new import with the Litebase API and return the response.
@@ -368,6 +215,203 @@ func createImport(config *config.CLIConfiguration, databaseName string, branchNa
 	}
 
 	return response, nil
+}
+
+// Check if the file exists and return its metadata.
+func parseFileInfo(filePath string) (os.FileInfo, error) {
+	fileInfo, err := os.Stat(filePath)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("file not found: %s", filePath)
+		}
+
+		return nil, fmt.Errorf("failed to access file: %w", err)
+	}
+
+	if fileInfo.IsDir() {
+		return nil, fmt.Errorf("path is a directory, not a file: %s", filePath)
+	}
+
+	return fileInfo, nil
+}
+
+// Parse the import command arguments into a file path, database name, and branch name.
+func parseImportArguments(args []string) (string, string, string, error) {
+	if len(args) != 2 {
+		return "", "", "", fmt.Errorf("invalid number of arguments: %d", len(args))
+	}
+
+	filePath := args[0]
+	databasePath := args[1]
+
+	// Parse database/branch from path
+	parts := strings.Split(databasePath, "/")
+
+	if len(parts) < 1 || len(parts) > 2 {
+		return "", "", "", errors.New("database path must be in format: database or database/branch")
+	}
+
+	databaseName := parts[0]
+	branchName := "main"
+
+	if len(parts) == 2 {
+		branchName = parts[1]
+	}
+
+	return filePath, databaseName, branchName, nil
+}
+
+// Upload chunks concurrently
+func uploadChunksConcurrently(cmd *cobra.Command, config *config.CLIConfiguration, importID int64, filePath string, chunkCount int64, concurrency int) error {
+	_, err := fmt.Fprintf(cmd.OutOrStdout(), "Uploading %d chunks with concurrency=%d...\n", chunkCount, concurrency)
+
+	if err != nil {
+		return fmt.Errorf("failed to print upload message: %w", err)
+	}
+
+	var (
+		uploadedCount atomic.Int64
+		errorsMu      sync.Mutex
+		uploadErrors  []error
+		wg            sync.WaitGroup
+		fileMu        sync.Mutex
+	)
+
+	// Open file once for all workers to share
+	file, err := os.Open(filePath)
+
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+
+	defer func() {
+		err := file.Close()
+
+		if err != nil {
+			slog.Error("failed to close file", "error", err)
+		}
+	}()
+
+	// Create worker pool with chunk indices
+	jobQueue := make(chan int64, concurrency*2)
+
+	// Start workers
+	for w := 0; w < concurrency; w++ {
+		wg.Add(1)
+
+		go func(workerID int) {
+			defer wg.Done()
+
+			buffer := make([]byte, chunkSize)
+
+			for chunkIndex := range jobQueue {
+				// Read chunk from file (with synchronization)
+				fileMu.Lock()
+				offset := chunkIndex * chunkSize
+				_, err := file.Seek(offset, 0)
+
+				if err != nil {
+					fileMu.Unlock()
+					errorsMu.Lock()
+					uploadErrors = append(uploadErrors, fmt.Errorf("failed to seek to chunk %d: %w", chunkIndex, err))
+					errorsMu.Unlock()
+
+					continue
+				}
+
+				n, err := io.ReadFull(file, buffer)
+
+				if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+					fileMu.Unlock()
+					errorsMu.Lock()
+					uploadErrors = append(uploadErrors, fmt.Errorf("failed to read chunk %d: %w", chunkIndex, err))
+					errorsMu.Unlock()
+
+					continue
+				}
+
+				fileMu.Unlock()
+
+				// Copy the bytes actually read
+				chunkData := make([]byte, n)
+				copy(chunkData, buffer[:n])
+
+				// Calculate checksum
+				hash := sha256.Sum256(chunkData)
+				checksum := fmt.Sprintf("%x", hash)
+
+				// Encode to base64
+				encodedData := base64.StdEncoding.EncodeToString(chunkData)
+
+				// Upload chunk
+				chunkPayload := map[string]any{
+					"chunkData":  encodedData,
+					"chunkIndex": chunkIndex,
+					"checksum":   checksum,
+				}
+
+				_, apiErrors, err := api.Post(config, fmt.Sprintf("/v1/imports/%d/chunks", importID), chunkPayload)
+
+				if err != nil {
+					errorsMu.Lock()
+					uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", chunkIndex, err))
+					errorsMu.Unlock()
+
+					continue
+				}
+
+				if len(apiErrors) > 0 {
+					errorsMu.Lock()
+					uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", chunkIndex, apiErrors.Error()))
+					errorsMu.Unlock()
+
+					continue
+				}
+
+				// Update progress
+				uploaded := uploadedCount.Add(1)
+
+				_, err = fmt.Fprintf(
+					cmd.OutOrStdout(),
+					"Uploaded chunk %d/%d (%.1f%%)\n",
+					uploaded,
+					chunkCount,
+					float64(uploaded)/float64(chunkCount)*100,
+				)
+
+				if err != nil {
+					_, err := fmt.Fprintf(cmd.OutOrStderr(), "failed to print upload progress: %v\n", err)
+
+					slog.Error("failed to print upload progress", "error", err)
+				}
+			}
+		}(w)
+	}
+
+	// Send chunk indices to the queue
+	for i := range chunkCount {
+		jobQueue <- i
+	}
+
+	close(jobQueue)
+
+	// Wait for all uploads to complete
+	wg.Wait()
+
+	// Check for errors
+	if len(uploadErrors) > 0 {
+		return fmt.Errorf("failed to upload %d chunks: %v", len(uploadErrors), uploadErrors[0])
+	}
+
+	// Wait for import to complete
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Waiting for import to complete...\n")
+
+	if err != nil {
+		return fmt.Errorf("failed to print waiting message: %w", err)
+	}
+
+	return nil
 }
 
 // Validate that the file is a valid SQLite v3 database with the correct
