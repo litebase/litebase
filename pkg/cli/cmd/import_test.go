@@ -1,13 +1,124 @@
 package cmd_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/sqlite3"
 )
+
+// createTestSQLiteFile creates a valid SQLite database file for testing
+func createTestSQLiteFile(t *testing.T, path string, sizeInMB int) {
+	t.Helper()
+
+	// Create a new SQLite database
+	ctx := context.Background()
+	conn, err := sqlite3.Open(ctx, path, "", sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE)
+
+	if err != nil {
+		t.Fatalf("failed to create SQLite database: %v", err)
+	}
+
+	// Set page size to 4096 and journal mode to DELETE
+	if _, err := conn.Exec(ctx, "PRAGMA page_size = 4096"); err != nil {
+		err := conn.Close()
+
+		if err != nil {
+			t.Logf("failed to close database after page size error: %v", err)
+		}
+
+		t.Fatalf("failed to set page size: %v", err)
+	}
+
+	if _, err := conn.Exec(ctx, "PRAGMA journal_mode = DELETE"); err != nil {
+		err := conn.Close()
+
+		if err != nil {
+			t.Logf("failed to close database after journal mode error: %v", err)
+		}
+
+		t.Fatalf("failed to set journal mode: %v", err)
+	}
+
+	// Create a table to make the database non-empty
+	if _, err := conn.Exec(ctx, "CREATE TABLE test_data (id INTEGER PRIMARY KEY, data BLOB)"); err != nil {
+		err := conn.Close()
+
+		if err != nil {
+			t.Logf("failed to close database after create table error: %v", err)
+		}
+
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	// Insert data to reach the desired size (approximately)
+	// Each row is about 1KB of data
+	rowsNeeded := sizeInMB * 1024
+	data := make([]byte, 1024)
+
+	for i := range rowsNeeded {
+		// Fill with some pattern
+		for j := range data {
+			data[j] = byte((i + j) % 256)
+		}
+
+		stmt, _, err := conn.Prepare(ctx, "INSERT INTO test_data (data) VALUES (?)")
+
+		if err != nil {
+			err := conn.Close()
+
+			if err != nil {
+				t.Logf("failed to close database after prepare statement error: %v", err)
+			}
+
+			t.Fatalf("failed to prepare statement: %v", err)
+		}
+
+		result := sqlite3.NewResult()
+
+		if err := stmt.Exec(result, sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: data}); err != nil {
+			err := stmt.Finalize()
+
+			if err != nil {
+				t.Logf("failed to finalize statement after exec error: %v", err)
+			}
+
+			err = conn.Close()
+
+			if err != nil {
+				t.Logf("failed to close database after exec error: %v", err)
+			}
+
+			t.Fatalf("failed to insert data: %v", err)
+		}
+
+		err = stmt.Finalize()
+
+		if err != nil {
+			t.Logf("failed to finalize statement: %v", err)
+		}
+	}
+
+	// Ensure everything is written
+	if err := conn.CacheFlush(); err != nil {
+		err := conn.Close()
+
+		if err != nil {
+			t.Logf("failed to close database after cache flush error: %v", err)
+		}
+
+		t.Fatalf("failed to flush cache: %v", err)
+	}
+
+	// Close the connection before returning
+	if err := conn.Close(); err != nil {
+		t.Fatalf("failed to close database: %v", err)
+	}
+}
 
 func TestImportCmd(t *testing.T) {
 	t.Run("SuccessfulImport", func(t *testing.T) {
@@ -24,15 +135,7 @@ func TestImportCmd(t *testing.T) {
 			// Create a temporary SQLite file
 			tmpDir := t.TempDir()
 			testFile := filepath.Join(tmpDir, "test.sqlite")
-			testData := make([]byte, 1024*100) // 100KB test file
-
-			for i := range testData {
-				testData[i] = byte(i % 256)
-			}
-
-			if err := os.WriteFile(testFile, testData, 0644); err != nil {
-				t.Fatalf("failed to create test file: %v", err)
-			}
+			createTestSQLiteFile(t, testFile, 1) // 1MB file = 1 chunk
 
 			err := cli.Run("import", testFile, "testdb/main")
 
@@ -113,30 +216,9 @@ func TestImportCmd(t *testing.T) {
 			// Create a larger file that requires multiple chunks
 			tmpDir := t.TempDir()
 			testFile := filepath.Join(tmpDir, "large.sqlite")
+			createTestSQLiteFile(t, testFile, 35) // 35MB file = 3 chunks
 
-			// Create 35MB file (should result in 3 chunks of 16MB each)
-			file, err := os.Create(testFile)
-
-			if err != nil {
-				t.Fatalf("failed to create test file: %v", err)
-			}
-
-			// Write in chunks to avoid memory issues
-			chunkData := make([]byte, 1024*1024) // 1MB at a time
-
-			for range 35 {
-				if _, err := file.Write(chunkData); err != nil {
-					t.Fatalf("failed to write test data: %v", err)
-				}
-			}
-
-			err = file.Close()
-
-			if err != nil {
-				t.Fatalf("failed to close test file: %v", err)
-			}
-
-			err = cli.Run("import", testFile, "largedb")
+			err := cli.Run("import", testFile, "largedb")
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -170,29 +252,9 @@ func TestImportCmd(t *testing.T) {
 			// Create a file that requires multiple chunks
 			tmpDir := t.TempDir()
 			testFile := filepath.Join(tmpDir, "concurrent.sqlite")
+			createTestSQLiteFile(t, testFile, 50) // 50MB file = 4 chunks
 
-			// Create 50MB file (should result in 4 chunks)
-			file, err := os.Create(testFile)
-
-			if err != nil {
-				t.Fatalf("failed to create test file: %v", err)
-			}
-
-			chunkData := make([]byte, 1024*1024) // 1MB at a time
-
-			for range 50 {
-				if _, err := file.Write(chunkData); err != nil {
-					t.Fatalf("failed to write test data: %v", err)
-				}
-			}
-
-			err = file.Close()
-
-			if err != nil {
-				t.Fatalf("failed to close test file: %v", err)
-			}
-
-			err = cli.Run("import", testFile, "concurrentdb", "--concurrency", "3")
+			err := cli.Run("import", testFile, "concurrentdb", "--concurrency", "3")
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
