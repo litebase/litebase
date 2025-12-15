@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"encoding/json"
+	"log/slog"
 	"time"
 )
 
@@ -167,7 +168,13 @@ func (di *DatabaseImport) GetChunks() ([]*DatabaseImportChunk, error) {
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+
+		if err != nil {
+			slog.Error("error closing rows", "error", err)
+		}
+	}()
 
 	var chunks []*DatabaseImportChunk
 

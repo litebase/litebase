@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -122,7 +123,11 @@ func (dim *DatabaseImportManager) List() ([]*DatabaseImport, error) {
 		return nil, err
 	}
 
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("error closing rows", "error", err)
+		}
+	}()
 
 	var imports []*DatabaseImport
 	for rows.Next() {
@@ -208,7 +213,7 @@ func (dim *DatabaseImportManager) AddChunk(importID, chunkIndex int64, chunkData
 	// Write the chunk data to the appropriate ranges
 	const pageSize = 4096 // SQLite page size
 	// Pages are 1-indexed in Litebase, so chunk 0 starts at page 1
-	startPageNumber := (chunkIndex * (16 * 1024 * 1024)) / pageSize + 1
+	startPageNumber := (chunkIndex*(16*1024*1024))/pageSize + 1
 
 	// Pre-allocate padding buffer once (only used if needed for last page)
 	var paddingBuffer []byte
