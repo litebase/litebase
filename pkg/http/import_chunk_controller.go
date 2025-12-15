@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/pkg/database"
 )
 
 type ImportChunkControllerStoreRequest struct {
@@ -78,9 +77,13 @@ func ImportChunkControllerStore(ctx context.Context, request *Request) Response 
 	}
 
 	// Add the chunk to the import
-	manager := database.NewDatabaseImportManager(request.databaseManager)
+	importManager, err := request.databaseManager.Resources(request.Param("databaseId"), request.Param("branchId")).ImportManager()
 
-	chunk, err := manager.AddChunk(importID, *req.ChunkIndex, chunkData, req.Checksum)
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
+
+	chunk, err := importManager.AddChunk(importID, *req.ChunkIndex, chunkData, req.Checksum)
 
 	if err != nil {
 		// Check for specific error types
@@ -98,7 +101,7 @@ func ImportChunkControllerStore(ctx context.Context, request *Request) Response 
 	}
 
 	// Get the updated import to return status
-	importRecord, err := manager.Get(importID)
+	importRecord, err := importManager.Get(importID)
 
 	if err != nil {
 		return ServerErrorResponse(err)
