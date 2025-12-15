@@ -1,8 +1,11 @@
 package database_test
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
+	"os"
 	"slices"
 	"sync"
 	"testing"
@@ -10,6 +13,7 @@ import (
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/server"
+	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
 func TestDatabaseImportManager(t *testing.T) {
@@ -815,6 +819,129 @@ func TestDatabaseImportManager(t *testing.T) {
 			// Both should reference the same database
 			if import1.DatabaseReferenceID.Int64 != import2.DatabaseReferenceID.Int64 {
 				t.Fatal("Expected both imports to reference the same database")
+			}
+		})
+
+		t.Run("IntegrityCheckFailsOnCorruptedDatabase", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			db, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			branch, err := db.Branch(mock.BranchName)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, branch.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Force compaction to ensure the database is in a consistent state
+			err = app.DatabaseManager.Resources(db.DatabaseID, branch.DatabaseBranchID).FileSystem().Compact()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			manager := database.NewDatabaseImportManager(app.DatabaseManager)
+
+			// Create an import with 1 chunk
+			importRecord, err := manager.Create(db.ID, branch.ID, 1)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			tempDir := t.TempDir()
+
+			// Create a temporary file for sqlite3
+			tempFile, err := os.Create(tempDir + "/test.db")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ctx := context.Background()
+
+			con, err := sqlite3.Open(ctx, tempFile.Name(), "", sqlite3.SQLITE_OPEN_CREATE|sqlite3.SQLITE_OPEN_READWRITE)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Create a table with some data
+			_, err = con.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = con.Begin()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for i := int64(1); i <= 1000; i++ {
+				_, err = con.Exec(ctx, "INSERT INTO test (name) VALUES ('John Doe')")
+
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			err = con.Commit()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Close the connection
+			err = con.Close()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Corrupt the database by writing empty data to page 3
+			_, err = tempFile.Seek(4096*(2-1), io.SeekStart)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for range 4096 {
+				_, err = tempFile.Write([]byte{0x00})
+
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			err = tempFile.Close()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			chunkData, err := os.ReadFile(tempFile.Name())
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Attempt to import the database (should fail due to integrity check)
+			_, err = manager.AddChunk(importRecord.ID, 0, chunkData, "")
+
+			if err == nil {
+				t.Fatal("Expected error for integrity check failure")
 			}
 		})
 	})

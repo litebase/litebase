@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/litebase/litebase/pkg/file"
 )
 
 type DatabaseImportManager struct {
@@ -213,14 +216,14 @@ func (dim *DatabaseImportManager) AddChunk(importID, chunkIndex int64, chunkData
 	// Write the chunk data to the appropriate ranges
 	const pageSize = 4096 // SQLite page size
 	// Pages are 1-indexed in Litebase, so chunk 0 starts at page 1
-	startPageNumber := (chunkIndex*(16*1024*1024))/pageSize + 1
+	// startPageNumber := (chunkIndex*(16*1024*1024))/pageSize + 1
 
 	// Pre-allocate padding buffer once (only used if needed for last page)
 	var paddingBuffer []byte
 
 	// Write the data page by page
 	for offset := int64(0); offset < int64(len(chunkData)); offset += pageSize {
-		pageNumber := startPageNumber + (offset / pageSize)
+		pageNumber := file.PageNumber(offset, pageSize)
 		endOffset := min(offset+pageSize, int64(len(chunkData)))
 		pageData := chunkData[offset:endOffset]
 
@@ -303,6 +306,66 @@ func (dim *DatabaseImportManager) AddChunk(importID, chunkIndex int64, chunkData
 				totalSize += c.ChunkSize
 			}
 
+			// Run integrity check on the imported database
+			clientConn, err := dim.databaseManager.ConnectionManager().Get(databaseID, branchID)
+
+			if err != nil {
+				importRecord.Status = DatabaseImportStatusFailed
+				importRecord.ErrorMessage = sql.NullString{String: fmt.Sprintf("failed to create database connection for integrity check: %v", err), Valid: true}
+				importRecord.CompletedAt = sql.NullTime{Time: time.Now().UTC(), Valid: true}
+
+				if saveErr := importRecord.Save(); saveErr != nil {
+					slog.Error("failed to save import failure status", "error", saveErr)
+				}
+
+				return nil, fmt.Errorf("failed to create database connection: %w", err)
+			}
+
+			defer dim.databaseManager.ConnectionManager().Remove(databaseID, branchID, clientConn)
+
+			// Run PRAGMA integrity_check
+			integrityResult, err := clientConn.GetConnection().Exec("PRAGMA integrity_check", nil)
+
+			if err != nil {
+				importRecord.Status = DatabaseImportStatusFailed
+				importRecord.ErrorMessage = sql.NullString{String: fmt.Sprintf("integrity check failed: %v", err), Valid: true}
+				importRecord.CompletedAt = sql.NullTime{Time: time.Now().UTC(), Valid: true}
+
+				if saveErr := importRecord.Save(); saveErr != nil {
+					slog.Error("failed to save import failure status", "error", saveErr)
+				}
+
+				return nil, fmt.Errorf("integrity check failed: %w", err)
+			}
+
+			if len(integrityResult.Rows) == 0 || len(integrityResult.Rows[0]) == 0 {
+				importRecord.Status = DatabaseImportStatusFailed
+				importRecord.ErrorMessage = sql.NullString{String: "integrity check returned no results", Valid: true}
+				importRecord.CompletedAt = sql.NullTime{Time: time.Now().UTC(), Valid: true}
+
+				if saveErr := importRecord.Save(); saveErr != nil {
+					slog.Error("failed to save import failure status", "error", saveErr)
+				}
+
+				return nil, fmt.Errorf("integrity check returned no results")
+			}
+
+			integrityStatus := string(integrityResult.Rows[0][0].Text())
+			log.Println("test 123", integrityStatus)
+
+			if integrityStatus != "ok" {
+				importRecord.Status = DatabaseImportStatusFailed
+				importRecord.ErrorMessage = sql.NullString{String: fmt.Sprintf("database integrity check failed: %s", integrityStatus), Valid: true}
+				importRecord.CompletedAt = sql.NullTime{Time: time.Now().UTC(), Valid: true}
+
+				if saveErr := importRecord.Save(); saveErr != nil {
+					slog.Error("failed to save import failure status", "error", saveErr)
+				}
+
+				return nil, fmt.Errorf("database integrity check failed: %s", integrityStatus)
+			}
+
+			// Mark as completed
 			importRecord.Status = DatabaseImportStatusCompleted
 			importRecord.CompletedAt = sql.NullTime{Time: time.Now().UTC(), Valid: true}
 			importRecord.TotalSize = sql.NullInt64{Int64: totalSize, Valid: true}
