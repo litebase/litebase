@@ -30,12 +30,6 @@ const (
 	chunkSize = 16 * 1024 * 1024 // 16MB chunks
 )
 
-type chunkJob struct {
-	index    int64
-	data     []byte
-	checksum string
-}
-
 type ImportResponse struct {
 	ImportID     int64     `json:"importId"`
 	DatabaseID   string    `json:"databaseId"`
@@ -125,55 +119,6 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 				return fmt.Errorf("failed to print import ID message: %w", err)
 			}
 
-			// Read and prepare all chunks first
-			file, err := os.Open(filePath)
-
-			if err != nil {
-				return fmt.Errorf("failed to open file: %w", err)
-			}
-
-			defer func() {
-				err := file.Close()
-
-				if err != nil {
-					_, err := fmt.Fprintf(cmd.OutOrStderr(), "failed to close file: %v\n", err)
-
-					slog.Error("failed to close file", "error", err)
-				}
-			}()
-
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Reading file and preparing chunks...\n")
-
-			if err != nil {
-				return fmt.Errorf("failed to print reading message: %w", err)
-			}
-
-			chunks := make([]chunkJob, 0, chunkCount)
-			buffer := make([]byte, chunkSize)
-
-			for i := range chunkCount {
-				// Read chunk
-				n, err := io.ReadFull(file, buffer)
-
-				if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-					return fmt.Errorf("failed to read chunk %d: %w", i, err)
-				}
-
-				// Copy the bytes actually read
-				chunkData := make([]byte, n)
-				copy(chunkData, buffer[:n])
-
-				// Calculate checksum
-				hash := sha256.Sum256(chunkData)
-				checksum := fmt.Sprintf("%x", hash)
-
-				chunks = append(chunks, chunkJob{
-					index:    i,
-					data:     chunkData,
-					checksum: checksum,
-				})
-			}
-
 			// Upload chunks concurrently
 			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Uploading %d chunks with concurrency=%d...\n", chunkCount, concurrency)
 
@@ -186,10 +131,26 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 				errorsMu      sync.Mutex
 				uploadErrors  []error
 				wg            sync.WaitGroup
+				fileMu        sync.Mutex
 			)
 
-			// Create worker pool
-			jobQueue := make(chan chunkJob, len(chunks))
+			// Open file once for all workers to share
+			file, err := os.Open(filePath)
+
+			if err != nil {
+				return fmt.Errorf("failed to open file: %w", err)
+			}
+
+			defer func() {
+				err := file.Close()
+
+				if err != nil {
+					slog.Error("failed to close file", "error", err)
+				}
+			}()
+
+			// Create worker pool with chunk indices
+			jobQueue := make(chan int64, concurrency*2)
 
 			// Start workers
 			for w := 0; w < concurrency; w++ {
@@ -198,22 +159,59 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 				go func(workerID int) {
 					defer wg.Done()
 
-					for job := range jobQueue {
+					buffer := make([]byte, chunkSize)
+
+					for chunkIndex := range jobQueue {
+						// Read chunk from file (with synchronization)
+						fileMu.Lock()
+						offset := chunkIndex * chunkSize
+						_, err := file.Seek(offset, 0)
+
+						if err != nil {
+							fileMu.Unlock()
+							errorsMu.Lock()
+							uploadErrors = append(uploadErrors, fmt.Errorf("failed to seek to chunk %d: %w", chunkIndex, err))
+							errorsMu.Unlock()
+
+							continue
+						}
+
+						n, err := io.ReadFull(file, buffer)
+
+						if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+							fileMu.Unlock()
+							errorsMu.Lock()
+							uploadErrors = append(uploadErrors, fmt.Errorf("failed to read chunk %d: %w", chunkIndex, err))
+							errorsMu.Unlock()
+
+							continue
+						}
+
+						fileMu.Unlock()
+
+						// Copy the bytes actually read
+						chunkData := make([]byte, n)
+						copy(chunkData, buffer[:n])
+
+						// Calculate checksum
+						hash := sha256.Sum256(chunkData)
+						checksum := fmt.Sprintf("%x", hash)
+
 						// Encode to base64
-						encodedData := base64.StdEncoding.EncodeToString(job.data)
+						encodedData := base64.StdEncoding.EncodeToString(chunkData)
 
 						// Upload chunk
 						chunkPayload := map[string]any{
 							"chunkData":  encodedData,
-							"chunkIndex": job.index,
-							"checksum":   job.checksum,
+							"chunkIndex": chunkIndex,
+							"checksum":   checksum,
 						}
 
 						_, apiErrors, err := api.Post(config, fmt.Sprintf("/v1/imports/%d/chunks", importID), chunkPayload)
 
 						if err != nil {
 							errorsMu.Lock()
-							uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", job.index, err))
+							uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", chunkIndex, err))
 							errorsMu.Unlock()
 
 							continue
@@ -221,7 +219,7 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 
 						if len(apiErrors) > 0 {
 							errorsMu.Lock()
-							uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", job.index, apiErrors.Error()))
+							uploadErrors = append(uploadErrors, fmt.Errorf("failed to upload chunk %d: %w", chunkIndex, apiErrors.Error()))
 							errorsMu.Unlock()
 
 							continue
@@ -247,9 +245,9 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 				}(w)
 			}
 
-			// Send all jobs to the queue
-			for _, chunk := range chunks {
-				jobQueue <- chunk
+			// Send chunk indices to the queue
+			for i := range chunkCount {
+				jobQueue <- i
 			}
 
 			close(jobQueue)
@@ -320,6 +318,7 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 	return cmd
 }
 
+// Create a new import with the Litebase API and return the response.
 func createImport(config *config.CLIConfiguration, databaseName string, branchName string, chunkCount int) (*ImportResponse, error) {
 	createData := map[string]any{
 		"databaseName": databaseName,
@@ -371,8 +370,8 @@ func createImport(config *config.CLIConfiguration, databaseName string, branchNa
 	return response, nil
 }
 
-// validateSQLiteFile validates that the file is a valid SQLite v3 database
-// with the correct configuration for import.
+// Validate that the file is a valid SQLite v3 database with the correct
+// configuration for import.
 func validateSQLiteFile(filePath string) error {
 	// First, read and validate the SQLite header
 	file, err := os.Open(filePath)
