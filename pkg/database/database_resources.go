@@ -194,13 +194,31 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 // Return the DatabaseExportManager for the database.
 func (d *DatabaseResources) ExportManager() (*DatabaseExportManager, error) {
 	d.mutex.Lock()
+
+	if d.exportManager != nil {
+		d.mutex.Unlock()
+		return d.exportManager, nil
+	}
+
+	// Unlock before calling FileSystem to avoid potential deadlock
+	d.mutex.Unlock()
+
+	fileSystem := d.FileSystem()
+
+	// Lock again to set the export manager
+	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	// Check again in case another goroutine created it while we were unlocked
 	if d.exportManager != nil {
 		return d.exportManager, nil
 	}
 
-	d.exportManager = NewDatabaseExportManager()
+	d.exportManager = NewDatabaseExportManager(
+		d.DatabaseID,
+		d.BranchID,
+		fileSystem,
+	)
 
 	return d.exportManager, nil
 }
