@@ -19,6 +19,7 @@ type DatabaseManager struct {
 	connectionManager      *ConnectionManager
 	connectionManagerMutex *sync.Mutex
 	databaseCache          *cache.LFUCache
+	importManager          *DatabaseImportManager
 	keyCache               *cache.LFUCache
 	mutex                  *sync.Mutex
 	pageLogManager         *storage.PageLogManager
@@ -421,6 +422,16 @@ func (d *DatabaseManager) GetByName(name string) (*Database, error) {
 	}
 
 	return database, nil
+}
+
+// Return the database import manager instance. If it has not been created
+// yet, create it and store it in the database manager.
+func (d *DatabaseManager) ImportManager() *DatabaseImportManager {
+	if d.importManager != nil {
+		return d.importManager
+	}
+
+	return NewDatabaseImportManager(d)
 }
 
 // Return the page log manager instance.
