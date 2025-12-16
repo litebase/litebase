@@ -14,6 +14,7 @@ func NewDatabaseCmd(config *config.CLIConfiguration) *cobra.Command {
 
 	cmd.AddCommand(NewDatabaseCreateCmd(config))
 	cmd.AddCommand(NewDatabaseDeleteCmd(config))
+	cmd.AddCommand(NewDatabaseExportCmd(config))
 	cmd.AddCommand(NewDatabaseListCmd(config))
 	cmd.AddCommand(NewDatabaseShowCmd(config))
 

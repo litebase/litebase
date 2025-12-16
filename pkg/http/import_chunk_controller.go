@@ -77,11 +77,7 @@ func ImportChunkControllerStore(ctx context.Context, request *Request) Response 
 	}
 
 	// Add the chunk to the import
-	importManager, err := request.databaseManager.Resources(request.Param("databaseId"), request.Param("branchId")).ImportManager()
-
-	if err != nil {
-		return ServerErrorResponse(err)
-	}
+	importManager := request.databaseManager.ImportManager()
 
 	chunk, err := importManager.AddChunk(importID, *req.ChunkIndex, chunkData, req.Checksum)
 

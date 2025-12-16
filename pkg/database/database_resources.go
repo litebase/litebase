@@ -20,8 +20,8 @@ type DatabaseResources struct {
 	DatabaseHash       string
 	DatabaseID         string
 	databaseManager    *DatabaseManager
+	exportManager      *DatabaseExportManager
 	fileSystem         *storage.DurableDatabaseFileSystem
-	importManager      *DatabaseImportManager
 	mutex              *sync.Mutex
 	pageLogger         *storage.PageLogger
 	resultPool         *sqlite3.ResultPool
@@ -191,18 +191,36 @@ func (d *DatabaseResources) FileSystem() *storage.DurableDatabaseFileSystem {
 	return d.fileSystem
 }
 
-// Return the DatabaseImportManager for the database.
-func (d *DatabaseResources) ImportManager() (*DatabaseImportManager, error) {
+// Return the DatabaseExportManager for the database.
+func (d *DatabaseResources) ExportManager() (*DatabaseExportManager, error) {
+	d.mutex.Lock()
+
+	if d.exportManager != nil {
+		d.mutex.Unlock()
+		return d.exportManager, nil
+	}
+
+	// Unlock before calling FileSystem to avoid potential deadlock
+	d.mutex.Unlock()
+
+	fileSystem := d.FileSystem()
+
+	// Lock again to set the export manager
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if d.importManager != nil {
-		return d.importManager, nil
+	// Check again in case another goroutine created it while we were unlocked
+	if d.exportManager != nil {
+		return d.exportManager, nil
 	}
 
-	d.importManager = NewDatabaseImportManager(d.databaseManager)
+	d.exportManager = NewDatabaseExportManager(
+		d.DatabaseID,
+		d.BranchID,
+		fileSystem,
+	)
 
-	return d.importManager, nil
+	return d.exportManager, nil
 }
 
 // Return the PageLogger for the database.
@@ -285,7 +303,7 @@ func (d *DatabaseResources) Remove() {
 	d.snapshotLogger = nil
 	d.checkpointer = nil
 	d.fileSystem = nil
-	d.importManager = nil
+	d.exportManager = nil
 	d.resultPool = nil
 	d.rollbackLogger = nil
 	d.walManager = nil

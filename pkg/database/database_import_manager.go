@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"log/slog"
 	"sync"
 	"time"
@@ -351,7 +350,6 @@ func (dim *DatabaseImportManager) AddChunk(importID, chunkIndex int64, chunkData
 			}
 
 			integrityStatus := string(integrityResult.Rows[0][0].Text())
-			log.Println("test 123", integrityStatus)
 
 			if integrityStatus != "ok" {
 				importRecord.Status = DatabaseImportStatusFailed

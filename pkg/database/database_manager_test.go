@@ -240,6 +240,57 @@ func TestDatabaseManager(t *testing.T) {
 			}
 		})
 
+		t.Run("GetByName", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+
+			// Test with non-existing database
+			db, err := dm.GetByName("non-existing-name")
+
+			if err == nil {
+				t.Errorf("Expected error, got nil")
+			}
+
+			if db != nil {
+				t.Errorf("Expected nil Database when error occurs, got: %v", db)
+			}
+
+			// Create a database
+			database, err := dm.Create("test_GetByName", "main")
+
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+
+			// Test with existing database
+			db, err = dm.GetByName(database.Name)
+
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+
+			if db == nil {
+				t.Fatalf("Expected non-nil Database")
+			}
+
+			if db.Name != database.Name {
+				t.Errorf("Expected Name to be %s, got %s", database.Name, db.Name)
+			}
+
+			if db.DatabaseID != database.DatabaseID {
+				t.Errorf("Expected DatabaseID to be %s, got %s", database.DatabaseID, db.DatabaseID)
+			}
+		})
+
+		t.Run("ImportManager", func(t *testing.T) {
+			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
+
+			importManager := dm.ImportManager()
+
+			if importManager == nil {
+				t.Errorf("Expected non-nil ImportManager")
+			}
+		})
+
 		t.Run("PageLogManager", func(t *testing.T) {
 			dm := database.NewDatabaseManager(app.Cluster, app.Auth.SecretsManager)
 
