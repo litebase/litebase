@@ -1641,6 +1641,207 @@
         }
       ]
     },
+    "/v1/databases/{databaseName}/branches/{branchName}/export": {
+      "post": {
+        "tags": [
+          "DatabaseExport"
+        ],
+        "summary": "Create a new database export",
+        "description": "Export a database.",
+        "operationId": "createDatabaseExport",
+        "requestBody": {
+          "description": "Database export creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseExportControllerStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
+    },
+    "/v1/databases/{databaseName}/branches/{branchName}/export/{exportId}/ranges/{rangeNumber}": {
+      "get": {
+        "tags": [
+          "DatabaseExportPart"
+        ],
+        "summary": "Show details of a specific database export part",
+        "description": "DatabaseExportPartControllerShow retrieves a specific range from an active database export",
+        "operationId": "getDatabaseExportPart",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "exportId",
+          "in": "path",
+          "description": "The exportId parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "rangeNumber",
+          "in": "path",
+          "description": "The rangeNumber parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
+    },
     "/v1/databases/{databaseName}/branches/{branchName}/metrics/query": {
       "get": {
         "tags": [
@@ -4282,6 +4483,9 @@
           }
         }
       },
+      "DatabaseExportControllerStoreRequest": {
+        "type": "object"
+      },
       "DatabaseIncrementalBackupSettings": {
         "type": "object",
         "properties": {
@@ -4627,13 +4831,14 @@
           "database:list",
           "database:show",
           "database:manage",
-          "database:import",
           "database:branch:create",
           "database:branch:list",
           "database:branch:show",
           "database:branch:manage",
           "database:backup",
           "database:restore",
+          "database:export",
+          "database:import",
           "database:query",
           "database:analyze",
           "database:attach",
@@ -5184,6 +5389,14 @@
     {
       "name": "DatabaseBranch",
       "description": "Database branch management operations"
+    },
+    {
+      "name": "DatabaseExport",
+      "description": "Database Export operations"
+    },
+    {
+      "name": "DatabaseExportPart",
+      "description": "Database Export Part operations"
     },
     {
       "name": "DatabaseRestore",
