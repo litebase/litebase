@@ -9,8 +9,9 @@ const (
 	EnvProduction  = "production"
 	EnvTest        = "test"
 
-	StorageModeLocal  = "local"
-	StorageModeObject = "object"
+	StorageModeLocal   = "local"
+	StorageModeNetwork = "network"
+	StorageModeObject  = "object"
 )
 
 type Config struct {

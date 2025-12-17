@@ -22,7 +22,7 @@ func (cluster *Cluster) LocalFS() *storage.FileSystem {
 		cluster.localFileSystem = storage.NewFileSystem(
 			storage.NewLocalFileSystemDriver(
 				fmt.Sprintf(
-					"%s/%s",
+					"%s/_%s",
 					cluster.Config.StoragePath,
 					config.StorageModeLocal,
 				),
@@ -49,9 +49,9 @@ func (cluster *Cluster) ObjectFS() *storage.FileSystem {
 			cluster.objectFileSystem = storage.NewFileSystem(
 				storage.NewLocalFileSystemDriver(
 					fmt.Sprintf(
-						"%s/%s",
+						"%s/_%s",
 						cluster.Config.StoragePath,
-						"_object",
+						config.StorageModeObject,
 					),
 				),
 			)
@@ -74,10 +74,19 @@ func (cluster *Cluster) NetworkFS() *storage.FileSystem {
 			return cluster.networkFileSystem
 		}
 
+		// If no network path is configured, use local storage as fallback
+		networkPath := cluster.Config.StorageNetworkPath
+
+		if networkPath == "" {
+			networkPath = fmt.Sprintf(
+				"%s/_%s",
+				cluster.Config.StoragePath,
+				config.StorageModeNetwork,
+			)
+		}
+
 		cluster.networkFileSystem = storage.NewFileSystem(
-			storage.NewLocalFileSystemDriver(
-				cluster.Config.StorageNetworkPath,
-			),
+			storage.NewLocalFileSystemDriver(networkPath),
 		)
 
 		if err := cluster.networkFileSystem.MkdirAll("/", 0755); err != nil {
