@@ -84,8 +84,11 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 				newConfig.Server.Key = generatedKey
 			}
 
-			// Check if we're in non-interactive mode (flags provided)
-			if !c.GetInteractive() {
+			// Check if we're in non-interactive mode (flags provided OR interactive flag is false)
+			nonInteractive := !c.GetInteractive() || (newConfig.Server.ClusterID != "" && newConfig.Server.Port != "")
+
+			if nonInteractive {
+				// Non-interactive mode: validate required fields
 				if newConfig.Server.ClusterID == "" {
 					return fmt.Errorf("the cluster-id field is required")
 				}
@@ -110,6 +113,7 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 
 				confirmed = true
 			} else {
+				// Interactive mode: show form
 				form := components.NewForm(
 					huh.NewGroup(
 						huh.NewNote().
