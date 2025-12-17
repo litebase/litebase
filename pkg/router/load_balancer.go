@@ -86,7 +86,7 @@ func (lb *LoadBalancer) NextIndex() int {
 func (lb *LoadBalancer) setTargets() {
 	targets := []*Target{}
 
-	entries, err := os.ReadDir(fmt.Sprintf("%s/%s", os.Getenv("LITEBASE_DATA_PATH"), "/_nodes"))
+	entries, err := os.ReadDir(fmt.Sprintf("%s/%s", os.Getenv("LITEBASE_STORAGE_LOCAL_PATH"), "/_nodes"))
 
 	if err != nil {
 		if os.IsNotExist(err) {

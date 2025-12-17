@@ -76,7 +76,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 	}
 
 	if envDataPath == "" {
-		envDataPath = fmt.Sprintf("%s%s", rootDirectory, os.Getenv("LITEBASE_DATA_PATH"))
+		envDataPath = fmt.Sprintf("%s%s", rootDirectory, os.Getenv("LITEBASE_STORAGE_LOCAL_PATH"))
 	}
 
 	var dataPath string
@@ -90,7 +90,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 	networkStoragePath := fmt.Sprintf("%s/_network", dataPath)
 	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
 
-	t.Setenv("LITEBASE_DATA_PATH", dataPath)
+	t.Setenv("LITEBASE_STORAGE_LOCAL_PATH", dataPath)
 	t.Setenv("LITEBASE_STORAGE_NETWORK_PATH", networkStoragePath)
 	t.Setenv("LITEBASE_STORAGE_TMP_PATH", tmpPath)
 
@@ -251,7 +251,7 @@ func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 		// Remove the bucket
 		err := os.RemoveAll(
 			fmt.Sprintf("%s/_object/%s",
-				os.Getenv("LITEBASE_DATA_PATH"),
+				os.Getenv("LITEBASE_STORAGE_LOCAL_PATH"),
 				os.Getenv("LITEBASE_STORAGE_BUCKET")),
 		)
 

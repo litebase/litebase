@@ -6,7 +6,7 @@
 
 **For all platforms** (macOS, Linux, Windows with Git Bash/WSL):
 
-```bash
+```shell
 curl -sSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
 ```
 
@@ -14,13 +14,13 @@ curl -sSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh | 
 
 #### Using wget
 
-```bash
+```shell
 wget -qO- https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
 ```
 
 #### Manual Download and Execute
 
-```bash
+```shell
 # Download the script
 curl -sSL https://raw.githubusercontent.com/litebase/litebase/main/install.sh -o install.sh
 
@@ -78,7 +78,7 @@ The installation script automatically checks for and requires the following tool
 
 If you encounter permission issues on Linux/macOS:
 
-```bash
+```shell
 # The script will automatically request sudo privileges when needed
 # Make sure your user has sudo access
 ```
@@ -89,7 +89,7 @@ If `litebase` command is not found after installation:
 
 **Linux/macOS:**
 
-```bash
+```shell
 # Check if /usr/local/bin is in your PATH
 echo $PATH
 
@@ -100,7 +100,7 @@ source ~/.bashrc
 
 **Windows:**
 
-```bash
+```shell
 # Check if the binary exists
 ls /c/Windows/System32/litebase.exe
 
@@ -116,7 +116,7 @@ If the download fails:
 2. **Verify the release exists** on GitHub
 3. **Try using wget instead of curl**:
 
-   ```bash
+   ```shell
    wget -qO- https://raw.githubusercontent.com/litebase/litebase/main/install.sh | sh
    ```
 
@@ -135,7 +135,7 @@ If the automated script doesn't work for your system, you can install manually:
 1. **Download the appropriate binary** from [GitHub releases](https://github.com/litebase/litebase/releases)
 2. **Extract the archive**:
 
-   ```bash
+   ```shell
    # For .tar.gz files
    tar -xzf litebase_*.tar.gz
    
@@ -145,7 +145,7 @@ If the automated script doesn't work for your system, you can install manually:
 
 3. **Move the binary** to a directory in your PATH:
 
-   ```bash
+   ```shell
    # Linux/macOS
    sudo mv litebase /usr/local/bin/
    
@@ -155,7 +155,7 @@ If the automated script doesn't work for your system, you can install manually:
 
 4. **Make it executable** (Linux/macOS):
 
-   ```bash
+   ```shell
    chmod +x /usr/local/bin/litebase
    ```
 
@@ -163,7 +163,7 @@ If the automated script doesn't work for your system, you can install manually:
 
 After installation, verify that Litebase is working:
 
-```bash
+```shell
 # Check version
 litebase --version
 
@@ -175,7 +175,7 @@ litebase --help
 
 To uninstall Litebase:
 
-```bash
+```shell
 # Linux/macOS
 sudo rm /usr/local/bin/litebase
 

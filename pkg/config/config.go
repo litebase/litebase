@@ -9,8 +9,9 @@ const (
 	EnvProduction  = "production"
 	EnvTest        = "test"
 
-	StorageModeLocal  = "local"
-	StorageModeObject = "object"
+	StorageModeLocal   = "local"
+	StorageModeNetwork = "network"
+	StorageModeObject  = "object"
 )
 
 type Config struct {
@@ -32,9 +33,9 @@ type Config struct {
 	StorageAccessKeyId     string
 	StorageBucket          string
 	StorageEndpoint        string
+	StorageLocalPath       string
 	StorageNetworkPath     string
 	StorageObjectMode      string
-	StoragePath            string
 	StorageSecretAccessKey string
 	StoragePort            string
 	StorageRegion          string
@@ -71,10 +72,10 @@ func NewConfig() *Config {
 		StorageAccessKeyId:     env("LITEBASE_STORAGE_ACCESS_KEY_ID", "").(string),
 		StorageBucket:          env("LITEBASE_STORAGE_BUCKET", "").(string),
 		StorageEndpoint:        env("LITEBASE_STORAGE_ENDPOINT", "").(string),
+		StorageLocalPath:       env("LITEBASE_STORAGE_LOCAL_PATH", "").(string),
 		StorageNetworkPath:     env("LITEBASE_STORAGE_NETWORK_PATH", "").(string),
 		StorageRegion:          env("LITEBASE_STORAGE_REGION", "").(string),
 		StorageObjectMode:      env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string),
-		StoragePath:            env("LITEBASE_DATA_PATH", "").(string),
 		StorageSecretAccessKey: env("LITEBASE_STORAGE_SECRET_ACCESS_KEY", "").(string),
 		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string)).(string),
 		StorageTmpPath:         env("LITEBASE_STORAGE_TMP_PATH", "").(string),
