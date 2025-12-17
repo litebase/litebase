@@ -61,7 +61,10 @@ func NewStartCmd() *cobra.Command {
 				return fmt.Errorf("failed to load start config: %w", err)
 			}
 
-			// TODO: Validate the configuration to ensure all required fields are set
+			// Validate storage configuration before starting the server
+			if err := validateStorageConfig(startConfig); err != nil {
+				return err
+			}
 
 			serverConfig := config.NewConfig()
 			srv := server.NewServer(serverConfig)
@@ -162,6 +165,12 @@ func NewStartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&startConfig.StorageLocalPath, "storage-path", "", "The path to the data directory")
 	cmd.Flags().StringVar(&startConfig.StorageNetworkPath, "storage-network-path", "", "The path to use for network storage")
 	cmd.Flags().StringVar(&startConfig.StorageTmpPath, "storage-tmp-path", "", "The path to use for temporary files")
+	cmd.Flags().StringVar(&startConfig.StorageObjectMode, "storage-object-mode", "", "Storage object mode: 'local' for testing or 'object' for S3-compatible storage")
+	cmd.Flags().StringVar(&startConfig.StorageBucket, "storage-bucket", "", "S3 bucket name (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&startConfig.StorageEndpoint, "storage-endpoint", "", "S3 endpoint URL (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&startConfig.StorageRegion, "storage-region", "", "S3 region (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&startConfig.StorageAccessKeyId, "storage-access-key-id", "", "S3 access key ID (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&startConfig.StorageSecretAccessKey, "storage-secret-access-key", "", "S3 secret access key (required when storage-object-mode is 'object')")
 	cmd.Flags().StringVar(&startConfig.TLSCertPath, "tls-cert-path", "", "The path to the TLS certificate")
 	cmd.Flags().StringVar(&startConfig.TLSKeyPath, "tls-key-path", "", "The path to the TLS key")
 
@@ -247,6 +256,30 @@ func startLoadFlags(cmd *cobra.Command, config *StartConfig) error {
 		config.StorageTmpPath = storageTmpPath
 	}
 
+	if storageObjectMode, err := cmd.Flags().GetString("storage-object-mode"); err == nil {
+		config.StorageObjectMode = storageObjectMode
+	}
+
+	if storageBucket, err := cmd.Flags().GetString("storage-bucket"); err == nil {
+		config.StorageBucket = storageBucket
+	}
+
+	if storageEndpoint, err := cmd.Flags().GetString("storage-endpoint"); err == nil {
+		config.StorageEndpoint = storageEndpoint
+	}
+
+	if storageRegion, err := cmd.Flags().GetString("storage-region"); err == nil {
+		config.StorageRegion = storageRegion
+	}
+
+	if storageAccessKeyId, err := cmd.Flags().GetString("storage-access-key-id"); err == nil {
+		config.StorageAccessKeyId = storageAccessKeyId
+	}
+
+	if storageSecretAccessKey, err := cmd.Flags().GetString("storage-secret-access-key"); err == nil {
+		config.StorageSecretAccessKey = storageSecretAccessKey
+	}
+
 	if tlsCertPath, err := cmd.Flags().GetString("tls-cert-path"); err == nil {
 		config.TLSCertPath = tlsCertPath
 	}
@@ -257,6 +290,50 @@ func startLoadFlags(cmd *cobra.Command, config *StartConfig) error {
 
 	if key, err := cmd.Flags().GetString("key"); err == nil {
 		config.Key = key
+	}
+
+	return nil
+}
+
+// validateStorageConfig checks that required storage credentials are present
+// when object storage mode is configured.
+func validateStorageConfig(config *StartConfig) error {
+	// Get the actual storage object mode from environment or config
+	storageObjectMode := config.StorageObjectMode
+
+	if storageObjectMode == "" {
+		storageObjectMode = os.Getenv("LITEBASE_STORAGE_OBJECT_MODE")
+	}
+
+	// Get fake storage mode for testing
+	fakeObjectStorage := os.Getenv("LITEBASE_FAKE_OBJECT_STORAGE") == "true"
+
+	// If using object storage mode and not in fake mode, validate credentials
+	if storageObjectMode == "object" && !fakeObjectStorage {
+		// Check for storage bucket
+		if config.StorageBucket == "" && os.Getenv("LITEBASE_STORAGE_BUCKET") == "" {
+			return fmt.Errorf("storage bucket is required when using object storage mode. Set via config file, --storage-bucket flag, or LITEBASE_STORAGE_BUCKET environment variable")
+		}
+
+		// Check for storage endpoint
+		if config.StorageEndpoint == "" && os.Getenv("LITEBASE_STORAGE_ENDPOINT") == "" {
+			return fmt.Errorf("storage endpoint is required when using object storage mode. Set via config file, --storage-endpoint flag, or LITEBASE_STORAGE_ENDPOINT environment variable")
+		}
+
+		// Check for storage region
+		if config.StorageRegion == "" && os.Getenv("LITEBASE_STORAGE_REGION") == "" {
+			return fmt.Errorf("storage region is required when using object storage mode. Set via config file, --storage-region flag, or LITEBASE_STORAGE_REGION environment variable")
+		}
+
+		// Check for access key ID
+		if config.StorageAccessKeyId == "" && os.Getenv("LITEBASE_STORAGE_ACCESS_KEY_ID") == "" {
+			return fmt.Errorf("storage access key ID is required when using object storage mode. Set via config file, --storage-access-key-id flag, or LITEBASE_STORAGE_ACCESS_KEY_ID environment variable")
+		}
+
+		// Check for secret access key
+		if config.StorageSecretAccessKey == "" && os.Getenv("LITEBASE_STORAGE_SECRET_ACCESS_KEY") == "" {
+			return fmt.Errorf("storage secret access key is required when using object storage mode. Set via config file, --storage-secret-access-key flag, or LITEBASE_STORAGE_SECRET_ACCESS_KEY environment variable")
+		}
 	}
 
 	return nil

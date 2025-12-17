@@ -28,17 +28,23 @@ type CLIConfiguration struct {
 }
 
 type CLIServerConfiguration struct {
-	Background         bool   `yaml:"background"`
-	ClusterID          string `yaml:"cluster_id"`
-	ConfigPath         string `yaml:"config_path"`
-	Debug              bool   `yaml:"debug,omitempty"`
-	Key                string `yaml:"key"`
-	Port               string `yaml:"port"`
-	StorageLocalPath   string `yaml:"storage_local_path"`
-	StorageNetworkPath string `yaml:"storage_network_path"`
-	StorageTmpPath     string `yaml:"storage_tmp_path"`
-	TLSCertPath        string `yaml:"tls_cert_path"`
-	TLSKeyPath         string `yaml:"tls_key_path"`
+	Background             bool   `yaml:"background"`
+	ClusterID              string `yaml:"cluster_id"`
+	ConfigPath             string `yaml:"config_path"`
+	Debug                  bool   `yaml:"debug,omitempty"`
+	Key                    string `yaml:"key"`
+	Port                   string `yaml:"port"`
+	StorageAccessKeyId     string `yaml:"storage_access_key_id,omitempty"`
+	StorageBucket          string `yaml:"storage_bucket,omitempty"`
+	StorageEndpoint        string `yaml:"storage_endpoint,omitempty"`
+	StorageLocalPath       string `yaml:"storage_local_path,omitempty"`
+	StorageNetworkPath     string `yaml:"storage_network_path,omitempty"`
+	StorageObjectMode      string `yaml:"storage_object_mode,omitempty"`
+	StorageRegion          string `yaml:"storage_region,omitempty"`
+	StorageSecretAccessKey string `yaml:"storage_secret_access_key,omitempty"`
+	StorageTmpPath         string `yaml:"storage_tmp_path,omitempty"`
+	TLSCertPath            string `yaml:"tls_cert_path,omitempty"`
+	TLSKeyPath             string `yaml:"tls_key_path,omitempty"`
 }
 
 var ErrMissingClusterURL = errors.New("missing cluster URL")

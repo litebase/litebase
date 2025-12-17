@@ -37,6 +37,12 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 	}
 
 	var deploymentMode string
+	var storageObjectMode string
+	var storageBucket string
+	var storageEndpoint string
+	var storageRegion string
+	var storageAccessKeyId string
+	var storageSecretAccessKey string
 
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -108,6 +114,36 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 						newConfig.Server.StorageNetworkPath = ""
 					} else if deploymentMode == "cluster" && newConfig.Server.StorageNetworkPath == "" {
 						return fmt.Errorf("--storage-network-path is required when deployment-mode is 'cluster'")
+					}
+				}
+
+				// Handle storage configuration in non-interactive mode
+				if storageObjectMode != "" {
+					// Validate storage mode value
+					if storageObjectMode != "local" && storageObjectMode != "object" {
+						return fmt.Errorf("storage-object-mode must be either 'local' or 'object'")
+					}
+
+					// Set storage mode to config
+					newConfig.Server.StorageObjectMode = storageObjectMode
+
+					// When object storage is configured, validate required credentials
+					if storageObjectMode == "object" {
+						if newConfig.Server.StorageBucket == "" {
+							return fmt.Errorf("--storage-bucket is required when storage-object-mode is 'object'")
+						}
+						if newConfig.Server.StorageEndpoint == "" {
+							return fmt.Errorf("--storage-endpoint is required when storage-object-mode is 'object'")
+						}
+						if newConfig.Server.StorageRegion == "" {
+							return fmt.Errorf("--storage-region is required when storage-object-mode is 'object'")
+						}
+						if newConfig.Server.StorageAccessKeyId == "" {
+							return fmt.Errorf("--storage-access-key-id is required when storage-object-mode is 'object'")
+						}
+						if newConfig.Server.StorageSecretAccessKey == "" {
+							return fmt.Errorf("--storage-secret-access-key is required when storage-object-mode is 'object'")
+						}
 					}
 				}
 
@@ -200,6 +236,87 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 						return deploymentMode == "single"
 					}),
 					huh.NewGroup(
+						huh.NewSelect[string]().
+							Title("Object Storage Type").
+							Description("Where will persistent data be stored?").
+							Options(
+								huh.NewOption("Local Object Storage (for testing/development)", "local"),
+								huh.NewOption("S3-Compatible Storage (for production)", "object"),
+							).
+							Value(&storageObjectMode).
+							Validate(func(str string) error {
+								if str == "" {
+									return fmt.Errorf("storage object mode is required")
+								}
+								return nil
+							}),
+					),
+					huh.NewGroup(
+						huh.NewInput().
+							Title("Storage Bucket").
+							Description("S3 bucket name").
+							Placeholder("my-litebase-bucket").
+							Value(&newConfig.Server.StorageBucket).
+							Validate(func(str string) error {
+								if storageObjectMode == "object" && str == "" {
+									return fmt.Errorf("bucket name is required for S3 storage")
+								}
+
+								return nil
+							}),
+						huh.NewInput().
+							Title("Storage Endpoint").
+							Description("S3 endpoint URL (e.g., s3.amazonaws.com)").
+							Placeholder("s3.amazonaws.com").
+							Value(&newConfig.Server.StorageEndpoint).
+							Validate(func(str string) error {
+								if storageObjectMode == "object" && str == "" {
+									return fmt.Errorf("storage endpoint is required for S3 storage")
+								}
+
+								return nil
+							}),
+						huh.NewInput().
+							Title("Storage Region").
+							Description("S3 region (e.g., us-east-1)").
+							Placeholder("us-east-1").
+							Value(&newConfig.Server.StorageRegion).
+							Validate(func(str string) error {
+								if storageObjectMode == "object" && str == "" {
+									return fmt.Errorf("storage region is required for S3 storage")
+								}
+
+								return nil
+							}),
+						huh.NewInput().
+							Title("Storage Access Key ID").
+							Description("S3 Access Key ID").
+							Placeholder("Enter S3 Access Key ID").
+							Value(&newConfig.Server.StorageAccessKeyId).
+							Validate(func(str string) error {
+								if storageObjectMode == "object" && str == "" {
+									return fmt.Errorf("access key ID is required for S3 storage")
+								}
+
+								return nil
+							}),
+						huh.NewInput().
+							Title("Storage Secret Access Key").
+							Description("S3 Secret Access Key").
+							Placeholder("Enter S3 Secret Access Key").
+							Value(&newConfig.Server.StorageSecretAccessKey).
+							EchoMode(huh.EchoModePassword).
+							Validate(func(str string) error {
+								if storageObjectMode == "object" && str == "" {
+									return fmt.Errorf("secret access key is required for S3 storage")
+								}
+
+								return nil
+							}),
+					).WithHideFunc(func() bool {
+						return storageObjectMode != "object"
+					}),
+					huh.NewGroup(
 						huh.NewConfirm().
 							Title("Confirm").
 							Description("Are you sure you want to save this configuration?").
@@ -230,6 +347,16 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 
 					fmt.Println("\n✓ Cluster mode: Network storage path configured.")
 					fmt.Println("  Ensure this path is accessible from all cluster nodes.")
+				}
+
+				// Set storage configuration
+				newConfig.Server.StorageObjectMode = storageObjectMode
+				if storageObjectMode == "object" {
+					newConfig.Server.StorageBucket = storageBucket
+					newConfig.Server.StorageEndpoint = storageEndpoint
+					newConfig.Server.StorageRegion = storageRegion
+					newConfig.Server.StorageAccessKeyId = storageAccessKeyId
+					newConfig.Server.StorageSecretAccessKey = storageSecretAccessKey
 				}
 			}
 
@@ -279,6 +406,12 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd.Flags().StringVar(&newConfig.Server.StorageTmpPath, "storage-tmp-path", "", "Path to the temporary storage directory")
 	cmd.Flags().StringVar(&newConfig.Server.TLSCertPath, "tls-cert-path", "", "Path to the TLS certificate")
 	cmd.Flags().StringVar(&newConfig.Server.TLSKeyPath, "tls-key-path", "", "Path to the TLS key")
+	cmd.Flags().StringVar(&storageObjectMode, "storage-object-mode", "local", "Storage object mode: 'local' for testing or 'object' for S3-compatible storage")
+	cmd.Flags().StringVar(&newConfig.Server.StorageBucket, "storage-bucket", "", "S3 bucket name (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&newConfig.Server.StorageEndpoint, "storage-endpoint", "", "S3 endpoint URL (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&newConfig.Server.StorageRegion, "storage-region", "", "S3 region (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&newConfig.Server.StorageAccessKeyId, "storage-access-key-id", "", "S3 access key ID (required when storage-object-mode is 'object')")
+	cmd.Flags().StringVar(&newConfig.Server.StorageSecretAccessKey, "storage-secret-access-key", "", "S3 secret access key (required when storage-object-mode is 'object')")
 
 	hideAuthFlags(cmd)
 
