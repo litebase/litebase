@@ -11,7 +11,7 @@ type StartConfig struct {
 	Debug              bool   `yaml:"debug,omitempty"`
 	Key                string `yaml:"key"`
 	Port               string `yaml:"port"`
-	StoragePath        string `yaml:"storage_path"`
+	StorageLocalPath   string `yaml:"storage_local_path"`
 	StorageNetworkPath string `yaml:"storage_network_path"`
 	StorageTmpPath     string `yaml:"storage_tmp_path"`
 	TLSCertPath        string `yaml:"tls_cert_path"`
@@ -35,9 +35,9 @@ func (c *StartConfig) Load() error {
 		}
 	}
 
-	if c.StoragePath != "" {
-		if err := os.Setenv("LITEBASE_STORAGE_PATH", c.StoragePath); err != nil {
-			return fmt.Errorf("failed to set LITEBASE_STORAGE_PATH environment variable: %w", err)
+	if c.StorageLocalPath != "" {
+		if err := os.Setenv("LITEBASE_STORAGE_LOCAL_PATH", c.StorageLocalPath); err != nil {
+			return fmt.Errorf("failed to set LITEBASE_STORAGE_LOCAL_PATH environment variable: %w", err)
 		}
 	}
 

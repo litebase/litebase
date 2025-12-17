@@ -34,7 +34,7 @@ type CLIServerConfiguration struct {
 	Debug              bool   `yaml:"debug,omitempty"`
 	Key                string `yaml:"key"`
 	Port               string `yaml:"port"`
-	StoragePath        string `yaml:"storage_path"`
+	StorageLocalPath   string `yaml:"storage_local_path"`
 	StorageNetworkPath string `yaml:"storage_network_path"`
 	StorageTmpPath     string `yaml:"storage_tmp_path"`
 	TLSCertPath        string `yaml:"tls_cert_path"`

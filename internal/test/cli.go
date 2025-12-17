@@ -47,7 +47,7 @@ func NewTestCLI(t *testing.T, app *server.App) *TestCLI {
 	var err error
 
 	if c.App != nil {
-		configPath = fmt.Sprintf("%s/.litebase/config.yml", c.App.Config.StoragePath)
+		configPath = fmt.Sprintf("%s/.litebase/config.yml", c.App.Config.StorageLocalPath)
 
 		_, err := config.NewConfiguration(configPath, true)
 

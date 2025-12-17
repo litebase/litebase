@@ -71,7 +71,7 @@ func TestNodeFileSystem_NoNetworkStoragePath(t *testing.T) {
 	// Create a config with NO network storage path
 	cfg := &config.Config{
 		ClusterId:          "test-cluster",
-		StoragePath:        tmpDir,
+		StorageLocalPath:   tmpDir,
 		StorageNetworkPath: "", // Empty - this is what we're testing
 		StorageTmpPath:     filepath.Join(tmpDir, "tmp"),
 		StorageObjectMode:  "local",

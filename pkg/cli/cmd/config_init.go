@@ -36,6 +36,8 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 		APIVersion: config.CLIConfigurationVersion,
 	}
 
+	var deploymentMode string
+
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize Litebase Server configuration",
@@ -53,6 +55,11 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 
 				if err != nil {
 					return fmt.Errorf("failed to get default config path: %w", err)
+				}
+			} else {
+				// If path is a directory, append the default config filename
+				if fileInfo, err := os.Stat(path); err == nil && fileInfo.IsDir() {
+					path = filepath.Join(path, "config.yml")
 				}
 			}
 
@@ -87,6 +94,20 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 					return fmt.Errorf("the port field is required")
 				}
 
+				// Handle deployment mode in non-interactive mode
+				if deploymentMode != "" {
+					if deploymentMode != "single" && deploymentMode != "cluster" {
+						return fmt.Errorf("deployment-mode must be either 'single' or 'cluster'")
+					}
+
+					if deploymentMode == "single" {
+						// Clear network storage path for single-node deployments
+						newConfig.Server.StorageNetworkPath = ""
+					} else if deploymentMode == "cluster" && newConfig.Server.StorageNetworkPath == "" {
+						return fmt.Errorf("--storage-network-path is required when deployment-mode is 'cluster'")
+					}
+				}
+
 				confirmed = true
 			} else {
 				form := components.NewForm(
@@ -106,6 +127,7 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 
 								return nil
 							}),
+
 						huh.NewInput().
 							Title("Port").
 							Placeholder("Enter the port for the server").
@@ -128,6 +150,52 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 							}),
 					),
 					huh.NewGroup(
+						huh.NewSelect[string]().
+							Title("Deployment Mode").
+							Description("Will this server run as a single node or part of a cluster?").
+							Options(
+								huh.NewOption("Single Node (Local storage)", "single"),
+								huh.NewOption("Cluster (Shared network storage)", "cluster"),
+							).
+							Value(&deploymentMode).
+							Validate(func(str string) error {
+								if str == "" {
+									return fmt.Errorf("deployment mode is required")
+								}
+
+								return nil
+							}),
+					),
+					huh.NewGroup(
+						huh.NewInput().
+							Title("Local Storage Path").
+							Description("Path to local storage (e.g., ./data)").
+							Placeholder("./data").
+							Value(&newConfig.Server.StorageLocalPath).
+							Validate(func(str string) error {
+								if str == "" {
+									return fmt.Errorf("local storage path is required for cluster mode")
+								}
+
+								return nil
+							}),
+					),
+					huh.NewGroup(
+						huh.NewInput().
+							Title("Network Storage Path").
+							Description("Path to shared network storage (e.g., /mnt/data)").
+							Placeholder("/mnt/data").
+							Value(&newConfig.Server.StorageNetworkPath).
+							Validate(func(str string) error {
+								if str == "" {
+									return fmt.Errorf("network storage path is required for cluster mode")
+								}
+								return nil
+							}),
+					).WithHideFunc(func() bool {
+						return deploymentMode == "single"
+					}),
+					huh.NewGroup(
 						huh.NewConfirm().
 							Title("Confirm").
 							Description("Are you sure you want to save this configuration?").
@@ -139,6 +207,25 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 
 				if err != nil {
 					return err
+				}
+
+				// Handle deployment mode specific configuration
+				switch deploymentMode {
+				case "single":
+					newConfig.Server.StorageNetworkPath = ""
+					fmt.Println("\n✓ Single-node mode: Network storage path will not be configured.")
+					fmt.Println("  The server will use local storage only. You can change this later if needed.")
+				case "cluster":
+					// Ask for cluster-specific configuration
+					clusterForm := components.NewForm()
+
+					err = clusterForm.Run()
+					if err != nil {
+						return err
+					}
+
+					fmt.Println("\n✓ Cluster mode: Network storage path configured.")
+					fmt.Println("  Ensure this path is accessible from all cluster nodes.")
 				}
 			}
 
@@ -177,13 +264,14 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 
 	// Add flags for each field in StartConfig
 	cmd.Flags().String("path", "", "Path to the configuration file")
+	cmd.Flags().StringVar(&deploymentMode, "deployment-mode", "", "Deployment mode: 'single' for single-node or 'cluster' for multi-node (you can change this later)")
 	cmd.Flags().StringVar(&newConfig.Server.ClusterID, "cluster-id", "", "Cluster ID for the server")
 	cmd.Flags().StringVar(&newConfig.Server.ConfigPath, "config-path", "", "Path to the configuration file")
 	cmd.Flags().BoolVar(&newConfig.Server.Debug, "debug", false, "Enable debug mode")
 	cmd.Flags().StringVar(&newConfig.Server.Key, "key", "", "Encryption key (if not provided, one will be generated)")
 	cmd.Flags().StringVar(&newConfig.Server.Port, "port", "9876", "Port to run the server on")
-	cmd.Flags().StringVar(&newConfig.Server.StoragePath, "storage-path", "", "Path to the storage directory")
-	cmd.Flags().StringVar(&newConfig.Server.StorageNetworkPath, "storage-network-path", "", "Path to the network storage directory")
+	cmd.Flags().StringVar(&newConfig.Server.StorageLocalPath, "storage-path", "", "Path to the storage directory")
+	cmd.Flags().StringVar(&newConfig.Server.StorageNetworkPath, "storage-network-path", "", "Path to the network storage directory (leave empty for single-node)")
 	cmd.Flags().StringVar(&newConfig.Server.StorageTmpPath, "storage-tmp-path", "", "Path to the temporary storage directory")
 	cmd.Flags().StringVar(&newConfig.Server.TLSCertPath, "tls-cert-path", "", "Path to the TLS certificate")
 	cmd.Flags().StringVar(&newConfig.Server.TLSKeyPath, "tls-key-path", "", "Path to the TLS key")

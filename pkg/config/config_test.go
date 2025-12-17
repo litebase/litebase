@@ -10,7 +10,7 @@ import (
 
 func TestInit(t *testing.T) {
 	encryptionKey := test.CreateHash(32)
-	t.Setenv("LITEBASE_DATA_PATH", "../../.test")
+	t.Setenv("LITEBASE_STORAGE_LOCAL_PATH", "../../.test")
 	t.Setenv("LITEBASE_ENCRYPTION_KEY", encryptionKey)
 
 	c := config.NewConfig()
@@ -23,7 +23,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestInitWithNoEncryptionKey(t *testing.T) {
-	err := os.Setenv("LITEBASE_DATA_PATH", "../../.test")
+	err := os.Setenv("LITEBASE_STORAGE_LOCAL_PATH", "../../.test")
 
 	if err != nil {
 		t.Fatal(err)

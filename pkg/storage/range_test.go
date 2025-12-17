@@ -185,7 +185,7 @@ func TestRangeRemove(t *testing.T) {
 		}
 
 		// Verify the range is removed
-		_, err = app.Cluster.LocalFS().Stat(fmt.Sprintf("%s/%010d/", app.Config.StoragePath, 1))
+		_, err = app.Cluster.LocalFS().Stat(fmt.Sprintf("%s/%010d/", app.Config.StorageLocalPath, 1))
 
 		if err == nil {
 			t.Errorf("Remove() failed, expected error, got nil")

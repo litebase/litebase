@@ -28,7 +28,7 @@ func s3Faker(c *config.Config) *gofakes3.GoFakeS3 {
 		backend, err = s3afero.MultiBucket(
 			afero.NewBasePathFs(
 				afero.NewOsFs(),
-				fmt.Sprintf("%s/_object", os.Getenv("LITEBASE_DATA_PATH")),
+				fmt.Sprintf("%s/_object", os.Getenv("LITEBASE_STORAGE_LOCAL_PATH")),
 			),
 		)
 

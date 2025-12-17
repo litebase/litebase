@@ -17,12 +17,20 @@ func configShow(cmd *cobra.Command, c *config.CLIConfiguration) error {
 		return err
 	}
 
+	// If a specific config path is provided, load from that file
 	if configPath != "" {
 		if _, err := os.Stat(configPath); err != nil {
 			if os.IsNotExist(err) {
 				return errors.New("the specified config file does not exist")
 			}
 
+			return err
+		}
+
+		// Load the configuration from the specified path
+		c, err = config.NewConfiguration(configPath, false)
+
+		if err != nil {
 			return err
 		}
 	}
@@ -46,10 +54,17 @@ func configShow(cmd *cobra.Command, c *config.CLIConfiguration) error {
 		})
 	}
 
-	if c.Server.StoragePath != "" {
+	if c.Server.StorageLocalPath != "" {
 		rows = append(rows, components.CardRow{
 			Key:   "Storage Path",
-			Value: c.Server.StoragePath,
+			Value: c.Server.StorageLocalPath,
+		})
+	}
+
+	if c.Server.StorageNetworkPath != "" {
+		rows = append(rows, components.CardRow{
+			Key:   "Storage Network Path",
+			Value: c.Server.StorageNetworkPath,
 		})
 	}
 

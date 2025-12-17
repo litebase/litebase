@@ -34,7 +34,7 @@ func NewStartCmd() *cobra.Command {
 
 			// Attempt to load configuration values from the CLI flags
 			if dataPath := cmd.Flag("storage-path").Value.String(); dataPath != "" {
-				if err := os.Setenv("LITEBASE_DATA_PATH", dataPath); err != nil {
+				if err := os.Setenv("LITEBASE_STORAGE_LOCAL_PATH", dataPath); err != nil {
 					panic(err)
 				}
 			}
@@ -159,7 +159,7 @@ func NewStartCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&startConfig.Debug, "debug", "d", false, "Run the server in debug mode")
 	cmd.Flags().StringVar(&startConfig.Key, "key", "", "The key to use for server encryption")
 	cmd.Flags().StringVar(&startConfig.Port, "port", "", "The port to run the server on (defaults to LITEBASE_PORT env var or 8080)")
-	cmd.Flags().StringVar(&startConfig.StoragePath, "storage-path", "", "The path to the data directory")
+	cmd.Flags().StringVar(&startConfig.StorageLocalPath, "storage-path", "", "The path to the data directory")
 	cmd.Flags().StringVar(&startConfig.StorageNetworkPath, "storage-network-path", "", "The path to use for network storage")
 	cmd.Flags().StringVar(&startConfig.StorageTmpPath, "storage-tmp-path", "", "The path to use for temporary files")
 	cmd.Flags().StringVar(&startConfig.TLSCertPath, "tls-cert-path", "", "The path to the TLS certificate")
@@ -236,7 +236,7 @@ func startLoadFlags(cmd *cobra.Command, config *StartConfig) error {
 	}
 
 	if storagePath, err := cmd.Flags().GetString("storage-path"); err == nil {
-		config.StoragePath = storagePath
+		config.StorageLocalPath = storagePath
 	}
 
 	if storageNetworkPath, err := cmd.Flags().GetString("storage-network-path"); err == nil {

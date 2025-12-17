@@ -321,8 +321,8 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 			t.Errorf("expected key to be 'test-key', got %v", config.Server.Key)
 		}
 
-		if config.Server.StoragePath != "/test/data" {
-			t.Errorf("expected storage_path to be '/test/data', got %v", config.Server.StoragePath)
+		if config.Server.StorageLocalPath != "/test/data" {
+			t.Errorf("expected storage_path to be '/test/data', got %v", config.Server.StorageLocalPath)
 		}
 
 		if config.Server.StorageNetworkPath != "/test/network" {
@@ -404,6 +404,50 @@ func TestConfigInitPreventsOverwrite(t *testing.T) {
 
 		if config.Server.Port != "8080" {
 			t.Errorf("expected original port to be preserved as '8080', got %v", config.Server.Port)
+		}
+	})
+}
+
+func TestConfigInitWithDirectoryPath(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory
+		tempDir := t.TempDir()
+
+		// Use the directory as the path (not a file)
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "9876", "--path", tempDir)
+
+		if err != nil {
+			t.Fatalf("expected no error when providing directory path, got %v", err)
+		}
+
+		// Check that config.yml was created inside the directory
+		configPath := filepath.Join(tempDir, "config.yml")
+
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			t.Error("expected config.yml to be created inside the provided directory")
+		}
+
+		// Verify the config file contents
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		if config.Server.ClusterID != "test-cluster" {
+			t.Errorf("expected cluster_id to be 'test-cluster', got %v", config.Server.ClusterID)
+		}
+
+		if config.Server.Port != "9876" {
+			t.Errorf("expected port to be '9876', got %v", config.Server.Port)
 		}
 	})
 }
