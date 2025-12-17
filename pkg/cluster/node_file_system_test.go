@@ -2,11 +2,13 @@ package cluster_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/server"
 )
 
@@ -51,7 +53,77 @@ func TestNodeFileSystem(t *testing.T) {
 				t.Error("TmpTieredFS() returned nil")
 			}
 		})
+
+		t.Run("NetworkFS", func(t *testing.T) {
+			fs := app.Cluster.NetworkFS()
+
+			if fs == nil {
+				t.Error("NetworkFS() returned nil")
+			}
+		})
 	})
+}
+
+func TestNodeFileSystem_NoNetworkStoragePath(t *testing.T) {
+	// Create a temporary directory for this test
+	tmpDir := t.TempDir()
+
+	// Create a config with NO network storage path
+	cfg := &config.Config{
+		ClusterId:          "test-cluster",
+		StoragePath:        tmpDir,
+		StorageNetworkPath: "", // Empty - this is what we're testing
+		StorageTmpPath:     filepath.Join(tmpDir, "tmp"),
+		StorageObjectMode:  "local",
+	}
+
+	// Create a minimal cluster instance
+	testCluster, err := cluster.NewCluster(cfg)
+
+	if err != nil {
+		t.Fatalf("Failed to create cluster: %v", err)
+	}
+
+	defer testCluster.ShutdownStorage()
+
+	// Verify that config has empty network path
+	if cfg.StorageNetworkPath != "" {
+		t.Fatalf("Expected empty StorageNetworkPath, got: %s", cfg.StorageNetworkPath)
+	}
+
+	// Verify NetworkFS falls back to local storage
+	networkFS := testCluster.NetworkFS()
+
+	if networkFS == nil {
+		t.Fatal("NetworkFS() returned nil when StorageNetworkPath is empty")
+	}
+
+	// Test that we can write and read files
+	testFile := "test-network-fallback.txt"
+	testContent := []byte("test content for network fallback")
+
+	err = networkFS.WriteFile(testFile, testContent, 0644)
+
+	if err != nil {
+		t.Fatalf("Failed to write file to NetworkFS: %v", err)
+	}
+
+	readContent, err := networkFS.ReadFile(testFile)
+
+	if err != nil {
+		t.Fatalf("Failed to read file from NetworkFS: %v", err)
+	}
+
+	if string(readContent) != string(testContent) {
+		t.Errorf("Content mismatch: expected %q, got %q", string(testContent), string(readContent))
+	}
+
+	// Verify ObjectFS works
+	objectFS := testCluster.ObjectFS()
+
+	if objectFS == nil {
+		t.Fatal("ObjectFS() returned nil")
+	}
 }
 
 func TestTieredFS_SyncsDirtyFiles(t *testing.T) {
