@@ -265,10 +265,9 @@ func TestClusterElection(t *testing.T) {
 			for _, tc := range testCases {
 				t.Run("", func(t *testing.T) {
 					servers := make([]*test.TestServer, tc.nodeCount)
+					serversMutex := sync.Mutex{}
 
 					test.RunWithTearDown(t, func() {
-						serversMutex := sync.Mutex{}
-
 						// Start the first server to initialize the cluster
 						s := test.NewTestServer(t)
 						<-s.Started
@@ -308,7 +307,12 @@ func TestClusterElection(t *testing.T) {
 									var primaryAddress string
 									var allObservedPrimary = true
 
-									for i, s := range servers {
+									serversMutex.Lock()
+									currentServers := make([]*test.TestServer, len(servers))
+									copy(currentServers, servers)
+									serversMutex.Unlock()
+
+									for i, s := range currentServers {
 										if s.App.Cluster.Node().IsPrimary() {
 											electedCount++
 											electedIndex = i
@@ -321,7 +325,7 @@ func TestClusterElection(t *testing.T) {
 									}
 
 									if electedCount == 1 && primaryAddress != "" {
-										for _, s := range servers {
+										for _, s := range currentServers {
 											nodePrimaryAddress := s.App.Cluster.Node().PrimaryAddress()
 											if nodePrimaryAddress != primaryAddress {
 												allObservedPrimary = false
@@ -338,17 +342,25 @@ func TestClusterElection(t *testing.T) {
 								}
 							}
 
-							if electedIndex >= 0 {
+							serversMutex.Lock()
+							if electedIndex >= 0 && electedIndex < len(servers) {
 								servers[electedIndex].Shutdown()
 								servers = slices.Delete(servers, electedIndex, electedIndex+1)
 							}
+							remainingCount := len(servers)
+							serversMutex.Unlock()
 
-							if len(servers) == 1 {
+							if remainingCount == 1 {
 								break
 							}
 						}
 					}, func() {
-						for _, s := range servers {
+						serversMutex.Lock()
+						currentServers := make([]*test.TestServer, len(servers))
+						copy(currentServers, servers)
+						serversMutex.Unlock()
+
+						for _, s := range currentServers {
 							s.Shutdown()
 						}
 					})

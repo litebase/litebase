@@ -418,8 +418,8 @@ func (n *Node) IsPrimary() bool {
 
 	// If the cluster membership is primary and the lease is still valid
 	if n.membership == ClusterMembershipPrimary &&
-		n.Lease() != nil &&
-		n.Lease().IsUpToDate() {
+		n.lease != nil &&
+		n.lease.IsUpToDate() {
 		n.mutex.Unlock()
 		return true
 	}
@@ -489,6 +489,9 @@ func (n *Node) JoinCluster() error {
 
 // Return the lease of the node
 func (n *Node) Lease() *Lease {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
 	return n.lease
 }
 
@@ -731,27 +734,29 @@ func (n *Node) runElection() (bool, error) {
 		return false, ErrElectionMoratorium
 	}
 
+	n.mutex.Lock()
 	if n.Election != nil && n.Election.Running() {
+		n.mutex.Unlock()
+
 		return false, ErrElectionAlreadyRunning
 	}
-
-	defer func() {
-		if n.Election.Stopped() {
-			return
-		}
-
-		n.Election.Stop()
-	}()
-
-	n.mutex.Lock()
 
 	if n.Election == nil || n.Election.Stopped() {
 		n.Election = NewClusterElection(n)
 	}
 
+	election := n.Election
 	n.mutex.Unlock()
 
-	elected, err := n.Election.run()
+	defer func() {
+		if election.Stopped() {
+			return
+		}
+
+		election.Stop()
+	}()
+
+	elected, err := election.run()
 
 	if err != nil {
 		return false, err
@@ -761,9 +766,14 @@ func (n *Node) runElection() (bool, error) {
 		return elected, nil
 	}
 
-	n.setMembership(ClusterMembershipPrimary)
+	n.SetMembership(ClusterMembershipPrimary)
+
+	n.mutex.Lock()
 	n.lease = NewLease(n)
-	err = n.lease.Renew()
+	lease := n.lease
+	n.mutex.Unlock()
+
+	err = lease.Renew()
 
 	if err != nil {
 		return false, fmt.Errorf("failed to renew lease after election: %w", err)
@@ -932,27 +942,26 @@ func (n *Node) setInternalHeaders(req *http.Request) error {
 // Set the membership of the node in the cluster.
 func (n *Node) SetMembership(membership string) {
 	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	n.setMembership(membership)
-}
-
-// Set the membership of the node in the cluster.
-func (n *Node) setMembership(membership string) {
 	prevMembership := n.membership
 	n.membership = membership
+	n.mutex.Unlock()
 
+	// Perform side effects without holding the lock
 	if membership == ClusterMembershipPrimary {
-		n.primary = NewNodePrimary(n)
+		primary := NewNodePrimary(n)
 
-		if n.replica != nil {
-			err := n.replica.Stop()
+		n.mutex.Lock()
+		n.primary = primary
+		replica := n.replica
+		n.replica = nil
+		n.mutex.Unlock()
+
+		if replica != nil {
+			err := replica.Stop()
 
 			if err != nil {
 				slog.Debug("Failed to stop replica", "error", err)
 			}
-
-			n.replica = nil
 		}
 
 		// Ensure the primary checks for dirty files that need to be synced from
@@ -967,8 +976,16 @@ func (n *Node) setMembership(membership string) {
 	}
 
 	if membership == ClusterMembershipReplica && prevMembership != ClusterMembershipPrimary && n.PrimaryAddress() != "" {
-		n.replica = NewNodeReplica(n)
+		replica := NewNodeReplica(n)
+		n.mutex.Lock()
+		n.replica = replica
+		n.mutex.Unlock()
 	}
+}
+
+// Set the membership of the node in the cluster (internal, assumes caller handles locking).
+func (n *Node) setMembership(membership string) {
+	n.membership = membership
 }
 
 // Set the page logger accessor for the node.
