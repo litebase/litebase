@@ -9,10 +9,7 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-const CLIConfigurationVersion = "0.1"
-
 type CLIConfiguration struct {
-	APIVersion     string                 `yaml:"api_version"`
 	CurrentProfile string                 `yaml:"current_profile"`
 	Profiles       []Profile              `yaml:"profiles"`
 	Server         CLIServerConfiguration `yaml:"server"`
@@ -55,7 +52,6 @@ var ErrorProfileNotFound = errors.New("profile not found, provide a valid profil
 // to ~/.litebase/config.yml which is a global configuration file.
 func NewConfiguration(path string, create bool) (*CLIConfiguration, error) {
 	configuration := &CLIConfiguration{
-		APIVersion:  CLIConfigurationVersion,
 		interactive: true,
 	}
 
