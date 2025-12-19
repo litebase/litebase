@@ -32,9 +32,7 @@ func generateEncryptionKey() (string, error) {
 }
 
 func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
-	newConfig := &config.CLIConfiguration{
-		APIVersion: config.CLIConfigurationVersion,
-	}
+	newConfig := &config.CLIConfiguration{}
 
 	var deploymentMode string
 	var storageObjectMode string

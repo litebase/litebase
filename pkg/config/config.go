@@ -78,6 +78,6 @@ func NewConfig() *Config {
 		StorageObjectMode:      env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string),
 		StorageSecretAccessKey: env("LITEBASE_STORAGE_SECRET_ACCESS_KEY", "").(string),
 		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string)).(string),
-		StorageTmpPath:         env("LITEBASE_STORAGE_TMP_PATH", "").(string),
+		StorageTmpPath:         env("LITEBASE_STORAGE_TMP_PATH", os.TempDir()).(string),
 	}
 }
