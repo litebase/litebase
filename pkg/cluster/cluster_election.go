@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/litebase/litebase/internal/utils/lock"
@@ -35,6 +36,7 @@ type ClusterElection struct {
 	Candidate string
 	EndsAt    time.Time
 	context   context.Context
+	mutex     sync.RWMutex
 	node      *Node
 	Seed      int64
 	StartedAt time.Time
@@ -315,16 +317,25 @@ func (ce *ClusterElection) run() (bool, error) {
 
 // Check if the election is running.
 func (ce *ClusterElection) Running() bool {
+	ce.mutex.RLock()
+	defer ce.mutex.RUnlock()
+
 	return ce.context.Err() == nil && ce.StoppedAt.IsZero()
 }
 
 // Stop the election process and mark the time it was stopped.
 func (ce *ClusterElection) Stop() {
+	ce.mutex.Lock()
+	defer ce.mutex.Unlock()
+
 	ce.cancel()
 	ce.StoppedAt = time.Now().UTC()
 }
 
 // Check if the election has been stopped.
 func (ce *ClusterElection) Stopped() bool {
+	ce.mutex.RLock()
+	defer ce.mutex.RUnlock()
+
 	return !ce.StoppedAt.IsZero()
 }
