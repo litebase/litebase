@@ -71,6 +71,9 @@ func DatabaseExportPartControllerShow(ctx context.Context, request *Request) Res
 		return NotFoundResponse(errors.New("export ID does not match active export"))
 	}
 
+	// Update activity to extend the export timeout
+	exportManager.UpdateActivity()
+
 	// Get the range from the export
 	rangeFile, err := export.GetRange(rangeNumber)
 

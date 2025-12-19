@@ -342,6 +342,12 @@ func TestRoutesMiddleware(t *testing.T) {
 			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
 			Description:        "Database export part show route should have ForwardToPrimary and Authentication middleware",
 		},
+		{
+			Method:             "POST",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/export/{exportId}/end",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database export destroy route should have ForwardToPrimary and Authentication middleware",
+		},
 	}
 
 	// Create a router and load routes
@@ -389,7 +395,7 @@ func TestPublicRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadPublicRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 43 // Update this number if you add more routes
+	expectedRouteCount := 44 // Update this number if you add more routes
 
 	totalRoutes := 0
 

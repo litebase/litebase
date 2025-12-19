@@ -206,6 +206,14 @@ func LoadPublicRoutes(router *Router) {
 	})
 
 	router.Post(
+		"/v1/databases/{databaseName}/branches/{branchName}/export/{exportId}/end",
+		DatabaseExportControllerEnd,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Post(
 		"/v1/imports",
 		ImportControllerStore,
 	).Middleware([]Middleware{
