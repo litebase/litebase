@@ -131,3 +131,86 @@ func (c *TestClient) Send(path string, method string, data any) (map[string]any,
 
 	return responseData, response.StatusCode, nil
 }
+
+// DownloadBinary makes a GET request and returns the raw response for binary downloads
+func (c *TestClient) DownloadBinary(path string) (*http.Response, error) {
+	var requestURL string
+
+	if !strings.Contains(path, "http://") && !strings.Contains(path, "https://") {
+		requestURL = c.URL + path
+	} else {
+		requestURL = path
+	}
+
+	// Parse the URL to separate path and query parameters
+	parsedURL, err := url.Parse(requestURL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequest("GET", requestURL, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	headers := map[string]string{
+		"Host":            request.URL.Host,
+		"Content-Type":    "application/json",
+		"X-Litebase-Date": fmt.Sprintf("%d", time.Now().UTC().Unix()),
+	}
+
+	for k, v := range headers {
+		request.Header.Set(k, v)
+	}
+
+	if c.AccessKey != nil {
+		// Parse query parameters for request signing
+		queryParams := make(map[string]string)
+
+		for key, values := range parsedURL.Query() {
+			if len(values) > 0 {
+				queryParams[key] = values[0]
+			}
+		}
+
+		signature := auth.SignRequest(
+			c.AccessKey.AccessKeyID,
+			c.AccessKey.AccessKeySecret,
+			"GET",
+			parsedURL.Path,
+			headers,
+			nil,
+			queryParams,
+		)
+
+		request.Header.Set("Authorization", fmt.Sprintf("Litebase-HMAC-SHA256 %s", signature))
+	} else if c.Token != nil {
+		value, err := c.Token.Value()
+
+		if err != nil {
+			return nil, err
+		}
+
+		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", value))
+	} else {
+		request.SetBasicAuth(c.Username, c.Password)
+	}
+
+	client := &http.Client{}
+
+	response, err := client.Do(request)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		return nil, fmt.Errorf("request failed with status %d: %s", response.StatusCode, string(body))
+	}
+
+	return response, nil
+}

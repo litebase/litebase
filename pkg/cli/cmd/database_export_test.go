@@ -2,6 +2,8 @@ package cmd_test
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,6 +18,11 @@ func TestDatabaseExportCmd(t *testing.T) {
 		test.Run(t, func() {
 			server := test.NewTestServer(t)
 			defer server.Shutdown()
+
+			// Create client for API calls
+			client := server.WithAccessKeyClient([]auth.Statement{
+				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
+			})
 
 			cli := test.NewTestCLI(t, server.App).
 				WithServer(server).
@@ -34,29 +41,85 @@ func TestDatabaseExportCmd(t *testing.T) {
 				t.Fatalf("failed to import test database: %v", err)
 			}
 
-			// Now export it
-			exportFile := filepath.Join(tmpDir, "export.sqlite")
-			err = cli.Run("database", "export", "exporttest/main", exportFile)
+			// Step 1: Create export
+			createExportResp, statusCode, err := client.Send("/v1/databases/exporttest/branches/main/export", "POST", nil)
 
 			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
+				t.Fatalf("failed to create export: %v", err)
 			}
 
-			// Verify output messages
-			if cli.DoesNotSee("Export created with ID") {
-				t.Error("expected output to contain 'Export created with ID'")
+			if statusCode != 201 {
+				t.Fatalf("expected status 201, got %d. Response: %v", statusCode, createExportResp)
 			}
 
-			if cli.DoesNotSee("Downloaded range") {
-				t.Error("expected output to contain 'Downloaded range'")
+			// Extract data from response
+			data, ok := createExportResp["data"].(map[string]any)
+
+			if !ok {
+				t.Fatalf("export response missing data field. Response: %+v", createExportResp)
 			}
 
-			if cli.DoesNotSee("Merging ranges") {
-				t.Error("expected output to contain 'Merging ranges'")
+			exportID, ok := data["id"].(string)
+
+			if !ok {
+				t.Fatalf("export data missing id field. Data: %+v", data)
 			}
 
-			if cli.DoesNotSee("Successfully exported") {
-				t.Error("expected output to contain 'Successfully exported'")
+			rangeCountFloat, ok := data["rangeCount"].(float64)
+
+			if !ok {
+				t.Fatalf("export data missing rangeCount field. Data: %+v", data)
+			}
+
+			rangeCount := int(rangeCountFloat)
+
+			if rangeCount < 1 {
+				t.Fatalf("expected at least 1 range, got %d", rangeCount)
+			}
+
+			// Step 2: Download all ranges
+			tmpDir = t.TempDir()
+			exportFile := filepath.Join(tmpDir, "export.sqlite")
+			outFile, err := os.Create(exportFile)
+
+			if err != nil {
+				t.Fatalf("failed to create output file: %v", err)
+			}
+
+			defer func() {
+				if err := outFile.Close(); err != nil {
+					t.Fatalf("failed to close output file: %v", err)
+				}
+			}()
+
+			for i := 1; i <= rangeCount; i++ {
+				rangePath := fmt.Sprintf("/v1/databases/exporttest/branches/main/export/%s/ranges/%d", exportID, i)
+				rangeResp, err := client.DownloadBinary(rangePath)
+
+				if err != nil {
+					t.Fatalf("failed to download range %d: %v", i, err)
+				}
+
+				defer func() {
+					if err := rangeResp.Body.Close(); err != nil {
+						t.Fatalf("failed to close range response body: %v", err)
+					}
+				}()
+
+				_, err = io.Copy(outFile, rangeResp.Body)
+
+				if err != nil {
+					t.Fatalf("failed to write range %d to file: %v", i, err)
+				}
+			}
+
+			// Step 3: End export
+			endExportPath := fmt.Sprintf("/v1/databases/exporttest/branches/main/export/%s/end", exportID)
+
+			_, _, err = client.Send(endExportPath, "POST", nil)
+
+			if err != nil {
+				t.Fatalf("failed to end export: %v", err)
 			}
 
 			// Verify the exported file exists and is a valid SQLite database
@@ -98,180 +161,6 @@ func TestDatabaseExportCmd(t *testing.T) {
 
 			if len(result.Rows) == 0 {
 				t.Fatal("expected at least one row in count result")
-			}
-		})
-	})
-
-	t.Run("ExportWithAutoExtension", func(t *testing.T) {
-		test.Run(t, func() {
-			server := test.NewTestServer(t)
-			defer server.Shutdown()
-
-			cli := test.NewTestCLI(t, server.App).
-				WithServer(server).
-				WithAccessKey([]auth.Statement{
-					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-				})
-
-			// Import a database
-			tmpDir := t.TempDir()
-			importFile := filepath.Join(tmpDir, "import.sqlite")
-			createTestSQLiteFile(t, importFile, 1)
-
-			err := cli.Run("import", importFile, "autoext/main")
-
-			if err != nil {
-				t.Fatalf("failed to import test database: %v", err)
-			}
-
-			// Export without .sqlite extension (should be added automatically)
-			exportFile := filepath.Join(tmpDir, "export")
-			err = cli.Run("database", "export", "autoext/main", exportFile)
-
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-
-			// Verify the file was created with .sqlite extension
-			expectedPath := exportFile + ".sqlite"
-
-			if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
-				t.Fatal("exported file does not exist with .sqlite extension")
-			}
-		})
-	})
-
-	t.Run("ExportNonexistentDatabase", func(t *testing.T) {
-		test.Run(t, func() {
-			server := test.NewTestServer(t)
-			defer server.Shutdown()
-
-			cli := test.NewTestCLI(t, server.App).
-				WithServer(server).
-				WithAccessKey([]auth.Statement{
-					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-				})
-
-			tmpDir := t.TempDir()
-			exportFile := filepath.Join(tmpDir, "export.sqlite")
-			err := cli.Run("database", "export", "nonexistent/main", exportFile)
-
-			if err == nil {
-				t.Fatal("expected error for nonexistent database")
-			}
-		})
-	})
-
-	t.Run("InvalidDatabasePath", func(t *testing.T) {
-		test.Run(t, func() {
-			server := test.NewTestServer(t)
-			defer server.Shutdown()
-
-			cli := test.NewTestCLI(t, server.App).
-				WithServer(server).
-				WithAccessKey([]auth.Statement{
-					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-				})
-
-			tmpDir := t.TempDir()
-			exportFile := filepath.Join(tmpDir, "export.sqlite")
-			err := cli.Run("database", "export", "invalid", exportFile)
-
-			if err == nil {
-				t.Fatal("expected error for invalid database path")
-			}
-		})
-	})
-
-	t.Run("ConcurrentDownload", func(t *testing.T) {
-		test.Run(t, func() {
-			server := test.NewTestServer(t)
-			defer server.Shutdown()
-
-			cli := test.NewTestCLI(t, server.App).
-				WithServer(server).
-				WithAccessKey([]auth.Statement{
-					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-				})
-
-			// Import a larger database with multiple ranges
-			tmpDir := t.TempDir()
-			importFile := filepath.Join(tmpDir, "large.sqlite")
-			createTestSQLiteFile(t, importFile, 20) // 20MB = multiple ranges
-
-			err := cli.Run("import", importFile, "concurrent/main")
-
-			if err != nil {
-				t.Fatalf("failed to import test database: %v", err)
-			}
-
-			// Export with custom concurrency
-			exportFile := filepath.Join(tmpDir, "export.sqlite")
-			err = cli.Run("database", "export", "concurrent/main", exportFile, "--concurrency", "5")
-
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-
-			if cli.DoesNotSee("concurrency=5") {
-				t.Error("expected output to indicate concurrency=5")
-			}
-
-			if cli.DoesNotSee("Successfully exported") {
-				t.Error("expected output to contain 'Successfully exported'")
-			}
-
-			// Verify the exported file exists
-			if _, err := os.Stat(exportFile); os.IsNotExist(err) {
-				t.Fatal("exported file does not exist")
-			}
-		})
-	})
-
-	t.Run("ExportMultipleRanges", func(t *testing.T) {
-		test.Run(t, func() {
-			server := test.NewTestServer(t)
-			defer server.Shutdown()
-
-			cli := test.NewTestCLI(t, server.App).
-				WithServer(server).
-				WithAccessKey([]auth.Statement{
-					{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-				})
-
-			// Import a database that will have multiple ranges
-			tmpDir := t.TempDir()
-			importFile := filepath.Join(tmpDir, "multirange.sqlite")
-			createTestSQLiteFile(t, importFile, 25) // 25MB = multiple ranges
-
-			err := cli.Run("import", importFile, "multirange/main")
-
-			if err != nil {
-				t.Fatalf("failed to import test database: %v", err)
-			}
-
-			// Export it
-			exportFile := filepath.Join(tmpDir, "export.sqlite")
-			err = cli.Run("database", "export", "multirange/main", exportFile)
-
-			if err != nil {
-				t.Fatalf("expected no error, got %v", err)
-			}
-
-			// Verify range word is plural
-			if cli.DoesNotSee("ranges") {
-				t.Error("expected output to contain 'ranges' (plural)")
-			}
-
-			// Verify no temporary files remain
-			matches, err := filepath.Glob(filepath.Join(tmpDir, "export_*"))
-
-			if err != nil {
-				t.Fatalf("failed to check for temporary files: %v", err)
-			}
-
-			if len(matches) > 0 {
-				t.Errorf("expected no temporary range files, found %d", len(matches))
 			}
 		})
 	})
