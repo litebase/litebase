@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,9 +9,17 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-type DatabaseExportControllerStoreRequest struct{}
+type DatabaseExportStoreRequest struct{}
 
-type DatabaseExportControllerStoreResponse struct{}
+type DatabaseExportStoreResponse struct {
+	DatabaseName       string    `json:"databaseName"`
+	DatabaseBranchName string    `json:"databaseBranchName"`
+	ID                 string    `json:"id"`
+	Ranges             []int     `json:"ranges"`
+	RangeCount         int       `json:"rangeCount"`
+	StartedAt          time.Time `json:"startedAt"`
+	ExpiresAt          time.Time `json:"expiresAt"`
+}
 
 // Export a database.
 func DatabaseExportControllerStore(ctx context.Context, request *Request) Response {
@@ -40,95 +47,60 @@ func DatabaseExportControllerStore(ctx context.Context, request *Request) Respon
 		return ServerErrorResponse(err)
 	}
 
-	return Response{
-		StatusCode: http.StatusOK,
-		Stream: func(w http.ResponseWriter) {
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Transfer-Encoding", "chunked")
+	// Check if an export is already active before doing expensive operations
+	existingExport, _ := exportManager.Get()
 
-			// Create the export - only one export can run at a time for a given database
-			export, err := exportManager.Create()
-
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusConflict)
-				return
-			}
-
-			// Checkpoint the database before export
-			err = request.databaseManager.ConnectionManager().ForceCheckpoint(
-				request.databaseKey.DatabaseID,
-				request.databaseKey.DatabaseBranchID,
-			)
-
-			if err != nil {
-				http.Error(w, fmt.Sprintf("failed to checkpoint database: %v", err), http.StatusInternalServerError)
-				return
-			}
-
-			// Get the database file system for compaction
-			dfs := request.databaseManager.Resources(
-				request.databaseKey.DatabaseID,
-				request.databaseKey.DatabaseBranchID,
-			).FileSystem()
-
-			// Compact the database before export
-			err = dfs.Compact()
-
-			if err != nil {
-				http.Error(w, fmt.Sprintf("failed to compact database: %v", err), http.StatusInternalServerError)
-				return
-			}
-
-			// Create context for managing the export lifecycle
-			ctx, cancel := context.WithCancel(request.BaseRequest.Context())
-
-			// Start the export stream handler
-			go func() {
-				defer func() {
-					cancel()
-					exportManager.Clear()
-					export.End()
-				}()
-
-				// Use compaction barrier to prevent compaction during export
-				_ = dfs.CompactionBarrier(func() error {
-					// Write export metadata to response
-					rangeCount := export.RangeCount()
-
-					response := map[string]any{
-						"id":         export.ID,
-						"rangeCount": rangeCount,
-						"startedAt":  export.StartedAt.Format(time.RFC3339),
-					}
-
-					// Write the response
-					if err := json.NewEncoder(w).Encode(response); err != nil {
-						return fmt.Errorf("failed to write response: %w", err)
-					}
-
-					// Flush the response to the client
-					if flusher, ok := w.(http.Flusher); ok {
-						flusher.Flush()
-					}
-
-					// Keep the connection alive by periodically writing data
-					// This maintains the compaction barrier while the client fetches ranges
-					ticker := time.NewTicker(1 * time.Second)
-					defer ticker.Stop()
-
-					for {
-						select {
-						case <-ctx.Done():
-							// Client disconnected
-							return nil
-						case <-ticker.C:
-						}
-					}
-				})
-			}()
-
-			// Wait for the export to complete or client to disconnect
-			<-ctx.Done()
-		},
+	if existingExport != nil {
+		return JsonResponse(map[string]any{
+			"status":  "error",
+			"message": "an export is already active",
+		}, http.StatusConflict, nil)
 	}
+
+	// Checkpoint the database before export
+	err = request.databaseManager.ConnectionManager().ForceCheckpoint(
+		request.databaseKey.DatabaseID,
+		request.databaseKey.DatabaseBranchID,
+	)
+
+	if err != nil {
+		return ServerErrorResponse(fmt.Errorf("failed to checkpoint database: %w", err))
+	}
+
+	// Get the database file system for compaction
+	dfs := request.databaseManager.Resources(
+		request.databaseKey.DatabaseID,
+		request.databaseKey.DatabaseBranchID,
+	).FileSystem()
+
+	// Compact the database before export (must be done BEFORE creating export to avoid deadlock)
+	err = dfs.Compact()
+
+	if err != nil {
+		return ServerErrorResponse(fmt.Errorf("failed to compact database: %w", err))
+	}
+
+	// Create the export - only one export can run at a time for a given database
+	// This acquires a compaction barrier to prevent compaction during export
+	export, err := exportManager.Create()
+
+	if err != nil {
+		return JsonResponse(map[string]any{
+			"status":  "error",
+			"message": err.Error(),
+		}, http.StatusConflict, nil)
+	}
+
+	// Return export metadata
+	response := DatabaseExportStoreResponse{
+		DatabaseName:       request.databaseKey.DatabaseName,
+		DatabaseBranchName: request.databaseKey.DatabaseBranchName,
+		ID:                 export.ID,
+		Ranges:             export.Ranges(),
+		RangeCount:         export.RangeCount(),
+		StartedAt:          export.StartedAt,
+		ExpiresAt:          export.StartedAt.Add(60 * time.Second),
+	}
+
+	return SuccessResponse("Database export started", response, http.StatusCreated)
 }

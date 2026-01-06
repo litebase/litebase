@@ -66,6 +66,30 @@ func NewClient(configuration *config.CLIConfiguration) (*Client, error) {
 	return c, nil
 }
 
+// setAuthHeaders sets the appropriate authentication headers based on the client configuration
+func (c *Client) setAuthHeaders(method, path string, body []byte) {
+	if c.shouldUseAccessKey() {
+		host := c.BaseURL.Hostname()
+
+		if c.BaseURL.Port() != "" {
+			host = fmt.Sprintf("%s:%s", c.BaseURL.Hostname(), c.BaseURL.Port())
+		}
+
+		c.defaultHeaders["X-Litebase-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
+		c.defaultHeaders["Host"] = host
+		c.defaultHeaders["Authorization"] = fmt.Sprintf("Litebase-HMAC-SHA256 %s", c.accessKeyHeader(
+			method,
+			path,
+			c.defaultHeaders,
+			body,
+		))
+	} else if c.shouldUseToken() {
+		c.defaultHeaders["Authorization"] = fmt.Sprintf("Bearer %s", c.Config.GetToken())
+	} else if c.shouldUseBasicAuth() {
+		c.defaultHeaders["Authorization"] = c.basicAuthHeader()
+	}
+}
+
 func (c *Client) Request(method, path string, data map[string]any) (map[string]any, Errors, error) {
 	url := fmt.Sprintf("%s/%s", c.BaseURL, strings.TrimLeft(path, "/"))
 
@@ -80,26 +104,7 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 		}
 	}
 
-	if c.shouldUseAccessKey() {
-		host := c.BaseURL.Hostname()
-
-		if c.BaseURL.Port() != "" {
-			host = fmt.Sprintf("%s:%s", c.BaseURL.Hostname(), c.BaseURL.Port())
-		}
-
-		c.defaultHeaders["X-Litebase-Date"] = fmt.Sprintf("%d", time.Now().UTC().Unix())
-		c.defaultHeaders["Host"] = host
-		c.defaultHeaders["Authorization"] = fmt.Sprintf("Litebase-HMAC-SHA256 %s", c.accessKeyHeader(
-			method,
-			path,
-			c.defaultHeaders,
-			jsonData,
-		))
-	} else if c.shouldUseToken() {
-		c.defaultHeaders["Authorization"] = fmt.Sprintf("Bearer %s", c.Config.GetToken())
-	} else if c.shouldUseBasicAuth() {
-		c.defaultHeaders["Authorization"] = c.basicAuthHeader()
-	}
+	c.setAuthHeaders(method, path, jsonData)
 
 	req, err := http.NewRequest(method, url, strings.NewReader(string(jsonData)))
 
@@ -162,6 +167,43 @@ func (c *Client) Request(method, path string, data map[string]any) (map[string]a
 	}
 
 	return responseData, nil, nil
+}
+
+// DownloadBinary makes a GET request and returns the raw response for binary downloads
+func (c *Client) DownloadBinary(path string) (*http.Response, error) {
+	url := fmt.Sprintf("%s/%s", c.BaseURL, strings.TrimLeft(path, "/"))
+
+	c.setAuthHeaders("GET", path, nil)
+
+	req, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range c.defaultHeaders {
+		req.Header.Set(key, value)
+	}
+
+	res, err := c.httpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		body, _ := io.ReadAll(res.Body)
+
+		err := res.Body.Close()
+
+		if err != nil {
+			slog.Error("Error closing response body", "error", err)
+		}
+
+		return nil, fmt.Errorf("request failed with status %d: %s", res.StatusCode, string(body))
+	}
+
+	return res, nil
 }
 
 func (c *Client) accessKeyHeader(method, path string, headers map[string]string, body []byte) string {

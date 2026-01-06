@@ -59,7 +59,7 @@ type UserStoreRequest struct {
 	Username    string           `json:"username" validate:"required"`
 }
 
-type UserControllerShowResponse struct {
+type UserShowResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
@@ -89,7 +89,7 @@ func UserControllerShow(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		fmt.Sprintf("User '%s' retrieved successfully", username),
-		UserControllerShowResponse{
+		UserShowResponse{
 			Username:   user.Username,
 			Statements: user.Statements,
 			CreatedAt:  user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -99,7 +99,7 @@ func UserControllerShow(ctx context.Context, request *Request) Response {
 	)
 }
 
-type UserControllerStoreResponse struct {
+type UserStoreResponse struct {
 	Username    string           `json:"username"`
 	Description string           `json:"description"`
 	Statements  []auth.Statement `json:"statements"`
@@ -177,7 +177,7 @@ func UserControllerStore(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"User created successfully",
-		UserControllerStoreResponse{
+		UserStoreResponse{
 			Username:    user.Username,
 			Description: user.Description,
 			Statements:  user.Statements,
@@ -193,7 +193,7 @@ type UserUpdateRequest struct {
 	Statements  []auth.Statement `json:"statements" validate:"required"`
 }
 
-type UserControllerUpdateResponse struct {
+type UserUpdateResponse struct {
 	Username    string           `json:"username" example:"admin" description:"The username"`
 	Description string           `json:"description" example:"Administrator user" description:"The user description"`
 	Statements  []auth.Statement `json:"statements" description:"List of permission statements defining what the user can access"`
@@ -258,7 +258,7 @@ func UserControllerUpdate(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		fmt.Sprintf("User '%s' updated successfully", username),
-		UserControllerUpdateResponse{
+		UserUpdateResponse{
 			Username:   user.Username,
 			Statements: user.Statements,
 			CreatedAt:  user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),

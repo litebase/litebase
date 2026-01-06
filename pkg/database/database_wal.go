@@ -246,10 +246,28 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 		return 0, err
 	}
 
+	// Expectations for reading from checkpointed WAL files:
+	//
+	// PRIMARY NODE:
+	//   - Once a WAL is checkpointed, the primary should not read from it during
+	//     normal operations. All new writes go to a new WAL version.
+	//   - Reading from a checkpointed WAL on primary indicates a logic error in
+	//     the connection/checkpoint management.
+	//   - Therefore, we panic to catch these bugs early in development.
+	//
+	// REPLICA NODE:
+	//   - Replicas receive checkpoint notifications from the primary and need to
+	//     apply those changes by reading the checkpointed WAL data.
+	//   - Replicas may also need to read historical WAL data for catch-up operations.
+	//   - Therefore, replicas SHOULD be allowed to read from checkpointed WAL files.
+	//   - The current panic condition is a bug that prevents proper replica operation.
+	//
 	if wal.node.IsPrimary() && !wal.checkpointedAt.IsZero() {
 		panic(fmt.Sprintf("WAL file has been checkpointed, cannot read from it - %d", wal.timestamp))
 	}
 
+	// TODO: Remove the replica panic condition to allow replicas to read
+	// checkpointed WALs once messages are properly handled.
 	if wal.node.IsReplica() && !wal.checkpointedAt.IsZero() {
 		panic(fmt.Sprintf("WAL file has been checkpointed, cannot read from it - %d", wal.timestamp))
 	}

@@ -1654,7 +1654,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DatabaseExportControllerStoreRequest"
+                "$ref": "#/components/schemas/DatabaseExportStoreRequest"
               }
             }
           },
@@ -1666,7 +1666,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DatabaseExportStoreResponse"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database export started"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
@@ -1727,19 +1747,160 @@
         }
       ]
     },
+    "/v1/databases/{databaseName}/branches/{branchName}/export/{exportId}/end": {
+      "post": {
+        "tags": [
+          "DatabaseExportEnd"
+        ],
+        "summary": "Create a new database export end",
+        "description": "End an active database export session.",
+        "operationId": "createDatabaseExportEnd",
+        "requestBody": {
+          "description": "Database export end creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseExportEndStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database export completed successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "exportId",
+          "in": "path",
+          "description": "The exportId parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
+    },
     "/v1/databases/{databaseName}/branches/{branchName}/export/{exportId}/ranges/{rangeNumber}": {
       "get": {
         "tags": [
           "DatabaseExportPart"
         ],
         "summary": "Show details of a specific database export part",
-        "description": "DatabaseExportPartControllerShow retrieves a specific range from an active database export",
+        "description": "Retrieve a specific database range from an active database export.",
         "operationId": "getDatabaseExportPart",
         "responses": {
           "200": {
             "description": "Successful operation",
+            "headers": {
+              "Content-Disposition": {
+                "description": "Content-Disposition header",
+                "schema": {
+                  "type": "string",
+                  "description": "Content-Disposition header"
+                }
+              }
+            },
             "content": {
-              "application/json": {
+              "application/octet-stream": {
                 "schema": {
                   "type": "object"
                 }
@@ -2565,7 +2726,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ImportControllerStoreRequest"
+                "$ref": "#/components/schemas/ImportStoreRequest"
               }
             }
           },
@@ -2580,7 +2741,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/ImportControllerStoreResponse"
+                      "$ref": "#/components/schemas/ImportStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -2672,7 +2833,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/ImportControllerShowResponse"
+                      "$ref": "#/components/schemas/ImportShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -2839,6 +3000,17 @@
         ],
         "summary": "Update an existing import",
         "operationId": "updateImport",
+        "requestBody": {
+          "description": "Import update data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful operation",
@@ -2847,6 +3019,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ImportUpdateResponse"
+                    },
                     "message": {
                       "type": "string",
                       "description": "Response message",
@@ -2859,6 +3034,7 @@
                     }
                   },
                   "required": [
+                    "data",
                     "message",
                     "status"
                   ]
@@ -2935,7 +3111,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ImportChunkControllerStoreRequest"
+                "$ref": "#/components/schemas/ImportChunkStoreRequest"
               }
             }
           },
@@ -2950,7 +3126,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/ImportChunkControllerStoreResponse"
+                      "$ref": "#/components/schemas/ImportChunkStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -3497,7 +3673,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/TokenControllerShowResponse"
+                      "$ref": "#/components/schemas/TokenShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -3857,7 +4033,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/UserControllerStoreResponse"
+                      "$ref": "#/components/schemas/UserStoreResponse"
                     },
                     "message": {
                       "type": "string",
@@ -3950,7 +4126,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/UserControllerShowResponse"
+                      "$ref": "#/components/schemas/UserShowResponse"
                     },
                     "message": {
                       "type": "string",
@@ -4118,7 +4294,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/UserControllerUpdateResponse"
+                      "$ref": "#/components/schemas/UserUpdateResponse"
                     },
                     "message": {
                       "type": "string",
@@ -4483,8 +4659,44 @@
           }
         }
       },
-      "DatabaseExportControllerStoreRequest": {
+      "DatabaseExportEndStoreRequest": {
         "type": "object"
+      },
+      "DatabaseExportStoreRequest": {
+        "type": "object"
+      },
+      "DatabaseExportStoreResponse": {
+        "type": "object",
+        "properties": {
+          "databaseBranchName": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2023-09-20T14:30:00Z"
+          },
+          "id": {
+            "type": "string"
+          },
+          "rangeCount": {
+            "type": "integer"
+          },
+          "ranges": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2023-09-20T14:30:00Z"
+          }
+        }
       },
       "DatabaseIncrementalBackupSettings": {
         "type": "object",
@@ -4662,7 +4874,7 @@
           "message"
         ]
       },
-      "ImportChunkControllerStoreRequest": {
+      "ImportChunkStoreRequest": {
         "type": "object",
         "properties": {
           "checksum": {
@@ -4680,7 +4892,7 @@
           "chunkIndex"
         ]
       },
-      "ImportChunkControllerStoreResponse": {
+      "ImportChunkStoreResponse": {
         "type": "object",
         "properties": {
           "chunkIndex": {
@@ -4694,7 +4906,7 @@
           }
         }
       },
-      "ImportControllerShowResponse": {
+      "ImportShowResponse": {
         "type": "object",
         "properties": {
           "branchName": {
@@ -4746,7 +4958,7 @@
           }
         }
       },
-      "ImportControllerStoreRequest": {
+      "ImportStoreRequest": {
         "type": "object",
         "properties": {
           "branchName": {
@@ -4764,7 +4976,7 @@
           "databaseName"
         ]
       },
-      "ImportControllerStoreResponse": {
+      "ImportStoreResponse": {
         "type": "object",
         "properties": {
           "branchName": {
@@ -4790,6 +5002,53 @@
           },
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "ImportUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "databaseName": {
+            "$ref": "#/components/schemas/DatabaseName"
+          }
+        },
+        "required": [
+          "chunkCount",
+          "databaseName"
+        ]
+      },
+      "ImportUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string"
+          },
+          "chunkCount": {
+            "type": "integer"
+          },
+          "databaseId": {
+            "type": "string"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "importId": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2023-09-20T14:30:00Z"
           }
         }
       },
@@ -5027,29 +5286,6 @@
           "message"
         ]
       },
-      "TokenControllerShowResponse": {
-        "type": "object",
-        "properties": {
-          "createdAt": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "statements": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Statement"
-            }
-          },
-          "tokenId": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          }
-        }
-      },
       "TokenCreatedResponse": {
         "type": "object",
         "properties": {
@@ -5111,6 +5347,29 @@
           }
         }
       },
+      "TokenShowResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "tokenId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
       "TokenStoreRequest": {
         "type": "object",
         "properties": {
@@ -5168,76 +5427,30 @@
           }
         }
       },
-      "UserControllerShowResponse": {
-        "type": "object",
-        "properties": {
-          "createdAt": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "statements": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Statement"
-            }
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          }
-        }
-      },
-      "UserControllerStoreResponse": {
-        "type": "object",
-        "properties": {
-          "createdAt": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "statements": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Statement"
-            }
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          }
-        }
-      },
-      "UserControllerUpdateResponse": {
-        "type": "object",
-        "properties": {
-          "createdAt": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "statements": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Statement"
-            }
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          }
-        }
-      },
       "UserResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "UserShowResponse": {
         "type": "object",
         "properties": {
           "createdAt": {
@@ -5285,6 +5498,29 @@
           "username"
         ]
       },
+      "UserStoreResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
       "UserUpdateRequest": {
         "type": "object",
         "properties": {
@@ -5301,6 +5537,29 @@
         "required": [
           "statements"
         ]
+      },
+      "UserUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
       },
       "ValidationErrorResponse": {
         "type": "object",
@@ -5393,6 +5652,10 @@
     {
       "name": "DatabaseExport",
       "description": "Database Export operations"
+    },
+    {
+      "name": "DatabaseExportEnd",
+      "description": "Database Export End operations"
     },
     {
       "name": "DatabaseExportPart",

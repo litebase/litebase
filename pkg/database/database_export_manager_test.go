@@ -44,6 +44,9 @@ func TestDatabaseExportManager(t *testing.T) {
 			if export.StartedAt.IsZero() {
 				t.Fatal("Expected export to have a start time")
 			}
+
+			// Cleanup - release the compaction barrier
+			manager.Clear()
 		})
 
 		t.Run("Create_OnlyOneExportAllowed", func(t *testing.T) {
@@ -75,6 +78,9 @@ func TestDatabaseExportManager(t *testing.T) {
 			if err.Error() != expectedError {
 				t.Fatalf("Expected error '%s', got '%s'", expectedError, err.Error())
 			}
+
+			// Cleanup - release the compaction barrier
+			manager.Clear()
 		})
 
 		t.Run("Get", func(t *testing.T) {
@@ -104,6 +110,9 @@ func TestDatabaseExportManager(t *testing.T) {
 			if !retrieved.StartedAt.Equal(created.StartedAt) {
 				t.Fatal("Expected retrieved export to have same start time as created export")
 			}
+
+			// Cleanup - release the compaction barrier
+			manager.Clear()
 		})
 
 		t.Run("Get_NoActiveExport", func(t *testing.T) {
@@ -186,6 +195,9 @@ func TestDatabaseExportManager(t *testing.T) {
 			if export1.ID == export2.ID {
 				t.Fatal("Expected second export to have different ID from first export")
 			}
+
+			// Cleanup - release the compaction barrier
+			manager.Clear()
 		})
 	})
 }
