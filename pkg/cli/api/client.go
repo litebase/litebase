@@ -193,7 +193,13 @@ func (c *Client) DownloadBinary(path string) (*http.Response, error) {
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		body, _ := io.ReadAll(res.Body)
-		res.Body.Close()
+
+		err := res.Body.Close()
+
+		if err != nil {
+			slog.Error("Error closing response body", "error", err)
+		}
+
 		return nil, fmt.Errorf("request failed with status %d: %s", res.StatusCode, string(body))
 	}
 
