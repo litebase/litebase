@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/litebase/litebase/pkg/auth"
 )
@@ -62,7 +61,5 @@ func DatabaseExportEndControllerStore(ctx context.Context, request *Request) Res
 	// Clear the export
 	exportManager.Clear()
 
-	return Response{
-		StatusCode: http.StatusNoContent,
-	}
+	return SuccessResponse("Database export completed successfully", nil, 200)
 }

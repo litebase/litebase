@@ -1772,7 +1772,23 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Database export completed successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "status"
+                  ]
                 }
               }
             }
