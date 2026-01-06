@@ -1282,6 +1282,27 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("DatabaseConnectionReadSnapshotIsolationOnReplicaServer", func(t *testing.T) {
 			// TODO: This test needs to be refactored with proper a primary/replica.
 			// Writing to the primary while reading from the replica.
+			//
+			// CURRENT ISSUES:
+			// 1. This test only creates a single node using test.MockDatabase(app),
+			//    which automatically becomes a PRIMARY node in the test environment.
+			//    It does NOT create a separate replica node.
+			//
+			// 2. The test name suggests it's testing replica behavior, but it's
+			//    actually just testing snapshot isolation on a single primary node.
+			//
+			// 3. To properly test primary/replica snapshot isolation, the test should:
+			//    a) Create a primary server using test.NewTestServer(t)
+			//    b) Create a replica server using test.NewTestServer(t) (second server becomes replica)
+			//    c) Write data on the primary
+			//    d) Trigger checkpoint on the primary
+			//    e) Verify the replica can read the checkpointed data
+			//    f) Ensure snapshot isolation works during concurrent reads/writes
+			//
+			// 4. See other tests that properly set up primary/replica:
+			//    - TestNodeReplicaJoinCluster in node_replica_test.go
+			//    - TestForwardToPrimary in forward_to_primary_middleware_test.go
+			//    - TestClusterPrimaryController in cluster_primary_controller_test.go
 
 			mock := test.MockDatabase(app)
 
