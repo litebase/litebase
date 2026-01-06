@@ -102,8 +102,8 @@ func TestDatabaseExportController(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if endStatusCode != 204 {
-				t.Fatalf("Expected end export status 204, got %d", endStatusCode)
+			if endStatusCode != 200 {
+				t.Fatalf("Expected end export status 200, got %d", endStatusCode)
 			}
 		})
 
