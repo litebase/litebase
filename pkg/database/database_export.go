@@ -56,9 +56,24 @@ func (de *DatabaseExport) GetRange(rangeNumber int64) (*storage.Range, error) {
 	return de.fileSystem.GetRangeFile(rangeNumber)
 }
 
+// Return the count of ranges in the export.
 func (de *DatabaseExport) RangeCount() int {
 	de.mutex.Lock()
 	defer de.mutex.Unlock()
 
 	return len(de.ranges)
+}
+
+// Return the list of range numbers in the export.
+func (de *DatabaseExport) Ranges() []int {
+	de.mutex.Lock()
+	defer de.mutex.Unlock()
+
+	rangeNumbers := make([]int, 0, len(de.ranges))
+
+	for rangeNumber := range de.ranges {
+		rangeNumbers = append(rangeNumbers, int(rangeNumber))
+	}
+
+	return rangeNumbers
 }

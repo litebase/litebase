@@ -12,7 +12,13 @@ import (
 	"github.com/litebase/litebase/pkg/storage"
 )
 
-// DatabaseExportPartControllerShow retrieves a specific range from an active database export
+type DatabaseExportPartControllerShowRequest struct{}
+
+// DatabaseExportPartControllerShowResponse represents the binary file response
+type DatabaseExportPartControllerShowResponse struct {
+}
+
+// Retrieve a specific database range from an active database export.
 func DatabaseExportPartControllerShow(ctx context.Context, request *Request) Response {
 	databaseKey, errResponse := request.DatabaseKey()
 
@@ -83,6 +89,10 @@ func DatabaseExportPartControllerShow(ctx context.Context, request *Request) Res
 
 	return Response{
 		StatusCode: http.StatusOK,
+		Headers: map[string]string{
+			"Content-Type":        "application/octet-stream",
+			"Content-Disposition": fmt.Sprintf("attachment; filename=\"range_%d\"", rangeNumber),
+		},
 		Stream: func(w http.ResponseWriter) {
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"range_%d\"", rangeNumber))

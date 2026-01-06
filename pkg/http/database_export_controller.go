@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,9 +9,17 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-type DatabaseExportControllerStoreRequest struct{}
+type DatabaseExportStoreRequest struct{}
 
-type DatabaseExportControllerStoreResponse struct{}
+type DatabaseExportStoreResponse struct {
+	DatabaseName       string    `json:"databaseName"`
+	DatabaseBranchName string    `json:"databaseBranchName"`
+	ID                 string    `json:"id"`
+	Ranges             []int     `json:"ranges"`
+	RangeCount         int       `json:"rangeCount"`
+	StartedAt          time.Time `json:"startedAt"`
+	ExpiresAt          time.Time `json:"expiresAt"`
+}
 
 // Export a database.
 func DatabaseExportControllerStore(ctx context.Context, request *Request) Response {
@@ -85,70 +92,15 @@ func DatabaseExportControllerStore(ctx context.Context, request *Request) Respon
 	}
 
 	// Return export metadata
-	response := map[string]any{
-		"id":         export.ID,
-		"rangeCount": export.RangeCount(),
-		"startedAt":  export.StartedAt.Format(time.RFC3339),
-		"expiresAt":  export.StartedAt.Add(60 * time.Second).Format(time.RFC3339),
+	response := DatabaseExportStoreResponse{
+		DatabaseName:       request.databaseKey.DatabaseName,
+		DatabaseBranchName: request.databaseKey.DatabaseBranchName,
+		ID:                 export.ID,
+		Ranges:             export.Ranges(),
+		RangeCount:         export.RangeCount(),
+		StartedAt:          export.StartedAt,
+		ExpiresAt:          export.StartedAt.Add(60 * time.Second),
 	}
 
 	return SuccessResponse("Database export started", response, http.StatusCreated)
-}
-
-type DatabaseExportControllerEndRequest struct{}
-
-type DatabaseExportControllerEndResponse struct{}
-
-// End an active database export session.
-func DatabaseExportControllerEnd(ctx context.Context, request *Request) Response {
-	databaseKey, errResponse := request.DatabaseKey()
-
-	if !errResponse.IsEmpty() {
-		return errResponse
-	}
-
-	err := request.Authorize(
-		[]string{fmt.Sprintf("database:%s:branch:%s", databaseKey.DatabaseID, databaseKey.DatabaseBranchID)},
-		[]auth.Privilege{auth.DatabasePrivilegeExport},
-	)
-
-	if err != nil {
-		return ForbiddenResponse(err)
-	}
-
-	// Get the export ID from the route parameters
-	exportIDStr := request.Param("exportId")
-
-	if exportIDStr == "" {
-		return BadRequestResponse(errors.New("export ID is required"))
-	}
-
-	// Get the export manager
-	exportManager, err := request.databaseManager.Resources(
-		request.databaseKey.DatabaseID,
-		request.databaseKey.DatabaseBranchID,
-	).ExportManager()
-
-	if err != nil {
-		return ServerErrorResponse(err)
-	}
-
-	// Get the active export
-	export, err := exportManager.Get()
-
-	if err != nil {
-		return NotFoundResponse(errors.New("no active export found"))
-	}
-
-	// Verify the export ID matches
-	if export.ID != exportIDStr {
-		return NotFoundResponse(errors.New("export ID does not match active export"))
-	}
-
-	// Clear the export
-	exportManager.Clear()
-
-	return Response{
-		StatusCode: http.StatusNoContent,
-	}
 }

@@ -316,7 +316,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_6a8af77b90d99c85"
+                  "name": "test_db_a1e4d5533866f1ef"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -341,7 +341,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_599b68cfbe32c27a"
+                  "name": "test_db_4e5151290ba4609a"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -392,7 +392,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_9e4bdc92f09fc8e8"
+                  "name": "test_db_54e5ba5490ac4cba"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -430,7 +430,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_f522b4c8df46bfc1"
+                  "name": "test_db_b28aba976c3a879c"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -472,7 +472,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_5da510e3313fa440"
+                  "name": "test_db_06a5ad2f21d6f075"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -492,7 +492,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-210475926",
+                      "id": "query-939823000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -565,7 +565,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_77a8e626b4fee63a"
+                  "name": "test_db_2705134e5306b8a0"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -585,7 +585,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209611244",
+                      "id": "query-939943000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -688,7 +688,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_51662e578d70a78f"
+                  "name": "test_db_26e490451c5ba863"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -708,7 +708,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209521034",
+                      "id": "query-939940000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -796,7 +796,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_e5502de232279ca4"
+                  "name": "test_db_40a6b14e335b31e8"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -816,7 +816,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-210463222",
+                      "id": "query-939817000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -893,7 +893,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_0f246b616f25a6e0"
+                  "name": "test_db_2bee137b5f3bd50f"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -913,7 +913,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209363590",
+                      "id": "query-939862000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -970,7 +970,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_ccaba6f14af44e7c"
+                  "name": "test_db_75b353e2aee7bd02"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -990,7 +990,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209505044",
+                      "id": "query-939809000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1075,7 +1075,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_0ebb70058625609c"
+                  "name": "test_db_24635b8dce0bd41d"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1095,7 +1095,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209494604",
+                      "id": "query-939805000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1145,7 +1145,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_99779363212f3983"
+                  "name": "test_db_2622eef53612d7fd"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1165,7 +1165,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209349013",
+                      "id": "query-939859000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1221,7 +1221,81 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_0a4236f3ba12ed10"
+                  "name": "test_db_181862a48eecab20"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database for export",
+                "model": "Query",
+                "operation": "createQuery",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-939826000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test export data');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "request": {
+                "name": "Create DatabaseExport",
+                "model": "DatabaseExport",
+                "operation": "createDatabaseExport",
+                "requestModel": "DatabaseExportStoreRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "databaseBranchName AS branchName",
+                  "id AS exportId",
+                  "rangeCount"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DatabaseExportEnd": {
+      "tests": {
+        "createDatabaseExportEnd": {
+          "operationId": "createDatabaseExportEnd",
+          "name": "Test createDatabaseExportEnd - Create resource",
+          "description": "Creates a new DatabaseExportEnd and verifies the response",
+          "steps": [
+            {
+              "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "body": {
+                  "name": "test_db_fe094ccc6fb828f6"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1241,7 +1315,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-210482919",
+                      "id": "query-939865000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1290,10 +1364,32 @@
                 "name": "Create DatabaseExport",
                 "model": "DatabaseExport",
                 "operation": "createDatabaseExport",
-                "requestModel": "DatabaseExportControllerStoreRequest",
+                "requestModel": "DatabaseExportStoreRequest",
                 "parameters": [
                   "databaseName",
                   "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "databaseBranchName AS branchName",
+                  "id AS exportId",
+                  "rangeCount"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Create DatabaseExportEnd",
+                "model": "DatabaseExportEnd",
+                "operation": "createDatabaseExportEnd",
+                "requestModel": "DatabaseExportEndStoreRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName",
+                  "exportId"
                 ]
               },
               "response": {
@@ -1313,6 +1409,70 @@
           "steps": [
             {
               "request": {
+                "name": "Create test Database",
+                "model": "Database",
+                "operation": "createDatabase",
+                "body": {
+                  "name": "test_db_f1d720f8681b2427"
+                },
+                "requestModel": "DatabaseStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "branchName"
+                ]
+              }
+            },
+            {
+              "request": {
+                "name": "Write data to database for export",
+                "model": "Query",
+                "operation": "createQuery",
+                "body": {
+                  "queries": [
+                    {
+                      "id": "query-939868000",
+                      "parameters": {},
+                      "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test export data');"
+                    }
+                  ]
+                },
+                "requestModel": "QueryRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 200
+              }
+            },
+            {
+              "request": {
+                "name": "Create DatabaseExport",
+                "model": "DatabaseExport",
+                "operation": "createDatabaseExport",
+                "requestModel": "DatabaseExportStoreRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName"
+                ]
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "databaseName",
+                  "databaseBranchName AS branchName",
+                  "id AS exportId",
+                  "rangeCount",
+                  "ranges[0] AS rangeNumber"
+                ]
+              }
+            },
+            {
+              "request": {
                 "name": "Get DatabaseExportPart by ID",
                 "model": "DatabaseExportPart",
                 "operation": "getDatabaseExportPart",
@@ -1324,7 +1484,24 @@
                 ]
               },
               "response": {
-                "statusCode": 200
+                "statusCode": 200,
+                "isBinaryFile": true
+              }
+            },
+            {
+              "request": {
+                "name": "End DatabaseExport session",
+                "model": "DatabaseExportEnd",
+                "operation": "createDatabaseExportEnd",
+                "requestModel": "DatabaseExportEndStoreRequest",
+                "parameters": [
+                  "databaseName",
+                  "branchName",
+                  "exportId"
+                ]
+              },
+              "response": {
+                "statusCode": 204
               }
             }
           ]
@@ -1344,7 +1521,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_a7d36149e319c250"
+                  "name": "test_db_b03bd79975d1eb16"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1364,7 +1541,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209632885",
+                      "id": "query-939950000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1413,7 +1590,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_2811c7858302b5f0"
+                  "name": "test_db_e3e3e15e74b96e3a"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1462,7 +1639,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_8674d7fe2865c4f9"
+                  "name": "test_db_928682fecb382a08"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1482,7 +1659,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-210397429",
+                      "id": "query-939929000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1553,7 +1730,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_e995f0f2f5d0bd6c"
+                  "name": "test_db_8fe6faca2ed9581c"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1573,7 +1750,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-210387291",
+                      "id": "query-939830000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1629,10 +1806,18 @@
                 "name": "Create Import",
                 "model": "Import",
                 "operation": "createImport",
-                "requestModel": "ImportControllerStoreRequest"
+                "body": {
+                  "chunkCount": 1,
+                  "databaseName": "test_db_a051ec4c477da4c9"
+                },
+                "requestModel": "ImportStoreRequest"
               },
               "response": {
-                "statusCode": 201
+                "statusCode": 201,
+                "captures": [
+                  "importId",
+                  "chunkCount"
+                ]
               }
             }
           ]
@@ -1647,10 +1832,18 @@
                 "name": "Create test Import",
                 "model": "Import",
                 "operation": "createImport",
-                "requestModel": "ImportControllerStoreRequest"
+                "body": {
+                  "chunkCount": 1,
+                  "databaseName": "test_db_b5cbc62e69510eec"
+                },
+                "requestModel": "ImportStoreRequest"
               },
               "response": {
-                "statusCode": 201
+                "statusCode": 201,
+                "captures": [
+                  "importId",
+                  "chunkCount"
+                ]
               }
             },
             {
@@ -1691,10 +1884,18 @@
                 "name": "Create test Import",
                 "model": "Import",
                 "operation": "createImport",
-                "requestModel": "ImportControllerStoreRequest"
+                "body": {
+                  "chunkCount": 1,
+                  "databaseName": "test_db_eaef3c9f22de979a"
+                },
+                "requestModel": "ImportStoreRequest"
               },
               "response": {
-                "statusCode": 201
+                "statusCode": 201,
+                "captures": [
+                  "importId",
+                  "chunkCount"
+                ]
               }
             },
             {
@@ -1722,10 +1923,18 @@
                 "name": "Create test Import",
                 "model": "Import",
                 "operation": "createImport",
-                "requestModel": "ImportControllerStoreRequest"
+                "body": {
+                  "chunkCount": 1,
+                  "databaseName": "test_db_f693ef015f7486d0"
+                },
+                "requestModel": "ImportStoreRequest"
               },
               "response": {
-                "statusCode": 201
+                "statusCode": 201,
+                "captures": [
+                  "importId",
+                  "chunkCount"
+                ]
               }
             },
             {
@@ -1733,6 +1942,11 @@
                 "name": "Update Import",
                 "model": "Import",
                 "operation": "updateImport",
+                "body": {
+                  "chunkCount": 1,
+                  "databaseName": "test_db_6b1435507ae5684e"
+                },
+                "requestModel": "ImportUpdateRequest",
                 "parameters": [
                   "importId"
                 ]
@@ -1754,10 +1968,33 @@
           "steps": [
             {
               "request": {
+                "name": "Create Import",
+                "model": "Import",
+                "operation": "createImport",
+                "body": {
+                  "chunkCount": 1,
+                  "databaseName": "test_db_4605f6685b2b516f"
+                },
+                "requestModel": "ImportStoreRequest"
+              },
+              "response": {
+                "statusCode": 201,
+                "captures": [
+                  "importId",
+                  "chunkCount"
+                ]
+              }
+            },
+            {
+              "request": {
                 "name": "Create ImportChunk",
                 "model": "ImportChunk",
                 "operation": "createImportChunk",
-                "requestModel": "ImportChunkControllerStoreRequest",
+                "body": {
+                  "chunkData": "U1FMaXRlIGZvcm1hdCAzABAAAQEAQCAgAAAAAgAAAAAAAAAAAAAAAAEAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "chunkIndex": 0
+                },
+                "requestModel": "ImportChunkStoreRequest",
                 "parameters": [
                   "importId"
                 ]
@@ -1834,7 +2071,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_3c4364cf62fe3492"
+                  "name": "test_db_f717280ef76d562e"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1854,7 +2091,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-210490112",
+                      "id": "query-939922000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -1906,7 +2143,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-210492216",
+                      "id": "query-939924000",
                       "parameters": {},
                       "statement": "SELECT 1"
                     }
@@ -1942,7 +2179,7 @@
                 "model": "Database",
                 "operation": "createDatabase",
                 "body": {
-                  "name": "test_db_ff6dd24c40fbbb94"
+                  "name": "test_db_30ea119b648ac42a"
                 },
                 "requestModel": "DatabaseStoreRequest"
               },
@@ -1962,7 +2199,7 @@
                 "body": {
                   "queries": [
                     {
-                      "id": "query-209379579",
+                      "id": "query-939946000",
                       "parameters": {},
                       "statement": "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');"
                     }
@@ -2275,7 +2512,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_209251140"
+                  "username": "test_user_sdk_939843000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2310,7 +2547,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_209443729"
+                  "username": "test_user_sdk_939904000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2371,7 +2608,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_209427268"
+                  "username": "test_user_sdk_939902000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2419,7 +2656,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_209235551"
+                  "username": "test_user_sdk_939837000"
                 },
                 "requestModel": "UserStoreRequest"
               },
@@ -2467,7 +2704,7 @@
                       "resource": "*"
                     }
                   ],
-                  "username": "test_user_sdk_209454359"
+                  "username": "test_user_sdk_939911000"
                 },
                 "requestModel": "UserStoreRequest"
               },

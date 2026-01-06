@@ -10,13 +10,13 @@ import (
 	"github.com/litebase/litebase/pkg/auth"
 )
 
-type ImportChunkControllerStoreRequest struct {
+type ImportChunkStoreRequest struct {
 	ChunkData  string `json:"chunkData" validate:"required"`
 	ChunkIndex *int64 `json:"chunkIndex" validate:"required,min=0"`
 	Checksum   string `json:"checksum,omitempty"`
 }
 
-type ImportChunkControllerStoreResponse struct {
+type ImportChunkStoreResponse struct {
 	ImportID   int64  `json:"importId"`
 	ChunkIndex int64  `json:"chunkIndex"`
 	Status     string `json:"status"`
@@ -47,13 +47,13 @@ func ImportChunkControllerStore(ctx context.Context, request *Request) Response 
 		return BadRequestResponse(errors.New("invalid import ID"))
 	}
 
-	input, err := request.Input(&ImportChunkControllerStoreRequest{})
+	input, err := request.Input(&ImportChunkStoreRequest{})
 
 	if err != nil {
 		return BadRequestResponse(err)
 	}
 
-	req, ok := input.(*ImportChunkControllerStoreRequest)
+	req, ok := input.(*ImportChunkStoreRequest)
 
 	if !ok {
 		return ServerErrorResponse(errors.New("invalid request format"))
@@ -105,7 +105,7 @@ func ImportChunkControllerStore(ctx context.Context, request *Request) Response 
 
 	return SuccessResponse(
 		"Import chunk stored successfully",
-		ImportChunkControllerStoreResponse{
+		ImportChunkStoreResponse{
 			ImportID:   chunk.ImportReferenceID,
 			ChunkIndex: chunk.ChunkIndex,
 			Status:     string(importRecord.Status),

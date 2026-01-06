@@ -28,9 +28,10 @@ type Request struct {
 
 // Response represents the expected response for a request
 type Response struct {
-	StatusCode int            `json:"statusCode"`
-	Content    map[string]any `json:"content,omitempty"`
-	Captures   []string       `json:"captures,omitempty"` // Array of field names to capture from response. Supports nested objects using dot notation (e.g., "restorePoint.timestamp")
+	StatusCode   int            `json:"statusCode"`
+	Content      map[string]any `json:"content,omitempty"`
+	Captures     []string       `json:"captures,omitempty"`    // Array of field names to capture from response. Supports nested objects using dot notation (e.g., "restorePoint.timestamp")
+	IsBinaryFile bool           `json:"isBinaryFile,omitempty"` // true if the response is a binary file (application/octet-stream) instead of JSON
 }
 
 // WaitStep represents a wait/delay instruction in a test
@@ -728,7 +729,7 @@ func generateCreateTestCase(operationID, resourceType string, details map[string
 	}
 
 	// Step 1: Create parent database if needed
-	if needsDatabase && resourceType != "Database" {
+	if needsDatabase && resourceType != "Database" && resourceType != "DatabaseExport" {
 		steps = append(steps, TestStep{
 			Request: &Request{
 				Name:      "Create test Database",
@@ -747,7 +748,7 @@ func generateCreateTestCase(operationID, resourceType string, details map[string
 	}
 
 	// Step 2: Create parent branch if needed (and not creating a branch itself)
-	if needsBranch && resourceType != "DatabaseBranch" {
+	if needsBranch && resourceType != "DatabaseBranch" && resourceType != "DatabaseExport" {
 		// Write data to the database to ensure branch can be created from a non-empty state
 		steps = append(steps, TestStep{
 			Request: &Request{
@@ -830,6 +831,72 @@ func generateCreateTestCase(operationID, resourceType string, details map[string
 				Name:     "Wait for database checkpoint",
 				Duration: 1000, // DatabaseCheckpointThreshold = 1 second
 				Reason:   "Database branches are created from the latest checkpoint, which occurs every 1 second after writes",
+			},
+		})
+	}
+
+	// Step 4: when creating a DatabaseExport, we need database and data first
+	if resourceType == "DatabaseExport" {
+		// Create database
+		steps = append(steps, TestStep{
+			Request: &Request{
+				Name:      "Create test Database",
+				Model:     "Database",
+				Operation: "createDatabase",
+				Body: map[string]any{
+					"name": generateRandomDatabaseName(),
+				},
+			},
+			Response: &Response{
+				StatusCode: 201,
+				Content:    map[string]any{},
+				Captures:   []string{"databaseName", "branchName"},
+			},
+		})
+
+		// Write data to database
+		steps = append(steps, TestStep{
+			Request: &Request{
+				Name:      "Write data to database for export",
+				Model:     "Query",
+				Operation: "createQuery",
+				Body: map[string]any{
+					"queries": []any{
+						map[string]any{
+							"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
+							"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test export data');",
+							"parameters": map[string]any{},
+						},
+					},
+				},
+				Parameters: []string{"databaseName", "branchName"},
+			},
+			Response: &Response{
+				StatusCode: 200,
+				Content:    map[string]any{},
+			},
+		})
+	}
+
+	// Step 5: when creating an ImportChunk, we need an import first
+	if resourceType == "ImportChunk" {
+		steps = append(steps, generateImportPrerequisites()...)
+	}
+
+	// Step 6: when creating a DatabaseExportEnd, we need to create an export first
+	if resourceType == "DatabaseExportEnd" {
+		steps = append(steps, TestStep{
+			Request: &Request{
+				Name:       "Create DatabaseExport",
+				Model:      "DatabaseExport",
+				Operation:  "createDatabaseExport",
+				Body:       nil,
+				Parameters: []string{"databaseName", "branchName"},
+			},
+			Response: &Response{
+				StatusCode: 201,
+				Content:    nil,
+				Captures:   []string{"databaseName", "databaseBranchName AS branchName", "id AS exportId", "rangeCount"},
 			},
 		})
 	}
@@ -1198,6 +1265,98 @@ func generateQueryLogPrerequisites() []TestStep {
 	return steps
 }
 
+// generateDatabaseExportPrerequisites generates the steps needed before accessing a DatabaseExport
+// This includes: creating database, creating branch, writing data, and creating export
+func generateDatabaseExportPrerequisites() []TestStep {
+	steps := []TestStep{}
+
+	// Step 1: Create database
+	steps = append(steps, TestStep{
+		Request: &Request{
+			Name:      "Create test Database",
+			Model:     "Database",
+			Operation: "createDatabase",
+			Body: map[string]any{
+				"name": generateRandomDatabaseName(),
+			},
+		},
+		Response: &Response{
+			StatusCode: 201,
+			Content:    map[string]any{},
+			Captures:   []string{"databaseName", "branchName"},
+		},
+	})
+
+	// Step 2: Write data to database
+	steps = append(steps, TestStep{
+		Request: &Request{
+			Name:      "Write data to database for export",
+			Model:     "Query",
+			Operation: "createQuery",
+			Body: map[string]any{
+				"queries": []any{
+					map[string]any{
+						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
+						"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test export data');",
+						"parameters": map[string]any{},
+					},
+				},
+			},
+			Parameters: []string{"databaseName", "branchName"},
+		},
+		Response: &Response{
+			StatusCode: 200,
+			Content:    map[string]any{},
+		},
+	})
+
+	// Step 3: Create export
+	// Note: This creates an export session that returns export metadata.
+	// The session must be explicitly ended with createDatabaseExportEnd after retrieving parts.
+	steps = append(steps, TestStep{
+		Request: &Request{
+			Name:       "Create DatabaseExport",
+			Model:      "DatabaseExport",
+			Operation:  "createDatabaseExport",
+			Body:       nil,
+			Parameters: []string{"databaseName", "branchName"},
+		},
+		Response: &Response{
+			StatusCode: 201,
+			Content:    nil,
+			Captures:   []string{"databaseName", "databaseBranchName AS branchName", "id AS exportId", "rangeCount", "ranges[0] AS rangeNumber"},
+		},
+	})
+
+	return steps
+}
+
+// generateImportPrerequisites generates the steps needed before creating ImportChunks
+// This includes: creating an import
+func generateImportPrerequisites() []TestStep {
+	steps := []TestStep{}
+
+	// Step 1: Create import
+	steps = append(steps, TestStep{
+		Request: &Request{
+			Name:      "Create Import",
+			Model:     "Import",
+			Operation: "createImport",
+			Body: map[string]any{
+				"databaseName": generateRandomDatabaseName(),
+				"chunkCount":   1,
+			},
+		},
+		Response: &Response{
+			StatusCode: 201,
+			Content:    map[string]any{},
+			Captures:   []string{"importId", "chunkCount"},
+		},
+	})
+
+	return steps
+}
+
 // generateGetTestCase generates a test for get operations
 func generateGetTestCase(operationID, resourceType string, details map[string]any) TestCase {
 	createOp := getCreateOperationID(resourceType)
@@ -1250,6 +1409,9 @@ func generateGetTestCase(operationID, resourceType string, details map[string]an
 				},
 			})
 		}
+	} else if resourceType == "DatabaseExportPart" {
+		// Special handling for DatabaseExportPart - needs database, branch, and export
+		steps = append(steps, generateDatabaseExportPrerequisites()...)
 	} else if createOp != "" && operationExists(createOp) {
 		// Step 1: Create the resource (only if create operation exists)
 		steps = append(steps, TestStep{
@@ -1269,6 +1431,7 @@ func generateGetTestCase(operationID, resourceType string, details map[string]an
 	}
 
 	// Step 2: Get the resource
+	isBinaryFile := resourceType == "DatabaseExportPart" // Export parts return binary file data
 	steps = append(steps, TestStep{
 		Request: &Request{
 			Name:       fmt.Sprintf("Get %s by ID", resourceType),
@@ -1278,10 +1441,26 @@ func generateGetTestCase(operationID, resourceType string, details map[string]an
 			Parameters: extractPathParameters(details),
 		},
 		Response: &Response{
-			StatusCode: 200,
-			Content:    map[string]any{},
+			StatusCode:   200,
+			Content:      map[string]any{},
+			IsBinaryFile: isBinaryFile,
 		},
 	})
+
+	// Step 3: Cleanup - end export session if this is an export part test
+	if resourceType == "DatabaseExportPart" {
+		steps = append(steps, TestStep{
+			Request: &Request{
+				Name:       "End DatabaseExport session",
+				Model:      "DatabaseExportEnd",
+				Operation:  "createDatabaseExportEnd",
+				Parameters: []string{"databaseName", "branchName", "exportId"},
+			},
+			Response: &Response{
+				StatusCode: 204,
+			},
+		})
+	}
 
 	return TestCase{
 		OperationID: operationID,
@@ -1545,6 +1724,12 @@ func generateCapturesForCreate(resourceType string) []string {
 		return []string{"timestamp"}
 	case "query":
 		return []string{"data[0].id"}
+	case "databaseexport":
+		// Export returns: {id, rangeCount, startedAt}
+		// This is a streaming response - connection stays open while chunks are fetched
+		return []string{"databaseName", "databaseBranchName AS branchName", "id AS exportId", "rangeCount"}
+	case "import":
+		return []string{"importId", "chunkCount"}
 	default:
 		return []string{}
 	}
@@ -1664,6 +1849,21 @@ func generateRequestBody(resourceType, operation string) map[string]any {
 					"parameters": map[string]any{},
 				},
 			},
+		}
+
+	case "databaseexport":
+		return map[string]any{}
+
+	case "import":
+		return map[string]any{
+			"databaseName": generateRandomDatabaseName(),
+			"chunkCount":   1,
+		}
+
+	case "importchunk":
+		return map[string]any{
+			"chunkIndex": 0,
+			"chunkData":  "U1FMaXRlIGZvcm1hdCAzABAAAQEAQCAgAAAAAgAAAAAAAAAAAAAAAAEAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 		}
 
 	case "databaserestore":

@@ -131,7 +131,7 @@ func TestDatabaseExportController(t *testing.T) {
 
 			// Ensure cleanup happens
 			defer func() {
-				client.Send(
+				_, _, err := client.Send(
 					fmt.Sprintf(
 						"/v1/databases/%s/branches/%s/export/%s/end",
 						testDatabase.DatabaseName,
@@ -141,6 +141,10 @@ func TestDatabaseExportController(t *testing.T) {
 					"POST",
 					nil,
 				)
+
+				if err != nil {
+					t.Fatal(err)
+				}
 			}()
 
 			// Try to start second export (should fail)

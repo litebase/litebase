@@ -11,7 +11,7 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 )
 
-type ImportControllerShowResponse struct {
+type ImportShowResponse struct {
 	ImportID       int64      `json:"importId"`
 	DatabaseID     string     `json:"databaseId"`
 	DatabaseName   string     `json:"databaseName"`
@@ -100,7 +100,7 @@ func ImportControllerShow(ctx context.Context, request *Request) Response {
 		return ServerErrorResponse(err)
 	}
 
-	response := ImportControllerShowResponse{
+	response := ImportShowResponse{
 		ImportID:       importRecord.ID,
 		DatabaseID:     databaseID,
 		DatabaseName:   databaseName,
@@ -128,13 +128,13 @@ func ImportControllerShow(ctx context.Context, request *Request) Response {
 	)
 }
 
-type ImportControllerStoreRequest struct {
+type ImportStoreRequest struct {
 	DatabaseName database.DatabaseName `json:"databaseName" validate:"required,validateFn"`
 	BranchName   string                `json:"branchName,omitempty"`
 	ChunkCount   int64                 `json:"chunkCount" validate:"required,min=1"`
 }
 
-type ImportControllerStoreResponse struct {
+type ImportStoreResponse struct {
 	ImportID     int64     `json:"importId"`
 	DatabaseID   string    `json:"databaseId"`
 	DatabaseName string    `json:"databaseName"`
@@ -142,6 +142,22 @@ type ImportControllerStoreResponse struct {
 	ChunkCount   int64     `json:"chunkCount"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"createdAt"`
+}
+
+type ImportUpdateRequest struct {
+	DatabaseName database.DatabaseName `json:"databaseName" validate:"required,validateFn"`
+	BranchName   string                `json:"branchName,omitempty"`
+	ChunkCount   int64                 `json:"chunkCount" validate:"required,min=1"`
+}
+
+type ImportUpdateResponse struct {
+	ImportID     int64     `json:"importId"`
+	DatabaseID   string    `json:"databaseId"`
+	DatabaseName string    `json:"databaseName"`
+	BranchName   string    `json:"branchName"`
+	ChunkCount   int64     `json:"chunkCount"`
+	Status       string    `json:"status"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 func ImportControllerStore(ctx context.Context, request *Request) Response {
@@ -155,13 +171,13 @@ func ImportControllerStore(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&ImportControllerStoreRequest{})
+	input, err := request.Input(&ImportStoreRequest{})
 
 	if err != nil {
 		return BadRequestResponse(err)
 	}
 
-	req, ok := input.(*ImportControllerStoreRequest)
+	req, ok := input.(*ImportStoreRequest)
 
 	if !ok {
 		return ServerErrorResponse(errors.New("invalid request format"))
@@ -227,7 +243,7 @@ func ImportControllerStore(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"Database import created successfully",
-		ImportControllerStoreResponse{
+		ImportStoreResponse{
 			ImportID:     importRecord.ID,
 			DatabaseID:   db.DatabaseID,
 			DatabaseName: db.Name,
@@ -251,7 +267,7 @@ func ImportControllerUpdate(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	input, err := request.Input(&ImportControllerStoreRequest{})
+	input, err := request.Input(&ImportUpdateRequest{})
 
 	if err != nil {
 		return BadRequestResponse(err)
@@ -270,7 +286,7 @@ func ImportControllerUpdate(ctx context.Context, request *Request) Response {
 
 	return SuccessResponse(
 		"Database import updated successfully",
-		nil,
+		ImportUpdateResponse{},
 		200,
 	)
 }

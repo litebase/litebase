@@ -40,7 +40,7 @@ func TokenControllerIndex(ctx context.Context, request *Request) Response {
 	)
 }
 
-type TokenControllerShowResponse struct {
+type TokenShowResponse struct {
 	TokenID     string           `json:"tokenId"`
 	Description string           `json:"description"`
 	CreatedAt   string           `json:"createdAt"`
@@ -73,7 +73,7 @@ func TokenControllerShow(ctx context.Context, request *Request) Response {
 		return ForbiddenResponse(err)
 	}
 
-	return SuccessResponse("Token retrieved successfully", TokenControllerShowResponse{
+	return SuccessResponse("Token retrieved successfully", TokenShowResponse{
 		TokenID:     token.TokenID,
 		Description: token.Description,
 		CreatedAt:   token.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
