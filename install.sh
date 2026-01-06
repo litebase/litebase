@@ -3,7 +3,7 @@
 set -e
 
 # Configuration
-VERSION="0.5.9"
+VERSION="0.5.10"
 REPO_OWNER="litebase"
 REPO_NAME="litebase"
 INSTALL_DIR="/usr/local/bin"
