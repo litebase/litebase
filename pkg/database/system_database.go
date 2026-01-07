@@ -36,6 +36,12 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 		mutex:           &sync.Mutex{},
 	}
 
+	err := s.databaseManager.Cluster.Node().WaitForPrimary()
+
+	if err != nil {
+		panic(err)
+	}
+
 	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
 		s.init()
 		s.initialized = true

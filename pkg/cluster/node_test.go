@@ -19,7 +19,7 @@ func TestNode(t *testing.T) {
 	test.Run(t, func() {
 		// Reset port providers to avoid interference from other tests
 		cluster.ResetPortProviders()
-		
+
 		t.Run("NewNode", func(t *testing.T) {
 			c := config.NewConfig()
 			clusterInstance, err := cluster.NewCluster(c)
@@ -448,6 +448,42 @@ func TestNode(t *testing.T) {
 			}
 		})
 
+		t.Run("WaitForPrimary", func(t *testing.T) {
+			server := test.NewTestServer(t)
+			defer server.Shutdown()
+
+			node := server.App.Cluster.Node()
+
+			// Test 1: Node is already primary
+			if !node.IsPrimary() {
+				t.Fatal("Node should be primary")
+			}
+
+			err := node.WaitForPrimary()
+
+			if err != nil {
+				t.Error("WaitForPrimary failed when node is already primary:", err)
+			}
+
+			// Test 2: Wait for primary after stepping down
+			err = node.StepDown()
+
+			if err != nil {
+				t.Fatal("Failed to step down:", err)
+			}
+
+			// Give time for a new election to occur
+			err = node.WaitForPrimary()
+
+			if err != nil {
+				t.Error("WaitForPrimary failed after stepping down:", err)
+			}
+
+			// Verify that either this node or another node is primary
+			if !node.IsPrimary() && node.PrimaryAddress() == "" {
+				t.Error("No primary elected after waiting")
+			}
+		})
 	})
 }
 
@@ -478,7 +514,7 @@ func TestNode_StepDown(t *testing.T) {
 func TestNode_TickerResumeAfterPause(t *testing.T) {
 	// Reset port providers to avoid interference from other tests
 	cluster.ResetPortProviders()
-	
+
 	test.WithSteps(t, func(sp *test.StepProcessor) {
 		sp.Run("PRIMARY_SERVER", func(s *test.StepProcess) {
 			defaultNodeTickTimeout := cluster.NodeTickTimeout
