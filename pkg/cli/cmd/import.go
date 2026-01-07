@@ -17,8 +17,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/charmbracelet/bubbles/progress"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/internal/utils/lock"
+	"github.com/litebase/litebase/pkg/cli"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
@@ -100,12 +103,6 @@ func NewImportCmd(config *config.CLIConfiguration) *cobra.Command {
 			}
 
 			importID := importResponse.ImportID
-
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Import created with ID: %d\n", importID)
-
-			if err != nil {
-				return fmt.Errorf("failed to print import ID message: %w", err)
-			}
 
 			// Upload chunks concurrently
 			if err := uploadChunksConcurrently(cmd, config, importID, filePath, chunkCount, concurrency); err != nil {
@@ -271,19 +268,42 @@ func parseImportArguments(args []string) (string, string, string, error) {
 
 // Upload chunks concurrently
 func uploadChunksConcurrently(cmd *cobra.Command, config *config.CLIConfiguration, importID int64, filePath string, chunkCount int64, concurrency int) error {
-	_, err := fmt.Fprintf(cmd.OutOrStdout(), "Uploading %d chunks with concurrency=%d...\n", chunkCount, concurrency)
-
-	if err != nil {
-		return fmt.Errorf("failed to print upload message: %w", err)
-	}
-
 	var (
 		uploadedCount atomic.Int64
 		errorsMu      sync.Mutex
 		uploadErrors  []error
 		wg            sync.WaitGroup
 		fileMu        sync.Mutex
+		p             *tea.Program
 	)
+
+	// Use Bubble Tea progress bar in interactive mode
+	if config.GetInteractive() {
+		prog := progress.New(progress.WithGradient(
+			cli.Sky700.Hex(),
+			cli.Sky300.Hex(),
+		))
+
+		model := progressModel{
+			progress:      prog,
+			chunkCount:    chunkCount,
+			uploadedCount: &uploadedCount,
+		}
+
+		p = tea.NewProgram(model)
+
+		go func() {
+			if _, err := p.Run(); err != nil {
+				slog.Error("failed to run progress bar", "error", err)
+			}
+		}()
+	} else {
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Uploading %d chunks with concurrency=%d...\n", chunkCount, concurrency)
+
+		if err != nil {
+			return fmt.Errorf("failed to print upload message: %w", err)
+		}
+	}
 
 	// Open file once for all workers to share
 	file, err := os.Open(filePath)
@@ -379,18 +399,22 @@ func uploadChunksConcurrently(cmd *cobra.Command, config *config.CLIConfiguratio
 				// Update progress
 				uploaded := uploadedCount.Add(1)
 
-				_, err = fmt.Fprintf(
-					cmd.OutOrStdout(),
-					"Uploaded chunk %d/%d (%.1f%%)\n",
-					uploaded,
-					chunkCount,
-					float64(uploaded)/float64(chunkCount)*100,
-				)
+				if config.GetInteractive() && p != nil {
+					p.Send(progressMsg{uploaded: uploaded})
+				} else {
+					_, err = fmt.Fprintf(
+						cmd.OutOrStdout(),
+						"Uploaded chunk %d/%d (%.1f%%)\n",
+						uploaded,
+						chunkCount,
+						float64(uploaded)/float64(chunkCount)*100,
+					)
 
-				if err != nil {
-					_, err := fmt.Fprintf(cmd.OutOrStderr(), "failed to print upload progress: %v\n", err)
+					if err != nil {
+						_, err := fmt.Fprintf(cmd.OutOrStderr(), "failed to print upload progress: %v\n", err)
 
-					slog.Error("failed to print upload progress", "error", err)
+						slog.Error("failed to print upload progress", "error", err)
+					}
 				}
 			}
 		}(w)
@@ -406,16 +430,32 @@ func uploadChunksConcurrently(cmd *cobra.Command, config *config.CLIConfiguratio
 	// Wait for all uploads to complete
 	wg.Wait()
 
+	// Stop the progress bar if it's running
+	if config.GetInteractive() && p != nil {
+		if len(uploadErrors) > 0 {
+			p.Send(progressErrMsg{err: uploadErrors[0]})
+		} else {
+			p.Send(progressDoneMsg{})
+		}
+
+		// Brief delay to ensure the 100% state renders
+		time.Sleep(200 * time.Millisecond)
+		p.Quit()
+		p.Wait()
+	}
+
 	// Check for errors
 	if len(uploadErrors) > 0 {
 		return fmt.Errorf("failed to upload %d chunks: %v", len(uploadErrors), uploadErrors[0])
 	}
 
 	// Wait for import to complete
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Waiting for import to complete...\n")
+	if !config.GetInteractive() {
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Waiting for import to complete...\n")
 
-	if err != nil {
-		return fmt.Errorf("failed to print waiting message: %w", err)
+		if err != nil {
+			return fmt.Errorf("failed to print waiting message: %w", err)
+		}
 	}
 
 	return nil
@@ -624,4 +664,95 @@ func validateSQLiteFile(filePath string) error {
 	}
 
 	return nil
+}
+
+// Progress bar Bubble Tea model
+type progressModel struct {
+	progress      progress.Model
+	chunkCount    int64
+	uploadedCount *atomic.Int64
+	err           error
+	done          bool
+}
+
+type progressMsg struct {
+	uploaded int64
+}
+
+type progressErrMsg struct {
+	err error
+}
+
+type progressDoneMsg struct{}
+
+func (m progressModel) Init() tea.Cmd {
+	// Start the progress bar's animation
+	return m.progress.Init()
+}
+
+func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		return m, tea.Quit
+
+	case progressMsg:
+		percent := float64(msg.uploaded) / float64(m.chunkCount)
+		cmd := m.progress.SetPercent(percent)
+
+		return m, cmd
+
+	case progressErrMsg:
+		m.err = msg.err
+		m.done = true
+		return m, tea.Quit
+
+	case progressDoneMsg:
+		m.done = true
+
+		// Force progress to 100% before quitting
+		percent := float64(m.uploadedCount.Load()) / float64(m.chunkCount)
+		cmd := m.progress.SetPercent(percent)
+		return m, tea.Sequence(cmd, tea.Quit)
+
+	case progress.FrameMsg:
+		progressModel, cmd := m.progress.Update(msg)
+		m.progress = progressModel.(progress.Model)
+
+		return m, cmd
+
+	case tea.WindowSizeMsg:
+		m.progress.Width = min(msg.Width-4, 80)
+
+		return m, nil
+
+	default:
+		return m, nil
+	}
+}
+
+func (m progressModel) View() string {
+	if m.err != nil {
+		return fmt.Sprintf("\nError: %v\n", m.err)
+	}
+
+	uploaded := m.uploadedCount.Load()
+	percent := float64(uploaded) / float64(m.chunkCount)
+	percentDisplay := percent * 100
+
+	var progressBar string
+
+	if m.done {
+		// Use ViewAs for immediate 100% display without animation
+		progressBar = m.progress.ViewAs(percent)
+	} else {
+		progressBar = m.progress.View()
+	}
+
+	return fmt.Sprintf(
+		"\n  %s\n\n  Uploading chunks: %d/%d (%.1f%%)\n\n",
+		progressBar,
+		uploaded,
+		m.chunkCount,
+		percentDisplay,
+	)
 }

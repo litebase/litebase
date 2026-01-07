@@ -15,8 +15,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/charmbracelet/bubbles/progress"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/cli"
 	"github.com/litebase/litebase/pkg/cli/api"
 	"github.com/litebase/litebase/pkg/cli/components"
 	"github.com/litebase/litebase/pkg/cli/config"
@@ -174,7 +177,7 @@ func createExport(config *config.CLIConfiguration, databaseName string, branchNa
 		return nil, nil, fmt.Errorf("failed to make request: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, err := io.ReadAll(resp.Body)
 
 		if err != nil {
@@ -194,9 +197,15 @@ func createExport(config *config.CLIConfiguration, databaseName string, branchNa
 
 	// Read just the first JSON response (before keepalive newlines)
 	decoder := json.NewDecoder(resp.Body)
-	var exportData ExportResponse
 
-	if err := decoder.Decode(&exportData); err != nil {
+	// API returns data wrapped in a response object
+	var apiResponse struct {
+		Data    ExportResponse `json:"data"`
+		Message string         `json:"message"`
+		Status  string         `json:"status"`
+	}
+
+	if err := decoder.Decode(&apiResponse); err != nil {
 		if err := resp.Body.Close(); err != nil {
 			slog.Error("Failed to close response body", "error", err)
 		}
@@ -212,7 +221,7 @@ func createExport(config *config.CLIConfiguration, databaseName string, branchNa
 		}
 	}
 
-	return &exportData, closeFunc, nil
+	return &apiResponse.Data, closeFunc, nil
 }
 
 // Parse the export command arguments into a database name, branch name, and output path
@@ -254,12 +263,6 @@ func downloadRangesConcurrently(
 	rangeCount int64,
 	concurrency int,
 ) error {
-	_, err := fmt.Fprintf(cmd.OutOrStdout(), "Downloading %d ranges with concurrency=%d...\n", rangeCount, concurrency)
-
-	if err != nil {
-		return fmt.Errorf("failed to print download message: %w", err)
-	}
-
 	// Create API client once
 	apiClient, err := api.NewClient(config)
 
@@ -272,7 +275,36 @@ func downloadRangesConcurrently(
 		errorsMu        sync.Mutex
 		downloadErrors  []error
 		wg              sync.WaitGroup
+		p               *tea.Program
 	)
+
+	// Use Bubble Tea progress bar in interactive mode
+	if config.GetInteractive() {
+		prog := progress.New(progress.WithGradient(
+			cli.Sky700.Hex(),
+			cli.Sky300.Hex(),
+		))
+
+		model := exportProgressModel{
+			progress:        prog,
+			rangeCount:      rangeCount,
+			downloadedCount: &downloadedCount,
+		}
+
+		p = tea.NewProgram(model)
+
+		go func() {
+			if _, err := p.Run(); err != nil {
+				slog.Error("failed to run progress bar", "error", err)
+			}
+		}()
+	} else {
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Downloading %d ranges with concurrency=%d...\n", rangeCount, concurrency)
+
+		if err != nil {
+			return fmt.Errorf("failed to print download message: %w", err)
+		}
+	}
 
 	// Create worker pool with range indices
 	jobQueue := make(chan int64, concurrency*2)
@@ -309,6 +341,9 @@ func downloadRangesConcurrently(
 
 					continue
 				}
+
+				// Set required headers
+				req.Header.Set("Content-Type", "application/json")
 
 				// Add authentication headers
 				if err := applyClientAuth(apiClient, req, "GET", rangePath, nil); err != nil {
@@ -394,20 +429,24 @@ func downloadRangesConcurrently(
 				// Update progress
 				downloaded := downloadedCount.Add(1)
 
-				_, err = fmt.Fprintf(
-					cmd.OutOrStdout(),
-					"Downloaded range %d/%d (%.1f%%)\n",
-					downloaded,
-					rangeCount,
-					float64(downloaded)/float64(rangeCount)*100,
-				)
-
-				if err != nil {
-					// Don't fail on print errors, just log
-					_, err := fmt.Fprintf(cmd.OutOrStderr(), "failed to print download progress: %v\n", err)
+				if config.GetInteractive() && p != nil {
+					p.Send(exportProgressMsg{downloaded: downloaded})
+				} else {
+					_, err = fmt.Fprintf(
+						cmd.OutOrStdout(),
+						"Downloaded range %d/%d (%.1f%%)\n",
+						downloaded,
+						rangeCount,
+						float64(downloaded)/float64(rangeCount)*100,
+					)
 
 					if err != nil {
-						slog.Error("Failed to print download progress", "error", err)
+						// Don't fail on print errors, just log
+						_, err := fmt.Fprintf(cmd.OutOrStderr(), "failed to print download progress: %v\n", err)
+
+						if err != nil {
+							slog.Error("Failed to print download progress", "error", err)
+						}
 					}
 				}
 			}
@@ -423,6 +462,20 @@ func downloadRangesConcurrently(
 
 	// Wait for all downloads to complete
 	wg.Wait()
+
+	// Stop the progress bar if it's running
+	if config.GetInteractive() && p != nil {
+		if len(downloadErrors) > 0 {
+			p.Send(exportProgressErrMsg{err: downloadErrors[0]})
+		} else {
+			p.Send(exportProgressDoneMsg{})
+		}
+
+		// Brief delay to ensure the 100% state renders
+		time.Sleep(200 * time.Millisecond)
+		p.Quit()
+		p.Wait()
+	}
 
 	// Check for errors
 	if len(downloadErrors) > 0 {
@@ -533,4 +586,97 @@ func applyClientAuth(client *api.Client, req *http.Request, method string, path 
 	}
 
 	return nil
+}
+
+// Progress bar Bubble Tea model for export
+type exportProgressModel struct {
+	progress        progress.Model
+	rangeCount      int64
+	downloadedCount *atomic.Int64
+	err             error
+	done            bool
+}
+
+type exportProgressMsg struct {
+	downloaded int64
+}
+
+type exportProgressErrMsg struct {
+	err error
+}
+
+type exportProgressDoneMsg struct{}
+
+func (m exportProgressModel) Init() tea.Cmd {
+	// Start the progress bar's animation
+	return m.progress.Init()
+}
+
+func (m exportProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		return m, tea.Quit
+
+	case exportProgressMsg:
+		percent := float64(msg.downloaded) / float64(m.rangeCount)
+		cmd := m.progress.SetPercent(percent)
+
+		return m, cmd
+
+	case exportProgressErrMsg:
+		m.err = msg.err
+		m.done = true
+
+		return m, tea.Quit
+
+	case exportProgressDoneMsg:
+		m.done = true
+
+		// Force progress to 100% before quitting
+		percent := float64(m.downloadedCount.Load()) / float64(m.rangeCount)
+		cmd := m.progress.SetPercent(percent)
+
+		return m, tea.Sequence(cmd, tea.Quit)
+
+	case progress.FrameMsg:
+		progressModel, cmd := m.progress.Update(msg)
+		m.progress = progressModel.(progress.Model)
+
+		return m, cmd
+
+	case tea.WindowSizeMsg:
+		m.progress.Width = min(msg.Width-4, 80)
+
+		return m, nil
+
+	default:
+		return m, nil
+	}
+}
+
+func (m exportProgressModel) View() string {
+	if m.err != nil {
+		return fmt.Sprintf("\nError: %v\n", m.err)
+	}
+
+	downloaded := m.downloadedCount.Load()
+	percent := float64(downloaded) / float64(m.rangeCount)
+	percentDisplay := percent * 100
+
+	var progressBar string
+
+	if m.done {
+		// Use ViewAs for immediate 100% display without animation
+		progressBar = m.progress.ViewAs(percent)
+	} else {
+		progressBar = m.progress.View()
+	}
+
+	return fmt.Sprintf(
+		"\n  %s\n\n  Downloading ranges: %d/%d (%.1f%%)\n\n",
+		progressBar,
+		downloaded,
+		m.rangeCount,
+		percentDisplay,
+	)
 }

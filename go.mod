@@ -22,6 +22,7 @@ require (
 )
 
 require (
+	github.com/charmbracelet/harmonica v0.2.0 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/mod v0.29.0 // indirect
