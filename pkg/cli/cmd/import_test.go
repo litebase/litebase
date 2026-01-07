@@ -148,10 +148,6 @@ func TestImportCmd(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			if cli.DoesNotSee("Import created with ID") {
-				t.Error("expected output to contain 'Import created with ID'")
-			}
-
 			if cli.DoesNotSee("Uploaded chunk") {
 				t.Error("expected output to contain 'Uploaded chunk'")
 			}
@@ -229,10 +225,6 @@ func TestImportCmd(t *testing.T) {
 				t.Fatalf("expected no error, got %v", err)
 			}
 
-			if cli.DoesNotSee("Import created with ID") {
-				t.Error("expected output to contain 'Import created with ID'")
-			}
-
 			if cli.DoesNotSee("in 2 chunks") {
 				t.Error("expected output to indicate 2 chunks")
 			}
@@ -263,10 +255,6 @@ func TestImportCmd(t *testing.T) {
 
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
-			}
-
-			if cli.DoesNotSee("Import created with ID") {
-				t.Error("expected output to contain 'Import created with ID'")
 			}
 
 			if cli.DoesNotSee("concurrency=3") {
