@@ -134,7 +134,7 @@ func (mr *MigrationRunner) Run() error {
 			continue
 		}
 
-		slog.Info("Applying migration", "name", migration.Name)
+		slog.Debug("Applying migration", "name", migration.Name)
 
 		// Execute migration in a transaction
 		tx, err := mr.db.Begin()
@@ -170,7 +170,7 @@ func (mr *MigrationRunner) Run() error {
 			return fmt.Errorf("failed to commit migration %s: %w", migration.Name, err)
 		}
 
-		slog.Info("Successfully applied migration", "name", migration.Name)
+		slog.Debug("Successfully applied migration", "name", migration.Name)
 	}
 
 	return nil

@@ -283,6 +283,11 @@ func (c *TestCLI) Sees(text string) bool {
 
 // WithAccessKey sets the access key for the CLI and updates the flags
 func (c *TestCLI) WithAccessKey(statements []auth.Statement) *TestCLI {
+	// Wait for primary to ensure migrations have run
+	if err := c.App.Cluster.Node().WaitForPrimary(); err != nil {
+		panic(fmt.Errorf("failed to wait for primary: %w", err))
+	}
+
 	accessKey, err := c.App.Auth.AccessKeyManager.Create("Test access key", statements)
 
 	if err != nil {
@@ -315,6 +320,11 @@ func (c *TestCLI) WithArgs(args ...string) *TestCLI {
 
 // WithBasicAuth sets the username and password for basic authentication
 func (c *TestCLI) WithBasicAuth(username, password string, statements []auth.Statement) *TestCLI {
+	// Wait for primary to ensure migrations have run
+	if err := c.App.Cluster.Node().WaitForPrimary(); err != nil {
+		panic(fmt.Errorf("failed to wait for primary: %w", err))
+	}
+
 	_, err := c.App.Auth.UserManager.Create(username, password, "", statements)
 
 	if err != nil {
@@ -351,6 +361,11 @@ func (c *TestCLI) WithServer(server *TestServer) *TestCLI {
 
 // WithToken sets the bearer token for the CLI and updates the Authorization header
 func (c *TestCLI) WithToken(statements []auth.Statement) *TestCLI {
+	// Wait for primary to ensure migrations have run
+	if err := c.App.Cluster.Node().WaitForPrimary(); err != nil {
+		panic(fmt.Errorf("failed to wait for primary: %w", err))
+	}
+
 	token, err := c.App.Auth.TokenManager.Create("Test token", statements)
 
 	if err != nil {

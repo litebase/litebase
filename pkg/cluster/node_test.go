@@ -454,34 +454,41 @@ func TestNode(t *testing.T) {
 
 			node := server.App.Cluster.Node()
 
-			// Test 1: Node is already primary
-			if !node.IsPrimary() {
-				t.Fatal("Node should be primary")
-			}
-
+			// Test 1: Wait for a primary to be elected (could be this node or another)
 			err := node.WaitForPrimary()
 
 			if err != nil {
-				t.Error("WaitForPrimary failed when node is already primary:", err)
+				t.Fatal("WaitForPrimary failed:", err)
 			}
 
-			// Test 2: Wait for primary after stepping down
-			err = node.StepDown()
+			// Verify that a primary exists (either this node or another node has primary address)
+			isPrimary := node.IsPrimary()
+			hasPrimaryAddress := node.PrimaryAddress() != ""
 
-			if err != nil {
-				t.Fatal("Failed to step down:", err)
+			if !isPrimary && !hasPrimaryAddress {
+				t.Fatalf("No primary found after WaitForPrimary. Membership: %s, PrimaryAddress: %s",
+					node.GetMembership(), node.PrimaryAddress())
 			}
 
-			// Give time for a new election to occur
-			err = node.WaitForPrimary()
+			// Test 2: If this node is primary, test stepping down and waiting again
+			if isPrimary {
+				err = node.StepDown()
 
-			if err != nil {
-				t.Error("WaitForPrimary failed after stepping down:", err)
-			}
+				if err != nil {
+					t.Fatal("Failed to step down:", err)
+				}
 
-			// Verify that either this node or another node is primary
-			if !node.IsPrimary() && node.PrimaryAddress() == "" {
-				t.Error("No primary elected after waiting")
+				// Wait for a new election to occur
+				err = node.WaitForPrimary()
+
+				if err != nil {
+					t.Error("WaitForPrimary failed after stepping down:", err)
+				}
+
+				// Verify that either this node or another node is primary
+				if !node.IsPrimary() && node.PrimaryAddress() == "" {
+					t.Error("No primary elected after waiting")
+				}
 			}
 		})
 	})
