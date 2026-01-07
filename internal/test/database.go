@@ -40,6 +40,12 @@ func CreateHash(length int) string {
 }
 
 func MockDatabase(app *server.App) TestDatabase {
+	err := app.Cluster.Node().WaitForPrimary()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	accessKey, err := app.Auth.AccessKeyManager.Create("", []auth.Statement{
 		{
 			Effect:   auth.StatementEffectAllow,
