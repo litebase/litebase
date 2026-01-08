@@ -477,6 +477,12 @@ void logCallback(void *pArg, int iErrCode, const char *zMsg)
     return;
   }
 
+  // Ignore no table errors
+  if (iErrCode == SQLITE_ERROR && strstr(zMsg, "no such table") != NULL)
+  {
+    return;
+  }
+
   fprintf(stderr, "SQLITE_LOG: (%d) %s\n", iErrCode, zMsg);
 }
 

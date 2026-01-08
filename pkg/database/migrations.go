@@ -1,6 +1,7 @@
 package database
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"log/slog"
@@ -127,9 +128,12 @@ func (mr *MigrationRunner) Run() error {
 	})
 
 	// Apply pending migrations
+	var lastAppliedMigration string
+
 	for _, migration := range mr.migrations {
 		if applied[migration.Name] {
 			slog.Debug("Skipping already applied migration", "name", migration.Name)
+			lastAppliedMigration = migration.Name
 
 			continue
 		}
@@ -171,7 +175,36 @@ func (mr *MigrationRunner) Run() error {
 		}
 
 		slog.Debug("Successfully applied migration", "name", migration.Name)
+		lastAppliedMigration = migration.Name
 	}
+
+	// Update the migrations hash after all migrations are applied
+	if lastAppliedMigration != "" {
+		if err := mr.updateMigrationsHash(lastAppliedMigration); err != nil {
+			return fmt.Errorf("failed to update migrations hash: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// updateMigrationsHash stores a SHA256 hash of the latest migration name in metadata
+func (mr *MigrationRunner) updateMigrationsHash(latestMigrationName string) error {
+	hash := sha256.Sum256([]byte(latestMigrationName))
+	hashStr := fmt.Sprintf("%x", hash)
+
+	_, err := mr.db.Exec(
+		`INSERT OR REPLACE INTO metadata (key, value) 
+		 VALUES (?, ?)`,
+		"migrations_hash",
+		hashStr,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to store migrations hash: %w", err)
+	}
+
+	slog.Debug("Updated migrations hash", "latest_migration", latestMigrationName, "hash", hashStr)
 
 	return nil
 }

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"log"
@@ -42,7 +43,10 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 		panic(err)
 	}
 
-	// Don't run init here - let DB() handle it with proper locking
+	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
+		s.init()
+		s.initialized = true
+	}
 
 	return s
 }
@@ -65,10 +69,19 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 		return s.db, nil
 	}
 
-	// Initialize the system database if this node should manage it and it hasn't been initialized yet
-	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
-		s.init()
-		s.initialized = true
+	// Check if migrations need to be run when primary node accesses DB
+	if s.databaseManager.Cluster.Node().IsPrimary() {
+		needsMigrations, err := s.needsMigrations()
+
+		if err == nil && needsMigrations {
+			slog.Info("Running pending migrations on DB access")
+			s.runMigrations()
+			s.initialized = true
+		} else if !s.initialized {
+			// If we can't check migrations or they're up to date, just run init if needed
+			s.init()
+			s.initialized = true
+		}
 	}
 
 	db, err := sql.Open("litebase-internal", "system/system")
@@ -82,8 +95,84 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 	return s.db, nil
 }
 
-// Initialize the system database by running migrations.
-func (s *SystemDatabase) init() {
+// CheckAndRunMigrations checks if migrations are up to date and runs them if needed.
+// This should be called when a node becomes primary.
+func (s *SystemDatabase) CheckAndRunMigrations() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	needsMigrations, err := s.needsMigrations()
+
+	if err != nil {
+		return fmt.Errorf("failed to check migrations status: %w", err)
+	}
+
+	if !needsMigrations {
+		slog.Debug("Migrations are up to date")
+		return nil
+	}
+
+	slog.Info("Running pending migrations")
+	s.runMigrations()
+	s.initialized = true
+
+	return nil
+}
+
+// needsMigrations checks if the database needs migrations by comparing hashes
+func (s *SystemDatabase) needsMigrations() (bool, error) {
+	// Get all migrations
+	allMigrations := migrations.GetAllMigrations()
+	if len(allMigrations) == 0 {
+		return false, nil
+	}
+
+	// Calculate expected hash from latest migration name
+	latestMigration := allMigrations[len(allMigrations)-1]
+	expectedHash := sha256.Sum256([]byte(latestMigration.Name))
+	expectedHashStr := fmt.Sprintf("%x", expectedHash)
+
+	// Try to open database to check current hash
+	db, err := sql.Open("litebase-internal", "system/system")
+
+	if err != nil {
+		// If we can't open, assume migrations needed
+		return true, nil
+	}
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			slog.Error("Error closing database connection", "error", err)
+		}
+	}()
+
+	// Check if metadata table exists
+	var tableName string
+	err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='metadata'").Scan(&tableName)
+	if err != nil {
+		// Table doesn't exist, migrations needed
+		return true, nil
+	}
+
+	// Get current hash from metadata
+	var currentHash string
+	err = db.QueryRow("SELECT value FROM metadata WHERE key = ?", "migrations_hash").Scan(&currentHash)
+	if err != nil {
+		// Hash not found, migrations needed
+		return true, nil
+	}
+
+	// Compare hashes
+	if currentHash != expectedHashStr {
+		slog.Debug("Migrations hash mismatch", "current", currentHash, "expected", expectedHashStr)
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// runMigrations executes the migration runner (internal, assumes caller holds mutex)
+func (s *SystemDatabase) runMigrations() {
 	db, err := sql.Open("litebase-internal", "system/system")
 
 	if err != nil {
@@ -104,4 +193,9 @@ func (s *SystemDatabase) init() {
 	if err := runner.Run(); err != nil {
 		panic(fmt.Errorf("failed to run migrations: %w", err))
 	}
+}
+
+// Initialize the system database by running migrations.
+func (s *SystemDatabase) init() {
+	s.runMigrations()
 }

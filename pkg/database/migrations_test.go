@@ -1,7 +1,9 @@
 package database_test
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
@@ -313,6 +315,145 @@ func TestMigrationIdempotency(t *testing.T) {
 
 		if initialCount != finalCount {
 			t.Errorf("Migration count changed on second run: initial=%d, final=%d", initialCount, finalCount)
+		}
+	})
+}
+
+func TestMigrationRunner_StoresMigrationsHash(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		// Get the system database
+		systemDB := server.App.DatabaseManager.SystemDatabase()
+		db, err := systemDB.DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		// Get all migrations
+		allMigrations := migrations.GetAllMigrations()
+
+		if len(allMigrations) == 0 {
+			t.Fatal("No migrations found")
+		}
+
+		// Calculate expected hash from latest migration name
+		latestMigration := allMigrations[len(allMigrations)-1]
+		expectedHash := sha256.Sum256([]byte(latestMigration.Name))
+		expectedHashStr := fmt.Sprintf("%x", expectedHash)
+
+		// Check that the hash was stored in metadata
+		var storedHash string
+
+		err = db.QueryRow("SELECT value FROM metadata WHERE key = ?", "migrations_hash").Scan(&storedHash)
+
+		if err != nil {
+			t.Fatalf("Failed to query migrations hash: %v", err)
+		}
+
+		if storedHash != expectedHashStr {
+			t.Errorf("Migrations hash mismatch: got %s, want %s", storedHash, expectedHashStr)
+		}
+	})
+}
+
+func TestMigrationRunner_CreatesMetadataTable(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		systemDB := server.App.DatabaseManager.SystemDatabase()
+
+		db, err := systemDB.DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		// Check that metadata table exists (created by first migration)
+		var tableName string
+
+		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='metadata'").Scan(&tableName)
+
+		if err != nil {
+			t.Fatalf("metadata table does not exist: %v", err)
+		}
+
+		if tableName != "metadata" {
+			t.Errorf("Expected table name 'metadata', got '%s'", tableName)
+		}
+
+		// Verify table structure (from 0000000001_initial_schema.go)
+		rows, err := db.Query("PRAGMA table_info(metadata)")
+
+		if err != nil {
+			t.Fatalf("Failed to get table info: %v", err)
+		}
+
+		defer func() {
+			err := rows.Close()
+
+			if err != nil {
+				t.Fatalf("Failed to close rows: %v", err)
+			}
+		}()
+
+		columns := make(map[string]bool)
+
+		for rows.Next() {
+			var cid int
+			var name, typ string
+			var notnull, pk int
+			var dfltValue sql.NullString
+
+			if err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk); err != nil {
+				t.Fatalf("Failed to scan column info: %v", err)
+			}
+
+			columns[name] = true
+		}
+
+		expectedColumns := []string{"id", "key", "value"}
+
+		for _, col := range expectedColumns {
+			if !columns[col] {
+				t.Errorf("Expected column '%s' not found in metadata table", col)
+			}
+		}
+	})
+}
+
+func TestMigrationRunner_UpdatesHashOnNewMigrations(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		systemDB := server.App.DatabaseManager.SystemDatabase()
+
+		db, err := systemDB.DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		// Get initial hash
+		var initialHash string
+		err = db.QueryRow("SELECT value FROM metadata WHERE key = ?", "migrations_hash").Scan(&initialHash)
+
+		if err != nil {
+			t.Fatalf("Failed to query initial hash: %v", err)
+		}
+
+		// Verify hash corresponds to latest migration
+		allMigrations := migrations.GetAllMigrations()
+		latestMigration := allMigrations[len(allMigrations)-1]
+		expectedHash := sha256.Sum256([]byte(latestMigration.Name))
+		expectedHashStr := fmt.Sprintf("%x", expectedHash)
+
+		if initialHash != expectedHashStr {
+			t.Errorf("Initial hash doesn't match latest migration: got %s, want %s", initialHash, expectedHashStr)
 		}
 	})
 }
