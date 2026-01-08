@@ -37,17 +37,6 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 		mutex:           &sync.Mutex{},
 	}
 
-	err := s.databaseManager.Cluster.Node().WaitForPrimary()
-
-	if err != nil {
-		panic(err)
-	}
-
-	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
-		s.init()
-		s.initialized = true
-	}
-
 	return s
 }
 
@@ -65,14 +54,31 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.db != nil {
-		return s.db, nil
+	// Always ensure migrations are run on first access
+	if !s.initialized {
+		// Only the primary node should run migrations
+		if s.databaseManager.Cluster.Node().IsPrimary() {
+			needsMigrations, err := s.needsMigrations()
+
+			if err == nil && needsMigrations {
+				slog.Info("Running pending migrations on DB access")
+				s.runMigrations()
+			} else if err == nil {
+				// Migrations already up to date
+				slog.Debug("Migrations are up to date")
+			} else {
+				// Error checking migrations, run them to be safe
+				slog.Info("Error checking migrations, running them", "error", err)
+				s.runMigrations()
+			}
+		}
+
+		s.initialized = true
 	}
 
-	// Initialize the system database if this node should manage it and it hasn't been initialized yet
-	if !s.initialized && s.databaseManager.Cluster.Node().IsPrimary() {
-		s.init()
-		s.initialized = true
+	// Return existing connection if available
+	if s.db != nil {
+		return s.db, nil
 	}
 
 	db, err := sql.Open("litebase-internal", "system/system")

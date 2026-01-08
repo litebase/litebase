@@ -1063,6 +1063,7 @@ func (n *Node) Start() chan bool {
 		}
 
 		n.started <- true
+		close(n.started)
 	}()
 
 	return n.started
