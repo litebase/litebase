@@ -483,6 +483,12 @@ void logCallback(void *pArg, int iErrCode, const char *zMsg)
     return;
   }
 
+  // Ignore schema has changed errors
+  if (iErrCode == SQLITE_SCHEMA)
+  {
+    return;
+  }
+
   fprintf(stderr, "SQLITE_LOG: (%d) %s\n", iErrCode, zMsg);
 }
 
