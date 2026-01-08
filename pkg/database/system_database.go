@@ -69,19 +69,10 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 		return s.db, nil
 	}
 
-	// Check if migrations need to be run when primary node accesses DB
-	if s.databaseManager.Cluster.Node().IsPrimary() {
-		needsMigrations, err := s.needsMigrations()
-
-		if err == nil && needsMigrations {
-			slog.Info("Running pending migrations on DB access")
-			s.runMigrations()
-			s.initialized = true
-		} else if !s.initialized {
-			// If we can't check migrations or they're up to date, just run init if needed
-			s.init()
-			s.initialized = true
-		}
+	// Initialize the system database if this node should manage it and it hasn't been initialized yet
+	if !s.initialized && s.databaseManager.Cluster.Node().IsPrimary() {
+		s.init()
+		s.initialized = true
 	}
 
 	db, err := sql.Open("litebase-internal", "system/system")
