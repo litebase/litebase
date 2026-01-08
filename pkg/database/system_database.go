@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
-	"log"
 	"log/slog"
 	"sync"
 
@@ -43,7 +42,13 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 // Close the system database.
 func (s *SystemDatabase) Close() error {
 	if s.db != nil {
-		return s.db.Close()
+		err := s.db.Close()
+
+		if err != nil {
+			return err
+		}
+
+		s.db = nil
 	}
 
 	return nil
@@ -53,6 +58,21 @@ func (s *SystemDatabase) Close() error {
 func (s *SystemDatabase) DB() (*sql.DB, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	// Return existing connection if available
+	if s.db != nil {
+		return s.db, nil
+	}
+
+	// Open the connection that we will cache
+	db, err := sql.Open("litebase-internal", "system/system")
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to open system database: %w", err)
+	}
+
+	// Cache the connection immediately
+	s.db = db
 
 	// Always ensure migrations are checked/run on first access
 	if !s.initialized {
@@ -64,51 +84,22 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 
 			if err == nil && needsMigrations {
 				slog.Info("Running pending migrations on DB access")
-				s.runMigrations()
-
-				// Clear cached connection to ensure fresh connection sees migrations
-				if s.db != nil {
-					if err := s.db.Close(); err != nil {
-						slog.Error("Error closing database connection", "error", err)
-					}
-
-					s.db = nil
-				}
+				// Run migrations on the cached connection
+				s.runMigrationsOnConnection(s.db)
 			} else if err == nil {
 				// Migrations already up to date
 				slog.Debug("Migrations are up to date")
 			} else {
 				// Error checking migrations, run them to be safe
 				slog.Info("Error checking migrations, running them", "error", err)
-				s.runMigrations()
-
-				// Clear cached connection to ensure fresh connection sees migrations
-				if s.db != nil {
-					if err := s.db.Close(); err != nil {
-						slog.Error("Error closing database connection", "error", err)
-					}
-
-					s.db = nil
-				}
+				// Run migrations on the cached connection
+				s.runMigrationsOnConnection(s.db)
 			}
 		}
 
 		// Mark as initialized after check (primary) or skip (non-primary)
 		s.initialized = true
 	}
-
-	// Return existing connection if available
-	if s.db != nil {
-		return s.db, nil
-	}
-
-	db, err := sql.Open("litebase-internal", "system/system")
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to open system database: %w", err)
-	}
-
-	s.db = db
 
 	return s.db, nil
 }
@@ -130,8 +121,19 @@ func (s *SystemDatabase) CheckAndRunMigrations() error {
 		return nil
 	}
 
+	// Ensure we have a connection before running migrations
+	if s.db == nil {
+		db, err := sql.Open("litebase-internal", "system/system")
+
+		if err != nil {
+			return fmt.Errorf("failed to open system database: %w", err)
+		}
+
+		s.db = db
+	}
+
 	slog.Info("Running pending migrations")
-	s.runMigrations()
+	s.runMigrationsOnConnection(s.db)
 	s.initialized = true
 
 	return nil
@@ -189,20 +191,8 @@ func (s *SystemDatabase) needsMigrations() (bool, error) {
 	return false, nil
 }
 
-// runMigrations executes the migration runner (internal, assumes caller holds mutex)
-func (s *SystemDatabase) runMigrations() {
-	db, err := sql.Open("litebase-internal", "system/system")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer func() {
-		if err := db.Close(); err != nil {
-			slog.Error("Error closing database connection", "error", err)
-		}
-	}()
-
+// runMigrationsOnConnection executes the migration runner on a specific connection
+func (s *SystemDatabase) runMigrationsOnConnection(db *sql.DB) {
 	// Get all migrations and run them
 	allMigrations := migrations.GetAllMigrations()
 
@@ -211,9 +201,4 @@ func (s *SystemDatabase) runMigrations() {
 	if err := runner.Run(); err != nil {
 		panic(fmt.Errorf("failed to run migrations: %w", err))
 	}
-}
-
-// Initialize the system database by running migrations.
-func (s *SystemDatabase) init() {
-	s.runMigrations()
 }
