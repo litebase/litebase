@@ -42,10 +42,7 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 		panic(err)
 	}
 
-	if !s.initialized && (s.databaseManager.Cluster.Node().IsPrimary()) {
-		s.init()
-		s.initialized = true
-	}
+	// Don't run init here - let DB() handle it with proper locking
 
 	return s
 }
