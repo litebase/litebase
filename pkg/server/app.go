@@ -94,12 +94,12 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
 
 	app.Cluster.Node().OnStarted(func() {
-		// err := app.Cluster.Node().WaitForPrimary()
+		err := app.Cluster.Node().WaitForPrimary()
 
-		// if err != nil {
-		// 	slog.Error("Error waiting for primary", "error", err)
-		// 	return
-		// }
+		if err != nil {
+			slog.Error("Error waiting for primary", "error", err)
+			return
+		}
 
 		app.Auth.ProvideAccessKeyStorage(
 			database.NewSystemDatabaseAccessKeyStorage(
