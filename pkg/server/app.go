@@ -94,6 +94,13 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
 
 	app.Cluster.Node().OnStarted(func() {
+		// err := app.Cluster.Node().WaitForPrimary()
+
+		// if err != nil {
+		// 	slog.Error("Error waiting for primary", "error", err)
+		// 	return
+		// }
+
 		app.Auth.ProvideAccessKeyStorage(
 			database.NewSystemDatabaseAccessKeyStorage(
 				app.Config,
@@ -116,7 +123,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 			),
 		)
 
-		err := app.Auth.UserManager.Init()
+		err = app.Auth.UserManager.Init()
 
 		if err != nil {
 			slog.Error("Error initializing user manager", "error", err)
