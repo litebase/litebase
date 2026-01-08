@@ -80,7 +80,7 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 
 		// Only primary nodes should check and run migrations
 		if isPrimary {
-			needsMigrations, err := s.needsMigrations()
+			needsMigrations, err := s.needsMigrationsOnConnection(s.db)
 
 			if err == nil && needsMigrations {
 				slog.Info("Running pending migrations on DB access")
@@ -110,17 +110,6 @@ func (s *SystemDatabase) CheckAndRunMigrations() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	needsMigrations, err := s.needsMigrations()
-
-	if err != nil {
-		return fmt.Errorf("failed to check migrations status: %w", err)
-	}
-
-	if !needsMigrations {
-		slog.Debug("Migrations are up to date")
-		return nil
-	}
-
 	// Ensure we have a connection before running migrations
 	if s.db == nil {
 		db, err := sql.Open("litebase-internal", "system/system")
@@ -132,6 +121,17 @@ func (s *SystemDatabase) CheckAndRunMigrations() error {
 		s.db = db
 	}
 
+	needsMigrations, err := s.needsMigrationsOnConnection(s.db)
+
+	if err != nil {
+		return fmt.Errorf("failed to check migrations status: %w", err)
+	}
+
+	if !needsMigrations {
+		slog.Debug("Migrations are up to date")
+		return nil
+	}
+
 	slog.Info("Running pending migrations")
 	s.runMigrationsOnConnection(s.db)
 	s.initialized = true
@@ -139,8 +139,8 @@ func (s *SystemDatabase) CheckAndRunMigrations() error {
 	return nil
 }
 
-// needsMigrations checks if the database needs migrations by comparing hashes
-func (s *SystemDatabase) needsMigrations() (bool, error) {
+// needsMigrationsOnConnection checks if the database needs migrations using an existing connection
+func (s *SystemDatabase) needsMigrationsOnConnection(db *sql.DB) (bool, error) {
 	// Get all migrations
 	allMigrations := migrations.GetAllMigrations()
 	if len(allMigrations) == 0 {
@@ -152,23 +152,11 @@ func (s *SystemDatabase) needsMigrations() (bool, error) {
 	expectedHash := sha256.Sum256([]byte(latestMigration.Name))
 	expectedHashStr := fmt.Sprintf("%x", expectedHash)
 
-	// Try to open database to check current hash
-	db, err := sql.Open("litebase-internal", "system/system")
-
-	if err != nil {
-		// If we can't open, assume migrations needed
-		return true, nil
-	}
-
-	defer func() {
-		if err := db.Close(); err != nil {
-			slog.Error("Error closing database connection", "error", err)
-		}
-	}()
-
 	// Check if metadata table exists
 	var tableName string
-	err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='metadata'").Scan(&tableName)
+
+	err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='metadata'").Scan(&tableName)
+
 	if err != nil {
 		// Table doesn't exist, migrations needed
 		return true, nil
