@@ -65,6 +65,12 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 			if err == nil && needsMigrations {
 				slog.Info("Running pending migrations on DB access")
 				s.runMigrations()
+
+				// Clear cached connection to ensure fresh connection sees migrations
+				if s.db != nil {
+					s.db.Close()
+					s.db = nil
+				}
 			} else if err == nil {
 				// Migrations already up to date
 				slog.Debug("Migrations are up to date")
@@ -72,6 +78,12 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 				// Error checking migrations, run them to be safe
 				slog.Info("Error checking migrations, running them", "error", err)
 				s.runMigrations()
+
+				// Clear cached connection to ensure fresh connection sees migrations
+				if s.db != nil {
+					s.db.Close()
+					s.db = nil
+				}
 			}
 		}
 
