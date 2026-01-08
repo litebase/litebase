@@ -68,7 +68,10 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 
 				// Clear cached connection to ensure fresh connection sees migrations
 				if s.db != nil {
-					s.db.Close()
+					if err := s.db.Close(); err != nil {
+						slog.Error("Error closing database connection", "error", err)
+					}
+
 					s.db = nil
 				}
 			} else if err == nil {
@@ -81,7 +84,10 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 
 				// Clear cached connection to ensure fresh connection sees migrations
 				if s.db != nil {
-					s.db.Close()
+					if err := s.db.Close(); err != nil {
+						slog.Error("Error closing database connection", "error", err)
+					}
+
 					s.db = nil
 				}
 			}
