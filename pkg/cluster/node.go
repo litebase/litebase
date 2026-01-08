@@ -1056,11 +1056,13 @@ func (n *Node) Start() chan bool {
 	go n.runTicker()
 
 	defer func() {
-		n.started <- true
-
+		// Run onStarted callback BEFORE signaling completion
+		// This ensures migrations and other initialization complete before tests proceed
 		if n.onStarted != nil {
 			n.onStarted()
 		}
+
+		n.started <- true
 	}()
 
 	return n.started
