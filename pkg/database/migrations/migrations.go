@@ -8,13 +8,17 @@ type Migration struct {
 	Up   func(*sql.DB) error
 }
 
+// AllMigrations contains all migrations in order.
+// This can be modified in tests to simulate new migrations.
+var AllMigrations = []Migration{
+	{
+		Name: "001_initial_schema",
+		Up:   Migration001InitialSchema,
+	},
+	// Add new migrations here
+}
+
 // GetAllMigrations returns all migrations in order.
 func GetAllMigrations() []Migration {
-	return []Migration{
-		{
-			Name: "001_initial_schema",
-			Up:   Migration001InitialSchema,
-		},
-		// Add new migrations here
-	}
+	return AllMigrations
 }
