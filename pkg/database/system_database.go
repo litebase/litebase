@@ -54,25 +54,34 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Always ensure migrations are run on first access
+	// Always ensure migrations are checked/run on first access
 	if !s.initialized {
-		// Only the primary node should run migrations
-		if s.databaseManager.Cluster.Node().IsPrimary() {
-			needsMigrations, err := s.needsMigrations()
+		needsMigrations, err := s.needsMigrations()
+		isPrimary := s.databaseManager.Cluster.Node().IsPrimary()
 
-			if err == nil && needsMigrations {
-				slog.Info("Running pending migrations on DB access")
-				s.runMigrations()
-			} else if err == nil {
-				// Migrations already up to date
-				slog.Debug("Migrations are up to date")
-			} else {
-				// Error checking migrations, run them to be safe
-				slog.Info("Error checking migrations, running them", "error", err)
-				s.runMigrations()
+		if err == nil && needsMigrations {
+			if !isPrimary {
+				// Non-primary node cannot run migrations, return error
+				return nil, fmt.Errorf("system database migrations needed but node is not primary")
 			}
+
+			slog.Info("Running pending migrations on DB access")
+			s.runMigrations()
+		} else if err == nil {
+			// Migrations already up to date
+			slog.Debug("Migrations are up to date")
+		} else {
+			if !isPrimary {
+				// Cannot check/run migrations on non-primary node
+				return nil, fmt.Errorf("error checking system database migrations and node is not primary: %w", err)
+			}
+
+			// Error checking migrations, run them to be safe (primary only)
+			slog.Info("Error checking migrations, running them", "error", err)
+			s.runMigrations()
 		}
 
+		// Mark as initialized after successful migration check/run
 		s.initialized = true
 	}
 
