@@ -38,18 +38,16 @@ func MigrationXXX_description(db *sql.DB) error
 3. Register your migration in `migrations.go`:
 
     ```go
-    func GetAllMigrations() []Migration {
-        return []Migration{
-            {
-                Name: "001_initial_schema",
-                Up:   Migration001InitialSchema,
-            },
-            {
-                Name: "002_add_new_table",
-                Up:   Migration002AddNewTable,
-            },
-            // Add new migrations here
-        }
+    var AllMigrations = []Migration{
+        {
+            Name: "001_initial_schema",
+            Up:   Migration001InitialSchema,
+        },
+        {
+            Name: "002_add_new_table",
+            Up:   Migration002AddNewTable,
+        },
+        // Add new migrations here
     }
     ```
 
@@ -62,9 +60,12 @@ func MigrationXXX_description(db *sql.DB) error
 
 ## Important Notes
 
-- Migrations are executed in the order they appear in the `GetAllMigrations()` function
+- Migrations are added to the `AllMigrations` variable in `migrations.go`
+- The `GetAllMigrations()` function returns the `AllMigrations` variable
+- Migrations are executed in the order they appear in the `AllMigrations` slice
 - Each migration is tracked in the `migrations` table in the system database
 - Migrations that have already been applied will be skipped on subsequent runs
 - Always use `CREATE TABLE IF NOT EXISTS` and similar idempotent patterns
 - Each migration runs in a transaction, so failures will rollback
 - The migrations table is created before any other tables to track migration history
+- In tests, `AllMigrations` can be modified to simulate new deployments
