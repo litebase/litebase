@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/cluster"
@@ -80,6 +81,16 @@ func NewTestServer(t testing.TB) *TestServer {
 		PrivateServer:  privateServer,
 		PrivatePort:    privatePort,
 		Started:        app.Cluster.Node().Start(),
+	}
+
+	// Give the node time to complete startup including OnStarted callback
+	// This ensures migrations have run before tests proceed
+	// Use a small timeout to avoid blocking forever if something goes wrong
+	select {
+	case <-server.Started:
+		// Startup completed successfully
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for node to start")
 	}
 
 	return server
