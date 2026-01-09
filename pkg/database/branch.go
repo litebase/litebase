@@ -129,8 +129,8 @@ func InsertBranch(b *Branch) error {
 	b.ID = id
 	b.Exists = true
 
-	// Create default branch settings
-	err = InsertBranchSettings(b)
+	// Create branch settings (copy from parent if available)
+	err = InsertBranchSettings(b, b.ParentBranch())
 
 	if err != nil {
 		return fmt.Errorf("failed to create branch settings: %w", err)
@@ -357,15 +357,25 @@ func (b *Branch) Save() error {
 }
 
 // InsertBranchSettings creates default settings for a newly created branch.
-func InsertBranchSettings(b *Branch) error {
+func InsertBranchSettings(b *Branch, parentBranch *Branch) error {
 	db, err := b.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
 		return err
 	}
 
-	// Create default settings
-	settings := NewDefaultBranchSettings()
+	// Copy settings from parent branch if available, otherwise use defaults
+	var settings *DatabaseBranchSettings
+
+	if parentBranch != nil {
+		settings, err = parentBranch.GetBranchSettings()
+
+		if err != nil {
+			return fmt.Errorf("failed to get parent branch settings: %w", err)
+		}
+	} else {
+		settings = NewDefaultBranchSettings()
+	}
 
 	// Marshal default pragmas to JSON
 	defaultPragmasJSON, err := json.Marshal(settings.DefaultPragmas)

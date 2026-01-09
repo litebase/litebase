@@ -7,6 +7,7 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
 )
 
 func TestDatabaseBranchControllerIndex(t *testing.T) {
@@ -487,5 +488,134 @@ func TestDatabaseBranchControllerDestroy(t *testing.T) {
 				t.Fatalf("expected message to be 'Error: database not found', got %v", resp["message"])
 			}
 		})
+	})
+}
+
+func TestDatabaseBranchControllerStore_CopiesSettingsFromParent(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		mock := test.MockDatabase(server.App)
+
+		db, err := server.App.DatabaseManager.Get(mock.DatabaseID)
+
+		if err != nil {
+			t.Fatalf("failed to get mock database: %v", err)
+		}
+
+		// Get the parent branch
+		parentBranch, err := db.PrimaryBranch()
+
+		if err != nil {
+			t.Fatalf("failed to get primary branch: %v", err)
+		}
+
+		// Update the parent branch settings to custom values
+		customSettings := &database.DatabaseBranchSettings{
+			BackupsEnabled:                  true,
+			BackupInterval:                  "48h",
+			BackupsRetentionDays:            14,
+			IncrementalBackupsEnabled:       true,
+			IncrementalBackupsRetentionDays: 5,
+			QueryLogsEnabled:                true,
+			QueryLogsRetentionDays:          20,
+			ErrorLogsEnabled:                true,
+			ErrorLogsRetentionDays:          25,
+			DefaultPragmas:                  &database.DatabaseDefaultPragmaSettings{},
+		}
+
+		err = parentBranch.UpdateBranchSettings(customSettings)
+
+		if err != nil {
+			t.Fatalf("failed to update parent branch settings: %v", err)
+		}
+
+		// Create a checkpoint so we can create a child branch
+		con, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get database connection: %v", err)
+		}
+
+		defer server.App.DatabaseManager.ConnectionManager().Release(con)
+
+		if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
+			t.Fatalf("failed to create test table: %v", err)
+		}
+
+		if err := con.Checkpoint(); err != nil {
+			t.Fatalf("failed to create checkpoint: %v", err)
+		}
+
+		// Create a child branch
+		client := server.WithAccessKeyClient([]auth.Statement{{
+			Effect:   auth.StatementEffectAllow,
+			Resource: "*",
+			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
+		}})
+
+		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches", mock.DatabaseName), "POST", map[string]any{
+			"name":       "child-branch",
+			"parentName": parentBranch.Name,
+		})
+
+		if err != nil {
+			t.Fatalf("failed to send request: %v", err)
+		}
+
+		if statusCode != 200 {
+			t.Fatalf("expected status code 200, got %d: %v", statusCode, resp)
+		}
+
+		// Get the child branch and verify its settings match the parent
+		childBranch, err := db.Branch("child-branch")
+
+		if err != nil {
+			t.Fatalf("failed to get child branch: %v", err)
+		}
+
+		childSettings, err := childBranch.GetBranchSettings()
+
+		if err != nil {
+			t.Fatalf("failed to get child branch settings: %v", err)
+		}
+
+		// Verify all settings were copied from the parent
+		if childSettings.BackupsEnabled != customSettings.BackupsEnabled {
+			t.Errorf("expected BackupsEnabled to be %v, got %v", customSettings.BackupsEnabled, childSettings.BackupsEnabled)
+		}
+
+		if childSettings.BackupInterval != customSettings.BackupInterval {
+			t.Errorf("expected BackupInterval to be %v, got %v", customSettings.BackupInterval, childSettings.BackupInterval)
+		}
+
+		if childSettings.BackupsRetentionDays != customSettings.BackupsRetentionDays {
+			t.Errorf("expected BackupsRetentionDays to be %v, got %v", customSettings.BackupsRetentionDays, childSettings.BackupsRetentionDays)
+		}
+
+		if childSettings.IncrementalBackupsEnabled != customSettings.IncrementalBackupsEnabled {
+			t.Errorf("expected IncrementalBackupsEnabled to be %v, got %v", customSettings.IncrementalBackupsEnabled, childSettings.IncrementalBackupsEnabled)
+		}
+
+		if childSettings.IncrementalBackupsRetentionDays != customSettings.IncrementalBackupsRetentionDays {
+			t.Errorf("expected IncrementalBackupsRetentionDays to be %v, got %v", customSettings.IncrementalBackupsRetentionDays, childSettings.IncrementalBackupsRetentionDays)
+		}
+
+		if childSettings.QueryLogsEnabled != customSettings.QueryLogsEnabled {
+			t.Errorf("expected QueryLogsEnabled to be %v, got %v", customSettings.QueryLogsEnabled, childSettings.QueryLogsEnabled)
+		}
+
+		if childSettings.QueryLogsRetentionDays != customSettings.QueryLogsRetentionDays {
+			t.Errorf("expected QueryLogsRetentionDays to be %v, got %v", customSettings.QueryLogsRetentionDays, childSettings.QueryLogsRetentionDays)
+		}
+
+		if childSettings.ErrorLogsEnabled != customSettings.ErrorLogsEnabled {
+			t.Errorf("expected ErrorLogsEnabled to be %v, got %v", customSettings.ErrorLogsEnabled, childSettings.ErrorLogsEnabled)
+		}
+
+		if childSettings.ErrorLogsRetentionDays != customSettings.ErrorLogsRetentionDays {
+			t.Errorf("expected ErrorLogsRetentionDays to be %v, got %v", customSettings.ErrorLogsRetentionDays, childSettings.ErrorLogsRetentionDays)
+		}
 	})
 }
