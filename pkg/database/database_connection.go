@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"log"
@@ -358,6 +359,11 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 		return nil, ErrDatabaseConnectionClosed
 	}
 
+	// Check if this is a litebase PRAGMA statement
+	if IsLitebasePragma(sql) {
+		return con.execLitebasePragma(sql)
+	}
+
 	result = &sqlite3.Result{}
 
 	var checkpointBarrier func(func() error) error
@@ -406,6 +412,43 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 			return nil
 		})
 	})
+}
+
+// execLitebasePragma handles execution of custom litebase PRAGMA statements
+func (con *DatabaseConnection) execLitebasePragma(sql string) (*sqlite3.Result, error) {
+	handler := NewLitebasePragmaHandler(con, con.databaseId, con.branchId)
+
+	value, err := handler.Execute(sql)
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := &sqlite3.Result{}
+
+	// If it's a GET operation, return the value as a result
+	if value != nil {
+		result.Columns = []string{"value"}
+
+		var column *sqlite3.Column
+		switch v := value.(type) {
+		case int:
+			// Convert int to bytes (8-byte little-endian)
+			valueBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(valueBytes, uint64(v))
+			column = sqlite3.NewColumn(sqlite3.ColumnTypeInteger, valueBytes)
+		case string:
+			column = sqlite3.NewColumn(sqlite3.ColumnTypeText, []byte(v))
+		default:
+			return nil, fmt.Errorf("unsupported PRAGMA value type: %T", value)
+		}
+
+		result.Rows = [][]*sqlite3.Column{
+			{column},
+		}
+	}
+
+	return result, nil
 }
 
 func (con *DatabaseConnection) FileSystem() *storage.DurableDatabaseFileSystem {

@@ -101,6 +101,27 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				response.SetError(errors.New("VACUUM is not supported from this context").Error())
 
 				return response, errors.New("VACUUM is not supported from this context")
+			} else if query.IsPragma() && IsLitebasePragma(query.Input.Statement) {
+				// Handle litebase PRAGMAs directly through Exec
+				result, err := db.GetConnection().Exec(query.Input.Statement, query.Input.Parameters)
+
+				if err != nil {
+					response.SetError(err.Error())
+					return response, err
+				}
+
+				// Populate response from the PRAGMA result
+				if result != nil {
+					var firstRow []*sqlite3.Column
+
+					if len(result.Rows) > 0 {
+						firstRow = result.Rows[0]
+					}
+
+					response.SetColumnsFromResult(result.Columns, nil, firstRow)
+					response.SetRows(result.Rows)
+					response.SetRowCount(len(result.Rows))
+				}
 			} else {
 				statement, err = db.GetConnection().Statement(query.Input.Statement)
 

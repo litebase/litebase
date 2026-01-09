@@ -207,6 +207,46 @@ func (database *Database) Branch(name string) (*Branch, error) {
 	return &branch, nil
 }
 
+// Retrieve a branch by its database_branch_id
+func (database *Database) BranchByID(branchID string) (*Branch, error) {
+	var branch Branch
+
+	db, err := database.DatabaseManager.SystemDatabase().DB()
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.QueryRow(
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at 
+		FROM database_branches
+		WHERE database_reference_id = ? AND database_branch_id = ?`,
+		database.ID,
+		branchID,
+	).Scan(
+		&branch.ID,
+		&branch.DatabaseReferenceID,
+		&branch.ParentDatabaseBranchReferenceID,
+		&branch.DatabaseID,
+		&branch.DatabaseBranchID,
+		&branch.Name,
+		&branch.CreatedAt,
+		&branch.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("failed to query branch: %w", err)
+	}
+
+	branch.Exists = true
+	branch.DatabaseManager = database.DatabaseManager
+
+	return &branch, nil
+}
+
 // Retrieve all branches of the database.
 func (database *Database) Branches() ([]*Branch, error) {
 	var branches []*Branch

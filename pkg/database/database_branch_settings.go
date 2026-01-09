@@ -10,6 +10,7 @@ type DatabaseBranchBackupInterval string
 func (d DatabaseBranchBackupInterval) IsValid() bool {
 	// Parse the interval as a Go duration string
 	duration, err := time.ParseDuration(string(d))
+
 	if err != nil {
 		return false
 	}
