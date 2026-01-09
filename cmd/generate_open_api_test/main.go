@@ -30,7 +30,7 @@ type Request struct {
 type Response struct {
 	StatusCode   int            `json:"statusCode"`
 	Content      map[string]any `json:"content,omitempty"`
-	Captures     []string       `json:"captures,omitempty"`    // Array of field names to capture from response. Supports nested objects using dot notation (e.g., "restorePoint.timestamp")
+	Captures     []string       `json:"captures,omitempty"`     // Array of field names to capture from response. Supports nested objects using dot notation (e.g., "restorePoint.timestamp")
 	IsBinaryFile bool           `json:"isBinaryFile,omitempty"` // true if the response is a binary file (application/octet-stream) instead of JSON
 }
 
@@ -1366,6 +1366,27 @@ func generateGetTestCase(operationID, resourceType string, details map[string]an
 	if resourceType == "DatabaseBranch" {
 		// Special handling for DatabaseBranch - needs database, write, and wait
 		steps = append(steps, generateDatabaseBranchPrerequisites()...)
+	} else if resourceType == "DatabaseBranchSettings" {
+		// Special handling for DatabaseBranchSettings - needs database (main branch created automatically)
+		steps = append(steps, TestStep{
+			Request: &Request{
+				Name:      "Create test Database",
+				Model:     "Database",
+				Operation: "createDatabase",
+				Body: map[string]any{
+					"name": generateRandomDatabaseName(),
+				},
+				RequestModel: "DatabaseStoreRequest",
+			},
+			Response: &Response{
+				StatusCode: 201,
+				Content:    map[string]any{},
+				Captures: []string{
+					"name AS databaseName",
+					"branchName",
+				},
+			},
+		})
 		// Special handling for DatabaseBackup - needs database, branch, write, and wait
 	} else if resourceType == "DatabaseBackup" {
 		steps = append(steps, generateDatabaseBackupPrerequisites()...)
@@ -1434,7 +1455,7 @@ func generateGetTestCase(operationID, resourceType string, details map[string]an
 	isBinaryFile := resourceType == "DatabaseExportPart" // Export parts return binary file data
 	steps = append(steps, TestStep{
 		Request: &Request{
-			Name:       fmt.Sprintf("Get %s by ID", resourceType),
+			Name:       fmt.Sprintf("Get the %s resource", resourceType),
 			Model:      resourceType,
 			Operation:  operationID,
 			Body:       map[string]any{},
@@ -1476,8 +1497,29 @@ func generateUpdateTestCase(operationID, resourceType string, details map[string
 
 	steps := []TestStep{}
 
-	// Special handling for DatabaseBackup - needs database, branch, write, and wait
-	if resourceType == "DatabaseBackup" {
+	// Special handling for DatabaseBranchSettings - needs database (main branch created automatically)
+	if resourceType == "DatabaseBranchSettings" {
+		steps = append(steps, TestStep{
+			Request: &Request{
+				Name:      "Create test Database",
+				Model:     "Database",
+				Operation: "createDatabase",
+				Body: map[string]any{
+					"name": generateRandomDatabaseName(),
+				},
+				RequestModel: "DatabaseStoreRequest",
+			},
+			Response: &Response{
+				StatusCode: 201,
+				Content:    map[string]any{},
+				Captures: []string{
+					"name AS databaseName",
+					"branchName",
+				},
+			},
+		})
+		// Special handling for DatabaseBackup - needs database, branch, write, and wait
+	} else if resourceType == "DatabaseBackup" {
 		steps = append(steps, generateDatabaseBackupPrerequisites()...)
 		// DatabaseBackup prerequisites already include the create step, so skip the normal create
 	} else if createOp != "" && operationExists(createOp) {
@@ -1783,6 +1825,15 @@ func generateRequestBody(resourceType, operation string) map[string]any {
 	case "databasebackup":
 		if operation == "create" {
 			return map[string]any{}
+		}
+
+	case "databasebranchsettings":
+		if operation == "update" {
+			return map[string]any{
+				"backupsEnabled":       true,
+				"backupInterval":       "24h",
+				"backupsRetentionDays": 7,
+			}
 		}
 
 	case "token":
