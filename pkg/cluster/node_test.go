@@ -19,7 +19,7 @@ func TestNode(t *testing.T) {
 	test.Run(t, func() {
 		// Reset port providers to avoid interference from other tests
 		cluster.ResetPortProviders()
-		
+
 		t.Run("NewNode", func(t *testing.T) {
 			c := config.NewConfig()
 			clusterInstance, err := cluster.NewCluster(c)
@@ -448,6 +448,49 @@ func TestNode(t *testing.T) {
 			}
 		})
 
+		t.Run("WaitForPrimary", func(t *testing.T) {
+			server := test.NewTestServer(t)
+			defer server.Shutdown()
+
+			node := server.App.Cluster.Node()
+
+			// Test 1: Wait for a primary to be elected (could be this node or another)
+			err := node.WaitForPrimary()
+
+			if err != nil {
+				t.Fatal("WaitForPrimary failed:", err)
+			}
+
+			// Verify that a primary exists (either this node or another node has primary address)
+			isPrimary := node.IsPrimary()
+			hasPrimaryAddress := node.PrimaryAddress() != ""
+
+			if !isPrimary && !hasPrimaryAddress {
+				t.Fatalf("No primary found after WaitForPrimary. Membership: %s, PrimaryAddress: %s",
+					node.GetMembership(), node.PrimaryAddress())
+			}
+
+			// Test 2: If this node is primary, test stepping down and waiting again
+			if isPrimary {
+				err = node.StepDown()
+
+				if err != nil {
+					t.Fatal("Failed to step down:", err)
+				}
+
+				// Wait for a new election to occur
+				err = node.WaitForPrimary()
+
+				if err != nil {
+					t.Error("WaitForPrimary failed after stepping down:", err)
+				}
+
+				// Verify that either this node or another node is primary
+				if !node.IsPrimary() && node.PrimaryAddress() == "" {
+					t.Error("No primary elected after waiting")
+				}
+			}
+		})
 	})
 }
 
@@ -478,7 +521,7 @@ func TestNode_StepDown(t *testing.T) {
 func TestNode_TickerResumeAfterPause(t *testing.T) {
 	// Reset port providers to avoid interference from other tests
 	cluster.ResetPortProviders()
-	
+
 	test.WithSteps(t, func(sp *test.StepProcessor) {
 		sp.Run("PRIMARY_SERVER", func(s *test.StepProcess) {
 			defaultNodeTickTimeout := cluster.NodeTickTimeout

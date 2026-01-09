@@ -113,14 +113,25 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 // database file system, while coordinating with the check pointer to ensure
 // that pages are not being written to while the compaction is happening.
 func (d *DatabaseManager) Compaction() {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
 	if !d.Cluster.Node().IsPrimary() {
 		return
 	}
 
+	// Take a snapshot of resources while holding the lock, then release it
+	// to avoid deadlock with other operations that need the lock
+	d.mutex.Lock()
+
+	resources := make([]*DatabaseResources, 0, len(d.resources))
+
 	for _, resource := range d.resources {
+		resources = append(resources, resource)
+	}
+
+	d.mutex.Unlock()
+
+	// Process each resource without holding the manager mutex to avoid
+	// lock inversion with CheckpointBarrier
+	for _, resource := range resources {
 		walmanager, err := resource.DatabaseWALManager()
 
 		if err != nil {

@@ -132,7 +132,7 @@ func (c *LitebaseConn) Close() error {
 		return nil
 	}
 
-	c.connectionManager.Release(c.conn)
+	c.connectionManager.Remove(c.conn.connection.databaseId, c.conn.connection.branchId, c.conn)
 
 	c.conn = nil
 
