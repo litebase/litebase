@@ -185,20 +185,23 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			response.SetRowCount(len(sqlite3Result.Rows))
 		}
 
-		err = logManager.Query(
-			logs.QueryLogEntry{
-				Cluster:      query.cluster,
-				DatabaseHash: query.DatabaseKey.DatabaseHash,
-				DatabaseID:   query.DatabaseKey.DatabaseID,
-				BranchID:     query.DatabaseKey.DatabaseBranchID,
-				CredentialID: query.Credential.CredentialID,
-				Statement:    query.Input.Statement,
-				Latency:      response.Latency(),
-			},
-		)
+		// Only log queries if query logs are enabled in database branch settings
+		if db.GetConnection().queryLogsEnabled {
+			err = logManager.Query(
+				logs.QueryLogEntry{
+					Cluster:      query.cluster,
+					DatabaseHash: query.DatabaseKey.DatabaseHash,
+					DatabaseID:   query.DatabaseKey.DatabaseID,
+					BranchID:     query.DatabaseKey.DatabaseBranchID,
+					CredentialID: query.Credential.CredentialID,
+					Statement:    query.Input.Statement,
+					Latency:      response.Latency(),
+				},
+			)
 
-		if err != nil {
-			slog.Error("Error logging query", "error", err)
+			if err != nil {
+				slog.Error("Error logging query", "error", err)
+			}
 		}
 
 		return response, nil

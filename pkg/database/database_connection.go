@@ -91,6 +91,7 @@ type DatabaseConnection struct {
 	mutex                  *sync.Mutex
 	nodeId                 string
 	pageLogger             *storage.PageLogger
+	queryLogsEnabled       bool
 	resultPool             *sqlite3.ResultPool
 	sqlite3                *sqlite3.Connection
 	statements             sync.Map
@@ -134,6 +135,22 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		return nil, err
 	}
 
+	// Get branch settings to cache query logging preference
+	queryLogsEnabled := false
+	database, err := connectionManager.databaseManager.Get(databaseId)
+
+	if err == nil {
+		branch, err := database.BranchByID(branchId)
+
+		if err == nil {
+			settings, err := branch.GetBranchSettings()
+
+			if err == nil {
+				queryLogsEnabled = settings.QueryLogsEnabled
+			}
+		}
+	}
+
 	con := &DatabaseConnection{
 		branchId:          branchId,
 		cancel:            cancel,
@@ -148,6 +165,7 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		mutex:             &sync.Mutex{},
 		nodeId:            connectionManager.cluster.Node().ID,
 		pageLogger:        resources.PageLogger(),
+		queryLogsEnabled:  queryLogsEnabled,
 		resultPool:        resultPool,
 		statements:        sync.Map{},
 		tmpFileSystem:     connectionManager.cluster.TmpFS(),
@@ -892,6 +910,14 @@ func (con *DatabaseConnection) VFSHash() string {
 
 func (con *DatabaseConnection) WALTimestamp() int64 {
 	return con.walTimestamp
+}
+
+// Update the cached query logs enabled setting
+func (con *DatabaseConnection) SetQueryLogsEnabled(enabled bool) {
+	con.mutex.Lock()
+	defer con.mutex.Unlock()
+
+	con.queryLogsEnabled = enabled
 }
 
 // Set the access key for the database connection.
