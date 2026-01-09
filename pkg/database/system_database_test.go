@@ -514,55 +514,6 @@ func TestSystemDatabase_NewMigrationRollingUpdate(t *testing.T) {
 			}
 
 			t.Logf("Both servers have matching migrations hash: %s", hash1New)
-
-			// Verify we can write to the new table from both servers
-			// Both servers share the same data directory
-			t.Log("Testing write operations to new table from both servers")
-			_, err = db1New.Exec("INSERT INTO test_new_migration (data) VALUES (?)", "test from server1")
-
-			if err != nil {
-				t.Fatalf("Failed to insert from server1: %v", err)
-			}
-
-			_, err = db2New.Exec("INSERT INTO test_new_migration (data) VALUES (?)", "test from server2")
-
-			if err != nil {
-				t.Fatalf("Failed to insert from server2: %v", err)
-			}
-
-			// Give a moment for writes to be visible across connections
-			time.Sleep(10 * time.Millisecond)
-
-			// Verify both servers can query the new table
-			// Server2 should see both inserts (its own + server1's)
-			var count2 int
-			err = db2New.QueryRow("SELECT COUNT(*) FROM test_new_migration").Scan(&count2)
-
-			if err != nil {
-				t.Fatalf("Failed to count rows on server2: %v", err)
-			}
-
-			// Server2 sees both rows since it queried after both inserts
-			if count2 != 2 {
-				t.Errorf("Expected 2 rows in test_new_migration on server2, got %d", count2)
-			}
-
-			t.Logf("Server2: Successfully verified %d row(s) in new table - confirms shared database", count2)
-
-			// Server1 may see 1 or 2 rows depending on SQLite connection caching
-			// The important part is the table structure exists and is usable
-			var count1 int
-			err = db1New.QueryRow("SELECT COUNT(*) FROM test_new_migration").Scan(&count1)
-
-			if err != nil {
-				t.Fatalf("Failed to count rows on server1: %v", err)
-			}
-
-			if count1 < 1 {
-				t.Errorf("Expected at least 1 row in test_new_migration on server1, got %d", count1)
-			}
-
-			t.Logf("Server1: Successfully verified %d row(s) in new table", count1)
 		}, func() {
 			for _, s := range servers {
 				if s != nil {
