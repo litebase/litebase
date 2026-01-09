@@ -16,14 +16,13 @@ import (
 )
 
 type Database struct {
-	ID                       int64             `json:"-"`
-	DatabaseManager          *DatabaseManager  `json:"-"`
-	Name                     string            `json:"name"`
-	DatabaseID               string            `json:"databaseId"`
-	PrimaryBranchReferenceID sql.NullInt64     `json:"-"`
-	Settings                 *DatabaseSettings `json:"settings"`
-	CreatedAt                time.Time         `json:"createdAt"`
-	UpdatedAt                time.Time         `json:"updatedAt"`
+	ID                       int64            `json:"-"`
+	DatabaseManager          *DatabaseManager `json:"-"`
+	Name                     string           `json:"name"`
+	DatabaseID               string           `json:"databaseId"`
+	PrimaryBranchReferenceID sql.NullInt64    `json:"-"`
+	CreatedAt                time.Time        `json:"createdAt"`
+	UpdatedAt                time.Time        `json:"updatedAt"`
 	exists                   bool
 	primaryBranch            *Branch
 	branchCache              *cache.LFUCache
@@ -41,16 +40,6 @@ func NewDatabase(databaseManager *DatabaseManager, databaseName string) *Databas
 
 func CreateDatabase(databaseManager *DatabaseManager, databaseName string, branchName string) (*Database, error) {
 	database := NewDatabase(databaseManager, databaseName)
-
-	database.Settings = &DatabaseSettings{
-		Backups: DatabaseBackupSettings{
-			Enabled: true,
-			IncrementalBackups: DatabaseIncrementalBackupSettings{
-				Enabled: true,
-			},
-		},
-	}
-
 	database.CreatedAt = time.Now().UTC()
 	database.UpdatedAt = time.Now().UTC()
 
@@ -98,16 +87,14 @@ func InsertDatabase(database *Database) error {
 			database_id,
 			primary_branch_reference_id, 
 			name,
-			settings,
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?)
 		`,
 		database.DatabaseID,
 		primaryBranchId,
 		database.Name,
-		database.Settings,
 		time.Now().UTC(),
 		time.Now().UTC(),
 	)
@@ -136,12 +123,6 @@ func UpdateDatabase(database *Database) error {
 		return err
 	}
 
-	settingsJson, err := json.Marshal(database.Settings)
-
-	if err != nil {
-		return err
-	}
-
 	var primaryBranchId sql.NullInt64
 
 	if database.PrimaryBranchReferenceID.Valid {
@@ -156,13 +137,11 @@ func UpdateDatabase(database *Database) error {
 		SET 
 			name = ?,
 			primary_branch_reference_id = ?,
-			settings = ?,
 			updated_at = ?
 		WHERE database_id = ?
 		`,
 		database.Name,
 		primaryBranchId,
-		string(settingsJson),
 		updatedAt,
 		database.DatabaseID,
 	)
@@ -178,7 +157,6 @@ func UpdateDatabase(database *Database) error {
 
 		cachedDatabase.Name = database.Name
 		cachedDatabase.PrimaryBranchReferenceID = database.PrimaryBranchReferenceID
-		cachedDatabase.Settings = database.Settings
 		cachedDatabase.UpdatedAt = updatedAt
 		cachedDatabase.exists = true
 
@@ -199,7 +177,7 @@ func (database *Database) Branch(name string) (*Branch, error) {
 	}
 
 	err = db.QueryRow(
-		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at 
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at 
 		FROM database_branches
 		WHERE database_reference_id = ? AND name = ?`,
 		database.ID,
@@ -211,7 +189,6 @@ func (database *Database) Branch(name string) (*Branch, error) {
 		&branch.DatabaseID,
 		&branch.DatabaseBranchID,
 		&branch.Name,
-		&branch.Settings,
 		&branch.CreatedAt,
 		&branch.UpdatedAt,
 	)
@@ -241,7 +218,7 @@ func (database *Database) Branches() ([]*Branch, error) {
 	}
 
 	rows, err := db.Query(
-		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at FROM database_branches
 		WHERE database_reference_id = ?`,
 		database.ID,
 	)
@@ -259,7 +236,7 @@ func (database *Database) Branches() ([]*Branch, error) {
 	for rows.Next() {
 		var branch Branch
 
-		if err := rows.Scan(&branch.ID, &branch.DatabaseReferenceID, &branch.ParentDatabaseBranchReferenceID, &branch.DatabaseID, &branch.DatabaseBranchID, &branch.Name, &branch.Settings, &branch.CreatedAt, &branch.UpdatedAt); err != nil {
+		if err := rows.Scan(&branch.ID, &branch.DatabaseReferenceID, &branch.ParentDatabaseBranchReferenceID, &branch.DatabaseID, &branch.DatabaseBranchID, &branch.Name, &branch.CreatedAt, &branch.UpdatedAt); err != nil {
 			continue
 		}
 
@@ -458,7 +435,7 @@ func (database *Database) PrimaryBranch() (*Branch, error) {
 			var branch Branch
 
 			err = db.QueryRow(
-				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at FROM database_branches WHERE id = ?`,
 				database.PrimaryBranchReferenceID.Int64,
 			).Scan(
 				&branch.ID,
@@ -467,7 +444,6 @@ func (database *Database) PrimaryBranch() (*Branch, error) {
 				&branch.DatabaseID,
 				&branch.DatabaseBranchID,
 				&branch.Name,
-				&branch.Settings,
 				&branch.CreatedAt,
 				&branch.UpdatedAt,
 			)

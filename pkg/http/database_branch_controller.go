@@ -210,7 +210,6 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 			DatabaseName:     db.Name,
 			Name:             branch.Name,
 			ParentName:       parentName,
-			Settings:         branch.Settings,
 			CreatedAt:        branch.CreatedAt,
 			UpdatedAt:        branch.UpdatedAt,
 		},

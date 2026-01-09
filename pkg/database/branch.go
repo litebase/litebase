@@ -27,7 +27,6 @@ type Branch struct {
 	Name                            string           `json:"name"`
 	parentBranch                    *Branch          `json:"-"`
 	ParentDatabaseBranchReferenceID sql.NullInt64    `json:"-"`
-	Settings                        *BranchSettings  `json:"settings"`
 	CreatedAt                       time.Time        `json:"createdAt"`
 	UpdatedAt                       time.Time        `json:"updatedAt"`
 
@@ -99,18 +98,16 @@ func InsertBranch(b *Branch) error {
 			database_id, 
 			database_branch_id, 
 			name, 
-			settings, 
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		`,
 		b.DatabaseReferenceID,
 		b.ParentDatabaseBranchReferenceID,
 		b.DatabaseID,
 		b.DatabaseBranchID,
 		b.Name,
-		b.Settings,
 		time.Now().UTC(),
 		time.Now().UTC(),
 	)
@@ -155,12 +152,10 @@ func UpdateBranch(b *Branch) error {
 		`UPDATE database_branches
 		SET
 			name = ?,
-			settings = ?,
 			updated_at = ?
 		WHERE database_branch_id = ?
 		`,
 		b.Name,
-		b.Settings,
 		time.Now().UTC(),
 		b.DatabaseBranchID,
 	)
@@ -313,7 +308,7 @@ func (branch *Branch) ParentBranch() *Branch {
 			var parentBranch Branch
 
 			err = db.QueryRow(
-				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at FROM database_branches WHERE id = ?`,
 				branch.ParentDatabaseBranchReferenceID.Int64,
 			).Scan(
 				&parentBranch.ID,
@@ -322,7 +317,6 @@ func (branch *Branch) ParentBranch() *Branch {
 				&parentBranch.DatabaseID,
 				&parentBranch.DatabaseBranchID,
 				&parentBranch.Name,
-				&parentBranch.Settings,
 				&parentBranch.CreatedAt,
 				&parentBranch.UpdatedAt,
 			)

@@ -91,7 +91,6 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 			&database.DatabaseID,
 			&database.Name,
 			&database.PrimaryBranchReferenceID,
-			&database.Settings,
 			&database.CreatedAt,
 			&database.UpdatedAt,
 		)
@@ -333,14 +332,13 @@ func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
 	database := NewDatabase(d, "")
 
 	err = db.QueryRow(
-		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+		"SELECT id, database_id, name, primary_branch_reference_id, created_at, updated_at FROM databases WHERE database_id = ?",
 		databaseID,
 	).Scan(
 		&database.ID,
 		&database.DatabaseID,
 		&database.Name,
 		&database.PrimaryBranchReferenceID,
-		&database.Settings,
 		&database.CreatedAt,
 		&database.UpdatedAt,
 	)
@@ -399,14 +397,13 @@ func (d *DatabaseManager) GetByName(name string) (*Database, error) {
 	database := NewDatabase(d, "")
 
 	err = db.QueryRow(
-		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+		"SELECT id, database_id, name, primary_branch_reference_id, created_at, updated_at FROM databases WHERE database_id = ?",
 		databaseID,
 	).Scan(
 		&database.ID,
 		&database.DatabaseID,
 		&database.Name,
 		&database.PrimaryBranchReferenceID,
-		&database.Settings,
 		&database.CreatedAt,
 		&database.UpdatedAt,
 	)

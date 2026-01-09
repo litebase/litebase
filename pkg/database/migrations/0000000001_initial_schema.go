@@ -3,7 +3,7 @@ package migrations
 import "database/sql"
 
 // Migration001InitialSchema creates all initial system database tables.
-func Migration001InitialSchema(db *sql.DB) error {
+func Migration0000000001InitialSchema(db *sql.DB) error {
 	// Create the metadata table if it doesn't exist.
 	_, err := db.Exec(
 		`CREATE TABLE IF NOT EXISTS metadata
@@ -26,7 +26,6 @@ func Migration001InitialSchema(db *sql.DB) error {
 			database_id TEXT UNIQUE, 
 			name TEXT UNIQUE,
 			primary_branch_reference_id INTEGER,
-			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT
 		)`,
@@ -46,7 +45,6 @@ func Migration001InitialSchema(db *sql.DB) error {
 			database_id TEXT,
 			database_branch_id TEXT,
 			name TEXT,
-			settings TEXT,
 			created_at TEXT,
 			updated_at TEXT,
 			FOREIGN KEY (database_reference_id) REFERENCES databases(id) ON DELETE CASCADE
