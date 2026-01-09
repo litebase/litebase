@@ -3,7 +3,6 @@ package test
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"log"
 
 	"github.com/google/uuid"
 	"github.com/litebase/litebase/pkg/auth"
@@ -33,13 +32,19 @@ func CreateHash(length int) string {
 	_, err := rand.Read(randomBytes)
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	return hex.EncodeToString(randomBytes)[:length]
 }
 
 func MockDatabase(app *server.App) TestDatabase {
+	err := app.Cluster.Node().WaitForPrimary()
+
+	if err != nil {
+		panic(err)
+	}
+
 	accessKey, err := app.Auth.AccessKeyManager.Create("", []auth.Statement{
 		{
 			Effect:   auth.StatementEffectAllow,
@@ -49,7 +54,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	})
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	randomDbName := "testdb_" + uuid.NewString()
@@ -57,7 +62,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	db, err := app.DatabaseManager.Create(randomDbName, "main")
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	credential := &auth.Credential{}
@@ -66,7 +71,7 @@ func MockDatabase(app *server.App) TestDatabase {
 	primaryBranch, err := db.PrimaryBranch()
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	return TestDatabase{

@@ -1056,11 +1056,14 @@ func (n *Node) Start() chan bool {
 	go n.runTicker()
 
 	defer func() {
-		n.started <- true
-
+		// Run onStarted callback BEFORE signaling completion
+		// This ensures migrations and other initialization complete before tests proceed
 		if n.onStarted != nil {
 			n.onStarted()
 		}
+
+		n.started <- true
+		close(n.started)
 	}()
 
 	return n.started
@@ -1150,6 +1153,33 @@ func (n *Node) Tick() {
 // Return the started at timestamp of the node.
 func (n *Node) Timestamp() time.Time {
 	return n.startedAt
+}
+
+// Wait for the current node to become the primary or a new primary to be elected.
+func (n *Node) WaitForPrimary() error {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	timeout := time.After(30 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for primary election")
+		case <-n.context.Done():
+			return n.context.Err()
+		case <-ticker.C:
+			// Check if this node is primary
+			if n.IsPrimary() {
+				return nil
+			}
+
+			// Check if another node is primary
+			if n.PrimaryAddress() != "" && n.primaryLeaseVerification() {
+				return nil
+			}
+		}
+	}
 }
 
 func (n *Node) WALSynchronizer() NodeWalSynchronizer {

@@ -138,7 +138,7 @@ func (s *SystemDatabaseUserStorage) List() ([]*auth.User, error) {
 	rows, err := db.Query("SELECT username, password, description, statements, created_at, updated_at FROM users ORDER BY created_at ASC")
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to query access keys: %w", err)
+		return nil, fmt.Errorf("failed to query users: %w", err)
 	}
 
 	defer func() {
