@@ -1,53 +1,66 @@
 package database
 
 import (
-	"database/sql/driver"
-	"encoding/json"
-	"fmt"
+	"database/sql"
+	"time"
 )
 
+type DatabaseBranchBackupInterval string
+
+func (d DatabaseBranchBackupInterval) IsValid() bool {
+	// Parse the interval as a Go duration string
+	duration, err := time.ParseDuration(string(d))
+	if err != nil {
+		return false
+	}
+
+	// Ensure the interval is at least 1 day (24 hours)
+	minDuration := 24 * time.Hour
+
+	if duration < minDuration {
+		return false
+	}
+
+	// Ensure the interval is an increment of 1 day
+	return duration%(24*time.Hour) == 0
+}
+
 type DatabaseBranchSettings struct {
-	BackupsCleanedAt                int64                          `json:"backupsCleanedAt"`
+	BackupsCleanedAt                sql.NullInt64                  `json:"backupsCleanedAt"`
 	BackupsEnabled                  bool                           `json:"backupsEnabled"`
-	BackupInterval                  string                         `json:"backupInterval"`
-	BackupNextAt                    int64                          `json:"backupNextAt"`
+	BackupInterval                  DatabaseBranchBackupInterval   `json:"backupInterval"`
+	BackupNextAt                    sql.NullInt64                  `json:"backupNextAt"`
 	BackupsRetentionDays            int                            `json:"backupsRetentionDays"`
 	DefaultPragmas                  *DatabaseDefaultPragmaSettings `json:"defaultPragmas"`
-	ErrorLogsCleanedAt              int64                          `json:"errorLogsCleanedAt"`
+	ErrorLogsCleanedAt              sql.NullInt64                  `json:"errorLogsCleanedAt"`
 	ErrorLogsEnabled                bool                           `json:"errorLogsEnabled"`
 	ErrorLogsRetentionDays          int                            `json:"errorLogsRetentionDays"`
-	IncrementalBackupsCleanedAt     int64                          `json:"incrementalBackupsCleanedAt"`
+	IncrementalBackupsCleanedAt     sql.NullInt64                  `json:"incrementalBackupsCleanedAt"`
 	IncrementalBackupsEnabled       bool                           `json:"incrementalBackupsEnabled"`
 	IncrementalBackupsRetentionDays int                            `json:"incrementalBackupsRetentionDays"`
-	QueryLogsCleanedAt              int64                          `json:"queryLogsCleanedAt"`
+	QueryLogsCleanedAt              sql.NullInt64                  `json:"queryLogsCleanedAt"`
 	QueryLogsEnabled                bool                           `json:"queryLogsEnabled"`
 	QueryLogsRetentionDays          int                            `json:"queryLogsRetentionDays"`
 }
 
 type DatabaseDefaultPragmaSettings struct {
-	ForeignKeys string `json:"foreignKeys"`
+	ForeignKeys string `json:"foreignKeys" validate:"required,oneof=ON OFF"`
 }
 
-// Implement sql.Scanner interface for reading JSON from database
-func (ds *DatabaseDefaultPragmaSettings) Scan(value any) error {
-	if value == nil {
-		return nil
+// NewDefaultBranchSettings creates default settings for a new branch.
+func NewDefaultBranchSettings() *DatabaseBranchSettings {
+	return &DatabaseBranchSettings{
+		BackupsEnabled:                  true,
+		BackupInterval:                  "24h",
+		BackupsRetentionDays:            30,
+		IncrementalBackupsEnabled:       true,
+		IncrementalBackupsRetentionDays: 7,
+		QueryLogsEnabled:                true,
+		QueryLogsRetentionDays:          15,
+		ErrorLogsEnabled:                true,
+		ErrorLogsRetentionDays:          15,
+		DefaultPragmas: &DatabaseDefaultPragmaSettings{
+			ForeignKeys: "ON",
+		},
 	}
-
-	var jsonData []byte
-	switch v := value.(type) {
-	case string:
-		jsonData = []byte(v)
-	case []byte:
-		jsonData = v
-	default:
-		return fmt.Errorf("cannot scan %T into DatabaseSettings", value)
-	}
-
-	return json.Unmarshal(jsonData, ds)
-}
-
-// Implement driver.Valuer interface for storing JSON to database
-func (ds DatabaseDefaultPragmaSettings) Value() (driver.Value, error) {
-	return json.Marshal(ds)
 }

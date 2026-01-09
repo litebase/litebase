@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/file"
 
 	"github.com/google/uuid"
@@ -20,15 +21,16 @@ var ErrBranchAlreadyExists = func(name string) error {
 type Branch struct {
 	ID                              int64 `json:"id"`
 	database                        *Database
-	DatabaseBranchID                string           `json:"databaseBranchId"`
-	DatabaseID                      string           `json:"databaseId"`
-	DatabaseManager                 *DatabaseManager `json:"-"`
-	DatabaseReferenceID             sql.NullInt64    `json:"-"`
-	Name                            string           `json:"name"`
-	parentBranch                    *Branch          `json:"-"`
-	ParentDatabaseBranchReferenceID sql.NullInt64    `json:"-"`
-	CreatedAt                       time.Time        `json:"createdAt"`
-	UpdatedAt                       time.Time        `json:"updatedAt"`
+	DatabaseBranchID                string                  `json:"databaseBranchId"`
+	DatabaseID                      string                  `json:"databaseId"`
+	DatabaseManager                 *DatabaseManager        `json:"-"`
+	DatabaseReferenceID             sql.NullInt64           `json:"-"`
+	Name                            string                  `json:"name"`
+	parentBranch                    *Branch                 `json:"-"`
+	ParentDatabaseBranchReferenceID sql.NullInt64           `json:"-"`
+	Settings                        *DatabaseBranchSettings `json:"settings"`
+	CreatedAt                       time.Time               `json:"createdAt"`
+	UpdatedAt                       time.Time               `json:"updatedAt"`
 
 	Exists bool `json:"-"`
 }
@@ -126,6 +128,13 @@ func InsertBranch(b *Branch) error {
 
 	b.ID = id
 	b.Exists = true
+
+	// Create default branch settings
+	err = InsertBranchSettings(b)
+
+	if err != nil {
+		return fmt.Errorf("failed to create branch settings: %w", err)
+	}
 
 	database, err := b.Database()
 
@@ -345,6 +354,201 @@ func (b *Branch) Save() error {
 	} else {
 		return InsertBranch(b)
 	}
+}
+
+// InsertBranchSettings creates default settings for a newly created branch.
+func InsertBranchSettings(b *Branch) error {
+	db, err := b.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return err
+	}
+
+	// Create default settings
+	settings := NewDefaultBranchSettings()
+
+	// Marshal default pragmas to JSON
+	defaultPragmasJSON, err := json.Marshal(settings.DefaultPragmas)
+
+	if err != nil {
+		return fmt.Errorf("failed to marshal default pragmas: %w", err)
+	}
+
+	now := time.Now().UTC().Unix()
+
+	_, err = db.Exec(`
+		INSERT INTO database_branch_settings (
+			database_branch_reference_id,
+			backups_enabled,
+			backups_interval,
+			backups_retention_days,
+			default_pragmas_json,
+			error_logs_enabled,
+			error_logs_retention_days,
+			incremental_backups_enabled,
+			incremental_backups_retention_days,
+			query_logs_enabled,
+			query_logs_retention_days,
+			created_at,
+			updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		b.ID,
+		utils.BoolToInt(settings.BackupsEnabled),
+		settings.BackupInterval,
+		settings.BackupsRetentionDays,
+		string(defaultPragmasJSON),
+		utils.BoolToInt(settings.ErrorLogsEnabled),
+		settings.ErrorLogsRetentionDays,
+		utils.BoolToInt(settings.IncrementalBackupsEnabled),
+		settings.IncrementalBackupsRetentionDays,
+		utils.BoolToInt(settings.QueryLogsEnabled),
+		settings.QueryLogsRetentionDays,
+		now,
+		now,
+	)
+
+	return err
+}
+
+// GetBranchSettings retrieves the settings for this branch.
+func (b *Branch) GetBranchSettings() (*DatabaseBranchSettings, error) {
+	db, err := b.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		backupsCleanedAt                sql.NullInt64
+		backupsEnabled                  int
+		backupInterval                  string
+		backupNextAt                    sql.NullInt64
+		backupsRetentionDays            int
+		defaultPragmasJSON              string
+		errorLogsCleanedAt              sql.NullInt64
+		errorLogsEnabled                int
+		errorLogsRetentionDays          int
+		incrementalBackupsCleanedAt     sql.NullInt64
+		incrementalBackupsEnabled       int
+		incrementalBackupsRetentionDays int
+		queryLogsCleanedAt              sql.NullInt64
+		queryLogsEnabled                int
+		queryLogsRetentionDays          int
+	)
+
+	err = db.QueryRow(`
+		SELECT 
+			backups_cleaned_at,
+			backups_enabled,
+			backups_interval,
+			backup_next_at,
+			backups_retention_days,
+			default_pragmas_json,
+			error_logs_cleaned_at,
+			error_logs_enabled,
+			error_logs_retention_days,
+			incremental_backups_cleaned_at,
+			incremental_backups_enabled,
+			incremental_backups_retention_days,
+			query_logs_cleaned_at,
+			query_logs_enabled,
+			query_logs_retention_days
+		FROM database_branch_settings 
+		WHERE database_branch_reference_id = ?
+	`, b.ID).Scan(
+		&backupsCleanedAt,
+		&backupsEnabled,
+		&backupInterval,
+		&backupNextAt,
+		&backupsRetentionDays,
+		&defaultPragmasJSON,
+		&errorLogsCleanedAt,
+		&errorLogsEnabled,
+		&errorLogsRetentionDays,
+		&incrementalBackupsCleanedAt,
+		&incrementalBackupsEnabled,
+		&incrementalBackupsRetentionDays,
+		&queryLogsCleanedAt,
+		&queryLogsEnabled,
+		&queryLogsRetentionDays,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get branch settings: %w", err)
+	}
+
+	var defaultPragmas DatabaseDefaultPragmaSettings
+
+	if err := json.Unmarshal([]byte(defaultPragmasJSON), &defaultPragmas); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal default pragmas: %w", err)
+	}
+
+	return &DatabaseBranchSettings{
+		BackupsCleanedAt:                backupsCleanedAt,
+		BackupsEnabled:                  backupsEnabled == 1,
+		BackupInterval:                  DatabaseBranchBackupInterval(backupInterval),
+		BackupNextAt:                    backupNextAt,
+		BackupsRetentionDays:            backupsRetentionDays,
+		DefaultPragmas:                  &defaultPragmas,
+		ErrorLogsCleanedAt:              errorLogsCleanedAt,
+		ErrorLogsEnabled:                errorLogsEnabled == 1,
+		ErrorLogsRetentionDays:          errorLogsRetentionDays,
+		IncrementalBackupsCleanedAt:     incrementalBackupsCleanedAt,
+		IncrementalBackupsEnabled:       incrementalBackupsEnabled == 1,
+		IncrementalBackupsRetentionDays: incrementalBackupsRetentionDays,
+		QueryLogsCleanedAt:              queryLogsCleanedAt,
+		QueryLogsEnabled:                queryLogsEnabled == 1,
+		QueryLogsRetentionDays:          queryLogsRetentionDays,
+	}, nil
+}
+
+// UpdateBranchSettings updates the settings for this branch.
+func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
+	db, err := b.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return err
+	}
+
+	defaultPragmasJSON, err := json.Marshal(settings.DefaultPragmas)
+
+	if err != nil {
+		return fmt.Errorf("failed to marshal default pragmas: %w", err)
+	}
+
+	now := time.Now().UTC().Unix()
+
+	_, err = db.Exec(`
+		UPDATE database_branch_settings SET
+			backups_enabled = ?,
+			backups_interval = ?,
+			backups_retention_days = ?,
+			default_pragmas_json = ?,
+			error_logs_enabled = ?,
+			error_logs_retention_days = ?,
+			incremental_backups_enabled = ?,
+			incremental_backups_retention_days = ?,
+			query_logs_enabled = ?,
+			query_logs_retention_days = ?,
+			updated_at = ?
+		WHERE database_branch_reference_id = ?
+	`,
+		utils.BoolToInt(settings.BackupsEnabled),
+		settings.BackupInterval,
+		settings.BackupsRetentionDays,
+		string(defaultPragmasJSON),
+		utils.BoolToInt(settings.ErrorLogsEnabled),
+		settings.ErrorLogsRetentionDays,
+		utils.BoolToInt(settings.IncrementalBackupsEnabled),
+		settings.IncrementalBackupsRetentionDays,
+		utils.BoolToInt(settings.QueryLogsEnabled),
+		settings.QueryLogsRetentionDays,
+		now,
+		b.ID,
+	)
+
+	return err
 }
 
 // MarshalJSON customizes the JSON representation of the Branch struct.

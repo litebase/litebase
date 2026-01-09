@@ -114,15 +114,14 @@ type DatabaseBranchStoreRequest struct {
 }
 
 type DatabaseBranchStoreResponse struct {
-	ID               int64                    `json:"id"`
-	DatabaseBranchID string                   `json:"databaseBranchId"`
-	DatabaseID       string                   `json:"databaseId"`
-	DatabaseName     string                   `json:"databaseName"`
-	Name             string                   `json:"name"`
-	ParentName       string                   `json:"parentName"`
-	Settings         *database.BranchSettings `json:"settings"`
-	CreatedAt        time.Time                `json:"createdAt"`
-	UpdatedAt        time.Time                `json:"updatedAt"`
+	ID               int64     `json:"id"`
+	DatabaseBranchID string    `json:"databaseBranchId"`
+	DatabaseID       string    `json:"databaseId"`
+	DatabaseName     string    `json:"databaseName"`
+	Name             string    `json:"name"`
+	ParentName       string    `json:"parentName"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 // Create a new database branch

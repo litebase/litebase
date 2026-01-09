@@ -34,7 +34,7 @@ func Migration0000000002DatabaseBranchSettings(db *sql.DB) error {
 			updated_at INTEGER NOT NULL,
 		
 			FOREIGN KEY (database_branch_reference_id) REFERENCES database_branches(id) ON DELETE CASCADE
-		)
+		) STRICT
 	`)
 
 	if err != nil {
