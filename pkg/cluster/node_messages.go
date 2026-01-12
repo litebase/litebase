@@ -15,6 +15,9 @@ func registerNodeMessages() {
 	gob.Register(messages.HeartbeatResponseMessage{})
 	gob.Register(messages.NodeConnectionMessage{})
 
+	// Database messages
+	gob.Register(messages.DatabaseBranchSettingsUpdated{})
+
 	// Page Logger messages
 	gob.Register(messages.PageLoggerVersionUsageRequest{})
 	gob.Register(messages.PageLoggerVersionUsageResponse{})

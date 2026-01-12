@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/pkg/database"
 )
 
@@ -94,6 +95,10 @@ type DatabaseBranchSettingsUpdateResponse *database.DatabaseBranchSettings
 
 // Update the settings for a specific database branch
 func DatabaseBranchSettingsControllerUpdate(ctx context.Context, request *Request) Response {
+	if !request.cluster.Node().IsPrimary() {
+		return ForbiddenResponse(errors.New("node is not primary"))
+	}
+
 	databaseKey, errResponse := request.DatabaseKey()
 
 	if !errResponse.IsEmpty() {
@@ -199,9 +204,34 @@ func DatabaseBranchSettingsControllerUpdate(ctx context.Context, request *Reques
 		return ServerErrorResponse(err)
 	}
 
+	// Reload the settings from the database to ensure consistency
+	updatedSettings, err := branch.GetBranchSettings()
+
+	if err != nil {
+		slog.Error("Failed to reload branch settings", "error", err, "branchId", branch.ID)
+		return ServerErrorResponse(err)
+	}
+
+	// Update the branch's in-memory settings
+	branch.Settings = updatedSettings
+
+	// Broadcast the settings update to all nodes in the cluster
+	defer func() {
+		_, errMap := request.cluster.Node().Primary().Publish(messages.NodeMessage{
+			Data: messages.DatabaseBranchSettingsUpdated{
+				DatabaseID:       db.DatabaseID,
+				DatabaseBranchID: branch.DatabaseBranchID,
+			},
+		})
+
+		if errMap != nil {
+			slog.Error("Failed to broadcast database branch settings update", "error", errMap)
+		}
+	}()
+
 	return SuccessResponse(
 		"Branch settings updated successfully",
-		DatabaseBranchSettingsUpdateResponse(newSettings),
+		DatabaseBranchSettingsUpdateResponse(updatedSettings),
 		200,
 	)
 }

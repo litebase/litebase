@@ -90,6 +90,11 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		database.NewDatabasePageLoggerAccessor(app.DatabaseManager),
 	)
 
+	// Set the database manager for handling database branch settings updates
+	app.Cluster.Node().SetDatabaseManager(
+		database.NewDatabaseManagerAdapter(app.DatabaseManager),
+	)
+
 	app.Cluster.EventsManager().Init()
 	app.Auth.Broadcaster(app.Cluster.EventsManager().Hook())
 

@@ -3,6 +3,7 @@ package http_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
@@ -576,5 +577,201 @@ func TestDatabaseBranchSettingsControllerUpdate_Validation(t *testing.T) {
 				t.Fatalf("expected success status, got %v", resp["status"])
 			}
 		})
+	})
+}
+
+func TestDatabaseBranchSettingsControllerUpdate_PublishesMessage(t *testing.T) {
+	test.Run(t, func() {
+		// Create two servers to test cluster message publishing
+		server1 := test.NewTestServer(t)
+		defer server1.Shutdown()
+		server2 := test.NewTestServer(t)
+		defer server2.Shutdown()
+
+		mock := test.MockDatabase(server1.App)
+
+		// Get the database on server1
+		db1, err := server1.App.DatabaseManager.Get(mock.DatabaseID)
+
+		if err != nil {
+			t.Fatalf("failed to get mock database on server1: %v", err)
+		}
+
+		primaryBranch1, err := db1.PrimaryBranch()
+
+		if err != nil {
+			t.Fatalf("failed to get primary branch on server1: %v", err)
+		}
+
+		// Get the database on server2 (should share the same system database)
+		db2, err := server2.App.DatabaseManager.Get(mock.DatabaseID)
+
+		if err != nil {
+			t.Fatalf("failed to get mock database on server2: %v", err)
+		}
+
+		primaryBranch2, err := db2.PrimaryBranch()
+
+		if err != nil {
+			t.Fatalf("failed to get primary branch on server2: %v", err)
+		}
+
+		client := server1.WithAccessKeyClient([]auth.Statement{{
+			Effect:   auth.StatementEffectAllow,
+			Resource: "*",
+			Actions:  []auth.Privilege{auth.DatabasePrivilegeManage},
+		}})
+
+		// Get the initial settings from both servers
+		initialSettings1, err := primaryBranch1.GetBranchSettings()
+
+		if err != nil {
+			t.Fatalf("failed to get initial settings on server1: %v", err)
+		}
+
+		initialSettings2, err := primaryBranch2.GetBranchSettings()
+
+		if err != nil {
+			t.Fatalf("failed to get initial settings on server2: %v", err)
+		}
+
+		// Verify both servers start with the same settings
+		if initialSettings1.QueryLogsEnabled != initialSettings2.QueryLogsEnabled {
+			t.Fatal("servers have different initial query logs settings")
+		}
+
+		// Update settings on server1
+		resp, statusCode, err := client.Send(
+			fmt.Sprintf("/v1/databases/%s/branches/%s/settings", mock.DatabaseName, primaryBranch1.Name),
+			"PUT",
+			map[string]any{
+				"backupsEnabled":                  false,
+				"backupInterval":                  "24h",
+				"backupsRetentionDays":            20,
+				"errorLogsEnabled":                false,
+				"errorLogsRetentionDays":          10,
+				"incrementalBackupsEnabled":       false,
+				"incrementalBackupsRetentionDays": 5,
+				"queryLogsEnabled":                false,
+				"queryLogsRetentionDays":          10,
+			},
+		)
+
+		if err != nil {
+			t.Fatalf("failed to send request: %v", err)
+		}
+
+		if statusCode != 200 {
+			t.Logf("response: %v", resp)
+			t.Fatalf("expected status code 200, got %d", statusCode)
+		}
+
+		// Get the branch again on server1 to verify settings were updated in memory
+		updatedBranch1, err := db1.BranchByID(primaryBranch1.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get updated branch on server1: %v", err)
+		}
+
+		// Verify the settings were updated on server1
+		if updatedBranch1.Settings.QueryLogsEnabled {
+			t.Error("expected query logs to be disabled on server1")
+		}
+
+		if updatedBranch1.Settings.BackupsEnabled {
+			t.Error("expected backups to be disabled on server1")
+		}
+
+		if updatedBranch1.Settings.ErrorLogsEnabled {
+			t.Error("expected error logs to be disabled on server1")
+		}
+
+		if updatedBranch1.Settings.IncrementalBackupsEnabled {
+			t.Error("expected incremental backups to be disabled on server1")
+		}
+
+		if updatedBranch1.Settings.BackupInterval != "24h" {
+			t.Errorf("expected backup interval to be '24h' on server1, got %s", updatedBranch1.Settings.BackupInterval)
+		}
+
+		if updatedBranch1.Settings.BackupsRetentionDays != 20 {
+			t.Errorf("expected backups retention days to be 20 on server1, got %d", updatedBranch1.Settings.BackupsRetentionDays)
+		}
+
+		if updatedBranch1.Settings.QueryLogsRetentionDays != 10 {
+			t.Errorf("expected query logs retention days to be 10 on server1, got %d", updatedBranch1.Settings.QueryLogsRetentionDays)
+		}
+
+		if updatedBranch1.Settings.ErrorLogsRetentionDays != 10 {
+			t.Errorf("expected error logs retention days to be 10 on server1, got %d", updatedBranch1.Settings.ErrorLogsRetentionDays)
+		}
+
+		if updatedBranch1.Settings.IncrementalBackupsRetentionDays != 5 {
+			t.Errorf("expected incremental backups retention days to be 5 on server1, got %d", updatedBranch1.Settings.IncrementalBackupsRetentionDays)
+		}
+
+		// Give a small amount of time for the cluster message to propagate
+		// In production, this happens asynchronously via the cluster messaging system
+		time.Sleep(100 * time.Millisecond)
+
+		// Get the branch on server2 to verify settings were updated via cluster message
+		updatedBranch2, err := db2.BranchByID(primaryBranch2.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("failed to get updated branch on server2: %v", err)
+		}
+
+		// Verify server2 received the message and updated its in-memory settings
+		if updatedBranch2.Settings.QueryLogsEnabled {
+			t.Error("expected query logs to be disabled on server2 after cluster message")
+		}
+
+		if updatedBranch2.Settings.BackupsEnabled {
+			t.Error("expected backups to be disabled on server2 after cluster message")
+		}
+
+		if updatedBranch2.Settings.ErrorLogsEnabled {
+			t.Error("expected error logs to be disabled on server2 after cluster message")
+		}
+
+		if updatedBranch2.Settings.IncrementalBackupsEnabled {
+			t.Error("expected incremental backups to be disabled on server2 after cluster message")
+		}
+
+		if updatedBranch2.Settings.BackupInterval != "24h" {
+			t.Errorf("expected backup interval to be '24h' on server2, got %s", updatedBranch2.Settings.BackupInterval)
+		}
+
+		if updatedBranch2.Settings.BackupsRetentionDays != 20 {
+			t.Errorf("expected backups retention days to be 20 on server2, got %d", updatedBranch2.Settings.BackupsRetentionDays)
+		}
+
+		if updatedBranch2.Settings.QueryLogsRetentionDays != 10 {
+			t.Errorf("expected query logs retention days to be 10 on server2, got %d", updatedBranch2.Settings.QueryLogsRetentionDays)
+		}
+
+		// Verify that the response returns the reloaded settings
+		data, ok := resp["data"].(map[string]any)
+
+		if !ok {
+			t.Fatalf("expected data to be an object, got %T", resp["data"])
+		}
+
+		if data["queryLogsEnabled"] != false {
+			t.Error("expected response queryLogsEnabled to be false")
+		}
+
+		if data["backupsEnabled"] != false {
+			t.Error("expected response backupsEnabled to be false")
+		}
+
+		// Ensure settings were different initially to verify the update actually happened
+		if !initialSettings1.QueryLogsEnabled {
+			t.Error("initial settings should have had query logs enabled")
+		}
+
+		if !initialSettings1.BackupsEnabled {
+			t.Error("initial settings should have had backups enabled")
+		}
 	})
 }
