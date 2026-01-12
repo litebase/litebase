@@ -130,11 +130,13 @@ func InsertBranch(b *Branch) error {
 	b.Exists = true
 
 	// Create branch settings (copy from parent if available)
-	err = InsertBranchSettings(b, b.ParentBranch())
+	settings, err := InsertBranchSettings(b, b.ParentBranch())
 
 	if err != nil {
 		return fmt.Errorf("failed to create branch settings: %w", err)
 	}
+
+	b.Settings = settings
 
 	database, err := b.Database()
 
@@ -144,7 +146,7 @@ func InsertBranch(b *Branch) error {
 
 	// Update the Database's branch cache
 	if database != nil {
-		database.UpdateBranchCache(b.DatabaseBranchID, true)
+		database.UpdateBranchCache(b.DatabaseBranchID, b)
 	}
 
 	return nil
@@ -181,7 +183,7 @@ func UpdateBranch(b *Branch) error {
 
 	// Update the Database's branch cache to ensure consistency
 	if database != nil {
-		database.UpdateBranchCache(b.DatabaseBranchID, true)
+		database.UpdateBranchCache(b.DatabaseBranchID, b)
 	}
 
 	return nil
@@ -230,7 +232,7 @@ func (b *Branch) Delete() error {
 		return fmt.Errorf("cannot delete the primary branch of a database")
 	}
 
-	resources := b.DatabaseManager.Resources(b.DatabaseID, b.DatabaseBranchID)
+	resources := b.DatabaseManager.Resources(b)
 
 	// Close all database connections to the database before deleting it
 	b.DatabaseManager.ConnectionManager().CloseDatabaseBranchConnections(b.DatabaseID, b.DatabaseBranchID)
@@ -263,14 +265,6 @@ func (b *Branch) Delete() error {
 	if database != nil {
 		database.branchCache.Delete(b.DatabaseBranchID)
 		database.InvalidateBranchCache(b.DatabaseBranchID)
-	}
-
-	// Invalidate the database branch cache
-
-	if b.DatabaseManager.databaseCache != nil {
-		database, _ = b.DatabaseManager.Get(b.DatabaseID)
-
-		database.branchCache.Delete(b.DatabaseBranchID)
 	}
 
 	// Delete the database storage.
@@ -357,11 +351,11 @@ func (b *Branch) Save() error {
 }
 
 // InsertBranchSettings creates default settings for a newly created branch.
-func InsertBranchSettings(b *Branch, parentBranch *Branch) error {
+func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSettings, error) {
 	db, err := b.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Copy settings from parent branch if available, otherwise use defaults
@@ -371,7 +365,7 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) error {
 		settings, err = parentBranch.GetBranchSettings()
 
 		if err != nil {
-			return fmt.Errorf("failed to get parent branch settings: %w", err)
+			return nil, fmt.Errorf("failed to get parent branch settings: %w", err)
 		}
 	} else {
 		settings = NewDefaultBranchSettings()
@@ -381,7 +375,7 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) error {
 	defaultPragmasJSON, err := json.Marshal(settings.DefaultPragmas)
 
 	if err != nil {
-		return fmt.Errorf("failed to marshal default pragmas: %w", err)
+		return nil, fmt.Errorf("failed to marshal default pragmas: %w", err)
 	}
 
 	now := time.Now().UTC().Unix()
@@ -418,7 +412,7 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) error {
 		now,
 	)
 
-	return err
+	return settings, err
 }
 
 // GetBranchSettings retrieves the settings for this branch.

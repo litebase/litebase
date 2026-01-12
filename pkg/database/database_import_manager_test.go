@@ -492,9 +492,10 @@ func TestDatabaseImportManager(t *testing.T) {
 
 			// Upload all chunks in parallel
 			var wg sync.WaitGroup
-			errors := make(chan error, 10)
+			var mu sync.Mutex
+			var errs []error
 
-			for i := int64(0); i < 10; i++ {
+			for i := range int64(10) {
 				wg.Add(1)
 				go func(chunkIndex int64) {
 					defer wg.Done()
@@ -509,17 +510,18 @@ func TestDatabaseImportManager(t *testing.T) {
 					_, err := manager.AddChunk(importRecord.ID, chunkIndex, chunkData, "")
 
 					if err != nil {
-						errors <- err
+						mu.Lock()
+						errs = append(errs, err)
+						mu.Unlock()
 					}
 				}(i)
 			}
 
 			wg.Wait()
-			close(errors)
 
-			// Check for errors
-			for err := range errors {
-				t.Fatal(err)
+			// Check for errors after all goroutines complete
+			if len(errs) > 0 {
+				t.Fatalf("Failed to upload chunks: %v", errs[0])
 			}
 
 			// Verify import is completed
@@ -844,7 +846,7 @@ func TestDatabaseImportManager(t *testing.T) {
 			}
 
 			// Force compaction to ensure the database is in a consistent state
-			err = app.DatabaseManager.Resources(db.DatabaseID, branch.DatabaseBranchID).FileSystem().Compact()
+			err = app.DatabaseManager.Resources(branch).FileSystem().Compact()
 
 			if err != nil {
 				t.Fatal(err)

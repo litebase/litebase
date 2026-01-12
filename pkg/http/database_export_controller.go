@@ -38,10 +38,16 @@ func DatabaseExportControllerStore(ctx context.Context, request *Request) Respon
 		return ForbiddenResponse(err)
 	}
 
-	exportManager, err := request.databaseManager.Resources(
-		request.databaseKey.DatabaseID,
-		request.databaseKey.DatabaseBranchID,
-	).ExportManager()
+	branch, err := request.databaseManager.GetBranch(
+		databaseKey.DatabaseID,
+		databaseKey.DatabaseBranchID,
+	)
+
+	if err != nil {
+		return BadRequestResponse(err)
+	}
+
+	exportManager, err := request.databaseManager.Resources(branch).ExportManager()
 
 	if err != nil {
 		return ServerErrorResponse(err)
@@ -68,10 +74,7 @@ func DatabaseExportControllerStore(ctx context.Context, request *Request) Respon
 	}
 
 	// Get the database file system for compaction
-	dfs := request.databaseManager.Resources(
-		request.databaseKey.DatabaseID,
-		request.databaseKey.DatabaseBranchID,
-	).FileSystem()
+	dfs := request.databaseManager.Resources(branch).FileSystem()
 
 	// Compact the database before export (must be done BEFORE creating export to avoid deadlock)
 	err = dfs.Compact()

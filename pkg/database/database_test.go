@@ -353,7 +353,7 @@ func TestDatabase(t *testing.T) {
 			}
 
 			// Test updating cache with a branch that exists
-			db.UpdateBranchCache(primaryBranch.DatabaseBranchID, true)
+			db.UpdateBranchCache(primaryBranch.DatabaseBranchID, primaryBranch)
 
 			// Verify the cache was updated by checking HasBranch
 			hasBranch := db.HasBranch(primaryBranch.DatabaseBranchID)
@@ -365,7 +365,7 @@ func TestDatabase(t *testing.T) {
 			// Test updating cache with a non-existent branch
 			nonExistentBranchID := "non-existent-branch-id"
 
-			db.UpdateBranchCache(nonExistentBranchID, false)
+			db.UpdateBranchCache(nonExistentBranchID, &database.Branch{})
 
 			// Verify the cache was updated
 			hasBranch = db.HasBranch(nonExistentBranchID)

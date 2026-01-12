@@ -14,10 +14,9 @@ import (
 )
 
 type Checkpointer struct {
-	branchId         string
+	branch           *Branch
 	Checkpoint       *Checkpoint
 	checkpointMutex  *sync.Mutex
-	databaseId       string
 	dfs              *storage.DurableDatabaseFileSystem
 	sharedFileSystem *storage.FileSystem
 	lock             sync.Mutex
@@ -37,21 +36,19 @@ var (
 
 // Create a new instance of the checkpointer.
 func NewCheckpointer(
-	databaseId,
-	branchId string,
+	branch *Branch,
 	dfs *storage.DurableDatabaseFileSystem,
 	sharedFileSystem *storage.FileSystem,
 	pageLogger *storage.PageLogger,
 	snapshotLogger *backups.SnapshotLogger,
 ) (*Checkpointer, error) {
 	cp := &Checkpointer{
-		branchId:         branchId,
+		branch:           branch,
 		checkpointMutex:  &sync.Mutex{},
-		databaseId:       databaseId,
 		dfs:              dfs,
 		sharedFileSystem: sharedFileSystem,
 		lock:             sync.Mutex{},
-		rollbackLogger:   backups.NewRollbackLogger(dfs.FileSystem(), databaseId, branchId),
+		rollbackLogger:   backups.NewRollbackLogger(dfs.FileSystem(), branch.DatabaseID, branch.DatabaseBranchID),
 		snapshotLogger:   snapshotLogger,
 		pageLogger:       pageLogger,
 		capturedPages:    make(map[int64]bool), // Initialize the captured pages map
@@ -76,10 +73,16 @@ func (c *Checkpointer) Begin(timestamp int64) error {
 		return ErrorCheckpointAlreadyInProgressError
 	}
 
-	offset, size, err := c.rollbackLogger.StartFrame(timestamp)
+	var offset, size int64
+	var err error
 
-	if err != nil {
-		return err
+	// Only start rollback logging if incremental backups are enabled
+	if c.branch.Settings.IncrementalBackupsEnabled {
+		offset, size, err = c.rollbackLogger.StartFrame(timestamp)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	c.Checkpoint = &Checkpoint{
@@ -106,7 +109,7 @@ func (c *Checkpointer) Begin(timestamp int64) error {
 
 // Get the path for the checkpoint file.
 func (c *Checkpointer) checkPointFilePath() string {
-	return fmt.Sprintf("%slogs/CHECKPOINT", file.GetDatabaseFileBaseDir(c.databaseId, c.branchId))
+	return fmt.Sprintf("%slogs/CHECKPOINT", file.GetDatabaseFileBaseDir(c.branch.DatabaseID, c.branch.DatabaseBranchID))
 }
 
 // Create a barrier for checkpoint operations. This ensures that only one
@@ -154,13 +157,16 @@ func (c *Checkpointer) CheckpointPage(pageNumber int64, data []byte) error {
 		c.Checkpoint.LargestPageNumber = pageNumber
 	}
 
-	size, err := c.rollbackLogger.Log(pageNumber, c.Checkpoint.Timestamp, data)
+	// Only log to rollback logger if incremental backups are enabled
+	if c.branch.Settings.IncrementalBackupsEnabled {
+		size, err := c.rollbackLogger.Log(pageNumber, c.Checkpoint.Timestamp, data)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		c.Checkpoint.Size += int64(size)
 	}
-
-	c.Checkpoint.Size += int64(size)
 
 	return nil
 }
@@ -183,57 +189,53 @@ func (c *Checkpointer) Commit() error {
 
 	var errors []error
 
-	// Commit the rollback log that was created at the beginning of the process
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := c.rollbackLogger.Commit(c.Checkpoint.Timestamp, c.Checkpoint.Offset, c.Checkpoint.Size)
+	if c.branch.Settings.IncrementalBackupsEnabled {
+		// Commit the rollback log that was created at the beginning of the process
+		wg.Go(func() {
+			err := c.rollbackLogger.Commit(c.Checkpoint.Timestamp, c.Checkpoint.Offset, c.Checkpoint.Size)
 
-		if err != nil {
-			log.Println("Error committing checkpoint", err)
-			errors = append(errors, err)
-		}
-	}()
+			if err != nil {
+				log.Println("Error committing checkpoint", err)
+				errors = append(errors, err)
+			}
+		})
+	}
 
 	pageCount := c.dfs.Metadata().PageCount
 	largestPageNumber := c.Checkpoint.LargestPageNumber
 
 	// Update the page count in the database metadata if necessary
 	if pageCount < largestPageNumber {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 
 			err := c.dfs.Metadata().SetPageCount(int64(largestPageNumber))
 
 			if err != nil {
 				slog.Error("Error setting page count", "error", err)
 			}
-		}()
+		})
 	}
 
 	// Record a new snapshot of the database
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := c.snapshotLogger.Log(c.Checkpoint.Timestamp, pageCount)
+	if c.branch.Settings.IncrementalBackupsEnabled {
+		wg.Go(func() {
+			err := c.snapshotLogger.Log(c.Checkpoint.Timestamp, pageCount)
 
-		if err != nil {
-			log.Println("Error logging checkpoint", err)
-			errors = append(errors, err)
-		}
-	}()
+			if err != nil {
+				log.Println("Error logging checkpoint", err)
+				errors = append(errors, err)
+			}
+		})
+	}
 
 	// Sync the page logs to ensure all data is flushed to disk
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := c.pageLogger.Sync()
 
 		if err != nil {
 			slog.Warn("Error syncing page log after checkpoint commit", "error", err)
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -308,14 +310,19 @@ func (c *Checkpointer) Rollback() error {
 		c.Checkpoint = nil
 	}()
 
-	err := c.rollbackLogger.Rollback(
-		c.Checkpoint.Timestamp,
-		c.Checkpoint.Offset,
-		c.Checkpoint.Size,
-	)
+	var err error
 
-	if err != nil {
-		return err
+	// Only rollback the rollback logger if incremental backups are enabled
+	if c.branch.Settings.IncrementalBackupsEnabled {
+		err = c.rollbackLogger.Rollback(
+			c.Checkpoint.Timestamp,
+			c.Checkpoint.Offset,
+			c.Checkpoint.Size,
+		)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	// Mark the logged pages for the checkpoint as tombstoned

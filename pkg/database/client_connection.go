@@ -7,21 +7,18 @@ import (
 )
 
 type ClientConnection struct {
-	BranchID   string
+	Branch     *Branch
 	connection *DatabaseConnection
-	DatabaseID string
 }
 
 // Create a new instance of a ClientConnection.
 func NewClientConnection(
 	connectionManager *ConnectionManager,
-	databaseId string,
-	branchId string,
+	branch *Branch,
 ) (*ClientConnection, error) {
 	connection, err := NewDatabaseConnection(
 		connectionManager,
-		databaseId,
-		branchId,
+		branch,
 	)
 
 	if connection == nil {
@@ -29,9 +26,8 @@ func NewClientConnection(
 	}
 
 	return &ClientConnection{
-		BranchID:   branchId,
+		Branch:     branch,
 		connection: connection,
-		DatabaseID: databaseId,
 	}, nil
 }
 

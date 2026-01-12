@@ -10,8 +10,7 @@ import (
 )
 
 type TransactionManager struct {
-	BranchID     string
-	DatabaseID   string
+	Branch       *Branch
 	mutex        *sync.RWMutex
 	transactions map[string]*Transaction
 }
@@ -19,10 +18,9 @@ type TransactionManager struct {
 var ErrTransactionNotFound = errors.New("transaction not found")
 
 // Create a new instance of a TransactionManager.
-func NewTransactionManager(databaseId, branchId string) *TransactionManager {
+func NewTransactionManager(branch *Branch) *TransactionManager {
 	return &TransactionManager{
-		BranchID:     branchId,
-		DatabaseID:   databaseId,
+		Branch:       branch,
 		mutex:        &sync.RWMutex{},
 		transactions: make(map[string]*Transaction),
 	}

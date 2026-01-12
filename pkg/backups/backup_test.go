@@ -45,8 +45,8 @@ func TestBackup(t *testing.T) {
 			backup, err := backups.GetBackup(
 				app.Config,
 				app.Cluster.ObjectFS(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 				time.Now().UTC().UnixNano(),
@@ -107,8 +107,8 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Compact the page logger to move data from page logs to range files
-			err = app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger().Compact(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			err = app.DatabaseManager.Resources(mock.Branch).PageLogger().Compact(
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			if err != nil {
@@ -116,7 +116,7 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Get the naturally created snapshots from the checkpoint process
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 			snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
 			if err != nil {
@@ -142,8 +142,8 @@ func TestBackup(t *testing.T) {
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 				snapshotLogger,
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 			)
 
 			if error != nil {
@@ -153,8 +153,8 @@ func TestBackup(t *testing.T) {
 			nextBackup, err := backups.GetNextBackup(
 				app.Config,
 				app.Cluster.ObjectFS(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 				time.Now().UTC().Add(-time.Duration(10)*time.Second).UnixNano(),
@@ -214,8 +214,8 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Compact the page logger to move data from page logs to range files
-			err = app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger().Compact(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			err = app.DatabaseManager.Resources(mock.Branch).PageLogger().Compact(
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			if err != nil {
@@ -223,7 +223,7 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Get the naturally created snapshots from the checkpoint process
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 			snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
 			if err != nil {
@@ -248,8 +248,8 @@ func TestBackup(t *testing.T) {
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 				snapshotLogger,
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 			)
 
 			if err != nil {
@@ -306,8 +306,8 @@ func TestBackup(t *testing.T) {
 			backup, err := backups.GetBackup(
 				app.Config,
 				app.Cluster.ObjectFS(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID, time.Now().UTC().UnixNano(),
 			)
@@ -354,8 +354,8 @@ func TestBackup(t *testing.T) {
 			backup, err := backups.GetBackup(
 				app.Config,
 				app.Cluster.ObjectFS(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 				time.Now().UTC().UnixNano(),
@@ -403,8 +403,8 @@ func TestBackup(t *testing.T) {
 			backup, err := backups.GetBackup(
 				app.Config,
 				app.Cluster.ObjectFS(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID, time.Now().UTC().UnixNano(),
 			)
@@ -451,8 +451,8 @@ func TestBackup(t *testing.T) {
 			backup, err := backups.GetBackup(
 				app.Config,
 				app.Cluster.ObjectFS(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 				time.Now().UTC().UnixNano(),
@@ -514,8 +514,8 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Compact the page logger to move data from page logs to range files
-			err = app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger().Compact(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			err = app.DatabaseManager.Resources(mock.Branch).PageLogger().Compact(
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			if err != nil {
@@ -523,7 +523,7 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Get the snapshots and find a restore point
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 
 			backup, err := backups.Run(
 				app.Config,
@@ -531,8 +531,8 @@ func TestBackup(t *testing.T) {
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 				snapshotLogger,
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 			)
 
 			if err != nil {
@@ -590,8 +590,8 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Compact the page logger to move data from page logs to range files
-			err = app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger().Compact(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			err = app.DatabaseManager.Resources(mock.Branch).PageLogger().Compact(
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			if err != nil {
@@ -599,7 +599,7 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Get the naturally created snapshots from the checkpoint process
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 			snapshots, err := snapshotLogger.GetSnapshotsWithRestorePoints()
 
 			if err != nil {
@@ -634,9 +634,9 @@ func TestBackup(t *testing.T) {
 					app.Cluster.ObjectFS(),
 					mock.DatabaseID,
 					mock.DatabaseBranchID,
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+					app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+					app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+					app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 					func(b *backups.Backup) {
 						b.SetOnComplete(func(b *backups.Backup) {
 							time.Sleep(100 * time.Millisecond)
@@ -663,9 +663,9 @@ func TestBackup(t *testing.T) {
 					app.Cluster.ObjectFS(),
 					mock.DatabaseID,
 					mock.DatabaseBranchID,
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+					app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+					app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+					app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 					func(b *backups.Backup) {
 						b.SetOnComplete(func(b *backups.Backup) {
 							time.Sleep(100 * time.Millisecond)
@@ -747,18 +747,18 @@ func TestBackup(t *testing.T) {
 			}
 
 			// Compact the page logger to move data from page logs to range files
-			err = app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger().Compact(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			err = app.DatabaseManager.Resources(mock.Branch).PageLogger().Compact(
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			if err != nil {
 				t.Errorf("expected no error compacting page logger, got %v", err)
 			}
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 
 			// Get the snapshots and find a restore point
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 
 			if _, err := snapshotLogger.GetSnapshots(); err != nil {
 				t.Fatalf("Expected no error getting snapshots, got %v", err)
@@ -785,9 +785,9 @@ func TestBackup(t *testing.T) {
 				app.Cluster.ObjectFS(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 				dfs,
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+				app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 				func(backup *backups.Backup) {
 					backup.SetMaxPartSize(1)
 				},
@@ -829,7 +829,7 @@ func TestBackup(t *testing.T) {
 
 			defer app.DatabaseManager.ConnectionManager().Release(sourceDB)
 
-			snapshotLogger := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(source.Branch).SnapshotLogger()
 
 			// Create an initial checkpoint before creating the table (this ensures we have a baseline restore point)
 			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(source.DatabaseID, source.DatabaseBranchID)
@@ -893,8 +893,8 @@ func TestBackup(t *testing.T) {
 					source.DatabaseID,
 					source.DatabaseBranchID,
 					snapshotLogger,
-					app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem(),
-					app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).RollbackLogger(),
+					app.DatabaseManager.Resources(source.Branch).FileSystem(),
+					app.DatabaseManager.Resources(source.Branch).RollbackLogger(),
 				)
 
 				if err != nil {
@@ -911,8 +911,8 @@ func TestBackup(t *testing.T) {
 					source.DatabaseBranchID,
 					target.DatabaseID,
 					target.DatabaseBranchID,
-					app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem(),
-					app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem(),
+					app.DatabaseManager.Resources(source.Branch).FileSystem(),
+					app.DatabaseManager.Resources(target.Branch).FileSystem(),
 				)
 
 				if err != nil {
@@ -948,11 +948,11 @@ func TestBackup(t *testing.T) {
 				app.DatabaseManager.ConnectionManager().Remove(target.DatabaseID, target.DatabaseBranchID, db)
 
 				// Verify the backup file content
-				oldData, _ := app.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).FileSystem().FileSystem().ReadFile(
+				oldData, _ := app.DatabaseManager.Resources(source.Branch).FileSystem().FileSystem().ReadFile(
 					file.GetDatabaseFileBaseDir(source.DatabaseID, source.DatabaseBranchID) + "/0000000001",
 				)
 
-				newData, _ := app.DatabaseManager.Resources(target.DatabaseID, target.DatabaseBranchID).FileSystem().FileSystem().ReadFile(
+				newData, _ := app.DatabaseManager.Resources(target.Branch).FileSystem().FileSystem().ReadFile(
 					file.GetDatabaseFileBaseDir(target.DatabaseID, target.DatabaseBranchID) + "/0000000001",
 				)
 
@@ -980,9 +980,9 @@ func TestBackup(t *testing.T) {
 				app.Cluster.ObjectFS(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 			)
 
 			if err == nil {
@@ -1027,9 +1027,9 @@ func TestBackup(t *testing.T) {
 				app.Cluster.ObjectFS(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 			)
 
 			if err != nil {
@@ -1054,7 +1054,7 @@ func TestBackup(t *testing.T) {
 
 			defer app.DatabaseManager.ConnectionManager().Release(db)
 
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 
 			// Create an initial checkpoint before creating the table
 			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(mock.DatabaseID, mock.DatabaseBranchID)
@@ -1110,8 +1110,8 @@ func TestBackup(t *testing.T) {
 					mock.DatabaseID,
 					mock.DatabaseBranchID,
 					snapshotLogger,
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-					app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+					app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+					app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 				)
 
 				if err != nil {
@@ -1128,8 +1128,8 @@ func TestBackup(t *testing.T) {
 			listedBackups, err := backups.ListBackups(
 				app.Config,
 				app.Cluster.ObjectFS(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
 			)

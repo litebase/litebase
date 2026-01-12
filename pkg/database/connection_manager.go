@@ -296,19 +296,41 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 		return nil, err
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	database, err := c.databaseManager.Get(databaseId)
 
 	if err != nil {
 		slog.Error("Error getting database", "error", err)
+
 		return nil, fmt.Errorf("database '%s' not found", databaseId)
 	}
 
 	if !database.HasBranch(branchId) {
 		return nil, fmt.Errorf("branch '%s' not found for database '%s'", branchId, databaseId)
 	}
+
+	// For system database, create a minimal Branch object without querying
+	// to avoid circular dependency deadlock during initialization
+	var branch *Branch
+
+	if databaseId == "system" && branchId == "system" {
+		branch = &Branch{
+			DatabaseID:       databaseId,
+			DatabaseBranchID: branchId,
+			Name:             branchId,
+		}
+	} else {
+		// Get the full branch object for non-system databases
+		branch, err = database.BranchByID(branchId)
+
+		if err != nil {
+			slog.Error("Error getting database branch", "error", err)
+
+			return nil, fmt.Errorf("branch '%s' not found for database '%s'", branchId, databaseId)
+		}
+	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	if c.databases[databaseId] != nil &&
 		c.databases[databaseId].branches[branchId] != nil &&
@@ -325,7 +347,7 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 
 	// Create a new client connection, only one connection can be created at a
 	// time to avoid SQL Logic errors on sqlite3_open.
-	con, err := NewClientConnection(c, databaseId, branchId)
+	con, err := NewClientConnection(c, branch)
 
 	if err != nil {
 		return nil, err
@@ -355,15 +377,15 @@ func (c *ConnectionManager) Release(clientConnection *ClientConnection) {
 		return
 	}
 
-	if c.databases[clientConnection.DatabaseID] == nil {
+	if c.databases[clientConnection.Branch.DatabaseID] == nil {
 		return
 	}
 
-	if c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] == nil {
+	if c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID] == nil {
 		return
 	}
 
-	for _, branchConnection := range c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] {
+	for _, branchConnection := range c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
 			if branchConnection.connection.connection.Closed() {
 				c.remove(clientConnection)
@@ -381,21 +403,21 @@ func (c *ConnectionManager) Release(clientConnection *ClientConnection) {
 // without the mutex lock, so it should be called from within a mutex lock.
 func (c *ConnectionManager) remove(clientConnection *ClientConnection) {
 	// Remove the branch connection from the database group branch
-	c.databases[clientConnection.DatabaseID].mutex.Lock()
+	c.databases[clientConnection.Branch.DatabaseID].mutex.Lock()
 
-	for i, branchConnection := range c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] {
+	for i, branchConnection := range c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID] {
 		if branchConnection.connection.connection.Id() == clientConnection.connection.Id() {
-			c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID] = slices.Delete(c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID], i, i+1)
+			c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID] = slices.Delete(c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID], i, i+1)
 			break
 		}
 	}
 
-	c.databases[clientConnection.DatabaseID].mutex.Unlock()
+	c.databases[clientConnection.Branch.DatabaseID].mutex.Unlock()
 
 	// If there are no more branches, remove the database
-	if len(c.databases[clientConnection.DatabaseID].branches[clientConnection.BranchID]) == 0 {
-		delete(c.databases[clientConnection.DatabaseID].branches, clientConnection.BranchID)
-		c.databaseManager.Remove(clientConnection.DatabaseID, clientConnection.BranchID)
+	if len(c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID]) == 0 {
+		delete(c.databases[clientConnection.Branch.DatabaseID].branches, clientConnection.Branch.DatabaseBranchID)
+		c.databaseManager.Remove(clientConnection.Branch.DatabaseID, clientConnection.Branch.DatabaseBranchID)
 	}
 
 	clientConnection.Close()

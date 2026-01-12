@@ -14,7 +14,7 @@ func TestDatabaseExport(t *testing.T) {
 		t.Run("NewDatabaseExport", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			ranges, err := dfs.RangeManager.Index.All()
 
 			if err != nil {
@@ -43,7 +43,7 @@ func TestDatabaseExport(t *testing.T) {
 		t.Run("RangeCount", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			ranges, err := dfs.RangeManager.Index.All()
 
 			if err != nil {
@@ -66,7 +66,7 @@ func TestDatabaseExport(t *testing.T) {
 		t.Run("GetRange", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			ranges, err := dfs.RangeManager.Index.All()
 
 			if err != nil {
@@ -91,7 +91,7 @@ func TestDatabaseExport(t *testing.T) {
 		t.Run("GetRange_NotFound", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			ranges, err := dfs.RangeManager.Index.All()
 
 			if err != nil {
@@ -118,7 +118,7 @@ func TestDatabaseExport(t *testing.T) {
 		t.Run("End", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			ranges, err := dfs.RangeManager.Index.All()
 
 			if err != nil {

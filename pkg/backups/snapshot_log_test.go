@@ -54,7 +54,7 @@ func TestSnapshotLog(t *testing.T) {
 		t.Run("Close", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 
 			defer func() {
 				if err := snapshotLogger.Close(); err != nil {
@@ -99,7 +99,7 @@ func TestSnapshotLog(t *testing.T) {
 		t.Run("GetRestorePoints", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 			checkpointerLogger := backups.NewSnapshotLogger(
 				app.Cluster.TieredFS(),
 				mock.DatabaseID,
@@ -153,7 +153,7 @@ func TestSnapshotLog(t *testing.T) {
 		t.Run("Load", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			snapshotLogger := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+			snapshotLogger := app.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 
 			defer func() {
 				if err := snapshotLogger.Close(); err != nil {

@@ -104,9 +104,9 @@ func DatabaseBackupControllerStore(ctx context.Context, request *Request) Respon
 		request.cluster.ObjectFS(),
 		db.DatabaseID,
 		branch.DatabaseBranchID,
-		request.databaseManager.Resources(db.DatabaseID, branch.DatabaseBranchID).SnapshotLogger(),
-		request.databaseManager.Resources(db.DatabaseID, branch.DatabaseBranchID).FileSystem(),
-		request.databaseManager.Resources(db.DatabaseID, branch.DatabaseBranchID).RollbackLogger(),
+		request.databaseManager.Resources(branch).SnapshotLogger(),
+		request.databaseManager.Resources(branch).FileSystem(),
+		request.databaseManager.Resources(branch).RollbackLogger(),
 	)
 
 	if err != nil {
@@ -229,11 +229,20 @@ func DatabaseBackupControllerDestroy(ctx context.Context, request *Request) Resp
 		return ServerErrorResponse(err)
 	}
 
+	branch, err := request.databaseManager.GetBranch(
+		databaseKey.DatabaseID,
+		databaseKey.DatabaseBranchID,
+	)
+
+	if err != nil {
+		return BadRequestResponse(err)
+	}
+
 	backup, err := backups.GetBackup(
 		request.cluster.Config,
 		request.cluster.ObjectFS(),
-		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.DatabaseBranchID).SnapshotLogger(),
-		request.databaseManager.Resources(databaseKey.DatabaseID, databaseKey.DatabaseBranchID).FileSystem(),
+		request.databaseManager.Resources(branch).SnapshotLogger(),
+		request.databaseManager.Resources(branch).FileSystem(),
 		databaseKey.DatabaseID,
 		databaseKey.DatabaseBranchID,
 		timestamp,

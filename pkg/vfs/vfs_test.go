@@ -85,7 +85,7 @@ func TestGoWriteHook(t *testing.T) {
 
 		offsets := make([]int64, 0)
 
-		filesystem := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+		filesystem := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 
 		filesystem.SetWriteHook(func(offset int64, data []byte) {
 			offsets = append(offsets, offset)
@@ -167,7 +167,7 @@ func TestVFSFileSizeAndTruncate(t *testing.T) {
 		var expectedSize = 4096 * pageCount
 		var directorySize int64
 
-		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 		fileSystemDriver := dfs.FileSystem().Driver()
 
 		err = fileSystemDriver.Flush()

@@ -55,8 +55,16 @@ func DatabaseSnapshotControllerIndex(ctx context.Context, request *Request) Resp
 		return ForbiddenResponse(err)
 	}
 
+	branch, err = request.databaseManager.GetBranch(db.DatabaseID, branch.DatabaseBranchID)
+
+	if err != nil {
+		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchId", branch.DatabaseBranchID)
+
+		return BadRequestResponse(err)
+	}
+
 	snapshots, err := request.databaseManager.
-		Resources(db.DatabaseID, branch.DatabaseBranchID).
+		Resources(branch).
 		SnapshotLogger().
 		GetSnapshots()
 
@@ -112,8 +120,16 @@ func DatabaseSnapshotControllerShow(ctx context.Context, request *Request) Respo
 		return BadRequestResponse(errors.New("invalid timestamp"))
 	}
 
+	branch, err = request.databaseManager.GetBranch(db.DatabaseID, branch.DatabaseBranchID)
+
+	if err != nil {
+		slog.Error("Failed to retrieve database branch", "error", err, "databaseId", db.DatabaseID, "branchId", branch.DatabaseBranchID)
+
+		return BadRequestResponse(err)
+	}
+
 	snapshot, err := request.databaseManager.
-		Resources(db.DatabaseID, branch.DatabaseBranchID).
+		Resources(branch).
 		SnapshotLogger().
 		GetSnapshot(timestamp)
 

@@ -1,12 +1,14 @@
 package database_test
 
 import (
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/server"
 )
 
@@ -15,12 +17,11 @@ func TestNewCheckpointer(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		cp, err := database.NewCheckpointer(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			mock.Branch,
+			app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
+			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -38,12 +39,11 @@ func TestCheckpointer_Begin(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		cp, err := database.NewCheckpointer(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			mock.Branch,
+			app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
+			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -72,10 +72,7 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		db := test.MockDatabase(app)
 
-		checkpointer, err := app.DatabaseManager.Resources(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-		).Checkpointer()
+		checkpointer, err := app.DatabaseManager.Resources(db.Branch).Checkpointer()
 
 		if err != nil {
 			t.Fatalf("Failed to create checkpointer: %v", err)
@@ -122,12 +119,11 @@ func TestCheckpointer_CheckpointPage(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 		cp, err := database.NewCheckpointer(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			mock.Branch,
+			app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
+			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -161,7 +157,7 @@ func TestCheckpointer_CheckpointPage(t *testing.T) {
 func TestCheckpointer_Commit(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 
 		pageCount := dfs.Metadata().PageCount
 
@@ -170,12 +166,11 @@ func TestCheckpointer_Commit(t *testing.T) {
 		}
 
 		cp, err := database.NewCheckpointer(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+			mock.Branch,
+			app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
+			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -221,7 +216,7 @@ func TestCheckpointer_Commit(t *testing.T) {
 func TestCheckpointer_Rollback(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
-		dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+		dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 
 		pageCount := dfs.Metadata().PageCount
 
@@ -229,15 +224,14 @@ func TestCheckpointer_Rollback(t *testing.T) {
 			t.Fatal("Expected initial page count to be 0")
 		}
 
-		fileSystem := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+		fileSystem := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 
 		cp, err := database.NewCheckpointer(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 			fileSystem,
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
-			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
+			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -307,17 +301,15 @@ func TestCheckpointer_Rollback(t *testing.T) {
 }
 
 func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
-	databaseId := "database"
-	branchId := "branch"
-
 	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
+
 		cp, err := database.NewCheckpointer(
-			databaseId,
-			branchId,
-			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
+			mock.Branch,
+			app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
-			app.DatabaseManager.Resources(databaseId, branchId).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
+			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -331,12 +323,11 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 		}
 
 		_, err = database.NewCheckpointer(
-			databaseId,
-			branchId,
-			app.DatabaseManager.Resources(databaseId, branchId).FileSystem(),
+			mock.Branch,
+			app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			app.Cluster.NetworkFS(),
-			app.DatabaseManager.Resources(databaseId, branchId).PageLogger(),
-			app.DatabaseManager.Resources(databaseId, branchId).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
+			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
 		)
 
 		if err != nil {
@@ -345,26 +336,98 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 	})
 }
 
-// func TestCheckpointer_SetTimestamp(t *testing.T) {
-// 	test.RunWithApp(t, func(app *server.App) {
-// 		mock := test.MockDatabase(app)
+func TestCheckpointer_NoRollbackLogsWhenIncrementalBackupsDisabled(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		mock := test.MockDatabase(app)
 
-// 		cp, err := database.NewCheckpointer(
-// 			mock.DatabaseID,
-// 			mock.DatabaseBranchID,
-// 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-// 			app.Cluster.NetworkFS(),
-// 			app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).PageLogger(),
-// 		)
+		// Disable incremental backups
+		mock.Branch.Settings.IncrementalBackupsEnabled = false
 
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
+		err := mock.Branch.UpdateBranchSettings(mock.Branch.Settings)
 
-// 		// cp.SetTimestamp(1)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-// 		// if cp.Timestamp != 1 {
-// 		// 	t.Fatal("Timestamp was not set")
-// 		// }
-// 	})
-// }
+		// Reload the branch to get updated settings
+		branch, err := app.DatabaseManager.Get(mock.DatabaseID)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		updatedBranch, err := branch.BranchByID(mock.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resources := app.DatabaseManager.Resources(updatedBranch)
+
+		cp, err := database.NewCheckpointer(
+			updatedBranch,
+			resources.FileSystem(),
+			app.Cluster.NetworkFS(),
+			resources.PageLogger(),
+			resources.SnapshotLogger(),
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Begin a checkpoint
+		timestamp := time.Now().UTC().UnixNano()
+
+		err = cp.Begin(timestamp)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// The checkpoint should have been created with zero offset and size
+		// since no rollback frame was started
+		if cp.Checkpoint.Offset != 0 {
+			t.Fatalf("Expected offset to be 0, got %d", cp.Checkpoint.Offset)
+		}
+
+		if cp.Checkpoint.Size != 0 {
+			t.Fatalf("Expected size to be 0, got %d", cp.Checkpoint.Size)
+		}
+
+		// Add a page to the checkpoint
+		data := make([]byte, 4096)
+
+		err = cp.CheckpointPage(1, data)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Size should still be 0 since we didn't log to rollback logger
+		if cp.Checkpoint.Size != 0 {
+			t.Fatalf("Expected size to remain 0 after checkpoint page, got %d", cp.Checkpoint.Size)
+		}
+
+		// Commit the checkpoint
+		err = cp.Commit()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Verify that no rollback logs were created by checking the rollback log directory
+		rollbackLogPath := file.GetDatabaseRollbackDirectory(mock.DatabaseID, mock.DatabaseBranchID)
+
+		entries, err := resources.FileSystem().FileSystem().ReadDir(rollbackLogPath)
+
+		if err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+
+		// The directory might not exist or be empty - both are valid
+		if len(entries) > 0 {
+			t.Fatalf("Expected no rollback log entries when incremental backups disabled, found %d", len(entries))
+		}
+	})
+}

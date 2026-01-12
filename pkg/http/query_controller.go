@@ -108,11 +108,19 @@ func QueryControllerStore(ctx context.Context, request *Request) Response {
 
 		defer database.PutQuery(requestQuery)
 
-		response := &database.QueryResponse{}
-		resources := request.databaseManager.Resources(
+		branch, err := request.databaseManager.GetBranch(
 			databaseKey.DatabaseID,
 			databaseKey.DatabaseBranchID,
 		)
+
+		if err != nil {
+			slog.Error("failed to get database branch", "error", err.Error())
+
+			return ServerErrorResponse(err)
+		}
+
+		response := &database.QueryResponse{}
+		resources := request.databaseManager.Resources(branch)
 
 		if requestQuery.Input.TransactionID != "" {
 			transaction, err := resources.TransactionManager().Get(string(requestQuery.Input.TransactionID))

@@ -48,7 +48,7 @@ func TestDataRangeManager(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			drm := storage.NewDataRangeManager(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			r, err := drm.Get(1)
@@ -76,7 +76,7 @@ func TestDataRangeManager(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			drm := storage.NewDataRangeManager(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			drm.Acquire(12345)
@@ -114,7 +114,7 @@ func TestDataRangeManager(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			drm := storage.NewDataRangeManager(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 			drm.Acquire(12345)
 
@@ -133,7 +133,7 @@ func TestDataRangeManager(t *testing.T) {
 			mock := test.MockDatabase(app)
 
 			drm := storage.NewDataRangeManager(
-				app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(mock.Branch).FileSystem(),
 			)
 
 			_, err := drm.Get(12345)

@@ -12,7 +12,7 @@ func TestDatabaseResources(t *testing.T) {
 		t.Run("ExportManager", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			resources := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID)
+			resources := app.DatabaseManager.Resources(mock.Branch)
 
 			exportManager, err := resources.ExportManager()
 
@@ -39,7 +39,7 @@ func TestDatabaseResources(t *testing.T) {
 		t.Run("ExportManager_WithFileSystem", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			resources := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID)
+			resources := app.DatabaseManager.Resources(mock.Branch)
 
 			// Get export manager
 			exportManager, err := resources.ExportManager()

@@ -6,12 +6,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/server"
 )
 
 type TestDatabase struct {
 	ID               int64
+	Branch           *database.Branch
 	BranchID         int64
 	BranchName       string
 	DatabaseID       string
@@ -76,6 +78,7 @@ func MockDatabase(app *server.App) TestDatabase {
 
 	return TestDatabase{
 		ID:               db.ID,
+		Branch:           primaryBranch,
 		BranchID:         primaryBranch.ID,
 		BranchName:       primaryBranch.Name,
 		DatabaseID:       db.DatabaseID,

@@ -75,7 +75,7 @@ var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
 }
 
 type DatabaseConnection struct {
-	branchId               string
+	branch                 *Branch
 	cancel                 context.CancelFunc
 	checkpointer           *Checkpointer
 	committedAt            time.Time
@@ -84,14 +84,12 @@ type DatabaseConnection struct {
 	context                context.Context
 	databaseHash           string
 	Credential             *auth.Credential
-	databaseId             string
 	fileSystem             *storage.DurableDatabaseFileSystem
 	id                     string
 	inTransaction          bool
 	mutex                  *sync.Mutex
 	nodeId                 string
 	pageLogger             *storage.PageLogger
-	queryLogsEnabled       bool
 	resultPool             *sqlite3.ResultPool
 	sqlite3                *sqlite3.Connection
 	statements             sync.Map
@@ -109,13 +107,13 @@ type StatementKey struct {
 }
 
 // Create a new database connection instance.
-func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, branchId string) (*DatabaseConnection, error) {
+func NewDatabaseConnection(connectionManager *ConnectionManager, branch *Branch) (*DatabaseConnection, error) {
 	ctx, cancel := context.WithCancel(connectionManager.cluster.Node().Context())
 
-	resources := connectionManager.databaseManager.Resources(databaseId, branchId)
+	resources := connectionManager.databaseManager.Resources(branch)
 
 	// Get the database hash for the connection.
-	databaseHash := file.DatabaseHash(databaseId, branchId)
+	databaseHash := file.DatabaseHash(branch.DatabaseID, branch.DatabaseBranchID)
 	resultPool := resources.ResultPool()
 	checkpointer, err := resources.Checkpointer()
 
@@ -135,37 +133,19 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, databaseId, bra
 		return nil, err
 	}
 
-	// Get branch settings to cache query logging preference
-	queryLogsEnabled := false
-	database, err := connectionManager.databaseManager.Get(databaseId)
-
-	if err == nil {
-		branch, err := database.BranchByID(branchId)
-
-		if err == nil {
-			settings, err := branch.GetBranchSettings()
-
-			if err == nil {
-				queryLogsEnabled = settings.QueryLogsEnabled
-			}
-		}
-	}
-
 	con := &DatabaseConnection{
-		branchId:          branchId,
+		branch:            branch,
 		cancel:            cancel,
 		checkpointer:      checkpointer,
 		config:            connectionManager.cluster.Config,
 		connectionManager: connectionManager,
 		context:           ctx,
 		databaseHash:      databaseHash,
-		databaseId:        databaseId,
 		fileSystem:        resources.FileSystem(),
 		id:                uuid.NewString(),
 		mutex:             &sync.Mutex{},
 		nodeId:            connectionManager.cluster.Node().ID,
 		pageLogger:        resources.PageLogger(),
-		queryLogsEnabled:  queryLogsEnabled,
 		resultPool:        resultPool,
 		statements:        sync.Map{},
 		tmpFileSystem:     connectionManager.cluster.TmpFS(),
@@ -434,7 +414,7 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 // execLitebasePragma handles execution of custom litebase PRAGMA statements
 func (con *DatabaseConnection) execLitebasePragma(sql string) (*sqlite3.Result, error) {
-	handler := NewLitebasePragmaHandler(con, con.databaseId, con.branchId)
+	handler := NewLitebasePragmaHandler(con, con.branch.DatabaseID, con.branch.DatabaseBranchID)
 
 	value, err := handler.Execute(sql)
 
@@ -523,8 +503,8 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 	path, err := file.GetDatabaseFileTmpPath(
 		con.config,
 		con.nodeId,
-		con.databaseId,
-		con.branchId,
+		con.branch.DatabaseID,
+		con.branch.DatabaseBranchID,
 	)
 
 	if err != nil {
@@ -684,61 +664,61 @@ func (c *DatabaseConnection) SetAuthorizer() {
 
 		switch actionCode {
 		case sqlite3.SQLITE_ANALYZE:
-			allowed, err = c.Credential.CanAnalyze(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanAnalyze(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_ATTACH:
-			allowed, err = c.Credential.CanAttach(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanAttach(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_ALTER_TABLE:
-			allowed, err = c.Credential.CanAlterTable(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanAlterTable(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1, arg2)
 		case sqlite3.SQLITE_COPY:
 			allowed = false
 		case sqlite3.SQLITE_CREATE_INDEX:
-			allowed, err = c.Credential.CanCreateIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateIndex(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TABLE:
-			allowed, err = c.Credential.CanCreateTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateTable(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TABLE:
-			allowed, err = c.Credential.CanCreateTempTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateTempTable(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_TRIGGER:
-			allowed, err = c.Credential.CanCreateTempTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateTempTrigger(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_TEMP_VIEW:
-			allowed, err = c.Credential.CanCreateTempView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateTempView(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_CREATE_TRIGGER:
-			allowed, err = c.Credential.CanCreateTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateTrigger(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg2, arg1)
 		case sqlite3.SQLITE_CREATE_VIEW:
-			allowed, err = c.Credential.CanCreateView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanCreateView(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_CREATE_VTABLE:
-			allowed, err = c.Credential.CanCreateVTable(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanCreateVTable(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg2, arg1)
 		case sqlite3.SQLITE_DELETE:
-			allowed, err = c.Credential.CanDelete(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDelete(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_DETACH:
-			allowed, err = c.Credential.CanDetach(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDetach(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_DROP_INDEX:
-			allowed, err = c.Credential.CanDropIndex(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanDropIndex(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg2, arg1)
 		case sqlite3.SQLITE_DROP_TABLE:
-			allowed, err = c.Credential.CanDropTable(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDropTable(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_DROP_TRIGGER:
-			allowed, err = c.Credential.CanDropTrigger(c.databaseId, c.branchId, arg2, arg1)
+			allowed, err = c.Credential.CanDropTrigger(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg2, arg1)
 		case sqlite3.SQLITE_DROP_VIEW:
-			allowed, err = c.Credential.CanDropView(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanDropView(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_FUNCTION:
-			allowed, err = c.Credential.CanFunction(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanFunction(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_INSERT:
-			allowed, err = c.Credential.CanInsert(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanInsert(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_PRAGMA:
-			allowed, err = c.Credential.CanPragma(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanPragma(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1, arg2)
 		case sqlite3.SQLITE_READ:
-			allowed, err = c.Credential.CanRead(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanRead(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1, arg2)
 		case sqlite3.SQLITE_RECURSIVE:
-			allowed, err = c.Credential.CanRecursive(c.databaseId, c.branchId)
+			allowed, err = c.Credential.CanRecursive(c.branch.DatabaseID, c.branch.DatabaseBranchID)
 		case sqlite3.SQLITE_REINDEX:
-			allowed, err = c.Credential.CanReindex(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanReindex(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_SAVEPOINT:
-			allowed, err = c.Credential.CanSavepoint(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanSavepoint(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1, arg2)
 		case sqlite3.SQLITE_SELECT:
-			allowed, err = c.Credential.CanSelect(c.databaseId, c.branchId)
+			allowed, err = c.Credential.CanSelect(c.branch.DatabaseID, c.branch.DatabaseBranchID)
 		case sqlite3.SQLITE_TRANSACTION:
-			allowed, err = c.Credential.CanTransaction(c.databaseId, c.branchId, arg1)
+			allowed, err = c.Credential.CanTransaction(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1)
 		case sqlite3.SQLITE_UPDATE:
-			allowed, err = c.Credential.CanUpdate(c.databaseId, c.branchId, arg1, arg2)
+			allowed, err = c.Credential.CanUpdate(c.branch.DatabaseID, c.branch.DatabaseBranchID, arg1, arg2)
 		default:
 			allowed, err = false, nil
 		}
@@ -901,7 +881,7 @@ func (con *DatabaseConnection) VFSDatabaseHash() string {
 // Return the VFS hash for the connection.
 func (con *DatabaseConnection) VFSHash() string {
 	if con.vfsHash == "" {
-		sha256Hash := sha256.Sum256(fmt.Appendf(nil, "%s:%s:%s", con.databaseId, con.branchId, con.id))
+		sha256Hash := sha256.Sum256(fmt.Appendf(nil, "%s:%s:%s", con.branch.DatabaseID, con.branch.DatabaseBranchID, con.id))
 		con.vfsHash = fmt.Sprintf("litebase:%x", sha256Hash)
 	}
 
@@ -910,14 +890,6 @@ func (con *DatabaseConnection) VFSHash() string {
 
 func (con *DatabaseConnection) WALTimestamp() int64 {
 	return con.walTimestamp
-}
-
-// Update the cached query logs enabled setting
-func (con *DatabaseConnection) SetQueryLogsEnabled(enabled bool) {
-	con.mutex.Lock()
-	defer con.mutex.Unlock()
-
-	con.queryLogsEnabled = enabled
 }
 
 // Set the access key for the database connection.

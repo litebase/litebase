@@ -85,7 +85,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			fileSystem := dm.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID).FileSystem()
+			fileSystem := dm.Resources(primaryBranch).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
@@ -123,7 +123,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			fileSystem := app.DatabaseManager.Resources(db.DatabaseID, primaryBranch.DatabaseBranchID).FileSystem()
+			fileSystem := app.DatabaseManager.Resources(primaryBranch).FileSystem()
 
 			// Ensure the database directory exists
 			if !fileSystem.Exists() {
@@ -314,7 +314,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID)
+			resources := dm.Resources(primaryBranch)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")
@@ -342,7 +342,7 @@ func TestDatabaseManager(t *testing.T) {
 				t.Fatalf("Expected no error, got %v", err)
 			}
 
-			resources := dm.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID)
+			resources := dm.Resources(primaryBranch)
 
 			if resources == nil {
 				t.Errorf("Expected non-nil Resources")

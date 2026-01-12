@@ -21,7 +21,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("NewDatabaseConnection", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -223,7 +223,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Close", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -258,7 +258,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Closed", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -282,7 +282,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Context", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -296,7 +296,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Exec", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -323,7 +323,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("FileSystem", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -413,7 +413,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Id", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -427,7 +427,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Prepare", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -447,7 +447,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Query", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -482,7 +482,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("ResultPool", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -496,7 +496,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Statement", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -530,7 +530,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Transaction", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -554,7 +554,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Transaction_WhenClosed", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -576,7 +576,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Transaction_WithError", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -600,7 +600,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("Transaction_WithRollback", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -631,7 +631,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("VFSDatabaseHash", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -645,7 +645,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("VFSHash", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)
@@ -659,7 +659,7 @@ func TestDatabaseConnection(t *testing.T) {
 		t.Run("WithAccessKey", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.DatabaseID, mock.DatabaseBranchID)
+			connection, err := database.NewDatabaseConnection(app.DatabaseManager.ConnectionManager(), mock.Branch)
 
 			if err != nil {
 				t.Fatal(err)

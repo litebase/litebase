@@ -471,10 +471,7 @@ func TestDurableDatabaseFileSystem(t *testing.T) {
 				storage.PageLoggerCompactInterval = storage.DefaultPageLoggerCompactInterval
 			}()
 
-			dfs := app.DatabaseManager.Resources(
-				mockDatabase.DatabaseID,
-				mockDatabase.DatabaseBranchID,
-			).FileSystem()
+			dfs := app.DatabaseManager.Resources(mockDatabase.Branch).FileSystem()
 
 			err := dfs.ForceCompact()
 
