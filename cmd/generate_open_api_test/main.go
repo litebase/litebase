@@ -1382,7 +1382,7 @@ func generateGetTestCase(operationID, resourceType string, details map[string]an
 				StatusCode: 201,
 				Content:    map[string]any{},
 				Captures: []string{
-					"name AS databaseName",
+					"databaseName",
 					"branchName",
 				},
 			},
@@ -1513,7 +1513,7 @@ func generateUpdateTestCase(operationID, resourceType string, details map[string
 				StatusCode: 201,
 				Content:    map[string]any{},
 				Captures: []string{
-					"name AS databaseName",
+					"databaseName",
 					"branchName",
 				},
 			},
@@ -1830,9 +1830,18 @@ func generateRequestBody(resourceType, operation string) map[string]any {
 	case "databasebranchsettings":
 		if operation == "update" {
 			return map[string]any{
-				"backupsEnabled":       true,
-				"backupInterval":       "24h",
-				"backupsRetentionDays": 7,
+				"backupsEnabled":                  true,
+				"backupInterval":                  "24h",
+				"backupsRetentionDays":            7,
+				"incrementalBackupsEnabled":       true,
+				"incrementalBackupsRetentionDays": 30,
+				"queryLogsEnabled":                true,
+				"queryLogsRetentionDays":          7,
+				"errorLogsEnabled":                true,
+				"errorLogsRetentionDays":          7,
+				"defaultPragmas": map[string]any{
+					"foreignKeys": "ON",
+				},
 			}
 		}
 
