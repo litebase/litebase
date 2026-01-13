@@ -2491,6 +2491,235 @@
         }
       ]
     },
+    "/v1/databases/{databaseName}/branches/{branchName}/settings": {
+      "get": {
+        "tags": [
+          "DatabaseBranchSettings"
+        ],
+        "summary": "Show details of a specific database branch settings",
+        "description": "Show the settings for a specific database branch",
+        "operationId": "getDatabaseBranchSettings",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "Return value from .DatabaseBranchSettingsShowResponse()"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Successfully retrieved branch settings."
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "DatabaseBranchSettings"
+        ],
+        "summary": "Update an existing database branch settings",
+        "description": "Update the settings for a specific database branch",
+        "operationId": "updateDatabaseBranchSettings",
+        "requestBody": {
+          "description": "Database branch setting update data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseBranchSettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "Return value from .DatabaseBranchSettingsUpdateResponse()"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Branch settings updated successfully"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
+    },
     "/v1/databases/{databaseName}/branches/{branchName}/snapshots": {
       "get": {
         "tags": [
@@ -4510,14 +4739,6 @@
           }
         }
       },
-      "BranchSettings": {
-        "type": "object",
-        "properties": {
-          "incrementableBackups": {
-            "type": "boolean"
-          }
-        }
-      },
       "ClusterStatusResponse": {
         "type": "object",
         "description": "Response payload for cluster status",
@@ -4557,17 +4778,6 @@
           }
         }
       },
-      "DatabaseBackupSettings": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "incremental": {
-            "$ref": "#/components/schemas/DatabaseIncrementalBackupSettings"
-          }
-        }
-      },
       "DatabaseBackupShowResponse": {
         "type": "object",
         "description": "A single database branch response",
@@ -4603,8 +4813,47 @@
           }
         }
       },
+      "DatabaseBranchBackupInterval": {
+        "type": "string"
+      },
       "DatabaseBranchName": {
         "type": "string"
+      },
+      "DatabaseBranchSettingsUpdateRequest": {
+        "type": "object",
+        "description": "Request payload for updating branch settings",
+        "properties": {
+          "backupInterval": {
+            "$ref": "#/components/schemas/DatabaseBranchBackupInterval"
+          },
+          "backupsEnabled": {
+            "type": "boolean"
+          },
+          "backupsRetentionDays": {
+            "type": "integer"
+          },
+          "defaultPragmas": {
+            "$ref": "#/components/schemas/DatabaseDefaultPragmaSettings"
+          },
+          "errorLogsEnabled": {
+            "type": "boolean"
+          },
+          "errorLogsRetentionDays": {
+            "type": "integer"
+          },
+          "incrementalBackupsEnabled": {
+            "type": "boolean"
+          },
+          "incrementalBackupsRetentionDays": {
+            "type": "integer"
+          },
+          "queryLogsEnabled": {
+            "type": "boolean"
+          },
+          "queryLogsRetentionDays": {
+            "type": "integer"
+          }
+        }
       },
       "DatabaseBranchStoreRequest": {
         "type": "object",
@@ -4648,9 +4897,6 @@
           "parentName": {
             "type": "string"
           },
-          "settings": {
-            "$ref": "#/components/schemas/BranchSettings"
-          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
@@ -4658,6 +4904,21 @@
             "example": "2023-09-20T14:30:00Z"
           }
         }
+      },
+      "DatabaseDefaultPragmaSettings": {
+        "type": "object",
+        "properties": {
+          "foreignKeys": {
+            "type": "string",
+            "enum": [
+              "ON",
+              "OFF"
+            ]
+          }
+        },
+        "required": [
+          "foreignKeys"
+        ]
       },
       "DatabaseExportEndStoreRequest": {
         "type": "object"
@@ -4698,14 +4959,6 @@
           }
         }
       },
-      "DatabaseIncrementalBackupSettings": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          }
-        }
-      },
       "DatabaseName": {
         "type": "string"
       },
@@ -4729,9 +4982,6 @@
           },
           "id": {
             "type": "integer"
-          },
-          "settings": {
-            "$ref": "#/components/schemas/DatabaseSettings"
           },
           "updatedAt": {
             "type": "string",
@@ -4763,14 +5013,6 @@
           "timestamp"
         ]
       },
-      "DatabaseSettings": {
-        "type": "object",
-        "properties": {
-          "backups": {
-            "$ref": "#/components/schemas/DatabaseBackupSettings"
-          }
-        }
-      },
       "DatabaseShowResponse": {
         "type": "object",
         "properties": {
@@ -4791,9 +5033,6 @@
           },
           "id": {
             "type": "integer"
-          },
-          "settings": {
-            "$ref": "#/components/schemas/DatabaseSettings"
           },
           "updatedAt": {
             "type": "string",
@@ -4840,9 +5079,6 @@
           },
           "id": {
             "type": "integer"
-          },
-          "settings": {
-            "$ref": "#/components/schemas/DatabaseSettings"
           },
           "updatedAt": {
             "type": "string",
@@ -5648,6 +5884,10 @@
     {
       "name": "DatabaseBranch",
       "description": "Database branch management operations"
+    },
+    {
+      "name": "DatabaseBranchSettings",
+      "description": "Database Branch Settings operations"
     },
     {
       "name": "DatabaseExport",

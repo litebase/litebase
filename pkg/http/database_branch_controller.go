@@ -114,15 +114,14 @@ type DatabaseBranchStoreRequest struct {
 }
 
 type DatabaseBranchStoreResponse struct {
-	ID               int64                    `json:"id"`
-	DatabaseBranchID string                   `json:"databaseBranchId"`
-	DatabaseID       string                   `json:"databaseId"`
-	DatabaseName     string                   `json:"databaseName"`
-	Name             string                   `json:"name"`
-	ParentName       string                   `json:"parentName"`
-	Settings         *database.BranchSettings `json:"settings"`
-	CreatedAt        time.Time                `json:"createdAt"`
-	UpdatedAt        time.Time                `json:"updatedAt"`
+	ID               int64     `json:"id"`
+	DatabaseBranchID string    `json:"databaseBranchId"`
+	DatabaseID       string    `json:"databaseId"`
+	DatabaseName     string    `json:"databaseName"`
+	Name             string    `json:"name"`
+	ParentName       string    `json:"parentName"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 // Create a new database branch
@@ -210,7 +209,6 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 			DatabaseName:     db.Name,
 			Name:             branch.Name,
 			ParentName:       parentName,
-			Settings:         branch.Settings,
 			CreatedAt:        branch.CreatedAt,
 			UpdatedAt:        branch.UpdatedAt,
 		},

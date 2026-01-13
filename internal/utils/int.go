@@ -5,6 +5,14 @@ import (
 	"math"
 )
 
+func BoolToInt(b bool) int {
+	if b {
+		return 1
+	}
+
+	return 0
+}
+
 func SafeIntToInt32(i int) (int32, error) {
 	if i < math.MinInt32 || i > math.MaxInt32 {
 		return 0, errors.New("integer overflow: value out of int32 range")

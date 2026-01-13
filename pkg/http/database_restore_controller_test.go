@@ -27,7 +27,7 @@ func TestDatabaseRestoreController(t *testing.T) {
 		source := test.MockDatabase(server.App)
 		target := test.MockDatabase(server.App)
 
-		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(source.Branch).SnapshotLogger()
 
 		sourceDb, err := server.App.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
@@ -191,7 +191,7 @@ func TestDatabaseRestoreControllerMultiple(t *testing.T) {
 
 		source := test.MockDatabase(server.App)
 
-		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(source.Branch).SnapshotLogger()
 
 		sourceDb, err := server.App.DatabaseManager.ConnectionManager().Get(source.DatabaseID, source.DatabaseBranchID)
 
@@ -525,7 +525,7 @@ func TestDatabaseRestoreControllerNonEmptyTarget(t *testing.T) {
 		}
 
 		// Get restore point from source
-		snapshotLogger := server.App.DatabaseManager.Resources(source.DatabaseID, source.DatabaseBranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(source.Branch).SnapshotLogger()
 		snapshotKeys := snapshotLogger.Keys()
 
 		if len(snapshotKeys) == 0 {

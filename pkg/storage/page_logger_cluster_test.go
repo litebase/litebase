@@ -70,7 +70,7 @@ func TestPageLoggerClusterAwareCompaction(t *testing.T) {
 
 			// Try to compact - the page with replicaTimestamp should be protected
 			err = pageLogger.Compact(
-				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(db.Branch).FileSystem(),
 			)
 
 			if err != nil {
@@ -129,7 +129,7 @@ func TestPageLoggerClusterAwareCompaction(t *testing.T) {
 
 			// Compaction should work normally on replica (no coordination)
 			err = pageLogger.Compact(
-				app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
+				app.DatabaseManager.Resources(db.Branch).FileSystem(),
 			)
 
 			if err != nil {

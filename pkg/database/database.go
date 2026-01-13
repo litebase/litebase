@@ -16,14 +16,13 @@ import (
 )
 
 type Database struct {
-	ID                       int64             `json:"-"`
-	DatabaseManager          *DatabaseManager  `json:"-"`
-	Name                     string            `json:"name"`
-	DatabaseID               string            `json:"databaseId"`
-	PrimaryBranchReferenceID sql.NullInt64     `json:"-"`
-	Settings                 *DatabaseSettings `json:"settings"`
-	CreatedAt                time.Time         `json:"createdAt"`
-	UpdatedAt                time.Time         `json:"updatedAt"`
+	ID                       int64            `json:"-"`
+	DatabaseManager          *DatabaseManager `json:"-"`
+	Name                     string           `json:"name"`
+	DatabaseID               string           `json:"databaseId"`
+	PrimaryBranchReferenceID sql.NullInt64    `json:"-"`
+	CreatedAt                time.Time        `json:"createdAt"`
+	UpdatedAt                time.Time        `json:"updatedAt"`
 	exists                   bool
 	primaryBranch            *Branch
 	branchCache              *cache.LFUCache
@@ -41,16 +40,6 @@ func NewDatabase(databaseManager *DatabaseManager, databaseName string) *Databas
 
 func CreateDatabase(databaseManager *DatabaseManager, databaseName string, branchName string) (*Database, error) {
 	database := NewDatabase(databaseManager, databaseName)
-
-	database.Settings = &DatabaseSettings{
-		Backups: DatabaseBackupSettings{
-			Enabled: true,
-			IncrementalBackups: DatabaseIncrementalBackupSettings{
-				Enabled: true,
-			},
-		},
-	}
-
 	database.CreatedAt = time.Now().UTC()
 	database.UpdatedAt = time.Now().UTC()
 
@@ -98,16 +87,14 @@ func InsertDatabase(database *Database) error {
 			database_id,
 			primary_branch_reference_id, 
 			name,
-			settings,
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?)
 		`,
 		database.DatabaseID,
 		primaryBranchId,
 		database.Name,
-		database.Settings,
 		time.Now().UTC(),
 		time.Now().UTC(),
 	)
@@ -136,12 +123,6 @@ func UpdateDatabase(database *Database) error {
 		return err
 	}
 
-	settingsJson, err := json.Marshal(database.Settings)
-
-	if err != nil {
-		return err
-	}
-
 	var primaryBranchId sql.NullInt64
 
 	if database.PrimaryBranchReferenceID.Valid {
@@ -156,13 +137,11 @@ func UpdateDatabase(database *Database) error {
 		SET 
 			name = ?,
 			primary_branch_reference_id = ?,
-			settings = ?,
 			updated_at = ?
 		WHERE database_id = ?
 		`,
 		database.Name,
 		primaryBranchId,
-		string(settingsJson),
 		updatedAt,
 		database.DatabaseID,
 	)
@@ -178,7 +157,6 @@ func UpdateDatabase(database *Database) error {
 
 		cachedDatabase.Name = database.Name
 		cachedDatabase.PrimaryBranchReferenceID = database.PrimaryBranchReferenceID
-		cachedDatabase.Settings = database.Settings
 		cachedDatabase.UpdatedAt = updatedAt
 		cachedDatabase.exists = true
 
@@ -189,17 +167,21 @@ func UpdateDatabase(database *Database) error {
 	return nil
 }
 
-// Get a database branch by its ID.
+// Get a database branch by its name.
 func (database *Database) Branch(name string) (*Branch, error) {
 	var branch Branch
 
+	// Note: Cannot check cache here since we don't have DatabaseBranchID yet,
+	// only the name. Cache is keyed by DatabaseBranchID for consistency.
+
 	db, err := database.DatabaseManager.SystemDatabase().DB()
+
 	if err != nil {
 		return nil, err
 	}
 
 	err = db.QueryRow(
-		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at 
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at 
 		FROM database_branches
 		WHERE database_reference_id = ? AND name = ?`,
 		database.ID,
@@ -211,7 +193,6 @@ func (database *Database) Branch(name string) (*Branch, error) {
 		&branch.DatabaseID,
 		&branch.DatabaseBranchID,
 		&branch.Name,
-		&branch.Settings,
 		&branch.CreatedAt,
 		&branch.UpdatedAt,
 	)
@@ -227,6 +208,78 @@ func (database *Database) Branch(name string) (*Branch, error) {
 	branch.Exists = true
 	branch.DatabaseManager = database.DatabaseManager
 
+	if branch.Settings == nil {
+		branch.Settings, err = branch.GetBranchSettings()
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to load branch settings: %w", err)
+		}
+	}
+
+	// Cache the branch object using DatabaseBranchID as key
+	if err := database.branchCache.Put(branch.DatabaseBranchID, &branch); err != nil {
+		slog.Warn("Failed to cache branch", "error", err)
+	}
+
+	return &branch, nil
+}
+
+// Retrieve a branch by its database_branch_id
+func (database *Database) BranchByID(branchID string) (*Branch, error) {
+	var branch Branch
+
+	// Check cache first using DatabaseBranchID as key
+	if cached, exists := database.branchCache.Get(branchID); exists {
+		return cached.(*Branch), nil
+	}
+
+	db, err := database.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.QueryRow(
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at 
+		FROM database_branches
+		WHERE database_reference_id = ? AND database_branch_id = ?`,
+		database.ID,
+		branchID,
+	).Scan(
+		&branch.ID,
+		&branch.DatabaseReferenceID,
+		&branch.ParentDatabaseBranchReferenceID,
+		&branch.DatabaseID,
+		&branch.DatabaseBranchID,
+		&branch.Name,
+		&branch.CreatedAt,
+		&branch.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("failed to query branch: %w", err)
+	}
+
+	branch.Exists = true
+	branch.DatabaseManager = database.DatabaseManager
+
+	if branch.Settings == nil {
+		branch.Settings, err = branch.GetBranchSettings()
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to load branch settings: %w", err)
+		}
+	}
+
+	// Cache the branch object using DatabaseBranchID as key
+	if err := database.branchCache.Put(branch.DatabaseBranchID, &branch); err != nil {
+		slog.Warn("Failed to cache branch", "error", err)
+	}
+
 	return &branch, nil
 }
 
@@ -241,7 +294,7 @@ func (database *Database) Branches() ([]*Branch, error) {
 	}
 
 	rows, err := db.Query(
-		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at FROM database_branches
 		WHERE database_reference_id = ?`,
 		database.ID,
 	)
@@ -259,7 +312,7 @@ func (database *Database) Branches() ([]*Branch, error) {
 	for rows.Next() {
 		var branch Branch
 
-		if err := rows.Scan(&branch.ID, &branch.DatabaseReferenceID, &branch.ParentDatabaseBranchReferenceID, &branch.DatabaseID, &branch.DatabaseBranchID, &branch.Name, &branch.Settings, &branch.CreatedAt, &branch.UpdatedAt); err != nil {
+		if err := rows.Scan(&branch.ID, &branch.DatabaseReferenceID, &branch.ParentDatabaseBranchReferenceID, &branch.DatabaseID, &branch.DatabaseBranchID, &branch.Name, &branch.CreatedAt, &branch.UpdatedAt); err != nil {
 			continue
 		}
 
@@ -274,18 +327,9 @@ func (database *Database) Branches() ([]*Branch, error) {
 
 // Copy the parent branch data to the new branch.
 func (database *Database) copyBranchParentData(branch *Branch) error {
-	parentBranchResources := database.DatabaseManager.Resources(
-		database.DatabaseID,
-		branch.ParentBranch().DatabaseBranchID,
-	)
-
+	parentBranchResources := database.DatabaseManager.Resources(branch.ParentBranch())
 	parentDFS := parentBranchResources.FileSystem()
-
-	branchDFS := database.DatabaseManager.Resources(
-		database.DatabaseID,
-		branch.DatabaseBranchID,
-	).FileSystem()
-
+	branchDFS := database.DatabaseManager.Resources(branch).FileSystem()
 	snapshotLogger := parentBranchResources.SnapshotLogger()
 	checkpointer, err := parentBranchResources.Checkpointer()
 
@@ -346,8 +390,14 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 		return nil, fmt.Errorf("failed to save branch: %w", err)
 	}
 
+	branch.Settings, err = branch.GetBranchSettings()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to load branch settings: %w", err)
+	}
+
 	// Update cache to reflect the new branch exists
-	database.UpdateBranchCache(branch.DatabaseBranchID, true)
+	database.UpdateBranchCache(branch.DatabaseBranchID, branch)
 
 	// Copy the data from the parent branch if specified
 	if parentBranchName != "" && branch.ParentBranch() != nil {
@@ -367,8 +417,8 @@ func (database *Database) HasBranch(branchId string) bool {
 		return true
 	}
 
-	if found, exists := database.branchCache.Get(branchId); exists {
-		return found.(bool)
+	if _, exists := database.branchCache.Get(branchId); exists {
+		return true
 	}
 
 	database.cacheMutex.Lock()
@@ -378,29 +428,58 @@ func (database *Database) HasBranch(branchId string) bool {
 
 	if err != nil {
 		slog.Error("Error checking branch existence", "error", err)
+
 		return false
 	}
 
-	var id int64
+	var branch Branch
 
 	err = db.QueryRow(
-		`SELECT id FROM database_branches WHERE database_reference_id = ? AND database_branch_id = ?`,
+		`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at 
+		FROM database_branches
+		WHERE database_reference_id = ? AND database_branch_id = ?`,
 		database.ID,
 		branchId,
-	).Scan(&id)
+	).Scan(
+		&branch.ID,
+		&branch.DatabaseReferenceID,
+		&branch.ParentDatabaseBranchReferenceID,
+		&branch.DatabaseID,
+		&branch.DatabaseBranchID,
+		&branch.Name,
+		&branch.CreatedAt,
+		&branch.UpdatedAt,
+	)
 
-	exists := err == nil
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false
+		}
 
-	// Cache the result
-	if err := database.branchCache.Put(branchId, exists); err != nil {
-		slog.Warn("Failed to cache branch existence", "error", err)
-	}
-
-	if err != nil && err != sql.ErrNoRows {
 		slog.Error("Error checking branch existence", "error", err)
+		return false
 	}
 
-	return exists
+	// Set required fields
+	branch.Exists = true
+	branch.DatabaseManager = database.DatabaseManager
+
+	// Load branch settings
+	if branch.Settings == nil {
+		branch.Settings, err = branch.GetBranchSettings()
+
+		if err != nil {
+			slog.Error("Error loading branch settings", "error", err)
+			return false
+		}
+	}
+
+	// Cache the branch object
+	if err := database.branchCache.Put(branchId, &branch); err != nil {
+		slog.Warn("Failed to cache branch", "error", err)
+	}
+
+	return true
 }
 
 // InvalidateBranchCache removes a branch from the cache
@@ -458,7 +537,7 @@ func (database *Database) PrimaryBranch() (*Branch, error) {
 			var branch Branch
 
 			err = db.QueryRow(
-				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at FROM database_branches WHERE id = ?`,
 				database.PrimaryBranchReferenceID.Int64,
 			).Scan(
 				&branch.ID,
@@ -467,7 +546,6 @@ func (database *Database) PrimaryBranch() (*Branch, error) {
 				&branch.DatabaseID,
 				&branch.DatabaseBranchID,
 				&branch.Name,
-				&branch.Settings,
 				&branch.CreatedAt,
 				&branch.UpdatedAt,
 			)
@@ -476,6 +554,14 @@ func (database *Database) PrimaryBranch() (*Branch, error) {
 				branch.DatabaseManager = database.DatabaseManager
 				branch.Exists = true
 				database.primaryBranch = &branch
+
+				if database.primaryBranch.Settings == nil {
+					database.primaryBranch.Settings, err = database.primaryBranch.GetBranchSettings()
+
+					if err != nil {
+						return nil, fmt.Errorf("failed to load primary branch settings: %w", err)
+					}
+				}
 			} else {
 				log.Println("Error loading primary branch:", err)
 			}
@@ -494,12 +580,16 @@ func (database *Database) Save() error {
 	}
 }
 
-// UpdateBranchCache updates the cache with branch existence information
-func (database *Database) UpdateBranchCache(branchID string, exists bool) {
+// UpdateBranchCache updates the cache with branch information
+func (database *Database) UpdateBranchCache(branchID string, branch *Branch) {
 	database.cacheMutex.Lock()
 	defer database.cacheMutex.Unlock()
 
-	if err := database.branchCache.Put(branchID, exists); err != nil {
+	if _, exists := database.branchCache.Get(branchID); !exists {
+		return
+	}
+
+	if err := database.branchCache.Put(branchID, branch); err != nil {
 		slog.Warn("Failed to update branch cache", "error", err)
 	}
 }

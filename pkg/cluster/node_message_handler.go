@@ -12,7 +12,7 @@ import (
 
 // Handle a message from a node in the cluster.
 func (n *Node) HandleMessage(message messages.NodeMessage) (messages.NodeMessage, error) {
-	var responseMessage interface{}
+	var responseMessage any
 
 	switch message := message.Data.(type) {
 	case messages.HeartbeatMessage:
@@ -70,6 +70,8 @@ func (n *Node) handleBroadcastMessage(message any) (any, error) {
 		responseMessage, err = n.handlePageLoggerVersionUsageRequest(message)
 	case messages.WALReplicationWriteMessage:
 		err = n.handleWALReplicationWriteMessage(message)
+	case messages.DatabaseBranchSettingsUpdated:
+		err = n.handleDatabaseBranchSettingsUpdated(message)
 	default:
 		err = errors.New("unknown message type")
 	}
@@ -246,4 +248,43 @@ func (n *Node) handlePageLoggerVersionUsageRequest(message messages.PageLoggerVe
 		DatabaseID: message.DatabaseID,
 		Versions:   versions,
 	}, nil
+}
+
+// Handle a DatabaseBranchSettingsUpdated message to refresh branch settings from database.
+func (n *Node) handleDatabaseBranchSettingsUpdated(message messages.DatabaseBranchSettingsUpdated) error {
+	if n.databaseManager == nil {
+		slog.Error("Database manager not set on node")
+		return errors.New("database manager not configured")
+	}
+
+	// Get the database from the database manager
+	db, err := n.databaseManager.Get(message.DatabaseID)
+
+	if err != nil {
+		slog.Error("Failed to get database for settings update", "error", err, "databaseId", message.DatabaseID)
+		return err
+	}
+
+	// Get the branch by ID
+	branch, err := db.BranchByID(message.DatabaseBranchID)
+
+	if err != nil {
+		slog.Error("Failed to get branch for settings update", "error", err, "branchId", message.DatabaseBranchID)
+		return err
+	}
+
+	// Reload settings from the database
+	settings, err := branch.GetBranchSettings()
+
+	if err != nil {
+		slog.Error("Failed to reload branch settings", "error", err, "branchId", message.DatabaseBranchID)
+		return err
+	}
+
+	// Update the branch's settings in memory
+	branch.SetSettings(settings)
+
+	slog.Info("Branch settings updated", "databaseId", message.DatabaseID, "branchId", message.DatabaseBranchID)
+
+	return nil
 }

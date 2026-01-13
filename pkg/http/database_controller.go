@@ -13,14 +13,13 @@ import (
 )
 
 type DatabaseResponse struct {
-	ID           int64                      `json:"id"`
-	DatabaseID   string                     `json:"databaseId"`
-	DatabaseName string                     `json:"databaseName"`
-	BranchName   string                     `json:"branchName"`
-	Settings     *database.DatabaseSettings `json:"settings"`
-	CreatedAt    time.Time                  `json:"createdAt"`
-	UpdatedAt    time.Time                  `json:"updatedAt"`
-	Url          string                     `json:"url"`
+	ID           int64     `json:"id"`
+	DatabaseID   string    `json:"databaseId"`
+	DatabaseName string    `json:"databaseName"`
+	BranchName   string    `json:"branchName"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	Url          string    `json:"url"`
 }
 
 // Array of databases for list operations
@@ -60,7 +59,6 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 			DatabaseID:   db.DatabaseID,
 			DatabaseName: db.Name,
 			BranchName:   primaryBranch.Name,
-			Settings:     db.Settings,
 			CreatedAt:    db.CreatedAt,
 			UpdatedAt:    db.UpdatedAt,
 			Url:          db.Url(primaryBranch.Name),
@@ -75,14 +73,13 @@ func DatabaseControllerIndex(ctx context.Context, request *Request) Response {
 }
 
 type DatabaseShowResponse struct {
-	ID           int64                      `json:"id"`
-	DatabaseID   string                     `json:"databaseId"`
-	DatabaseName string                     `json:"databaseName"`
-	BranchName   string                     `json:"branchName"`
-	Settings     *database.DatabaseSettings `json:"settings"`
-	CreatedAt    time.Time                  `json:"createdAt"`
-	UpdatedAt    time.Time                  `json:"updatedAt"`
-	Url          string                     `json:"url"`
+	ID           int64     `json:"id"`
+	DatabaseID   string    `json:"databaseId"`
+	DatabaseName string    `json:"databaseName"`
+	BranchName   string    `json:"branchName"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	Url          string    `json:"url"`
 }
 
 func DatabaseControllerShow(ctx context.Context, request *Request) Response {
@@ -127,7 +124,6 @@ func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 			DatabaseID:   db.DatabaseID,
 			DatabaseName: db.Name,
 			BranchName:   primaryBranch.Name,
-			Settings:     db.Settings,
 			CreatedAt:    db.CreatedAt,
 			UpdatedAt:    db.UpdatedAt,
 			Url:          db.Url(primaryBranch.Name),
@@ -142,14 +138,13 @@ type DatabaseStoreRequest struct {
 }
 
 type DatabaseStoreResponse struct {
-	ID           int64                      `json:"id"`
-	DatabaseID   string                     `json:"databaseId"`
-	DatabaseName string                     `json:"databaseName"`
-	BranchName   string                     `json:"branchName"`
-	Settings     *database.DatabaseSettings `json:"settings"`
-	CreatedAt    time.Time                  `json:"createdAt"`
-	UpdatedAt    time.Time                  `json:"updatedAt"`
-	Url          string                     `json:"url"`
+	ID           int64     `json:"id"`
+	DatabaseID   string    `json:"databaseId"`
+	DatabaseName string    `json:"databaseName"`
+	BranchName   string    `json:"branchName"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	Url          string    `json:"url"`
 }
 
 // Create a new database
@@ -227,7 +222,6 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 			DatabaseID:   db.DatabaseID,
 			DatabaseName: db.Name,
 			BranchName:   primaryBranch.Name,
-			Settings:     db.Settings,
 			CreatedAt:    db.CreatedAt,
 			UpdatedAt:    db.UpdatedAt,
 			Url:          db.Url(primaryBranch.Name),

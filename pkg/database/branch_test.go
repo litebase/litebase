@@ -64,6 +64,98 @@ func TestBranch(t *testing.T) {
 			if !branch.Exists {
 				t.Fatal("Branch exists flag is not set after insertion")
 			}
+
+			// Verify that branch settings were created
+			db, err := app.DatabaseManager.SystemDatabase().DB()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var (
+				backupsEnabled                  int
+				backupsInterval                 string
+				backupsRetentionDays            int
+				errorLogsEnabled                int
+				errorLogsRetentionDays          int
+				incrementalBackupsEnabled       int
+				incrementalBackupsRetentionDays int
+				queryLogsEnabled                int
+				queryLogsRetentionDays          int
+				defaultPragmasJSON              string
+			)
+
+			err = db.QueryRow(`
+				SELECT 
+					backups_enabled,
+					backups_interval,
+					backups_retention_days,
+					error_logs_enabled,
+					error_logs_retention_days,
+					incremental_backups_enabled,
+					incremental_backups_retention_days,
+					query_logs_enabled,
+					query_logs_retention_days,
+					default_pragmas_json
+				FROM database_branch_settings 
+				WHERE database_branch_reference_id = ?
+			`, branch.ID).Scan(
+				&backupsEnabled,
+				&backupsInterval,
+				&backupsRetentionDays,
+				&errorLogsEnabled,
+				&errorLogsRetentionDays,
+				&incrementalBackupsEnabled,
+				&incrementalBackupsRetentionDays,
+				&queryLogsEnabled,
+				&queryLogsRetentionDays,
+				&defaultPragmasJSON,
+			)
+
+			if err != nil {
+				t.Fatalf("Failed to query branch settings: %v", err)
+			}
+
+			// Verify default values
+			if backupsEnabled != 1 {
+				t.Errorf("Expected backups_enabled to be 1, got %d", backupsEnabled)
+			}
+
+			if backupsInterval != "24h" {
+				t.Errorf("Expected backups_interval to be '24h', got '%s'", backupsInterval)
+			}
+
+			if backupsRetentionDays != 30 {
+				t.Errorf("Expected backups_retention_days to be 30, got %d", backupsRetentionDays)
+			}
+
+			if errorLogsEnabled != 1 {
+				t.Errorf("Expected error_logs_enabled to be 1, got %d", errorLogsEnabled)
+			}
+
+			if errorLogsRetentionDays != 15 {
+				t.Errorf("Expected error_logs_retention_days to be 15, got %d", errorLogsRetentionDays)
+			}
+
+			if incrementalBackupsEnabled != 1 {
+				t.Errorf("Expected incremental_backups_enabled to be 1, got %d", incrementalBackupsEnabled)
+			}
+
+			if incrementalBackupsRetentionDays != 7 {
+				t.Errorf("Expected incremental_backups_retention_days to be 7, got %d", incrementalBackupsRetentionDays)
+			}
+
+			if queryLogsEnabled != 1 {
+				t.Errorf("Expected query_logs_enabled to be 1, got %d", queryLogsEnabled)
+			}
+
+			if queryLogsRetentionDays != 15 {
+				t.Errorf("Expected query_logs_retention_days to be 15, got %d", queryLogsRetentionDays)
+			}
+
+			if defaultPragmasJSON == "" {
+				t.Error("Expected default_pragmas_json to be set, got empty string")
+			}
 		})
 
 		t.Run("UpdateBranch", func(t *testing.T) {

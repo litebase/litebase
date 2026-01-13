@@ -41,6 +41,9 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 
 // Close the system database.
 func (s *SystemDatabase) Close() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if s.db != nil {
 		err := s.db.Close()
 
@@ -49,6 +52,7 @@ func (s *SystemDatabase) Close() error {
 		}
 
 		s.db = nil
+		s.initialized = false // Reset initialized flag so migrations can run on next access
 	}
 
 	return nil
@@ -70,6 +74,13 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open system database: %w", err)
 	}
+
+	// Configure connection pool to prevent "driver: bad connection" errors
+	// under high concurrency. Set generous limits to handle parallel operations.
+	db.SetMaxOpenConns(25)   // Allow enough concurrent connections for parallel operations
+	db.SetMaxIdleConns(10)   // Keep more idle connections ready
+	db.SetConnMaxLifetime(0) // Connections don't expire
+	db.SetConnMaxIdleTime(0) // Idle connections don't expire
 
 	// Cache the connection immediately
 	s.db = db

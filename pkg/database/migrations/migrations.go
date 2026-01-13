@@ -12,8 +12,12 @@ type Migration struct {
 // This can be modified in tests to simulate new migrations.
 var AllMigrations = []Migration{
 	{
-		Name: "001_initial_schema",
-		Up:   Migration001InitialSchema,
+		Name: "0000000001_initial_schema",
+		Up:   Migration0000000001InitialSchema,
+	},
+	{
+		Name: "0000000002_database_branch_settings",
+		Up:   Migration0000000002DatabaseBranchSettings,
 	},
 	// Add new migrations here
 }

@@ -13,16 +13,16 @@ func TestTransactionManager(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		t.Run("NewTransactionManager", func(t *testing.T) {
-			manager := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).TransactionManager()
+			manager := app.DatabaseManager.Resources(mock.Branch).TransactionManager()
 
-			if manager.DatabaseID != mock.DatabaseID || manager.BranchID != mock.DatabaseBranchID {
+			if manager.Branch.DatabaseID != mock.DatabaseID || manager.Branch.DatabaseBranchID != mock.DatabaseBranchID {
 				t.Fatalf("expected transaction manager with db: %s, branch: %s, got db: %s, branch: %s",
-					mock.DatabaseID, mock.DatabaseBranchID, manager.DatabaseID, manager.BranchID)
+					mock.DatabaseID, mock.DatabaseBranchID, manager.Branch.DatabaseID, manager.Branch.DatabaseBranchID)
 			}
 		})
 
 		t.Run("CreateGetAndRemoveTransaction", func(t *testing.T) {
-			manager := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).TransactionManager()
+			manager := app.DatabaseManager.Resources(mock.Branch).TransactionManager()
 
 			transaction, err := manager.Create(app.Cluster, app.DatabaseManager, mock.DatabaseKey, mock.Credential)
 
@@ -55,7 +55,7 @@ func TestTransactionManager(t *testing.T) {
 		})
 
 		t.Run("Shutdown", func(t *testing.T) {
-			manager := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).TransactionManager()
+			manager := app.DatabaseManager.Resources(mock.Branch).TransactionManager()
 
 			transaction, err := manager.Create(app.Cluster, app.DatabaseManager, mock.DatabaseKey, mock.Credential)
 

@@ -168,6 +168,18 @@ func TestRoutesMiddleware(t *testing.T) {
 		},
 		{
 			Method:             "GET",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/settings",
+			ExpectedMiddleware: []string{"Authentication"},
+			Description:        "Database Branch Settings show route should have Authentication middleware",
+		},
+		{
+			Method:             "PUT",
+			Path:               "/v1/databases/{databaseName}/branches/{branchName}/settings",
+			ExpectedMiddleware: []string{"ForwardToPrimary", "Authentication"},
+			Description:        "Database Branch Settings update route should have ForwardToPrimary and Authentication middleware",
+		},
+		{
+			Method:             "GET",
 			Path:               "/v1/databases",
 			ExpectedMiddleware: []string{"Authentication"},
 			Description:        "Database index route should have Authentication middleware",
@@ -395,7 +407,7 @@ func TestPublicRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadPublicRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 44 // Update this number if you add more routes
+	expectedRouteCount := 46 // Update this number if you add more routes
 
 	totalRoutes := 0
 

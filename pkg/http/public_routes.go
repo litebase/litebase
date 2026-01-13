@@ -160,6 +160,21 @@ func LoadPublicRoutes(router *Router) {
 	})
 
 	router.Get(
+		"/v1/databases/{databaseName}/branches/{branchName}/settings",
+		DatabaseBranchSettingsControllerShow,
+	).Middleware([]Middleware{
+		Authentication,
+	})
+
+	router.Put(
+		"/v1/databases/{databaseName}/branches/{branchName}/settings",
+		DatabaseBranchSettingsControllerUpdate,
+	).Middleware([]Middleware{
+		ForwardToPrimary,
+		Authentication,
+	})
+
+	router.Get(
 		"/v1/databases",
 		DatabaseControllerIndex,
 	).Middleware([]Middleware{

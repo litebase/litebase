@@ -89,15 +89,15 @@ func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Respo
 		return BadRequestResponse(err)
 	}
 
-	snapshotLogger := request.databaseManager.Resources(database.DatabaseID, branch.DatabaseBranchID).SnapshotLogger()
-	checkpointer, err := request.databaseManager.Resources(database.DatabaseID, branch.DatabaseBranchID).Checkpointer()
+	snapshotLogger := request.databaseManager.Resources(branch).SnapshotLogger()
+	checkpointer, err := request.databaseManager.Resources(branch).Checkpointer()
 
 	if err != nil {
 		return ServerErrorResponse(err)
 	}
 
-	sourceDfs := request.databaseManager.Resources(database.DatabaseID, branch.DatabaseBranchID).FileSystem()
-	targetDfs := request.databaseManager.Resources(targetDatabase.DatabaseID, targetBranch.DatabaseBranchID).FileSystem()
+	sourceDfs := request.databaseManager.Resources(branch).FileSystem()
+	targetDfs := request.databaseManager.Resources(targetBranch).FileSystem()
 
 	// Validate that the target database branch is empty before restoring
 	targetSize, err := targetDfs.Size()

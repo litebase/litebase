@@ -59,6 +59,7 @@ type Node struct {
 	mutex              *sync.Mutex
 	onStarted          func()
 	pageLoggerAccessor NodePageLoggerAccessor
+	databaseManager    NodeDatabaseManager
 	primaryAddress     string
 	primary            *NodePrimary
 	PrimaryHeartbeat   time.Time
@@ -991,6 +992,11 @@ func (n *Node) setMembership(membership string) {
 // Set the page logger accessor for the node.
 func (n *Node) SetPageLoggerAccessor(pageLoggerAccessor NodePageLoggerAccessor) {
 	n.pageLoggerAccessor = pageLoggerAccessor
+}
+
+// Set the database manager for the node.
+func (n *Node) SetDatabaseManager(databaseManager NodeDatabaseManager) {
+	n.databaseManager = databaseManager
 }
 
 // Set the query builder for the node.

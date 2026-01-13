@@ -72,4 +72,15 @@ var PragmaList = map[string]bool{
 	"wal_autocheckpoint":        false,
 	"wal_checkpoint":            false,
 	"writable_schema":           false,
+
+	// Litebase custom PRAGMAs for database settings management
+	"litebase_backups_enabled":                    true,
+	"litebase_backup_interval":                    true,
+	"litebase_backups_retention_days":             true,
+	"litebase_incremental_backups_enabled":        true,
+	"litebase_incremental_backups_retention_days": true,
+	"litebase_query_logs_enabled":                 true,
+	"litebase_query_logs_retention_days":          true,
+	"litebase_error_logs_enabled":                 true,
+	"litebase_error_logs_retention_days":          true,
 }

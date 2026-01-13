@@ -18,10 +18,7 @@ func TestNewDatabaseWAL(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
 
-		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
-		).DatabaseWALManager()
+		walManager, _ := app.DatabaseManager.Resources(mock.Branch).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
@@ -48,8 +45,7 @@ func TestDatabaseWAL_Checkpointing(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -73,8 +69,7 @@ func TestDatabaseWAL_Close(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -98,8 +93,7 @@ func TestDatabaseWAL_File(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -129,8 +123,7 @@ func TestDatabaseWAL_Hash(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -156,8 +149,7 @@ func TestDatabaseWAL_IsCheckpointed(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -181,8 +173,7 @@ func TestDatabaseWAL_MarkCheckpointed(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -208,8 +199,7 @@ func TestDatabaseWAL_ReadAt(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -261,8 +251,7 @@ func TestDatabaseWAL_RequiresCheckpoint(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -294,8 +283,7 @@ func TestDatabaseWAL_SetCheckpointing(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -323,8 +311,7 @@ func TestDatabaseWAL_Size(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -366,8 +353,7 @@ func TestDatabaseWAL_Sync(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -393,8 +379,7 @@ func TestDatabaseWAL_Timestamp(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -420,8 +405,7 @@ func TestDatabaseWAL_Truncate(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -453,8 +437,7 @@ func TestDatabaseWAL_WriteAt(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -490,8 +473,7 @@ func TestDatabaseWAL_ReadAfterWrite(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(
@@ -593,8 +575,7 @@ func TestDatabaseWAL_HeavyWrite(t *testing.T) {
 		mock := test.MockDatabase(app)
 
 		walManager, _ := app.DatabaseManager.Resources(
-			mock.DatabaseID,
-			mock.DatabaseBranchID,
+			mock.Branch,
 		).DatabaseWALManager()
 
 		databaseWAL := database.NewDatabaseWAL(

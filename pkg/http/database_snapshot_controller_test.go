@@ -96,7 +96,7 @@ func TestDatabaseSnapshotShowController(t *testing.T) {
 		defer server.Shutdown()
 		mock := test.MockDatabase(server.App)
 
-		snapshotLogger := server.App.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(mock.Branch).SnapshotLogger()
 
 		db, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 

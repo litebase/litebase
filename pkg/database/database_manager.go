@@ -91,7 +91,6 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 			&database.DatabaseID,
 			&database.Name,
 			&database.PrimaryBranchReferenceID,
-			&database.Settings,
 			&database.CreatedAt,
 			&database.UpdatedAt,
 		)
@@ -233,7 +232,7 @@ func (d *DatabaseManager) Delete(database *Database) error {
 		return fmt.Errorf("cannot delete database: primary branch not found")
 	}
 
-	resources := d.Resources(database.DatabaseID, primaryBranch.DatabaseBranchID)
+	resources := d.Resources(primaryBranch)
 
 	// Close all database connections to the database before deleting it
 	d.ConnectionManager().CloseDatabaseConnections(database.DatabaseID)
@@ -333,14 +332,13 @@ func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
 	database := NewDatabase(d, "")
 
 	err = db.QueryRow(
-		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+		"SELECT id, database_id, name, primary_branch_reference_id, created_at, updated_at FROM databases WHERE database_id = ?",
 		databaseID,
 	).Scan(
 		&database.ID,
 		&database.DatabaseID,
 		&database.Name,
 		&database.PrimaryBranchReferenceID,
-		&database.Settings,
 		&database.CreatedAt,
 		&database.UpdatedAt,
 	)
@@ -367,6 +365,35 @@ func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
 	}
 
 	return database, nil
+}
+
+// Get a database branch by the database and brancd ids.
+func (d *DatabaseManager) GetBranch(databaseId, branchId string) (*Branch, error) {
+	database, err := d.Get(databaseId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if databaseId == SystemDatabaseID {
+		return &Branch{
+			DatabaseBranchID: SystemDatabaseBranchID,
+			DatabaseID:       SystemDatabaseID,
+			Name:             "system",
+			DatabaseManager:  d,
+		}, nil
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	branch, err := database.BranchByID(branchId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return branch, nil
 }
 
 func (d *DatabaseManager) GetByName(name string) (*Database, error) {
@@ -399,14 +426,13 @@ func (d *DatabaseManager) GetByName(name string) (*Database, error) {
 	database := NewDatabase(d, "")
 
 	err = db.QueryRow(
-		"SELECT id, database_id, name, primary_branch_reference_id, settings, created_at, updated_at FROM databases WHERE database_id = ?",
+		"SELECT id, database_id, name, primary_branch_reference_id, created_at, updated_at FROM databases WHERE database_id = ?",
 		databaseID,
 	).Scan(
 		&database.ID,
 		&database.DatabaseID,
 		&database.Name,
 		&database.PrimaryBranchReferenceID,
-		&database.Settings,
 		&database.CreatedAt,
 		&database.UpdatedAt,
 	)
@@ -452,22 +478,21 @@ func (d *DatabaseManager) PageLogManager() *storage.PageLogManager {
 
 // Get the resources for the given database and branch UUIDs. If the resources
 // have not been created, create them and store them in the resources map.
-func (d *DatabaseManager) Resources(databaseId, branchId string) *DatabaseResources {
+func (d *DatabaseManager) Resources(branch *Branch) *DatabaseResources {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	hash := file.DatabaseHash(databaseId, branchId)
+	hash := file.DatabaseHash(branch.DatabaseID, branch.DatabaseBranchID)
 
 	if resource, ok := d.resources[hash]; ok {
 		return resource
 	}
 
 	resource := &DatabaseResources{
-		BranchID:        branchId,
+		Branch:          branch,
 		config:          d.Cluster.Config,
-		DatabaseID:      databaseId,
 		databaseManager: d,
-		DatabaseHash:    file.DatabaseHash(databaseId, branchId),
+		DatabaseHash:    file.DatabaseHash(branch.DatabaseID, branch.DatabaseBranchID),
 		mutex:           &sync.Mutex{},
 		tieredFS:        d.Cluster.TieredFS(),
 		tmpFS:           d.Cluster.TmpFS(),

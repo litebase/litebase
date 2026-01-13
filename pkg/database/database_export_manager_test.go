@@ -13,7 +13,7 @@ func TestDatabaseExportManager(t *testing.T) {
 		t.Run("NewDatabaseExportManager", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			manager := database.NewDatabaseExportManager(mock.DatabaseID, mock.DatabaseBranchID, dfs)
 
 			if manager == nil {
@@ -24,7 +24,7 @@ func TestDatabaseExportManager(t *testing.T) {
 		t.Run("Create", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			manager := database.NewDatabaseExportManager(mock.DatabaseID, mock.DatabaseBranchID, dfs)
 
 			export, err := manager.Create()
@@ -52,7 +52,7 @@ func TestDatabaseExportManager(t *testing.T) {
 		t.Run("Create_OnlyOneExportAllowed", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			manager := database.NewDatabaseExportManager(mock.DatabaseID, mock.DatabaseBranchID, dfs)
 
 			// Create first export
@@ -86,7 +86,7 @@ func TestDatabaseExportManager(t *testing.T) {
 		t.Run("Get", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			manager := database.NewDatabaseExportManager(mock.DatabaseID, mock.DatabaseBranchID, dfs)
 
 			// Create an export
@@ -118,7 +118,7 @@ func TestDatabaseExportManager(t *testing.T) {
 		t.Run("Get_NoActiveExport", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			manager := database.NewDatabaseExportManager(mock.DatabaseID, mock.DatabaseBranchID, dfs)
 
 			// Try to get export when none exists
@@ -137,7 +137,7 @@ func TestDatabaseExportManager(t *testing.T) {
 		t.Run("Clear", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			manager := database.NewDatabaseExportManager(mock.DatabaseID, mock.DatabaseBranchID, dfs)
 
 			// Create an export
@@ -168,7 +168,7 @@ func TestDatabaseExportManager(t *testing.T) {
 		t.Run("CreateAfterClear", func(t *testing.T) {
 			mock := test.MockDatabase(app)
 
-			dfs := app.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(mock.Branch).FileSystem()
 			manager := database.NewDatabaseExportManager(mock.DatabaseID, mock.DatabaseBranchID, dfs)
 
 			// Create first export

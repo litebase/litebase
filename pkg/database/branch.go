@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/file"
 
 	"github.com/google/uuid"
@@ -20,16 +21,16 @@ var ErrBranchAlreadyExists = func(name string) error {
 type Branch struct {
 	ID                              int64 `json:"id"`
 	database                        *Database
-	DatabaseBranchID                string           `json:"databaseBranchId"`
-	DatabaseID                      string           `json:"databaseId"`
-	DatabaseManager                 *DatabaseManager `json:"-"`
-	DatabaseReferenceID             sql.NullInt64    `json:"-"`
-	Name                            string           `json:"name"`
-	parentBranch                    *Branch          `json:"-"`
-	ParentDatabaseBranchReferenceID sql.NullInt64    `json:"-"`
-	Settings                        *BranchSettings  `json:"settings"`
-	CreatedAt                       time.Time        `json:"createdAt"`
-	UpdatedAt                       time.Time        `json:"updatedAt"`
+	DatabaseBranchID                string                  `json:"databaseBranchId"`
+	DatabaseID                      string                  `json:"databaseId"`
+	DatabaseManager                 *DatabaseManager        `json:"-"`
+	DatabaseReferenceID             sql.NullInt64           `json:"-"`
+	Name                            string                  `json:"name"`
+	parentBranch                    *Branch                 `json:"-"`
+	ParentDatabaseBranchReferenceID sql.NullInt64           `json:"-"`
+	Settings                        *DatabaseBranchSettings `json:"settings"`
+	CreatedAt                       time.Time               `json:"createdAt"`
+	UpdatedAt                       time.Time               `json:"updatedAt"`
 
 	Exists bool `json:"-"`
 }
@@ -99,18 +100,16 @@ func InsertBranch(b *Branch) error {
 			database_id, 
 			database_branch_id, 
 			name, 
-			settings, 
 			created_at, 
 			updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		`,
 		b.DatabaseReferenceID,
 		b.ParentDatabaseBranchReferenceID,
 		b.DatabaseID,
 		b.DatabaseBranchID,
 		b.Name,
-		b.Settings,
 		time.Now().UTC(),
 		time.Now().UTC(),
 	)
@@ -130,6 +129,15 @@ func InsertBranch(b *Branch) error {
 	b.ID = id
 	b.Exists = true
 
+	// Create branch settings (copy from parent if available)
+	settings, err := InsertBranchSettings(b, b.ParentBranch())
+
+	if err != nil {
+		return fmt.Errorf("failed to create branch settings: %w", err)
+	}
+
+	b.Settings = settings
+
 	database, err := b.Database()
 
 	if err != nil && err != sql.ErrNoRows {
@@ -138,7 +146,7 @@ func InsertBranch(b *Branch) error {
 
 	// Update the Database's branch cache
 	if database != nil {
-		database.UpdateBranchCache(b.DatabaseBranchID, true)
+		database.UpdateBranchCache(b.DatabaseBranchID, b)
 	}
 
 	return nil
@@ -155,12 +163,10 @@ func UpdateBranch(b *Branch) error {
 		`UPDATE database_branches
 		SET
 			name = ?,
-			settings = ?,
 			updated_at = ?
 		WHERE database_branch_id = ?
 		`,
 		b.Name,
-		b.Settings,
 		time.Now().UTC(),
 		b.DatabaseBranchID,
 	)
@@ -177,7 +183,7 @@ func UpdateBranch(b *Branch) error {
 
 	// Update the Database's branch cache to ensure consistency
 	if database != nil {
-		database.UpdateBranchCache(b.DatabaseBranchID, true)
+		database.UpdateBranchCache(b.DatabaseBranchID, b)
 	}
 
 	return nil
@@ -226,7 +232,7 @@ func (b *Branch) Delete() error {
 		return fmt.Errorf("cannot delete the primary branch of a database")
 	}
 
-	resources := b.DatabaseManager.Resources(b.DatabaseID, b.DatabaseBranchID)
+	resources := b.DatabaseManager.Resources(b)
 
 	// Close all database connections to the database before deleting it
 	b.DatabaseManager.ConnectionManager().CloseDatabaseBranchConnections(b.DatabaseID, b.DatabaseBranchID)
@@ -259,14 +265,6 @@ func (b *Branch) Delete() error {
 	if database != nil {
 		database.branchCache.Delete(b.DatabaseBranchID)
 		database.InvalidateBranchCache(b.DatabaseBranchID)
-	}
-
-	// Invalidate the database branch cache
-
-	if b.DatabaseManager.databaseCache != nil {
-		database, _ = b.DatabaseManager.Get(b.DatabaseID)
-
-		database.branchCache.Delete(b.DatabaseBranchID)
 	}
 
 	// Delete the database storage.
@@ -313,7 +311,7 @@ func (branch *Branch) ParentBranch() *Branch {
 			var parentBranch Branch
 
 			err = db.QueryRow(
-				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, settings, created_at, updated_at FROM database_branches WHERE id = ?`,
+				`SELECT id, database_reference_id, parent_database_branch_reference_id, database_id, database_branch_id, name, created_at, updated_at FROM database_branches WHERE id = ?`,
 				branch.ParentDatabaseBranchReferenceID.Int64,
 			).Scan(
 				&parentBranch.ID,
@@ -322,7 +320,6 @@ func (branch *Branch) ParentBranch() *Branch {
 				&parentBranch.DatabaseID,
 				&parentBranch.DatabaseBranchID,
 				&parentBranch.Name,
-				&parentBranch.Settings,
 				&parentBranch.CreatedAt,
 				&parentBranch.UpdatedAt,
 			)
@@ -351,6 +348,211 @@ func (b *Branch) Save() error {
 	} else {
 		return InsertBranch(b)
 	}
+}
+
+// InsertBranchSettings creates default settings for a newly created branch.
+func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSettings, error) {
+	db, err := b.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Copy settings from parent branch if available, otherwise use defaults
+	var settings *DatabaseBranchSettings
+
+	if parentBranch != nil {
+		settings, err = parentBranch.GetBranchSettings()
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to get parent branch settings: %w", err)
+		}
+	} else {
+		settings = NewDefaultBranchSettings()
+	}
+
+	// Marshal default pragmas to JSON
+	defaultPragmasJSON, err := json.Marshal(settings.DefaultPragmas)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal default pragmas: %w", err)
+	}
+
+	now := time.Now().UTC().Unix()
+
+	_, err = db.Exec(`
+		INSERT INTO database_branch_settings (
+			database_branch_reference_id,
+			backups_enabled,
+			backups_interval,
+			backups_retention_days,
+			default_pragmas_json,
+			error_logs_enabled,
+			error_logs_retention_days,
+			incremental_backups_enabled,
+			incremental_backups_retention_days,
+			query_logs_enabled,
+			query_logs_retention_days,
+			created_at,
+			updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		b.ID,
+		utils.BoolToInt(settings.BackupsEnabled),
+		settings.BackupInterval,
+		settings.BackupsRetentionDays,
+		string(defaultPragmasJSON),
+		utils.BoolToInt(settings.ErrorLogsEnabled),
+		settings.ErrorLogsRetentionDays,
+		utils.BoolToInt(settings.IncrementalBackupsEnabled),
+		settings.IncrementalBackupsRetentionDays,
+		utils.BoolToInt(settings.QueryLogsEnabled),
+		settings.QueryLogsRetentionDays,
+		now,
+		now,
+	)
+
+	return settings, err
+}
+
+// GetBranchSettings retrieves the settings for this branch.
+func (b *Branch) GetBranchSettings() (*DatabaseBranchSettings, error) {
+	db, err := b.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		backupsCleanedAt                sql.NullInt64
+		backupsEnabled                  int
+		backupInterval                  string
+		backupNextAt                    sql.NullInt64
+		backupsRetentionDays            int
+		defaultPragmasJSON              string
+		errorLogsCleanedAt              sql.NullInt64
+		errorLogsEnabled                int
+		errorLogsRetentionDays          int
+		incrementalBackupsCleanedAt     sql.NullInt64
+		incrementalBackupsEnabled       int
+		incrementalBackupsRetentionDays int
+		queryLogsCleanedAt              sql.NullInt64
+		queryLogsEnabled                int
+		queryLogsRetentionDays          int
+	)
+
+	err = db.QueryRow(`
+		SELECT 
+			backups_cleaned_at,
+			backups_enabled,
+			backups_interval,
+			backup_next_at,
+			backups_retention_days,
+			default_pragmas_json,
+			error_logs_cleaned_at,
+			error_logs_enabled,
+			error_logs_retention_days,
+			incremental_backups_cleaned_at,
+			incremental_backups_enabled,
+			incremental_backups_retention_days,
+			query_logs_cleaned_at,
+			query_logs_enabled,
+			query_logs_retention_days
+		FROM database_branch_settings 
+		WHERE database_branch_reference_id = ?
+	`, b.ID).Scan(
+		&backupsCleanedAt,
+		&backupsEnabled,
+		&backupInterval,
+		&backupNextAt,
+		&backupsRetentionDays,
+		&defaultPragmasJSON,
+		&errorLogsCleanedAt,
+		&errorLogsEnabled,
+		&errorLogsRetentionDays,
+		&incrementalBackupsCleanedAt,
+		&incrementalBackupsEnabled,
+		&incrementalBackupsRetentionDays,
+		&queryLogsCleanedAt,
+		&queryLogsEnabled,
+		&queryLogsRetentionDays,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get branch settings: %w", err)
+	}
+
+	var defaultPragmas DatabaseDefaultPragmaSettings
+
+	if err := json.Unmarshal([]byte(defaultPragmasJSON), &defaultPragmas); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal default pragmas: %w", err)
+	}
+
+	return &DatabaseBranchSettings{
+		BackupsCleanedAt:                backupsCleanedAt,
+		BackupsEnabled:                  backupsEnabled == 1,
+		BackupInterval:                  DatabaseBranchBackupInterval(backupInterval),
+		BackupNextAt:                    backupNextAt,
+		BackupsRetentionDays:            backupsRetentionDays,
+		DefaultPragmas:                  &defaultPragmas,
+		ErrorLogsCleanedAt:              errorLogsCleanedAt,
+		ErrorLogsEnabled:                errorLogsEnabled == 1,
+		ErrorLogsRetentionDays:          errorLogsRetentionDays,
+		IncrementalBackupsCleanedAt:     incrementalBackupsCleanedAt,
+		IncrementalBackupsEnabled:       incrementalBackupsEnabled == 1,
+		IncrementalBackupsRetentionDays: incrementalBackupsRetentionDays,
+		QueryLogsCleanedAt:              queryLogsCleanedAt,
+		QueryLogsEnabled:                queryLogsEnabled == 1,
+		QueryLogsRetentionDays:          queryLogsRetentionDays,
+	}, nil
+}
+
+// UpdateBranchSettings updates the settings for this branch.
+func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
+	db, err := b.DatabaseManager.SystemDatabase().DB()
+
+	if err != nil {
+		return err
+	}
+
+	defaultPragmasJSON, err := json.Marshal(settings.DefaultPragmas)
+
+	if err != nil {
+		return fmt.Errorf("failed to marshal default pragmas: %w", err)
+	}
+
+	now := time.Now().UTC().Unix()
+
+	_, err = db.Exec(`
+		UPDATE database_branch_settings SET
+			backups_enabled = ?,
+			backups_interval = ?,
+			backups_retention_days = ?,
+			default_pragmas_json = ?,
+			error_logs_enabled = ?,
+			error_logs_retention_days = ?,
+			incremental_backups_enabled = ?,
+			incremental_backups_retention_days = ?,
+			query_logs_enabled = ?,
+			query_logs_retention_days = ?,
+			updated_at = ?
+		WHERE database_branch_reference_id = ?
+	`,
+		utils.BoolToInt(settings.BackupsEnabled),
+		settings.BackupInterval,
+		settings.BackupsRetentionDays,
+		string(defaultPragmasJSON),
+		utils.BoolToInt(settings.ErrorLogsEnabled),
+		settings.ErrorLogsRetentionDays,
+		utils.BoolToInt(settings.IncrementalBackupsEnabled),
+		settings.IncrementalBackupsRetentionDays,
+		utils.BoolToInt(settings.QueryLogsEnabled),
+		settings.QueryLogsRetentionDays,
+		now,
+		b.ID,
+	)
+
+	return err
 }
 
 // MarshalJSON customizes the JSON representation of the Branch struct.

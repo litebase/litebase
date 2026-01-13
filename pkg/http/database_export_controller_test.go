@@ -16,10 +16,7 @@ func TestDatabaseExportController(t *testing.T) {
 		testDatabase := test.MockDatabase(testServer.App)
 
 		// Clear any existing exports to ensure clean state
-		exportManager, err := testServer.App.DatabaseManager.Resources(
-			testDatabase.DatabaseID,
-			testDatabase.DatabaseBranchID,
-		).ExportManager()
+		exportManager, err := testServer.App.DatabaseManager.Resources(testDatabase.Branch).ExportManager()
 
 		if err == nil {
 			exportManager.Clear()

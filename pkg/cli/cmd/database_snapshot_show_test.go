@@ -22,7 +22,7 @@ func TestDatabaseSnapshotShow(t *testing.T) {
 			})
 
 		testDatabase := test.MockDatabase(server.App)
-		snapshotLogger := server.App.DatabaseManager.Resources(testDatabase.DatabaseID, testDatabase.DatabaseBranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(testDatabase.Branch).SnapshotLogger()
 
 		db, err := server.App.DatabaseManager.ConnectionManager().Get(testDatabase.DatabaseID, testDatabase.DatabaseBranchID)
 
@@ -230,7 +230,7 @@ func TestDatabaseSnapshotShowAccessControl(t *testing.T) {
 		defer server.Shutdown()
 
 		testDatabase := test.MockDatabase(server.App)
-		snapshotLogger := server.App.DatabaseManager.Resources(testDatabase.DatabaseID, testDatabase.DatabaseBranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(testDatabase.Branch).SnapshotLogger()
 
 		// Create a snapshot first
 		db, err := server.App.DatabaseManager.ConnectionManager().Get(testDatabase.DatabaseID, testDatabase.DatabaseBranchID)

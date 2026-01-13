@@ -20,7 +20,7 @@ func TestMigrationStructure(t *testing.T) {
 	}
 
 	// Verify first migration is the initial schema
-	if allMigrations[0].Name != "001_initial_schema" {
+	if allMigrations[0].Name != "0000000001_initial_schema" {
 		t.Errorf("Expected first migration to be '001_initial_schema', got '%s'", allMigrations[0].Name)
 	}
 

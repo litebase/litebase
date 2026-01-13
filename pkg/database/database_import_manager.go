@@ -208,8 +208,14 @@ func (dim *DatabaseImportManager) AddChunk(importID, chunkIndex int64, chunkData
 		return nil, fmt.Errorf("failed to get database and branch IDs: %w", err)
 	}
 
+	branch, err := dim.databaseManager.GetBranch(databaseID, branchID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database branch: %w", err)
+	}
+
 	// Get the database resources and file system
-	resources := dim.databaseManager.Resources(databaseID, branchID)
+	resources := dim.databaseManager.Resources(branch)
 	dfs := resources.FileSystem()
 
 	// Write the chunk data to the appropriate ranges

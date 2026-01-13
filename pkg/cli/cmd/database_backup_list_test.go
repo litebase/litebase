@@ -79,9 +79,9 @@ func TestNewDatabaseBackupListCmd(t *testing.T) {
 				server.App.Cluster.ObjectFS(),
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
-				server.App.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).SnapshotLogger(),
-				server.App.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).FileSystem(),
-				server.App.DatabaseManager.Resources(mock.DatabaseID, mock.DatabaseBranchID).RollbackLogger(),
+				server.App.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+				server.App.DatabaseManager.Resources(mock.Branch).FileSystem(),
+				server.App.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 			)
 
 			if err != nil {

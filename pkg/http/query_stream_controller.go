@@ -104,7 +104,19 @@ func QueryStreamControllerStore(ctx context.Context, request *Request) Response 
 
 			ctx, cancel := context.WithCancel(request.BaseRequest.Context())
 
-			readQueryStream(cancel, request, w, databaseKey, credential)
+			branch, err := request.databaseManager.GetBranch(
+				databaseKey.DatabaseID,
+				databaseKey.DatabaseBranchID,
+			)
+
+			if err != nil {
+				cancel()
+				slog.Error("Failed to retrieve database branch", "error", err, "databaseId", databaseKey.DatabaseID, "branchId", databaseKey.DatabaseBranchID)
+				http.Error(w, "Error retrieving database branch", http.StatusBadRequest)
+				return
+			}
+
+			readQueryStream(cancel, request, w, branch, databaseKey, credential)
 
 			<-ctx.Done()
 		},
@@ -113,6 +125,7 @@ func QueryStreamControllerStore(ctx context.Context, request *Request) Response 
 
 func processInput(
 	request *Request,
+	branch *database.Branch,
 	databaseKey *auth.DatabaseKey,
 	credential *auth.Credential,
 	input *database.QueryInput,
@@ -135,10 +148,8 @@ func processInput(
 	if requestQuery.Input.TransactionID != "" &&
 		!requestQuery.IsTransactionEnd() &&
 		!requestQuery.IsTransactionRollback() {
-		transaction, err = request.databaseManager.Resources(
-			databaseKey.DatabaseID,
-			databaseKey.DatabaseBranchID,
-		).TransactionManager().Get(string(requestQuery.Input.TransactionID))
+		transaction, err = request.databaseManager.Resources(branch).
+			TransactionManager().Get(string(requestQuery.Input.TransactionID))
 
 		if err != nil {
 			return err
@@ -160,6 +171,7 @@ func readQueryStream(
 	cancel context.CancelFunc,
 	request *Request,
 	w http.ResponseWriter,
+	branch *database.Branch,
 	databaseKey *auth.DatabaseKey,
 	credential *auth.Credential,
 ) {
@@ -263,7 +275,16 @@ func readQueryStream(
 			cancel()
 			return
 		case QueryStreamFrame:
-			err := handleQueryStreamFrame(request, w, streamMutex, scanBuffer, databaseKey, credential, chunkValidator)
+			err := handleQueryStreamFrame(
+				request,
+				branch,
+				w,
+				streamMutex,
+				scanBuffer,
+				databaseKey,
+				credential,
+				chunkValidator,
+			)
 
 			if err != nil {
 				slog.Error("Error handling query stream frame", "error", err)
@@ -300,6 +321,7 @@ func readQueryStream(
 
 func handleQueryStreamRequest(
 	request *Request,
+	branch *database.Branch,
 	databaseKey *auth.DatabaseKey,
 	credential *auth.Credential,
 	queryData *bytes.Buffer,
@@ -354,7 +376,7 @@ func handleQueryStreamRequest(
 		return responseBytes, ErrInvalidInput
 	}
 
-	err = processInput(request, databaseKey, credential, queryInput, response)
+	err = processInput(request, branch, databaseKey, credential, queryInput, response)
 
 	if err != nil {
 		response.SetError(err.Error())
@@ -397,6 +419,7 @@ func handleQueryStreamConnection(w http.ResponseWriter, streamMutex *sync.Mutex)
 
 func handleQueryStreamFrame(
 	request *Request,
+	branch *database.Branch,
 	w http.ResponseWriter,
 	streamMutex *sync.Mutex,
 	framesBuffer *bytes.Buffer,
@@ -473,7 +496,14 @@ func handleQueryStreamFrame(
 		queryData := framesBuffer.Next(queryLength)
 		queryBuffer.Write(queryData)
 
-		responseBytes, err := handleQueryStreamRequest(request, databaseKey, credential, queryBuffer, queryParamsBuffer)
+		responseBytes, err := handleQueryStreamRequest(
+			request,
+			branch,
+			databaseKey,
+			credential,
+			queryBuffer,
+			queryParamsBuffer,
+		)
 
 		if err != nil {
 			// Write the type of message

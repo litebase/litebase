@@ -40,42 +40,10 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 		var db *ClientConnection
 		var transaction *Transaction
 
-		if query.IsTransactionStart() {
-			// Handle transaction begin
-			transaction, err = query.databaseManager.Resources(
-				query.DatabaseKey.DatabaseID,
-				query.DatabaseKey.DatabaseBranchID,
-			).TransactionManager().Create(
-				query.cluster,
-				query.databaseManager,
-				query.DatabaseKey,
-				query.Credential,
-			)
-		} else if query.IsTransactionEnd() {
-			// Handle transaction end
-			transaction, err = query.databaseManager.Resources(
-				query.DatabaseKey.DatabaseID,
-				query.DatabaseKey.DatabaseBranchID,
-			).TransactionManager().Get(string(query.Input.TransactionID))
-
-			if err != nil {
-				return nil, err
-			}
-
-			err = transaction.Commit()
-		} else if query.IsTransactionRollback() {
-			// Handle transaction rollback
-			transaction, err = query.databaseManager.Resources(
-				query.DatabaseKey.DatabaseID,
-				query.DatabaseKey.DatabaseBranchID,
-			).TransactionManager().Get(string(query.Input.TransactionID))
-
-			if err != nil {
-				return nil, err
-			}
-
-			err = transaction.Rollback()
-		} else if !query.IsTransactional() {
+		if query.IsTransactional() {
+			// Handle transactional queries
+			db = query.transaction.connection
+		} else {
 			// Handle non-transactional queries
 			db, err = query.databaseManager.ConnectionManager().Get(query.DatabaseKey.DatabaseID, query.DatabaseKey.DatabaseBranchID)
 
@@ -87,13 +55,36 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			}
 
 			defer query.databaseManager.ConnectionManager().Release(db)
-		} else {
-			// Handle transactional queries
-			db = query.transaction.connection
+
+			db = db.WithCredential(query.Credential)
 		}
 
-		if db != nil {
-			db = db.WithCredential(query.Credential)
+		if query.IsTransactionStart() {
+			// Handle transaction begin
+			transaction, err = query.databaseManager.Resources(db.Branch).TransactionManager().Create(
+				query.cluster,
+				query.databaseManager,
+				query.DatabaseKey,
+				query.Credential,
+			)
+		} else if query.IsTransactionEnd() {
+			// Handle transaction end
+			transaction, err = query.databaseManager.Resources(db.Branch).TransactionManager().Get(string(query.Input.TransactionID))
+
+			if err != nil {
+				return nil, err
+			}
+
+			err = transaction.Commit()
+		} else if query.IsTransactionRollback() {
+			// Handle transaction rollback
+			transaction, err = query.databaseManager.Resources(db.Branch).TransactionManager().Get(string(query.Input.TransactionID))
+
+			if err != nil {
+				return nil, err
+			}
+
+			err = transaction.Rollback()
 		}
 
 		if !query.IsTransactionStart() && !query.IsTransactionEnd() && !query.IsTransactionRollback() {
@@ -101,6 +92,27 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 				response.SetError(errors.New("VACUUM is not supported from this context").Error())
 
 				return response, errors.New("VACUUM is not supported from this context")
+			} else if query.IsPragma() && IsLitebasePragma(query.Input.Statement) {
+				// Handle litebase PRAGMAs directly through Exec
+				result, err := db.GetConnection().Exec(query.Input.Statement, query.Input.Parameters)
+
+				if err != nil {
+					response.SetError(err.Error())
+					return response, err
+				}
+
+				// Populate response from the PRAGMA result
+				if result != nil {
+					var firstRow []*sqlite3.Column
+
+					if len(result.Rows) > 0 {
+						firstRow = result.Rows[0]
+					}
+
+					response.SetColumnsFromResult(result.Columns, nil, firstRow)
+					response.SetRows(result.Rows)
+					response.SetRowCount(len(result.Rows))
+				}
 			} else {
 				statement, err = db.GetConnection().Statement(query.Input.Statement)
 
@@ -164,20 +176,30 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			response.SetRowCount(len(sqlite3Result.Rows))
 		}
 
-		err = logManager.Query(
-			logs.QueryLogEntry{
-				Cluster:      query.cluster,
-				DatabaseHash: query.DatabaseKey.DatabaseHash,
-				DatabaseID:   query.DatabaseKey.DatabaseID,
-				BranchID:     query.DatabaseKey.DatabaseBranchID,
-				CredentialID: query.Credential.CredentialID,
-				Statement:    query.Input.Statement,
-				Latency:      response.Latency(),
-			},
-		)
+		// Only log queries if query logs are enabled in database branch settings
+		var branch *Branch
+		if db != nil {
+			branch = db.Branch
+		} else if transaction != nil {
+			branch = transaction.connection.Branch
+		}
 
-		if err != nil {
-			slog.Error("Error logging query", "error", err)
+		if branch.Settings.QueryLogsEnabled {
+			err = logManager.Query(
+				logs.QueryLogEntry{
+					Cluster:      query.cluster,
+					DatabaseHash: query.DatabaseKey.DatabaseHash,
+					DatabaseID:   query.DatabaseKey.DatabaseID,
+					BranchID:     query.DatabaseKey.DatabaseBranchID,
+					CredentialID: query.Credential.CredentialID,
+					Statement:    query.Input.Statement,
+					Latency:      response.Latency(),
+				},
+			)
+
+			if err != nil {
+				slog.Error("Error logging query", "error", err)
+			}
 		}
 
 		return response, nil

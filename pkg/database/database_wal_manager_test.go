@@ -362,10 +362,7 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 		defer replica2.Shutdown()
 
 		// Create three different WAL versions
-		walm, err := primary.App.DatabaseManager.Resources(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-		).DatabaseWALManager()
+		walm, err := primary.App.DatabaseManager.Resources(db.Branch).DatabaseWALManager()
 
 		if err != nil {
 			t.Fatalf("Error creating WAL manager: %v", err)
@@ -392,19 +389,13 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 		}
 
 		// Ensure the WAL versions are in use
-		replica1WALManager, err := replica1.App.DatabaseManager.Resources(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-		).DatabaseWALManager()
+		replica1WALManager, err := replica1.App.DatabaseManager.Resources(db.Branch).DatabaseWALManager()
 
 		if err != nil {
 			t.Fatalf("Error creating WAL manager: %v", err)
 		}
 
-		replica2WALManager, err := replica2.App.DatabaseManager.Resources(
-			db.DatabaseID,
-			db.DatabaseBranchID,
-		).DatabaseWALManager()
+		replica2WALManager, err := replica2.App.DatabaseManager.Resources(db.Branch).DatabaseWALManager()
 
 		if err != nil {
 			t.Fatalf("Error creating WAL manager: %v", err)

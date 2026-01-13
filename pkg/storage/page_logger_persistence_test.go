@@ -42,7 +42,7 @@ func TestPageLoggerCompactionTimePersistence(t *testing.T) {
 			}
 
 			// Perform compaction
-			dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(db.Branch).FileSystem()
 			err = pageLogger1.Compact(dfs)
 
 			if err != nil {
@@ -125,7 +125,7 @@ func TestPageLoggerCompactionTimePersistence(t *testing.T) {
 				t.Fatalf("Failed to write page: %v", err)
 			}
 
-			dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(db.Branch).FileSystem()
 			err = pageLogger.Compact(dfs)
 
 			if err != nil {

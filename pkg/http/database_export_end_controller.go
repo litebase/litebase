@@ -36,11 +36,17 @@ func DatabaseExportEndControllerStore(ctx context.Context, request *Request) Res
 		return BadRequestResponse(errors.New("export ID is required"))
 	}
 
+	branch, err := request.databaseManager.GetBranch(
+		databaseKey.DatabaseID,
+		databaseKey.DatabaseBranchID,
+	)
+
+	if err != nil {
+		return BadRequestResponse(err)
+	}
+
 	// Get the export manager
-	exportManager, err := request.databaseManager.Resources(
-		request.databaseKey.DatabaseID,
-		request.databaseKey.DatabaseBranchID,
-	).ExportManager()
+	exportManager, err := request.databaseManager.Resources(branch).ExportManager()
 
 	if err != nil {
 		return ServerErrorResponse(err)

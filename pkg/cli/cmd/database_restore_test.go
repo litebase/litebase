@@ -17,7 +17,7 @@ func TestDatabaseRestoreSuccess(t *testing.T) {
 		defer server.Shutdown()
 
 		sourceDB := test.MockDatabase(server.App)
-		snapshotLogger := server.App.DatabaseManager.Resources(sourceDB.DatabaseID, sourceDB.DatabaseBranchID).SnapshotLogger()
+		snapshotLogger := server.App.DatabaseManager.Resources(sourceDB.Branch).SnapshotLogger()
 
 		db, err := server.App.DatabaseManager.ConnectionManager().Get(sourceDB.DatabaseID, sourceDB.DatabaseBranchID)
 

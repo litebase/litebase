@@ -21,7 +21,15 @@ func NewDatabaseWALSynchronizer(databaseManager *DatabaseManager) *DatabaseWalSy
 }
 
 func (d *DatabaseWalSynchronizer) GetActiveWALVersions(databaseId, branchId string) ([]int64, error) {
-	databaseWALManager, err := d.databaseManager.Resources(databaseId, branchId).DatabaseWALManager()
+	branch, err := d.databaseManager.GetBranch(databaseId, branchId)
+
+	if err != nil {
+		log.Println(err)
+
+		return nil, err
+	}
+
+	databaseWALManager, err := d.databaseManager.Resources(branch).DatabaseWALManager()
 
 	if err != nil {
 		log.Println(err)
@@ -36,11 +44,20 @@ func (d *DatabaseWalSynchronizer) GetActiveWALVersions(databaseId, branchId stri
 
 	return databaseWALManager.InUseVersions(), nil
 }
+
 func (d *DatabaseWalSynchronizer) SetCurrentTimestamp(
 	databaseId, branchId string,
 	timestamp int64,
 ) error {
-	databaseWALManager, err := d.databaseManager.Resources(databaseId, branchId).DatabaseWALManager()
+	branch, err := d.databaseManager.GetBranch(databaseId, branchId)
+
+	if err != nil {
+		log.Println(err)
+
+		return err
+	}
+
+	databaseWALManager, err := d.databaseManager.Resources(branch).DatabaseWALManager()
 
 	if err != nil {
 		log.Println(err)
@@ -66,9 +83,15 @@ func (d *DatabaseWalSynchronizer) SetWALIndexHeader(
 	timestamp int64,
 	header []byte,
 ) error {
-	databaseWALManager, err := d.databaseManager.
-		Resources(databaseId, branchId).
-		DatabaseWALManager()
+	branch, err := d.databaseManager.GetBranch(databaseId, branchId)
+
+	if err != nil {
+		log.Println(err)
+
+		return err
+	}
+
+	databaseWALManager, err := d.databaseManager.Resources(branch).DatabaseWALManager()
 
 	if err != nil {
 		log.Println(err)

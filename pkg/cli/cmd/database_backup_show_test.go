@@ -41,9 +41,9 @@ func TestDatabaseBackupShowCmd(t *testing.T) {
 			server.App.Cluster.ObjectFS(),
 			db.DatabaseID,
 			db.DatabaseBranchID,
-			server.App.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).SnapshotLogger(),
-			server.App.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem(),
-			server.App.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).RollbackLogger(),
+			server.App.DatabaseManager.Resources(db.Branch).SnapshotLogger(),
+			server.App.DatabaseManager.Resources(db.Branch).FileSystem(),
+			server.App.DatabaseManager.Resources(db.Branch).RollbackLogger(),
 		)
 
 		if err != nil {

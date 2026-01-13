@@ -85,7 +85,7 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 				go func(dbIndex int, database test.TestDatabase) {
 					defer wg.Done()
 
-					dfs := app.DatabaseManager.Resources(database.DatabaseID, database.DatabaseBranchID).FileSystem()
+					dfs := app.DatabaseManager.Resources(database.Branch).FileSystem()
 
 					atomic.AddInt64(&attemptedCompactions, 1)
 
@@ -197,7 +197,7 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 				defer close(compactionComplete)
 				close(compactionStarted)
 
-				dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
+				dfs := app.DatabaseManager.Resources(db.Branch).FileSystem()
 
 				// This will briefly show as active
 				_, err := plm.CompactDatabase(db.DatabaseID, db.DatabaseBranchID, dfs)
@@ -263,7 +263,7 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 				t.Fatalf("Failed to write data: %v", err)
 			}
 
-			dfs := app.DatabaseManager.Resources(db.DatabaseID, db.DatabaseBranchID).FileSystem()
+			dfs := app.DatabaseManager.Resources(db.Branch).FileSystem()
 			attempted, err := plm.CompactDatabase(db.DatabaseID, db.DatabaseBranchID, dfs)
 
 			if err != nil {
@@ -314,7 +314,13 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 
 			// Test the CompactAllDatabases method
 			durableProvider := func(databaseId, branchId string) *storage.DurableDatabaseFileSystem {
-				return app.DatabaseManager.Resources(databaseId, branchId).FileSystem()
+				branch, err := app.DatabaseManager.GetBranch(databaseId, branchId)
+
+				if err != nil {
+					t.Fatalf("Failed to get branch for CompactAllDatabases: %v", err)
+				}
+
+				return app.DatabaseManager.Resources(branch).FileSystem()
 			}
 
 			// This should attempt to compact all databases with concurrency control
