@@ -3,11 +3,10 @@ package database
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/litebase/litebase/internal/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestLitebasePragmaHandler_ParsePragma(t *testing.T) {
@@ -84,21 +83,36 @@ func TestLitebasePragmaHandler_ParsePragma(t *testing.T) {
 			isMatch := IsLitebasePragma(tt.sql)
 
 			if tt.wantMatch {
-				require.True(t, isMatch, "Expected to match PRAGMA pattern")
+				if !isMatch {
+					t.Fatal("Expected to match PRAGMA pattern")
+				}
 
 				name, value, isSet, err := ParseLitebasePragma(tt.sql)
-				require.NoError(t, err)
+				if err != nil {
+					t.Fatalf("ParseLitebasePragma failed: %v", err)
+				}
 
-				assert.Equal(t, tt.wantName, name, "PRAGMA name mismatch")
-				assert.Equal(t, tt.wantValue, value, "PRAGMA value mismatch")
+				if name != tt.wantName {
+					t.Errorf("PRAGMA name mismatch: expected %s, got %s", tt.wantName, name)
+				}
+
+				if value != tt.wantValue {
+					t.Errorf("PRAGMA value mismatch: expected %s, got %s", tt.wantValue, value)
+				}
 
 				if tt.wantValue != "" {
-					assert.True(t, isSet, "Expected isSet to be true")
+					if !isSet {
+						t.Error("Expected isSet to be true")
+					}
 				} else {
-					assert.False(t, isSet, "Expected isSet to be false")
+					if isSet {
+						t.Error("Expected isSet to be false")
+					}
 				}
 			} else {
-				assert.False(t, isMatch, "Expected not to match PRAGMA pattern")
+				if isMatch {
+					t.Error("Expected not to match PRAGMA pattern")
+				}
 			}
 		})
 	}
@@ -134,18 +148,30 @@ func TestLitebasePragmaHandler_ParseBool(t *testing.T) {
 			got, err := parseBool(tt.value)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.want, got)
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+
+				if got != tt.want {
+					t.Errorf("Expected %v, got %v", tt.want, got)
+				}
 			}
 		})
 	}
 }
 
 func TestLitebasePragmaHandler_BoolToInt(t *testing.T) {
-	assert.Equal(t, 1, utils.BoolToInt(true))
-	assert.Equal(t, 0, utils.BoolToInt(false))
+	if utils.BoolToInt(true) != 1 {
+		t.Errorf("Expected BoolToInt(true) to return 1, got %d", utils.BoolToInt(true))
+	}
+
+	if utils.BoolToInt(false) != 0 {
+		t.Errorf("Expected BoolToInt(false) to return 0, got %d", utils.BoolToInt(false))
+	}
 }
 
 func TestLitebasePragmaHandler_GetPragma(t *testing.T) {
@@ -204,16 +230,25 @@ func TestLitebasePragmaHandler_GetPragma(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			value, err := handler.getPragma(tt.pragma, settings)
-			require.NoError(t, err)
-			require.NotNil(t, value)
+			if err != nil {
+				t.Fatalf("getPragma failed: %v", err)
+			}
+
+			if value == nil {
+				t.Fatal("Expected non-nil value")
+			}
 
 			// Check that we got the expected type
 			if tt.wantType == "int" {
 				_, ok := value.(int)
-				assert.True(t, ok, "Expected int type")
+				if !ok {
+					t.Error("Expected int type")
+				}
 			} else {
 				_, ok := value.(string)
-				assert.True(t, ok, "Expected string type")
+				if !ok {
+					t.Error("Expected string type")
+				}
 			}
 		})
 	}
@@ -235,7 +270,9 @@ func TestLitebasePragmaHandler_SetPragma(t *testing.T) {
 			setting: "backups_enabled",
 			value:   "false",
 			verify: func(t *testing.T, settings *DatabaseBranchSettings) {
-				assert.False(t, settings.BackupsEnabled)
+				if settings.BackupsEnabled {
+					t.Error("Expected BackupsEnabled to be false")
+				}
 			},
 		},
 		{
@@ -243,7 +280,9 @@ func TestLitebasePragmaHandler_SetPragma(t *testing.T) {
 			setting: "backups_enabled",
 			value:   "1",
 			verify: func(t *testing.T, settings *DatabaseBranchSettings) {
-				assert.True(t, settings.BackupsEnabled)
+				if !settings.BackupsEnabled {
+					t.Error("Expected BackupsEnabled to be true")
+				}
 			},
 		},
 		{
@@ -251,7 +290,9 @@ func TestLitebasePragmaHandler_SetPragma(t *testing.T) {
 			setting: "backup_interval",
 			value:   "48h",
 			verify: func(t *testing.T, settings *DatabaseBranchSettings) {
-				assert.Equal(t, DatabaseBranchBackupInterval("48h"), settings.BackupInterval)
+				if settings.BackupInterval != DatabaseBranchBackupInterval("48h") {
+					t.Errorf("Expected BackupInterval to be 48h, got %s", settings.BackupInterval)
+				}
 			},
 		},
 		{
@@ -259,7 +300,9 @@ func TestLitebasePragmaHandler_SetPragma(t *testing.T) {
 			setting: "backups_retention_days",
 			value:   "14",
 			verify: func(t *testing.T, settings *DatabaseBranchSettings) {
-				assert.Equal(t, 14, settings.BackupsRetentionDays)
+				if settings.BackupsRetentionDays != 14 {
+					t.Errorf("Expected BackupsRetentionDays to be 14, got %d", settings.BackupsRetentionDays)
+				}
 			},
 		},
 		{
@@ -267,7 +310,9 @@ func TestLitebasePragmaHandler_SetPragma(t *testing.T) {
 			setting: "incremental_backups_enabled",
 			value:   "on",
 			verify: func(t *testing.T, settings *DatabaseBranchSettings) {
-				assert.True(t, settings.IncrementalBackupsEnabled)
+				if !settings.IncrementalBackupsEnabled {
+					t.Error("Expected IncrementalBackupsEnabled to be true")
+				}
 			},
 		},
 		{
@@ -320,10 +365,17 @@ func TestLitebasePragmaHandler_SetPragma(t *testing.T) {
 			err := handler.setPragmaForTest(tt.setting, tt.value, settings)
 
 			if tt.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errString)
+				if err == nil {
+					t.Fatal("Expected error but got none")
+				}
+
+				if !strings.Contains(err.Error(), tt.errString) {
+					t.Errorf("Expected error to contain '%s', got: %v", tt.errString, err)
+				}
 			} else {
-				require.NoError(t, err)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
 
 				// Verify the setting was updated
 				if tt.verify != nil {
@@ -433,25 +485,43 @@ func TestLitebasePragmaHandler_GetAfterSet(t *testing.T) {
 
 	// Set a value
 	err := handler.setPragmaForTest("backups_enabled", "false", settings)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Failed to set pragma: %v", err)
+	}
 
 	// Get the value
 	value, err := handler.getPragma("backups_enabled", settings)
-	require.NoError(t, err)
-	require.NotNil(t, value)
+	if err != nil {
+		t.Fatalf("Failed to get pragma: %v", err)
+	}
+
+	if value == nil {
+		t.Fatal("Expected non-nil value")
+	}
 
 	// Should be 0 (false)
-	assert.Equal(t, 0, value)
+	if value != 0 {
+		t.Errorf("Expected value to be 0, got %v", value)
+	}
 
 	// Set to true
 	err = handler.setPragmaForTest("backups_enabled", "true", settings)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Failed to set pragma: %v", err)
+	}
 
 	// Get the value again
 	value, err = handler.getPragma("backups_enabled", settings)
-	require.NoError(t, err)
-	require.NotNil(t, value)
+	if err != nil {
+		t.Fatalf("Failed to get pragma: %v", err)
+	}
+
+	if value == nil {
+		t.Fatal("Expected non-nil value")
+	}
 
 	// Should be 1 (true)
-	assert.Equal(t, 1, value)
+	if value != 1 {
+		t.Errorf("Expected value to be 1, got %v", value)
+	}
 }

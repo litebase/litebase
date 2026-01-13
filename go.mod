@@ -18,15 +18,14 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.18.0
 	github.com/spf13/afero v1.14.0
-	github.com/stretchr/testify v1.11.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.1
 )
 
 require (
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/mod v0.29.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
