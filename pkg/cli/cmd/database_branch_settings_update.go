@@ -16,16 +16,16 @@ import (
 )
 
 type DatabaseBranchSettingsInput struct {
-	BackupsEnabled                  bool                                   `json:"backupsEnabled"`
-	BackupInterval                  string                                 `json:"backupInterval"`
-	BackupsRetentionDays            int                                    `json:"backupsRetentionDays"`
-	DefaultPragmas                  *DatabaseDefaultPragmaSettingsInput    `json:"defaultPragmas,omitempty"`
-	ErrorLogsEnabled                bool                                   `json:"errorLogsEnabled"`
-	ErrorLogsRetentionDays          int                                    `json:"errorLogsRetentionDays"`
-	IncrementalBackupsEnabled       bool                                   `json:"incrementalBackupsEnabled"`
-	IncrementalBackupsRetentionDays int                                    `json:"incrementalBackupsRetentionDays"`
-	QueryLogsEnabled                bool                                   `json:"queryLogsEnabled"`
-	QueryLogsRetentionDays          int                                    `json:"queryLogsRetentionDays"`
+	BackupsEnabled                  bool                                `json:"backupsEnabled"`
+	BackupInterval                  string                              `json:"backupInterval"`
+	BackupsRetentionDays            int                                 `json:"backupsRetentionDays"`
+	DefaultPragmas                  *DatabaseDefaultPragmaSettingsInput `json:"defaultPragmas,omitempty"`
+	ErrorLogsEnabled                bool                                `json:"errorLogsEnabled"`
+	ErrorLogsRetentionDays          int                                 `json:"errorLogsRetentionDays"`
+	IncrementalBackupsEnabled       bool                                `json:"incrementalBackupsEnabled"`
+	IncrementalBackupsRetentionDays int                                 `json:"incrementalBackupsRetentionDays"`
+	QueryLogsEnabled                bool                                `json:"queryLogsEnabled"`
+	QueryLogsRetentionDays          int                                 `json:"queryLogsRetentionDays"`
 }
 
 type DatabaseDefaultPragmaSettingsInput struct {
@@ -135,6 +135,7 @@ func NewDatabaseBranchSettingsUpdateCmd(config *config.CLIConfiguration) *cobra.
 								if input.BackupsEnabled && str == "" {
 									return errors.New("backup interval is required when backups are enabled")
 								}
+
 								return nil
 							}),
 						huh.NewInput().
@@ -143,12 +144,15 @@ func NewDatabaseBranchSettingsUpdateCmd(config *config.CLIConfiguration) *cobra.
 							Value(&backupsRetentionDaysStr).
 							Validate(func(str string) error {
 								val, err := strconv.Atoi(str)
+
 								if err != nil {
 									return errors.New("must be a valid number")
 								}
+
 								if input.BackupsEnabled && val < 1 {
 									return errors.New("retention days must be at least 1")
 								}
+
 								return nil
 							}),
 					),
@@ -159,16 +163,19 @@ func NewDatabaseBranchSettingsUpdateCmd(config *config.CLIConfiguration) *cobra.
 							Value(&input.IncrementalBackupsEnabled),
 						huh.NewInput().
 							Title("Incremental Backups Retention Days").
-							Description("How many days to keep incremental backups").
+							Description("How many days to keep incremental backup data").
 							Value(&incrementalBackupsRetentionDaysStr).
 							Validate(func(str string) error {
 								val, err := strconv.Atoi(str)
+
 								if err != nil {
 									return errors.New("must be a valid number")
 								}
+
 								if input.IncrementalBackupsEnabled && val < 1 {
 									return errors.New("retention days must be at least 1")
 								}
+
 								return nil
 							}),
 					),
@@ -183,12 +190,15 @@ func NewDatabaseBranchSettingsUpdateCmd(config *config.CLIConfiguration) *cobra.
 							Value(&queryLogsRetentionDaysStr).
 							Validate(func(str string) error {
 								val, err := strconv.Atoi(str)
+
 								if err != nil {
 									return errors.New("must be a valid number")
 								}
+
 								if input.QueryLogsEnabled && val < 1 {
 									return errors.New("retention days must be at least 1")
 								}
+
 								return nil
 							}),
 					),
@@ -203,12 +213,15 @@ func NewDatabaseBranchSettingsUpdateCmd(config *config.CLIConfiguration) *cobra.
 							Value(&errorLogsRetentionDaysStr).
 							Validate(func(str string) error {
 								val, err := strconv.Atoi(str)
+
 								if err != nil {
 									return errors.New("must be a valid number")
 								}
+
 								if input.ErrorLogsEnabled && val < 1 {
 									return errors.New("retention days must be at least 1")
 								}
+
 								return nil
 							}),
 					),
@@ -245,6 +258,7 @@ func NewDatabaseBranchSettingsUpdateCmd(config *config.CLIConfiguration) *cobra.
 			}
 
 			var payload map[string]any
+
 			if err := json.Unmarshal(data, &payload); err != nil {
 				return err
 			}
