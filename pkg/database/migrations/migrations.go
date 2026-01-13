@@ -19,6 +19,10 @@ var AllMigrations = []Migration{
 		Name: "0000000002_database_branch_settings",
 		Up:   Migration0000000002DatabaseBranchSettings,
 	},
+	{
+		Name: "0000000003_queued_jobs",
+		Up:   Migration0000000003QueuedJobs,
+	},
 	// Add new migrations here
 }
 
