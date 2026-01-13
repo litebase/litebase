@@ -8,3 +8,4 @@
 .env
 .env.*
 *.prof
+litebase
