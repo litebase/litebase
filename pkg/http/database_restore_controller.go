@@ -89,8 +89,8 @@ func DatabaseRestoreControllerStore(ctx context.Context, request *Request) Respo
 		return BadRequestResponse(err)
 	}
 
-	snapshotLogger := request.databaseManager.Resources(targetBranch).SnapshotLogger()
-	checkpointer, err := request.databaseManager.Resources(targetBranch).Checkpointer()
+	snapshotLogger := request.databaseManager.Resources(branch).SnapshotLogger()
+	checkpointer, err := request.databaseManager.Resources(branch).Checkpointer()
 
 	if err != nil {
 		return ServerErrorResponse(err)
