@@ -312,6 +312,58 @@ func TestDatabaseBranchSettingsControllerUpdate_Validation(t *testing.T) {
 			if resp["status"] != "error" {
 				t.Fatalf("expected error status, got %v", resp["status"])
 			}
+
+			errors, ok := resp["errors"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected errors to be an object, got %T", resp["errors"])
+			}
+
+			if _, hasError := errors["foreignKeys"]; !hasError {
+				t.Logf("Errors received: %+v", errors)
+				t.Fatalf("expected foreignKeys validation error")
+			}
+		})
+
+		t.Run("MissingForeignKeysWhenDefaultPragmasProvided", func(t *testing.T) {
+			resp, statusCode, err := client.Send(
+				fmt.Sprintf("/v1/databases/%s/branches/%s/settings", mock.DatabaseName, primaryBranch.Name),
+				"PUT",
+				map[string]any{
+					"backupsEnabled":                  true,
+					"backupInterval":                  "24h",
+					"backupsRetentionDays":            30,
+					"errorLogsEnabled":                true,
+					"errorLogsRetentionDays":          15,
+					"incrementalBackupsEnabled":       false,
+					"incrementalBackupsRetentionDays": 7,
+					"queryLogsEnabled":                true,
+					"queryLogsRetentionDays":          15,
+					"defaultPragmas":                  map[string]any{},
+				},
+			)
+
+			if err != nil {
+				t.Fatalf("failed to send request: %v", err)
+			}
+
+			if statusCode != 422 {
+				t.Logf("response: %v", resp)
+				t.Fatalf("expected status code 422 for missing foreignKeys, got %d", statusCode)
+			}
+
+			if resp["status"] != "error" {
+				t.Fatalf("expected error status, got %v", resp["status"])
+			}
+
+			errors, ok := resp["errors"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected errors to be an object, got %T", resp["errors"])
+			}
+
+			if _, hasError := errors["foreignKeys"]; !hasError {
+				t.Logf("Errors received: %+v", errors)
+				t.Fatalf("expected foreignKeys validation error")
+			}
 		})
 
 		t.Run("InvalidRetentionDays_Zero", func(t *testing.T) {
