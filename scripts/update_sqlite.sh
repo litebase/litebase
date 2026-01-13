@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define variables
-SQLITE_VERSION="3500400"
+SQLITE_VERSION="3510100"
 SQLITE_YEAR="2025"
 SQLITE_URL="https://www.sqlite.org/${SQLITE_YEAR}/sqlite-amalgamation-${SQLITE_VERSION}.zip"
 TEMP_DIR="/tmp/sqlite-update"
