@@ -184,7 +184,7 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			branch = transaction.connection.Branch
 		}
 
-		if branch != nil && branch.Settings.QueryLogsEnabled {
+		if branch.Settings.QueryLogsEnabled {
 			err = logManager.Query(
 				logs.QueryLogEntry{
 					Cluster:      query.cluster,
