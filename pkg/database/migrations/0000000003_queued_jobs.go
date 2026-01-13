@@ -22,7 +22,7 @@ func Migration0000000003QueuedJobs(db *sql.DB) error {
 			reserved_by TEXT,
 			completed_at TEXT,
 			error_log TEXT
-		)`,
+		) STRICT`,
 	)
 
 	if err != nil {

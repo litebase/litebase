@@ -66,6 +66,7 @@ func TestDispatcher_Dispatch(t *testing.T) {
 
 		// Dispatch the job
 		id, err := dispatcher.Dispatch(job)
+
 		if err != nil {
 			t.Fatalf("Failed to dispatch job: %v", err)
 		}
@@ -76,11 +77,13 @@ func TestDispatcher_Dispatch(t *testing.T) {
 
 		// Verify the job was stored correctly in the database
 		db, err := systemDB.DB()
+
 		if err != nil {
 			t.Fatalf("Failed to get database: %v", err)
 		}
 
 		var queuedJob queue.QueuedJob
+
 		err = db.QueryRow(`
 			SELECT id, queue_name, job_type, key, status, attempts, max_attempts
 			FROM queued_jobs WHERE id = ?

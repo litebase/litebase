@@ -198,6 +198,7 @@ func (ts *TestServer) WithTokenClient(token *auth.Token) *TestClient {
 }
 
 func (ts *TestServer) Shutdown() {
+	ts.App.Shutdown()
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
 	err := ts.App.Cluster.Node().Shutdown()
 
