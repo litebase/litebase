@@ -16,12 +16,14 @@ type ThrottleFunc func(data map[string]any, key string) (shouldThrottle bool, de
 
 // JobTypeConfig defines the configuration for a job type during registration.
 type JobTypeConfig struct {
-	Name       string // PascalCase job identifier (e.g., "BackupJob")
-	QueueName  string
-	Retries    int
-	RetryAfter time.Duration
-	Handler    JobHandler
-	Throttle   ThrottleFunc // Optional throttle callback
+	Name              string // PascalCase job identifier (e.g., "BackupJob")
+	QueueName         string
+	Retries           int
+	RetryAfter        time.Duration
+	Handler           JobHandler
+	Throttle          ThrottleFunc  // Optional throttle callback
+	WithoutOverlap    bool          // Prevent concurrent execution of jobs with same key
+	OverlapRetryDelay time.Duration // Delay before retrying overlapping job (default 1s)
 }
 
 // JobOption is a functional option for configuring job types during registration.
@@ -49,6 +51,20 @@ func WithRetries(retries int, retryAfter time.Duration) JobOption {
 func WithThrottle(fn ThrottleFunc) JobOption {
 	return func(c *JobTypeConfig) {
 		c.Throttle = fn
+	}
+}
+
+// WithoutOverlapping prevents concurrent execution of jobs with the same key.
+// If a job with the same key is already running, the new job will be rescheduled
+// with a short delay (default 1 second). This does not increment the retry counter.
+func WithoutOverlapping(retryDelay ...time.Duration) JobOption {
+	return func(c *JobTypeConfig) {
+		c.WithoutOverlap = true
+		if len(retryDelay) > 0 {
+			c.OverlapRetryDelay = retryDelay[0]
+		} else {
+			c.OverlapRetryDelay = 1 * time.Second
+		}
 	}
 }
 
@@ -85,6 +101,13 @@ type Job interface {
 	// Returns shouldThrottle=true and a delay duration if the job should be rescheduled.
 	// Returns shouldThrottle=false if the job should proceed normally.
 	Throttle() (shouldThrottle bool, delay time.Duration)
+
+	// WithoutOverlap returns true if this job type prevents concurrent execution
+	// of jobs with the same key.
+	WithoutOverlap() bool
+
+	// OverlapRetryDelay returns the delay before retrying an overlapping job.
+	OverlapRetryDelay() time.Duration
 
 	// ToData returns the job's data as a map for serialization to JSON.
 	ToData() (map[string]any, error)
@@ -176,14 +199,16 @@ func (j *JobConfig) Build() (Job, error) {
 
 // ConfiguredJob is the implementation created by JobConfig.
 type ConfiguredJob struct {
-	name         string
-	key          string
-	queueName    string
-	retries      int
-	retryAfter   time.Duration
-	handler      func(data map[string]any) error
-	data         map[string]any
-	throttleFunc ThrottleFunc
+	name              string
+	key               string
+	queueName         string
+	retries           int
+	retryAfter        time.Duration
+	handler           func(data map[string]any) error
+	data              map[string]any
+	throttleFunc      ThrottleFunc
+	withoutOverlap    bool
+	overlapRetryDelay time.Duration
 }
 
 func (j *ConfiguredJob) Handle() error {
@@ -218,6 +243,14 @@ func (j *ConfiguredJob) Throttle() (shouldThrottle bool, delay time.Duration) {
 	return j.throttleFunc(j.data, j.key)
 }
 
+func (j *ConfiguredJob) WithoutOverlap() bool {
+	return j.withoutOverlap
+}
+
+func (j *ConfiguredJob) OverlapRetryDelay() time.Duration {
+	return j.overlapRetryDelay
+}
+
 func (j *ConfiguredJob) ToData() (map[string]any, error) {
 	return j.data, nil
 }
@@ -229,12 +262,14 @@ func (j *ConfiguredJob) FromData(data map[string]any) error {
 
 func (j *ConfiguredJob) NewInstance() any {
 	return &ConfiguredJob{
-		name:         j.name,
-		queueName:    j.queueName,
-		retries:      j.retries,
-		retryAfter:   j.retryAfter,
-		handler:      j.handler,
-		throttleFunc: j.throttleFunc,
-		data:         make(map[string]any),
+		name:              j.name,
+		queueName:         j.queueName,
+		retries:           j.retries,
+		retryAfter:        j.retryAfter,
+		handler:           j.handler,
+		throttleFunc:      j.throttleFunc,
+		withoutOverlap:    j.withoutOverlap,
+		overlapRetryDelay: j.overlapRetryDelay,
+		data:              make(map[string]any),
 	}
 }

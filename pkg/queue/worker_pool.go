@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster"
@@ -12,13 +13,14 @@ import (
 
 // WorkerPool manages a pool of workers that process jobs from the queue.
 type WorkerPool struct {
-	workers     []*Worker
-	systemDB    *database.SystemDatabase
-	cluster     *cluster.Cluster
-	registry    *JobRegistry
-	workerCount int
-	started     bool
-	primaryOnly bool
+	workers        []*Worker
+	systemDB       *database.SystemDatabase
+	cluster        *cluster.Cluster
+	registry       *JobRegistry
+	workerCount    int
+	started        bool
+	primaryOnly    bool
+	runningJobKeys sync.Map // Tracks currently running job keys to prevent overlap
 }
 
 // WorkerPoolConfig configures the worker pool.
@@ -68,13 +70,15 @@ func (p *WorkerPool) RegisterJob(name string, handler JobHandler, opts ...JobOpt
 
 	// Create a prototype job
 	prototype := &ConfiguredJob{
-		name:         config.Name,
-		queueName:    config.QueueName,
-		retries:      config.Retries,
-		retryAfter:   config.RetryAfter,
-		handler:      config.Handler,
-		throttleFunc: config.Throttle,
-		data:         make(map[string]any),
+		name:              config.Name,
+		queueName:         config.QueueName,
+		retries:           config.Retries,
+		retryAfter:        config.RetryAfter,
+		handler:           config.Handler,
+		throttleFunc:      config.Throttle,
+		withoutOverlap:    config.WithoutOverlap,
+		overlapRetryDelay: config.OverlapRetryDelay,
+		data:              make(map[string]any),
 	}
 
 	p.registry.Register(prototype)
@@ -97,6 +101,7 @@ func (p *WorkerPool) Start() error {
 		p.workers[i].SetPrimaryOnlyMode(p.primaryOnly, func() bool {
 			return p.cluster.Node().IsPrimary()
 		})
+		p.workers[i].SetRunningJobKeys(&p.runningJobKeys)
 		p.workers[i].Start()
 	}
 

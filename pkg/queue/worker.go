@@ -14,16 +14,17 @@ import (
 
 // Worker processes jobs from the queue.
 type Worker struct {
-	id           string
-	systemDB     *database.SystemDatabase
-	ctx          context.Context
-	cancel       context.CancelFunc
-	pollInterval time.Duration
-	registry     *JobRegistry
-	wg           sync.WaitGroup
-	afterJob     func(jobID int64, status JobStatus, err error)
-	primaryOnly  bool
-	isPrimary    func() bool
+	id             string
+	systemDB       *database.SystemDatabase
+	ctx            context.Context
+	cancel         context.CancelFunc
+	pollInterval   time.Duration
+	registry       *JobRegistry
+	wg             sync.WaitGroup
+	afterJob       func(jobID int64, status JobStatus, err error)
+	primaryOnly    bool
+	isPrimary      func() bool
+	runningJobKeys *sync.Map // Shared map to track running job keys across all workers
 }
 
 // NewWorker creates a new worker instance.
@@ -50,6 +51,11 @@ func (w *Worker) SetAfterJobHook(fn func(jobID int64, status JobStatus, err erro
 func (w *Worker) SetPrimaryOnlyMode(primaryOnly bool, isPrimary func() bool) {
 	w.primaryOnly = primaryOnly
 	w.isPrimary = isPrimary
+}
+
+// SetRunningJobKeys sets the shared map for tracking running job keys.
+func (w *Worker) SetRunningJobKeys(runningJobKeys *sync.Map) {
+	w.runningJobKeys = runningJobKeys
 }
 
 // Start begins processing jobs from the queue.
@@ -195,6 +201,24 @@ func (w *Worker) processNextJob() error {
 		slog.Info("Job throttled", "worker_id", w.id, "job_id", queuedJob.ID, "delay", throttleDelay)
 
 		return nil
+	}
+
+	// Check for overlapping jobs (only if job has a key and withoutOverlap is enabled)
+	if job.WithoutOverlap() && queuedJob.Key != "" && w.runningJobKeys != nil {
+		// Try to mark this key as running
+		_, alreadyRunning := w.runningJobKeys.LoadOrStore(queuedJob.Key, true)
+
+		if alreadyRunning {
+			// Another job with this key is already running, reschedule
+			nextAvailableAt := time.Now().UTC().Add(job.OverlapRetryDelay())
+			w.markJobForThrottle(queuedJob.ID, nextAvailableAt)
+			slog.Info("Job overlapping", "worker_id", w.id, "job_id", queuedJob.ID, "key", queuedJob.Key, "delay", job.OverlapRetryDelay())
+
+			return nil
+		}
+
+		// Ensure we remove the key when done (whether success or failure)
+		defer w.runningJobKeys.Delete(queuedJob.Key)
 	}
 
 	// Execute the job

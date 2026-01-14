@@ -57,6 +57,14 @@ func (j *TestRetryJob) Throttle() (shouldThrottle bool, delay time.Duration) {
 	return false, 0
 }
 
+func (j *TestRetryJob) WithoutOverlap() bool {
+	return false
+}
+
+func (j *TestRetryJob) OverlapRetryDelay() time.Duration {
+	return 1 * time.Second
+}
+
 func (j *TestRetryJob) FromData(data map[string]any) error {
 	if key, ok := data["key"].(string); ok {
 		j.key = key
