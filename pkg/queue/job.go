@@ -8,13 +8,20 @@ import (
 // JobHandler is a function that processes job data.
 type JobHandler func(data map[string]any) error
 
+// ThrottleFunc is a callback that determines if a job should be throttled.
+// It receives the job's data and key, and returns:
+// - shouldThrottle: true if the job should be delayed
+// - delay: how long to delay the job before retrying
+type ThrottleFunc func(data map[string]any, key string) (shouldThrottle bool, delay time.Duration)
+
 // JobTypeConfig defines the configuration for a job type during registration.
 type JobTypeConfig struct {
-	Name       string        // PascalCase job identifier (e.g., "BackupJob")
+	Name       string // PascalCase job identifier (e.g., "BackupJob")
 	QueueName  string
 	Retries    int
 	RetryAfter time.Duration
 	Handler    JobHandler
+	Throttle   ThrottleFunc // Optional throttle callback
 }
 
 // JobOption is a functional option for configuring job types during registration.
@@ -32,6 +39,16 @@ func WithRetries(retries int, retryAfter time.Duration) JobOption {
 	return func(c *JobTypeConfig) {
 		c.Retries = retries
 		c.RetryAfter = retryAfter
+	}
+}
+
+// WithThrottle sets a throttle callback that can conditionally delay job execution.
+// The callback receives the job's data and key, and should return whether to throttle
+// the job and for how long. If throttled, the job is rescheduled without incrementing
+// the retry counter.
+func WithThrottle(fn ThrottleFunc) JobOption {
+	return func(c *JobTypeConfig) {
+		c.Throttle = fn
 	}
 }
 
@@ -63,6 +80,11 @@ type Job interface {
 	// RetryAfter returns the duration to wait before retrying a failed job.
 	// This allows for exponential backoff or custom retry strategies.
 	RetryAfter() time.Duration
+
+	// Throttle checks if the job should be throttled based on its data and key.
+	// Returns shouldThrottle=true and a delay duration if the job should be rescheduled.
+	// Returns shouldThrottle=false if the job should proceed normally.
+	Throttle() (shouldThrottle bool, delay time.Duration)
 
 	// ToData returns the job's data as a map for serialization to JSON.
 	ToData() (map[string]any, error)
@@ -154,13 +176,14 @@ func (j *JobConfig) Build() (Job, error) {
 
 // ConfiguredJob is the implementation created by JobConfig.
 type ConfiguredJob struct {
-	name       string
-	key        string
-	queueName  string
-	retries    int
-	retryAfter time.Duration
-	handler    func(data map[string]any) error
-	data       map[string]any
+	name         string
+	key          string
+	queueName    string
+	retries      int
+	retryAfter   time.Duration
+	handler      func(data map[string]any) error
+	data         map[string]any
+	throttleFunc ThrottleFunc
 }
 
 func (j *ConfiguredJob) Handle() error {
@@ -187,6 +210,14 @@ func (j *ConfiguredJob) RetryAfter() time.Duration {
 	return j.retryAfter
 }
 
+func (j *ConfiguredJob) Throttle() (shouldThrottle bool, delay time.Duration) {
+	if j.throttleFunc == nil {
+		return false, 0
+	}
+
+	return j.throttleFunc(j.data, j.key)
+}
+
 func (j *ConfiguredJob) ToData() (map[string]any, error) {
 	return j.data, nil
 }
@@ -198,11 +229,12 @@ func (j *ConfiguredJob) FromData(data map[string]any) error {
 
 func (j *ConfiguredJob) NewInstance() any {
 	return &ConfiguredJob{
-		name:       j.name,
-		queueName:  j.queueName,
-		retries:    j.retries,
-		retryAfter: j.retryAfter,
-		handler:    j.handler,
-		data:       make(map[string]any),
+		name:         j.name,
+		queueName:    j.queueName,
+		retries:      j.retries,
+		retryAfter:   j.retryAfter,
+		handler:      j.handler,
+		throttleFunc: j.throttleFunc,
+		data:         make(map[string]any),
 	}
 }

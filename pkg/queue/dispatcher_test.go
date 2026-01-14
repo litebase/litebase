@@ -45,6 +45,10 @@ func (j *TestJob) RetryAfter() time.Duration {
 	return j.retryAfter
 }
 
+func (j *TestJob) Throttle() (shouldThrottle bool, delay time.Duration) {
+	return false, 0
+}
+
 func (j *TestJob) FromData(data map[string]any) error {
 	if key, ok := data["key"].(string); ok {
 		j.key = key

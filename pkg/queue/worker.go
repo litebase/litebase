@@ -185,6 +185,18 @@ func (w *Worker) processNextJob() error {
 		return fmt.Errorf("job type not registered: %w", err)
 	}
 
+	// Check if the job should be throttled
+	shouldThrottle, throttleDelay := job.Throttle()
+
+	if shouldThrottle {
+		// Reschedule the job without incrementing attempts
+		nextAvailableAt := time.Now().UTC().Add(throttleDelay)
+		w.markJobForThrottle(queuedJob.ID, nextAvailableAt)
+		slog.Info("Job throttled", "worker_id", w.id, "job_id", queuedJob.ID, "delay", throttleDelay)
+
+		return nil
+	}
+
 	// Execute the job
 	err = job.Handle()
 
@@ -308,6 +320,35 @@ func (w *Worker) markJobForRetry(jobID int64, attempts int, availableAt time.Tim
 
 	if err != nil {
 		slog.Error("Failed to mark job for retry", "job_id", jobID, "error", err)
+		return
+	}
+}
+
+// markJobForThrottle reschedules a job that has been throttled.
+// Unlike retry, throttling does NOT increment the attempts counter.
+func (w *Worker) markJobForThrottle(jobID int64, availableAt time.Time) {
+	// Check if worker is stopped
+	if w.ctx.Err() != nil {
+		return
+	}
+
+	db, err := w.systemDB.DB()
+
+	if err != nil {
+		slog.Error("Failed to get database for job throttle", "job_id", jobID, "error", err)
+		return
+	}
+
+	now := time.Now().UTC()
+
+	_, err = db.Exec(`
+		UPDATE queued_jobs
+		SET status = ?, available_at = ?, updated_at = ?, reserved_at = NULL, reserved_by = NULL
+		WHERE id = ?
+	`, JobStatusPending, availableAt.Format(time.RFC3339), now.Format(time.RFC3339), jobID)
+
+	if err != nil {
+		slog.Error("Failed to mark job for throttle", "job_id", jobID, "error", err)
 		return
 	}
 }

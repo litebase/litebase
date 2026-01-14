@@ -68,12 +68,13 @@ func (p *WorkerPool) RegisterJob(name string, handler JobHandler, opts ...JobOpt
 
 	// Create a prototype job
 	prototype := &ConfiguredJob{
-		name:       config.Name,
-		queueName:  config.QueueName,
-		retries:    config.Retries,
-		retryAfter: config.RetryAfter,
-		handler:    config.Handler,
-		data:       make(map[string]any),
+		name:         config.Name,
+		queueName:    config.QueueName,
+		retries:      config.Retries,
+		retryAfter:   config.RetryAfter,
+		handler:      config.Handler,
+		throttleFunc: config.Throttle,
+		data:         make(map[string]any),
 	}
 
 	p.registry.Register(prototype)
