@@ -11,13 +11,13 @@ import (
 
 // WorkerPool manages a pool of workers that process jobs from the queue.
 type WorkerPool struct {
-	workers      []*Worker
-	systemDB     *database.SystemDatabase
-	cluster      *cluster.Cluster
-	registry     *JobRegistry
-	workerCount  int
-	started      bool
-	primaryOnly  bool
+	workers     []*Worker
+	systemDB    *database.SystemDatabase
+	cluster     *cluster.Cluster
+	registry    *JobRegistry
+	workerCount int
+	started     bool
+	primaryOnly bool
 }
 
 // WorkerPoolConfig configures the worker pool.
@@ -33,11 +33,9 @@ type WorkerPoolConfig struct {
 // NewWorkerPool creates a new worker pool.
 func NewWorkerPool(systemDB *database.SystemDatabase, cluster *cluster.Cluster, config WorkerPoolConfig) *WorkerPool {
 	workerCount := config.WorkerCount
+
 	if workerCount == 0 {
-		workerCount = runtime.NumCPU() / 2
-		if workerCount < 1 {
-			workerCount = 1
-		}
+		workerCount = max(runtime.NumCPU()/2, 1)
 	}
 
 	return &WorkerPool{
@@ -63,6 +61,7 @@ func (p *WorkerPool) Start() error {
 	// Check if we should run based on primary-only setting
 	if p.primaryOnly && !p.cluster.Node().IsPrimary() {
 		slog.Info("Worker pool not started - not primary node", "primary_only", p.primaryOnly)
+
 		return nil
 	}
 
@@ -77,6 +76,7 @@ func (p *WorkerPool) Start() error {
 	}
 
 	p.started = true
+
 	slog.Info("Worker pool started", "worker_count", p.workerCount)
 
 	return nil
