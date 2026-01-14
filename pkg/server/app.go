@@ -10,6 +10,7 @@ import (
 	"github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/logs"
 	"github.com/litebase/litebase/pkg/queue"
+	"github.com/litebase/litebase/pkg/scheduler"
 	"github.com/litebase/litebase/pkg/storage"
 
 	netHttp "net/http"
@@ -24,6 +25,7 @@ type App struct {
 	LogManager      *logs.LogManager
 	QueueDispatcher *queue.Dispatcher
 	QueueWorkerPool *queue.WorkerPool
+	Scheduler       *scheduler.Scheduler
 	ServeMux        *netHttp.ServeMux
 }
 
@@ -145,12 +147,21 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 
 	app.InitQueueJobs()
 
-	// Start worker pool when node becomes primary
+	// Initialize the scheduler
+	app.Scheduler = scheduler.NewScheduler(
+		app.DatabaseManager.SystemDatabase(),
+		app.Cluster.Node().IsPrimary,
+	)
+
+	app.InitScheduledTasks()
+
+	// Start worker pool and scheduler when node becomes primary
 	app.Cluster.Node().OnStarted(func() {
 		if app.Cluster.Node().IsPrimary() {
 			if err := app.QueueWorkerPool.Start(); err != nil {
 				slog.Error("Failed to start queue worker pool", "error", err)
 			}
+			app.Scheduler.Start()
 		}
 	})
 
