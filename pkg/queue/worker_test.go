@@ -2,6 +2,7 @@ package queue_test
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -859,5 +860,206 @@ func TestWorker_ReplicaPromotedToPrimaryProcessesJobs(t *testing.T) {
 
 		// Clean up
 		pool2.Stop()
+	})
+}
+
+func TestWorker_RetryDelayTiming(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		if server.App.QueueWorkerPool != nil {
+			server.App.QueueWorkerPool.Stop()
+		}
+
+		systemDB := server.App.DatabaseManager.SystemDatabase()
+		dispatcher := server.App.QueueDispatcher
+		registry := queue.NewJobRegistry()
+
+		attemptTimes := make([]time.Time, 0)
+		attemptCount := 0
+		retryDelay := 1 * time.Second
+
+		registry.Register(&TestRetryJob{
+			name:             "Retry Delay Job",
+			jobType:          "retry-delay-job",
+			queueName:        "default",
+			retries:          3,
+			retryAfter:       retryDelay,
+			attemptCount:     &attemptCount,
+			failUntilAttempt: 3, // Fail twice, succeed on 3rd
+		})
+
+		job := &TestRetryJob{
+			name:             "Retry Delay Job",
+			key:              "retry-delay-key",
+			jobType:          "retry-delay-job",
+			queueName:        "default",
+			retries:          3,
+			retryAfter:       retryDelay,
+			attemptCount:     &attemptCount,
+			failUntilAttempt: 3,
+		}
+
+		id, err := dispatcher.Dispatch(job)
+
+		if err != nil {
+			t.Fatalf("Failed to dispatch job: %v", err)
+		}
+
+		worker := queue.NewWorker("worker-1", systemDB, registry)
+
+		var attemptTimesMu sync.Mutex
+		done := make(chan bool, 1)
+
+		worker.SetAfterJobHook(func(jobID int64, status queue.JobStatus, err error) {
+			if jobID == id {
+				attemptTimesMu.Lock()
+				attemptTimes = append(attemptTimes, time.Now())
+				attemptTimesMu.Unlock()
+
+				if status == queue.JobStatusCompleted {
+					done <- true
+				}
+			}
+		})
+
+		startTime := time.Now()
+		worker.Start()
+		defer worker.Stop()
+
+		select {
+		case <-done:
+			attemptTimesMu.Lock()
+			defer attemptTimesMu.Unlock()
+
+			// Verify we had at least 3 execution attempts (2 failures + 1 success)
+			if attemptCount < 3 {
+				t.Errorf("Expected at least 3 execution attempts, got %d", attemptCount)
+			}
+
+			// Verify timing between retries (we get hook calls for failures too)
+			if len(attemptTimes) >= 2 {
+				timeBetweenFirstAndSecond := attemptTimes[1].Sub(attemptTimes[0])
+
+				if timeBetweenFirstAndSecond < retryDelay {
+					t.Errorf("First retry was too fast: %v (expected >= %v)", timeBetweenFirstAndSecond, retryDelay)
+				}
+			}
+
+			if len(attemptTimes) >= 3 {
+				timeBetweenSecondAndThird := attemptTimes[2].Sub(attemptTimes[1])
+
+				if timeBetweenSecondAndThird < retryDelay {
+					t.Errorf("Second retry was too fast: %v (expected >= %v)", timeBetweenSecondAndThird, retryDelay)
+				}
+			}
+
+			totalTime := time.Since(startTime)
+			expectedMinTime := retryDelay * 2 // 2 retries
+
+			if totalTime < expectedMinTime {
+				t.Errorf("Total execution too fast: %v (expected >= %v)", totalTime, expectedMinTime)
+			}
+
+		case <-time.After(10 * time.Second):
+			attemptTimesMu.Lock()
+			t.Fatalf("Timeout waiting for job completion, attempts: %d, hook calls: %d", attemptCount, len(attemptTimes))
+			attemptTimesMu.Unlock()
+		}
+	})
+}
+
+func TestWorker_PartialRetries(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		if server.App.QueueWorkerPool != nil {
+			server.App.QueueWorkerPool.Stop()
+		}
+
+		systemDB := server.App.DatabaseManager.SystemDatabase()
+		dispatcher := server.App.QueueDispatcher
+		registry := queue.NewJobRegistry()
+
+		attemptCount := 0
+
+		// Job with 5 max retries, fails 3 times, succeeds on 4th
+		registry.Register(&TestRetryJob{
+			name:             "Partial Retry Job",
+			jobType:          "partial-retry-job",
+			queueName:        "default",
+			retries:          5,
+			retryAfter:       200 * time.Millisecond,
+			attemptCount:     &attemptCount,
+			failUntilAttempt: 4, // Fail 3 times, succeed on 4th
+		})
+
+		job := &TestRetryJob{
+			name:             "Partial Retry Job",
+			key:              "partial-retry-key",
+			jobType:          "partial-retry-job",
+			queueName:        "default",
+			retries:          5,
+			retryAfter:       200 * time.Millisecond,
+			attemptCount:     &attemptCount,
+			failUntilAttempt: 4,
+		}
+
+		id, err := dispatcher.Dispatch(job)
+
+		if err != nil {
+			t.Fatalf("Failed to dispatch job: %v", err)
+		}
+
+		worker := queue.NewWorker("worker-1", systemDB, registry)
+		done := make(chan bool, 1)
+
+		worker.SetAfterJobHook(func(jobID int64, status queue.JobStatus, err error) {
+			if jobID == id && status == queue.JobStatusCompleted {
+				done <- true
+			}
+		})
+
+		worker.Start()
+		defer worker.Stop()
+
+		select {
+		case <-done:
+			db, err := systemDB.DB()
+
+			if err != nil {
+				t.Fatalf("Failed to get database: %v", err)
+			}
+
+			var status string
+			var attempts int
+
+			err = db.QueryRow(`
+				SELECT status, attempts FROM queued_jobs WHERE id = ?
+			`, id).Scan(&status, &attempts)
+
+			if err != nil {
+				t.Fatalf("Failed to query job: %v", err)
+			}
+
+			if status != string(queue.JobStatusCompleted) {
+				t.Errorf("Expected status completed, got %s", status)
+			}
+
+			// Should have 3 failed attempts before success
+			if attempts != 3 {
+				t.Errorf("Expected 3 failed attempts, got %d", attempts)
+			}
+
+			// Should have executed 4 times total
+			if attemptCount != 4 {
+				t.Errorf("Expected 4 total executions, got %d", attemptCount)
+			}
+
+		case <-time.After(10 * time.Second):
+			t.Fatalf("Timeout waiting for job completion")
+		}
 	})
 }
