@@ -2,34 +2,41 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
+	"github.com/go-co-op/gocron/v2"
 	"github.com/litebase/litebase/pkg/database"
 )
 
 // Scheduler manages and executes scheduled tasks.
 type Scheduler struct {
-	systemDB     *database.SystemDatabase
-	Registry     *TaskRegistry
-	ctx          context.Context
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
-	isPrimary    func() bool
-	runningTasks sync.Map // map[string]bool - task name -> is running
+	systemDB  *database.SystemDatabase
+	Registry  *TaskRegistry
+	scheduler gocron.Scheduler
+	isPrimary func() bool
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // NewScheduler creates a new scheduler instance.
 func NewScheduler(systemDB *database.SystemDatabase, isPrimary func() bool) *Scheduler {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	s, err := gocron.NewScheduler()
+
+	if err != nil {
+		panic(err) // This should never happen with default config
+	}
+
 	return &Scheduler{
 		systemDB:  systemDB,
 		Registry:  NewTaskRegistry(),
+		scheduler: s,
+		isPrimary: isPrimary,
 		ctx:       ctx,
 		cancel:    cancel,
-		isPrimary: isPrimary,
 	}
 }
 
@@ -45,89 +52,148 @@ func (s *Scheduler) RegisterTask(name string, handler TaskHandler, opts ...TaskO
 		opt(task)
 	}
 
-	// Calculate initial next run time
-	now := time.Now().UTC()
-
-	nextRun, err := task.CalculateNextRun(now)
-
-	if err != nil {
+	// Register with registry
+	if err := s.Registry.Register(task); err != nil {
 		return err
 	}
 
-	task.SetNextRunAt(nextRun)
+	// Convert schedule to gocron job definition
+	jobDef, err := s.scheduleToJobDef(task)
 
-	// Register the task
-	return s.Registry.Register(task)
+	if err != nil {
+		return fmt.Errorf("failed to create job definition: %w", err)
+	}
+
+	// Wrap handler to only run on primary
+	wrappedHandler := func() {
+		// Only execute on primary node
+		if s.isPrimary != nil && !s.isPrimary() {
+			return
+		}
+
+		s.executeTask(task)
+	}
+
+	// Configure job options
+	jobOpts := []gocron.JobOption{}
+
+	if task.WithoutOverlap {
+		jobOpts = append(jobOpts, gocron.WithSingletonMode(gocron.LimitModeReschedule))
+	}
+
+	// Create the job with gocron
+	_, err = s.scheduler.NewJob(
+		jobDef,
+		gocron.NewTask(wrappedHandler),
+		jobOpts...,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create job: %w", err)
+	}
+
+	slog.Info("Registered scheduled task", "task", name, "schedule", task.Schedule)
+
+	return nil
 }
 
-// Start begins the scheduler supervisor loop.
-func (s *Scheduler) Start() {
-	s.wg.Go(func() {
-		slog.Info("Scheduler started")
+// scheduleToJobDef converts our schedule types to gocron job definitions.
+func (s *Scheduler) scheduleToJobDef(task *RegisteredTask) (gocron.JobDefinition, error) {
+	// If the task has a cron expression, use it directly
+	if task.CronExpr != "" {
+		return gocron.CronJob(task.CronExpr, false), nil
+	}
 
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
+	switch task.Schedule {
+	case EverySecond:
+		return gocron.DurationJob(1 * time.Second), nil
+	case EveryMinute:
+		return gocron.DurationJob(1 * time.Minute), nil
+	case Hourly:
+		return gocron.DurationJob(1 * time.Hour), nil
+	case Daily:
+		if task.Time != "" {
+			t, err := parseTime(task.Time)
 
-		for {
-			select {
-			case <-s.ctx.Done():
-				slog.Info("Scheduler stopped")
-				return
-			case <-ticker.C:
-				s.checkScheduledTasks()
+			if err != nil {
+				return nil, err
+			}
+
+			return gocron.DailyJob(1, gocron.NewAtTimes(
+				gocron.NewAtTime(uint(t.Hour()), uint(t.Minute()), 0),
+			)), nil
+		}
+
+		return gocron.DailyJob(1, gocron.NewAtTimes(
+			gocron.NewAtTime(0, 0, 0),
+		)), nil
+	case Weekly:
+		weekday := time.Monday // Default
+
+		if task.Weekday != "" {
+			wd, err := parseWeekday(task.Weekday)
+
+			if err == nil {
+				weekday = wd
 			}
 		}
-	})
+
+		if task.Time != "" {
+			t, err := parseTime(task.Time)
+
+			if err != nil {
+				return nil, err
+			}
+
+			return gocron.WeeklyJob(1, gocron.NewWeekdays(weekday), gocron.NewAtTimes(
+				gocron.NewAtTime(uint(t.Hour()), uint(t.Minute()), 0),
+			)), nil
+		}
+
+		return gocron.WeeklyJob(1, gocron.NewWeekdays(weekday), gocron.NewAtTimes(
+			gocron.NewAtTime(0, 0, 0),
+		)), nil
+	case Monthly:
+		day := 1 // Default to first day of month
+
+		if task.Day != 0 {
+			day = task.Day
+		}
+
+		if task.Time != "" {
+			t, err := parseTime(task.Time)
+
+			if err != nil {
+				return nil, err
+			}
+
+			return gocron.MonthlyJob(1, gocron.NewDaysOfTheMonth(day), gocron.NewAtTimes(
+				gocron.NewAtTime(uint(t.Hour()), uint(t.Minute()), 0),
+			)), nil
+		}
+
+		return gocron.MonthlyJob(1, gocron.NewDaysOfTheMonth(day), gocron.NewAtTimes(
+			gocron.NewAtTime(0, 0, 0),
+		)), nil
+	default:
+		return nil, fmt.Errorf("unsupported schedule type: %s", task.Schedule)
+	}
+}
+
+// Start begins the scheduler.
+func (s *Scheduler) Start() {
+	s.scheduler.Start()
+	slog.Info("Scheduler started")
 }
 
 // Stop gracefully stops the scheduler.
-func (s *Scheduler) Stop() {
+func (s *Scheduler) Stop() error {
 	s.cancel()
-	s.wg.Wait()
-}
-
-// checkScheduledTasks checks if any tasks are due to run.
-func (s *Scheduler) checkScheduledTasks() {
-	// Only run tasks on primary node
-	if s.isPrimary != nil && !s.isPrimary() {
-		return
-	}
-
-	now := time.Now().UTC()
-	tasks := s.Registry.GetAll()
-
-	for _, task := range tasks {
-		nextRun := task.NextRunAt()
-
-		// Check if task is due
-		if now.Before(nextRun) {
-			continue
-		}
-
-		// Check for overlap prevention
-		if task.WithoutOverlap {
-			_, isRunning := s.runningTasks.LoadOrStore(task.Name, true)
-
-			if isRunning {
-				slog.Debug("Task already running, skipping", "task", task.Name)
-				continue
-			}
-		}
-
-		// Execute task in a goroutine
-		s.wg.Go(func() {
-			s.executeTask(task)
-		})
-	}
+	return s.scheduler.Shutdown()
 }
 
 // executeTask runs a single task.
 func (s *Scheduler) executeTask(task *RegisteredTask) {
-	// Ensure we remove from running tasks if using overlap prevention
-	if task.WithoutOverlap {
-		defer s.runningTasks.Delete(task.Name)
-	}
-
 	slog.Info("Executing scheduled task", "task", task.Name)
 
 	// Execute the task handler
@@ -138,17 +204,4 @@ func (s *Scheduler) executeTask(task *RegisteredTask) {
 	} else {
 		slog.Info("Scheduled task completed", "task", task.Name)
 	}
-
-	// Calculate next run time
-	now := time.Now().UTC()
-	nextRun, err := task.CalculateNextRun(now)
-
-	if err != nil {
-		slog.Error("Failed to calculate next run time", "task", task.Name, "error", err)
-
-		return
-	}
-
-	task.SetNextRunAt(nextRun)
-	slog.Debug("Task rescheduled", "task", task.Name, "next_run", nextRun)
 }

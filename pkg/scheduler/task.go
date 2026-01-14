@@ -3,7 +3,6 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 )
 
@@ -18,131 +17,92 @@ const (
 	EveryMinute Schedule = "every_minute"
 	Hourly      Schedule = "hourly"
 	Daily       Schedule = "daily"
-	DailyAt     Schedule = "daily_at"  // Requires Time parameter
-	Weekly      Schedule = "weekly"    // Runs every week on the same day of week at 00:00 UTC
-	WeeklyAt    Schedule = "weekly_at" // Requires Day and Time parameters
-	Monthly     Schedule = "monthly"   // Runs on the 1st of every month at 00:00 UTC
+	Weekly      Schedule = "weekly"
+	Monthly     Schedule = "monthly"
+	Cron        Schedule = "cron" // Uses CronExpr field
 )
 
 // RegisteredTask represents a task that has been registered with the scheduler.
 type RegisteredTask struct {
 	Name           string
-	Schedule       Schedule
 	Handler        TaskHandler
-	Time           string // "14:30" format for DailyAt, WeeklyAt
-	Day            string // "Monday", "Tuesday", etc. for WeeklyAt
+	Schedule       Schedule
+	Time           string // "14:30" format for Daily, Weekly
+	Weekday        string // "Monday", "Tuesday", etc. for Weekly
+	Day            int    // Day of month (1-31) for Monthly
+	CronExpr       string // Cron expression when Schedule is Cron
 	WithoutOverlap bool
-	nextRunAt      time.Time
-	mu             sync.Mutex
 }
 
-// NextRunAt returns the next scheduled run time for this task.
-func (t *RegisteredTask) NextRunAt() time.Time {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.nextRunAt
-}
+// TaskOption is a functional option for configuring a task.
+type TaskOption func(*RegisteredTask)
 
-// SetNextRunAt sets the next scheduled run time for this task.
-func (t *RegisteredTask) SetNextRunAt(nextRun time.Time) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.nextRunAt = nextRun
-}
-
-// CalculateNextRun calculates the next run time based on the task's schedule.
-func (t *RegisteredTask) CalculateNextRun(from time.Time) (time.Time, error) {
-	now := from.UTC()
-
-	switch t.Schedule {
-	case EverySecond:
-		return now.Add(1 * time.Second), nil
-
-	case EveryMinute:
-		return now.Add(1 * time.Minute), nil
-
-	case Hourly:
-		return now.Add(1 * time.Hour), nil
-
-	case Daily:
-		// Run at midnight UTC
-		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC)
-		return next, nil
-
-	case DailyAt:
-		// Parse time (e.g., "14:30")
-		hour, minute, err := parseTime(t.Time)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("invalid time format: %w", err)
-		}
-
-		// Calculate next occurrence of this time
-		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
-		if next.Before(now) || next.Equal(now) {
-			next = next.AddDate(0, 0, 1)
-		}
-		return next, nil
-
-	case Weekly:
-		// Run at midnight UTC on the same day of week, one week from now
-		next := time.Date(now.Year(), now.Month(), now.Day()+7, 0, 0, 0, 0, time.UTC)
-		return next, nil
-
-	case WeeklyAt:
-		// Parse time and day
-		hour, minute, err := parseTime(t.Time)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("invalid time format: %w", err)
-		}
-
-		targetWeekday, err := parseWeekday(t.Day)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("invalid day: %w", err)
-		}
-
-		// Calculate next occurrence of this weekday at this time
-		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
-
-		// Adjust to target weekday
-		daysUntilTarget := int(targetWeekday - next.Weekday())
-		if daysUntilTarget < 0 {
-			daysUntilTarget += 7
-		}
-		next = next.AddDate(0, 0, daysUntilTarget)
-
-		// If we're already past this time today and it's the target weekday, schedule for next week
-		if next.Before(now) || next.Equal(now) {
-			next = next.AddDate(0, 0, 7)
-		}
-
-		return next, nil
-
-	case Monthly:
-		// Run at midnight UTC on the 1st of next month
-		next := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-		return next, nil
-
-	default:
-		return time.Time{}, fmt.Errorf("unknown schedule type: %s", t.Schedule)
+// WithSchedule sets the schedule for a task.
+func WithSchedule(schedule Schedule) TaskOption {
+	return func(t *RegisteredTask) {
+		t.Schedule = schedule
 	}
 }
 
-// parseTime parses a time string in "HH:MM" format.
-func parseTime(timeStr string) (hour, minute int, err error) {
-	_, err = fmt.Sscanf(timeStr, "%d:%d", &hour, &minute)
+// WithTime sets the time for Daily and Weekly schedules (HH:MM format).
+func WithTime(timeStr string) TaskOption {
+	return func(t *RegisteredTask) {
+		t.Time = timeStr
+	}
+}
+
+// WithWeekday sets the day of week for Weekly schedules.
+func WithWeekday(day string) TaskOption {
+	return func(t *RegisteredTask) {
+		t.Weekday = day
+	}
+}
+
+// WithDay sets the day of month for Monthly schedules.
+func WithDay(day int) TaskOption {
+	return func(t *RegisteredTask) {
+		t.Day = day
+	}
+}
+
+// WithCron sets a cron expression for flexible scheduling.
+// Examples:
+//   - "*/5 * * * *" - every 5 minutes
+//   - "0 2,14 * * *" - twice daily at 2am and 2pm
+//   - "0 */6 * * *" - every 6 hours
+//   - "0 0 * * 0" - weekly on Sunday at midnight
+func WithCron(cronExpr string) TaskOption {
+	return func(t *RegisteredTask) {
+		t.Schedule = Cron
+		t.CronExpr = cronExpr
+	}
+}
+
+// WithoutOverlap prevents a task from running if a previous execution is still running.
+func WithoutOverlap() TaskOption {
+	return func(t *RegisteredTask) {
+		t.WithoutOverlap = true
+	}
+}
+
+// parseTime parses a time string in "HH:MM" format and returns a time.Time for today at that time.
+func parseTime(timeStr string) (time.Time, error) {
+	var hour, minute int
+	_, err := fmt.Sscanf(timeStr, "%d:%d", &hour, &minute)
 	if err != nil {
-		return 0, 0, err
+		return time.Time{}, err
 	}
 
 	if hour < 0 || hour > 23 {
-		return 0, 0, fmt.Errorf("hour must be between 0 and 23")
+		return time.Time{}, fmt.Errorf("hour must be between 0 and 23")
 	}
 
 	if minute < 0 || minute > 59 {
-		return 0, 0, fmt.Errorf("minute must be between 0 and 59")
+		return time.Time{}, fmt.Errorf("minute must be between 0 and 59")
 	}
 
-	return hour, minute, nil
+	now := time.Now().UTC()
+	return time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC), nil
 }
 
 // parseWeekday parses a weekday string (e.g., "Monday") into time.Weekday.
@@ -164,36 +124,5 @@ func parseWeekday(day string) (time.Weekday, error) {
 		return time.Saturday, nil
 	default:
 		return 0, fmt.Errorf("invalid weekday: %s", day)
-	}
-}
-
-// TaskOption is a functional option for configuring a task.
-type TaskOption func(*RegisteredTask)
-
-// WithSchedule sets the schedule for a task.
-func WithSchedule(schedule Schedule) TaskOption {
-	return func(t *RegisteredTask) {
-		t.Schedule = schedule
-	}
-}
-
-// WithTime sets the time for DailyAt and WeeklyAt schedules.
-func WithTime(timeStr string) TaskOption {
-	return func(t *RegisteredTask) {
-		t.Time = timeStr
-	}
-}
-
-// WithDay sets the day for WeeklyAt schedules.
-func WithDay(day string) TaskOption {
-	return func(t *RegisteredTask) {
-		t.Day = day
-	}
-}
-
-// WithoutOverlap prevents a task from running if a previous execution is still running.
-func WithoutOverlap() TaskOption {
-	return func(t *RegisteredTask) {
-		t.WithoutOverlap = true
 	}
 }
