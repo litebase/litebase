@@ -212,7 +212,7 @@ func TestAccessKeyManager(t *testing.T) {
 		})
 
 		t.Run("PurgeAll", func(t *testing.T) {
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				_, err := app.Auth.AccessKeyManager.Create(
 					fmt.Sprintf("Test access key %d", i),
 					[]auth.Statement{{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}}},

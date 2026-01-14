@@ -403,6 +403,10 @@ func (c *ConnectionManager) Release(clientConnection *ClientConnection) {
 // without the mutex lock, so it should be called from within a mutex lock.
 func (c *ConnectionManager) remove(clientConnection *ClientConnection) {
 	// Remove the branch connection from the database group branch
+	if c.databases[clientConnection.Branch.DatabaseID] == nil {
+		return
+	}
+
 	c.databases[clientConnection.Branch.DatabaseID].mutex.Lock()
 
 	for i, branchConnection := range c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID] {

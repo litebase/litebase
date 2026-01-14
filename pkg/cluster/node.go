@@ -57,7 +57,7 @@ type Node struct {
 	ID                 string
 	membership         string
 	mutex              *sync.Mutex
-	onStarted          func()
+	onStarted          []func()
 	pageLoggerAccessor NodePageLoggerAccessor
 	databaseManager    NodeDatabaseManager
 	primaryAddress     string
@@ -522,7 +522,10 @@ func (n *Node) monitorPrimary() {
 
 // On started hook.
 func (n *Node) OnStarted(callback func()) {
-	n.onStarted = callback
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	
+	n.onStarted = append(n.onStarted, callback)
 }
 
 // Return the peer elections that the node is aware of.
@@ -1062,10 +1065,16 @@ func (n *Node) Start() chan bool {
 	go n.runTicker()
 
 	defer func() {
-		// Run onStarted callback BEFORE signaling completion
+		// Run onStarted callbacks BEFORE signaling completion
 		// This ensures migrations and other initialization complete before tests proceed
-		if n.onStarted != nil {
-			n.onStarted()
+		n.mutex.Lock()
+		callbacks := n.onStarted
+		n.mutex.Unlock()
+		
+		for _, callback := range callbacks {
+			if callback != nil {
+				callback()
+			}
 		}
 
 		n.started <- true

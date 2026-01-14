@@ -9,6 +9,7 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/logs"
+	"github.com/litebase/litebase/pkg/queue"
 	"github.com/litebase/litebase/pkg/storage"
 
 	netHttp "net/http"
@@ -21,6 +22,8 @@ type App struct {
 	Config          *config.Config
 	DatabaseManager *database.DatabaseManager
 	LogManager      *logs.LogManager
+	QueueDispatcher *queue.Dispatcher
+	QueueWorkerPool *queue.WorkerPool
 	ServeMux        *netHttp.ServeMux
 }
 
@@ -128,6 +131,29 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		}
 	})
 
+	// Initialize the queue worker pool first
+	app.QueueWorkerPool = queue.NewWorkerPool(
+		app.DatabaseManager.SystemDatabase(),
+		app.Cluster,
+		queue.WorkerPoolConfig{
+			PrimaryOnly: true, // Only primary nodes process jobs
+		},
+	)
+
+	// Create dispatcher from the worker pool so it uses the same job registry
+	app.QueueDispatcher = app.QueueWorkerPool.NewDispatcher()
+
+	app.InitQueueJobs()
+
+	// Start worker pool when node becomes primary
+	app.Cluster.Node().OnStarted(func() {
+		if app.Cluster.Node().IsPrimary() {
+			if err := app.QueueWorkerPool.Start(); err != nil {
+				slog.Error("Failed to start queue worker pool", "error", err)
+			}
+		}
+	})
+
 	go app.DatabaseManager.WriteQueueManager.Run()
 	go app.LogManager.Run()
 
@@ -138,6 +164,12 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 
 func (app *App) IsInitialized() bool {
 	return app.initialized
+}
+
+func (app *App) Shutdown() {
+	if app.QueueWorkerPool != nil {
+		app.QueueWorkerPool.Stop()
+	}
 }
 
 func (app *App) Run() {

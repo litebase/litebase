@@ -138,8 +138,6 @@ func (mr *MigrationRunner) Run() error {
 			continue
 		}
 
-		slog.Debug("Applying migration", "name", migration.Name)
-
 		// Execute migration in a transaction
 		tx, err := mr.db.Begin()
 
