@@ -1,11 +1,12 @@
 package backups
 
 import (
+	"context"
 	"fmt"
 )
 
 // BackupJob executes a backup job with the given data
-func BackupJob(data map[string]any) error {
+func BackupJob(ctx context.Context, data map[string]any) error {
 	databaseID, ok := data["database_id"].(string)
 
 	if !ok || databaseID == "" {

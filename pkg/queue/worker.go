@@ -222,7 +222,17 @@ func (w *Worker) processNextJob() error {
 	}
 
 	// Execute the job
-	err = job.Handle()
+	// Create a context with timeout if specified
+	ctx := context.Background()
+	timeout := job.Timeout()
+
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	err = job.Handle(ctx)
 
 	if err != nil {
 		slog.Error("Job failed", "worker_id", w.id, "job_id", queuedJob.ID, "error", err)

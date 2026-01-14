@@ -131,11 +131,7 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		}
 	})
 
-	app.QueueDispatcher = queue.NewDispatcher(
-		app.DatabaseManager.SystemDatabase(),
-	)
-
-	// Initialize the queue worker pool
+	// Initialize the queue worker pool first
 	app.QueueWorkerPool = queue.NewWorkerPool(
 		app.DatabaseManager.SystemDatabase(),
 		app.Cluster,
@@ -143,6 +139,9 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 			PrimaryOnly: true, // Only primary nodes process jobs
 		},
 	)
+
+	// Create dispatcher from the worker pool so it uses the same job registry
+	app.QueueDispatcher = app.QueueWorkerPool.NewDispatcher()
 
 	app.InitQueueJobs()
 

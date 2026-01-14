@@ -78,6 +78,7 @@ func (p *WorkerPool) RegisterJob(name string, handler JobHandler, opts ...JobOpt
 		throttleFunc:      config.Throttle,
 		withoutOverlap:    config.WithoutOverlap,
 		overlapRetryDelay: config.OverlapRetryDelay,
+		timeout:           config.Timeout,
 		data:              make(map[string]any),
 	}
 
@@ -138,4 +139,11 @@ func (p *WorkerPool) IsStarted() bool {
 // WorkerCount returns the number of workers in the pool.
 func (p *WorkerPool) WorkerCount() int {
 	return p.workerCount
+}
+
+// NewDispatcher creates a Dispatcher that uses this pool's job registry.
+// This ensures dispatched jobs inherit the configuration (retries, timeouts, etc.)
+// defined during job registration.
+func (p *WorkerPool) NewDispatcher() *Dispatcher {
+	return NewDispatcher(p.systemDB, p.registry)
 }

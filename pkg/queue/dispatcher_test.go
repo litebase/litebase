@@ -1,6 +1,7 @@
 package queue_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ type TestJob struct {
 	handleError error
 }
 
-func (j *TestJob) Handle() error {
+func (j *TestJob) Handle(ctx context.Context) error {
 	return j.handleError
 }
 
@@ -55,6 +56,10 @@ func (j *TestJob) WithoutOverlap() bool {
 
 func (j *TestJob) OverlapRetryDelay() time.Duration {
 	return 1 * time.Second
+}
+
+func (j *TestJob) Timeout() time.Duration {
+	return 0
 }
 
 func (j *TestJob) FromData(data map[string]any) error {
@@ -95,7 +100,8 @@ func TestDispatcher_Dispatch(t *testing.T) {
 		defer server.Shutdown()
 
 		systemDB := server.App.DatabaseManager.SystemDatabase()
-		dispatcher := queue.NewDispatcher(systemDB)
+		registry := queue.NewJobRegistry()
+		dispatcher := queue.NewDispatcher(systemDB, registry)
 
 		job := &TestJob{
 			name:       "Test Job",
@@ -175,7 +181,8 @@ func TestDispatcher_DispatchWithDelay(t *testing.T) {
 		defer server.Shutdown()
 
 		systemDB := server.App.DatabaseManager.SystemDatabase()
-		dispatcher := queue.NewDispatcher(systemDB)
+		registry := queue.NewJobRegistry()
+		dispatcher := queue.NewDispatcher(systemDB, registry)
 
 		job := &TestJob{
 			name:       "Delayed Job",
@@ -234,7 +241,8 @@ func TestDispatcher_DispatchUnique(t *testing.T) {
 		defer server.Shutdown()
 
 		systemDB := server.App.DatabaseManager.SystemDatabase()
-		dispatcher := queue.NewDispatcher(systemDB)
+		registry := queue.NewJobRegistry()
+		dispatcher := queue.NewDispatcher(systemDB, registry)
 
 		job := &TestJob{
 			name:       "Unique Job",
@@ -299,7 +307,8 @@ func TestDispatcher_DispatchUnique_AllowsAfterCompletion(t *testing.T) {
 		defer server.Shutdown()
 
 		systemDB := server.App.DatabaseManager.SystemDatabase()
-		dispatcher := queue.NewDispatcher(systemDB)
+		registry := queue.NewJobRegistry()
+		dispatcher := queue.NewDispatcher(systemDB, registry)
 
 		job := &TestJob{
 			name:       "Unique Job",
@@ -369,7 +378,8 @@ func TestDispatcher_DispatchUniqueWithDelay(t *testing.T) {
 		defer server.Shutdown()
 
 		systemDB := server.App.DatabaseManager.SystemDatabase()
-		dispatcher := queue.NewDispatcher(systemDB)
+		registry := queue.NewJobRegistry()
+		dispatcher := queue.NewDispatcher(systemDB, registry)
 
 		job := &TestJob{
 			name:       "Unique Delayed Job",
@@ -444,7 +454,8 @@ func TestDispatcher_MultipleQueues(t *testing.T) {
 		defer server.Shutdown()
 
 		systemDB := server.App.DatabaseManager.SystemDatabase()
-		dispatcher := queue.NewDispatcher(systemDB)
+		registry := queue.NewJobRegistry()
+		dispatcher := queue.NewDispatcher(systemDB, registry)
 
 		// Dispatch jobs to different queues
 		job1 := &TestJob{
@@ -516,7 +527,8 @@ func TestDispatcher_DifferentJobTypes(t *testing.T) {
 		defer server.Shutdown()
 
 		systemDB := server.App.DatabaseManager.SystemDatabase()
-		dispatcher := queue.NewDispatcher(systemDB)
+		registry := queue.NewJobRegistry()
+		dispatcher := queue.NewDispatcher(systemDB, registry)
 
 		// Dispatch jobs of different types
 		job1 := &TestJob{

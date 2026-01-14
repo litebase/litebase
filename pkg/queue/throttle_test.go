@@ -1,6 +1,7 @@
 package queue_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ func TestWorker_JobThrottled(t *testing.T) {
 		throttleCheckCount := 0
 		executionCount := 0
 
-		handler := func(data map[string]any) error {
+		handler := func(ctx context.Context, data map[string]any) error {
 			executionCount++
 
 			return nil
@@ -58,7 +59,8 @@ func TestWorker_JobThrottled(t *testing.T) {
 
 		defer pool.Stop()
 
-		dispatcher := server.App.QueueDispatcher
+		// Use the pool's dispatcher which knows about the registered jobs
+		dispatcher := pool.NewDispatcher()
 
 		jobID, err := dispatcher.DispatchJob("ThrottledJob", map[string]any{
 			"test": "data",
@@ -123,7 +125,7 @@ func TestWorker_JobThrottledByKey(t *testing.T) {
 
 		executedKeys := make(map[string]bool)
 
-		handler := func(data map[string]any) error {
+		handler := func(ctx context.Context, data map[string]any) error {
 			if key, ok := data["key"].(string); ok {
 				executedKeys[key] = true
 			}
@@ -155,7 +157,8 @@ func TestWorker_JobThrottledByKey(t *testing.T) {
 
 		defer pool.Stop()
 
-		dispatcher := server.App.QueueDispatcher
+		// Use the pool's dispatcher which knows about the registered jobs
+		dispatcher := pool.NewDispatcher()
 
 		_, err = dispatcher.DispatchJob("KeyThrottledJob", map[string]any{
 			"key": "allow-me",

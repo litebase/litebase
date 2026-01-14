@@ -1,6 +1,7 @@
 package queue_test
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -22,7 +23,7 @@ type TestRetryJob struct {
 	failUntilAttempt int
 }
 
-func (j *TestRetryJob) Handle() error {
+func (j *TestRetryJob) Handle(ctx context.Context) error {
 	*j.attemptCount++
 	if *j.attemptCount < j.failUntilAttempt {
 		return errors.New("temporary failure")
@@ -64,6 +65,10 @@ func (j *TestRetryJob) WithoutOverlap() bool {
 
 func (j *TestRetryJob) OverlapRetryDelay() time.Duration {
 	return 1 * time.Second
+}
+
+func (j *TestRetryJob) Timeout() time.Duration {
+	return 0
 }
 
 func (j *TestRetryJob) FromData(data map[string]any) error {
@@ -751,7 +756,7 @@ func TestWorker_ReplicaPromotedToPrimaryProcessesJobs(t *testing.T) {
 		jobProcessed := make(chan bool, 1)
 
 		// Create a simple handler that succeeds
-		testHandler := func(data map[string]any) error {
+		testHandler := func(ctx context.Context, data map[string]any) error {
 			return nil // Success
 		}
 
@@ -776,8 +781,8 @@ func TestWorker_ReplicaPromotedToPrimaryProcessesJobs(t *testing.T) {
 			t.Fatalf("Failed to start pool2: %v", err)
 		}
 
-		// Dispatch a job on the primary
-		dispatcher := server1.App.QueueDispatcher
+		// Dispatch a job using pool1's dispatcher which knows about the registered job
+		dispatcher := pool1.NewDispatcher()
 
 		jobID, err := dispatcher.DispatchJob("TestJob", map[string]any{
 			"key": "test-key-1",

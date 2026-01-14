@@ -43,12 +43,14 @@ func Unique() DispatchOption {
 // It handles job persistence, deduplication, and scheduling.
 type Dispatcher struct {
 	systemDB *database.SystemDatabase
+	registry *JobRegistry
 }
 
-// NewDispatcher creates a new Dispatcher instance with the system database.
-func NewDispatcher(systemDB *database.SystemDatabase) *Dispatcher {
+// NewDispatcher creates a new Dispatcher instance with the system database and job registry.
+func NewDispatcher(systemDB *database.SystemDatabase, registry *JobRegistry) *Dispatcher {
 	return &Dispatcher{
 		systemDB: systemDB,
+		registry: registry,
 	}
 }
 
@@ -65,20 +67,10 @@ func (d *Dispatcher) DispatchJob(name string, data map[string]any, opts ...Dispa
 		opt(config)
 	}
 
-	// Build a job instance with the data
-	jobConfig := NewJob(name).Data(data)
-
-	if config.key != "" {
-		jobConfig = jobConfig.Key(config.key)
-	}
-
-	// We need a dummy handler for Build() validation, but it won't be used
-	// since the actual handler is registered in the worker pool
-	jobConfig = jobConfig.Handle(func(d map[string]any) error { return nil })
-
-	job, err := jobConfig.Build()
+	// Get the job prototype from the registry and create a new instance
+	job, err := d.registry.Get(name, data)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to get job from registry: %w", err)
 	}
 
 	if config.unique {

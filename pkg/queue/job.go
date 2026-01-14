@@ -1,12 +1,14 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
 
 // JobHandler is a function that processes job data.
-type JobHandler func(data map[string]any) error
+// The context may be cancelled if the job times out or the worker shuts down.
+type JobHandler func(ctx context.Context, data map[string]any) error
 
 // ThrottleFunc is a callback that determines if a job should be throttled.
 // It receives the job's data and key, and returns:
@@ -20,6 +22,7 @@ type JobTypeConfig struct {
 	QueueName         string
 	Retries           int
 	RetryAfter        time.Duration
+	Timeout           time.Duration // Maximum execution time (0 = no timeout)
 	Handler           JobHandler
 	Throttle          ThrottleFunc  // Optional throttle callback
 	WithoutOverlap    bool          // Prevent concurrent execution of jobs with same key
@@ -68,6 +71,15 @@ func WithoutOverlapping(retryDelay ...time.Duration) JobOption {
 	}
 }
 
+// WithTimeout sets the maximum execution time for a job.
+// If the job exceeds this duration, it will be cancelled via context.
+// A timeout of 0 (default) means no timeout.
+func WithTimeout(duration time.Duration) JobOption {
+	return func(c *JobTypeConfig) {
+		c.Timeout = duration
+	}
+}
+
 // Job defines the interface that all queued jobs must implement.
 // This interface is inspired by Laravel's queue system and provides
 // the necessary methods for job processing, retry logic, and identification.
@@ -75,7 +87,10 @@ type Job interface {
 	// Handle processes the job and returns an error if the job fails.
 	// Returning an error will trigger the retry mechanism based on Retries()
 	// and RetryAfter() settings.
-	Handle() error
+	// Handle executes the job with the given context.
+	// The context may be cancelled if the job exceeds its timeout.
+	// Handlers should respect context cancellation and return promptly.
+	Handle(ctx context.Context) error
 
 	// Name returns the PascalCase identifier for this job (e.g., "BackupJob").
 	// This is used to deserialize and instantiate the correct job handler.
@@ -109,6 +124,10 @@ type Job interface {
 	// OverlapRetryDelay returns the delay before retrying an overlapping job.
 	OverlapRetryDelay() time.Duration
 
+	// Timeout returns the maximum execution time for the job.
+	// A value of 0 means no timeout.
+	Timeout() time.Duration
+
 	// ToData returns the job's data as a map for serialization to JSON.
 	ToData() (map[string]any, error)
 
@@ -128,7 +147,7 @@ type JobConfig struct {
 	queueName  string
 	retries    int
 	retryAfter time.Duration
-	handler    func(data map[string]any) error
+	handler    JobHandler
 	data       map[string]any
 }
 
@@ -166,7 +185,7 @@ func (j *JobConfig) Retry(retries int, retryAfter time.Duration) *JobConfig {
 }
 
 // Handle sets the handler function that processes the job.
-func (j *JobConfig) Handle(handler func(data map[string]any) error) *JobConfig {
+func (j *JobConfig) Handle(handler JobHandler) *JobConfig {
 	j.handler = handler
 
 	return j
@@ -204,15 +223,16 @@ type ConfiguredJob struct {
 	queueName         string
 	retries           int
 	retryAfter        time.Duration
-	handler           func(data map[string]any) error
+	handler           JobHandler
 	data              map[string]any
 	throttleFunc      ThrottleFunc
 	withoutOverlap    bool
 	overlapRetryDelay time.Duration
+	timeout           time.Duration
 }
 
-func (j *ConfiguredJob) Handle() error {
-	return j.handler(j.data)
+func (j *ConfiguredJob) Handle(ctx context.Context) error {
+	return j.handler(ctx, j.data)
 }
 
 func (j *ConfiguredJob) Name() string {
@@ -251,6 +271,10 @@ func (j *ConfiguredJob) OverlapRetryDelay() time.Duration {
 	return j.overlapRetryDelay
 }
 
+func (j *ConfiguredJob) Timeout() time.Duration {
+	return j.timeout
+}
+
 func (j *ConfiguredJob) ToData() (map[string]any, error) {
 	return j.data, nil
 }
@@ -270,6 +294,7 @@ func (j *ConfiguredJob) NewInstance() any {
 		throttleFunc:      j.throttleFunc,
 		withoutOverlap:    j.withoutOverlap,
 		overlapRetryDelay: j.overlapRetryDelay,
+		timeout:           j.timeout,
 		data:              make(map[string]any),
 	}
 }
