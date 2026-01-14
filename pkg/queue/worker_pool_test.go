@@ -116,14 +116,10 @@ func TestWorkerPool_PrimaryOnly(t *testing.T) {
 			t.Fatalf("Failed to start worker pool: %v", err)
 		}
 
-		isPrimary := server.App.Cluster.Node().IsPrimary()
-
-		if isPrimary && !pool.IsStarted() {
-			t.Error("Expected pool to be started on primary node")
-		}
-
-		if !isPrimary && pool.IsStarted() {
-			t.Error("Expected pool to not be started on replica node when PrimaryOnly is true")
+		// Pool should always start regardless of primary status
+		// Workers will check primary status before processing jobs
+		if !pool.IsStarted() {
+			t.Error("Expected pool to be started even when PrimaryOnly is true")
 		}
 
 		pool.Stop()

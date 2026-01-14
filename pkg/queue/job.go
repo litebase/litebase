@@ -1,6 +1,39 @@
 package queue
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
+
+// JobHandler is a function that processes job data.
+type JobHandler func(data map[string]any) error
+
+// JobTypeConfig defines the configuration for a job type during registration.
+type JobTypeConfig struct {
+	Name       string        // PascalCase job identifier (e.g., "BackupJob")
+	QueueName  string
+	Retries    int
+	RetryAfter time.Duration
+	Handler    JobHandler
+}
+
+// JobOption is a functional option for configuring job types during registration.
+type JobOption func(*JobTypeConfig)
+
+// WithQueue sets which queue this job type should run on.
+func WithQueue(queue string) JobOption {
+	return func(c *JobTypeConfig) {
+		c.QueueName = queue
+	}
+}
+
+// WithRetries sets the retry behavior for this job type.
+func WithRetries(retries int, retryAfter time.Duration) JobOption {
+	return func(c *JobTypeConfig) {
+		c.Retries = retries
+		c.RetryAfter = retryAfter
+	}
+}
 
 // Job defines the interface that all queued jobs must implement.
 // This interface is inspired by Laravel's queue system and provides
@@ -11,17 +44,13 @@ type Job interface {
 	// and RetryAfter() settings.
 	Handle() error
 
-	// JobType returns the type identifier for this job.
+	// Name returns the PascalCase identifier for this job (e.g., "BackupJob").
 	// This is used to deserialize and instantiate the correct job handler.
-	JobType() string
+	Name() string
 
 	// Key returns a unique identifier for this specific job instance.
 	// This can be used for deduplication or tracking individual jobs.
 	Key() string
-
-	// Name returns a human-readable name for the job type.
-	// This is used for logging and monitoring purposes.
-	Name() string
 
 	// QueueName returns the name of the queue this job should be processed on.
 	// This allows for job prioritization and separation of concerns.
@@ -34,4 +63,146 @@ type Job interface {
 	// RetryAfter returns the duration to wait before retrying a failed job.
 	// This allows for exponential backoff or custom retry strategies.
 	RetryAfter() time.Duration
+
+	// ToData returns the job's data as a map for serialization to JSON.
+	ToData() (map[string]any, error)
+
+	// FromData populates the job from deserialized data.
+	FromData(data map[string]any) error
+
+	// NewInstance creates a new instance of the same job type.
+	// This is used by the registry to create job instances for deserialization.
+	// Returns any to avoid circular import issues, but must return a type that implements Job.
+	NewInstance() any
+}
+
+// JobConfig provides a fluent API for configuring jobs.
+type JobConfig struct {
+	name       string // PascalCase job identifier
+	key        string
+	queueName  string
+	retries    int
+	retryAfter time.Duration
+	handler    func(data map[string]any) error
+	data       map[string]any
+}
+
+// NewJob creates a new job configuration with the given PascalCase job name.
+func NewJob(name string) *JobConfig {
+	return &JobConfig{
+		name:       name,
+		queueName:  "default",
+		retries:    3,
+		retryAfter: 30 * time.Second,
+		data:       make(map[string]any),
+	}
+}
+
+// Key sets a unique identifier for this job instance.
+func (j *JobConfig) Key(key string) *JobConfig {
+	j.key = key
+
+	return j
+}
+
+// Queue sets the queue name this job should be processed on.
+func (j *JobConfig) Queue(queue string) *JobConfig {
+	j.queueName = queue
+
+	return j
+}
+
+// Retry sets the retry count and delay for failed jobs.
+func (j *JobConfig) Retry(retries int, retryAfter time.Duration) *JobConfig {
+	j.retries = retries
+	j.retryAfter = retryAfter
+
+	return j
+}
+
+// Handle sets the handler function that processes the job.
+func (j *JobConfig) Handle(handler func(data map[string]any) error) *JobConfig {
+	j.handler = handler
+
+	return j
+}
+
+// Data sets the data payload for the job.
+func (j *JobConfig) Data(data map[string]any) *JobConfig {
+	j.data = data
+
+	return j
+}
+
+// Build creates the final job instance.
+// Returns an error if required fields (handler) are not set.
+func (j *JobConfig) Build() (Job, error) {
+	if j.handler == nil {
+		return nil, fmt.Errorf("job handler is required")
+	}
+
+	return &ConfiguredJob{
+		name:       j.name,
+		key:        j.key,
+		queueName:  j.queueName,
+		retries:    j.retries,
+		retryAfter: j.retryAfter,
+		handler:    j.handler,
+		data:       j.data,
+	}, nil
+}
+
+// ConfiguredJob is the implementation created by JobConfig.
+type ConfiguredJob struct {
+	name       string
+	key        string
+	queueName  string
+	retries    int
+	retryAfter time.Duration
+	handler    func(data map[string]any) error
+	data       map[string]any
+}
+
+func (j *ConfiguredJob) Handle() error {
+	return j.handler(j.data)
+}
+
+func (j *ConfiguredJob) Name() string {
+	return j.name
+}
+
+func (j *ConfiguredJob) Key() string {
+	return j.key
+}
+
+func (j *ConfiguredJob) QueueName() string {
+	return j.queueName
+}
+
+func (j *ConfiguredJob) Retries() int {
+	return j.retries
+}
+
+func (j *ConfiguredJob) RetryAfter() time.Duration {
+	return j.retryAfter
+}
+
+func (j *ConfiguredJob) ToData() (map[string]any, error) {
+	return j.data, nil
+}
+
+func (j *ConfiguredJob) FromData(data map[string]any) error {
+	j.data = data
+	return nil
+}
+
+func (j *ConfiguredJob) NewInstance() any {
+	return &ConfiguredJob{
+		name:       j.name,
+		queueName:  j.queueName,
+		retries:    j.retries,
+		retryAfter: j.retryAfter,
+		handler:    j.handler,
+		data:       make(map[string]any),
+	}
 }

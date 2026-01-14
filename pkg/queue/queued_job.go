@@ -18,7 +18,7 @@ const (
 type QueuedJob struct {
 	ID          int64      `db:"id"`
 	QueueName   string     `db:"queue_name"`
-	JobType     string     `db:"job_type"`
+	Name        string     `db:"name"`
 	Key         string     `db:"key"`
 	Status      JobStatus  `db:"status"`
 	Attempts    int        `db:"attempts"`

@@ -23,18 +23,16 @@ func (j *TestJob) Handle() error {
 	return j.handleError
 }
 
-func (j *TestJob) JobType() string {
+func (j *TestJob) Name() string {
+	if j.jobType == "" {
+		return j.name
+	}
 	return j.jobType
 }
 
 func (j *TestJob) Key() string {
 	return j.key
 }
-
-func (j *TestJob) Name() string {
-	return j.name
-}
-
 func (j *TestJob) QueueName() string {
 	return j.queueName
 }
@@ -45,6 +43,38 @@ func (j *TestJob) Retries() int {
 
 func (j *TestJob) RetryAfter() time.Duration {
 	return j.retryAfter
+}
+
+func (j *TestJob) FromData(data map[string]any) error {
+	if key, ok := data["key"].(string); ok {
+		j.key = key
+	}
+	if handleError, ok := data["handleError"].(string); ok && handleError != "" {
+		j.handleError = nil // We can't reconstruct the error from string in tests
+	}
+	return nil
+}
+
+func (j *TestJob) ToData() (map[string]any, error) {
+	data := map[string]any{
+		"key": j.key,
+	}
+	if j.handleError != nil {
+		data["handleError"] = j.handleError.Error()
+	}
+	return data, nil
+}
+
+func (j *TestJob) NewInstance() any {
+	return &TestJob{
+		name:        j.name,
+		key:         "",
+		queueName:   j.queueName,
+		jobType:     j.jobType,
+		retries:     j.retries,
+		retryAfter:  j.retryAfter,
+		handleError: j.handleError,
+	}
 }
 
 func TestDispatcher_Dispatch(t *testing.T) {
@@ -59,7 +89,6 @@ func TestDispatcher_Dispatch(t *testing.T) {
 			name:       "Test Job",
 			key:        "test-job-1",
 			queueName:  "default",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -85,12 +114,12 @@ func TestDispatcher_Dispatch(t *testing.T) {
 		var queuedJob queue.QueuedJob
 
 		err = db.QueryRow(`
-			SELECT id, queue_name, job_type, key, status, attempts, max_attempts
+			SELECT id, queue_name, name, key, status, attempts, max_attempts
 			FROM queued_jobs WHERE id = ?
 		`, id).Scan(
 			&queuedJob.ID,
 			&queuedJob.QueueName,
-			&queuedJob.JobType,
+			&queuedJob.Name,
 			&queuedJob.Key,
 			&queuedJob.Status,
 			&queuedJob.Attempts,
@@ -106,8 +135,8 @@ func TestDispatcher_Dispatch(t *testing.T) {
 			t.Errorf("Expected queue_name %s, got %s", job.QueueName(), queuedJob.QueueName)
 		}
 
-		if queuedJob.JobType != job.JobType() {
-			t.Errorf("Expected job_type %s, got %s", job.JobType(), queuedJob.JobType)
+		if queuedJob.Name != job.Name() {
+			t.Errorf("Expected name %s, got %s", job.Name(), queuedJob.Name)
 		}
 
 		if queuedJob.Key != job.Key() {
@@ -140,7 +169,6 @@ func TestDispatcher_DispatchWithDelay(t *testing.T) {
 			name:       "Delayed Job",
 			key:        "delayed-job-1",
 			queueName:  "default",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -200,7 +228,6 @@ func TestDispatcher_DispatchUnique(t *testing.T) {
 			name:       "Unique Job",
 			key:        "unique-job-1",
 			queueName:  "default",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -266,7 +293,6 @@ func TestDispatcher_DispatchUnique_AllowsAfterCompletion(t *testing.T) {
 			name:       "Unique Job",
 			key:        "unique-job-2",
 			queueName:  "default",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -337,7 +363,6 @@ func TestDispatcher_DispatchUniqueWithDelay(t *testing.T) {
 			name:       "Unique Delayed Job",
 			key:        "unique-delayed-job-1",
 			queueName:  "default",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -414,7 +439,6 @@ func TestDispatcher_MultipleQueues(t *testing.T) {
 			name:       "High Priority Job",
 			key:        "job-1",
 			queueName:  "high",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -423,7 +447,6 @@ func TestDispatcher_MultipleQueues(t *testing.T) {
 			name:       "Default Priority Job",
 			key:        "job-2",
 			queueName:  "default",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -432,7 +455,6 @@ func TestDispatcher_MultipleQueues(t *testing.T) {
 			name:       "Low Priority Job",
 			key:        "job-3",
 			queueName:  "low",
-			jobType:    "test",
 			retries:    3,
 			retryAfter: 5 * time.Second,
 		}
@@ -488,8 +510,8 @@ func TestDispatcher_DifferentJobTypes(t *testing.T) {
 		job1 := &TestJob{
 			name:       "Email Job",
 			key:        "email-1",
-			queueName:  "default",
 			jobType:    "email",
+			queueName:  "default",
 			retries:    5,
 			retryAfter: 10 * time.Second,
 		}
@@ -497,8 +519,8 @@ func TestDispatcher_DifferentJobTypes(t *testing.T) {
 		job2 := &TestJob{
 			name:       "Export Job",
 			key:        "export-1",
-			queueName:  "default",
 			jobType:    "export",
+			queueName:  "default",
 			retries:    2,
 			retryAfter: 30 * time.Second,
 		}
@@ -522,7 +544,7 @@ func TestDispatcher_DifferentJobTypes(t *testing.T) {
 		var jobType1 string
 		var maxAttempts1 int
 		err = db.QueryRow(`
-			SELECT job_type, max_attempts FROM queued_jobs WHERE id = ?
+			SELECT name, max_attempts FROM queued_jobs WHERE id = ?
 		`, id1).Scan(&jobType1, &maxAttempts1)
 
 		if err != nil {
@@ -530,7 +552,7 @@ func TestDispatcher_DifferentJobTypes(t *testing.T) {
 		}
 
 		if jobType1 != "email" {
-			t.Errorf("Expected job_type email, got %s", jobType1)
+			t.Errorf("Expected name email, got %s", jobType1)
 		}
 
 		if maxAttempts1 != 5 {
@@ -540,7 +562,7 @@ func TestDispatcher_DifferentJobTypes(t *testing.T) {
 		var jobType2 string
 		var maxAttempts2 int
 		err = db.QueryRow(`
-			SELECT job_type, max_attempts FROM queued_jobs WHERE id = ?
+			SELECT name, max_attempts FROM queued_jobs WHERE id = ?
 		`, id2).Scan(&jobType2, &maxAttempts2)
 
 		if err != nil {
@@ -548,7 +570,7 @@ func TestDispatcher_DifferentJobTypes(t *testing.T) {
 		}
 
 		if jobType2 != "export" {
-			t.Errorf("Expected job_type export, got %s", jobType2)
+			t.Errorf("Expected name export, got %s", jobType2)
 		}
 
 		if maxAttempts2 != 2 {

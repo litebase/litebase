@@ -144,12 +144,14 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		},
 	)
 
+	app.InitQueueJobs()
+
 	// Start worker pool when node becomes primary
 	app.Cluster.Node().OnStarted(func() {
 		if app.Cluster.Node().IsPrimary() {
-			// if err := app.QueueWorkerPool.Start(); err != nil {
-			// 	slog.Error("Failed to start queue worker pool", "error", err)
-			// }
+			if err := app.QueueWorkerPool.Start(); err != nil {
+				slog.Error("Failed to start queue worker pool", "error", err)
+			}
 		}
 	})
 

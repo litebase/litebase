@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"time"
 
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/database"
@@ -47,22 +48,42 @@ func NewWorkerPool(systemDB *database.SystemDatabase, cluster *cluster.Cluster, 
 	}
 }
 
-// RegisterJob registers a job type with its factory function.
-func (p *WorkerPool) RegisterJob(jobType string, factory JobFactory) {
-	p.registry.Register(jobType, factory)
+// RegisterJob registers a new job type with its handler and configuration.
+func (p *WorkerPool) RegisterJob(name string, handler JobHandler, opts ...JobOption) error {
+	config := &JobTypeConfig{
+		Name:       name,
+		QueueName:  "default",
+		Retries:    3,
+		RetryAfter: 30 * time.Second,
+		Handler:    handler,
+	}
+
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	if config.Handler == nil {
+		return fmt.Errorf("job handler is required for job type %s", name)
+	}
+
+	// Create a prototype job
+	prototype := &ConfiguredJob{
+		name:       config.Name,
+		queueName:  config.QueueName,
+		retries:    config.Retries,
+		retryAfter: config.RetryAfter,
+		handler:    config.Handler,
+		data:       make(map[string]any),
+	}
+
+	p.registry.Register(prototype)
+	return nil
 }
 
 // Start starts all workers in the pool.
 func (p *WorkerPool) Start() error {
 	if p.started {
 		return fmt.Errorf("worker pool already started")
-	}
-
-	// Check if we should run based on primary-only setting
-	if p.primaryOnly && !p.cluster.Node().IsPrimary() {
-		slog.Info("Worker pool not started - not primary node", "primary_only", p.primaryOnly)
-
-		return nil
 	}
 
 	slog.Info("Starting worker pool", "worker_count", p.workerCount, "primary_only", p.primaryOnly)
@@ -72,6 +93,9 @@ func (p *WorkerPool) Start() error {
 	for i := 0; i < p.workerCount; i++ {
 		workerID := fmt.Sprintf("worker-%d", i+1)
 		p.workers[i] = NewWorker(workerID, p.systemDB, p.registry)
+		p.workers[i].SetPrimaryOnlyMode(p.primaryOnly, func() bool {
+			return p.cluster.Node().IsPrimary()
+		})
 		p.workers[i].Start()
 	}
 

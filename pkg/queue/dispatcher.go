@@ -1,11 +1,43 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/litebase/litebase/pkg/database"
 )
+
+// dispatchConfig holds configuration for dispatching a job.
+type dispatchConfig struct {
+	key    string
+	delay  time.Duration
+	unique bool
+}
+
+// DispatchOption is a functional option for configuring job dispatch.
+type DispatchOption func(*dispatchConfig)
+
+// WithKey sets a unique key for the job instance.
+func WithKey(key string) DispatchOption {
+	return func(c *dispatchConfig) {
+		c.key = key
+	}
+}
+
+// WithDelay sets a delay before the job becomes available for processing.
+func WithDelay(delay time.Duration) DispatchOption {
+	return func(c *dispatchConfig) {
+		c.delay = delay
+	}
+}
+
+// Unique marks the job as unique (only one instance with the same key can be pending).
+func Unique() DispatchOption {
+	return func(c *dispatchConfig) {
+		c.unique = true
+	}
+}
 
 // Dispatcher is responsible for dispatching jobs to the queue.
 // It handles job persistence, deduplication, and scheduling.
@@ -18,6 +50,47 @@ func NewDispatcher(systemDB *database.SystemDatabase) *Dispatcher {
 	return &Dispatcher{
 		systemDB: systemDB,
 	}
+}
+
+// DispatchJob dispatches a job by type with the given data.
+// This is the preferred way to dispatch jobs as it's more concise.
+func (d *Dispatcher) DispatchJob(name string, data map[string]any, opts ...DispatchOption) (int64, error) {
+	config := &dispatchConfig{
+		key:    "",
+		delay:  0,
+		unique: false,
+	}
+
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	// Build a job instance with the data
+	jobConfig := NewJob(name).Data(data)
+
+	if config.key != "" {
+		jobConfig = jobConfig.Key(config.key)
+	}
+
+	// We need a dummy handler for Build() validation, but it won't be used
+	// since the actual handler is registered in the worker pool
+	jobConfig = jobConfig.Handle(func(d map[string]any) error { return nil })
+
+	job, err := jobConfig.Build()
+	if err != nil {
+		return 0, err
+	}
+
+	if config.unique {
+		id, _, err := d.DispatchUnique(job)
+		return id, err
+	}
+
+	if config.delay > 0 {
+		return d.DispatchWithDelay(job, config.delay)
+	}
+
+	return d.Dispatch(job)
 }
 
 // Dispatch adds a new job to the queue.
@@ -35,19 +108,33 @@ func (d *Dispatcher) DispatchWithDelay(job Job, delay time.Duration) (int64, err
 		return 0, fmt.Errorf("failed to get system database: %w", err)
 	}
 
+	// Serialize job data to JSON
+	jobData, err := job.ToData()
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to serialize job data: %w", err)
+	}
+
+	dataJSON, err := json.Marshal(jobData)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal job data to JSON: %w", err)
+	}
+
 	now := time.Now().UTC()
 	availableAt := now.Add(delay)
 
 	result, err := db.Exec(
 		`INSERT INTO queued_jobs 
-		(queue_name, job_type, key, status, attempts, max_attempts, created_at, updated_at, available_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(queue_name, name, key, status, attempts, max_attempts, data, created_at, updated_at, available_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		job.QueueName(),
-		job.JobType(),
+		job.Name(),
 		job.Key(),
 		JobStatusPending,
 		0,
 		job.Retries(),
+		string(dataJSON),
 		now.Format(time.RFC3339),
 		now.Format(time.RFC3339),
 		availableAt.Format(time.RFC3339),

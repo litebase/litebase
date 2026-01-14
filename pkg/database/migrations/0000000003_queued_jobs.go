@@ -10,9 +10,10 @@ func Migration0000000003QueuedJobs(db *sql.DB) error {
 		(
 			id INTEGER PRIMARY KEY,
 			queue_name TEXT NOT NULL,
-			job_type TEXT NOT NULL,
+			name TEXT NOT NULL,
 			key TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'pending',
+			data TEXT,
 			attempts INTEGER NOT NULL DEFAULT 0,
 			max_attempts INTEGER NOT NULL DEFAULT 3,
 			created_at TEXT NOT NULL,

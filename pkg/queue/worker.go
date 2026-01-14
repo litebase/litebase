@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -21,6 +22,8 @@ type Worker struct {
 	registry     *JobRegistry
 	wg           sync.WaitGroup
 	afterJob     func(jobID int64, status JobStatus, err error)
+	primaryOnly  bool
+	isPrimary    func() bool
 }
 
 // NewWorker creates a new worker instance.
@@ -43,11 +46,15 @@ func (w *Worker) SetAfterJobHook(fn func(jobID int64, status JobStatus, err erro
 	w.afterJob = fn
 }
 
+// SetPrimaryOnlyMode configures the worker to only process jobs when on a primary node.
+func (w *Worker) SetPrimaryOnlyMode(primaryOnly bool, isPrimary func() bool) {
+	w.primaryOnly = primaryOnly
+	w.isPrimary = isPrimary
+}
+
 // Start begins processing jobs from the queue.
 func (w *Worker) Start() {
-	w.wg.Add(1)
-	go func() {
-		defer w.wg.Done()
+	w.wg.Go(func() {
 		slog.Info("Worker started", "worker_id", w.id)
 
 		ticker := time.NewTicker(w.pollInterval)
@@ -66,7 +73,7 @@ func (w *Worker) Start() {
 				}
 			}
 		}
-	}()
+	})
 }
 
 // Stop gracefully stops the worker.
@@ -77,6 +84,14 @@ func (w *Worker) Stop() {
 
 // processNextJob attempts to reserve and process the next available job.
 func (w *Worker) processNextJob() error {
+	// If primary-only mode is enabled, skip processing if not primary.
+	// In the future, Replicas will be allowed to process certain job types or
+	// jobs that have been assigned to them by the Primary, while still relying
+	// on the Primary for job dispatching, coordination, and storage.
+	if w.primaryOnly && w.isPrimary != nil && !w.isPrimary() {
+		return nil
+	}
+
 	db, err := w.systemDB.DB()
 
 	if err != nil {
@@ -99,9 +114,10 @@ func (w *Worker) processNextJob() error {
 	// Find the next available job
 	now := time.Now().UTC()
 	var queuedJob QueuedJob
+	var dataJSON sql.NullString
 
 	err = tx.QueryRow(`
-		SELECT id, queue_name, job_type, key, status, attempts, max_attempts, created_at, updated_at, available_at
+		SELECT id, queue_name, name, key, status, attempts, max_attempts, data, created_at, updated_at, available_at
 		FROM queued_jobs
 		WHERE status = ? AND available_at <= ?
 		ORDER BY available_at ASC
@@ -109,11 +125,12 @@ func (w *Worker) processNextJob() error {
 	`, JobStatusPending, now.Format(time.RFC3339)).Scan(
 		&queuedJob.ID,
 		&queuedJob.QueueName,
-		&queuedJob.JobType,
+		&queuedJob.Name,
 		&queuedJob.Key,
 		&queuedJob.Status,
 		&queuedJob.Attempts,
 		&queuedJob.MaxAttempts,
+		&dataJSON,
 		&queuedJob.CreatedAt,
 		&queuedJob.UpdatedAt,
 		&queuedJob.AvailableAt,
@@ -123,8 +140,18 @@ func (w *Worker) processNextJob() error {
 		return err // Could be sql.ErrNoRows if no jobs available
 	}
 
+	// Deserialize job data
+	var jobData map[string]any
+
+	if dataJSON.Valid && dataJSON.String != "" {
+		if err := json.Unmarshal([]byte(dataJSON.String), &jobData); err != nil {
+			return fmt.Errorf("failed to unmarshal job data: %w", err)
+		}
+	}
+
 	// Reserve the job
 	reservedAt := now
+
 	_, err = tx.Exec(`
 		UPDATE queued_jobs
 		SET status = ?, reserved_at = ?, reserved_by = ?, updated_at = ?
@@ -141,10 +168,10 @@ func (w *Worker) processNextJob() error {
 	}
 
 	// Process the job
-	slog.Info("Processing job", "worker_id", w.id, "job_id", queuedJob.ID, "job_type", queuedJob.JobType, "key", queuedJob.Key)
+	slog.Info("Processing job", "worker_id", w.id, "job_id", queuedJob.ID, "job_name", queuedJob.Name, "key", queuedJob.Key)
 
 	// Get the job handler from the registry
-	job, err := w.registry.Get(queuedJob.JobType, queuedJob.Key)
+	job, err := w.registry.Get(queuedJob.Name, jobData)
 
 	if err != nil {
 		// Job type not registered, mark as failed

@@ -5,40 +5,56 @@ import (
 	"sync"
 )
 
-// JobRegistry maps job types to their factory functions.
+// JobRegistry maps job types to their prototype instances.
 type JobRegistry struct {
-	factories map[string]JobFactory
-	mu        sync.RWMutex
+	prototypes map[string]Job
+	mu         sync.RWMutex
 }
-
-// JobFactory is a function that creates a job instance given a key.
-type JobFactory func(key string) (Job, error)
 
 // NewJobRegistry creates a new job registry.
 func NewJobRegistry() *JobRegistry {
 	return &JobRegistry{
-		factories: make(map[string]JobFactory),
+		prototypes: make(map[string]Job),
 	}
 }
 
-// Register adds a job factory to the registry.
-func (r *JobRegistry) Register(jobType string, factory JobFactory) {
+// Register adds a job prototype to the registry.
+// The job's Name() method is used to determine the type identifier.
+func (r *JobRegistry) Register(job Job) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.factories[jobType] = factory
+	r.prototypes[job.Name()] = job
 }
 
-// Get retrieves a job instance for the given type and key.
-func (r *JobRegistry) Get(jobType string, key string) (Job, error) {
+// Get retrieves a new job instance for the given type and hydrates it with data.
+func (r *JobRegistry) Get(jobType string, data map[string]any) (Job, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	factory, ok := r.factories[jobType]
+	prototype, ok := r.prototypes[jobType]
 
 	if !ok {
 		return nil, fmt.Errorf("job type %s not registered", jobType)
 	}
 
-	return factory(key)
+	// Create a new instance using the prototype
+	// NewInstance() may return a concrete type that implements Job interface
+	newInstance := prototype.NewInstance()
+
+	// Assert that it implements Job
+	job, ok := newInstance.(Job)
+
+	if !ok {
+		return nil, fmt.Errorf("NewInstance for job type %s did not return a valid Job", jobType)
+	}
+
+	// Hydrate the job with data if provided
+	if data != nil {
+		if err := job.FromData(data); err != nil {
+			return nil, fmt.Errorf("failed to hydrate job from data: %w", err)
+		}
+	}
+
+	return job, nil
 }
