@@ -10,6 +10,7 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/logs"
+	"github.com/litebase/litebase/pkg/scheduler"
 	"github.com/litebase/litebase/pkg/storage"
 
 	netHttp "net/http"
@@ -129,8 +130,6 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		}
 	})
 
-<<<<<<< Updated upstream
-=======
 	// Initialize the queue worker pool first
 	app.QueueWorkerPool = queue.NewWorkerPool(
 		app.DatabaseManager.SystemDatabase(),
@@ -198,7 +197,6 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		app.Scheduler.Start()
 	})
 
->>>>>>> Stashed changes
 	go app.DatabaseManager.WriteQueueManager.Run()
 	go app.LogManager.Run()
 
@@ -211,8 +209,6 @@ func (app *App) IsInitialized() bool {
 	return app.initialized
 }
 
-<<<<<<< Updated upstream
-=======
 func (app *App) Shutdown() {
 	// Record shutdown timestamp if this is the primary node
 	if app.Cluster.Node().IsPrimary() {
@@ -240,7 +236,6 @@ func (app *App) Shutdown() {
 	app.QueueWorkerPool.Stop()
 }
 
->>>>>>> Stashed changes
 func (app *App) Run() {
 	http.NewRouter().Server(app.Cluster, app.DatabaseManager, app.LogManager, app.ServeMux)
 }
