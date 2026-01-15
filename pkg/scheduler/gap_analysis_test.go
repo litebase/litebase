@@ -350,3 +350,478 @@ func TestScheduler_LifecycleIntegration(t *testing.T) {
 		}
 	})
 }
+
+func TestScheduler_GapAnalysis_WeeklySchedule(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Stop queue worker pool
+		if app.QueueWorkerPool != nil {
+			app.QueueWorkerPool.Stop()
+		}
+
+		s := app.Scheduler
+
+		// Register a weekly critical task (runs every Monday at 09:00)
+		var executionCount atomic.Int32
+
+		err := s.RegisterTask(
+			"WeeklyBackup",
+			func(ctx context.Context) error {
+				executionCount.Add(1)
+				return nil
+			},
+			scheduler.WithSchedule(scheduler.Weekly),
+			scheduler.WithWeekday("Monday"),
+			scheduler.WithTime("09:00"),
+			scheduler.WithCritical(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to register weekly task: %v", err)
+		}
+
+		s.Start()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
+
+		// Simulate a shutdown 10 days ago (should have missed at least one Monday)
+		shutdownTime := time.Now().UTC().Add(-10 * 24 * time.Hour)
+		db, err := app.DatabaseManager.SystemDatabase().DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		_, err = db.Exec("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+			"primary_node_stopped_at", shutdownTime.Format(time.RFC3339))
+
+		if err != nil {
+			t.Fatalf("Failed to set shutdown timestamp: %v", err)
+		}
+
+		// Allow scheduler to initialize jobs
+		time.Sleep(100 * time.Millisecond)
+
+		// Analyze gaps
+		gaps, err := s.AnalyzeGaps()
+
+		if err != nil {
+			t.Fatalf("AnalyzeGaps failed: %v", err)
+		}
+
+		// Should detect at least one missed weekly execution
+		if len(gaps) < 1 {
+			t.Errorf("Expected at least 1 missed weekly execution, got %d", len(gaps))
+		}
+
+		// Execute missed tasks
+		s.ExecuteMissedTasks(gaps)
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify the task was executed
+		count := executionCount.Load()
+
+		if count < 1 {
+			t.Error("Expected weekly task to execute at least once for catch-up")
+		}
+	})
+}
+
+func TestScheduler_GapAnalysis_MonthlySchedule(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Stop queue worker pool
+		if app.QueueWorkerPool != nil {
+			app.QueueWorkerPool.Stop()
+		}
+
+		s := app.Scheduler
+
+		// Register a monthly critical task (runs on the 1st of every month at 00:00)
+		var executionCount atomic.Int32
+
+		err := s.RegisterTask(
+			"MonthlyReport",
+			func(ctx context.Context) error {
+				executionCount.Add(1)
+				return nil
+			},
+			scheduler.WithSchedule(scheduler.Monthly),
+			scheduler.WithDay(1),
+			scheduler.WithTime("00:00"),
+			scheduler.WithCritical(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to register monthly task: %v", err)
+		}
+
+		s.Start()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
+
+		// Simulate a shutdown 35 days ago (should have missed at least one monthly execution)
+		shutdownTime := time.Now().UTC().Add(-35 * 24 * time.Hour)
+
+		db, err := app.DatabaseManager.SystemDatabase().DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		_, err = db.Exec("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+			"primary_node_stopped_at", shutdownTime.Format(time.RFC3339))
+
+		if err != nil {
+			t.Fatalf("Failed to set shutdown timestamp: %v", err)
+		}
+
+		// Allow scheduler to initialize jobs
+		time.Sleep(100 * time.Millisecond)
+
+		// Analyze gaps
+		gaps, err := s.AnalyzeGaps()
+
+		if err != nil {
+			t.Fatalf("AnalyzeGaps failed: %v", err)
+		}
+
+		// Should detect at least one missed monthly execution
+		if len(gaps) < 1 {
+			t.Errorf("Expected at least 1 missed monthly execution, got %d", len(gaps))
+		}
+
+		// Execute missed tasks
+		s.ExecuteMissedTasks(gaps)
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify the task was executed
+		count := executionCount.Load()
+
+		if count < 1 {
+			t.Error("Expected monthly task to execute at least once for catch-up")
+		}
+	})
+}
+
+func TestScheduler_GapAnalysis_HourlySchedule(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Stop queue worker pool
+		if app.QueueWorkerPool != nil {
+			app.QueueWorkerPool.Stop()
+		}
+
+		s := app.Scheduler
+
+		// Register an hourly critical task
+		var executionCount atomic.Int32
+
+		err := s.RegisterTask(
+			"HourlyHealthCheck",
+			func(ctx context.Context) error {
+				executionCount.Add(1)
+				return nil
+			},
+			scheduler.WithSchedule(scheduler.Hourly),
+			scheduler.WithCritical(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to register hourly task: %v", err)
+		}
+
+		s.Start()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
+
+		// Simulate a shutdown 3 hours ago
+		shutdownTime := time.Now().UTC().Add(-3 * time.Hour)
+		db, err := app.DatabaseManager.SystemDatabase().DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		_, err = db.Exec("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+			"primary_node_stopped_at", shutdownTime.Format(time.RFC3339))
+
+		if err != nil {
+			t.Fatalf("Failed to set shutdown timestamp: %v", err)
+		}
+
+		// Allow scheduler to initialize jobs
+		time.Sleep(100 * time.Millisecond)
+
+		// Analyze gaps
+		gaps, err := s.AnalyzeGaps()
+
+		if err != nil {
+			t.Fatalf("AnalyzeGaps failed: %v", err)
+		}
+
+		// Should detect missed hourly execution
+		if len(gaps) < 1 {
+			t.Errorf("Expected at least 1 missed hourly execution, got %d", len(gaps))
+		}
+
+		// Execute missed tasks
+		s.ExecuteMissedTasks(gaps)
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify the task was executed
+		count := executionCount.Load()
+
+		if count < 1 {
+			t.Error("Expected hourly task to execute at least once for catch-up")
+		}
+	})
+}
+
+func TestScheduler_GapAnalysis_CronSchedule(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Stop queue worker pool
+		if app.QueueWorkerPool != nil {
+			app.QueueWorkerPool.Stop()
+		}
+
+		s := app.Scheduler
+
+		// Register a cron critical task (every day at midnight)
+		var executionCount atomic.Int32
+
+		err := s.RegisterTask(
+			"CronTask",
+			func(ctx context.Context) error {
+				executionCount.Add(1)
+				return nil
+			},
+			scheduler.WithCron("0 0 * * *"), // Daily at midnight
+			scheduler.WithCritical(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to register cron task: %v", err)
+		}
+
+		s.Start()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
+
+		// Simulate a shutdown 2 days ago
+		shutdownTime := time.Now().UTC().Add(-48 * time.Hour)
+		db, err := app.DatabaseManager.SystemDatabase().DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		_, err = db.Exec("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+			"primary_node_stopped_at", shutdownTime.Format(time.RFC3339))
+
+		if err != nil {
+			t.Fatalf("Failed to set shutdown timestamp: %v", err)
+		}
+
+		// Allow scheduler to initialize jobs
+		time.Sleep(100 * time.Millisecond)
+
+		// Analyze gaps
+		gaps, err := s.AnalyzeGaps()
+
+		if err != nil {
+			t.Fatalf("AnalyzeGaps failed: %v", err)
+		}
+
+		// Should detect missed cron execution (uses heuristic)
+		if len(gaps) < 1 {
+			t.Errorf("Expected at least 1 missed cron execution, got %d", len(gaps))
+		} else {
+			// Verify the gap detection for cron uses the heuristic (shutdown + 1 minute)
+			gap := gaps[0]
+			expectedScheduledTime := shutdownTime.Add(1 * time.Minute)
+
+			// Allow 1 second variance for test timing
+			timeDiff := gap.ScheduledAt.Sub(expectedScheduledTime).Abs()
+
+			if timeDiff > 1*time.Second {
+				t.Logf("Cron heuristic: scheduled_at=%v, expected=%v (diff=%v)",
+					gap.ScheduledAt, expectedScheduledTime, timeDiff)
+			}
+		}
+
+		// Execute missed tasks
+		s.ExecuteMissedTasks(gaps)
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify the task was executed
+		count := executionCount.Load()
+
+		if count < 1 {
+			t.Error("Expected cron task to execute at least once for catch-up")
+		}
+	})
+}
+
+func TestScheduler_GapAnalysis_FrequentSchedules(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Stop queue worker pool
+		if app.QueueWorkerPool != nil {
+			app.QueueWorkerPool.Stop()
+		}
+
+		s := app.Scheduler
+
+		// Register every-minute and every-second critical tasks
+		var minuteCount, secondCount atomic.Int32
+
+		err := s.RegisterTask(
+			"EveryMinuteTask",
+			func(ctx context.Context) error {
+				minuteCount.Add(1)
+				return nil
+			},
+			scheduler.WithSchedule(scheduler.EveryMinute),
+			scheduler.WithCritical(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to register every-minute task: %v", err)
+		}
+
+		err = s.RegisterTask(
+			"EverySecondTask",
+			func(ctx context.Context) error {
+				secondCount.Add(1)
+				return nil
+			},
+			scheduler.WithSchedule(scheduler.EverySecond),
+			scheduler.WithCritical(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to register every-second task: %v", err)
+		}
+
+		s.Start()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
+
+		// Simulate a shutdown 5 minutes ago
+		shutdownTime := time.Now().UTC().Add(-5 * time.Minute)
+		db, err := app.DatabaseManager.SystemDatabase().DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		_, err = db.Exec("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+			"primary_node_stopped_at", shutdownTime.Format(time.RFC3339))
+
+		if err != nil {
+			t.Fatalf("Failed to set shutdown timestamp: %v", err)
+		}
+
+		// Allow scheduler to initialize jobs
+		time.Sleep(100 * time.Millisecond)
+
+		// Analyze gaps
+		gaps, err := s.AnalyzeGaps()
+
+		if err != nil {
+			t.Fatalf("AnalyzeGaps failed: %v", err)
+		}
+
+		// Should detect both tasks as missed (window collapse means 1 execution each)
+		if len(gaps) != 2 {
+			t.Errorf("Expected 2 missed executions (one per task), got %d", len(gaps))
+		}
+
+		// Execute missed tasks
+		s.ExecuteMissedTasks(gaps)
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify both tasks were executed once (window collapsed)
+		if minuteCount.Load() < 1 {
+			t.Error("Expected every-minute task to execute at least once")
+		}
+
+		if secondCount.Load() < 1 {
+			t.Error("Expected every-second task to execute at least once")
+		}
+	})
+}
+
+func TestScheduler_GapAnalysis_InvalidShutdownTimestamp(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Stop queue worker pool
+		if app.QueueWorkerPool != nil {
+			app.QueueWorkerPool.Stop()
+		}
+
+		s := app.Scheduler
+
+		// Register a critical task
+		err := s.RegisterTask(
+			"TestTask",
+			func(ctx context.Context) error {
+				return nil
+			},
+			scheduler.WithSchedule(scheduler.Daily),
+			scheduler.WithCritical(),
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to register task: %v", err)
+		}
+
+		s.Start()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
+
+		// Set an invalid shutdown timestamp
+		db, err := app.DatabaseManager.SystemDatabase().DB()
+
+		if err != nil {
+			t.Fatalf("Failed to get system database: %v", err)
+		}
+
+		_, err = db.Exec("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+			"primary_node_stopped_at", "invalid-timestamp")
+
+		if err != nil {
+			t.Fatalf("Failed to set shutdown timestamp: %v", err)
+		}
+
+		// Allow scheduler to initialize jobs
+		time.Sleep(100 * time.Millisecond)
+
+		// Analyze gaps - should return error for invalid timestamp
+		_, err = s.AnalyzeGaps()
+
+		if err == nil {
+			t.Error("Expected error for invalid shutdown timestamp, got nil")
+		}
+	})
+}

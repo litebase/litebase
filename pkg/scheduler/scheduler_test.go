@@ -36,7 +36,12 @@ func TestScheduler_EverySecond(t *testing.T) {
 		}
 
 		s.Start()
-		defer s.Stop()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
 
 		time.Sleep(4500 * time.Millisecond)
 
@@ -152,7 +157,12 @@ func TestScheduler_WithoutOverlap(t *testing.T) {
 		}
 
 		s.Start()
-		defer s.Stop()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
 
 		time.Sleep(5 * time.Second)
 
@@ -246,7 +256,9 @@ func TestScheduler_ReplicaPromotedToPrimary(t *testing.T) {
 
 		// Stop server2's app scheduler if it exists
 		if server2.App.Scheduler != nil {
-			server2.App.Scheduler.Stop()
+			if err := server2.App.Scheduler.Stop(); err != nil {
+				t.Fatalf("Failed to stop server2's scheduler: %v", err)
+			}
 		}
 
 		// Create a new scheduler with server2's system database and isPrimary check
@@ -270,7 +282,12 @@ func TestScheduler_ReplicaPromotedToPrimary(t *testing.T) {
 
 		// Start the scheduler explicitly
 		s.Start()
-		defer s.Stop()
+
+		defer func() {
+			if err := s.Stop(); err != nil {
+				t.Fatalf("Failed to stop scheduler: %v", err)
+			}
+		}()
 
 		// Wait as replica - should not execute
 		time.Sleep(2 * time.Second)
