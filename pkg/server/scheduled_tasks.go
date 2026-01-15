@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"log/slog"
 	// Uncomment when registering tasks:
 	// "github.com/litebase/litebase/pkg/scheduler"
@@ -74,12 +73,4 @@ func (app *App) InitScheduledTasks() {
 	// )
 
 	slog.Info("Scheduled tasks initialized")
-}
-
-// Example task handlers (implement as needed):
-
-func exampleHandler(ctx context.Context) error {
-	slog.Info("Example task executing")
-	// Add your task logic here
-	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/http"
 	"github.com/litebase/litebase/pkg/logs"
+	"github.com/litebase/litebase/pkg/queue"
 	"github.com/litebase/litebase/pkg/scheduler"
 	"github.com/litebase/litebase/pkg/storage"
 
@@ -23,6 +24,9 @@ type App struct {
 	Config          *config.Config
 	DatabaseManager *database.DatabaseManager
 	LogManager      *logs.LogManager
+	QueueDispatcher *queue.Dispatcher
+	QueueWorkerPool *queue.WorkerPool
+	Scheduler       *scheduler.Scheduler
 	ServeMux        *netHttp.ServeMux
 }
 
