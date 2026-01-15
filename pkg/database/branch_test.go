@@ -3,6 +3,7 @@ package database_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
@@ -480,5 +481,110 @@ func TestBranch(t *testing.T) {
 				t.Fatal("Expected duplicate branch to be not nil, but it is")
 			}
 		})
+	})
+}
+
+func TestUpdateBranchSettings_BackupNextAtRules(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		mock := test.MockDatabase(server.App)
+
+		db, err := server.App.DatabaseManager.Get(mock.DatabaseID)
+
+		if err != nil {
+			t.Fatalf("failed to get mock database: %v", err)
+		}
+
+		branch, err := db.PrimaryBranch()
+
+		if err != nil {
+			t.Fatalf("failed to get primary branch: %v", err)
+		}
+
+		// Load current settings
+		s1, err := branch.GetBranchSettings()
+
+		if err != nil {
+			t.Fatalf("failed to get branch settings: %v", err)
+		}
+
+		// 1) Preserve when interval unchanged
+		prev := s1.BackupNextAt
+
+		if err := branch.UpdateBranchSettings(s1); err != nil {
+			t.Fatalf("update failed: %v", err)
+		}
+
+		s2, err := branch.GetBranchSettings()
+		if err != nil {
+			t.Fatalf("failed to get branch settings after update: %v", err)
+		}
+
+		if prev.Valid != s2.BackupNextAt.Valid || (prev.Valid && prev.Int64 != s2.BackupNextAt.Int64) {
+			t.Fatalf("expected backup_next_at to be preserved when interval unchanged")
+		}
+
+		// 2) When disabling backups, preserve the previous `backup_next_at` value
+		sDisabled := *s1
+		sDisabled.BackupsEnabled = false
+
+		if err := branch.UpdateBranchSettings(&sDisabled); err != nil {
+			t.Fatalf("failed to disable backups: %v", err)
+		}
+
+		s3, err := branch.GetBranchSettings()
+
+		if err != nil {
+			t.Fatalf("failed to get settings after disabling: %v", err)
+		}
+
+		if s3.BackupNextAt.Valid != prev.Valid || (s3.BackupNextAt.Valid && s3.BackupNextAt.Int64 != prev.Int64) {
+			t.Fatalf("expected backup_next_at to be preserved when backups are disabled")
+		}
+
+		// 3) Disabled -> enabled should set next_at
+		sEnable := *s3
+		sEnable.BackupsEnabled = true
+		sEnable.BackupInterval = "48h"
+		before := time.Now().UTC().Unix()
+
+		if err := branch.UpdateBranchSettings(&sEnable); err != nil {
+			t.Fatalf("failed to enable backups: %v", err)
+		}
+
+		s4, err := branch.GetBranchSettings()
+
+		if err != nil {
+			t.Fatalf("failed to get settings after enabling: %v", err)
+		}
+
+		if !s4.BackupNextAt.Valid || s4.BackupNextAt.Int64 <= before {
+			t.Fatalf("expected backup_next_at to be set when enabling backups")
+		}
+
+		// 4) Enabled and interval changed -> recompute next_at
+		sPrev := *s4
+		sChanged := sPrev
+		sChanged.BackupInterval = "72h"
+
+		if err := branch.UpdateBranchSettings(&sChanged); err != nil {
+			t.Fatalf("failed to change interval: %v", err)
+		}
+
+		s5, err := branch.GetBranchSettings()
+
+		if err != nil {
+			t.Fatalf("failed to get settings after interval change: %v", err)
+		}
+
+		if !s5.BackupNextAt.Valid {
+			t.Fatalf("expected backup_next_at to be valid after interval change")
+		}
+
+		if s5.BackupNextAt.Int64 == sPrev.BackupNextAt.Int64 {
+			t.Fatalf("expected backup_next_at to change when interval changed")
+		}
 	})
 }
