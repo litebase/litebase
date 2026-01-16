@@ -382,6 +382,7 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 
 	// Compute backup_next_at based on settings.BackupInterval when backups are enabled
 	var backupNextAt sql.NullInt64
+
 	if settings.BackupsEnabled {
 		intervalStr := string(settings.BackupInterval)
 
@@ -574,10 +575,13 @@ func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
 		if s == "" {
 			s = "24h"
 		}
+
 		d, perr := time.ParseDuration(s)
+
 		if perr != nil || d < 24*time.Hour {
 			return 24 * time.Hour
 		}
+
 		return d
 	}
 

@@ -73,6 +73,13 @@ func (d *Dispatcher) DispatchJob(name string, data map[string]any, opts ...Dispa
 		return 0, fmt.Errorf("failed to get job from registry: %w", err)
 	}
 
+	// If a custom key was provided via WithKey(), apply it to the job
+	if config.key != "" {
+		if configuredJob, ok := job.(*ConfiguredJob); ok {
+			configuredJob.SetKey(config.key)
+		}
+	}
+
 	if config.unique {
 		id, _, err := d.DispatchUnique(job)
 		return id, err
