@@ -69,14 +69,21 @@ func (app *App) InitScheduledTasks() {
 	}
 
 	// Prune old queued jobs (critical - prevents table growth):
-	// app.Scheduler.RegisterTask(
-	// 	"PruneQueuedJobs",
-	// 	queue.PruneQueuedJobsTask,
-	// 	scheduler.WithSchedule(scheduler.Daily),
-	// 	scheduler.WithTime("01:00"),
-	// 	scheduler.WithCritical(), // Will catch up after downtime
-	// 	scheduler.WithoutOverlap(),
-	// )
+	// Runs daily at 01:00 to delete completed/failed jobs older than 30 days.
+	// Prevents the queued_jobs table from growing indefinitely.
+	// Critical because unbounded table growth affects performance and database size.
+	err = app.Scheduler.RegisterTask(
+		"PruneQueuedJobs",
+		func(ctx context.Context) error { return app.PruneQueuedJobs(ctx) },
+		scheduler.WithSchedule(scheduler.Daily),
+		scheduler.WithTime("01:00"),
+		scheduler.WithCritical(),   // Will catch up after downtime
+		scheduler.WithoutOverlap(), // Don't run concurrent prune operations
+	)
+
+	if err != nil {
+		slog.Error("Failed to register PruneQueuedJobs task", "error", err)
+	}
 
 	// NON-CRITICAL TASKS - These will be skipped if missed during downtime:
 	// Informational or monitoring tasks that don't affect data integrity.
