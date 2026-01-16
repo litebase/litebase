@@ -104,22 +104,26 @@ func TestScheduler_GapAnalysis_WithDowntime(t *testing.T) {
 			t.Fatalf("AnalyzeGaps failed: %v", err)
 		}
 
-		if len(gaps) == 0 {
-			t.Error("Expected at least 1 gap after 2 day downtime, got 0")
-		} else {
-			gap := gaps[0]
+		// Find our test task in the gaps (may include production tasks too)
+		var foundGap *scheduler.MissedExecution
 
-			if gap.TaskName != "CriticalDailyTask" {
-				t.Errorf("Expected task name 'CriticalDailyTask', got '%s'", gap.TaskName)
+		for i := range gaps {
+			if gaps[i].TaskName == "CriticalDailyTask" {
+				foundGap = &gaps[i]
+				break
 			}
+		}
 
+		if foundGap == nil {
+			t.Error("Expected to find gap for 'CriticalDailyTask'")
+		} else {
 			// The gap should indicate the task was missed (any positive duration means it was scheduled before now)
-			if gap.MissedBy <= 0 {
-				t.Errorf("Expected gap to be missed (positive duration), got %v", gap.MissedBy)
+			if foundGap.MissedBy <= 0 {
+				t.Errorf("Expected gap to be missed (positive duration), got %v", foundGap.MissedBy)
 			}
 
 			t.Logf("Detected gap: task=%s, scheduled_at=%v, missed_by=%v",
-				gap.TaskName, gap.ScheduledAt, gap.MissedBy)
+				foundGap.TaskName, foundGap.ScheduledAt, foundGap.MissedBy)
 		}
 	})
 }
@@ -173,15 +177,18 @@ func TestScheduler_GapAnalysis_NonCriticalTasksIgnored(t *testing.T) {
 			}
 		}()
 
-		// Analyze gaps - should return empty since task is not critical
+		// Analyze gaps - our non-critical task should NOT be in gaps
 		gaps, err := s.AnalyzeGaps()
 
 		if err != nil {
 			t.Fatalf("AnalyzeGaps failed: %v", err)
 		}
 
-		if len(gaps) != 0 {
-			t.Errorf("Expected 0 gaps for non-critical task, got %d", len(gaps))
+		// Check that our non-critical test task is NOT in the gaps
+		for _, gap := range gaps {
+			if gap.TaskName == "NonCriticalTask" {
+				t.Error("Non-critical task should not appear in gaps")
+			}
 		}
 	})
 }
@@ -318,13 +325,20 @@ func TestScheduler_LifecycleIntegration(t *testing.T) {
 
 		t.Logf("Found %d gaps", len(gaps))
 
+		// Find our test task in the gaps
+		var foundTestGap bool
+
 		for _, gap := range gaps {
 			t.Logf("  Gap: %s, scheduled_at=%v, missed_by=%v",
 				gap.TaskName, gap.ScheduledAt, gap.MissedBy)
+
+			if gap.TaskName == "DailyBackup" {
+				foundTestGap = true
+			}
 		}
 
-		if len(gaps) == 0 {
-			t.Error("Expected at least 1 gap for critical task after 2-day downtime")
+		if !foundTestGap {
+			t.Error("Expected to find gap for 'DailyBackup' task after 2-day downtime")
 		}
 
 		// Execute the missed tasks
