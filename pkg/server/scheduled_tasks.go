@@ -33,15 +33,22 @@ func (app *App) InitScheduledTasks() {
 	}
 
 	// Cleanup old database backups (critical - prevents storage bloat):
-	// app.Scheduler.RegisterTask(
-	// 	"CleanupOldBackups",
-	// 	cleanupBackupsHandler,
-	// 	scheduler.WithSchedule(scheduler.Weekly),
-	// 	scheduler.WithWeekday("Sunday"),
-	// 	scheduler.WithTime("04:00"),
-	// 	scheduler.WithCritical(), // Will catch up after downtime
-	// 	scheduler.WithoutOverlap(),
-	// )
+	// Runs daily at 04:00 to find and cleanup expired backups.
+	// Backups older than retention_days are deleted from storage and database.
+	// Daily execution ensures short retention periods (1-7 days) are honored promptly.
+	// Critical because storage bloat affects system operation and costs.
+	err = app.Scheduler.RegisterTask(
+		"CleanupExpiredBackups",
+		func(ctx context.Context) error { return app.EnqueueBackupCleanupJobs(ctx) },
+		scheduler.WithSchedule(scheduler.Daily),
+		scheduler.WithTime("04:00"),
+		scheduler.WithCritical(),   // Will catch up after downtime to prevent storage bloat
+		scheduler.WithoutOverlap(), // Don't run concurrent cleanup operations
+	)
+
+	if err != nil {
+		slog.Error("Failed to register CleanupExpiredBackups task", "error", err)
+	}
 
 	// Prune old queued jobs (critical - prevents table growth):
 	// app.Scheduler.RegisterTask(
