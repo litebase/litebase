@@ -53,6 +53,7 @@ func NewDefaultBranchSettings() *DatabaseBranchSettings {
 	return &DatabaseBranchSettings{
 		BackupsEnabled:                  true,
 		BackupInterval:                  "24h",
+		BackupNextAt:                    sql.NullInt64{Valid: true, Int64: time.Now().Add(24 * time.Hour).Unix()},
 		BackupsRetentionDays:            30,
 		IncrementalBackupsEnabled:       true,
 		IncrementalBackupsRetentionDays: 7,

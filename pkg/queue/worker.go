@@ -14,17 +14,18 @@ import (
 
 // Worker processes jobs from the queue.
 type Worker struct {
-	id             string
-	systemDB       *database.SystemDatabase
-	ctx            context.Context
-	cancel         context.CancelFunc
-	pollInterval   time.Duration
-	registry       *JobRegistry
-	wg             sync.WaitGroup
-	afterJob       func(jobID int64, status JobStatus, err error)
-	primaryOnly    bool
-	isPrimary      func() bool
-	runningJobKeys *sync.Map // Shared map to track running job keys across all workers
+	id               string
+	systemDB         *database.SystemDatabase
+	ctx              context.Context
+	cancel           context.CancelFunc
+	pollInterval     time.Duration
+	registry         *JobRegistry
+	wg               sync.WaitGroup
+	afterJob         func(jobID int64, status JobStatus, err error)
+	primaryOnly      bool
+	isPrimary        func() bool
+	runningJobKeys   *sync.Map // Shared map to track running job keys across all workers
+	reservationMutex *sync.Mutex // Shared mutex to serialize job reservation and prevent DB locks
 }
 
 // NewWorker creates a new worker instance.
@@ -56,6 +57,11 @@ func (w *Worker) SetPrimaryOnlyMode(primaryOnly bool, isPrimary func() bool) {
 // SetRunningJobKeys sets the shared map for tracking running job keys.
 func (w *Worker) SetRunningJobKeys(runningJobKeys *sync.Map) {
 	w.runningJobKeys = runningJobKeys
+}
+
+// SetReservationMutex sets the shared mutex for serializing job reservation.
+func (w *Worker) SetReservationMutex(mutex *sync.Mutex) {
+	w.reservationMutex = mutex
 }
 
 // Start begins processing jobs from the queue.
@@ -96,6 +102,15 @@ func (w *Worker) processNextJob() error {
 	// on the Primary for job dispatching, coordination, and storage.
 	if w.primaryOnly && w.isPrimary != nil && !w.isPrimary() {
 		return nil
+	}
+
+	// Acquire the reservation mutex to serialize job reservation across workers.
+	// This prevents SQLite database lock errors when multiple workers try to
+	// reserve jobs concurrently. The mutex is held only during reservation,
+	// not during job execution, so workers can still process jobs in parallel.
+	if w.reservationMutex != nil {
+		w.reservationMutex.Lock()
+		defer w.reservationMutex.Unlock()
 	}
 
 	db, err := w.systemDB.DB()

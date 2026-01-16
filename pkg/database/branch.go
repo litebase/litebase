@@ -380,11 +380,33 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 
 	now := time.Now().UTC().Unix()
 
+	// Compute backup_next_at based on settings.BackupInterval when backups are enabled
+	var backupNextAt sql.NullInt64
+
+	if settings.BackupsEnabled {
+		intervalStr := string(settings.BackupInterval)
+
+		if intervalStr == "" {
+			intervalStr = "24h"
+		}
+
+		dur, errParse := time.ParseDuration(intervalStr)
+
+		if errParse != nil || dur < 24*time.Hour {
+			dur = 24 * time.Hour
+		}
+
+		backupNextAt = sql.NullInt64{Int64: time.Now().UTC().Add(dur).Unix(), Valid: true}
+	} else {
+		backupNextAt = sql.NullInt64{Valid: false}
+	}
+
 	_, err = db.Exec(`
 		INSERT INTO database_branch_settings (
 			database_branch_reference_id,
 			backups_enabled,
 			backups_interval,
+			backup_next_at,
 			backups_retention_days,
 			default_pragmas_json,
 			error_logs_enabled,
@@ -395,11 +417,12 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 			query_logs_retention_days,
 			created_at,
 			updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		b.ID,
 		utils.BoolToInt(settings.BackupsEnabled),
 		settings.BackupInterval,
+		backupNextAt,
 		settings.BackupsRetentionDays,
 		string(defaultPragmasJSON),
 		utils.BoolToInt(settings.ErrorLogsEnabled),
@@ -523,6 +546,74 @@ func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
 
 	now := time.Now().UTC().Unix()
 
+	// Decide whether to update backup_next_at. We want to keep the existing
+	// value unless:
+	// - backups were enabled and are now disabled -> clear next_at
+	// - backups are enabled and the interval changed -> recompute next_at
+	var backupNextAt sql.NullInt64
+
+	// Read previous settings to determine transitions
+	var prevBackupsEnabled int
+	var prevBackupInterval string
+	var prevBackupNextAt sql.NullInt64
+
+	err = db.QueryRow(`
+		SELECT backups_enabled, backups_interval, backup_next_at
+		FROM database_branch_settings
+		WHERE database_branch_reference_id = ?
+	`, b.ID).Scan(&prevBackupsEnabled, &prevBackupInterval, &prevBackupNextAt)
+
+	if err != nil {
+		// If we can't read previous settings, fall back to computed behavior
+		prevBackupsEnabled = 0
+		prevBackupInterval = ""
+		prevBackupNextAt = sql.NullInt64{Valid: false}
+	}
+
+	// Helper to normalize an interval string into a duration (min 24h)
+	parseInterval := func(s string) time.Duration {
+		if s == "" {
+			s = "24h"
+		}
+
+		d, perr := time.ParseDuration(s)
+
+		if perr != nil || d < 24*time.Hour {
+			return 24 * time.Hour
+		}
+
+		return d
+	}
+
+	prevDur := parseInterval(prevBackupInterval)
+	newDur := parseInterval(string(settings.BackupInterval))
+
+	// Transitions:
+	// Keep previous next_at in most cases. Only set a new next_at when
+	// enabling backups, or when interval changes while enabled.
+	if !settings.BackupsEnabled {
+		// Do not clear next_at when backups are disabled; preserve previous value.
+		backupNextAt = prevBackupNextAt
+	} else if prevBackupsEnabled != 1 && settings.BackupsEnabled {
+		// was disabled, now enabled -> set next_at
+		backupNextAt = sql.NullInt64{Int64: time.Now().UTC().Add(newDur).Unix(), Valid: true}
+	} else if prevBackupsEnabled == 1 && settings.BackupsEnabled {
+		// was enabled and still enabled -> update only if interval changed
+		if prevDur != newDur {
+			backupNextAt = sql.NullInt64{Int64: time.Now().UTC().Add(newDur).Unix(), Valid: true}
+		} else {
+			// keep previous next_at as-is
+			backupNextAt = prevBackupNextAt
+		}
+	} else {
+		// fallback: compute if enabled, else null
+		if settings.BackupsEnabled {
+			backupNextAt = sql.NullInt64{Int64: time.Now().UTC().Add(newDur).Unix(), Valid: true}
+		} else {
+			backupNextAt = sql.NullInt64{Valid: false}
+		}
+	}
+
 	_, err = db.Exec(`
 		UPDATE database_branch_settings SET
 			backups_enabled = ?,
@@ -535,6 +626,7 @@ func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
 			incremental_backups_retention_days = ?,
 			query_logs_enabled = ?,
 			query_logs_retention_days = ?,
+			backup_next_at = ?,
 			updated_at = ?
 		WHERE database_branch_reference_id = ?
 	`,
@@ -548,6 +640,7 @@ func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
 		settings.IncrementalBackupsRetentionDays,
 		utils.BoolToInt(settings.QueryLogsEnabled),
 		settings.QueryLogsRetentionDays,
+		backupNextAt,
 		now,
 		b.ID,
 	)

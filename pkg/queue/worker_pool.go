@@ -13,14 +13,15 @@ import (
 
 // WorkerPool manages a pool of workers that process jobs from the queue.
 type WorkerPool struct {
-	workers        []*Worker
-	systemDB       *database.SystemDatabase
-	cluster        *cluster.Cluster
-	registry       *JobRegistry
-	workerCount    int
-	started        bool
-	primaryOnly    bool
-	runningJobKeys sync.Map // Tracks currently running job keys to prevent overlap
+	workers          []*Worker
+	systemDB         *database.SystemDatabase
+	cluster          *cluster.Cluster
+	registry         *JobRegistry
+	workerCount      int
+	started          bool
+	primaryOnly      bool
+	runningJobKeys   sync.Map   // Tracks currently running job keys to prevent overlap
+	reservationMutex sync.Mutex // Serializes job reservation to prevent DB locks
 }
 
 // WorkerPoolConfig configures the worker pool.
@@ -103,6 +104,7 @@ func (p *WorkerPool) Start() error {
 			return p.cluster.Node().IsPrimary()
 		})
 		p.workers[i].SetRunningJobKeys(&p.runningJobKeys)
+		p.workers[i].SetReservationMutex(&p.reservationMutex)
 		p.workers[i].Start()
 	}
 

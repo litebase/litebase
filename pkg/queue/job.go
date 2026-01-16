@@ -243,6 +243,12 @@ func (j *ConfiguredJob) Key() string {
 	return j.key
 }
 
+// SetKey sets the unique identifier for this job instance.
+// This is typically used when dispatching jobs with custom keys.
+func (j *ConfiguredJob) SetKey(key string) {
+	j.key = key
+}
+
 func (j *ConfiguredJob) QueueName() string {
 	return j.queueName
 }

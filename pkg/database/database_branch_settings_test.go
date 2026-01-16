@@ -160,6 +160,14 @@ func TestNewDefaultBranchSettings(t *testing.T) {
 		t.Errorf("Expected BackupInterval to be '24h', got '%s'", settings.BackupInterval)
 	}
 
+	if settings.BackupNextAt.Valid == false {
+		t.Error("Expected BackupNextAt to be valid")
+	}
+
+	if settings.BackupNextAt.Int64 <= 0 {
+		t.Error("Expected BackupNextAt to be a positive timestamp")
+	}
+
 	if settings.BackupsRetentionDays != 30 {
 		t.Errorf("Expected BackupsRetentionDays to be 30, got %d", settings.BackupsRetentionDays)
 	}
