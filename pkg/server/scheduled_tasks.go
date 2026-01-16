@@ -1,9 +1,10 @@
 package server
 
 import (
+	"context"
 	"log/slog"
-	// Uncomment when registering tasks:
-	// "github.com/litebase/litebase/pkg/scheduler"
+
+	"github.com/litebase/litebase/pkg/scheduler"
 )
 
 // InitScheduledTasks registers all scheduled tasks with the scheduler.
@@ -14,15 +15,22 @@ func (app *App) InitScheduledTasks() {
 	// Critical tasks are important for data integrity and should run even if missed.
 	// If the cluster was down for 5 days, each critical task runs once on startup.
 
-	// Daily backup (critical - must not be skipped):
-	// app.Scheduler.RegisterTask(
-	// 	"DailyBackup",
-	// 	dailyBackupHandler,
-	// 	scheduler.WithSchedule(scheduler.Daily),
-	// 	scheduler.WithTime("03:00"),  // 3 AM UTC
-	// 	scheduler.WithCritical(),     // Will catch up if missed during downtime
-	// 	scheduler.WithoutOverlap(),   // Don't run concurrent backups
-	// )
+	// Enqueue backups every 15 minutes:
+	// Checks for branches with backup_next_at <= now and enqueues backup jobs.
+	// Running every 15 min ensures backups execute within 15 min of scheduled time.
+	// Natural distribution: backups spread across 24h based on branch creation time.
+	// Note: NOT critical - if we miss enqueueing during downtime, backups will
+	// catch up naturally when the scheduler resumes (backup_next_at is preserved).
+	err := app.Scheduler.RegisterTask(
+		"EnqueueBackups",
+		func(ctx context.Context) error { return app.EnqueueBackupJobs(ctx) },
+		scheduler.WithCron("*/15 * * * *"), // Every 15 minutes
+		scheduler.WithoutOverlap(),         // Don't run concurrent enqueue operations
+	)
+
+	if err != nil {
+		slog.Error("Failed to register EnqueueBackups task", "error", err)
+	}
 
 	// Cleanup old database backups (critical - prevents storage bloat):
 	// app.Scheduler.RegisterTask(
@@ -31,7 +39,7 @@ func (app *App) InitScheduledTasks() {
 	// 	scheduler.WithSchedule(scheduler.Weekly),
 	// 	scheduler.WithWeekday("Sunday"),
 	// 	scheduler.WithTime("04:00"),
-	// 	scheduler.WithCritical(),     // Will catch up after downtime
+	// 	scheduler.WithCritical(), // Will catch up after downtime
 	// 	scheduler.WithoutOverlap(),
 	// )
 
@@ -41,7 +49,7 @@ func (app *App) InitScheduledTasks() {
 	// 	queue.PruneQueuedJobsTask,
 	// 	scheduler.WithSchedule(scheduler.Daily),
 	// 	scheduler.WithTime("01:00"),
-	// 	scheduler.WithCritical(),     // Will catch up after downtime
+	// 	scheduler.WithCritical(), // Will catch up after downtime
 	// 	scheduler.WithoutOverlap(),
 	// )
 

@@ -3,15 +3,14 @@ package server
 import (
 	"time"
 
-	"github.com/litebase/litebase/pkg/backups"
 	"github.com/litebase/litebase/pkg/queue"
 )
 
 func (app *App) InitQueueJobs() {
-	// Register backup job
+	// Register backup job with a wrapper that updates backup_next_at on success.
 	err := app.QueueWorkerPool.RegisterJob(
 		"BackupJob",
-		backups.BackupJob,
+		app.BackupJob,
 		queue.WithRetries(5, 5*time.Minute),
 	)
 
