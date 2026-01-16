@@ -34,6 +34,7 @@ jobs:
             { name: "openapi", path: pkg/openapi },
             { name: "queue", path: pkg/queue },
             { name: "scheduler", path: pkg/scheduler },
+            { name: "server", path: pkg/server },
             { name: "storage", path: pkg/storage },
             { name: "sqlite3", path: pkg/sqlite3 },
             { name: "vfs", path: pkg/vfs },
