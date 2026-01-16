@@ -492,6 +492,11 @@ func (c *ConnectionManager) RemoveIdleConnections() {
 
 // Shutdown the connection manager by closing all connections and stopping
 func (c *ConnectionManager) Shutdown() {
+	// Stop connection ticker first to prevent concurrent access
+	if c.connectionTicker != nil {
+		c.connectionTicker.Stop()
+	}
+
 	if c.databaseManager.systemDatabase != nil {
 		err := c.databaseManager.SystemDatabase().Close()
 
@@ -500,25 +505,24 @@ func (c *ConnectionManager) Shutdown() {
 		}
 	}
 
+	// Acquire lock before accessing databases map
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	// Drain all connections
 	for databaseId, database := range c.databases {
 		for branchId := range database.branches {
+			// Unlock during drain to avoid deadlock
+			c.mutex.Unlock()
 			err := c.Drain(databaseId, branchId, func() error {
 				return nil
 			})
+			c.mutex.Lock()
 
 			if err != nil {
 				slog.Error("Error draining connections", "error", err)
 			}
 		}
-	}
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	// Stop connection ticker
-	if c.connectionTicker != nil {
-		c.connectionTicker.Stop()
 	}
 
 	c.databases = map[string]*DatabaseGroup{}
