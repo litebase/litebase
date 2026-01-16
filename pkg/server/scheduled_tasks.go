@@ -50,6 +50,24 @@ func (app *App) InitScheduledTasks() {
 		slog.Error("Failed to register CleanupExpiredBackups task", "error", err)
 	}
 
+	// Cleanup old incremental backups (critical - prevents storage bloat):
+	// Runs daily at 04:30 to find and cleanup expired snapshots and rollback logs.
+	// Incremental backups (snapshots/rollback logs) older than retention_days are deleted.
+	// Daily execution ensures short retention periods (1-7 days) are honored promptly.
+	// Critical because incremental backup storage can grow quickly and affect costs.
+	err = app.Scheduler.RegisterTask(
+		"CleanupExpiredIncrementalBackups",
+		func(ctx context.Context) error { return app.EnqueueIncrementalBackupCleanupJobs(ctx) },
+		scheduler.WithSchedule(scheduler.Daily),
+		scheduler.WithTime("04:30"),
+		scheduler.WithCritical(),   // Will catch up after downtime to prevent storage bloat
+		scheduler.WithoutOverlap(), // Don't run concurrent cleanup operations
+	)
+
+	if err != nil {
+		slog.Error("Failed to register CleanupExpiredIncrementalBackups task", "error", err)
+	}
+
 	// Prune old queued jobs (critical - prevents table growth):
 	// app.Scheduler.RegisterTask(
 	// 	"PruneQueuedJobs",

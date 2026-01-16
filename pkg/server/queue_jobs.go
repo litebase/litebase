@@ -29,4 +29,16 @@ func (app *App) InitQueueJobs() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Register incremental backup cleanup job with retries and timeout for file operations.
+	err = app.QueueWorkerPool.RegisterJob(
+		"CleanupIncrementalBackupJob",
+		app.CleanupIncrementalBackupJob,
+		queue.WithRetries(3, 5*time.Minute),
+		queue.WithTimeout(30*time.Minute),
+	)
+
+	if err != nil {
+		panic(err)
+	}
 }
