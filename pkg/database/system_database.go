@@ -108,17 +108,21 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 				s.runMigrationsOnConnection(s.db)
 			}
 		} else {
-			// Non-primary nodes should still verify migrations were run
-			// This ensures replicas are aware of the migration state
+			// Replicas should verify migrations but never write to the database
+			// The primary is responsible for applying migrations
 			needsMigrations, err := s.needsMigrationsOnConnection(s.db)
+
 			if err == nil && !needsMigrations {
 				slog.Debug("Migrations verified on replica")
 			} else if err == nil && needsMigrations {
-				slog.Warn("Replica detected missing migrations - waiting for primary to apply them")
+				// Migrations are missing - this is expected during rolling updates
+				// The primary will apply them. We just need to be aware they exist in code
+				// but may not be in the database yet.
+				slog.Debug("Replica detected code has newer migrations than database", "note", "Primary will apply them")
 			}
 		}
 
-		// Mark as initialized after check (primary) or skip (non-primary)
+		// Mark as initialized after check
 		s.initialized = true
 	}
 
