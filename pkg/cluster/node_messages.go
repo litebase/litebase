@@ -35,4 +35,7 @@ func registerNodeMessages() {
 	// Job batch messages
 	gob.Register(messages.JobBatchStatusRequest{})
 	gob.Register(messages.JobBatchStatusResponse{})
+
+	// System database messages
+	gob.Register(messages.MigrationsUpdatedMessage{})
 }

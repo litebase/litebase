@@ -74,6 +74,8 @@ func (n *Node) handleBroadcastMessage(message any) (any, error) {
 		err = n.handleDatabaseBranchSettingsUpdated(message)
 	case messages.JobBatchStatusRequest:
 		responseMessage, err = n.handleJobBatchStatusRequest(message)
+	case messages.MigrationsUpdatedMessage:
+		err = n.handleMigrationsUpdated(message)
 	default:
 		err = errors.New("unknown message type")
 	}
@@ -315,3 +317,18 @@ func (n *Node) handleJobBatchStatusRequest(message messages.JobBatchStatusReques
 		FinishedAt:    progress.FinishedAt,
 	}, nil
 }
+
+func (n *Node) handleMigrationsUpdated(message messages.MigrationsUpdatedMessage) error {
+	slog.Info("Received migrations updated notification", "latest_migration", message.LatestMigration, "hash", message.MigrationsHash)
+	
+	// Notify the system database to recheck migrations
+	if n.databaseManager != nil {
+		systemDB := n.databaseManager.GetSystemDatabase()
+		if systemDB != nil {
+			systemDB.OnMigrationsUpdated()
+		}
+	}
+	
+	return nil
+}
+

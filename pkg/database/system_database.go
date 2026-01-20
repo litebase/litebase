@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/pkg/database/migrations"
 )
 
@@ -89,7 +90,7 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 	if !s.initialized {
 		isPrimary := s.databaseManager.Cluster.Node().IsPrimary()
 
-		// Only primary nodes should check and run migrations
+		// Only primary nodes should run migrations, but all nodes should verify
 		if isPrimary {
 			needsMigrations, err := s.needsMigrationsOnConnection(s.db)
 
@@ -105,6 +106,15 @@ func (s *SystemDatabase) DB() (*sql.DB, error) {
 				slog.Info("Error checking migrations, running them", "error", err)
 				// Run migrations on the cached connection
 				s.runMigrationsOnConnection(s.db)
+			}
+		} else {
+			// Non-primary nodes should still verify migrations were run
+			// This ensures replicas are aware of the migration state
+			needsMigrations, err := s.needsMigrationsOnConnection(s.db)
+			if err == nil && !needsMigrations {
+				slog.Debug("Migrations verified on replica")
+			} else if err == nil && needsMigrations {
+				slog.Warn("Replica detected missing migrations - waiting for primary to apply them")
 			}
 		}
 
@@ -146,6 +156,9 @@ func (s *SystemDatabase) CheckAndRunMigrations() error {
 	slog.Info("Running pending migrations")
 	s.runMigrationsOnConnection(s.db)
 	s.initialized = true
+	
+	// Broadcast to cluster that migrations were updated
+	s.broadcastMigrationsUpdated()
 
 	return nil
 }
@@ -200,4 +213,51 @@ func (s *SystemDatabase) runMigrationsOnConnection(db *sql.DB) {
 	if err := runner.Run(); err != nil {
 		panic(fmt.Errorf("failed to run migrations: %w", err))
 	}
+}
+
+// broadcastMigrationsUpdated notifies all cluster nodes that migrations have been updated
+func (s *SystemDatabase) broadcastMigrationsUpdated() {
+	allMigrations := migrations.GetAllMigrations()
+	if len(allMigrations) == 0 {
+		return
+	}
+
+	latestMigration := allMigrations[len(allMigrations)-1]
+	expectedHash := sha256.Sum256([]byte(latestMigration.Name))
+	expectedHashStr := fmt.Sprintf("%x", expectedHash)
+
+	msg := messages.MigrationsUpdatedMessage{
+		LatestMigration: latestMigration.Name,
+		MigrationsHash:  expectedHashStr,
+	}
+
+	slog.Debug("Broadcasting migrations update to cluster", "latest_migration", msg.LatestMigration, "hash", msg.MigrationsHash)
+	
+	// Broadcast to all nodes in the cluster
+	if s.databaseManager != nil && s.databaseManager.Cluster != nil {
+		node := s.databaseManager.Cluster.Node()
+		if node != nil && !node.IsReplica() {
+			primary := node.Primary()
+			if primary != nil {
+				_, errors := primary.Publish(messages.NodeMessage{
+					Data: msg,
+				})
+				if len(errors) > 0 {
+					slog.Error("Failed to broadcast migrations update to replicas", "errors", errors)
+				}
+			}
+		}
+	}
+}
+
+// OnMigrationsUpdated handles notification from primary that migrations were updated
+// This should be called by replica nodes when they receive a migration update notification
+func (s *SystemDatabase) OnMigrationsUpdated() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	
+	// Reset initialized flag to force migration recheck on next DB access
+	s.initialized = false
+	
+	slog.Info("Received migrations update notification - will recheck on next access")
 }
