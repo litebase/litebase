@@ -806,10 +806,14 @@ func (con *DatabaseConnection) Transaction(
 	readOnly bool,
 	handler func(con *DatabaseConnection) error,
 ) error {
+	con.mutex.Lock()
 	con.inTransaction = true
+	con.mutex.Unlock()
 
 	defer func() {
+		con.mutex.Lock()
 		con.inTransaction = false
+		con.mutex.Unlock()
 	}()
 
 	if con.Closed() {

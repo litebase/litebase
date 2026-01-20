@@ -93,7 +93,7 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				return nil
 			})
-			
+
 			if err != nil {
 				t.Errorf("First checkpoint barrier failed: %v", err)
 			}
