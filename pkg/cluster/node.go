@@ -546,7 +546,7 @@ func (n *Node) monitorPrimary() {
 func (n *Node) OnStarted(callback func()) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	
+
 	n.onStarted = append(n.onStarted, callback)
 }
 
@@ -1108,7 +1108,7 @@ func (n *Node) Start() chan bool {
 		n.mutex.Lock()
 		callbacks := n.onStarted
 		n.mutex.Unlock()
-		
+
 		for _, callback := range callbacks {
 			if callback != nil {
 				callback()

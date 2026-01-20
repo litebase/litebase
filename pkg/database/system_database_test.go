@@ -462,6 +462,8 @@ func TestSystemDatabase_NewMigrationRollingUpdate(t *testing.T) {
 			<-server2New.Started
 			servers = append(servers, server2New)
 
+			server2New.App.Cluster.Node().WaitForPrimary()
+
 			systemDB2New := server2New.App.DatabaseManager.SystemDatabase()
 
 			db2New, err := systemDB2New.DB()

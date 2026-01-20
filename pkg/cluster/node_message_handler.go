@@ -320,7 +320,7 @@ func (n *Node) handleJobBatchStatusRequest(message messages.JobBatchStatusReques
 
 func (n *Node) handleMigrationsUpdated(message messages.MigrationsUpdatedMessage) error {
 	slog.Info("Received migrations updated notification", "latest_migration", message.LatestMigration, "hash", message.MigrationsHash)
-	
+
 	// Notify the system database to recheck migrations
 	if n.databaseManager != nil {
 		systemDB := n.databaseManager.GetSystemDatabase()
@@ -328,7 +328,6 @@ func (n *Node) handleMigrationsUpdated(message messages.MigrationsUpdatedMessage
 			systemDB.OnMigrationsUpdated()
 		}
 	}
-	
+
 	return nil
 }
-

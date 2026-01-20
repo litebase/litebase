@@ -160,7 +160,7 @@ func (s *SystemDatabase) CheckAndRunMigrations() error {
 	slog.Info("Running pending migrations")
 	s.runMigrationsOnConnection(s.db)
 	s.initialized = true
-	
+
 	// Broadcast to cluster that migrations were updated
 	s.broadcastMigrationsUpdated()
 
@@ -236,7 +236,7 @@ func (s *SystemDatabase) broadcastMigrationsUpdated() {
 	}
 
 	slog.Debug("Broadcasting migrations update to cluster", "latest_migration", msg.LatestMigration, "hash", msg.MigrationsHash)
-	
+
 	// Broadcast to all nodes in the cluster
 	if s.databaseManager != nil && s.databaseManager.Cluster != nil {
 		node := s.databaseManager.Cluster.Node()
@@ -259,9 +259,9 @@ func (s *SystemDatabase) broadcastMigrationsUpdated() {
 func (s *SystemDatabase) OnMigrationsUpdated() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	
+
 	// Reset initialized flag to force migration recheck on next DB access
 	s.initialized = false
-	
+
 	slog.Info("Received migrations update notification - will recheck on next access")
 }
