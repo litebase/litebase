@@ -72,6 +72,28 @@ type Node struct {
 	startedAt          time.Time
 	storedAddressAt    time.Time
 	walSynchronizer    NodeWalSynchronizer
+	workerPool         WorkerPoolAccessor
+}
+
+// WorkerPoolAccessor defines the interface for accessing worker pool batch status.
+// This is defined here to avoid import cycles.
+type WorkerPoolAccessor interface {
+	GetBatchStatus(ctx context.Context, batchID int64) (BatchProgress, error)
+}
+
+// BatchProgress represents the progress of a batch job.
+// This is defined here to avoid import cycles.
+type BatchProgress struct {
+	BatchID       int64
+	Name          string
+	TotalJobs     int
+	PendingJobs   int
+	CompletedJobs int
+	FailedJobs    int
+	Progress      int
+	IsFinished    bool
+	CreatedAt     time.Time
+	FinishedAt    *time.Time
 }
 
 // Create a new instance of a node.
@@ -997,7 +1019,7 @@ func (n *Node) SetPageLoggerAccessor(pageLoggerAccessor NodePageLoggerAccessor) 
 	n.pageLoggerAccessor = pageLoggerAccessor
 }
 
-// Set the database manager for the node.
+// Set the database manager for the nodeWorkerPoolAccessor
 func (n *Node) SetDatabaseManager(databaseManager NodeDatabaseManager) {
 	n.databaseManager = databaseManager
 }
@@ -1015,6 +1037,11 @@ func (n *Node) SetQueryResponsePool(queryResponsePool NodeQueryResponsePool) {
 // Set the WAL synchronizer for the node.
 func (n *Node) SetWALSynchronizer(walSynchronizer NodeWalSynchronizer) {
 	n.walSynchronizer = walSynchronizer
+}
+
+// SetWorkerPool sets the worker pool instance for the node.
+func (n *Node) SetWorkerPool(workerPool WorkerPoolAccessor) {
+	n.workerPool = workerPool
 }
 
 // Shutdown the node and perform necessary cleanup operations.

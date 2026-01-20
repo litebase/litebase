@@ -72,6 +72,8 @@ func (n *Node) handleBroadcastMessage(message any) (any, error) {
 		err = n.handleWALReplicationWriteMessage(message)
 	case messages.DatabaseBranchSettingsUpdated:
 		err = n.handleDatabaseBranchSettingsUpdated(message)
+	case messages.JobBatchStatusRequest:
+		responseMessage, err = n.handleJobBatchStatusRequest(message)
 	default:
 		err = errors.New("unknown message type")
 	}
@@ -287,4 +289,29 @@ func (n *Node) handleDatabaseBranchSettingsUpdated(message messages.DatabaseBran
 	slog.Info("Branch settings updated", "databaseId", message.DatabaseID, "branchId", message.DatabaseBranchID)
 
 	return nil
+}
+
+func (n *Node) handleJobBatchStatusRequest(message messages.JobBatchStatusRequest) (any, error) {
+	if n.workerPool == nil {
+		return nil, errors.New("worker pool not configured")
+	}
+
+	progress, err := n.workerPool.GetBatchStatus(n.context, message.BatchID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return messages.JobBatchStatusResponse{
+		BatchID:       progress.BatchID,
+		Name:          progress.Name,
+		TotalJobs:     progress.TotalJobs,
+		PendingJobs:   progress.PendingJobs,
+		CompletedJobs: progress.CompletedJobs,
+		FailedJobs:    progress.FailedJobs,
+		Progress:      progress.Progress,
+		IsFinished:    progress.IsFinished,
+		CreatedAt:     progress.CreatedAt,
+		FinishedAt:    progress.FinishedAt,
+	}, nil
 }

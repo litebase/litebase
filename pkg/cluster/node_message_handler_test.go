@@ -214,3 +214,105 @@ func TestHandleDatabaseBranchSettingsUpdated_InvalidBranch(t *testing.T) {
 		}
 	})
 }
+
+func TestHandleJobBatchStatusRequest(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Create a test batch
+		ctx := app.Cluster.Node().Context()
+
+		// Create a simple test job
+		testJobs := []struct {
+			name string
+		}{
+			{name: "test-job-1"},
+			{name: "test-job-2"},
+			{name: "test-job-3"},
+		}
+
+		// We can't easily dispatch real jobs without a registered job type,
+		// so we'll test the message handler directly by creating a batch manually
+		db, err := app.DatabaseManager.SystemDatabase().DB()
+		if err != nil {
+			t.Fatalf("failed to get database: %v", err)
+		}
+
+		// Insert a test batch
+		result, err := db.ExecContext(ctx, `
+			INSERT INTO job_batches (name, total_jobs, pending_jobs, failed_jobs, created_at)
+			VALUES (?, ?, ?, ?, ?)
+		`, "test-batch", len(testJobs), len(testJobs), 0, time.Now().UTC().Format(time.RFC3339))
+
+		if err != nil {
+			t.Fatalf("failed to create test batch: %v", err)
+		}
+
+		batchID, err := result.LastInsertId()
+
+		if err != nil {
+			t.Fatalf("failed to get batch ID: %v", err)
+		}
+
+		// Send JobBatchStatusRequest message
+		message := messages.NodeMessage{
+			Data: messages.JobBatchStatusRequest{
+				BatchID: batchID,
+			},
+		}
+
+		resp, err := app.Cluster.Node().HandleMessage(message)
+
+		if err != nil {
+			t.Fatalf("failed to handle batch status request: %v", err)
+		}
+
+		// Check response
+		batchResp, ok := resp.Data.(messages.JobBatchStatusResponse)
+
+		if !ok {
+			t.Fatalf("expected JobBatchStatusResponse, got %T", resp.Data)
+		}
+
+		if batchResp.BatchID != batchID {
+			t.Errorf("expected batch ID %d, got %d", batchID, batchResp.BatchID)
+		}
+
+		if batchResp.Name != "test-batch" {
+			t.Errorf("expected batch name 'test-batch', got %s", batchResp.Name)
+		}
+
+		if batchResp.TotalJobs != len(testJobs) {
+			t.Errorf("expected %d total jobs, got %d", len(testJobs), batchResp.TotalJobs)
+		}
+
+		if batchResp.PendingJobs != len(testJobs) {
+			t.Errorf("expected %d pending jobs, got %d", len(testJobs), batchResp.PendingJobs)
+		}
+
+		if batchResp.IsFinished {
+			t.Error("expected batch to not be finished")
+		}
+	})
+}
+
+func TestHandleJobBatchStatusRequest_NotFound(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		// Send request for non-existent batch
+		message := messages.NodeMessage{
+			Data: messages.JobBatchStatusRequest{
+				BatchID: 99999,
+			},
+		}
+
+		resp, err := app.Cluster.Node().HandleMessage(message)
+		if err != nil {
+			t.Fatalf("unexpected error from HandleMessage: %v", err)
+		}
+
+		// Check if response contains an error message
+		if errMsg, ok := resp.Data.(messages.ErrorMessage); !ok {
+			t.Fatal("expected error message response for non-existent batch")
+		} else if errMsg.Message == "" {
+			t.Fatal("expected error message to contain text")
+		}
+	})
+}

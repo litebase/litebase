@@ -23,6 +23,10 @@ var AllMigrations = []Migration{
 		Name: "0000000003_queued_jobs",
 		Up:   Migration0000000003QueuedJobs,
 	},
+	{
+		Name: "0000000004_batched_jobs",
+		Up:   Migration0000000004BatchedJobs,
+	},
 	// Add new migrations here
 }
 

@@ -143,6 +143,9 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 		},
 	)
 
+	// Set the worker pool on the node for message handling
+	app.Cluster.Node().SetWorkerPool(app.QueueWorkerPool)
+
 	// Create dispatcher from the worker pool so it uses the same job registry
 	app.QueueDispatcher = app.QueueWorkerPool.NewDispatcher()
 
