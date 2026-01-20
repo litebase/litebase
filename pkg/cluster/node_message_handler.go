@@ -72,6 +72,10 @@ func (n *Node) handleBroadcastMessage(message any) (any, error) {
 		err = n.handleWALReplicationWriteMessage(message)
 	case messages.DatabaseBranchSettingsUpdated:
 		err = n.handleDatabaseBranchSettingsUpdated(message)
+	case messages.JobBatchStatusRequest:
+		responseMessage, err = n.handleJobBatchStatusRequest(message)
+	case messages.MigrationsUpdatedMessage:
+		err = n.handleMigrationsUpdated(message)
 	default:
 		err = errors.New("unknown message type")
 	}
@@ -285,6 +289,45 @@ func (n *Node) handleDatabaseBranchSettingsUpdated(message messages.DatabaseBran
 	branch.SetSettings(settings)
 
 	slog.Info("Branch settings updated", "databaseId", message.DatabaseID, "branchId", message.DatabaseBranchID)
+
+	return nil
+}
+
+func (n *Node) handleJobBatchStatusRequest(message messages.JobBatchStatusRequest) (any, error) {
+	if n.workerPool == nil {
+		return nil, errors.New("worker pool not configured")
+	}
+
+	progress, err := n.workerPool.GetBatchStatus(n.context, message.BatchID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return messages.JobBatchStatusResponse{
+		BatchID:       progress.BatchID,
+		Name:          progress.Name,
+		TotalJobs:     progress.TotalJobs,
+		PendingJobs:   progress.PendingJobs,
+		CompletedJobs: progress.CompletedJobs,
+		FailedJobs:    progress.FailedJobs,
+		Progress:      progress.Progress,
+		IsFinished:    progress.IsFinished,
+		CreatedAt:     progress.CreatedAt,
+		FinishedAt:    progress.FinishedAt,
+	}, nil
+}
+
+func (n *Node) handleMigrationsUpdated(message messages.MigrationsUpdatedMessage) error {
+	slog.Info("Received migrations updated notification", "latest_migration", message.LatestMigration, "hash", message.MigrationsHash)
+
+	// Notify the system database to recheck migrations
+	if n.databaseManager != nil {
+		systemDB := n.databaseManager.GetSystemDatabase()
+		if systemDB != nil {
+			systemDB.OnMigrationsUpdated()
+		}
+	}
 
 	return nil
 }

@@ -1147,8 +1147,9 @@ func TestDatabaseConnection(t *testing.T) {
 			app.DatabaseManager.ConnectionManager().Release(connection1)
 
 			var wg sync.WaitGroup
-			var insertError error
-			var selectError error
+			var errorsMu sync.Mutex
+			var insertErrors []error
+			var selectErrors []error
 			var insertingName = make(chan struct{}, 1)
 			var readingName = make(chan struct{}, 1)
 
@@ -1198,7 +1199,9 @@ func TestDatabaseConnection(t *testing.T) {
 					err := insertName()
 
 					if err != nil {
-						insertError = err
+						errorsMu.Lock()
+						insertErrors = append(insertErrors, err)
+						errorsMu.Unlock()
 						log.Println(err)
 					}
 				}
@@ -1218,7 +1221,9 @@ func TestDatabaseConnection(t *testing.T) {
 					connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
 
 					if err != nil {
-						selectError = err
+						errorsMu.Lock()
+						selectErrors = append(selectErrors, err)
+						errorsMu.Unlock()
 						log.Println(err)
 						return
 					}
@@ -1226,7 +1231,9 @@ func TestDatabaseConnection(t *testing.T) {
 					statement, err := connection.GetConnection().Prepare(context.Background(), "SELECT COUNT(*) as count FROM test")
 
 					if err != nil {
-						selectError = err
+						errorsMu.Lock()
+						selectErrors = append(selectErrors, err)
+						errorsMu.Unlock()
 						log.Println(err)
 						return
 					}
@@ -1259,7 +1266,9 @@ func TestDatabaseConnection(t *testing.T) {
 					})
 
 					if err != nil {
-						selectError = err
+						errorsMu.Lock()
+						selectErrors = append(selectErrors, err)
+						errorsMu.Unlock()
 						log.Println(err)
 					}
 				}(namesInserted)
@@ -1270,12 +1279,12 @@ func TestDatabaseConnection(t *testing.T) {
 			// Wait for all inserts to complete
 			wg.Wait()
 
-			if insertError != nil {
-				t.Fatal(insertError)
+			if len(insertErrors) > 0 {
+				t.Fatalf("Insert errors: %v", insertErrors[0])
 			}
 
-			if selectError != nil {
-				t.Fatal(selectError)
+			if len(selectErrors) > 0 {
+				t.Fatalf("Select errors: %v", selectErrors[0])
 			}
 		})
 

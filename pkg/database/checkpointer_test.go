@@ -89,10 +89,14 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			err = checkpointer.CheckpointBarrier(func() error {
+			err := checkpointer.CheckpointBarrier(func() error {
 				time.Sleep(10 * time.Millisecond)
 				return nil
 			})
+
+			if err != nil {
+				t.Errorf("First checkpoint barrier failed: %v", err)
+			}
 		}()
 
 		wg.Add(1)
@@ -102,7 +106,7 @@ func TestCheckpointer_CheckpointBarrier(t *testing.T) {
 
 			time.Sleep(1 * time.Millisecond)
 
-			err = checkpointer.CheckpointBarrier(func() error {
+			err := checkpointer.CheckpointBarrier(func() error {
 				return nil
 			})
 

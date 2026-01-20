@@ -72,6 +72,28 @@ type Node struct {
 	startedAt          time.Time
 	storedAddressAt    time.Time
 	walSynchronizer    NodeWalSynchronizer
+	workerPool         WorkerPoolAccessor
+}
+
+// WorkerPoolAccessor defines the interface for accessing worker pool batch status.
+// This is defined here to avoid import cycles.
+type WorkerPoolAccessor interface {
+	GetBatchStatus(ctx context.Context, batchID int64) (BatchProgress, error)
+}
+
+// BatchProgress represents the progress of a batch job.
+// This is defined here to avoid import cycles.
+type BatchProgress struct {
+	BatchID       int64
+	Name          string
+	TotalJobs     int
+	PendingJobs   int
+	CompletedJobs int
+	FailedJobs    int
+	Progress      int
+	IsFinished    bool
+	CreatedAt     time.Time
+	FinishedAt    *time.Time
 }
 
 // Create a new instance of a node.
@@ -524,7 +546,7 @@ func (n *Node) monitorPrimary() {
 func (n *Node) OnStarted(callback func()) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	
+
 	n.onStarted = append(n.onStarted, callback)
 }
 
@@ -977,6 +999,17 @@ func (n *Node) SetMembership(membership string) {
 				slog.Debug("Failed to sync dirty files", "error", err)
 			}
 		}
+
+		// When a node becomes primary, it needs to verify migration state
+		// This ensures that any migrations applied by the previous primary are detected
+		if n.databaseManager != nil {
+			slog.Info("Node became primary - rechecking migrations")
+			// This will trigger a migration recheck on next database access
+			systemDB := n.databaseManager.GetSystemDatabase()
+			if systemDB != nil {
+				systemDB.OnMigrationsUpdated()
+			}
+		}
 	}
 
 	if membership == ClusterMembershipReplica && prevMembership != ClusterMembershipPrimary && n.PrimaryAddress() != "" {
@@ -997,7 +1030,7 @@ func (n *Node) SetPageLoggerAccessor(pageLoggerAccessor NodePageLoggerAccessor) 
 	n.pageLoggerAccessor = pageLoggerAccessor
 }
 
-// Set the database manager for the node.
+// Set the database manager for the nodeWorkerPoolAccessor
 func (n *Node) SetDatabaseManager(databaseManager NodeDatabaseManager) {
 	n.databaseManager = databaseManager
 }
@@ -1015,6 +1048,11 @@ func (n *Node) SetQueryResponsePool(queryResponsePool NodeQueryResponsePool) {
 // Set the WAL synchronizer for the node.
 func (n *Node) SetWALSynchronizer(walSynchronizer NodeWalSynchronizer) {
 	n.walSynchronizer = walSynchronizer
+}
+
+// SetWorkerPool sets the worker pool instance for the node.
+func (n *Node) SetWorkerPool(workerPool WorkerPoolAccessor) {
+	n.workerPool = workerPool
 }
 
 // Shutdown the node and perform necessary cleanup operations.
@@ -1070,7 +1108,7 @@ func (n *Node) Start() chan bool {
 		n.mutex.Lock()
 		callbacks := n.onStarted
 		n.mutex.Unlock()
-		
+
 		for _, callback := range callbacks {
 			if callback != nil {
 				callback()

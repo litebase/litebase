@@ -367,6 +367,12 @@ func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
 	return database, nil
 }
 
+// GetSystemDatabase returns the system database for cluster operations.
+// This method exists to satisfy the NodeDatabaseManager interface.
+func (d *DatabaseManager) GetSystemDatabase() cluster.NodeSystemDatabase {
+	return d.SystemDatabase()
+}
+
 // Get a database branch by the database and brancd ids.
 func (d *DatabaseManager) GetBranch(databaseId, branchId string) (*Branch, error) {
 	database, err := d.Get(databaseId)
