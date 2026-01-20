@@ -80,12 +80,14 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 			}
 
 			// Generate encryption key if not provided via flag
-			if newConfig.Server.Key == "" {
+			if newConfig.Server.EncryptionKey == "" {
 				generatedKey, err := generateEncryptionKey()
+
 				if err != nil {
 					return fmt.Errorf("failed to generate encryption key: %w", err)
 				}
-				newConfig.Server.Key = generatedKey
+
+				newConfig.Server.EncryptionKey = generatedKey
 			}
 
 			// Check if we're in non-interactive mode (flags provided OR interactive flag is false)
@@ -387,7 +389,7 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 				return err
 			}
 
-			return configShow(cmd, newConfig)
+			return configShow(cmd, newConfig, true)
 		},
 	}
 
@@ -396,8 +398,9 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 	cmd.Flags().StringVar(&deploymentMode, "deployment-mode", "", "Deployment mode: 'single' for single-node or 'cluster' for multi-node (you can change this later)")
 	cmd.Flags().StringVar(&newConfig.Server.ClusterID, "cluster-id", "", "Cluster ID for the server")
 	cmd.Flags().StringVar(&newConfig.Server.ConfigPath, "config-path", "", "Path to the configuration file")
+	cmd.Flags().StringVar(&newConfig.Server.DataEncryptionKey, "data-encryption-key", "", "Data encryption key (if not provided, one will be generated)")
 	cmd.Flags().BoolVar(&newConfig.Server.Debug, "debug", false, "Enable debug mode")
-	cmd.Flags().StringVar(&newConfig.Server.Key, "key", "", "Encryption key (if not provided, one will be generated)")
+	cmd.Flags().StringVar(&newConfig.Server.EncryptionKey, "encryption-key", "", "Encryption key (if not provided, one will be generated)")
 	cmd.Flags().StringVar(&newConfig.Server.Port, "port", "9876", "Port to run the server on")
 	cmd.Flags().StringVar(&newConfig.Server.StorageLocalPath, "storage-path", "", "Path to the storage directory")
 	cmd.Flags().StringVar(&newConfig.Server.StorageNetworkPath, "storage-network-path", "", "Path to the network storage directory (leave empty for single-node)")

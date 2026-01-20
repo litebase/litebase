@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func configShow(cmd *cobra.Command, c *config.CLIConfiguration) error {
+func configShow(cmd *cobra.Command, c *config.CLIConfiguration, showKeys bool) error {
 	configPath, err := cmd.Flags().GetString("config")
 
 	if err != nil {
@@ -44,6 +44,20 @@ func configShow(cmd *cobra.Command, c *config.CLIConfiguration) error {
 			Key:   "Port",
 			Value: c.Server.Port,
 		},
+	}
+
+	if showKeys && c.Server.EncryptionKey != "" {
+		rows = append(rows, components.CardRow{
+			Key:   "Encryption Key",
+			Value: c.Server.EncryptionKey,
+		})
+	}
+
+	if showKeys && c.Server.DataEncryptionKey != "" {
+		rows = append(rows, components.CardRow{
+			Key:   "Data Encryption Key",
+			Value: c.Server.DataEncryptionKey,
+		})
 	}
 
 	// Add more configuration fields if they have values
@@ -86,7 +100,7 @@ func NewConfigShowCmd(c *config.CLIConfiguration) *cobra.Command {
 		Use:   "show",
 		Short: "Show Litebase Server configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return configShow(cmd, c)
+			return configShow(cmd, c, false)
 		},
 	}
 

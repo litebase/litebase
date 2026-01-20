@@ -53,7 +53,7 @@ func TestConfigInit(t *testing.T) {
 		}
 
 		// Verify that an encryption key was generated or used
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be set")
 		}
 	})
@@ -87,18 +87,18 @@ func TestConfigInitGeneratesEncryptionKey(t *testing.T) {
 		}
 
 		// Verify that an encryption key was automatically generated
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be automatically generated")
 		}
 
 		// Verify the key is of expected length (64 characters)
-		if len(config.Server.Key) != 64 {
-			t.Errorf("expected encryption key to be 64 characters, got %d", len(config.Server.Key))
+		if len(config.Server.EncryptionKey) != 64 {
+			t.Errorf("expected encryption key to be 64 characters, got %d", len(config.Server.EncryptionKey))
 		}
 
 		// Verify the key contains only valid characters
 		validChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-		for _, char := range config.Server.Key {
+		for _, char := range config.Server.EncryptionKey {
 			if !strings.ContainsRune(validChars, char) {
 				t.Errorf("encryption key contains invalid character: %c", char)
 			}
@@ -135,8 +135,8 @@ func TestConfigInitWithCustomEncryptionKey(t *testing.T) {
 		}
 
 		// Verify that the custom encryption key was used
-		if config.Server.Key != customKey {
-			t.Errorf("expected encryption key to be '%s', got '%s'", customKey, config.Server.Key)
+		if config.Server.EncryptionKey != customKey {
+			t.Errorf("expected encryption key to be '%s', got '%s'", customKey, config.Server.EncryptionKey)
 		}
 	})
 }
@@ -206,7 +206,7 @@ func TestConfigInitWithDefaultPath(t *testing.T) {
 		}
 
 		// Verify that an encryption key was generated
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be set")
 		}
 	})
@@ -255,7 +255,7 @@ func TestConfigInitMinimalFlags(t *testing.T) {
 		}
 
 		// Verify that an encryption key was generated
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be set")
 		}
 	})
@@ -317,8 +317,8 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 			t.Errorf("expected debug to be true, got %v", config.Server.Debug)
 		}
 
-		if config.Server.Key != "test-key" {
-			t.Errorf("expected key to be 'test-key', got %v", config.Server.Key)
+		if config.Server.EncryptionKey != "test-key" {
+			t.Errorf("expected key to be 'test-key', got %v", config.Server.EncryptionKey)
 		}
 
 		if config.Server.StorageLocalPath != "/test/data" {
@@ -342,8 +342,8 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 		}
 
 		// Verify that the custom encryption key was used instead of generating one
-		if config.Server.Key != "test-key" {
-			t.Errorf("expected encryption key to be 'test-key', got %v", config.Server.Key)
+		if config.Server.EncryptionKey != "test-key" {
+			t.Errorf("expected encryption key to be 'test-key', got %v", config.Server.EncryptionKey)
 		}
 	})
 }
