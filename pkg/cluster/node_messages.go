@@ -31,4 +31,11 @@ func registerNodeMessages() {
 	gob.Register(messages.WALReplicationWriteMessage{})
 	gob.Register(messages.WALVersionUsageRequest{})
 	gob.Register(messages.WALVersionUsageResponse{})
+
+	// Job batch messages
+	gob.Register(messages.JobBatchStatusRequest{})
+	gob.Register(messages.JobBatchStatusResponse{})
+
+	// System database messages
+	gob.Register(messages.MigrationsUpdatedMessage{})
 }

@@ -27,6 +27,11 @@ func (dma *DatabaseManagerAdapter) Get(databaseID string) (cluster.NodeDatabase,
 	return &DatabaseAdapter{db: db}, nil
 }
 
+// GetSystemDatabase implements cluster.NodeDatabaseManager
+func (dma *DatabaseManagerAdapter) GetSystemDatabase() cluster.NodeSystemDatabase {
+	return dma.databaseManager.SystemDatabase()
+}
+
 // DatabaseAdapter adapts Database to implement cluster.NodeDatabase interface
 type DatabaseAdapter struct {
 	db *Database

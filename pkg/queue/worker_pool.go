@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"runtime"
@@ -17,6 +18,7 @@ type WorkerPool struct {
 	systemDB         *database.SystemDatabase
 	cluster          *cluster.Cluster
 	registry         *JobRegistry
+	batchManager     *BatchManager
 	workerCount      int
 	started          bool
 	primaryOnly      bool
@@ -42,13 +44,18 @@ func NewWorkerPool(systemDB *database.SystemDatabase, cluster *cluster.Cluster, 
 		workerCount = max(runtime.NumCPU()/2, 1)
 	}
 
-	return &WorkerPool{
+	pool := &WorkerPool{
 		systemDB:    systemDB,
 		cluster:     cluster,
 		registry:    NewJobRegistry(),
 		workerCount: workerCount,
 		primaryOnly: config.PrimaryOnly,
 	}
+
+	// Create batch manager (dispatcher will be set when NewDispatcher is called)
+	pool.batchManager = NewBatchManager(systemDB)
+
+	return pool
 }
 
 // RegisterJob registers a new job type with its handler and configuration.
@@ -100,6 +107,7 @@ func (p *WorkerPool) Start() error {
 	for i := 0; i < p.workerCount; i++ {
 		workerID := fmt.Sprintf("worker-%d", i+1)
 		p.workers[i] = NewWorker(workerID, p.systemDB, p.registry)
+		p.workers[i].SetBatchManager(p.batchManager)
 		p.workers[i].SetPrimaryOnlyMode(p.primaryOnly, func() bool {
 			return p.cluster.Node().IsPrimary()
 		})
@@ -147,5 +155,38 @@ func (p *WorkerPool) WorkerCount() int {
 // This ensures dispatched jobs inherit the configuration (retries, timeouts, etc.)
 // defined during job registration.
 func (p *WorkerPool) NewDispatcher() *Dispatcher {
-	return NewDispatcher(p.systemDB, p.registry)
+	dispatcher := NewDispatcher(p.systemDB, p.registry)
+	// Update batch manager's dispatcher reference
+	p.batchManager.dispatcher = dispatcher
+
+	return dispatcher
+}
+
+// NewBatchManager returns a BatchManager that can create batches of jobs.
+// The returned BatchManager is connected to this pool's dispatcher.
+func (p *WorkerPool) NewBatchManager() *BatchManager {
+	return p.batchManager
+}
+
+// GetBatchStatus retrieves the current status of a batch by ID.
+// This method implements the cluster.WorkerPoolAccessor interface.
+func (p *WorkerPool) GetBatchStatus(ctx context.Context, batchID int64) (cluster.BatchProgress, error) {
+	progress, err := p.batchManager.GetBatchStatus(ctx, batchID)
+
+	if err != nil {
+		return cluster.BatchProgress{}, err
+	}
+
+	return cluster.BatchProgress{
+		BatchID:       progress.BatchID,
+		Name:          progress.Name,
+		TotalJobs:     progress.TotalJobs,
+		PendingJobs:   progress.PendingJobs,
+		CompletedJobs: progress.CompletedJobs,
+		FailedJobs:    progress.FailedJobs,
+		Progress:      progress.Progress,
+		IsFinished:    progress.IsFinished,
+		CreatedAt:     progress.CreatedAt,
+		FinishedAt:    progress.FinishedAt,
+	}, nil
 }

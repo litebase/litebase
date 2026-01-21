@@ -20,6 +20,7 @@ type Worker struct {
 	cancel           context.CancelFunc
 	pollInterval     time.Duration
 	registry         *JobRegistry
+	batchManager     *BatchManager
 	wg               sync.WaitGroup
 	afterJob         func(jobID int64, status JobStatus, err error)
 	primaryOnly      bool
@@ -46,6 +47,11 @@ func NewWorker(id string, systemDB *database.SystemDatabase, registry *JobRegist
 // This is useful for testing to wait for job completion synchronously.
 func (w *Worker) SetAfterJobHook(fn func(jobID int64, status JobStatus, err error)) {
 	w.afterJob = fn
+}
+
+// SetBatchManager sets the batch manager for this worker.
+func (w *Worker) SetBatchManager(batchManager *BatchManager) {
+	w.batchManager = batchManager
 }
 
 // SetPrimaryOnlyMode configures the worker to only process jobs when on a primary node.
@@ -268,6 +274,13 @@ func (w *Worker) processNextJob() error {
 			w.markJobFailed(queuedJob.ID, queuedJob.Attempts, err.Error())
 			slog.Info("Job failed permanently", "worker_id", w.id, "job_id", queuedJob.ID, "attempts", queuedJob.Attempts)
 
+			// Update batch status if this job is part of a batch
+			if w.batchManager != nil {
+				if batchErr := w.batchManager.UpdateJobStatus(w.ctx, queuedJob.ID); batchErr != nil {
+					slog.Error("Failed to update batch status", "job_id", queuedJob.ID, "error", batchErr)
+				}
+			}
+
 			if w.afterJob != nil {
 				w.afterJob(queuedJob.ID, JobStatusFailed, err)
 			}
@@ -279,6 +292,13 @@ func (w *Worker) processNextJob() error {
 	// Job succeeded, mark as completed
 	w.markJobCompleted(queuedJob.ID)
 	slog.Info("Job completed", "worker_id", w.id, "job_id", queuedJob.ID)
+
+	// Update batch status if this job is part of a batch
+	if w.batchManager != nil {
+		if err := w.batchManager.UpdateJobStatus(w.ctx, queuedJob.ID); err != nil {
+			slog.Error("Failed to update batch status", "job_id", queuedJob.ID, "error", err)
+		}
+	}
 
 	if w.afterJob != nil {
 		w.afterJob(queuedJob.ID, JobStatusCompleted, nil)

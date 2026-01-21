@@ -462,6 +462,12 @@ func TestSystemDatabase_NewMigrationRollingUpdate(t *testing.T) {
 			<-server2New.Started
 			servers = append(servers, server2New)
 
+			err = server2New.App.Cluster.Node().WaitForPrimary()
+
+			if err != nil {
+				t.Fatalf("server2 failed to detect primary: %v", err)
+			}
+
 			systemDB2New := server2New.App.DatabaseManager.SystemDatabase()
 
 			db2New, err := systemDB2New.DB()
