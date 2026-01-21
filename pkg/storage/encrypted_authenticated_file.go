@@ -299,7 +299,37 @@ func (eaf *EncryptedAuthenticatedFile) Seek(offset int64, whence int) (int64, er
 
 // Stat returns file information
 func (eaf *EncryptedAuthenticatedFile) Stat() (fs.FileInfo, error) {
-	return eaf.file.Stat()
+	// Get the actual file info
+	info, err := eaf.file.Stat()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Read the header to get the actual page count
+	eaf.mutex.Lock()
+	pageCount := eaf.header.PageCount
+	eaf.mutex.Unlock()
+
+	// Calculate the virtual size based on page count
+	// Each page is 4096 bytes in the virtual view
+	virtualSize := int64(pageCount) * 4096
+
+	// Return a wrapped FileInfo with the virtual size
+	return &encryptedFileInfo{
+		FileInfo:    info,
+		virtualSize: virtualSize,
+	}, nil
+}
+
+// encryptedFileInfo wraps fs.FileInfo to return a virtual size for encrypted files
+type encryptedFileInfo struct {
+	fs.FileInfo
+	virtualSize int64
+}
+
+func (efi *encryptedFileInfo) Size() int64 {
+	return efi.virtualSize
 }
 
 // Sync syncs the underlying file

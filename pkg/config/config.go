@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 )
 
@@ -15,32 +17,36 @@ const (
 )
 
 type Config struct {
-	ClusterId              string
-	Debug                  bool
-	DefaultBranchName      string
-	EncryptionKey          string
-	EncryptionKeyNext      string
-	HostName               string
-	Env                    string
-	FakeObjectStorage      bool
-	FileSystemDriver       string
-	NodeAddressProvider    string
-	PageSize               int64
-	Port                   string
-	PrivatePort            string
-	RootPassword           string
-	RootUsername           string
-	StorageAccessKeyId     string
-	StorageBucket          string
-	StorageEndpoint        string
-	StorageLocalPath       string
-	StorageNetworkPath     string
-	StorageObjectMode      string
-	StorageSecretAccessKey string
-	StoragePort            string
-	StorageRegion          string
-	StorageTieredMode      string
-	StorageTmpPath         string
+	ClusterId               string
+	DataEncryptionKey       []byte
+	DataEncryptionKeyHash   string
+	DataEncryptionKeyNext   []byte
+	DataEncryptionKeyNextHash string
+	Debug                   bool
+	DefaultBranchName       string
+	EncryptionKey           string
+	EncryptionKeyNext       string
+	HostName                string
+	Env                     string
+	FakeObjectStorage       bool
+	FileSystemDriver        string
+	NodeAddressProvider     string
+	PageSize                int64
+	Port                    string
+	PrivatePort             string
+	RootPassword            string
+	RootUsername            string
+	StorageAccessKeyId      string
+	StorageBucket           string
+	StorageEndpoint         string
+	StorageLocalPath        string
+	StorageNetworkPath      string
+	StorageObjectMode       string
+	StorageSecretAccessKey  string
+	StoragePort             string
+	StorageRegion           string
+	StorageTieredMode       string
+	StorageTmpPath          string
 }
 
 // Get an environment variable or return a default value if not set.
@@ -54,7 +60,7 @@ func env(key string, defaultValue string) any {
 
 // Create a new Config instance with values from environment variables or defaults.
 func NewConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		ClusterId:              env("LITEBASE_CLUSTER_ID", "").(string),
 		DefaultBranchName:      env("LITEBASE_DEFAULT_BRANCH_NAME", "main").(string),
 		Debug:                  env("LITEBASE_DEBUG", "false") == "true",
@@ -80,4 +86,32 @@ func NewConfig() *Config {
 		StorageTieredMode:      env("LITEBASE_STORAGE_TIERED_MODE", env("LITEBASE_STORAGE_OBJECT_MODE", "object").(string)).(string),
 		StorageTmpPath:         env("LITEBASE_STORAGE_TMP_PATH", os.TempDir()).(string),
 	}
+
+	// Load and hash DataEncryptionKey
+	dataEncryptionKeyHex := env("LITEBASE_DATA_ENCRYPTION_KEY", "").(string)
+
+	if dataEncryptionKeyHex != "" {
+		dataKey, err := hex.DecodeString(dataEncryptionKeyHex)
+
+		if err == nil && len(dataKey) == 32 {
+			cfg.DataEncryptionKey = dataKey
+			keyHash := sha256.Sum256(dataKey)
+			cfg.DataEncryptionKeyHash = hex.EncodeToString(keyHash[:])
+		}
+	}
+
+	// Load and hash DataEncryptionKeyNext
+	dataEncryptionKeyNextHex := env("LITEBASE_DATA_ENCRYPTION_KEY_NEXT", "").(string)
+
+	if dataEncryptionKeyNextHex != "" {
+		dataKeyNext, err := hex.DecodeString(dataEncryptionKeyNextHex)
+
+		if err == nil && len(dataKeyNext) == 32 {
+			cfg.DataEncryptionKeyNext = dataKeyNext
+			keyHash := sha256.Sum256(dataKeyNext)
+			cfg.DataEncryptionKeyNextHash = hex.EncodeToString(keyHash[:])
+		}
+	}
+
+	return cfg
 }

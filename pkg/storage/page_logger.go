@@ -244,13 +244,16 @@ type PageLogger struct {
 	CompactedAt     time.Time
 	compactionMutex *sync.Mutex
 	DatabaseID      string
+	dataKey         []byte    // Optional: encryption key (32 bytes)
+	encrypted       bool      // Whether this PageLogger creates encrypted PageLogs
+	keyHash         [32]byte  // Optional: SHA256 hash of encryption key
 	NetworkFS       *FileSystem
 	index           *PageLoggerIndex
 	logs            map[PageGroup]map[PageGroupVersion]*PageLog
 	logUsage        map[int64]int64
 	mutex           *sync.Mutex
 	nodePublisher   NodePublisher
-	sizeCheckNeeded bool // flag to indicate size-based compaction check is needed
+	sizeCheckNeeded bool      // flag to indicate size-based compaction check is needed
 	writtenAt       time.Time
 }
 
@@ -500,15 +503,33 @@ func (pl *PageLogger) CompactionPassiveBarrier(f func() error) error {
 
 // Create a new instance of a page log for the given log group and timestamp.
 func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGroupVersion) (*PageLog, error) {
-	return NewPageLog(
-		pl.NetworkFS,
-		fmt.Sprintf(
-			"%slogs/page/PAGE_LOG_%d_%d",
-			file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID),
-			logGroup,
-			logTimestamp,
-		),
+	path := fmt.Sprintf(
+		"%slogs/page/PAGE_LOG_%d_%d",
+		file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID),
+		logGroup,
+		logTimestamp,
 	)
+
+	if pl.encrypted {
+		return NewEncryptedPageLog(pl.NetworkFS, path, pl.dataKey, pl.keyHash)
+	}
+
+	return NewPageLog(pl.NetworkFS, path)
+}
+
+// ConfigureEncryption sets the encryption parameters for this PageLogger.
+// All subsequently created PageLogs will be encrypted.
+// This should be called immediately after PageLogger creation if encryption is needed.
+func (pl *PageLogger) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
+	if len(dataKey) != 32 {
+		return fmt.Errorf("dataKey must be exactly 32 bytes, got %d", len(dataKey))
+	}
+
+	pl.dataKey = dataKey
+	pl.encrypted = true
+	pl.keyHash = keyHash
+
+	return nil
 }
 
 // Force compaction of the page logger. This is used to ensure that the

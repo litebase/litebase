@@ -27,10 +27,13 @@ var (
 type PageLog struct {
 	cache               *cache.LFUCache
 	compactedAt         time.Time
+	dataKey             []byte // Optional: encryption key (32 bytes)
 	deleted             bool
+	encrypted           bool // Whether this PageLog is encrypted
 	fileSystem          *FileSystem
 	file                storage.File
 	index               *PageLogIndex
+	keyHash             [32]byte // Optional: SHA256 hash of encryption key
 	mutex               *sync.Mutex
 	Path                string
 	size                int64
@@ -39,10 +42,59 @@ type PageLog struct {
 }
 
 // Create a new page log instance.
+// If dataKey is provided (not nil), the PageLog will be encrypted.
 func NewPageLog(fileSystem *FileSystem, path string) (*PageLog, error) {
 	pl := &PageLog{
 		cache:      cache.NewLFUCache(100),
+		encrypted:  false,
 		fileSystem: fileSystem,
+		mutex:      &sync.Mutex{},
+		Path:       path,
+	}
+
+	var pli *PageLogIndex
+	var err error
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		pli = NewPageLogIndex(fileSystem, fmt.Sprintf("%s_INDEX", path))
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		err = pl.openFile()
+
+	}()
+
+	wg.Wait()
+
+	if err != nil {
+		return nil, err
+	}
+
+	pl.index = pli
+
+	return pl, nil
+}
+
+// Create a new encrypted page log instance.
+// dataKey must be exactly 32 bytes. timestamp is used for IV derivation (use 0 for PageLogs).
+func NewEncryptedPageLog(fileSystem *FileSystem, path string, dataKey []byte, keyHash [32]byte) (*PageLog, error) {
+	if len(dataKey) != 32 {
+		return nil, fmt.Errorf("dataKey must be exactly 32 bytes, got %d", len(dataKey))
+	}
+
+	pl := &PageLog{
+		cache:      cache.NewLFUCache(100),
+		dataKey:    dataKey,
+		encrypted:  true,
+		fileSystem: fileSystem,
+		keyHash:    keyHash,
 		mutex:      &sync.Mutex{},
 		Path:       path,
 	}
@@ -348,7 +400,7 @@ func (pl *PageLog) openFile() error {
 	var err error
 
 tryOpen:
-	pl.file, err = pl.fileSystem.OpenFile(pl.Path, os.O_RDWR|os.O_CREATE, 0600)
+	file, err := pl.fileSystem.OpenFile(pl.Path, os.O_RDWR|os.O_CREATE, 0600)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -364,10 +416,62 @@ tryOpen:
 		return err
 	}
 
-	fileinfo, err := pl.file.Stat()
+	// Wrap with encrypted file if encryption is enabled
+	if pl.encrypted {
+		fileInfo, err := file.Stat()
+
+		if err != nil {
+			if err := file.Close(); err != nil {
+				slog.Error("failed to close file after stat error:", "error", err)
+			}
+
+			return fmt.Errorf("failed to stat page log file: %w", err)
+		}
+
+		var encryptedFile storage.File
+
+		if fileInfo.Size() == 0 {
+			// New file - create encrypted wrapper (timestamp=0 for PageLogs)
+			encryptedFile, err = NewEncryptedStreamFile(file, pl.dataKey, pl.keyHash, 0, pl.Path)
+
+			if err != nil {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after creation error:", "error", err)
+				}
+
+				return fmt.Errorf("failed to create encrypted page log file: %w", err)
+			}
+
+			// Write the header
+			err = encryptedFile.(*EncryptedStreamFile).WriteHeader()
+
+			if err != nil {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after header write error:", "error", err)
+				}
+
+				return fmt.Errorf("failed to write encrypted page log header: %w", err)
+			}
+		} else {
+			// Existing file - open encrypted wrapper
+			encryptedFile, err = OpenEncryptedStreamFile(file, pl.dataKey, pl.keyHash, 0, pl.Path)
+
+			if err != nil {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after opening error:", "error", err)
+				}
+
+				return fmt.Errorf("failed to open encrypted page log file: %w", err)
+			}
+		}
+
+		file = encryptedFile
+	}
+
+	fileinfo, err := file.Stat()
 
 	if err != nil {
-		closeErr := pl.file.Close()
+		closeErr := file.Close()
 
 		if closeErr != nil {
 			slog.Error("failed to close file after stat error:", "error", closeErr)
@@ -379,6 +483,7 @@ tryOpen:
 	}
 
 	pl.size = fileinfo.Size()
+	pl.file = file
 
 	return nil
 }

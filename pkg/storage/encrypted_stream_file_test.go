@@ -616,22 +616,48 @@ func TestEncryptedStreamFile_UnsupportedOperations(t *testing.T) {
 	// Test unsupported operations
 	buf := make([]byte, 100)
 
-	_, err = esf.Read(buf)
-
-	if err == nil {
-		t.Error("expected error for Read, got nil")
-	}
-
-	_, err = esf.Write(buf)
-
-	if err == nil {
-		t.Error("expected error for Write, got nil")
-	}
-
+	// Read is now supported (delegates to ReadAt)
+	// Seek to beginning first
 	_, err = esf.Seek(0, io.SeekStart)
 
-	if err == nil {
-		t.Error("expected error for Seek, got nil")
+	if err != nil {
+		t.Fatalf("failed to seek: %v", err)
+	}
+
+	// Read should work now
+	_, err = esf.Read(buf)
+
+	// Might get EOF or nil error depending on file state
+	if err != nil && err != io.EOF {
+		t.Errorf("expected Read to be supported, got error: %v", err)
+	}
+
+	// Write is now supported (delegates to WriteAt)
+	buf = make([]byte, 4096)
+
+	for i := range buf {
+		buf[i] = byte(i % 256)
+	}
+
+	n, err := esf.Write(buf)
+
+	if err != nil {
+		t.Errorf("expected Write to be supported, got error: %v", err)
+	}
+
+	if n != 4096 {
+		t.Errorf("expected Write to write 4096 bytes, got %d", n)
+	}
+
+	// Seek is now supported for PageLog compatibility
+	offset, err := esf.Seek(0, io.SeekStart)
+
+	if err != nil {
+		t.Errorf("expected Seek to be supported, got error: %v", err)
+	}
+
+	if offset != 0 {
+		t.Errorf("expected Seek to return 0, got %d", offset)
 	}
 
 	_, err = esf.WriteTo(nil)
