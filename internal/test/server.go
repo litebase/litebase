@@ -1,6 +1,8 @@
 package test
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -94,6 +96,24 @@ func NewTestServer(t testing.TB) *TestServer {
 	}
 
 	return server
+}
+
+/*
+NewTestServerWithEncryption creates a new test server with encryption enabled.
+It generates a random 32-byte encryption key and configures it in the server.
+*/
+func NewTestServerWithEncryption(t testing.TB) *TestServer {
+	// Generate a random 32-byte encryption key
+	dataKey := make([]byte, 32)
+	if _, err := rand.Read(dataKey); err != nil {
+		t.Fatalf("failed to generate encryption key: %v", err)
+	}
+
+	// Set environment variables for encryption
+	t.Setenv("LITEBASE_DATA_ENCRYPTION_KEY", hex.EncodeToString(dataKey))
+
+	// Create the server (will read the env vars)
+	return NewTestServer(t)
 }
 
 /*

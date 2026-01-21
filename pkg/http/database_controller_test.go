@@ -286,3 +286,106 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 		})
 	})
 }
+func TestDatabaseControllerStore_WithEncryption(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServerWithEncryption(t)
+		defer server.Shutdown()
+
+		client := server.WithAccessKeyClient([]auth.Statement{{
+			Effect:   auth.StatementEffectAllow,
+			Resource: "*",
+			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
+		}})
+
+		resp, statusCode, err := client.Send("/v1/databases", "POST", map[string]any{
+			"name":      "encrypted_db",
+			"encrypted": true,
+		})
+
+		if err != nil {
+			t.Fatalf("failed to send request: %v", err)
+		}
+
+		if statusCode != 200 {
+			t.Fatalf("expected status code 200, got %d", statusCode)
+		}
+
+		data, ok := resp["data"].(map[string]any)
+
+		if !ok {
+			t.Fatalf("expected data to be an object, got %T", resp["data"])
+		}
+
+		if data["databaseName"] != "encrypted_db" {
+			t.Fatalf("expected database name to be 'encrypted_db', got %v", data["databaseName"])
+		}
+
+		// Verify encryption is actually configured
+		database, err := server.App.DatabaseManager.Get(data["databaseId"].(string))
+
+		if err != nil {
+			t.Fatalf("failed to get database: %v", err)
+		}
+
+		primaryBranch, err := database.PrimaryBranch()
+
+		if err != nil {
+			t.Fatalf("failed to get primary branch: %v", err)
+		}
+
+		if !primaryBranch.Settings.Encrypted {
+			t.Errorf("expected branch to be encrypted")
+		}
+
+		if primaryBranch.Settings.DataEncryptionKeyHash != server.App.Config.DataEncryptionKeyHash {
+			t.Errorf("expected key hash to match server config")
+		}
+	})
+}
+
+func TestDatabaseControllerStore_WithEncryptionButNoKey(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		client := server.WithAccessKeyClient([]auth.Statement{{
+			Effect:   auth.StatementEffectAllow,
+			Resource: "*",
+			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
+		}})
+
+		resp, statusCode, err := client.Send("/v1/databases", "POST", map[string]any{
+			"name":      "encrypted_db",
+			"encrypted": true,
+		})
+
+		if err != nil {
+			t.Fatalf("failed to send request: %v", err)
+		}
+
+		if statusCode != 400 {
+			t.Fatalf("expected status code 400, got %d", statusCode)
+		}
+
+		if resp["status"] != "error" {
+			t.Fatalf("expected error status, got %v", resp["status"])
+		}
+
+		if !contains(resp["message"].(string), "LITEBASE_DATA_ENCRYPTION_KEY") {
+			t.Fatalf("expected error message about encryption key, got %v", resp["message"])
+		}
+	})
+}
+
+func contains(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) >= len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

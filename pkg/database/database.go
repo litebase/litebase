@@ -171,9 +171,6 @@ func UpdateDatabase(database *Database) error {
 func (database *Database) Branch(name string) (*Branch, error) {
 	var branch Branch
 
-	// Note: Cannot check cache here since we don't have DatabaseBranchID yet,
-	// only the name. Cache is keyed by DatabaseBranchID for consistency.
-
 	db, err := database.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
@@ -203,6 +200,12 @@ func (database *Database) Branch(name string) (*Branch, error) {
 		}
 
 		return nil, fmt.Errorf("failed to query branch: %w", err)
+	}
+
+	// Now that we have DatabaseBranchID, check if there's a cached version
+	// This is critical: if UpdateBranchSettings was called, the cache has the latest settings
+	if cached, exists := database.branchCache.Get(branch.DatabaseBranchID); exists {
+		return cached.(*Branch), nil
 	}
 
 	branch.Exists = true
@@ -396,8 +399,10 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 		return nil, fmt.Errorf("failed to load branch settings: %w", err)
 	}
 
-	// Update cache to reflect the new branch exists
-	database.UpdateBranchCache(branch.DatabaseBranchID, branch)
+	// Cache the newly created branch
+	if err := database.branchCache.Put(branch.DatabaseBranchID, branch); err != nil {
+		slog.Warn("Failed to cache new branch", "error", err)
+	}
 
 	// Copy the data from the parent branch if specified
 	if parentBranchName != "" && branch.ParentBranch() != nil {

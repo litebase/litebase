@@ -32,6 +32,10 @@ func NewDatabaseBranchCreateCmd(config *config.CLIConfiguration) *cobra.Command 
 				data["parentName"] = parentBranchName
 			}
 
+			if encrypted, _ := cmd.Flags().GetBool("encrypted"); encrypted {
+				data["encrypted"] = true
+			}
+
 			res, _, err := api.Post(config, fmt.Sprintf("/v1/databases/%s/branches", databaseName), data)
 
 			if err != nil {
@@ -49,6 +53,8 @@ func NewDatabaseBranchCreateCmd(config *config.CLIConfiguration) *cobra.Command 
 			return err
 		},
 	}
+
+	cmd.Flags().Bool("encrypted", false, "Enable encryption for the branch (requires LITEBASE_DATA_ENCRYPTION_KEY on server)")
 
 	return cmd
 }

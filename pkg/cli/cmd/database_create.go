@@ -23,6 +23,10 @@ func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 				data["primaryBranch"] = primaryBranch
 			}
 
+			if encrypted, _ := cmd.Flags().GetBool("encrypted"); encrypted {
+				data["encrypted"] = true
+			}
+
 			res, apiErrors, err := api.Post(config, "/v1/databases", data)
 
 			if err != nil {
@@ -58,6 +62,7 @@ func NewDatabaseCreateCmd(config *config.CLIConfiguration) *cobra.Command {
 	}
 
 	cmd.Flags().String("primary-branch", "", "The name of the primary branch for the database")
+	cmd.Flags().Bool("encrypted", false, "Enable encryption for the database (requires LITEBASE_DATA_ENCRYPTION_KEY on server)")
 
 	return cmd
 }

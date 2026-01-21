@@ -472,6 +472,10 @@ func (b *Branch) GetBranchSettings() (*DatabaseBranchSettings, error) {
 	}
 
 	var (
+		id                              int
+		branchRefID                     int
+		createdAt                       int64
+		updatedAt                       int64
 		backupsCleanedAt                sql.NullInt64
 		backupsEnabled                  int
 		backupInterval                  string
@@ -493,43 +497,51 @@ func (b *Branch) GetBranchSettings() (*DatabaseBranchSettings, error) {
 
 	err = db.QueryRow(`
 		SELECT 
-			backups_cleaned_at,
+			id,
+			database_branch_reference_id,
 			backups_enabled,
 			backups_interval,
-			backup_next_at,
 			backups_retention_days,
-			data_encryption_key_hash,
+			backups_cleaned_at,
+			backup_next_at,
 			default_pragmas_json,
-			encrypted,
-			error_logs_cleaned_at,
 			error_logs_enabled,
 			error_logs_retention_days,
-			incremental_backups_cleaned_at,
+			error_logs_cleaned_at,
 			incremental_backups_enabled,
 			incremental_backups_retention_days,
-			query_logs_cleaned_at,
+			incremental_backups_cleaned_at,
 			query_logs_enabled,
-			query_logs_retention_days
+			query_logs_retention_days,
+			query_logs_cleaned_at,
+			created_at,
+			updated_at,
+			encrypted,
+			data_encryption_key_hash
 		FROM database_branch_settings 
 		WHERE database_branch_reference_id = ?
 	`, b.ID).Scan(
-		&backupsCleanedAt,
+		&id,
+		&branchRefID,
 		&backupsEnabled,
 		&backupInterval,
-		&backupNextAt,
 		&backupsRetentionDays,
-		&dataEncryptionKeyHash,
+		&backupsCleanedAt,
+		&backupNextAt,
 		&defaultPragmasJSON,
-		&encrypted,
-		&errorLogsCleanedAt,
 		&errorLogsEnabled,
 		&errorLogsRetentionDays,
-		&incrementalBackupsCleanedAt,
+		&errorLogsCleanedAt,
 		&incrementalBackupsEnabled,
 		&incrementalBackupsRetentionDays,
-		&queryLogsCleanedAt,
+		&incrementalBackupsCleanedAt,
 		&queryLogsEnabled,
 		&queryLogsRetentionDays,
+		&queryLogsCleanedAt,
+		&createdAt,
+		&updatedAt,
+		&encrypted,
+		&dataEncryptionKeyHash,
 	)
 
 	if err != nil {

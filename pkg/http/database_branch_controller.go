@@ -111,6 +111,7 @@ func DatabaseBranchControllerShow(ctx context.Context, request *Request) Respons
 type DatabaseBranchStoreRequest struct {
 	Name       database.DatabaseBranchName `json:"name" validate:"required,validateFn"`
 	ParentName string                      `json:"parentName,omitempty"`
+	Encrypted  bool                        `json:"encrypted,omitempty"`
 }
 
 type DatabaseBranchStoreResponse struct {
@@ -198,6 +199,28 @@ func DatabaseBranchControllerStore(ctx context.Context, request *Request) Respon
 		}
 
 		return ServerErrorResponse(err)
+	}
+
+	// Configure encryption if requested
+	if req.Encrypted {
+		if request.cluster.Config.DataEncryptionKeyHash == "" {
+			return BadRequestResponse(errors.New("encryption requested but LITEBASE_DATA_ENCRYPTION_KEY is not configured on the server"))
+		}
+
+		// Use next encryption key if available (for key rotation)
+		keyHash := request.cluster.Config.DataEncryptionKeyHash
+		if request.cluster.Config.DataEncryptionKeyNextHash != "" {
+			keyHash = request.cluster.Config.DataEncryptionKeyNextHash
+		}
+
+		err = branch.SetEncryptionSettings(true, keyHash)
+
+		if err != nil {
+			slog.Error("Failed to set encryption settings", "databaseId", db.DatabaseID, "branchId", branch.DatabaseBranchID, "error", err)
+			return ServerErrorResponse(errors.New("failed to configure encryption for branch"))
+		}
+
+		// No need to reload - SetEncryptionSettings already updates both the branch and the cache
 	}
 
 	return SuccessResponse(
