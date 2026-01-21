@@ -206,7 +206,7 @@ func (s *SecretsManager) PurgeExpiredSecrets() error {
 			continue
 		}
 
-		var jsonManifest map[string]interface{}
+		var jsonManifest map[string]any
 
 		err = json.Unmarshal(manifest, &jsonManifest)
 
