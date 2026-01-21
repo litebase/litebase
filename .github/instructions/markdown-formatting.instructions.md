@@ -5,11 +5,13 @@ Follow these rules when writing documentation to pass `npx markdownlint-cli` wit
 ## Blank Lines (MD022, MD031, MD032)
 
 **Always add a blank line BEFORE:**
+
 - Level 1, 2, and 3 headings (`#`, `##`, `###`)
 - Code fences (both opening and closing ` ``` `)
 - Lists (bullet and numbered)
 
 **Always add a blank line AFTER:**
+
 - Code fences (closing ` ``` `)
 - Heading content that precedes a list or code block
 
@@ -23,13 +25,13 @@ Some text.
 ### Subheading
 
 Some more text.
-
 ```
 
 ```markdown
 # INCORRECT: No blank line before heading
 
 Some text.
+
 ### Subheading
 
 This will fail MD022.
@@ -39,25 +41,30 @@ This will fail MD022.
 
 **Always specify a language identifier** in code fence opening:
 
-```markdown
+````markdown
 # CORRECT
+
 ```bash
 echo "hello"
 ```
+````
 
 ```go
 type MyStruct struct {}
 ```
 
 ```json
-{"key": "value"}
+{ "key": "value" }
 ```
-```
+
+````
 
 ```markdown
 # INCORRECT - no language
-```
+````
+
 echo "hello"
+
 ```
 
 This fails MD040. Specify: bash, go, json, text, sql, etc.
@@ -69,10 +76,12 @@ This fails MD040. Specify: bash, go, json, text, sql, etc.
 
 ```markdown
 # CORRECT
+
 Main entry point for all auth operations. Manages three credential managers
 and coordinates credential lookups.
 
 # INCORRECT
+
 Main entry point for all auth operations. Manages three credential managers and coordinates credential lookups.
 ```
 
@@ -92,6 +101,7 @@ credential=acc_123,signed_headers=host,signature=..."
 
 ```markdown
 # CORRECT: Database Operations
+
 # INCORRECT: Database Operations:
 ```
 
@@ -102,21 +112,31 @@ prefix with context:
 
 ```markdown
 # CORRECT
+
 ## Access Keys
+
 ### Access Keys: Create
+
 ### Access Keys: List
 
 ## Tokens
+
 ### Tokens: Create
+
 ### Tokens: List
 
 # INCORRECT
+
 ## Access Keys
+
 ### Create
+
 ### List
 
 ## Tokens
+
 ### Create
+
 ### List
 ```
 
@@ -126,6 +146,7 @@ prefix with context:
 
 ```markdown
 # CORRECT
+
 Some text describing the list.
 
 - Item 1
@@ -135,7 +156,9 @@ Some text describing the list.
 More text after the list.
 
 # INCORRECT
+
 Some text describing the list.
+
 - Item 1
 - Item 2
 
@@ -148,13 +171,14 @@ More text fails MD032.
 
 ```markdown
 # CORRECT
+
 Paragraph one.
 
 Paragraph two.
 
 # INCORRECT
-Paragraph one.
 
+Paragraph one.
 
 Paragraph two.
 ```
@@ -171,15 +195,17 @@ Use your editor's trim trailing whitespace feature.
 
 ```markdown
 # CORRECT
+
 | Header 1 | Header 2 |
-|----------|----------|
+| -------- | -------- |
 | Cell 1   | Cell 2   |
 | Cell 3   | Cell 4   |
 
 # INCORRECT (uneven pipes)
+
 | Header 1 | Header 2 |
-|---|---|
-|Cell 1|Cell 2|
+| -------- | -------- |
+| Cell 1   | Cell 2   |
 ```
 
 ## Quick Checklist
