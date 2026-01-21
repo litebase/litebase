@@ -20,7 +20,11 @@ func TestEncryptedStreamFile_NewAndWriteHeader(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
@@ -102,7 +106,9 @@ func TestEncryptedStreamFile_OpenAndVerifyHeader(t *testing.T) {
 			t.Fatalf("WriteHeader failed: %v", err)
 		}
 
-		file.Close()
+		if err := file.Close(); err != nil {
+			t.Fatalf("failed to close test file: %v", err)
+		}
 	}
 
 	// Open and verify header
@@ -113,7 +119,11 @@ func TestEncryptedStreamFile_OpenAndVerifyHeader(t *testing.T) {
 			t.Fatalf("failed to open test file: %v", err)
 		}
 
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				t.Errorf("failed to close test file: %v", err)
+			}
+		}()
 
 		esf, err := OpenEncryptedStreamFile(file, dataKey, keyHash, 123456, "/test.wal")
 
@@ -160,7 +170,9 @@ func TestEncryptedStreamFile_OpenWithWrongKey(t *testing.T) {
 			t.Fatalf("WriteHeader failed: %v", err)
 		}
 
-		file.Close()
+		if err := file.Close(); err != nil {
+			t.Fatalf("failed to close test file: %v", err)
+		}
 	}
 
 	// Try to open with different key
@@ -171,7 +183,11 @@ func TestEncryptedStreamFile_OpenWithWrongKey(t *testing.T) {
 			t.Fatalf("failed to open test file: %v", err)
 		}
 
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				t.Errorf("failed to close test file: %v", err)
+			}
+		}()
 
 		wrongKey := make([]byte, 32)
 
@@ -200,7 +216,11 @@ func TestEncryptedStreamFile_WriteAtReadAt_RoundTrip(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
@@ -272,7 +292,11 @@ func TestEncryptedStreamFile_MultiplePages(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
@@ -348,7 +372,11 @@ func TestEncryptedStreamFile_OffsetAdjustment(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
@@ -415,7 +443,11 @@ func TestEncryptedStreamFile_InvalidPageSize(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
@@ -461,7 +493,11 @@ func TestEncryptedStreamFile_UnalignedOffset(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
@@ -506,7 +542,11 @@ func TestEncryptedStreamFile_ReadAtEOF(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
@@ -551,7 +591,11 @@ func TestEncryptedStreamFile_UnsupportedOperations(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("failed to close test file: %v", err)
+		}
+	}()
 
 	// Create encryption key and hash
 	dataKey := make([]byte, 32)
