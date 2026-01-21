@@ -20,5 +20,6 @@
     ```
 
   - Apply this spacing consistently to all control flow blocks.
+  - A comment before a control flow block does not require an additional blank line.
 
 - Include comments explaining function purpose and complex logic.

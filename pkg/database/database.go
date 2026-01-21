@@ -562,6 +562,11 @@ func (database *Database) PrimaryBranch() (*Branch, error) {
 						return nil, fmt.Errorf("failed to load primary branch settings: %w", err)
 					}
 				}
+
+				// Cache the primary branch in branchCache so BranchByID can find it
+				if err := database.branchCache.Put(branch.DatabaseBranchID, database.primaryBranch); err != nil {
+					slog.Warn("Failed to cache primary branch", "error", err)
+				}
 			} else {
 				log.Println("Error loading primary branch:", err)
 			}
