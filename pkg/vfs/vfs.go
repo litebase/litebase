@@ -37,6 +37,7 @@ type LitebaseVFS struct {
 	nodeHash               string
 	transactionalTimestamp int64
 	VfsIdPtr               uintptr
+	vfsIdUnsafePtr         unsafe.Pointer
 	wal                    WAL
 	walTimestamp           int64
 	shm                    *ShmMemory
@@ -116,6 +117,7 @@ func RegisterVFS(
 	}
 
 	l.VfsIdPtr = vfsIdPtr
+	l.vfsIdUnsafePtr = unsafe.Pointer(pVfs.zName)
 
 	VfsMap[vfsIdPtr] = l
 
@@ -225,11 +227,11 @@ func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 	// string contents are identical. Compare C strings with strcmp
 	// to avoid allocating a Go string.
 	for _, v := range VfsMap {
-		if v == nil || v.VfsIdPtr == 0 || file.pVfsId == nil {
+		if v == nil || v.vfsIdUnsafePtr == nil || file.pVfsId == nil {
 			continue
 		}
 
-		c1 := (*C.char)(unsafe.Pointer(v.VfsIdPtr))
+		c1 := (*C.char)(v.vfsIdUnsafePtr)
 		c2 := (*C.char)(file.pVfsId)
 
 		if C.strcmp(c1, c2) == 0 {

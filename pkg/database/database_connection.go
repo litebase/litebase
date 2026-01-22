@@ -24,7 +24,6 @@ import (
 
 var (
 	ErrDatabaseConnectionClosed = fmt.Errorf("database connection is closed")
-	noopBarrier                 = func(fn func() error) error { return fn() }
 )
 
 var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
@@ -101,17 +100,6 @@ type DatabaseConnection struct {
 	vfsHash                string
 	walManager             *DatabaseWALManager
 	walTimestamp           int64
-	// Temporary fields for exec without closure allocation
-	// execSQL        string
-	// execResult     *sqlite3.Result
-	// execParameters []sqlite3.StatementParameter
-	// Temporary fields for transaction without closure allocation
-	transactionReadOnly bool
-	// transactionHandler  func(con *DatabaseConnection) error
-	// Temporary fields for query without closure allocation
-	// queryResult     *sqlite3.Result
-	// queryStatement  *sqlite3.Statement
-	// queryParameters []sqlite3.StatementParameter
 }
 
 type StatementKey struct {
