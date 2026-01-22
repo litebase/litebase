@@ -90,6 +90,17 @@ func NewConfigInitCmd(c *config.CLIConfiguration) *cobra.Command {
 				newConfig.Server.EncryptionKey = generatedKey
 			}
 
+			// Generate data encryption key if not provided via flag
+			if newConfig.Server.DataEncryptionKey == "" {
+				generatedKey, err := generateEncryptionKey()
+
+				if err != nil {
+					return fmt.Errorf("failed to generate data encryption key: %w", err)
+				}
+
+				newConfig.Server.DataEncryptionKey = generatedKey
+			}
+
 			// Check if we're in non-interactive mode (flags provided OR interactive flag is false)
 			nonInteractive := !c.GetInteractive() || (newConfig.Server.ClusterID != "" && newConfig.Server.Port != "")
 

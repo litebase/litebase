@@ -141,6 +141,92 @@ func TestConfigInitWithCustomEncryptionKey(t *testing.T) {
 	})
 }
 
+func TestConfigInitWithCustomDataEncryptionKey(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory for testing
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "data-encryption-key-config.yml")
+		customDataKey := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" // 64 hex chars = 32 bytes
+
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--data-encryption-key", customDataKey, "--path", configPath)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Read and verify the config file contents
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		// Verify that the custom data encryption key was used
+		if config.Server.DataEncryptionKey == "" {
+			t.Fatal("expected data encryption key to be set")
+		}
+
+		if config.Server.DataEncryptionKey != customDataKey {
+			t.Errorf("expected data encryption key to be '%s', got '%s'", customDataKey, config.Server.DataEncryptionKey)
+		}
+	})
+}
+
+func TestConfigInitGeneratesDataEncryptionKey(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory for testing
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "auto-data-key-config.yml")
+
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--path", configPath)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Read and verify the config file contents
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		// Verify that a data encryption key was automatically generated
+		if config.Server.DataEncryptionKey == "" {
+			t.Error("expected a data encryption key to be automatically generated")
+		}
+
+		// Verify the key is of expected length (64 characters)
+		if len(config.Server.DataEncryptionKey) != 64 {
+			t.Errorf("expected data encryption key to be 64 characters, got %d", len(config.Server.DataEncryptionKey))
+		}
+
+		// Verify the key contains only valid hex characters
+		validChars := "0123456789abcdef"
+		for _, char := range config.Server.DataEncryptionKey {
+			if !strings.ContainsRune(validChars, char) {
+				t.Errorf("data encryption key contains invalid hex character: %c", char)
+			}
+		}
+	})
+}
+
 func TestConfigInitWithDefaultPath(t *testing.T) {
 	test.Run(t, func() {
 		// Create a temporary home directory to avoid conflicts with existing config
