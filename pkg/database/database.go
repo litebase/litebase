@@ -366,11 +366,11 @@ func (database *Database) copyBranchParentData(branch *Branch) error {
 		return fmt.Errorf("failed to compact parent branch PageLogger before copy: %w", err)
 	}
 
-	// Get the snapshots
+	// Refresh snapshots after checkpoint and compact
 	_, err = snapshotLogger.GetSnapshots()
 
 	if err != nil {
-		return fmt.Errorf("failed to get snapshots: %w", err)
+		return fmt.Errorf("failed to get snapshots after checkpoint: %w", err)
 	}
 
 	// Get the latest snapshot timestamp

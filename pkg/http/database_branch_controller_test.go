@@ -286,28 +286,12 @@ func TestDatabaseBranchControllerStore_WithSameNameFails(t *testing.T) {
 	})
 }
 
-func TestDatabaseBranchControllerStore_WithoutParentSnapshotsFails(t *testing.T) {
+func TestDatabaseBranchControllerStore_CanCreateEmptyBranch(t *testing.T) {
 	test.Run(t, func() {
 		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
 		mock := test.MockDatabase(server.App)
-
-		con, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
-
-		if err != nil {
-			t.Fatalf("failed to get database connection: %v", err)
-		}
-
-		defer server.App.DatabaseManager.ConnectionManager().Release(con)
-
-		if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
-			t.Fatalf("failed to create test table: %v", err)
-		}
-
-		if err != nil {
-			t.Fatalf("failed to create test table: %v", err)
-		}
 
 		client := server.WithAccessKeyClient([]auth.Statement{{
 			Effect:   auth.StatementEffectAllow,
@@ -315,35 +299,22 @@ func TestDatabaseBranchControllerStore_WithoutParentSnapshotsFails(t *testing.T)
 			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
 		}})
 
+		// Create a branch from a database that hasn't been checkpointed
+		// This should succeed and create an empty branch
 		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches", mock.DatabaseName), "POST", map[string]any{
-			"name": "test_branch",
+			"name": "empty_branch",
 		})
 
 		if err != nil {
 			t.Fatalf("failed to send request: %v", err)
 		}
 
-		if statusCode != 400 {
-			t.Fatalf("expected status code 400, got %d", statusCode)
+		if statusCode != 200 {
+			t.Fatalf("expected status code 200, got %d: %v", statusCode, resp)
 		}
 
-		if resp["status"] != "error" {
-			t.Fatalf("expected error status, got %v", resp["status"])
-		}
-
-		if !strings.Contains(resp["message"].(string), "snapshots") {
-			t.Log(resp)
-			t.Fatalf("expected error message to contain 'snapshots', got %v", resp["message"])
-		}
-
-		databases, err := server.App.DatabaseManager.All()
-
-		if err != nil {
-			t.Fatalf("failed to get databases: %v", err)
-		}
-
-		if len(databases) != 1 {
-			t.Fatalf("expected exactly 1 database, got %d", len(databases))
+		if resp["status"] != "success" {
+			t.Fatalf("expected success status, got %v", resp["status"])
 		}
 	})
 }

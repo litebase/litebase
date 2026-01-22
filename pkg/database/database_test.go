@@ -314,8 +314,8 @@ func TestDatabase(t *testing.T) {
 				t.Fatalf("Expected table 'test' to exist in new branch, got error: %v", err)
 			}
 
-			if res.Rows[0][0].Int64() != 9 {
-				t.Errorf("Expected 9 rows in 'test' table, got %d", res.Rows[0][0].Int64())
+			if res.Rows[0][0].Int64() != 10 {
+				t.Errorf("Expected 10 rows in 'test' table, got %d", res.Rows[0][0].Int64())
 			}
 		})
 
