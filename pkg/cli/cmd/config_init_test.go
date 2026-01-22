@@ -115,7 +115,7 @@ func TestConfigInitWithCustomEncryptionKey(t *testing.T) {
 		configPath := filepath.Join(tempDir, "custom-key-config.yml")
 		customKey := "mycustomencryptionkey123456789"
 
-		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--key", customKey, "--path", configPath)
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--encryption-key", customKey, "--path", configPath)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -275,7 +275,7 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 			"--cluster-id", "full-cluster",
 			"--port", "8090",
 			"--debug",
-			"--key", "test-key",
+			"--encryption-key", "test-key",
 			"--storage-path", "/test/data",
 			"--storage-network-path", "/test/network",
 			"--storage-tmp-path", "/test/tmp",
