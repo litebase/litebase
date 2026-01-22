@@ -9,7 +9,10 @@ import (
 
 type DataRangeManager struct {
 	dfs        *DurableDatabaseFileSystem
+	dataKey    []byte // Optional: encryption key (32 bytes)
+	encrypted  bool   // Whether ranges are encrypted
 	Index      *DataRangeIndex
+	keyHash    [32]byte // Optional: SHA256 hash of encryption key
 	mutex      *sync.RWMutex
 	ranges     map[int64]*Range
 	rangeUsage map[int64]int64
@@ -83,22 +86,17 @@ func (drm *DataRangeManager) Get(rangeNumber int64) (*Range, error) {
 
 	var r *Range
 
-	if !found {
-		// Open the range.
-		r, err = NewRange(
+	// Create encrypted or unencrypted range based on configuration
+	if drm.encrypted {
+		r, err = NewEncryptedRange(
 			drm.dfs.databaseId,
 			drm.dfs.branchId,
 			drm.dfs.tieredFS,
 			rangeNumber,
 			drm.dfs.pageSize,
+			drm.dataKey,
+			drm.keyHash,
 		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		// Update the range index with the latest version.
-		err = drm.Index.Set(rangeNumber, 0)
 	} else {
 		r, err = NewRange(
 			drm.dfs.databaseId,
@@ -113,9 +111,38 @@ func (drm *DataRangeManager) Get(rangeNumber int64) (*Range, error) {
 		return nil, err
 	}
 
+	if !found {
+		// Update the range index with the latest version.
+		err = drm.Index.Set(rangeNumber, 0)
+
+		if err != nil {
+			// Close the range we just created since we can't index it
+			if err := r.Close(); err != nil {
+				slog.Error("failed to close range after index error", "error", err)
+			}
+
+			return nil, err
+		}
+	}
+
 	drm.ranges[rangeNumber] = r
 
 	return r, nil
+}
+
+// ConfigureEncryption sets the encryption parameters for this DataRangeManager.
+// All subsequently created Ranges will be encrypted.
+// This should be called immediately after DataRangeManager creation if encryption is needed.
+func (drm *DataRangeManager) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
+	if len(dataKey) != 32 {
+		return errors.New("dataKey must be exactly 32 bytes")
+	}
+
+	drm.dataKey = dataKey
+	drm.encrypted = true
+	drm.keyHash = keyHash
+
+	return nil
 }
 
 // GetOldestTimestamp returns the oldest timestamp that is still in use.

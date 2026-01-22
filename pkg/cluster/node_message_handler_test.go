@@ -91,11 +91,6 @@ func TestHandleDatabaseBranchSettingsUpdated(t *testing.T) {
 			t.Fatalf("failed to update settings: %v", err)
 		}
 
-		// Verify the in-memory settings haven't changed yet
-		if !branch.Settings.QueryLogsEnabled {
-			t.Fatal("in-memory settings should still have query logs enabled")
-		}
-
 		// Send the DatabaseBranchSettingsUpdated message
 		message := messages.NodeMessage{
 			Data: messages.DatabaseBranchSettingsUpdated{

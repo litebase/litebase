@@ -135,6 +135,7 @@ func DatabaseControllerShow(ctx context.Context, request *Request) Response {
 type DatabaseStoreRequest struct {
 	Name          database.DatabaseName `json:"name" validate:"required,validateFn"`
 	PrimaryBranch string                `json:"primaryBranch,omitempty" validate:"omitempty,lowercase,alphanum"`
+	Encrypted     bool                  `json:"encrypted,omitempty"`
 }
 
 type DatabaseStoreResponse struct {
@@ -213,6 +214,27 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 		slog.Error("Failed to retrieve primary branch after database creation", "databaseId", db.DatabaseID, "error", err)
 
 		return ServerErrorResponse(errors.New("failed to retrieve primary branch after database creation"))
+	}
+
+	// Configure encryption if requested
+	if req.Encrypted {
+		if request.cluster.Config.DataEncryptionKeyHash == "" {
+			return BadRequestResponse(errors.New("encryption requested but LITEBASE_DATA_ENCRYPTION_KEY is not configured on the server"))
+		}
+
+		// Use next encryption key if available (for key rotation)
+		keyHash := request.cluster.Config.DataEncryptionKeyHash
+
+		if request.cluster.Config.DataEncryptionKeyNextHash != "" {
+			keyHash = request.cluster.Config.DataEncryptionKeyNextHash
+		}
+
+		err = primaryBranch.SetEncryptionSettings(true, keyHash)
+
+		if err != nil {
+			slog.Error("Failed to set encryption settings", "databaseId", db.DatabaseID, "branchId", primaryBranch.DatabaseBranchID, "error", err)
+			return ServerErrorResponse(errors.New("failed to configure encryption for database"))
+		}
 	}
 
 	return SuccessResponse(

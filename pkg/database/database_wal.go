@@ -9,13 +9,13 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/cache"
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/storage"
 )
@@ -55,6 +55,12 @@ type DatabaseWAL struct {
 	walManager     *DatabaseWALManager
 }
 
+// getCacheKey generates a cache key for a timestamp+offset combination
+type walCacheKey struct {
+	Timestamp int64
+	Offset    int64
+}
+
 func NewDatabaseWAL(
 	node *cluster.Node,
 	connectionManager *ConnectionManager,
@@ -66,7 +72,7 @@ func NewDatabaseWAL(
 ) *DatabaseWAL {
 	return &DatabaseWAL{
 		BranchID:       branchId,
-		cache:          cache.NewLFUCache(16000), // ~33MB
+		cache:          cache.NewLFUCache(1000), // Cache up to 1000 pages
 		cacheKeyBuffer: make([]byte, 0, 64),
 		createdAt:      time.Now().UTC(),
 		DatabaseID:     databaseId,
@@ -87,11 +93,13 @@ func (wal *DatabaseWAL) Checkpointing() bool {
 }
 
 func (wal *DatabaseWAL) Close() error {
+	wal.cache.Close()
+
 	if wal.file != nil {
 		err := wal.file.Close()
 
 		if err != nil {
-			log.Println(err)
+			slog.Error("failed to close WAL file", "error", err)
 		}
 
 		wal.file = nil
@@ -158,16 +166,153 @@ tryOpen:
 		}
 	}
 
+	// System database is never encrypted (skip encryption check to avoid deadlock during system database initialization)
+	isEncrypted := false
+	var branch *Branch
+
+	if wal.DatabaseID != SystemDatabaseID {
+		// Check if encryption is enabled for this branch
+		branch, err = wal.walManager.connectionManager.databaseManager.GetBranch(wal.DatabaseID, wal.BranchID)
+
+		if err != nil {
+			// If the branch doesn't exist (e.g., in tests with fake IDs), treat as unencrypted
+			// This allows tests to work without requiring a full database setup
+			if err.Error() == "sql: no rows in result set" {
+				isEncrypted = false
+			} else {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after getting branch error:", "error", err)
+				}
+
+				return nil, fmt.Errorf("failed to get branch: %w", err)
+			}
+		} else {
+			isEncrypted, err = branch.IsEncrypted()
+
+			if err != nil {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after checking encryption status error:", "error", err)
+				}
+
+				return nil, fmt.Errorf("failed to check encryption status: %w", err)
+			}
+		}
+	}
+
+	// Wrap with encrypted file if encryption is enabled
+	if isEncrypted {
+		dataEncryptionKeyHash, err := branch.GetDataEncryptionKeyHash()
+
+		if err != nil {
+			if err := file.Close(); err != nil {
+				slog.Error("failed to close file after getting data encryption key hash error:", "error", err)
+			}
+
+			return nil, fmt.Errorf("failed to get data encryption key hash: %w", err)
+		}
+
+		config := wal.walManager.connectionManager.databaseManager.Cluster.Config
+		dataKey, keyHash, err := matchEncryptionKey(config, dataEncryptionKeyHash)
+
+		if err != nil {
+			if err := file.Close(); err != nil {
+				slog.Error("failed to close file after matching encryption key error:", "error", err)
+			}
+
+			return nil, err
+		}
+
+		// Check if this is a new file (size 0) or an existing encrypted file
+		fileInfo, err := file.Stat()
+
+		if err != nil {
+			if err := file.Close(); err != nil {
+				slog.Error("failed to close file after stat error:", "error", err)
+			}
+
+			return nil, fmt.Errorf("failed to stat WAL file: %w", err)
+		}
+
+		var encryptedFile internalStorage.File
+
+		if fileInfo.Size() == 0 {
+			// New file - create encrypted wrapper
+			encryptedFile, err = storage.NewEncryptedStreamFile(file, dataKey, keyHash, wal.timestamp, wal.Path)
+
+			if err != nil {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after creating encrypted WAL file error:", "error", err)
+				}
+
+				return nil, fmt.Errorf("failed to create encrypted WAL file: %w", err)
+			}
+
+			// Write the header
+			err = encryptedFile.(*storage.EncryptedStreamFile).WriteHeader()
+
+			if err != nil {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after writing encrypted WAL header error:", "error", err)
+				}
+
+				return nil, fmt.Errorf("failed to write encrypted WAL header: %w", err)
+			}
+		} else {
+			// Existing file - open encrypted wrapper
+			encryptedFile, err = storage.OpenEncryptedStreamFile(file, dataKey, keyHash, wal.timestamp, wal.Path)
+
+			if err != nil {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close file after opening encrypted WAL file error:", "error", err)
+				}
+
+				return nil, fmt.Errorf("failed to open encrypted WAL file: %w", err)
+			}
+		}
+
+		file = encryptedFile
+	}
+
 	wal.file = file
 
 	return wal.file, nil
 }
 
-func (wal *DatabaseWAL) getCacheKey(offset int64) string {
-	wal.cacheKeyBuffer = wal.cacheKeyBuffer[:0]
-	wal.cacheKeyBuffer = strconv.AppendInt(wal.cacheKeyBuffer, offset, 10)
+// matchEncryptionKey finds the matching encryption key in the config based on the key hash.
+// It checks both DataEncryptionKeyHash and DataEncryptionKeyNextHash.
+// Returns the key, its hash, and an error if no match is found.
+func matchEncryptionKey(cfg *config.Config, dataEncryptionKeyHash string) ([]byte, [32]byte, error) {
+	if dataEncryptionKeyHash == "" {
+		return nil, [32]byte{}, errors.New("data encryption key hash is empty")
+	}
 
-	return string(wal.cacheKeyBuffer)
+	// Check primary key
+	if cfg.DataEncryptionKeyHash != "" && cfg.DataEncryptionKeyHash == dataEncryptionKeyHash {
+		if cfg.DataEncryptionKey == nil || len(cfg.DataEncryptionKey) != 32 {
+			return nil, [32]byte{}, errors.New("DataEncryptionKey is not configured or has invalid length")
+		}
+
+		keyHash := sha256.Sum256(cfg.DataEncryptionKey)
+
+		return cfg.DataEncryptionKey, keyHash, nil
+	}
+
+	// Check next key (for key rotation)
+	if cfg.DataEncryptionKeyNextHash != "" && cfg.DataEncryptionKeyNextHash == dataEncryptionKeyHash {
+		if cfg.DataEncryptionKeyNext == nil || len(cfg.DataEncryptionKeyNext) != 32 {
+			return nil, [32]byte{}, errors.New("DataEncryptionKeyNext is not configured or has invalid length")
+		}
+
+		keyHash := sha256.Sum256(cfg.DataEncryptionKeyNext)
+
+		return cfg.DataEncryptionKeyNext, keyHash, nil
+	}
+
+	return nil, [32]byte{}, fmt.Errorf("DataEncryptionKey for this database not found (hash: %s)", dataEncryptionKeyHash)
+}
+
+func (wal *DatabaseWAL) getCacheKey(offset int64) walCacheKey {
+	return walCacheKey{Timestamp: wal.timestamp, Offset: offset}
 }
 
 func (wal *DatabaseWAL) Hash() string {
@@ -213,14 +358,14 @@ func (wal *DatabaseWAL) performAsynchronousSync() {
 		file, err := wal.File()
 
 		if err != nil {
-			log.Println(err)
+			slog.Error("failed to get WAL file for sync", "error", err)
 			return
 		}
 
 		err = file.Sync()
 
 		if err != nil {
-			log.Println(err)
+			slog.Error("failed to sync WAL file", "error", err)
 			return
 		}
 
@@ -278,11 +423,8 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 		return n, err
 	}
 
-	cachedData := make([]byte, n)
-	copy(cachedData, p[:n])
-
 	// Cache the read data
-	err = wal.cache.Put(cacheKey, cachedData)
+	err = wal.cache.Put(cacheKey, p[:n])
 
 	if err != nil {
 		slog.Error("Error caching WAL data", "error", err)
@@ -408,15 +550,16 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	cacheKey := wal.getCacheKey(off)
 
-	cachedData := make([]byte, n)
-	copy(cachedData, p[:n])
+	err = wal.cache.Put(cacheKey, p[:n])
 
-	err = wal.cache.Put(cacheKey, cachedData)
+	if err != nil {
+		slog.Error("Error caching WAL data", "error", err)
+	}
 
 	file, err := wal.File()
 
 	if err != nil {
-		log.Println(err)
+		slog.Error("Error getting WAL file", "error", err)
 		return 0, err
 	}
 

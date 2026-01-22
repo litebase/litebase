@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -25,7 +26,7 @@ type Worker struct {
 	afterJob         func(jobID int64, status JobStatus, err error)
 	primaryOnly      bool
 	isPrimary        func() bool
-	runningJobKeys   *sync.Map // Shared map to track running job keys across all workers
+	runningJobKeys   *sync.Map   // Shared map to track running job keys across all workers
 	reservationMutex *sync.Mutex // Shared mutex to serialize job reservation and prevent DB locks
 }
 
@@ -102,6 +103,13 @@ func (w *Worker) Stop() {
 
 // processNextJob attempts to reserve and process the next available job.
 func (w *Worker) processNextJob() error {
+	// Check if worker is shutting down before attempting to access database
+	select {
+	case <-w.ctx.Done():
+		return nil
+	default:
+	}
+
 	// If primary-only mode is enabled, skip processing if not primary.
 	// In the future, Replicas will be allowed to process certain job types or
 	// jobs that have been assigned to them by the Primary, while still relying
@@ -122,6 +130,10 @@ func (w *Worker) processNextJob() error {
 	db, err := w.systemDB.DB()
 
 	if err != nil {
+		// If database access fails due to shutdown, return nil to avoid logging errors
+		if errors.Is(err, database.ErrorConnectionManagerShutdown) {
+			return nil
+		}
 		return fmt.Errorf("failed to get system database: %w", err)
 	}
 

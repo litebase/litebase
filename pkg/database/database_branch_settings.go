@@ -32,7 +32,9 @@ type DatabaseBranchSettings struct {
 	BackupInterval                  DatabaseBranchBackupInterval   `json:"backupInterval"`
 	BackupNextAt                    sql.NullInt64                  `json:"backupNextAt"`
 	BackupsRetentionDays            int                            `json:"backupsRetentionDays"`
+	DataEncryptionKeyHash           string                         `json:"dataEncryptionKeyHash,omitempty"`
 	DefaultPragmas                  *DatabaseDefaultPragmaSettings `json:"defaultPragmas"`
+	Encrypted                       bool                           `json:"encrypted"`
 	ErrorLogsCleanedAt              sql.NullInt64                  `json:"errorLogsCleanedAt"`
 	ErrorLogsEnabled                bool                           `json:"errorLogsEnabled"`
 	ErrorLogsRetentionDays          int                            `json:"errorLogsRetentionDays"`

@@ -16,7 +16,7 @@ import (
 
 func TestRegisterVFS(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
-		_, err := vfs.RegisterVFS("databaseHash", "connectionHash", "nodeHash", 4096, nil, nil)
+		lVFS, err := vfs.RegisterVFS("databaseHash", "connectionHash", "nodeHash", 4096, nil, nil)
 
 		if err != nil {
 			t.Errorf("RegisterVFS() failed, expected nil, got %v", err)
@@ -27,7 +27,7 @@ func TestRegisterVFS(t *testing.T) {
 			t.Errorf("RegisterVFS() failed, expected 3, got %v", len(vfs.VfsMap))
 		}
 
-		if vfs.VfsMap["connectionHash"] == nil {
+		if vfs.VfsMap[lVFS.VfsIdPtr] == nil {
 			t.Fatal("RegisterVFS() failed, expected not nil, got nil")
 		}
 

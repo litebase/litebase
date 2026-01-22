@@ -33,6 +33,8 @@ type DatabaseWALManager struct {
 	walIndex                *storage.WALIndex
 	walUsage                map[int64]int64
 	walVersions             map[int64]*DatabaseWAL
+	// Reusable message to avoid allocation on every WAL update
+	walUpdateMsg messages.NodeMessage
 }
 
 var (
@@ -608,7 +610,7 @@ func (w *DatabaseWALManager) Truncate(timestamp, size int64) error {
 			}
 		}
 		if latestVersion == 0 {
-			log.Println("walversions", w.walVersions)
+			slog.Error("No WAL versions available", "walVersions", w.walVersions)
 			return errors.New("no WAL versions available")
 		}
 
@@ -627,7 +629,7 @@ func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n in
 	wal, err := w.getLatestUnsafe()
 
 	if err != nil {
-		log.Println("Error acquiring latest WAL:", err)
+		slog.Error("Error acquiring latest WAL", "error", err)
 		return 0, err
 	}
 
@@ -698,16 +700,23 @@ func (w *DatabaseWALManager) OnWALUpdate(timestamp int64, walIndexHeader []byte)
 		return
 	}
 
-	_, errors := w.connectionManager.cluster.Node().Primary().Publish(messages.NodeMessage{
-		Data: messages.WALIndexHeaderMessage{
+	// Reuse message struct to avoid allocation
+	if w.walUpdateMsg.Data == nil {
+		w.walUpdateMsg.Data = &messages.WALIndexHeaderMessage{
 			BranchID:       w.BranchID,
 			DatabaseID:     w.DatabaseID,
 			DatabaseHash:   w.databaseHash,
 			NodeHash:       w.nodeHash,
 			Timestamp:      timestamp,
 			WALIndexHeader: walIndexHeader,
-		},
-	})
+		}
+	} else {
+		msg := w.walUpdateMsg.Data.(*messages.WALIndexHeaderMessage)
+		msg.Timestamp = timestamp
+		msg.WALIndexHeader = walIndexHeader
+	}
+
+	_, errors := w.connectionManager.cluster.Node().Primary().Publish(w.walUpdateMsg)
 
 	if len(errors) > 0 {
 		slog.Error("Failed to broadcast WAL update to replicas", "errors", errors)

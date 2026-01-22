@@ -144,9 +144,11 @@ func InsertBranch(b *Branch) error {
 		return err
 	}
 
-	// Update the Database's branch cache
+	// Add the branch to the Database's branch cache
 	if database != nil {
-		database.UpdateBranchCache(b.DatabaseBranchID, b)
+		if err := database.branchCache.Put(b.DatabaseBranchID, b); err != nil {
+			slog.Warn("Failed to cache branch after insert", "error", err)
+		}
 	}
 
 	return nil
@@ -327,6 +329,25 @@ func (branch *Branch) ParentBranch() *Branch {
 			if err == nil {
 				parentBranch.DatabaseManager = branch.DatabaseManager
 				parentBranch.Exists = true
+
+				// Load parent branch settings so they can be copied to child branches
+				parentSettings, settingsErr := parentBranch.GetBranchSettings()
+
+				if settingsErr == nil {
+					parentBranch.Settings = parentSettings
+				}
+
+				if parentBranch.DatabaseID != "" {
+					database, dbErr := branch.DatabaseManager.Get(parentBranch.DatabaseID)
+
+					if dbErr == nil && database != nil {
+						if cached, exists := database.branchCache.Get(parentBranch.DatabaseBranchID); exists {
+							branch.parentBranch = cached.(*Branch)
+							return branch.parentBranch
+						}
+					}
+				}
+
 				branch.parentBranch = &parentBranch
 			} else {
 				log.Println("Error loading primary branch:", err)
@@ -362,10 +383,17 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 	var settings *DatabaseBranchSettings
 
 	if parentBranch != nil {
-		settings, err = parentBranch.GetBranchSettings()
+		// Use cached settings if available, otherwise load from database
+		if parentBranch.Settings != nil {
+			// Make a copy of the parent settings
+			settingsCopy := *parentBranch.Settings
+			settings = &settingsCopy
+		} else {
+			settings, err = parentBranch.GetBranchSettings()
 
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parent branch settings: %w", err)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get parent branch settings: %w", err)
+			}
 		}
 	} else {
 		settings = NewDefaultBranchSettings()
@@ -416,8 +444,10 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 			query_logs_enabled,
 			query_logs_retention_days,
 			created_at,
-			updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			updated_at,
+			encrypted,
+			data_encryption_key_hash
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		b.ID,
 		utils.BoolToInt(settings.BackupsEnabled),
@@ -433,9 +463,15 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 		settings.QueryLogsRetentionDays,
 		now,
 		now,
+		utils.BoolToInt(settings.Encrypted),
+		settings.DataEncryptionKeyHash, // Insert string directly, not sql.NullString
 	)
 
-	return settings, err
+	if err != nil {
+		return nil, err
+	}
+
+	return settings, nil
 }
 
 // GetBranchSettings retrieves the settings for this branch.
@@ -447,12 +483,18 @@ func (b *Branch) GetBranchSettings() (*DatabaseBranchSettings, error) {
 	}
 
 	var (
+		id                              int
+		branchRefID                     int
+		createdAt                       int64
+		updatedAt                       int64
 		backupsCleanedAt                sql.NullInt64
 		backupsEnabled                  int
 		backupInterval                  string
 		backupNextAt                    sql.NullInt64
 		backupsRetentionDays            int
+		dataEncryptionKeyHash           sql.NullString
 		defaultPragmasJSON              string
+		encrypted                       int
 		errorLogsCleanedAt              sql.NullInt64
 		errorLogsEnabled                int
 		errorLogsRetentionDays          int
@@ -466,39 +508,51 @@ func (b *Branch) GetBranchSettings() (*DatabaseBranchSettings, error) {
 
 	err = db.QueryRow(`
 		SELECT 
-			backups_cleaned_at,
+			id,
+			database_branch_reference_id,
 			backups_enabled,
 			backups_interval,
-			backup_next_at,
 			backups_retention_days,
+			backups_cleaned_at,
+			backup_next_at,
 			default_pragmas_json,
-			error_logs_cleaned_at,
 			error_logs_enabled,
 			error_logs_retention_days,
-			incremental_backups_cleaned_at,
+			error_logs_cleaned_at,
 			incremental_backups_enabled,
 			incremental_backups_retention_days,
-			query_logs_cleaned_at,
+			incremental_backups_cleaned_at,
 			query_logs_enabled,
-			query_logs_retention_days
+			query_logs_retention_days,
+			query_logs_cleaned_at,
+			created_at,
+			updated_at,
+			encrypted,
+			data_encryption_key_hash
 		FROM database_branch_settings 
 		WHERE database_branch_reference_id = ?
 	`, b.ID).Scan(
-		&backupsCleanedAt,
+		&id,
+		&branchRefID,
 		&backupsEnabled,
 		&backupInterval,
-		&backupNextAt,
 		&backupsRetentionDays,
+		&backupsCleanedAt,
+		&backupNextAt,
 		&defaultPragmasJSON,
-		&errorLogsCleanedAt,
 		&errorLogsEnabled,
 		&errorLogsRetentionDays,
-		&incrementalBackupsCleanedAt,
+		&errorLogsCleanedAt,
 		&incrementalBackupsEnabled,
 		&incrementalBackupsRetentionDays,
-		&queryLogsCleanedAt,
+		&incrementalBackupsCleanedAt,
 		&queryLogsEnabled,
 		&queryLogsRetentionDays,
+		&queryLogsCleanedAt,
+		&createdAt,
+		&updatedAt,
+		&encrypted,
+		&dataEncryptionKeyHash,
 	)
 
 	if err != nil {
@@ -511,13 +565,21 @@ func (b *Branch) GetBranchSettings() (*DatabaseBranchSettings, error) {
 		return nil, fmt.Errorf("failed to unmarshal default pragmas: %w", err)
 	}
 
+	keyHash := ""
+
+	if dataEncryptionKeyHash.Valid {
+		keyHash = dataEncryptionKeyHash.String
+	}
+
 	return &DatabaseBranchSettings{
 		BackupsCleanedAt:                backupsCleanedAt,
 		BackupsEnabled:                  backupsEnabled == 1,
 		BackupInterval:                  DatabaseBranchBackupInterval(backupInterval),
 		BackupNextAt:                    backupNextAt,
 		BackupsRetentionDays:            backupsRetentionDays,
+		DataEncryptionKeyHash:           keyHash,
 		DefaultPragmas:                  &defaultPragmas,
+		Encrypted:                       encrypted == 1,
 		ErrorLogsCleanedAt:              errorLogsCleanedAt,
 		ErrorLogsEnabled:                errorLogsEnabled == 1,
 		ErrorLogsRetentionDays:          errorLogsRetentionDays,
@@ -614,12 +676,16 @@ func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
 		}
 	}
 
-	_, err = db.Exec(`
+	keyHashNull := sql.NullString{String: settings.DataEncryptionKeyHash, Valid: settings.DataEncryptionKeyHash != ""}
+
+	result, err := db.Exec(`
 		UPDATE database_branch_settings SET
 			backups_enabled = ?,
 			backups_interval = ?,
 			backups_retention_days = ?,
+			data_encryption_key_hash = ?,
 			default_pragmas_json = ?,
+			encrypted = ?,
 			error_logs_enabled = ?,
 			error_logs_retention_days = ?,
 			incremental_backups_enabled = ?,
@@ -633,7 +699,9 @@ func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
 		utils.BoolToInt(settings.BackupsEnabled),
 		settings.BackupInterval,
 		settings.BackupsRetentionDays,
+		keyHashNull,
 		string(defaultPragmasJSON),
+		utils.BoolToInt(settings.Encrypted),
 		utils.BoolToInt(settings.ErrorLogsEnabled),
 		settings.ErrorLogsRetentionDays,
 		utils.BoolToInt(settings.IncrementalBackupsEnabled),
@@ -645,7 +713,28 @@ func (b *Branch) UpdateBranchSettings(settings *DatabaseBranchSettings) error {
 		b.ID,
 	)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err == nil && rowsAffected == 0 {
+		slog.Warn("UpdateBranchSettings affected 0 rows", "branch_id", b.ID)
+	}
+
+	// Update the cached branch's settings if it exists in the cache
+	database, err := b.DatabaseManager.Get(b.DatabaseID)
+
+	if err == nil && database != nil {
+		// Get the cached branch and update its Settings pointer
+		if cached, exists := database.branchCache.Get(b.DatabaseBranchID); exists {
+			cachedBranch := cached.(*Branch)
+			cachedBranch.Settings = settings
+		}
+	}
+
+	return nil
 }
 
 // MarshalJSON customizes the JSON representation of the Branch struct.
@@ -666,4 +755,46 @@ func (b *Branch) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(result)
+}
+
+// IsEncrypted returns whether this branch is encrypted.
+func (b *Branch) IsEncrypted() (bool, error) {
+	// Use cached settings if available
+	if b.Settings != nil {
+		return b.Settings.Encrypted, nil
+	}
+
+	settings, err := b.GetBranchSettings()
+
+	if err != nil {
+		return false, err
+	}
+
+	return settings.Encrypted, nil
+}
+
+// GetDataEncryptionKeyHash returns the hash of the data encryption key used for this branch.
+// Returns empty string if the branch is not encrypted.
+func (b *Branch) GetDataEncryptionKeyHash() (string, error) {
+	// Use cached settings if available
+	if b.Settings != nil {
+		return b.Settings.DataEncryptionKeyHash, nil
+	}
+
+	settings, err := b.GetBranchSettings()
+
+	if err != nil {
+		return "", err
+	}
+
+	return settings.DataEncryptionKeyHash, nil
+}
+
+// SetEncryptionSettings updates the encryption settings for this branch.
+// This should only be called during branch creation.
+func (b *Branch) SetEncryptionSettings(encrypted bool, keyHash string) error {
+	b.Settings.Encrypted = encrypted
+	b.Settings.DataEncryptionKeyHash = keyHash
+
+	return b.UpdateBranchSettings(b.Settings)
 }

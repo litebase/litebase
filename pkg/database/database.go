@@ -171,9 +171,6 @@ func UpdateDatabase(database *Database) error {
 func (database *Database) Branch(name string) (*Branch, error) {
 	var branch Branch
 
-	// Note: Cannot check cache here since we don't have DatabaseBranchID yet,
-	// only the name. Cache is keyed by DatabaseBranchID for consistency.
-
 	db, err := database.DatabaseManager.SystemDatabase().DB()
 
 	if err != nil {
@@ -203,6 +200,12 @@ func (database *Database) Branch(name string) (*Branch, error) {
 		}
 
 		return nil, fmt.Errorf("failed to query branch: %w", err)
+	}
+
+	// Now that we have DatabaseBranchID, check if there's a cached version
+	// This is critical: if UpdateBranchSettings was called, the cache has the latest settings
+	if cached, exists := database.branchCache.Get(branch.DatabaseBranchID); exists {
+		return cached.(*Branch), nil
 	}
 
 	branch.Exists = true
@@ -337,11 +340,37 @@ func (database *Database) copyBranchParentData(branch *Branch) error {
 		return fmt.Errorf("failed to get checkpointer: %w", err)
 	}
 
-	// Get the snapshots
+	// Force a checkpoint on the parent branch to move WAL pages to PageLogger
+	// Then compact PageLogger to move pages into Range files
+	// This is critical for encrypted databases because PageLog files use path-dependent IVs
+	// and cannot be copied between branches (but Range files can be)
+	parentDB, err := database.DatabaseManager.ConnectionManager().Get(database.DatabaseID, branch.ParentBranch().DatabaseBranchID)
+
+	if err != nil {
+		return fmt.Errorf("failed to get parent connection for checkpoint: %w", err)
+	}
+
+	err = parentDB.GetConnection().Checkpoint()
+
+	if err != nil {
+		database.DatabaseManager.ConnectionManager().Release(parentDB)
+		return fmt.Errorf("failed to checkpoint parent branch before copy: %w", err)
+	}
+
+	database.DatabaseManager.ConnectionManager().Release(parentDB)
+
+	// Compact PageLogger to move all pages into Range files
+	err = parentDFS.ForceCompact()
+
+	if err != nil {
+		return fmt.Errorf("failed to compact parent branch PageLogger before copy: %w", err)
+	}
+
+	// Refresh snapshots after checkpoint and compact
 	_, err = snapshotLogger.GetSnapshots()
 
 	if err != nil {
-		return fmt.Errorf("failed to get snapshots: %w", err)
+		return fmt.Errorf("failed to get snapshots after checkpoint: %w", err)
 	}
 
 	// Get the latest snapshot timestamp
@@ -396,8 +425,10 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 		return nil, fmt.Errorf("failed to load branch settings: %w", err)
 	}
 
-	// Update cache to reflect the new branch exists
-	database.UpdateBranchCache(branch.DatabaseBranchID, branch)
+	// Cache the newly created branch
+	if err := database.branchCache.Put(branch.DatabaseBranchID, branch); err != nil {
+		slog.Warn("Failed to cache new branch", "error", err)
+	}
 
 	// Copy the data from the parent branch if specified
 	if parentBranchName != "" && branch.ParentBranch() != nil {
@@ -561,6 +592,11 @@ func (database *Database) PrimaryBranch() (*Branch, error) {
 					if err != nil {
 						return nil, fmt.Errorf("failed to load primary branch settings: %w", err)
 					}
+				}
+
+				// Cache the primary branch in branchCache so BranchByID can find it
+				if err := database.branchCache.Put(branch.DatabaseBranchID, database.primaryBranch); err != nil {
+					slog.Warn("Failed to cache primary branch", "error", err)
 				}
 			} else {
 				log.Println("Error loading primary branch:", err)

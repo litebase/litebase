@@ -4879,6 +4879,9 @@
         "type": "object",
         "description": "Request payload for creating a new database branch",
         "properties": {
+          "encrypted": {
+            "type": "boolean"
+          },
           "name": {
             "$ref": "#/components/schemas/DatabaseBranchName"
           },
@@ -5068,6 +5071,9 @@
       "DatabaseStoreRequest": {
         "type": "object",
         "properties": {
+          "encrypted": {
+            "type": "boolean"
+          },
           "name": {
             "$ref": "#/components/schemas/DatabaseName"
           },

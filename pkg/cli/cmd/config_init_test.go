@@ -53,7 +53,7 @@ func TestConfigInit(t *testing.T) {
 		}
 
 		// Verify that an encryption key was generated or used
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be set")
 		}
 	})
@@ -87,18 +87,18 @@ func TestConfigInitGeneratesEncryptionKey(t *testing.T) {
 		}
 
 		// Verify that an encryption key was automatically generated
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be automatically generated")
 		}
 
 		// Verify the key is of expected length (64 characters)
-		if len(config.Server.Key) != 64 {
-			t.Errorf("expected encryption key to be 64 characters, got %d", len(config.Server.Key))
+		if len(config.Server.EncryptionKey) != 64 {
+			t.Errorf("expected encryption key to be 64 characters, got %d", len(config.Server.EncryptionKey))
 		}
 
 		// Verify the key contains only valid characters
 		validChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-		for _, char := range config.Server.Key {
+		for _, char := range config.Server.EncryptionKey {
 			if !strings.ContainsRune(validChars, char) {
 				t.Errorf("encryption key contains invalid character: %c", char)
 			}
@@ -115,7 +115,7 @@ func TestConfigInitWithCustomEncryptionKey(t *testing.T) {
 		configPath := filepath.Join(tempDir, "custom-key-config.yml")
 		customKey := "mycustomencryptionkey123456789"
 
-		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--key", customKey, "--path", configPath)
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--encryption-key", customKey, "--path", configPath)
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -135,8 +135,94 @@ func TestConfigInitWithCustomEncryptionKey(t *testing.T) {
 		}
 
 		// Verify that the custom encryption key was used
-		if config.Server.Key != customKey {
-			t.Errorf("expected encryption key to be '%s', got '%s'", customKey, config.Server.Key)
+		if config.Server.EncryptionKey != customKey {
+			t.Errorf("expected encryption key to be '%s', got '%s'", customKey, config.Server.EncryptionKey)
+		}
+	})
+}
+
+func TestConfigInitWithCustomDataEncryptionKey(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory for testing
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "data-encryption-key-config.yml")
+		customDataKey := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" // 64 hex chars = 32 bytes
+
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--data-encryption-key", customDataKey, "--path", configPath)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Read and verify the config file contents
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		// Verify that the custom data encryption key was used
+		if config.Server.DataEncryptionKey == "" {
+			t.Fatal("expected data encryption key to be set")
+		}
+
+		if config.Server.DataEncryptionKey != customDataKey {
+			t.Errorf("expected data encryption key to be '%s', got '%s'", customDataKey, config.Server.DataEncryptionKey)
+		}
+	})
+}
+
+func TestConfigInitGeneratesDataEncryptionKey(t *testing.T) {
+	test.Run(t, func() {
+		cli := test.NewTestCLI(t, nil)
+
+		// Create a temporary directory for testing
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "auto-data-key-config.yml")
+
+		err := cli.Run("config", "init", "--cluster-id", "test-cluster", "--port", "8080", "--path", configPath)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		// Read and verify the config file contents
+		configData, err := os.ReadFile(configPath)
+
+		if err != nil {
+			t.Fatalf("failed to read config file: %v", err)
+		}
+
+		var config config.CLIConfiguration
+
+		if err := yaml.Unmarshal(configData, &config); err != nil {
+			t.Fatalf("failed to unmarshal config: %v", err)
+		}
+
+		// Verify that a data encryption key was automatically generated
+		if config.Server.DataEncryptionKey == "" {
+			t.Error("expected a data encryption key to be automatically generated")
+		}
+
+		// Verify the key is of expected length (64 characters)
+		if len(config.Server.DataEncryptionKey) != 64 {
+			t.Errorf("expected data encryption key to be 64 characters, got %d", len(config.Server.DataEncryptionKey))
+		}
+
+		// Verify the key contains only valid hex characters
+		validChars := "0123456789abcdef"
+		for _, char := range config.Server.DataEncryptionKey {
+			if !strings.ContainsRune(validChars, char) {
+				t.Errorf("data encryption key contains invalid hex character: %c", char)
+			}
 		}
 	})
 }
@@ -206,7 +292,7 @@ func TestConfigInitWithDefaultPath(t *testing.T) {
 		}
 
 		// Verify that an encryption key was generated
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be set")
 		}
 	})
@@ -255,7 +341,7 @@ func TestConfigInitMinimalFlags(t *testing.T) {
 		}
 
 		// Verify that an encryption key was generated
-		if config.Server.Key == "" {
+		if config.Server.EncryptionKey == "" {
 			t.Error("expected encryption key to be set")
 		}
 	})
@@ -275,7 +361,7 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 			"--cluster-id", "full-cluster",
 			"--port", "8090",
 			"--debug",
-			"--key", "test-key",
+			"--encryption-key", "test-key",
 			"--storage-path", "/test/data",
 			"--storage-network-path", "/test/network",
 			"--storage-tmp-path", "/test/tmp",
@@ -317,8 +403,8 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 			t.Errorf("expected debug to be true, got %v", config.Server.Debug)
 		}
 
-		if config.Server.Key != "test-key" {
-			t.Errorf("expected key to be 'test-key', got %v", config.Server.Key)
+		if config.Server.EncryptionKey != "test-key" {
+			t.Errorf("expected key to be 'test-key', got %v", config.Server.EncryptionKey)
 		}
 
 		if config.Server.StorageLocalPath != "/test/data" {
@@ -342,8 +428,8 @@ func TestConfigInitWithAllFlags(t *testing.T) {
 		}
 
 		// Verify that the custom encryption key was used instead of generating one
-		if config.Server.Key != "test-key" {
-			t.Errorf("expected encryption key to be 'test-key', got %v", config.Server.Key)
+		if config.Server.EncryptionKey != "test-key" {
+			t.Errorf("expected encryption key to be 'test-key', got %v", config.Server.EncryptionKey)
 		}
 	})
 }

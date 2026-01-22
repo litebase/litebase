@@ -20,6 +20,7 @@ var resultColumnPool = &sync.Pool{
 type Result struct {
 	buffers     []*bytes.Buffer
 	columns     []*Column
+	rowPool     [][]*Column
 	Columns     []string
 	ColumnTypes []ColumnType
 	Rows        [][]*Column
@@ -51,6 +52,34 @@ func (r *Result) GetColumn() *Column {
 	r.columns = append(r.columns, column)
 
 	return column
+}
+
+// GetRowSlice returns a reusable row slice of the requested length.
+// It reuses slices from an internal pool to avoid allocating a new
+// []*Column slice for every row.
+func (r *Result) GetRowSlice(n int) []*Column {
+	// Try to pop from pool
+	l := len(r.rowPool)
+
+	if l > 0 {
+		row := r.rowPool[l-1]
+		r.rowPool = r.rowPool[:l-1]
+
+		if cap(row) < n {
+			// grow if insufficient capacity
+			row = make([]*Column, n)
+		} else {
+			row = row[:n]
+
+			for i := range row {
+				row[i] = nil
+			}
+		}
+
+		return row
+	}
+
+	return make([]*Column, n)
 }
 
 func (r *Result) PutBuffer(buffer *bytes.Buffer) {
@@ -92,6 +121,16 @@ func (r *Result) ReleaseColumns() {
 func (r *Result) Reset() {
 	r.ReleaseBuffers()
 	r.ReleaseColumns()
+
+	// Return row slices to pool to allow reuse and reduce allocations.
+	// Keep the pool bounded to avoid unbounded memory growth.
+	const maxRowPool = 1024
+
+	for _, row := range r.Rows {
+		if len(r.rowPool) < maxRowPool {
+			r.rowPool = append(r.rowPool, row)
+		}
+	}
 
 	r.Columns = r.Columns[:0]
 	r.ColumnTypes = r.ColumnTypes[:0]

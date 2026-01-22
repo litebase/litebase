@@ -3,7 +3,6 @@ package storage
 import (
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -30,8 +29,11 @@ type Range struct {
 	branchId   string
 	databaseId string
 	closed     bool
+	dataKey    []byte // Optional: encryption key (32 bytes)
+	encrypted  bool   // Whether this Range is encrypted
 	file       internalStorage.File
 	fs         *FileSystem
+	keyHash    [32]byte // Optional: SHA256 hash of encryption key
 	pageSize   int64
 	number     int64
 }
@@ -41,6 +43,7 @@ func NewRange(databaseId, branchId string, fs *FileSystem, rangeNumber int64, pa
 	dr := &Range{
 		branchId:   branchId,
 		databaseId: databaseId,
+		encrypted:  false,
 		fs:         fs,
 		pageSize:   pageSize,
 		number:     rangeNumber,
@@ -61,12 +64,103 @@ tryOpen:
 
 			goto tryOpen
 		} else {
-			log.Println("Error opening range file", err)
+			slog.Error("Error opening range file", "error", err)
 			return nil, err
 		}
 	}
 
 	dr.file = file
+
+	return dr, nil
+}
+
+// NewEncryptedRange creates a new encrypted range for the specified path.
+// dataKey must be exactly 32 bytes.
+func NewEncryptedRange(databaseId, branchId string, fs *FileSystem, rangeNumber int64, pageSize int64, dataKey []byte, keyHash [32]byte) (*Range, error) {
+	if len(dataKey) != 32 {
+		return nil, fmt.Errorf("dataKey must be exactly 32 bytes, got %d", len(dataKey))
+	}
+
+	dr := &Range{
+		branchId:   branchId,
+		databaseId: databaseId,
+		dataKey:    dataKey,
+		encrypted:  true,
+		fs:         fs,
+		keyHash:    keyHash,
+		pageSize:   pageSize,
+		number:     rangeNumber,
+	}
+
+tryOpen:
+	file, err := fs.OpenFile(dr.Path(), os.O_CREATE|os.O_RDWR, 0600)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = fs.MkdirAll(filepath.Dir(dr.Path()), 0750)
+
+			if err != nil {
+				slog.Error("Error creating range directory", "error", err)
+
+				return nil, err
+			}
+
+			goto tryOpen
+		} else {
+			slog.Error("Error opening range file", "error", err)
+			return nil, err
+		}
+	}
+
+	// Wrap with encrypted file
+	fileInfo, err := file.Stat()
+
+	if err != nil {
+		if err := file.Close(); err != nil {
+			slog.Error("failed to close file after stat error:", "error", err)
+		}
+
+		return nil, fmt.Errorf("failed to stat range file: %w", err)
+	}
+
+	var encryptedFile internalStorage.File
+
+	if fileInfo.Size() == 0 {
+		// New file - create encrypted wrapper
+		encryptedFile, err = NewEncryptedAuthenticatedFile(file, dataKey, keyHash, dr.Path())
+
+		if err != nil {
+			if err := file.Close(); err != nil {
+				slog.Error("failed to close file after error creating encrypted range file:", "error", err)
+			}
+
+			return nil, fmt.Errorf("failed to create encrypted range file: %w", err)
+		}
+
+		// Write the header
+		err = encryptedFile.(*EncryptedAuthenticatedFile).WriteHeader()
+
+		if err != nil {
+			if err := file.Close(); err != nil {
+				slog.Error("failed to close file after error writing encrypted range header:", "error", err)
+			}
+
+			return nil, fmt.Errorf("failed to write encrypted range header: %w", err)
+		}
+	} else {
+		// Existing file - open encrypted wrapper
+		encryptedFile, err = OpenEncryptedAuthenticatedFile(file, dataKey, keyHash, dr.Path())
+
+		if err != nil {
+			if err := file.Close(); err != nil {
+				slog.Error("failed to close file after error opening encrypted range file:", "error", err)
+			}
+
+			return nil, fmt.Errorf("failed to open encrypted range file: %w", err)
+		}
+	}
+
+	dr.file = encryptedFile
 
 	return dr, nil
 }
@@ -113,7 +207,7 @@ func (dr *Range) PageCount() int64 {
 	size, err := dr.Size()
 
 	if err != nil {
-		log.Println("Error getting range file size", err)
+		slog.Error("Error getting range file size", "error", err)
 		return 0
 	}
 
@@ -145,7 +239,7 @@ func (dr *Range) ReadAt(pageNumber int64, p []byte) (n int, err error) {
 			return n, nil
 		}
 
-		log.Println("Error reading range file", err)
+		slog.Error("Error reading range file", "error", err)
 
 		return 0, err
 	}
@@ -162,7 +256,7 @@ func (dr *Range) Size() (int64, error) {
 	stat, err := dr.file.Stat()
 
 	if err != nil {
-		log.Println("Error getting file size", err)
+		slog.Error("Error getting file size", "error", err)
 		return 0, err
 	}
 
@@ -182,7 +276,7 @@ func (dr *Range) Truncate(size int64) error {
 	err := dr.file.Truncate(size)
 
 	if err != nil {
-		log.Println("Error truncating range file", err)
+		slog.Error("Error truncating range file", "error", err)
 
 		return err
 	}
@@ -202,7 +296,7 @@ func (dr *Range) WriteAt(pageNumber int64, p []byte) (n int, err error) {
 	n, err = dr.file.WriteAt(p, offset)
 
 	if err != nil {
-		log.Println("Error writing to range file", err)
+		slog.Error("Error writing to range file", "error", err)
 		return 0, err
 	}
 

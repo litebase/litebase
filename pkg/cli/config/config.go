@@ -28,8 +28,9 @@ type CLIServerConfiguration struct {
 	Background             bool   `yaml:"background"`
 	ClusterID              string `yaml:"cluster_id"`
 	ConfigPath             string `yaml:"config_path"`
+	DataEncryptionKey      string `yaml:"data_encryption_key,omitempty"`
 	Debug                  bool   `yaml:"debug,omitempty"`
-	Key                    string `yaml:"key"`
+	EncryptionKey          string `yaml:"key"`
 	Port                   string `yaml:"port"`
 	StorageAccessKeyId     string `yaml:"storage_access_key_id,omitempty"`
 	StorageBucket          string `yaml:"storage_bucket,omitempty"`
