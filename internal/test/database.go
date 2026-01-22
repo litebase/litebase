@@ -94,3 +94,16 @@ func MockDatabase(app *server.App) TestDatabase {
 		Credential:   credential,
 	}
 }
+
+// MockEncryptedDatabase creates a test database with encryption enabled
+func MockEncryptedDatabase(app *server.App) TestDatabase {
+	testDb := MockDatabase(app)
+
+	err := testDb.Branch.SetEncryptionSettings(true, app.Cluster.Config.DataEncryptionKeyHash)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return testDb
+}

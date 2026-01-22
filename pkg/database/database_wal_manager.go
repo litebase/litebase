@@ -610,7 +610,7 @@ func (w *DatabaseWALManager) Truncate(timestamp, size int64) error {
 			}
 		}
 		if latestVersion == 0 {
-			log.Println("walversions", w.walVersions)
+			slog.Error("No WAL versions available", "walVersions", w.walVersions)
 			return errors.New("no WAL versions available")
 		}
 
@@ -629,7 +629,7 @@ func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n in
 	wal, err := w.getLatestUnsafe()
 
 	if err != nil {
-		log.Println("Error acquiring latest WAL:", err)
+		slog.Error("Error acquiring latest WAL", "error", err)
 		return 0, err
 	}
 

@@ -550,15 +550,16 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 
 	cacheKey := wal.getCacheKey(off)
 
-	cachedData := make([]byte, n)
-	copy(cachedData, p[:n])
+	err = wal.cache.Put(cacheKey, p[:n])
 
-	err = wal.cache.Put(cacheKey, cachedData)
+	if err != nil {
+		slog.Error("Error caching WAL data", "error", err)
+	}
 
 	file, err := wal.File()
 
 	if err != nil {
-		log.Println(err)
+		slog.Error("Error getting WAL file", "error", err)
 		return 0, err
 	}
 

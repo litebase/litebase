@@ -304,27 +304,7 @@ func BenchmarkEncryptedDatabaseQueries(b *testing.B) {
 		defer server.Shutdown()
 
 		app := server.App
-		db := test.MockDatabase(app)
-
-		database, err := app.DatabaseManager.Get(
-			db.DatabaseID,
-		)
-
-		if err != nil {
-			b.Fatalf("Failed to get database: %v", err)
-		}
-
-		branch, err := database.PrimaryBranch()
-
-		if err != nil {
-			b.Fatalf("Failed to get primary branch: %v", err)
-		}
-
-		err = branch.SetEncryptionSettings(true, server.App.Cluster.Config.DataEncryptionKeyHash)
-
-		if err != nil {
-			b.Fatalf("Failed to set encryption settings: %v", err)
-		}
+		db := test.MockEncryptedDatabase(app)
 
 		runBechmark(b, db, app)
 	})

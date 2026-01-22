@@ -404,12 +404,6 @@ func (database *Database) CreateBranch(name, parentBranchName string) (*Branch, 
 		slog.Warn("Failed to cache new branch", "error", err)
 	}
 
-	// Initialize the database file by opening and immediately releasing a connection
-	// This ensures the database is created with the correct page size and settings
-	if err := database.initializeBranchDatabase(branch); err != nil {
-		return nil, fmt.Errorf("failed to initialize branch database: %w", err)
-	}
-
 	// Copy the data from the parent branch if specified
 	if parentBranchName != "" && branch.ParentBranch() != nil {
 		err = database.copyBranchParentData(branch)
@@ -608,22 +602,6 @@ func (database *Database) UpdateBranchCache(branchID string, branch *Branch) {
 	if err := database.branchCache.Put(branchID, branch); err != nil {
 		slog.Warn("Failed to update branch cache", "error", err)
 	}
-}
-
-// initializeBranchDatabase opens a connection to initialize the database file
-// with the correct page size and settings, then immediately releases it.
-func (database *Database) initializeBranchDatabase(branch *Branch) error {
-	// Get a connection to initialize the database
-	con, err := database.DatabaseManager.ConnectionManager().Get(database.DatabaseID, branch.DatabaseBranchID)
-
-	if err != nil {
-		return fmt.Errorf("failed to get connection for initialization: %w", err)
-	}
-
-	// Immediately release the connection - we just needed to initialize the file
-	database.DatabaseManager.ConnectionManager().Release(con)
-
-	return nil
 }
 
 func (database *Database) Url(branchName string) string {
