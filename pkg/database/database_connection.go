@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
@@ -23,6 +24,7 @@ import (
 
 var (
 	ErrDatabaseConnectionClosed = fmt.Errorf("database connection is closed")
+	noopBarrier                 = func(fn func() error) error { return fn() }
 )
 
 var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
@@ -99,6 +101,17 @@ type DatabaseConnection struct {
 	vfsHash                string
 	walManager             *DatabaseWALManager
 	walTimestamp           int64
+	// Temporary fields for exec without closure allocation
+	// execSQL        string
+	// execResult     *sqlite3.Result
+	// execParameters []sqlite3.StatementParameter
+	// Temporary fields for transaction without closure allocation
+	transactionReadOnly bool
+	// transactionHandler  func(con *DatabaseConnection) error
+	// Temporary fields for query without closure allocation
+	// queryResult     *sqlite3.Result
+	// queryStatement  *sqlite3.Statement
+	// queryParameters []sqlite3.StatementParameter
 }
 
 type StatementKey struct {
@@ -232,66 +245,72 @@ func (con *DatabaseConnection) Checkpoint() error {
 		return ErrDatabaseConnectionClosed
 	}
 
-	return con.checkpointer.CheckpointBarrier(func() error {
-		return con.walManager.Checkpoint(func(wal *DatabaseWAL) error {
-			// Ensure the timestamp for the checkpoint is acquired on the page logger.
-			con.pageLogger.Acquire(wal.timestamp)
+	return con.checkpointer.CheckpointBarrier(con.executeCheckpoint)
+}
 
-			// Ensure the timestamp for the checkpoint is set on the VFS, this will
-			// ensure the VFS writes changes from the WAL to the page logger with
-			// the correct timestamp. This is crucial for the checkpoint process,
-			// as it ensures that the pages are written to the correct location and
-			// in the event of a failure, the pages can be tombstoned correctly.
-			con.vfs.SetTimestamps(wal.timestamp, time.Now().UTC().UnixNano())
+// executeCheckpoint performs the checkpoint without closure allocation
+func (con *DatabaseConnection) executeCheckpoint() error {
+	return con.walManager.Checkpoint(con.performCheckpointOnWAL)
+}
 
-			defer func() {
-				con.pageLogger.Release(wal.timestamp)
-			}()
+// performCheckpointOnWAL executes checkpoint operations on a specific WAL without closure allocation
+func (con *DatabaseConnection) performCheckpointOnWAL(wal *DatabaseWAL) error {
+	// Ensure the timestamp for the checkpoint is acquired on the page logger.
+	con.pageLogger.Acquire(wal.timestamp)
 
-			// Begin the checkpoint process using the WAL timestamp.
-			err := con.checkpointer.Begin(wal.timestamp)
+	// Ensure the timestamp for the checkpoint is set on the VFS, this will
+	// ensure the VFS writes changes from the WAL to the page logger with
+	// the correct timestamp. This is crucial for the checkpoint process,
+	// as it ensures that the pages are written to the correct location and
+	// in the event of a failure, the pages can be tombstoned correctly.
+	con.vfs.SetTimestamps(wal.timestamp, time.Now().UTC().UnixNano())
+
+	defer func() {
+		con.pageLogger.Release(wal.timestamp)
+	}()
+
+	// Begin the checkpoint process using the WAL timestamp.
+	err := con.checkpointer.Begin(wal.timestamp)
+
+	if err != nil {
+		log.Println("Error beginning checkpoint:", err)
+		return err
+	}
+
+	_, err = sqlite3.Checkpoint(con.sqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
+		if result.Result != 0 {
+			log.Println("Error checkpointing database", err)
+		} else {
+			err = con.checkpointer.Commit()
 
 			if err != nil {
-				log.Println("Error beginning checkpoint:", err)
+				slog.Debug("Error checkpointing database", "error", err)
 				return err
-			}
-
-			_, err = sqlite3.Checkpoint(con.sqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
-				if result.Result != 0 {
-					log.Println("Error checkpointing database", err)
-				} else {
-					err = con.checkpointer.Commit()
-
-					if err != nil {
-						slog.Debug("Error checkpointing database", "error", err)
-						return err
-					} else {
-						slog.Debug("Successful database checkpoint")
-					}
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				err := con.checkpointer.Rollback()
-
-				if err != nil {
-					slog.Error("Error rolling back checkpoint", "error", err)
-				}
 			} else {
-				// Update the WAL Index
-				err = con.walManager.Refresh()
-
-				if err != nil {
-					slog.Error("Error creating new WAL version:", "error", err)
-					return err
-				}
+				slog.Debug("Successful database checkpoint")
 			}
+		}
 
-			return err
-		})
+		return nil
 	})
+
+	if err != nil {
+		err := con.checkpointer.Rollback()
+
+		if err != nil {
+			slog.Error("Error rolling back checkpoint", "error", err)
+		}
+	} else {
+		// Update the WAL Index
+		err = con.walManager.Refresh()
+
+		if err != nil {
+			slog.Error("Error creating new WAL version:", "error", err)
+			return err
+		}
+	}
+
+	return err
 }
 
 // Close the database connection.
@@ -362,7 +381,7 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 		return con.execLitebasePragma(sql)
 	}
 
-	result = &sqlite3.Result{}
+	result = con.resultPool.Get()
 
 	var checkpointBarrier func(func() error) error
 	var compactionBarrier func(func() error) error
@@ -775,7 +794,7 @@ func (con *DatabaseConnection) Statement(queryStatement string) (Statement, erro
 
 	var err error
 
-	sqlChecksum := crc32.ChecksumIEEE([]byte(queryStatement))
+	sqlChecksum := crc32.ChecksumIEEE(unsafe.Slice(unsafe.StringData(queryStatement), len(queryStatement)))
 
 	credentialChecksum := [32]byte{}
 

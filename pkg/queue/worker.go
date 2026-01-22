@@ -26,7 +26,7 @@ type Worker struct {
 	afterJob         func(jobID int64, status JobStatus, err error)
 	primaryOnly      bool
 	isPrimary        func() bool
-	runningJobKeys   *sync.Map // Shared map to track running job keys across all workers
+	runningJobKeys   *sync.Map   // Shared map to track running job keys across all workers
 	reservationMutex *sync.Mutex // Shared mutex to serialize job reservation and prevent DB locks
 }
 

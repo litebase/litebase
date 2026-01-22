@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -56,6 +55,12 @@ type DatabaseWAL struct {
 	walManager     *DatabaseWALManager
 }
 
+// getCacheKey generates a cache key for a timestamp+offset combination
+type walCacheKey struct {
+	Timestamp int64
+	Offset    int64
+}
+
 func NewDatabaseWAL(
 	node *cluster.Node,
 	connectionManager *ConnectionManager,
@@ -67,7 +72,7 @@ func NewDatabaseWAL(
 ) *DatabaseWAL {
 	return &DatabaseWAL{
 		BranchID:       branchId,
-		cache:          cache.NewLFUCache(16000), // ~33MB
+		cache:          cache.NewLFUCache(1000), // Cache up to 1000 pages
 		cacheKeyBuffer: make([]byte, 0, 64),
 		createdAt:      time.Now().UTC(),
 		DatabaseID:     databaseId,
@@ -88,6 +93,8 @@ func (wal *DatabaseWAL) Checkpointing() bool {
 }
 
 func (wal *DatabaseWAL) Close() error {
+	wal.cache.Close()
+
 	if wal.file != nil {
 		err := wal.file.Close()
 
@@ -304,11 +311,8 @@ func matchEncryptionKey(cfg *config.Config, dataEncryptionKeyHash string) ([]byt
 	return nil, [32]byte{}, fmt.Errorf("DataEncryptionKey for this database not found (hash: %s)", dataEncryptionKeyHash)
 }
 
-func (wal *DatabaseWAL) getCacheKey(offset int64) string {
-	wal.cacheKeyBuffer = wal.cacheKeyBuffer[:0]
-	wal.cacheKeyBuffer = strconv.AppendInt(wal.cacheKeyBuffer, offset, 10)
-
-	return string(wal.cacheKeyBuffer)
+func (wal *DatabaseWAL) getCacheKey(offset int64) walCacheKey {
+	return walCacheKey{Timestamp: wal.timestamp, Offset: offset}
 }
 
 func (wal *DatabaseWAL) Hash() string {
@@ -419,11 +423,8 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 		return n, err
 	}
 
-	cachedData := make([]byte, n)
-	copy(cachedData, p[:n])
-
 	// Cache the read data
-	err = wal.cache.Put(cacheKey, cachedData)
+	err = wal.cache.Put(cacheKey, p[:n])
 
 	if err != nil {
 		slog.Error("Error caching WAL data", "error", err)

@@ -14,7 +14,6 @@ import (
 	"unsafe"
 )
 
-var vfsShmMutex = &sync.Mutex{}
 var VfsShmMap = make(map[string]*ShmMemory)
 
 type ShmMemory struct {

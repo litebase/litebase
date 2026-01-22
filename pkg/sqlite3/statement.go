@@ -26,16 +26,18 @@ var statementBufferPool = sync.Pool{
 }
 
 type Statement struct {
-	columnCount  int
-	columnTypes  []ColumnType
-	columnNames  []string
-	columns      []Column
-	Connection   *Connection
-	context      context.Context
-	isReadOnly   StatementReadonly
-	sqlite3_stmt *C.sqlite3_stmt
-	extra        *C.char
-	text         string
+	columnCount   int
+	columnTypes   []ColumnType
+	columnNames   []string
+	columns       []Column
+	Connection    *Connection
+	context       context.Context
+	isReadOnly    bool
+	isReadOnlySet bool
+	rc            int
+	sqlite3_stmt  *C.sqlite3_stmt
+	extra         *C.char
+	text          string
 }
 
 type StatementReadonly string
@@ -187,8 +189,8 @@ func (s *Statement) ClearBindings() error {
 		return errors.New("sqlite3 statement is nil")
 	}
 
-	if rc := C.sqlite3_clear_bindings(s.sqlite3_stmt); rc != SQLITE_OK {
-		return errors.New(C.GoString(C.sqlite3_errstr(C.int(rc))))
+	if s.rc = int(C.sqlite3_clear_bindings(s.sqlite3_stmt)); s.rc != SQLITE_OK {
+		return errors.New(C.GoString(C.sqlite3_errstr(C.int(s.rc))))
 	} else {
 		return nil
 	}
@@ -318,9 +320,9 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 		case <-s.context.Done():
 			return errors.New("context done")
 		default:
-			rc := s.Step()
+			s.rc = s.Step()
 
-			switch rc {
+			switch s.rc {
 			case SQLITE_DONE:
 				// For queries with zero rows, use declared types from schema
 				if !columnTypesInitialized && result != nil {
@@ -345,7 +347,8 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 
 				if len(result.Columns) >= 0 {
 					for rowIndex >= len(result.Rows) {
-						result.Rows = append(result.Rows, make([]*Column, len(result.Columns)))
+						row := result.GetRowSlice(len(result.Columns))
+						result.Rows = append(result.Rows, row)
 
 						// Initialize the columns slice if there are no existing rows
 						for i := range result.Columns {
@@ -363,7 +366,7 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 					}
 				}
 			default:
-				return s.Connection.Error(rc)
+				return s.Connection.Error(s.rc)
 			}
 		}
 	}
@@ -461,17 +464,19 @@ func (s *Statement) IsReadonly() bool {
 		return false
 	}
 
-	if s.isReadOnly != "" {
-		return s.isReadOnly == StatementReadonlyTrue
+	if s.isReadOnlySet {
+		return s.isReadOnly
 	}
 
 	readonly := int(C.sqlite3_stmt_readonly((*C.sqlite3_stmt)(s.sqlite3_stmt))) != 0
 
 	if readonly {
-		s.isReadOnly = StatementReadonlyTrue
+		s.isReadOnly = true
 	} else {
-		s.isReadOnly = StatementReadonlyFalse
+		s.isReadOnly = false
 	}
+
+	s.isReadOnlySet = true
 
 	return readonly
 }
@@ -525,6 +530,8 @@ func (s *Statement) ParameterName(index int) string {
 
 // Reset the statement
 func (s *Statement) Reset() error {
+	s.rc = 0
+
 	if s.sqlite3_stmt == nil {
 		return errors.New("sqlite3 statement is nil")
 	}

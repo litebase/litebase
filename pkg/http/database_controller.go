@@ -224,6 +224,7 @@ func DatabaseControllerStore(ctx context.Context, request *Request) Response {
 
 		// Use next encryption key if available (for key rotation)
 		keyHash := request.cluster.Config.DataEncryptionKeyHash
+
 		if request.cluster.Config.DataEncryptionKeyNextHash != "" {
 			keyHash = request.cluster.Config.DataEncryptionKeyNextHash
 		}

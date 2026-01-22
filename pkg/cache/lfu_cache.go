@@ -5,8 +5,21 @@ import (
 	"sync"
 )
 
+var lfuBufferPool = sync.Pool{
+	New: func() any {
+		buf := make([]byte, 0, 4096) // 4KB default buffer size
+		return &buf
+	},
+}
+
+var lfuCacheItemPool = sync.Pool{
+	New: func() any {
+		return &CacheItem{}
+	},
+}
+
 type CacheItem struct {
-	key       string
+	key       any
 	value     any
 	frequency int
 	index     int
@@ -56,7 +69,7 @@ func (pq *PriorityQueue) Pop() any {
 // LFUCache represents a Least Frequently Used cache.
 type LFUCache struct {
 	capacity int
-	items    map[string]*CacheItem
+	items    map[any]*CacheItem
 	mutex    sync.Mutex
 	pq       PriorityQueue
 }
@@ -64,23 +77,28 @@ type LFUCache struct {
 func NewLFUCache(capacity int) *LFUCache {
 	return &LFUCache{
 		capacity: capacity,
-		items:    make(map[string]*CacheItem),
+		items:    make(map[any]*CacheItem),
 		pq:       make(PriorityQueue, 0, capacity),
 	}
 }
 
-func (c *LFUCache) Delete(key string) {
+func (c *LFUCache) Delete(key any) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	if item, found := c.items[key]; found {
+		// Return byte slice buffer to pool
+		if b, ok := item.value.([]byte); ok {
+			lfuBufferPool.Put(&b)
+		}
+
 		heap.Remove(&c.pq, item.index)
 		delete(c.items, key)
 	}
 }
 
 // Get retrieves an item from the cache.
-func (c *LFUCache) Get(key string) (any, bool) {
+func (c *LFUCache) Get(key any) (any, bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -94,14 +112,36 @@ func (c *LFUCache) Get(key string) (any, bool) {
 }
 
 // Put adds an item to the cache.
-func (c *LFUCache) Put(key string, value any) error {
+func (c *LFUCache) Put(key any, value any) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
+	// Copy byte slices using buffer from pool
+	storedValue := value
+
+	if b, ok := value.([]byte); ok {
+		bufPtr := lfuBufferPool.Get().(*[]byte)
+
+		// Ensure buffer has enough capacity
+		if cap(*bufPtr) < len(b) {
+			*bufPtr = make([]byte, len(b))
+		} else {
+			*bufPtr = (*bufPtr)[:len(b)]
+		}
+
+		copy(*bufPtr, b)
+		storedValue = *bufPtr
+	}
 
 	item, found := c.items[key]
 
 	if found {
-		item.value = value
+		// Return old buffer to pool if it was a byte slice
+		if oldBuf, ok := item.value.([]byte); ok {
+			lfuBufferPool.Put(&oldBuf)
+		}
+
+		item.value = storedValue
 		item.frequency++
 		heap.Fix(&c.pq, item.index)
 
@@ -111,20 +151,66 @@ func (c *LFUCache) Put(key string, value any) error {
 	if len(c.items) >= c.capacity {
 		// Remove the least frequently used item.
 		if lfuItem, ok := heap.Pop(&c.pq).(*CacheItem); ok {
+			// Return evicted buffer to pool
+			if evictedBuf, ok := lfuItem.value.([]byte); ok {
+				lfuBufferPool.Put(&evictedBuf)
+			}
+
 			delete(c.items, lfuItem.key)
+
+			// Return CacheItem to pool
+			lfuItem.key = nil
+			lfuItem.value = nil
+			lfuItem.frequency = 0
+			lfuCacheItemPool.Put(lfuItem)
 		}
 	}
 
-	// Add the new item.
-	newItem := &CacheItem{
-		key:       key,
-		value:     value,
-		frequency: 1,
-	}
+	// Get CacheItem from pool
+	newItem := lfuCacheItemPool.Get().(*CacheItem)
+	newItem.key = key
+	newItem.value = storedValue
+	newItem.frequency = 1
 
 	heap.Push(&c.pq, newItem)
 
 	c.items[key] = newItem
 
 	return nil
+}
+
+// DeleteIf removes all cache entries where predicate(key) returns true.
+// This is O(n) in the number of cache items and should be used sparingly.
+func (c *LFUCache) DeleteIf(predicate func(any) bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for k, item := range c.items {
+		if predicate(k) {
+			// Return byte slice buffer to pool
+			if b, ok := item.value.([]byte); ok {
+				lfuBufferPool.Put(&b)
+			}
+			// remove from heap and map
+			heap.Remove(&c.pq, item.index)
+			delete(c.items, k)
+		}
+	}
+}
+
+// Close clears the cache and returns all buffers to the pool.
+func (c *LFUCache) Close() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Return all byte slice buffers to pool
+	for _, item := range c.items {
+		if b, ok := item.value.([]byte); ok {
+			lfuBufferPool.Put(&b)
+		}
+	}
+
+	// Clear all items
+	c.items = make(map[any]*CacheItem)
+	c.pq = make(PriorityQueue, 0, c.capacity)
 }

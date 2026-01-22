@@ -156,13 +156,13 @@ func DatabaseBranchSettingsControllerUpdate(ctx context.Context, request *Reques
 
 	// Validate the request
 	validationErrors := request.Validate(req, map[string]string{
-		"backupInterval.validateFn":                "Invalid backup interval format",
-		"backupsRetentionDays.min":                 "Backups retention days must be at least 1",
-		"errorLogsRetentionDays.min":               "Error logs retention days must be at least 1",
-		"incrementalBackupsRetentionDays.min":      "Incremental backups retention days must be at least 1",
-		"queryLogsRetentionDays.min":               "Query logs retention days must be at least 1",
-		"foreignKeys.required":                     "Foreign keys setting is required when default pragmas are provided",
-		"foreignKeys.oneof":                        "Foreign keys must be either 'ON' or 'OFF'",
+		"backupInterval.validateFn":           "Invalid backup interval format",
+		"backupsRetentionDays.min":            "Backups retention days must be at least 1",
+		"errorLogsRetentionDays.min":          "Error logs retention days must be at least 1",
+		"incrementalBackupsRetentionDays.min": "Incremental backups retention days must be at least 1",
+		"queryLogsRetentionDays.min":          "Query logs retention days must be at least 1",
+		"foreignKeys.required":                "Foreign keys setting is required when default pragmas are provided",
+		"foreignKeys.oneof":                   "Foreign keys must be either 'ON' or 'OFF'",
 	})
 
 	if validationErrors != nil {

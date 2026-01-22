@@ -12,7 +12,6 @@ package vfs
 import "C"
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -28,13 +27,7 @@ import (
 )
 
 var vfsMutex = &sync.RWMutex{}
-var VfsMap = make(map[string]*LitebaseVFS)
-
-var vfsBuffers = &sync.Pool{
-	New: func() any {
-		return bytes.NewBuffer(make([]byte, 4096))
-	},
-}
+var VfsMap = make(map[uintptr]*LitebaseVFS)
 
 type LitebaseVFS struct {
 	connectionHash         string
@@ -43,7 +36,7 @@ type LitebaseVFS struct {
 	fileSystem             *storage.DurableDatabaseFileSystem
 	nodeHash               string
 	transactionalTimestamp int64
-	vfsIdPtr               uintptr
+	VfsIdPtr               uintptr
 	wal                    WAL
 	walTimestamp           int64
 	shm                    *ShmMemory
@@ -70,16 +63,12 @@ func RegisterVFS(
 		return nil, errors.New("pageSize exceeds maximum allowed value for int32")
 	}
 
-	// Only register the VFS if it doesn't already exist
-	if lVfs, ok := VfsMap[connectionHash]; ok {
-		return lVfs, nil
-	}
-
 	cZvfsId, err := utils.SafeCString(connectionHash)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert connectionHash to C string: %v", err)
 	}
+
 	defer C.free(unsafe.Pointer(cZvfsId))
 
 	int32PageSize, err := utils.SafeInt64ToInt32(pageSize)
@@ -88,7 +77,24 @@ func RegisterVFS(
 		return nil, fmt.Errorf("invalid pageSize: %v", err)
 	}
 
+	// Register the VFS in C. The C side makes its own copy of the vfsId
+	// and stores that pointer in the sqlite3_vfs.zName field. We must
+	// retrieve that pointer after registration and use it as our map key
+	// to match the pointer used later by sqlite when opening files.
 	C.newVfs((*C.char)(cZvfsId), C.int(int32PageSize))
+
+	// Find the registered sqlite3_vfs and read its zName pointer.
+	pVfs := C.sqlite3_vfs_find((*C.char)(cZvfsId))
+
+	if pVfs == nil {
+		return nil, fmt.Errorf("failed to find registered VFS for id: %s", connectionHash)
+	}
+
+	vfsIdPtr := uintptr(unsafe.Pointer(pVfs.zName))
+
+	if lVfs, ok := VfsMap[vfsIdPtr]; ok {
+		return lVfs, nil
+	}
 
 	// Check if the WAL is already registered
 	if VfsShmMap[nodeHash] == nil {
@@ -109,7 +115,9 @@ func RegisterVFS(
 		shm:            VfsShmMap[nodeHash],
 	}
 
-	VfsMap[connectionHash] = l
+	l.VfsIdPtr = vfsIdPtr
+
+	VfsMap[vfsIdPtr] = l
 
 	return l, nil
 }
@@ -123,39 +131,41 @@ func UnregisterVFS(vfsId string) error {
 		return errors.New("vfsId cannot be empty")
 	}
 
-	vfs, ok := VfsMap[vfsId]
-
-	if !ok {
-		return errors.New("vfsId not found")
-	}
-
-	var nodeHash string
-
-	if vfs == nil {
-		delete(VfsMap, vfsId) // Clean up the map entry
-		return errors.New("vfs instance is nil")
-	}
-
+	// Convert the vfsId string to a C string and find the registered sqlite3_vfs
 	cvfsId, err := utils.SafeCString(vfsId)
 	if err != nil {
 		return fmt.Errorf("failed to convert vfsId to C string: %v", err)
 	}
 	defer C.free(unsafe.Pointer(cvfsId))
 
-	if cvfsId == nil {
-		return errors.New("failed to create C string for vfsId")
+	pVfs := C.sqlite3_vfs_find((*C.char)(cvfsId))
+
+	if pVfs == nil {
+		return errors.New("vfsId not found")
 	}
 
+	vfsIdPtr := uintptr(unsafe.Pointer(pVfs.zName))
+
+	vfs, ok := VfsMap[vfsIdPtr]
+	if !ok {
+		return errors.New("vfsId not found")
+	}
+
+	if vfs == nil {
+		delete(VfsMap, vfsIdPtr)
+		return errors.New("vfs instance is nil")
+	}
+
+	// Unregister on the C side
 	C.unregisterVfs((*C.char)(cvfsId))
 
-	nodeHash = vfs.nodeHash
+	nodeHash := vfs.nodeHash
 
-	delete(VfsMap, vfsId)
+	delete(VfsMap, vfsIdPtr)
 
 	var found bool
-
-	for _, vfs := range VfsMap {
-		if vfs != nil && vfs.nodeHash == nodeHash {
+	for _, v := range VfsMap {
+		if v != nil && v.nodeHash == nodeHash {
 			found = true
 			break
 		}
@@ -205,18 +215,26 @@ func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
 
-	for _, vfs := range VfsMap {
-		if vfs.vfsIdPtr == vfsIdPtr {
-			return vfs, nil
-		}
+	// Fast path: exact pointer match
+	if vfs, ok := VfsMap[vfsIdPtr]; ok {
+		return vfs, nil
 	}
 
-	vfsId := C.GoString(file.pVfsId)
+	// Fallback: the C code may allocate a separate copy of the VFS id
+	// when opening a file, so the pointer differs even though the
+	// string contents are identical. Compare C strings with strcmp
+	// to avoid allocating a Go string.
+	for _, v := range VfsMap {
+		if v == nil || v.VfsIdPtr == 0 || file.pVfsId == nil {
+			continue
+		}
 
-	if vfs, ok := VfsMap[vfsId]; ok {
-		vfs.vfsIdPtr = vfsIdPtr
+		c1 := (*C.char)(unsafe.Pointer(v.VfsIdPtr))
+		c2 := (*C.char)(file.pVfsId)
 
-		return vfs, nil
+		if C.strcmp(c1, c2) == 0 {
+			return v, nil
+		}
 	}
 
 	return nil, fmt.Errorf("vfs not found")
@@ -224,12 +242,13 @@ func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 
 //export goXOpen
 func goXOpen(zVfs *C.sqlite3_vfs, zName *C.char, pFile *C.sqlite3_file, flags C.int, outFlags *C.int) C.int {
-	vfsId := C.GoString(zVfs.zName)
+	// Lookup by the sqlite3_vfs.zName pointer to avoid allocating a Go string
+	vfsIdPtr := uintptr(unsafe.Pointer(zVfs.zName))
 	name := C.GoString(zName)
 	filename := name[strings.LastIndex(name, "/")+1:]
 
 	vfsMutex.RLock()
-	vfs, ok := VfsMap[vfsId]
+	vfs, ok := VfsMap[vfsIdPtr]
 	vfsMutex.RUnlock()
 
 	if !ok {
