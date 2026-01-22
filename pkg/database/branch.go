@@ -330,6 +330,13 @@ func (branch *Branch) ParentBranch() *Branch {
 				parentBranch.DatabaseManager = branch.DatabaseManager
 				parentBranch.Exists = true
 
+				// Load parent branch settings so they can be copied to child branches
+				parentSettings, settingsErr := parentBranch.GetBranchSettings()
+
+				if settingsErr == nil {
+					parentBranch.Settings = parentSettings
+				}
+
 				if parentBranch.DatabaseID != "" {
 					database, dbErr := branch.DatabaseManager.Get(parentBranch.DatabaseID)
 
@@ -429,9 +436,7 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 			backups_interval,
 			backup_next_at,
 			backups_retention_days,
-			data_encryption_key_hash,
 			default_pragmas_json,
-			encrypted,
 			error_logs_enabled,
 			error_logs_retention_days,
 			incremental_backups_enabled,
@@ -439,7 +444,9 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 			query_logs_enabled,
 			query_logs_retention_days,
 			created_at,
-			updated_at
+			updated_at,
+			encrypted,
+			data_encryption_key_hash
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		b.ID,
@@ -447,9 +454,7 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 		settings.BackupInterval,
 		backupNextAt,
 		settings.BackupsRetentionDays,
-		sql.NullString{String: settings.DataEncryptionKeyHash, Valid: settings.DataEncryptionKeyHash != ""},
 		string(defaultPragmasJSON),
-		utils.BoolToInt(settings.Encrypted),
 		utils.BoolToInt(settings.ErrorLogsEnabled),
 		settings.ErrorLogsRetentionDays,
 		utils.BoolToInt(settings.IncrementalBackupsEnabled),
@@ -458,9 +463,15 @@ func InsertBranchSettings(b *Branch, parentBranch *Branch) (*DatabaseBranchSetti
 		settings.QueryLogsRetentionDays,
 		now,
 		now,
+		utils.BoolToInt(settings.Encrypted),
+		settings.DataEncryptionKeyHash, // Insert string directly, not sql.NullString
 	)
 
-	return settings, err
+	if err != nil {
+		return nil, err
+	}
+
+	return settings, nil
 }
 
 // GetBranchSettings retrieves the settings for this branch.

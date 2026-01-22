@@ -191,3 +191,50 @@ func DecryptPageCTR(dataKey []byte, encryptedData []byte, pageNumber uint64, tim
 
 	return decrypted, nil
 }
+
+// EncryptStreamCTR encrypts arbitrary-length data using AES-256-CTR at a specific file offset
+// This allows encrypting data of any size at any position in the stream
+func EncryptStreamCTR(dataKey []byte, data []byte, fileOffset int64, timestamp int64, filePath string) ([]byte, error) {
+	if len(data) == 0 {
+		return []byte{}, nil
+	}
+
+	// Derive IV based on the file offset (treating offset as "page number" in 16-byte blocks)
+	blockNumber := uint64(fileOffset / 16)
+	blockOffset := fileOffset % 16
+
+	iv, err := derivePageIV(dataKey, blockNumber, timestamp, filePath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive IV: %w", err)
+	}
+
+	// Create AES cipher
+	block, err := aes.NewCipher(dataKey)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	// Create CTR stream
+	stream := cipher.NewCTR(block, iv)
+
+	// If we're not starting at a block boundary, we need to sync the stream
+	if blockOffset != 0 {
+		// Discard bytes to sync the CTR stream to the correct position
+		discard := make([]byte, blockOffset)
+		stream.XORKeyStream(discard, discard)
+	}
+
+	// Encrypt the data
+	encrypted := make([]byte, len(data))
+	stream.XORKeyStream(encrypted, data)
+
+	return encrypted, nil
+}
+
+// DecryptStreamCTR decrypts arbitrary-length data using AES-256-CTR at a specific file offset
+// This is the same as EncryptStreamCTR because CTR mode encryption and decryption are identical
+func DecryptStreamCTR(dataKey []byte, encryptedData []byte, fileOffset int64, timestamp int64, filePath string) ([]byte, error) {
+	return EncryptStreamCTR(dataKey, encryptedData, fileOffset, timestamp, filePath)
+}

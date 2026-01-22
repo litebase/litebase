@@ -27,6 +27,7 @@ type SystemDatabase struct {
 	databaseManager *DatabaseManager
 	db              *sql.DB
 	initialized     bool
+	shutdown        bool
 	mutex           *sync.Mutex
 }
 
@@ -44,6 +45,9 @@ func NewSystemDatabase(databaseManager *DatabaseManager) *SystemDatabase {
 func (s *SystemDatabase) Close() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	// Mark as shutdown to prevent new connections
+	s.shutdown = true
 
 	if s.db != nil {
 		err := s.db.Close()
@@ -63,6 +67,11 @@ func (s *SystemDatabase) Close() error {
 func (s *SystemDatabase) DB() (*sql.DB, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	// Prevent new connections after shutdown
+	if s.shutdown {
+		return nil, fmt.Errorf("system database has been shut down")
+	}
 
 	// Return existing connection if available
 	if s.db != nil {

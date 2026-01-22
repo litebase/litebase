@@ -340,6 +340,32 @@ func (database *Database) copyBranchParentData(branch *Branch) error {
 		return fmt.Errorf("failed to get checkpointer: %w", err)
 	}
 
+	// Force a checkpoint on the parent branch to move WAL pages to PageLogger
+	// Then compact PageLogger to move pages into Range files
+	// This is critical for encrypted databases because PageLog files use path-dependent IVs
+	// and cannot be copied between branches (but Range files can be)
+	parentDB, err := database.DatabaseManager.ConnectionManager().Get(database.DatabaseID, branch.ParentBranch().DatabaseBranchID)
+
+	if err != nil {
+		return fmt.Errorf("failed to get parent connection for checkpoint: %w", err)
+	}
+
+	err = parentDB.GetConnection().Checkpoint()
+
+	if err != nil {
+		database.DatabaseManager.ConnectionManager().Release(parentDB)
+		return fmt.Errorf("failed to checkpoint parent branch before copy: %w", err)
+	}
+
+	database.DatabaseManager.ConnectionManager().Release(parentDB)
+
+	// Compact PageLogger to move all pages into Range files
+	err = parentDFS.ForceCompact()
+
+	if err != nil {
+		return fmt.Errorf("failed to compact parent branch PageLogger before copy: %w", err)
+	}
+
 	// Get the snapshots
 	_, err = snapshotLogger.GetSnapshots()
 

@@ -465,20 +465,50 @@ func TestEncryptedStreamFile_InvalidPageSize(t *testing.T) {
 		t.Fatalf("NewEncryptedStreamFile failed: %v", err)
 	}
 
-	// Try to write wrong size
-	invalidData := make([]byte, 100)
-	_, err = esf.WriteAt(invalidData, 0)
-
-	if err == nil {
-		t.Error("expected error for invalid write size, got nil")
+	// Write header first
+	if err := esf.WriteHeader(); err != nil {
+		t.Fatalf("WriteHeader failed: %v", err)
 	}
 
-	// Try to read wrong size
-	invalidBuf := make([]byte, 100)
-	_, err = esf.ReadAt(invalidBuf, 0)
+	// Variable-size writes should now work (padded to 4096 bytes internally)
+	smallData := []byte("test data")
+	n, err := esf.WriteAt(smallData, 0)
 
-	if err == nil {
-		t.Error("expected error for invalid read size, got nil")
+	if err != nil {
+		t.Errorf("expected variable-size write to work, got error: %v", err)
+	}
+
+	if n != len(smallData) {
+		t.Errorf("expected to write %d bytes, wrote %d", len(smallData), n)
+	}
+
+	// Variable-size reads should also work
+	smallBuf := make([]byte, len(smallData))
+	n, err = esf.ReadAt(smallBuf, 0)
+
+	if err != nil {
+		t.Errorf("expected variable-size read to work, got error: %v", err)
+	}
+
+	if n != len(smallData) {
+		t.Errorf("expected to read %d bytes, read %d", len(smallData), n)
+	}
+
+	if string(smallBuf) != string(smallData) {
+		t.Errorf("data mismatch: expected %q, got %q", smallData, smallBuf)
+	}
+
+	// Stream encryption now supports arbitrary-length writes
+	// Large writes should work fine
+	largeData := make([]byte, 5000)
+	for i := range largeData {
+		largeData[i] = byte(i % 256)
+	}
+
+	_, err = esf.WriteAt(largeData, 0)
+
+	if err != nil {
+		t.Errorf("expected large write to work with stream encryption, got error: %v", err)
 	}
 }
 
@@ -515,19 +545,37 @@ func TestEncryptedStreamFile_UnalignedOffset(t *testing.T) {
 		t.Fatalf("NewEncryptedStreamFile failed: %v", err)
 	}
 
-	// Try to write at unaligned offset
-	pageData := make([]byte, StreamPageSize)
-	_, err = esf.WriteAt(pageData, 100) // Not page-aligned
-
-	if err == nil {
-		t.Error("expected error for unaligned offset, got nil")
+	// Write header first
+	if err := esf.WriteHeader(); err != nil {
+		t.Fatalf("WriteHeader failed: %v", err)
 	}
 
-	// Try to read at unaligned offset
-	_, err = esf.ReadAt(pageData, 100) // Not page-aligned
+	// Unaligned writes should now work (using read-modify-write)
+	data := []byte("test data at offset 512")
+	n, err := esf.WriteAt(data, 512)
 
-	if err == nil {
-		t.Error("expected error for unaligned offset, got nil")
+	if err != nil {
+		t.Errorf("expected unaligned write to work, got error: %v", err)
+	}
+
+	if n != len(data) {
+		t.Errorf("expected to write %d bytes, wrote %d", len(data), n)
+	}
+
+	// Unaligned reads should also work
+	readBuf := make([]byte, len(data))
+	n, err = esf.ReadAt(readBuf, 512)
+
+	if err != nil {
+		t.Errorf("expected unaligned read to work, got error: %v", err)
+	}
+
+	if n != len(data) {
+		t.Errorf("expected to read %d bytes, read %d", len(data), n)
+	}
+
+	if string(readBuf) != string(data) {
+		t.Errorf("data mismatch: expected %q, got %q", data, readBuf)
 	}
 }
 

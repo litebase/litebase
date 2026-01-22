@@ -1,62 +1,25 @@
 package database_test
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"testing"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
-	"github.com/litebase/litebase/pkg/server"
 )
 
 func TestEncryptedDatabase(t *testing.T) {
-	test.RunWithApp(t, func(app *server.App) {
-		// Setup encryption key for all tests
-		dataKey := make([]byte, 32)
+	test.Run(t, func() {
+		server := test.NewTestServerWithEncryption(t)
+		defer server.Shutdown()
 
-		if _, err := rand.Read(dataKey); err != nil {
-			t.Fatalf("Failed to generate encryption key: %v", err)
-		}
-
-		keyHash := sha256.Sum256(dataKey)
-		app.Config.DataEncryptionKey = dataKey
-		app.Config.DataEncryptionKeyHash = hex.EncodeToString(keyHash[:])
+		app := server.App
 
 		t.Run("CreateAndQuery", func(t *testing.T) {
-			// Create an encrypted database
-			db, err := database.CreateDatabase(app.DatabaseManager, "test_encrypted_crud", "main")
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			primaryBranch, err := db.PrimaryBranch()
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// Enable encryption
-			err = primaryBranch.SetEncryptionSettings(true, app.Config.DataEncryptionKeyHash)
-
-			if err != nil {
-				t.Fatalf("Failed to enable encryption: %v", err)
-			}
-
-			// Verify encryption settings were applied
-			if !primaryBranch.Settings.Encrypted {
-				t.Fatal("Encryption not enabled on branch")
-			}
-
-			if primaryBranch.Settings.DataEncryptionKeyHash != app.Config.DataEncryptionKeyHash {
-				t.Fatalf("Key hash mismatch: expected %s, got %s", app.Config.DataEncryptionKeyHash, primaryBranch.Settings.DataEncryptionKeyHash)
-			}
+			db := test.MockEncryptedDatabase(app)
 
 			// Get a connection to the encrypted database
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, primaryBranch.DatabaseBranchID)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection: %v", err)
@@ -138,27 +101,10 @@ func TestEncryptedDatabase(t *testing.T) {
 
 		t.Run("CreateBranch", func(t *testing.T) {
 			// Create an encrypted database
-			db, err := database.CreateDatabase(app.DatabaseManager, "test_encrypted_branch", "main")
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			primaryBranch, err := db.PrimaryBranch()
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// Enable encryption
-			err = primaryBranch.SetEncryptionSettings(true, app.Config.DataEncryptionKeyHash)
-
-			if err != nil {
-				t.Fatalf("Failed to enable encryption: %v", err)
-			}
+			db := test.MockEncryptedDatabase(app)
 
 			// Create table and insert data in primary branch
-			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, primaryBranch.DatabaseBranchID)
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, db.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to get connection: %v", err)
@@ -170,7 +116,7 @@ func TestEncryptedDatabase(t *testing.T) {
 				t.Fatalf("Failed to create table: %v", err)
 			}
 
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, primaryBranch.DatabaseBranchID)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, db.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to checkpoint: %v", err)
@@ -182,7 +128,7 @@ func TestEncryptedDatabase(t *testing.T) {
 				t.Fatalf("Failed to insert: %v", err)
 			}
 
-			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, primaryBranch.DatabaseBranchID)
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, db.DatabaseBranchID)
 
 			if err != nil {
 				t.Fatalf("Failed to checkpoint: %v", err)
@@ -190,8 +136,18 @@ func TestEncryptedDatabase(t *testing.T) {
 
 			app.DatabaseManager.ConnectionManager().Release(con)
 
+			databaseInstance, err := app.DatabaseManager.Get(db.DatabaseID)
+
+			if err != nil {
+				t.Fatalf("Failed to retrieve database instance: %v", err)
+			}
+
+			if databaseInstance == nil {
+				t.Fatal("Failed to retrieve database instance")
+			}
+
 			// Create a branch from the encrypted database
-			newBranch, err := db.CreateBranch("feature", "main")
+			newBranch, err := databaseInstance.CreateBranch("feature", "main")
 
 			if err != nil {
 				t.Fatalf("Failed to create branch from encrypted database: %v", err)
@@ -200,6 +156,12 @@ func TestEncryptedDatabase(t *testing.T) {
 			// Verify the branch has encryption enabled
 			if !newBranch.Settings.Encrypted {
 				t.Error("Expected new branch to have encryption enabled")
+			}
+
+			primaryBranch, err := databaseInstance.PrimaryBranch()
+
+			if err != nil {
+				t.Fatalf("Failed to retrieve primary branch: %v", err)
 			}
 
 			if newBranch.Settings.DataEncryptionKeyHash != primaryBranch.Settings.DataEncryptionKeyHash {

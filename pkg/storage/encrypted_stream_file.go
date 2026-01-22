@@ -155,54 +155,41 @@ func (esf *EncryptedStreamFile) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-// ReadAt reads and decrypts a 4096-byte page at the given offset
+// ReadAt reads and decrypts data from the given offset
+// Uses stream decryption to handle arbitrary-length reads
 // The offset is automatically adjusted for the 64-byte header
 func (esf *EncryptedStreamFile) ReadAt(p []byte, off int64) (n int, err error) {
-	if len(p) != StreamPageSize {
-		return 0, fmt.Errorf("ReadAt buffer must be %d bytes, got %d", StreamPageSize, len(p))
+	if len(p) == 0 {
+		return 0, nil
 	}
-
-	// Calculate page number from offset
-	if off%StreamPageSize != 0 {
-		return 0, fmt.Errorf("offset must be page-aligned (%d bytes), got %d", StreamPageSize, off)
-	}
-
-	pageNumber := uint64(off / StreamPageSize)
 
 	// Adjust offset for header (add 64 bytes)
 	adjustedOffset := off + StreamHeaderSize
 
-	// Read encrypted page from file
-	encryptedPage := make([]byte, StreamPageSize)
-	n, err = esf.file.ReadAt(encryptedPage, adjustedOffset)
+	// Read encrypted data from file
+	encryptedData := make([]byte, len(p))
+
+	n, err = esf.file.ReadAt(encryptedData, adjustedOffset)
 
 	if err != nil && err != io.EOF {
-		return 0, fmt.Errorf("failed to read encrypted page: %w", err)
+		return 0, err
 	}
 
 	if n == 0 {
 		return 0, io.EOF
 	}
 
-	// If we read less than a full page, it might be the last page
-	if n < StreamPageSize {
-		// Pad with zeros for decryption
-		for i := n; i < StreamPageSize; i++ {
-			encryptedPage[i] = 0
-		}
-	}
+	// Decrypt the data using stream decryption
+	decrypted, decryptErr := DecryptStreamCTR(esf.dataKey, encryptedData[:n], off, esf.timestamp, esf.filePath)
 
-	// Decrypt the page
-	decrypted, err := DecryptPageCTR(esf.dataKey, encryptedPage, pageNumber, esf.timestamp, esf.filePath)
-
-	if err != nil {
-		return 0, fmt.Errorf("failed to decrypt page: %w", err)
+	if decryptErr != nil {
+		return 0, fmt.Errorf("failed to decrypt data: %w", decryptErr)
 	}
 
 	// Copy decrypted data to output buffer
 	copy(p, decrypted)
 
-	return n, nil
+	return n, err
 }
 
 // Seek is not supported for encrypted stream files
@@ -266,35 +253,27 @@ func (esf *EncryptedStreamFile) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
-// WriteAt encrypts and writes a 4096-byte page at the given offset
+// WriteAt encrypts and writes data at the given offset
+// Uses stream encryption to handle arbitrary-length writes
 // The offset is automatically adjusted for the 64-byte header
 func (esf *EncryptedStreamFile) WriteAt(p []byte, off int64) (n int, err error) {
-	if len(p) != StreamPageSize {
-		return 0, fmt.Errorf("WriteAt buffer must be %d bytes, got %d", StreamPageSize, len(p))
+	if len(p) == 0 {
+		return 0, nil
 	}
 
-	// Calculate page number from offset
-	if off%StreamPageSize != 0 {
-		return 0, fmt.Errorf("offset must be page-aligned (%d bytes), got %d", StreamPageSize, off)
-	}
-
-	pageNumber := uint64(off / StreamPageSize)
-
-	// Encrypt the page
-	encrypted, err := EncryptPageCTR(esf.dataKey, p, pageNumber, esf.timestamp, esf.filePath)
-
+	// Encrypt the data using stream encryption at this file offset
+	encrypted, err := EncryptStreamCTR(esf.dataKey, p, off, esf.timestamp, esf.filePath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to encrypt page: %w", err)
+		return 0, fmt.Errorf("failed to encrypt data: %w", err)
 	}
 
 	// Adjust offset for header (add 64 bytes)
 	adjustedOffset := off + StreamHeaderSize
 
-	// Write encrypted page to file
+	// Write encrypted data to file
 	n, err = esf.file.WriteAt(encrypted, adjustedOffset)
-
 	if err != nil {
-		return 0, fmt.Errorf("failed to write encrypted page: %w", err)
+		return 0, fmt.Errorf("failed to write encrypted data: %w", err)
 	}
 
 	return n, nil
