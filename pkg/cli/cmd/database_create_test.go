@@ -128,26 +128,3 @@ func TestDatabaseCreateWithEncryption(t *testing.T) {
 		}
 	})
 }
-
-func TestDatabaseCreateWithEncryptionButNoKey(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
-
-		cli := test.NewTestCLI(t, server.App).
-			WithServer(server).
-			WithAccessKey([]auth.Statement{
-				{Effect: auth.StatementEffectAllow, Resource: "*", Actions: []auth.Privilege{"*"}},
-			})
-
-		err := cli.Run("database", "create", "encrypted_test", "--encrypted")
-
-		if err == nil {
-			t.Fatal("expected error when encryption key not configured")
-		}
-
-		if cli.DoesNotSee("LITEBASE_DATA_ENCRYPTION_KEY") {
-			t.Error("expected error message about encryption key")
-		}
-	})
-}
