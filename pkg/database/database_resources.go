@@ -70,12 +70,33 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 		d.snapshotLogger = d.createSnapshotLogger()
 	}
 
+	// Get or create rollback logger (this will configure encryption if needed)
+	if d.rollbackLogger == nil {
+		d.rollbackLogger = backups.NewRollbackLogger(d.tieredFS, d.Branch.DatabaseID, d.Branch.DatabaseBranchID)
+
+		// Configure encryption if branch is encrypted
+		if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
+			dataKey, keyHash, err := matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+
+			if err == nil {
+				err = d.rollbackLogger.ConfigureEncryption(dataKey, keyHash)
+
+				if err != nil {
+					slog.Error("Failed to configure RollbackLogger encryption", "error", err)
+				}
+			} else {
+				slog.Error("Failed to get encryption key for RollbackLogger", "error", err)
+			}
+		}
+	}
+
 	checkpointer, err := NewCheckpointer(
 		d.Branch,
 		d.fileSystem,
 		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
 		d.snapshotLogger,
+		d.rollbackLogger,
 	)
 
 	if err != nil {

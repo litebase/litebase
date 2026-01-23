@@ -22,6 +22,7 @@ func TestNewCheckpointer(t *testing.T) {
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
 			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -44,6 +45,7 @@ func TestCheckpointer_Begin(t *testing.T) {
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
 			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -128,6 +130,7 @@ func TestCheckpointer_CheckpointPage(t *testing.T) {
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
 			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -175,6 +178,7 @@ func TestCheckpointer_Commit(t *testing.T) {
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
 			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -236,6 +240,7 @@ func TestCheckpointer_Rollback(t *testing.T) {
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
 			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -314,6 +319,7 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
 			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -332,6 +338,7 @@ func TestCheckpointer_Rollback_AfterCrash(t *testing.T) {
 			app.Cluster.NetworkFS(),
 			app.DatabaseManager.Resources(mock.Branch).PageLogger(),
 			app.DatabaseManager.Resources(mock.Branch).SnapshotLogger(),
+			app.DatabaseManager.Resources(mock.Branch).RollbackLogger(),
 		)
 
 		if err != nil {
@@ -374,6 +381,7 @@ func TestCheckpointer_NoRollbackLogsWhenIncrementalBackupsDisabled(t *testing.T)
 			app.Cluster.NetworkFS(),
 			resources.PageLogger(),
 			resources.SnapshotLogger(),
+			resources.RollbackLogger(),
 		)
 
 		if err != nil {
