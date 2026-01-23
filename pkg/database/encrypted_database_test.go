@@ -7,15 +7,11 @@ import (
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/server"
 )
 
 func TestEncryptedDatabase(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServerWithEncryption(t)
-		defer server.Shutdown()
-
-		app := server.App
-
+	test.RunWithApp(t, func(app *server.App) {
 		t.Run("CreateAndQuery", func(t *testing.T) {
 			db := test.MockEncryptedDatabase(app)
 

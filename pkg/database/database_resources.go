@@ -135,6 +135,24 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure PageLogger encryption: %w", err)
 		}
+
+		// Configure SnapshotLogger encryption
+		if d.snapshotLogger != nil {
+			err = d.snapshotLogger.ConfigureEncryption(dataKey, keyHash)
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to configure SnapshotLogger encryption: %w", err)
+			}
+		}
+
+		// Configure RollbackLogger encryption
+		if d.rollbackLogger != nil {
+			err = d.rollbackLogger.ConfigureEncryption(dataKey, keyHash)
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to configure RollbackLogger encryption: %w", err)
+			}
+		}
 	}
 
 	// Create FileSystem with encryption pre-configured
@@ -271,6 +289,21 @@ func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 
 	if d.rollbackLogger == nil {
 		d.rollbackLogger = backups.NewRollbackLogger(d.tieredFS, d.Branch.DatabaseID, d.Branch.DatabaseBranchID)
+
+		// Configure encryption if branch is encrypted
+		if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
+			dataKey, keyHash, err := matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+
+			if err == nil {
+				err = d.rollbackLogger.ConfigureEncryption(dataKey, keyHash)
+
+				if err != nil {
+					slog.Error("Failed to configure RollbackLogger encryption", "error", err)
+				}
+			} else {
+				slog.Error("Failed to get encryption key for RollbackLogger", "error", err)
+			}
+		}
 	}
 
 	return d.rollbackLogger
@@ -363,6 +396,21 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 	}
 
 	d.snapshotLogger = d.createSnapshotLogger()
+
+	// Configure encryption if branch is encrypted
+	if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
+		dataKey, keyHash, err := matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+
+		if err == nil {
+			err = d.snapshotLogger.ConfigureEncryption(dataKey, keyHash)
+
+			if err != nil {
+				slog.Error("Failed to configure SnapshotLogger encryption", "error", err)
+			}
+		} else {
+			slog.Error("Failed to get encryption key for SnapshotLogger", "error", err)
+		}
+	}
 
 	return d.snapshotLogger
 }

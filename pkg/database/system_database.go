@@ -263,8 +263,10 @@ func (s *SystemDatabase) broadcastMigrationsUpdated() {
 	}
 }
 
-// OnMigrationsUpdated handles notification from primary that migrations were updated
-// This should be called by replica nodes when they receive a migration update notification
+// OnMigrationsUpdated handles promotion of node to primary or notification from
+//
+//	primary that migrations were updated. This should be called to reset the
+//	initialized flag so that migrations are rechecked on next database access.
 func (s *SystemDatabase) OnMigrationsUpdated() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

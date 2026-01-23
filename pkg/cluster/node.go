@@ -1003,9 +1003,9 @@ func (n *Node) SetMembership(membership string) {
 		// When a node becomes primary, it needs to verify migration state
 		// This ensures that any migrations applied by the previous primary are detected
 		if n.databaseManager != nil {
-			slog.Info("Node became primary - rechecking migrations")
 			// This will trigger a migration recheck on next database access
 			systemDB := n.databaseManager.GetSystemDatabase()
+
 			if systemDB != nil {
 				systemDB.OnMigrationsUpdated()
 			}

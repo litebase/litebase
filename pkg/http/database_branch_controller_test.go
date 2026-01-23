@@ -592,7 +592,7 @@ func TestDatabaseBranchControllerStore_CopiesSettingsFromParent(t *testing.T) {
 }
 func TestDatabaseBranchControllerStore_WithEncryption(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServerWithEncryption(t)
+		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
 		mock := test.MockDatabase(server.App)

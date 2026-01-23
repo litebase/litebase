@@ -2,6 +2,7 @@ package backups
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -13,6 +14,9 @@ type RollbackLogger struct {
 	buffers    sync.Pool
 	DatabaseID string
 	BranchID   string
+	dataKey    []byte   // Optional: 32-byte encryption key
+	encrypted  bool     // Whether rollback logs should be encrypted
+	keyHash    [32]byte // Optional: SHA256 hash of encryption key
 	logs       map[int64]*RollbackLog
 	mutex      *sync.Mutex
 	tieredFS   *storage.FileSystem
@@ -27,10 +31,35 @@ func NewRollbackLogger(tieredFS *storage.FileSystem, databaseId, branchId string
 		},
 		DatabaseID: databaseId,
 		BranchID:   branchId,
+		encrypted:  false,
 		logs:       make(map[int64]*RollbackLog),
 		mutex:      &sync.Mutex{},
 		tieredFS:   tieredFS,
 	}
+}
+
+// ConfigureEncryption sets the encryption parameters for the RollbackLogger.
+// This must be called before any rollback logs are opened or created.
+func (rl *RollbackLogger) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
+	if len(dataKey) != 32 {
+		return fmt.Errorf("dataKey must be 32 bytes, got %d", len(dataKey))
+	}
+
+	rl.mutex.Lock()
+	defer rl.mutex.Unlock()
+
+	rl.dataKey = dataKey
+	rl.keyHash = keyHash
+	rl.encrypted = true
+
+	// Configure encryption for all existing logs
+	for _, rollbackLog := range rl.logs {
+		rollbackLog.dataKey = dataKey
+		rollbackLog.keyHash = keyHash
+		rollbackLog.encrypted = true
+	}
+
+	return nil
 }
 
 func (rl *RollbackLogger) Close() error {
@@ -75,12 +104,26 @@ func (rl *RollbackLogger) GetLog(timestamp int64) (*RollbackLog, error) {
 		return l, nil
 	}
 
-	rollbackLog, err := OpenRollbackLog(
-		rl.tieredFS,
-		rl.DatabaseID,
-		rl.BranchID,
-		startOfHourTimestamp,
-	)
+	var rollbackLog *RollbackLog
+	var err error
+
+	if rl.encrypted && rl.dataKey != nil {
+		rollbackLog, err = OpenRollbackLogWithEncryption(
+			rl.tieredFS,
+			rl.DatabaseID,
+			rl.BranchID,
+			startOfHourTimestamp,
+			rl.dataKey,
+			rl.keyHash,
+		)
+	} else {
+		rollbackLog, err = OpenRollbackLog(
+			rl.tieredFS,
+			rl.DatabaseID,
+			rl.BranchID,
+			startOfHourTimestamp,
+		)
+	}
 
 	if err != nil {
 		log.Println("Error opening page log", err)

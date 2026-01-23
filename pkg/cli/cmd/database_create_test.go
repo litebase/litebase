@@ -87,7 +87,7 @@ func TestDatabaseCreateWithPrimaryBranch(t *testing.T) {
 
 func TestDatabaseCreateWithEncryption(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServerWithEncryption(t)
+		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
 		cli := test.NewTestCLI(t, server.App).

@@ -288,7 +288,7 @@ func TestDatabaseControllerDestroy(t *testing.T) {
 }
 func TestDatabaseControllerStore_WithEncryption(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServerWithEncryption(t)
+		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
 		client := server.WithAccessKeyClient([]auth.Statement{{

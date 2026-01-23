@@ -2,6 +2,7 @@ package backups
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -24,8 +25,11 @@ var ErrNoSnapshotsFound = errors.New("no snapshots found")
 type SnapshotLogger struct {
 	BranchID          string
 	DatabaseID        string
+	dataKey           []byte   // Optional: 32-byte encryption key
+	encrypted         bool     // Whether snapshots should be encrypted
 	file              internalStorage.File
 	keys              []int64
+	keyHash           [32]byte // Optional: SHA256 hash of encryption key
 	logs              map[int64]*Snapshot
 	logsLastCleanedAt time.Time
 	mutex             *sync.Mutex
@@ -41,10 +45,35 @@ func NewSnapshotLogger(tieredFS *storage.FileSystem, databaseId, branchId string
 	return &SnapshotLogger{
 		BranchID:   branchId,
 		DatabaseID: databaseId,
+		encrypted:  false,
 		logs:       make(map[int64]*Snapshot),
 		mutex:      &sync.Mutex{},
 		tieredFS:   tieredFS,
 	}
+}
+
+// ConfigureEncryption sets the encryption parameters for the SnapshotLogger.
+// This must be called before any snapshots are opened or created.
+func (sl *SnapshotLogger) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
+	if len(dataKey) != 32 {
+		return fmt.Errorf("dataKey must be 32 bytes, got %d", len(dataKey))
+	}
+
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	sl.dataKey = dataKey
+	sl.keyHash = keyHash
+	sl.encrypted = true
+
+	// Configure encryption for all existing snapshots
+	for _, snapshot := range sl.logs {
+		snapshot.dataKey = dataKey
+		snapshot.keyHash = keyHash
+		snapshot.encrypted = true
+	}
+
+	return nil
 }
 
 // Remove snapshot logs that have not been accessed in the last 5 minutes from
@@ -122,7 +151,7 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 	startOfDayTimestamp := snapshotStartOfDay.UnixNano()
 
 	if _, ok := sl.logs[startOfDayTimestamp]; !ok {
-		sl.logs[startOfDayTimestamp] = NewSnapshot(
+		snapshot := NewSnapshot(
 			sl.tieredFS,
 			sl.DatabaseID,
 			sl.BranchID,
@@ -130,6 +159,14 @@ func (sl *SnapshotLogger) GetSnapshot(timestamp int64) (*Snapshot, error) {
 			timestamp,
 		)
 
+		// Apply encryption settings from logger to new snapshot
+		if sl.encrypted && sl.dataKey != nil {
+			snapshot.encrypted = sl.encrypted
+			snapshot.dataKey = sl.dataKey
+			snapshot.keyHash = sl.keyHash
+		}
+
+		sl.logs[startOfDayTimestamp] = snapshot
 		sl.keys = append(sl.keys, startOfDayTimestamp)
 	}
 

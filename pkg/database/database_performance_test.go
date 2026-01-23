@@ -299,11 +299,7 @@ func BenchmarkDatabaseQueries(b *testing.B) {
 }
 
 func BenchmarkEncryptedDatabaseQueries(b *testing.B) {
-	test.Run(b, func() {
-		server := test.NewTestServerWithEncryption(b)
-		defer server.Shutdown()
-
-		app := server.App
+	test.RunWithApp(b, func(app *server.App) {
 		db := test.MockEncryptedDatabase(app)
 
 		runBechmark(b, db, app)
