@@ -529,7 +529,24 @@ func (pl *PageLogger) ConfigureEncryption(dataKey []byte, keyHash [32]byte) erro
 	pl.encrypted = true
 	pl.keyHash = keyHash
 
+	// Reload existing page logs with encryption enabled
+	// This is critical when reopening encrypted databases after restart
+	err := pl.load()
+
+	if err != nil {
+		return fmt.Errorf("failed to reload page logs with encryption: %w", err)
+	}
+
 	return nil
+}
+
+// GetEncryptionSettings returns the encryption settings for this PageLogger.
+// Returns (dataKey, keyHash, encrypted).
+func (pl *PageLogger) GetEncryptionSettings() ([]byte, [32]byte, bool) {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	return pl.dataKey, pl.keyHash, pl.encrypted
 }
 
 // Force compaction of the page logger. This is used to ensure that the
@@ -689,6 +706,15 @@ func (pl *PageLogger) IsSizeCheckNeeded() bool {
 // the page logger is created to initialize its state from disk. It will scan
 // the log directory for all page log files and load their metadata.
 func (pl *PageLogger) load() error {
+	// Close all existing page logs before reloading
+	for _, group := range pl.logs {
+		for _, log := range group {
+			if err := log.Close(); err != nil {
+				slog.Error("Error closing page log during reload:", "error", err)
+			}
+		}
+	}
+
 	// Reinitialize the logs map
 	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
 
