@@ -19,8 +19,14 @@ import (
 )
 
 var s3Server *httptest.Server
+var s3Backend gofakes3.Backend // Global backend to persist data across multiple server starts
 
 func s3Faker(c *config.Config) *gofakes3.GoFakeS3 {
+	// Reuse existing backend if it exists
+	if s3Backend != nil {
+		return gofakes3.New(s3Backend)
+	}
+
 	var backend gofakes3.Backend
 	var err error
 
@@ -39,6 +45,7 @@ func s3Faker(c *config.Config) *gofakes3.GoFakeS3 {
 		backend = s3mem.New()
 	}
 
+	s3Backend = backend
 	faker := gofakes3.New(backend)
 
 	return faker
@@ -70,5 +77,10 @@ func StartTestS3Server(c *config.Config, objectFS *FileSystem) (string, error) {
 }
 
 func StopTestS3Server() {
-	s3Server.Close()
+	if s3Server != nil {
+		s3Server.Close()
+		s3Server = nil
+	}
+
+	s3Backend = nil // Reset backend so next test gets a fresh one
 }

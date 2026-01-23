@@ -443,6 +443,20 @@ func RestoreFromTimestamp(
 		startOfHourTimestamp := time.Unix(0, backupTimestamp).UTC().Truncate(time.Hour).UnixNano()
 		rollbackLogger := NewRollbackLogger(tieredFS, sourceDatabaseUuid, sourceBranchUuid)
 
+		// Configure encryption on the RollbackLogger if the source is encrypted
+		// Get encryption settings from the source PageLogger
+		if sourceFileSystem.PageLogger != nil {
+			dataKey, keyHash, encrypted := sourceFileSystem.PageLogger.GetEncryptionSettings()
+
+			if encrypted && dataKey != nil {
+				err := rollbackLogger.ConfigureEncryption(dataKey, keyHash)
+
+				if err != nil {
+					return fmt.Errorf("failed to configure rollback logger encryption: %w", err)
+				}
+			}
+		}
+
 		snapshot, err := snapshotLogger.GetSnapshot(backupTimestamp)
 
 		if err != nil {

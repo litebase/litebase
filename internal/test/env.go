@@ -9,6 +9,7 @@ func setTestEnvVariable(t testing.TB) {
 	envVars := map[string]string{
 		"LITEBASE_CLUSTER_ID":                "cluster-1",
 		"LITEBASE_DEBUG":                     "true",
+		"LITEBASE_DATA_ENCRYPTION_KEY":       "a1f25fb235eccdb3c007356da75d84f921c573c4c65e94a78f1a0c3f834a275a",
 		"LITEBASE_ENCRYPTION_KEY":            "a1f25fb235eccdb3c007356da75d84f921c573c4c65e94a78f1a0c3f834a275a",
 		"LITEBASE_ENV":                       "test",
 		"LITEBASE_HOSTNAME":                  "localhost",

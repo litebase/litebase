@@ -1003,9 +1003,9 @@ func (n *Node) SetMembership(membership string) {
 		// When a node becomes primary, it needs to verify migration state
 		// This ensures that any migrations applied by the previous primary are detected
 		if n.databaseManager != nil {
-			slog.Info("Node became primary - rechecking migrations")
 			// This will trigger a migration recheck on next database access
 			systemDB := n.databaseManager.GetSystemDatabase()
+
 			if systemDB != nil {
 				systemDB.OnMigrationsUpdated()
 			}
@@ -1057,6 +1057,10 @@ func (n *Node) SetWorkerPool(workerPool WorkerPoolAccessor) {
 
 // Shutdown the node and perform necessary cleanup operations.
 func (n *Node) Shutdown() error {
+	// CRITICAL: Shutdown storage BEFORE releasing primary status
+	// TieredFS only syncs dirty files when node is primary
+	n.Cluster.ShutdownStorage()
+
 	if n.IsPrimary() {
 		n.Primary().Shutdown()
 
@@ -1082,8 +1086,6 @@ func (n *Node) Shutdown() error {
 	if err != nil && !os.IsNotExist(err) {
 		slog.Debug("Failed to remove address", "error", err)
 	}
-
-	n.Cluster.ShutdownStorage()
 
 	n.cancel()
 

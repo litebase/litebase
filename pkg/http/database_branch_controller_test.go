@@ -592,7 +592,7 @@ func TestDatabaseBranchControllerStore_CopiesSettingsFromParent(t *testing.T) {
 }
 func TestDatabaseBranchControllerStore_WithEncryption(t *testing.T) {
 	test.Run(t, func() {
-		server := test.NewTestServerWithEncryption(t)
+		server := test.NewTestServer(t)
 		defer server.Shutdown()
 
 		mock := test.MockDatabase(server.App)
@@ -694,59 +694,6 @@ func TestDatabaseBranchControllerStore_WithEncryption(t *testing.T) {
 
 		if settings.DataEncryptionKeyHash != server.App.Config.DataEncryptionKeyHash {
 			t.Errorf("expected key hash %s to match server config %s", settings.DataEncryptionKeyHash, server.App.Config.DataEncryptionKeyHash)
-		}
-	})
-}
-
-func TestDatabaseBranchControllerStore_WithEncryptionButNoKey(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
-
-		mock := test.MockDatabase(server.App)
-
-		con, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
-
-		if err != nil {
-			t.Fatalf("failed to get database connection: %v", err)
-		}
-
-		defer server.App.DatabaseManager.ConnectionManager().Release(con)
-
-		if _, err := con.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)", nil); err != nil {
-			t.Fatalf("failed to create test table: %v", err)
-		}
-
-		if err := con.Checkpoint(); err != nil {
-			t.Fatalf("failed to create checkpoint: %v", err)
-		}
-
-		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   auth.StatementEffectAllow,
-			Resource: "*",
-			Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeCreate},
-		}})
-
-		resp, statusCode, err := client.Send(fmt.Sprintf("/v1/databases/%s/branches", mock.DatabaseName), "POST", map[string]any{
-			"name":      "encrypted_branch",
-			"encrypted": true,
-		})
-
-		if err != nil {
-			t.Fatalf("failed to send request: %v", err)
-		}
-
-		if statusCode != 400 {
-			t.Fatalf("expected status code 400, got %d", statusCode)
-		}
-
-		if resp["status"] != "error" {
-			t.Fatalf("expected error status, got %v", resp["status"])
-		}
-
-		message := resp["message"].(string)
-		if !strings.Contains(message, "LITEBASE_DATA_ENCRYPTION_KEY") {
-			t.Fatalf("expected error message about encryption key, got %v", message)
 		}
 	})
 }

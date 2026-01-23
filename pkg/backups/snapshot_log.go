@@ -23,8 +23,13 @@ type Snapshot struct {
 	// The UUID of the database the snapshot is for.
 	DatabaseID string `json:"databaseId"`
 
+	dataKey   []byte // Optional: 32-byte encryption key
+	encrypted bool   // Whether this snapshot is encrypted
+
 	// The file to write the snapshot log to.
 	File internalStorage.File `json:"-"`
+
+	keyHash [32]byte // Optional: SHA256 hash of encryption key
 
 	// The last time the snapshot was accessed. This timestamp is used for
 	// cleanup purposes.
@@ -316,7 +321,60 @@ openFile:
 		}
 	}
 
-	s.File = snapshotFile
+	// Wrap with encryption if enabled
+	if s.encrypted && s.dataKey != nil {
+		fileInfo, err := snapshotFile.Stat()
+
+		if err != nil {
+			if closeErr := snapshotFile.Close(); closeErr != nil {
+				log.Println("Error closing snapshot file after stat error:", closeErr)
+			}
+
+			return fmt.Errorf("failed to stat snapshot file: %w", err)
+		}
+
+		// Use portable encryption path for snapshot files
+		encryptionPath := fmt.Sprintf("database/%s/snapshot/%d", s.DatabaseID, s.Timestamp)
+
+		if fileInfo.Size() == 0 {
+			// New file - create encrypted wrapper
+			encryptedFile, err := storage.NewEncryptedStreamFile(snapshotFile, s.dataKey, s.keyHash, 0, encryptionPath)
+
+			if err != nil {
+				if closeErr := snapshotFile.Close(); closeErr != nil {
+					log.Println("Error closing snapshot file after encryption error:", closeErr)
+				}
+
+				return fmt.Errorf("failed to create encrypted snapshot file: %w", err)
+			}
+
+			// Write the header
+			if err := encryptedFile.WriteHeader(); err != nil {
+				if closeErr := snapshotFile.Close(); closeErr != nil {
+					log.Println("Error closing snapshot file after header write error:", closeErr)
+				}
+
+				return fmt.Errorf("failed to write encrypted snapshot header: %w", err)
+			}
+
+			s.File = encryptedFile
+		} else {
+			// Existing file - open encrypted wrapper
+			encryptedFile, err := storage.OpenEncryptedStreamFile(snapshotFile, s.dataKey, s.keyHash, 0, encryptionPath)
+
+			if err != nil {
+				if closeErr := snapshotFile.Close(); closeErr != nil {
+					slog.Error("Error closing snapshot file after encryption open error:", "error", closeErr)
+				}
+
+				return fmt.Errorf("failed to open encrypted snapshot file: %w", err)
+			}
+
+			s.File = encryptedFile
+		}
+	} else {
+		s.File = snapshotFile
+	}
 
 	return nil
 }

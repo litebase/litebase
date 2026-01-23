@@ -658,7 +658,6 @@ tryOpen:
 	_, err = fsd.CopyFile(file, f)
 
 	if err != nil {
-		log.Println("Error writing to high tier file", err)
 		return nil, err
 	}
 

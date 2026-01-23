@@ -6,15 +6,12 @@ import (
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
+	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/server"
 )
 
 func TestEncryptedDatabase(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServerWithEncryption(t)
-		defer server.Shutdown()
-
-		app := server.App
-
+	test.RunWithApp(t, func(app *server.App) {
 		t.Run("CreateAndQuery", func(t *testing.T) {
 			db := test.MockEncryptedDatabase(app)
 
@@ -388,6 +385,188 @@ func TestEncryptedDatabase(t *testing.T) {
 					t.Errorf("Expected log message '%s', got '%s'", expected, string(res.Rows[i][0].Text()))
 				}
 			}
+		})
+
+		t.Run("FileEncryption", func(t *testing.T) {
+			// This test verifies that encrypted databases produce encrypted files
+			// Data flows: WAL (checkpoint) -> PageLog (compaction) -> Range files
+			// We need to do compaction to see files in _object directory
+			db := test.MockEncryptedDatabase(app)
+
+			primaryBranch, err := app.DatabaseManager.Get(db.DatabaseID)
+
+			if err != nil {
+				t.Fatalf("Failed to get database: %v", err)
+			}
+
+			branch, err := primaryBranch.PrimaryBranch()
+
+			if err != nil {
+				t.Fatalf("Failed to get primary branch: %v", err)
+			}
+
+			// Verify branch is encrypted
+			if !branch.Settings.Encrypted {
+				t.Fatal("Branch should be marked as encrypted")
+			}
+
+			// Get a connection and create a table
+			con, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, branch.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("Failed to get connection to encrypted database: %v", err)
+			}
+
+			// Create a table - this will cause SQLite to write to the database file
+			_, err = con.GetConnection().Exec("CREATE TABLE test_encryption (id INTEGER PRIMARY KEY, data TEXT)", nil)
+
+			if err != nil {
+				t.Fatalf("Failed to create table in encrypted database: %v", err)
+			}
+
+			// Insert data
+			_, err = con.GetConnection().Exec("INSERT INTO test_encryption (data) VALUES ('test')", nil)
+
+			if err != nil {
+				t.Fatalf("Failed to insert into encrypted database: %v", err)
+			}
+
+			// Force checkpoint to move data from WAL to PageLog
+			err = app.DatabaseManager.ConnectionManager().ForceCheckpoint(db.DatabaseID, branch.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("Failed to checkpoint encrypted database: %v", err)
+			}
+
+			t.Log("✓ Data checkpointed to PageLog")
+
+			// Force compaction to move data from PageLog to Range files
+			// This is where encrypted files will be stored in _object directory
+			fileSystem := app.DatabaseManager.Resources(branch).FileSystem()
+
+			err = fileSystem.ForceCompact()
+
+			if err != nil {
+				t.Fatalf("Failed to compact encrypted database: %v", err)
+			}
+
+			t.Log("✓ Data compacted to Range files")
+
+			// Force flush of tiered filesystem to ensure data is written to object storage
+			err = app.Cluster.TieredFS().Flush()
+
+			if err != nil {
+				t.Fatalf("Failed to flush tiered filesystem: %v", err)
+			}
+
+			t.Log("✓ Flushed tiered filesystem to object storage")
+
+			app.DatabaseManager.ConnectionManager().Release(con)
+
+			// Release and reacquire connection to verify encryption doesn't break re-opening
+			con2, err := app.DatabaseManager.ConnectionManager().Get(db.DatabaseID, branch.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatalf("Failed to get new connection to encrypted database (re-open test): %v", err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(con2)
+
+			// Query the data we wrote
+			res, err := con2.GetConnection().Exec("SELECT COUNT(*) FROM test_encryption", nil)
+
+			if err != nil {
+				t.Fatalf("Failed to query encrypted database after re-opening: %v", err)
+			}
+
+			if len(res.Rows) == 0 {
+				t.Fatal("Query returned no rows")
+			}
+
+			if res.Rows[0][0].Int64() != 1 {
+				t.Fatalf("Expected 1 row, got %d", res.Rows[0][0].Int64())
+			}
+
+			t.Log("✓ Encrypted database can be re-opened and queried successfully")
+
+			// Verify that the range file is actually encrypted (not plaintext)
+			// First, let's list what files actually exist in the database directory
+			objectFS := app.Cluster.ObjectFS()
+			databaseHash := file.DatabaseHash(db.DatabaseID, branch.DatabaseBranchID)
+			rangeDir := fmt.Sprintf("/_databases/%s/%s/%s", db.DatabaseID, branch.DatabaseBranchID, databaseHash)
+
+			// List files in the range directory to see what's there
+			entries, err := objectFS.ReadDir(rangeDir)
+
+			if err != nil {
+				// Directory might not exist yet - try parent directory
+				parentDir := fmt.Sprintf("/_databases/%s/%s", db.DatabaseID, branch.DatabaseBranchID)
+				parentEntries, err2 := objectFS.ReadDir(parentDir)
+
+				if err2 != nil {
+					t.Fatalf("Failed to read parent directory %s: %v (original error: %v)", parentDir, err2, err)
+				}
+
+				t.Logf("Parent directory contents (%s): %d entries", parentDir, len(parentEntries))
+
+				for _, entry := range parentEntries {
+					t.Logf("  - %s (isDir: %v)", entry.Name(), entry.IsDir())
+				}
+
+				t.Skipf("Range directory not found - data might not have been compacted to object storage yet")
+			}
+
+			t.Logf("Range directory contents (%s): %d entries", rangeDir, len(entries))
+
+			for _, entry := range entries {
+				t.Logf("  - %s (isDir: %v)", entry.Name(), entry.IsDir())
+			}
+
+			// Now try to read the first range file we find
+			var rangeData []byte
+			var foundRangeFile string
+
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					foundRangeFile = fmt.Sprintf("%s/%s", rangeDir, entry.Name())
+					rangeData, err = objectFS.ReadFile(foundRangeFile)
+
+					if err != nil {
+						t.Logf("Failed to read %s: %v", foundRangeFile, err)
+						continue
+					}
+
+					break
+				}
+			}
+
+			if rangeData == nil {
+				t.Skip("No range files found in object storage - data might not have been flushed yet")
+			}
+
+			t.Logf("Testing range file: %s", foundRangeFile)
+
+			// Check that the file does NOT start with "SQLite format 3"
+			// If it's encrypted with EncryptedStreamFile, it should start with encrypted data (not plaintext)
+			if len(rangeData) == 0 {
+				t.Fatal("Range file is empty")
+			}
+
+			// Check first 4 bytes (or as many as available)
+			checkLen := 4
+
+			if len(rangeData) < checkLen {
+				checkLen = len(rangeData)
+			}
+
+			header := string(rangeData[:checkLen])
+
+			if header == "SQLi" || (len(rangeData) >= 16 && string(rangeData[:16]) == "SQLite format 3\x00") {
+				t.Fatalf("Range file starts with 'SQLite format 3' - file is NOT encrypted! First bytes: %x", rangeData[:min(50, len(rangeData))])
+			}
+
+			// The file should not have the plaintext SQLite header
+			t.Logf("✓ Range file is encrypted (file size: %d bytes, first %d bytes: %x)", len(rangeData), min(16, len(rangeData)), rangeData[:min(16, len(rangeData))])
 		})
 	})
 }

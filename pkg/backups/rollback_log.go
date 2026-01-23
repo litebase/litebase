@@ -23,13 +23,25 @@ const (
 	RollbackLogEntryID RollbackLogIdentifier = 0x02
 )
 
+// GetRollbackLogPath returns the file path for a rollback log.
+func GetRollbackLogPath(databaseId, branchId string, timestamp int64) string {
+	return fmt.Sprintf(
+		"%s/%d",
+		file.GetDatabaseRollbackDirectory(databaseId, branchId),
+		timestamp,
+	)
+}
+
 // The RollbackLog is a data structure used to keep track of database page changes
 // that occur at given point in time. Each RollbackLog file contains multiple
 // RollbackLogEntries which are used to store the state of pages before they are
 // modified. In the event of a database restore, the RollbackLog is used to
 // retrieve the page version that meets the restore criteria.
 type RollbackLog struct {
+	dataKey   []byte // Optional: 32-byte encryption key
+	encrypted bool   // Whether this rollback log is encrypted
 	File      internalStorage.File
+	keyHash   [32]byte // Optional: SHA256 hash of encryption key
 	mutex     sync.Mutex
 	Timestamp int64
 }
@@ -37,6 +49,11 @@ type RollbackLog struct {
 // Open the right rollback log file for the given database and branch. If the
 // file does not exist, it will be created.
 func OpenRollbackLog(tierdFS *storage.FileSystem, databaseId, branchId string, timestamp int64) (*RollbackLog, error) {
+	return OpenRollbackLogWithEncryption(tierdFS, databaseId, branchId, timestamp, nil, [32]byte{})
+}
+
+// OpenRollbackLogWithEncryption opens a rollback log with optional encryption.
+func OpenRollbackLogWithEncryption(tierdFS *storage.FileSystem, databaseId, branchId string, timestamp int64, dataKey []byte, keyHash [32]byte) (*RollbackLog, error) {
 openLog:
 	directory := file.GetDatabaseRollbackDirectory(databaseId, branchId)
 	path := fmt.Sprintf("%s/%d", directory, timestamp)
@@ -54,6 +71,73 @@ openLog:
 		}
 
 		return nil, err
+	}
+
+	// Wrap with encryption if enabled
+	if len(dataKey) == 32 {
+		fileInfo, err := file.Stat()
+
+		if err != nil {
+			if closeErr := file.Close(); closeErr != nil {
+				slog.Error("Error closing rollback log after stat error:", "error", closeErr)
+			}
+
+			return nil, fmt.Errorf("failed to stat rollback log: %w", err)
+		}
+
+		// Use portable encryption path for rollback logs
+		encryptionPath := fmt.Sprintf("database/%s/rollback/%d", databaseId, timestamp)
+
+		if fileInfo.Size() == 0 {
+			// New file - create encrypted wrapper
+			encryptedFile, err := storage.NewEncryptedStreamFile(file, dataKey, keyHash, 0, encryptionPath)
+
+			if err != nil {
+				if closeErr := file.Close(); closeErr != nil {
+					slog.Error("Error closing rollback log after encryption error:", "error", closeErr)
+				}
+
+				return nil, fmt.Errorf("failed to create encrypted rollback log: %w", err)
+			}
+
+			// Write the header
+			if err := encryptedFile.WriteHeader(); err != nil {
+				if closeErr := file.Close(); closeErr != nil {
+					slog.Error("Error closing rollback log after header write error:", "error", closeErr)
+				}
+
+				return nil, fmt.Errorf("failed to write encrypted rollback log header: %w", err)
+			}
+
+			return &RollbackLog{
+				dataKey:   dataKey,
+				encrypted: true,
+				File:      encryptedFile,
+				keyHash:   keyHash,
+				mutex:     sync.Mutex{},
+				Timestamp: timestamp,
+			}, nil
+		} else {
+			// Existing file - open encrypted wrapper
+			encryptedFile, err := storage.OpenEncryptedStreamFile(file, dataKey, keyHash, 0, encryptionPath)
+
+			if err != nil {
+				if closeErr := file.Close(); closeErr != nil {
+					slog.Error("Error closing rollback log after encryption open error:", "error", closeErr)
+				}
+
+				return nil, fmt.Errorf("failed to open encrypted rollback log: %w", err)
+			}
+
+			return &RollbackLog{
+				dataKey:   dataKey,
+				encrypted: true,
+				File:      encryptedFile,
+				keyHash:   keyHash,
+				mutex:     sync.Mutex{},
+				Timestamp: timestamp,
+			}, nil
+		}
 	}
 
 	return &RollbackLog{

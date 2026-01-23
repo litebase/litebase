@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/klauspost/compress/s2"
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/config"
@@ -26,7 +27,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 type ObjectFileSystemDriver struct {
@@ -188,7 +188,15 @@ func (fs *ObjectFileSystemDriver) Open(path string) (internalStorage.File, error
 }
 
 func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	return NewObjectFile(fs, path, flag, false)
+	// Check if file exists first to avoid creating empty files when opening existing ones
+	_, err := fs.S3Client.HeadObject(fs.context, &s3.HeadObjectInput{
+		Bucket: aws.String(fs.bucket),
+		Key:    aws.String(path),
+	})
+
+	preExists := err == nil
+
+	return NewObjectFile(fs, path, flag, preExists)
 }
 
 func (fs *ObjectFileSystemDriver) Path(path string) string {
@@ -290,6 +298,16 @@ func (fs *ObjectFileSystemDriver) ReadFile(path string) ([]byte, error) {
 		}
 	}()
 
+	// Check if file is encrypted (same magic headers as WriteFile)
+	// Encrypted files were not compressed during write, so skip decompression
+	isEncrypted := len(body) >= 4 && (string(body[:4]) == "LSTR" || string(body[:4]) == "LENC")
+
+	if isEncrypted {
+		// Return raw encrypted bytes (no decompression needed)
+		return body, nil
+	}
+
+	// Decompress unencrypted files
 	decompressed, err := s2.Decode(nil, body)
 
 	if err != nil {
@@ -416,6 +434,8 @@ func (fs *ObjectFileSystemDriver) Truncate(name string, size int64) error {
 	return fmt.Errorf("truncate not implemented for object storage")
 }
 
+// WriteFile writes data to the specified path in S3, compressing it with s2
+// compression if the data is not already encrypted.
 func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.FileMode) error {
 	compressionBuffer := fs.buffers.Get().(*bytes.Buffer)
 	defer fs.buffers.Put(compressionBuffer)
@@ -423,22 +443,37 @@ func (fs *ObjectFileSystemDriver) WriteFile(path string, data []byte, perm fs.Fi
 	// Reset the buffer to reuse it
 	compressionBuffer.Reset()
 
-	// Ensure the buffer has enough capacity
-	compressionBufferCap := compressionBuffer.Cap()
-	maxEncodedLen := s2.MaxEncodedLen(len(data))
+	// Check if file is already encrypted (and potentially compressed)
+	// Encrypted files have magic headers: "LSTR" (EncryptedStreamFile) or "LENC" (EncryptedAuthenticatedFile)
+	// Skip compression for encrypted files because:
+	// 1. EncryptedStreamFile produces high-entropy data that won't compress well
+	// 2. EncryptedAuthenticatedFile already compresses before encrypting
+	var body *bytes.Reader
 
-	if compressionBufferCap < maxEncodedLen {
-		compressionBuffer.Grow(maxEncodedLen - compressionBufferCap + 1)
+	isEncrypted := len(data) >= 4 && (string(data[:4]) == "LSTR" || string(data[:4]) == "LENC")
+
+	if isEncrypted {
+		// Skip compression for encrypted files
+		body = bytes.NewReader(data)
+	} else {
+		// Ensure the buffer has enough capacity
+		compressionBufferCap := compressionBuffer.Cap()
+		maxEncodedLen := s2.MaxEncodedLen(len(data))
+
+		if compressionBufferCap < maxEncodedLen {
+			compressionBuffer.Grow(maxEncodedLen - compressionBufferCap + 1)
+		}
+
+		// Encode the data into the buffer
+		compressed := s2.Encode(compressionBuffer.Bytes(), data)
+
+		// Write the encoded data to the buffer
+		compressionBuffer.Write(compressed)
+		body = bytes.NewReader(compressionBuffer.Bytes())
 	}
 
-	// Encode the data into the buffer
-	compressed := s2.Encode(compressionBuffer.Bytes(), data)
-
-	// Write the encoded data to the buffer
-	compressionBuffer.Write(compressed)
-
 	_, err := fs.S3Client.PutObject(fs.context, &s3.PutObjectInput{
-		Body:        bytes.NewReader(compressionBuffer.Bytes()),
+		Body:        body,
 		Bucket:      aws.String(fs.bucket),
 		Key:         aws.String(path),
 		ContentType: aws.String("application/octet-stream"),

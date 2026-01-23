@@ -244,16 +244,16 @@ type PageLogger struct {
 	CompactedAt     time.Time
 	compactionMutex *sync.Mutex
 	DatabaseID      string
-	dataKey         []byte    // Optional: encryption key (32 bytes)
-	encrypted       bool      // Whether this PageLogger creates encrypted PageLogs
-	keyHash         [32]byte  // Optional: SHA256 hash of encryption key
+	dataKey         []byte   // Optional: encryption key (32 bytes)
+	encrypted       bool     // Whether this PageLogger creates encrypted PageLogs
+	keyHash         [32]byte // Optional: SHA256 hash of encryption key
 	NetworkFS       *FileSystem
 	index           *PageLoggerIndex
 	logs            map[PageGroup]map[PageGroupVersion]*PageLog
 	logUsage        map[int64]int64
 	mutex           *sync.Mutex
 	nodePublisher   NodePublisher
-	sizeCheckNeeded bool      // flag to indicate size-based compaction check is needed
+	sizeCheckNeeded bool // flag to indicate size-based compaction check is needed
 	writtenAt       time.Time
 }
 
@@ -299,6 +299,16 @@ func NewPageLogger(
 	// Load last compaction time from the index
 	pl.CompactedAt = pl.index.GetLastCompactionAt()
 
+	// Clean up orphaned page logs that exist on disk but aren't in the index
+	// This handles old page logs that should have been deleted by compaction
+	// but remained on disk due to bugs (e.g., empty page logs not being deleted)
+	err = pl.cleanupOrphanedPageLogs()
+
+	if err != nil {
+		slog.Warn("Error cleaning up orphaned page logs on startup", "error", err)
+		// Don't fail initialization if cleanup fails
+	}
+
 	return pl, nil
 }
 
@@ -310,6 +320,79 @@ func (pl *PageLogger) Acquire(timestamp int64) {
 	defer pl.mutex.Unlock()
 
 	pl.logUsage[timestamp] = pl.logUsage[timestamp] + 1
+}
+
+// cleanupOrphanedPageLogs scans the page log directory and removes any page log
+// files that are not referenced in the index. This is necessary to clean up old
+// page logs that should have been deleted during compaction but remained on disk
+// due to bugs (e.g., empty page logs not being deleted before the fix).
+func (pl *PageLogger) cleanupOrphanedPageLogs() error {
+	logDir := fmt.Sprintf("%slogs/page/", file.GetDatabaseFileBaseDir(pl.DatabaseID, pl.BranchID))
+
+	files, err := pl.NetworkFS.ReadDir(logDir)
+
+	if err != nil {
+		return err
+	}
+
+	orphanedCount := 0
+
+	for _, fileInfo := range files {
+		if fileInfo.IsDir() {
+			continue
+		}
+
+		// Skip non-page-log files
+		if !strings.HasPrefix(fileInfo.Name(), "PAGE_LOG_") {
+			continue
+		}
+
+		parts := strings.Split(fileInfo.Name(), "_")
+
+		if len(parts) < 4 {
+			continue
+		}
+
+		logGroupNumber, err := strconv.ParseInt(parts[2], 10, 64)
+
+		if err != nil {
+			slog.Warn("Error parsing log group number during cleanup", "file", fileInfo.Name(), "error", err)
+			continue
+		}
+
+		versionNumber, err := strconv.ParseInt(parts[3], 10, 64)
+
+		if err != nil {
+			slog.Warn("Error parsing version number during cleanup", "file", fileInfo.Name(), "error", err)
+			continue
+		}
+
+		pageGroup := PageGroup(logGroupNumber)
+		pageGroupVersion := PageGroupVersion(versionNumber)
+
+		// Check if this page log is referenced in the index
+		isReferenced := pl.index.HasPageLog(pageGroup, pageGroupVersion)
+
+		if !isReferenced {
+			// This page log is orphaned - delete it
+			filePath := fmt.Sprintf("%s%s", logDir, fileInfo.Name())
+
+			err := pl.NetworkFS.Remove(filePath)
+
+			if err != nil {
+				slog.Warn("Failed to remove orphaned page log", "file", fileInfo.Name(), "error", err)
+			} else {
+				orphanedCount++
+				slog.Info("Removed orphaned page log", "file", fileInfo.Name())
+			}
+		}
+	}
+
+	if orphanedCount > 0 {
+		slog.Info("Cleaned up orphaned page logs on startup", "count", orphanedCount)
+	}
+
+	return nil
 }
 
 // Close the page logger and all its associated page logs. This will flush any
@@ -435,12 +518,11 @@ func (pl *PageLogger) compaction(durableDatabaseFileSystem *DurableDatabaseFileS
 	// Combine non-empty compacted logs and empty logs for deletion
 	allLogsToDelete := make([]PageLogEntry, 0, len(pageLogs))
 
-	// Add non-empty logs that were compacted
-	for _, logEntry := range pageLogs {
-		if !logEntry.pageLog.index.Empty() {
-			allLogsToDelete = append(allLogsToDelete, logEntry)
-		}
-	}
+	// Add ALL logs from getPageLogsForCompaction() for deletion
+	// This includes both:
+	// - Non-empty logs that were compacted (data moved to range files)
+	// - Empty logs that should be cleaned up (no data to compact)
+	allLogsToDelete = append(allLogsToDelete, pageLogs...)
 
 	if len(allLogsToDelete) == 0 {
 		return nil
@@ -525,11 +607,32 @@ func (pl *PageLogger) ConfigureEncryption(dataKey []byte, keyHash [32]byte) erro
 		return fmt.Errorf("dataKey must be exactly 32 bytes, got %d", len(dataKey))
 	}
 
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
 	pl.dataKey = dataKey
 	pl.encrypted = true
 	pl.keyHash = keyHash
 
+	// Reload existing page logs with encryption enabled
+	// This is critical when reopening encrypted databases after restart
+	// We hold the mutex during reload to prevent reads from seeing inconsistent state
+	err := pl.load()
+
+	if err != nil {
+		return fmt.Errorf("failed to reload page logs with encryption: %w", err)
+	}
+
 	return nil
+}
+
+// GetEncryptionSettings returns the encryption settings for this PageLogger.
+// Returns (dataKey, keyHash, encrypted).
+func (pl *PageLogger) GetEncryptionSettings() ([]byte, [32]byte, bool) {
+	pl.mutex.Lock()
+	defer pl.mutex.Unlock()
+
+	return pl.dataKey, pl.keyHash, pl.encrypted
 }
 
 // Force compaction of the page logger. This is used to ensure that the
@@ -689,6 +792,15 @@ func (pl *PageLogger) IsSizeCheckNeeded() bool {
 // the page logger is created to initialize its state from disk. It will scan
 // the log directory for all page log files and load their metadata.
 func (pl *PageLogger) load() error {
+	// Close all existing page logs before reloading
+	for _, group := range pl.logs {
+		for _, log := range group {
+			if err := log.Close(); err != nil {
+				slog.Error("Error closing page log during reload:", "error", err)
+			}
+		}
+	}
+
 	// Reinitialize the logs map
 	pl.logs = make(map[PageGroup]map[PageGroupVersion]*PageLog)
 

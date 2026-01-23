@@ -41,6 +41,7 @@ func NewCheckpointer(
 	sharedFileSystem *storage.FileSystem,
 	pageLogger *storage.PageLogger,
 	snapshotLogger *backups.SnapshotLogger,
+	rollbackLogger *backups.RollbackLogger,
 ) (*Checkpointer, error) {
 	cp := &Checkpointer{
 		branch:           branch,
@@ -48,7 +49,7 @@ func NewCheckpointer(
 		dfs:              dfs,
 		sharedFileSystem: sharedFileSystem,
 		lock:             sync.Mutex{},
-		rollbackLogger:   backups.NewRollbackLogger(dfs.FileSystem(), branch.DatabaseID, branch.DatabaseBranchID),
+		rollbackLogger:   rollbackLogger,
 		snapshotLogger:   snapshotLogger,
 		pageLogger:       pageLogger,
 		capturedPages:    make(map[int64]bool), // Initialize the captured pages map

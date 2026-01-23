@@ -1,8 +1,6 @@
 package test
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -96,24 +94,6 @@ func NewTestServer(t testing.TB) *TestServer {
 	}
 
 	return server
-}
-
-/*
-NewTestServerWithEncryption creates a new test server with encryption enabled.
-It generates a random 32-byte encryption key and configures it in the server.
-*/
-func NewTestServerWithEncryption(t testing.TB) *TestServer {
-	// Generate a random 32-byte encryption key
-	dataKey := make([]byte, 32)
-	if _, err := rand.Read(dataKey); err != nil {
-		t.Fatalf("failed to generate encryption key: %v", err)
-	}
-
-	// Set environment variables for encryption
-	t.Setenv("LITEBASE_DATA_ENCRYPTION_KEY", hex.EncodeToString(dataKey))
-
-	// Create the server (will read the env vars)
-	return NewTestServer(t)
 }
 
 /*
@@ -217,6 +197,9 @@ func (ts *TestServer) WithTokenClient(token *auth.Token) *TestClient {
 	}
 }
 
+// Shutdown gracefully shuts down the test server without closing shared storage resources.
+// This is useful when running multiple servers in a single test with persistent storage.
+// The shared fake S3 storage will be cleaned up by the test framework at the end of the test.
 func (ts *TestServer) Shutdown() {
 	ts.App.Shutdown()
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
@@ -226,7 +209,9 @@ func (ts *TestServer) Shutdown() {
 		panic(err)
 	}
 
-	// This may not be necessary since this will be used in side of test.Run()
+	// NOTE: We don't call storage.Shutdown() here because it would close the shared
+	// fake S3 server used by multiple test servers in the same test. The test framework
+	// (e.g., RunWithObjectStorageWithoutApp) handles storage cleanup at test end.
 	// storage.Shutdown(ts.App.Config)
 
 	ts.Server.CloseClientConnections()
