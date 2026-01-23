@@ -248,6 +248,7 @@ func (tfd *TieredFileDescriptor) Write(p []byte) (n int, err error) {
 
 	if err == nil {
 		tfd.position += int64(n)
+		tfd.File.MarkUpdated()
 	}
 
 	return n, err
@@ -275,6 +276,10 @@ func (tfd *TieredFileDescriptor) WriteAt(p []byte, off int64) (n int, err error)
 	// Update our position if this write extends beyond current position
 	if err == nil && off+int64(n) > tfd.position {
 		tfd.position = off + int64(n)
+	}
+
+	if err == nil {
+		tfd.File.MarkUpdated()
 	}
 
 	return n, err
@@ -337,6 +342,7 @@ func (tfd *TieredFileDescriptor) WriteString(s string) (ret int, err error) {
 
 	if err == nil {
 		tfd.position += int64(ret)
+		tfd.File.MarkUpdated()
 	}
 
 	return ret, err
