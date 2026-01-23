@@ -1057,6 +1057,10 @@ func (n *Node) SetWorkerPool(workerPool WorkerPoolAccessor) {
 
 // Shutdown the node and perform necessary cleanup operations.
 func (n *Node) Shutdown() error {
+	// CRITICAL: Shutdown storage BEFORE releasing primary status
+	// TieredFS only syncs dirty files when node is primary
+	n.Cluster.ShutdownStorage()
+
 	if n.IsPrimary() {
 		n.Primary().Shutdown()
 
@@ -1082,8 +1086,6 @@ func (n *Node) Shutdown() error {
 	if err != nil && !os.IsNotExist(err) {
 		slog.Debug("Failed to remove address", "error", err)
 	}
-
-	n.Cluster.ShutdownStorage()
 
 	n.cancel()
 

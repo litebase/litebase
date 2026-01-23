@@ -104,10 +104,10 @@ func setupTestEnv(t testing.TB) (string, error) {
 
 	t.Setenv("LITEBASE_ENCRYPTION_KEY", encryptionKey)
 
-	if os.Getenv("LITEBASE_TEST_DEBUG_LEVEL") == "debug" {
-		slog.SetLogLoggerLevel(slog.LevelDebug)
-	} else {
+	if os.Getenv("LITEBASE_TEST_DEBUG_LEVEL") == "error" {
 		slog.SetLogLoggerLevel(slog.LevelError)
+	} else {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
 
 	return dataPath, err
@@ -155,7 +155,11 @@ func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func(
 				log.Printf("failed to shutdown cluster node: %v", err)
 			}
 
-			storage.Shutdown(app.Config)
+			// CRITICAL: Don't shutdown storage when using fake S3, as it's a shared global
+			// resource that should persist between server restarts in tests
+			if !app.Config.FakeObjectStorage {
+				storage.Shutdown(app.Config)
+			}
 		}
 
 		for _, callback := range callbacks {
@@ -262,6 +266,52 @@ func RunWithObjectStorage(t testing.TB, callback func(*server.App)) {
 
 	// Run the test
 	callback(app)
+}
+
+func RunWithObjectStorageWithoutApp(t testing.TB, callback func()) {
+	t.Setenv("LITEBASE_FAKE_OBJECT_STORAGE", "true")
+	t.Setenv("LITEBASE_STORAGE_OBJECT_MODE", "object")
+	t.Setenv("LITEBASE_STORAGE_BUCKET", CreateHash(32))
+	t.Setenv("LITEBASE_STORAGE_OBJECT_MODE", config.StorageModeObject)
+	t.Setenv("LITEBASE_STORAGE_TIERED_MODE", config.StorageModeObject)
+
+	// Setup the environment
+	dataPath, err := SetupWithoutApp(t, func() {
+	})
+
+	if err != nil {
+		t.Fatalf("Failed to setup test environment: %v", err)
+	}
+
+	// Register cleanup to run at test end - this will shutdown the shared S3 server
+	// and clean up all data directories
+	t.Cleanup(func() {
+		// Shutdown the shared fake S3 server (this is safe to call multiple times)
+		cfg := config.NewConfig()
+		if cfg.FakeObjectStorage {
+			storage.Shutdown(cfg)
+		}
+
+		// Remove the bucket directory
+		err := os.RemoveAll(
+			fmt.Sprintf("%s/_object/%s",
+				os.Getenv("LITEBASE_STORAGE_LOCAL_PATH"),
+				os.Getenv("LITEBASE_STORAGE_BUCKET")),
+		)
+		if err != nil {
+			log.Printf("failed to remove bucket directory: %v", err)
+		}
+
+		// Remove the data path
+		time.Sleep(100 * time.Millisecond)
+		err = os.RemoveAll(dataPath)
+		if err != nil {
+			log.Printf("failed to remove data path %s: %v", dataPath, err)
+		}
+	})
+
+	// Run the test
+	callback()
 }
 
 // RunWithoutCleanup runs a test with app setup but without cleanup.

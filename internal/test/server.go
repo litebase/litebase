@@ -197,6 +197,9 @@ func (ts *TestServer) WithTokenClient(token *auth.Token) *TestClient {
 	}
 }
 
+// Shutdown gracefully shuts down the test server without closing shared storage resources.
+// This is useful when running multiple servers in a single test with persistent storage.
+// The shared fake S3 storage will be cleaned up by the test framework at the end of the test.
 func (ts *TestServer) Shutdown() {
 	ts.App.Shutdown()
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
@@ -206,7 +209,9 @@ func (ts *TestServer) Shutdown() {
 		panic(err)
 	}
 
-	// This may not be necessary since this will be used in side of test.Run()
+	// NOTE: We don't call storage.Shutdown() here because it would close the shared
+	// fake S3 server used by multiple test servers in the same test. The test framework
+	// (e.g., RunWithObjectStorageWithoutApp) handles storage cleanup at test end.
 	// storage.Shutdown(ts.App.Config)
 
 	ts.Server.CloseClientConnections()
