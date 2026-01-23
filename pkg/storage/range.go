@@ -125,9 +125,14 @@ tryOpen:
 
 	var encryptedFile internalStorage.File
 
+	// Use portable encryption path for branch copying support
+	// Format: database/{databaseId}/range/{rangeNumber}
+	// This allows encrypted range files to be copied between branches
+	encryptionPath := fmt.Sprintf("database/%s/range/%d", databaseId, rangeNumber)
+
 	if fileInfo.Size() == 0 {
-		// New file - create encrypted wrapper
-		encryptedFile, err = NewEncryptedAuthenticatedFile(file, dataKey, keyHash, dr.Path())
+		// New file - create encrypted stream wrapper
+		encryptedFile, err = NewEncryptedStreamFile(file, dataKey, keyHash, 0, encryptionPath)
 
 		if err != nil {
 			if err := file.Close(); err != nil {
@@ -138,7 +143,7 @@ tryOpen:
 		}
 
 		// Write the header
-		err = encryptedFile.(*EncryptedAuthenticatedFile).WriteHeader()
+		err = encryptedFile.(*EncryptedStreamFile).WriteHeader()
 
 		if err != nil {
 			if err := file.Close(); err != nil {
@@ -148,8 +153,8 @@ tryOpen:
 			return nil, fmt.Errorf("failed to write encrypted range header: %w", err)
 		}
 	} else {
-		// Existing file - open encrypted wrapper
-		encryptedFile, err = OpenEncryptedAuthenticatedFile(file, dataKey, keyHash, dr.Path())
+		// Existing file - open encrypted stream wrapper
+		encryptedFile, err = OpenEncryptedStreamFile(file, dataKey, keyHash, 0, encryptionPath)
 
 		if err != nil {
 			if err := file.Close(); err != nil {
