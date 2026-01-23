@@ -15,9 +15,17 @@ func DatabaseBranchSettingsCard(data map[string]any) string {
 			Key:   "Backup Interval",
 			Value: data["backupInterval"].(string),
 		})
+
 		rows = append(rows, CardRow{
 			Key:   "Backups Retention Days",
 			Value: fmt.Sprintf("%.0f", data["backupsRetentionDays"].(float64)),
+		})
+	}
+
+	if data["encrypted"] != nil {
+		rows = append(rows, CardRow{
+			Key:   "Encrypted",
+			Value: fmt.Sprintf("%v", data["encrypted"]),
 		})
 	}
 
