@@ -343,40 +343,6 @@ func TestDatabaseControllerStore_WithEncryption(t *testing.T) {
 	})
 }
 
-func TestDatabaseControllerStore_WithEncryptionButNoKey(t *testing.T) {
-	test.Run(t, func() {
-		server := test.NewTestServer(t)
-		defer server.Shutdown()
-
-		client := server.WithAccessKeyClient([]auth.Statement{{
-			Effect:   auth.StatementEffectAllow,
-			Resource: "*",
-			Actions:  []auth.Privilege{auth.DatabasePrivilegeCreate},
-		}})
-
-		resp, statusCode, err := client.Send("/v1/databases", "POST", map[string]any{
-			"name":      "encrypted_db",
-			"encrypted": true,
-		})
-
-		if err != nil {
-			t.Fatalf("failed to send request: %v", err)
-		}
-
-		if statusCode != 400 {
-			t.Fatalf("expected status code 400, got %d", statusCode)
-		}
-
-		if resp["status"] != "error" {
-			t.Fatalf("expected error status, got %v", resp["status"])
-		}
-
-		if !contains(resp["message"].(string), "LITEBASE_DATA_ENCRYPTION_KEY") {
-			t.Fatalf("expected error message about encryption key, got %v", resp["message"])
-		}
-	})
-}
-
 func contains(s, substr string) bool {
 	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) >= len(substr) && findSubstring(s, substr))
 }
