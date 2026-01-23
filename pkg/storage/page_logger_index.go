@@ -143,6 +143,22 @@ func (pli *PageLoggerIndex) GetLastCompactionAt() time.Time {
 	return pli.lastCompactionAt
 }
 
+// HasPageLog checks if a specific page log (pageGroup + pageGroupVersion) is
+// referenced in the index. This is used to identify orphaned page log files
+// that should be cleaned up.
+func (pli *PageLoggerIndex) HasPageLog(pageGroup PageGroup, pageGroupVersion PageGroupVersion) bool {
+	pli.mutex.Lock()
+	defer pli.mutex.Unlock()
+
+	if group, exists := pli.pageGroups[pageGroup]; exists {
+		if _, versionExists := group[pageGroupVersion]; versionExists {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Return the page group and version for a given timestamp
 func (pli *PageLoggerIndex) getPageGroupByTimestamp(pageVersion PageVersion) []PageGroupVersionByTimestamp {
 	versions := []PageGroupVersionByTimestamp{}

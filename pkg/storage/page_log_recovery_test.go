@@ -123,7 +123,6 @@ func TestEncryptedDatabasePageLogRecoveryAcrossRestarts(t *testing.T) {
 
 	// Now start a second server with the same data path
 	// This simulates a server restart
-	test.SetupWithoutApp(t)
 	app2 := server.NewApp(app1.Config, nil)
 
 	// Start the node
@@ -300,7 +299,6 @@ func TestNonEncryptedDatabasePageLogRecoveryAcrossRestarts(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Now start a second server
-	test.SetupWithoutApp(t)
 	app2 := server.NewApp(app1.Config, nil)
 
 	// Start the node
@@ -473,8 +471,6 @@ func TestEncryptedDatabasePageLogRecoveryWithKeyMismatch(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Try to start server with wrong key (key2)
-	test.SetupWithoutApp(t)
-
 	app2Config := app1.Config
 	app2Config.DataEncryptionKey = dataKey2
 
