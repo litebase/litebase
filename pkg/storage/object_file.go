@@ -113,11 +113,22 @@ func NewObjectFile(fs *ObjectFileSystemDriver, key string, openFlags int, preExi
 				}
 			}()
 
-			file.Data, err = s2.Decode(nil, body)
+			// Check if file is encrypted (same check as in WriteFile)
+			// Encrypted files have magic headers: "LSTR" (EncryptedStreamFile) or "LENC" (EncryptedAuthenticatedFile)
+			// Skip decompression for encrypted files because they were never compressed
+			isEncrypted := len(body) >= 4 && (string(body[:4]) == "LSTR" || string(body[:4]) == "LENC")
 
-			if err != nil {
-				log.Println("Error decoding object", err)
-				return nil, err
+			if isEncrypted {
+				// Use encrypted data as-is (was never compressed)
+				file.Data = body
+			} else {
+				// Decompress regular files
+				file.Data, err = s2.Decode(nil, body)
+
+				if err != nil {
+					log.Println("Error decoding object", err)
+					return nil, err
+				}
 			}
 
 			file.Sha256Checksum = sha256.Sum256(file.Data)

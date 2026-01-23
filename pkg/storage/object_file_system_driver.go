@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/klauspost/compress/s2"
 	internalStorage "github.com/litebase/litebase/internal/storage"
 	"github.com/litebase/litebase/pkg/config"
@@ -26,7 +27,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 type ObjectFileSystemDriver struct {
@@ -188,7 +188,15 @@ func (fs *ObjectFileSystemDriver) Open(path string) (internalStorage.File, error
 }
 
 func (fs *ObjectFileSystemDriver) OpenFile(path string, flag int, perm fs.FileMode) (internalStorage.File, error) {
-	return NewObjectFile(fs, path, flag, false)
+	// Check if file exists first to avoid creating empty files when opening existing ones
+	_, err := fs.S3Client.HeadObject(fs.context, &s3.HeadObjectInput{
+		Bucket: aws.String(fs.bucket),
+		Key:    aws.String(path),
+	})
+
+	preExists := err == nil
+
+	return NewObjectFile(fs, path, flag, preExists)
 }
 
 func (fs *ObjectFileSystemDriver) Path(path string) string {
