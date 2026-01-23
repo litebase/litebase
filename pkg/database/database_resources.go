@@ -115,7 +115,30 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 
 	pageSize := d.config.PageSize
 
-	d.fileSystem = storage.NewDurableDatabaseFileSystem(
+	// Load encryption settings BEFORE creating the FileSystem
+	// This ensures encryption is configured on RangeManager before any file operations
+	var dataKey []byte
+	var keyHash [32]byte
+
+	if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
+		var err error
+
+		dataKey, keyHash, err = matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to get encryption key: %w", err)
+		}
+
+		// Configure PageLogger encryption BEFORE FileSystem creation
+		err = d.pageLogger.ConfigureEncryption(dataKey, keyHash)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure PageLogger encryption: %w", err)
+		}
+	}
+
+	// Create FileSystem with encryption pre-configured
+	d.fileSystem = storage.NewDurableDatabaseFileSystemWithEncryption(
 		d.databaseManager.Cluster.TieredFS(),
 		d.databaseManager.Cluster.NetworkFS(),
 		d.pageLogger,
@@ -123,31 +146,11 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 		d.Branch.DatabaseID,
 		d.Branch.DatabaseBranchID,
 		pageSize,
+		dataKey,
+		keyHash,
 	)
 
-	// Configure encryption if the branch is encrypted
-	// Use cached Settings to avoid querying the database during initialization
-	if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
-		dataKey, keyHash, err := matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to get encryption key: %w", err)
-		}
-
-		// Configure PageLogger encryption
-		err = d.pageLogger.ConfigureEncryption(dataKey, keyHash)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to configure PageLogger encryption: %w", err)
-		}
-
-		// Configure RangeManager encryption
-		err = d.fileSystem.RangeManager.ConfigureEncryption(dataKey, keyHash)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to configure RangeManager encryption: %w", err)
-		}
-	}
+	// No need to configure RangeManager here anymore - it's done in the constructor
 
 	d.fileSystem.SetWriteHook(func(offset int64, data []byte) {
 		checkpointer, err := d.Checkpointer()

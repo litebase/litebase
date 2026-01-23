@@ -28,12 +28,16 @@ type DurableDatabaseFileSystem struct {
 	writeHook    func(offset int64, data []byte)
 }
 
-func NewDurableDatabaseFileSystem(
+// NewDurableDatabaseFileSystemWithEncryption creates a new DurableDatabaseFileSystem with optional encryption.
+// If encryption is needed, pass the dataKey (32 bytes) and keyHash. Pass nil for no encryption.
+func NewDurableDatabaseFileSystemWithEncryption(
 	tieredFS *FileSystem,
 	networkFS *FileSystem,
 	pageLogger *PageLogger,
 	path, databaseId, branchId string,
 	pageSize int64,
+	dataKey []byte,
+	keyHash [32]byte,
 ) *DurableDatabaseFileSystem {
 	dfs := &DurableDatabaseFileSystem{
 		branchId: branchId,
@@ -52,14 +56,44 @@ func NewDurableDatabaseFileSystem(
 
 	dfs.RangeManager = NewDataRangeManager(dfs)
 
+	// Configure encryption BEFORE init() is called
+	if dataKey != nil {
+		err := dfs.RangeManager.ConfigureEncryption(dataKey, keyHash)
+
+		if err != nil {
+			slog.Error("Error configuring RangeManager encryption", "error", err)
+			return nil
+		}
+	}
+
 	err := dfs.init()
 
 	if err != nil {
-		log.Println("Error initializing database file system", err)
+		slog.Error("Error initializing database file system", "error", err)
 		return nil
 	}
 
 	return dfs
+}
+
+func NewDurableDatabaseFileSystem(
+	tieredFS *FileSystem,
+	networkFS *FileSystem,
+	pageLogger *PageLogger,
+	path, databaseId, branchId string,
+	pageSize int64,
+) *DurableDatabaseFileSystem {
+	return NewDurableDatabaseFileSystemWithEncryption(
+		tieredFS,
+		networkFS,
+		pageLogger,
+		path,
+		databaseId,
+		branchId,
+		pageSize,
+		nil,
+		[32]byte{},
+	)
 }
 
 // Run compaction on the database file system.
