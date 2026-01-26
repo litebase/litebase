@@ -144,7 +144,7 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 	if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
 		var err error
 
-			dataKey, keyHash, err := MatchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+		dataKey, keyHash, err = MatchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to get encryption key: %w", err)
