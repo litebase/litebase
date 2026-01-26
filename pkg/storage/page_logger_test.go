@@ -586,9 +586,10 @@ func TestPageLogger(t *testing.T) {
 		})
 
 		t.Run("Read_After_Compacting_BeforeInterval", func(t *testing.T) {
-			// Set a long compaction interval for testing (to ensure it doesn't elapse during race detection)
+			// Set a very long compaction interval for testing (to ensure it doesn't elapse even with race detection)
+			// CI with race detection can take 2-3 minutes to write the test data
 			originalInterval := storage.GetPageLoggerCompactInterval()
-			storage.SetPageLoggerCompactInterval(30 * time.Second) // 30 second interval
+			storage.SetPageLoggerCompactInterval(10 * time.Minute)
 
 			defer func() {
 				storage.SetPageLoggerCompactInterval(originalInterval)
@@ -663,6 +664,8 @@ func TestPageLogger(t *testing.T) {
 			}
 
 			// Immediately try to compact again - this should NOT run because the interval has not passed
+			timeBeforeSecondCompact := time.Now().UTC()
+
 			err = pageLogger.Compact(
 				app.DatabaseManager.Resources(db.Branch).FileSystem(),
 			)
@@ -671,10 +674,18 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to compact page logger: %v", err)
 			}
 
+			// Verify that we haven't exceeded the compaction interval (sanity check for the test itself)
+			timeSinceFirstCompact := timeBeforeSecondCompact.Sub(firstCompactedAt)
+
+			if timeSinceFirstCompact >= 10*time.Minute {
+				t.Fatalf("Test took too long (%v), exceeded compaction interval - test is invalid", timeSinceFirstCompact)
+			}
+
 			// Verify that CompactedAt timestamp hasn't changed (proving compaction didn't run due to interval)
 			secondCompactedAt := pageLogger.CompactedAt
+
 			if !secondCompactedAt.Equal(firstCompactedAt) {
-				t.Fatalf("CompactedAt timestamp changed from %v to %v, indicating compaction ran when it shouldn't have due to interval restriction", firstCompactedAt, secondCompactedAt)
+				t.Fatalf("CompactedAt timestamp changed from %v to %v (time elapsed: %v), indicating compaction ran when it shouldn't have due to interval restriction", firstCompactedAt, secondCompactedAt, timeSinceFirstCompact)
 			}
 
 			// The new data (versions 4, 5, 6) should still be available since compaction didn't run
