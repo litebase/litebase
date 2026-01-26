@@ -72,3 +72,43 @@ func TestLogManager_Run(t *testing.T) {
 		go app.LogManager.Run()
 	})
 }
+
+func TestLogManager_GetErrorLog(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		errorLog := app.LogManager.GetErrorLog(
+			app.Cluster,
+			db.DatabaseKey.DatabaseHash,
+			db.DatabaseID,
+			db.DatabaseBranchID,
+		)
+
+		if errorLog == nil {
+			t.Fatal("Error log is nil")
+		}
+	})
+}
+
+func TestLogManager_Error(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		err := app.LogManager.Error(
+			logs.ErrorLogEntry{
+				Cluster:      app.Cluster,
+				DatabaseHash: db.DatabaseKey.DatabaseHash,
+				DatabaseID:   db.DatabaseID,
+				BranchID:     db.DatabaseBranchID,
+				CredentialID: db.Credential.CredentialID,
+				Statement:    "SELECT * FROM nonexistent",
+				Error:        "no such table: nonexistent",
+				Latency:      0.02,
+			},
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}

@@ -48,8 +48,24 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			db, err = query.databaseManager.ConnectionManager().Get(query.DatabaseKey.DatabaseID, query.DatabaseKey.DatabaseBranchID)
 
 			if err != nil {
-				log.Println("Error getting database connection", err)
+				slog.Error("Error getting database connection", "error", err)
 				response.SetError(err.Error())
+
+				// Log the error
+				err := logManager.Error(logs.ErrorLogEntry{
+					Cluster:      query.cluster,
+					DatabaseHash: query.DatabaseKey.DatabaseHash,
+					DatabaseID:   query.DatabaseKey.DatabaseID,
+					BranchID:     query.DatabaseKey.DatabaseBranchID,
+					CredentialID: query.Credential.CredentialID,
+					Statement:    query.Input.Statement,
+					Error:        err.Error(),
+					Latency:      float64(time.Since(start)) / float64(time.Millisecond),
+				})
+
+				if err != nil {
+					slog.Error("Error logging error", "error", err)
+				}
 
 				return response, err
 			}
@@ -91,6 +107,22 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 			if query.IsVacuum() {
 				response.SetError(errors.New("VACUUM is not supported from this context").Error())
 
+				// Log the error
+				err := logManager.Error(logs.ErrorLogEntry{
+					Cluster:      query.cluster,
+					DatabaseHash: query.DatabaseKey.DatabaseHash,
+					DatabaseID:   query.DatabaseKey.DatabaseID,
+					BranchID:     query.DatabaseKey.DatabaseBranchID,
+					CredentialID: query.Credential.CredentialID,
+					Statement:    query.Input.Statement,
+					Error:        "VACUUM is not supported from this context",
+					Latency:      float64(time.Since(start)) / float64(time.Millisecond),
+				})
+
+				if err != nil {
+					slog.Error("Error logging error", "error", err)
+				}
+
 				return response, errors.New("VACUUM is not supported from this context")
 			} else if query.IsPragma() && IsLitebasePragma(query.Input.Statement) {
 				// Handle litebase PRAGMAs directly through Exec
@@ -98,6 +130,23 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 
 				if err != nil {
 					response.SetError(err.Error())
+
+					// Log the error
+					err := logManager.Error(logs.ErrorLogEntry{
+						Cluster:      query.cluster,
+						DatabaseHash: query.DatabaseKey.DatabaseHash,
+						DatabaseID:   query.DatabaseKey.DatabaseID,
+						BranchID:     query.DatabaseKey.DatabaseBranchID,
+						CredentialID: query.Credential.CredentialID,
+						Statement:    query.Input.Statement,
+						Error:        err.Error(),
+						Latency:      float64(time.Since(start)) / float64(time.Millisecond),
+					})
+
+					if err != nil {
+						slog.Error("Error logging error", "error", err)
+					}
+
 					return response, err
 				}
 
@@ -156,6 +205,22 @@ func resolveQueryLocally(logManager *logs.LogManager, query *Query, response *Qu
 
 		if err != nil {
 			response.SetError(err.Error())
+
+			// Log the error
+			err := logManager.Error(logs.ErrorLogEntry{
+				Cluster:      query.cluster,
+				DatabaseHash: query.DatabaseKey.DatabaseHash,
+				DatabaseID:   query.DatabaseKey.DatabaseID,
+				BranchID:     query.DatabaseKey.DatabaseBranchID,
+				CredentialID: query.Credential.CredentialID,
+				Statement:    query.Input.Statement,
+				Error:        err.Error(),
+				Latency:      float64(time.Since(start)) / float64(time.Millisecond),
+			})
+
+			if err != nil {
+				slog.Error("Error logging error", "error", err)
+			}
 
 			return response, err
 		}

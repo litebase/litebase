@@ -25,6 +25,7 @@ func NewDatabaseCmd(config *config.CLIConfiguration) *cobra.Command {
 	cmd.AddCommand(NewDatabaseUpdateCmd(config))
 	cmd.AddCommand(NewDatabaseQueryCmd(config))
 	cmd.AddCommand(NewDatabaseQueryLogCmd(config))
+	cmd.AddCommand(NewDatabaseErrorLogCmd(config))
 
 	return cmd
 }

@@ -317,6 +317,12 @@ func LoadPublicRoutes(router *Router) {
 		Authentication,
 	}).Timeout(1 * time.Second)
 
+	router.Get("/v1/databases/{databaseName}/branches/{branchName}/errors",
+		ErrorLogControllerIndex,
+	).Middleware([]Middleware{
+		Authentication,
+	}).Timeout(1 * time.Second)
+
 	router.Post("/v1/databases/{databaseName}/branches/{branchName}/query",
 		QueryControllerStore,
 	).Middleware([]Middleware{
