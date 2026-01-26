@@ -72,3 +72,119 @@ func TestLogManager_Run(t *testing.T) {
 		go app.LogManager.Run()
 	})
 }
+
+func TestLogManager_GetErrorLog(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		errorLog := app.LogManager.GetErrorLog(
+			app.Cluster,
+			db.DatabaseKey.DatabaseHash,
+			db.DatabaseID,
+			db.DatabaseBranchID,
+		)
+
+		if errorLog == nil {
+			t.Fatal("Error log is nil")
+		}
+	})
+}
+
+func TestLogManager_Error(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		err := app.LogManager.Error(
+			logs.ErrorLogEntry{
+				Cluster:      app.Cluster,
+				DatabaseHash: db.DatabaseKey.DatabaseHash,
+				DatabaseID:   db.DatabaseID,
+				BranchID:     db.DatabaseBranchID,
+				CredentialID: db.Credential.CredentialID,
+				Statement:    "SELECT * FROM nonexistent",
+				Error:        "no such table: nonexistent",
+				Latency:      0.02,
+			},
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestLogManager_GetErrorLogEncrypted(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockEncryptedDatabase(app)
+
+		errorLog := app.LogManager.GetErrorLog(
+			app.Cluster,
+			db.DatabaseKey.DatabaseHash,
+			db.DatabaseID,
+			db.DatabaseBranchID,
+		)
+
+		if errorLog == nil {
+			t.Fatal("Error log is nil")
+		}
+
+		// For encrypted databases, verify we can write and read error entries
+		err := errorLog.Write(
+			db.Credential.CredentialID,
+			"SELECT * FROM encrypted_test",
+			"no such table: encrypted_test",
+			0.01,
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Verify file was created and has content
+		file, err := errorLog.GetFile()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fileInfo, err := file.Stat()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if fileInfo.Size() == 0 {
+			t.Fatal("Error log file should have content for encrypted database")
+		}
+	})
+}
+
+func TestLogManager_ErrorEncrypted(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockEncryptedDatabase(app)
+
+		// Log an error through the manager for an encrypted database
+		err := app.LogManager.Error(
+			logs.ErrorLogEntry{
+				Cluster:      app.Cluster,
+				DatabaseHash: db.DatabaseKey.DatabaseHash,
+				DatabaseID:   db.DatabaseID,
+				BranchID:     db.DatabaseBranchID,
+				CredentialID: db.Credential.CredentialID,
+				Statement:    "SELECT * FROM encrypted_table",
+				Error:        "no such table: encrypted_table",
+				Latency:      0.02,
+			},
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}

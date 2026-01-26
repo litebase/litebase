@@ -103,6 +103,24 @@ func (app *App) InitScheduledTasks() {
 		slog.Error("Failed to register CleanupExpiredQueryLogs task", "error", err)
 	}
 
+	// Cleanup old error logs (critical - prevents storage bloat):
+	// Runs daily at 05:30 to find and cleanup expired error logs.
+	// Error logs older than retention_days are deleted from storage.
+	// Daily execution ensures old error data doesn't accumulate indefinitely.
+	// Critical because error log storage can grow quickly and affect costs.
+	err = app.Scheduler.RegisterTask(
+		"CleanupExpiredErrorLogs",
+		func(ctx context.Context) error { return app.EnqueueErrorLogCleanupJobs(ctx) },
+		scheduler.WithSchedule(scheduler.Daily),
+		scheduler.WithTime("05:30"),
+		scheduler.WithCritical(),   // Will catch up after downtime to prevent storage bloat
+		scheduler.WithoutOverlap(), // Don't run concurrent cleanup operations
+	)
+
+	if err != nil {
+		slog.Error("Failed to register CleanupExpiredErrorLogs task", "error", err)
+	}
+
 	// NON-CRITICAL TASKS - These will be skipped if missed during downtime:
 	// Informational or monitoring tasks that don't affect data integrity.
 
