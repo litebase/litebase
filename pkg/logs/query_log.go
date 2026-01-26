@@ -76,7 +76,11 @@ func (q *QueryLog) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
 
 	// If statement index already exists, configure its encryption
 	if q.statementIndex != nil {
-		q.statementIndex.ConfigureEncryption(dataKey, keyHash)
+		err := q.statementIndex.ConfigureEncryption(dataKey, keyHash)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
