@@ -23,6 +23,7 @@ func TestNewDatabaseWAL(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -51,6 +52,7 @@ func TestDatabaseWAL_Checkpointing(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -75,6 +77,7 @@ func TestDatabaseWAL_Close(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -99,6 +102,7 @@ func TestDatabaseWAL_File(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -129,6 +133,7 @@ func TestDatabaseWAL_Hash(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -155,6 +160,7 @@ func TestDatabaseWAL_IsCheckpointed(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -179,6 +185,7 @@ func TestDatabaseWAL_MarkCheckpointed(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -205,6 +212,7 @@ func TestDatabaseWAL_ReadAt(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -257,6 +265,7 @@ func TestDatabaseWAL_RequiresCheckpoint(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -289,6 +298,7 @@ func TestDatabaseWAL_SetCheckpointing(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -317,6 +327,7 @@ func TestDatabaseWAL_Size(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -359,6 +370,7 @@ func TestDatabaseWAL_Sync(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -385,6 +397,7 @@ func TestDatabaseWAL_Timestamp(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -411,6 +424,7 @@ func TestDatabaseWAL_Truncate(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -443,6 +457,7 @@ func TestDatabaseWAL_WriteAt(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -479,6 +494,7 @@ func TestDatabaseWAL_ReadAfterWrite(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),
@@ -581,6 +597,7 @@ func TestDatabaseWAL_HeavyWrite(t *testing.T) {
 		databaseWAL := database.NewDatabaseWAL(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			mock.DatabaseID,
 			mock.DatabaseBranchID,
 			app.Cluster.LocalFS(),

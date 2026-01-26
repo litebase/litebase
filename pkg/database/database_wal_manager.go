@@ -13,6 +13,7 @@ import (
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/memory"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
@@ -26,6 +27,7 @@ type DatabaseWALManager struct {
 	DatabaseID              string
 	garbageCollectionMutex  *sync.RWMutex
 	lastCheckpointedVersion int64
+	memoryManager           *memory.Manager
 	mutex                   *sync.RWMutex
 	networkFileSystem       *storage.FileSystem
 	node                    *cluster.Node
@@ -46,6 +48,7 @@ var (
 func NewDatabaseWALManager(
 	node *cluster.Node,
 	connectionManager *ConnectionManager,
+	memoryManager *memory.Manager,
 	databaseId,
 	branchId string,
 	networkFileSystem *storage.FileSystem,
@@ -58,6 +61,7 @@ func NewDatabaseWALManager(
 		databaseHash:           file.DatabaseHash(databaseId, branchId),
 		DatabaseID:             databaseId,
 		garbageCollectionMutex: &sync.RWMutex{},
+		memoryManager:          memoryManager,
 		mutex:                  &sync.RWMutex{},
 		networkFileSystem:      networkFileSystem,
 		node:                   node,
@@ -190,6 +194,7 @@ func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
 	w.walVersions[timestamp] = NewDatabaseWAL(
 		w.node,
 		w.connectionManager,
+		w.memoryManager,
 		w.DatabaseID,
 		w.BranchID,
 		w.networkFileSystem,
@@ -288,6 +293,7 @@ func (w *DatabaseWALManager) init() error {
 		w.walVersions[version] = NewDatabaseWAL(
 			w.node,
 			w.connectionManager,
+			w.memoryManager,
 			w.DatabaseID,
 			w.BranchID,
 			w.networkFileSystem,

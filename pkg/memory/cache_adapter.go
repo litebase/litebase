@@ -13,7 +13,7 @@ type ManagedCache struct {
 	sizeFunc    func(any) int64
 	defaultSize int64
 	owner       string
-	leases      map[string]*Lease
+	leases      map[any]*Lease
 }
 
 // ManagedCacheConfig contains configuration for a managed cache
@@ -51,12 +51,12 @@ func NewManagedCache(cfg ManagedCacheConfig) *ManagedCache {
 		sizeFunc:    cfg.SizeFunc,
 		defaultSize: cfg.DefaultSize,
 		owner:       cfg.Owner,
-		leases:      make(map[string]*Lease),
+		leases:      make(map[any]*Lease),
 	}
 }
 
 // Put adds an item to the cache
-func (mc *ManagedCache) Put(key string, value any) error {
+func (mc *ManagedCache) Put(key any, value any) error {
 	size := mc.sizeFunc(value)
 
 	// Check if key exists and release old lease
@@ -105,7 +105,7 @@ func (mc *ManagedCache) Put(key string, value any) error {
 }
 
 // Get retrieves an item from the cache
-func (mc *ManagedCache) Get(key string) (any, bool) {
+func (mc *ManagedCache) Get(key any) (any, bool) {
 	value, found := mc.cache.Get(key)
 
 	if found {
@@ -119,7 +119,7 @@ func (mc *ManagedCache) Get(key string) (any, bool) {
 }
 
 // Delete removes an item from the cache
-func (mc *ManagedCache) Delete(key string) {
+func (mc *ManagedCache) Delete(key any) {
 	// Release lease
 	if lease, exists := mc.leases[key]; exists {
 		err := mc.manager.Release(lease)

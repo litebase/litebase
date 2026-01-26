@@ -450,6 +450,54 @@ Size estimates are defined as constants for consistency:
 - **PageLogCacheCapacity**: 100 pages per log
 - **PageLogCacheDefaultSize**: 4KB (matches SQLite page size)
 
+#### PageLog Zero-Allocation Cache Keys
+
+To avoid allocations on every cache operation, PageLog uses struct keys:
+
+```go
+// pageLogCacheKey avoids string allocations for cache lookups
+type pageLogCacheKey struct {
+    Page    PageNumber
+    Version PageVersion
+}
+
+// Cache operations use struct keys (zero allocations)
+func (pl *PageLog) Append(page int64, version int64, value []byte) error {
+    // ... write to disk ...
+
+    // Cache the written data
+    cacheKey := pageLogCacheKey{
+        Page:    PageNumber(page),
+        Version: PageVersion(version),
+    }
+    pl.cache.Put(cacheKey, value) // No heap allocation for key
+
+    return nil
+}
+
+func (pl *PageLog) Get(
+    page int64,
+    version int64,
+    data []byte,
+) (bool, PageVersion, error) {
+    cacheKey := pageLogCacheKey{
+        Page:    PageNumber(page),
+        Version: PageVersion(version),
+    }
+
+    if cachedValue, found := pl.cache.Get(cacheKey); found {
+        copy(data, cachedValue.([]byte))
+        return true, version, nil
+    }
+
+    // Cache miss - read from disk
+    // ...
+}
+```
+
+Struct keys eliminate string formatting/concatenation overhead on hot
+paths while maintaining full memory manager coordination.
+
 #### Memory Coordination
 
 All PageLog caches across all databases share the global memory budget:
@@ -457,14 +505,158 @@ All PageLog caches across all databases share the global memory budget:
 - Each PageLog can cache up to 400KB (100 pages × 4KB)
 - Under memory pressure, LRU pages are evicted across all PageLogs globally
 - Page cache misses result in reading from disk (transparent to callers)
+- Struct-based keys avoid allocation overhead on hot paths
 
 ### PageLog Benefits
 
 - **Global memory limits**: All page caches respect shared memory budget
 - **Fair allocation**: Memory distributed across all databases automatically
+- **Zero-allocation keys**: Struct keys avoid string allocation overhead
 - **Graceful degradation**: Cache misses handled by disk reads
 - **Visibility**: Track page cache memory usage per PageLog
 - **Prevents OOM**: Page caching bounded by global memory limit
+
+## DatabaseWAL Integration
+
+### Problem: WAL Page Caching
+
+Each Write-Ahead Log (WAL) maintains an LFU cache of recently accessed pages to
+minimize disk I/O during database operations. The original implementation:
+
+```go
+type DatabaseWAL struct {
+    cache *cache.LFUCache  // Uncoordinated 1000-page cache
+    // ... other fields
+}
+
+func NewDatabaseWAL(...) *DatabaseWAL {
+    return &DatabaseWAL{
+        cache: cache.NewLFUCache(1000), // Up to 4MB per WAL
+        // ... other fields
+    }
+}
+```
+
+With potentially thousands of active WALs across many databases and branches,
+these uncoordinated caches could consume hundreds of megabytes.
+
+### DatabaseWAL Solution
+
+The memory manager is passed through the resource chain:
+**DatabaseResources** → **DatabaseWALManager** → **DatabaseWAL**
+
+```go
+// Cache configuration constants
+const (
+    WALCacheCapacity    = 1000 // Pages to cache per WAL
+    WALCacheDefaultSize = 4096 // 4KB per page (matches SQLite)
+)
+
+type DatabaseWAL struct {
+    cache         *memory.ManagedCache // Was: *cache.LFUCache
+    memoryManager *memory.Manager
+    // ... other fields
+}
+
+func NewDatabaseWAL(
+    node *cluster.Node,
+    connectionManager *ConnectionManager,
+    databaseId string,
+    branchId string,
+    fileSystem *storage.FileSystem,
+    walManager *DatabaseWALManager,
+    timestamp int64,
+    memoryManager *memory.Manager, // Added parameter
+) *DatabaseWAL {
+    return &DatabaseWAL{
+        cache: memory.NewManagedCache(memory.ManagedCacheConfig{
+            Capacity:    WALCacheCapacity,
+            Manager:     memoryManager,
+            DefaultSize: WALCacheDefaultSize,
+            Owner: fmt.Sprintf(
+                "wal-cache-%s-%s-%d",
+                databaseId,
+                branchId,
+                timestamp,
+            ),
+        }),
+        memoryManager: memoryManager,
+        // ... other fields
+    }
+}
+```
+
+### Zero-Allocation Cache Keys
+
+To avoid string allocations on every cache operation, the WAL uses a struct key:
+
+```go
+// walCacheKey avoids string allocations for cache lookups
+type walCacheKey struct {
+    Timestamp int64
+    Offset    int64
+}
+
+func (wal *DatabaseWAL) getCacheKey(offset int64) walCacheKey {
+    return walCacheKey{Timestamp: wal.timestamp, Offset: offset}
+}
+
+// Cache operations use struct keys directly (zero allocations)
+func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
+    cacheKey := wal.getCacheKey(off) // No heap allocation
+
+    if data, found := wal.cache.Get(cacheKey); found {
+        return copy(p, data.([]byte)), nil
+    }
+
+    // Read from disk and cache
+    n, err = wal.file.ReadAt(p, off)
+    wal.cache.Put(cacheKey, p[:n])
+
+    return n, err
+}
+```
+
+The `ManagedCache` accepts `any` comparable keys, allowing structs to be used
+directly without string conversion overhead.
+
+### Memory Flow Diagram
+
+```text
+Cluster
+  └── MemoryManager (global 1GB budget)
+       ├── DatabaseResources
+       │    └── DatabaseWALManager
+       │         └── DatabaseWAL (per version)
+       │              └── ManagedCache (1000 pages × 4KB)
+       ├── DatabaseWAL (version 2)
+       │    └── ManagedCache (1000 pages × 4KB)
+       └── DatabaseWAL (version 3)
+            └── ManagedCache (1000 pages × 4KB)
+```
+
+### DatabaseWAL Cache Constants
+
+- **WALCacheCapacity**: 1000 pages per WAL
+- **WALCacheDefaultSize**: 4KB (matches SQLite page size)
+
+### WAL Memory Coordination
+
+All WAL caches across all database versions share the global memory budget:
+
+- Each WAL can cache up to 4MB (1000 pages × 4KB)
+- Under memory pressure, LRU pages are evicted across all WALs globally
+- Cache misses result in reading from disk (transparent to callers)
+- Struct-based keys avoid allocation overhead on hot paths
+
+### DatabaseWAL Benefits
+
+- **Global memory limits**: All WAL caches respect shared memory budget
+- **Fair allocation**: Memory distributed across all WAL versions automatically
+- **Zero-allocation keys**: Struct keys avoid string allocation overhead
+- **Graceful degradation**: Cache misses handled by disk reads
+- **Visibility**: Track WAL cache memory usage per version
+- **Prevents OOM**: WAL caching bounded by global memory limit
 
 ## Full Stack Integration Example
 

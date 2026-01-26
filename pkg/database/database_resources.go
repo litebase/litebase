@@ -121,6 +121,7 @@ func (d *DatabaseResources) DatabaseWALManager() (*DatabaseWALManager, error) {
 	d.walManager, err = NewDatabaseWALManager(
 		d.databaseManager.Cluster.Node(),
 		d.databaseManager.ConnectionManager(),
+		d.databaseManager.Cluster.MemoryManager,
 		d.Branch.DatabaseID,
 		d.Branch.DatabaseBranchID,
 		d.databaseManager.Cluster.NetworkFS(),

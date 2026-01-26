@@ -370,7 +370,11 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 	if err != nil {
 		// Release memory lease if connection creation fails
 		if lease != nil && c.memoryManager != nil {
-			c.memoryManager.Release(lease)
+			err = c.memoryManager.Release(lease)
+
+			if err != nil {
+				slog.Error("Error releasing memory lease", "error", err)
+			}
 		}
 
 		return nil, err
@@ -452,7 +456,12 @@ func (c *ConnectionManager) remove(clientConnection *ClientConnection) {
 
 	// Release memory lease if it exists
 	if clientConnection.memoryLease != nil && c.memoryManager != nil {
-		c.memoryManager.Release(clientConnection.memoryLease)
+		err := c.memoryManager.Release(clientConnection.memoryLease)
+
+		if err != nil {
+			slog.Error("Error releasing memory lease", "error", err)
+		}
+
 		clientConnection.memoryLease = nil
 	}
 

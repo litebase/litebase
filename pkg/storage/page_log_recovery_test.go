@@ -479,34 +479,36 @@ func TestEncryptedDatabasePageLogRecoveryWithKeyMismatch(t *testing.T) {
 	<-app2.Cluster.Node().Start()
 
 	// Try to access the database - this should fail
-	_, err = app2.DatabaseManager.Get(db.DatabaseID)
+	db2, err := app2.DatabaseManager.Get(db.DatabaseID)
 
 	if err != nil {
 		// Expected to fail - database metadata might still load but page log opening will fail
-		t.Logf("Expected error when accessing database with wrong key: %v", err)
+		t.Logf("✓ Expected error when accessing database with wrong key: %v", err)
 	}
 
 	// Even if database loads, getting a connection should fail
-	branch2, err := db.PrimaryBranch()
+	if db2 != nil {
+		branch2, err := db2.PrimaryBranch()
 
-	if err == nil {
-		dbConn2, err := app2.DatabaseManager.ConnectionManager().Get(db.DatabaseID, branch2.DatabaseBranchID)
+		if err == nil && branch2 != nil {
+			dbConn2, err := app2.DatabaseManager.ConnectionManager().Get(db2.DatabaseID, branch2.DatabaseBranchID)
 
-		if err != nil {
-			t.Logf("Expected error when getting connection with wrong key: %v", err)
-		} else {
-			// Try to query - this should fail
-			conn2 := dbConn2.GetConnection()
+			if err != nil {
+				t.Logf("✓ Expected error when getting connection with wrong key: %v", err)
+			} else if dbConn2 != nil {
+				// Try to query - this should fail
+				conn2 := dbConn2.GetConnection()
 
-			result, err := conn2.Exec("SELECT COUNT(*) FROM test_table", nil)
+				result, err := conn2.Exec("SELECT COUNT(*) FROM test_table", nil)
 
-			if err != nil && err != sql.ErrNoRows {
-				t.Logf("Expected error when querying with wrong key: %v", err)
-			} else if err == nil && len(result.Rows) > 0 {
-				t.Fatalf("Expected query to fail with wrong encryption key, but it succeeded")
+				if err != nil && err != sql.ErrNoRows {
+					t.Logf("✓ Expected error when querying with wrong key: %v", err)
+				} else if err == nil && len(result.Rows) > 0 {
+					t.Fatalf("Expected query to fail with wrong encryption key, but it succeeded")
+				}
+
+				app2.DatabaseManager.ConnectionManager().Release(dbConn2)
 			}
-
-			app2.DatabaseManager.ConnectionManager().Release(dbConn2)
 		}
 	}
 
