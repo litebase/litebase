@@ -74,6 +74,7 @@ func NewDatabaseManager(
 
 	dbm.pageLogManager = storage.NewPageLogManager(
 		dbm.Cluster.Node().Context(),
+		cluster.MemoryManager,
 		storage.WithNodePublisher(NewNodeAdapter(dbm.Cluster.Node())),
 	)
 

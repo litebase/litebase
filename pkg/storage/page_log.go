@@ -13,11 +13,15 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/storage"
-	"github.com/litebase/litebase/pkg/cache"
+	"github.com/litebase/litebase/pkg/memory"
 )
 
 const (
 	PageSize = 4096
+
+	// PageLogCache holds page data in memory
+	PageLogCacheCapacity    = 100
+	PageLogCacheDefaultSize = 4096 // 4KB per page (SQLite page size)
 )
 
 var (
@@ -25,7 +29,7 @@ var (
 )
 
 type PageLog struct {
-	cache               *cache.LFUCache
+	cache               *memory.ManagedCache
 	compactedAt         time.Time
 	dataKey             []byte // Optional: encryption key (32 bytes)
 	deleted             bool
@@ -34,6 +38,7 @@ type PageLog struct {
 	file                storage.File
 	index               *PageLogIndex
 	keyHash             [32]byte // Optional: SHA256 hash of encryption key
+	memoryManager       *memory.Manager
 	mutex               *sync.Mutex
 	Path                string
 	size                int64
@@ -43,13 +48,19 @@ type PageLog struct {
 
 // Create a new page log instance.
 // If dataKey is provided (not nil), the PageLog will be encrypted.
-func NewPageLog(fileSystem *FileSystem, path string) (*PageLog, error) {
+func NewPageLog(fileSystem *FileSystem, memoryManager *memory.Manager, path string) (*PageLog, error) {
 	pl := &PageLog{
-		cache:      cache.NewLFUCache(100),
-		encrypted:  false,
-		fileSystem: fileSystem,
-		mutex:      &sync.Mutex{},
-		Path:       path,
+		cache: memory.NewManagedCache(memory.ManagedCacheConfig{
+			Capacity:    PageLogCacheCapacity,
+			Manager:     memoryManager,
+			DefaultSize: PageLogCacheDefaultSize,
+			Owner:       fmt.Sprintf("page-log-cache-%s", path),
+		}),
+		encrypted:     false,
+		fileSystem:    fileSystem,
+		memoryManager: memoryManager,
+		mutex:         &sync.Mutex{},
+		Path:          path,
 	}
 
 	var pli *PageLogIndex
@@ -84,19 +95,25 @@ func NewPageLog(fileSystem *FileSystem, path string) (*PageLog, error) {
 
 // Create a new encrypted page log instance.
 // dataKey must be exactly 32 bytes. timestamp is used for IV derivation (use 0 for PageLogs).
-func NewEncryptedPageLog(fileSystem *FileSystem, path string, dataKey []byte, keyHash [32]byte) (*PageLog, error) {
+func NewEncryptedPageLog(fileSystem *FileSystem, memoryManager *memory.Manager, path string, dataKey []byte, keyHash [32]byte) (*PageLog, error) {
 	if len(dataKey) != 32 {
 		return nil, fmt.Errorf("dataKey must be exactly 32 bytes, got %d", len(dataKey))
 	}
 
 	pl := &PageLog{
-		cache:      cache.NewLFUCache(100),
-		dataKey:    dataKey,
-		encrypted:  true,
-		fileSystem: fileSystem,
-		keyHash:    keyHash,
-		mutex:      &sync.Mutex{},
-		Path:       path,
+		cache: memory.NewManagedCache(memory.ManagedCacheConfig{
+			Capacity:    PageLogCacheCapacity,
+			Manager:     memoryManager,
+			DefaultSize: PageLogCacheDefaultSize,
+			Owner:       fmt.Sprintf("page-log-cache-%s", path),
+		}),
+		dataKey:       dataKey,
+		encrypted:     true,
+		fileSystem:    fileSystem,
+		keyHash:       keyHash,
+		memoryManager: memoryManager,
+		mutex:         &sync.Mutex{},
+		Path:          path,
 	}
 
 	var pli *PageLogIndex

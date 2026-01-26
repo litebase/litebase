@@ -371,61 +371,100 @@ This ensures graceful degradation rather than hard failures.
 - **Visibility**: Track memory usage per cache component
 - **Coordinated eviction**: LRU policy applies across all caches globally
 
-## PageLogger/SnapshotLogger Integration
+## PageLogger/PageLog Integration
 
-### PageLogger Problem
+### PageLog Problem
 
-Page loggers buffer writes in memory with no global coordination.
+PageLog uses LFUCache with fixed 100-entry limit for page caching. Each page is
+4KB (SQLite page size), so a single PageLog can cache up to 400KB without any
+global coordination. With thousands of PageLogs across many databases, total
+memory usage is unbounded.
 
-### PageLogger Solution
+### PageLog Solution
 
-Track buffer memory with leases:
+Replace LFUCache with ManagedCache for memory-aware page caching:
 
 ```go
-type PageLogger struct {
-    manager    *memory.Manager
-    bufferSize int64
-    lease      *memory.Lease
-    // ... existing fields
+// Page log cache configuration constants
+const (
+    PageSize = 4096
+
+    // PageLogCache holds page data in memory
+    PageLogCacheCapacity    = 100
+    PageLogCacheDefaultSize = 4096 // 4KB per page (SQLite page size)
+)
+
+type PageLog struct {
+    cache         *memory.ManagedCache // Was: *cache.LFUCache
+    memoryManager *memory.Manager
+    // ... other fields
 }
 
-func (pl *PageLogger) AllocateBuffer(size int64) error {
-    lease, err := pl.manager.Request(size,
-        memory.Reclaimable(true),
-        memory.WithPriority(memory.PriorityNormal),
-        memory.WithOwner("page-logger"),
-        memory.WithOnReclaim(func() error {
-            // Flush buffer to disk before eviction
-            return pl.Flush()
+func NewPageLog(
+    fileSystem *FileSystem,
+    path string,
+    memoryManager *memory.Manager,
+) (*PageLog, error) {
+    pl := &PageLog{
+        cache: memory.NewManagedCache(memory.ManagedCacheConfig{
+            Capacity:    PageLogCacheCapacity,
+            Manager:     memoryManager,
+            DefaultSize: PageLogCacheDefaultSize,
+            Owner:       fmt.Sprintf("page-log-cache-%s", path),
         }),
-    )
-
-    if err != nil {
-        return err
-    }
-    
-    pl.lease = lease
-    pl.bufferSize = size
-
-    return nil
-}
-
-func (pl *PageLogger) Close() error {
-    if pl.lease != nil {
-        pl.manager.Release(pl.lease)
+        encrypted:     false,
+        fileSystem:    fileSystem,
+        memoryManager: memoryManager,
+        mutex:         &sync.Mutex{},
+        Path:          path,
     }
 
-    // ... existing cleanup
+    // ... rest of initialization
 
-    return nil
+    return pl, nil
 }
 ```
 
-### PageLogger Benefits
+### Memory Manager Flow
 
-- Log buffers can be flushed under pressure
-- Prevents memory exhaustion from buffered writes
-- Graceful degradation via OnReclaim
+Memory manager flows through the initialization chain:
+
+```text
+Cluster.MemoryManager
+    ↓
+DatabaseManager (passes to PageLogManager)
+    ↓
+PageLogManager (creates PageLoggers)
+    ↓
+PageLogger (creates PageLogs)
+    ↓
+PageLog.cache (ManagedCache)
+```
+
+### PageLog Implementation Details
+
+#### Constant Configuration
+
+Size estimates are defined as constants for consistency:
+
+- **PageLogCacheCapacity**: 100 pages per log
+- **PageLogCacheDefaultSize**: 4KB (matches SQLite page size)
+
+#### Memory Coordination
+
+All PageLog caches across all databases share the global memory budget:
+
+- Each PageLog can cache up to 400KB (100 pages × 4KB)
+- Under memory pressure, LRU pages are evicted across all PageLogs globally
+- Page cache misses result in reading from disk (transparent to callers)
+
+### PageLog Benefits
+
+- **Global memory limits**: All page caches respect shared memory budget
+- **Fair allocation**: Memory distributed across all databases automatically
+- **Graceful degradation**: Cache misses handled by disk reads
+- **Visibility**: Track page cache memory usage per PageLog
+- **Prevents OOM**: Page caching bounded by global memory limit
 
 ## Full Stack Integration Example
 

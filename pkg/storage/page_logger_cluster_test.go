@@ -23,6 +23,7 @@ func TestPageLoggerClusterAwareCompaction(t *testing.T) {
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
 				mockNodePublisher,
+				app.Cluster.MemoryManager,
 			)
 
 			if err != nil {
@@ -112,15 +113,16 @@ func TestPageLoggerClusterAwareCompaction(t *testing.T) {
 				db.DatabaseBranchID,
 				app.Cluster.LocalFS(),
 				mockNodePublisher,
-			)
+			app.Cluster.MemoryManager,
+		)
 
-			if err != nil {
-				t.Fatalf("Failed to create page logger: %v", err)
-			}
+		if err != nil {
+			t.Fatalf("Failed to create page logger: %v", err)
+		}
 
-			// Write test data
-			testData := make([]byte, 4096)
-			timestamp := time.Now().UTC().UnixNano()
+		// Write some pages
+		testData := make([]byte, 4096)
+		timestamp := time.Now().UTC().UnixNano()
 
 			_, err = pageLogger.Write(1, timestamp, testData)
 			if err != nil {

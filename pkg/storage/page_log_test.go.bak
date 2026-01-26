@@ -15,7 +15,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("NewPageLog", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_NEW",
 			)
 
@@ -31,7 +30,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("Append", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_APPEND",
 			)
 
@@ -67,7 +65,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("Close", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_CLOSE",
 			)
 
@@ -87,7 +84,6 @@ func TestPageLog(t *testing.T) {
 
 			pageLog, err := storage.NewPageLog(
 				fileSystem,
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_DELETE",
 			)
 
@@ -161,7 +157,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("File", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_FILE",
 			)
 
@@ -179,7 +174,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("Get", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_GET",
 			)
 
@@ -233,7 +227,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("Sync", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_SYNC",
 			)
 
@@ -319,7 +312,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("SyncAfterDelete", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_SYNC_AFTER_DELETE",
 			)
 
@@ -363,7 +355,6 @@ func TestPageLog(t *testing.T) {
 		t.Run("Tombstone", func(t *testing.T) {
 			pageLog, err := storage.NewPageLog(
 				app.Cluster.TieredFS(),
-				app.Cluster.MemoryManager,
 				"PAGE_LOG_TOMBSTONE",
 			)
 
@@ -412,7 +403,6 @@ func TestPageLog_RestoresAfterClose(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
 			app.Cluster.TieredFS(),
-			app.Cluster.MemoryManager,
 			"PAGE_LOG_RESTORE",
 		)
 
@@ -440,7 +430,6 @@ func TestPageLog_RestoresAfterClose(t *testing.T) {
 
 		pageLog, err = storage.NewPageLog(
 			app.Cluster.TieredFS(),
-			app.Cluster.MemoryManager,
 			"PAGE_LOG_RESTORE",
 		)
 
@@ -474,7 +463,6 @@ func TestPageLog_ConcurrentSync(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		pageLog, err := storage.NewPageLog(
 			app.Cluster.TieredFS(),
-			app.Cluster.MemoryManager,
 			"PAGE_LOG_CONCURRENT_SYNC",
 		)
 
